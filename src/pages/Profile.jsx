@@ -1,0 +1,216 @@
+import { useEffect, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
+import WorldMap from '../components/WorldMap'
+import PlatformBadges from '../components/PlatformBadges'
+import { Avatar, Badge, Skeleton, EmptyState } from '../components/ui'
+import { formatDate, timeAgo, cx } from '../lib/utils'
+
+// A creator's public profile: photo, bio, socials, the orange country map,
+// languages, stats and their content showcase (submitted video links).
+export default function Profile() {
+  const { id } = useParams()
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const isMe = id === user?.id
+
+  const [creator, setCreator] = useState(null)
+  const [submissions, setSubmissions] = useState([])
+  const [challengeCount, setChallengeCount] = useState(0)
+  const [isConnected, setIsConnected] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true)
+      const [{ data: p }, { data: subs }, { data: conn }] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', id).single(),
+        supabase
+          .from('submissions')
+          .select('*, challenges(title)')
+          .eq('creator_id', id)
+          .order('submitted_at', { ascending: false }),
+        supabase.from('connections').select('id').eq('creator_id', user.id).eq('connected_creator_id', id).maybeSingle(),
+      ])
+      setCreator(p)
+      setSubmissions(subs ?? [])
+      setChallengeCount(new Set((subs ?? []).map((s) => s.challenge_id)).size)
+      setIsConnected(!!conn)
+      setLoading(false)
+    }
+    load()
+  }, [id, user.id])
+
+  async function toggleConnect() {
+    setIsConnected((c) => !c)
+    if (isConnected) {
+      await supabase.from('connections').delete().eq('creator_id', user.id).eq('connected_creator_id', id)
+    } else {
+      await supabase.from('connections').insert({ creator_id: user.id, connected_creator_id: id })
+    }
+  }
+
+  async function startMessage() {
+    const { data: existing } = await supabase
+      .from('conversations')
+      .select('id')
+      .or(`and(participant_a.eq.${user.id},participant_b.eq.${id}),and(participant_a.eq.${id},participant_b.eq.${user.id})`)
+      .maybeSingle()
+    if (existing) return navigate(`/messages/${existing.id}`)
+    const { data: created } = await supabase
+      .from('conversations')
+      .insert({ participant_a: user.id, participant_b: id })
+      .select('id')
+      .single()
+    if (created) navigate(`/messages/${created.id}`)
+  }
+
+  if (loading) {
+    return (
+      <div className="page space-y-8">
+        <div className="flex items-center gap-6">
+          <Skeleton className="h-28 w-28 rounded-full" />
+          <div className="flex-1 space-y-3"><Skeleton className="h-6 w-48" /><Skeleton className="h-4 w-72" /></div>
+        </div>
+        <Skeleton className="h-72 w-full" />
+      </div>
+    )
+  }
+
+  if (!creator) {
+    return (
+      <div className="page">
+        <EmptyState emoji="🧭" title="Creator not found" hint="They may have left the program." action={<Link to="/creators" className="btn-primary">Browse creators</Link>} />
+      </div>
+    )
+  }
+
+  const socials = [
+    { url: creator.instagram_url, label: 'Instagram' },
+    { url: creator.tiktok_url, label: 'TikTok' },
+    { url: creator.youtube_url, label: 'YouTube' },
+    ...(Array.isArray(creator.other_links) ? creator.other_links.map((l) => ({ url: l.url, label: l.label || 'Link' })) : []),
+  ].filter((s) => s.url)
+
+  return (
+    <div className="page space-y-10">
+      {/* ---------- Header ---------- */}
+      <section className="flex flex-col items-center gap-6 text-center sm:flex-row sm:items-start sm:text-left">
+        <Avatar src={creator.photo_url} name={creator.name} size="xl" />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-col items-center gap-2 sm:flex-row sm:gap-3">
+            <h1 className="text-3xl font-bold tracking-tight">{creator.name}</h1>
+            {creator.is_admin && <Badge tone="light">Tryp team</Badge>}
+            {creator.age && <span className="text-smoke">{creator.age}</span>}
+          </div>
+          {creator.bio && <p className="mt-2 text-lg text-smoke">{creator.bio}</p>}
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+            {socials.map((s) => (
+              <a key={s.label} href={s.url} target="_blank" rel="noopener noreferrer" className="btn-secondary !px-4 !py-2 text-xs">
+                {s.label} ↗
+              </a>
+            ))}
+          </div>
+        </div>
+        <div className="flex shrink-0 gap-3">
+          {isMe ? (
+            <Link to="/profile/edit" className="btn-primary">Edit profile</Link>
+          ) : (
+            <>
+              <button onClick={toggleConnect} className={isConnected ? 'btn-secondary' : 'btn-primary'}>
+                {isConnected ? '✓ Connected' : 'Connect'}
+              </button>
+              <button onClick={startMessage} className="btn-secondary">Message</button>
+            </>
+          )}
+        </div>
+      </section>
+
+      {/* ---------- Stats strip ---------- */}
+      <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {[
+          { label: 'Member since', value: formatDate(creator.created_at) },
+          { label: 'Countries visited', value: creator.countries_visited?.length || 0 },
+          { label: 'Challenges entered', value: challengeCount },
+          { label: 'Submissions', value: submissions.length },
+        ].map((s) => (
+          <div key={s.label} className="rounded-card bg-cloud px-5 py-4 text-center">
+            <p className="text-xl font-bold">{s.value}</p>
+            <p className="mt-0.5 text-xs font-medium text-smoke">{s.label}</p>
+          </div>
+        ))}
+      </section>
+
+      {/* ---------- About ---------- */}
+      {creator.about && (
+        <section className="card">
+          <h2 className="mb-3 text-lg font-semibold">About {creator.name.split(' ')[0]}</h2>
+          <p className="whitespace-pre-line leading-relaxed text-smoke">{creator.about}</p>
+        </section>
+      )}
+
+      {/* ---------- World map ---------- */}
+      <section>
+        <div className="mb-4 flex items-baseline justify-between">
+          <h2 className="text-lg font-semibold">
+            {creator.countries_visited?.length || 0} {creator.countries_visited?.length === 1 ? 'country' : 'countries'} visited
+          </h2>
+          {isMe && <Link to="/profile/edit" className="text-sm font-medium text-brand hover:underline">Update map</Link>}
+        </div>
+        <WorldMap selected={creator.countries_visited || []} />
+        {creator.countries_visited?.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {[...creator.countries_visited].sort().map((c) => (
+              <Badge key={c} tone="grey">{c}</Badge>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* ---------- Languages ---------- */}
+      {creator.languages?.length > 0 && (
+        <section>
+          <h2 className="mb-3 text-lg font-semibold">Languages</h2>
+          <div className="flex flex-wrap gap-2">
+            {creator.languages.map((l) => <Badge key={l} tone="light">{l}</Badge>)}
+          </div>
+        </section>
+      )}
+
+      {/* ---------- Content showcase ---------- */}
+      <section>
+        <h2 className="mb-4 text-lg font-semibold">Content showcase</h2>
+        {submissions.length === 0 ? (
+          <EmptyState
+            emoji="🎬"
+            title={isMe ? 'No submissions yet' : `${creator.name.split(' ')[0]} hasn't submitted yet`}
+            hint={isMe ? 'Enter the current challenge and your videos will show up here.' : 'Their challenge entries will appear here.'}
+            action={isMe && <Link to="/challenges" className="btn-primary">View challenges</Link>}
+          />
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {submissions.map((s) => (
+              <a
+                key={s.id}
+                href={s.video_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="card group !p-5 transition-all hover:-translate-y-0.5 hover:shadow-lift"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <PlatformBadges platforms={[s.platform]} />
+                  <span className="text-xs text-smoke">{timeAgo(s.submitted_at)}</span>
+                </div>
+                <p className={cx('mt-3 text-sm font-medium group-hover:text-brand', !s.caption && 'text-smoke')}>
+                  {s.caption || 'View the video ↗'}
+                </p>
+                <p className="mt-2 text-xs text-smoke">{s.challenges?.title}</p>
+              </a>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  )
+}

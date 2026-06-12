@@ -1,0 +1,331 @@
+import { useEffect, useState, useCallback } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
+import CountdownTimer from '../components/CountdownTimer'
+import PlatformBadges from '../components/PlatformBadges'
+import { Avatar, Badge, Modal, PageHeader, Skeleton, EmptyState, Spinner } from '../components/ui'
+import { formatDate, timeAgo, formatViews, detectPlatform, cx } from '../lib/utils'
+
+// One challenge: full brief, prizes, live countdown, the submissions gallery,
+// a "submit your link" flow, and (once results are in) the leaderboard.
+export default function ChallengeDetail() {
+  const { id } = useParams()
+  const { user, isAdmin } = useAuth()
+
+  const [challenge, setChallenge] = useState(null)
+  const [submissions, setSubmissions] = useState([])
+  const [results, setResults] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [tab, setTab] = useState('brief') // brief | entries | leaderboard
+
+  // Submission form state
+  const [showSubmit, setShowSubmit] = useState(false)
+  const [videoUrl, setVideoUrl] = useState('')
+  const [caption, setCaption] = useState('')
+  const [submitError, setSubmitError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const load = useCallback(async () => {
+    const [{ data: ch }, { data: subs }, { data: res }] = await Promise.all([
+      supabase.from('challenges').select('*').eq('id', id).single(),
+      supabase
+        .from('submissions')
+        .select('*, profiles:creator_id(id, name, photo_url)')
+        .eq('challenge_id', id)
+        .order('submitted_at', { ascending: false }),
+      supabase
+        .from('results')
+        .select('*, profiles:creator_id(id, name, photo_url, instagram_url, tiktok_url, youtube_url)')
+        .eq('challenge_id', id)
+        .order('rank'),
+    ])
+    setChallenge(ch)
+    setSubmissions(subs ?? [])
+    setResults(res ?? [])
+    setLoading(false)
+  }, [id])
+
+  useEffect(() => { load() }, [load])
+
+  // Jump straight to the leaderboard for finished challenges with results.
+  useEffect(() => {
+    if (challenge && challenge.status !== 'active' && results.length > 0) setTab('leaderboard')
+  }, [challenge, results.length])
+
+  async function submitEntry(e) {
+    e.preventDefault()
+    setSubmitError('')
+    const platform = detectPlatform(videoUrl)
+    if (!challenge.platforms.includes(platform)) {
+      setSubmitError(`That looks like a ${platform} link — this challenge accepts: ${challenge.platforms.join(', ')}.`)
+      return
+    }
+    setSubmitting(true)
+    const { error } = await supabase.from('submissions').insert({
+      creator_id: user.id,
+      challenge_id: id,
+      platform,
+      video_url: videoUrl.trim(),
+      caption: caption.trim(),
+    })
+    setSubmitting(false)
+    if (error) {
+      setSubmitError(error.message)
+      return
+    }
+    setShowSubmit(false)
+    setVideoUrl('')
+    setCaption('')
+    load()
+  }
+
+  async function removeMySubmission(subId) {
+    if (!confirm('Remove this entry?')) return
+    await supabase.from('submissions').delete().eq('id', subId)
+    load()
+  }
+
+  if (loading) {
+    return (
+      <div className="page space-y-6">
+        <Skeleton className="h-10 w-72" />
+        <Skeleton className="h-48 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    )
+  }
+
+  if (!challenge) {
+    return (
+      <div className="page">
+        <EmptyState emoji="🧭" title="Challenge not found" action={<Link to="/challenges" className="btn-primary">All challenges</Link>} />
+      </div>
+    )
+  }
+
+  const isLive = challenge.status === 'active'
+  const myEntries = submissions.filter((s) => s.creator_id === user.id)
+  const prizes = Array.isArray(challenge.prize_structure) ? challenge.prize_structure : []
+
+  const TABS = [
+    { key: 'brief', label: 'The brief' },
+    { key: 'entries', label: `Entries (${submissions.length})` },
+    ...(results.length > 0 ? [{ key: 'leaderboard', label: '🏆 Leaderboard' }] : []),
+  ]
+
+  return (
+    <div className="page">
+      <Link to="/challenges" className="mb-6 inline-block text-sm font-medium text-smoke hover:text-brand">← All challenges</Link>
+
+      <PageHeader
+        title={challenge.title}
+        subtitle={`${formatDate(challenge.start_date)} → ${formatDate(challenge.end_date)}`}
+        action={
+          <div className="flex flex-wrap items-center gap-3">
+            {isAdmin && (
+              <>
+                <Link to={`/admin/challenges/${id}/edit`} className="btn-secondary !py-2 text-xs">Edit</Link>
+                <Link to={`/admin/challenges/${id}/results`} className="btn-secondary !py-2 text-xs">Enter results</Link>
+                <Link to={`/admin/challenges/${id}/wall-of-fame`} className="btn-secondary !py-2 text-xs">Wall of Fame</Link>
+              </>
+            )}
+            {isLive ? <Badge tone="brand">Live</Badge> : <Badge tone="grey">{challenge.status}</Badge>}
+          </div>
+        }
+      />
+
+      {/* Countdown + enter CTA for live challenges */}
+      {isLive && (
+        <div className="mb-10 flex flex-col items-start gap-6 rounded-card bg-brand-tint/60 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-brand">Closes in</p>
+            <CountdownTimer endDate={challenge.end_date} />
+          </div>
+          <button onClick={() => setShowSubmit(true)} className="btn-primary">
+            {myEntries.length > 0 ? '+ Add another entry' : 'Submit your video 🎬'}
+          </button>
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div className="mb-8 flex gap-2 border-b border-gray-100" role="tablist">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            role="tab"
+            aria-selected={tab === t.key}
+            onClick={() => setTab(t.key)}
+            className={cx(
+              '-mb-px border-b-2 px-4 py-3 text-sm font-medium transition-colors',
+              tab === t.key ? 'border-brand text-brand' : 'border-transparent text-smoke hover:text-ink'
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ---------- Tab: brief ---------- */}
+      {tab === 'brief' && (
+        <div className="grid gap-8 lg:grid-cols-3">
+          <div className="space-y-8 lg:col-span-2">
+            <section className="card">
+              <h2 className="mb-3 text-lg font-semibold">The brief</h2>
+              <p className="whitespace-pre-line leading-relaxed text-smoke">{challenge.description}</p>
+            </section>
+            {challenge.rules && (
+              <section className="card">
+                <h2 className="mb-3 text-lg font-semibold">Rules</h2>
+                <p className="whitespace-pre-line leading-relaxed text-smoke">{challenge.rules}</p>
+              </section>
+            )}
+          </div>
+
+          <div className="space-y-6">
+            <section className="card !p-6">
+              <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-smoke">Prizes</h2>
+              <ul className="space-y-3">
+                {prizes.map((p, i) => (
+                  <li key={i} className="flex items-center justify-between gap-3 text-sm">
+                    <span className={cx('font-medium', i === 0 && 'text-brand')}>
+                      {i === 0 && '🥇 '}{i === 1 && '🥈 '}{i === 2 && '🥉 '}{p.place}
+                    </span>
+                    <span className="text-smoke">{p.prize}</span>
+                  </li>
+                ))}
+                {prizes.length === 0 && <li className="text-sm text-smoke">Prize details coming soon.</li>}
+              </ul>
+            </section>
+
+            <section className="card !p-6">
+              <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-smoke">Platforms that count</h2>
+              <PlatformBadges platforms={challenge.platforms} size="md" />
+            </section>
+
+            {challenge.hashtags && (
+              <section className="card !p-6">
+                <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-smoke">Hashtags</h2>
+                <div className="flex flex-wrap gap-2">
+                  {challenge.hashtags.split(/\s+/).filter(Boolean).map((h) => (
+                    <Badge key={h} tone="light">{h}</Badge>
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ---------- Tab: entries gallery ---------- */}
+      {tab === 'entries' && (
+        submissions.length === 0 ? (
+          <EmptyState
+            emoji="🎬"
+            title="No submissions yet — be the first to enter!"
+            hint={isLive ? 'Paste your video link and claim the early-bird bragging rights.' : 'This challenge closed without entries.'}
+            action={isLive && <button onClick={() => setShowSubmit(true)} className="btn-primary">Submit your video</button>}
+          />
+        ) : (
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {submissions.map((s) => (
+              <div key={s.id} className="card flex flex-col gap-4 !p-6">
+                <div className="flex items-center gap-3">
+                  <Link to={`/profile/${s.profiles?.id}`}>
+                    <Avatar src={s.profiles?.photo_url} name={s.profiles?.name} size="sm" />
+                  </Link>
+                  <div className="min-w-0 flex-1">
+                    <Link to={`/profile/${s.profiles?.id}`} className="block truncate text-sm font-semibold hover:text-brand">
+                      {s.profiles?.name}
+                    </Link>
+                    <p className="text-xs text-smoke">{timeAgo(s.submitted_at)}</p>
+                  </div>
+                  <PlatformBadges platforms={[s.platform]} />
+                </div>
+                {s.caption && <p className="text-sm text-smoke line-clamp-3">{s.caption}</p>}
+                {s.logged_views != null && (
+                  <p className="text-sm font-semibold text-brand">{formatViews(s.logged_views)} logged views</p>
+                )}
+                <div className="mt-auto flex gap-2">
+                  <a href={s.video_url} target="_blank" rel="noopener noreferrer" className="btn-secondary flex-1 !py-2 text-xs">
+                    Watch ↗
+                  </a>
+                  {s.creator_id === user.id && isLive && (
+                    <button onClick={() => removeMySubmission(s.id)} className="btn-danger !py-2 text-xs">Remove</button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      )}
+
+      {/* ---------- Tab: leaderboard ---------- */}
+      {tab === 'leaderboard' && (
+        <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
+          {results.map((r) => {
+            const mine = r.creator_id === user.id
+            const medal = { 1: '🥇', 2: '🥈', 3: '🥉' }[r.rank]
+            return (
+              <div
+                key={r.id}
+                className={cx(
+                  'flex items-center gap-4 border-b border-gray-50 px-5 py-4 last:border-0 sm:px-8',
+                  mine && 'bg-brand-tint/60'
+                )}
+              >
+                <span className={cx('w-10 text-center text-lg font-bold', r.rank <= 3 ? '' : 'text-smoke')}>
+                  {medal || r.rank}
+                </span>
+                <Link to={`/profile/${r.profiles?.id}`} className="flex min-w-0 flex-1 items-center gap-3">
+                  <Avatar src={r.profiles?.photo_url} name={r.profiles?.name} size="sm" />
+                  <span className="truncate text-sm font-semibold hover:text-brand">
+                    {r.profiles?.name} {mine && <span className="ml-1 text-xs font-medium text-brand">(you)</span>}
+                  </span>
+                </Link>
+                <PlatformBadges
+                  platforms={['instagram_url', 'tiktok_url', 'youtube_url']
+                    .filter((k) => r.profiles?.[k])
+                    .map((k) => ({ instagram_url: 'Instagram', tiktok_url: 'TikTok', youtube_url: 'YouTube' }[k]))}
+                  className="hidden sm:flex"
+                />
+                <span className="w-24 text-right text-sm font-bold tabular-nums">{formatViews(r.final_views)}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* ---------- Submit modal ---------- */}
+      <Modal open={showSubmit} onClose={() => setShowSubmit(false)} title="Submit your entry">
+        <form onSubmit={submitEntry} className="space-y-5">
+          <div>
+            <label htmlFor="video_url" className="label">Video link</label>
+            <input
+              id="video_url" type="url" required className="input"
+              placeholder="Paste your Instagram or TikTok link…"
+              value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)}
+            />
+            {videoUrl && (
+              <p className="mt-2 text-xs text-smoke">
+                Detected platform: <span className="font-semibold text-ink">{detectPlatform(videoUrl)}</span>
+              </p>
+            )}
+          </div>
+          <div>
+            <label htmlFor="caption" className="label">Caption <span className="font-normal text-smoke">(optional)</span></label>
+            <textarea
+              id="caption" rows={3} className="input"
+              placeholder="The caption you used, or a note for the team…"
+              value={caption} onChange={(e) => setCaption(e.target.value)}
+            />
+          </div>
+          {submitError && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{submitError}</p>}
+          <button type="submit" disabled={submitting} className="btn-primary w-full">
+            {submitting ? <Spinner /> : 'Enter the challenge 🚀'}
+          </button>
+        </form>
+      </Modal>
+    </div>
+  )
+}

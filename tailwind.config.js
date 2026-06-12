@@ -1,0 +1,54 @@
+/** @type {import('tailwindcss').Config} */
+// Tryp.com Creator Program design system.
+// White-dominant, spacious layouts with burnt orange used only as an accent.
+export default {
+  content: ['./index.html', './src/**/*.{js,jsx}'],
+  theme: {
+    extend: {
+      colors: {
+        // Brand palette — see README "Branding" section.
+        brand: {
+          DEFAULT: '#d94407', // primary burnt orange: buttons, active states, map fills
+          light: '#f5853f',   // hover states, secondary accents, badges
+          tint: '#fdf0e7',    // very light orange wash for subtle highlights
+        },
+        ink: '#1A1A1A',       // primary text (charcoal)
+        smoke: '#6B7280',     // secondary text (mid-grey)
+        cloud: '#F7F7F8',     // gentle section/card separation only
+      },
+      fontFamily: {
+        // Poppins everywhere — loaded in index.css from Google Fonts.
+        sans: ['Poppins', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+      },
+      borderRadius: {
+        card: '1rem', // soft rounded corners on every card
+      },
+      boxShadow: {
+        // Very subtle elevation — light, never heavy.
+        card: '0 1px 3px rgba(26, 26, 26, 0.05), 0 4px 16px rgba(26, 26, 26, 0.04)',
+        lift: '0 4px 12px rgba(26, 26, 26, 0.08), 0 12px 32px rgba(26, 26, 26, 0.06)',
+      },
+      keyframes: {
+        'fade-up': {
+          from: { opacity: '0', transform: 'translateY(12px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        'pop-in': {
+          '0%': { opacity: '0', transform: 'scale(0.92)' },
+          '60%': { transform: 'scale(1.02)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
+        confetti: {
+          '0%': { transform: 'translateY(-10vh) rotate(0deg)', opacity: '1' },
+          '100%': { transform: 'translateY(110vh) rotate(720deg)', opacity: '0' },
+        },
+      },
+      animation: {
+        'fade-up': 'fade-up 0.4s ease-out both',
+        'pop-in': 'pop-in 0.35s ease-out both',
+        confetti: 'confetti 3s linear forwards',
+      },
+    },
+  },
+  plugins: [],
+}
