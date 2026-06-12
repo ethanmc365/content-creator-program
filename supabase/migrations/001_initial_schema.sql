@@ -14,6 +14,10 @@
 --    which client inserts the data.
 -- ============================================================================
 
+-- Don't validate function bodies at creation time — the helper functions at
+-- the top of this file reference tables that are created further down.
+set check_function_bodies = off;
+
 -- ----------------------------------------------------------------------------
 -- 0. Helper: is_admin()
 -- ----------------------------------------------------------------------------
@@ -81,7 +85,9 @@ language plpgsql security definer
 set search_path = public
 as $$
 begin
-  if not public.is_admin() then
+  -- auth.uid() is NULL for trusted server-side connections (the dashboard
+  -- SQL editor, seeds, service role) — only enforce for real app users.
+  if auth.uid() is not null and not public.is_admin() then
     if new.is_admin is distinct from old.is_admin
        or new.status is distinct from old.status then
       raise exception 'Only admins can change admin or status flags';
@@ -193,7 +199,9 @@ language plpgsql security definer
 set search_path = public
 as $$
 begin
-  if not public.is_admin() and new.logged_views is distinct from old.logged_views then
+  -- Same bypass for trusted server-side connections as protect_admin_columns.
+  if auth.uid() is not null and not public.is_admin()
+     and new.logged_views is distinct from old.logged_views then
     raise exception 'Only admins can set logged views';
   end if;
   return new;
