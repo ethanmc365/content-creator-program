@@ -26,3 +26,4 @@ dev.sh
 
 # local secrets
 .env
+.vercel
