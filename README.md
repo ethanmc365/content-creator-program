@@ -46,17 +46,24 @@ set up (next section) you can log in with the demo accounts.
    - **Project URL** → `VITE_SUPABASE_URL` in your `.env`
    - **anon / public key** → `VITE_SUPABASE_ANON_KEY` in your `.env`
 
-### 2.2 Create the schema
+### 2.2 Create the schema + load demo data (one paste)
 1. In the Supabase dashboard open **SQL Editor → New query**.
-2. Paste the entire contents of [`supabase/migrations/001_initial_schema.sql`](supabase/migrations/001_initial_schema.sql).
-3. Click **Run**. ✅ This creates every table, all row-level-security policies,
-   the notification triggers, and the `avatars` / `resources` storage buckets.
+2. Paste the entire contents of [`supabase/setup-all.sql`](supabase/setup-all.sql) and click **Run**.
+   This single file bundles all three migrations + both seed files, so it
+   creates every table, all row-level-security policies, the notification
+   triggers, the storage buckets (`avatars`, `resources`, `chat-media`,
+   `gallery`) **and** loads the demo data in one go.
 
-### 2.3 Load the demo data (recommended)
-1. New query → paste the contents of [`supabase/seed.sql`](supabase/seed.sql) → **Run**.
-2. The app is now fully alive: 10 demo accounts, a live challenge with a real
-   countdown, archived challenges with results and a published Wall of Fame,
-   chat history, DM threads, rewards, events and resources.
+> Prefer to run them separately? Apply the migrations in order
+> (`001_initial_schema.sql` → `002_chat_images.sql` → `003_v2_features.sql`),
+> then `seed.sql`, then `seed_v2.sql`.
+
+### 2.3 What the demo data gives you
+The app is fully alive on first run: 10 demo accounts, a live challenge with a
+real countdown, archived challenges with results and a published Wall of Fame,
+chat history with an active **poll**, DM threads, rewards, events (one with a
+Google Meet link), open **jobs**, **referrals**, a creator **travel-photo
+gallery**, and resources.
 
 **Demo logins** (password for all: `TrypDemo123!`):
 
@@ -131,6 +138,24 @@ suspend, DM, or send a password-reset email to any creator.
 ### 4.2 Backend → already done
 Supabase **is** the backend — there's nothing else to deploy. The anon key is
 safe in the browser because every table is protected by row-level security.
+
+---
+
+## 4b. Bulk email (free, no paid service)
+
+**Admin → Email creators** lets you write one message and send it to every
+creator. Because the spec rules out paid email services, "Open in email app"
+launches *your own* mail client (Gmail, Outlook, Apple Mail…) with the subject,
+body and every creator's address pre-filled in **BCC** — you review and hit
+send from there. Each send is logged for your records. There's also a
+"Copy all emails" button if you'd rather paste the list yourself.
+
+**Optional upgrade to true one-click sending (still free):** sign up for
+[Resend](https://resend.com) (free tier: 3,000 emails/month), verify a domain,
+and add a Supabase Edge Function that POSTs to Resend's API with your creator
+list. The compose UI is already built — you'd just swap the `mailto:` handler
+for a call to your function. This is left as a TODO so the app needs zero paid
+services out of the box.
 
 ---
 

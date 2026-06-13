@@ -51,7 +51,7 @@ export default function CreatorCard({ creator, isConnected, onConnectChange }) {
     >
       <div className="flex items-start justify-between">
         <Avatar src={creator.photo_url} name={creator.name} size="lg" />
-        {creator.is_admin && <Badge tone="light">Tryp team</Badge>}
+        {creator.is_admin && <Badge tone="light">Tryp.com Team</Badge>}
       </div>
 
       <div>

@@ -48,7 +48,7 @@ export default function AdminChallenges() {
         <EmptyState
           emoji="🏁"
           title="No challenges yet"
-          hint="Create your first challenge — set the brief, dates and prizes, then publish."
+          hint="Create your first challenge. Set the brief, dates and prizes, then publish."
           action={<Link to="/admin/challenges/new" className="btn-primary">Create a challenge</Link>}
         />
       ) : (

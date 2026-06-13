@@ -19,7 +19,7 @@ export default function Login() {
     const { error } = await signIn(email.trim(), password)
     setBusy(false)
     if (error) {
-      setError(error.message === 'Invalid login credentials' ? 'Email or password is incorrect — try again.' : error.message)
+      setError(error.message === 'Invalid login credentials' ? 'Email or password is incorrect. Try again.' : error.message)
       return
     }
     navigate('/home')
@@ -28,7 +28,7 @@ export default function Login() {
   return (
     <AuthShell
       title="Welcome back"
-      subtitle="Log in to the Tryp.com Creator Program."
+      subtitle="Log in to the Tryp.com Content Creator Program."
       footer={<span>New here? <Link to="/signup" className="font-medium text-brand hover:underline">Create your account</Link></span>}
     >
       <form onSubmit={handleSubmit} className="space-y-5">

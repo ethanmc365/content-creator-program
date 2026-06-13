@@ -18,7 +18,11 @@ const TYPE_META = {
   deadline: { emoji: '⏰', tone: 'red', label: 'Deadline' },
   milestone: { emoji: '🎉', tone: 'green', label: 'Milestone' },
   challenge: { emoji: '🏁', tone: 'brand', label: 'Challenge' },
+  meetup: { emoji: '🤝', tone: 'light', label: 'Meet-up' },
+  workshop: { emoji: '🎓', tone: 'light', label: 'Workshop' },
 }
+// Custom admin types fall back to a generic calendar pin.
+const metaFor = (type) => TYPE_META[type] || { emoji: '📌', tone: 'grey', label: type }
 
 export default function Events() {
   const { isAdmin } = useAuth()
@@ -35,8 +39,8 @@ export default function Events() {
       ])
       // Merge admin events with auto-generated challenge dates.
       const challengeEvents = (ch ?? []).flatMap((c) => [
-        { id: `${c.id}-start`, title: `${c.title} — starts`, date: c.start_date, type: 'challenge', link: `/challenges/${c.id}` },
-        { id: `${c.id}-end`, title: `${c.title} — deadline`, date: c.end_date, type: 'deadline', link: `/challenges/${c.id}` },
+        { id: `${c.id}-start`, title: `${c.title}: starts`, date: c.start_date, type: 'challenge', link: `/challenges/${c.id}` },
+        { id: `${c.id}-end`, title: `${c.title}: deadline`, date: c.end_date, type: 'deadline', link: `/challenges/${c.id}` },
       ])
       setEvents([...(ev ?? []), ...challengeEvents].sort((a, b) => new Date(a.date) - new Date(b.date)))
       setLoading(false)
@@ -51,16 +55,43 @@ export default function Events() {
   }, [month])
 
   const eventsOn = (day) => events.filter((e) => isSameDay(new Date(e.date), day))
-  const upcoming = events.filter((e) => new Date(e.date) >= new Date(new Date().setHours(0, 0, 0, 0))).slice(0, 8)
+  const upcomingAll = events.filter((e) => new Date(e.date) >= new Date(new Date().setHours(0, 0, 0, 0)))
+  const upcoming = upcomingAll.slice(0, 8)
+  const nextEvent = upcomingAll[0] // featured at the top
+
   const dayEvents = selectedDay ? eventsOn(selectedDay) : []
 
   return (
     <div className="page">
       <PageHeader
         title="Events & calendar"
-        subtitle="Challenge deadlines, Q&As, content days — never miss a date."
+        subtitle="Challenge deadlines, Q&As, content days. Never miss a date."
         action={isAdmin && <Link to="/admin/events" className="btn-primary">Manage events</Link>}
       />
+
+      {/* ---------- Next-up hero card ---------- */}
+      {!loading && nextEvent && (
+        <div className="mb-10 overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-7 text-white shadow-lift sm:p-9">
+          <p className="text-xs font-semibold uppercase tracking-wider text-white/75">Next up</p>
+          <div className="mt-2 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div className="min-w-0">
+              <h2 className="text-2xl font-bold sm:text-3xl">{metaFor(nextEvent.type).emoji} {nextEvent.title}</h2>
+              <p className="mt-1 text-white/85">{formatDateTime(nextEvent.date)}</p>
+              {nextEvent.description && <p className="mt-2 max-w-xl text-sm text-white/80">{nextEvent.description}</p>}
+            </div>
+            <div className="flex shrink-0 gap-3">
+              {nextEvent.meeting_url && (
+                <a href={nextEvent.meeting_url} target="_blank" rel="noopener noreferrer" className="btn bg-white text-brand hover:bg-white/90">
+                  Join the call ↗
+                </a>
+              )}
+              {nextEvent.link && (
+                <Link to={nextEvent.link} className="btn border border-white/40 text-white hover:bg-white/10">View →</Link>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <Skeleton className="h-96 w-full" />
@@ -103,7 +134,7 @@ export default function Events() {
                     </span>
                     <span className="flex flex-wrap justify-center gap-0.5">
                       {todaysEvents.slice(0, 3).map((e) => (
-                        <span key={e.id} className="text-[10px]" title={e.title} aria-hidden>{TYPE_META[e.type]?.emoji}</span>
+                        <span key={e.id} className="text-[10px]" title={e.title} aria-hidden>{metaFor(e.type).emoji}</span>
                       ))}
                     </span>
                   </button>
@@ -116,19 +147,24 @@ export default function Events() {
               <div className="card mt-5 animate-fade-up !p-6">
                 <h3 className="mb-3 text-sm font-semibold">{format(selectedDay, 'EEEE d MMMM')}</h3>
                 {dayEvents.length === 0 ? (
-                  <p className="text-sm text-smoke">Nothing on this day — a perfect filming day 🎥</p>
+                  <p className="text-sm text-smoke">Nothing on this day. A perfect filming day 🎥</p>
                 ) : (
                   <ul className="space-y-3">
                     {dayEvents.map((e) => (
                       <li key={e.id} className="flex items-start gap-3">
-                        <span aria-hidden>{TYPE_META[e.type]?.emoji}</span>
-                        <div>
+                        <span aria-hidden>{metaFor(e.type).emoji}</span>
+                        <div className="min-w-0">
                           {e.link ? (
                             <Link to={e.link} className="text-sm font-medium hover:text-brand">{e.title}</Link>
                           ) : (
                             <p className="text-sm font-medium">{e.title}</p>
                           )}
                           {e.description && <p className="mt-0.5 text-xs text-smoke">{e.description}</p>}
+                          {e.meeting_url && (
+                            <a href={e.meeting_url} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-xs font-medium text-brand hover:underline">
+                              Join the call ↗
+                            </a>
+                          )}
                         </div>
                       </li>
                     ))}
@@ -142,7 +178,7 @@ export default function Events() {
           <aside>
             <h2 className="mb-5 text-lg font-semibold">Coming up</h2>
             {upcoming.length === 0 ? (
-              <p className="text-sm text-smoke">Nothing scheduled — enjoy the calm ☀️</p>
+              <p className="text-sm text-smoke">Nothing scheduled. Enjoy the calm ☀️</p>
             ) : (
               <ol className="space-y-4">
                 {upcoming.map((e) => (
@@ -158,9 +194,16 @@ export default function Events() {
                         <p className="text-sm font-semibold leading-snug">{e.title}</p>
                       )}
                       <p className="mt-1 text-xs text-smoke">{formatDateTime(e.date)}</p>
-                      <Badge tone={TYPE_META[e.type]?.tone || 'grey'} className="mt-2">
-                        {TYPE_META[e.type]?.emoji} {TYPE_META[e.type]?.label}
-                      </Badge>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <Badge tone={metaFor(e.type).tone}>
+                          {metaFor(e.type).emoji} {metaFor(e.type).label}
+                        </Badge>
+                        {e.meeting_url && (
+                          <a href={e.meeting_url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-brand hover:underline">
+                            Join ↗
+                          </a>
+                        )}
+                      </div>
                     </div>
                   </li>
                 ))}

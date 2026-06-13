@@ -128,7 +128,7 @@ export default function AdminAnalytics() {
 
   return (
     <div className="page">
-      <PageHeader title="Analytics" subtitle="The program's pulse — growth, output, reach and spend." />
+      <PageHeader title="Analytics" subtitle="The program's pulse: growth, output, reach and spend." />
 
       <div className="mb-10 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Creators" value={derived.totals.creators} />
@@ -148,7 +148,7 @@ export default function AdminAnalytics() {
               <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
               <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#6B7280' }} />
               <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
-              <Tooltip contentStyle={tooltipStyle} />
+              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} />
               <Line type="monotone" dataKey="creators" stroke={BRAND} strokeWidth={2.5} dot={{ fill: BRAND, r: 3 }} />
             </LineChart>
           </ResponsiveContainer>
@@ -163,7 +163,7 @@ export default function AdminAnalytics() {
               <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
               <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6B7280' }} />
               <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
-              <Tooltip contentStyle={tooltipStyle} />
+              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} />
               <Bar dataKey="submissions" fill={BRAND} radius={[8, 8, 0, 0]} maxBarSize={48} />
             </BarChart>
           </ResponsiveContainer>
@@ -179,7 +179,7 @@ export default function AdminAnalytics() {
               <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
               <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6B7280' }} />
               <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={formatViews} />
-              <Tooltip contentStyle={tooltipStyle} formatter={(v) => formatViews(v)} />
+              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} formatter={(v) => formatViews(v)} />
               <Bar dataKey="totalViews" name="Total views" fill={BRAND} radius={[8, 8, 0, 0]} maxBarSize={40} />
               <Bar dataKey="avgViews" name="Avg per entry" fill={BRAND_LIGHT} radius={[8, 8, 0, 0]} maxBarSize={40} />
             </BarChart>
@@ -195,7 +195,7 @@ export default function AdminAnalytics() {
               <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
               <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6B7280' }} />
               <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={(v) => `£${v}`} />
-              <Tooltip contentStyle={tooltipStyle} formatter={(v) => formatMoney(v)} />
+              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} formatter={(v) => formatMoney(v)} />
               <Bar dataKey="prizesPaid" name="Paid out" fill={BRAND} radius={[8, 8, 0, 0]} maxBarSize={48} />
             </BarChart>
           </ResponsiveContainer>
@@ -211,8 +211,8 @@ export default function AdminAnalytics() {
               <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" horizontal={false} />
               <XAxis type="number" tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
               <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#6B7280' }} width={70} />
-              <Tooltip contentStyle={tooltipStyle} />
-              <Bar dataKey="score" name="Activity score" fill={BRAND_LIGHT} radius={[0, 8, 8, 0]} maxBarSize={20} />
+              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} />
+              <Bar dataKey="score" name="Activity score" fill={BRAND} radius={[0, 8, 8, 0]} maxBarSize={20} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -226,7 +226,7 @@ export default function AdminAnalytics() {
               <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
               <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6B7280' }} />
               <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
-              <Tooltip contentStyle={tooltipStyle} />
+              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} />
               <Bar dataKey="messages" fill={BRAND} radius={[8, 8, 0, 0]} maxBarSize={48} />
             </BarChart>
           </ResponsiveContainer>

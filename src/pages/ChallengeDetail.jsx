@@ -58,7 +58,7 @@ export default function ChallengeDetail() {
     setSubmitError('')
     const platform = detectPlatform(videoUrl)
     if (!challenge.platforms.includes(platform)) {
-      setSubmitError(`That looks like a ${platform} link — this challenge accepts: ${challenge.platforms.join(', ')}.`)
+      setSubmitError(`That looks like a ${platform} link. This challenge accepts: ${challenge.platforms.join(', ')}.`)
       return
     }
     setSubmitting(true)
@@ -222,7 +222,7 @@ export default function ChallengeDetail() {
         submissions.length === 0 ? (
           <EmptyState
             emoji="🎬"
-            title="No submissions yet — be the first to enter!"
+            title="No submissions yet. Be the first to enter!"
             hint={isLive ? 'Paste your video link and claim the early-bird bragging rights.' : 'This challenge closed without entries.'}
             action={isLive && <button onClick={() => setShowSubmit(true)} className="btn-primary">Submit your video</button>}
           />

@@ -46,7 +46,7 @@ export default function Resources() {
     <div className="page">
       <PageHeader
         title="Resource library"
-        subtitle="Tips, briefs, brand rules and assets — everything you need to make winning content."
+        subtitle="Tips, briefs, brand rules and assets. Everything you need to make winning content."
         action={isAdmin && <Link to="/admin/resources" className="btn-primary">Manage resources</Link>}
       />
 
@@ -79,7 +79,7 @@ export default function Resources() {
         <EmptyState
           emoji="📚"
           title={search || category !== 'All' ? 'Nothing matches that' : 'The library is being stocked'}
-          hint={search || category !== 'All' ? 'Try a different search or category.' : 'The Tryp team will publish guides and assets here soon.'}
+          hint={search || category !== 'All' ? 'Try a different search or category.' : 'The Tryp.com Team will publish guides and assets here soon.'}
         />
       ) : (
         <div className="grid gap-6 lg:grid-cols-2">

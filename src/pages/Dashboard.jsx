@@ -72,7 +72,7 @@ export default function Dashboard() {
           <EmptyState
             emoji="📈"
             title="No results yet"
-            hint="Results appear after a challenge closes and the Tryp team logs the final views."
+            hint="Results appear after a challenge closes and the Tryp.com Team logs the final views."
             action={<Link to="/challenges" className="btn-primary">Enter the live challenge</Link>}
           />
         ) : (

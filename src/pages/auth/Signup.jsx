@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { Spinner } from '../../components/ui'
 import AuthShell from './AuthShell'
@@ -9,6 +9,8 @@ import AuthShell from './AuthShell'
 export default function Signup() {
   const { signUp } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const ref = searchParams.get('ref') // referral code from a creator's invite link
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -23,7 +25,7 @@ export default function Signup() {
       return
     }
     setBusy(true)
-    const { data, error } = await signUp(email.trim(), password, name.trim())
+    const { data, error } = await signUp(email.trim(), password, name.trim(), ref)
     setBusy(false)
     if (error) {
       setError(error.message)
@@ -45,9 +47,14 @@ export default function Signup() {
   return (
     <AuthShell
       title="Join the program"
-      subtitle="Create your Tryp.com Creator account — it takes a minute."
+      subtitle="Create your creator account. It takes a minute."
       footer={<span>Already a member? <Link to="/login" className="font-medium text-brand hover:underline">Log in</Link></span>}
     >
+      {ref && (
+        <p className="mb-5 rounded-xl bg-brand-tint px-4 py-3 text-center text-sm font-medium text-brand">
+          🎉 You were invited by a Tryp.com creator. Welcome aboard!
+        </p>
+      )}
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
           <label htmlFor="name" className="label">Your name</label>

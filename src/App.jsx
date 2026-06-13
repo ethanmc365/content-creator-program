@@ -25,6 +25,8 @@ import Resources from './pages/Resources'
 import Events from './pages/Events'
 import Notifications from './pages/Notifications'
 import Dashboard from './pages/Dashboard'
+import Jobs from './pages/Jobs'
+import Refer from './pages/Refer'
 
 // Admin pages
 import AdminPanel from './pages/admin/AdminPanel'
@@ -37,6 +39,9 @@ import AdminRewards from './pages/admin/AdminRewards'
 import AdminAnalytics from './pages/admin/AdminAnalytics'
 import AdminEvents from './pages/admin/AdminEvents'
 import AdminResources from './pages/admin/AdminResources'
+import AdminJobs from './pages/admin/AdminJobs'
+import AdminReferrals from './pages/admin/AdminReferrals'
+import AdminEmail from './pages/admin/AdminEmail'
 
 export default function App() {
   return (
@@ -68,6 +73,8 @@ export default function App() {
           <Route path="/rewards" element={<Rewards />} />
           <Route path="/resources" element={<Resources />} />
           <Route path="/events" element={<Events />} />
+          <Route path="/jobs" element={<Jobs />} />
+          <Route path="/refer" element={<Refer />} />
           <Route path="/notifications" element={<Notifications />} />
           <Route path="/dashboard" element={<Dashboard />} />
 
@@ -84,6 +91,9 @@ export default function App() {
             <Route path="/admin/analytics" element={<AdminAnalytics />} />
             <Route path="/admin/events" element={<AdminEvents />} />
             <Route path="/admin/resources" element={<AdminResources />} />
+            <Route path="/admin/jobs" element={<AdminJobs />} />
+            <Route path="/admin/referrals" element={<AdminReferrals />} />
+            <Route path="/admin/email" element={<AdminEmail />} />
           </Route>
         </Route>
       </Route>

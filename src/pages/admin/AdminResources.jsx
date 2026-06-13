@@ -125,7 +125,7 @@ export default function AdminResources() {
             <textarea id="res-body" rows={10} required className="input font-mono !text-xs" value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} placeholder="Write the tip, guide or instructions here. Line breaks are kept." />
           </div>
           <div>
-            <p className="label">Attachment <span className="font-normal text-smoke">(optional — logos, templates, b-roll packs)</span></p>
+            <p className="label">Attachment <span className="font-normal text-smoke">(optional: logos, templates, b-roll packs)</span></p>
             {form.file_url ? (
               <div className="flex items-center gap-3 rounded-xl bg-cloud px-4 py-3 text-sm">
                 <span className="min-w-0 flex-1 truncate">📎 {decodeURIComponent(form.file_url.split('/').pop())}</span>

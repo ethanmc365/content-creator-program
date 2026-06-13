@@ -18,6 +18,10 @@ export default function AdminRewards() {
   const [adding, setAdding] = useState(false)
   const [newReward, setNewReward] = useState({ creator_id: '', challenge_id: '', reward_type: 'cash', amount: '', payment_notes: '' })
 
+  // "Mark distributed" modal (replaces a flaky window.prompt).
+  const [distributing, setDistributing] = useState(null) // the reward being marked
+  const [distNotes, setDistNotes] = useState('')
+
   async function load() {
     const [{ data: r }, { data: c }, { data: ch }] = await Promise.all([
       supabase.from('rewards').select('*, profiles:creator_id(id, name, photo_url), challenges(title)').order('created_at', { ascending: false }),
@@ -32,16 +36,25 @@ export default function AdminRewards() {
 
   useEffect(() => { load() }, [])
 
-  async function markDistributed(reward) {
-    const notes = prompt('Payment notes (method, reference…):', reward.payment_notes || 'Bank transfer')
-    if (notes === null) return
-    setBusyId(reward.id)
-    await supabase
+  // Open the "mark distributed" modal, pre-filling any existing note.
+  function openDistribute(reward) {
+    setDistributing(reward)
+    setDistNotes(reward.payment_notes || 'Bank transfer')
+  }
+
+  // Confirm distribution: set status + notes + timestamp.
+  // The DB trigger notifies the creator automatically.
+  async function confirmDistribute(e) {
+    e.preventDefault()
+    setBusyId(distributing.id)
+    const { error } = await supabase
       .from('rewards')
-      .update({ status: 'distributed', payment_notes: notes, distributed_at: new Date().toISOString() })
-      .eq('id', reward.id)
+      .update({ status: 'distributed', payment_notes: distNotes, distributed_at: new Date().toISOString() })
+      .eq('id', distributing.id)
     setBusyId(null)
-    load() // the DB trigger notifies the creator automatically
+    setDistributing(null)
+    if (!error) load()
+    else alert(`Could not update: ${error.message}`)
   }
 
   async function addReward(e) {
@@ -92,7 +105,7 @@ export default function AdminRewards() {
     <div className="page">
       <PageHeader
         title="Rewards"
-        subtitle="The program's money trail — keep it tidy for accounting."
+        subtitle="The program's money trail. Keep it tidy for accounting."
         action={
           <div className="flex gap-2">
             <button onClick={exportRewards} className="btn-secondary">Export CSV ↓</button>
@@ -122,7 +135,7 @@ export default function AdminRewards() {
       {loading ? (
         <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
       ) : filtered.length === 0 ? (
-        <EmptyState emoji="💷" title="No rewards here" hint="Add rewards after a challenge closes — winners first!" />
+        <EmptyState emoji="💷" title="No rewards here" hint="Add rewards after a challenge closes. Winners first!" />
       ) : (
         <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
           {filtered.map((r) => (
@@ -139,7 +152,7 @@ export default function AdminRewards() {
               <span className="font-bold tabular-nums">{formatMoney(r.amount, r.currency)}</span>
               <Badge tone={r.status === 'distributed' ? 'green' : 'amber'}>{r.status}</Badge>
               {r.status === 'pending' && (
-                <button onClick={() => markDistributed(r)} disabled={busyId === r.id} className="btn-primary !py-2 text-xs">
+                <button onClick={() => openDistribute(r)} disabled={busyId === r.id} className="btn-primary !py-2 text-xs">
                   {busyId === r.id ? <Spinner className="h-4 w-4" /> : 'Mark distributed ✓'}
                 </button>
               )}
@@ -186,6 +199,25 @@ export default function AdminRewards() {
             {adding ? <Spinner /> : 'Add reward (pending)'}
           </button>
         </form>
+      </Modal>
+
+      {/* ---------- Mark distributed modal ---------- */}
+      <Modal open={!!distributing} onClose={() => setDistributing(null)} title="Mark reward as distributed">
+        {distributing && (
+          <form onSubmit={confirmDistribute} className="space-y-5">
+            <p className="text-sm text-smoke">
+              Confirming payout of <span className="font-semibold text-ink">{formatMoney(distributing.amount, distributing.currency)}</span>{' '}
+              to <span className="font-semibold text-ink">{distributing.profiles?.name}</span>. They'll be notified automatically.
+            </p>
+            <div>
+              <label htmlFor="dist-notes" className="label">Payment notes <span className="font-normal text-smoke">(method, reference)</span></label>
+              <input id="dist-notes" type="text" className="input" value={distNotes} onChange={(e) => setDistNotes(e.target.value)} placeholder="e.g. Bank transfer, ref TRYP-001" />
+            </div>
+            <button type="submit" disabled={busyId === distributing.id} className="btn-primary w-full">
+              {busyId === distributing.id ? <Spinner /> : 'Confirm distributed ✓'}
+            </button>
+          </form>
+        )}
       </Modal>
     </div>
   )

@@ -25,7 +25,7 @@ export default function ResetPassword() {
     if (error) {
       setError(
         error.message.includes('session')
-          ? 'This reset link has expired — request a new one from the login page.'
+          ? 'This reset link has expired. Request a new one from the login page.'
           : error.message
       )
       return
@@ -34,7 +34,7 @@ export default function ResetPassword() {
   }
 
   return (
-    <AuthShell title="Choose a new password" subtitle="Almost there — set your new password below.">
+    <AuthShell title="Choose a new password" subtitle="Almost there. Set your new password below.">
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
           <label htmlFor="password" className="label">New password</label>

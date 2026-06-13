@@ -7,14 +7,17 @@ import { formatDateTime } from '../../lib/utils'
 // Events management: add / edit / delete calendar events.
 // (Challenge start/end dates appear on the calendar automatically —
 // no need to create those by hand.)
+// Preset types, plus a "Custom" escape hatch so admins can invent their own.
 const TYPES = [
   { value: 'event', label: '📍 Event' },
   { value: 'qa', label: '🎤 Q&A' },
   { value: 'deadline', label: '⏰ Deadline' },
   { value: 'milestone', label: '🎉 Milestone' },
+  { value: 'meetup', label: '🤝 Meet-up' },
+  { value: 'workshop', label: '🎓 Workshop' },
 ]
 
-const emptyForm = { title: '', description: '', date: '', type: 'event' }
+const emptyForm = { title: '', description: '', date: '', type: 'event', meeting_url: '', customType: false }
 
 export default function AdminEvents() {
   const { user } = useAuth()
@@ -34,11 +37,17 @@ export default function AdminEvents() {
 
   function openEditor(event) {
     setEditing(event ?? 'new')
-    setForm(
-      event
-        ? { ...event, date: new Date(event.date).toISOString().slice(0, 16) }
-        : emptyForm
-    )
+    if (event) {
+      const known = TYPES.some((t) => t.value === event.type)
+      setForm({
+        ...event,
+        date: new Date(event.date).toISOString().slice(0, 16),
+        meeting_url: event.meeting_url || '',
+        customType: !known,
+      })
+    } else {
+      setForm(emptyForm)
+    }
   }
 
   async function save(e) {
@@ -48,7 +57,8 @@ export default function AdminEvents() {
       title: form.title.trim(),
       description: form.description.trim(),
       date: new Date(form.date).toISOString(),
-      type: form.type,
+      type: form.type.trim() || 'event',
+      meeting_url: form.meeting_url.trim() || null,
     }
     if (editing === 'new') {
       await supabase.from('events').insert({ ...payload, created_by: user.id })
@@ -77,7 +87,7 @@ export default function AdminEvents() {
       {loading ? (
         <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}</div>
       ) : events.length === 0 ? (
-        <EmptyState emoji="📅" title="No events yet" hint='Add your first one — a "Live Q&A" is always a hit.' />
+        <EmptyState emoji="📅" title="No events yet" hint='Add your first one. A "Live Q&A" is always a hit.' />
       ) : (
         <div className="space-y-4">
           {events.map((ev) => (
@@ -117,10 +127,31 @@ export default function AdminEvents() {
             </div>
             <div>
               <label htmlFor="ev-type" className="label">Type</label>
-              <select id="ev-type" className="input" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
-                {TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
+              {form.customType ? (
+                <input
+                  id="ev-type" type="text" required className="input"
+                  value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}
+                  placeholder="Custom type"
+                />
+              ) : (
+                <select
+                  id="ev-type" className="input" value={form.type}
+                  onChange={(e) => {
+                    if (e.target.value === '__custom') setForm({ ...form, customType: true, type: '' })
+                    else setForm({ ...form, type: e.target.value })
+                  }}
+                >
+                  {TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  <option value="__custom">+ Custom type…</option>
+                </select>
+              )}
             </div>
+          </div>
+          <div>
+            <label htmlFor="ev-meet" className="label">
+              Meeting link <span className="font-normal text-smoke">(optional, e.g. Google Meet for a live event)</span>
+            </label>
+            <input id="ev-meet" type="url" className="input" value={form.meeting_url} onChange={(e) => setForm({ ...form, meeting_url: e.target.value })} placeholder="https://meet.google.com/…" />
           </div>
           <button type="submit" disabled={busy} className="btn-primary w-full">
             {busy ? <Spinner /> : editing === 'new' ? 'Add event' : 'Save changes'}

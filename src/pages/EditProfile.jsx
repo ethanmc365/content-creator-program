@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { AvatarUpload, LanguageSelect, SocialInputs } from '../components/ProfileFields'
 import WorldMap from '../components/WorldMap'
+import TravelGallery from '../components/TravelGallery'
 import { PageHeader, Spinner } from '../components/ui'
 
 // Edit every part of your own profile on one calm page.
@@ -16,6 +17,8 @@ export default function EditProfile() {
   const [form, setForm] = useState({
     name: profile?.name || '',
     age: profile?.age || '',
+    city: profile?.city || '',
+    country: profile?.country || '',
     bio: profile?.bio || '',
     about: profile?.about || '',
     photo_url: profile?.photo_url || '',
@@ -62,6 +65,16 @@ export default function EditProfile() {
               <input id="age" type="number" min="16" max="100" className="input" value={form.age} onChange={(e) => set({ age: e.target.value })} />
             </div>
           </div>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div>
+              <label htmlFor="city" className="label">City</label>
+              <input id="city" type="text" className="input" value={form.city} onChange={(e) => set({ city: e.target.value })} placeholder="e.g. London" />
+            </div>
+            <div>
+              <label htmlFor="country" className="label">Country</label>
+              <input id="country" type="text" className="input" value={form.country} onChange={(e) => set({ country: e.target.value })} placeholder="e.g. United Kingdom" />
+            </div>
+          </div>
           <div>
             <label htmlFor="bio" className="label">One-line bio</label>
             <input id="bio" type="text" maxLength={120} className="input" value={form.bio} onChange={(e) => set({ bio: e.target.value })} />
@@ -70,6 +83,15 @@ export default function EditProfile() {
             <label htmlFor="about" className="label">About you</label>
             <textarea id="about" rows={5} className="input" value={form.about} onChange={(e) => set({ about: e.target.value })} />
           </div>
+        </section>
+
+        {/* Travel photo gallery */}
+        <section className="card space-y-5">
+          <div>
+            <h2 className="text-lg font-semibold">Travel photos</h2>
+            <p className="mt-1 text-sm text-smoke">Share up to 20 shots from your trips. They appear on your public profile.</p>
+          </div>
+          <TravelGallery creatorId={user.id} editable />
         </section>
 
         <section className="card space-y-6">

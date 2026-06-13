@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import CountdownTimer from '../components/CountdownTimer'
+import WorldMap from '../components/WorldMap'
 import { Avatar, Badge, Skeleton, StatCard } from '../components/ui'
 import { formatDate, timeAgo, formatMoney } from '../lib/utils'
 
@@ -10,6 +11,7 @@ import { formatDate, timeAgo, formatMoney } from '../lib/utils'
 // countdown, plus quick community pulse (latest announcement, new creators).
 export default function Home() {
   const { profile, user } = useAuth()
+  const [allCountries, setAllCountries] = useState([])
   const [challenge, setChallenge] = useState(null)
   const [mySubmissions, setMySubmissions] = useState([])
   const [announcement, setAnnouncement] = useState(null)
@@ -42,6 +44,10 @@ export default function Home() {
         creators: creatorCount ?? 0,
         prizes: (paid ?? []).reduce((sum, r) => sum + Number(r.amount), 0),
       })
+
+      // Combined "where we've been" map: union of every creator's countries.
+      const { data: visited } = await supabase.from('profiles').select('countries_visited')
+      setAllCountries([...new Set((visited ?? []).flatMap((p) => p.countries_visited || []))])
 
       if (ch) {
         const { data: subs } = await supabase
@@ -97,7 +103,7 @@ export default function Home() {
 
           {mySubmissions.length > 0 && (
             <p className="mt-6 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm">
-              ✅ You've entered with {mySubmissions.length} {mySubmissions.length === 1 ? 'video' : 'videos'} — good luck!
+              ✅ You've entered with {mySubmissions.length} {mySubmissions.length === 1 ? 'video' : 'videos'}. Good luck!
             </p>
           )}
         </section>
@@ -106,7 +112,7 @@ export default function Home() {
           <p className="text-4xl" aria-hidden>🏝️</p>
           <h2 className="mt-3 text-xl font-semibold">No live challenge right now</h2>
           <p className="mx-auto mt-2 max-w-md text-smoke">
-            The next one is around the corner — you'll get a notification the moment it drops.
+            The next one is around the corner. You'll get a notification the moment it drops.
             Meanwhile, polish your profile or browse past winners for inspiration.
           </p>
           <div className="mt-6 flex justify-center gap-3">
@@ -134,7 +140,7 @@ export default function Home() {
             <div className="flex items-center gap-3">
               <Avatar src={announcement.profiles?.photo_url} name={announcement.profiles?.name} size="sm" />
               <div>
-                <p className="text-sm font-semibold">{announcement.profiles?.name} <Badge tone="light" className="ml-1">Tryp team</Badge></p>
+                <p className="text-sm font-semibold">{announcement.profiles?.name} <Badge tone="light" className="ml-1">Tryp.com Team</Badge></p>
                 <p className="text-xs text-smoke">{timeAgo(announcement.created_at)}</p>
               </div>
             </div>
@@ -142,6 +148,18 @@ export default function Home() {
           </Link>
         </section>
       )}
+
+      {/* ---------- Combined "where we've been" map ---------- */}
+      <section>
+        <div className="mb-4 flex flex-col gap-1">
+          <h2 className="text-lg font-semibold">🌍 Where we've been, together</h2>
+          <p className="text-sm text-smoke">
+            Our creators have collectively explored{' '}
+            <span className="font-semibold text-brand">{allCountries.length} countries</span>. How much of the world can we colour in?
+          </p>
+        </div>
+        <WorldMap selected={allCountries} />
+      </section>
 
       {/* ---------- New creators ---------- */}
       <section>

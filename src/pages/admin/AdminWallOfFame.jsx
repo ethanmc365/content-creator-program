@@ -119,11 +119,11 @@ export default function AdminWallOfFame() {
       <Link to="/admin/challenges" className="mb-6 inline-block text-sm font-medium text-smoke hover:text-brand">← Manage challenges</Link>
 
       <PageHeader
-        title={`Wall of Fame — ${challenge?.title}`}
+        title={`Wall of Fame: ${challenge?.title}`}
         subtitle="Choose the featured spots, the order and the shout-outs. Publish when it's perfect."
         action={wall?.published
           ? <Badge tone="green">Published ✓</Badge>
-          : <Badge tone="amber">Draft — not visible to creators</Badge>}
+          : <Badge tone="amber">Draft, not visible to creators</Badge>}
       />
 
       {toast && <p className="mb-6 rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-700 animate-fade-up">{toast}</p>}
@@ -132,7 +132,7 @@ export default function AdminWallOfFame() {
         <EmptyState
           emoji="📊"
           title="No leaderboard yet"
-          hint="Enter the logged views and generate the leaderboard first — the wall is built from it."
+          hint="Enter the logged views and generate the leaderboard first. The wall is built from it."
           action={<Link to={`/admin/challenges/${id}/results`} className="btn-primary">Enter results</Link>}
         />
       ) : (
@@ -142,7 +142,7 @@ export default function AdminWallOfFame() {
             <label htmlFor="admin_note" className="text-lg font-semibold">Headline note <span className="text-sm font-normal text-smoke">(shown above the wall)</span></label>
             <textarea
               id="admin_note" rows={2} className="input"
-              placeholder='e.g. "Our best round yet — over 880k combined views!"'
+              placeholder='e.g. "Our best round yet, over 880k combined views!"'
               value={adminNote} onChange={(e) => setAdminNote(e.target.value)}
             />
           </section>
@@ -160,7 +160,7 @@ export default function AdminWallOfFame() {
                     {s.views != null && <p className="text-xs text-smoke">{formatViews(s.views)} logged views</p>}
                     <input
                       type="text" className="input mt-2 !py-2 text-xs"
-                      placeholder='Note / shout-out, e.g. "Admin&apos;s pick 🎬 — stunning edit"'
+                      placeholder='Note / shout-out, e.g. "Admin&apos;s pick 🎬, stunning edit"'
                       value={s.note}
                       onChange={(e) => setNote(i, e.target.value)}
                       aria-label={`Note for ${s.profile?.name}`}
@@ -173,7 +173,7 @@ export default function AdminWallOfFame() {
                   <button onClick={() => setSpots(spots.filter((_, j) => j !== i))} className="btn-ghost !p-2 text-red-500" aria-label={`Remove ${s.profile?.name}`}>✕</button>
                 </div>
               ))}
-              {spots.length === 0 && <p className="text-sm text-smoke">No spots yet — add creators from the leaderboard below.</p>}
+              {spots.length === 0 && <p className="text-sm text-smoke">No spots yet. Add creators from the leaderboard below.</p>}
             </div>
           </section>
 

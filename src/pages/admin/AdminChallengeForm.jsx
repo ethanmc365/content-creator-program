@@ -110,7 +110,7 @@ export default function AdminChallengeForm() {
     <div className="page max-w-3xl">
       <PageHeader
         title={editing ? 'Edit challenge' : 'New challenge'}
-        subtitle={editing ? 'Changes go live immediately for everyone.' : 'Set the brief, the dates and the prizes — publish when you\'re ready.'}
+        subtitle={editing ? 'Changes go live immediately for everyone.' : 'Set the brief, the dates and the prizes. Publish when you\'re ready.'}
       />
 
       <form onSubmit={save} className="space-y-10">

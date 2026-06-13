@@ -1,19 +1,23 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { uploadChatImage } from '../lib/chatMedia'
 import { Link, NavLink, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { Avatar, Badge, Skeleton, Spinner } from '../components/ui'
+import { Avatar, Badge, Modal, Skeleton, Spinner } from '../components/ui'
+import Icon from '../components/Icon'
+import PollCard from '../components/PollCard'
 import { formatChatTime, cx } from '../lib/utils'
 
 // Real-time community chat — the WhatsApp replacement.
 //  * Three channels: #general, #announcements (admin-post-only), #content-tips.
 //  * Supabase realtime: new messages and reactions appear instantly.
 //  * Emoji reactions, admin moderation (delete message, mute creator).
+//  * Admin polls live inside announcement messages.
 //  * Unread dots per channel (last-read time kept in localStorage).
 const CHANNELS = [
-  { key: 'general', label: 'General', emoji: '💬', hint: 'Open chat for everyone' },
-  { key: 'announcements', label: 'Announcements', emoji: '📣', hint: 'Official — only the Tryp team posts here' },
-  { key: 'content_tips', label: 'Content Tips', emoji: '💡', hint: 'Tips & tricks — share what works' },
+  { key: 'general', label: 'General', icon: 'chat', hint: 'Open chat for everyone' },
+  { key: 'announcements', label: 'Announcements', icon: 'megaphone', hint: 'Official channel. Only the Tryp.com Team posts here' },
+  { key: 'content_tips', label: 'Content Tips', icon: 'bulb', hint: 'Tips and tricks. Share what works' },
 ]
 
 const QUICK_EMOJI = ['❤️', '🔥', '😂', '👍', '🎉', '✈️']
@@ -31,7 +35,15 @@ export default function Chat() {
   const [sending, setSending] = useState(false)
   const [pickerFor, setPickerFor] = useState(null) // message id with emoji picker open
   const [unread, setUnread] = useState({}) // channel -> bool
+  const [attachError, setAttachError] = useState('')
   const bottomRef = useRef(null)
+  const fileRef = useRef(null)
+
+  // Poll composer (admins, announcements only).
+  const [showPoll, setShowPoll] = useState(false)
+  const [pollQuestion, setPollQuestion] = useState('')
+  const [pollOptions, setPollOptions] = useState(['', ''])
+  const [creatingPoll, setCreatingPoll] = useState(false)
 
   const meta = CHANNELS.find((c) => c.key === channel) ?? CHANNELS[0]
   const canPost = channel !== 'announcements' || isAdmin
@@ -120,6 +132,27 @@ export default function Chat() {
     if (!error) setBody('')
   }
 
+  // Attach an image: upload to storage, then send it as a message
+  // (with whatever text is in the composer as its caption).
+  async function sendImage(e) {
+    const file = e.target.files?.[0]
+    e.target.value = '' // allow re-selecting the same file
+    if (!file) return
+    setAttachError('')
+    setSending(true)
+    try {
+      const url = await uploadChatImage(file, user.id)
+      const { error } = await supabase
+        .from('messages')
+        .insert({ channel, sender_id: user.id, body: body.trim(), image_url: url })
+      if (error) throw new Error(error.message)
+      setBody('')
+    } catch (err) {
+      setAttachError(err.message)
+    }
+    setSending(false)
+  }
+
   async function toggleReaction(messageId, emoji) {
     setPickerFor(null)
     const mine = reactions.find((r) => r.message_id === messageId && r.creator_id === user.id && r.emoji === emoji)
@@ -135,6 +168,33 @@ export default function Chat() {
   async function muteCreator(senderId, name) {
     if (!confirm(`Mute ${name}? They'll be able to read but not post until unmuted (Admin → Creators).`)) return
     await supabase.from('profiles').update({ status: 'muted' }).eq('id', senderId)
+  }
+
+  // Create a poll: makes the poll + its options, then posts an announcement
+  // message that carries it (so it renders inline in the channel).
+  async function createPoll(e) {
+    e.preventDefault()
+    const opts = pollOptions.map((o) => o.trim()).filter(Boolean)
+    if (!pollQuestion.trim() || opts.length < 2) return
+    setCreatingPoll(true)
+    const { data: poll, error } = await supabase
+      .from('polls')
+      .insert({ question: pollQuestion.trim(), created_by: user.id })
+      .select('id')
+      .single()
+    if (!error && poll) {
+      await supabase.from('poll_options').insert(opts.map((label, i) => ({ poll_id: poll.id, label, sort_order: i })))
+      await supabase.from('messages').insert({
+        channel: 'announcements',
+        sender_id: user.id,
+        body: `🗳️ ${pollQuestion.trim()}`,
+        poll_id: poll.id,
+      })
+    }
+    setCreatingPoll(false)
+    setShowPoll(false)
+    setPollQuestion('')
+    setPollOptions(['', ''])
   }
 
   // Group reactions per message: { '❤️': { count, mine } }
@@ -178,7 +238,7 @@ export default function Chat() {
                 channel === c.key ? 'bg-brand-tint text-brand' : 'text-smoke hover:bg-cloud hover:text-ink'
               )}
             >
-              <span aria-hidden>{c.emoji}</span> <span className="hidden sm:inline">{c.label}</span>
+              <span className="flex items-center gap-2"><Icon name={c.icon} className="h-4 w-4" /> <span className="hidden sm:inline">{c.label}</span></span>
               {unread[c.key] && <span className="absolute right-1 top-1.5 h-2 w-2 rounded-full bg-brand" aria-label="Unread messages" />}
             </NavLink>
           ))}
@@ -200,19 +260,16 @@ export default function Chat() {
           )}
 
           {!loading && messages.filter((m) => !m.deleted).length === 0 && (
-            <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-              <p className="text-4xl" aria-hidden>{meta.emoji}</p>
-              <p className="font-semibold">It's quiet in #{meta.label.toLowerCase()}…</p>
+            <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-smoke">
+              <Icon name={meta.icon} className="h-10 w-10" />
+              <p className="font-semibold text-ink">It's quiet in #{meta.label.toLowerCase()}…</p>
               {canPost && <p className="text-sm text-smoke">Be the one to break the silence!</p>}
             </div>
           )}
 
           {!loading && messages.map((m) => {
-            if (m.deleted) {
-              return isAdmin ? (
-                <p key={m.id} className="px-12 text-xs italic text-gray-300">message deleted by a moderator</p>
-              ) : null
-            }
+            // Deleted messages simply disappear for everyone.
+            if (m.deleted) return null
             const mine = m.sender_id === user.id
             const summary = reactionSummary(m.id)
             return (
@@ -224,13 +281,14 @@ export default function Chat() {
                 <div className={cx('max-w-[78%] sm:max-w-[65%]', mine && 'items-end text-right')}>
                   <div className={cx('mb-1 flex items-baseline gap-2 text-xs', mine && 'flex-row-reverse')}>
                     <span className="font-semibold text-ink">{mine ? 'You' : m.profiles?.name}</span>
-                    {m.profiles?.is_admin && <Badge tone="light" className="!px-2 !py-0">Tryp team</Badge>}
+                    {m.profiles?.is_admin && <Badge tone="light" className="!px-2 !py-0">Tryp.com Team</Badge>}
                     <span className="text-gray-400">{formatChatTime(m.created_at)}</span>
                   </div>
 
                   <div
                     className={cx(
-                      'relative inline-block whitespace-pre-line rounded-2xl px-4 py-2.5 text-left text-sm leading-relaxed',
+                      'relative inline-block whitespace-pre-line rounded-2xl text-left text-sm leading-relaxed',
+                      m.image_url ? 'overflow-hidden p-1.5' : 'px-4 py-2.5',
                       channel === 'announcements'
                         ? 'border border-brand/20 bg-brand-tint text-ink'
                         : mine
@@ -238,8 +296,21 @@ export default function Chat() {
                           : 'bg-cloud text-ink'
                     )}
                   >
-                    {renderBody(m.body)}
+                    {m.image_url && (
+                      <a href={m.image_url} target="_blank" rel="noopener noreferrer" aria-label="Open image full size">
+                        <img
+                          src={m.image_url}
+                          alt={m.body || 'Shared image'}
+                          loading="lazy"
+                          className="max-h-72 w-full rounded-xl object-cover"
+                        />
+                      </a>
+                    )}
+                    {m.body && <span className={cx('block', m.image_url && 'px-2.5 py-1.5')}>{renderBody(m.body)}</span>}
                   </div>
+
+                  {/* Inline poll (announcement messages only) */}
+                  {m.poll_id && <PollCard pollId={m.poll_id} />}
 
                   {/* Reactions */}
                   <div className={cx('mt-1 flex flex-wrap items-center gap-1', mine && 'justify-end')}>
@@ -296,10 +367,33 @@ export default function Chat() {
         <div className="shrink-0 border-t border-gray-100 px-4 py-4 sm:px-8">
           {isMuted ? (
             <p className="rounded-xl bg-amber-50 px-4 py-3 text-center text-sm text-amber-700">
-              You've been muted by the team — you can read but not post. Questions? DM an admin.
+              You've been muted by the team. You can read but not post. Questions? DM an admin.
             </p>
           ) : canPost ? (
-            <form onSubmit={send} className="flex items-end gap-3">
+            <>
+            {attachError && <p className="mb-2 text-xs text-red-600">{attachError}</p>}
+            {/* Admins can launch a poll in the announcements channel. */}
+            {isAdmin && channel === 'announcements' && (
+              <button type="button" onClick={() => setShowPoll(true)} className="btn-secondary mb-3 !py-2 text-xs">
+                <Icon name="poll" className="h-4 w-4" /> Create a poll
+              </button>
+            )}
+            <form onSubmit={send} className="flex items-end gap-2 sm:gap-3">
+              {/* Image attach: uploads and sends immediately, with any typed
+                  text as the caption. Links pasted in the box are clickable. */}
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={sendImage} />
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                disabled={sending}
+                className="btn-ghost !px-3.5 !py-3"
+                aria-label="Attach an image"
+                title="Attach an image"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 19.5h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25z" />
+                </svg>
+              </button>
               <textarea
                 rows={1}
                 className="input max-h-32 flex-1 resize-none"
@@ -317,13 +411,47 @@ export default function Chat() {
                 )}
               </button>
             </form>
+            </>
           ) : (
             <p className="rounded-xl bg-cloud px-4 py-3 text-center text-sm text-smoke">
-              📣 Only the Tryp team can post announcements — react to show you've seen them!
+              Only the Tryp.com Team can post announcements. React to show you've seen them!
             </p>
           )}
         </div>
       </div>
+
+      {/* ---------- Create-poll modal ---------- */}
+      <Modal open={showPoll} onClose={() => setShowPoll(false)} title="Create a poll">
+        <form onSubmit={createPoll} className="space-y-5">
+          <div>
+            <label htmlFor="poll-q" className="label">Question</label>
+            <input id="poll-q" type="text" required className="input" value={pollQuestion} onChange={(e) => setPollQuestion(e.target.value)} placeholder="e.g. Where should our next challenge be?" />
+          </div>
+          <div>
+            <p className="label">Options</p>
+            <div className="space-y-2">
+              {pollOptions.map((opt, i) => (
+                <div key={i} className="flex gap-2">
+                  <input
+                    type="text" className="input" placeholder={`Option ${i + 1}`}
+                    value={opt}
+                    onChange={(e) => setPollOptions(pollOptions.map((o, j) => (j === i ? e.target.value : o)))}
+                  />
+                  {pollOptions.length > 2 && (
+                    <button type="button" aria-label="Remove option" className="btn-ghost !px-3" onClick={() => setPollOptions(pollOptions.filter((_, j) => j !== i))}>✕</button>
+                  )}
+                </div>
+              ))}
+            </div>
+            {pollOptions.length < 6 && (
+              <button type="button" className="btn-secondary mt-2 !py-2 text-xs" onClick={() => setPollOptions([...pollOptions, ''])}>+ Add option</button>
+            )}
+          </div>
+          <button type="submit" disabled={creatingPoll} className="btn-primary w-full">
+            {creatingPoll ? <Spinner /> : 'Post poll to announcements'}
+          </button>
+        </form>
+      </Modal>
     </div>
   )
 }

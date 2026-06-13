@@ -27,11 +27,23 @@ function WorldMap({ selected = [], onToggle, selectable = false }) {
         </div>
       )}
 
-      <ComposableMap projectionConfig={{ scale: 145 }} style={{ width: '100%', height: 'auto' }} aria-label="World map of countries visited">
+      {/* width/height set the SVG viewBox; the projection is scaled and
+          re-centred so the world fills the frame without the huge empty
+          oceans the defaults leave above and below. */}
+      <ComposableMap
+        width={880}
+        height={440}
+        projectionConfig={{ scale: 160, center: [12, 8] }}
+        style={{ width: '100%', height: 'auto', display: 'block' }}
+        aria-label="World map of countries visited"
+      >
         <ZoomableGroup minZoom={1} maxZoom={5}>
           <Geographies geography={GEO_URL}>
             {({ geographies }) =>
-              geographies.map((geo) => {
+              geographies
+                // Antarctica is huge, never visited, and wrecks the framing.
+                .filter((geo) => geo.properties.name !== 'Antarctica')
+                .map((geo) => {
                 const name = geo.properties.name
                 const isSelected = selectedSet.has(name)
                 return (

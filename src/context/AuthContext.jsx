@@ -54,8 +54,9 @@ export function AuthProvider({ children }) {
     loading,
     refreshProfile,
 
-    signUp: (email, password, name) =>
-      supabase.auth.signUp({ email, password, options: { data: { name } } }),
+    // `ref` is an optional referral code captured from /signup?ref=CODE.
+    signUp: (email, password, name, ref) =>
+      supabase.auth.signUp({ email, password, options: { data: { name, ref: ref || null } } }),
 
     signIn: (email, password) => supabase.auth.signInWithPassword({ email, password }),
 

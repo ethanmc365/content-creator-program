@@ -25,7 +25,7 @@ export default function Rewards() {
 
   return (
     <div className="page max-w-4xl">
-      <PageHeader title="My rewards" subtitle="Everything you've earned in the program — cash and Tryp.com vouchers." />
+      <PageHeader title="My rewards" subtitle="Everything you've earned in the program, in cash and Tryp.com vouchers." />
 
       {loading ? (
         <div className="space-y-4"><Skeleton className="h-28 w-full" /><Skeleton className="h-16 w-full" /><Skeleton className="h-16 w-full" /></div>
@@ -33,13 +33,13 @@ export default function Rewards() {
         <>
           <div className="mb-10 grid gap-4 sm:grid-cols-2">
             <StatCard label="Total received" value={formatMoney(earned)} accent />
-            <StatCard label="Pending" value={formatMoney(pending)} hint={pending > 0 ? 'On its way — the team is processing it.' : 'Nothing pending right now.'} />
+            <StatCard label="Pending" value={formatMoney(pending)} hint={pending > 0 ? 'On its way. The team is processing it.' : 'Nothing pending right now.'} />
           </div>
 
           {rewards.length === 0 ? (
             <EmptyState
               emoji="💸"
-              title="No rewards yet — your first one is waiting"
+              title="No rewards yet. Your first one is waiting"
               hint="Enter the live challenge: every valid entry earns a voucher, and the top spots win cash."
               action={<Link to="/challenges" className="btn-primary">See the challenge</Link>}
             />

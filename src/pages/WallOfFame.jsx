@@ -95,7 +95,7 @@ export default function WallOfFame() {
         <EmptyState
           emoji="🏆"
           title="The wall awaits its first legends"
-          hint="When a challenge wraps up, the Tryp team publishes its top creators here."
+          hint="When a challenge wraps up, the Tryp.com Team publishes its top creators here."
           action={<Link to="/challenges" className="btn-primary">View challenges</Link>}
         />
       ) : (
@@ -141,7 +141,7 @@ export default function WallOfFame() {
 
                 {wall.admin_note && (
                   <p className="mb-8 max-w-2xl rounded-card border-l-4 border-brand bg-brand-tint/50 px-5 py-4 text-sm italic leading-relaxed text-ink">
-                    "{wall.admin_note}" <span className="not-italic text-smoke">— the Tryp team</span>
+                    "{wall.admin_note}" <span className="not-italic text-smoke">from the Tryp.com Team</span>
                   </p>
                 )}
 

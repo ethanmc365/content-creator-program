@@ -53,7 +53,7 @@ export default function Directory() {
     <div className="page">
       <PageHeader
         title="Creators"
-        subtitle="Meet the community — connect, message, and find your next collab partner."
+        subtitle="Meet the community. Connect, message, and find your next collab partner."
       />
 
       {/* Search + filters */}

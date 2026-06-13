@@ -77,7 +77,7 @@ export default function AdminResults() {
     setGenerating(false)
     if (error) return flash(`Couldn't save results: ${error.message}`)
     setResultsCount(ranked.length)
-    flash(`Leaderboard saved — ${ranked.length} creators ranked. Now curate the Wall of Fame! 🏆`)
+    flash(`Leaderboard saved. ${ranked.length} creators ranked. Now curate the Wall of Fame! 🏆`)
   }
 
   if (loading) {
@@ -89,8 +89,8 @@ export default function AdminResults() {
       <Link to="/admin/challenges" className="mb-6 inline-block text-sm font-medium text-smoke hover:text-brand">← Manage challenges</Link>
 
       <PageHeader
-        title={`Results — ${challenge?.title}`}
-        subtitle="Open each video, check its views on the platform, and log the number here. No scraping — your eyes are the source of truth."
+        title={`Results: ${challenge?.title}`}
+        subtitle="Open each video, check its views on the platform, and log the number here. No scraping. Your eyes are the source of truth."
         action={
           <div className="flex flex-col items-end gap-2">
             <button onClick={generateLeaderboard} disabled={generating} className="btn-primary">
@@ -144,7 +144,7 @@ export default function AdminResults() {
 
       <p className="mt-6 text-xs leading-relaxed text-smoke">
         💡 A creator with multiple entries is ranked by their <strong>best</strong> video.
-        Generating the leaderboard replaces previous results for this challenge — safe to redo if you spot a typo.
+        Generating the leaderboard replaces previous results for this challenge, so it's safe to redo if you spot a typo.
       </p>
     </div>
   )

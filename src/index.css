@@ -35,12 +35,15 @@
 
 @layer components {
   /* Reusable button recipes so every button looks consistent. */
+  /* Buttons lift/magnify slightly on hover rather than changing colour,
+     keeping the brand orange constant and the interaction subtle. */
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-medium
-      transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50;
+      transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]
+      disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0;
   }
   .btn-primary {
-    @apply btn bg-brand text-white hover:bg-brand-light active:scale-[0.98];
+    @apply btn bg-brand text-white shadow-sm hover:shadow-md;
   }
   .btn-secondary {
     @apply btn border border-gray-200 bg-white text-ink hover:border-brand hover:text-brand;

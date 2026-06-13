@@ -18,14 +18,16 @@ const NAV = [
   { to: '/wall-of-fame', label: 'Wall of Fame' },
   { to: '/resources', label: 'Resources' },
   { to: '/events', label: 'Events' },
+  { to: '/jobs', label: 'Jobs' },
 ]
 
 const MOBILE_TABS = [
-  { to: '/home', label: 'Home', icon: 'M3 12l9-9 9 9M5 10v10a1 1 0 001 1h4v-6h4v6h4a1 1 0 001-1V10' },
-  { to: '/challenges', label: 'Challenges', icon: 'M5 3v18M5 4h13l-2.5 4L18 12H5' },
-  { to: '/creators', label: 'Creators', icon: 'M17 20h5v-1a4 4 0 00-5-3.87M9 20H4v-1a5 5 0 015-5h0a5 5 0 015 5v1H9zm3-9a4 4 0 100-8 4 4 0 000 8zm8 1a3 3 0 100-6' },
-  { to: '/chat', label: 'Chat', icon: 'M8 12h8m-8-3h5m7 3a9 9 0 11-4.2-7.6A9 9 0 0121 12zm-9 9l-3-3' },
-  { to: '/messages', label: 'DMs', icon: 'M3 8l9 6 9-6M4 6h16a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V7a1 1 0 011-1z' },
+  // Heroicons outline paths (MIT licensed).
+  { to: '/home', label: 'Home', icon: 'M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25' },
+  { to: '/challenges', label: 'Challenges', icon: 'M3 3v1.5M3 21v-6m0 0l2.77-.693a9 9 0 016.208.682l.108.054a9 9 0 006.086.71l3.114-.732a48.524 48.524 0 01-.005-10.499l-3.11.732a9 9 0 01-6.085-.711l-.108-.054a9 9 0 00-6.208-.682L3 4.5M3 15V4.5' },
+  { to: '/creators', label: 'Creators', icon: 'M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z' },
+  { to: '/chat', label: 'Chat', icon: 'M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 01-.923 1.785A5.969 5.969 0 005 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337z' },
+  { to: '/messages', label: 'DMs', icon: 'M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75' },
 ]
 
 export default function AppLayout() {
@@ -79,7 +81,7 @@ export default function AppLayout() {
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-5 sm:px-8">
           <Link to="/home" className="flex items-center gap-3">
             <img src="/brand/tryp-logo.png" alt="Tryp.com" className="h-9 rounded-lg" />
-            <span className="hidden text-sm font-semibold text-smoke md:block">Creator Program</span>
+            <span className="hidden text-sm font-semibold text-smoke md:block">Content Creator Program</span>
           </Link>
 
           <nav className="hidden items-center gap-1 lg:flex" aria-label="Main">
@@ -117,6 +119,7 @@ export default function AppLayout() {
                   <Link to={`/profile/${user?.id}`} onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">My profile</Link>
                   <Link to="/profile/edit" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Edit profile</Link>
                   <Link to="/rewards" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">My rewards</Link>
+                  <Link to="/refer" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Refer a creator</Link>
                   <Link to="/dashboard" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">My dashboard</Link>
                   {isAdmin && <Link to="/admin" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm font-medium text-brand hover:bg-cloud sm:hidden">Admin panel</Link>}
                   <button onClick={handleSignOut} className="block w-full rounded-xl px-3 py-2.5 text-left text-sm text-red-600 hover:bg-red-50">Log out</button>

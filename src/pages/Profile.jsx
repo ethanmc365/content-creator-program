@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import WorldMap from '../components/WorldMap'
 import PlatformBadges from '../components/PlatformBadges'
+import TravelGallery from '../components/TravelGallery'
 import { Avatar, Badge, Skeleton, EmptyState } from '../components/ui'
 import { formatDate, timeAgo, cx } from '../lib/utils'
 
@@ -101,9 +102,15 @@ export default function Profile() {
         <div className="min-w-0 flex-1">
           <div className="flex flex-col items-center gap-2 sm:flex-row sm:gap-3">
             <h1 className="text-3xl font-bold tracking-tight">{creator.name}</h1>
-            {creator.is_admin && <Badge tone="light">Tryp team</Badge>}
+            {creator.is_admin && <Badge tone="light">Tryp.com Team</Badge>}
             {creator.age && <span className="text-smoke">{creator.age}</span>}
           </div>
+          {(creator.city || creator.country) && (
+            <p className="mt-1 flex items-center justify-center gap-1 text-sm text-smoke sm:justify-start">
+              <svg className="h-4 w-4 text-brand" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /></svg>
+              {[creator.city, creator.country].filter(Boolean).join(', ')}
+            </p>
+          )}
           {creator.bio && <p className="mt-2 text-lg text-smoke">{creator.bio}</p>}
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
             {socials.map((s) => (
@@ -141,6 +148,9 @@ export default function Profile() {
           </div>
         ))}
       </section>
+
+      {/* ---------- Travel photos ---------- */}
+      <ProfileGallery creatorId={creator.id} isMe={isMe} />
 
       {/* ---------- About ---------- */}
       {creator.about && (
@@ -212,5 +222,40 @@ export default function Profile() {
         )}
       </section>
     </div>
+  )
+}
+
+// Travel photo section. Only renders when there are photos, or when it's
+// your own profile (so you get a nudge to add some).
+function ProfileGallery({ creatorId, isMe }) {
+  const [count, setCount] = useState(null)
+  useEffect(() => {
+    supabase
+      .from('creator_photos')
+      .select('id', { count: 'exact', head: true })
+      .eq('creator_id', creatorId)
+      .then(({ count }) => setCount(count ?? 0))
+  }, [creatorId])
+
+  if (count === null) return null
+  if (count === 0 && !isMe) return null
+
+  return (
+    <section>
+      <div className="mb-4 flex items-baseline justify-between">
+        <h2 className="text-lg font-semibold">📸 Travel photos</h2>
+        {isMe && <Link to="/profile/edit" className="text-sm font-medium text-brand hover:underline">Manage photos</Link>}
+      </div>
+      {count === 0 ? (
+        <EmptyState
+          emoji="📸"
+          title="No travel photos yet"
+          hint="Share up to 20 shots from your trips to bring your profile to life."
+          action={<Link to="/profile/edit" className="btn-primary">Add photos</Link>}
+        />
+      ) : (
+        <TravelGallery creatorId={creatorId} />
+      )}
+    </section>
   )
 }

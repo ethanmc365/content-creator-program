@@ -2,18 +2,22 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { PageHeader, StatCard, Skeleton } from '../../components/ui'
+import Icon from '../../components/Icon'
 import { formatMoney } from '../../lib/utils'
 
 // The admin hub: key numbers up top, then tiles linking every admin tool.
 const TOOLS = [
-  { to: '/admin/creators', emoji: '👥', title: 'Creators', text: 'Full list with emails, activity, password resets, mute/suspend, promote.' },
-  { to: '/admin/challenges', emoji: '🏁', title: 'Challenges', text: 'Create, edit, close and archive challenges.' },
-  { to: '/admin/rewards', emoji: '💷', title: 'Rewards', text: 'Manage payouts, mark distributed, export for accounting.' },
-  { to: '/admin/analytics', emoji: '📊', title: 'Analytics', text: 'Growth, submissions, views, spend — with CSV export.' },
-  { to: '/chat/announcements', emoji: '📣', title: 'Announcements', text: 'Post official updates — every creator gets notified.' },
-  { to: '/admin/events', emoji: '📅', title: 'Events', text: 'Q&As, content days and milestones on the calendar.' },
-  { to: '/admin/resources', emoji: '📚', title: 'Resources', text: 'Publish tips, guidelines and downloadable assets.' },
-  { to: '/chat/general', emoji: '🛡️', title: 'Chat moderation', text: 'Delete messages and mute disruptive creators in any channel.' },
+  { to: '/admin/creators', icon: 'users', title: 'Creators', text: 'Full list with emails, activity, password resets, mute/suspend, promote.' },
+  { to: '/admin/challenges', icon: 'flag', title: 'Challenges', text: 'Create, edit, close and archive challenges.' },
+  { to: '/admin/rewards', icon: 'money', title: 'Rewards', text: 'Manage payouts, mark distributed, export for accounting.' },
+  { to: '/admin/analytics', icon: 'chart', title: 'Analytics', text: 'Growth, submissions, views and spend, with CSV export.' },
+  { to: '/chat/announcements', icon: 'megaphone', title: 'Announcements', text: 'Post official updates. Every creator gets notified.' },
+  { to: '/admin/email', icon: 'envelope', title: 'Email creators', text: 'Compose one message and send it to every creator.' },
+  { to: '/admin/jobs', icon: 'briefcase', title: 'Jobs', text: 'Post roles you are hiring for. Every creator gets notified.' },
+  { to: '/admin/referrals', icon: 'share', title: 'Referrals', text: 'See who referred whom, and follow up on leads.' },
+  { to: '/admin/events', icon: 'calendar', title: 'Events', text: 'Q&As, content days and milestones on the calendar.' },
+  { to: '/admin/resources', icon: 'book', title: 'Resources', text: 'Publish tips, guidelines and downloadable assets.' },
+  { to: '/chat/general', icon: 'shield', title: 'Chat moderation', text: 'Delete messages and mute disruptive creators in any channel.' },
 ]
 
 export default function AdminPanel() {
@@ -70,7 +74,9 @@ export default function AdminPanel() {
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {TOOLS.map((t) => (
           <Link key={t.to} to={t.to} className="card group !p-7 transition-all hover:-translate-y-0.5 hover:shadow-lift">
-            <p className="text-3xl" aria-hidden>{t.emoji}</p>
+            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-tint text-brand">
+              <Icon name={t.icon} className="h-6 w-6" />
+            </span>
             <h2 className="mt-4 font-semibold group-hover:text-brand">{t.title}</h2>
             <p className="mt-2 text-xs leading-relaxed text-smoke">{t.text}</p>
           </Link>

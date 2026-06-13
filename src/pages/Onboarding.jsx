@@ -21,6 +21,8 @@ export default function Onboarding() {
   const [draft, setDraft] = useState({
     photo_url: profile?.photo_url || '',
     age: profile?.age || '',
+    city: profile?.city || '',
+    country: profile?.country || '',
     bio: profile?.bio || '',
     about: profile?.about || '',
     instagram_url: profile?.instagram_url || '',
@@ -55,7 +57,7 @@ export default function Onboarding() {
       await supabase.from('messages').insert({
         channel: 'general',
         sender_id: user.id,
-        body: `Hey everyone! ${profile?.name || 'A new creator'} here — just joined the program 👋`,
+        body: `Hey everyone! ${profile?.name || 'A new creator'} here, just joined the program 👋`,
       })
     }
 
@@ -90,8 +92,8 @@ export default function Onboarding() {
               <p className="text-5xl" aria-hidden>🧡</p>
               <h1 className="text-3xl font-bold">Welcome to the crew, {profile?.name?.split(' ')[0] || 'creator'}!</h1>
               <p className="mx-auto max-w-md text-smoke">
-                You're now part of the Tryp.com UK & Ireland Creator Program — a community of travel
-                creators who make great content, compete in challenges, and earn real rewards.
+                You're now part of the Tryp.com Content Creator Program, a global community of
+                travel creators who make great content, compete in challenges, and earn real rewards.
               </p>
               <p className="mx-auto max-w-md text-smoke">
                 Let's build your creator profile. It takes about two minutes, and a complete profile
@@ -108,9 +110,19 @@ export default function Onboarding() {
                 <p className="mt-2 text-sm text-smoke">A photo makes your profile 10x more inviting.</p>
               </div>
               <AvatarUpload photoUrl={draft.photo_url} name={profile?.name} onUploaded={(url) => set({ photo_url: url })} />
-              <div>
-                <label htmlFor="age" className="label">Age</label>
-                <input id="age" type="number" min="16" max="100" className="input" value={draft.age} onChange={(e) => set({ age: e.target.value })} placeholder="e.g. 24" />
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div>
+                  <label htmlFor="age" className="label">Age</label>
+                  <input id="age" type="number" min="16" max="100" className="input" value={draft.age} onChange={(e) => set({ age: e.target.value })} placeholder="24" />
+                </div>
+                <div>
+                  <label htmlFor="city" className="label">City</label>
+                  <input id="city" type="text" className="input" value={draft.city} onChange={(e) => set({ city: e.target.value })} placeholder="London" />
+                </div>
+                <div>
+                  <label htmlFor="country" className="label">Country</label>
+                  <input id="country" type="text" className="input" value={draft.country} onChange={(e) => set({ country: e.target.value })} placeholder="UK" />
+                </div>
               </div>
               <div>
                 <label htmlFor="bio" className="label">One-line bio</label>
@@ -128,7 +140,7 @@ export default function Onboarding() {
             <div className="space-y-7">
               <div className="text-center">
                 <h2 className="text-2xl font-bold">Where do you post?</h2>
-                <p className="mt-2 text-sm text-smoke">Link your accounts so creators (and the Tryp team) can find your work.</p>
+                <p className="mt-2 text-sm text-smoke">Link your accounts so creators (and the Tryp.com Team) can find your work.</p>
               </div>
               <SocialInputs values={draft} onChange={(v) => set(v)} />
             </div>
@@ -139,7 +151,7 @@ export default function Onboarding() {
             <div className="space-y-6">
               <div className="text-center">
                 <h2 className="text-2xl font-bold">Paint your travel map 🌍</h2>
-                <p className="mt-2 text-sm text-smoke">Tap every country you've visited — they'll glow Tryp orange on your profile.</p>
+                <p className="mt-2 text-sm text-smoke">Tap every country you've visited and watch it glow Tryp orange on your profile.</p>
               </div>
               <WorldMap
                 selectable
@@ -176,7 +188,7 @@ export default function Onboarding() {
               <div className="grid gap-4 text-left sm:grid-cols-3">
                 {[
                   { emoji: '🏁', title: 'Challenges', text: 'Usually one live challenge at a time. Read the brief, film your video, paste your link before the deadline.' },
-                  { emoji: '👀', title: 'Review', text: 'When a challenge closes, the Tryp team reviews every entry and logs the final view counts.' },
+                  { emoji: '👀', title: 'Review', text: 'When a challenge closes, the Tryp.com Team reviews every entry and logs the final view counts.' },
                   { emoji: '🏆', title: 'Earn', text: 'Top creators win cash, every valid entry earns vouchers, and winners hit the Wall of Fame.' },
                 ].map((c) => (
                   <div key={c.title} className="rounded-xl bg-cloud p-5">
@@ -186,7 +198,7 @@ export default function Onboarding() {
                   </div>
                 ))}
               </div>
-              <p className="text-smoke">One last thing — want to say hi to everyone in the chat?</p>
+              <p className="text-smoke">One last thing. Want to say hi to everyone in the chat?</p>
             </div>
           )}
 
