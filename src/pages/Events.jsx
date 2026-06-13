@@ -114,28 +114,41 @@ export default function Events() {
               ))}
               {days.map((day) => {
                 const todaysEvents = eventsOn(day)
+                const hasEvents = todaysEvents.length > 0
                 const selected = selectedDay && isSameDay(day, selectedDay)
                 return (
                   <button
                     key={day.toISOString()}
                     onClick={() => setSelectedDay(selected ? null : day)}
                     className={cx(
-                      'flex min-h-[64px] flex-col items-center gap-1 bg-white p-2 transition-colors hover:bg-cloud sm:min-h-[80px]',
+                      'flex min-h-[64px] flex-col items-center gap-1 p-2 transition-colors sm:min-h-[80px]',
+                      // Days with events get a soft orange wash so they stand out.
+                      hasEvents ? 'bg-brand-tint/60 hover:bg-brand-tint' : 'bg-white hover:bg-cloud',
                       !isSameMonth(day, month) && 'text-gray-300',
-                      selected && '!bg-brand-tint'
+                      selected && '!bg-brand-tint ring-1 ring-inset ring-brand/40'
                     )}
                     aria-label={`${format(day, 'd MMMM')}${todaysEvents.length ? `, ${todaysEvents.length} events` : ''}`}
                   >
                     <span className={cx(
                       'flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium',
-                      isToday(day) && 'bg-brand text-white'
+                      isToday(day) ? 'bg-brand text-white' : hasEvents && 'font-semibold text-brand'
                     )}>
                       {format(day, 'd')}
                     </span>
+                    {/* Event pills: a small orange chip per event (with its emoji). */}
                     <span className="flex flex-wrap justify-center gap-0.5">
                       {todaysEvents.slice(0, 3).map((e) => (
-                        <span key={e.id} className="text-[10px]" title={e.title} aria-hidden>{metaFor(e.type).emoji}</span>
+                        <span
+                          key={e.id}
+                          title={e.title}
+                          className="inline-flex h-4 items-center rounded-full bg-brand px-1 text-[9px] leading-none text-white"
+                        >
+                          {metaFor(e.type).emoji}
+                        </span>
                       ))}
+                      {todaysEvents.length > 3 && (
+                        <span className="text-[9px] font-semibold text-brand">+{todaysEvents.length - 3}</span>
+                      )}
                     </span>
                   </button>
                 )

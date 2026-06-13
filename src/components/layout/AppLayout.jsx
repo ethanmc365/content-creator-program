@@ -29,6 +29,7 @@ const MOBILE_TABS = [
   { to: '/chat', label: 'Chat', icon: 'chat' },
   { to: '/messages', label: 'DMs', icon: 'envelope' },
   { to: '/events', label: 'Calendar', icon: 'calendar' },
+  { to: '/resources', label: 'Library', icon: 'book' },
 ]
 
 export default function AppLayout() {
@@ -126,7 +127,6 @@ export default function AppLayout() {
                   <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Explore</p>
                   <Link to="/creators" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Creators</Link>
                   <Link to="/wall-of-fame" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Wall of Fame</Link>
-                  <Link to="/resources" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Resource library</Link>
                   <Link to="/jobs" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Search roles</Link>
                   <Link to="/refer" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Refer a creator</Link>
 
@@ -147,13 +147,13 @@ export default function AppLayout() {
 
       {/* ------- Mobile bottom tab bar ------- */}
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-100 bg-white/95 backdrop-blur lg:hidden" aria-label="Mobile">
-        <div className="mx-auto flex max-w-md items-center justify-around py-2">
+        <div className="mx-auto flex max-w-lg items-center justify-around px-1 py-2">
           {MOBILE_TABS.map((tab) => (
             <NavLink
               key={tab.to}
               to={tab.to}
               className={({ isActive }) =>
-                cx('relative flex flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 text-[10px] font-medium', isActive ? 'text-brand' : 'text-smoke')
+                cx('relative flex flex-1 flex-col items-center gap-0.5 rounded-xl px-1 py-1.5 text-[9px] font-medium', isActive ? 'text-brand' : 'text-smoke')
               }
             >
               <Icon name={tab.icon} className="h-5 w-5" />

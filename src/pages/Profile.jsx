@@ -149,10 +149,7 @@ export default function Profile() {
         ))}
       </section>
 
-      {/* ---------- Travel photos ---------- */}
-      <ProfileGallery creatorId={creator.id} isMe={isMe} />
-
-      {/* ---------- About ---------- */}
+      {/* ---------- About (bio) ---------- */}
       {creator.about && (
         <section className="card">
           <h2 className="mb-3 text-lg font-semibold">About {creator.name.split(' ')[0]}</h2>
@@ -160,7 +157,17 @@ export default function Profile() {
         </section>
       )}
 
-      {/* ---------- World map ---------- */}
+      {/* ---------- Languages ---------- */}
+      {creator.languages?.length > 0 && (
+        <section>
+          <h2 className="mb-3 text-lg font-semibold">Languages</h2>
+          <div className="flex flex-wrap gap-2">
+            {creator.languages.map((l) => <Badge key={l} tone="light">{l}</Badge>)}
+          </div>
+        </section>
+      )}
+
+      {/* ---------- World map (countries visited) ---------- */}
       <section>
         <div className="mb-4 flex items-baseline justify-between">
           <h2 className="text-lg font-semibold">
@@ -178,15 +185,8 @@ export default function Profile() {
         )}
       </section>
 
-      {/* ---------- Languages ---------- */}
-      {creator.languages?.length > 0 && (
-        <section>
-          <h2 className="mb-3 text-lg font-semibold">Languages</h2>
-          <div className="flex flex-wrap gap-2">
-            {creator.languages.map((l) => <Badge key={l} tone="light">{l}</Badge>)}
-          </div>
-        </section>
-      )}
+      {/* ---------- Travel photos ---------- */}
+      <ProfileGallery creatorId={creator.id} isMe={isMe} />
 
       {/* ---------- Content showcase ---------- */}
       <section>

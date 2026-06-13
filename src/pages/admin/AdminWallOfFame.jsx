@@ -82,6 +82,21 @@ export default function AdminWallOfFame() {
     setSpots([...spots, { creator_id: result.creator_id, note: '', profile: result.profiles, views: result.final_views }])
   }
 
+  // Re-pull the top performers from the current leaderboard, keeping any notes
+  // you've already written for creators who are still featured.
+  function syncFromResults() {
+    const notesByCreator = Object.fromEntries(spots.map((s) => [s.creator_id, s.note]))
+    setSpots(
+      results.slice(0, Math.max(spots.length, 4)).map((r) => ({
+        creator_id: r.creator_id,
+        note: notesByCreator[r.creator_id] ?? '',
+        profile: r.profiles,
+        views: r.final_views,
+      }))
+    )
+    flash('Synced with the latest leaderboard. Review and republish to update the wall.')
+  }
+
   async function save(publish) {
     if (publish && !confirm('Publish this Wall of Fame? Every creator gets a "Results are in!" notification.')) return
     setBusy(true)
@@ -149,7 +164,16 @@ export default function AdminWallOfFame() {
 
           {/* ---------- Featured spots ---------- */}
           <section>
-            <h2 className="mb-4 text-lg font-semibold">Featured spots ({spots.length})</h2>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold">Featured spots ({spots.length})</h2>
+              <button onClick={syncFromResults} className="btn-secondary !py-2 text-xs" title="Re-pull the current top performers from the leaderboard">
+                ↻ Sync with leaderboard
+              </button>
+            </div>
+            <p className="mb-4 text-xs leading-relaxed text-smoke">
+              View counts always reflect the live leaderboard. If you re-enter results, click
+              "Sync with leaderboard" to refresh who's featured here, then republish.
+            </p>
             <div className="space-y-4">
               {spots.map((s, i) => (
                 <div key={s.creator_id} className={cx('card flex flex-wrap items-center gap-4 !p-5', i < 3 && 'border-brand/20 bg-brand-tint/30')}>
