@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import CountdownTimer from '../components/CountdownTimer'
 import WorldMap from '../components/WorldMap'
+import Icon from '../components/Icon'
 import { Avatar, Badge, Skeleton, StatCard } from '../components/ui'
 import { formatDate, timeAgo, formatMoney } from '../lib/utils'
 
@@ -133,7 +134,7 @@ export default function Home() {
       {announcement && (
         <section>
           <div className="mb-4 flex items-baseline justify-between">
-            <h2 className="text-lg font-semibold">📣 Latest announcement</h2>
+            <h2 className="flex items-center gap-2 text-lg font-semibold"><Icon name="megaphone" className="h-5 w-5 text-brand" /> Latest announcement</h2>
             <Link to="/chat/announcements" className="text-sm font-medium text-brand hover:underline">All announcements</Link>
           </div>
           <Link to="/chat/announcements" className="card block border-l-4 !border-l-brand transition-shadow hover:shadow-lift">
@@ -152,10 +153,10 @@ export default function Home() {
       {/* ---------- Combined "where we've been" map ---------- */}
       <section>
         <div className="mb-4 flex flex-col gap-1">
-          <h2 className="text-lg font-semibold">🌍 Where we've been, together</h2>
+          <h2 className="flex items-center gap-2 text-lg font-semibold"><Icon name="globe" className="h-5 w-5 text-brand" /> Where we've been, together</h2>
           <p className="text-sm text-smoke">
-            Our creators have collectively explored{' '}
-            <span className="font-semibold text-brand">{allCountries.length} countries</span>. How much of the world can we colour in?
+            We have collectively explored{' '}
+            <span className="font-semibold text-brand">{allCountries.length} countries</span>. How much of the world can we see together?
           </p>
         </div>
         <WorldMap selected={allCountries} />
@@ -164,7 +165,7 @@ export default function Home() {
       {/* ---------- New creators ---------- */}
       <section>
         <div className="mb-4 flex items-baseline justify-between">
-          <h2 className="text-lg font-semibold">✨ New in the community</h2>
+          <h2 className="flex items-center gap-2 text-lg font-semibold"><Icon name="users" className="h-5 w-5 text-brand" /> New in the community</h2>
           <Link to="/creators" className="text-sm font-medium text-brand hover:underline">Browse all</Link>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

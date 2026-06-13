@@ -40,25 +40,46 @@ export default function AdminEmail() {
 
   const bccList = emails.join(',')
   const mailto = `mailto:?bcc=${encodeURIComponent(bccList)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`
-  const tooLongForMailto = mailto.length > 1900 // some mail clients truncate long URLs
+  // Gmail web compose — opens in a new tab, works without a desktop mail client.
+  const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&bcc=${encodeURIComponent(bccList)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`
+  const tooLong = gmailUrl.length > 1900 // very large lists can exceed URL limits
 
   async function logCampaign() {
     if (!subject.trim()) return
     await supabase.from('email_campaigns').insert({
       subject: subject.trim(), body: bodyText.trim(), recipient_count: emails.length, sent_by: user.id,
     })
-    // Refresh history.
     const { data } = await supabase.from('email_campaigns').select('*').order('created_at', { ascending: false }).limit(10)
     setHistory(data ?? [])
   }
 
+  // Primary: open Gmail compose in a new tab (reliable in any browser).
+  function openInGmail() {
+    logCampaign()
+    window.open(gmailUrl, '_blank', 'noopener')
+  }
+
+  // Secondary: hand off to the OS default mail app via mailto.
   function openInMailApp() {
     logCampaign()
     window.location.href = mailto
   }
 
-  function copyEmails() {
-    navigator.clipboard?.writeText(bccList)
+  // Copy with a textarea fallback for browsers that block the async clipboard.
+  async function copyEmails() {
+    try {
+      await navigator.clipboard.writeText(bccList)
+    } catch {
+      const ta = document.createElement('textarea')
+      ta.value = bccList
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.focus()
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+    }
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -86,23 +107,26 @@ export default function AdminEmail() {
               <textarea id="email-body" rows={10} className="input" value={bodyText} onChange={(e) => setBodyText(e.target.value)} placeholder="Write your email to the whole community…" />
             </div>
 
-            {tooLongForMailto && (
+            {tooLong && (
               <p className="rounded-xl bg-amber-50 px-4 py-3 text-xs text-amber-700">
-                You have a lot of recipients. Some mail apps limit link length, so if the BCC list looks cut off,
-                use "Copy all emails" below and paste them into your email's BCC field instead.
+                You have a lot of recipients. If the BCC list looks cut off, use "Copy all emails"
+                and paste them into your email's BCC field instead.
               </p>
             )}
 
             <div className="flex flex-wrap items-center gap-3">
-              <button onClick={openInMailApp} disabled={!subject.trim() || emails.length === 0} className="btn-primary">
-                Open in email app →
+              <button onClick={openInGmail} disabled={!subject.trim() || emails.length === 0} className="btn-primary">
+                Compose in Gmail →
+              </button>
+              <button onClick={openInMailApp} disabled={!subject.trim() || emails.length === 0} className="btn-secondary">
+                Use my mail app
               </button>
               <button onClick={copyEmails} className="btn-secondary">{copied ? 'Copied ✓' : 'Copy all emails'}</button>
-              <button onClick={logCampaign} disabled={!subject.trim()} className="btn-ghost text-xs">Just log it (sent elsewhere)</button>
             </div>
             <p className="text-xs leading-relaxed text-smoke">
-              Tip: clicking "Open in email app" records this campaign and launches your mail client with the
-              subject, body and BCC list pre-filled. Review it there, then hit send.
+              "Compose in Gmail" opens a new tab with the subject, body and every creator in BCC,
+              ready for you to review and send. Prefer Outlook or Apple Mail? Use "Use my mail app".
+              Either way, the campaign is logged below.
             </p>
           </section>
 

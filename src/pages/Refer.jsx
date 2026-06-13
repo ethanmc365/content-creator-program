@@ -21,6 +21,8 @@ export default function Refer() {
 
   const inviteLink = `${window.location.origin}/signup?ref=${profile?.referral_code ?? ''}`
 
+  const [participatedCount, setParticipatedCount] = useState(0)
+
   async function load() {
     const [{ data: refs }, { data: joinedProfiles }] = await Promise.all([
       supabase.from('referrals').select('*').eq('referrer_id', user.id).order('created_at', { ascending: false }),
@@ -28,6 +30,16 @@ export default function Refer() {
     ])
     setReferrals(refs ?? [])
     setJoined(joinedProfiles ?? [])
+
+    // How many referred creators have actually participated (made a submission)?
+    // This is what counts towards the £20 voucher reward.
+    const joinedIds = (joinedProfiles ?? []).map((p) => p.id)
+    if (joinedIds.length) {
+      const { data: subs } = await supabase.from('submissions').select('creator_id').in('creator_id', joinedIds)
+      setParticipatedCount(new Set((subs ?? []).map((s) => s.creator_id)).size)
+    } else {
+      setParticipatedCount(0)
+    }
     setLoading(false)
   }
   useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -61,6 +73,27 @@ export default function Refer() {
         title="Refer a creator"
         subtitle="Know someone who'd be perfect for the program? Bring them in. A bigger community means better collabs for everyone."
       />
+
+      {/* Reward incentive + progress */}
+      <section className="mb-8 overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-7 text-white shadow-lift sm:p-8">
+        <p className="text-xl font-bold sm:text-2xl">Refer 3 creators, earn a £20 Tryp.com voucher 🎁</p>
+        <p className="mt-2 max-w-2xl text-sm text-white/85">
+          When 3 creators you refer join and take part in a challenge, you earn a £20 Tryp.com voucher.
+          All referrals are verified by the Tryp.com team to make sure they're genuine, active creators.
+        </p>
+        <div className="mt-5 max-w-sm">
+          <div className="mb-1.5 flex justify-between text-xs font-medium text-white/90">
+            <span>Your progress</span>
+            <span>{Math.min(participatedCount, 3)} / 3 participating</span>
+          </div>
+          <div className="h-2.5 overflow-hidden rounded-full bg-white/25">
+            <div className="h-full rounded-full bg-white transition-all duration-500" style={{ width: `${Math.min((participatedCount / 3) * 100, 100)}%` }} />
+          </div>
+          {participatedCount >= 3 && (
+            <p className="mt-2 text-sm font-semibold">🎉 You've hit 3! The team will verify and send your voucher.</p>
+          )}
+        </div>
+      </section>
 
       {/* Invite link */}
       <section className="card mb-8">

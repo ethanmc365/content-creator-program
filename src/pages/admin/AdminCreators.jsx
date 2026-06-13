@@ -78,6 +78,17 @@ export default function AdminCreators() {
     flash(error ? `Couldn't send: ${error.message}` : `Reset email sent to ${email}.`)
   }
 
+  // Permanently delete a creator and everything they created. Irreversible.
+  async function deleteCreator(creator) {
+    if (!confirm(`PERMANENTLY delete ${creator.name}? This removes their account and ALL their content (submissions, messages, photos, rewards). This cannot be undone.`)) return
+    if (!confirm(`Are you absolutely sure? Type-check: this will erase ${creator.name} forever.`)) return
+    const { error } = await supabase.rpc('admin_delete_creator', { target: creator.id })
+    if (error) return flash(`Couldn't delete: ${error.message}`)
+    flash(`${creator.name} has been permanently deleted.`)
+    setSelected(null)
+    load()
+  }
+
   async function dmCreator(creator) {
     const { data: existing } = await supabase
       .from('conversations')
@@ -242,6 +253,17 @@ export default function AdminCreators() {
               <p className="text-[11px] leading-relaxed text-smoke">
                 Muted: can browse but not post. Suspended: locked out of the platform entirely.
               </p>
+
+              {/* Danger zone: permanent deletion */}
+              {!selected.is_admin && (
+                <div className="mt-4 rounded-xl border border-red-100 bg-red-50/50 p-4">
+                  <p className="text-xs font-semibold text-red-600">Danger zone</p>
+                  <p className="mb-3 mt-1 text-[11px] leading-relaxed text-smoke">
+                    Permanently delete this creator and all their content. This cannot be undone.
+                  </p>
+                  <button onClick={() => deleteCreator(selected)} className="btn-danger !py-2 text-xs">🗑 Delete creator</button>
+                </div>
+              )}
             </div>
           </div>
         )}

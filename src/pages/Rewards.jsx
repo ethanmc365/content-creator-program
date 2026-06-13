@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 import { Badge, EmptyState, PageHeader, Skeleton, StatCard } from '../components/ui'
 import { formatDate, formatMoney } from '../lib/utils'
 
-// A creator's own reward history (RLS means they only ever see their rows).
+// A creator's own reward history. We filter by creator_id explicitly so that
+// admins (whose RLS lets them read every reward) still see only *their own*
+// rewards on this personal page. The all-rewards view lives in Admin → Rewards.
 export default function Rewards() {
+  const { user } = useAuth()
   const [rewards, setRewards] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -13,12 +17,13 @@ export default function Rewards() {
     supabase
       .from('rewards')
       .select('*, challenges(title)')
+      .eq('creator_id', user.id)
       .order('created_at', { ascending: false })
       .then(({ data }) => {
         setRewards(data ?? [])
         setLoading(false)
       })
-  }, [])
+  }, [user.id])
 
   const earned = rewards.filter((r) => r.status === 'distributed').reduce((s, r) => s + Number(r.amount), 0)
   const pending = rewards.filter((r) => r.status === 'pending').reduce((s, r) => s + Number(r.amount), 0)
