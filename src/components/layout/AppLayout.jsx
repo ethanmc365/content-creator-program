@@ -7,25 +7,13 @@ import Icon from '../Icon'
 import NotificationBell from './NotificationBell'
 import { cx } from '../../lib/utils'
 
-// The signed-in app shell:
-//  * Desktop — top navbar with all destinations.
-//  * Mobile  — slim top bar + bottom tab bar (creators are mostly on phones).
-const NAV = [
-  { to: '/home', label: 'Home' },
-  { to: '/challenges', label: 'Challenges' },
-  { to: '/creators', label: 'Creators' },
-  { to: '/chat', label: 'Chat' },
-  { to: '/messages', label: 'Messages' },
-  { to: '/wall-of-fame', label: 'Wall of Fame' },
-  { to: '/resources', label: 'Resources' },
-  { to: '/events', label: 'Events' },
-  { to: '/jobs', label: 'Jobs' },
-]
-
-// Mobile bottom tabs use shared Icon names (kept in sync with the rest of the app).
-const MOBILE_TABS = [
+// The signed-in app shell. One shared set of icon tabs powers BOTH the
+// desktop top bar and the mobile bottom bar, so they look identical.
+// Secondary destinations (Creators, roles, etc.) live in the avatar dropdown.
+const TABS = [
   { to: '/home', label: 'Home', icon: 'home' },
   { to: '/challenges', label: 'Challenges', icon: 'flag' },
+  { to: '/creators', label: 'Creators', icon: 'users' },
   { to: '/chat', label: 'Chat', icon: 'chat' },
   { to: '/messages', label: 'DMs', icon: 'envelope' },
   { to: '/events', label: 'Calendar', icon: 'calendar' },
@@ -70,10 +58,11 @@ export default function AppLayout() {
     navigate('/')
   }
 
+  // Desktop nav item: icon on top of label, matching the mobile tab bar.
   const navLinkClass = ({ isActive }) =>
     cx(
-      'rounded-full px-4 py-2 text-sm font-medium transition-colors',
-      isActive ? 'bg-brand-tint text-brand' : 'text-smoke hover:bg-cloud hover:text-ink'
+      'relative flex flex-col items-center gap-0.5 rounded-xl px-4 py-1.5 text-[11px] font-medium transition-colors',
+      isActive ? 'text-brand' : 'text-smoke hover:text-ink'
     )
 
   return (
@@ -86,12 +75,13 @@ export default function AppLayout() {
             <span className="hidden text-sm font-semibold text-smoke md:block">Content Creator Program</span>
           </Link>
 
-          <nav className="hidden items-center gap-1 lg:flex" aria-label="Main">
-            {NAV.map((item) => (
+          <nav className="hidden items-center gap-2 lg:flex" aria-label="Main">
+            {TABS.map((item) => (
               <NavLink key={item.to} to={item.to} className={navLinkClass}>
+                <Icon name={item.icon} className="h-5 w-5" />
                 {item.label}
                 {item.to === '/messages' && dmUnread > 0 && (
-                  <span className="ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-brand px-1 text-[10px] font-semibold text-white">
+                  <span className="absolute right-2 top-0 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-brand px-1 text-[9px] font-semibold text-white">
                     {dmUnread > 9 ? '9+' : dmUnread}
                   </span>
                 )}
@@ -123,10 +113,8 @@ export default function AppLayout() {
                   <Link to="/rewards" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">My rewards</Link>
                   <Link to="/dashboard" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">My dashboard</Link>
 
-                  {/* Explore — guarantees every destination is reachable at any screen width */}
+                  {/* Explore — secondary destinations not in the main tab bar */}
                   <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Explore</p>
-                  <Link to="/creators" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Creators</Link>
-                  <Link to="/wall-of-fame" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Wall of Fame</Link>
                   <Link to="/jobs" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Search roles</Link>
                   <Link to="/refer" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Refer a creator</Link>
 
@@ -147,8 +135,8 @@ export default function AppLayout() {
 
       {/* ------- Mobile bottom tab bar ------- */}
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-100 bg-white/95 backdrop-blur lg:hidden" aria-label="Mobile">
-        <div className="mx-auto flex max-w-lg items-center justify-around px-1 py-2">
-          {MOBILE_TABS.map((tab) => (
+        <div className="mx-auto flex max-w-lg items-center justify-around px-0.5 py-2">
+          {TABS.map((tab) => (
             <NavLink
               key={tab.to}
               to={tab.to}

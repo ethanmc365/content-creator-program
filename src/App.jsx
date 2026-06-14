@@ -19,7 +19,6 @@ import Chat from './pages/Chat'
 import Messages from './pages/Messages'
 import Challenges from './pages/Challenges'
 import ChallengeDetail from './pages/ChallengeDetail'
-import WallOfFame from './pages/WallOfFame'
 import Rewards from './pages/Rewards'
 import Resources from './pages/Resources'
 import Events from './pages/Events'
@@ -34,7 +33,6 @@ import AdminCreators from './pages/admin/AdminCreators'
 import AdminChallenges from './pages/admin/AdminChallenges'
 import AdminChallengeForm from './pages/admin/AdminChallengeForm'
 import AdminResults from './pages/admin/AdminResults'
-import AdminWallOfFame from './pages/admin/AdminWallOfFame'
 import AdminRewards from './pages/admin/AdminRewards'
 import AdminAnalytics from './pages/admin/AdminAnalytics'
 import AdminEvents from './pages/admin/AdminEvents'
@@ -69,7 +67,6 @@ export default function App() {
           <Route path="/messages/:conversationId" element={<Messages />} />
           <Route path="/challenges" element={<Challenges />} />
           <Route path="/challenges/:id" element={<ChallengeDetail />} />
-          <Route path="/wall-of-fame" element={<WallOfFame />} />
           <Route path="/rewards" element={<Rewards />} />
           <Route path="/resources" element={<Resources />} />
           <Route path="/events" element={<Events />} />
@@ -86,7 +83,6 @@ export default function App() {
             <Route path="/admin/challenges/new" element={<AdminChallengeForm />} />
             <Route path="/admin/challenges/:id/edit" element={<AdminChallengeForm />} />
             <Route path="/admin/challenges/:id/results" element={<AdminResults />} />
-            <Route path="/admin/challenges/:id/wall-of-fame" element={<AdminWallOfFame />} />
             <Route path="/admin/rewards" element={<AdminRewards />} />
             <Route path="/admin/analytics" element={<AdminAnalytics />} />
             <Route path="/admin/events" element={<AdminEvents />} />

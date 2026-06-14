@@ -189,7 +189,7 @@ export default function Onboarding() {
                 {[
                   { emoji: '🏁', title: 'Challenges', text: 'Usually one live challenge at a time. Read the brief, film your video, paste your link before the deadline.' },
                   { emoji: '👀', title: 'Review', text: 'When a challenge closes, the Tryp.com Team reviews every entry and logs the final view counts.' },
-                  { emoji: '🏆', title: 'Earn', text: 'Top creators win cash, every valid entry earns vouchers, and winners hit the Wall of Fame.' },
+                  { emoji: '🏆', title: 'Earn', text: 'Top creators win cash, every valid entry earns vouchers, and winners top the leaderboard.' },
                 ].map((c) => (
                   <div key={c.title} className="rounded-xl bg-cloud p-5">
                     <p className="text-2xl" aria-hidden>{c.emoji}</p>

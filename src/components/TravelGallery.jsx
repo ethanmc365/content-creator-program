@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { compressImage } from '../lib/image'
 import { Spinner } from './ui'
 
 const MAX_PHOTOS = 20
@@ -42,13 +43,13 @@ export default function TravelGallery({ creatorId, editable = false }) {
     setUploading(true)
     let order = photos.length
     for (const file of files) {
-      if (!file.type.startsWith('image/') || file.size > 8 * 1024 * 1024) {
-        setError('Each photo must be an image under 8MB.')
+      if (!file.type.startsWith('image/') || file.size > 15 * 1024 * 1024) {
+        setError('Each photo must be an image under 15MB.')
         continue
       }
-      const ext = file.name.split('.').pop() || 'jpg'
-      const path = `${user.id}/${Date.now()}-${order}.${ext}`
-      const { error: upErr } = await supabase.storage.from('gallery').upload(path, file)
+      const compressed = await compressImage(file, { maxDim: 1280, quality: 0.82 })
+      const path = `${user.id}/${Date.now()}-${order}.jpg`
+      const { error: upErr } = await supabase.storage.from('gallery').upload(path, compressed)
       if (upErr) { setError(upErr.message); continue }
       const url = supabase.storage.from('gallery').getPublicUrl(path).data.publicUrl
       await supabase.from('creator_photos').insert({ creator_id: user.id, photo_url: url, sort_order: order++ })

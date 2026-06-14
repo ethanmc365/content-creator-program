@@ -77,7 +77,7 @@ export default function AdminResults() {
     setGenerating(false)
     if (error) return flash(`Couldn't save results: ${error.message}`)
     setResultsCount(ranked.length)
-    flash(`Leaderboard saved. ${ranked.length} creators ranked. Now curate the Wall of Fame! 🏆`)
+    flash(`Leaderboard saved. ${ranked.length} creators ranked and now live on the challenge page. 🏁`)
   }
 
   if (loading) {
@@ -97,8 +97,8 @@ export default function AdminResults() {
               {generating ? <Spinner /> : '🏁 Generate leaderboard'}
             </button>
             {resultsCount > 0 && (
-              <Link to={`/admin/challenges/${id}/wall-of-fame`} className="text-xs font-medium text-brand hover:underline">
-                Leaderboard saved ({resultsCount}) → curate Wall of Fame
+              <Link to={`/challenges/${id}`} className="text-xs font-medium text-brand hover:underline">
+                Leaderboard saved ({resultsCount}) → view on challenge page
               </Link>
             )}
           </div>

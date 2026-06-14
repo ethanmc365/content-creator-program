@@ -114,11 +114,11 @@ export default function Home() {
           <h2 className="mt-3 text-xl font-semibold">No live challenge right now</h2>
           <p className="mx-auto mt-2 max-w-md text-smoke">
             The next one is around the corner. You'll get a notification the moment it drops.
-            Meanwhile, polish your profile or browse past winners for inspiration.
+            Meanwhile, polish your profile or browse past challenges for inspiration.
           </p>
           <div className="mt-6 flex justify-center gap-3">
-            <Link to="/wall-of-fame" className="btn-primary">Wall of Fame</Link>
-            <Link to="/challenges" className="btn-secondary">Past challenges</Link>
+            <Link to="/challenges" className="btn-primary">Past challenges</Link>
+            <Link to="/creators" className="btn-secondary">Meet the creators</Link>
           </div>
         </section>
       )}

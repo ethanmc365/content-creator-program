@@ -5,6 +5,7 @@
 import { useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { compressImage } from '../lib/image'
 import { Avatar, Spinner } from './ui'
 
 export const LANGUAGE_OPTIONS = [
@@ -24,12 +25,14 @@ export function AvatarUpload({ photoUrl, name, onUploaded }) {
   async function handleFile(e) {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 5 * 1024 * 1024) return setError('Please choose an image under 5MB.')
+    if (!file.type.startsWith('image/')) return setError('Please choose an image.')
+    if (file.size > 15 * 1024 * 1024) return setError('Please choose an image under 15MB.')
     setError('')
     setBusy(true)
-    const ext = file.name.split('.').pop()
-    const path = `${user.id}/avatar-${Date.now()}.${ext}` // unique name busts caches
-    const { error: uploadError } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
+    // Avatars only ever render small, so 512px keeps them tiny in storage.
+    const compressed = await compressImage(file, { maxDim: 512, quality: 0.85 })
+    const path = `${user.id}/avatar-${Date.now()}.jpg` // unique name busts caches
+    const { error: uploadError } = await supabase.storage.from('avatars').upload(path, compressed, { upsert: true })
     if (uploadError) {
       setError(uploadError.message)
       setBusy(false)

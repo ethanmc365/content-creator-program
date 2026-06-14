@@ -127,7 +127,6 @@ export default function ChallengeDetail() {
               <>
                 <Link to={`/admin/challenges/${id}/edit`} className="btn-secondary !py-2 text-xs">Edit</Link>
                 <Link to={`/admin/challenges/${id}/results`} className="btn-secondary !py-2 text-xs">Enter results</Link>
-                <Link to={`/admin/challenges/${id}/wall-of-fame`} className="btn-secondary !py-2 text-xs">Wall of Fame</Link>
               </>
             )}
             {isLive ? <Badge tone="brand">Live</Badge> : <Badge tone="grey">{challenge.status}</Badge>}

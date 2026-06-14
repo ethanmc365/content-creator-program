@@ -15,7 +15,7 @@ export default function AdminChallenges() {
   async function load() {
     const { data } = await supabase
       .from('challenges')
-      .select('*, submissions(count), wall_of_fame(published)')
+      .select('*, submissions(count)')
       .order('created_at', { ascending: false })
     setChallenges(data ?? [])
     setLoading(false)
@@ -60,7 +60,6 @@ export default function AdminChallenges() {
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="text-lg font-semibold">{c.title}</h2>
                     <Badge tone={STATUS_TONE[c.status]}>{c.status}</Badge>
-                    {c.wall_of_fame?.[0]?.published && <Badge tone="green">Wall published</Badge>}
                   </div>
                   <p className="mt-1 text-sm text-smoke">
                     {formatDate(c.start_date)} → {formatDate(c.end_date)} · {c.submissions?.[0]?.count ?? 0} entries
@@ -84,8 +83,7 @@ export default function AdminChallenges() {
               <div className="mt-5 flex flex-wrap gap-2 border-t border-gray-50 pt-5">
                 <Link to={`/challenges/${c.id}`} className="btn-ghost !py-2 text-xs">View page</Link>
                 <Link to={`/admin/challenges/${c.id}/edit`} className="btn-secondary !py-2 text-xs">✏️ Edit</Link>
-                <Link to={`/admin/challenges/${c.id}/results`} className="btn-secondary !py-2 text-xs">📊 Results & views</Link>
-                <Link to={`/admin/challenges/${c.id}/wall-of-fame`} className="btn-secondary !py-2 text-xs">🏆 Wall of Fame</Link>
+                <Link to={`/admin/challenges/${c.id}/results`} className="btn-secondary !py-2 text-xs">📊 Results & leaderboard</Link>
               </div>
             </div>
           ))}
