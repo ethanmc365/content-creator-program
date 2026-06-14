@@ -60,7 +60,7 @@ export function Skeleton({ className = '' }) {
 /** A standard card-shaped loading skeleton used by list pages. */
 export function SkeletonCards({ count = 3 }) {
   return (
-    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
       {Array.from({ length: count }).map((_, i) => (
         <div key={i} className="card space-y-4">
           <Skeleton className="h-14 w-14 rounded-full" />

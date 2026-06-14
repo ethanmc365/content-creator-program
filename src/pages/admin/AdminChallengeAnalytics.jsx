@@ -71,7 +71,7 @@ export default function AdminChallengeAnalytics() {
   }, [raw])
 
   if (!raw || !d) {
-    return <div className="page space-y-6"><Skeleton className="h-10 w-72" /><div className="grid gap-4 sm:grid-cols-4"><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /></div><Skeleton className="h-72 w-full" /></div>
+    return <div className="page space-y-6"><Skeleton className="h-10 w-72" /><div className="grid grid-cols-1 gap-4 sm:grid-cols-4"><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /></div><Skeleton className="h-72 w-full" /></div>
   }
 
   const { challenge, subs, results } = raw
@@ -112,7 +112,7 @@ export default function AdminChallengeAnalytics() {
         <StatCard label="Reviewed" value={`${subs.filter((s) => s.logged_views != null).length}/${d.submissions}`} hint="views logged" />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* ---------- Platform breakdown ---------- */}
         <section className="card">
           <h2 className="mb-6 font-semibold">Entries by platform</h2>

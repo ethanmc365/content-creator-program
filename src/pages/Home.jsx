@@ -68,7 +68,7 @@ export default function Home() {
       <div className="page space-y-8">
         <Skeleton className="h-10 w-64" />
         <Skeleton className="h-64 w-full" />
-        <div className="grid gap-4 sm:grid-cols-3"><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /></div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3"><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /></div>
       </div>
     )
   }
@@ -124,7 +124,7 @@ export default function Home() {
       )}
 
       {/* ---------- Program stats ---------- */}
-      <section className="grid gap-4 sm:grid-cols-3">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label="Creators in the program" value={stats.creators} />
         <StatCard label="Prizes distributed" value={formatMoney(stats.prizes)} accent />
         <StatCard label="Member since" value={formatDate(profile?.created_at)} />
@@ -133,9 +133,9 @@ export default function Home() {
       {/* ---------- Latest announcement ---------- */}
       {announcement && (
         <section>
-          <div className="mb-4 flex items-baseline justify-between">
-            <h2 className="flex items-center gap-2 text-lg font-semibold"><Icon name="megaphone" className="h-5 w-5 text-brand" /> Latest announcement</h2>
-            <Link to="/chat/announcements" className="text-sm font-medium text-brand hover:underline">All announcements</Link>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="flex items-center gap-2 text-lg font-semibold"><Icon name="megaphone" className="h-5 w-5 shrink-0 text-brand" /> Latest announcement</h2>
+            <Link to="/chat/announcements" className="shrink-0 text-sm font-medium text-brand hover:underline">All announcements</Link>
           </div>
           <Link to="/chat/announcements" className="card block border-l-4 !border-l-brand transition-shadow hover:shadow-lift">
             <div className="flex items-center gap-3">
@@ -168,7 +168,7 @@ export default function Home() {
           <h2 className="flex items-center gap-2 text-lg font-semibold"><Icon name="users" className="h-5 w-5 text-brand" /> New in the community</h2>
           <Link to="/creators" className="text-sm font-medium text-brand hover:underline">Browse all</Link>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {newCreators.map((c) => (
             <Link key={c.id} to={`/profile/${c.id}`} className="card flex items-center gap-4 !p-5 transition-all hover:-translate-y-0.5 hover:shadow-lift">
               <Avatar src={c.photo_url} name={c.name} size="md" />

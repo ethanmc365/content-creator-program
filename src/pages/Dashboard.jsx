@@ -48,7 +48,7 @@ export default function Dashboard() {
     return (
       <div className="page space-y-6">
         <Skeleton className="h-10 w-64" />
-        <div className="grid gap-4 sm:grid-cols-4"><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /></div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-4"><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /></div>
       </div>
     )
   }

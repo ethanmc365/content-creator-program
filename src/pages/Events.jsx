@@ -96,7 +96,7 @@ export default function Events() {
       {loading ? (
         <Skeleton className="h-96 w-full" />
       ) : (
-        <div className="grid gap-10 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-10 lg:grid-cols-3">
           {/* ---------- Month grid ---------- */}
           <div className="lg:col-span-2">
             <div className="mb-5 flex items-center justify-between">

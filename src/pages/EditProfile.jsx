@@ -55,7 +55,7 @@ export default function EditProfile() {
         <section className="card space-y-6">
           <h2 className="text-lg font-semibold">Photo & basics</h2>
           <AvatarUpload photoUrl={form.photo_url} name={form.name} onUploaded={(url) => set({ photo_url: url })} />
-          <div className="grid gap-5 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <div>
               <label htmlFor="name" className="label">Display name</label>
               <input id="name" type="text" required className="input" value={form.name} onChange={(e) => set({ name: e.target.value })} />
@@ -65,7 +65,7 @@ export default function EditProfile() {
               <input id="age" type="number" min="16" max="100" className="input" value={form.age} onChange={(e) => set({ age: e.target.value })} />
             </div>
           </div>
-          <div className="grid gap-5 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <div>
               <label htmlFor="city" className="label">City</label>
               <input id="city" type="text" className="input" value={form.city} onChange={(e) => set({ city: e.target.value })} placeholder="e.g. London" />

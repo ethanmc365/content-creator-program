@@ -57,7 +57,7 @@ export default function Directory() {
       />
 
       {/* Search + filters */}
-      <div className="mb-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-10 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <input
           type="search" className="input" placeholder="Search by name…"
           value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search creators by name"
@@ -92,7 +92,7 @@ export default function Directory() {
           }
         />
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((c) => (
             <CreatorCard
               key={c.id}

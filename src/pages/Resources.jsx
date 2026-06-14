@@ -82,7 +82,7 @@ export default function Resources() {
           hint={search || category !== 'All' ? 'Try a different search or category.' : 'The Tryp.com Team will publish guides and assets here soon.'}
         />
       ) : (
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {filtered.map((r) => {
             const open = openId === r.id
             const long = (r.body || '').length > 280

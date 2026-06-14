@@ -133,8 +133,8 @@ export default function AdminAnalytics() {
     return (
       <div className="page space-y-6">
         <Skeleton className="h-10 w-72" />
-        <div className="grid gap-4 sm:grid-cols-4"><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /></div>
-        <div className="grid gap-6 lg:grid-cols-2"><Skeleton className="h-80" /><Skeleton className="h-80" /></div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-4"><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /></div>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2"><Skeleton className="h-80" /><Skeleton className="h-80" /></div>
       </div>
     )
   }
@@ -150,7 +150,7 @@ export default function AdminAnalytics() {
         <StatCard label="Prize money paid" value={formatMoney(derived.totalPaid)} accent />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <ChartCard
           title="Creator growth"
           subtitle="Cumulative sign-ups over time"

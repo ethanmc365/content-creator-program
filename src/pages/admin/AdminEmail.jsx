@@ -92,7 +92,7 @@ export default function AdminEmail() {
         <Skeleton className="h-96 w-full" />
       ) : (
         <>
-          <div className="mb-8 grid gap-4 sm:grid-cols-2">
+          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <StatCard label="Recipients" value={emails.length} hint="Active creators" accent />
             <StatCard label="Sent so far" value={history.length >= 10 ? '10+' : history.length} hint="Logged campaigns" />
           </div>

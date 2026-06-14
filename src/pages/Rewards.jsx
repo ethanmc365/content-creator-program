@@ -36,7 +36,7 @@ export default function Rewards() {
         <div className="space-y-4"><Skeleton className="h-28 w-full" /><Skeleton className="h-16 w-full" /><Skeleton className="h-16 w-full" /></div>
       ) : (
         <>
-          <div className="mb-10 grid gap-4 sm:grid-cols-2">
+          <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <StatCard label="Total received" value={formatMoney(earned)} accent />
             <StatCard label="Pending" value={formatMoney(pending)} hint={pending > 0 ? 'On its way. The team is processing it.' : 'Nothing pending right now.'} />
           </div>

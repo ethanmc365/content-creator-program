@@ -199,7 +199,7 @@ export default function Profile() {
             action={isMe && <Link to="/challenges" className="btn-primary">View challenges</Link>}
           />
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {submissions.map((s) => (
               <a
                 key={s.id}

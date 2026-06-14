@@ -49,7 +49,7 @@ export default function AdminPanel() {
       <PageHeader title="Admin panel" subtitle="Everything you need to run the program, in one place." />
 
       {!stats ? (
-        <div className="grid gap-4 sm:grid-cols-4"><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /></div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-4"><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /></div>
       ) : (
         <div className="mb-12 grid grid-cols-2 gap-4 lg:grid-cols-4">
           <StatCard label="Creators" value={stats.creators} />
@@ -71,7 +71,7 @@ export default function AdminPanel() {
         </Link>
       )}
 
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {TOOLS.map((t) => (
           <Link key={t.to} to={t.to} className="card group !p-7 transition-all hover:-translate-y-0.5 hover:shadow-lift">
             <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-tint text-brand">

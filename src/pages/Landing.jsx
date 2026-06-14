@@ -82,7 +82,7 @@ export default function Landing() {
       <section className="mx-auto max-w-6xl px-5 py-24 sm:px-8">
         <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">How it works</h2>
         <p className="mx-auto mt-4 max-w-md text-center text-smoke">Three steps between you and your first payout.</p>
-        <div className="mt-16 grid gap-8 sm:grid-cols-3">
+        <div className="mt-16 grid grid-cols-1 gap-8 sm:grid-cols-3">
           {[
             { step: '01', emoji: '✍️', title: 'Apply', text: 'Sign up for free, build your creator profile, and fill in your travel map. Share your socials and connect with other creators.' },
             { step: '02', emoji: '🎬', title: 'Create', text: 'Participate in content challenges with a clear brief. Film your video, post it on Instagram or TikTok, and share the link for it to be counted.' },
@@ -102,7 +102,7 @@ export default function Landing() {
       <section className="bg-cloud/50 py-24">
         <div className="mx-auto max-w-6xl px-5 sm:px-8">
           <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">Why creators join</h2>
-          <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-16 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {[
               { emoji: '💷', title: 'Real cash prizes', text: 'Cash for the top spots in every challenge, spend it your way.' },
               { emoji: '✈️', title: 'Travel vouchers', text: 'Participating in challenges earns you Tryp.com vouchers you can use to book your next trip.' },

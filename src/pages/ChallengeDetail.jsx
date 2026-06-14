@@ -167,7 +167,7 @@ export default function ChallengeDetail() {
 
       {/* ---------- Tab: brief ---------- */}
       {tab === 'brief' && (
-        <div className="grid gap-8 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
           <div className="space-y-8 lg:col-span-2">
             <section className="card">
               <h2 className="mb-3 text-lg font-semibold">The brief</h2>
@@ -226,7 +226,7 @@ export default function ChallengeDetail() {
             action={isLive && <button onClick={() => setShowSubmit(true)} className="btn-primary">Submit your video</button>}
           />
         ) : (
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {submissions.map((s) => (
               <div key={s.id} className="card flex flex-col gap-4 !p-6">
                 <div className="flex items-center gap-3">

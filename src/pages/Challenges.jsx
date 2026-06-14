@@ -62,7 +62,7 @@ export default function Challenges() {
           {past.length > 0 && (
             <section>
               <h2 className="mb-5 text-lg font-semibold text-smoke">Past challenges</h2>
-              <div className="grid gap-6 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                 {past.map((c) => (
                   <Link key={c.id} to={`/challenges/${c.id}`} className="card group transition-all hover:-translate-y-0.5 hover:shadow-lift">
                     <div className="flex items-center justify-between gap-3">

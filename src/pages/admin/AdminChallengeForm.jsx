@@ -136,7 +136,7 @@ export default function AdminChallengeForm() {
 
         <section className="card space-y-6">
           <h2 className="text-lg font-semibold">Dates & platforms</h2>
-          <div className="grid gap-5 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <div>
               <label htmlFor="start_date" className="label">Starts</label>
               <input id="start_date" type="datetime-local" required className="input" value={form.start_date} onChange={(e) => set({ start_date: e.target.value })} />

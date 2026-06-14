@@ -55,7 +55,7 @@ export default function AdminReferrals() {
         action={<button onClick={exportCsv} className="btn-secondary">Export CSV ↓</button>}
       />
 
-      <div className="mb-10 grid gap-4 sm:grid-cols-3">
+      <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label="Joined via link" value={joined.length} accent />
         <StatCard label="Open leads" value={referrals.filter((r) => r.status === 'new' || r.status === 'contacted').length} />
         <StatCard label="Total referrals" value={joined.length + referrals.length} />

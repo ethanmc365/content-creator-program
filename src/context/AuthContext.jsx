@@ -28,21 +28,40 @@ export function AuthProvider({ children }) {
   }, [session, fetchProfile])
 
   useEffect(() => {
-    // 1. Check for an existing session on first load.
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session)
-      if (session?.user) setProfile(await fetchProfile(session.user.id))
-      setLoading(false)
-    })
+    let cancelled = false
+
+    // Safety net: never let the app hang on the full-screen spinner. If the
+    // session check stalls (e.g. flaky network when a home-screen PWA resumes
+    // from the background), resolve loading anyway after a few seconds so the
+    // UI renders instead of spinning forever.
+    const safety = setTimeout(() => { if (!cancelled) setLoading(false) }, 5000)
+
+    // 1. Check for an existing session on first load. Resolve `loading` as soon
+    //    as we know the session — don't block it on the slower profile fetch.
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        if (cancelled) return
+        setSession(session)
+        setLoading(false)
+        if (session?.user) fetchProfile(session.user.id).then((p) => !cancelled && setProfile(p))
+      })
+      .catch(() => { if (!cancelled) setLoading(false) })
 
     // 2. React to sign-in / sign-out / token refresh events.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (cancelled) return
       setSession(session)
-      setProfile(session?.user ? await fetchProfile(session.user.id) : null)
       setLoading(false)
+      if (session?.user) fetchProfile(session.user.id).then((p) => !cancelled && setProfile(p))
+      else setProfile(null)
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      cancelled = true
+      clearTimeout(safety)
+      subscription.unsubscribe()
+    }
   }, [fetchProfile])
 
   const value = {

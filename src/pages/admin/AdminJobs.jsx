@@ -100,7 +100,7 @@ export default function AdminJobs() {
             <label htmlFor="j-title" className="label">Title</label>
             <input id="j-title" type="text" required className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Scotland Country Manager" />
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="j-loc" className="label">Location</label>
               <input id="j-loc" type="text" className="input" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="e.g. Edinburgh / Remote" />

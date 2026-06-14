@@ -110,7 +110,7 @@ export default function Onboarding() {
                 <p className="mt-2 text-sm text-smoke">A photo makes your profile 10x more inviting.</p>
               </div>
               <AvatarUpload photoUrl={draft.photo_url} name={profile?.name} onUploaded={(url) => set({ photo_url: url })} />
-              <div className="grid gap-4 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div>
                   <label htmlFor="age" className="label">Age</label>
                   <input id="age" type="number" min="16" max="100" className="input" value={draft.age} onChange={(e) => set({ age: e.target.value })} placeholder="24" />
@@ -185,7 +185,7 @@ export default function Onboarding() {
           {step === 5 && (
             <div className="space-y-6 text-center">
               <h2 className="text-2xl font-bold">How the program works</h2>
-              <div className="grid gap-4 text-left sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 text-left sm:grid-cols-3">
                 {[
                   { emoji: '🏁', title: 'Challenges', text: 'Usually one live challenge at a time. Read the brief, film your video, paste your link before the deadline.' },
                   { emoji: '👀', title: 'Review', text: 'When a challenge closes, the Tryp.com Team reviews every entry and logs the final view counts.' },

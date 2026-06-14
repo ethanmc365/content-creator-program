@@ -10,14 +10,14 @@ import { cx } from '../../lib/utils'
 // The signed-in app shell. One shared set of icon tabs powers BOTH the
 // desktop top bar and the mobile bottom bar, so they look identical.
 // Secondary destinations (Creators, roles, etc.) live in the avatar dropdown.
+// Five primary tabs keep the bottom bar uncramped on phones. Secondary
+// destinations (Creators, Library, roles, refer) live in the avatar dropdown.
 const TABS = [
   { to: '/home', label: 'Home', icon: 'home' },
   { to: '/challenges', label: 'Challenges', icon: 'flag' },
-  { to: '/creators', label: 'Creators', icon: 'users' },
   { to: '/chat', label: 'Chat', icon: 'chat' },
   { to: '/messages', label: 'DMs', icon: 'envelope' },
   { to: '/events', label: 'Calendar', icon: 'calendar' },
-  { to: '/resources', label: 'Library', icon: 'book' },
 ]
 
 export default function AppLayout() {
@@ -115,6 +115,8 @@ export default function AppLayout() {
 
                   {/* Explore — secondary destinations not in the main tab bar */}
                   <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Explore</p>
+                  <Link to="/creators" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Creators</Link>
+                  <Link to="/resources" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Resource library</Link>
                   <Link to="/jobs" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Search roles</Link>
                   <Link to="/refer" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Refer a creator</Link>
 

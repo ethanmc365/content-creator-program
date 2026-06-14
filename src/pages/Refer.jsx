@@ -110,7 +110,7 @@ export default function Refer() {
         <h2 className="text-lg font-semibold">Or refer someone directly</h2>
         <p className="mt-1 text-sm text-smoke">Give us their details and the team will reach out.</p>
         <form onSubmit={submit} className="mt-5 space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="r-name" className="label">Their name</label>
               <input id="r-name" type="text" required className="input" value={form.referred_name} onChange={(e) => setForm({ ...form, referred_name: e.target.value })} placeholder="e.g. Leo Fairbanks" />
