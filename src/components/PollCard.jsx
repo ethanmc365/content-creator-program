@@ -45,9 +45,12 @@ export default function PollCard({ pollId }) {
   async function vote(optionId) {
     if (closed || busy) return
     setBusy(true)
-    // Change vote: clear any existing vote first, then add the new one.
-    if (myVote) await supabase.from('poll_votes').delete().eq('id', myVote.id)
-    if (!myVote || myVote.option_id !== optionId) {
+    // Always clear this user's existing vote for the poll by (poll, voter) —
+    // robust even if local state is briefly stale, so a re-vote never trips the
+    // one-vote-per-person unique constraint.
+    await supabase.from('poll_votes').delete().eq('poll_id', pollId).eq('voter_id', user.id)
+    // Clicking the option you already had toggles your vote off; otherwise record it.
+    if (myVote?.option_id !== optionId) {
       await supabase.from('poll_votes').insert({ poll_id: pollId, option_id: optionId, voter_id: user.id })
     }
     await load()
