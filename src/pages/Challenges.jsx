@@ -44,7 +44,7 @@ export default function Challenges() {
         <div className="space-y-12">
           {/* ---------- Live ---------- */}
           {live.map((c) => (
-            <Link key={c.id} to={`/challenges/${c.id}`} className="block overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-8 text-white shadow-lift transition-transform hover:scale-[1.005] sm:p-10">
+            <Link key={c.id} to={`/challenges/${c.id}`} className="block overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-6 text-white shadow-lift transition-transform hover:scale-[1.005] sm:p-10">
               <div className="flex flex-wrap items-center gap-3">
                 <Badge className="!bg-white/20 !text-white">Live now</Badge>
                 <span className="text-xs text-white/75">{formatDate(c.start_date)} → {formatDate(c.end_date)}</span>

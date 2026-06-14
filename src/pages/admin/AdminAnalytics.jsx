@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Bar, BarChart, CartesianGrid, Line, LineChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -34,7 +35,13 @@ function ChartCard({ title, subtitle, onExport, children }) {
 }
 
 export default function AdminAnalytics() {
+  const navigate = useNavigate()
   const [raw, setRaw] = useState(null)
+  // Clicking any per-challenge bar opens that challenge's deep-dive page.
+  const openChallenge = (data) => {
+    const id = data?.activePayload?.[0]?.payload?.id
+    if (id) navigate(`/admin/analytics/${id}`)
+  }
 
   useEffect(() => {
     async function load() {
@@ -74,8 +81,11 @@ export default function AdminAnalytics() {
       const viewed = subs.filter((s) => s.logged_views != null)
       const totalViews = viewed.reduce((sum, s) => sum + s.logged_views, 0)
       return {
+        id: c.id,
+        status: c.status,
         name: c.title.length > 18 ? c.title.slice(0, 18) + '…' : c.title,
         fullTitle: c.title,
+        creators: new Set(subs.map((s) => s.creator_id)).size,
         submissions: subs.length,
         totalViews,
         avgViews: viewed.length ? Math.round(totalViews / viewed.length) : 0,
@@ -84,6 +94,9 @@ export default function AdminAnalytics() {
           .reduce((sum, r) => sum + Number(r.amount), 0),
       }
     })
+    // Charts stay readable by showing only the most recent 8 challenges;
+    // the full clickable list below covers every challenge, however many.
+    const perChallengeRecent = perChallenge.slice(-8)
 
     // 4. Most active creators (submissions + chat messages).
     const nameById = Object.fromEntries(profiles.map((p) => [p.id, p.name]))
@@ -109,7 +122,7 @@ export default function AdminAnalytics() {
 
     const totalPaid = rewards.filter((r) => r.status === 'distributed').reduce((s, r) => s + Number(r.amount), 0)
 
-    return { growth, perChallenge, mostActive, chat, totalPaid, totals: {
+    return { growth, perChallenge, perChallengeRecent, mostActive, chat, totalPaid, totals: {
       creators: profiles.length,
       submissions: submissions.length,
       challenges: challenges.length,
@@ -156,10 +169,11 @@ export default function AdminAnalytics() {
 
         <ChartCard
           title="Submissions per challenge"
+          subtitle="Recent challenges · tap a bar for the full breakdown"
           onExport={() => downloadCsv('submissions-per-challenge.csv', derived.perChallenge.map(({ fullTitle, submissions }) => ({ challenge: fullTitle, submissions })))}
         >
           <ResponsiveContainer>
-            <BarChart data={derived.perChallenge} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+            <BarChart data={derived.perChallengeRecent} onClick={openChallenge} style={{ cursor: 'pointer' }} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
               <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6B7280' }} />
               <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
@@ -171,11 +185,11 @@ export default function AdminAnalytics() {
 
         <ChartCard
           title="Logged views per challenge"
-          subtitle="Total (orange) and average per entry (light)"
+          subtitle="Total (orange) and average per entry (light) · tap a bar"
           onExport={() => downloadCsv('views-per-challenge.csv', derived.perChallenge.map(({ fullTitle, totalViews, avgViews }) => ({ challenge: fullTitle, total_views: totalViews, avg_views: avgViews })))}
         >
           <ResponsiveContainer>
-            <BarChart data={derived.perChallenge} margin={{ top: 4, right: 8, left: -8, bottom: 0 }}>
+            <BarChart data={derived.perChallengeRecent} onClick={openChallenge} style={{ cursor: 'pointer' }} margin={{ top: 4, right: 8, left: -8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
               <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6B7280' }} />
               <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={formatViews} />
@@ -188,10 +202,11 @@ export default function AdminAnalytics() {
 
         <ChartCard
           title="Prize money per challenge"
+          subtitle="Recent challenges · tap a bar for the full breakdown"
           onExport={() => downloadCsv('prizes-per-challenge.csv', derived.perChallenge.map(({ fullTitle, prizesPaid }) => ({ challenge: fullTitle, prizes_paid_gbp: prizesPaid })))}
         >
           <ResponsiveContainer>
-            <BarChart data={derived.perChallenge} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+            <BarChart data={derived.perChallengeRecent} onClick={openChallenge} style={{ cursor: 'pointer' }} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
               <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6B7280' }} />
               <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={(v) => `£${v}`} />
@@ -232,6 +247,35 @@ export default function AdminAnalytics() {
           </ResponsiveContainer>
         </ChartCard>
       </div>
+
+      {/* ---------- All challenges (clickable, scales to any number) ---------- */}
+      <section className="mt-10">
+        <h2 className="mb-4 text-lg font-semibold">All challenges</h2>
+        <p className="mb-4 text-sm text-smoke">Tap any challenge for a full performance breakdown.</p>
+        <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
+          {/* Header row (hidden on mobile) */}
+          <div className="hidden grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-3 border-b border-gray-100 bg-cloud/60 px-5 py-3 text-xs font-semibold text-smoke sm:grid">
+            <span>Challenge</span><span className="text-right">Creators</span><span className="text-right">Entries</span><span className="text-right">Total views</span><span className="text-right">Paid out</span>
+          </div>
+          {[...derived.perChallenge].reverse().map((c) => (
+            <button
+              key={c.id}
+              onClick={() => navigate(`/admin/analytics/${c.id}`)}
+              className="grid w-full grid-cols-2 items-center gap-3 border-b border-gray-50 px-5 py-4 text-left transition-colors last:border-0 hover:bg-cloud/60 sm:grid-cols-[2fr_1fr_1fr_1fr_1fr]"
+            >
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-semibold">{c.fullTitle}</span>
+                <span className="text-xs capitalize text-smoke">{c.status}</span>
+              </span>
+              <span className="text-right text-sm tabular-nums sm:block"><span className="text-xs text-smoke sm:hidden">Creators </span>{c.creators}</span>
+              <span className="hidden text-right text-sm tabular-nums sm:block">{c.submissions}</span>
+              <span className="hidden text-right text-sm tabular-nums sm:block">{formatViews(c.totalViews)}</span>
+              <span className="hidden text-right text-sm font-medium tabular-nums sm:block">{formatMoney(c.prizesPaid)}</span>
+            </button>
+          ))}
+          {derived.perChallenge.length === 0 && <p className="px-5 py-10 text-center text-sm text-smoke">No challenges yet.</p>}
+        </div>
+      </section>
     </div>
   )
 }

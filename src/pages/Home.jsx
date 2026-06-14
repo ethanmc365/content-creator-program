@@ -85,7 +85,7 @@ export default function Home() {
 
       {/* ---------- Current challenge hero ---------- */}
       {challenge ? (
-        <section className="overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-8 text-white shadow-lift sm:p-12">
+        <section className="overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-6 text-white shadow-lift sm:p-12">
           <Badge className="!bg-white/20 !text-white">Live challenge</Badge>
           <h2 className="mt-4 max-w-xl text-3xl font-bold leading-tight sm:text-4xl">{challenge.title}</h2>
           <p className="mt-3 max-w-xl text-white/85 line-clamp-2">{challenge.description}</p>

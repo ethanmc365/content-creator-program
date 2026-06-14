@@ -41,10 +41,12 @@ export default function CountdownTimer({ endDate, compact = false }) {
   ]
 
   return (
-    <div className="flex gap-3" role="timer" aria-label={`${left.days} days ${left.hours} hours remaining`}>
+    // Cells shrink to fit narrow screens (flex-1, no fixed min-width) so the
+    // timer never forces the parent card wider than the viewport on mobile.
+    <div className="flex w-full max-w-xs gap-2 sm:max-w-none sm:gap-3" role="timer" aria-label={`${left.days} days ${left.hours} hours remaining`}>
       {cells.map((c) => (
-        <div key={c.label} className="flex min-w-[64px] flex-col items-center rounded-xl bg-white/90 px-3 py-2 shadow-card">
-          <span className="text-2xl font-bold tabular-nums text-ink">{String(c.value).padStart(2, '0')}</span>
+        <div key={c.label} className="flex flex-1 flex-col items-center rounded-xl bg-white/90 px-1.5 py-2 shadow-card sm:min-w-[64px] sm:px-3">
+          <span className="text-xl font-bold tabular-nums text-ink sm:text-2xl">{String(c.value).padStart(2, '0')}</span>
           <span className="text-[10px] font-medium uppercase tracking-wide text-smoke">{c.label}</span>
         </div>
       ))}

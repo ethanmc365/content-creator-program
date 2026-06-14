@@ -135,21 +135,19 @@ export default function Events() {
                     )}>
                       {format(day, 'd')}
                     </span>
-                    {/* Event pills: a small orange chip per event (with its emoji). */}
-                    <span className="flex flex-wrap justify-center gap-0.5">
-                      {todaysEvents.slice(0, 3).map((e) => (
-                        <span
-                          key={e.id}
-                          title={e.title}
-                          className="inline-flex h-4 items-center rounded-full bg-brand px-1 text-[9px] leading-none text-white"
-                        >
-                          {metaFor(e.type).emoji}
-                        </span>
-                      ))}
-                      {todaysEvents.length > 3 && (
-                        <span className="text-[9px] font-semibold text-brand">+{todaysEvents.length - 3}</span>
-                      )}
-                    </span>
+                    {/* A clear orange star per event (up to 3), then a +N count. */}
+                    {hasEvents && (
+                      <span className="flex flex-wrap items-center justify-center gap-0.5" title={todaysEvents.map((e) => e.title).join(', ')}>
+                        {todaysEvents.slice(0, 3).map((e) => (
+                          <svg key={e.id} className="h-3 w-3 text-brand" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                            <path d="M11.48 3.5a.56.56 0 011.04 0l2.13 4.74 5.18.53c.5.05.7.68.32 1.02l-3.87 3.46 1.1 5.09c.1.49-.43.87-.86.61L12 16.8l-4.52 2.65c-.43.26-.96-.12-.86-.61l1.1-5.09-3.87-3.46a.56.56 0 01.32-1.02l5.18-.53 2.13-4.74z"/>
+                          </svg>
+                        ))}
+                        {todaysEvents.length > 3 && (
+                          <span className="text-[9px] font-semibold text-brand">+{todaysEvents.length - 3}</span>
+                        )}
+                      </span>
+                    )}
                   </button>
                 )
               })}

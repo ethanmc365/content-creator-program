@@ -13,6 +13,8 @@
 
   body {
     @apply bg-white font-sans text-ink;
+    /* Safety net: never let a stray wide element zoom the whole page out on mobile. */
+    overflow-x: hidden;
   }
 
   /* Strong, visible keyboard focus everywhere (accessibility). */
