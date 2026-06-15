@@ -25,7 +25,13 @@ webpush.setVapidDetails('mailto:hello@tryp.com', VAPID_PUBLIC, VAPID_PRIVATE)
 // Categories that also send an email (DMs / chat / connections stay in-app only).
 const EMAIL_TYPES = new Set(['announcement', 'challenge', 'event', 'results', 'application'])
 
+const WEBHOOK_SECRET = Deno.env.get('WEBHOOK_SECRET')
+
 Deno.serve(async (req) => {
+  // Only the database webhook (which knows the shared secret) may call this.
+  if (WEBHOOK_SECRET && req.headers.get('x-webhook-secret') !== WEBHOOK_SECRET) {
+    return new Response('unauthorized', { status: 401 })
+  }
   const payload = await req.json().catch(() => ({}))
   const n = payload.record ?? payload
   if (!n?.recipient_id) return new Response('no recipient', { status: 200 })
