@@ -1,6 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { Spinner } from './ui'
+import { PlaneLoader } from './ui'
 
 // Route guards.
 //  <ProtectedRoute>  — must be signed in (and not suspended).
@@ -10,7 +10,7 @@ import { Spinner } from './ui'
 function FullPageSpinner() {
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <Spinner className="h-8 w-8 text-brand" />
+      <PlaneLoader />
     </div>
   )
 }

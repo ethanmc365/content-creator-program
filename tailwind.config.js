@@ -42,11 +42,20 @@ export default {
           '0%': { transform: 'translateY(-10vh) rotate(0deg)', opacity: '1' },
           '100%': { transform: 'translateY(110vh) rotate(720deg)', opacity: '0' },
         },
+        // An aeroplane flying across, used by the airplane loader.
+        fly: {
+          '0%': { transform: 'translateX(-130%) translateY(2px)', opacity: '0' },
+          '15%': { opacity: '1' },
+          '50%': { transform: 'translateX(40%) translateY(-2px)' },
+          '85%': { opacity: '1' },
+          '100%': { transform: 'translateX(210%) translateY(2px)', opacity: '0' },
+        },
       },
       animation: {
         'fade-up': 'fade-up 0.4s ease-out both',
         'pop-in': 'pop-in 0.35s ease-out both',
         confetti: 'confetti 3s linear forwards',
+        fly: 'fly 1.7s ease-in-out infinite',
       },
     },
   },

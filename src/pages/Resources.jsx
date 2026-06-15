@@ -7,7 +7,8 @@ import { formatDate, cx } from '../lib/utils'
 
 // The permanent content library: tips, video ideas, brand guidelines,
 // do's & don'ts, downloadable assets and example content.
-const CATEGORIES = ['All', 'Tips', 'Video Ideas', 'Brand Guidelines', "Do's & Don'ts", 'Assets', 'Examples']
+// Categories are admin-defined (free text), so the filter pills are built
+// from whatever categories actually exist in the library.
 const CATEGORY_EMOJI = {
   Tips: '💡', 'Video Ideas': '🎬', 'Brand Guidelines': '🧭',
   "Do's & Don'ts": '✅', Assets: '📦', Examples: '⭐',
@@ -31,6 +32,12 @@ export default function Resources() {
         setLoading(false)
       })
   }, [])
+
+  // Build the pill list from the categories actually in use.
+  const CATEGORIES = useMemo(
+    () => ['All', ...[...new Set(resources.map((r) => r.category).filter(Boolean))].sort()],
+    [resources]
+  )
 
   const filtered = useMemo(
     () =>

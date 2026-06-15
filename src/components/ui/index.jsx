@@ -52,6 +52,22 @@ export function Spinner({ className = 'h-5 w-5' }) {
   )
 }
 
+/** Airplane loader — used for full-page / route loading instead of a plain circle. */
+export function PlaneLoader({ label = 'Loading…', className = '' }) {
+  return (
+    <div className={cx('flex flex-col items-center gap-4', className)}>
+      <div className="relative h-8 w-24 overflow-hidden">
+        {/* dashed flight path */}
+        <div className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 border-t-2 border-dashed border-brand/25" />
+        <svg className="absolute top-1/2 h-6 w-6 -translate-y-1/2 animate-fly text-brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+        </svg>
+      </div>
+      {label && <span className="text-sm font-medium text-smoke">{label}</span>}
+    </div>
+  )
+}
+
 /** Grey shimmer block — compose these into loading skeletons, never blank screens. */
 export function Skeleton({ className = '' }) {
   return <div className={cx('animate-pulse rounded-xl bg-cloud', className)} />

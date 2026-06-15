@@ -6,6 +6,8 @@ import { useAuth } from '../context/AuthContext'
 import { Avatar, Badge, Modal, Skeleton, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
 import PollCard from '../components/PollCard'
+import GameEventCard from '../components/GameEventCard'
+import { CONTINENTS } from '../lib/countries'
 import { formatChatTime, cx } from '../lib/utils'
 
 // Real-time community chat — the WhatsApp replacement.
@@ -44,6 +46,11 @@ export default function Chat() {
   const [pollQuestion, setPollQuestion] = useState('')
   const [pollOptions, setPollOptions] = useState(['', ''])
   const [creatingPoll, setCreatingPoll] = useState(false)
+
+  // Game-event composer (admins).
+  const [showGame, setShowGame] = useState(false)
+  const [gameForm, setGameForm] = useState({ title: '', mode: 'flags', region: 'World' })
+  const [creatingGame, setCreatingGame] = useState(false)
 
   const meta = CHANNELS.find((c) => c.key === channel) ?? CHANNELS[0]
   const canPost = channel !== 'announcements' || isAdmin
@@ -197,6 +204,30 @@ export default function Chat() {
     setPollOptions(['', ''])
   }
 
+  // Create a game event: makes the event, then posts a message carrying its
+  // card so creators can launch it from the chat.
+  async function createGameEvent(e) {
+    e.preventDefault()
+    if (!gameForm.title.trim()) return
+    setCreatingGame(true)
+    const { data: ev, error } = await supabase
+      .from('game_events')
+      .insert({ title: gameForm.title.trim(), mode: gameForm.mode, region: gameForm.region, created_by: user.id })
+      .select('id')
+      .single()
+    if (!error && ev) {
+      await supabase.from('messages').insert({
+        channel,
+        sender_id: user.id,
+        body: `🎮 New game challenge: ${gameForm.title.trim()}`,
+        game_event_id: ev.id,
+      })
+    }
+    setCreatingGame(false)
+    setShowGame(false)
+    setGameForm({ title: '', mode: 'flags', region: 'World' })
+  }
+
   // Group reactions per message: { '❤️': { count, mine } }
   function reactionSummary(messageId) {
     const grouped = {}
@@ -311,6 +342,7 @@ export default function Chat() {
 
                   {/* Inline poll (announcement messages only) */}
                   {m.poll_id && <PollCard pollId={m.poll_id} />}
+                  {m.game_event_id && <GameEventCard eventId={m.game_event_id} />}
 
                   {/* Reactions */}
                   <div className={cx('mt-1 flex flex-wrap items-center gap-1', mine && 'justify-end')}>
@@ -372,11 +404,18 @@ export default function Chat() {
           ) : canPost ? (
             <>
             {attachError && <p className="mb-2 text-xs text-red-600">{attachError}</p>}
-            {/* Admins can launch a poll in the announcements channel. */}
-            {isAdmin && channel === 'announcements' && (
-              <button type="button" onClick={() => setShowPoll(true)} className="btn-secondary mb-3 !py-2 text-xs">
-                <Icon name="poll" className="h-4 w-4" /> Create a poll
-              </button>
+            {/* Admin tools: polls (announcements) + game challenges (any channel). */}
+            {isAdmin && (
+              <div className="mb-3 flex flex-wrap gap-2">
+                {channel === 'announcements' && (
+                  <button type="button" onClick={() => setShowPoll(true)} className="btn-secondary !py-2 text-xs">
+                    <Icon name="poll" className="h-4 w-4" /> Create a poll
+                  </button>
+                )}
+                <button type="button" onClick={() => setShowGame(true)} className="btn-secondary !py-2 text-xs">
+                  🎮 Game challenge
+                </button>
+              </div>
             )}
             <form onSubmit={send} className="flex items-end gap-2 sm:gap-3">
               {/* Image attach: uploads and sends immediately, with any typed
@@ -449,6 +488,35 @@ export default function Chat() {
           </div>
           <button type="submit" disabled={creatingPoll} className="btn-primary w-full">
             {creatingPoll ? <Spinner /> : 'Post poll to announcements'}
+          </button>
+        </form>
+      </Modal>
+
+      {/* ---------- Create-game-event modal ---------- */}
+      <Modal open={showGame} onClose={() => setShowGame(false)} title="Post a game challenge">
+        <form onSubmit={createGameEvent} className="space-y-5">
+          <div>
+            <label htmlFor="game-title" className="label">Challenge title</label>
+            <input id="game-title" type="text" required className="input" value={gameForm.title} onChange={(e) => setGameForm({ ...gameForm, title: e.target.value })} placeholder="e.g. Friday Flag Frenzy 🚩" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="game-mode" className="label">Mode</label>
+              <select id="game-mode" className="input" value={gameForm.mode} onChange={(e) => setGameForm({ ...gameForm, mode: e.target.value })}>
+                <option value="flags">🚩 Guess the flag</option>
+                <option value="map">📍 Find on the map</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="game-region" className="label">Region</label>
+              <select id="game-region" className="input" value={gameForm.region} onChange={(e) => setGameForm({ ...gameForm, region: e.target.value })}>
+                <option value="World">🌍 World</option>
+                {CONTINENTS.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+          </div>
+          <button type="submit" disabled={creatingGame} className="btn-primary w-full">
+            {creatingGame ? <Spinner /> : `Post to #${meta.label.toLowerCase()}`}
           </button>
         </form>
       </Modal>

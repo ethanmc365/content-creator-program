@@ -119,6 +119,7 @@ export default function AppLayout() {
                   <Link to="/resources" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Resource library</Link>
                   <Link to="/jobs" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Search roles</Link>
                   <Link to="/refer" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Refer a creator</Link>
+                  <Link to="/game" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">🌍 Geography game</Link>
 
                   <div className="my-1 border-t border-gray-100" />
                   {isAdmin && <Link to="/admin" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm font-medium text-brand hover:bg-cloud">Admin panel</Link>}
@@ -130,23 +131,25 @@ export default function AppLayout() {
         </div>
       </header>
 
-      {/* ------- Page content (pb-24 leaves room for the mobile tab bar) ------- */}
-      <main className="flex-1 pb-24 lg:pb-0">
+      {/* ------- Page content (extra bottom room for the tab bar + safe area) ------- */}
+      <main className="flex-1 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0">
         <Outlet />
       </main>
 
-      {/* ------- Mobile bottom tab bar ------- */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-100 bg-white/95 backdrop-blur lg:hidden" aria-label="Mobile">
-        <div className="mx-auto flex max-w-lg items-center justify-around px-0.5 py-2">
+      {/* ------- Mobile bottom tab bar -------
+          Bottom padding includes the iPhone home-indicator safe area so the
+          tabs sit higher and stay easily tappable. */}
+      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-100 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden" aria-label="Mobile">
+        <div className="mx-auto flex max-w-lg items-center justify-around px-0.5 pb-1.5 pt-2">
           {TABS.map((tab) => (
             <NavLink
               key={tab.to}
               to={tab.to}
               className={({ isActive }) =>
-                cx('relative flex flex-1 flex-col items-center gap-0.5 rounded-xl px-1 py-1.5 text-[9px] font-medium', isActive ? 'text-brand' : 'text-smoke')
+                cx('relative flex flex-1 flex-col items-center gap-1 rounded-xl px-1 py-1 text-[10px] font-medium', isActive ? 'text-brand' : 'text-smoke')
               }
             >
-              <Icon name={tab.icon} className="h-5 w-5" />
+              <Icon name={tab.icon} className="h-6 w-6" />
               {tab.label}
               {tab.to === '/messages' && dmUnread > 0 && (
                 <span className="absolute -top-0.5 right-1 h-2.5 w-2.5 rounded-full bg-brand" aria-label={`${dmUnread} unread`} />

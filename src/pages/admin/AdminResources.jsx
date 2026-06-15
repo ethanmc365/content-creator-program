@@ -115,9 +115,15 @@ export default function AdminResources() {
             </div>
             <div>
               <label htmlFor="res-cat" className="label">Category</label>
-              <select id="res-cat" className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-                {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-              </select>
+              {/* Free text with suggestions — type a preset or invent your own. */}
+              <input
+                id="res-cat" type="text" required className="input" list="res-categories"
+                value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}
+                placeholder="Pick or type a category"
+              />
+              <datalist id="res-categories">
+                {CATEGORIES.map((c) => <option key={c} value={c} />)}
+              </datalist>
             </div>
           </div>
           <div>

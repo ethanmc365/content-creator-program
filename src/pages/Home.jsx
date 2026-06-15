@@ -133,9 +133,9 @@ export default function Home() {
       {/* ---------- Latest announcement ---------- */}
       {announcement && (
         <section>
-          <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="mb-4">
             <h2 className="flex items-center gap-2 text-lg font-semibold"><Icon name="megaphone" className="h-5 w-5 shrink-0 text-brand" /> Latest announcement</h2>
-            <Link to="/chat/announcements" className="shrink-0 text-sm font-medium text-brand hover:underline">All announcements</Link>
+            <Link to="/chat/announcements" className="mt-1 inline-block text-sm font-medium text-brand hover:underline">All announcements →</Link>
           </div>
           <Link to="/chat/announcements" className="card block border-l-4 !border-l-brand transition-shadow hover:shadow-lift">
             <div className="flex items-center gap-3">
@@ -164,9 +164,9 @@ export default function Home() {
 
       {/* ---------- New creators ---------- */}
       <section>
-        <div className="mb-4 flex items-baseline justify-between">
+        <div className="mb-4">
           <h2 className="flex items-center gap-2 text-lg font-semibold"><Icon name="users" className="h-5 w-5 text-brand" /> New in the community</h2>
-          <Link to="/creators" className="text-sm font-medium text-brand hover:underline">Browse all</Link>
+          <Link to="/creators" className="mt-1 inline-block text-sm font-medium text-brand hover:underline">Browse all →</Link>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {newCreators.map((c) => (
