@@ -95,7 +95,7 @@ export default function Messages() {
         if (msg.sender_id !== user.id && msg.recipient_id !== user.id) return
         if (msg.conversation_id === conversationId) {
           setThread((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]))
-          // I'm looking at this thread — mark it read immediately.
+          // I'm looking at this thread - mark it read immediately.
           if (msg.recipient_id === user.id) {
             await supabase.from('direct_messages').update({ read: true }).eq('id', msg.id)
           }

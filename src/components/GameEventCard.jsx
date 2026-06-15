@@ -40,7 +40,7 @@ export default function GameEventCard({ eventId }) {
   return (
     <div className="mt-1 w-72 max-w-full overflow-hidden rounded-2xl border border-brand/20 bg-white sm:w-80">
       <div className="bg-gradient-to-br from-brand to-brand-light px-4 py-3 text-white">
-        <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-white/80"><Icon name="plane" className="h-3.5 w-3.5" /> Game challenge</p>
+        <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-white/80"><Icon name="joystick" className="h-3.5 w-3.5" /> Game challenge</p>
         <p className="text-sm font-bold leading-snug">{event.title}</p>
         <p className="text-xs text-white/85">{MODE_LABEL[event.mode] || event.mode} · {event.region}</p>
       </div>
@@ -55,7 +55,7 @@ export default function GameEventCard({ eventId }) {
             ))}
           </ol>
         ) : (
-          <p className="mb-3 text-xs text-smoke">No scores yet — be first on the board!</p>
+          <p className="mb-3 text-xs text-smoke">No scores yet. Be first on the board!</p>
         )}
         <Link to={`/game?event=${eventId}`} className="btn-primary w-full !py-2 text-xs">Play now →</Link>
       </div>

@@ -17,7 +17,7 @@ export default function Onboarding() {
   const [step, setStep] = useState(0)
   const [busy, setBusy] = useState(false)
 
-  // Local draft of the profile — saved to Supabase when finishing.
+  // Local draft of the profile - saved to Supabase when finishing.
   const [draft, setDraft] = useState({
     photo_url: profile?.photo_url || '',
     dob: profile?.dob || null,
@@ -34,12 +34,16 @@ export default function Onboarding() {
 
   const set = (patch) => setDraft((d) => ({ ...d, ...patch }))
 
-  // Profile completion meter shown at the top — pure encouragement.
+  // Profile completion meter shown at the top - pure encouragement.
   const completion = [
     draft.photo_url, draft.bio, draft.about,
     draft.instagram_url || draft.tiktok_url || draft.youtube_url,
     draft.countries_visited.length > 0, draft.languages.length > 0,
   ].filter(Boolean).length
+
+  // New creators are 'pending' until an admin approves them, so they cannot
+  // post yet and land on the review screen instead of the chat.
+  const pending = profile?.status === 'pending'
 
   async function finish(sayHello) {
     setBusy(true)
@@ -51,8 +55,8 @@ export default function Onboarding() {
       })
       .eq('id', user.id)
 
-    // Optional friendly hello in #general to break the ice.
-    if (sayHello) {
+    // Optional friendly hello in #general to break the ice (approved members only).
+    if (sayHello && !pending) {
       await supabase.from('messages').insert({
         channel: 'general',
         sender_id: user.id,
@@ -61,7 +65,8 @@ export default function Onboarding() {
     }
 
     await refreshProfile()
-    navigate(sayHello ? '/chat/general' : '/home')
+    // Pending creators get gated to the review screen by ProtectedRoute.
+    navigate(sayHello && !pending ? '/chat/general' : '/home')
   }
 
   return (
@@ -194,7 +199,11 @@ export default function Onboarding() {
                   </div>
                 ))}
               </div>
-              <p className="text-smoke">One last thing. Want to say hi to everyone in the chat?</p>
+              <p className="text-smoke">
+                {pending
+                  ? 'One last thing. Submit your profile and the Tryp.com Team will review your application.'
+                  : 'One last thing. Want to say hi to everyone in the chat?'}
+              </p>
             </div>
           )}
 
@@ -209,12 +218,18 @@ export default function Onboarding() {
               </button>
             )}
             {step === STEPS.length - 1 && (
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <button onClick={() => finish(false)} disabled={busy} className="btn-secondary">Skip for now</button>
-                <button onClick={() => finish(true)} disabled={busy} className="btn-primary">
-                  {busy ? <Spinner /> : 'Say hello in chat 👋'}
+              pending ? (
+                <button onClick={() => finish(false)} disabled={busy} className="btn-primary sm:ml-auto">
+                  {busy ? <Spinner /> : 'Submit application →'}
                 </button>
-              </div>
+              ) : (
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <button onClick={() => finish(false)} disabled={busy} className="btn-secondary">Skip for now</button>
+                  <button onClick={() => finish(true)} disabled={busy} className="btn-primary">
+                    {busy ? <Spinner /> : 'Say hello in chat 👋'}
+                  </button>
+                </div>
+              )
             )}
           </div>
         </div>

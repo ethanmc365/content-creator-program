@@ -6,8 +6,7 @@ import { formatDate } from '../../lib/utils'
 
 // Resource library management: publish tips/guides, optionally attach a
 // downloadable file (stored in the public "resources" bucket).
-const CATEGORIES = ['Tips', 'Video Ideas', 'Brand Guidelines', "Do's & Don'ts", 'Assets', 'Examples']
-const emptyForm = { title: '', body: '', category: 'Tips', file_url: '' }
+const emptyForm = { title: '', body: '', category: '', file_url: '' }
 
 export default function AdminResources() {
   const { user } = useAuth()
@@ -57,7 +56,7 @@ export default function AdminResources() {
     const payload = {
       title: form.title.trim(),
       body: form.body.trim(),
-      category: form.category,
+      category: form.category.trim(),
       file_url: form.file_url || null,
     }
     if (editing === 'new') {
@@ -115,15 +114,12 @@ export default function AdminResources() {
             </div>
             <div>
               <label htmlFor="res-cat" className="label">Category</label>
-              {/* Free text with suggestions — type a preset or invent your own. */}
+              {/* Free text only - type whatever category you like, no presets. */}
               <input
-                id="res-cat" type="text" required className="input" list="res-categories"
+                id="res-cat" type="text" required className="input"
                 value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}
-                placeholder="Pick or type a category"
+                placeholder="Type a category"
               />
-              <datalist id="res-categories">
-                {CATEGORIES.map((c) => <option key={c} value={c} />)}
-              </datalist>
             </div>
           </div>
           <div>

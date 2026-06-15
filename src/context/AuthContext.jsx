@@ -37,7 +37,7 @@ export function AuthProvider({ children }) {
     const safety = setTimeout(() => { if (!cancelled) setLoading(false) }, 5000)
 
     // 1. Check for an existing session on first load. Resolve `loading` as soon
-    //    as we know the session — don't block it on the slower profile fetch.
+    //    as we know the session - don't block it on the slower profile fetch.
     supabase.auth
       .getSession()
       .then(({ data: { session } }) => {

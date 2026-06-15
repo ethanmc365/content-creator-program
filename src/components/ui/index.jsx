@@ -1,5 +1,5 @@
 // Small, reusable UI building blocks. Keeping them in one file makes the
-// design system easy to scan — every visual primitive lives here.
+// design system easy to scan - every visual primitive lives here.
 import { useEffect, useState } from 'react'
 import { cx } from '../../lib/utils'
 
@@ -25,7 +25,7 @@ export function Avatar({ src, name = '', size = 'md', className = '' }) {
   )
 }
 
-/** Pill badge — tone: brand | light | grey | green | amber | red */
+/** Pill badge - tone: brand | light | grey | green | amber | red */
 export function Badge({ tone = 'grey', children, className = '' }) {
   const tones = {
     brand: 'bg-brand text-white',
@@ -52,7 +52,7 @@ export function Spinner({ className = 'h-5 w-5' }) {
   )
 }
 
-/** Airplane loader — used for full-page / route loading instead of a plain circle. */
+/** Airplane loader - used for full-page / route loading instead of a plain circle. */
 export function PlaneLoader({ label = 'Loading…', className = '' }) {
   return (
     <div className={cx('flex flex-col items-center gap-4', className)}>
@@ -68,7 +68,7 @@ export function PlaneLoader({ label = 'Loading…', className = '' }) {
   )
 }
 
-/** Grey shimmer block — compose these into loading skeletons, never blank screens. */
+/** Grey shimmer block - compose these into loading skeletons, never blank screens. */
 export function Skeleton({ className = '' }) {
   return <div className={cx('animate-pulse rounded-xl bg-cloud', className)} />
 }

@@ -51,9 +51,10 @@ export default function Game() {
   }, [eventId])
 
   function start(m, r) {
-    const pool = m === 'airports' ? airportsForRegion(r) : countriesForRegion(r)
-    setMode(m)
-    setRegion(r)
+    const mm = m || mode, rr = r || region
+    const pool = mm === 'airports' ? airportsForRegion(rr) : countriesForRegion(rr)
+    setMode(mm)
+    setRegion(rr)
     setQuestions(shuffle(pool).slice(0, Math.min(QUESTIONS, pool.length)))
     setSavedScore(null)
     setScreen('play')
@@ -62,11 +63,13 @@ export default function Game() {
   return (
     <div className="page">
       <PageHeader
-        title={<span className="flex items-center gap-2"><Icon name="plane" className="h-7 w-7 text-brand" /> Travel Game</span>}
-        subtitle={event ? `Event: ${event.title}` : 'Test your travel knowledge — flags, find-on-the-map and airport codes, by continent or the whole world.'}
+        title={<span className="flex items-center gap-2"><Icon name="joystick" className="h-7 w-7 text-brand" /> Travel Games</span>}
+        subtitle={event ? `Event: ${event.title}` : 'Test your travel knowledge with flags, find-on-the-map and airport codes, by continent or the whole world.'}
       />
 
-      {screen === 'menu' && <Menu onStart={start} preset={event ? { mode, region } : null} eventTitle={event?.title} />}
+      {/* The menu drives the shared mode/region state, so the all-time
+          leaderboard below always reflects the mode you currently have selected. */}
+      {screen === 'menu' && <Menu mode={mode} setMode={setMode} region={region} setRegion={setRegion} onStart={() => start(mode, region)} eventTitle={event?.title} />}
       {screen === 'play' && <Round mode={mode} region={region} questions={questions} onQuit={() => setScreen('menu')} onFinish={(r) => { setSavedScore(r); setScreen('results') }} />}
       {screen === 'results' && (
         <Results result={savedScore} mode={mode} region={region} eventId={eventId} userId={user.id}
@@ -79,10 +82,7 @@ export default function Game() {
 }
 
 // ---------------------------------------------------------------- Menu
-function Menu({ onStart, preset, eventTitle }) {
-  const [mode, setMode] = useState(preset?.mode || 'flags')
-  const [region, setRegion] = useState(preset?.region || 'World')
-
+function Menu({ mode, setMode, region, setRegion, onStart, eventTitle }) {
   return (
     <div className="space-y-8">
       {eventTitle && (
@@ -140,7 +140,13 @@ function Round({ mode, region, questions, onQuit, onFinish }) {
   const [answered, setAnswered] = useState(null) // { right, picked? }
   const [typed, setTyped] = useState('')
   const [elapsed, setElapsed] = useState(0)
-  const [placed, setPlaced] = useState({}) // map mode: geoName -> 'correct' | 'wrong', persists all game
+  // Map mode persistent state, kept for the whole game:
+  //  placed   - geoName -> 'correct' (a country you found, stays green)
+  //  revealed - target countries you missed (the answer, stays Tryp orange)
+  //  flashWrong - the country you just mis-clicked (flashes red ~1s, then clears)
+  const [placed, setPlaced] = useState({})
+  const [revealed, setRevealed] = useState([])
+  const [flashWrong, setFlashWrong] = useState(null)
   const startRef = useRef(0)
   const inputRef = useRef(null)
 
@@ -167,9 +173,18 @@ function Round({ mode, region, questions, onQuit, onFinish }) {
   function pickOnMap(geoName) {
     if (answered) return
     const right = countryMatches(current, geoName)
-    if (right) setCorrect((c) => c + 1)
-    setPlaced((p) => ({ ...p, [geoName]: right ? 'correct' : 'wrong' }))
-    setAnswered({ right, picked: geoName })
+    if (right) {
+      setCorrect((c) => c + 1)
+      setPlaced((p) => ({ ...p, [geoName]: 'correct' })) // stays green
+      setAnswered({ right: true, picked: geoName })
+    } else {
+      // Flash the wrong pick red for a moment, then let it fade back to normal.
+      setFlashWrong(geoName)
+      setTimeout(() => setFlashWrong((cur) => (cur === geoName ? null : cur)), 1100)
+      // Reveal the real answer in Tryp orange - it persists for the rest of the game.
+      setRevealed((r) => [...r, current])
+      setAnswered({ right: false, picked: geoName })
+    }
   }
 
   function next() {
@@ -219,7 +234,7 @@ function Round({ mode, region, questions, onQuit, onFinish }) {
       {mode === 'map' && (
         <div className="card !p-4 sm:!p-6">
           <p className="mb-3 text-center text-lg font-semibold">Find: <span className="text-brand">{current.name}</span> {flagEmoji(current.iso2)}</p>
-          <GameMap target={current} placed={placed} answered={answered} onPick={pickOnMap} />
+          <GameMap placed={placed} revealed={revealed} flashWrong={flashWrong} answered={answered} onPick={pickOnMap} />
           {answered && <div className="mt-4"><Feedback answered={answered} reveal={false} last={last} onNext={next} /></div>}
         </div>
       )}
@@ -238,16 +253,16 @@ function TypeForm({ typed, setTyped, answered, onSubmit, inputRef, placeholder }
 }
 
 // reveal=true → show the correct answer text on a wrong guess (flags/airports).
-// reveal=false → just "Not quite!" (map mode, where the location is shown instead).
+// reveal=false → just "Not quite" (map mode, where the location is shown instead).
 function Feedback({ answered, answer, reveal, last, onNext }) {
   return (
     <div className="flex flex-col items-center gap-3 animate-fade-up">
       {answered.right ? (
         <p className="text-lg font-bold text-green-600">✓ Correct!</p>
       ) : reveal ? (
-        <p className="text-lg font-bold text-red-600">✗ Not quite — it's <span className="underline">{answer}</span></p>
+        <p className="text-lg font-bold text-red-600">✗ Not quite. It's <span className="underline">{answer}</span></p>
       ) : (
-        <p className="text-lg font-bold text-red-600">✗ Not quite! Here's where it is 👇</p>
+        <p className="text-lg font-bold text-red-600">✗ Not quite. Here's where it is.</p>
       )}
       <button onClick={onNext} className="btn-primary">{last ? 'See results →' : 'Next →'}</button>
     </div>
@@ -255,7 +270,7 @@ function Feedback({ answered, answer, reveal, last, onNext }) {
 }
 
 // ---------------------------------------------------------------- Game map
-function GameMap({ target, placed, answered, onPick }) {
+function GameMap({ placed, revealed, flashWrong, answered, onPick }) {
   return (
     <div className="overflow-hidden rounded-card bg-cloud/60">
       <ComposableMap width={880} height={440} projectionConfig={{ scale: 160, center: [12, 8] }} style={{ width: '100%', height: 'auto', display: 'block' }}>
@@ -266,21 +281,24 @@ function GameMap({ target, placed, answered, onPick }) {
                 .filter((geo) => geo.properties.name !== 'Antarctica')
                 .map((geo) => {
                   const name = geo.properties.name
-                  const mark = placed[name] // 'correct' | 'wrong' (persists all game)
-                  // Reveal the correct location after a wrong guess on THIS question.
-                  const revealing = answered && !answered.right && countryMatches(target, name)
+                  const isCorrect = placed[name] === 'correct'                  // green, persists
+                  const isRevealed = revealed.some((t) => countryMatches(t, name)) // orange, persists
+                  const isFlash = flashWrong === name                           // red, ~1s
+                  // Priority: a momentary red flash sits on top of everything,
+                  // then a found country (green), then a revealed answer (orange).
                   let fill = UNSELECTED
-                  if (mark === 'correct') fill = GREEN
-                  else if (mark === 'wrong') fill = RED
-                  if (revealing) fill = GREEN
+                  if (isRevealed) fill = BRAND
+                  if (isCorrect) fill = GREEN
+                  if (isFlash) fill = RED
+                  const emphasised = isRevealed || isCorrect || isFlash
                   return (
                     <Geography
                       key={geo.rsmKey}
                       geography={geo}
                       onClick={!answered ? () => onPick(name) : undefined}
                       style={{
-                        default: { fill, stroke: revealing ? '#fff' : '#fff', strokeWidth: revealing ? 1 : 0.4, outline: 'none', transition: 'fill 0.25s' },
-                        hover: { fill: answered ? fill : (mark ? fill : BRAND_LIGHT), stroke: '#fff', strokeWidth: 0.4, outline: 'none', cursor: answered ? 'default' : 'pointer' },
+                        default: { fill, stroke: '#fff', strokeWidth: emphasised ? 0.9 : 0.4, outline: 'none', transition: 'fill 0.3s' },
+                        hover: { fill: answered ? fill : (emphasised ? fill : BRAND_LIGHT), stroke: '#fff', strokeWidth: 0.4, outline: 'none', cursor: answered ? 'default' : 'pointer' },
                         pressed: { fill: BRAND, outline: 'none' },
                       }}
                     />
@@ -290,7 +308,7 @@ function GameMap({ target, placed, answered, onPick }) {
           </Geographies>
         </ZoomableGroup>
       </ComposableMap>
-      <p className="px-3 pb-2 text-center text-[11px] text-smoke">Tap the country · pinch/scroll to zoom · your correct guesses stay green</p>
+      <p className="px-3 pb-2 text-center text-[11px] text-smoke">Tap the country · pinch/scroll to zoom · correct stays green, the answer shows in orange</p>
     </div>
   )
 }
@@ -356,7 +374,7 @@ function Leaderboard({ mode, region, eventId, highlightUser }) {
       {rows === null ? (
         <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-cloud" />)}</div>
       ) : rows.length === 0 ? (
-        <p className="rounded-card border border-dashed border-gray-200 px-5 py-10 text-center text-sm text-smoke">No scores yet — be the first to set one!</p>
+        <p className="rounded-card border border-dashed border-gray-200 px-5 py-10 text-center text-sm text-smoke">No scores yet. Be the first to set one!</p>
       ) : (
         <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
           {rows.map((r, idx) => {

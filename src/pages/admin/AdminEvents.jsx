@@ -5,8 +5,7 @@ import { Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../../c
 import { formatDateTime } from '../../lib/utils'
 
 // Events management: add / edit / delete calendar events.
-// (Challenge start/end dates appear on the calendar automatically —
-// no need to create those by hand.)
+// (Challenge start/end dates appear on the calendar automatically - // no need to create those by hand.)
 // Preset types, plus a "Custom" escape hatch so admins can invent their own.
 const TYPES = [
   { value: 'event', label: '📍 Event' },

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Badge, EmptyState, PageHeader, SkeletonCards } from '../components/ui'
@@ -21,6 +21,8 @@ export default function Resources() {
   const [category, setCategory] = useState('All')
   const [search, setSearch] = useState('')
   const [openId, setOpenId] = useState(null) // expanded card
+  const [params] = useSearchParams()
+  const cardRefs = useRef({})
 
   useEffect(() => {
     supabase
@@ -32,6 +34,16 @@ export default function Resources() {
         setLoading(false)
       })
   }, [])
+
+  // Deep link from a chat resource card (/resources?open=<id>): expand that
+  // resource and scroll it into view once the library has loaded.
+  const openParam = params.get('open')
+  useEffect(() => {
+    if (!openParam || loading) return
+    setOpenId(openParam)
+    const el = cardRefs.current[openParam]
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [openParam, loading])
 
   // Build the pill list from the categories actually in use.
   const CATEGORIES = useMemo(
@@ -94,7 +106,11 @@ export default function Resources() {
             const open = openId === r.id
             const long = (r.body || '').length > 280
             return (
-              <article key={r.id} className="card flex flex-col gap-4">
+              <article
+                key={r.id}
+                ref={(el) => { cardRefs.current[r.id] = el }}
+                className={cx('card flex flex-col gap-4 scroll-mt-24', openParam === r.id && 'ring-2 ring-brand')}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <h2 className="text-lg font-semibold leading-snug">
                     <span aria-hidden>{CATEGORY_EMOJI[r.category]} </span>{r.title}

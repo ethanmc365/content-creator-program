@@ -3,13 +3,13 @@ import { format, formatDistanceToNow, isToday, isYesterday } from 'date-fns'
 
 /** "12 Jun 2026" */
 export function formatDate(date) {
-  if (!date) return '—'
+  if (!date) return '-'
   return format(new Date(date), 'd MMM yyyy')
 }
 
 /** "12 Jun, 14:30" */
 export function formatDateTime(date) {
-  if (!date) return '—'
+  if (!date) return '-'
   return format(new Date(date), 'd MMM, HH:mm')
 }
 
@@ -27,9 +27,9 @@ export function timeAgo(date) {
   return formatDistanceToNow(new Date(date), { addSuffix: true })
 }
 
-/** 184230 → "184.2k" — used for logged view counts. */
+/** 184230 → "184.2k" - used for logged view counts. */
 export function formatViews(n) {
-  if (n == null) return '—'
+  if (n == null) return '-'
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M'
   if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, '') + 'k'
   return String(n)
@@ -41,8 +41,7 @@ export function formatMoney(amount, currency = 'GBP') {
 }
 
 /**
- * Detect which platform a pasted video link belongs to —
- * used to auto-select the platform on the submission form.
+ * Detect which platform a pasted video link belongs to -  * used to auto-select the platform on the submission form.
  */
 export function detectPlatform(url = '') {
   const u = url.toLowerCase()

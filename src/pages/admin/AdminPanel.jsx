@@ -7,6 +7,7 @@ import { formatMoney } from '../../lib/utils'
 
 // The admin hub: key numbers up top, then tiles linking every admin tool.
 const TOOLS = [
+  { to: '/admin/applications', icon: 'shield', title: 'Applications', text: 'Review new signups and approve or decline them before they can join.' },
   { to: '/admin/creators', icon: 'users', title: 'Creators', text: 'Full list with emails, activity, password resets, mute/suspend, promote.' },
   { to: '/admin/challenges', icon: 'flag', title: 'Challenges', text: 'Create, edit, close and archive challenges.' },
   { to: '/admin/rewards', icon: 'money', title: 'Rewards', text: 'Manage payouts, mark distributed, export for accounting.' },
@@ -25,13 +26,14 @@ export default function AdminPanel() {
 
   useEffect(() => {
     async function load() {
-      const [{ count: creators }, { count: pendingRewards }, { data: active }, { data: paid }, { count: subsThisChallenge }] =
+      const [{ count: creators }, { count: pendingRewards }, { data: active }, { data: paid }, { count: subsThisChallenge }, { count: pendingApps }] =
         await Promise.all([
           supabase.from('profiles').select('id', { count: 'exact', head: true }),
           supabase.from('rewards').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
           supabase.from('challenges').select('id, title, end_date').eq('status', 'active').limit(1).maybeSingle(),
           supabase.from('rewards').select('amount').eq('status', 'distributed'),
           supabase.from('submissions').select('id', { count: 'exact', head: true }),
+          supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'pending').eq('onboarded', true),
         ])
       setStats({
         creators: creators ?? 0,
@@ -39,6 +41,7 @@ export default function AdminPanel() {
         active,
         totalPaid: (paid ?? []).reduce((s, r) => s + Number(r.amount), 0),
         submissions: subsThisChallenge ?? 0,
+        pendingApps: pendingApps ?? 0,
       })
     }
     load()
@@ -61,6 +64,19 @@ export default function AdminPanel() {
             hint={stats.pendingRewards > 0 ? 'Waiting to be paid out' : 'All settled ✓'}
           />
         </div>
+      )}
+
+      {stats?.pendingApps > 0 && (
+        <Link to="/admin/applications" className="mb-6 flex items-center justify-between gap-4 rounded-card border border-amber-300 bg-amber-50 p-5 transition-shadow hover:shadow-lift">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-700"><Icon name="shield" className="h-5 w-5" /></span>
+            <div>
+              <p className="font-semibold text-amber-900">{stats.pendingApps} application{stats.pendingApps === 1 ? '' : 's'} waiting for review</p>
+              <p className="text-sm text-amber-700">Approve or decline new creators so they can join the program.</p>
+            </div>
+          </div>
+          <span className="shrink-0 text-sm font-semibold text-amber-800">Review →</span>
+        </Link>
       )}
 
       {stats?.active && (

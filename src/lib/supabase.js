@@ -1,8 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 
 // Single shared Supabase client for the whole app.
-// The two values below come from your Supabase project's API settings —
-// see README → "Environment variables".
+// The two values below come from your Supabase project's API settings - // see README → "Environment variables".
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 

@@ -188,7 +188,7 @@ export default function AdminChallengeAnalytics() {
                   <p className="text-xs text-smoke">{formatDate(s.submitted_at)}</p>
                 </div>
                 <PlatformBadges platforms={[s.platform]} className="hidden sm:flex" />
-                <span className="w-20 text-right text-sm tabular-nums">{s.logged_views != null ? formatViews(s.logged_views) : '—'}</span>
+                <span className="w-20 text-right text-sm tabular-nums">{s.logged_views != null ? formatViews(s.logged_views) : '-'}</span>
                 <a href={s.video_url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-brand hover:underline">Watch ↗</a>
               </div>
             ))}

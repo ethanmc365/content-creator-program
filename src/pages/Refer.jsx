@@ -5,7 +5,7 @@ import { Badge, EmptyState, PageHeader, Skeleton, Spinner } from '../components/
 import { formatDate } from '../lib/utils'
 
 // Creators refer other creators two ways:
-//  1. Share their personal invite link (/signup?ref=CODE) — auto-credited.
+//  1. Share their personal invite link (/signup?ref=CODE) - auto-credited.
 //  2. Submit a name/contact for the team to reach out to.
 const STATUS_TONE = { new: 'amber', contacted: 'light', joined: 'green', declined: 'grey' }
 

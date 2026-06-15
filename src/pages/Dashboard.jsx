@@ -62,7 +62,7 @@ export default function Dashboard() {
         <StatCard label="Challenges entered" value={data.challengesEntered} />
         <StatCard label="Total submissions" value={data.submissions} />
         <StatCard label="Logged views (all time)" value={formatViews(data.totalViews)} />
-        <StatCard label="Best finish" value={data.bestRank === Infinity ? '—' : `#${data.bestRank}`} accent={data.bestRank <= 3} />
+        <StatCard label="Best finish" value={data.bestRank === Infinity ? '-' : `#${data.bestRank}`} accent={data.bestRank <= 3} />
       </section>
 
       {/* ---------- My results history ---------- */}

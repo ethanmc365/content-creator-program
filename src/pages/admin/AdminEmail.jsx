@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import { PageHeader, Skeleton, StatCard } from '../../components/ui'
 import { formatDateTime } from '../../lib/utils'
 
-// Email all creators — free, no paid email service required.
+// Email all creators - free, no paid email service required.
 //
 // How it works: you compose one message, then "Open in email app" launches
 // your own mail client (Gmail, Outlook, Apple Mail…) with every creator's
@@ -40,7 +40,7 @@ export default function AdminEmail() {
 
   const bccList = emails.join(',')
   const mailto = `mailto:?bcc=${encodeURIComponent(bccList)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`
-  // Gmail web compose — opens in a new tab, works without a desktop mail client.
+  // Gmail web compose - opens in a new tab, works without a desktop mail client.
   const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&bcc=${encodeURIComponent(bccList)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`
   const tooLong = gmailUrl.length > 1900 // very large lists can exceed URL limits
 

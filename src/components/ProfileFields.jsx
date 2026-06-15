@@ -1,7 +1,7 @@
 // Form pieces shared by Onboarding and Edit Profile:
-//  * AvatarUpload   — photo picker that uploads to Supabase storage
-//  * LanguageSelect — multi-select tag picker
-//  * SocialInputs   — Instagram / TikTok / YouTube URL fields
+//  * AvatarUpload   - photo picker that uploads to Supabase storage
+//  * LanguageSelect - multi-select tag picker
+//  * SocialInputs   - Instagram / TikTok / YouTube URL fields
 import { useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -68,8 +68,8 @@ export function AvatarUpload({ photoUrl, name, onUploaded }) {
 
 /**
  * Date of birth field. Typed free-hand as DD/MM/YYYY (no calendar picker).
- *  value   — stored ISO date ("2005-01-25") or null
- *  onChange(iso|null) — fires with a valid ISO date, or null while incomplete
+ *  value   - stored ISO date ("2005-01-25") or null
+ *  onChange(iso|null) - fires with a valid ISO date, or null while incomplete
  * Shows the derived age once a valid date is entered. We only ever surface age
  * publicly, never the full date of birth.
  */

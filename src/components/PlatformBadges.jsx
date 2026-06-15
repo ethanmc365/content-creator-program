@@ -1,5 +1,5 @@
 // Small platform icons/badges (Instagram, TikTok, YouTube) shown on cards,
-// leaderboards and profiles. Pure inline SVG — no icon library needed.
+// leaderboards and profiles. Pure inline SVG - no icon library needed.
 import { cx } from '../lib/utils'
 
 const ICONS = {

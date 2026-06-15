@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase'
 import { Avatar } from '../ui'
 import Icon from '../Icon'
 import NotificationBell from './NotificationBell'
+import { showLocalNotification } from '../../lib/push'
 import { cx } from '../../lib/utils'
 
 // The signed-in app shell. One shared set of icon tabs powers BOTH the
@@ -45,6 +46,22 @@ export default function AppLayout() {
       .subscribe()
     return () => supabase.removeChannel(channel)
   }, [user])
+
+  // General-chat push: when backgrounded and the creator hasn't opted out, pop
+  // an OS notification for new #general messages (no DB row, so it's free).
+  useEffect(() => {
+    if (!user || profile?.notif_prefs?.chat === false) return
+    const channel = supabase
+      .channel('chat-push-general')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: 'channel=eq.general' },
+        (payload) => {
+          const m = payload.new
+          if (m.sender_id === user.id || !m.body || document.visibilityState === 'visible') return
+          showLocalNotification({ title: 'New message in #general', body: m.body.slice(0, 120), link: '/chat/general', tag: `chat-${m.id}` })
+        })
+      .subscribe()
+    return () => supabase.removeChannel(channel)
+  }, [user, profile?.notif_prefs?.chat])
 
   useEffect(() => {
     if (!menuOpen) return
@@ -110,16 +127,17 @@ export default function AppLayout() {
                   </div>
                   <Link to={`/profile/${user?.id}`} onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">My profile</Link>
                   <Link to="/profile/edit" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Edit profile</Link>
+                  <Link to="/settings/notifications" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Notification settings</Link>
                   <Link to="/rewards" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">My rewards</Link>
                   <Link to="/dashboard" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">My dashboard</Link>
 
-                  {/* Explore — secondary destinations not in the main tab bar */}
+                  {/* Explore - secondary destinations not in the main tab bar */}
                   <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Explore</p>
                   <Link to="/creators" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Creators</Link>
                   <Link to="/resources" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Resource library</Link>
                   <Link to="/jobs" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Search roles</Link>
                   <Link to="/refer" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Refer a creator</Link>
-                  <Link to="/game" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Travel game</Link>
+                  <Link to="/game" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Travel games</Link>
 
                   <div className="my-1 border-t border-gray-100" />
                   {isAdmin && <Link to="/admin" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm font-medium text-brand hover:bg-cloud">Admin panel</Link>}

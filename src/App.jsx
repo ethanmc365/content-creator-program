@@ -23,6 +23,7 @@ import Rewards from './pages/Rewards'
 import Resources from './pages/Resources'
 import Events from './pages/Events'
 import Notifications from './pages/Notifications'
+import NotificationSettings from './pages/NotificationSettings'
 import Dashboard from './pages/Dashboard'
 import Jobs from './pages/Jobs'
 import Refer from './pages/Refer'
@@ -42,6 +43,7 @@ import AdminResources from './pages/admin/AdminResources'
 import AdminJobs from './pages/admin/AdminJobs'
 import AdminReferrals from './pages/admin/AdminReferrals'
 import AdminEmail from './pages/admin/AdminEmail'
+import AdminApplications from './pages/admin/AdminApplications'
 
 export default function App() {
   return (
@@ -76,11 +78,13 @@ export default function App() {
           <Route path="/refer" element={<Refer />} />
           <Route path="/game" element={<Game />} />
           <Route path="/notifications" element={<Notifications />} />
+          <Route path="/settings/notifications" element={<NotificationSettings />} />
           <Route path="/dashboard" element={<Dashboard />} />
 
           {/* ---------- Admin only ---------- */}
           <Route element={<AdminRoute />}>
             <Route path="/admin" element={<AdminPanel />} />
+            <Route path="/admin/applications" element={<AdminApplications />} />
             <Route path="/admin/creators" element={<AdminCreators />} />
             <Route path="/admin/challenges" element={<AdminChallenges />} />
             <Route path="/admin/challenges/new" element={<AdminChallengeForm />} />

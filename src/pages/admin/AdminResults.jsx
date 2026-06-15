@@ -134,7 +134,7 @@ export default function AdminResults() {
                   onKeyDown={(e) => e.key === 'Enter' && e.target.blur()}
                 />
                 <span className="w-14 text-xs text-smoke">
-                  {savingId === s.id ? 'Saving…' : s.logged_views != null ? formatViews(s.logged_views) : '—'}
+                  {savingId === s.id ? 'Saving…' : s.logged_views != null ? formatViews(s.logged_views) : '-'}
                 </span>
               </div>
             </div>

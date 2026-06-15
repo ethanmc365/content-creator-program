@@ -1,8 +1,8 @@
 // Country data for the geography game.
-//   name      — what we show the player and accept when typing
-//   iso2      — ISO 3166-1 alpha-2, used to render the flag emoji
-//   continent — used for the per-continent game modes
-//   aliases   — extra accepted spellings AND the world-atlas map name(s) so
+//   name      - what we show the player and accept when typing
+//   iso2      - ISO 3166-1 alpha-2, used to render the flag emoji
+//   continent - used for the per-continent game modes
+//   aliases   - extra accepted spellings AND the world-atlas map name(s) so
 //               the "find on map" mode can match a clicked country reliably
 //
 // Flags are emoji (free, built in). Map matching is tolerant (normalised).
@@ -106,7 +106,7 @@ export const COUNTRIES = [
 ]
 
 // Major airports for the flight-themed mode: show the IATA code, guess the city.
-//   code — IATA code   city — answer (aliases accepted)   region — continent
+//   code - IATA code   city - answer (aliases accepted)   region - continent
 export const AIRPORTS = [
   { code: 'DUB', city: 'Dublin', region: 'Europe' },
   { code: 'LHR', city: 'London', region: 'Europe', aliases: ['london heathrow'] },

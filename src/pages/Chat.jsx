@@ -8,10 +8,11 @@ import Icon from '../components/Icon'
 import PollCard from '../components/PollCard'
 import GameEventCard from '../components/GameEventCard'
 import BirthdayCard from '../components/BirthdayCard'
+import ResourceCard from '../components/ResourceCard'
 import { CONTINENTS } from '../lib/countries'
 import { formatChatTime, cx } from '../lib/utils'
 
-// Real-time community chat — the WhatsApp replacement.
+// Real-time community chat - the WhatsApp replacement.
 //  * Three channels: #general, #announcements (admin-post-only), #content-tips.
 //  * Supabase realtime: new messages and reactions appear instantly.
 //  * Emoji reactions, admin moderation (delete message, mute creator).
@@ -52,6 +53,11 @@ export default function Chat() {
   const [showGame, setShowGame] = useState(false)
   const [gameForm, setGameForm] = useState({ title: '', mode: 'flags', region: 'World' })
   const [creatingGame, setCreatingGame] = useState(false)
+
+  // Resource-card composer (admins): pick a library resource to drop in.
+  const [showResource, setShowResource] = useState(false)
+  const [resourceList, setResourceList] = useState(null)
+  const [postingResource, setPostingResource] = useState(false)
 
   const meta = CHANNELS.find((c) => c.key === channel) ?? CHANNELS[0]
   const canPost = channel !== 'announcements' || isAdmin
@@ -217,7 +223,7 @@ export default function Chat() {
       .select('id')
       .single()
     if (!error && ev) {
-      // Post the card on its own — no accompanying text message.
+      // Post the card on its own - no accompanying text message.
       await supabase.from('messages').insert({
         channel,
         sender_id: user.id,
@@ -228,6 +234,23 @@ export default function Chat() {
     setCreatingGame(false)
     setShowGame(false)
     setGameForm({ title: '', mode: 'flags', region: 'World' })
+  }
+
+  // Resource cards: open the picker (loading the library on first open), then
+  // post the chosen resource as a card-only message into this channel.
+  function openResourcePicker() {
+    setShowResource(true)
+    if (resourceList === null) {
+      supabase.from('resources').select('id, title, category').order('created_at', { ascending: false })
+        .then(({ data }) => setResourceList(data ?? []))
+    }
+  }
+
+  async function postResourceCard(resourceId) {
+    setPostingResource(true)
+    await supabase.from('messages').insert({ channel, sender_id: user.id, body: '', resource_id: resourceId })
+    setPostingResource(false)
+    setShowResource(false)
   }
 
   // Group reactions per message: { '❤️': { count, mine } }
@@ -348,6 +371,7 @@ export default function Chat() {
                   {m.poll_id && <PollCard pollId={m.poll_id} />}
                   {m.game_event_id && <GameEventCard eventId={m.game_event_id} />}
                   {m.birthday_for && <BirthdayCard creatorId={m.birthday_for} />}
+                  {m.resource_id && <ResourceCard resourceId={m.resource_id} />}
 
                   {/* Reactions */}
                   <div className={cx('mt-1 flex flex-wrap items-center gap-1', mine && 'justify-end')}>
@@ -443,7 +467,20 @@ export default function Chat() {
                   aria-label="Post a game challenge"
                   title="Post a game challenge"
                 >
-                  <Icon name="plane" className="h-5 w-5" />
+                  <Icon name="joystick" className="h-5 w-5" />
+                </button>
+              )}
+              {/* Admin: drop a resource-library card into this channel. */}
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={openResourcePicker}
+                  disabled={sending}
+                  className="btn-ghost !px-3.5 !py-3"
+                  aria-label="Share a resource"
+                  title="Share a resource"
+                >
+                  <Icon name="book" className="h-5 w-5" />
                 </button>
               )}
               <textarea
@@ -533,6 +570,37 @@ export default function Chat() {
             {creatingGame ? <Spinner /> : `Post to #${meta.label.toLowerCase()}`}
           </button>
         </form>
+      </Modal>
+
+      {/* ---------- Share-a-resource modal ---------- */}
+      <Modal open={showResource} onClose={() => setShowResource(false)} title="Share a resource">
+        <p className="mb-4 text-sm text-smoke">Pick a library resource to post as a card in #{meta.label.toLowerCase()}.</p>
+        {resourceList === null ? (
+          <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}</div>
+        ) : resourceList.length === 0 ? (
+          <p className="rounded-xl bg-cloud px-4 py-6 text-center text-sm text-smoke">
+            No resources yet. Add some in <Link to="/admin/resources" className="font-medium text-brand hover:underline">Manage resources</Link> first.
+          </p>
+        ) : (
+          <div className="max-h-[60vh] space-y-2 overflow-y-auto">
+            {resourceList.map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                disabled={postingResource}
+                onClick={() => postResourceCard(r.id)}
+                className="flex w-full items-center gap-3 rounded-xl border border-gray-100 px-4 py-3 text-left transition-colors hover:border-brand hover:bg-brand-tint/40 disabled:opacity-50"
+              >
+                <Icon name="book" className="h-5 w-5 shrink-0 text-brand" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold">{r.title}</span>
+                  {r.category && <span className="block truncate text-xs text-smoke">{r.category}</span>}
+                </span>
+                <span className="shrink-0 text-xs font-medium text-brand">Post →</span>
+              </button>
+            ))}
+          </div>
+        )}
       </Modal>
     </div>
   )

@@ -8,6 +8,7 @@ import { timeAgo, cx } from '../lib/utils'
 const TYPE_EMOJI = {
   challenge: '🏁', announcement: '📣', results: '🏆',
   reward: '💸', deadline: '⏰', connection: '🤝', dm: '💬',
+  event: '📅', application: '🎉', chat: '💬',
 }
 
 // Full notification history (the bell shows only the latest few).

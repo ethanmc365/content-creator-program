@@ -6,7 +6,7 @@ import { Avatar, Badge, Modal, PageHeader, Skeleton } from '../../components/ui'
 import { formatDate, timeAgo, downloadCsv } from '../../lib/utils'
 
 // Creator management: the full list with emails (admin-only RPC), plus all
-// account actions — password reset, mute, suspend, promote to admin, DM.
+// account actions - password reset, mute, suspend, promote to admin, DM.
 export default function AdminCreators() {
   const { user, sendPasswordReset } = useAuth()
   const navigate = useNavigate()

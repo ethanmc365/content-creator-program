@@ -2,11 +2,13 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
+import { showLocalNotification } from '../../lib/push'
 import { timeAgo, cx } from '../../lib/utils'
 
 const TYPE_EMOJI = {
   challenge: '🏁', announcement: '📣', results: '🏆',
   reward: '💸', deadline: '⏰', connection: '🤝', dm: '💬',
+  event: '📅', application: '🎉', chat: '💬',
 }
 
 // Bell in the navbar: live unread count + dropdown of recent notifications.
@@ -38,7 +40,16 @@ export default function NotificationBell() {
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'notifications', filter: `recipient_id=eq.${user.id}` },
-        (payload) => setItems((prev) => [payload.new, ...prev].slice(0, 12))
+        (payload) => {
+          setItems((prev) => [payload.new, ...prev].slice(0, 12))
+          // Pop an OS notification when the app isn't in the foreground.
+          if (document.visibilityState !== 'visible') {
+            showLocalNotification({
+              title: payload.new.title, body: payload.new.body,
+              link: payload.new.link || '/notifications', tag: payload.new.id,
+            })
+          }
+        }
       )
       .subscribe()
     return () => supabase.removeChannel(channel)

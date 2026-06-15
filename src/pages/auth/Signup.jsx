@@ -4,8 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import { Spinner } from '../../components/ui'
 import AuthShell from './AuthShell'
 
-// Public creator signup. New accounts are creators by default —
-// admins are promoted later (see README → "Making an account an admin").
+// Public creator signup. New accounts are creators by default - // admins are promoted later (see README → "Making an account an admin").
 export default function Signup() {
   const { signUp } = useAuth()
   const navigate = useNavigate()
