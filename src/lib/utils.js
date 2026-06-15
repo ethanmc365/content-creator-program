@@ -72,6 +72,39 @@ export function downloadCsv(filename, rows) {
   URL.revokeObjectURL(link.href)
 }
 
+// ---- Date of birth (typed as DD/MM/YYYY, stored as an ISO date) ----
+
+/** "25/01/2005" → "2005-01-25" for storage. Returns null if invalid/incomplete. */
+export function parseDob(input = '') {
+  const m = input.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (!m) return null
+  const day = +m[1], month = +m[2], year = +m[3]
+  const d = new Date(year, month - 1, day)
+  // Reject impossible dates (e.g. 31/02) and absurd years.
+  if (d.getDate() !== day || d.getMonth() !== month - 1 || d.getFullYear() !== year) return null
+  if (year < 1900 || d > new Date()) return null
+  return `${m[3]}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
+/** "2005-01-25" → "25/01/2005" for showing in the edit field. */
+export function formatDobInput(iso) {
+  if (!iso) return ''
+  const [y, mo, d] = iso.split('-')
+  return `${d}/${mo}/${y}`
+}
+
+/** Whole years between a dob (ISO date) and today. Null if no dob. */
+export function ageFromDob(iso) {
+  if (!iso) return null
+  const dob = new Date(iso)
+  if (Number.isNaN(dob.getTime())) return null
+  const now = new Date()
+  let age = now.getFullYear() - dob.getFullYear()
+  const m = now.getMonth() - dob.getMonth()
+  if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age--
+  return age >= 0 ? age : null
+}
+
 /** The two DM participants are stored unordered; get "the other person". */
 export function otherParticipant(conversation, myId) {
   return conversation.participant_a === myId ? conversation.participant_b : conversation.participant_a

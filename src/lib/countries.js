@@ -105,6 +105,63 @@ export const COUNTRIES = [
   { name: 'Fiji', iso2: 'FJ', continent: 'Oceania' },
 ]
 
+// Major airports for the flight-themed mode: show the IATA code, guess the city.
+//   code — IATA code   city — answer (aliases accepted)   region — continent
+export const AIRPORTS = [
+  { code: 'DUB', city: 'Dublin', region: 'Europe' },
+  { code: 'LHR', city: 'London', region: 'Europe', aliases: ['london heathrow'] },
+  { code: 'LGW', city: 'London', region: 'Europe', aliases: ['london gatwick'] },
+  { code: 'CDG', city: 'Paris', region: 'Europe' },
+  { code: 'AMS', city: 'Amsterdam', region: 'Europe' },
+  { code: 'MAD', city: 'Madrid', region: 'Europe' },
+  { code: 'BCN', city: 'Barcelona', region: 'Europe' },
+  { code: 'FCO', city: 'Rome', region: 'Europe' },
+  { code: 'LIS', city: 'Lisbon', region: 'Europe' },
+  { code: 'FRA', city: 'Frankfurt', region: 'Europe' },
+  { code: 'BER', city: 'Berlin', region: 'Europe' },
+  { code: 'MUC', city: 'Munich', region: 'Europe' },
+  { code: 'ATH', city: 'Athens', region: 'Europe' },
+  { code: 'IST', city: 'Istanbul', region: 'Europe' },
+  { code: 'CPH', city: 'Copenhagen', region: 'Europe' },
+  { code: 'EDI', city: 'Edinburgh', region: 'Europe' },
+  { code: 'JFK', city: 'New York', region: 'North America', aliases: ['new york city', 'nyc'] },
+  { code: 'LAX', city: 'Los Angeles', region: 'North America' },
+  { code: 'MIA', city: 'Miami', region: 'North America' },
+  { code: 'SFO', city: 'San Francisco', region: 'North America' },
+  { code: 'YYZ', city: 'Toronto', region: 'North America' },
+  { code: 'CUN', city: 'Cancun', region: 'North America', aliases: ['cancún'] },
+  { code: 'DXB', city: 'Dubai', region: 'Asia' },
+  { code: 'SIN', city: 'Singapore', region: 'Asia' },
+  { code: 'HND', city: 'Tokyo', region: 'Asia', aliases: ['tokyo haneda'] },
+  { code: 'NRT', city: 'Tokyo', region: 'Asia', aliases: ['tokyo narita'] },
+  { code: 'BKK', city: 'Bangkok', region: 'Asia' },
+  { code: 'HKG', city: 'Hong Kong', region: 'Asia' },
+  { code: 'DEL', city: 'Delhi', region: 'Asia', aliases: ['new delhi'] },
+  { code: 'DPS', city: 'Bali', region: 'Asia', aliases: ['denpasar'] },
+  { code: 'SYD', city: 'Sydney', region: 'Oceania' },
+  { code: 'MEL', city: 'Melbourne', region: 'Oceania' },
+  { code: 'AKL', city: 'Auckland', region: 'Oceania' },
+  { code: 'JNB', city: 'Johannesburg', region: 'Africa' },
+  { code: 'CPT', city: 'Cape Town', region: 'Africa' },
+  { code: 'CAI', city: 'Cairo', region: 'Africa' },
+  { code: 'GRU', city: 'São Paulo', region: 'South America', aliases: ['sao paulo'] },
+  { code: 'EZE', city: 'Buenos Aires', region: 'South America' },
+  { code: 'BOG', city: 'Bogotá', region: 'South America', aliases: ['bogota'] },
+  { code: 'LIM', city: 'Lima', region: 'South America' },
+]
+
+export function airportsForRegion(region) {
+  return region === 'World' ? AIRPORTS : AIRPORTS.filter((a) => a.region === region)
+}
+
+/** Does a typed answer match this airport's city (name or alias)? */
+export function airportMatches(airport, candidate) {
+  const n = normalize(candidate)
+  if (!n) return false
+  if (normalize(airport.city) === n) return true
+  return (airport.aliases || []).some((a) => normalize(a) === n)
+}
+
 /** ISO alpha-2 → flag emoji (🇮🇪). */
 export function flagEmoji(iso2) {
   return [...iso2.toUpperCase()].map((c) => String.fromCodePoint(0x1f1e6 + c.charCodeAt(0) - 65)).join('')

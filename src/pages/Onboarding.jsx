@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
-import { AvatarUpload, LanguageSelect, SocialInputs } from '../components/ProfileFields'
+import { AvatarUpload, LanguageSelect, SocialInputs, DobField } from '../components/ProfileFields'
 import WorldMap from '../components/WorldMap'
 import { Spinner } from '../components/ui'
 import { cx } from '../lib/utils'
@@ -20,7 +20,7 @@ export default function Onboarding() {
   // Local draft of the profile — saved to Supabase when finishing.
   const [draft, setDraft] = useState({
     photo_url: profile?.photo_url || '',
-    age: profile?.age || '',
+    dob: profile?.dob || null,
     city: profile?.city || '',
     country: profile?.country || '',
     bio: profile?.bio || '',
@@ -47,7 +47,6 @@ export default function Onboarding() {
       .from('profiles')
       .update({
         ...draft,
-        age: draft.age ? Number(draft.age) : null,
         onboarded: true,
       })
       .eq('id', user.id)
@@ -110,11 +109,8 @@ export default function Onboarding() {
                 <p className="mt-2 text-sm text-smoke">A photo makes your profile 10x more inviting.</p>
               </div>
               <AvatarUpload photoUrl={draft.photo_url} name={profile?.name} onUploaded={(url) => set({ photo_url: url })} />
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <div>
-                  <label htmlFor="age" className="label">Age</label>
-                  <input id="age" type="number" min="16" max="100" className="input" value={draft.age} onChange={(e) => set({ age: e.target.value })} placeholder="24" />
-                </div>
+              <DobField value={draft.dob} onChange={(dob) => set({ dob })} />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label htmlFor="city" className="label">City</label>
                   <input id="city" type="text" className="input" value={draft.city} onChange={(e) => set({ city: e.target.value })} placeholder="London" />

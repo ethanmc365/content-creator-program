@@ -4,8 +4,10 @@ import { ComposableMap, Geographies, Geography, ZoomableGroup } from 'react-simp
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Avatar, Badge, PageHeader, Confetti } from '../components/ui'
+import Icon from '../components/Icon'
 import {
-  CONTINENTS, countriesForRegion, flagEmoji, countryMatches, shuffle,
+  CONTINENTS, countriesForRegion, airportsForRegion, flagEmoji,
+  countryMatches, airportMatches, shuffle,
 } from '../lib/countries'
 import { cx } from '../lib/utils'
 
@@ -15,8 +17,14 @@ const BRAND_LIGHT = '#f5853f'
 const GREEN = '#16a34a'
 const RED = '#dc2626'
 const UNSELECTED = '#ECECEE'
-const QUESTIONS = 10 // per round (or fewer if the region has fewer countries)
+const QUESTIONS = 10
 const REGIONS = ['World', ...CONTINENTS]
+const MODES = [
+  { key: 'flags', icon: 'flag', title: 'Guess the flag', text: 'See a flag, type the country.' },
+  { key: 'map', icon: 'pin', title: 'Find on the map', text: 'See a country, click it on the map.' },
+  { key: 'airports', icon: 'plane', title: 'Airport codes', text: 'See an IATA code, name the city.' },
+]
+const MODE_LABEL = { flags: 'Flags', map: 'Find on map', airports: 'Airports' }
 
 const fmtTime = (ms) => {
   const s = Math.floor(ms / 1000)
@@ -28,14 +36,13 @@ export default function Game() {
   const eventId = params.get('event')
   const { user } = useAuth()
 
-  const [event, setEvent] = useState(null) // game_events row if launched from chat
-  const [screen, setScreen] = useState('menu') // menu | play | results
-  const [mode, setMode] = useState('flags') // flags | map
+  const [event, setEvent] = useState(null)
+  const [screen, setScreen] = useState('menu')
+  const [mode, setMode] = useState('flags')
   const [region, setRegion] = useState('World')
   const [questions, setQuestions] = useState([])
   const [savedScore, setSavedScore] = useState(null)
 
-  // Load the event (if any) and jump straight into its settings.
   useEffect(() => {
     if (!eventId) return
     supabase.from('game_events').select('*').eq('id', eventId).single().then(({ data }) => {
@@ -44,7 +51,7 @@ export default function Game() {
   }, [eventId])
 
   function start(m, r) {
-    const pool = countriesForRegion(r)
+    const pool = m === 'airports' ? airportsForRegion(r) : countriesForRegion(r)
     setMode(m)
     setRegion(r)
     setQuestions(shuffle(pool).slice(0, Math.min(QUESTIONS, pool.length)))
@@ -52,69 +59,50 @@ export default function Game() {
     setScreen('play')
   }
 
-  function finish(result) {
-    setSavedScore(result)
-    setScreen('results')
-  }
-
   return (
     <div className="page">
       <PageHeader
-        title="Geography Game 🌍"
-        subtitle={event ? `Event: ${event.title}` : 'Test your travel knowledge. Flags and find-on-the-map, by continent or the whole world.'}
+        title={<span className="flex items-center gap-2"><Icon name="plane" className="h-7 w-7 text-brand" /> Travel Game</span>}
+        subtitle={event ? `Event: ${event.title}` : 'Test your travel knowledge — flags, find-on-the-map and airport codes, by continent or the whole world.'}
       />
 
-      {screen === 'menu' && (
-        <Menu onStart={start} presetMode={event ? mode : null} presetRegion={event ? region : null} eventTitle={event?.title} />
-      )}
-      {screen === 'play' && (
-        <Round
-          mode={mode} region={region} questions={questions}
-          onQuit={() => setScreen('menu')} onFinish={finish}
-        />
-      )}
+      {screen === 'menu' && <Menu onStart={start} preset={event ? { mode, region } : null} eventTitle={event?.title} />}
+      {screen === 'play' && <Round mode={mode} region={region} questions={questions} onQuit={() => setScreen('menu')} onFinish={(r) => { setSavedScore(r); setScreen('results') }} />}
       {screen === 'results' && (
-        <Results
-          result={savedScore} mode={mode} region={region} eventId={eventId} userId={user.id}
-          onPlayAgain={() => start(mode, region)} onMenu={() => setScreen('menu')}
-        />
+        <Results result={savedScore} mode={mode} region={region} eventId={eventId} userId={user.id}
+          onPlayAgain={() => start(mode, region)} onMenu={() => setScreen('menu')} />
       )}
 
-      {/* Leaderboard always visible below */}
-      <div className="mt-12">
-        <Leaderboard mode={mode} region={region} eventId={eventId} highlightUser={user.id} />
-      </div>
+      <div className="mt-12"><Leaderboard mode={mode} region={region} eventId={eventId} highlightUser={user.id} /></div>
     </div>
   )
 }
 
 // ---------------------------------------------------------------- Menu
-function Menu({ onStart, presetMode, presetRegion, eventTitle }) {
-  const [mode, setMode] = useState(presetMode || 'flags')
-  const [region, setRegion] = useState(presetRegion || 'World')
+function Menu({ onStart, preset, eventTitle }) {
+  const [mode, setMode] = useState(preset?.mode || 'flags')
+  const [region, setRegion] = useState(preset?.region || 'World')
 
   return (
     <div className="space-y-8">
       {eventTitle && (
         <div className="rounded-card bg-brand-tint/60 px-5 py-4 text-sm font-medium text-brand">
-          🎮 You're joining the "{eventTitle}" challenge. Beat the leaderboard!
+          You're joining the "{eventTitle}" challenge. Beat the leaderboard!
         </div>
       )}
 
-      {/* Mode */}
       <section>
         <h2 className="mb-3 text-lg font-semibold">Choose a mode</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {[
-            { key: 'flags', emoji: '🚩', title: 'Guess the flag', text: 'See a flag, type the country.' },
-            { key: 'map', emoji: '📍', title: 'Find on the map', text: 'See a country, click it on the map.' },
-          ].map((m) => (
+        <div className="grid gap-4 sm:grid-cols-3">
+          {MODES.map((m) => (
             <button
               key={m.key}
               onClick={() => setMode(m.key)}
               className={cx('card flex items-start gap-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-lift', mode === m.key && 'ring-2 ring-brand')}
             >
-              <span className="text-3xl" aria-hidden>{m.emoji}</span>
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand">
+                <Icon name={m.icon} className="h-6 w-6" />
+              </span>
               <span>
                 <span className="block font-semibold">{m.title}</span>
                 <span className="mt-1 block text-sm text-smoke">{m.text}</span>
@@ -124,7 +112,6 @@ function Menu({ onStart, presetMode, presetRegion, eventTitle }) {
         </div>
       </section>
 
-      {/* Region */}
       <section>
         <h2 className="mb-3 text-lg font-semibold">Choose a region</h2>
         <div className="flex flex-wrap gap-2">
@@ -132,20 +119,16 @@ function Menu({ onStart, presetMode, presetRegion, eventTitle }) {
             <button
               key={r}
               onClick={() => setRegion(r)}
-              className={cx(
-                'rounded-full px-4 py-2 text-sm font-medium transition-colors',
-                region === r ? 'bg-brand text-white' : 'border border-gray-200 text-smoke hover:border-brand hover:text-brand'
-              )}
+              className={cx('flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-colors',
+                region === r ? 'bg-brand text-white' : 'border border-gray-200 text-smoke hover:border-brand hover:text-brand')}
             >
-              {r === 'World' ? '🌍 World' : r}
+              {r === 'World' && <Icon name="globe" className="h-4 w-4" />}{r}
             </button>
           ))}
         </div>
       </section>
 
-      <button onClick={() => onStart(mode, region)} className="btn-primary !px-10 !py-4 !text-base">
-        Start game →
-      </button>
+      <button onClick={() => onStart(mode, region)} className="btn-primary !px-10 !py-4 !text-base">Start game →</button>
     </div>
   )
 }
@@ -154,28 +137,29 @@ function Menu({ onStart, presetMode, presetRegion, eventTitle }) {
 function Round({ mode, region, questions, onQuit, onFinish }) {
   const [i, setI] = useState(0)
   const [correct, setCorrect] = useState(0)
-  const [answered, setAnswered] = useState(null) // { right, picked }
+  const [answered, setAnswered] = useState(null) // { right, picked? }
   const [typed, setTyped] = useState('')
   const [elapsed, setElapsed] = useState(0)
+  const [placed, setPlaced] = useState({}) // map mode: geoName -> 'correct' | 'wrong', persists all game
   const startRef = useRef(0)
   const inputRef = useRef(null)
 
   const current = questions[i]
   const last = i === questions.length - 1
+  const isType = mode === 'flags' || mode === 'airports'
 
-  // Live stopwatch (start time recorded on mount).
   useEffect(() => {
     startRef.current = Date.now()
     const t = setInterval(() => setElapsed(Date.now() - startRef.current), 200)
     return () => clearInterval(t)
   }, [])
 
-  useEffect(() => { if (mode === 'flags' && !answered) inputRef.current?.focus() }, [i, answered, mode])
+  useEffect(() => { if (isType && !answered) inputRef.current?.focus() }, [i, answered, isType])
 
-  function submitFlag(e) {
+  function submitType(e) {
     e.preventDefault()
     if (answered) return
-    const right = countryMatches(current, typed)
+    const right = mode === 'flags' ? countryMatches(current, typed) : airportMatches(current, typed)
     if (right) setCorrect((c) => c + 1)
     setAnswered({ right })
   }
@@ -184,14 +168,12 @@ function Round({ mode, region, questions, onQuit, onFinish }) {
     if (answered) return
     const right = countryMatches(current, geoName)
     if (right) setCorrect((c) => c + 1)
+    setPlaced((p) => ({ ...p, [geoName]: right ? 'correct' : 'wrong' }))
     setAnswered({ right, picked: geoName })
   }
 
   function next() {
-    if (last) {
-      onFinish({ correct, total: questions.length, time_ms: Date.now() - startRef.current })
-      return
-    }
+    if (last) { onFinish({ correct, total: questions.length, time_ms: Date.now() - startRef.current }); return }
     setI((x) => x + 1)
     setAnswered(null)
     setTyped('')
@@ -199,10 +181,9 @@ function Round({ mode, region, questions, onQuit, onFinish }) {
 
   return (
     <div className="space-y-6">
-      {/* Progress + timer */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3 text-sm">
-          <Badge tone="light">{mode === 'flags' ? '🚩 Flags' : '📍 Map'} · {region}</Badge>
+          <Badge tone="light"><Icon name={MODES.find((m) => m.key === mode).icon} className="h-3.5 w-3.5" /> {MODE_LABEL[mode]} · {region}</Badge>
           <span className="font-medium text-smoke">Question {i + 1} / {questions.length}</span>
         </div>
         <div className="flex items-center gap-4">
@@ -215,43 +196,58 @@ function Round({ mode, region, questions, onQuit, onFinish }) {
         <div className="h-full rounded-full bg-brand transition-all duration-300" style={{ width: `${(i / questions.length) * 100}%` }} />
       </div>
 
-      {/* ---- Flags mode ---- */}
+      {/* ---- Flags ---- */}
       {mode === 'flags' && (
         <div className="card flex flex-col items-center gap-6 !py-10 text-center">
           <div className="text-[7rem] leading-none sm:text-[9rem]" aria-label="flag">{flagEmoji(current.iso2)}</div>
-          <form onSubmit={submitFlag} className="flex w-full max-w-sm flex-col items-center gap-3">
-            <input
-              ref={inputRef} type="text" value={typed} disabled={!!answered}
-              onChange={(e) => setTyped(e.target.value)} placeholder="Type the country…"
-              className="input text-center text-lg" autoComplete="off" autoCorrect="off" autoCapitalize="words"
-            />
-            {!answered && <button type="submit" className="btn-primary w-full">Check</button>}
-          </form>
-          {answered && <Feedback answered={answered} answer={current.name} last={last} onNext={next} />}
+          <TypeForm typed={typed} setTyped={setTyped} answered={answered} onSubmit={submitType} inputRef={inputRef} placeholder="Type the country…" />
+          {answered && <Feedback answered={answered} answer={current.name} reveal last={last} onNext={next} />}
         </div>
       )}
 
-      {/* ---- Map mode ---- */}
+      {/* ---- Airports ---- */}
+      {mode === 'airports' && (
+        <div className="card flex flex-col items-center gap-5 !py-10 text-center">
+          <p className="text-xs font-semibold uppercase tracking-widest text-smoke">Which city?</p>
+          <div className="rounded-2xl bg-brand px-8 py-5 font-mono text-5xl font-extrabold tracking-widest text-white shadow-lift sm:text-6xl">{current.code}</div>
+          <TypeForm typed={typed} setTyped={setTyped} answered={answered} onSubmit={submitType} inputRef={inputRef} placeholder="Type the city…" />
+          {answered && <Feedback answered={answered} answer={current.city} reveal last={last} onNext={next} />}
+        </div>
+      )}
+
+      {/* ---- Map ---- */}
       {mode === 'map' && (
         <div className="card !p-4 sm:!p-6">
-          <p className="mb-3 text-center text-lg font-semibold">
-            Find: <span className="text-brand">{current.name}</span> {flagEmoji(current.iso2)}
-          </p>
-          <GameMap target={current} answered={answered} onPick={pickOnMap} />
-          {answered && <div className="mt-4"><Feedback answered={answered} answer={current.name} last={last} onNext={next} /></div>}
+          <p className="mb-3 text-center text-lg font-semibold">Find: <span className="text-brand">{current.name}</span> {flagEmoji(current.iso2)}</p>
+          <GameMap target={current} placed={placed} answered={answered} onPick={pickOnMap} />
+          {answered && <div className="mt-4"><Feedback answered={answered} reveal={false} last={last} onNext={next} /></div>}
         </div>
       )}
     </div>
   )
 }
 
-function Feedback({ answered, answer, last, onNext }) {
+function TypeForm({ typed, setTyped, answered, onSubmit, inputRef, placeholder }) {
+  return (
+    <form onSubmit={onSubmit} className="flex w-full max-w-sm flex-col items-center gap-3">
+      <input ref={inputRef} type="text" value={typed} disabled={!!answered} onChange={(e) => setTyped(e.target.value)}
+        placeholder={placeholder} className="input text-center text-lg" autoComplete="off" autoCorrect="off" autoCapitalize="words" />
+      {!answered && <button type="submit" className="btn-primary w-full">Check</button>}
+    </form>
+  )
+}
+
+// reveal=true → show the correct answer text on a wrong guess (flags/airports).
+// reveal=false → just "Not quite!" (map mode, where the location is shown instead).
+function Feedback({ answered, answer, reveal, last, onNext }) {
   return (
     <div className="flex flex-col items-center gap-3 animate-fade-up">
       {answered.right ? (
         <p className="text-lg font-bold text-green-600">✓ Correct!</p>
-      ) : (
+      ) : reveal ? (
         <p className="text-lg font-bold text-red-600">✗ Not quite — it's <span className="underline">{answer}</span></p>
+      ) : (
+        <p className="text-lg font-bold text-red-600">✗ Not quite! Here's where it is 👇</p>
       )}
       <button onClick={onNext} className="btn-primary">{last ? 'See results →' : 'Next →'}</button>
     </div>
@@ -259,7 +255,7 @@ function Feedback({ answered, answer, last, onNext }) {
 }
 
 // ---------------------------------------------------------------- Game map
-function GameMap({ target, answered, onPick }) {
+function GameMap({ target, placed, answered, onPick }) {
   return (
     <div className="overflow-hidden rounded-card bg-cloud/60">
       <ComposableMap width={880} height={440} projectionConfig={{ scale: 160, center: [12, 8] }} style={{ width: '100%', height: 'auto', display: 'block' }}>
@@ -270,21 +266,21 @@ function GameMap({ target, answered, onPick }) {
                 .filter((geo) => geo.properties.name !== 'Antarctica')
                 .map((geo) => {
                   const name = geo.properties.name
-                  const isTarget = countryMatches(target, name)
-                  const isPicked = answered?.picked === name
+                  const mark = placed[name] // 'correct' | 'wrong' (persists all game)
+                  // Reveal the correct location after a wrong guess on THIS question.
+                  const revealing = answered && !answered.right && countryMatches(target, name)
                   let fill = UNSELECTED
-                  if (answered) {
-                    if (isTarget) fill = GREEN // always reveal the correct country
-                    else if (isPicked) fill = RED // your wrong pick
-                  }
+                  if (mark === 'correct') fill = GREEN
+                  else if (mark === 'wrong') fill = RED
+                  if (revealing) fill = GREEN
                   return (
                     <Geography
                       key={geo.rsmKey}
                       geography={geo}
                       onClick={!answered ? () => onPick(name) : undefined}
                       style={{
-                        default: { fill, stroke: '#fff', strokeWidth: 0.4, outline: 'none', transition: 'fill 0.25s' },
-                        hover: { fill: answered ? fill : BRAND_LIGHT, stroke: '#fff', strokeWidth: 0.4, outline: 'none', cursor: answered ? 'default' : 'pointer' },
+                        default: { fill, stroke: revealing ? '#fff' : '#fff', strokeWidth: revealing ? 1 : 0.4, outline: 'none', transition: 'fill 0.25s' },
+                        hover: { fill: answered ? fill : (mark ? fill : BRAND_LIGHT), stroke: '#fff', strokeWidth: 0.4, outline: 'none', cursor: answered ? 'default' : 'pointer' },
                         pressed: { fill: BRAND, outline: 'none' },
                       }}
                     />
@@ -294,7 +290,7 @@ function GameMap({ target, answered, onPick }) {
           </Geographies>
         </ZoomableGroup>
       </ComposableMap>
-      <p className="px-3 pb-2 text-center text-[11px] text-smoke">Tap the country · pinch/scroll to zoom</p>
+      <p className="px-3 pb-2 text-center text-[11px] text-smoke">Tap the country · pinch/scroll to zoom · your correct guesses stay green</p>
     </div>
   )
 }
@@ -306,14 +302,10 @@ function Results({ result, mode, region, eventId, userId, onPlayAgain, onMenu })
   const great = pct >= 80
 
   useEffect(() => {
-    async function save() {
-      await supabase.from('game_scores').insert({
-        player_id: userId, mode, region, correct: result.correct, total: result.total,
-        time_ms: result.time_ms, event_id: eventId || null,
-      })
-      setSaving(false)
-    }
-    save()
+    supabase.from('game_scores').insert({
+      player_id: userId, mode, region, correct: result.correct, total: result.total,
+      time_ms: result.time_ms, event_id: eventId || null,
+    }).then(() => setSaving(false))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
@@ -339,38 +331,28 @@ function Leaderboard({ mode, region, eventId, highlightUser }) {
   const [rows, setRows] = useState(null)
 
   const load = useCallback(async () => {
-    let q = supabase
-      .from('game_scores')
-      .select('*, profiles:player_id(id, name, photo_url)')
-      .eq('mode', mode)
-      .eq('region', region)
+    let q = supabase.from('game_scores').select('*, profiles:player_id(id, name, photo_url)').eq('mode', mode).eq('region', region)
     q = eventId ? q.eq('event_id', eventId) : q.is('event_id', null)
     const { data } = await q
-    // Best run per player: highest correct, then fastest time.
     const best = {}
     for (const s of data ?? []) {
       const cur = best[s.player_id]
       if (!cur || s.correct > cur.correct || (s.correct === cur.correct && s.time_ms < cur.time_ms)) best[s.player_id] = s
     }
-    setRows(
-      Object.values(best).sort((a, b) => b.correct - a.correct || a.time_ms - b.time_ms).slice(0, 25)
-    )
+    setRows(Object.values(best).sort((a, b) => b.correct - a.correct || a.time_ms - b.time_ms).slice(0, 25))
   }, [mode, region, eventId])
 
   useEffect(() => { load() }, [load])
   useEffect(() => {
     const sub = supabase.channel(`gs-${mode}-${region}-${eventId || 'all'}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'game_scores' }, load)
-      .subscribe()
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'game_scores' }, load).subscribe()
     return () => supabase.removeChannel(sub)
   }, [load, mode, region, eventId])
 
   return (
     <section>
-      <h2 className="mb-1 text-lg font-semibold">🏅 Leaderboard</h2>
-      <p className="mb-4 text-sm text-smoke">
-        {mode === 'flags' ? 'Flags' : 'Find on map'} · {region}{eventId ? ' · this event' : ' · all-time'}. Ranked by score, then speed.
-      </p>
+      <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold"><Icon name="trophy" className="h-5 w-5 text-brand" /> Leaderboard</h2>
+      <p className="mb-4 text-sm text-smoke">{MODE_LABEL[mode]} · {region}{eventId ? ' · this event' : ' · all-time'}. Ranked by score, then speed.</p>
       {rows === null ? (
         <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-cloud" />)}</div>
       ) : rows.length === 0 ? (

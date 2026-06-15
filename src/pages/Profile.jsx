@@ -6,7 +6,7 @@ import WorldMap from '../components/WorldMap'
 import PlatformBadges from '../components/PlatformBadges'
 import TravelGallery from '../components/TravelGallery'
 import { Avatar, Badge, Skeleton, EmptyState } from '../components/ui'
-import { formatDate, timeAgo, cx } from '../lib/utils'
+import { formatDate, timeAgo, ageFromDob, cx } from '../lib/utils'
 
 // A creator's public profile: photo, bio, socials, the orange country map,
 // languages, stats and their content showcase (submitted video links).
@@ -103,7 +103,7 @@ export default function Profile() {
           <div className="flex flex-col items-center gap-2 sm:flex-row sm:gap-3">
             <h1 className="text-3xl font-bold tracking-tight">{creator.name}</h1>
             {creator.is_admin && <Badge tone="light">Tryp.com Team</Badge>}
-            {creator.age && <span className="text-smoke">{creator.age}</span>}
+            {(ageFromDob(creator.dob) ?? creator.age) && <span className="text-smoke">{ageFromDob(creator.dob) ?? creator.age}</span>}
           </div>
           {(creator.city || creator.country) && (
             <p className="mt-1 flex items-center justify-center gap-1 text-sm text-smoke sm:justify-start">

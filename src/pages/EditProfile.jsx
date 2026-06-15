@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
-import { AvatarUpload, LanguageSelect, SocialInputs } from '../components/ProfileFields'
+import { AvatarUpload, LanguageSelect, SocialInputs, DobField } from '../components/ProfileFields'
 import WorldMap from '../components/WorldMap'
 import TravelGallery from '../components/TravelGallery'
 import { PageHeader, Spinner } from '../components/ui'
@@ -16,7 +16,7 @@ export default function EditProfile() {
 
   const [form, setForm] = useState({
     name: profile?.name || '',
-    age: profile?.age || '',
+    dob: profile?.dob || null,
     city: profile?.city || '',
     country: profile?.country || '',
     bio: profile?.bio || '',
@@ -37,7 +37,7 @@ export default function EditProfile() {
     setBusy(true)
     const { error } = await supabase
       .from('profiles')
-      .update({ ...form, age: form.age ? Number(form.age) : null })
+      .update(form)
       .eq('id', user.id)
     setBusy(false)
     if (!error) {
@@ -60,10 +60,7 @@ export default function EditProfile() {
               <label htmlFor="name" className="label">Display name</label>
               <input id="name" type="text" required className="input" value={form.name} onChange={(e) => set({ name: e.target.value })} />
             </div>
-            <div>
-              <label htmlFor="age" className="label">Age</label>
-              <input id="age" type="number" min="16" max="100" className="input" value={form.age} onChange={(e) => set({ age: e.target.value })} />
-            </div>
+            <DobField value={form.dob} onChange={(dob) => set({ dob })} />
           </div>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <div>

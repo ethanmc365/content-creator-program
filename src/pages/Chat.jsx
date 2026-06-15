@@ -7,6 +7,7 @@ import { Avatar, Badge, Modal, Skeleton, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
 import PollCard from '../components/PollCard'
 import GameEventCard from '../components/GameEventCard'
+import BirthdayCard from '../components/BirthdayCard'
 import { CONTINENTS } from '../lib/countries'
 import { formatChatTime, cx } from '../lib/utils'
 
@@ -216,10 +217,11 @@ export default function Chat() {
       .select('id')
       .single()
     if (!error && ev) {
+      // Post the card on its own — no accompanying text message.
       await supabase.from('messages').insert({
         channel,
         sender_id: user.id,
-        body: `🎮 New game challenge: ${gameForm.title.trim()}`,
+        body: '',
         game_event_id: ev.id,
       })
     }
@@ -316,33 +318,36 @@ export default function Chat() {
                     <span className="text-gray-400">{formatChatTime(m.created_at)}</span>
                   </div>
 
-                  <div
-                    className={cx(
-                      'relative inline-block whitespace-pre-line rounded-2xl text-left text-sm leading-relaxed',
-                      m.image_url ? 'overflow-hidden p-1.5' : 'px-4 py-2.5',
-                      channel === 'announcements'
-                        ? 'border border-brand/20 bg-brand-tint text-ink'
-                        : mine
-                          ? 'bg-brand text-white'
-                          : 'bg-cloud text-ink'
-                    )}
-                  >
-                    {m.image_url && (
-                      <a href={m.image_url} target="_blank" rel="noopener noreferrer" aria-label="Open image full size">
-                        <img
-                          src={m.image_url}
-                          alt={m.body || 'Shared image'}
-                          loading="lazy"
-                          className="max-h-72 w-full rounded-xl object-cover"
-                        />
-                      </a>
-                    )}
-                    {m.body && <span className={cx('block', m.image_url && 'px-2.5 py-1.5')}>{renderBody(m.body)}</span>}
-                  </div>
+                  {(m.body || m.image_url) && (
+                    <div
+                      className={cx(
+                        'relative inline-block whitespace-pre-line rounded-2xl text-left text-sm leading-relaxed',
+                        m.image_url ? 'overflow-hidden p-1.5' : 'px-4 py-2.5',
+                        channel === 'announcements'
+                          ? 'border border-brand/20 bg-brand-tint text-ink'
+                          : mine
+                            ? 'bg-brand text-white'
+                            : 'bg-cloud text-ink'
+                      )}
+                    >
+                      {m.image_url && (
+                        <a href={m.image_url} target="_blank" rel="noopener noreferrer" aria-label="Open image full size">
+                          <img
+                            src={m.image_url}
+                            alt={m.body || 'Shared image'}
+                            loading="lazy"
+                            className="max-h-72 w-full rounded-xl object-cover"
+                          />
+                        </a>
+                      )}
+                      {m.body && <span className={cx('block', m.image_url && 'px-2.5 py-1.5')}>{renderBody(m.body)}</span>}
+                    </div>
+                  )}
 
-                  {/* Inline poll (announcement messages only) */}
+                  {/* Inline cards: poll / game challenge / birthday (render on their own) */}
                   {m.poll_id && <PollCard pollId={m.poll_id} />}
                   {m.game_event_id && <GameEventCard eventId={m.game_event_id} />}
+                  {m.birthday_for && <BirthdayCard creatorId={m.birthday_for} />}
 
                   {/* Reactions */}
                   <div className={cx('mt-1 flex flex-wrap items-center gap-1', mine && 'justify-end')}>
@@ -404,16 +409,11 @@ export default function Chat() {
           ) : canPost ? (
             <>
             {attachError && <p className="mb-2 text-xs text-red-600">{attachError}</p>}
-            {/* Admin tools: polls (announcements) + game challenges (any channel). */}
-            {isAdmin && (
+            {/* Admin poll tool lives above the composer (announcements only). */}
+            {isAdmin && channel === 'announcements' && (
               <div className="mb-3 flex flex-wrap gap-2">
-                {channel === 'announcements' && (
-                  <button type="button" onClick={() => setShowPoll(true)} className="btn-secondary !py-2 text-xs">
-                    <Icon name="poll" className="h-4 w-4" /> Create a poll
-                  </button>
-                )}
-                <button type="button" onClick={() => setShowGame(true)} className="btn-secondary !py-2 text-xs">
-                  🎮 Game challenge
+                <button type="button" onClick={() => setShowPoll(true)} className="btn-secondary !py-2 text-xs">
+                  <Icon name="poll" className="h-4 w-4" /> Create a poll
                 </button>
               </div>
             )}
@@ -433,6 +433,19 @@ export default function Chat() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 19.5h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25z" />
                 </svg>
               </button>
+              {/* Admin: drop a game challenge card into this channel. */}
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setShowGame(true)}
+                  disabled={sending}
+                  className="btn-ghost !px-3.5 !py-3"
+                  aria-label="Post a game challenge"
+                  title="Post a game challenge"
+                >
+                  <Icon name="plane" className="h-5 w-5" />
+                </button>
+              )}
               <textarea
                 rows={1}
                 className="input max-h-32 flex-1 resize-none"
@@ -497,20 +510,21 @@ export default function Chat() {
         <form onSubmit={createGameEvent} className="space-y-5">
           <div>
             <label htmlFor="game-title" className="label">Challenge title</label>
-            <input id="game-title" type="text" required className="input" value={gameForm.title} onChange={(e) => setGameForm({ ...gameForm, title: e.target.value })} placeholder="e.g. Friday Flag Frenzy 🚩" />
+            <input id="game-title" type="text" required className="input" value={gameForm.title} onChange={(e) => setGameForm({ ...gameForm, title: e.target.value })} placeholder="e.g. Friday Flag Frenzy" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label htmlFor="game-mode" className="label">Mode</label>
               <select id="game-mode" className="input" value={gameForm.mode} onChange={(e) => setGameForm({ ...gameForm, mode: e.target.value })}>
-                <option value="flags">🚩 Guess the flag</option>
-                <option value="map">📍 Find on the map</option>
+                <option value="flags">Guess the flag</option>
+                <option value="map">Find on the map</option>
+                <option value="airports">Airport codes</option>
               </select>
             </div>
             <div>
               <label htmlFor="game-region" className="label">Region</label>
               <select id="game-region" className="input" value={gameForm.region} onChange={(e) => setGameForm({ ...gameForm, region: e.target.value })}>
-                <option value="World">🌍 World</option>
+                <option value="World">World</option>
                 {CONTINENTS.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>

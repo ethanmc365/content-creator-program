@@ -6,6 +6,7 @@ import { useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { compressImage } from '../lib/image'
+import { parseDob, formatDobInput, ageFromDob } from '../lib/utils'
 import { Avatar, Spinner } from './ui'
 
 export const LANGUAGE_OPTIONS = [
@@ -61,6 +62,49 @@ export function AvatarUpload({ photoUrl, name, onUploaded }) {
         {photoUrl ? 'Change photo' : 'Upload a photo'}
       </button>
       {error && <p className="text-xs text-red-600">{error}</p>}
+    </div>
+  )
+}
+
+/**
+ * Date of birth field. Typed free-hand as DD/MM/YYYY (no calendar picker).
+ *  value   — stored ISO date ("2005-01-25") or null
+ *  onChange(iso|null) — fires with a valid ISO date, or null while incomplete
+ * Shows the derived age once a valid date is entered. We only ever surface age
+ * publicly, never the full date of birth.
+ */
+export function DobField({ value, onChange }) {
+  const [text, setText] = useState(formatDobInput(value))
+  const iso = parseDob(text)
+  const showError = text.trim().length >= 10 && !iso
+  const age = ageFromDob(iso)
+
+  function handle(e) {
+    const next = e.target.value
+    setText(next)
+    onChange(parseDob(next)) // null until it's a complete, valid date
+  }
+
+  return (
+    <div>
+      <label htmlFor="dob" className="label">Date of birth</label>
+      <input
+        id="dob"
+        type="text"
+        inputMode="numeric"
+        autoComplete="bday"
+        className="input max-w-[12rem]"
+        placeholder="DD/MM/YYYY"
+        value={text}
+        onChange={handle}
+      />
+      {showError ? (
+        <p className="mt-1 text-xs text-red-600">Enter a real date as DD/MM/YYYY, e.g. 25/01/2005.</p>
+      ) : age != null ? (
+        <p className="mt-1 text-xs text-smoke">You'll show as {age} years old. Only your age is shown publicly, never your date of birth.</p>
+      ) : (
+        <p className="mt-1 text-xs text-smoke">Type it as DD/MM/YYYY, e.g. 25/01/2005. We show your age, not the date.</p>
+      )}
     </div>
   )
 }
