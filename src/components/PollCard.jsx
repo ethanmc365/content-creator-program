@@ -65,7 +65,7 @@ export default function PollCard({ pollId }) {
   if (!poll) return null
 
   return (
-    <div className="mt-1 w-72 max-w-full rounded-2xl border border-brand/20 bg-white p-4 sm:w-80">
+    <div className="mt-1 w-72 max-w-full rounded-2xl border border-brand/20 bg-white p-4 text-left sm:w-80">
       <div className="mb-3 flex items-start justify-between gap-2">
         <p className="text-sm font-semibold leading-snug">🗳️ {poll.question}</p>
       </div>

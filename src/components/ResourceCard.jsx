@@ -18,9 +18,9 @@ export default function ResourceCard({ resourceId }) {
   const snippet = (resource.body || '').slice(0, 140)
 
   return (
-    <div className="mt-1 w-72 max-w-full overflow-hidden rounded-2xl border border-brand/20 bg-white sm:w-80">
+    <div className="mt-1 w-72 max-w-full overflow-hidden rounded-2xl border border-brand/20 bg-white text-center sm:w-80">
       <div className="bg-gradient-to-br from-brand to-brand-light px-4 py-3 text-white">
-        <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-white/80"><Icon name="book" className="h-3.5 w-3.5" /> Resource library</p>
+        <p className="flex items-center justify-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-white/80"><Icon name="book" className="h-3.5 w-3.5" /> Resource library</p>
         <p className="text-sm font-bold leading-snug">{resource.title}</p>
         {resource.category && <p className="text-xs text-white/85">{resource.category}</p>}
       </div>

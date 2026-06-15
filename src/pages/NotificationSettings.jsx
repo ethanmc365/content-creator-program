@@ -38,6 +38,7 @@ function Toggle({ on, onChange, label }) {
 export default function NotificationSettings() {
   const { user, profile, refreshProfile } = useAuth()
   const [prefs, setPrefs] = useState({ ...DEFAULT_PREFS, ...(profile?.notif_prefs || {}) })
+  const [emailOptIn, setEmailOptIn] = useState(profile?.email_opt_in !== false)
   const [permission, setPermission] = useState(pushPermission())
   const [busy, setBusy] = useState(false)
   const [pushMsg, setPushMsg] = useState('')
@@ -46,6 +47,12 @@ export default function NotificationSettings() {
     const next = { ...prefs, [key]: value }
     setPrefs(next)
     await supabase.from('profiles').update({ notif_prefs: next }).eq('id', user.id)
+    refreshProfile()
+  }
+
+  async function toggleEmail(value) {
+    setEmailOptIn(value)
+    await supabase.from('profiles').update({ email_opt_in: value }).eq('id', user.id)
     refreshProfile()
   }
 
@@ -103,6 +110,17 @@ export default function NotificationSettings() {
           </button>
         )}
         {pushMsg && <p className="text-sm text-smoke">{pushMsg}</p>}
+      </section>
+
+      {/* ---- Email ---- */}
+      <section className="card mb-8 flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold">Email notifications</h2>
+          <p className="mt-1 text-sm text-smoke">
+            Email me about new challenges, announcements and events. Which ones you get follows the categories below.
+          </p>
+        </div>
+        <Toggle on={emailOptIn} onChange={toggleEmail} label="Email notifications" />
       </section>
 
       {/* ---- Per-type preferences ---- */}

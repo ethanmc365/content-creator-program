@@ -17,7 +17,7 @@ export default function BirthdayCard({ creatorId }) {
   const first = creator.name?.split(' ')[0] || creator.name
 
   return (
-    <div className="mt-1 w-72 max-w-full overflow-hidden rounded-2xl border border-brand/20 bg-white shadow-card sm:w-80">
+    <div className="mt-1 w-72 max-w-full overflow-hidden rounded-2xl border border-brand/20 bg-white text-center shadow-card sm:w-80">
       <div className="relative bg-gradient-to-br from-brand to-brand-light px-4 py-5 text-center text-white">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-white/80">🎉 It's a birthday!</p>
         <div className="my-3 flex justify-center">
