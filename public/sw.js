@@ -12,8 +12,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || 'Tryp.com', {
       body: data.body || '',
-      icon: '/icon-192-v3.png',
-      badge: '/icon-192-v3.png',
+      icon: '/icon-192-v4.png',
+      badge: '/icon-192-v4.png',
       data: { link: data.link || '/' },
       tag: data.tag,
     })
@@ -27,8 +27,8 @@ self.addEventListener('message', (event) => {
   if (d.type === 'show-notification') {
     self.registration.showNotification(d.title || 'Tryp.com', {
       body: d.body || '',
-      icon: '/icon-192-v3.png',
-      badge: '/icon-192-v3.png',
+      icon: '/icon-192-v4.png',
+      badge: '/icon-192-v4.png',
       data: { link: d.link || '/' },
       tag: d.tag,
     })
