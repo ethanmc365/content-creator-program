@@ -11,6 +11,19 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true) // true until the first session check resolves
 
+  // Storage validates tokens against the asymmetric (ES256) signing key. A
+  // session minted under the old HS256 key can't upload (RLS sees no user), so
+  // if we spot a legacy-algorithm access token we silently refresh it once to
+  // upgrade it to ES256. This self-heals existing logins without a re-login.
+  function upgradeLegacyToken(session) {
+    try {
+      const token = session?.access_token
+      if (!token) return
+      const alg = JSON.parse(atob(token.split('.')[0].replace(/-/g, '+').replace(/_/g, '/'))).alg
+      if (alg && alg !== 'ES256') supabase.auth.refreshSession()
+    } catch { /* ignore */ }
+  }
+
   // Load the profile row for the signed-in user.
   const fetchProfile = useCallback(async (userId) => {
     const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single()
@@ -44,7 +57,10 @@ export function AuthProvider({ children }) {
         if (cancelled) return
         setSession(session)
         setLoading(false)
-        if (session?.user) fetchProfile(session.user.id).then((p) => !cancelled && setProfile(p))
+        if (session?.user) {
+          upgradeLegacyToken(session)
+          fetchProfile(session.user.id).then((p) => !cancelled && setProfile(p))
+        }
       })
       .catch(() => { if (!cancelled) setLoading(false) })
 

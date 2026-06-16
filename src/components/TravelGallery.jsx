@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { compressImage } from '../lib/image'
+import { uploadFile } from '../lib/upload'
 import { Spinner } from './ui'
 
 const MAX_PHOTOS = 20
@@ -49,9 +50,10 @@ export default function TravelGallery({ creatorId, editable = false }) {
       }
       const compressed = await compressImage(file, { maxDim: 1280, quality: 0.82 })
       const path = `${user.id}/${Date.now()}-${order}.jpg`
-      const { error: upErr } = await supabase.storage.from('gallery').upload(path, compressed)
-      if (upErr) { setError(upErr.message); continue }
-      const url = supabase.storage.from('gallery').getPublicUrl(path).data.publicUrl
+      let url
+      try {
+        url = await uploadFile('gallery', path, compressed, 'image/jpeg')
+      } catch (err) { setError(err.message); continue }
       await supabase.from('creator_photos').insert({ creator_id: user.id, photo_url: url, sort_order: order++ })
     }
     setUploading(false)

@@ -3,9 +3,9 @@
 //  * LanguageSelect - multi-select tag picker
 //  * SocialInputs   - Instagram / TikTok / YouTube URL fields
 import { useRef, useState } from 'react'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { compressImage } from '../lib/image'
+import { uploadFile } from '../lib/upload'
 import { parseDob, formatDobInput, ageFromDob } from '../lib/utils'
 import { Avatar, Spinner } from './ui'
 
@@ -33,14 +33,12 @@ export function AvatarUpload({ photoUrl, name, onUploaded }) {
     // Avatars only ever render small, so 512px keeps them tiny in storage.
     const compressed = await compressImage(file, { maxDim: 512, quality: 0.85 })
     const path = `${user.id}/avatar-${Date.now()}.jpg` // unique name busts caches
-    const { error: uploadError } = await supabase.storage.from('avatars').upload(path, compressed, { upsert: true })
-    if (uploadError) {
-      setError(uploadError.message)
-      setBusy(false)
-      return
+    try {
+      const url = await uploadFile('avatars', path, compressed, 'image/jpeg')
+      onUploaded(url)
+    } catch (err) {
+      setError(err.message)
     }
-    const { data } = supabase.storage.from('avatars').getPublicUrl(path)
-    onUploaded(data.publicUrl)
     setBusy(false)
   }
 

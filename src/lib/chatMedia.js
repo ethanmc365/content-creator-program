@@ -1,5 +1,5 @@
-import { supabase } from './supabase'
 import { compressImage } from './image'
+import { uploadFile } from './upload'
 
 // Upload a chat image to the public "chat-media" bucket and return its URL.
 // Files land in chat-media/<user id>/... so the RLS policy applies.
@@ -13,7 +13,5 @@ export async function uploadChatImage(file, userId) {
   }
   const compressed = await compressImage(file, { maxDim: 1280, quality: 0.82 })
   const path = `${userId}/${Date.now()}.jpg`
-  const { error } = await supabase.storage.from('chat-media').upload(path, compressed)
-  if (error) throw new Error(error.message)
-  return supabase.storage.from('chat-media').getPublicUrl(path).data.publicUrl
+  return uploadFile('chat-media', path, compressed, 'image/jpeg')
 }
