@@ -60,12 +60,15 @@ export default function PullToRefresh() {
       style={{ transform: `translateY(${pull}px)`, opacity: Math.min(progress + 0.2, 1), transition: refreshing ? 'transform 0.2s' : 'none' }}
     >
       <div className="mt-2 flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-lift">
+        {/* Clean circular progress spinner: a track ring plus a brand arc that
+            rotates as you pull and spins continuously while refreshing. */}
         <svg
-          className={refreshing ? 'h-5 w-5 animate-spin text-brand' : 'h-5 w-5 text-brand'}
-          style={refreshing ? undefined : { transform: `rotate(${progress * 270}deg)` }}
-          fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"
+          className={refreshing ? 'h-5 w-5 animate-spin' : 'h-5 w-5'}
+          style={refreshing ? undefined : { transform: `rotate(${progress * 360}deg)` }}
+          viewBox="0 0 24 24" fill="none"
         >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992V4.356M3.985 14.652H8.977v4.992m-4.992-4.992l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+          <circle cx="12" cy="12" r="9" stroke="#eee" strokeWidth="2.5" />
+          <path d="M12 3a9 9 0 0 1 9 9" stroke="#d94407" strokeWidth="2.5" strokeLinecap="round" />
         </svg>
       </div>
     </div>

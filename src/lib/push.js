@@ -71,8 +71,8 @@ export async function showLocalNotification({ title, body, link, tag }) {
     const reg = await navigator.serviceWorker.ready
     reg.showNotification(title || 'Tryp.com', {
       body: body || '',
-      icon: '/icon-192.png',
-      badge: '/icon-192.png',
+      icon: '/icon-192-v3.png',
+      badge: '/icon-192-v3.png',
       data: { link: link || '/' },
       tag,
     })
