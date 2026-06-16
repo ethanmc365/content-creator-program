@@ -56,10 +56,12 @@ export function Spinner({ className = 'h-5 w-5' }) {
 export function PlaneLoader({ label = 'Loading…', className = '' }) {
   return (
     <div className={cx('flex flex-col items-center gap-4', className)}>
-      <div className="relative h-8 w-24 overflow-hidden">
-        {/* dashed flight path */}
-        <div className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 border-t-2 border-dashed border-brand/25" />
-        <svg className="absolute top-1/2 h-6 w-6 -translate-y-1/2 animate-fly text-brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+      {/* The plane is a flex child so it stays vertically centred; the keyframe
+          only moves it across (with a gentle bob) and never fights a static
+          translate, which is what made it look off-centre before. */}
+      <div className="relative flex h-8 w-28 items-center overflow-hidden">
+        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t-2 border-dashed border-brand/25" />
+        <svg className="relative h-6 w-6 animate-fly text-brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
           <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
         </svg>
       </div>
@@ -89,11 +91,14 @@ export function SkeletonCards({ count = 3 }) {
   )
 }
 
-/** Friendly branded empty state. */
-export function EmptyState({ emoji = '🌍', title, hint, action }) {
+/** Friendly branded empty state. Pass `icon` (an <Icon/> element) to use a
+ *  custom icon instead of an emoji. */
+export function EmptyState({ emoji = '🌍', icon, title, hint, action }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 rounded-card border border-dashed border-gray-200 bg-white px-8 py-16 text-center">
-      <div className="text-4xl" aria-hidden>{emoji}</div>
+      {icon
+        ? <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-tint text-brand" aria-hidden>{icon}</div>
+        : <div className="text-4xl" aria-hidden>{emoji}</div>}
       <h3 className="text-lg font-semibold">{title}</h3>
       {hint && <p className="max-w-sm text-sm text-smoke">{hint}</p>}
       {action}

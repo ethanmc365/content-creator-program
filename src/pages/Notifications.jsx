@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { EmptyState, PageHeader, Skeleton } from '../components/ui'
+import Icon from '../components/Icon'
 import { timeAgo, cx } from '../lib/utils'
 
-const TYPE_EMOJI = {
-  challenge: '🏁', announcement: '📣', results: '🏆',
-  reward: '💸', deadline: '⏰', connection: '🤝', dm: '💬',
-  event: '📅', application: '🎉', chat: '💬',
+// Each notification type gets a custom icon (no emoji).
+const TYPE_ICON = {
+  challenge: 'flag', announcement: 'megaphone', results: 'trophy',
+  reward: 'money', deadline: 'clock', connection: 'users', dm: 'chat',
+  event: 'calendar', application: 'shield', chat: 'chat',
 }
 
 // Full notification history (the bell shows only the latest few).
@@ -56,7 +58,7 @@ export default function Notifications() {
       {loading ? (
         <div className="space-y-3">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
       ) : items.length === 0 ? (
-        <EmptyState emoji="🔔" title="Nothing here yet" hint="Challenge launches, results, rewards and DMs will all show up here." />
+        <EmptyState icon={<Icon name="bell" className="h-7 w-7" />} title="Nothing here yet" hint="Challenge launches, results, rewards and DMs will all show up here." />
       ) : (
         <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
           {items.map((n) => (
@@ -68,7 +70,9 @@ export default function Notifications() {
                 !n.read && 'bg-brand-tint/40'
               )}
             >
-              <span className="text-xl" aria-hidden>{TYPE_EMOJI[n.type] || '🔔'}</span>
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand" aria-hidden>
+                <Icon name={TYPE_ICON[n.type] || 'bell'} className="h-5 w-5" />
+              </span>
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-semibold">{n.title}</span>
                 {n.body && <span className="mt-0.5 block text-sm text-smoke">{n.body}</span>}

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Badge, EmptyState, PageHeader, Skeleton, StatCard } from '../components/ui'
+import Icon from '../components/Icon'
 import { formatDate, formatMoney } from '../lib/utils'
 
 // A creator's own reward history. We filter by creator_id explicitly so that
@@ -43,16 +44,18 @@ export default function Rewards() {
 
           {rewards.length === 0 ? (
             <EmptyState
-              emoji="💸"
+              icon={<Icon name="money" className="h-7 w-7" />}
               title="No rewards yet. Your first one is waiting"
-              hint="Enter the live challenge: every valid entry earns a voucher, and the top spots win cash."
+              hint="Enter a challenge to earn a voucher or win the cash prizes."
               action={<Link to="/challenges" className="btn-primary">See the challenge</Link>}
             />
           ) : (
             <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
               {rewards.map((r) => (
                 <div key={r.id} className="flex flex-wrap items-center gap-3 border-b border-gray-50 px-5 py-4 last:border-0 sm:px-7">
-                  <span className="text-2xl" aria-hidden>{r.reward_type === 'cash' ? '💷' : '🎟️'}</span>
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand" aria-hidden>
+                    <Icon name={r.reward_type === 'cash' ? 'money' : 'ticket'} className="h-5 w-5" />
+                  </span>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold">
                       {r.reward_type === 'cash' ? 'Cash prize' : 'Tryp.com voucher'}

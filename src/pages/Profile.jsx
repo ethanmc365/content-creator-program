@@ -6,6 +6,7 @@ import WorldMap from '../components/WorldMap'
 import PlatformBadges from '../components/PlatformBadges'
 import TravelGallery from '../components/TravelGallery'
 import { Avatar, Badge, Skeleton, EmptyState } from '../components/ui'
+import Icon from '../components/Icon'
 import { formatDate, timeAgo, ageFromDob, cx } from '../lib/utils'
 
 // A creator's public profile: photo, bio, socials, the orange country map,
@@ -188,12 +189,13 @@ export default function Profile() {
       {/* ---------- Travel photos ---------- */}
       <ProfileGallery creatorId={creator.id} isMe={isMe} />
 
-      {/* ---------- Content showcase ---------- */}
+      {/* ---------- Content showcase (creators only; admins don't submit) ---------- */}
+      {!creator.is_admin && (
       <section>
         <h2 className="mb-4 text-lg font-semibold">Content showcase</h2>
         {submissions.length === 0 ? (
           <EmptyState
-            emoji="🎬"
+            icon={<Icon name="video" className="h-7 w-7" />}
             title={isMe ? 'No submissions yet' : `${creator.name.split(' ')[0]} hasn't submitted yet`}
             hint={isMe ? 'Enter the current challenge and your videos will show up here.' : 'Their challenge entries will appear here.'}
             action={isMe && <Link to="/challenges" className="btn-primary">View challenges</Link>}
@@ -221,6 +223,7 @@ export default function Profile() {
           </div>
         )}
       </section>
+      )}
     </div>
   )
 }

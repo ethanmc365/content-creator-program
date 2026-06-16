@@ -12,13 +12,15 @@ const CATEGORIES = [
   { key: 'challenge', label: 'New challenges', hint: 'When a fresh challenge goes live.' },
   { key: 'event', label: 'Events', hint: 'Q&As, content days and milestones on the calendar.' },
   { key: 'dm', label: 'Direct messages', hint: 'When another creator messages you directly.' },
-  { key: 'chat', label: 'General chat', hint: 'New messages in the #general channel.' },
+  { key: 'chat', label: 'General chat', hint: 'New messages in the #general channel.', pushOnly: true },
   { key: 'results', label: 'Results', hint: "When a challenge's results are published." },
   { key: 'reward', label: 'Rewards', hint: 'When a reward or payout comes your way.' },
   { key: 'connection', label: 'New connections', hint: 'When a creator connects with you.' },
 ]
 
+// Push defaults on; email defaults on only for the big moments.
 const DEFAULT_PREFS = Object.fromEntries(CATEGORIES.map((c) => [c.key, true]))
+const DEFAULT_EMAIL = { announcement: true, challenge: true, event: true, results: true, reward: true, application: true, dm: false, chat: false, connection: false }
 
 function Toggle({ on, onChange, label }) {
   return (
@@ -38,21 +40,22 @@ function Toggle({ on, onChange, label }) {
 export default function NotificationSettings() {
   const { user, profile, refreshProfile } = useAuth()
   const [prefs, setPrefs] = useState({ ...DEFAULT_PREFS, ...(profile?.notif_prefs || {}) })
-  const [emailOptIn, setEmailOptIn] = useState(profile?.email_opt_in !== false)
+  const [emailPrefs, setEmailPrefs] = useState({ ...DEFAULT_EMAIL, ...(profile?.email_prefs || {}) })
   const [permission, setPermission] = useState(pushPermission())
   const [busy, setBusy] = useState(false)
   const [pushMsg, setPushMsg] = useState('')
 
-  async function toggle(key, value) {
+  async function togglePush(key, value) {
     const next = { ...prefs, [key]: value }
     setPrefs(next)
     await supabase.from('profiles').update({ notif_prefs: next }).eq('id', user.id)
     refreshProfile()
   }
 
-  async function toggleEmail(value) {
-    setEmailOptIn(value)
-    await supabase.from('profiles').update({ email_opt_in: value }).eq('id', user.id)
+  async function toggleEmail(key, value) {
+    const next = { ...emailPrefs, [key]: value }
+    setEmailPrefs(next)
+    await supabase.from('profiles').update({ email_prefs: next }).eq('id', user.id)
     refreshProfile()
   }
 
@@ -112,32 +115,32 @@ export default function NotificationSettings() {
         {pushMsg && <p className="text-sm text-smoke">{pushMsg}</p>}
       </section>
 
-      {/* ---- Email ---- */}
-      <section className="card mb-8 flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <h2 className="text-lg font-semibold">Email notifications</h2>
-          <p className="mt-1 text-sm text-smoke">
-            Email me about new challenges, announcements and events. Which ones you get follows the categories below.
-          </p>
+      {/* ---- Per-type preferences: a push toggle and an email toggle each ---- */}
+      <section className="card">
+        <div className="flex items-center justify-end gap-3 border-b border-gray-100 pb-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+          <span className="w-11 text-center">Push</span>
+          <span className="w-11 text-center">Email</span>
         </div>
-        <Toggle on={emailOptIn} onChange={toggleEmail} label="Email notifications" />
-      </section>
-
-      {/* ---- Per-type preferences ---- */}
-      <section className="card divide-y divide-gray-100">
         {CATEGORIES.map((c) => (
-          <div key={c.key} className="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0">
-            <div className="min-w-0">
+          <div key={c.key} className="flex items-center gap-4 border-b border-gray-100 py-4 last:border-0">
+            <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold">{c.label}</p>
               <p className="text-xs text-smoke">{c.hint}</p>
             </div>
-            <Toggle on={prefs[c.key] !== false} onChange={(v) => toggle(c.key, v)} label={c.label} />
+            <div className="w-11 flex justify-center">
+              <Toggle on={prefs[c.key] !== false} onChange={(v) => togglePush(c.key, v)} label={`${c.label} push`} />
+            </div>
+            <div className="w-11 flex justify-center">
+              {c.pushOnly
+                ? <span className="text-[11px] text-gray-300">—</span>
+                : <Toggle on={emailPrefs[c.key] === true} onChange={(v) => toggleEmail(c.key, v)} label={`${c.label} email`} />}
+            </div>
           </div>
         ))}
       </section>
 
       <p className="mt-4 text-xs text-smoke">
-        Turning a category off stops both in-app and push notifications for it. Account-critical messages (like your application result) are always delivered.
+        Push sends to your devices; email sends to your inbox. Your in-app notification bell always keeps a record. Account-critical messages (like your application result) are always delivered.
       </p>
     </div>
   )

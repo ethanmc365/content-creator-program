@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { AvatarUpload, LanguageSelect, SocialInputs, DobField } from '../components/ProfileFields'
 import WorldMap from '../components/WorldMap'
+import Icon from '../components/Icon'
 import { Spinner } from '../components/ui'
 import { cx } from '../lib/utils'
 
@@ -93,7 +94,9 @@ export default function Onboarding() {
           {/* ---- Step 0: welcome ---- */}
           {step === 0 && (
             <div className="space-y-5 text-center">
-              <p className="text-5xl" aria-hidden>🧡</p>
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-tint text-brand" aria-hidden>
+                <Icon name="heart" className="h-8 w-8" />
+              </div>
               <h1 className="text-3xl font-bold">Welcome to the crew, {profile?.name?.split(' ')[0] || 'creator'}!</h1>
               <p className="mx-auto max-w-md text-smoke">
                 You're now part of the Tryp.com Content Creator Program, a global community of
@@ -101,7 +104,7 @@ export default function Onboarding() {
               </p>
               <p className="mx-auto max-w-md text-smoke">
                 Let's build your creator profile. It takes about two minutes, and a complete profile
-                gets you noticed by other creators (and by us 👀).
+                gets you noticed by other creators (and by us).
               </p>
             </div>
           )}
@@ -127,11 +130,11 @@ export default function Onboarding() {
               </div>
               <div>
                 <label htmlFor="bio" className="label">One-line bio</label>
-                <input id="bio" type="text" maxLength={120} className="input" value={draft.bio} onChange={(e) => set({ bio: e.target.value })} placeholder="e.g. London-based travel storyteller ✈️" />
+                <input id="bio" type="text" maxLength={120} className="input" value={draft.bio} onChange={(e) => set({ bio: e.target.value })} placeholder="London based travel creator" />
               </div>
               <div>
                 <label htmlFor="about" className="label">About you</label>
-                <textarea id="about" rows={4} className="input" value={draft.about} onChange={(e) => set({ about: e.target.value })} placeholder="Tell other creators about your style, your niche, and what collabs you're up for…" />
+                <textarea id="about" rows={4} className="input" value={draft.about} onChange={(e) => set({ about: e.target.value })} placeholder="Introduce yourself, tell other creators about your life, your hobbies, your interests and the type of content you like to create." />
               </div>
             </div>
           )}
@@ -151,7 +154,7 @@ export default function Onboarding() {
           {step === 3 && (
             <div className="space-y-6">
               <div className="text-center">
-                <h2 className="text-2xl font-bold">Paint your travel map 🌍</h2>
+                <h2 className="text-2xl font-bold">Paint your travel map</h2>
                 <p className="mt-2 text-sm text-smoke">Tap every country you've visited and watch it glow Tryp orange on your profile.</p>
               </div>
               <WorldMap
@@ -188,12 +191,14 @@ export default function Onboarding() {
               <h2 className="text-2xl font-bold">How the program works</h2>
               <div className="grid grid-cols-1 gap-4 text-left sm:grid-cols-3">
                 {[
-                  { emoji: '🏁', title: 'Challenges', text: 'Usually one live challenge at a time. Read the brief, film your video, paste your link before the deadline.' },
-                  { emoji: '👀', title: 'Review', text: 'When a challenge closes, the Tryp.com Team reviews every entry and logs the final view counts.' },
-                  { emoji: '🏆', title: 'Earn', text: 'Top creators win cash, every valid entry earns vouchers, and winners top the leaderboard.' },
+                  { icon: 'flag', title: 'Challenges', text: 'Usually one live challenge at a time. Read the brief, film your video, paste your link before the deadline.' },
+                  { icon: 'eye', title: 'Review', text: 'When a challenge closes, the Tryp.com Team reviews every entry and logs the final view counts.' },
+                  { icon: 'trophy', title: 'Earn', text: 'Top creators win cash prizes, and there are participation vouchers up for grabs too.' },
                 ].map((c) => (
                   <div key={c.title} className="rounded-xl bg-cloud p-5">
-                    <p className="text-2xl" aria-hidden>{c.emoji}</p>
+                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-tint text-brand" aria-hidden>
+                      <Icon name={c.icon} className="h-5 w-5" />
+                    </span>
                     <p className="mt-2 font-semibold">{c.title}</p>
                     <p className="mt-1 text-xs leading-relaxed text-smoke">{c.text}</p>
                   </div>
@@ -226,7 +231,7 @@ export default function Onboarding() {
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <button onClick={() => finish(false)} disabled={busy} className="btn-secondary">Skip for now</button>
                   <button onClick={() => finish(true)} disabled={busy} className="btn-primary">
-                    {busy ? <Spinner /> : 'Say hello in chat 👋'}
+                    {busy ? <Spinner /> : 'Say hello in chat'}
                   </button>
                 </div>
               )

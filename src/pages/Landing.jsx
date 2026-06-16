@@ -3,6 +3,7 @@ import { Link, Navigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Avatar } from '../components/ui'
+import Icon from '../components/Icon'
 import { formatMoney } from '../lib/utils'
 
 // Public landing page - bright, spacious, one clear focal point per section.
@@ -84,13 +85,15 @@ export default function Landing() {
         <p className="mx-auto mt-4 max-w-md text-center text-smoke">Three steps between you and your first payout.</p>
         <div className="mt-16 grid grid-cols-1 gap-8 sm:grid-cols-3">
           {[
-            { step: '01', emoji: '✍️', title: 'Apply', text: 'Sign up for free, build your creator profile, and fill in your travel map. Share your socials and connect with other creators.' },
-            { step: '02', emoji: '🎬', title: 'Create', text: 'Participate in content challenges with a clear brief. Film your video, post it on Instagram or TikTok, and share the link for it to be counted.' },
-            { step: '03', emoji: '💷', title: 'Earn', text: 'Top videos win cash prizes. Multiple videos also earns you a Tryp.com voucher that you can spend on flights and hotels. Your dream trip is not far away!' },
+            { step: '01', icon: 'pencil', title: 'Apply', text: 'Sign up for free, build your creator profile, and fill in your travel map. Share your socials and connect with other creators.' },
+            { step: '02', icon: 'video', title: 'Create', text: 'Participate in content challenges with a clear brief. Film your video, post it on Instagram or TikTok, and share the link for it to be counted.' },
+            { step: '03', icon: 'money', title: 'Earn', text: 'Top videos win cash prizes. Take part and you can also earn Tryp.com participation vouchers to spend on flights and hotels. Your dream trip is not far away!' },
           ].map((c) => (
             <div key={c.step} className="card !p-10 text-center">
               <p className="text-xs font-bold tracking-[0.3em] text-brand-light">{c.step}</p>
-              <p className="mt-4 text-4xl" aria-hidden>{c.emoji}</p>
+              <span className="mx-auto mt-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-tint text-brand" aria-hidden>
+                <Icon name={c.icon} className="h-7 w-7" />
+              </span>
               <h3 className="mt-4 text-xl font-semibold">{c.title}</h3>
               <p className="mt-3 text-sm leading-relaxed text-smoke">{c.text}</p>
             </div>
@@ -104,13 +107,15 @@ export default function Landing() {
           <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">Why creators join</h2>
           <div className="mt-16 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { emoji: '💷', title: 'Real cash prizes', text: 'Cash for the top spots in every challenge, spend it your way.' },
-              { emoji: '✈️', title: 'Travel vouchers', text: 'Participating in challenges earns you Tryp.com vouchers you can use to book your next trip.' },
-              { emoji: '📈', title: 'Brand exposure', text: "The top videos get featured with creator credit on Tryp.com's global accounts with +100k followers." },
-              { emoji: '🧡', title: 'A real community', text: 'Collab, connect, swap tips and plan trips with creators around the world.' },
+              { icon: 'money', title: 'Real cash prizes', text: 'Cash for the top spots in every challenge, spend it your way.' },
+              { icon: 'ticket', title: 'Travel vouchers', text: 'Take part in challenges and earn Tryp.com participation vouchers you can use to book your next trip.' },
+              { icon: 'chart', title: 'Brand exposure', text: "The top videos get featured with creator credit on Tryp.com's global accounts with +100k followers." },
+              { icon: 'heart', title: 'A real community', text: 'Collab, connect, swap tips and plan trips with creators around the world.' },
             ].map((b) => (
               <div key={b.title} className="rounded-card bg-white p-8 shadow-card">
-                <p className="text-3xl" aria-hidden>{b.emoji}</p>
+                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-tint text-brand" aria-hidden>
+                  <Icon name={b.icon} className="h-6 w-6" />
+                </span>
                 <h3 className="mt-4 font-semibold">{b.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-smoke">{b.text}</p>
               </div>
@@ -130,7 +135,7 @@ export default function Landing() {
                 <Avatar src={c.photo_url} name={c.name} size="lg" />
                 <p className="font-semibold">{c.name}</p>
                 <p className="text-xs leading-relaxed text-smoke line-clamp-2">{c.bio}</p>
-                <p className="text-xs font-semibold text-brand">🌍 {c.countries} countries</p>
+                <p className="flex items-center justify-center gap-1 text-xs font-semibold text-brand"><Icon name="globe" className="h-3.5 w-3.5" /> {c.countries} countries</p>
               </div>
             ))}
           </div>

@@ -51,7 +51,7 @@ export default function Signup() {
     >
       {ref && (
         <p className="mb-5 rounded-xl bg-brand-tint px-4 py-3 text-center text-sm font-medium text-brand">
-          🎉 You were invited by a Tryp.com creator. Welcome aboard!
+          You were invited by a Tryp.com creator. Welcome aboard!
         </p>
       )}
       <form onSubmit={handleSubmit} className="space-y-5">

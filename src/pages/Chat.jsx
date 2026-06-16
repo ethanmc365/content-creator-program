@@ -279,7 +279,7 @@ export default function Chat() {
   }
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-4rem-6rem)] w-full max-w-6xl flex-col px-0 sm:px-8 sm:py-6 lg:h-[calc(100vh-4rem)]">
+    <div className="mx-auto flex h-[calc(100dvh-4rem-5rem)] w-full max-w-6xl flex-col px-0 sm:px-8 sm:py-6 lg:h-[calc(100vh-4rem)]">
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white sm:rounded-card sm:border sm:border-gray-100 sm:shadow-card">
         {/* ---------- Channel tabs ---------- */}
         <div className="flex shrink-0 gap-1 border-b border-gray-100 px-3 pt-3 sm:px-5" role="tablist" aria-label="Chat channels">
@@ -290,7 +290,7 @@ export default function Chat() {
               role="tab"
               aria-selected={channel === c.key}
               className={cx(
-                'relative rounded-t-xl px-4 py-2.5 text-sm font-medium transition-colors',
+                'relative rounded-t-xl px-3 py-2 text-sm font-medium transition-colors sm:px-4 sm:py-2.5',
                 channel === c.key ? 'bg-brand-tint text-brand' : 'text-smoke hover:bg-cloud hover:text-ink'
               )}
             >
@@ -301,12 +301,12 @@ export default function Chat() {
         </div>
 
         {/* Channel hint bar */}
-        <div className={cx('shrink-0 px-5 py-2.5 text-xs', channel === 'announcements' ? 'bg-brand-tint font-medium text-brand' : 'bg-cloud/60 text-smoke')}>
+        <div className={cx('shrink-0 px-5 py-1.5 text-xs sm:py-2.5', channel === 'announcements' ? 'bg-brand-tint font-medium text-brand' : 'bg-cloud/60 text-smoke')}>
           {meta.hint}
         </div>
 
         {/* ---------- Messages ---------- */}
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-6 sm:px-8">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:space-y-5 sm:px-8 sm:py-6">
           {loading && (
             <div className="space-y-5">
               {Array.from({ length: 5 }).map((_, i) => (
@@ -394,15 +394,15 @@ export default function Chat() {
                       <button
                         onClick={() => setPickerFor(pickerFor === m.id ? null : m.id)}
                         aria-label="Add reaction"
-                        className="rounded-full border border-gray-200 px-2 py-0.5 text-xs text-smoke hover:border-brand hover:text-brand"
+                        className="rounded-full border border-gray-200 p-1 text-smoke hover:border-brand hover:text-brand"
                       >
-                        +🙂
+                        <Icon name="smile" className="h-4 w-4" />
                       </button>
                       {isAdmin && (
                         <>
-                          <button onClick={() => moderateDelete(m.id)} aria-label="Delete message" className="rounded-full border border-gray-200 px-2 py-0.5 text-xs text-smoke hover:border-red-300 hover:text-red-500">🗑</button>
+                          <button onClick={() => moderateDelete(m.id)} aria-label="Delete message" className="rounded-full border border-gray-200 p-1 text-smoke hover:border-red-300 hover:text-red-500"><Icon name="trash" className="h-4 w-4" /></button>
                           {!mine && !m.profiles?.is_admin && (
-                            <button onClick={() => muteCreator(m.sender_id, m.profiles?.name)} aria-label="Mute creator" className="rounded-full border border-gray-200 px-2 py-0.5 text-xs text-smoke hover:border-red-300 hover:text-red-500">🔇</button>
+                            <button onClick={() => muteCreator(m.sender_id, m.profiles?.name)} aria-label="Mute creator" className="rounded-full border border-gray-200 p-1 text-smoke hover:border-red-300 hover:text-red-500"><Icon name="mute" className="h-4 w-4" /></button>
                           )}
                         </>
                       )}
@@ -425,7 +425,7 @@ export default function Chat() {
         </div>
 
         {/* ---------- Composer ---------- */}
-        <div className="shrink-0 border-t border-gray-100 px-4 py-4 sm:px-8">
+        <div className="shrink-0 border-t border-gray-100 px-4 py-2.5 sm:px-8 sm:py-4">
           {isMuted ? (
             <p className="rounded-xl bg-amber-50 px-4 py-3 text-center text-sm text-amber-700">
               You've been muted by the team. You can read but not post. Questions? DM an admin.
@@ -486,7 +486,7 @@ export default function Chat() {
               <textarea
                 rows={1}
                 className="input max-h-32 flex-1 resize-none"
-                placeholder={`Message #${meta.label.toLowerCase()}…`}
+                placeholder="Message…"
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 onKeyDown={(e) => {

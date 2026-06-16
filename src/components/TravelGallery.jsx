@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext'
 import { compressImage } from '../lib/image'
 import { uploadFile } from '../lib/upload'
 import { Spinner } from './ui'
+import Icon from './Icon'
+import { cx } from '../lib/utils'
 
 const MAX_PHOTOS = 20
 
@@ -72,7 +74,30 @@ export default function TravelGallery({ creatorId, editable = false }) {
     setPhotos((prev) => prev.map((p) => (p.id === photo.id ? { ...p, caption } : p)))
   }
 
-  if (loading) return <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="aspect-square animate-pulse rounded-xl bg-cloud" />)}</div>
+  // Toggle a photo between small (1x1) and large (2x2) on the board.
+  async function toggleSize(photo) {
+    const size = photo.size === 'large' ? 'small' : 'large'
+    setPhotos((prev) => prev.map((p) => (p.id === photo.id ? { ...p, size } : p)))
+    await supabase.from('creator_photos').update({ size }).eq('id', photo.id)
+  }
+
+  // Move a photo earlier/later in the board, then normalise sort_order so the
+  // new arrangement sticks for everyone.
+  async function move(index, dir) {
+    const j = index + dir
+    if (j < 0 || j >= photos.length) return
+    const arr = [...photos]
+    ;[arr[index], arr[j]] = [arr[j], arr[index]]
+    const renumbered = arr.map((p, i) => ({ ...p, sort_order: i }))
+    setPhotos(renumbered)
+    await Promise.all(
+      renumbered
+        .filter((p, i) => photos.find((o) => o.id === p.id)?.sort_order !== i)
+        .map((p) => supabase.from('creator_photos').update({ sort_order: p.sort_order }).eq('id', p.id))
+    )
+  }
+
+  if (loading) return <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="aspect-square animate-pulse rounded-xl bg-cloud" />)}</div>
 
   // Read-only profile view with nothing to show.
   if (!editable && photos.length === 0) return null
@@ -81,7 +106,7 @@ export default function TravelGallery({ creatorId, editable = false }) {
     <div>
       {editable && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-smoke">{photos.length} / {MAX_PHOTOS} photos</p>
+          <p className="text-sm text-smoke">{photos.length} / {MAX_PHOTOS} photos · use the arrows to reorder and the expand button to make a photo larger.</p>
           <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFiles} />
           <button
             type="button" onClick={() => fileRef.current?.click()}
@@ -94,25 +119,33 @@ export default function TravelGallery({ creatorId, editable = false }) {
       )}
       {error && <p className="mb-3 text-xs text-red-600">{error}</p>}
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        {photos.map((p) => (
-          <figure key={p.id} className="group relative overflow-hidden rounded-xl bg-cloud">
-            <button type="button" onClick={() => setLightbox(p)} className="block aspect-square w-full">
+      {/* A masonry-style travel board: large photos span 2x2, dense flow fills gaps. */}
+      <div className="grid auto-rows-[110px] grid-cols-2 gap-2 [grid-auto-flow:dense] sm:auto-rows-[150px] sm:grid-cols-4 sm:gap-3">
+        {photos.map((p, i) => (
+          <figure key={p.id} className={cx('group relative overflow-hidden rounded-xl bg-cloud', p.size === 'large' && 'col-span-2 row-span-2')}>
+            <button type="button" onClick={() => setLightbox(p)} className="block h-full w-full">
               <img src={p.photo_url} alt={p.caption || 'Travel photo'} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
             </button>
+
             {editable && (
               <>
-                <button
-                  type="button" onClick={() => remove(p)}
-                  className="absolute right-2 top-2 rounded-full bg-white/90 p-1.5 text-red-500 opacity-0 shadow-card transition-opacity group-hover:opacity-100"
-                  aria-label="Remove photo"
-                >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" /></svg>
-                </button>
+                {/* Control bar (always visible so it works on touch) */}
+                <div className="absolute inset-x-1 top-1 flex items-center justify-between gap-1">
+                  <div className="flex gap-1">
+                    <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="rounded-full bg-white/90 p-1 text-ink shadow-card disabled:opacity-30" aria-label="Move earlier"><Icon name="chevronLeft" className="h-3.5 w-3.5" strokeWidth={2.2} /></button>
+                    <button type="button" onClick={() => move(i, 1)} disabled={i === photos.length - 1} className="rounded-full bg-white/90 p-1 text-ink shadow-card disabled:opacity-30" aria-label="Move later"><Icon name="chevronRight" className="h-3.5 w-3.5" strokeWidth={2.2} /></button>
+                  </div>
+                  <div className="flex gap-1">
+                    <button type="button" onClick={() => toggleSize(p)} className="rounded-full bg-white/90 p-1 text-brand shadow-card" aria-label={p.size === 'large' ? 'Make smaller' : 'Make larger'} title={p.size === 'large' ? 'Make smaller' : 'Make larger'}><Icon name="expand" className="h-3.5 w-3.5" strokeWidth={2.2} /></button>
+                    <button type="button" onClick={() => remove(p)} className="rounded-full bg-white/90 p-1 text-red-500 shadow-card" aria-label="Remove photo"><svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"><path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" /></svg></button>
+                  </div>
+                </div>
+                {/* Caption */}
                 <input
                   type="text" defaultValue={p.caption || ''} placeholder="Add a caption…"
                   onBlur={(e) => saveCaption(p, e.target.value)}
-                  className="w-full border-0 bg-white px-2 py-1.5 text-[11px] text-ink focus:outline-none focus:ring-1 focus:ring-brand"
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute inset-x-0 bottom-0 w-full border-0 bg-white/85 px-2 py-1 text-[11px] text-ink backdrop-blur focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand"
                 />
               </>
             )}

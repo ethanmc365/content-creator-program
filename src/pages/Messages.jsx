@@ -4,14 +4,16 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { uploadChatImage } from '../lib/chatMedia'
 import { Avatar, Badge, EmptyState, Skeleton, Spinner } from '../components/ui'
+import Icon from '../components/Icon'
 import { formatChatTime, otherParticipant, cx } from '../lib/utils'
 
 // Direct messages: inbox (conversation list) + active thread, both realtime.
 // On mobile you see one panel at a time; on desktop they sit side by side.
 export default function Messages() {
   const { conversationId } = useParams()
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
   const navigate = useNavigate()
+  const pressTimer = useRef(null)
 
   const [conversations, setConversations] = useState([]) // enriched with profile + unread
   const [thread, setThread] = useState([])
@@ -102,9 +104,23 @@ export default function Messages() {
         }
         loadConversations()
       })
+      // Admin moderation: a deleted DM disappears for both participants instantly.
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'direct_messages' }, (payload) => {
+        setThread((prev) => prev.filter((m) => m.id !== payload.old.id))
+      })
       .subscribe()
     return () => supabase.removeChannel(sub)
   }, [user.id, conversationId, loadConversations])
+
+  // ---------- Admin: long-press a message to delete it for everyone ----------
+  async function deleteDm(m) {
+    if (!isAdmin) return
+    if (!confirm('Delete this message for everyone?')) return
+    setThread((prev) => prev.filter((x) => x.id !== m.id))
+    await supabase.from('direct_messages').delete().eq('id', m.id)
+  }
+  const startPress = (m) => { if (isAdmin) pressTimer.current = setTimeout(() => deleteDm(m), 550) }
+  const cancelPress = () => clearTimeout(pressTimer.current)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -161,7 +177,7 @@ export default function Messages() {
         >
           <div className="border-b border-gray-100 px-5 py-4">
             <h1 className="text-lg font-bold">Messages</h1>
-            <p className="text-xs text-smoke">Collabs start here ✨</p>
+            <p className="text-xs text-smoke">Collabs start here.</p>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto">
@@ -176,7 +192,7 @@ export default function Messages() {
             {!loadingList && conversations.length === 0 && (
               <div className="p-5">
                 <EmptyState
-                  emoji="💌"
+                  icon={<Icon name="envelope" className="h-7 w-7" />}
                   title="No conversations yet"
                   hint="Find a creator you'd love to collab with and hit Message on their profile."
                   action={<Link to="/creators" className="btn-primary !py-2 text-xs">Browse creators</Link>}
@@ -215,7 +231,9 @@ export default function Messages() {
         <section className={cx('min-w-0 flex-1 flex-col sm:flex', conversationId ? 'flex' : 'hidden')}>
           {!conversationId ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
-              <p className="text-4xl" aria-hidden>💬</p>
+              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-tint text-brand" aria-hidden>
+                <Icon name="chat" className="h-7 w-7" />
+              </span>
               <p className="font-semibold">Pick a conversation</p>
               <p className="max-w-xs text-sm text-smoke">Or start a new one from any creator's profile.</p>
             </div>
@@ -248,8 +266,18 @@ export default function Messages() {
                   return (
                     <div key={m.id} className={cx('flex', mine && 'justify-end')}>
                       <div className={cx('max-w-[80%] sm:max-w-[65%]')}>
-                        <div className={cx(
+                        <div
+                          onTouchStart={() => startPress(m)}
+                          onTouchEnd={cancelPress}
+                          onTouchMove={cancelPress}
+                          onMouseDown={() => startPress(m)}
+                          onMouseUp={cancelPress}
+                          onMouseLeave={cancelPress}
+                          onContextMenu={(e) => { if (isAdmin) { e.preventDefault(); deleteDm(m) } }}
+                          title={isAdmin ? 'Long-press to delete (admin)' : undefined}
+                          className={cx(
                           'whitespace-pre-line rounded-2xl text-sm leading-relaxed',
+                          isAdmin && 'cursor-pointer select-none',
                           m.image_url ? 'overflow-hidden p-1.5' : 'px-4 py-2.5',
                           mine ? 'rounded-br-md bg-brand text-white' : 'rounded-bl-md bg-cloud text-ink'
                         )}>

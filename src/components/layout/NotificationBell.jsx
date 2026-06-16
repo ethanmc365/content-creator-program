@@ -3,22 +3,25 @@ import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { showLocalNotification } from '../../lib/push'
+import Icon from '../Icon'
 import { timeAgo, cx } from '../../lib/utils'
 
-const TYPE_EMOJI = {
-  challenge: '🏁', announcement: '📣', results: '🏆',
-  reward: '💸', deadline: '⏰', connection: '🤝', dm: '💬',
-  event: '📅', application: '🎉', chat: '💬',
+const TYPE_ICON = {
+  challenge: 'flag', announcement: 'megaphone', results: 'trophy',
+  reward: 'money', deadline: 'clock', connection: 'users', dm: 'chat',
+  event: 'calendar', application: 'shield', chat: 'chat',
 }
 
 // Bell in the navbar: live unread count + dropdown of recent notifications.
 // Subscribes to Supabase realtime so new notifications appear instantly.
 export default function NotificationBell() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const navigate = useNavigate()
   const [items, setItems] = useState([])
   const [open, setOpen] = useState(false)
   const panelRef = useRef(null)
+  const prefsRef = useRef(profile?.notif_prefs)
+  useEffect(() => { prefsRef.current = profile?.notif_prefs }, [profile?.notif_prefs])
 
   const unread = items.filter((n) => !n.read).length
 
@@ -42,8 +45,10 @@ export default function NotificationBell() {
         { event: 'INSERT', schema: 'public', table: 'notifications', filter: `recipient_id=eq.${user.id}` },
         (payload) => {
           setItems((prev) => [payload.new, ...prev].slice(0, 12))
-          // Pop an OS notification when the app isn't in the foreground.
-          if (document.visibilityState !== 'visible') {
+          // Pop an OS notification when the app isn't in the foreground, unless
+          // the creator has turned push off for this category.
+          const pushOn = prefsRef.current?.[payload.new.type] !== false
+          if (pushOn && document.visibilityState !== 'visible') {
             showLocalNotification({
               title: payload.new.title, body: payload.new.body,
               link: payload.new.link || '/notifications', tag: payload.new.id,
@@ -106,14 +111,16 @@ export default function NotificationBell() {
           </div>
 
           <div className="max-h-96 overflow-y-auto">
-            {items.length === 0 && <p className="px-3 py-8 text-center text-sm text-smoke">You're all caught up ✨</p>}
+            {items.length === 0 && <p className="px-3 py-8 text-center text-sm text-smoke">You're all caught up.</p>}
             {items.map((n) => (
               <button
                 key={n.id}
                 onClick={() => openNotification(n)}
                 className={cx('flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-cloud', !n.read && 'bg-brand-tint/50')}
               >
-                <span className="text-lg" aria-hidden>{TYPE_EMOJI[n.type] || '🔔'}</span>
+                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-tint text-brand" aria-hidden>
+                  <Icon name={TYPE_ICON[n.type] || 'bell'} className="h-4 w-4" />
+                </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-medium">{n.title}</span>
                   {n.body && <span className="mt-0.5 line-clamp-2 block text-xs text-smoke">{n.body}</span>}
