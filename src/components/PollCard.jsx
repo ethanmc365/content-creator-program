@@ -64,10 +64,14 @@ export default function PollCard({ pollId }) {
 
   if (!poll) return null
 
+  // Defensive: strip any leading emoji/symbol + space so a poll question never
+  // renders with one, even for older polls created before this was removed.
+  const question = (poll.question || '').replace(/^(?:\p{Extended_Pictographic}|️|\s)+/u, '').trim()
+
   return (
     <div className="mt-1 w-72 max-w-full rounded-2xl border border-brand/20 bg-white p-4 text-left sm:w-80">
       <div className="mb-3 flex items-start justify-between gap-2">
-        <p className="text-sm font-semibold leading-snug">{poll.question}</p>
+        <p className="text-sm font-semibold leading-snug">{question}</p>
       </div>
 
       <div className="space-y-2">
