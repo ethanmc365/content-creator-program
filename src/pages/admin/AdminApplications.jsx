@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Avatar, Badge, EmptyState, PageHeader, Skeleton } from '../../components/ui'
+import Icon from '../../components/Icon'
 import { ageFromDob, timeAgo } from '../../lib/utils'
 
 // Signup review: new creators sign up and complete their profile, then wait
@@ -32,11 +33,17 @@ export default function AdminApplications() {
 
   async function decide(app, status) {
     const verb = status === 'active' ? 'Approve' : 'Decline'
-    if (!confirm(`${verb} ${app.name}'s application?`)) return
+    const note = status === 'active' ? '' : ' This permanently deletes their account.'
+    if (!confirm(`${verb} ${app.name}'s application?${note}`)) return
     setBusyId(app.id)
-    await supabase.from('profiles').update({ status }).eq('id', app.id)
+    if (status === 'active') {
+      await supabase.from('profiles').update({ status: 'active' }).eq('id', app.id)
+    } else {
+      // Decline = fully remove the account so it never appears in the community.
+      await supabase.rpc('admin_delete_creator', { target: app.id })
+    }
     setBusyId(null)
-    flash(status === 'active' ? `${app.name} approved and welcomed.` : `${app.name}'s application declined.`)
+    flash(status === 'active' ? `${app.name} approved and welcomed.` : `${app.name}'s application declined and removed.`)
     setApps((prev) => prev.filter((a) => a.id !== app.id))
   }
 
@@ -63,7 +70,7 @@ export default function AdminApplications() {
       {apps === null ? (
         <div className="space-y-4">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-40 w-full" />)}</div>
       ) : apps.length === 0 ? (
-        <EmptyState emoji="✅" title="No applications waiting" hint="When a new creator finishes their profile, they'll appear here for review." />
+        <EmptyState icon={<Icon name="check" className="h-7 w-7" />} title="No applications waiting" hint="When a new creator finishes their profile, they'll appear here for review." />
       ) : (
         <div className="space-y-5">
           {apps.map((a) => {

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Badge, EmptyState, PageHeader, Skeleton, Spinner } from '../components/ui'
+import Icon from '../components/Icon'
 import { formatDate } from '../lib/utils'
 
 // Creators refer other creators two ways:
@@ -76,7 +77,7 @@ export default function Refer() {
 
       {/* Reward incentive + progress */}
       <section className="mb-8 overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-7 text-white shadow-lift sm:p-8">
-        <p className="text-xl font-bold sm:text-2xl">Refer 3 creators, earn a £20 Tryp.com voucher 🎁</p>
+        <p className="text-xl font-bold sm:text-2xl">Refer 3 creators, earn a £20 Tryp.com voucher</p>
         <p className="mt-2 max-w-2xl text-sm text-white/85">
           When 3 creators you refer join and take part in a challenge, you earn a £20 Tryp.com voucher.
           All referrals are verified by the Tryp.com team to make sure they're genuine, active creators.
@@ -90,7 +91,7 @@ export default function Refer() {
             <div className="h-full rounded-full bg-white transition-all duration-500" style={{ width: `${Math.min((participatedCount / 3) * 100, 100)}%` }} />
           </div>
           {participatedCount >= 3 && (
-            <p className="mt-2 text-sm font-semibold">🎉 You've hit 3! The team will verify and send your voucher.</p>
+            <p className="mt-2 text-sm font-semibold">You've hit 3! The team will verify and send your voucher.</p>
           )}
         </div>
       </section>
@@ -137,7 +138,7 @@ export default function Refer() {
         {loading ? (
           <div className="space-y-3"><Skeleton className="h-14 w-full" /><Skeleton className="h-14 w-full" /></div>
         ) : referrals.length === 0 && joined.length === 0 ? (
-          <EmptyState emoji="🤝" title="No referrals yet" hint="Share your link or refer someone above to get started." />
+          <EmptyState icon={<Icon name="share" className="h-7 w-7" />} title="No referrals yet" hint="Share your link or refer someone above to get started." />
         ) : (
           <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
             {joined.map((p) => (

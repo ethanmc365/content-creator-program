@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { Avatar, Badge, EmptyState, PageHeader, Skeleton, StatCard } from '../../components/ui'
+import Icon from '../../components/Icon'
 import { formatDate, downloadCsv } from '../../lib/utils'
 
 // Admin view of referrals: manual leads (the referrals table) plus creators
@@ -40,6 +41,16 @@ export default function AdminReferrals() {
     load()
   }
 
+  // Long-press a lead to delete it (tidy up follow-ups).
+  const pressTimer = useRef(null)
+  async function deleteReferral(r) {
+    if (!confirm(`Delete the lead "${r.referred_name}"?`)) return
+    setReferrals((prev) => prev.filter((x) => x.id !== r.id))
+    await supabase.from('referrals').delete().eq('id', r.id)
+  }
+  const startPress = (r) => { pressTimer.current = setTimeout(() => deleteReferral(r), 550) }
+  const cancelPress = () => clearTimeout(pressTimer.current)
+
   function exportCsv() {
     downloadCsv('tryp-referrals.csv', [
       ...joined.map((p) => ({ referred_name: p.name, referred_by: p.referrer?.name ?? '', contact: '', status: 'joined (link)', date: formatDate(p.created_at) })),
@@ -64,7 +75,7 @@ export default function AdminReferrals() {
       {loading ? (
         <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
       ) : joined.length === 0 && referrals.length === 0 ? (
-        <EmptyState emoji="🤝" title="No referrals yet" hint="When creators share their invite links or refer people, they'll show up here." />
+        <EmptyState icon={<Icon name="share" className="h-7 w-7" />} title="No referrals yet" hint="When creators share their invite links or refer people, they'll show up here." />
       ) : (
         <div className="space-y-10">
           {joined.length > 0 && (
@@ -87,10 +98,17 @@ export default function AdminReferrals() {
 
           {referrals.length > 0 && (
             <section>
-              <h2 className="mb-4 text-lg font-semibold">Leads to follow up</h2>
+              <h2 className="mb-1 text-lg font-semibold">Leads to follow up</h2>
+              <p className="mb-4 text-xs text-smoke">Long-press a lead to delete it.</p>
               <div className="space-y-3">
                 {referrals.map((r) => (
-                  <div key={r.id} className="card flex flex-wrap items-center gap-4 !p-5">
+                  <div
+                    key={r.id}
+                    onTouchStart={() => startPress(r)} onTouchEnd={cancelPress} onTouchMove={cancelPress}
+                    onMouseDown={() => startPress(r)} onMouseUp={cancelPress} onMouseLeave={cancelPress}
+                    onContextMenu={(e) => { e.preventDefault(); deleteReferral(r) }}
+                    className="card flex select-none flex-wrap items-center gap-4 !p-5"
+                  >
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold">{r.referred_name}</p>
                       <p className="text-xs text-smoke">
@@ -101,6 +119,8 @@ export default function AdminReferrals() {
                     <select
                       value={r.status}
                       onChange={(e) => setStatus(r, e.target.value)}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onTouchStart={(e) => e.stopPropagation()}
                       className="input !w-auto !py-2 text-xs"
                       aria-label={`Status for ${r.referred_name}`}
                     >

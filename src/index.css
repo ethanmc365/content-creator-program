@@ -66,8 +66,10 @@
   }
 
   .input {
-    @apply w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-ink
-      placeholder:text-gray-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand;
+    /* 16px on mobile (text-base) stops iOS Safari auto-zooming when a field is
+       focused; 14px from the sm breakpoint up where zoom isn't triggered. */
+    @apply w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-ink
+      placeholder:text-gray-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand sm:text-sm;
   }
 
   .label {

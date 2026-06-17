@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { PageHeader, Skeleton, StatCard, EmptyState } from '../components/ui'
+import Icon from '../components/Icon'
 import { formatMoney, formatViews } from '../lib/utils'
 
 // Creator-visible dashboard: their own performance + program-wide highlights.
@@ -70,7 +71,7 @@ export default function Dashboard() {
         <h2 className="mb-4 text-lg font-semibold">My challenge results</h2>
         {data.results.length === 0 ? (
           <EmptyState
-            emoji="📈"
+            icon={<Icon name="chart" className="h-7 w-7" />}
             title="No results yet"
             hint="Results appear after a challenge closes and the Tryp.com Team logs the final views."
             action={<Link to="/challenges" className="btn-primary">Enter the live challenge</Link>}

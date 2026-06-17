@@ -117,7 +117,7 @@ export default function AdminRewards() {
       <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label="Total program spend" value={formatMoney(totalPaid + totalPending)} />
         <StatCard label="Distributed" value={formatMoney(totalPaid)} accent />
-        <StatCard label="Pending payout" value={formatMoney(totalPending)} hint={totalPending > 0 ? "Don't keep creators waiting 😉" : 'All settled ✓'} />
+        <StatCard label="Pending payout" value={formatMoney(totalPending)} hint={totalPending > 0 ? "Don't keep creators waiting" : 'All settled'} />
       </div>
 
       <div className="mb-6 flex gap-2">

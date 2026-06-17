@@ -33,7 +33,7 @@ export default function Home() {
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle(),
-          supabase.from('profiles').select('id, name, photo_url, bio').order('created_at', { ascending: false }).limit(4),
+          supabase.from('profiles').select('id, name, photo_url, bio').eq('status', 'active').order('created_at', { ascending: false }).limit(4),
           supabase.from('profiles').select('id', { count: 'exact', head: true }),
           supabase.from('rewards').select('amount').eq('status', 'distributed'),
         ])
@@ -104,7 +104,7 @@ export default function Home() {
 
           {mySubmissions.length > 0 && (
             <p className="mt-6 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm">
-              ✅ You've entered with {mySubmissions.length} {mySubmissions.length === 1 ? 'video' : 'videos'}. Good luck!
+              You've entered with {mySubmissions.length} {mySubmissions.length === 1 ? 'video' : 'videos'}. Good luck!
             </p>
           )}
         </section>
@@ -145,7 +145,14 @@ export default function Home() {
                 <p className="text-xs text-smoke">{timeAgo(announcement.created_at)}</p>
               </div>
             </div>
-            <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-ink">{announcement.body}</p>
+            {announcement.body ? (
+              <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-ink">{announcement.body}</p>
+            ) : (
+              <p className="mt-4 flex items-center gap-2 text-sm font-medium text-brand">
+                <Icon name={announcement.poll_id ? 'poll' : announcement.game_event_id ? 'joystick' : announcement.resource_id ? 'book' : 'megaphone'} className="h-4 w-4" />
+                {announcement.poll_id ? 'Posted a new poll' : announcement.game_event_id ? 'Shared a game challenge' : announcement.resource_id ? 'Shared a resource' : 'New announcement'} · tap to view
+              </p>
+            )}
           </Link>
         </section>
       )}

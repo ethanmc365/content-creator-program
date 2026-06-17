@@ -169,11 +169,13 @@ export default function AppLayout() {
                 cx('relative flex flex-1 flex-col items-center gap-1 rounded-xl px-1 py-1 text-[10px] font-medium', isActive ? 'text-brand' : 'text-smoke')
               }
             >
-              <Icon name={tab.icon} className="h-6 w-6" />
+              <span className="relative">
+                <Icon name={tab.icon} className="h-6 w-6" />
+                {tab.to === '/messages' && dmUnread > 0 && (
+                  <span className="absolute -right-1.5 -top-1 h-2.5 w-2.5 rounded-full bg-brand ring-2 ring-white" aria-label={`${dmUnread} unread`} />
+                )}
+              </span>
               {tab.label}
-              {tab.to === '/messages' && dmUnread > 0 && (
-                <span className="absolute -top-0.5 right-1 h-2.5 w-2.5 rounded-full bg-brand" aria-label={`${dmUnread} unread`} />
-              )}
             </NavLink>
           ))}
         </div>

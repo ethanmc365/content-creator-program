@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { PageHeader, Skeleton, StatCard } from '../../components/ui'
@@ -21,22 +21,36 @@ export default function AdminEmail() {
   const [bodyText, setBodyText] = useState('')
   const [copied, setCopied] = useState(false)
   const [history, setHistory] = useState([])
+  const pressTimer = useRef(null)
+
+  // Admins long-press a logged campaign to delete it (tidy-up).
+  async function deleteCampaign(c) {
+    if (!confirm(`Delete the logged campaign "${c.subject}"?`)) return
+    setHistory((prev) => prev.filter((x) => x.id !== c.id))
+    await supabase.from('email_campaigns').delete().eq('id', c.id)
+  }
+  const startPress = (c) => { pressTimer.current = setTimeout(() => deleteCampaign(c), 550) }
+  const cancelPress = () => clearTimeout(pressTimer.current)
 
   useEffect(() => {
     async function load() {
-      // Active creators only (don't email suspended accounts).
+      // Active creators only - never the Tryp.com team (admins) or yourself.
       const [{ data: emailRows }, { data: profiles }, { data: campaigns }] = await Promise.all([
         supabase.rpc('admin_list_emails'),
-        supabase.from('profiles').select('id, status'),
+        supabase.from('profiles').select('id, status, is_admin'),
         supabase.from('email_campaigns').select('*').order('created_at', { ascending: false }).limit(10),
       ])
-      const activeIds = new Set((profiles ?? []).filter((p) => p.status !== 'suspended').map((p) => p.id))
-      setEmails((emailRows ?? []).filter((r) => activeIds.has(r.id)).map((r) => r.email))
+      const creatorIds = new Set(
+        (profiles ?? [])
+          .filter((p) => p.status === 'active' && !p.is_admin && p.id !== user.id)
+          .map((p) => p.id)
+      )
+      setEmails((emailRows ?? []).filter((r) => creatorIds.has(r.id)).map((r) => r.email))
       setHistory(campaigns ?? [])
       setLoading(false)
     }
     load()
-  }, [])
+  }, [user.id])
 
   const bccList = emails.join(',')
   const mailto = `mailto:?bcc=${encodeURIComponent(bccList)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`
@@ -100,7 +114,7 @@ export default function AdminEmail() {
           <section className="card space-y-5">
             <div>
               <label htmlFor="subject" className="label">Subject</label>
-              <input id="subject" type="text" className="input" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g. New challenge drops Monday 🚀" />
+              <input id="subject" type="text" className="input" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g. New challenge drops Monday" />
             </div>
             <div>
               <label htmlFor="email-body" className="label">Message</label>
@@ -132,10 +146,17 @@ export default function AdminEmail() {
 
           {history.length > 0 && (
             <section className="mt-10">
-              <h2 className="mb-4 text-lg font-semibold">Recent campaigns</h2>
+              <h2 className="mb-1 text-lg font-semibold">Recent campaigns</h2>
+              <p className="mb-4 text-xs text-smoke">Long-press a campaign to delete it.</p>
               <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
                 {history.map((c) => (
-                  <div key={c.id} className="border-b border-gray-50 px-5 py-4 last:border-0 sm:px-7">
+                  <div
+                    key={c.id}
+                    onTouchStart={() => startPress(c)} onTouchEnd={cancelPress} onTouchMove={cancelPress}
+                    onMouseDown={() => startPress(c)} onMouseUp={cancelPress} onMouseLeave={cancelPress}
+                    onContextMenu={(e) => { e.preventDefault(); deleteCampaign(c) }}
+                    className="select-none border-b border-gray-50 px-5 py-4 last:border-0 sm:px-7"
+                  >
                     <p className="text-sm font-semibold">{c.subject}</p>
                     <p className="text-xs text-smoke">{formatDateTime(c.created_at)} · {c.recipient_count} recipients</p>
                   </div>

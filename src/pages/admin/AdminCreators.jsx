@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Avatar, Badge, Modal, PageHeader, Skeleton } from '../../components/ui'
+import Icon from '../../components/Icon'
 import { formatDate, timeAgo, downloadCsv } from '../../lib/utils'
 
 // Creator management: the full list with emails (admin-only RPC), plus all
@@ -233,21 +234,21 @@ export default function AdminCreators() {
             <div className="space-y-3 border-t border-gray-100 pt-5">
               <h3 className="text-sm font-semibold">Account actions</h3>
               <div className="flex flex-wrap gap-2">
-                <button onClick={() => dmCreator(selected)} className="btn-primary !py-2 text-xs">💬 Message</button>
-                <button onClick={() => resetPassword(selected)} className="btn-secondary !py-2 text-xs">🔑 Send password reset</button>
+                <button onClick={() => dmCreator(selected)} className="btn-primary !py-2 text-xs"><Icon name="chat" className="h-4 w-4" /> Message</button>
+                <button onClick={() => resetPassword(selected)} className="btn-secondary !py-2 text-xs"><Icon name="key" className="h-4 w-4" /> Send password reset</button>
                 <button onClick={() => togglePromote(selected)} className="btn-secondary !py-2 text-xs">
-                  {selected.is_admin ? '⬇️ Remove admin' : '⭐ Promote to admin'}
+                  <Icon name={selected.is_admin ? 'shield' : 'star'} className="h-4 w-4" /> {selected.is_admin ? 'Remove admin' : 'Promote to admin'}
                 </button>
                 {selected.status !== 'muted' && selected.status !== 'suspended' && (
-                  <button onClick={() => setStatus(selected, 'muted')} className="btn-danger !py-2 text-xs">🔇 Mute</button>
+                  <button onClick={() => setStatus(selected, 'muted')} className="btn-danger !py-2 text-xs"><Icon name="mute" className="h-4 w-4" /> Mute</button>
                 )}
                 {selected.status !== 'suspended' ? (
-                  <button onClick={() => setStatus(selected, 'suspended')} className="btn-danger !py-2 text-xs">🚫 Suspend</button>
+                  <button onClick={() => setStatus(selected, 'suspended')} className="btn-danger !py-2 text-xs"><Icon name="ban" className="h-4 w-4" /> Suspend</button>
                 ) : (
-                  <button onClick={() => setStatus(selected, 'active')} className="btn-secondary !py-2 text-xs">✅ Reactivate</button>
+                  <button onClick={() => setStatus(selected, 'active')} className="btn-secondary !py-2 text-xs"><Icon name="check" className="h-4 w-4" /> Reactivate</button>
                 )}
                 {selected.status === 'muted' && (
-                  <button onClick={() => setStatus(selected, 'active')} className="btn-secondary !py-2 text-xs">🔊 Unmute</button>
+                  <button onClick={() => setStatus(selected, 'active')} className="btn-secondary !py-2 text-xs"><Icon name="megaphone" className="h-4 w-4" /> Unmute</button>
                 )}
               </div>
               <p className="text-[11px] leading-relaxed text-smoke">
@@ -261,7 +262,7 @@ export default function AdminCreators() {
                   <p className="mb-3 mt-1 text-[11px] leading-relaxed text-smoke">
                     Permanently delete this creator and all their content. This cannot be undone.
                   </p>
-                  <button onClick={() => deleteCreator(selected)} className="btn-danger !py-2 text-xs">🗑 Delete creator</button>
+                  <button onClick={() => deleteCreator(selected)} className="btn-danger !py-2 text-xs"><Icon name="trash" className="h-4 w-4" /> Delete creator</button>
                 </div>
               )}
             </div>

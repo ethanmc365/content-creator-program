@@ -104,6 +104,34 @@ export function ageFromDob(iso) {
   return age >= 0 ? age : null
 }
 
+// ---- Typed date + time (no calendar picker) ----
+
+/** "25/01/2026" + "14:30" -> ISO string, or null if invalid/incomplete. */
+export function parseDateTime(dateStr = '', timeStr = '') {
+  const d = dateStr.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  const t = timeStr.trim().match(/^(\d{1,2}):(\d{2})$/)
+  if (!d || !t) return null
+  const day = +d[1], month = +d[2], year = +d[3], hh = +t[1], mm = +t[2]
+  if (month < 1 || month > 12 || day < 1 || day > 31 || hh > 23 || mm > 59) return null
+  const dt = new Date(year, month - 1, day, hh, mm)
+  if (dt.getDate() !== day || dt.getMonth() !== month - 1) return null
+  return dt.toISOString()
+}
+
+/** ISO -> "25/01/2026" */
+export function isoToDateInput(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
+}
+
+/** ISO -> "14:30" */
+export function isoToTimeInput(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
 /** The two DM participants are stored unordered; get "the other person". */
 export function otherParticipant(conversation, myId) {
   return conversation.participant_a === myId ? conversation.participant_b : conversation.participant_a

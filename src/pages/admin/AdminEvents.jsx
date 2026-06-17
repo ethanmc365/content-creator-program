@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../../components/ui'
-import { formatDateTime } from '../../lib/utils'
+import { formatDateTime, parseDateTime, isoToDateInput, isoToTimeInput } from '../../lib/utils'
 
 // Events management: add / edit / delete calendar events.
 // (Challenge start/end dates appear on the calendar automatically - // no need to create those by hand.)
@@ -16,7 +16,7 @@ const TYPES = [
   { value: 'workshop', label: '🎓 Workshop' },
 ]
 
-const emptyForm = { title: '', description: '', date: '', type: 'event', meeting_url: '', customType: false }
+const emptyForm = { title: '', description: '', dateStr: '', timeStr: '', type: 'event', meeting_url: '', customType: false }
 
 export default function AdminEvents() {
   const { user } = useAuth()
@@ -40,7 +40,8 @@ export default function AdminEvents() {
       const known = TYPES.some((t) => t.value === event.type)
       setForm({
         ...event,
-        date: new Date(event.date).toISOString().slice(0, 16),
+        dateStr: isoToDateInput(event.date),
+        timeStr: isoToTimeInput(event.date),
         meeting_url: event.meeting_url || '',
         customType: !known,
       })
@@ -51,11 +52,13 @@ export default function AdminEvents() {
 
   async function save(e) {
     e.preventDefault()
+    const iso = parseDateTime(form.dateStr, form.timeStr)
+    if (!iso) { alert('Enter the date as DD/MM/YYYY and the time as HH:MM (24h).'); return }
     setBusy(true)
     const payload = {
       title: form.title.trim(),
       description: form.description.trim(),
-      date: new Date(form.date).toISOString(),
+      date: iso,
       type: form.type.trim() || 'event',
       meeting_url: form.meeting_url.trim() || null,
     }
@@ -121,10 +124,16 @@ export default function AdminEvents() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor="ev-date" className="label">Date & time</label>
-              <input id="ev-date" type="datetime-local" required className="input" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+              <label htmlFor="ev-date" className="label">Date</label>
+              <input id="ev-date" type="text" inputMode="numeric" required className="input" value={form.dateStr} onChange={(e) => setForm({ ...form, dateStr: e.target.value })} placeholder="DD/MM/YYYY" />
             </div>
             <div>
+              <label htmlFor="ev-time" className="label">Time</label>
+              <input id="ev-time" type="text" inputMode="numeric" required className="input" value={form.timeStr} onChange={(e) => setForm({ ...form, timeStr: e.target.value })} placeholder="HH:MM" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
               <label htmlFor="ev-type" className="label">Type</label>
               {form.customType ? (
                 <input

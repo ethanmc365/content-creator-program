@@ -198,10 +198,11 @@ export default function Chat() {
       .single()
     if (!error && poll) {
       await supabase.from('poll_options').insert(opts.map((label, i) => ({ poll_id: poll.id, label, sort_order: i })))
+      // Post the poll card on its own - no preceding text message.
       await supabase.from('messages').insert({
         channel: 'announcements',
         sender_id: user.id,
-        body: `🗳️ ${pollQuestion.trim()}`,
+        body: '',
         poll_id: poll.id,
       })
     }
@@ -282,7 +283,7 @@ export default function Chat() {
     <div className="mx-auto flex h-[calc(100dvh-4rem-5rem)] w-full max-w-6xl flex-col px-0 sm:px-8 sm:py-6 lg:h-[calc(100vh-4rem)]">
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white sm:rounded-card sm:border sm:border-gray-100 sm:shadow-card">
         {/* ---------- Channel tabs ---------- */}
-        <div className="flex shrink-0 gap-1 border-b border-gray-100 px-3 pt-3 sm:px-5" role="tablist" aria-label="Chat channels">
+        <div className="flex shrink-0 gap-1 border-b border-gray-100 px-3 pt-1.5 sm:px-5 sm:pt-3" role="tablist" aria-label="Chat channels">
           {CHANNELS.map((c) => (
             <NavLink
               key={c.key}
@@ -290,18 +291,18 @@ export default function Chat() {
               role="tab"
               aria-selected={channel === c.key}
               className={cx(
-                'relative rounded-t-xl px-3 py-2 text-sm font-medium transition-colors sm:px-4 sm:py-2.5',
+                'relative rounded-t-xl px-3 py-1.5 text-sm font-medium transition-colors sm:px-4 sm:py-2.5',
                 channel === c.key ? 'bg-brand-tint text-brand' : 'text-smoke hover:bg-cloud hover:text-ink'
               )}
             >
               <span className="flex items-center gap-2"><Icon name={c.icon} className="h-4 w-4" /> <span className="hidden sm:inline">{c.label}</span></span>
-              {unread[c.key] && <span className="absolute right-1 top-1.5 h-2 w-2 rounded-full bg-brand" aria-label="Unread messages" />}
+              {unread[c.key] && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-brand" aria-label="Unread messages" />}
             </NavLink>
           ))}
         </div>
 
         {/* Channel hint bar */}
-        <div className={cx('shrink-0 px-5 py-1.5 text-xs sm:py-2.5', channel === 'announcements' ? 'bg-brand-tint font-medium text-brand' : 'bg-cloud/60 text-smoke')}>
+        <div className={cx('shrink-0 px-5 py-1 text-[11px] sm:py-2.5 sm:text-xs', channel === 'announcements' ? 'bg-brand-tint font-medium text-brand' : 'bg-cloud/60 text-smoke')}>
           {meta.hint}
         </div>
 

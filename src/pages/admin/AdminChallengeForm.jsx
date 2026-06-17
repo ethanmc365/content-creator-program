@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { PageHeader, Skeleton, Spinner } from '../../components/ui'
-import { cx } from '../../lib/utils'
+import { cx, parseDateTime, isoToDateInput, isoToTimeInput } from '../../lib/utils'
 
 // Create / edit a challenge. Everything is customisable: length, brief,
 // rules, hashtags, platforms and the full prize breakdown.
@@ -15,9 +15,6 @@ const DEFAULT_PRIZES = [
   { place: '3rd', prize: '£75 cash' },
   { place: 'All valid entries', prize: '£25 Tryp.com voucher' },
 ]
-
-// <input type="datetime-local"> needs "YYYY-MM-DDTHH:mm".
-const toLocalInput = (iso) => (iso ? new Date(iso).toISOString().slice(0, 16) : '')
 
 export default function AdminChallengeForm() {
   const { id } = useParams() // present when editing
@@ -35,8 +32,8 @@ export default function AdminChallengeForm() {
     hashtags: '#TrypCreators',
     platforms: ['Instagram', 'TikTok'],
     prize_structure: DEFAULT_PRIZES,
-    start_date: '',
-    end_date: '',
+    startDateStr: '', startTimeStr: '',
+    endDateStr: '', endTimeStr: '',
     status: 'draft',
   })
 
@@ -48,8 +45,8 @@ export default function AdminChallengeForm() {
       if (data) {
         setForm({
           ...data,
-          start_date: toLocalInput(data.start_date),
-          end_date: toLocalInput(data.end_date),
+          startDateStr: isoToDateInput(data.start_date), startTimeStr: isoToTimeInput(data.start_date),
+          endDateStr: isoToDateInput(data.end_date), endTimeStr: isoToTimeInput(data.end_date),
           prize_structure: Array.isArray(data.prize_structure) ? data.prize_structure : DEFAULT_PRIZES,
         })
       }
@@ -74,7 +71,12 @@ export default function AdminChallengeForm() {
   async function save(e, publishNow = false) {
     e.preventDefault()
     setError('')
-    if (new Date(form.end_date) <= new Date(form.start_date)) {
+    const startIso = parseDateTime(form.startDateStr, form.startTimeStr)
+    const endIso = parseDateTime(form.endDateStr, form.endTimeStr)
+    if (!startIso || !endIso) {
+      return setError('Enter dates as DD/MM/YYYY and times as HH:MM (24h).')
+    }
+    if (new Date(endIso) <= new Date(startIso)) {
       return setError('The end date must be after the start date.')
     }
     if (form.platforms.length === 0) return setError('Pick at least one platform.')
@@ -87,8 +89,8 @@ export default function AdminChallengeForm() {
       hashtags: form.hashtags.trim(),
       platforms: form.platforms,
       prize_structure: form.prize_structure.filter((p) => p.place && p.prize),
-      start_date: new Date(form.start_date).toISOString(),
-      end_date: new Date(form.end_date).toISOString(),
+      start_date: startIso,
+      end_date: endIso,
       // "Save & publish" flips a draft live (creators get notified by the DB trigger).
       status: publishNow ? 'active' : form.status,
     }
@@ -136,14 +138,22 @@ export default function AdminChallengeForm() {
 
         <section className="card space-y-6">
           <h2 className="text-lg font-semibold">Dates & platforms</h2>
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-5 sm:grid-cols-4">
             <div>
-              <label htmlFor="start_date" className="label">Starts</label>
-              <input id="start_date" type="datetime-local" required className="input" value={form.start_date} onChange={(e) => set({ start_date: e.target.value })} />
+              <label htmlFor="start_date" className="label">Start date</label>
+              <input id="start_date" type="text" inputMode="numeric" required className="input" value={form.startDateStr} onChange={(e) => set({ startDateStr: e.target.value })} placeholder="DD/MM/YYYY" />
             </div>
             <div>
-              <label htmlFor="end_date" className="label">Ends (deadline)</label>
-              <input id="end_date" type="datetime-local" required className="input" value={form.end_date} onChange={(e) => set({ end_date: e.target.value })} />
+              <label htmlFor="start_time" className="label">Start time</label>
+              <input id="start_time" type="text" inputMode="numeric" required className="input" value={form.startTimeStr} onChange={(e) => set({ startTimeStr: e.target.value })} placeholder="HH:MM" />
+            </div>
+            <div>
+              <label htmlFor="end_date" className="label">End date</label>
+              <input id="end_date" type="text" inputMode="numeric" required className="input" value={form.endDateStr} onChange={(e) => set({ endDateStr: e.target.value })} placeholder="DD/MM/YYYY" />
+            </div>
+            <div>
+              <label htmlFor="end_time" className="label">End time</label>
+              <input id="end_time" type="text" inputMode="numeric" required className="input" value={form.endTimeStr} onChange={(e) => set({ endTimeStr: e.target.value })} placeholder="HH:MM" />
             </div>
           </div>
           <div>

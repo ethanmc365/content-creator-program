@@ -122,6 +122,18 @@ export default function Messages() {
   const startPress = (m) => { if (isAdmin) pressTimer.current = setTimeout(() => deleteDm(m), 550) }
   const cancelPress = () => clearTimeout(pressTimer.current)
 
+  // ---------- Anyone: long-press a conversation to delete it entirely ----------
+  const convTimer = useRef(null)
+  const convLongPressed = useRef(false)
+  async function deleteConversation(c) {
+    if (!confirm(`Delete your conversation with ${c.other?.name ?? 'this creator'}? This removes the whole thread.`)) return
+    setConversations((prev) => prev.filter((x) => x.id !== c.id))
+    if (c.id === conversationId) navigate('/messages')
+    await supabase.from('conversations').delete().eq('id', c.id)
+  }
+  const startConvPress = (c) => { convTimer.current = setTimeout(() => { convLongPressed.current = true; deleteConversation(c) }, 550) }
+  const cancelConvPress = () => clearTimeout(convTimer.current)
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [thread])
@@ -203,9 +215,12 @@ export default function Messages() {
             {conversations.map((c) => (
               <button
                 key={c.id}
-                onClick={() => navigate(`/messages/${c.id}`)}
+                onClick={() => { if (convLongPressed.current) { convLongPressed.current = false; return } navigate(`/messages/${c.id}`) }}
+                onTouchStart={() => startConvPress(c)} onTouchEnd={cancelConvPress} onTouchMove={cancelConvPress}
+                onMouseDown={() => startConvPress(c)} onMouseUp={cancelConvPress} onMouseLeave={cancelConvPress}
+                onContextMenu={(e) => { e.preventDefault(); deleteConversation(c) }}
                 className={cx(
-                  'flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-cloud',
+                  'flex w-full select-none items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-cloud',
                   c.id === conversationId && 'bg-brand-tint/50'
                 )}
               >

@@ -14,11 +14,11 @@ export function Avatar({ src, name = '', size = 'md', className = '' }) {
     .join('')
     .toUpperCase()
   return src ? (
-    <img src={src} alt={name} className={cx('rounded-full object-cover ring-2 ring-white', sizes[size], className)} />
+    <img src={src} alt={name} className={cx('shrink-0 rounded-full object-cover ring-2 ring-white', sizes[size], className)} />
   ) : (
     <div
       aria-label={name}
-      className={cx('flex items-center justify-center rounded-full bg-brand-tint font-semibold text-brand ring-2 ring-white', sizes[size], className)}
+      className={cx('flex shrink-0 items-center justify-center rounded-full bg-brand-tint font-semibold text-brand ring-2 ring-white', sizes[size], className)}
     >
       {initials || '?'}
     </div>

@@ -194,6 +194,17 @@ function Round({ mode, region, questions, onQuit, onFinish }) {
     setTyped('')
   }
 
+  // Once an answer is in, pressing Enter again jumps to the next question
+  // (the Next button stays as a visible option).
+  useEffect(() => {
+    if (!answered) return
+    function onKey(e) {
+      if (e.key === 'Enter') { e.preventDefault(); next() }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }) // re-bind every render so `next` has fresh state
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -346,7 +357,9 @@ function Results({ result, mode, region, eventId, userId, onPlayAgain, onMenu })
 
 // ---------------------------------------------------------------- Leaderboard
 function Leaderboard({ mode, region, eventId, highlightUser }) {
+  const { isAdmin } = useAuth()
   const [rows, setRows] = useState(null)
+  const pressTimer = useRef(null)
 
   const load = useCallback(async () => {
     let q = supabase.from('game_scores').select('*, profiles:player_id(id, name, photo_url)').eq('mode', mode).eq('region', region)
@@ -363,9 +376,22 @@ function Leaderboard({ mode, region, eventId, highlightUser }) {
   useEffect(() => { load() }, [load])
   useEffect(() => {
     const sub = supabase.channel(`gs-${mode}-${region}-${eventId || 'all'}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'game_scores' }, load).subscribe()
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'game_scores' }, load)
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'game_scores' }, load)
+      .subscribe()
     return () => supabase.removeChannel(sub)
   }, [load, mode, region, eventId])
+
+  // Admins long-press a score to delete it from the leaderboard.
+  const longPressedRef = useRef(false)
+  async function deleteScore(r) {
+    if (!isAdmin) return
+    if (!confirm(`Delete ${r.profiles?.name}'s score (${r.correct}/${r.total})?`)) return
+    setRows((prev) => (prev ? prev.filter((x) => x.id !== r.id) : prev))
+    await supabase.from('game_scores').delete().eq('id', r.id)
+  }
+  const startPress = (r) => { if (isAdmin) pressTimer.current = setTimeout(() => { longPressedRef.current = true; deleteScore(r) }, 550) }
+  const cancelPress = () => clearTimeout(pressTimer.current)
 
   return (
     <section>
@@ -380,9 +406,15 @@ function Leaderboard({ mode, region, eventId, highlightUser }) {
           {rows.map((r, idx) => {
             const mine = r.player_id === highlightUser
             return (
-              <div key={r.id} className={cx('flex items-center gap-4 border-b border-gray-50 px-5 py-3 last:border-0 sm:px-7', mine && 'bg-brand-tint/60')}>
+              <div
+                key={r.id}
+                onTouchStart={() => startPress(r)} onTouchEnd={cancelPress} onTouchMove={cancelPress}
+                onMouseDown={() => startPress(r)} onMouseUp={cancelPress} onMouseLeave={cancelPress}
+                onContextMenu={(e) => { if (isAdmin) { e.preventDefault(); deleteScore(r) } }}
+                className={cx('flex items-center gap-4 border-b border-gray-50 px-5 py-3 last:border-0 sm:px-7', mine && 'bg-brand-tint/60', isAdmin && 'select-none')}
+              >
                 <span className="w-8 text-center text-lg font-bold">{{ 0: '🥇', 1: '🥈', 2: '🥉' }[idx] || idx + 1}</span>
-                <Link to={`/profile/${r.profiles?.id}`} className="flex min-w-0 flex-1 items-center gap-3">
+                <Link to={`/profile/${r.profiles?.id}`} onClick={(e) => { if (longPressedRef.current) { e.preventDefault(); longPressedRef.current = false } }} className="flex min-w-0 flex-1 items-center gap-3">
                   <Avatar src={r.profiles?.photo_url} name={r.profiles?.name} size="sm" />
                   <span className="truncate text-sm font-semibold hover:text-brand">{r.profiles?.name}{mine && <span className="ml-1 text-xs text-brand">(you)</span>}</span>
                 </Link>

@@ -81,20 +81,50 @@ export default function TravelGallery({ creatorId, editable = false }) {
     await supabase.from('creator_photos').update({ size }).eq('id', photo.id)
   }
 
-  // Move a photo earlier/later in the board, then normalise sort_order so the
-  // new arrangement sticks for everyone.
-  async function move(index, dir) {
-    const j = index + dir
-    if (j < 0 || j >= photos.length) return
-    const arr = [...photos]
-    ;[arr[index], arr[j]] = [arr[j], arr[index]]
+  // Drag-to-reorder (works with mouse and touch). Drag from the grip handle;
+  // the board reorders live and the new order is saved when you let go.
+  const [dragId, setDragId] = useState(null)
+  const dragIdRef = useRef(null)
+  const photosRef = useRef(photos)
+  useEffect(() => { photosRef.current = photos }, [photos])
+
+  function onDragMove(e) {
+    const id = dragIdRef.current
+    if (!id) return
+    const el = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-pid]')
+    const overId = el?.getAttribute('data-pid')
+    if (overId && overId !== id) {
+      setPhotos((prev) => {
+        const from = prev.findIndex((p) => p.id === id)
+        const to = prev.findIndex((p) => p.id === overId)
+        if (from < 0 || to < 0 || from === to) return prev
+        const arr = [...prev]
+        const [moved] = arr.splice(from, 1)
+        arr.splice(to, 0, moved)
+        return arr
+      })
+    }
+  }
+  async function endDrag() {
+    window.removeEventListener('pointermove', onDragMove)
+    if (!dragIdRef.current) return
+    dragIdRef.current = null
+    setDragId(null)
+    const arr = photosRef.current
     const renumbered = arr.map((p, i) => ({ ...p, sort_order: i }))
     setPhotos(renumbered)
     await Promise.all(
-      renumbered
-        .filter((p, i) => photos.find((o) => o.id === p.id)?.sort_order !== i)
-        .map((p) => supabase.from('creator_photos').update({ sort_order: p.sort_order }).eq('id', p.id))
+      renumbered.filter((p, i) => p.sort_order !== i || true).map((p) =>
+        supabase.from('creator_photos').update({ sort_order: p.sort_order }).eq('id', p.id)
+      )
     )
+  }
+  function beginDrag(e, photo) {
+    e.preventDefault()
+    dragIdRef.current = photo.id
+    setDragId(photo.id)
+    window.addEventListener('pointermove', onDragMove)
+    window.addEventListener('pointerup', endDrag, { once: true })
   }
 
   if (loading) return <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="aspect-square animate-pulse rounded-xl bg-cloud" />)}</div>
@@ -106,7 +136,7 @@ export default function TravelGallery({ creatorId, editable = false }) {
     <div>
       {editable && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-smoke">{photos.length} / {MAX_PHOTOS} photos · use the arrows to reorder and the expand button to make a photo larger.</p>
+          <p className="text-sm text-smoke">{photos.length} / {MAX_PHOTOS} photos · drag the grip handle to reorder and tap the expand button to make a photo larger.</p>
           <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFiles} />
           <button
             type="button" onClick={() => fileRef.current?.click()}
@@ -121,8 +151,8 @@ export default function TravelGallery({ creatorId, editable = false }) {
 
       {/* A masonry-style travel board: large photos span 2x2, dense flow fills gaps. */}
       <div className="grid auto-rows-[110px] grid-cols-2 gap-2 [grid-auto-flow:dense] sm:auto-rows-[150px] sm:grid-cols-4 sm:gap-3">
-        {photos.map((p, i) => (
-          <figure key={p.id} className={cx('group relative overflow-hidden rounded-xl bg-cloud', p.size === 'large' && 'col-span-2 row-span-2')}>
+        {photos.map((p) => (
+          <figure key={p.id} data-pid={p.id} className={cx('group relative overflow-hidden rounded-xl bg-cloud', p.size === 'large' && 'col-span-2 row-span-2', dragId === p.id && 'opacity-50 ring-2 ring-brand')}>
             <button type="button" onClick={() => setLightbox(p)} className="block h-full w-full">
               <img src={p.photo_url} alt={p.caption || 'Travel photo'} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
             </button>
@@ -131,10 +161,8 @@ export default function TravelGallery({ creatorId, editable = false }) {
               <>
                 {/* Control bar (always visible so it works on touch) */}
                 <div className="absolute inset-x-1 top-1 flex items-center justify-between gap-1">
-                  <div className="flex gap-1">
-                    <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="rounded-full bg-white/90 p-1 text-ink shadow-card disabled:opacity-30" aria-label="Move earlier"><Icon name="chevronLeft" className="h-3.5 w-3.5" strokeWidth={2.2} /></button>
-                    <button type="button" onClick={() => move(i, 1)} disabled={i === photos.length - 1} className="rounded-full bg-white/90 p-1 text-ink shadow-card disabled:opacity-30" aria-label="Move later"><Icon name="chevronRight" className="h-3.5 w-3.5" strokeWidth={2.2} /></button>
-                  </div>
+                  {/* Drag handle: press and drag to reorder. touch-none stops the page scrolling while dragging. */}
+                  <button type="button" onPointerDown={(e) => beginDrag(e, p)} className="cursor-grab touch-none rounded-full bg-white/90 p-1 text-ink shadow-card active:cursor-grabbing" aria-label="Drag to reorder"><Icon name="grip" className="h-3.5 w-3.5" strokeWidth={2.2} /></button>
                   <div className="flex gap-1">
                     <button type="button" onClick={() => toggleSize(p)} className="rounded-full bg-white/90 p-1 text-brand shadow-card" aria-label={p.size === 'large' ? 'Make smaller' : 'Make larger'} title={p.size === 'large' ? 'Make smaller' : 'Make larger'}><Icon name="expand" className="h-3.5 w-3.5" strokeWidth={2.2} /></button>
                     <button type="button" onClick={() => remove(p)} className="rounded-full bg-white/90 p-1 text-red-500 shadow-card" aria-label="Remove photo"><svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"><path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" /></svg></button>
