@@ -6,6 +6,26 @@ import { supabase } from '../lib/supabase'
 // is_admin), and helpers for sign-up / sign-in / sign-out / password reset.
 const AuthContext = createContext(null)
 
+// Call the rate-limited auth-gate Edge Function. Returns the parsed JSON
+// (which contains either a session/{access_token} or an { error } message).
+const AUTH_GATE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/auth-gate`
+async function callAuthGate(body) {
+  try {
+    const res = await fetch(AUTH_GATE_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify(body),
+    })
+    return await res.json().catch(() => ({ error: 'Something went wrong. Please try again.' }))
+  } catch {
+    return { error: 'Network error. Please check your connection and try again.' }
+  }
+}
+
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
@@ -89,20 +109,30 @@ export function AuthProvider({ children }) {
     loading,
     refreshProfile,
 
-    // `ref` is an optional referral code captured from /signup?ref=CODE.
-    signUp: (email, password, name, ref) =>
-      supabase.auth.signUp({ email, password, options: { data: { name, ref: ref || null } } }),
+    // Auth routes go through the `auth-gate` Edge Function, which enforces a
+    // hard rate limit (5 attempts / 15 min) before touching GoTrue.
+    signUp: async (email, password, name, ref) => {
+      const out = await callAuthGate({ action: 'signup', email, password, name, ref })
+      if (out.error) return { data: { session: null, user: null }, error: { message: out.error } }
+      if (out.access_token) await supabase.auth.setSession({ access_token: out.access_token, refresh_token: out.refresh_token })
+      return { data: { session: out.access_token ? out : null, user: out.user ?? null }, error: null }
+    },
 
-    signIn: (email, password) => supabase.auth.signInWithPassword({ email, password }),
+    signIn: async (email, password) => {
+      const out = await callAuthGate({ action: 'login', email, password })
+      if (out.error) return { data: { session: null, user: null }, error: { message: out.error } }
+      await supabase.auth.setSession({ access_token: out.access_token, refresh_token: out.refresh_token })
+      return { data: { session: out, user: out.user ?? null }, error: null }
+    },
 
     signOut: () => supabase.auth.signOut(),
 
-    // Sends Supabase's built-in password-reset email. Also used by admins to
-    // trigger a reset on a creator's behalf (it only needs the email address).
-    sendPasswordReset: (email) =>
-      supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      }),
+    // Rate-limited password reset (always reports success, never reveals whether
+    // the email exists).
+    sendPasswordReset: async (email) => {
+      const out = await callAuthGate({ action: 'recover', email, redirectTo: `${window.location.origin}/reset-password` })
+      return { data: {}, error: out.error ? { message: out.error } : null }
+    },
 
     updatePassword: (newPassword) => supabase.auth.updateUser({ password: newPassword }),
   }

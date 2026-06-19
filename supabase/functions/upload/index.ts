@@ -42,9 +42,19 @@ Deno.serve(async (req) => {
   // Users may only write inside their own <uid>/ folder.
   if (!String(body.path).startsWith(`${uid}/`)) return json({ error: 'path not allowed' }, 403)
 
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } })
+
+  // 2b) Rate limit: max 40 uploads / 10 min per user (generous for a 20-photo
+  // gallery batch, but blocks abuse of the free storage tier).
+  const since = new Date(Date.now() - 600_000).toISOString()
+  await admin.from('auth_attempts').delete().lt('created_at', new Date(Date.now() - 3_600_000).toISOString())
+  const { count } = await admin.from('auth_attempts').select('id', { count: 'exact', head: true })
+    .eq('identifier', `upload:${uid}`).gte('created_at', since)
+  if ((count ?? 0) >= 40) return json({ error: 'Too many uploads in a short time. Please wait a few minutes.' }, 429)
+  await admin.from('auth_attempts').insert({ identifier: `upload:${uid}` })
+
   // 3) Decode and upload with the service role (bypasses Storage RLS safely).
   const bytes = Uint8Array.from(atob(body.dataBase64), (c) => c.charCodeAt(0))
-  const admin = createClient(SUPABASE_URL, SERVICE_ROLE)
   const { error: upErr } = await admin.storage.from(body.bucket).upload(body.path, bytes, {
     contentType: body.contentType || 'application/octet-stream',
     upsert: true,
