@@ -253,7 +253,7 @@ function ProfileGallery({ creatorId, isMe }) {
         <EmptyState
           emoji="📸"
           title="No travel photos yet"
-          hint="Share up to 20 shots from your trips to bring your profile to life."
+          hint="Share up to 10 shots from your trips to bring your profile to life."
           action={<Link to="/profile/edit" className="btn-primary">Add photos</Link>}
         />
       ) : (

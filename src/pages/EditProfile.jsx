@@ -86,7 +86,7 @@ export default function EditProfile() {
         <section className="card space-y-5">
           <div>
             <h2 className="text-lg font-semibold">Travel photos</h2>
-            <p className="mt-1 text-sm text-smoke">Share up to 20 shots from your trips. They appear on your public profile.</p>
+            <p className="mt-1 text-sm text-smoke">Share up to 10 shots from your trips. They appear on your public profile.</p>
           </div>
           <TravelGallery creatorId={user.id} editable />
         </section>

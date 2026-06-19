@@ -7,9 +7,9 @@ import { Spinner } from './ui'
 import Icon from './Icon'
 import { cx } from '../lib/utils'
 
-const MAX_PHOTOS = 20
+const MAX_PHOTOS = 10
 
-// Travel photo gallery (up to 20 images per creator).
+// Travel photo gallery (up to MAX_PHOTOS images per creator).
 //  * editable=false → read-only grid on someone's profile.
 //  * editable=true  → owner can upload, caption and delete (used in Edit Profile).
 // Photos live in the public "gallery" bucket under gallery/<user id>/...
