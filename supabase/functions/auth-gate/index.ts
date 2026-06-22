@@ -56,15 +56,19 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'method not allowed' }, 405)
 
   const ip = clientIp(req)
-  const { action, email, password, name, ref, redirectTo } = await req.json().catch(() => ({}))
+  const { action, email, password, name, ref, redirectTo, captchaToken } = await req.json().catch(() => ({}))
   const tooMany = { error: `Too many attempts. Please wait ${WINDOW_MIN} minutes and try again.` }
+  // When CAPTCHA protection is enabled in Supabase Auth, GoTrue requires the
+  // Turnstile token in gotrue_meta_security. Forwarding it when disabled is a
+  // harmless no-op, so it's always passed through.
+  const sec = captchaToken ? { gotrue_meta_security: { captcha_token: captchaToken } } : {}
 
   if (action === 'login') {
     if (!email || !password) return json({ error: 'Email and password are required.' }, 400)
     const id = `login:${String(email).toLowerCase()}|${ip}`
     if (await isLimited(id)) return json(tooMany, 429)
     await record(id)
-    const { status, data } = await gotrue('token?grant_type=password', { email, password })
+    const { status, data } = await gotrue('token?grant_type=password', { email, password, ...sec })
     if (status === 200 && data.access_token) { await clear(id); return json(data, 200) }
     return json({ error: data.error_description || data.msg || data.error || 'Invalid login credentials' }, 400)
   }
@@ -74,7 +78,7 @@ Deno.serve(async (req) => {
     const id = `signup:${ip}`
     if (await isLimited(id)) return json(tooMany, 429)
     await record(id)
-    const { status, data } = await gotrue('signup', { email, password, data: { name: name || null, ref: ref || null } })
+    const { status, data } = await gotrue('signup', { email, password, data: { name: name || null, ref: ref || null }, ...sec })
     if (status >= 400) return json({ error: data.error_description || data.msg || data.error || 'Could not sign up' }, 400)
     return json(data, 200)
   }
@@ -85,7 +89,7 @@ Deno.serve(async (req) => {
     if (await isLimited(id)) return json(tooMany, 429)
     await record(id)
     const url = redirectTo ? `recover?redirect_to=${encodeURIComponent(redirectTo)}` : 'recover'
-    await gotrue(url, { email }) // always 200 to the client (don't reveal whether the email exists)
+    await gotrue(url, { email, ...sec }) // always 200 to the client (don't reveal whether the email exists)
     return json({ ok: true }, 200)
   }
 

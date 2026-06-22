@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { Spinner } from '../../components/ui'
+import Turnstile from '../../components/Turnstile'
 import AuthShell from './AuthShell'
 
 // Public creator signup. New accounts are creators by default - // admins are promoted later (see README → "Making an account an admin").
@@ -15,6 +16,8 @@ export default function Signup() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState('')
+  const [captchaKey, setCaptchaKey] = useState(0)
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -24,10 +27,11 @@ export default function Signup() {
       return
     }
     setBusy(true)
-    const { data, error } = await signUp(email.trim(), password, name.trim(), ref)
+    const { data, error } = await signUp(email.trim(), password, name.trim(), ref, captchaToken)
     setBusy(false)
     if (error) {
       setError(error.message)
+      setCaptchaToken(''); setCaptchaKey((k) => k + 1) // tokens are single-use; reset for retry
       return
     }
     // If email confirmation is enabled in Supabase, there's no session yet.
@@ -70,7 +74,9 @@ export default function Signup() {
 
         {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
 
-        <button type="submit" disabled={busy} className="btn-primary w-full">
+        <Turnstile key={captchaKey} onToken={setCaptchaToken} />
+
+        <button type="submit" disabled={busy || !captchaToken} className="btn-primary w-full">
           {busy ? <Spinner /> : 'Create account'}
         </button>
 

@@ -145,15 +145,15 @@ export function AuthProvider({ children }) {
 
     // Auth routes go through the `auth-gate` Edge Function, which enforces a
     // hard rate limit (5 attempts / 15 min) before touching GoTrue.
-    signUp: async (email, password, name, ref) => {
-      const out = await callAuthGate({ action: 'signup', email, password, name, ref })
+    signUp: async (email, password, name, ref, captchaToken) => {
+      const out = await callAuthGate({ action: 'signup', email, password, name, ref, captchaToken })
       if (out.error) return { data: { session: null, user: null }, error: { message: out.error } }
       if (out.access_token) await supabase.auth.setSession({ access_token: out.access_token, refresh_token: out.refresh_token })
       return { data: { session: out.access_token ? out : null, user: out.user ?? null }, error: null }
     },
 
-    signIn: async (email, password) => {
-      const out = await callAuthGate({ action: 'login', email, password })
+    signIn: async (email, password, captchaToken) => {
+      const out = await callAuthGate({ action: 'login', email, password, captchaToken })
       if (out.error) return { data: { session: null, user: null }, error: { message: out.error } }
       await supabase.auth.setSession({ access_token: out.access_token, refresh_token: out.refresh_token })
       return { data: { session: out, user: out.user ?? null }, error: null }
@@ -163,8 +163,8 @@ export function AuthProvider({ children }) {
 
     // Rate-limited password reset (always reports success, never reveals whether
     // the email exists).
-    sendPasswordReset: async (email) => {
-      const out = await callAuthGate({ action: 'recover', email, redirectTo: `${window.location.origin}/reset-password` })
+    sendPasswordReset: async (email, captchaToken) => {
+      const out = await callAuthGate({ action: 'recover', email, captchaToken, redirectTo: `${window.location.origin}/reset-password` })
       return { data: {}, error: out.error ? { message: out.error } : null }
     },
 

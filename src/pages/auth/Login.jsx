@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { Spinner } from '../../components/ui'
+import Turnstile from '../../components/Turnstile'
 import AuthShell from './AuthShell'
 
 export default function Login() {
@@ -11,15 +12,18 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState('')
+  const [captchaKey, setCaptchaKey] = useState(0)
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
     setBusy(true)
-    const { error } = await signIn(email.trim(), password)
+    const { error } = await signIn(email.trim(), password, captchaToken)
     setBusy(false)
     if (error) {
       setError(error.message === 'Invalid login credentials' ? 'Email or password is incorrect. Try again.' : error.message)
+      setCaptchaToken(''); setCaptchaKey((k) => k + 1) // tokens are single-use; reset for retry
       return
     }
     navigate('/home')
@@ -46,7 +50,9 @@ export default function Login() {
 
         {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
 
-        <button type="submit" disabled={busy} className="btn-primary w-full">
+        <Turnstile key={captchaKey} onToken={setCaptchaToken} />
+
+        <button type="submit" disabled={busy || !captchaToken} className="btn-primary w-full">
           {busy ? <Spinner /> : 'Log in'}
         </button>
       </form>

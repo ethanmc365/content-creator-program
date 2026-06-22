@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { Spinner } from '../../components/ui'
+import Turnstile from '../../components/Turnstile'
 import AuthShell from './AuthShell'
 
 // Step 1 of the reset flow: enter your email → Supabase sends a reset link
@@ -12,15 +13,19 @@ export default function ForgotPassword() {
   const [sent, setSent] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState('')
+  const [captchaKey, setCaptchaKey] = useState(0)
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
     setBusy(true)
-    const { error } = await sendPasswordReset(email.trim())
+    const { error } = await sendPasswordReset(email.trim(), captchaToken)
     setBusy(false)
-    if (error) setError(error.message)
-    else setSent(true)
+    if (error) {
+      setError(error.message)
+      setCaptchaToken(''); setCaptchaKey((k) => k + 1)
+    } else setSent(true)
   }
 
   if (sent) {
@@ -43,7 +48,8 @@ export default function ForgotPassword() {
           <input id="email" type="email" required className="input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
         </div>
         {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
-        <button type="submit" disabled={busy} className="btn-primary w-full">
+        <Turnstile key={captchaKey} onToken={setCaptchaToken} />
+        <button type="submit" disabled={busy || !captchaToken} className="btn-primary w-full">
           {busy ? <Spinner /> : 'Send reset link'}
         </button>
       </form>
