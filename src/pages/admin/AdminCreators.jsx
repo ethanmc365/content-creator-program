@@ -85,6 +85,17 @@ export default function AdminCreators() {
     flash(error ? `Couldn't send: ${error.message}` : `Reminder email sent to ${creator.name}.`)
   }
 
+  // Quick-approve a pending applicant straight from the list (a DB trigger
+  // sends them the welcome notification, same as the Applications page).
+  async function acceptCreator(creator) {
+    if (!confirm(`Approve ${creator.name}? They'll become an active member of the program.`)) return
+    const { error } = await supabase.from('profiles').update({ status: 'active' }).eq('id', creator.id)
+    if (error) return flash(`Couldn't approve: ${error.message}`)
+    flash(`${creator.name} approved and welcomed.`)
+    setSelected(null)
+    load()
+  }
+
   // Permanently delete a creator and everything they created. Irreversible.
   async function deleteCreator(creator) {
     if (!confirm(`PERMANENTLY delete ${creator.name}? This removes their account and ALL their content (submissions, messages, photos, rewards). This cannot be undone.`)) return
@@ -150,6 +161,7 @@ export default function AdminCreators() {
       ? (c.onboarded ? { label: 'pending', tone: 'amber' } : { label: 'not completed profile', tone: 'grey' })
       : { label: c.status, tone: STATUS_TONE[c.status] || 'grey' }
   const isIncomplete = (c) => c.status === 'pending' && !c.onboarded
+  const isPendingReview = (c) => c.status === 'pending' && c.onboarded
 
   return (
     <div className="page">
@@ -206,6 +218,15 @@ export default function AdminCreators() {
                     className="btn-secondary shrink-0 !px-3 !py-1.5 text-xs"
                   >
                     <Icon name="envelope" className="h-4 w-4" /> Email
+                  </button>
+                )}
+                {isPendingReview(c) && (
+                  <button
+                    onClick={() => acceptCreator(c)}
+                    title="Approve this applicant"
+                    className="btn-primary shrink-0 !px-3 !py-1.5 text-xs"
+                  >
+                    <Icon name="check" className="h-4 w-4" /> Accept
                   </button>
                 )}
                 <Badge tone={s.tone}>{s.label}</Badge>
@@ -266,6 +287,9 @@ export default function AdminCreators() {
               <h3 className="text-sm font-semibold">Account actions</h3>
               <div className="flex flex-wrap gap-2">
                 <button onClick={() => dmCreator(selected)} className="btn-primary !py-2 text-xs"><Icon name="chat" className="h-4 w-4" /> Message</button>
+                {isPendingReview(selected) && (
+                  <button onClick={() => acceptCreator(selected)} className="btn-primary !py-2 text-xs"><Icon name="check" className="h-4 w-4" /> Accept applicant</button>
+                )}
                 {isIncomplete(selected) && (
                   <button onClick={() => sendReminder(selected)} className="btn-secondary !py-2 text-xs"><Icon name="envelope" className="h-4 w-4" /> Email reminder</button>
                 )}

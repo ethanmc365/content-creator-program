@@ -51,6 +51,25 @@ export default function Onboarding() {
   // post yet and land on the review screen instead of the chat.
   const pending = profile?.status === 'pending'
 
+  // Required-field gating so we never get blank profiles. Travel photos and the
+  // favourite quote stay optional; everything else must be filled to continue.
+  const hasSocial = !!(draft.instagram_url?.trim() || draft.tiktok_url?.trim() || draft.youtube_url?.trim())
+  const stepValid = (s) => {
+    if (s === 1) return !!(draft.photo_url && draft.dob && draft.city.trim() && draft.country.trim() &&
+      draft.bio.trim() && draft.about.trim() && contact.phone.trim() && contact.phone_country)
+    if (s === 2) return hasSocial
+    if (s === 4) return draft.countries_visited.length > 0
+    if (s === 5) return draft.languages.length > 0
+    return true
+  }
+  const allComplete = stepValid(1) && stepValid(2) && stepValid(4) && stepValid(5)
+  const STEP_HINTS = {
+    1: 'Add a photo and fill in every field (quote is optional) to continue.',
+    2: 'Add at least one social link to continue.',
+    4: 'Tap at least one country on the map to continue.',
+    5: 'Select at least one language to continue.',
+  }
+
   async function finish(sayHello) {
     setBusy(true)
     await Promise.all([
@@ -127,7 +146,7 @@ export default function Onboarding() {
             <div className="space-y-7">
               <div className="text-center">
                 <h2 className="text-2xl font-bold">First, the basics</h2>
-                <p className="mt-2 text-sm text-smoke">A photo makes your profile 10x more inviting.</p>
+                <p className="mt-2 text-sm text-smoke">All fields are required (your favourite quote is optional). A photo makes your profile 10x more inviting.</p>
               </div>
               <AvatarUpload photoUrl={draft.photo_url} name={profile?.name} onUploaded={(url) => set({ photo_url: url })} />
               <DobField value={draft.dob} onChange={(dob) => set({ dob })} />
@@ -238,19 +257,24 @@ export default function Onboarding() {
             </div>
           )}
 
+          {/* Tells the creator what's still needed before they can continue. */}
+          {!stepValid(step) && STEP_HINTS[step] && (
+            <p className="mt-6 text-center text-sm font-medium text-brand">{STEP_HINTS[step]}</p>
+          )}
+
           {/* ---- Navigation ---- */}
-          <div className={cx('mt-10 flex gap-3', step === 0 ? 'justify-center' : 'justify-between')}>
+          <div className={cx('mt-6 flex gap-3', step === 0 ? 'justify-center' : 'justify-between')}>
             {step > 0 && (
               <button onClick={() => setStep((s) => s - 1)} className="btn-ghost" disabled={busy}>← Back</button>
             )}
             {step < STEPS.length - 1 && (
-              <button onClick={() => setStep((s) => s + 1)} className="btn-primary">
+              <button onClick={() => setStep((s) => s + 1)} disabled={!stepValid(step)} className="btn-primary">
                 {step === 0 ? "Let's go" : 'Continue'} →
               </button>
             )}
             {step === STEPS.length - 1 && (
               pending ? (
-                <button onClick={() => finish(false)} disabled={busy} className="btn-primary sm:ml-auto">
+                <button onClick={() => finish(false)} disabled={busy || !allComplete} className="btn-primary sm:ml-auto">
                   {busy ? <Spinner /> : 'Submit application →'}
                 </button>
               ) : (

@@ -72,6 +72,16 @@
       placeholder:text-gray-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand sm:text-sm;
   }
 
+  /* The native <select> arrow renders inconsistently across browsers and looked
+     off-center next to our rounded inputs. Replace it with a consistent chevron
+     pinned to the right edge. */
+  select.input {
+    @apply appearance-none bg-no-repeat pr-10;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-position: right 0.85rem center;
+    background-size: 1.1rem 1.1rem;
+  }
+
   .label {
     @apply mb-2 block text-sm font-medium text-ink;
   }
