@@ -79,6 +79,12 @@ export default function AdminCreators() {
     flash(error ? `Couldn't send: ${error.message}` : `Reset email sent to ${email}.`)
   }
 
+  // Nudge a creator who signed up but never submitted their profile.
+  async function sendReminder(creator) {
+    const { error } = await supabase.rpc('admin_remind_incomplete', { target: creator.id })
+    flash(error ? `Couldn't send: ${error.message}` : `Reminder email sent to ${creator.name}.`)
+  }
+
   // Permanently delete a creator and everything they created. Irreversible.
   async function deleteCreator(creator) {
     if (!confirm(`PERMANENTLY delete ${creator.name}? This removes their account and ALL their content (submissions, messages, photos, rewards). This cannot be undone.`)) return
@@ -126,14 +132,24 @@ export default function AdminCreators() {
       creators.filter((c) => {
         const email = emails[c.id] ?? ''
         if (search && !(c.name + email).toLowerCase().includes(search.toLowerCase())) return false
-        if (statusFilter === 'admin' && !c.is_admin) return false
-        if (statusFilter && statusFilter !== 'admin' && c.status !== statusFilter) return false
+        if (statusFilter === 'admin') return c.is_admin
+        if (statusFilter === 'pending') return c.status === 'pending' && c.onboarded
+        if (statusFilter === 'incomplete') return c.status === 'pending' && !c.onboarded
+        if (statusFilter && c.status !== statusFilter) return false
         return true
       }),
     [creators, emails, search, statusFilter]
   )
 
   const STATUS_TONE = { active: 'green', muted: 'amber', suspended: 'red' }
+
+  // A pending creator who never submitted their profile (did page 1 only) shows
+  // as "not completed profile"; one who submitted shows as "pending" (awaiting review).
+  const statusInfo = (c) =>
+    c.status === 'pending'
+      ? (c.onboarded ? { label: 'pending', tone: 'amber' } : { label: 'not completed profile', tone: 'grey' })
+      : { label: c.status, tone: STATUS_TONE[c.status] || 'grey' }
+  const isIncomplete = (c) => c.status === 'pending' && !c.onboarded
 
   return (
     <div className="page">
@@ -153,6 +169,8 @@ export default function AdminCreators() {
         <select className="input sm:max-w-[180px]" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label="Filter by status">
           <option value="">All statuses</option>
           <option value="active">Active</option>
+          <option value="pending">Pending review</option>
+          <option value="incomplete">Not completed profile</option>
           <option value="muted">Muted</option>
           <option value="suspended">Suspended</option>
           <option value="admin">Admins</option>
@@ -163,24 +181,37 @@ export default function AdminCreators() {
         <div className="space-y-3">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
       ) : (
         <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
-          {filtered.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => setSelected(c)}
-              className="flex w-full items-center gap-4 border-b border-gray-50 px-5 py-4 text-left transition-colors last:border-0 hover:bg-cloud/60 sm:px-7"
-            >
-              <Avatar src={c.photo_url} name={c.name} size="sm" />
-              <div className="min-w-0 flex-1">
-                <p className="flex items-center gap-2 text-sm font-semibold">
-                  {c.name}
-                  {c.is_admin && <Badge tone="light">Admin</Badge>}
-                </p>
-                <p className="truncate text-xs text-smoke">{emails[c.id] ?? '…'}</p>
+          {filtered.map((c) => {
+            const s = statusInfo(c)
+            return (
+              <div
+                key={c.id}
+                className="flex w-full items-center gap-3 border-b border-gray-50 px-5 py-4 transition-colors last:border-0 hover:bg-cloud/60 sm:gap-4 sm:px-7"
+              >
+                <button onClick={() => setSelected(c)} className="flex min-w-0 flex-1 items-center gap-4 text-left">
+                  <Avatar src={c.photo_url} name={c.name} size="sm" />
+                  <div className="min-w-0 flex-1">
+                    <p className="flex items-center gap-2 text-sm font-semibold">
+                      {c.name}
+                      {c.is_admin && <Badge tone="light">Admin</Badge>}
+                    </p>
+                    <p className="truncate text-xs text-smoke">{emails[c.id] ?? '…'}</p>
+                  </div>
+                </button>
+                <span className="hidden text-xs text-smoke sm:block">Joined {formatDate(c.created_at)}</span>
+                {isIncomplete(c) && (
+                  <button
+                    onClick={() => sendReminder(c)}
+                    title="Email a reminder to finish their profile"
+                    className="btn-secondary shrink-0 !px-3 !py-1.5 text-xs"
+                  >
+                    <Icon name="envelope" className="h-4 w-4" /> Email
+                  </button>
+                )}
+                <Badge tone={s.tone}>{s.label}</Badge>
               </div>
-              <span className="hidden text-xs text-smoke sm:block">Joined {formatDate(c.created_at)}</span>
-              <Badge tone={STATUS_TONE[c.status]}>{c.status}</Badge>
-            </button>
-          ))}
+            )
+          })}
           {filtered.length === 0 && <p className="px-7 py-12 text-center text-sm text-smoke">No creators match.</p>}
         </div>
       )}
@@ -195,7 +226,7 @@ export default function AdminCreators() {
                 <p className="text-sm font-medium">{emails[selected.id]}</p>
                 <p className="text-xs text-smoke">Joined {formatDate(selected.created_at)} · {selected.age ? `${selected.age} yrs · ` : ''}{(selected.countries_visited ?? []).length} countries</p>
                 <div className="mt-2 flex gap-2">
-                  <Badge tone={STATUS_TONE[selected.status]}>{selected.status}</Badge>
+                  <Badge tone={statusInfo(selected).tone}>{statusInfo(selected).label}</Badge>
                   {selected.is_admin && <Badge tone="light">Admin</Badge>}
                 </div>
               </div>
@@ -235,6 +266,9 @@ export default function AdminCreators() {
               <h3 className="text-sm font-semibold">Account actions</h3>
               <div className="flex flex-wrap gap-2">
                 <button onClick={() => dmCreator(selected)} className="btn-primary !py-2 text-xs"><Icon name="chat" className="h-4 w-4" /> Message</button>
+                {isIncomplete(selected) && (
+                  <button onClick={() => sendReminder(selected)} className="btn-secondary !py-2 text-xs"><Icon name="envelope" className="h-4 w-4" /> Email reminder</button>
+                )}
                 <button onClick={() => resetPassword(selected)} className="btn-secondary !py-2 text-xs"><Icon name="key" className="h-4 w-4" /> Send password reset</button>
                 <button onClick={() => togglePromote(selected)} className="btn-secondary !py-2 text-xs">
                   <Icon name={selected.is_admin ? 'shield' : 'star'} className="h-4 w-4" /> {selected.is_admin ? 'Remove admin' : 'Promote to admin'}
