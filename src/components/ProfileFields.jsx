@@ -79,7 +79,12 @@ export function DobField({ value, onChange }) {
   const age = ageFromDob(iso)
 
   function handle(e) {
-    const next = e.target.value
+    // Auto-insert the slashes as they type so "22122005" becomes "22/12/2005"
+    // and they can't get stuck with an unparseable date.
+    const digits = e.target.value.replace(/\D/g, '').slice(0, 8)
+    let next = digits.slice(0, 2)
+    if (digits.length > 2) next += '/' + digits.slice(2, 4)
+    if (digits.length > 4) next += '/' + digits.slice(4, 8)
     setText(next)
     onChange(parseDob(next)) // null until it's a complete, valid date
   }
