@@ -136,7 +136,7 @@ export default function TravelGallery({ creatorId, editable = false }) {
     <div>
       {editable && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-smoke">{photos.length} / {MAX_PHOTOS} photos · drag the grip handle to reorder and tap the expand button to make a photo larger.</p>
+          <p className="text-sm text-smoke">{photos.length} / {MAX_PHOTOS} photos&ensp;Drag the grip handle to reorder and tap the expand button to make a photo larger.</p>
           <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFiles} />
           <button
             type="button" onClick={() => fileRef.current?.click()}

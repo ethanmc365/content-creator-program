@@ -163,7 +163,7 @@ export default function Profile() {
         <section className="rounded-card border border-brand/20 bg-brand-tint/40 p-5">
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-brand">
             <Icon name="eye" className="h-4 w-4" />
-            Team-only contact details
+            Contact details
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {contact.email && (
@@ -179,7 +179,7 @@ export default function Profile() {
               </div>
             )}
           </div>
-          <p className="mt-3 text-xs text-smoke">Only visible to the Tryp.com Team, never to other creators.</p>
+          <p className="mt-3 text-xs text-smoke">Only visible to the Tryp.com Team.</p>
         </section>
       )}
 

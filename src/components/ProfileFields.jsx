@@ -120,14 +120,15 @@ export function PhoneInput({ value, onChange }) {
   return (
     <div>
       <label htmlFor="phone" className="label">Phone number</label>
-      <div className="flex gap-2">
+      {/* Stack on mobile so the dial-code picker isn't crammed; side-by-side on larger screens. */}
+      <div className="flex flex-col gap-2 sm:flex-row">
         <select
           aria-label="Country dialling code"
-          className="input !w-auto shrink-0"
+          className="input w-full sm:w-44 sm:shrink-0"
           value={country}
           onChange={(e) => onChange({ ...value, phone_country: e.target.value })}
         >
-          <option value="">Code</option>
+          <option value="">Country code</option>
           {DIAL_CODES.map((c) => (
             <option key={c.iso2} value={c.code}>
               {flagEmoji(c.iso2)} {c.name} ({c.code})
@@ -139,7 +140,7 @@ export function PhoneInput({ value, onChange }) {
           type="tel"
           inputMode="tel"
           autoComplete="tel-national"
-          className="input flex-1"
+          className="input w-full sm:flex-1"
           placeholder="7700 900123"
           value={number}
           onChange={(e) => onChange({ ...value, phone: e.target.value })}
@@ -169,31 +170,86 @@ export function QuoteField({ value, onChange }) {
   )
 }
 
-/** Tag-style multi-select for languages spoken. */
+/**
+ * Tag-style multi-select for languages spoken. Presets plus an "Other" option
+ * so creators can type in an uncommon language we don't list.
+ */
 export function LanguageSelect({ selected = [], onChange }) {
+  const [showOther, setShowOther] = useState(false)
+  const [custom, setCustom] = useState('')
+
   function toggle(lang) {
     onChange(selected.includes(lang) ? selected.filter((l) => l !== lang) : [...selected, lang])
   }
+  function addCustom() {
+    const v = custom.trim()
+    if (v && !selected.some((l) => l.toLowerCase() === v.toLowerCase())) {
+      onChange([...selected, v])
+    }
+    setCustom('')
+    setShowOther(false)
+  }
+  // Languages the creator typed in that aren't in our preset list.
+  const customSelected = selected.filter((l) => !LANGUAGE_OPTIONS.includes(l))
+
   return (
-    <div className="flex flex-wrap gap-2">
-      {LANGUAGE_OPTIONS.map((lang) => {
-        const active = selected.includes(lang)
-        return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-2">
+        {LANGUAGE_OPTIONS.map((lang) => {
+          const active = selected.includes(lang)
+          return (
+            <button
+              key={lang}
+              type="button"
+              onClick={() => toggle(lang)}
+              aria-pressed={active}
+              className={
+                active
+                  ? 'rounded-full bg-brand px-4 py-1.5 text-xs font-medium text-white transition-colors'
+                  : 'rounded-full border border-gray-200 px-4 py-1.5 text-xs font-medium text-smoke transition-colors hover:border-brand hover:text-brand'
+              }
+            >
+              {lang}
+            </button>
+          )
+        })}
+        {/* Custom-typed languages show as removable orange chips. */}
+        {customSelected.map((lang) => (
           <button
             key={lang}
             type="button"
             onClick={() => toggle(lang)}
-            aria-pressed={active}
-            className={
-              active
-                ? 'rounded-full bg-brand px-4 py-1.5 text-xs font-medium text-white transition-colors'
-                : 'rounded-full border border-gray-200 px-4 py-1.5 text-xs font-medium text-smoke transition-colors hover:border-brand hover:text-brand'
-            }
+            aria-pressed="true"
+            title="Remove"
+            className="inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-1.5 text-xs font-medium text-white transition-colors"
           >
             {lang}
+            <span aria-hidden className="text-white/80">×</span>
           </button>
-        )
-      })}
+        ))}
+        <button
+          type="button"
+          onClick={() => setShowOther((s) => !s)}
+          className="rounded-full border border-dashed border-gray-300 px-4 py-1.5 text-xs font-medium text-smoke transition-colors hover:border-brand hover:text-brand"
+        >
+          + Other
+        </button>
+      </div>
+      {showOther && (
+        <div className="flex gap-2">
+          <input
+            type="text"
+            className="input flex-1"
+            placeholder="Type a language…"
+            value={custom}
+            maxLength={40}
+            autoFocus
+            onChange={(e) => setCustom(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustom() } }}
+          />
+          <button type="button" onClick={addCustom} className="btn-secondary shrink-0 !py-2 text-xs">Add</button>
+        </div>
+      )}
     </div>
   )
 }
