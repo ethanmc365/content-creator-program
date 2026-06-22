@@ -72,7 +72,7 @@ export function AvatarUpload({ photoUrl, name, onUploaded }) {
  * Shows the derived age once a valid date is entered. We only ever surface age
  * publicly, never the full date of birth.
  */
-export function DobField({ value, onChange }) {
+export function DobField({ value, onChange, required }) {
   const [text, setText] = useState(formatDobInput(value))
   const iso = parseDob(text)
   const showError = text.trim().length >= 10 && !iso
@@ -91,7 +91,7 @@ export function DobField({ value, onChange }) {
 
   return (
     <div>
-      <label htmlFor="dob" className="label">Date of birth</label>
+      <label htmlFor="dob" className="label">Date of birth{required && <span className="text-brand"> *</span>}</label>
       <input
         id="dob"
         type="text"
@@ -119,12 +119,12 @@ export function DobField({ value, onChange }) {
  *  onChange(next) fires with the merged value.
  * Private detail: only the creator and admins ever see this, never the public.
  */
-export function PhoneInput({ value, onChange }) {
+export function PhoneInput({ value, onChange, required }) {
   const country = value.phone_country || ''
   const number = value.phone || ''
   return (
     <div>
-      <label htmlFor="phone" className="label">Phone number</label>
+      <label htmlFor="phone" className="label">Phone number{required && <span className="text-brand"> *</span>}</label>
       {/* Stack on mobile so the dial-code picker isn't crammed; side-by-side on larger screens. */}
       <div className="flex flex-col gap-2 sm:flex-row">
         <select
