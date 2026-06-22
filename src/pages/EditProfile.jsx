@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
-import { AvatarUpload, LanguageSelect, SocialInputs, DobField } from '../components/ProfileFields'
+import { AvatarUpload, LanguageSelect, SocialInputs, DobField, PhoneInput, QuoteField } from '../components/ProfileFields'
 import WorldMap from '../components/WorldMap'
 import TravelGallery from '../components/TravelGallery'
 import { PageHeader, Spinner } from '../components/ui'
@@ -21,6 +21,7 @@ export default function EditProfile() {
     country: profile?.country || '',
     bio: profile?.bio || '',
     about: profile?.about || '',
+    favourite_quote: profile?.favourite_quote || '',
     photo_url: profile?.photo_url || '',
     instagram_url: profile?.instagram_url || '',
     tiktok_url: profile?.tiktok_url || '',
@@ -30,15 +31,32 @@ export default function EditProfile() {
     countries_visited: profile?.countries_visited || [],
   })
 
+  // Phone is stored separately (private, admin-only). Load the creator's own row.
+  const [contact, setContact] = useState({ phone: '', phone_country: '' })
+  useEffect(() => {
+    supabase
+      .from('creator_private')
+      .select('phone, phone_country')
+      .eq('id', user.id)
+      .maybeSingle()
+      .then(({ data }) => { if (data) setContact({ phone: data.phone || '', phone_country: data.phone_country || '' }) })
+  }, [user.id])
+
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
 
   async function save(e) {
     e.preventDefault()
     setBusy(true)
-    const { error } = await supabase
-      .from('profiles')
-      .update(form)
-      .eq('id', user.id)
+    const [{ error }] = await Promise.all([
+      supabase.from('profiles').update(form).eq('id', user.id),
+      // Upsert the private contact row (phone never goes in public profiles).
+      supabase.from('creator_private').upsert({
+        id: user.id,
+        phone: contact.phone,
+        phone_country: contact.phone_country,
+        updated_at: new Date().toISOString(),
+      }),
+    ])
     setBusy(false)
     if (!error) {
       await refreshProfile()
@@ -80,6 +98,8 @@ export default function EditProfile() {
             <label htmlFor="about" className="label">About you</label>
             <textarea id="about" rows={5} className="input" value={form.about} onChange={(e) => set({ about: e.target.value })} />
           </div>
+          <QuoteField value={form.favourite_quote} onChange={(favourite_quote) => set({ favourite_quote })} />
+          <PhoneInput value={contact} onChange={setContact} />
         </section>
 
         {/* Travel photo gallery */}

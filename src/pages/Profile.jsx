@@ -13,15 +13,18 @@ import { formatDate, timeAgo, ageFromDob, cx } from '../lib/utils'
 // languages, stats and their content showcase (submitted video links).
 export default function Profile() {
   const { id } = useParams()
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const navigate = useNavigate()
   const isMe = id === user?.id
+  const viewerIsAdmin = !!profile?.is_admin
 
   const [creator, setCreator] = useState(null)
   const [submissions, setSubmissions] = useState([])
   const [challengeCount, setChallengeCount] = useState(0)
   const [isConnected, setIsConnected] = useState(false)
   const [loading, setLoading] = useState(true)
+  // Private contact details (email + phone), only fetched for admin viewers.
+  const [contact, setContact] = useState(null)
 
   useEffect(() => {
     async function load() {
@@ -43,6 +46,23 @@ export default function Profile() {
     }
     load()
   }, [id, user.id])
+
+  // Admins (and only admins) see the creator's email + phone. The RPC and the
+  // creator_private RLS both enforce admin-only access server-side too.
+  useEffect(() => {
+    if (!viewerIsAdmin) { setContact(null); return }
+    async function loadContact() {
+      const [{ data: email }, { data: priv }] = await Promise.all([
+        supabase.rpc('admin_get_email', { target: id }),
+        supabase.from('creator_private').select('phone, phone_country').eq('id', id).maybeSingle(),
+      ])
+      setContact({
+        email: email || '',
+        phone: priv ? [priv.phone_country, priv.phone].filter(Boolean).join(' ').trim() : '',
+      })
+    }
+    loadContact()
+  }, [id, viewerIsAdmin])
 
   async function toggleConnect() {
     setIsConnected((c) => !c)
@@ -113,6 +133,9 @@ export default function Profile() {
             </p>
           )}
           {creator.bio && <p className="mt-2 text-lg text-smoke">{creator.bio}</p>}
+          {creator.favourite_quote && (
+            <p className="mt-3 border-l-2 border-brand pl-3 text-sm italic text-smoke">“{creator.favourite_quote}”</p>
+          )}
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
             {socials.map((s) => (
               <a key={s.label} href={s.url} target="_blank" rel="noopener noreferrer" className="btn-secondary !px-4 !py-2 text-xs">
@@ -134,6 +157,31 @@ export default function Profile() {
           )}
         </div>
       </section>
+
+      {/* ---------- Admin-only contact (email + phone) ---------- */}
+      {viewerIsAdmin && contact && (contact.email || contact.phone) && (
+        <section className="rounded-card border border-brand/20 bg-brand-tint/40 p-5">
+          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-brand">
+            <Icon name="eye" className="h-4 w-4" />
+            Team-only contact details
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {contact.email && (
+              <div>
+                <p className="text-xs font-medium text-smoke">Email</p>
+                <a href={`mailto:${contact.email}`} className="text-sm font-medium hover:text-brand">{contact.email}</a>
+              </div>
+            )}
+            {contact.phone && (
+              <div>
+                <p className="text-xs font-medium text-smoke">Phone</p>
+                <a href={`tel:${contact.phone.replace(/\s+/g, '')}`} className="text-sm font-medium hover:text-brand">{contact.phone}</a>
+              </div>
+            )}
+          </div>
+          <p className="mt-3 text-xs text-smoke">Only visible to the Tryp.com Team, never to other creators.</p>
+        </section>
+      )}
 
       {/* ---------- Stats strip ---------- */}
       <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">

@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { compressImage } from '../lib/image'
 import { uploadFile } from '../lib/upload'
 import { parseDob, formatDobInput, ageFromDob } from '../lib/utils'
+import { DIAL_CODES, flagEmoji } from '../lib/dialCodes'
 import { Avatar, Spinner } from './ui'
 
 export const LANGUAGE_OPTIONS = [
@@ -103,6 +104,67 @@ export function DobField({ value, onChange }) {
       ) : (
         <p className="mt-1 text-xs text-smoke">Type it as DD/MM/YYYY, e.g. 25/01/2005. We show your age, not the date.</p>
       )}
+    </div>
+  )
+}
+
+/**
+ * Phone number with a country dial-code picker.
+ *  value = { phone_country: '+44', phone: '7700 900123' }
+ *  onChange(next) fires with the merged value.
+ * Private detail: only the creator and admins ever see this, never the public.
+ */
+export function PhoneInput({ value, onChange }) {
+  const country = value.phone_country || ''
+  const number = value.phone || ''
+  return (
+    <div>
+      <label htmlFor="phone" className="label">Phone number</label>
+      <div className="flex gap-2">
+        <select
+          aria-label="Country dialling code"
+          className="input !w-auto shrink-0"
+          value={country}
+          onChange={(e) => onChange({ ...value, phone_country: e.target.value })}
+        >
+          <option value="">Code</option>
+          {DIAL_CODES.map((c) => (
+            <option key={c.iso2} value={c.code}>
+              {flagEmoji(c.iso2)} {c.name} ({c.code})
+            </option>
+          ))}
+        </select>
+        <input
+          id="phone"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel-national"
+          className="input flex-1"
+          placeholder="7700 900123"
+          value={number}
+          onChange={(e) => onChange({ ...value, phone: e.target.value })}
+        />
+      </div>
+      <p className="mt-1 text-xs text-smoke">Private. Only the Tryp.com Team can see this, never other creators.</p>
+    </div>
+  )
+}
+
+/** A single-line favourite quote, shown publicly on the profile. */
+export function QuoteField({ value, onChange }) {
+  return (
+    <div>
+      <label htmlFor="favourite_quote" className="label">Favourite quote</label>
+      <input
+        id="favourite_quote"
+        type="text"
+        maxLength={160}
+        className="input"
+        placeholder="A travel quote you live by…"
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <p className="mt-1 text-xs text-smoke">Shown on your public profile. Optional.</p>
     </div>
   )
 }

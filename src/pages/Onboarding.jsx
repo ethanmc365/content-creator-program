@@ -2,15 +2,16 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
-import { AvatarUpload, LanguageSelect, SocialInputs, DobField } from '../components/ProfileFields'
+import { AvatarUpload, LanguageSelect, SocialInputs, DobField, PhoneInput, QuoteField } from '../components/ProfileFields'
 import WorldMap from '../components/WorldMap'
+import TravelGallery from '../components/TravelGallery'
 import Icon from '../components/Icon'
 import { Spinner } from '../components/ui'
 import { cx } from '../lib/utils'
 
 // First-login onboarding: a warm, step-by-step profile builder.
 // Steps: welcome → photo & basics → socials → country map → languages → how it works.
-const STEPS = ['Welcome', 'About you', 'Your socials', 'Your map', 'Languages', 'How it works']
+const STEPS = ['Welcome', 'About you', 'Your socials', 'Travel photos', 'Your map', 'Languages', 'How it works']
 
 export default function Onboarding() {
   const { user, profile, refreshProfile } = useAuth()
@@ -26,12 +27,16 @@ export default function Onboarding() {
     country: profile?.country || '',
     bio: profile?.bio || '',
     about: profile?.about || '',
+    favourite_quote: profile?.favourite_quote || '',
     instagram_url: profile?.instagram_url || '',
     tiktok_url: profile?.tiktok_url || '',
     youtube_url: profile?.youtube_url || '',
     countries_visited: profile?.countries_visited || [],
     languages: profile?.languages || [],
   })
+
+  // Phone is saved to the private, admin-only creator_private table, not profiles.
+  const [contact, setContact] = useState({ phone: '', phone_country: '' })
 
   const set = (patch) => setDraft((d) => ({ ...d, ...patch }))
 
@@ -48,13 +53,21 @@ export default function Onboarding() {
 
   async function finish(sayHello) {
     setBusy(true)
-    await supabase
-      .from('profiles')
-      .update({
-        ...draft,
-        onboarded: true,
-      })
-      .eq('id', user.id)
+    await Promise.all([
+      supabase
+        .from('profiles')
+        .update({ ...draft, onboarded: true })
+        .eq('id', user.id),
+      // Private contact details (admin-only) live in their own table.
+      (contact.phone || contact.phone_country)
+        ? supabase.from('creator_private').upsert({
+            id: user.id,
+            phone: contact.phone,
+            phone_country: contact.phone_country,
+            updated_at: new Date().toISOString(),
+          })
+        : Promise.resolve(),
+    ])
 
     // Optional friendly hello in #general to break the ice (approved members only).
     if (sayHello && !pending) {
@@ -136,6 +149,8 @@ export default function Onboarding() {
                 <label htmlFor="about" className="label">About you</label>
                 <textarea id="about" rows={4} className="input" value={draft.about} onChange={(e) => set({ about: e.target.value })} placeholder="Introduce yourself, tell other creators about your life, your hobbies, your interests and the type of content you like to create." />
               </div>
+              <QuoteField value={draft.favourite_quote} onChange={(favourite_quote) => set({ favourite_quote })} />
+              <PhoneInput value={contact} onChange={setContact} />
             </div>
           )}
 
@@ -150,8 +165,19 @@ export default function Onboarding() {
             </div>
           )}
 
-          {/* ---- Step 3: country map ---- */}
+          {/* ---- Step 3: travel photos ---- */}
           {step === 3 && (
+            <div className="space-y-6">
+              <div className="text-center">
+                <h2 className="text-2xl font-bold">Add your travel photos</h2>
+                <p className="mt-2 text-sm text-smoke">Share up to 10 shots from your trips. They bring your profile to life and show off your style.</p>
+              </div>
+              <TravelGallery creatorId={user.id} editable />
+            </div>
+          )}
+
+          {/* ---- Step 4: country map ---- */}
+          {step === 4 && (
             <div className="space-y-6">
               <div className="text-center">
                 <h2 className="text-2xl font-bold">Paint your travel map</h2>
@@ -174,8 +200,8 @@ export default function Onboarding() {
             </div>
           )}
 
-          {/* ---- Step 4: languages ---- */}
-          {step === 4 && (
+          {/* ---- Step 5: languages ---- */}
+          {step === 5 && (
             <div className="space-y-6">
               <div className="text-center">
                 <h2 className="text-2xl font-bold">Languages you speak</h2>
@@ -185,8 +211,8 @@ export default function Onboarding() {
             </div>
           )}
 
-          {/* ---- Step 5: how it works + hello ---- */}
-          {step === 5 && (
+          {/* ---- Step 6: how it works + hello ---- */}
+          {step === 6 && (
             <div className="space-y-6 text-center">
               <h2 className="text-2xl font-bold">How the program works</h2>
               <div className="grid grid-cols-1 gap-4 text-left sm:grid-cols-3">
