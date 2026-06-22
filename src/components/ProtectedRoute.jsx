@@ -54,12 +54,24 @@ function ReviewDeclined({ signOut }) {
   )
 }
 
+// Statuses that are allowed to use the app. Everything else is gated to a
+// review/declined/suspended screen. Default-deny: an unknown status never
+// reaches the app.
+const ALLOWED_STATUSES = ['active', 'muted']
+
 export function ProtectedRoute() {
-  const { user, profile, loading, isSuspended, signOut } = useAuth()
+  const { user, profile, profileLoaded, loading, isSuspended, signOut } = useAuth()
   const location = useLocation()
 
   if (loading) return <FullPageSpinner />
   if (!user) return <Navigate to="/login" replace />
+  // CRITICAL: never render the app until we know this user's status. Without
+  // this wait the guard used to fall through to <Outlet /> with a null profile,
+  // letting brand-new / unapproved accounts see everything.
+  if (!profileLoaded) return <FullPageSpinner />
+  // Signed in but no profile row exists (corrupt/ghost session). Fail closed -
+  // AuthContext also signs this session out.
+  if (!profile) return <Navigate to="/login" replace />
 
   if (isSuspended) {
     return (
@@ -75,27 +87,30 @@ export function ProtectedRoute() {
   }
 
   // First login → finish onboarding before anything else, so admins always
-  // review a complete profile.
-  if (profile && !profile.onboarded && location.pathname !== '/onboarding') {
-    return <Navigate to="/onboarding" replace />
+  // review a complete profile. Only the onboarding route is reachable until then.
+  if (!profile.onboarded) {
+    return location.pathname === '/onboarding' ? <Outlet /> : <Navigate to="/onboarding" replace />
   }
 
   // Onboarded but still awaiting (or refused) admin approval → gate the app.
-  if (profile?.status === 'declined') return <ReviewDeclined signOut={signOut} />
-  if (profile?.status === 'pending' && profile?.onboarded) {
-    return <ReviewPending name={profile?.name} signOut={signOut} />
+  if (profile.status === 'declined') return <ReviewDeclined signOut={signOut} />
+  if (profile.status === 'pending') return <ReviewPending name={profile.name} signOut={signOut} />
+  // Default-deny: only active/muted members (or admins) get the app.
+  if (!ALLOWED_STATUSES.includes(profile.status) && !profile.is_admin) {
+    return <ReviewPending name={profile.name} signOut={signOut} />
   }
 
   return <Outlet />
 }
 
 export function AdminRoute() {
-  const { user, profile, isAdmin, loading } = useAuth()
+  const { user, profile, profileLoaded, isAdmin, loading } = useAuth()
   if (loading) return <FullPageSpinner />
   if (!user) return <Navigate to="/login" replace />
-  // The profile loads just after the session does; wait for it before deciding,
-  // otherwise a hard refresh on an admin URL can briefly bounce to /home.
-  if (!profile) return <FullPageSpinner />
+  // Wait until the profile has resolved before deciding, otherwise a hard
+  // refresh on an admin URL can briefly bounce to /home.
+  if (!profileLoaded) return <FullPageSpinner />
+  if (!profile) return <Navigate to="/login" replace />
   if (!isAdmin) return <Navigate to="/home" replace />
   return <Outlet />
 }

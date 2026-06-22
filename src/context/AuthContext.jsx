@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 
 // AuthContext is the single source of truth for "who is logged in".
@@ -30,6 +30,12 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true) // true until the first session check resolves
+  // Whether the profile fetch for the CURRENT user has resolved. The route
+  // guard waits on this so it never renders the app before we know the user's
+  // status (pending / declined / active). Treating "no profile yet" as
+  // "allowed" was a security hole - a fresh signup could see everything.
+  const [profileLoaded, setProfileLoaded] = useState(false)
+  const loadedForUser = useRef(null)
 
   // Storage validates tokens against the asymmetric (ES256) signing key. A
   // session minted under the old HS256 key can't upload (RLS sees no user), so
@@ -44,20 +50,18 @@ export function AuthProvider({ children }) {
     } catch { /* ignore */ }
   }
 
-  // Load the profile row for the signed-in user.
+  // Load the profile row for the signed-in user. Returns { data, error } so
+  // callers can tell "no row exists" (PGRST116) apart from a transient failure.
   const fetchProfile = useCallback(async (userId) => {
-    const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single()
-    if (error) {
-      console.error('Failed to load profile:', error.message)
-      return null
-    }
-    return data
+    return await supabase.from('profiles').select('*').eq('id', userId).single()
   }, [])
 
   // Re-fetch the profile after edits (photo change, onboarding, etc.).
   const refreshProfile = useCallback(async () => {
     if (!session?.user) return
-    setProfile(await fetchProfile(session.user.id))
+    const { data } = await fetchProfile(session.user.id)
+    setProfile(data ?? null)
+    setProfileLoaded(true)
   }, [session, fetchProfile])
 
   useEffect(() => {
@@ -67,10 +71,29 @@ export function AuthProvider({ children }) {
     // session check stalls (e.g. flaky network when a home-screen PWA resumes
     // from the background), resolve loading anyway after a few seconds so the
     // UI renders instead of spinning forever.
-    const safety = setTimeout(() => { if (!cancelled) setLoading(false) }, 5000)
+    const safety = setTimeout(() => { if (!cancelled) { setLoading(false); setProfileLoaded(true) } }, 5000)
+
+    // Fetch the profile and flip profileLoaded so the route guard can decide.
+    // A session with no profile row is a corrupt/ghost login - sign it out
+    // rather than leaving the user half-authenticated (which used to fall
+    // through to full access).
+    const loadProfile = async (userId) => {
+      try {
+        const { data, error } = await fetchProfile(userId)
+        if (cancelled) return
+        setProfile(data ?? null)
+        loadedForUser.current = userId
+        setProfileLoaded(true)
+        if (!data && error?.code === 'PGRST116') await supabase.auth.signOut()
+      } catch {
+        if (cancelled) return
+        setProfile(null)
+        setProfileLoaded(true)
+      }
+    }
 
     // 1. Check for an existing session on first load. Resolve `loading` as soon
-    //    as we know the session - don't block it on the slower profile fetch.
+    //    as we know the session - the guard then waits on profileLoaded.
     supabase.auth
       .getSession()
       .then(({ data: { session } }) => {
@@ -79,18 +102,28 @@ export function AuthProvider({ children }) {
         setLoading(false)
         if (session?.user) {
           upgradeLegacyToken(session)
-          fetchProfile(session.user.id).then((p) => !cancelled && setProfile(p))
+          loadProfile(session.user.id)
+        } else {
+          setProfileLoaded(true)
         }
       })
-      .catch(() => { if (!cancelled) setLoading(false) })
+      .catch(() => { if (!cancelled) { setLoading(false); setProfileLoaded(true) } })
 
     // 2. React to sign-in / sign-out / token refresh events.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (cancelled) return
       setSession(session)
       setLoading(false)
-      if (session?.user) fetchProfile(session.user.id).then((p) => !cancelled && setProfile(p))
-      else setProfile(null)
+      if (session?.user) {
+        // New user (or a fresh sign-in) → make the guard wait for the profile.
+        // A plain token refresh keeps the same id, so don't flash the spinner.
+        if (loadedForUser.current !== session.user.id) setProfileLoaded(false)
+        loadProfile(session.user.id)
+      } else {
+        loadedForUser.current = null
+        setProfile(null)
+        setProfileLoaded(true)
+      }
     })
 
     return () => {
@@ -107,6 +140,7 @@ export function AuthProvider({ children }) {
     isAdmin: profile?.is_admin === true,
     isSuspended: profile?.status === 'suspended',
     loading,
+    profileLoaded,
     refreshProfile,
 
     // Auth routes go through the `auth-gate` Edge Function, which enforces a
