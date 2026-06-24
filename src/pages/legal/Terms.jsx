@@ -1,13 +1,13 @@
 import LegalShell, { H2 } from './LegalShell'
 
-// NOTE: Replace [PLACEHOLDER] values and have a lawyer review before launch.
+// Filled in for Tryp.com LDA (Portugal). Have a lawyer review before launch.
 export default function Terms() {
   return (
     <LegalShell title="Terms of Service" updated="24 June 2026">
       <p>
         These terms govern your use of the Tryp.com Content Creator Program ("the Program"). By
         creating an account you agree to them. The Program is operated by{' '}
-        <strong>[LEGAL ENTITY NAME]</strong> ("we", "us").
+        <strong>Tryp.com LDA</strong> ("we", "us").
       </p>
 
       <H2>1. Membership</H2>
@@ -34,7 +34,7 @@ export default function Terms() {
       <H2>4. Reporting content</H2>
       <p>
         If you see content that breaks these terms or the law, contact the Tryp.com Team at{' '}
-        <strong>[PRIVACY CONTACT EMAIL]</strong> and we'll review it.
+        <strong>info@tryp.com</strong> and we'll review it.
       </p>
 
       <H2>5. Rewards</H2>
@@ -56,7 +56,7 @@ export default function Terms() {
       </p>
 
       <H2>8. Contact</H2>
-      <p>Questions about these terms? Email <strong>[PRIVACY CONTACT EMAIL]</strong>.</p>
+      <p>Questions about these terms? Email <strong>info@tryp.com</strong>.</p>
     </LegalShell>
   )
 }

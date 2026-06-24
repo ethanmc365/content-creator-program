@@ -1,7 +1,8 @@
 import LegalShell, { H2 } from './LegalShell'
 
-// NOTE: Replace the [PLACEHOLDER] values with your real legal details before
-// relying on this. This is a starting template, not legal advice.
+// Controller details are filled in for Tryp.com LDA (the entity on tryp.com's
+// public privacy policy). Swap to Tryp.com ApS (Denmark) if the Creator Program
+// is operated by the Danish entity. This is a template, not legal advice.
 export default function PrivacyPolicy() {
   return (
     <LegalShell title="Privacy Policy" updated="24 June 2026">
@@ -13,9 +14,9 @@ export default function PrivacyPolicy() {
 
       <H2>1. Who we are</H2>
       <p>
-        The data controller is <strong>[LEGAL ENTITY NAME]</strong>, [REGISTERED ADDRESS],
-        [COUNTRY]. For any privacy question or to exercise your rights, contact us at{' '}
-        <strong>[PRIVACY CONTACT EMAIL]</strong>.
+        The data controller is <strong>Tryp.com LDA</strong>, Rua da Prata, nr. 80, 5.º piso,
+        1100-420 Lisbon, Portugal. For any privacy question or to exercise your rights, contact us at{' '}
+        <strong>info@tryp.com</strong>.
       </p>
 
       <H2>2. The data we collect</H2>
@@ -67,7 +68,7 @@ export default function PrivacyPolicy() {
         <li><strong>Rectify:</strong> edit your profile at any time.</li>
         <li><strong>Erase:</strong> delete your account from Edit profile → "Your data &amp; account".</li>
       </ul>
-      <p>You also have the right to lodge a complaint with your local data protection authority.</p>
+      <p>You also have the right to lodge a complaint with your local data protection authority (in Portugal, the Comissão Nacional de Proteção de Dados, CNPD).</p>
 
       <H2>8. Cookies &amp; storage</H2>
       <p>

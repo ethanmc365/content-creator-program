@@ -6,8 +6,9 @@ is unlikely to be a risk to people), and notify affected individuals if the risk
 to them is high. This plan makes that achievable. Replace **[PLACEHOLDER]** values.
 
 ## Key contacts
-- **Breach lead:** [NAME / ROLE] — [email/phone]
-- **Supervisory authority:** [e.g. Irish Data Protection Commission] — [breach reporting URL]
+- **Controller:** Tryp.com LDA, Lisbon, Portugal — info@tryp.com
+- **Breach lead:** [NAME / ROLE] — [email/phone]  ← name a specific person
+- **Supervisory authority:** Comissão Nacional de Proteção de Dados (CNPD), Portugal — https://www.cnpd.pt (breach notification via the CNPD website)
 - **Processors to alert if involved:** Supabase, Vercel, Cloudflare, Resend (support/security contacts)
 
 ## What counts as a breach

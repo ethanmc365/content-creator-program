@@ -5,10 +5,12 @@ Keep this file up to date whenever you add a feature that touches personal data.
 Replace the **[PLACEHOLDER]** fields with your real details.
 
 ## Controller
-- **Controller:** [LEGAL ENTITY NAME], [REGISTERED ADDRESS], [COUNTRY]
-- **Contact for data protection:** [PRIVACY CONTACT EMAIL]
-- **DPO:** [name/email, or "not appointed — not required"]
-- **EU/UK representative:** [if controller is outside the EU/UK, name them here; otherwise "N/A — established in the EU/EEA"]
+- **Controller:** Tryp.com LDA, Rua da Prata, nr. 80, 5.º piso, 1100-420 Lisbon, Portugal
+  - (Alternative group entity: Tryp.com ApS, Drewsensvej 3, st. th, 5000 Odense C, Denmark — use this instead if the Creator Program is operated by the Danish entity.)
+- **Contact for data protection:** info@tryp.com
+- **DPO:** Not appointed (not currently required). Review if processing scale grows.
+- **EU/UK representative:** N/A — controller is established in the EU (Portugal).
+- **Lead supervisory authority:** Comissão Nacional de Proteção de Dados (CNPD), Portugal — https://www.cnpd.pt
 
 ## Processing activities
 
@@ -34,8 +36,8 @@ Replace the **[PLACEHOLDER]** fields with your real details.
 - **Access / portability:** self-service "Download my data" (Edit profile → Your data & account) exports JSON.
 - **Rectification:** self-service via Edit profile.
 - **Erasure:** self-service "Delete my account" (30-day grace, then automatic permanent purge); admins can also delete.
-- **Restriction / objection / withdraw consent:** notification toggles; otherwise email [PRIVACY CONTACT EMAIL].
-- **Complaints:** data subjects may complain to [LEAD SUPERVISORY AUTHORITY, e.g. the Irish DPC].
+- **Restriction / objection / withdraw consent:** notification toggles; otherwise email info@tryp.com.
+- **Complaints:** data subjects may complain to the CNPD (Portugal, https://www.cnpd.pt).
 
 ## Technical & organisational measures (Article 32)
 Row-Level Security on all tables; member-gated reads; auth rate-limiting (5/15 min);
