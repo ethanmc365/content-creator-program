@@ -20,7 +20,8 @@ export default function ForgotPassword() {
     e.preventDefault()
     setError('')
     setBusy(true)
-    const { error } = await sendPasswordReset(email.trim(), captchaToken)
+    const emailVal = (e.target.querySelector('#email')?.value || email).trim()
+    const { error } = await sendPasswordReset(emailVal, captchaToken)
     setBusy(false)
     if (error) {
       setError(error.message)
@@ -50,7 +51,7 @@ export default function ForgotPassword() {
         {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
         <Turnstile key={captchaKey} onToken={setCaptchaToken} />
         <button type="submit" disabled={busy || !captchaToken} className="btn-primary w-full">
-          {busy ? <Spinner /> : 'Send reset link'}
+          {busy ? <Spinner /> : captchaToken ? 'Send reset link' : 'Verifying…'}
         </button>
       </form>
     </AuthShell>

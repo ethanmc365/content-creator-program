@@ -35,10 +35,16 @@ export default function Turnstile({ onToken }) {
         if (!active || !containerRef.current || !window.turnstile) return
         widgetId.current = window.turnstile.render(containerRef.current, {
           sitekey: TURNSTILE_SITE_KEY,
+          // Auto-recover so a stale/expired/errored token never leaves the form
+          // stuck with a dead submit button (the cause of "refresh to log in").
+          'refresh-expired': 'auto',
+          'refresh-timeout': 'auto',
+          retry: 'auto',
+          'retry-interval': 8000,
           callback: (token) => cb.current(token),
-          'expired-callback': () => cb.current(''),
-          'error-callback': () => cb.current(''),
-          'timeout-callback': () => cb.current(''),
+          'expired-callback': () => { cb.current(''); try { window.turnstile.reset(widgetId.current) } catch { /* noop */ } },
+          'error-callback': () => { cb.current(''); try { window.turnstile.reset(widgetId.current) } catch { /* noop */ } },
+          'timeout-callback': () => { try { window.turnstile.reset(widgetId.current) } catch { /* noop */ } },
         })
       })
       .catch(() => { /* script failed to load; submit stays gated */ })

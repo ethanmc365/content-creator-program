@@ -18,8 +18,13 @@ export default function Login() {
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+    // Read straight from the fields too: browser autofill can populate the DOM
+    // without firing React's onChange, which would otherwise submit blank creds
+    // on the first try (the "enter it twice" bug).
+    const emailVal = (e.target.email?.value || email).trim()
+    const passVal = e.target.password?.value || password
     setBusy(true)
-    const { error } = await signIn(email.trim(), password, captchaToken)
+    const { error } = await signIn(emailVal, passVal, captchaToken)
     setBusy(false)
     if (error) {
       setError(error.message === 'Invalid login credentials' ? 'Email or password is incorrect. Try again.' : error.message)
@@ -53,7 +58,7 @@ export default function Login() {
         <Turnstile key={captchaKey} onToken={setCaptchaToken} />
 
         <button type="submit" disabled={busy || !captchaToken} className="btn-primary w-full">
-          {busy ? <Spinner /> : 'Log in'}
+          {busy ? <Spinner /> : captchaToken ? 'Log in' : 'Verifying…'}
         </button>
       </form>
     </AuthShell>

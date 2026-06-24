@@ -22,12 +22,17 @@ export default function Signup() {
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
-    if (password.length < 8) {
+    // Read from the fields too (browser autofill may not fire React onChange).
+    const field = (id) => e.target.querySelector('#' + id)?.value
+    const nameVal = (field('name') || name).trim()
+    const emailVal = (field('email') || email).trim()
+    const passVal = field('password') || password
+    if (passVal.length < 8) {
       setError('Password must be at least 8 characters.')
       return
     }
     setBusy(true)
-    const { data, error } = await signUp(email.trim(), password, name.trim(), ref, captchaToken)
+    const { data, error } = await signUp(emailVal, passVal, nameVal, ref, captchaToken)
     setBusy(false)
     if (error) {
       setError(error.message)
@@ -77,7 +82,7 @@ export default function Signup() {
         <Turnstile key={captchaKey} onToken={setCaptchaToken} />
 
         <button type="submit" disabled={busy || !captchaToken} className="btn-primary w-full">
-          {busy ? <Spinner /> : 'Create account'}
+          {busy ? <Spinner /> : captchaToken ? 'Create account' : 'Verifying…'}
         </button>
 
         <p className="text-center text-xs text-smoke">
