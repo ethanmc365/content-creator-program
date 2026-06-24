@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { PageHeader } from '../components/ui'
+import Icon from '../components/Icon'
 import { enablePush, disablePush, pushSupported, pushPermission, showLocalNotification } from '../lib/push'
 import { cx } from '../lib/utils'
 
@@ -16,6 +17,12 @@ const CATEGORIES = [
   { key: 'results', label: 'Results', hint: "When a challenge's results are published." },
   { key: 'reward', label: 'Rewards', hint: 'When a reward or payout comes your way.' },
   { key: 'connection', label: 'New connections', hint: 'When a creator connects with you.' },
+]
+
+// Admin-only alerts (hidden from regular creators). Keys match the notification
+// `type` column + the same notif_prefs / email_prefs JSON.
+const ADMIN_CATEGORIES = [
+  { key: 'application', label: 'New creator applications', hint: 'When a creator submits their profile for review.' },
 ]
 
 // Push defaults on; email defaults on only for the big moments.
@@ -38,7 +45,7 @@ function Toggle({ on, onChange, label }) {
 }
 
 export default function NotificationSettings() {
-  const { user, profile, refreshProfile } = useAuth()
+  const { user, profile, refreshProfile, isAdmin } = useAuth()
   const [prefs, setPrefs] = useState({ ...DEFAULT_PREFS, ...(profile?.notif_prefs || {}) })
   const [emailPrefs, setEmailPrefs] = useState({ ...DEFAULT_EMAIL, ...(profile?.email_prefs || {}) })
   const [permission, setPermission] = useState(pushPermission())
@@ -138,6 +145,35 @@ export default function NotificationSettings() {
           </div>
         ))}
       </section>
+
+      {/* ---- Admin-only alerts (regular creators never see this) ---- */}
+      {isAdmin && (
+        <section className="card mt-8 border-brand/20 bg-brand-tint/30">
+          <div className="mb-1 flex items-center gap-2">
+            <Icon name="shield" className="h-4 w-4 text-brand" />
+            <h2 className="text-lg font-semibold">Admin alerts</h2>
+          </div>
+          <p className="mb-3 text-xs text-smoke">Only the Tryp.com Team sees these. Toggle the admin notifications you want to receive.</p>
+          <div className="flex items-center justify-end gap-3 border-b border-gray-100 pb-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+            <span className="w-11 text-center">Push</span>
+            <span className="w-11 text-center">Email</span>
+          </div>
+          {ADMIN_CATEGORIES.map((c) => (
+            <div key={c.key} className="flex items-center gap-4 border-b border-gray-100 py-4 last:border-0">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold">{c.label}</p>
+                <p className="text-xs text-smoke">{c.hint}</p>
+              </div>
+              <div className="w-11 flex justify-center">
+                <Toggle on={prefs[c.key] !== false} onChange={(v) => togglePush(c.key, v)} label={`${c.label} push`} />
+              </div>
+              <div className="w-11 flex justify-center">
+                <Toggle on={emailPrefs[c.key] === true} onChange={(v) => toggleEmail(c.key, v)} label={`${c.label} email`} />
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
 
       <p className="mt-4 text-xs text-smoke">
         Push sends to your devices; email sends to your inbox. Your in-app notification bell always keeps a record. Account-critical messages (like your application result) are always delivered.
