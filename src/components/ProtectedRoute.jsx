@@ -1,6 +1,9 @@
+import { useState } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { PlaneLoader } from './ui'
+import { supabase } from '../lib/supabase'
+import { PlaneLoader, Spinner } from './ui'
+import { formatDate } from '../lib/utils'
 
 // Route guards.
 //  <ProtectedRoute>  - must be signed in (and not suspended).
@@ -59,8 +62,36 @@ function ReviewDeclined({ signOut }) {
 // reaches the app.
 const ALLOWED_STATUSES = ['active', 'muted']
 
+// Shown when the account is scheduled for deletion (30-day grace). The creator
+// can restore it themselves here; an admin can also restore it.
+function DeletionScheduled({ profile, signOut, onRestore }) {
+  const [busy, setBusy] = useState(false)
+  const purgeOn = formatDate(new Date(new Date(profile.deletion_requested_at).getTime() + 30 * 86400000))
+  async function restore() {
+    setBusy(true)
+    await supabase.from('profiles').update({ deletion_requested_at: null }).eq('id', profile.id)
+    await onRestore()
+  }
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-cloud/40 px-6 text-center">
+      <p className="text-4xl">🗑️</p>
+      <div className="max-w-md space-y-3">
+        <h1 className="text-2xl font-bold">Your account is scheduled for deletion</h1>
+        <p className="text-smoke">
+          It will be permanently deleted on <strong>{purgeOn}</strong>. Changed your mind? You can
+          restore it any time before then and pick up right where you left off.
+        </p>
+      </div>
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <button onClick={restore} disabled={busy} className="btn-primary">{busy ? <Spinner /> : 'Restore my account'}</button>
+        <button onClick={() => signOutAndGoHome(signOut)} className="btn-ghost text-sm">Log out</button>
+      </div>
+    </div>
+  )
+}
+
 export function ProtectedRoute() {
-  const { user, profile, profileLoaded, loading, isSuspended, signOut } = useAuth()
+  const { user, profile, profileLoaded, loading, isSuspended, signOut, refreshProfile } = useAuth()
   const location = useLocation()
 
   if (loading) return <FullPageSpinner />
@@ -72,6 +103,9 @@ export function ProtectedRoute() {
   // Signed in but no profile row exists (corrupt/ghost session). Fail closed -
   // AuthContext also signs this session out.
   if (!profile) return <Navigate to="/login" replace />
+
+  // Account scheduled for deletion → lock the app, offer self-restore.
+  if (profile.deletion_requested_at) return <DeletionScheduled profile={profile} signOut={signOut} onRestore={refreshProfile} />
 
   if (isSuspended) {
     return (

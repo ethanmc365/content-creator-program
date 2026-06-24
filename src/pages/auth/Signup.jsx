@@ -18,6 +18,7 @@ export default function Signup() {
   const [busy, setBusy] = useState(false)
   const [captchaToken, setCaptchaToken] = useState('')
   const [captchaKey, setCaptchaKey] = useState(0)
+  const [agreed, setAgreed] = useState(false)
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -29,6 +30,10 @@ export default function Signup() {
     const passVal = field('password') || password
     if (passVal.length < 8) {
       setError('Password must be at least 8 characters.')
+      return
+    }
+    if (!agreed) {
+      setError('Please agree to the Terms and Privacy Policy to continue.')
       return
     }
     setBusy(true)
@@ -79,15 +84,27 @@ export default function Signup() {
 
         {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
 
+        <label className="flex items-start gap-3 text-xs text-smoke">
+          <input
+            type="checkbox"
+            checked={agreed}
+            onChange={(e) => { setAgreed(e.target.checked); setError('') }}
+            className="mt-0.5 h-4 w-4 shrink-0 accent-brand"
+          />
+          <span>
+            I agree to the{' '}
+            <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-medium text-brand hover:underline">Terms of Service</a>{' '}
+            and{' '}
+            <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-medium text-brand hover:underline">Privacy Policy</a>,
+            and to represent Tryp.com honestly in my content.
+          </span>
+        </label>
+
         <Turnstile key={captchaKey} onToken={setCaptchaToken} />
 
-        <button type="submit" disabled={busy || !captchaToken} className="btn-primary w-full">
+        <button type="submit" disabled={busy || !captchaToken || !agreed} className="btn-primary w-full">
           {busy ? <Spinner /> : captchaToken ? 'Create account' : 'Verifying…'}
         </button>
-
-        <p className="text-center text-xs text-smoke">
-          By joining you agree to represent Tryp.com honestly in your content.
-        </p>
       </form>
     </AuthShell>
   )

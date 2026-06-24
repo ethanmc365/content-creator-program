@@ -85,6 +85,16 @@ export default function AdminCreators() {
     flash(error ? `Couldn't send: ${error.message}` : `Reminder email sent to ${creator.name}.`)
   }
 
+  // Restore an account that the creator scheduled for deletion (within the
+  // 30-day grace period).
+  async function restoreCreator(creator) {
+    const { error } = await supabase.from('profiles').update({ deletion_requested_at: null }).eq('id', creator.id)
+    if (error) return flash(`Couldn't restore: ${error.message}`)
+    flash(`${creator.name}'s account restored.`)
+    setSelected(null)
+    load()
+  }
+
   // Quick-approve a pending applicant straight from the list (a DB trigger
   // sends them the welcome notification, same as the Applications page).
   async function acceptCreator(creator) {
@@ -157,11 +167,14 @@ export default function AdminCreators() {
   // A pending creator who never submitted their profile (did page 1 only) shows
   // as "not completed profile"; one who submitted shows as "pending" (awaiting review).
   const statusInfo = (c) =>
-    c.status === 'pending'
-      ? (c.onboarded ? { label: 'pending', tone: 'amber' } : { label: 'not completed profile', tone: 'grey' })
-      : { label: c.status, tone: STATUS_TONE[c.status] || 'grey' }
-  const isIncomplete = (c) => c.status === 'pending' && !c.onboarded
-  const isPendingReview = (c) => c.status === 'pending' && c.onboarded
+    c.deletion_requested_at
+      ? { label: 'scheduled for deletion', tone: 'red' }
+      : c.status === 'pending'
+        ? (c.onboarded ? { label: 'pending', tone: 'amber' } : { label: 'not completed profile', tone: 'grey' })
+        : { label: c.status, tone: STATUS_TONE[c.status] || 'grey' }
+  const isIncomplete = (c) => c.status === 'pending' && !c.onboarded && !c.deletion_requested_at
+  const isPendingReview = (c) => c.status === 'pending' && c.onboarded && !c.deletion_requested_at
+  const isDeleting = (c) => !!c.deletion_requested_at
 
   return (
     <div className="page">
@@ -229,6 +242,15 @@ export default function AdminCreators() {
                     <Icon name="check" className="h-4 w-4" /> Accept
                   </button>
                 )}
+                {isDeleting(c) && (
+                  <button
+                    onClick={() => restoreCreator(c)}
+                    title="Restore this account"
+                    className="btn-secondary shrink-0 !px-3 !py-1.5 text-xs"
+                  >
+                    <Icon name="check" className="h-4 w-4" /> Restore
+                  </button>
+                )}
                 <Badge tone={s.tone}>{s.label}</Badge>
               </div>
             )
@@ -289,6 +311,9 @@ export default function AdminCreators() {
                 <button onClick={() => dmCreator(selected)} className="btn-primary !py-2 text-xs"><Icon name="chat" className="h-4 w-4" /> Message</button>
                 {isPendingReview(selected) && (
                   <button onClick={() => acceptCreator(selected)} className="btn-primary !py-2 text-xs"><Icon name="check" className="h-4 w-4" /> Accept applicant</button>
+                )}
+                {isDeleting(selected) && (
+                  <button onClick={() => restoreCreator(selected)} className="btn-secondary !py-2 text-xs"><Icon name="check" className="h-4 w-4" /> Restore account</button>
                 )}
                 {isIncomplete(selected) && (
                   <button onClick={() => sendReminder(selected)} className="btn-secondary !py-2 text-xs"><Icon name="envelope" className="h-4 w-4" /> Email reminder</button>

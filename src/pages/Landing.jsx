@@ -165,6 +165,11 @@ export default function Landing() {
             © {new Date().getFullYear()} Tryp.com Content Creator Program ·{' '}
             <a href={TRYP_URL} target="_blank" rel="noopener noreferrer" className="font-medium text-brand hover:underline">tryp.com ↗</a>
           </p>
+          <p className="text-xs text-smoke">
+            <Link to="/privacy" className="hover:text-brand">Privacy Policy</Link>
+            <span className="px-2">·</span>
+            <Link to="/terms" className="hover:text-brand">Terms of Service</Link>
+          </p>
         </div>
       </footer>
     </div>
