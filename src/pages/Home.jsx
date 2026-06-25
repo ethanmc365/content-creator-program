@@ -33,8 +33,8 @@ export default function Home() {
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle(),
-          supabase.from('profiles').select('id, name, photo_url, bio').eq('status', 'active').order('created_at', { ascending: false }).limit(4),
-          supabase.from('profiles').select('id', { count: 'exact', head: true }),
+          supabase.from('profiles').select('id, name, photo_url, bio').eq('status', 'active').is('deletion_requested_at', null).order('created_at', { ascending: false }).limit(4),
+          supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'active').eq('is_admin', false).is('deletion_requested_at', null),
           supabase.from('rewards').select('amount').eq('status', 'distributed'),
         ])
 

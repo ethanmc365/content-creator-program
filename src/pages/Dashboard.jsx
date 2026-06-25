@@ -25,7 +25,7 @@ export default function Dashboard() {
         supabase.from('submissions').select('id, challenge_id').eq('creator_id', user.id),
         supabase.from('results').select('*, challenges(title)').eq('creator_id', user.id).order('created_at', { ascending: false }),
         supabase.from('rewards').select('amount, status'),
-        supabase.from('profiles').select('id', { count: 'exact', head: true }),
+        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'active').eq('is_admin', false).is('deletion_requested_at', null),
         supabase.from('challenges').select('id', { count: 'exact', head: true }).neq('status', 'draft'),
         supabase.from('rewards').select('amount').eq('status', 'distributed'),
       ])

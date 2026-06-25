@@ -28,7 +28,7 @@ export default function AdminPanel() {
     async function load() {
       const [{ count: creators }, { count: pendingRewards }, { data: active }, { data: paid }, { count: subsThisChallenge }, { count: pendingApps }] =
         await Promise.all([
-          supabase.from('profiles').select('id', { count: 'exact', head: true }),
+          supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'active').eq('is_admin', false).is('deletion_requested_at', null),
           supabase.from('rewards').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
           supabase.from('challenges').select('id, title, end_date').eq('status', 'active').limit(1).maybeSingle(),
           supabase.from('rewards').select('amount').eq('status', 'distributed'),

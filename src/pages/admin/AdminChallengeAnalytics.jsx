@@ -30,7 +30,7 @@ export default function AdminChallengeAnalytics() {
           supabase.from('submissions').select('*, profiles:creator_id(id, name, photo_url, instagram_url, tiktok_url, youtube_url)').eq('challenge_id', id).order('logged_views', { ascending: false, nullsFirst: false }),
           supabase.from('results').select('*, profiles:creator_id(id, name, photo_url)').eq('challenge_id', id).order('rank'),
           supabase.from('rewards').select('*').eq('challenge_id', id),
-          supabase.from('profiles').select('id', { count: 'exact', head: true }),
+          supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'active').eq('is_admin', false).is('deletion_requested_at', null),
         ])
       setRaw({ challenge, subs: subs ?? [], results: results ?? [], rewards: rewards ?? [], totalCreators: totalCreators ?? 0 })
     }

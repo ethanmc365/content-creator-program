@@ -7,8 +7,8 @@ self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim(
 // Background push from a server (signed with our VAPID key). Payload is JSON:
 // { title, body, link }.
 self.addEventListener('push', (event) => {
-  let data = {}
-  try { data = event.data ? event.data.json() : {} } catch (e) { data = { body: event.data && event.data.text() } }
+  let data
+  try { data = event.data ? event.data.json() : {} } catch { data = { body: event.data && event.data.text() } }
   event.waitUntil(
     self.registration.showNotification(data.title || 'Tryp.com', {
       body: data.body || '',
@@ -43,7 +43,7 @@ self.addEventListener('notificationclick', (event) => {
     const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
     for (const client of all) {
       if ('focus' in client) {
-        try { await client.navigate(link) } catch (e) { /* cross-state navigate may fail */ }
+        try { await client.navigate(link) } catch { /* cross-state navigate may fail */ }
         return client.focus()
       }
     }
