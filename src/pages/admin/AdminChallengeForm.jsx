@@ -34,6 +34,7 @@ export default function AdminChallengeForm() {
     prize_structure: DEFAULT_PRIZES,
     startDateStr: '', startTimeStr: '',
     endDateStr: '', endTimeStr: '',
+    publishDateStr: '', publishTimeStr: '',
     status: 'draft',
   })
 
@@ -47,6 +48,7 @@ export default function AdminChallengeForm() {
           ...data,
           startDateStr: isoToDateInput(data.start_date), startTimeStr: isoToTimeInput(data.start_date),
           endDateStr: isoToDateInput(data.end_date), endTimeStr: isoToTimeInput(data.end_date),
+          publishDateStr: isoToDateInput(data.publish_at), publishTimeStr: isoToTimeInput(data.publish_at),
           prize_structure: Array.isArray(data.prize_structure) ? data.prize_structure : DEFAULT_PRIZES,
         })
       }
@@ -91,6 +93,8 @@ export default function AdminChallengeForm() {
       prize_structure: form.prize_structure.filter((p) => p.place && p.prize),
       start_date: startIso,
       end_date: endIso,
+      // Optional auto-publish time: a cron flips the draft live at this moment.
+      publish_at: parseDateTime(form.publishDateStr, form.publishTimeStr) || null,
       // "Save & publish" flips a draft live (creators get notified by the DB trigger).
       status: publishNow ? 'active' : form.status,
     }
@@ -154,6 +158,16 @@ export default function AdminChallengeForm() {
             <div>
               <label htmlFor="end_time" className="label">End time</label>
               <input id="end_time" type="text" inputMode="numeric" required className="input" value={form.endTimeStr} onChange={(e) => set({ endTimeStr: e.target.value })} placeholder="HH:MM" />
+            </div>
+          </div>
+
+          {/* Optional: schedule the challenge to go live automatically. */}
+          <div className="rounded-xl bg-cloud/60 p-4">
+            <p className="label">Schedule publish <span className="font-normal text-smoke">(optional)</span></p>
+            <p className="mb-3 text-xs text-smoke">Save as a draft with a publish time and it goes live automatically (creators get notified). Leave blank to publish manually.</p>
+            <div className="grid grid-cols-2 gap-4">
+              <input id="publish_date" type="text" inputMode="numeric" className="input" value={form.publishDateStr} onChange={(e) => set({ publishDateStr: e.target.value })} placeholder="DD/MM/YYYY" />
+              <input id="publish_time" type="text" inputMode="numeric" className="input" value={form.publishTimeStr} onChange={(e) => set({ publishTimeStr: e.target.value })} placeholder="HH:MM" />
             </div>
           </div>
           <div>

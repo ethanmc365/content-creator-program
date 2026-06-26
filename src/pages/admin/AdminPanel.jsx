@@ -20,6 +20,7 @@ const TOOLS = [
   { to: '/admin/resources', icon: 'book', title: 'Resources', text: 'Publish tips, guidelines and downloadable assets.' },
   { to: '/chat/general', icon: 'shield', title: 'Chat moderation', text: 'Delete messages and mute disruptive creators in any channel.' },
   { to: '/admin/audit', icon: 'clock', title: 'Audit log', text: 'A record of account actions taken by the Tryp.com Team.' },
+  { to: '/admin/scheduled', icon: 'calendar', title: 'Scheduled posts', text: 'Write announcements now and auto-post them later.' },
 ]
 
 export default function AdminPanel() {
