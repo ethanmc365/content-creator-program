@@ -7,6 +7,7 @@ import PlatformBadges from '../components/PlatformBadges'
 import TravelGallery from '../components/TravelGallery'
 import AchievementBadges from '../components/AchievementBadges'
 import { earnedBadges } from '../lib/badges'
+import { downloadShareCard } from '../lib/shareCard'
 import { Avatar, Badge, Skeleton, EmptyState } from '../components/ui'
 import Icon from '../components/Icon'
 import { formatDate, timeAgo, ageFromDob, cx } from '../lib/utils'
@@ -29,6 +30,22 @@ export default function Profile() {
   const [contact, setContact] = useState(null)
   // Aggregated stats that drive the achievement badges.
   const [badgeStats, setBadgeStats] = useState(null)
+  const [sharing, setSharing] = useState(false)
+
+  async function shareCard() {
+    setSharing(true)
+    await downloadShareCard({
+      name: creator.name,
+      photoUrl: creator.photo_url,
+      bio: creator.bio,
+      stats: {
+        countries: creator.countries_visited?.length || 0,
+        challenges: challengeCount,
+        badges: badgeStats ? earnedBadges(badgeStats).length : 0,
+      },
+    })
+    setSharing(false)
+  }
 
   useEffect(() => {
     async function load() {
@@ -163,7 +180,10 @@ export default function Profile() {
         </div>
         <div className="flex shrink-0 gap-3">
           {isMe ? (
-            <Link to="/profile/edit" className="btn-primary">Edit profile</Link>
+            <>
+              <Link to="/profile/edit" className="btn-primary">Edit profile</Link>
+              <button onClick={shareCard} disabled={sharing} className="btn-secondary">{sharing ? 'Creating…' : 'Share card'}</button>
+            </>
           ) : (
             <>
               <button onClick={toggleConnect} className={isConnected ? 'btn-secondary' : 'btn-primary'}>
