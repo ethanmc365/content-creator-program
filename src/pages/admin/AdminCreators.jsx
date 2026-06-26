@@ -19,6 +19,8 @@ export default function AdminCreators() {
   const [statusFilter, setStatusFilter] = useState('')
   const [selected, setSelected] = useState(null) // creator detail modal
   const [detail, setDetail] = useState(null) // their submissions / activity
+  const [note, setNote] = useState('') // private admin note for the selected creator
+  const [noteSaved, setNoteSaved] = useState(false)
   const [toast, setToast] = useState('')
 
   async function load() {
@@ -33,19 +35,30 @@ export default function AdminCreators() {
 
   useEffect(() => { load() }, [])
 
-  // Load activity when a creator is opened.
+  // Load activity + private admin note when a creator is opened.
   useEffect(() => {
-    if (!selected) return setDetail(null)
+    if (!selected) { setDetail(null); setNote(''); setNoteSaved(false); return }
     async function loadDetail() {
-      const [{ data: subs }, { count: msgs }, { data: rewards }] = await Promise.all([
+      const [{ data: subs }, { count: msgs }, { data: rewards }, { data: n }] = await Promise.all([
         supabase.from('submissions').select('*, challenges(title)').eq('creator_id', selected.id).order('submitted_at', { ascending: false }),
         supabase.from('messages').select('id', { count: 'exact', head: true }).eq('sender_id', selected.id),
         supabase.from('rewards').select('*').eq('creator_id', selected.id),
+        supabase.from('creator_admin_notes').select('note').eq('creator_id', selected.id).maybeSingle(),
       ])
       setDetail({ submissions: subs ?? [], messageCount: msgs ?? 0, rewards: rewards ?? [] })
+      setNote(n?.note ?? '')
     }
     loadDetail()
   }, [selected])
+
+  async function saveNote() {
+    const { error } = await supabase.from('creator_admin_notes').upsert({
+      creator_id: selected.id, note, updated_by: user.id, updated_at: new Date().toISOString(),
+    })
+    if (error) return flash(`Couldn't save note: ${error.message}`)
+    setNoteSaved(true)
+    setTimeout(() => setNoteSaved(false), 2000)
+  }
 
   function flash(msg) {
     setToast(msg)
@@ -303,6 +316,24 @@ export default function AdminCreators() {
                 </ul>
               </div>
             )}
+
+            {/* Private admin note (only admins ever see this) */}
+            <div className="border-t border-gray-100 pt-5">
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-sm font-semibold">Private note</h3>
+                {noteSaved && <span className="text-xs font-medium text-green-600">Saved ✓</span>}
+              </div>
+              <textarea
+                rows={3}
+                className="input text-sm"
+                placeholder="Notes about this creator, visible only to the Tryp.com Team…"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+              />
+              <div className="mt-2 flex justify-end">
+                <button onClick={saveNote} className="btn-secondary !py-1.5 text-xs">Save note</button>
+              </div>
+            </div>
 
             {/* Account actions */}
             <div className="space-y-3 border-t border-gray-100 pt-5">
