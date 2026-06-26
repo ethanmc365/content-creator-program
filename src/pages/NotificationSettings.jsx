@@ -52,6 +52,14 @@ export default function NotificationSettings() {
   const { user, profile, refreshProfile, isAdmin } = useAuth()
   const [prefs, setPrefs] = useState({ ...DEFAULT_PREFS, ...(profile?.notif_prefs || {}) })
   const [emailPrefs, setEmailPrefs] = useState({ ...DEFAULT_EMAIL, ...(profile?.email_prefs || {}) })
+  const [reminderDays, setReminderDays] = useState(profile?.challenge_reminder_days ?? [3, 1])
+
+  async function toggleReminderDay(d) {
+    const next = reminderDays.includes(d) ? reminderDays.filter((x) => x !== d) : [...reminderDays, d].sort((a, b) => b - a)
+    setReminderDays(next)
+    await supabase.from('profiles').update({ challenge_reminder_days: next }).eq('id', user.id)
+    refreshProfile()
+  }
   const [permission, setPermission] = useState(pushPermission())
   const [busy, setBusy] = useState(false)
   const [pushMsg, setPushMsg] = useState('')
@@ -148,6 +156,36 @@ export default function NotificationSettings() {
             </div>
           </div>
         ))}
+      </section>
+
+      {/* ---- Challenge deadline reminders ---- */}
+      <section className="card mt-8">
+        <h2 className="text-lg font-semibold">Challenge deadline reminders</h2>
+        <p className="mt-1 text-sm text-smoke">
+          Get reminded before a live challenge closes, but only if you haven't submitted yet. Choose when:
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {[7, 5, 3, 1].map((d) => {
+            const on = reminderDays.includes(d)
+            return (
+              <button
+                key={d}
+                type="button"
+                onClick={() => toggleReminderDay(d)}
+                aria-pressed={on}
+                className={cx(
+                  'rounded-full px-4 py-1.5 text-xs font-medium transition-colors',
+                  on ? 'bg-brand text-white' : 'border border-gray-200 text-smoke hover:border-brand hover:text-brand'
+                )}
+              >
+                {d} day{d > 1 ? 's' : ''} before
+              </button>
+            )
+          })}
+        </div>
+        {reminderDays.length === 0 && (
+          <p className="mt-3 text-xs text-amber-600">No reminders selected — you won't be reminded about deadlines.</p>
+        )}
       </section>
 
       {/* ---- Admin-only alerts (regular creators never see this) ---- */}
