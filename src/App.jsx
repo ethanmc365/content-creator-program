@@ -46,6 +46,7 @@ import AdminJobs from './pages/admin/AdminJobs'
 import AdminReferrals from './pages/admin/AdminReferrals'
 import AdminEmail from './pages/admin/AdminEmail'
 import AdminApplications from './pages/admin/AdminApplications'
+import AdminAuditLog from './pages/admin/AdminAuditLog'
 
 export default function App() {
   return (
@@ -102,6 +103,7 @@ export default function App() {
             <Route path="/admin/jobs" element={<AdminJobs />} />
             <Route path="/admin/referrals" element={<AdminReferrals />} />
             <Route path="/admin/email" element={<AdminEmail />} />
+            <Route path="/admin/audit" element={<AdminAuditLog />} />
           </Route>
         </Route>
       </Route>
