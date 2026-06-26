@@ -5,6 +5,8 @@ import { useAuth } from '../context/AuthContext'
 import WorldMap from '../components/WorldMap'
 import PlatformBadges from '../components/PlatformBadges'
 import TravelGallery from '../components/TravelGallery'
+import AchievementBadges from '../components/AchievementBadges'
+import { earnedBadges } from '../lib/badges'
 import { Avatar, Badge, Skeleton, EmptyState } from '../components/ui'
 import Icon from '../components/Icon'
 import { formatDate, timeAgo, ageFromDob, cx } from '../lib/utils'
@@ -25,11 +27,13 @@ export default function Profile() {
   const [loading, setLoading] = useState(true)
   // Private contact details (email + phone), only fetched for admin viewers.
   const [contact, setContact] = useState(null)
+  // Aggregated stats that drive the achievement badges.
+  const [badgeStats, setBadgeStats] = useState(null)
 
   useEffect(() => {
     async function load() {
       setLoading(true)
-      const [{ data: p }, { data: subs }, { data: conn }] = await Promise.all([
+      const [{ data: p }, { data: subs }, { data: conn }, { data: results }, { count: referralCount }] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', id).single(),
         supabase
           .from('submissions')
@@ -37,11 +41,24 @@ export default function Profile() {
           .eq('creator_id', id)
           .order('submitted_at', { ascending: false }),
         supabase.from('connections').select('id').eq('creator_id', user.id).eq('connected_creator_id', id).maybeSingle(),
+        supabase.from('results').select('final_views, rank').eq('creator_id', id),
+        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('referred_by', id),
       ])
       setCreator(p)
       setSubmissions(subs ?? [])
       setChallengeCount(new Set((subs ?? []).map((s) => s.challenge_id)).size)
       setIsConnected(!!conn)
+      const r = results ?? []
+      setBadgeStats({
+        submissions: (subs ?? []).length,
+        challenges: new Set((subs ?? []).map((s) => s.challenge_id)).size,
+        totalViews: r.reduce((sum, x) => sum + (x.final_views || 0), 0),
+        bestRank: r.length ? Math.min(...r.map((x) => x.rank)) : 0,
+        wins: r.filter((x) => x.rank === 1).length,
+        countries: (p?.countries_visited ?? []).length,
+        languages: (p?.languages ?? []).length,
+        referrals: referralCount ?? 0,
+      })
       setLoading(false)
     }
     load()
@@ -197,6 +214,14 @@ export default function Profile() {
           </div>
         ))}
       </section>
+
+      {/* ---------- Achievements ---------- */}
+      {badgeStats && (earnedBadges(badgeStats).length > 0 || isMe) && (
+        <section>
+          <h2 className="mb-4 text-lg font-semibold">Achievements</h2>
+          <AchievementBadges stats={badgeStats} showLocked={isMe} />
+        </section>
+      )}
 
       {/* ---------- About (bio) ---------- */}
       {creator.about && (

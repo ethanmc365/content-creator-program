@@ -30,6 +30,7 @@ import Dashboard from './pages/Dashboard'
 import Jobs from './pages/Jobs'
 import Refer from './pages/Refer'
 import Game from './pages/Game'
+import Leaderboard from './pages/Leaderboard'
 
 // Admin pages
 import AdminPanel from './pages/admin/AdminPanel'
@@ -82,6 +83,7 @@ export default function App() {
           <Route path="/jobs" element={<Jobs />} />
           <Route path="/refer" element={<Refer />} />
           <Route path="/game" element={<Game />} />
+          <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/notifications" element={<Notifications />} />
           <Route path="/settings/notifications" element={<NotificationSettings />} />
           <Route path="/dashboard" element={<Dashboard />} />
