@@ -6,7 +6,6 @@ import WorldMap from '../components/WorldMap'
 import PlatformBadges from '../components/PlatformBadges'
 import TravelGallery from '../components/TravelGallery'
 import AchievementBadges from '../components/AchievementBadges'
-import { earnedBadges } from '../lib/badges'
 import { downloadShareCard } from '../lib/shareCard'
 import { Avatar, Badge, Skeleton, EmptyState } from '../components/ui'
 import Icon from '../components/Icon'
@@ -42,7 +41,8 @@ export default function Profile() {
       joinedYear: creator.created_at ? new Date(creator.created_at).getFullYear() : null,
       stats: {
         countries: creator.countries_visited?.length || 0,
-        challenges: challengeCount,
+        videos: submissions.length,
+        totalViews: badgeStats?.totalViews || 0,
       },
     })
     setSharing(false)
@@ -183,7 +183,12 @@ export default function Profile() {
           {isMe ? (
             <>
               <Link to="/profile/edit" className="btn-primary">Edit profile</Link>
-              <button onClick={shareCard} disabled={sharing} className="btn-secondary">{sharing ? 'Creating…' : 'Share card'}</button>
+              <div className="group relative">
+                <button onClick={shareCard} disabled={sharing} className="btn-secondary">{sharing ? 'Creating…' : 'Share card'}</button>
+                <div className="pointer-events-none absolute right-0 top-full z-20 mt-2 hidden w-60 rounded-lg bg-ink px-3 py-2 text-left text-xs font-medium leading-snug text-white shadow-lift group-hover:block">
+                  Download a polished card to share on LinkedIn, Instagram or your portfolio.
+                </div>
+              </div>
             </>
           ) : (
             <>
@@ -237,10 +242,10 @@ export default function Profile() {
       </section>
 
       {/* ---------- Achievements ---------- */}
-      {badgeStats && !creator.is_admin && (earnedBadges(badgeStats).length > 0 || isMe) && (
+      {badgeStats && !creator.is_admin && (
         <section>
           <h2 className="mb-4 text-lg font-semibold">Achievements</h2>
-          <AchievementBadges stats={badgeStats} showLocked={isMe} />
+          <AchievementBadges stats={badgeStats} showLocked />
         </section>
       )}
 
