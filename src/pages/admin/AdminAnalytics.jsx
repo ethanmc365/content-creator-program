@@ -47,7 +47,7 @@ export default function AdminAnalytics() {
     async function load() {
       const [{ data: profiles }, { data: challenges }, { data: submissions }, { data: rewards }, { data: messages }] =
         await Promise.all([
-          supabase.from('profiles').select('id, name, created_at'),
+          supabase.from('profiles').select('id, name, created_at, status, is_admin, onboarded, referred_by, deletion_requested_at'),
           supabase.from('challenges').select('id, title, status, start_date').neq('status', 'draft').order('start_date'),
           supabase.from('submissions').select('id, challenge_id, creator_id, logged_views'),
           supabase.from('rewards').select('amount, status, challenge_id, reward_type'),
@@ -122,11 +122,29 @@ export default function AdminAnalytics() {
 
     const totalPaid = rewards.filter((r) => r.status === 'distributed').reduce((s, r) => s + Number(r.amount), 0)
 
-    return { growth, perChallenge, perChallengeRecent, mostActive, chat, totalPaid, totals: {
-      creators: profiles.length,
-      submissions: submissions.length,
-      challenges: challenges.length,
-    } }
+    // ---- Community health ----
+    const realCreators = profiles.filter((p) => !p.is_admin && !p.deletion_requested_at)
+    const active = realCreators.filter((p) => p.status === 'active')
+    const pendingReview = realCreators.filter((p) => p.status === 'pending' && p.onboarded)
+    const notCompleted = realCreators.filter((p) => p.status === 'pending' && !p.onboarded)
+    const submittedIds = new Set(submissions.map((s) => s.creator_id))
+    const participating = active.filter((p) => submittedIds.has(p.id)).length
+    const participationRate = active.length ? Math.round((participating / active.length) * 100) : 0
+    // Top referrers: who has the most creators joined via their link.
+    const refCounts = {}
+    for (const p of realCreators) if (p.referred_by) refCounts[p.referred_by] = (refCounts[p.referred_by] || 0) + 1
+    const topReferrers = Object.entries(refCounts)
+      .map(([id, count]) => ({ name: nameById[id] || 'Unknown', count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5)
+
+    return { growth, perChallenge, perChallengeRecent, mostActive, chat, totalPaid,
+      community: { active: active.length, pendingReview: pendingReview.length, notCompleted: notCompleted.length, participating, participationRate, topReferrers },
+      totals: {
+        creators: active.length,
+        submissions: submissions.length,
+        challenges: challenges.length,
+      } }
   }, [raw])
 
   if (!derived) {
@@ -148,6 +166,30 @@ export default function AdminAnalytics() {
         <StatCard label="Challenges run" value={derived.totals.challenges} />
         <StatCard label="Total submissions" value={derived.totals.submissions} />
         <StatCard label="Prize money paid" value={formatMoney(derived.totalPaid)} accent />
+      </div>
+
+      {/* ---- Community health ---- */}
+      <div className="mb-10">
+        <h2 className="mb-4 text-lg font-semibold">Community health</h2>
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <StatCard label="Active members" value={derived.community.active} accent />
+          <StatCard label="Awaiting review" value={derived.community.pendingReview} />
+          <StatCard label="Incomplete signups" value={derived.community.notCompleted} />
+          <StatCard label="Participation" value={`${derived.community.participationRate}%`} hint={`${derived.community.participating} have submitted`} />
+        </div>
+        {derived.community.topReferrers.length > 0 && (
+          <div className="mt-4 rounded-card border border-gray-100 p-5 shadow-card">
+            <p className="mb-3 text-sm font-semibold">Top referrers</p>
+            <div className="space-y-2">
+              {derived.community.topReferrers.map((r, i) => (
+                <div key={r.name + i} className="flex items-center justify-between text-sm">
+                  <span className="text-smoke">{i + 1}. {r.name}</span>
+                  <span className="font-semibold">{r.count} joined</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
