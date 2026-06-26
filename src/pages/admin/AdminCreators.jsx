@@ -14,6 +14,8 @@ export default function AdminCreators() {
 
   const [creators, setCreators] = useState([])
   const [emails, setEmails] = useState({}) // id -> email
+  const [lastSeen, setLastSeen] = useState({}) // id -> last_sign_in_at
+  const [inactiveBefore, setInactiveBefore] = useState(0) // sign-ins older than this are "inactive"
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -24,12 +26,15 @@ export default function AdminCreators() {
   const [toast, setToast] = useState('')
 
   async function load() {
-    const [{ data: profiles }, { data: emailRows }] = await Promise.all([
+    const [{ data: profiles }, { data: emailRows }, { data: seenRows }] = await Promise.all([
       supabase.from('profiles').select('*').order('created_at', { ascending: false }),
       supabase.rpc('admin_list_emails'),
+      supabase.rpc('admin_list_last_seen'),
     ])
     setCreators(profiles ?? [])
     setEmails(Object.fromEntries((emailRows ?? []).map((r) => [r.id, r.email])))
+    setLastSeen(Object.fromEntries((seenRows ?? []).map((r) => [r.id, r.last_sign_in_at])))
+    setInactiveBefore(Date.now() - 30 * 86400000)
     setLoading(false)
   }
 
@@ -188,6 +193,10 @@ export default function AdminCreators() {
   const isIncomplete = (c) => c.status === 'pending' && !c.onboarded && !c.deletion_requested_at
   const isPendingReview = (c) => c.status === 'pending' && c.onboarded && !c.deletion_requested_at
   const isDeleting = (c) => !!c.deletion_requested_at
+  // Active members who haven't signed in for 30+ days — admins should follow up.
+  const isInactive = (c) =>
+    c.status === 'active' && !c.deletion_requested_at && lastSeen[c.id] &&
+    new Date(lastSeen[c.id]).getTime() < inactiveBefore
 
   return (
     <div className="page">
@@ -264,6 +273,7 @@ export default function AdminCreators() {
                     <Icon name="check" className="h-4 w-4" /> Restore
                   </button>
                 )}
+                {isInactive(c) && <Badge tone="amber">Inactive</Badge>}
                 <Badge tone={s.tone}>{s.label}</Badge>
               </div>
             )

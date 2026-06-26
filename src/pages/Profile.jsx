@@ -37,11 +37,12 @@ export default function Profile() {
     await downloadShareCard({
       name: creator.name,
       photoUrl: creator.photo_url,
-      bio: creator.bio,
+      city: creator.city,
+      country: creator.country,
+      joinedYear: creator.created_at ? new Date(creator.created_at).getFullYear() : null,
       stats: {
         countries: creator.countries_visited?.length || 0,
         challenges: challengeCount,
-        badges: badgeStats ? earnedBadges(badgeStats).length : 0,
       },
     })
     setSharing(false)
@@ -236,7 +237,7 @@ export default function Profile() {
       </section>
 
       {/* ---------- Achievements ---------- */}
-      {badgeStats && (earnedBadges(badgeStats).length > 0 || isMe) && (
+      {badgeStats && !creator.is_admin && (earnedBadges(badgeStats).length > 0 || isMe) && (
         <section>
           <h2 className="mb-4 text-lg font-semibold">Achievements</h2>
           <AchievementBadges stats={badgeStats} showLocked={isMe} />

@@ -163,10 +163,10 @@ export default function NotificationSettings() {
       <section className="card mt-8">
         <h2 className="text-lg font-semibold">Challenge deadline reminders</h2>
         <p className="mt-1 text-sm text-smoke">
-          Get reminded before a live challenge closes, but only if you haven't submitted yet. Choose when:
+          Get reminded before a live challenge closes so you can get your entries in. Choose when:
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
-          {[7, 5, 3, 1].map((d) => {
+          {[14, 7, 5, 3].map((d) => {
             const on = reminderDays.includes(d)
             return (
               <button
