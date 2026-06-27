@@ -69,7 +69,7 @@ export default function Landing() {
           {[
             { value: `${stats.creators}+`, label: 'Creators' },
             { value: stats.challenges, label: 'Challenges run' },
-            { value: formatMoney(stats.prizes).replace('.00', ''), label: 'Prizes awarded' },
+            { value: formatMoney(stats.prizes), label: 'Prizes awarded' },
           ].map((s) => (
             <div key={s.label}>
               <p className="text-3xl font-bold text-brand sm:text-5xl">{s.value}</p>

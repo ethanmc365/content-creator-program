@@ -238,8 +238,8 @@ export default function AdminCreators() {
                 <button onClick={() => setSelected(c)} className="flex min-w-0 flex-1 items-center gap-4 text-left">
                   <Avatar src={c.photo_url} name={c.name} size="sm" />
                   <div className="min-w-0 flex-1">
-                    <p className="flex items-center gap-2 text-sm font-semibold">
-                      {c.name}
+                    <p className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+                      <span className="truncate">{c.name}</span>
                       {c.is_admin && <Badge tone="light">Admin</Badge>}
                     </p>
                     <p className="truncate text-xs text-smoke">{emails[c.id] ?? '…'}</p>

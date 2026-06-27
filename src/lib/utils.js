@@ -35,9 +35,15 @@ export function formatViews(n) {
   return String(n)
 }
 
-/** "£150.00" */
+/** "£150" for whole amounts, "£12.50" when there are pennies. */
 export function formatMoney(amount, currency = 'GBP') {
-  return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(amount)
+  const whole = Number.isInteger(Number(amount))
+  return new Intl.NumberFormat('en-GB', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: whole ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(amount || 0)
 }
 
 /**
