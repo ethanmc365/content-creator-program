@@ -33,7 +33,7 @@ export default function AchievementBadges({ stats, showLocked = false }) {
   if (earned.length === 0 && !showLocked) return null
   const list = showLocked ? BADGES.map((b) => ({ badge: b, on: b.earned(stats) })) : earned.map((b) => ({ badge: b, on: true }))
   return (
-    <div className="flex flex-wrap gap-4">
+    <div className="grid grid-cols-4 justify-items-center gap-y-5 sm:grid-cols-7">
       {list.map(({ badge, on }) => <Medallion key={badge.key} badge={badge} on={on} />)}
     </div>
   )

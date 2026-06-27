@@ -241,19 +241,19 @@ export default function Profile() {
         ))}
       </section>
 
-      {/* ---------- Achievements ---------- */}
-      {badgeStats && !creator.is_admin && (
-        <section>
-          <h2 className="mb-4 text-lg font-semibold">Achievements</h2>
-          <AchievementBadges stats={badgeStats} showLocked />
-        </section>
-      )}
-
       {/* ---------- About (bio) ---------- */}
       {creator.about && (
         <section className="card">
           <h2 className="mb-3 text-lg font-semibold">About {creator.name.split(' ')[0]}</h2>
           <p className="whitespace-pre-line leading-relaxed text-smoke">{creator.about}</p>
+        </section>
+      )}
+
+      {/* ---------- Achievements ---------- */}
+      {badgeStats && !creator.is_admin && (
+        <section>
+          <h2 className="mb-4 text-lg font-semibold">Achievements</h2>
+          <AchievementBadges stats={badgeStats} showLocked />
         </section>
       )}
 

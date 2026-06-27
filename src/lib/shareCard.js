@@ -60,23 +60,33 @@ export async function generateShareCard({ name, photoUrl, city, country, joinedY
   ctx.fillStyle = '#ffffff'
   ctx.fillRect(0, 0, W, H)
 
-  // Orange header band.
+  // Header band — use the real Tryp.com logo, and fill the band with the logo's
+  // own background colour so the logo blends in seamlessly (no patch/seam).
   const bandH = 300
-  const g = ctx.createLinearGradient(0, 0, W, bandH)
-  g.addColorStop(0, '#d94407')
-  g.addColorStop(1, '#f5853f')
-  ctx.fillStyle = g
+  const logo = await loadImage('/brand/tryp-logo.png')
+  let bandColor = '#d94407'
+  if (logo) {
+    try {
+      const tc = document.createElement('canvas')
+      tc.width = logo.naturalWidth || logo.width
+      tc.height = logo.naturalHeight || logo.height
+      const tctx = tc.getContext('2d')
+      tctx.drawImage(logo, 0, 0)
+      const d = tctx.getImageData(2, 2, 1, 1).data
+      bandColor = `rgb(${d[0]},${d[1]},${d[2]})`
+    } catch { /* keep default */ }
+  }
+  ctx.fillStyle = bandColor
   ctx.fillRect(0, 0, W, bandH)
-
-  // Wordmark + eyebrow (kept clear above the avatar).
-  ctx.fillStyle = '#ffffff'
-  ctx.font = '800 60px Poppins, Arial, sans-serif'
-  ctx.fillText('TRYP.com', W / 2, 108)
-  ctx.fillStyle = 'rgba(255,255,255,0.92)'
-  ctx.font = '600 25px Poppins, Arial, sans-serif'
-  if ('letterSpacing' in ctx) ctx.letterSpacing = '6px'
-  ctx.fillText('CONTENT CREATOR PROGRAM', W / 2, 152)
-  if ('letterSpacing' in ctx) ctx.letterSpacing = '0px'
+  if (logo) {
+    const lw = 420
+    const lh = lw * (logo.height / logo.width)
+    ctx.drawImage(logo, (W - lw) / 2, 16, lw, lh)
+  } else {
+    ctx.fillStyle = '#ffffff'
+    ctx.font = '800 60px Poppins, Arial, sans-serif'
+    ctx.fillText('TRYP.com', W / 2, 120)
+  }
 
   // Avatar straddling the band, clear of the eyebrow above.
   const cx = W / 2
