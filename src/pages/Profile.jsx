@@ -38,7 +38,7 @@ export default function Profile() {
       photoUrl: creator.photo_url,
       city: creator.city,
       country: creator.country,
-      joinedYear: creator.created_at ? new Date(creator.created_at).getFullYear() : null,
+      joinedYear: (creator.accepted_at || creator.created_at) ? new Date(creator.accepted_at || creator.created_at).getFullYear() : null,
       stats: {
         countries: creator.countries_visited?.length || 0,
         videos: submissions.length,
@@ -229,7 +229,7 @@ export default function Profile() {
       {/* ---------- Stats strip ---------- */}
       <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {[
-          { label: 'Member since', value: formatDate(creator.created_at) },
+          { label: 'Member since', value: formatDate(creator.accepted_at || creator.created_at) },
           { label: 'Countries visited', value: creator.countries_visited?.length || 0 },
           { label: 'Challenges entered', value: challengeCount },
           { label: 'Submissions', value: submissions.length },

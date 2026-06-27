@@ -233,7 +233,7 @@ export default function AdminCreators() {
             return (
               <div
                 key={c.id}
-                className="flex w-full items-center gap-3 border-b border-gray-50 px-5 py-4 transition-colors last:border-0 hover:bg-cloud/60 sm:gap-4 sm:px-7"
+                className="flex w-full flex-col gap-2.5 border-b border-gray-50 px-5 py-4 transition-colors last:border-0 hover:bg-cloud/60 sm:flex-row sm:items-center sm:gap-4 sm:px-7"
               >
                 <button onClick={() => setSelected(c)} className="flex min-w-0 flex-1 items-center gap-4 text-left">
                   <Avatar src={c.photo_url} name={c.name} size="sm" />
@@ -245,36 +245,40 @@ export default function AdminCreators() {
                     <p className="truncate text-xs text-smoke">{emails[c.id] ?? '…'}</p>
                   </div>
                 </button>
-                <span className="hidden text-xs text-smoke sm:block">Joined {formatDate(c.created_at)}</span>
-                {isIncomplete(c) && (
-                  <button
-                    onClick={() => sendReminder(c)}
-                    title="Email a reminder to finish their profile"
-                    className="btn-secondary shrink-0 !px-3 !py-1.5 text-xs"
-                  >
-                    <Icon name="envelope" className="h-4 w-4" /> Email
-                  </button>
-                )}
-                {isPendingReview(c) && (
-                  <button
-                    onClick={() => acceptCreator(c)}
-                    title="Approve this applicant"
-                    className="btn-primary shrink-0 !px-3 !py-1.5 text-xs"
-                  >
-                    <Icon name="check" className="h-4 w-4" /> Accept
-                  </button>
-                )}
-                {isDeleting(c) && (
-                  <button
-                    onClick={() => restoreCreator(c)}
-                    title="Restore this account"
-                    className="btn-secondary shrink-0 !px-3 !py-1.5 text-xs"
-                  >
-                    <Icon name="check" className="h-4 w-4" /> Restore
-                  </button>
-                )}
-                {isInactive(c) && <Badge tone="amber">Inactive</Badge>}
-                <Badge tone={s.tone}>{s.label}</Badge>
+                {/* On mobile these sit on their own row under the name (indented past
+                    the avatar) so nothing can overlap; on desktop they're inline. */}
+                <div className="flex flex-wrap items-center gap-2 pl-[52px] sm:gap-3 sm:pl-0">
+                  <span className="hidden text-xs text-smoke sm:block">Joined {formatDate(c.created_at)}</span>
+                  {isIncomplete(c) && (
+                    <button
+                      onClick={() => sendReminder(c)}
+                      title="Email a reminder to finish their profile"
+                      className="btn-secondary shrink-0 !px-3 !py-1.5 text-xs"
+                    >
+                      <Icon name="envelope" className="h-4 w-4" /> Email
+                    </button>
+                  )}
+                  {isPendingReview(c) && (
+                    <button
+                      onClick={() => acceptCreator(c)}
+                      title="Approve this applicant"
+                      className="btn-primary shrink-0 !px-3 !py-1.5 text-xs"
+                    >
+                      <Icon name="check" className="h-4 w-4" /> Accept
+                    </button>
+                  )}
+                  {isDeleting(c) && (
+                    <button
+                      onClick={() => restoreCreator(c)}
+                      title="Restore this account"
+                      className="btn-secondary shrink-0 !px-3 !py-1.5 text-xs"
+                    >
+                      <Icon name="check" className="h-4 w-4" /> Restore
+                    </button>
+                  )}
+                  {isInactive(c) && <Badge tone="amber">Inactive</Badge>}
+                  <Badge tone={s.tone}>{s.label}</Badge>
+                </div>
               </div>
             )
           })}
