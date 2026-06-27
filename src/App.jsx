@@ -31,6 +31,7 @@ import Jobs from './pages/Jobs'
 import Refer from './pages/Refer'
 import Game from './pages/Game'
 import Leaderboard from './pages/Leaderboard'
+import Feedback from './pages/Feedback'
 
 // Admin pages
 import AdminPanel from './pages/admin/AdminPanel'
@@ -49,6 +50,7 @@ import AdminEmail from './pages/admin/AdminEmail'
 import AdminApplications from './pages/admin/AdminApplications'
 import AdminAuditLog from './pages/admin/AdminAuditLog'
 import AdminScheduledAnnouncements from './pages/admin/AdminScheduledAnnouncements'
+import AdminFeedback from './pages/admin/AdminFeedback'
 
 export default function App() {
   return (
@@ -87,6 +89,7 @@ export default function App() {
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/notifications" element={<Notifications />} />
           <Route path="/settings/notifications" element={<NotificationSettings />} />
+          <Route path="/feedback" element={<Feedback />} />
           <Route path="/dashboard" element={<Dashboard />} />
 
           {/* ---------- Admin only ---------- */}
@@ -108,6 +111,7 @@ export default function App() {
             <Route path="/admin/email" element={<AdminEmail />} />
             <Route path="/admin/audit" element={<AdminAuditLog />} />
             <Route path="/admin/scheduled" element={<AdminScheduledAnnouncements />} />
+            <Route path="/admin/feedback" element={<AdminFeedback />} />
           </Route>
         </Route>
       </Route>

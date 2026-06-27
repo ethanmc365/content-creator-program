@@ -9,7 +9,7 @@ import { timeAgo, cx } from '../../lib/utils'
 const TYPE_ICON = {
   challenge: 'flag', announcement: 'megaphone', results: 'trophy',
   reward: 'money', deadline: 'clock', connection: 'users', dm: 'chat',
-  event: 'calendar', application: 'shield', chat: 'chat',
+  event: 'calendar', application: 'shield', chat: 'chat', feedback: 'chat',
 }
 
 // Bell in the navbar: live unread count + dropdown of recent notifications.

@@ -28,6 +28,7 @@ const ADMIN_CATEGORIES = [
   { key: 'referral', label: 'New referrals', hint: 'When a creator logs a referral lead.' },
   { key: 'deletion', label: 'Account deletion requests', hint: 'When a creator schedules their account for deletion.' },
   { key: 'inactive', label: 'Inactive creators', hint: 'When a creator has not logged in for 30+ days.' },
+  { key: 'feedback', label: 'Bug reports & ideas', hint: 'When a creator reports a bug or suggests a feature.' },
 ]
 
 // Push defaults on; email defaults on only for the big moments.

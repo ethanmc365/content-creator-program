@@ -21,6 +21,7 @@ const TOOLS = [
   { to: '/chat/general', icon: 'shield', title: 'Chat moderation', text: 'Delete messages and mute disruptive creators in any channel.' },
   { to: '/admin/audit', icon: 'clock', title: 'Audit log', text: 'A record of account actions taken by the Tryp.com Team.' },
   { to: '/admin/scheduled', icon: 'calendar', title: 'Scheduled posts', text: 'Write announcements now and auto-post them later.' },
+  { to: '/admin/feedback', icon: 'chat', title: 'Bug reports & ideas', text: 'Bugs and feature suggestions creators have submitted.' },
 ]
 
 export default function AdminPanel() {
@@ -28,7 +29,7 @@ export default function AdminPanel() {
 
   useEffect(() => {
     async function load() {
-      const [{ count: creators }, { count: pendingRewards }, { data: active }, { data: paid }, { count: subsThisChallenge }, { count: pendingApps }] =
+      const [{ count: creators }, { count: pendingRewards }, { data: active }, { data: paid }, { count: subsThisChallenge }, { count: pendingApps }, { count: newFeedback }] =
         await Promise.all([
           supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'active').eq('is_admin', false).is('deletion_requested_at', null),
           supabase.from('rewards').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
@@ -36,6 +37,7 @@ export default function AdminPanel() {
           supabase.from('rewards').select('amount').eq('status', 'distributed'),
           supabase.from('submissions').select('id', { count: 'exact', head: true }),
           supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'pending').eq('onboarded', true),
+          supabase.from('feedback').select('id', { count: 'exact', head: true }).eq('status', 'new'),
         ])
       setStats({
         creators: creators ?? 0,
@@ -44,6 +46,7 @@ export default function AdminPanel() {
         totalPaid: (paid ?? []).reduce((s, r) => s + Number(r.amount), 0),
         submissions: subsThisChallenge ?? 0,
         pendingApps: pendingApps ?? 0,
+        newFeedback: newFeedback ?? 0,
       })
     }
     load()
@@ -78,6 +81,19 @@ export default function AdminPanel() {
             </div>
           </div>
           <span className="shrink-0 text-sm font-semibold text-amber-800">Review →</span>
+        </Link>
+      )}
+
+      {stats?.newFeedback > 0 && (
+        <Link to="/admin/feedback" className="mb-6 flex items-center justify-between gap-4 rounded-card border border-brand/30 bg-brand-tint/50 p-5 transition-shadow hover:shadow-lift">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-tint text-brand"><Icon name="chat" className="h-5 w-5" /></span>
+            <div>
+              <p className="font-semibold text-ink">{stats.newFeedback} new bug report{stats.newFeedback === 1 ? '' : 's'} / idea{stats.newFeedback === 1 ? '' : 's'}</p>
+              <p className="text-sm text-smoke">Creators have flagged something. Take a look and triage it.</p>
+            </div>
+          </div>
+          <span className="shrink-0 text-sm font-semibold text-brand">Review →</span>
         </Link>
       )}
 
