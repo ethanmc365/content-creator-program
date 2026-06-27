@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Badge, EmptyState, PageHeader, Skeleton, Spinner } from '../components/ui'
+import Icon from '../components/Icon'
 import { formatDate, cx } from '../lib/utils'
 
 // How a creator's own past reports are labelled back to them.
@@ -62,8 +63,8 @@ export default function Feedback() {
         {/* Type toggle */}
         <div className="mb-5 grid grid-cols-2 gap-2 rounded-2xl bg-cloud p-1">
           {[
-            { key: 'bug', label: '🐞 Report a bug' },
-            { key: 'feature', label: '💡 Suggest a feature' },
+            { key: 'bug', label: 'Report a bug', icon: 'bug' },
+            { key: 'feature', label: 'Suggest a feature', icon: 'bulb' },
           ].map((o) => (
             <button
               key={o.key}
@@ -74,7 +75,7 @@ export default function Feedback() {
                 type === o.key ? 'bg-white text-brand shadow-card' : 'text-smoke hover:text-ink'
               )}
             >
-              {o.label}
+              <Icon name={o.icon} className="h-4 w-4" /> {o.label}
             </button>
           ))}
         </div>
@@ -107,7 +108,7 @@ export default function Feedback() {
       {loading ? (
         <div className="space-y-3">{Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}</div>
       ) : mine.length === 0 ? (
-        <EmptyState emoji="📭" title="No reports yet" hint="Anything you send will show up here so you can track it." />
+        <EmptyState icon={<Icon name="chat" className="h-7 w-7" />} title="No reports yet" hint="Anything you send will show up here so you can track it." />
       ) : (
         <div className="space-y-3">
           {mine.map((f) => {
@@ -115,7 +116,7 @@ export default function Feedback() {
             return (
               <div key={f.id} className="card !p-5">
                 <div className="mb-2 flex items-center gap-2">
-                  <Badge tone={f.type === 'feature' ? 'light' : 'grey'}>{f.type === 'feature' ? 'Feature' : 'Bug'}</Badge>
+                  <Badge tone={f.type === 'feature' ? 'light' : 'grey'}><Icon name={f.type === 'feature' ? 'bulb' : 'bug'} className="h-3.5 w-3.5" />{f.type === 'feature' ? 'Feature' : 'Bug'}</Badge>
                   <Badge tone={st.tone}>{st.label}</Badge>
                   <span className="ml-auto text-xs text-smoke">{formatDate(f.created_at)}</span>
                 </div>

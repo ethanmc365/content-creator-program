@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { Avatar, Badge, EmptyState, PageHeader, Skeleton } from '../../components/ui'
+import Icon from '../../components/Icon'
 import { formatDate } from '../../lib/utils'
 
 const STATUSES = [
@@ -71,7 +72,7 @@ export default function AdminFeedback() {
       {loading ? (
         <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28 w-full" />)}</div>
       ) : filtered.length === 0 ? (
-        <EmptyState emoji="📭" title="Nothing here yet" hint="Bug reports and feature ideas from creators will appear here." />
+        <EmptyState icon={<Icon name="chat" className="h-7 w-7" />} title="Nothing here yet" hint="Bug reports and feature ideas from creators will appear here." />
       ) : (
         <div className="space-y-4">
           {filtered.map((f) => {
@@ -80,7 +81,7 @@ export default function AdminFeedback() {
             return (
               <div key={f.id} className="card !p-5">
                 <div className="mb-3 flex flex-wrap items-center gap-2">
-                  <Badge tone={f.type === 'feature' ? 'light' : 'grey'}>{f.type === 'feature' ? '💡 Feature' : '🐞 Bug'}</Badge>
+                  <Badge tone={f.type === 'feature' ? 'light' : 'grey'}><Icon name={f.type === 'feature' ? 'bulb' : 'bug'} className="h-3.5 w-3.5" />{f.type === 'feature' ? 'Feature' : 'Bug'}</Badge>
                   <Badge tone={st.tone}>{st.label}</Badge>
                   <span className="ml-auto text-xs text-smoke">{formatDate(f.created_at)}</span>
                 </div>
