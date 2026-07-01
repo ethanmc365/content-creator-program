@@ -1,10 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 
-// A friendly full-screen takeover when the device loses its connection, with a
-// little "fly the plane" mini-game (Flappy-Bird style) to pass the time. Shown
-// while the app is open and the network drops, and — because the service worker
-// caches the app shell — also when the app is opened/refreshed with no signal.
-// It clears itself the moment the connection returns.
+// A friendly full-screen takeover when the device loses its connection: a calm
+// sky, a Tryp.com-branded 737 cruising with vapour trailing from the engines,
+// and a short reassuring message. It clears itself the moment we're back online.
 export default function OfflineScreen() {
   const [offline, setOffline] = useState(() => !navigator.onLine)
 
@@ -22,204 +20,91 @@ export default function OfflineScreen() {
   if (!offline) return null
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-6 bg-white px-6 text-center">
-      <div className="max-w-xs">
-        <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-tint">
-          <svg viewBox="0 0 24 24" className="h-8 w-8" fill="#d94407" aria-hidden="true">
-            <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" />
-          </svg>
-        </span>
-        <h1 className="mt-4 text-2xl font-bold">You're offline</h1>
-        <p className="mt-1 text-sm text-smoke">
-          No internet connection right now. We'll reconnect you automatically. Fancy a quick flight while you wait?
+    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-8 overflow-hidden bg-gradient-to-b from-[#eaf5ff] to-white px-6 text-center">
+      <style>{`
+        @keyframes trypCruise { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-10px) } }
+        @keyframes trypVapor {
+          0%   { opacity: 0;   transform: translateX(0)     scaleX(.4) }
+          22%  { opacity: .5 }
+          100% { opacity: 0;   transform: translateX(-60px) scaleX(1.6) }
+        }
+        @keyframes trypDrift { from { transform: translateX(0) } to { transform: translateX(-120vw) } }
+        .tryp-plane  { animation: trypCruise 3.6s ease-in-out infinite; transform-origin: center }
+        .tryp-vapor  { transform-box: fill-box; transform-origin: right center; animation: trypVapor 1.5s linear infinite }
+        .tryp-cloud  { animation: trypDrift linear infinite }
+        @media (prefers-reduced-motion: reduce) {
+          .tryp-plane, .tryp-vapor, .tryp-cloud { animation: none }
+          .tryp-vapor { opacity: .35 }
+        }
+      `}</style>
+
+      {/* Drifting background clouds for a sense of flight */}
+      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+        <div className="tryp-cloud absolute left-[80%] top-[24%] h-16 w-40 rounded-full bg-white/70 blur-md" style={{ animationDuration: '26s' }} />
+        <div className="tryp-cloud absolute left-[95%] top-[62%] h-12 w-32 rounded-full bg-white/60 blur-md" style={{ animationDuration: '34s' }} />
+        <div className="tryp-cloud absolute left-[70%] top-[78%] h-10 w-28 rounded-full bg-white/60 blur-md" style={{ animationDuration: '30s' }} />
+      </div>
+
+      <PlaneArt />
+
+      <div className="relative max-w-sm">
+        <h1 className="text-2xl font-bold text-ink sm:text-3xl">No connection</h1>
+        <p className="mt-2 text-sm leading-relaxed text-smoke sm:text-base">
+          It looks like you're on airplane mode, or just have no internet right now.
+          Sit back — we'll reconnect you automatically the moment you're back.
         </p>
       </div>
-      <PlaneGame />
-      <p className="text-xs text-smoke">Tap the game or press space to fly. Dodge the clouds.</p>
     </div>
   )
 }
 
-function PlaneGame() {
-  const canvasRef = useRef(null)
-  const [score, setScore] = useState(0)
-  const [best, setBest] = useState(0)
-  const [phase, setPhase] = useState('ready') // ready | playing | over
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    const ctx = canvas.getContext('2d')
-    const W = canvas.width
-    const H = canvas.height
-    const GRAVITY = 0.42
-    const FLAP = -6.6
-    const PLANE_X = 66
-    const GAP = 138
-    const GATE_W = 48
-    const SPEED = 2.4
-
-    let planeY = H / 2
-    let vel = 0
-    let gates = []
-    let frame = 0
-    let localScore = 0
-    let mode = 'ready'
-    let raf = 0
-    // Slow decorative background clouds (no collision) for a bit of atmosphere.
-    const bgClouds = Array.from({ length: 4 }, () => ({
-      x: Math.random() * W,
-      y: 30 + Math.random() * (H - 90),
-      s: 0.5 + Math.random() * 0.5,
-      v: 0.15 + Math.random() * 0.25,
-    }))
-
-    const sky = ctx.createLinearGradient(0, 0, 0, H)
-    sky.addColorStop(0, '#bfe3ff')
-    sky.addColorStop(1, '#eaf6ff')
-
-    const setPhaseSafe = (p) => { mode = p; setPhase(p) }
-
-    function reset() {
-      planeY = H / 2; vel = 0; gates = []; frame = 0; localScore = 0
-      setScore(0); setPhaseSafe('ready')
-    }
-    function flap() {
-      if (mode === 'over') { reset(); return }
-      if (mode === 'ready') setPhaseSafe('playing')
-      vel = FLAP
-    }
-    function gameOver() {
-      if (mode !== 'playing') return
-      setBest((b) => Math.max(b, localScore))
-      setPhaseSafe('over')
-    }
-    function spawn() {
-      const top = 40 + Math.random() * (H - GAP - 90)
-      gates.push({ x: W, top, scored: false })
-    }
-
-    function puff(x, y, r) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill() }
-
-    // A fluffy vertical cloud filling the gate column between two y values.
-    function drawCloud(xLeft, from, to) {
-      const cx = xLeft + GATE_W / 2
-      // soft shadow underside
-      ctx.fillStyle = 'rgba(140,170,200,0.18)'
-      for (let y = from; y <= to; y += 15) { puff(cx - 6 + 3, y + 3, 18); puff(cx + 10 + 3, y + 3, 15) }
-      // white body
-      ctx.fillStyle = '#ffffff'
-      for (let y = from; y <= to; y += 15) {
-        puff(cx - 8, y, 18)
-        puff(cx + 10, y, 15)
-        puff(cx + 1, y, 20)
-      }
-    }
-
-    function drawBgCloud(x, y, s) {
-      ctx.fillStyle = 'rgba(255,255,255,0.6)'
-      puff(x, y, 16 * s)
-      puff(x + 16 * s, y + 4 * s, 20 * s)
-      puff(x + 36 * s, y, 15 * s)
-      puff(x + 18 * s, y - 8 * s, 15 * s)
-    }
-
-    function drawPlane() {
-      ctx.save()
-      ctx.translate(PLANE_X, planeY)
-      ctx.rotate(Math.max(-0.4, Math.min(0.6, vel * 0.05)))
-      // fuselage
-      ctx.fillStyle = '#d94407'
-      ctx.beginPath()
-      ctx.moveTo(20, 0)
-      ctx.quadraticCurveTo(6, -9, -12, -6)
-      ctx.quadraticCurveTo(-20, -3, -20, 0)
-      ctx.quadraticCurveTo(-20, 3, -12, 6)
-      ctx.quadraticCurveTo(6, 9, 20, 0)
-      ctx.closePath()
-      ctx.fill()
-      // tail fin
-      ctx.beginPath(); ctx.moveTo(-11, -5); ctx.lineTo(-17, -16); ctx.lineTo(-5, -5); ctx.closePath(); ctx.fill()
-      // wing
-      ctx.fillStyle = '#a83308'
-      ctx.beginPath(); ctx.moveTo(3, 2); ctx.lineTo(-7, 15); ctx.lineTo(-11, 3); ctx.closePath(); ctx.fill()
-      // window
-      ctx.fillStyle = '#eaf6ff'
-      puff(9, -1, 2.6)
-      ctx.restore()
-    }
-
-    function loop() {
-      ctx.fillStyle = sky
-      ctx.fillRect(0, 0, W, H)
-
-      for (const c of bgClouds) {
-        c.x -= c.v
-        if (c.x < -50) { c.x = W + 30; c.y = 30 + Math.random() * (H - 90) }
-        drawBgCloud(c.x, c.y, c.s)
-      }
-
-      if (mode === 'playing') {
-        vel += GRAVITY
-        planeY += vel
-        frame++
-        if (frame % 100 === 0) spawn()
-      }
-
-      for (const g of gates) {
-        if (mode === 'playing') g.x -= SPEED
-        drawCloud(g.x, -20, g.top)
-        drawCloud(g.x, g.top + GAP, H + 20)
-        if (!g.scored && g.x + GATE_W < PLANE_X) { g.scored = true; localScore++; setScore(localScore) }
-        if (PLANE_X + 15 > g.x && PLANE_X - 15 < g.x + GATE_W && (planeY - 9 < g.top || planeY + 9 > g.top + GAP)) {
-          gameOver()
-        }
-      }
-      gates = gates.filter((g) => g.x + GATE_W > -30)
-
-      if (planeY > H - 9 || planeY < 9) {
-        gameOver()
-        planeY = Math.max(9, Math.min(H - 9, planeY))
-      }
-
-      drawPlane()
-      raf = requestAnimationFrame(loop)
-    }
-    loop()
-
-    const onKey = (e) => { if (e.code === 'Space') { e.preventDefault(); flap() } }
-    const onPointer = (e) => { e.preventDefault(); flap() }
-    window.addEventListener('keydown', onKey)
-    canvas.addEventListener('pointerdown', onPointer)
-
-    return () => {
-      cancelAnimationFrame(raf)
-      window.removeEventListener('keydown', onKey)
-      canvas.removeEventListener('pointerdown', onPointer)
-    }
-  }, [])
-
+// The Tryp.com 737: white fuselage, orange tail & cheatline, "tryp.com" titles,
+// with animated vapour streaming from the engine and tail.
+function PlaneArt() {
   return (
-    <div className="relative select-none">
-      <canvas
-        ref={canvasRef}
-        width={320}
-        height={360}
-        className="touch-none rounded-2xl border border-gray-200 shadow-card"
-      />
-      <div className="pointer-events-none absolute inset-x-0 top-3 text-center text-lg font-bold text-white drop-shadow">{score}</div>
-      {phase !== 'playing' && (
-        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-2xl bg-ink/10">
-          {phase === 'over' ? (
-            <>
-              <p className="rounded-lg bg-white/90 px-3 py-1 text-lg font-bold text-ink">Crashed!</p>
-              <p className="mt-1 rounded bg-white/80 px-2 text-sm text-smoke">Score {score} · Best {best}</p>
-              <p className="mt-1 text-xs font-semibold text-white drop-shadow">Tap to fly again</p>
-            </>
-          ) : (
-            <p className="rounded-lg bg-white/90 px-3 py-1.5 text-sm font-semibold text-ink">Tap to start</p>
-          )}
-        </div>
-      )}
-    </div>
+    <svg viewBox="0 0 360 200" className="relative w-[300px] max-w-full sm:w-[380px]" aria-label="Tryp.com plane" role="img">
+      {/* Vapour trails (behind everything, streaming left from the engine/tail) */}
+      <g fill="#ffffff">
+        <rect className="tryp-vapor" x="70" y="126" width="80" height="5" rx="2.5" style={{ animationDelay: '0s' }} />
+        <rect className="tryp-vapor" x="60" y="133" width="90" height="5" rx="2.5" style={{ animationDelay: '.5s' }} />
+        <rect className="tryp-vapor" x="66" y="119" width="70" height="4" rx="2" style={{ animationDelay: '.9s' }} />
+        <rect className="tryp-vapor" x="40" y="99" width="60" height="4" rx="2" style={{ animationDelay: '.3s' }} />
+      </g>
+
+      <g className="tryp-plane">
+        {/* Tail fin (rear = left), orange */}
+        <path d="M92 96 L70 52 L118 96 Z" fill="#d94407" />
+        <circle cx="88" cy="74" r="4.5" fill="#ffffff" />
+        {/* Horizontal stabiliser */}
+        <path d="M84 100 L58 90 L92 104 Z" fill="#e0e6ee" />
+
+        {/* Wing sweeping back (down-left) */}
+        <path d="M188 116 L150 158 L206 118 Z" fill="#c9d2dd" />
+        {/* Engine pod under the wing */}
+        <g>
+          <ellipse cx="158" cy="130" rx="17" ry="8.5" fill="#3a4757" />
+          <ellipse cx="173" cy="130" rx="4" ry="8" fill="#1f2733" />
+          <rect x="150" y="122.5" width="18" height="3" rx="1.5" fill="#d94407" />
+        </g>
+
+        {/* Fuselage */}
+        <path
+          d="M74 100 Q74 86 104 85 L250 85 Q286 87 300 100 Q286 113 250 115 L104 115 Q74 114 74 100 Z"
+          fill="#ffffff" stroke="#e4e9f0" strokeWidth="1.5"
+        />
+        {/* Orange cheatline */}
+        <path d="M92 106 Q200 108 288 103" stroke="#f5853f" strokeWidth="4" fill="none" strokeLinecap="round" />
+        {/* Nose cockpit window */}
+        <path d="M300 100 Q286 95 276 96 Q280 100 276 104 Q286 105 300 100 Z" fill="#2a3442" />
+        {/* Cabin windows */}
+        <g fill="#aebdce">
+          {Array.from({ length: 15 }).map((_, i) => (
+            <rect key={i} x={116 + i * 10} y="95.5" width="4.5" height="3.5" rx="1.2" />
+          ))}
+        </g>
+        {/* Titles */}
+        <text x="150" y="103" fontFamily="Poppins, Arial, sans-serif" fontWeight="800" fontSize="12" fill="#d94407" letterSpacing="0.3">tryp.com</text>
+      </g>
+    </svg>
   )
 }
