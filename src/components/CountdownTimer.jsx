@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
+import { challengeDeadline } from '../lib/utils'
 
 // Live countdown to a challenge deadline, updating every second.
 // Shown prominently on the home page and challenge pages.
 function getTimeLeft(endDate) {
-  const diff = new Date(endDate) - new Date()
+  const diff = challengeDeadline(endDate) - new Date()
   if (diff <= 0) return null
   return {
     days: Math.floor(diff / 86400000),
@@ -22,7 +23,13 @@ export default function CountdownTimer({ endDate, compact = false }) {
   }, [endDate])
 
   if (!left) {
-    return <span className="text-sm font-medium text-smoke">Challenge closed</span>
+    // White pill so it stays readable on the orange challenge cards as well as
+    // the light challenge-detail panel.
+    return (
+      <span className="inline-flex items-center rounded-xl bg-white/95 px-4 py-2 text-sm font-semibold text-ink shadow-card">
+        Challenge closed
+      </span>
+    )
   }
 
   if (compact) {

@@ -110,6 +110,19 @@ export function ageFromDob(iso) {
   return age >= 0 ? age : null
 }
 
+/**
+ * The moment a challenge actually closes. A challenge dated "30 Jul" should stay
+ * open for the whole of the 30th and close at midnight — i.e. 00:00 on the 31st.
+ * So we take the end_date's calendar day and return the start of the next day
+ * (local time). Used for the countdown and to gate late submissions.
+ */
+export function challengeDeadline(endDate) {
+  const d = new Date(endDate)
+  d.setHours(0, 0, 0, 0)
+  d.setDate(d.getDate() + 1)
+  return d
+}
+
 // ---- Typed date + time (no calendar picker) ----
 
 /** "25/01/2026" + "14:30" -> ISO string, or null if invalid/incomplete. */

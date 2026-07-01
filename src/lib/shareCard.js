@@ -207,10 +207,26 @@ export async function generateShareCard({ name, photoUrl, city, country, joinedY
 export async function downloadShareCard(data) {
   const blob = await generateShareCard(data)
   if (!blob) return
+  const filename = `tryp-creator-card-${(data.name || 'me').toLowerCase().replace(/\s+/g, '-')}.png`
+  const file = new File([blob], filename, { type: 'image/png' })
+
+  // On mobile the native share sheet offers "Save Image" → camera roll (and
+  // sharing straight to Instagram/LinkedIn). Fall back to a file download on
+  // desktop or where file-sharing isn't supported.
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: 'My Tryp.com creator card' })
+      return
+    } catch (err) {
+      if (err?.name === 'AbortError') return // user dismissed the sheet
+      // otherwise fall through to a normal download
+    }
+  }
+
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `tryp-creator-card-${(data.name || 'me').toLowerCase().replace(/\s+/g, '-')}.png`
+  a.download = filename
   a.click()
   URL.revokeObjectURL(url)
 }

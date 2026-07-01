@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import CountdownTimer from '../components/CountdownTimer'
 import PlatformBadges from '../components/PlatformBadges'
 import { Avatar, Badge, Modal, PageHeader, Skeleton, EmptyState, Spinner } from '../components/ui'
-import { formatDate, timeAgo, formatViews, detectPlatform, cx } from '../lib/utils'
+import { formatDate, timeAgo, formatViews, detectPlatform, cx, challengeDeadline } from '../lib/utils'
 
 // One challenge: full brief, prizes, live countdown, the submissions gallery,
 // a "submit your link" flow, and (once results are in) the leaderboard.
@@ -18,6 +18,8 @@ export default function ChallengeDetail() {
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('brief') // brief | entries | leaderboard
+  // Captured once so it stays pure during render; a fresh page load re-reads it.
+  const [nowMs] = useState(() => Date.now())
 
   // Submission form state
   const [showSubmit, setShowSubmit] = useState(false)
@@ -104,7 +106,8 @@ export default function ChallengeDetail() {
     )
   }
 
-  const isLive = challenge.status === 'active'
+  // Live only while active AND before the deadline (midnight after the end date).
+  const isLive = challenge.status === 'active' && nowMs < challengeDeadline(challenge.end_date).getTime()
   const myEntries = submissions.filter((s) => s.creator_id === user.id)
   const prizes = Array.isArray(challenge.prize_structure) ? challenge.prize_structure : []
 

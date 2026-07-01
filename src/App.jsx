@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { ProtectedRoute, AdminRoute } from './components/ProtectedRoute'
 import AppLayout from './components/layout/AppLayout'
+import OfflineScreen from './components/OfflineScreen'
 
 // Public pages
 import Landing from './pages/Landing'
@@ -54,7 +55,9 @@ import AdminFeedback from './pages/admin/AdminFeedback'
 
 export default function App() {
   return (
-    <Routes>
+    <>
+      <OfflineScreen />
+      <Routes>
       {/* ---------- Public ---------- */}
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
@@ -118,6 +121,7 @@ export default function App() {
 
       {/* Anything unknown → landing */}
       <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+      </Routes>
+    </>
   )
 }
