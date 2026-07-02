@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
 
 // A friendly full-screen takeover when the device loses its connection: the
-// Tryp.com plane cruising through cartoon clouds with puffy exhaust trailing
-// from its engines. Clears itself the moment we're back online. (The plane
-// artwork has a white background, so the screen is kept white for a seamless
-// blend; clouds/puffs are outlined so they read against it.)
+// Tryp.com plane cruising through cartoon clouds. Clears itself the moment we're
+// back online. (The plane artwork has a white background, so the screen is kept
+// white for a seamless blend; clouds are outlined so they read against it.)
 export default function OfflineScreen() {
   const [offline, setOffline] = useState(() => !navigator.onLine)
 
@@ -31,13 +30,6 @@ export default function OfflineScreen() {
     { top: '12%', scale: 0.55, dur: 28, delay: -21, o: 0.85 },
   ]
 
-  // Two exhaust trails, anchored at the engine (~56%,70% of the artwork).
-  const trails = [
-    { top: '69%', delay: 0 },
-    { top: '73%', delay: 0.9 },
-  ]
-  const puffTimes = [0, 0.3, 0.6, 0.9, 1.2, 1.5]
-
   return (
     <div className="fixed inset-0 z-[100] overflow-hidden bg-white">
       <style>{`
@@ -46,22 +38,10 @@ export default function OfflineScreen() {
           50%     { transform: translate(-8px,-12px) rotate(0.5deg) }
         }
         @keyframes trypCloud { from { transform: translateX(-45vw) } to { transform: translateX(120vw) } }
-        @keyframes trypExhaust {
-          0%   { opacity: 0; transform: translate(0,0) scale(.35) }
-          14%  { opacity: 1 }
-          78%  { opacity: 1 }
-          100% { opacity: 0; transform: translate(60px,10px) scale(1.7) }
-        }
         .tryp-plane { animation: trypCruise 4s ease-in-out infinite; transform-origin: center }
         .tryp-cloud { position: absolute; left: 0; pointer-events: none; animation: trypCloud linear infinite }
-        .tryp-puff {
-          position: absolute; border-radius: 9999px; background: #fff;
-          border: 2px solid #bcd0e6; pointer-events: none;
-          animation: trypExhaust 1.8s linear infinite;
-        }
         @media (prefers-reduced-motion: reduce) {
-          .tryp-plane, .tryp-cloud, .tryp-puff { animation: none }
-          .tryp-puff:nth-child(n+3) { display: none }
+          .tryp-plane, .tryp-cloud { animation: none }
         }
       `}</style>
 
@@ -69,14 +49,6 @@ export default function OfflineScreen() {
       <div className="relative z-10 flex h-full flex-col items-center justify-center gap-6 px-6 text-center">
         <div className="tryp-plane relative w-[320px] max-w-full sm:w-[460px]">
           <img src="/brand/tryp-plane.png" alt="Tryp.com plane" className="relative z-10 w-full" />
-          {/* Engine exhaust puffs (in front of the plane, from the engine) */}
-          {trails.map((t, ti) => (
-            <div key={ti} className="absolute z-20" style={{ top: t.top, left: '56%' }} aria-hidden="true">
-              {puffTimes.map((d, i) => (
-                <span key={i} className="tryp-puff" style={{ top: 0, left: 0, width: '17px', height: '17px', animationDelay: `${d + t.delay}s` }} />
-              ))}
-            </div>
-          ))}
         </div>
 
         <div className="max-w-sm">
