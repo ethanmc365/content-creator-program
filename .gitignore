@@ -27,3 +27,6 @@ dev.sh
 # local secrets
 .env
 .vercel
+
+# Large source design assets (optimised copies live in public/brand)
+/Custom Tryp Plane Design.png
