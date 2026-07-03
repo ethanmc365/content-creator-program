@@ -7,10 +7,12 @@ import PlatformBadges from '../components/PlatformBadges'
 import TravelGallery from '../components/TravelGallery'
 import AchievementBadges from '../components/AchievementBadges'
 import ConnectButton from '../components/ConnectButton'
-import { loadRelationship } from '../lib/connections'
+import { loadRelationship, mutualConnections } from '../lib/connections'
 import { downloadShareCard } from '../lib/shareCard'
+import { flagForCountry } from '../lib/flags'
 import { Avatar, Badge, Skeleton, EmptyState } from '../components/ui'
 import Icon from '../components/Icon'
+import { format } from 'date-fns'
 import { formatDate, timeAgo, ageFromDob, cx } from '../lib/utils'
 
 // A creator's public profile: photo, bio, socials, the orange country map,
@@ -26,6 +28,8 @@ export default function Profile() {
   const [submissions, setSubmissions] = useState([])
   const [challengeCount, setChallengeCount] = useState(0)
   const [relation, setRelation] = useState(null)
+  const [trips, setTrips] = useState([])
+  const [mutualCount, setMutualCount] = useState(0)
   const [loading, setLoading] = useState(true)
   // Private contact details (email + phone), only fetched for admin viewers.
   const [contact, setContact] = useState(null)
@@ -53,7 +57,7 @@ export default function Profile() {
   useEffect(() => {
     async function load() {
       setLoading(true)
-      const [{ data: p }, { data: subs }, rel, { data: results }, { count: referralCount }] = await Promise.all([
+      const [{ data: p }, { data: subs }, rel, { data: results }, { count: referralCount }, { data: tripsData }] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', id).single(),
         supabase
           .from('submissions')
@@ -63,11 +67,13 @@ export default function Profile() {
         isMe ? Promise.resolve(null) : loadRelationship(user.id, id),
         supabase.from('results').select('final_views, rank').eq('creator_id', id),
         supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('referred_by', id),
+        supabase.from('collab_posts').select('id, city, country, start_date, end_date').eq('creator_id', id).gte('end_date', format(new Date(), 'yyyy-MM-dd')).order('start_date', { ascending: true }),
       ])
       setCreator(p)
       setSubmissions(subs ?? [])
       setChallengeCount(new Set((subs ?? []).map((s) => s.challenge_id)).size)
       setRelation(rel)
+      setTrips(tripsData ?? [])
       const r = results ?? []
       setBadgeStats({
         submissions: (subs ?? []).length,
@@ -83,6 +89,14 @@ export default function Profile() {
     }
     load()
   }, [id, user.id, isMe])
+
+  // Mutual connections (people you both know), shown on other people's profiles.
+  useEffect(() => {
+    if (isMe || !user?.id) { setMutualCount(0); return }
+    let cancelled = false
+    mutualConnections(user.id, id).then((n) => { if (!cancelled) setMutualCount(n) })
+    return () => { cancelled = true }
+  }, [id, user?.id, isMe])
 
   // Admins (and only admins) see the creator's email + phone. The RPC and the
   // creator_private RLS both enforce admin-only access server-side too.
@@ -171,6 +185,12 @@ export default function Profile() {
               </a>
             ))}
           </div>
+          {!isMe && mutualCount > 0 && (
+            <p className="mt-3 flex items-center justify-center gap-1.5 text-xs font-medium text-smoke sm:justify-start">
+              <Icon name="users" className="h-4 w-4 text-brand" />
+              {mutualCount} mutual connection{mutualCount === 1 ? '' : 's'}
+            </p>
+          )}
         </div>
         <div className="flex shrink-0 gap-3">
           {isMe ? (
@@ -281,6 +301,36 @@ export default function Profile() {
           </div>
         )}
       </section>
+
+      {/* ---------- Where I'm headed next (upcoming collab trips) ---------- */}
+      {(trips.length > 0 || isMe) && !creator.is_admin && (
+        <section>
+          <div className="mb-4 flex items-baseline justify-between">
+            <h2 className="text-lg font-semibold">
+              {isMe ? "Where I'm headed next" : `Where ${creator.name.split(' ')[0]}'s headed next`}
+            </h2>
+            <Link to="/collab" className="text-sm font-medium text-brand hover:underline">{isMe ? 'Post a trip' : 'Collab board'}</Link>
+          </div>
+          {trips.length === 0 ? (
+            <p className="text-sm text-smoke">No upcoming trips posted. Share where you’re headed on the collab board so nearby creators can meet up.</p>
+          ) : (
+            <div className="flex flex-wrap gap-3">
+              {trips.map((t) => {
+                const flag = flagForCountry(t.country)
+                return (
+                  <Link key={t.id} to="/collab" className="flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-lift">
+                    <span className="text-2xl leading-none" aria-hidden>{flag || '📍'}</span>
+                    <span>
+                      <span className="block text-sm font-semibold">{t.city}{t.country ? `, ${t.country}` : ''}</span>
+                      <span className="block text-xs text-smoke">{format(new Date(t.start_date), 'd MMM')} – {format(new Date(t.end_date), 'd MMM yyyy')}</span>
+                    </span>
+                  </Link>
+                )
+              })}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* ---------- Travel photos ---------- */}
       <ProfileGallery creatorId={creator.id} isMe={isMe} />

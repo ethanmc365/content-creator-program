@@ -1,10 +1,35 @@
 // Shared source of truth for country names that match the world map.
 // The names come from the map's OWN world-atlas TopoJSON, so anything selected
 // via a search/datalist lines up exactly with what the map highlights.
+import { feature } from 'topojson-client'
+import { geoCentroid } from 'd3-geo'
+
 export const GEO_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json'
 
 let cache = null
 let inflight = null
+let centroidCache = null
+let centroidInflight = null
+
+// Map of country name -> [lng, lat] centroid, used to zoom a map onto a country.
+export function loadMapCentroids() {
+  if (centroidCache) return Promise.resolve(centroidCache)
+  if (centroidInflight) return centroidInflight
+  centroidInflight = fetch(GEO_URL)
+    .then((r) => r.json())
+    .then((topo) => {
+      const fc = feature(topo, topo.objects.countries)
+      const m = new Map()
+      for (const f of fc.features) {
+        const name = f.properties?.name
+        if (name) m.set(name, geoCentroid(f))
+      }
+      centroidCache = m
+      return m
+    })
+    .catch(() => (centroidCache = new Map()))
+  return centroidInflight
+}
 
 export function loadMapCountryNames() {
   if (cache) return Promise.resolve(cache)

@@ -20,6 +20,19 @@ export async function loadRelationships(myId) {
   return map
 }
 
+// Count of accepted connections that both `myId` and `otherId` share.
+export async function mutualConnections(myId, otherId) {
+  const [{ data: a }, { data: b }] = await Promise.all([
+    supabase.from('connections').select('creator_id, connected_creator_id').eq('status', 'accepted').or(`creator_id.eq.${myId},connected_creator_id.eq.${myId}`),
+    supabase.from('connections').select('creator_id, connected_creator_id').eq('status', 'accepted').or(`creator_id.eq.${otherId},connected_creator_id.eq.${otherId}`),
+  ])
+  const mine = new Set((a ?? []).map((r) => (r.creator_id === myId ? r.connected_creator_id : r.creator_id)))
+  const theirs = new Set((b ?? []).map((r) => (r.creator_id === otherId ? r.connected_creator_id : r.creator_id)))
+  let n = 0
+  for (const x of mine) if (theirs.has(x) && x !== myId && x !== otherId) n++
+  return n
+}
+
 // The relationship between me and one specific person (or null).
 export async function loadRelationship(myId, otherId) {
   const { data } = await supabase

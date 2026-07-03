@@ -27,6 +27,7 @@ export default function AppLayout() {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const [dmUnread, setDmUnread] = useState(0)
+  const [connReqs, setConnReqs] = useState(0)
   const menuRef = useRef(null)
 
   // Unread DM badge, kept live via realtime.
@@ -63,6 +64,25 @@ export default function AppLayout() {
       .subscribe()
     return () => supabase.removeChannel(channel)
   }, [user, profile?.notif_prefs?.chat])
+
+  // Pending incoming connection requests, kept live via realtime.
+  useEffect(() => {
+    if (!user) return
+    async function count() {
+      const { count } = await supabase
+        .from('connections')
+        .select('id', { count: 'exact', head: true })
+        .eq('connected_creator_id', user.id)
+        .eq('status', 'pending')
+      setConnReqs(count ?? 0)
+    }
+    count()
+    const channel = supabase
+      .channel(`conn-reqs-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'connections', filter: `connected_creator_id=eq.${user.id}` }, count)
+      .subscribe()
+    return () => supabase.removeChannel(channel)
+  }, [user])
 
   useEffect(() => {
     if (!menuOpen) return
@@ -137,8 +157,9 @@ export default function AppLayout() {
 
             {/* Avatar dropdown */}
             <div className="relative" ref={menuRef}>
-              <button onClick={() => setMenuOpen((o) => !o)} aria-label="Account menu" className="rounded-full">
+              <button onClick={() => setMenuOpen((o) => !o)} aria-label="Account menu" className="relative rounded-full">
                 <Avatar src={profile?.photo_url} name={profile?.name} size="sm" />
+                {connReqs > 0 && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-brand ring-2 ring-white" aria-label={`${connReqs} connection requests`} />}
               </button>
               {menuOpen && (
                 <div className="absolute right-0 z-40 mt-2 max-h-[80vh] w-60 overflow-y-auto rounded-card border border-gray-100 bg-white p-2 shadow-lift animate-fade-up">
@@ -155,6 +176,10 @@ export default function AppLayout() {
                   {/* Explore - secondary destinations not in the main tab bar */}
                   <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Explore</p>
                   <Link to="/creators" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Creators</Link>
+                  <Link to="/connections" onClick={() => setMenuOpen(false)} className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">
+                    <span>Connections</span>
+                    {connReqs > 0 && <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-semibold text-white">{connReqs > 9 ? '9+' : connReqs}</span>}
+                  </Link>
                   <Link to="/collab" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Travel collab board</Link>
                   <Link to="/leaderboard" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Leaderboard</Link>
                   <Link to="/resources" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Resource library</Link>

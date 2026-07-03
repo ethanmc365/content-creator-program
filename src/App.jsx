@@ -31,6 +31,7 @@ import Dashboard from './pages/Dashboard'
 import Jobs from './pages/Jobs'
 import Refer from './pages/Refer'
 import Collab from './pages/Collab'
+import Connections from './pages/Connections'
 import Game from './pages/Game'
 import Leaderboard from './pages/Leaderboard'
 import Feedback from './pages/Feedback'
@@ -90,6 +91,7 @@ export default function App() {
           <Route path="/jobs" element={<Jobs />} />
           <Route path="/refer" element={<Refer />} />
           <Route path="/collab" element={<Collab />} />
+          <Route path="/connections" element={<Connections />} />
           <Route path="/game" element={<Game />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/notifications" element={<Notifications />} />

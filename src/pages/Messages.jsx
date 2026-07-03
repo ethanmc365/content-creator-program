@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { uploadChatImage } from '../lib/chatMedia'
+import { loadRelationship } from '../lib/connections'
 import { Avatar, Badge, EmptyState, Skeleton, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
 import { formatChatTime, otherParticipant, cx } from '../lib/utils'
@@ -22,10 +23,27 @@ export default function Messages() {
   const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)
   const [attachError, setAttachError] = useState('')
+  const [activeRelation, setActiveRelation] = useState(null)
   const bottomRef = useRef(null)
   const fileRef = useRef(null)
 
   const active = conversations.find((c) => c.id === conversationId)
+  const otherId = active?.other?.id
+
+  // DM gating: a non-connection may send only until the other person replies
+  // (a reply auto-connects them). Connected / admins have no limit.
+  const iSentCount = thread.filter((m) => m.sender_id === user.id).length
+  const theyReplied = !!otherId && thread.some((m) => m.sender_id === otherId)
+  const connected = activeRelation?.relation === 'connected'
+  const dmLocked = !isAdmin && !!otherId && !connected && iSentCount >= 1 && !theyReplied
+
+  // Load the connection status for the open conversation.
+  useEffect(() => {
+    if (!otherId) { setActiveRelation(null); return }
+    let cancelled = false
+    loadRelationship(user.id, otherId).then((r) => { if (!cancelled) setActiveRelation(r) })
+    return () => { cancelled = true }
+  }, [otherId, user.id, thread.length])
 
   // ---------- Inbox ----------
   const loadConversations = useCallback(async () => {
@@ -140,7 +158,7 @@ export default function Messages() {
 
   async function send(e) {
     e.preventDefault()
-    if (!body.trim() || !active) return
+    if (!body.trim() || !active || dmLocked) return
     setSending(true)
     const { error } = await supabase.from('direct_messages').insert({
       conversation_id: conversationId,
@@ -156,7 +174,7 @@ export default function Messages() {
   async function sendImage(e) {
     const file = e.target.files?.[0]
     e.target.value = ''
-    if (!file || !active) return
+    if (!file || !active || dmLocked) return
     setAttachError('')
     setSending(true)
     try {
@@ -315,7 +333,16 @@ export default function Messages() {
 
               {/* Composer */}
               <div className="border-t border-gray-100 px-5 py-4">
+                {dmLocked ? (
+                  <div className="rounded-card bg-cloud px-4 py-3 text-center text-sm text-smoke">
+                    Message sent. You can send one message until {active?.other?.name?.split(' ')[0]} replies, which connects you.
+                  </div>
+                ) : (
+                <>
                 {attachError && <p className="mb-2 text-xs text-red-600">{attachError}</p>}
+                {!connected && !isAdmin && iSentCount === 0 && !theyReplied && (
+                  <p className="mb-2 text-xs text-smoke">You can send one message. If {active?.other?.name?.split(' ')[0]} replies, you’ll be connected.</p>
+                )}
                 <form onSubmit={send} className="flex items-end gap-2 sm:gap-3">
                   <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={sendImage} />
                   <button
@@ -341,6 +368,8 @@ export default function Messages() {
                     )}
                   </button>
                 </form>
+                </>
+                )}
               </div>
             </>
           )}

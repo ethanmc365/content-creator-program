@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useState } from 'react'
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from 'react-simple-maps'
-import { GEO_URL, loadMapCountryNames } from '../lib/mapCountries'
+import { GEO_URL, loadMapCountryNames, loadMapCentroids } from '../lib/mapCountries'
 
 // Interactive world map for "countries visited".
 //  * Free & open source: react-simple-maps + the world-atlas TopoJSON from
@@ -18,9 +18,10 @@ const BRAND = '#d94407'
 const BRAND_LIGHT = '#f5853f'
 const UNSELECTED = '#ECECEE'
 
-function WorldMap({ selected = [], onToggle, selectable = false }) {
+function WorldMap({ selected = [], onToggle, selectable = false, focusCountry = null }) {
   const [tooltip, setTooltip] = useState('')
   const [position, setPosition] = useState({ coordinates: [12, 8], zoom: 1 })
+  const [focusPos, setFocusPos] = useState(null)
   const [query, setQuery] = useState('')
   const [allNames, setAllNames] = useState([])
   const selectedSet = new Set(selected)
@@ -32,6 +33,19 @@ function WorldMap({ selected = [], onToggle, selectable = false }) {
     loadMapCountryNames().then((names) => { if (!cancelled) setAllNames(names) })
     return () => { cancelled = true }
   }, [selectable])
+
+  // Zoom the map onto one country (used by the collab cards) via its centroid.
+  useEffect(() => {
+    if (!focusCountry) { setFocusPos(null); return }
+    let cancelled = false
+    loadMapCentroids().then((cmap) => {
+      const c = cmap.get(focusCountry)
+      if (!cancelled && c) setFocusPos({ coordinates: c, zoom: 4 })
+    })
+    return () => { cancelled = true }
+  }, [focusCountry])
+
+  const view = focusPos || position
 
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -134,11 +148,11 @@ function WorldMap({ selected = [], onToggle, selectable = false }) {
           aria-label="World map of countries visited"
         >
           <ZoomableGroup
-            zoom={position.zoom}
-            center={position.coordinates}
+            zoom={view.zoom}
+            center={view.coordinates}
             minZoom={1}
             maxZoom={8}
-            onMoveEnd={(pos) => setPosition(pos)}
+            onMoveEnd={(pos) => { if (!focusCountry) setPosition(pos) }}
           >
             <Geographies geography={GEO_URL}>
               {({ geographies }) =>

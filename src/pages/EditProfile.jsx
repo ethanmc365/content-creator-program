@@ -153,15 +153,6 @@ export default function EditProfile() {
           <PhoneInput value={contact} onChange={setContact} />
         </section>
 
-        {/* Travel photo gallery */}
-        <section className="card space-y-5">
-          <div>
-            <h2 className="text-lg font-semibold">Travel photos</h2>
-            <p className="mt-1 text-sm text-smoke">Share up to 10 shots from your trips. They appear on your public profile.</p>
-          </div>
-          <TravelGallery creatorId={user.id} editable />
-        </section>
-
         <section className="card space-y-6">
           <h2 className="text-lg font-semibold">Social links</h2>
           <SocialInputs values={form} onChange={(v) => set(v)} />
@@ -199,6 +190,11 @@ export default function EditProfile() {
         </section>
 
         <section className="card space-y-5">
+          <h2 className="text-lg font-semibold">Languages spoken</h2>
+          <LanguageSelect selected={form.languages} onChange={(languages) => set({ languages })} />
+        </section>
+
+        <section className="card space-y-5">
           <h2 className="text-lg font-semibold">Countries visited</h2>
           <WorldMap
             selectable
@@ -214,9 +210,13 @@ export default function EditProfile() {
           <p className="text-sm font-semibold text-brand">{form.countries_visited.length} {form.countries_visited.length === 1 ? 'country' : 'countries'} selected</p>
         </section>
 
+        {/* Travel photos last, matching the public profile's section order. */}
         <section className="card space-y-5">
-          <h2 className="text-lg font-semibold">Languages spoken</h2>
-          <LanguageSelect selected={form.languages} onChange={(languages) => set({ languages })} />
+          <div>
+            <h2 className="text-lg font-semibold">Travel photos</h2>
+            <p className="mt-1 text-sm text-smoke">Share up to 10 shots from your trips. They appear on your public profile.</p>
+          </div>
+          <TravelGallery creatorId={user.id} editable />
         </section>
 
         <div className="flex items-center justify-end gap-3">
