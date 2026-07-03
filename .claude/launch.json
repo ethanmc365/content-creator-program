@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "tryp-creator-platform",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeExecutable": "./dev.sh",
+      "runtimeArgs": [],
       "port": 5173
     }
   ]

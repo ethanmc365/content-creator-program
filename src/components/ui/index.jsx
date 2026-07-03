@@ -119,15 +119,23 @@ export function PageHeader({ title, subtitle, action }) {
   )
 }
 
-/** Simple stat tile used on dashboards. */
-export function StatCard({ label, value, hint, accent = false }) {
-  return (
-    <div className={cx('card', accent && 'border-brand-tint bg-brand-tint/40')}>
+/** Simple stat tile used on dashboards. Pass `onClick` to make it a button
+ *  that lifts on hover (same motion language as the app's buttons). */
+export function StatCard({ label, value, hint, accent = false, onClick }) {
+  const className = cx(
+    'card',
+    accent && 'border-brand-tint bg-brand-tint/40',
+    onClick && 'w-full cursor-pointer text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:scale-[0.99]',
+  )
+  const inner = (
+    <>
       <p className="text-sm font-medium text-smoke">{label}</p>
       <p className={cx('mt-2 text-3xl font-bold tracking-tight', accent && 'text-brand')}>{value}</p>
       {hint && <p className="mt-1 text-xs text-smoke">{hint}</p>}
-    </div>
+    </>
   )
+  if (onClick) return <button type="button" onClick={onClick} className={className}>{inner}</button>
+  return <div className={className}>{inner}</div>
 }
 
 /** Accessible modal dialog. Closes on Escape and backdrop click. */
