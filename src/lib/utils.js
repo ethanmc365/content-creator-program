@@ -13,6 +13,26 @@ export function formatDateTime(date) {
   return format(new Date(date), 'd MMM, HH:mm')
 }
 
+/** The viewer's short timezone label, e.g. "GMT+1". Empty string if unknown. */
+export function tzLabel(date = new Date()) {
+  try {
+    const parts = new Intl.DateTimeFormat(undefined, { timeZoneName: 'short' }).formatToParts(new Date(date))
+    return parts.find((p) => p.type === 'timeZoneName')?.value || ''
+  } catch {
+    return ''
+  }
+}
+
+/** "12 Jun, 14:30 GMT+1" — same as formatDateTime but with the viewer's zone
+ *  appended so a creator anywhere knows the time is shown in THEIR local time.
+ *  (Times are stored in UTC and rendered in the browser's zone automatically.) */
+export function formatDateTimeTz(date) {
+  if (!date) return '-'
+  const base = format(new Date(date), 'd MMM, HH:mm')
+  const tz = tzLabel(date)
+  return tz ? `${base} ${tz}` : base
+}
+
 /** Chat-friendly timestamp: "14:30" today, "Yesterday", else "12 Jun". */
 export function formatChatTime(date) {
   const d = new Date(date)

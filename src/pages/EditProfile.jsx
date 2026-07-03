@@ -211,7 +211,7 @@ export default function EditProfile() {
               })
             }
           />
-          <p className="text-sm font-semibold text-brand">{form.countries_visited.length} countries selected</p>
+          <p className="text-sm font-semibold text-brand">{form.countries_visited.length} {form.countries_visited.length === 1 ? 'country' : 'countries'} selected</p>
         </section>
 
         <section className="card space-y-5">

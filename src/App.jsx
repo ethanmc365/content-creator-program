@@ -30,6 +30,7 @@ import NotificationSettings from './pages/NotificationSettings'
 import Dashboard from './pages/Dashboard'
 import Jobs from './pages/Jobs'
 import Refer from './pages/Refer'
+import Collab from './pages/Collab'
 import Game from './pages/Game'
 import Leaderboard from './pages/Leaderboard'
 import Feedback from './pages/Feedback'
@@ -88,6 +89,7 @@ export default function App() {
           <Route path="/events" element={<Events />} />
           <Route path="/jobs" element={<Jobs />} />
           <Route path="/refer" element={<Refer />} />
+          <Route path="/collab" element={<Collab />} />
           <Route path="/game" element={<Game />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/notifications" element={<Notifications />} />

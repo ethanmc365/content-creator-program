@@ -37,6 +37,17 @@ export function AuthProvider({ children }) {
   const [profileLoaded, setProfileLoaded] = useState(false)
   const loadedForUser = useRef(null)
 
+  // "View as creator": an admin can preview the app exactly as a creator sees
+  // it (all admin UI hidden) for testing. Persisted so a refresh keeps it, and
+  // reset on sign-out below.
+  const [viewAsCreator, setViewAsCreatorState] = useState(
+    () => typeof localStorage !== 'undefined' && localStorage.getItem('tryp_view_as_creator') === '1'
+  )
+  const setViewAsCreator = useCallback((on) => {
+    setViewAsCreatorState(on)
+    try { on ? localStorage.setItem('tryp_view_as_creator', '1') : localStorage.removeItem('tryp_view_as_creator') } catch { /* ignore */ }
+  }, [])
+
   // Storage validates tokens against the asymmetric (ES256) signing key. A
   // session minted under the old HS256 key can't upload (RLS sees no user), so
   // if we spot a legacy-algorithm access token we silently refresh it once to
@@ -133,11 +144,20 @@ export function AuthProvider({ children }) {
     }
   }, [fetchProfile])
 
+  const realIsAdmin = profile?.is_admin === true
+
   const value = {
     session,
     user: session?.user ?? null,
     profile,
-    isAdmin: profile?.is_admin === true,
+    // isAdmin is the EFFECTIVE flag every component gates on. When an admin
+    // turns on "view as creator" it reads false, so all admin UI and the
+    // /admin route guard hide automatically. isRealAdmin stays true so the
+    // floating "exit creator view" pill (and the admin panel toggle) still show.
+    isAdmin: realIsAdmin && !viewAsCreator,
+    isRealAdmin: realIsAdmin,
+    viewAsCreator: realIsAdmin && viewAsCreator,
+    setViewAsCreator,
     isSuspended: profile?.status === 'suspended',
     loading,
     profileLoaded,
@@ -159,7 +179,7 @@ export function AuthProvider({ children }) {
       return { data: { session: out, user: out.user ?? null }, error: null }
     },
 
-    signOut: () => supabase.auth.signOut(),
+    signOut: () => { setViewAsCreator(false); return supabase.auth.signOut() },
 
     // Rate-limited password reset (always reports success, never reveals whether
     // the email exists).

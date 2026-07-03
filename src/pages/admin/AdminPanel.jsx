@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../context/AuthContext'
 import { PageHeader, StatCard, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { formatMoney } from '../../lib/utils'
@@ -25,7 +26,16 @@ const TOOLS = [
 ]
 
 export default function AdminPanel() {
+  const { setViewAsCreator } = useAuth()
+  const navigate = useNavigate()
   const [stats, setStats] = useState(null)
+
+  // Enter "view as creator": hide all admin UI and land on Home, exactly as a
+  // creator sees it. A floating pill (in AppLayout) lets them exit again.
+  function enterCreatorView() {
+    setViewAsCreator(true)
+    navigate('/home')
+  }
 
   useEffect(() => {
     async function load() {
@@ -104,6 +114,17 @@ export default function AdminPanel() {
           <p className="mt-1 text-sm text-smoke">Manage entries and log views when it closes →</p>
         </Link>
       )}
+
+      <div className="mb-6 flex flex-col gap-4 rounded-card border border-gray-100 bg-cloud/50 p-5 shadow-card sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand"><Icon name="eye" className="h-6 w-6" /></span>
+          <div>
+            <h2 className="font-semibold">View as a creator</h2>
+            <p className="mt-1 text-xs leading-relaxed text-smoke">See the community exactly as a creator does, with all admin controls hidden. A floating button lets you switch back any time.</p>
+          </div>
+        </div>
+        <button onClick={enterCreatorView} className="btn-primary shrink-0">Enter creator view</button>
+      </div>
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {TOOLS.map((t) => (

@@ -7,7 +7,48 @@ import {
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Badge, PageHeader, Skeleton } from '../components/ui'
-import { formatDateTime, cx } from '../lib/utils'
+import { formatDateTimeTz, cx } from '../lib/utils'
+import { downloadIcs, googleCalendarUrl } from '../lib/calendar'
+
+// Map an Events-list item to calendar fields (folds the meeting link into the
+// notes so it travels into the creator's calendar app).
+function toCalEvent(e) {
+  const details = [e.description, e.meeting_url && `Join: ${e.meeting_url}`].filter(Boolean).join('\n\n')
+  return { title: e.title, start: e.date, description: details, location: e.meeting_url || '' }
+}
+
+// "Add to calendar" split button: .ics download (Apple/Outlook/any) + a Google
+// Calendar quick link. Uses a native <details> so each instance manages itself.
+function AddToCalendar({ event, subtle = false }) {
+  const cal = toCalEvent(event)
+  const close = (el) => el.closest('details')?.removeAttribute('open')
+  return (
+    <details className="group relative inline-block">
+      <summary className={cx(
+        'inline-flex cursor-pointer list-none items-center gap-1.5 font-medium',
+        subtle
+          ? 'text-xs text-brand hover:underline'
+          : 'btn border border-white/40 text-white hover:bg-white/10'
+      )}>
+        <svg viewBox="0 0 24 24" className={subtle ? 'h-3.5 w-3.5' : 'h-4 w-4'} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M12 14v4M10 16h4"/></svg>
+        Add to calendar
+      </summary>
+      <div className="absolute right-0 z-30 mt-2 w-48 overflow-hidden rounded-card border border-gray-100 bg-white p-1 text-left shadow-lift">
+        <button
+          onClick={(e) => { downloadIcs(cal); close(e.currentTarget) }}
+          className="block w-full rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-cloud"
+        >Apple / Outlook (.ics)</button>
+        <a
+          href={googleCalendarUrl(cal)}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => close(e.currentTarget)}
+          className="block w-full rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-cloud"
+        >Google Calendar ↗</a>
+      </div>
+    </details>
+  )
+}
 
 // Events calendar: admin-created events (Q&As, content days, milestones)
 // PLUS challenge start/end dates pulled in automatically so deadlines are
@@ -76,15 +117,16 @@ export default function Events() {
           <div className="mt-2 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div className="min-w-0">
               <h2 className="text-2xl font-bold sm:text-3xl">{metaFor(nextEvent.type).emoji} {nextEvent.title}</h2>
-              <p className="mt-1 text-white/85">{formatDateTime(nextEvent.date)}</p>
+              <p className="mt-1 text-white/85">{formatDateTimeTz(nextEvent.date)}</p>
               {nextEvent.description && <p className="mt-2 max-w-xl text-sm text-white/80">{nextEvent.description}</p>}
             </div>
-            <div className="flex shrink-0 gap-3">
+            <div className="flex shrink-0 flex-wrap gap-3">
               {nextEvent.meeting_url && (
                 <a href={nextEvent.meeting_url} target="_blank" rel="noopener noreferrer" className="btn bg-white text-brand hover:bg-white/90">
                   Join the call ↗
                 </a>
               )}
+              <AddToCalendar event={nextEvent} />
               {nextEvent.link && (
                 <Link to={nextEvent.link} className="btn border border-white/40 text-white hover:bg-white/10">View →</Link>
               )}
@@ -171,11 +213,14 @@ export default function Events() {
                             <p className="text-sm font-medium">{e.title}</p>
                           )}
                           {e.description && <p className="mt-0.5 text-xs text-smoke">{e.description}</p>}
-                          {e.meeting_url && (
-                            <a href={e.meeting_url} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-xs font-medium text-brand hover:underline">
-                              Join the call ↗
-                            </a>
-                          )}
+                          <div className="mt-1 flex flex-wrap items-center gap-3">
+                            {e.meeting_url && (
+                              <a href={e.meeting_url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-brand hover:underline">
+                                Join the call ↗
+                              </a>
+                            )}
+                            <AddToCalendar event={e} subtle />
+                          </div>
                         </div>
                       </li>
                     ))}
@@ -204,7 +249,7 @@ export default function Events() {
                       ) : (
                         <p className="text-sm font-semibold leading-snug">{e.title}</p>
                       )}
-                      <p className="mt-1 text-xs text-smoke">{formatDateTime(e.date)}</p>
+                      <p className="mt-1 text-xs text-smoke">{formatDateTimeTz(e.date)}</p>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <Badge tone={metaFor(e.type).tone}>
                           {metaFor(e.type).emoji} {metaFor(e.type).label}
@@ -214,6 +259,7 @@ export default function Events() {
                             Join ↗
                           </a>
                         )}
+                        <AddToCalendar event={e} subtle />
                       </div>
                     </div>
                   </li>
