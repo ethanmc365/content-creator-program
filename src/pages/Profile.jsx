@@ -6,6 +6,8 @@ import WorldMap from '../components/WorldMap'
 import PlatformBadges from '../components/PlatformBadges'
 import TravelGallery from '../components/TravelGallery'
 import AchievementBadges from '../components/AchievementBadges'
+import ConnectButton from '../components/ConnectButton'
+import { loadRelationship } from '../lib/connections'
 import { downloadShareCard } from '../lib/shareCard'
 import { Avatar, Badge, Skeleton, EmptyState } from '../components/ui'
 import Icon from '../components/Icon'
@@ -23,7 +25,7 @@ export default function Profile() {
   const [creator, setCreator] = useState(null)
   const [submissions, setSubmissions] = useState([])
   const [challengeCount, setChallengeCount] = useState(0)
-  const [isConnected, setIsConnected] = useState(false)
+  const [relation, setRelation] = useState(null)
   const [loading, setLoading] = useState(true)
   // Private contact details (email + phone), only fetched for admin viewers.
   const [contact, setContact] = useState(null)
@@ -51,21 +53,21 @@ export default function Profile() {
   useEffect(() => {
     async function load() {
       setLoading(true)
-      const [{ data: p }, { data: subs }, { data: conn }, { data: results }, { count: referralCount }] = await Promise.all([
+      const [{ data: p }, { data: subs }, rel, { data: results }, { count: referralCount }] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', id).single(),
         supabase
           .from('submissions')
           .select('*, challenges(title)')
           .eq('creator_id', id)
           .order('submitted_at', { ascending: false }),
-        supabase.from('connections').select('id').eq('creator_id', user.id).eq('connected_creator_id', id).maybeSingle(),
+        isMe ? Promise.resolve(null) : loadRelationship(user.id, id),
         supabase.from('results').select('final_views, rank').eq('creator_id', id),
         supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('referred_by', id),
       ])
       setCreator(p)
       setSubmissions(subs ?? [])
       setChallengeCount(new Set((subs ?? []).map((s) => s.challenge_id)).size)
-      setIsConnected(!!conn)
+      setRelation(rel)
       const r = results ?? []
       setBadgeStats({
         submissions: (subs ?? []).length,
@@ -80,7 +82,7 @@ export default function Profile() {
       setLoading(false)
     }
     load()
-  }, [id, user.id])
+  }, [id, user.id, isMe])
 
   // Admins (and only admins) see the creator's email + phone. The RPC and the
   // creator_private RLS both enforce admin-only access server-side too.
@@ -97,16 +99,7 @@ export default function Profile() {
       })
     }
     loadContact()
-  }, [id, viewerIsAdmin])
-
-  async function toggleConnect() {
-    setIsConnected((c) => !c)
-    if (isConnected) {
-      await supabase.from('connections').delete().eq('creator_id', user.id).eq('connected_creator_id', id)
-    } else {
-      await supabase.from('connections').insert({ creator_id: user.id, connected_creator_id: id })
-    }
-  }
+  }, [id, viewerIsAdmin, isMe])
 
   async function startMessage() {
     const { data: existing } = await supabase
@@ -192,9 +185,13 @@ export default function Profile() {
             </>
           ) : (
             <>
-              <button onClick={toggleConnect} className={isConnected ? 'btn-secondary' : 'btn-primary'}>
-                {isConnected ? '✓ Connected' : 'Connect'}
-              </button>
+              <ConnectButton
+                myId={user.id}
+                targetId={id}
+                relation={relation}
+                onChange={setRelation}
+                className="!py-2.5"
+              />
               <button onClick={startMessage} className="btn-secondary">Message</button>
             </>
           )}

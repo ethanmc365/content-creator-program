@@ -112,7 +112,7 @@ export default function Events() {
 
       {/* ---------- Next-up hero card ---------- */}
       {!loading && nextEvent && (
-        <div className="mb-10 overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-7 text-white shadow-lift sm:p-9">
+        <div className="relative z-10 mb-10 rounded-card bg-gradient-to-br from-brand to-brand-light p-7 text-white shadow-lift sm:p-9">
           <p className="text-xs font-semibold uppercase tracking-wider text-white/75">Next up</p>
           <div className="mt-2 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div className="min-w-0">

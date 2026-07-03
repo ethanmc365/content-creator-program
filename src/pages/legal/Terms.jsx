@@ -3,7 +3,7 @@ import LegalShell, { H2 } from './LegalShell'
 // Filled in for Tryp.com LDA (Portugal). Have a lawyer review before launch.
 export default function Terms() {
   return (
-    <LegalShell title="Terms of Service" updated="24 June 2026">
+    <LegalShell title="Terms of Service" updated="3 July 2026">
       <p>
         These terms govern your use of the Tryp.com Content Creator Program ("the Program"). By
         creating an account you agree to them. The Program is operated by{' '}
@@ -17,11 +17,20 @@ export default function Terms() {
         keeping your login details secure and for activity on your account.
       </p>
 
-      <H2>2. Your content</H2>
+      <H2>2. Your content and marketing licence</H2>
       <p>
         You keep ownership of the content you post (photos, videos, messages). By posting it you give
         us a licence to display it within the Program. You agree your content is yours to share,
         represents Tryp.com honestly, and doesn't break the law or infringe anyone's rights.
+      </p>
+      <p>
+        In addition, by submitting content to a challenge or otherwise sharing it in the Program,{' '}
+        <strong>you grant Tryp.com a worldwide, royalty-free licence to reuse that content in its
+        marketing</strong> - for example on Tryp.com's website, social channels, email, and
+        advertising - with attribution to you where reasonably practical. This licence continues for
+        content already published even if you later leave the Program. If you want a specific piece of
+        content removed from our marketing, email <strong>info@tryp.com</strong> and we'll act on
+        reasonable requests.
       </p>
 
       <H2>3. Acceptable use</H2>

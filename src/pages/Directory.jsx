@@ -4,13 +4,14 @@ import { useAuth } from '../context/AuthContext'
 import CreatorCard from '../components/CreatorCard'
 import { PageHeader, SkeletonCards, EmptyState } from '../components/ui'
 import { platformsForProfile } from '../components/PlatformBadges'
+import { loadRelationships } from '../lib/connections'
 
 // The creator directory: a spacious grid of cards with search + filters
 // (name, country visited, language, platform).
 export default function Directory() {
   const { user } = useAuth()
   const [creators, setCreators] = useState([])
-  const [myConnections, setMyConnections] = useState(new Set())
+  const [relationships, setRelationships] = useState(new Map())
   const [loading, setLoading] = useState(true)
 
   const [search, setSearch] = useState('')
@@ -20,12 +21,12 @@ export default function Directory() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: profiles }, { data: connections }] = await Promise.all([
+      const [{ data: profiles }, rels] = await Promise.all([
         supabase.from('profiles').select('*').eq('status', 'active').is('deletion_requested_at', null).order('created_at', { ascending: false }),
-        supabase.from('connections').select('connected_creator_id').eq('creator_id', user.id),
+        loadRelationships(user.id),
       ])
       setCreators(profiles ?? [])
-      setMyConnections(new Set((connections ?? []).map((c) => c.connected_creator_id)))
+      setRelationships(rels)
       setLoading(false)
     }
     load()
@@ -97,12 +98,12 @@ export default function Directory() {
             <CreatorCard
               key={c.id}
               creator={c}
-              isConnected={myConnections.has(c.id)}
-              onConnectChange={(id, connected) =>
-                setMyConnections((prev) => {
-                  const next = new Set(prev)
-                  connected ? next.add(id) : next.delete(id)
-                  return next
+              relation={relationships.get(c.id) || null}
+              onRelationChange={(id, next) =>
+                setRelationships((prev) => {
+                  const map = new Map(prev)
+                  next ? map.set(id, next) : map.delete(id)
+                  return map
                 })
               }
             />

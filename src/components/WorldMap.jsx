@@ -1,5 +1,6 @@
 import { memo, useEffect, useMemo, useState } from 'react'
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from 'react-simple-maps'
+import { GEO_URL, loadMapCountryNames } from '../lib/mapCountries'
 
 // Interactive world map for "countries visited".
 //  * Free & open source: react-simple-maps + the world-atlas TopoJSON from
@@ -11,42 +12,24 @@ import { ComposableMap, Geographies, Geography, ZoomableGroup } from 'react-simp
 //
 // On phones, tapping tiny countries on the map is fiddly, so when selectable
 // we ALSO show a type-to-add search box + removable chips. The search list is
-// built from the map's OWN TopoJSON, so the names always match exactly what a
-// map tap would store (no "United States" vs "United States of America" drift).
-const GEO_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json'
-
+// built from the map's OWN TopoJSON (via lib/mapCountries), so the names always
+// match exactly what a map tap stores.
 const BRAND = '#d94407'
 const BRAND_LIGHT = '#f5853f'
 const UNSELECTED = '#ECECEE'
-
-// Cache the extracted country-name list across mounts (the file is static).
-let NAME_CACHE = null
 
 function WorldMap({ selected = [], onToggle, selectable = false }) {
   const [tooltip, setTooltip] = useState('')
   const [position, setPosition] = useState({ coordinates: [12, 8], zoom: 1 })
   const [query, setQuery] = useState('')
-  const [allNames, setAllNames] = useState(NAME_CACHE || [])
+  const [allNames, setAllNames] = useState([])
   const selectedSet = new Set(selected)
 
-  // Pull the full country-name list from the same TopoJSON the map renders.
-  // TopoJSON geometries carry properties.name directly, so no extra library
-  // is needed and the names are guaranteed identical to the clickable map.
+  // The full country-name list for the search box, shared with the collab board.
   useEffect(() => {
-    if (!selectable || NAME_CACHE) return
+    if (!selectable) return
     let cancelled = false
-    fetch(GEO_URL)
-      .then((r) => r.json())
-      .then((topo) => {
-        const geoms = topo?.objects?.countries?.geometries || []
-        const names = geoms
-          .map((g) => g.properties?.name)
-          .filter((n) => n && n !== 'Antarctica')
-          .sort((a, b) => a.localeCompare(b))
-        NAME_CACHE = names
-        if (!cancelled) setAllNames(names)
-      })
-      .catch(() => { /* map still works; search just stays empty */ })
+    loadMapCountryNames().then((names) => { if (!cancelled) setAllNames(names) })
     return () => { cancelled = true }
   }, [selectable])
 

@@ -115,17 +115,6 @@ export default function AdminPanel() {
         </Link>
       )}
 
-      <div className="mb-6 flex flex-col gap-4 rounded-card border border-gray-100 bg-cloud/50 p-5 shadow-card sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand"><Icon name="eye" className="h-6 w-6" /></span>
-          <div>
-            <h2 className="font-semibold">View as a creator</h2>
-            <p className="mt-1 text-xs leading-relaxed text-smoke">See the community exactly as a creator does, with all admin controls hidden. A floating button lets you switch back any time.</p>
-          </div>
-        </div>
-        <button onClick={enterCreatorView} className="btn-primary shrink-0">Enter creator view</button>
-      </div>
-
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {TOOLS.map((t) => (
           <Link key={t.to} to={t.to} className="card group !p-7 transition-all hover:-translate-y-0.5 hover:shadow-lift">
@@ -136,6 +125,16 @@ export default function AdminPanel() {
             <p className="mt-2 text-xs leading-relaxed text-smoke">{t.text}</p>
           </Link>
         ))}
+
+        {/* View-as-creator sits alongside the tools as a matching card, but it's
+            an action (not a link): it hides all admin UI until you exit. */}
+        <button onClick={enterCreatorView} className="card group !p-7 text-left transition-all hover:-translate-y-0.5 hover:shadow-lift">
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-tint text-brand">
+            <Icon name="eye" className="h-6 w-6" />
+          </span>
+          <h2 className="mt-4 font-semibold group-hover:text-brand">View as creator</h2>
+          <p className="mt-2 text-xs leading-relaxed text-smoke">See the community exactly as a creator does. A floating button switches you back any time.</p>
+        </button>
       </div>
     </div>
   )

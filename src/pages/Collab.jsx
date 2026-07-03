@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Avatar, Badge, EmptyState, PageHeader, Skeleton, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
+import WorldMap from '../components/WorldMap'
+import { loadMapCountryNames, canonicalCountry } from '../lib/mapCountries'
 
 // Travel collab board. Creators post "I'll be in <city> on <dates>" and others
 // browse who's travelling where, then reach out via DM to meet up, grab a
@@ -35,7 +37,23 @@ export default function Collab() {
   const [form, setForm] = useState({ city: '', country: '', start_date: '', end_date: '', note: '' })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [countryNames, setCountryNames] = useState([])
   const canPost = profile?.status === 'active'
+
+  // Country names that match the world map, for the picker + the board maps.
+  useEffect(() => { loadMapCountryNames().then(setCountryNames) }, [])
+
+  // Distinct countries across all upcoming trips (canonicalised to map names)
+  // for the big board map at the bottom.
+  const boardCountries = useMemo(() => {
+    if (!posts) return []
+    const set = new Set()
+    for (const p of posts) {
+      const c = canonicalCountry(p.country, countryNames)
+      if (c) set.add(c)
+    }
+    return [...set]
+  }, [posts, countryNames])
 
   async function load() {
     // Ongoing or upcoming trips only (nothing already finished).
@@ -114,9 +132,13 @@ export default function Collab() {
                 onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} maxLength={60} />
             </div>
             <div>
-              <label htmlFor="country" className="label">Country <span className="text-smoke">(optional)</span></label>
-              <input id="country" className="input" placeholder="Portugal" value={form.country}
+              <label htmlFor="country" className="label">Country <span className="text-smoke">(shows on the map)</span></label>
+              <input id="country" className="input" placeholder="Start typing…" value={form.country}
+                list="collab-country-list" autoComplete="off"
                 onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))} maxLength={60} />
+              <datalist id="collab-country-list">
+                {countryNames.map((n) => <option key={n} value={n} />)}
+              </datalist>
             </div>
             <div>
               <label htmlFor="start" className="label">From</label>
@@ -156,6 +178,7 @@ export default function Collab() {
           {posts.map((p) => {
             const person = p.profiles || {}
             const mine = p.creator_id === user.id
+            const mapCountry = canonicalCountry(p.country, countryNames)
             return (
               <div key={p.id} className="card flex flex-col gap-4 !p-6">
                 <div className="flex items-start justify-between gap-3">
@@ -178,6 +201,13 @@ export default function Collab() {
 
                 <Badge tone="brand"><Icon name="calendar" className="mr-1 inline h-3.5 w-3.5" />{fmtRange(p.start_date, p.end_date)}</Badge>
 
+                {/* Little map with their country highlighted, for a visual cue. */}
+                {mapCountry && (
+                  <div className="overflow-hidden rounded-card">
+                    <WorldMap selected={[mapCountry]} />
+                  </div>
+                )}
+
                 {p.note && <p className="text-sm leading-relaxed text-ink/90">{p.note}</p>}
 
                 {!mine && (
@@ -190,6 +220,24 @@ export default function Collab() {
             )
           })}
         </div>
+      )}
+
+      {/* ---- Big board map: everywhere the community is headed ---- */}
+      {boardCountries.length > 0 && (
+        <section className="mt-12">
+          <h2 className="mb-1 text-lg font-semibold">Where everyone's headed</h2>
+          <p className="mb-5 text-sm text-smoke">Every country with an upcoming trip, highlighted.</p>
+          <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
+            <WorldMap selected={boardCountries} />
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {boardCountries.sort((a, b) => a.localeCompare(b)).map((c) => (
+              <span key={c} className="inline-flex items-center gap-1.5 rounded-full bg-brand-tint px-3 py-1 text-xs font-medium text-brand">
+                <Icon name="pin" className="h-3.5 w-3.5" />{c}
+              </span>
+            ))}
+          </div>
+        </section>
       )}
     </div>
   )

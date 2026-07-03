@@ -1,29 +1,16 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { Avatar, Badge } from './ui'
 import PlatformBadges, { platformsForProfile } from './PlatformBadges'
+import ConnectButton from './ConnectButton'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
-import { useState } from 'react'
 
 // One creator in the directory grid. Whole card links to the profile;
 // Connect / Message are quick actions in the footer.
-export default function CreatorCard({ creator, isConnected, onConnectChange }) {
+export default function CreatorCard({ creator, relation, onRelationChange }) {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [busy, setBusy] = useState(false)
   const isMe = creator.id === user?.id
-
-  async function toggleConnect(e) {
-    e.preventDefault() // don't trigger the card link
-    setBusy(true)
-    if (isConnected) {
-      await supabase.from('connections').delete().eq('creator_id', user.id).eq('connected_creator_id', creator.id)
-    } else {
-      await supabase.from('connections').insert({ creator_id: user.id, connected_creator_id: creator.id })
-    }
-    onConnectChange?.(creator.id, !isConnected)
-    setBusy(false)
-  }
 
   // Open (or create) the 1:1 conversation, then jump into it.
   async function message(e) {
@@ -67,9 +54,12 @@ export default function CreatorCard({ creator, isConnected, onConnectChange }) {
 
       {!isMe && (
         <div className="mt-auto flex gap-2 border-t border-gray-100 pt-4">
-          <button onClick={toggleConnect} disabled={busy} className={isConnected ? 'btn-secondary flex-1 !py-2 text-xs' : 'btn-primary flex-1 !py-2 text-xs'}>
-            {isConnected ? '✓ Connected' : 'Connect'}
-          </button>
+          <ConnectButton
+            myId={user.id}
+            targetId={creator.id}
+            relation={relation}
+            onChange={(next) => onRelationChange?.(creator.id, next)}
+          />
           <button onClick={message} className="btn-secondary flex-1 !py-2 text-xs">
             Message
           </button>
