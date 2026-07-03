@@ -45,6 +45,7 @@ import AdminResults from './pages/admin/AdminResults'
 import AdminRewards from './pages/admin/AdminRewards'
 import AdminAnalytics from './pages/admin/AdminAnalytics'
 import AdminChallengeAnalytics from './pages/admin/AdminChallengeAnalytics'
+import AdminNetwork from './pages/admin/AdminNetwork'
 import AdminEvents from './pages/admin/AdminEvents'
 import AdminResources from './pages/admin/AdminResources'
 import AdminJobs from './pages/admin/AdminJobs'
@@ -111,6 +112,7 @@ export default function App() {
             <Route path="/admin/rewards" element={<AdminRewards />} />
             <Route path="/admin/analytics" element={<AdminAnalytics />} />
             <Route path="/admin/analytics/:id" element={<AdminChallengeAnalytics />} />
+            <Route path="/admin/network" element={<AdminNetwork />} />
             <Route path="/admin/events" element={<AdminEvents />} />
             <Route path="/admin/resources" element={<AdminResources />} />
             <Route path="/admin/jobs" element={<AdminJobs />} />

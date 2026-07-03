@@ -31,7 +31,8 @@ export default function AdminCreators() {
       supabase.rpc('admin_list_emails'),
       supabase.rpc('admin_list_last_seen'),
     ])
-    setCreators(profiles ?? [])
+    // Hidden QA/test accounts never show in the roster.
+    setCreators((profiles ?? []).filter((p) => !p.is_test))
     setEmails(Object.fromEntries((emailRows ?? []).map((r) => [r.id, r.email])))
     setLastSeen(Object.fromEntries((seenRows ?? []).map((r) => [r.id, r.last_sign_in_at])))
     setInactiveBefore(Date.now() - 30 * 86400000)

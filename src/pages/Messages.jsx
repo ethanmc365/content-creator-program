@@ -246,7 +246,7 @@ export default function Messages() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="truncate text-sm font-semibold">{c.other?.name ?? 'Creator'}</p>
-                    {c.other?.is_admin && <Badge tone="light" className="!px-2 !py-0">Tryp</Badge>}
+                    {c.other?.is_admin && <Badge tone="light" className="!px-2 !py-0">Tryp.com</Badge>}
                   </div>
                   <p className="truncate text-xs text-smoke">{formatChatTime(c.last_message_at)}</p>
                 </div>

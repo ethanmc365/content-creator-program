@@ -16,5 +16,18 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // of white-screening when the .env file hasn't been created yet.
 export const supabase = createClient(
   supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseAnonKey || 'placeholder-anon-key'
+  supabaseAnonKey || 'placeholder-anon-key',
+  {
+    auth: {
+      // Keep people signed in until they explicitly log out. The session is
+      // saved to localStorage and the access token is silently refreshed in the
+      // background, so a returning visitor (even days later) stays logged in.
+      // NOTE: storageKey is intentionally left at the default so existing
+      // sessions survive this change (changing it would log everyone out).
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    },
+  }
 )

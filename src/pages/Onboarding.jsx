@@ -215,7 +215,7 @@ export default function Onboarding() {
             <div className="space-y-6">
               <div className="text-center">
                 <h2 className="text-2xl font-bold">Paint your travel map</h2>
-                <p className="mt-2 text-sm text-smoke">Tap every country you've visited and watch it glow Tryp orange on your profile.</p>
+                <p className="mt-2 text-sm text-smoke">Tap every country you've visited and watch it glow Tryp.com orange on your profile.</p>
               </div>
               <WorldMap
                 selectable

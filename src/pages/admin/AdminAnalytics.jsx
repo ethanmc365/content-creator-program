@@ -88,7 +88,7 @@ export default function AdminAnalytics() {
         { data: rewards }, { data: messages }, { data: results },
         { data: feedback }, { count: reactionCount }, { count: pollVoteCount },
       ] = await Promise.all([
-        supabase.from('profiles').select('id, name, created_at, status, is_admin, onboarded, referred_by, deletion_requested_at'),
+        supabase.from('profiles').select('id, name, created_at, status, is_admin, onboarded, referred_by, deletion_requested_at, is_test'),
         supabase.from('challenges').select('id, title, status, start_date').neq('status', 'draft').order('start_date'),
         supabase.from('submissions').select('id, challenge_id, creator_id, logged_views, submitted_at'),
         supabase.from('rewards').select('amount, status, challenge_id, reward_type'),
@@ -114,7 +114,7 @@ export default function AdminAnalytics() {
     if (!raw) return null
     const { profiles, challenges, submissions, rewards, messages, results, feedback, reactionCount, pollVoteCount } = raw
 
-    const realCreators = profiles.filter((p) => !p.is_admin && !p.deletion_requested_at)
+    const realCreators = profiles.filter((p) => !p.is_admin && !p.deletion_requested_at && !p.is_test)
 
     // 1. Creator growth: new sign-ups per month + cumulative total.
     const byMonth = {}

@@ -33,8 +33,8 @@ export default function Home() {
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle(),
-          supabase.from('profiles').select('id, name, photo_url, bio').eq('status', 'active').is('deletion_requested_at', null).order('created_at', { ascending: false }).limit(4),
-          supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'active').eq('is_admin', false).is('deletion_requested_at', null),
+          supabase.from('profiles').select('id, name, photo_url, bio').eq('status', 'active').eq('is_test', false).is('deletion_requested_at', null).order('created_at', { ascending: false }).limit(4),
+          supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'active').eq('is_admin', false).eq('is_test', false).is('deletion_requested_at', null),
           supabase.from('rewards').select('amount').eq('status', 'distributed'),
         ])
 
@@ -46,8 +46,11 @@ export default function Home() {
         prizes: (paid ?? []).reduce((sum, r) => sum + Number(r.amount), 0),
       })
 
-      // Combined "where we've been" map: union of every creator's countries.
+      // Combined "where we've been" map: union of countries across ACCEPTED
+      // (active, non-deleted, non-test) creators only - pending signups no
+      // longer inflate the count.
       const { data: visited } = await supabase.from('profiles').select('countries_visited')
+        .eq('status', 'active').eq('is_test', false).is('deletion_requested_at', null)
       setAllCountries([...new Set((visited ?? []).flatMap((p) => p.countries_visited || []))])
 
       if (ch) {

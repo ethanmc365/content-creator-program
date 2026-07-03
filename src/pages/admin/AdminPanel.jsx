@@ -13,6 +13,7 @@ const TOOLS = [
   { to: '/admin/challenges', icon: 'flag', title: 'Challenges', text: 'Create, edit, close and archive challenges.' },
   { to: '/admin/rewards', icon: 'money', title: 'Rewards', text: 'Manage payouts, mark distributed, export for accounting.' },
   { to: '/admin/analytics', icon: 'chart', title: 'Analytics', text: 'Growth, submissions, views and spend, with CSV export.' },
+  { to: '/admin/network', icon: 'users', title: 'Community network', text: 'Who is connecting with whom and the best-connected creators.' },
   { to: '/chat/announcements', icon: 'megaphone', title: 'Announcements', text: 'Post official updates. Every creator gets notified.' },
   { to: '/admin/email', icon: 'envelope', title: 'Email creators', text: 'Compose one message and send it to every creator.' },
   { to: '/admin/jobs', icon: 'briefcase', title: 'Jobs', text: 'Post roles you are hiring for. Every creator gets notified.' },
@@ -41,7 +42,7 @@ export default function AdminPanel() {
     async function load() {
       const [{ count: creators }, { count: pendingRewards }, { data: active }, { data: paid }, { count: subsThisChallenge }, { count: pendingApps }, { count: newFeedback }] =
         await Promise.all([
-          supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'active').eq('is_admin', false).is('deletion_requested_at', null),
+          supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'active').eq('is_admin', false).eq('is_test', false).is('deletion_requested_at', null),
           supabase.from('rewards').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
           supabase.from('challenges').select('id, title, end_date').eq('status', 'active').limit(1).maybeSingle(),
           supabase.from('rewards').select('amount').eq('status', 'distributed'),

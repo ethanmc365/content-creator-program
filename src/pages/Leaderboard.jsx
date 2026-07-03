@@ -14,11 +14,11 @@ export default function Leaderboard() {
     async function load() {
       const { data: results } = await supabase
         .from('results')
-        .select('creator_id, final_views, rank, profiles:creator_id(id, name, photo_url, status, deletion_requested_at, is_admin)')
+        .select('creator_id, final_views, rank, profiles:creator_id(id, name, photo_url, status, deletion_requested_at, is_admin, is_test)')
       const byCreator = new Map()
       for (const r of results ?? []) {
         const p = r.profiles
-        if (!p || p.status !== 'active' || p.deletion_requested_at || p.is_admin) continue
+        if (!p || p.status !== 'active' || p.deletion_requested_at || p.is_admin || p.is_test) continue
         const e = byCreator.get(p.id) || { id: p.id, name: p.name, photo_url: p.photo_url, views: 0, entries: 0, wins: 0 }
         e.views += r.final_views || 0
         e.entries += 1

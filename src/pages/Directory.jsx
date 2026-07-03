@@ -22,7 +22,7 @@ export default function Directory() {
   useEffect(() => {
     async function load() {
       const [{ data: profiles }, rels] = await Promise.all([
-        supabase.from('profiles').select('*').eq('status', 'active').is('deletion_requested_at', null).order('created_at', { ascending: false }),
+        supabase.from('profiles').select('*').eq('status', 'active').eq('is_test', false).is('deletion_requested_at', null).order('created_at', { ascending: false }),
         loadRelationships(user.id),
       ])
       setCreators(profiles ?? [])

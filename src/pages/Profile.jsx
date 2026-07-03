@@ -303,7 +303,7 @@ export default function Profile() {
       </section>
 
       {/* ---------- Where I'm headed next (upcoming collab trips) ---------- */}
-      {(trips.length > 0 || isMe) && !creator.is_admin && (
+      {(trips.length > 0 || isMe) && (
         <section>
           <div className="mb-4 flex items-baseline justify-between">
             <h2 className="text-lg font-semibold">
