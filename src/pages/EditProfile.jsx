@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { format } from 'date-fns'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { AvatarUpload, LanguageSelect, SocialInputs, DobField, PhoneInput, QuoteField } from '../components/ProfileFields'
 import WorldMap from '../components/WorldMap'
 import TravelGallery from '../components/TravelGallery'
+import { flagForCountry } from '../lib/flags'
 import { PageHeader, Spinner } from '../components/ui'
 
 // Edit every part of your own profile on one calm page.
@@ -42,6 +44,18 @@ export default function EditProfile() {
       .eq('id', user.id)
       .maybeSingle()
       .then(({ data }) => { if (data) setContact({ phone: data.phone || '', phone_country: data.phone_country || '' }) })
+  }, [user.id])
+
+  // Upcoming trips, shown read-only here (managed on the collab board).
+  const [trips, setTrips] = useState([])
+  useEffect(() => {
+    supabase
+      .from('collab_posts')
+      .select('id, city, country, start_date, end_date')
+      .eq('creator_id', user.id)
+      .gte('end_date', format(new Date(), 'yyyy-MM-dd'))
+      .order('start_date', { ascending: true })
+      .then(({ data }) => setTrips(data ?? []))
   }, [user.id])
 
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
@@ -187,6 +201,28 @@ export default function EditProfile() {
               + Add another link
             </button>
           </div>
+        </section>
+
+        <section className="card space-y-5">
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-lg font-semibold">Where I'm headed next</h2>
+            <Link to="/collab" className="text-sm font-medium text-brand hover:underline">Manage on the collab board</Link>
+          </div>
+          {trips.length === 0 ? (
+            <p className="text-sm text-smoke">No upcoming trips. Post where you’re headed on the collab board so nearby creators can meet up.</p>
+          ) : (
+            <div className="flex flex-wrap gap-3">
+              {trips.map((t) => (
+                <Link key={t.id} to="/collab" className="flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-lift">
+                  <span className="text-2xl leading-none" aria-hidden>{flagForCountry(t.country) || '📍'}</span>
+                  <span>
+                    <span className="block text-sm font-semibold">{t.city}{t.country ? `, ${t.country}` : ''}</span>
+                    <span className="block text-xs text-smoke">{format(new Date(t.start_date), 'd MMM')} – {format(new Date(t.end_date), 'd MMM yyyy')}</span>
+                  </span>
+                </Link>
+              ))}
+            </div>
+          )}
         </section>
 
         <section className="card space-y-5">

@@ -106,7 +106,7 @@ export default function Connections() {
                     <p className="truncate text-xs text-smoke">{s.reason ? `You both entered ${s.reason}` : 'In the community'}</p>
                   </div>
                 </Link>
-                <ConnectButton myId={user.id} targetId={s.id} relation={null} onChange={() => {}} className="shrink-0 !py-2 text-xs" />
+                <ConnectButton myId={user.id} targetId={s.id} relation={null} onChange={() => setSuggestions((list) => list.filter((x) => x.id !== s.id))} className="shrink-0 !py-2 text-xs" />
               </div>
             ))}
           </div>

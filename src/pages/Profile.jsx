@@ -274,34 +274,6 @@ export default function Profile() {
         </section>
       )}
 
-      {/* ---------- Languages ---------- */}
-      {creator.languages?.length > 0 && (
-        <section>
-          <h2 className="mb-3 text-lg font-semibold">Languages</h2>
-          <div className="flex flex-wrap gap-2">
-            {creator.languages.map((l) => <Badge key={l} tone="light">{l}</Badge>)}
-          </div>
-        </section>
-      )}
-
-      {/* ---------- World map (countries visited) ---------- */}
-      <section>
-        <div className="mb-4 flex items-baseline justify-between">
-          <h2 className="text-lg font-semibold">
-            {creator.countries_visited?.length || 0} {creator.countries_visited?.length === 1 ? 'country' : 'countries'} visited
-          </h2>
-          {isMe && <Link to="/profile/edit" className="text-sm font-medium text-brand hover:underline">Update map</Link>}
-        </div>
-        <WorldMap selected={creator.countries_visited || []} />
-        {creator.countries_visited?.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {[...creator.countries_visited].sort().map((c) => (
-              <Badge key={c} tone="grey">{c}</Badge>
-            ))}
-          </div>
-        )}
-      </section>
-
       {/* ---------- Where I'm headed next (upcoming collab trips) ---------- */}
       {(trips.length > 0 || isMe) && (
         <section>
@@ -331,6 +303,34 @@ export default function Profile() {
           )}
         </section>
       )}
+
+      {/* ---------- Languages ---------- */}
+      {creator.languages?.length > 0 && (
+        <section>
+          <h2 className="mb-3 text-lg font-semibold">Languages</h2>
+          <div className="flex flex-wrap gap-2">
+            {creator.languages.map((l) => <Badge key={l} tone="light">{l}</Badge>)}
+          </div>
+        </section>
+      )}
+
+      {/* ---------- World map (countries visited) ---------- */}
+      <section>
+        <div className="mb-4 flex items-baseline justify-between">
+          <h2 className="text-lg font-semibold">
+            {creator.countries_visited?.length || 0} {creator.countries_visited?.length === 1 ? 'country' : 'countries'} visited
+          </h2>
+          {isMe && <Link to="/profile/edit" className="text-sm font-medium text-brand hover:underline">Update map</Link>}
+        </div>
+        <WorldMap selected={creator.countries_visited || []} />
+        {creator.countries_visited?.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {[...creator.countries_visited].sort().map((c) => (
+              <Badge key={c} tone="grey">{c}</Badge>
+            ))}
+          </div>
+        )}
+      </section>
 
       {/* ---------- Travel photos ---------- */}
       <ProfileGallery creatorId={creator.id} isMe={isMe} />

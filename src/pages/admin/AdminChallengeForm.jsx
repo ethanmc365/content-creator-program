@@ -29,7 +29,7 @@ export default function AdminChallengeForm() {
     title: '',
     description: '',
     rules: '',
-    hashtags: '#TrypCreators',
+    hashtags: '',
     platforms: ['Instagram', 'TikTok'],
     prize_structure: DEFAULT_PRIZES,
     startDateStr: '', startTimeStr: '',
@@ -136,7 +136,7 @@ export default function AdminChallengeForm() {
           </div>
           <div>
             <label htmlFor="hashtags" className="label">Hashtags <span className="font-normal text-smoke">(space-separated)</span></label>
-            <input id="hashtags" type="text" className="input" value={form.hashtags} onChange={(e) => set({ hashtags: e.target.value })} placeholder="#TrypCreators #SameTripLessMoney" />
+            <input id="hashtags" type="text" className="input" value={form.hashtags} onChange={(e) => set({ hashtags: e.target.value })} placeholder="#SameTripLessMoney #HiddenGems" />
           </div>
         </section>
 

@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { format } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import CountdownTimer from '../components/CountdownTimer'
 import WorldMap from '../components/WorldMap'
 import Icon from '../components/Icon'
 import { Avatar, Badge, Skeleton, StatCard } from '../components/ui'
+import { flagForCountry } from '../lib/flags'
 import { formatDate, timeAgo, formatMoney } from '../lib/utils'
 
 // Signed-in home: the CURRENT challenge front and centre with a live
@@ -17,6 +19,7 @@ export default function Home() {
   const [mySubmissions, setMySubmissions] = useState([])
   const [announcement, setAnnouncement] = useState(null)
   const [newCreators, setNewCreators] = useState([])
+  const [upcomingTrips, setUpcomingTrips] = useState([])
   const [stats, setStats] = useState({ creators: 0, prizes: 0 })
   const [loading, setLoading] = useState(true)
 
@@ -52,6 +55,16 @@ export default function Home() {
       const { data: visited } = await supabase.from('profiles').select('countries_visited')
         .eq('status', 'active').eq('is_test', false).is('deletion_requested_at', null)
       setAllCountries([...new Set((visited ?? []).flatMap((p) => p.countries_visited || []))])
+
+      // Upcoming trips from the collab board, for the "creators on the move" nudge.
+      const today = new Date().toISOString().slice(0, 10)
+      const { data: tripsData } = await supabase
+        .from('collab_posts')
+        .select('id, city, country, start_date, end_date, profiles:creator_id(name, photo_url)')
+        .gte('end_date', today)
+        .order('start_date', { ascending: true })
+        .limit(6)
+      setUpcomingTrips(tripsData ?? [])
 
       if (ch) {
         const { data: subs } = await supabase
@@ -157,6 +170,27 @@ export default function Home() {
               </p>
             )}
           </Link>
+        </section>
+      )}
+
+      {/* ---------- Creators on the move (collab board nudge) ---------- */}
+      {upcomingTrips.length > 0 && (
+        <section>
+          <div className="mb-4 flex items-baseline justify-between">
+            <h2 className="flex items-center gap-2 text-lg font-semibold"><Icon name="pin" className="h-5 w-5 text-brand" /> Creators on the move</h2>
+            <Link to="/collab" className="text-sm font-medium text-brand hover:underline">Collab board →</Link>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {upcomingTrips.map((t) => (
+              <Link key={t.id} to="/collab" className="card flex items-center gap-3 !p-4 transition-all hover:-translate-y-0.5 hover:shadow-lift">
+                <Avatar src={t.profiles?.photo_url} name={t.profiles?.name} size="sm" />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">{t.profiles?.name?.split(' ')[0]} → {flagForCountry(t.country)} {t.city}</p>
+                  <p className="truncate text-xs text-smoke">{format(new Date(t.start_date), 'd MMM')} – {format(new Date(t.end_date), 'd MMM')}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
         </section>
       )}
 
