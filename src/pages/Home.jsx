@@ -8,6 +8,7 @@ import WorldMap from '../components/WorldMap'
 import Icon from '../components/Icon'
 import { Avatar, Badge, Skeleton, StatCard } from '../components/ui'
 import { flagForCountry } from '../lib/flags'
+import { stripMarkup } from '../lib/richText'
 import { formatDate, timeAgo, formatMoney } from '../lib/utils'
 
 // Signed-in home: the CURRENT challenge front and centre with a live
@@ -162,7 +163,7 @@ export default function Home() {
               </div>
             </div>
             {announcement.body ? (
-              <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-ink">{announcement.body}</p>
+              <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-ink">{stripMarkup(announcement.body)}</p>
             ) : (
               <p className="mt-4 flex items-center gap-2 text-sm font-medium text-brand">
                 <Icon name={announcement.poll_id ? 'poll' : announcement.game_event_id ? 'joystick' : announcement.resource_id ? 'book' : 'megaphone'} className="h-4 w-4" />

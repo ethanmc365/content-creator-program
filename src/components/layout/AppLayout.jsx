@@ -7,6 +7,7 @@ import Icon from '../Icon'
 import NotificationBell from './NotificationBell'
 import PullToRefresh from '../PullToRefresh'
 import { showLocalNotification } from '../../lib/push'
+import { stripMarkup } from '../../lib/richText'
 import { cx } from '../../lib/utils'
 
 // The signed-in app shell. One shared set of icon tabs powers BOTH the
@@ -59,7 +60,7 @@ export default function AppLayout() {
         (payload) => {
           const m = payload.new
           if (m.sender_id === user.id || !m.body || document.visibilityState === 'visible') return
-          showLocalNotification({ title: 'New message in #general', body: m.body.slice(0, 120), link: '/chat/general', tag: `chat-${m.id}` })
+          showLocalNotification({ title: 'New message in #general', body: stripMarkup(m.body).slice(0, 120), link: '/chat/general', tag: `chat-${m.id}` })
         })
       .subscribe()
     return () => supabase.removeChannel(channel)

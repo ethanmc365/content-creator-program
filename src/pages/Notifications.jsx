@@ -11,6 +11,7 @@ const TYPE_ICON = {
   challenge: 'flag', announcement: 'megaphone', results: 'trophy',
   reward: 'money', deadline: 'clock', connection: 'users', dm: 'chat',
   event: 'calendar', application: 'shield', chat: 'chat', feedback: 'chat',
+  collab: 'pin', mention: 'chat',
 }
 
 // Full notification history (the bell shows only the latest few).

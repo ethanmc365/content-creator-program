@@ -11,6 +11,7 @@ import BirthdayCard from '../components/BirthdayCard'
 import ResourceCard from '../components/ResourceCard'
 import { CONTINENTS } from '../lib/countries'
 import { formatChatTime, cx } from '../lib/utils'
+import { renderMessageBody } from '../lib/richText'
 
 // Real-time community chat - the WhatsApp replacement.
 //  * Three channels: #general, #announcements (admin-post-only), #content-tips.
@@ -42,6 +43,19 @@ export default function Chat() {
   const [attachError, setAttachError] = useState('')
   const bottomRef = useRef(null)
   const fileRef = useRef(null)
+  const textareaRef = useRef(null)
+
+  // Members (for @mention autocomplete + rendering mention links).
+  const [members, setMembers] = useState([])
+  const [mention, setMention] = useState(null) // { query, start } while typing @…
+  useEffect(() => {
+    supabase.from('profiles').select('id, name, photo_url')
+      .in('status', ['active', 'muted']).eq('is_test', false)
+      .then(({ data }) => setMembers(data ?? []))
+  }, [])
+  const mentionResults = mention
+    ? members.filter((m) => m.id !== user.id && m.name?.toLowerCase().includes(mention.query.toLowerCase())).slice(0, 6)
+    : []
 
   // Poll composer (admins, announcements only).
   const [showPoll, setShowPoll] = useState(false)
@@ -143,7 +157,7 @@ export default function Chat() {
     setSending(true)
     const { error } = await supabase.from('messages').insert({ channel, sender_id: user.id, body: body.trim() })
     setSending(false)
-    if (!error) setBody('')
+    if (!error) { setBody(''); setMention(null) }
   }
 
   // Attach an image: upload to storage, then send it as a message
@@ -165,6 +179,49 @@ export default function Chat() {
       setAttachError(err.message)
     }
     setSending(false)
+  }
+
+  // Detect an in-progress "@query" just before the caret to drive autocomplete.
+  function onBodyChange(e) {
+    const val = e.target.value
+    setBody(val)
+    const caret = e.target.selectionStart ?? val.length
+    const m = val.slice(0, caret).match(/(?:^|\s)@([^\s@]{0,30})$/)
+    setMention(m ? { query: m[1], start: caret - m[1].length - 1 } : null)
+  }
+
+  function selectMention(member) {
+    const ta = textareaRef.current
+    const caret = ta?.selectionStart ?? body.length
+    const start = mention?.start ?? caret
+    const insert = '@' + member.name + ' '
+    const next = body.slice(0, start) + insert + body.slice(caret)
+    setBody(next)
+    setMention(null)
+    const pos = start + insert.length
+    requestAnimationFrame(() => { ta?.focus(); ta?.setSelectionRange(pos, pos) })
+  }
+
+  // Admin markdown helpers: wrap the current selection (or insert a placeholder).
+  function applyFormat(kind) {
+    const ta = textareaRef.current
+    if (!ta) return
+    const start = ta.selectionStart, end = ta.selectionEnd
+    const sel = body.slice(start, end)
+    let next, s, en
+    if (kind === 'heading') {
+      const ls = body.lastIndexOf('\n', start - 1) + 1
+      next = body.slice(0, ls) + '# ' + body.slice(ls)
+      s = en = start + 2
+    } else {
+      const mark = kind === 'bold' ? '**' : '*'
+      const inner = sel || (kind === 'bold' ? 'bold' : 'italic')
+      next = body.slice(0, start) + mark + inner + mark + body.slice(end)
+      s = start + mark.length
+      en = s + inner.length
+    }
+    setBody(next)
+    requestAnimationFrame(() => { ta.focus(); ta.setSelectionRange(s, en) })
   }
 
   async function toggleReaction(messageId, emoji) {
@@ -265,20 +322,6 @@ export default function Chat() {
     return grouped
   }
 
-  // Make shared links clickable inside message bodies.
-  function renderBody(text) {
-    const parts = text.split(/(https?:\/\/\S+)/g)
-    return parts.map((part, i) =>
-      /^https?:\/\//.test(part) ? (
-        <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="break-all font-medium text-brand underline decoration-brand/40 hover:decoration-brand">
-          {part}
-        </a>
-      ) : (
-        part
-      )
-    )
-  }
-
   return (
     <div className="mx-auto flex h-[calc(100dvh-4rem-5rem)] w-full max-w-6xl flex-col px-0 sm:px-8 sm:py-6 lg:h-[calc(100vh-4rem)]">
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white sm:rounded-card sm:border sm:border-gray-100 sm:shadow-card">
@@ -364,7 +407,7 @@ export default function Chat() {
                           />
                         </a>
                       )}
-                      {m.body && <span className={cx('block', m.image_url && 'px-2.5 py-1.5')}>{renderBody(m.body)}</span>}
+                      {m.body && <span className={cx('block', m.image_url && 'px-2.5 py-1.5')}>{renderMessageBody(m.body, { rich: m.profiles?.is_admin, members, onDark: mine && channel !== 'announcements' })}</span>}
                     </div>
                   )}
 
@@ -434,12 +477,30 @@ export default function Chat() {
           ) : canPost ? (
             <>
             {attachError && <p className="mb-2 text-xs text-red-600">{attachError}</p>}
-            {/* Admin poll tool lives above the composer (announcements only). */}
-            {isAdmin && channel === 'announcements' && (
-              <div className="mb-3 flex flex-wrap gap-2">
-                <button type="button" onClick={() => setShowPoll(true)} className="btn-secondary !py-2 text-xs">
-                  <Icon name="poll" className="h-4 w-4" /> Create a poll
-                </button>
+            {/* Admin tools: text formatting (all channels) + poll (announcements). */}
+            {isAdmin && (
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-0.5 rounded-lg border border-gray-200 p-0.5" role="group" aria-label="Text formatting">
+                  <button type="button" onClick={() => applyFormat('heading')} title="Heading" aria-label="Heading" className="rounded px-2.5 py-1 text-xs font-bold text-smoke hover:bg-cloud hover:text-ink">H</button>
+                  <button type="button" onClick={() => applyFormat('bold')} title="Bold" aria-label="Bold" className="rounded px-2.5 py-1 text-sm font-bold text-smoke hover:bg-cloud hover:text-ink">B</button>
+                  <button type="button" onClick={() => applyFormat('italic')} title="Italic" aria-label="Italic" className="rounded px-2.5 py-1 text-sm italic text-smoke hover:bg-cloud hover:text-ink">I</button>
+                </div>
+                {channel === 'announcements' && (
+                  <button type="button" onClick={() => setShowPoll(true)} className="btn-secondary !py-2 text-xs">
+                    <Icon name="poll" className="h-4 w-4" /> Create a poll
+                  </button>
+                )}
+              </div>
+            )}
+            {/* @mention autocomplete */}
+            {mention && mentionResults.length > 0 && (
+              <div className="mb-2 overflow-hidden rounded-card border border-gray-100 bg-white shadow-lift">
+                {mentionResults.map((mem) => (
+                  <button key={mem.id} type="button" onClick={() => selectMention(mem)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-cloud">
+                    <Avatar src={mem.photo_url} name={mem.name} size="sm" />
+                    <span className="font-medium">{mem.name}</span>
+                  </button>
+                ))}
               </div>
             )}
             <form onSubmit={send} className="flex items-end gap-2 sm:gap-3">
@@ -485,12 +546,17 @@ export default function Chat() {
                 </button>
               )}
               <textarea
+                ref={textareaRef}
                 rows={1}
                 className="input max-h-32 flex-1 resize-none"
-                placeholder="Message…"
+                placeholder="Message… use @ to mention"
                 value={body}
-                onChange={(e) => setBody(e.target.value)}
+                onChange={onBodyChange}
                 onKeyDown={(e) => {
+                  if (mention && mentionResults.length) {
+                    if (e.key === 'Enter') { e.preventDefault(); selectMention(mentionResults[0]); return }
+                    if (e.key === 'Escape') { e.preventDefault(); setMention(null); return }
+                  }
                   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(e) }
                 }}
                 aria-label={`Message ${meta.label}`}
