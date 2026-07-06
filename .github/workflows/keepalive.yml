@@ -1,0 +1,26 @@
+name: Keep Supabase awake
+
+# Supabase free-tier projects pause after 7 days with no API activity and then
+# need a manual "restore" click. Real user traffic normally keeps it awake, but
+# this scheduled ping guarantees it never pauses even during a quiet week.
+# It calls a public, anon-callable RPC (landing_stats), which runs a real DB
+# query. The anon key below is public by design (it ships in the browser app).
+
+on:
+  schedule:
+    - cron: '0 8 * * 1,4'   # Mondays & Thursdays 08:00 UTC (well inside the 7-day window)
+  workflow_dispatch: {}      # allow manual runs from the Actions tab
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase
+        run: |
+          ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhldWhxcW94eWdnYXd1Y2t4b2NwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyODM5NTAsImV4cCI6MjA5Njg1OTk1MH0.P2azZriBeGKjc6lwaLQrOS8HcOGfHbu44d9uI6b-NgI"
+          CODE=$(curl -sS -o /dev/null -w "%{http_code}" \
+            -X POST "https://heuhqqoxyggawuckxocp.supabase.co/rest/v1/rpc/landing_stats" \
+            -H "apikey: $ANON" -H "Authorization: Bearer $ANON" \
+            -H "Content-Type: application/json" -d '{}')
+          echo "Supabase responded with HTTP $CODE"
+          test "$CODE" = "200"

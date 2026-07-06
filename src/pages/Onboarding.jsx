@@ -204,9 +204,14 @@ export default function Onboarding() {
             <div className="space-y-6">
               <div className="text-center">
                 <h2 className="text-2xl font-bold">Add your travel photos</h2>
-                <p className="mt-2 text-sm text-smoke">Share up to 10 shots from your trips. They bring your profile to life and show off your style.</p>
+                <p className="mt-2 text-sm text-smoke">Optional. Share up to 10 shots from your trips, or add them anytime later from your profile.</p>
               </div>
               <TravelGallery creatorId={user.id} editable />
+              <div className="text-center">
+                <button onClick={next} className="text-sm font-medium text-smoke underline decoration-gray-300 underline-offset-4 hover:text-brand hover:decoration-brand">
+                  Add travel photos later →
+                </button>
+              </div>
             </div>
           )}
 

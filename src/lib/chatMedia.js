@@ -5,13 +5,15 @@ import { uploadFile } from './upload'
 // Files land in chat-media/<user id>/... so the RLS policy applies.
 // Used by both the group chat and DMs. Images are downscaled before upload.
 export async function uploadChatImage(file, userId) {
-  if (!file.type.startsWith('image/')) {
+  const looksImage = file.type.startsWith('image/') || /\.(heic|heif|jpe?g|png|webp|gif)$/i.test(file.name)
+  if (!looksImage) {
     throw new Error('Only image files can be attached.')
   }
   if (file.size > 15 * 1024 * 1024) {
     throw new Error('Images must be under 15MB.')
   }
   const compressed = await compressImage(file, { maxDim: 1280, quality: 0.82 })
-  const path = `${userId}/${Date.now()}.jpg`
-  return uploadFile('chat-media', path, compressed, 'image/jpeg')
+  const ext = (compressed.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg')
+  const path = `${userId}/${Date.now()}.${ext}`
+  return uploadFile('chat-media', path, compressed, compressed.type || 'image/jpeg')
 }

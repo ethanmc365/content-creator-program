@@ -27,15 +27,20 @@ export function AvatarUpload({ photoUrl, name, onUploaded }) {
   async function handleFile(e) {
     const file = e.target.files?.[0]
     if (!file) return
-    if (!file.type.startsWith('image/')) return setError('Please choose an image.')
+    const looksImage = file.type.startsWith('image/') || /\.(heic|heif|jpe?g|png|webp|gif)$/i.test(file.name)
+    if (!looksImage) return setError('Please choose an image.')
     if (file.size > 15 * 1024 * 1024) return setError('Please choose an image under 15MB.')
     setError('')
     setBusy(true)
     // Avatars only ever render small, so 512px keeps them tiny in storage.
-    const compressed = await compressImage(file, { maxDim: 512, quality: 0.85 })
-    const path = `${user.id}/avatar-${Date.now()}.jpg` // unique name busts caches
+    let compressed
     try {
-      const url = await uploadFile('avatars', path, compressed, 'image/jpeg')
+      compressed = await compressImage(file, { maxDim: 512, quality: 0.85 })
+    } catch (err) { setError(err.message); setBusy(false); return }
+    const ext = (compressed.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg')
+    const path = `${user.id}/avatar-${Date.now()}.${ext}` // unique name busts caches
+    try {
+      const url = await uploadFile('avatars', path, compressed, compressed.type || 'image/jpeg')
       onUploaded(url)
     } catch (err) {
       setError(err.message)

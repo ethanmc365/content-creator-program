@@ -46,15 +46,20 @@ export default function TravelGallery({ creatorId, editable = false }) {
     setUploading(true)
     let order = photos.length
     for (const file of files) {
-      if (!file.type.startsWith('image/') || file.size > 15 * 1024 * 1024) {
+      const looksImage = file.type.startsWith('image/') || /\.(heic|heif|jpe?g|png|webp|gif)$/i.test(file.name)
+      if (!looksImage || file.size > 15 * 1024 * 1024) {
         setError('Each photo must be an image under 15MB.')
         continue
       }
-      const compressed = await compressImage(file, { maxDim: 1280, quality: 0.82 })
-      const path = `${user.id}/${Date.now()}-${order}.jpg`
+      let compressed
+      try {
+        compressed = await compressImage(file, { maxDim: 1280, quality: 0.82 })
+      } catch (err) { setError(err.message); continue }
+      const ext = (compressed.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg')
+      const path = `${user.id}/${Date.now()}-${order}.${ext}`
       let url
       try {
-        url = await uploadFile('gallery', path, compressed, 'image/jpeg')
+        url = await uploadFile('gallery', path, compressed, compressed.type || 'image/jpeg')
       } catch (err) { setError(err.message); continue }
       await supabase.from('creator_photos').insert({ creator_id: user.id, photo_url: url, sort_order: order++ })
     }
