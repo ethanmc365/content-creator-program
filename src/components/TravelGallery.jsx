@@ -70,6 +70,11 @@ export default function TravelGallery({ creatorId, editable = false }) {
   async function remove(photo) {
     if (!confirm('Remove this photo?')) return
     await supabase.from('creator_photos').delete().eq('id', photo.id)
+    // Also delete the underlying storage object so it doesn't orphan and eat
+    // quota. The object key is everything after ".../gallery/". RLS lets a user
+    // delete only files inside their own folder.
+    const key = photo.photo_url?.split('/gallery/')[1]
+    if (key) await supabase.storage.from('gallery').remove([decodeURIComponent(key)])
     load()
   }
 

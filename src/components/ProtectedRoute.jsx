@@ -48,11 +48,37 @@ function ReviewDeclined({ signOut }) {
       <div className="max-w-md space-y-3">
         <h1 className="text-2xl font-bold">Application not approved</h1>
         <p className="text-smoke">
-          Thanks for your interest in the Tryp.com Content Creator Program. After review, your application
-          was not approved at this time. If you think this was a mistake, please reach out to the program team.
+          Thanks so much for your interest in the Tryp.com Content Creator Program. Unfortunately your
+          application was not successful this time. We're sorry, and we truly appreciate you taking the time to apply.
         </p>
       </div>
       <button onClick={() => signOutAndGoHome(signOut)} className="btn-ghost text-sm">Log out</button>
+    </div>
+  )
+}
+
+// Shown when the profile fetch keeps failing on a flaky connection. The session
+// is valid, so we offer a retry rather than treating the user as logged out.
+function ConnectionSlow({ onRetry, signOut }) {
+  const [busy, setBusy] = useState(false)
+  async function retry() {
+    setBusy(true)
+    await onRetry()
+    setBusy(false)
+  }
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-6 px-6 text-center">
+      <PlaneLoader />
+      <div className="max-w-md space-y-3">
+        <h1 className="text-2xl font-bold">Taking longer than usual</h1>
+        <p className="text-smoke">
+          We're having trouble reaching the server. Your connection might be slow. Give it another try.
+        </p>
+      </div>
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <button onClick={retry} disabled={busy} className="btn-primary">{busy ? <Spinner /> : 'Try again'}</button>
+        <button onClick={() => signOutAndGoHome(signOut)} className="btn-ghost text-sm">Log out</button>
+      </div>
     </div>
   )
 }
@@ -91,11 +117,14 @@ function DeletionScheduled({ profile, signOut, onRestore }) {
 }
 
 export function ProtectedRoute() {
-  const { user, profile, profileLoaded, loading, isSuspended, signOut, refreshProfile } = useAuth()
+  const { user, profile, profileLoaded, profileError, loading, isSuspended, signOut, refreshProfile, retryProfile } = useAuth()
   const location = useLocation()
 
   if (loading) return <FullPageSpinner />
   if (!user) return <Navigate to="/login" replace />
+  // Profile fetch failed on the network (not "no row"). The session is valid, so
+  // offer a retry instead of bouncing a real user to /login.
+  if (profileError && !profile) return <ConnectionSlow onRetry={retryProfile} signOut={signOut} />
   // CRITICAL: never render the app until we know this user's status. Without
   // this wait the guard used to fall through to <Outlet /> with a null profile,
   // letting brand-new / unapproved accounts see everything.

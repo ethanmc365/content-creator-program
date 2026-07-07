@@ -15,7 +15,7 @@ function toBase64(bytes) {
   return btoa(binary)
 }
 
-export async function uploadFile(bucket, path, fileOrBlob, contentType) {
+async function callUpload(bucket, path, fileOrBlob, contentType) {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) throw new Error('You need to be signed in to upload.')
   const bytes = new Uint8Array(await fileOrBlob.arrayBuffer())
@@ -35,5 +35,19 @@ export async function uploadFile(bucket, path, fileOrBlob, contentType) {
   })
   const out = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(out.error || 'Upload failed. Please try again.')
+  return out
+}
+
+// Upload to a PUBLIC bucket (avatars / gallery / chat-media). Returns the
+// permanent public URL.
+export async function uploadFile(bucket, path, fileOrBlob, contentType) {
+  const out = await callUpload(bucket, path, fileOrBlob, contentType)
   return out.publicUrl
+}
+
+// Upload to a PRIVATE bucket (dm-media). Returns the storage PATH - callers read
+// it back through a short-lived signed URL, so the object is never public.
+export async function uploadPrivateFile(bucket, path, fileOrBlob, contentType) {
+  const out = await callUpload(bucket, path, fileOrBlob, contentType)
+  return out.path
 }

@@ -4,7 +4,11 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { AuthProvider } from './context/AuthContext'
 import { registerServiceWorker } from './lib/push'
+import { initMonitoring } from './lib/monitoring'
 import './index.css'
+
+// Start error monitoring as early as possible (no-op without VITE_SENTRY_DSN).
+initMonitoring()
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -32,7 +36,7 @@ async function precacheAppShell() {
         const u = new URL(raw, location.origin)
         if (u.origin === location.origin) urls.add(u.href.split('#')[0])
       })
-    const cache = await caches.open('tryp-cache-v1')
+    const cache = await caches.open('tryp-cache-v2')
     await Promise.all([...urls].map(async (u) => {
       try {
         if (await cache.match(u)) return

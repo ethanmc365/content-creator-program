@@ -249,7 +249,7 @@ export default function AdminCreators() {
                 {/* On mobile these sit on their own row under the name (indented past
                     the avatar) so nothing can overlap; on desktop they're inline. */}
                 <div className="flex flex-wrap items-center gap-2 pl-[52px] sm:gap-3 sm:pl-0">
-                  <span className="hidden text-xs text-smoke sm:block">Joined {formatDate(c.created_at)}</span>
+                  <span className="hidden text-xs text-smoke sm:block">Joined {formatDate(c.accepted_at || c.created_at)}</span>
                   {isIncomplete(c) && (
                     <button
                       onClick={() => sendReminder(c)}
@@ -295,7 +295,7 @@ export default function AdminCreators() {
               <Avatar src={selected.photo_url} name={selected.name} size="lg" />
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">{emails[selected.id]}</p>
-                <p className="text-xs text-smoke">Joined {formatDate(selected.created_at)} · {selected.age ? `${selected.age} yrs · ` : ''}{(selected.countries_visited ?? []).length} countries</p>
+                <p className="text-xs text-smoke">Joined {formatDate(selected.accepted_at || selected.created_at)} · {selected.age ? `${selected.age} yrs · ` : ''}{(selected.countries_visited ?? []).length} countries</p>
                 <div className="mt-2 flex gap-2">
                   <Badge tone={statusInfo(selected).tone}>{statusInfo(selected).label}</Badge>
                   {selected.is_admin && <Badge tone="light">Admin</Badge>}

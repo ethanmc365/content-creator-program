@@ -1,0 +1,41 @@
+name: Nightly DB backup
+
+# The Supabase free tier gives no point-in-time recovery, so a bad migration or
+# an accidental delete could be unrecoverable. This job takes a nightly
+# pg_dump of the whole database and keeps it as a downloadable Actions artifact
+# for 30 days. Set the SUPABASE_DB_URL secret to the session-pooler connection
+# string (Dashboard → Project Settings → Database → Connection string → URI,
+# using the session pooler host so it works over IPv4):
+#   postgresql://postgres.<ref>:<password>@aws-1-eu-central-2.pooler.supabase.com:5432/postgres
+
+on:
+  schedule:
+    - cron: '0 3 * * *'   # 03:00 UTC daily
+  workflow_dispatch: {}
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install postgresql-client 16
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-16 || sudo apt-get install -y postgresql-client
+      - name: Dump database
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$DB_URL" ]; then
+            echo "SUPABASE_DB_URL secret is not set - skipping. Add it in repo Settings → Secrets."
+            exit 1
+          fi
+          STAMP=$(date -u +%Y-%m-%d)
+          pg_dump "$DB_URL" --no-owner --no-privileges -Fc -f "tryp-backup-$STAMP.dump"
+          ls -lh "tryp-backup-$STAMP.dump"
+          echo "stamp=$STAMP" >> "$GITHUB_ENV"
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tryp-db-backup-${{ env.stamp }}
+          path: tryp-backup-*.dump
+          retention-days: 30

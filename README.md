@@ -139,6 +139,30 @@ suspend, DM, or send a password-reset email to any creator.
 Supabase **is** the backend — there's nothing else to deploy. The anon key is
 safe in the browser because every table is protected by row-level security.
 
+### 4.3 Environment variables (Vercel)
+- `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` — required (public).
+- `VITE_SENTRY_DSN` — optional. Set it to turn on error monitoring in
+  production; leave it unset and monitoring is a silent no-op.
+
+### 4.4 Change discipline — protect real users
+Now that real creators are joining, **do not push risky changes straight to
+`main`** (every push auto-deploys to production against the live database):
+
+1. Work on a branch and open a PR. Vercel builds a **preview deployment** for
+   every branch/PR — a full copy of the app on a throwaway URL, pointed at the
+   same Supabase project, so you can click through the change before it ships.
+2. CI (`.github/workflows/ci.yml`) runs lint + tests + build on the PR. Don't
+   merge red.
+3. For schema changes, add a numbered migration under `supabase/migrations/`
+   and prefer testing it on a **Supabase branch** (paid) or a scratch project
+   before applying to production.
+4. A **nightly `pg_dump`** (`.github/workflows/backup.yml`) keeps 30 days of
+   downloadable backups — set the `SUPABASE_DB_URL` repo secret to enable it.
+
+### 4.5 CI / automation secrets (GitHub → Settings → Secrets → Actions)
+- `VITE_SUPABASE_ANON_KEY` — lets CI run the production build.
+- `SUPABASE_DB_URL` — session-pooler URI for the nightly backup job.
+
 ---
 
 ## 4b. Bulk email (free, no paid service)

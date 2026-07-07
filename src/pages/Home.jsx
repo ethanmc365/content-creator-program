@@ -9,7 +9,7 @@ import Icon from '../components/Icon'
 import { Avatar, Badge, Skeleton, StatCard } from '../components/ui'
 import { flagForCountry } from '../lib/flags'
 import { stripMarkup } from '../lib/richText'
-import { formatDate, timeAgo, formatMoney } from '../lib/utils'
+import { formatDate, timeAgo, formatMoney, challengeDeadline } from '../lib/utils'
 
 // Signed-in home: the CURRENT challenge front and centre with a live
 // countdown, plus quick community pulse (latest announcement, new creators).
@@ -26,9 +26,9 @@ export default function Home() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: ch }, { data: ann }, { data: fresh }, { count: creatorCount }, { data: paid }] =
+      const [{ data: activeChallenges }, { data: ann }, { data: fresh }, { count: creatorCount }, { data: paid }] =
         await Promise.all([
-          supabase.from('challenges').select('*').eq('status', 'active').order('end_date').limit(1).maybeSingle(),
+          supabase.from('challenges').select('*').eq('status', 'active').order('end_date', { ascending: true }),
           supabase
             .from('messages')
             .select('*, profiles:sender_id(name, photo_url)')
@@ -37,10 +37,16 @@ export default function Home() {
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle(),
-          supabase.from('profiles').select('id, name, photo_url, bio').eq('status', 'active').eq('is_test', false).is('deletion_requested_at', null).order('created_at', { ascending: false }).limit(4),
+          supabase.from('profiles').select('id, name, photo_url, bio').eq('status', 'active').eq('is_admin', false).eq('is_test', false).is('deletion_requested_at', null).order('created_at', { ascending: false }).limit(4),
           supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'active').eq('is_admin', false).eq('is_test', false).is('deletion_requested_at', null),
           supabase.from('rewards').select('amount').eq('status', 'distributed'),
         ])
+
+      // Only surface a challenge as "live" if its deadline hasn't passed. An
+      // admin may not have archived a finished contest yet; showing it as live
+      // (with a "Challenge closed" countdown) is confusing for new members.
+      const nowMs = Date.now()
+      const ch = (activeChallenges ?? []).find((c) => challengeDeadline(c.end_date).getTime() > nowMs) ?? null
 
       setChallenge(ch)
       setAnnouncement(ann)
@@ -144,7 +150,7 @@ export default function Home() {
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label="Creators in the program" value={stats.creators} />
         <StatCard label="Prizes distributed" value={formatMoney(stats.prizes)} accent />
-        <StatCard label="Member since" value={formatDate(profile?.created_at)} />
+        <StatCard label="Member since" value={formatDate(profile?.accepted_at || profile?.created_at)} />
       </section>
 
       {/* ---------- Latest announcement ---------- */}
@@ -183,7 +189,7 @@ export default function Home() {
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {upcomingTrips.map((t) => (
-              <Link key={t.id} to="/collab" className="card flex items-center gap-3 !p-4 transition-all hover:-translate-y-0.5 hover:shadow-lift">
+              <Link key={t.id} to="/collab" className="card flex items-center gap-3 !p-4 transition-all hover:-translate-y-0.5 hover:shadow-lift active:-translate-y-0.5 active:shadow-lift">
                 <Avatar src={t.profiles?.photo_url} name={t.profiles?.name} size="sm" />
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">{t.profiles?.name?.split(' ')[0]} → {flagForCountry(t.country)} {t.city}</p>
@@ -215,7 +221,7 @@ export default function Home() {
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {newCreators.map((c) => (
-            <Link key={c.id} to={`/profile/${c.id}`} className="card flex items-center gap-4 !p-5 transition-all hover:-translate-y-0.5 hover:shadow-lift">
+            <Link key={c.id} to={`/profile/${c.id}`} className="card flex items-center gap-4 !p-5 transition-all hover:-translate-y-0.5 hover:shadow-lift active:-translate-y-0.5 active:shadow-lift">
               <Avatar src={c.photo_url} name={c.name} size="md" />
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold">{c.name}</p>

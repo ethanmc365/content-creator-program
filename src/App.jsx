@@ -1,7 +1,9 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { ProtectedRoute, AdminRoute } from './components/ProtectedRoute'
 import AppLayout from './components/layout/AppLayout'
 import OfflineScreen from './components/OfflineScreen'
+import { PlaneLoader } from './components/ui'
 
 // Public pages
 import Landing from './pages/Landing'
@@ -32,34 +34,45 @@ import Jobs from './pages/Jobs'
 import Refer from './pages/Refer'
 import Collab from './pages/Collab'
 import Connections from './pages/Connections'
-import Game from './pages/Game'
-import Leaderboard from './pages/Leaderboard'
 import Feedback from './pages/Feedback'
 
-// Admin pages
-import AdminPanel from './pages/admin/AdminPanel'
-import AdminCreators from './pages/admin/AdminCreators'
-import AdminChallenges from './pages/admin/AdminChallenges'
-import AdminChallengeForm from './pages/admin/AdminChallengeForm'
-import AdminResults from './pages/admin/AdminResults'
-import AdminRewards from './pages/admin/AdminRewards'
-import AdminAnalytics from './pages/admin/AdminAnalytics'
-import AdminChallengeAnalytics from './pages/admin/AdminChallengeAnalytics'
-import AdminNetwork from './pages/admin/AdminNetwork'
-import AdminEvents from './pages/admin/AdminEvents'
-import AdminResources from './pages/admin/AdminResources'
-import AdminJobs from './pages/admin/AdminJobs'
-import AdminReferrals from './pages/admin/AdminReferrals'
-import AdminEmail from './pages/admin/AdminEmail'
-import AdminApplications from './pages/admin/AdminApplications'
-import AdminAuditLog from './pages/admin/AdminAuditLog'
-import AdminScheduledAnnouncements from './pages/admin/AdminScheduledAnnouncements'
-import AdminFeedback from './pages/admin/AdminFeedback'
+// Heavier / rarely-visited pages are code-split so they don't ship in the
+// initial bundle. Game + Leaderboard pull in extra weight; the whole admin area
+// is never needed by regular creators, so it loads on demand only.
+const Game = lazy(() => import('./pages/Game'))
+const Leaderboard = lazy(() => import('./pages/Leaderboard'))
+const AdminPanel = lazy(() => import('./pages/admin/AdminPanel'))
+const AdminCreators = lazy(() => import('./pages/admin/AdminCreators'))
+const AdminChallenges = lazy(() => import('./pages/admin/AdminChallenges'))
+const AdminChallengeForm = lazy(() => import('./pages/admin/AdminChallengeForm'))
+const AdminResults = lazy(() => import('./pages/admin/AdminResults'))
+const AdminRewards = lazy(() => import('./pages/admin/AdminRewards'))
+const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics'))
+const AdminChallengeAnalytics = lazy(() => import('./pages/admin/AdminChallengeAnalytics'))
+const AdminNetwork = lazy(() => import('./pages/admin/AdminNetwork'))
+const AdminEvents = lazy(() => import('./pages/admin/AdminEvents'))
+const AdminResources = lazy(() => import('./pages/admin/AdminResources'))
+const AdminJobs = lazy(() => import('./pages/admin/AdminJobs'))
+const AdminReferrals = lazy(() => import('./pages/admin/AdminReferrals'))
+const AdminEmail = lazy(() => import('./pages/admin/AdminEmail'))
+const AdminApplications = lazy(() => import('./pages/admin/AdminApplications'))
+const AdminAuditLog = lazy(() => import('./pages/admin/AdminAuditLog'))
+const AdminScheduledAnnouncements = lazy(() => import('./pages/admin/AdminScheduledAnnouncements'))
+const AdminFeedback = lazy(() => import('./pages/admin/AdminFeedback'))
+
+function LazyFallback() {
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center">
+      <PlaneLoader />
+    </div>
+  )
+}
 
 export default function App() {
   return (
     <>
       <OfflineScreen />
+      <Suspense fallback={<LazyFallback />}>
       <Routes>
       {/* ---------- Public ---------- */}
       <Route path="/" element={<Landing />} />
@@ -128,6 +141,7 @@ export default function App() {
       {/* Anything unknown → landing */}
       <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
     </>
   )
 }

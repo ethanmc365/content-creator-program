@@ -35,6 +35,10 @@ export function AuthProvider({ children }) {
   // status (pending / declined / active). Treating "no profile yet" as
   // "allowed" was a security hole - a fresh signup could see everything.
   const [profileLoaded, setProfileLoaded] = useState(false)
+  // Set when the profile fetch fails for a NETWORK reason (not "no row"). The
+  // route guard shows a "connection is slow, retry" screen instead of bouncing
+  // a genuinely-logged-in user to /login.
+  const [profileError, setProfileError] = useState(false)
   const loadedForUser = useRef(null)
 
   // "View as creator": an admin can preview the app exactly as a creator sees
@@ -75,30 +79,69 @@ export function AuthProvider({ children }) {
     setProfileLoaded(true)
   }, [session, fetchProfile])
 
+  // Manual retry from the "connection is slow" screen.
+  const retryProfile = useCallback(async () => {
+    if (!session?.user) return
+    setProfileError(false)
+    setProfileLoaded(false)
+    const { data, error } = await fetchProfile(session.user.id)
+    if (data) {
+      setProfile(data)
+      loadedForUser.current = session.user.id
+      setProfileLoaded(true)
+    } else if (error?.code === 'PGRST116') {
+      await supabase.auth.signOut()
+    } else {
+      setProfileError(true)
+    }
+  }, [session, fetchProfile])
+
   useEffect(() => {
     let cancelled = false
 
-    // Safety net: never let the app hang on the full-screen spinner. If the
-    // session check stalls (e.g. flaky network when a home-screen PWA resumes
-    // from the background), resolve loading anyway after a few seconds so the
-    // UI renders instead of spinning forever.
-    const safety = setTimeout(() => { if (!cancelled) { setLoading(false); setProfileLoaded(true) } }, 5000)
+    // Safety net: never let the app hang on the full-screen SESSION spinner. If
+    // the initial session check stalls, resolve `loading` so the UI can render.
+    // We deliberately do NOT force profileLoaded here - a slow profile fetch is
+    // handled by loadProfile's own retry + the "connection slow" screen, so a
+    // logged-in user is never silently bounced to /login on a flaky network.
+    const safety = setTimeout(() => { if (!cancelled) setLoading(false) }, 5000)
 
-    // Fetch the profile and flip profileLoaded so the route guard can decide.
-    // A session with no profile row is a corrupt/ghost login - sign it out
-    // rather than leaving the user half-authenticated (which used to fall
-    // through to full access).
-    const loadProfile = async (userId) => {
+    // Fetch the profile (with a couple of retries for transient network errors)
+    // and flip profileLoaded so the route guard can decide.
+    //  * A real "no row" (PGRST116) is a corrupt/ghost login → sign it out.
+    //  * A network failure sets profileError so the guard shows a retry screen
+    //    instead of treating the user as logged-out.
+    const loadProfile = async (userId, attempt = 0) => {
       try {
         const { data, error } = await fetchProfile(userId)
         if (cancelled) return
-        setProfile(data ?? null)
-        loadedForUser.current = userId
+        if (data) {
+          setProfile(data)
+          loadedForUser.current = userId
+          setProfileError(false)
+          setProfileLoaded(true)
+          return
+        }
+        if (error?.code === 'PGRST116') {
+          setProfile(null)
+          setProfileLoaded(true)
+          await supabase.auth.signOut()
+          return
+        }
+        // Transient failure: retry up to 3 times with a short backoff.
+        if (attempt < 3) {
+          setTimeout(() => { if (!cancelled) loadProfile(userId, attempt + 1) }, 800 * (attempt + 1))
+          return
+        }
+        setProfileError(true)
         setProfileLoaded(true)
-        if (!data && error?.code === 'PGRST116') await supabase.auth.signOut()
       } catch {
         if (cancelled) return
-        setProfile(null)
+        if (attempt < 3) {
+          setTimeout(() => { if (!cancelled) loadProfile(userId, attempt + 1) }, 800 * (attempt + 1))
+          return
+        }
+        setProfileError(true)
         setProfileLoaded(true)
       }
     }
@@ -128,7 +171,7 @@ export function AuthProvider({ children }) {
       if (session?.user) {
         // New user (or a fresh sign-in) → make the guard wait for the profile.
         // A plain token refresh keeps the same id, so don't flash the spinner.
-        if (loadedForUser.current !== session.user.id) setProfileLoaded(false)
+        if (loadedForUser.current !== session.user.id) { setProfileLoaded(false); setProfileError(false) }
         loadProfile(session.user.id)
       } else {
         loadedForUser.current = null
@@ -161,7 +204,9 @@ export function AuthProvider({ children }) {
     isSuspended: profile?.status === 'suspended',
     loading,
     profileLoaded,
+    profileError,
     refreshProfile,
+    retryProfile,
 
     // Auth routes go through the `auth-gate` Edge Function, which enforces a
     // hard rate limit (5 attempts / 15 min) before touching GoTrue.

@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import CountdownTimer from '../components/CountdownTimer'
 import { PageHeader, Badge, SkeletonCards, EmptyState } from '../components/ui'
-import { formatDate } from '../lib/utils'
+import { formatDate, challengeDeadline } from '../lib/utils'
 
 const STATUS_TONE = { active: 'brand', ended: 'amber', archived: 'grey', draft: 'red' }
 
@@ -13,6 +13,9 @@ export default function Challenges() {
   const { isAdmin } = useAuth()
   const [challenges, setChallenges] = useState([])
   const [loading, setLoading] = useState(true)
+  // Captured once at mount (lazy initialiser, not read during render) so the
+  // "is this challenge past its deadline" check stays pure per the lint rules.
+  const [nowMs] = useState(() => Date.now())
 
   useEffect(() => {
     supabase
@@ -25,8 +28,12 @@ export default function Challenges() {
       })
   }, [])
 
-  const live = challenges.filter((c) => c.status === 'active')
-  const past = challenges.filter((c) => c.status !== 'active')
+  // A challenge is only truly "live" if it's active AND its deadline hasn't
+  // passed. An admin may not have archived it yet, but a contest past its close
+  // date must never show as live (it would render "Live now / Challenge closed").
+  const isLive = (c) => c.status === 'active' && challengeDeadline(c.end_date).getTime() > nowMs
+  const live = challenges.filter(isLive)
+  const past = challenges.filter((c) => !isLive(c))
 
   return (
     <div className="page">
@@ -44,7 +51,7 @@ export default function Challenges() {
         <div className="space-y-12">
           {/* ---------- Live ---------- */}
           {live.map((c) => (
-            <Link key={c.id} to={`/challenges/${c.id}`} className="block overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-6 text-white shadow-lift transition-transform hover:scale-[1.005] sm:p-10">
+            <Link key={c.id} to={`/challenges/${c.id}`} className="block overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-6 text-white shadow-lift transition-transform hover:scale-[1.005] active:scale-[0.995] sm:p-10">
               <div className="flex flex-wrap items-center gap-3">
                 <Badge className="!bg-white/20 !text-white">Live now</Badge>
                 <span className="text-xs text-white/75">{formatDate(c.start_date)} → {formatDate(c.end_date)}</span>
@@ -64,9 +71,10 @@ export default function Challenges() {
               <h2 className="mb-5 text-lg font-semibold text-smoke">Past challenges</h2>
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                 {past.map((c) => (
-                  <Link key={c.id} to={`/challenges/${c.id}`} className="card group transition-all hover:-translate-y-0.5 hover:shadow-lift">
+                  <Link key={c.id} to={`/challenges/${c.id}`} className="card group transition-all hover:-translate-y-0.5 hover:shadow-lift active:translate-y-0">
                     <div className="flex items-center justify-between gap-3">
-                      <Badge tone={STATUS_TONE[c.status]}>{c.status}</Badge>
+                      {/* Still status 'active' but past its deadline → show "ended", not "active". */}
+                      <Badge tone={c.status === 'active' ? STATUS_TONE.ended : STATUS_TONE[c.status]}>{c.status === 'active' ? 'ended' : c.status}</Badge>
                       <span className="text-xs text-smoke">{formatDate(c.start_date)} → {formatDate(c.end_date)}</span>
                     </div>
                     <h3 className="mt-4 text-xl font-semibold group-hover:text-brand">{c.title}</h3>

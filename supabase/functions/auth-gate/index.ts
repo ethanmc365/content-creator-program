@@ -16,16 +16,39 @@ const WINDOW_MIN = 15
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } })
 
-const cors = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+// CORS: reflect the request Origin only when it's one of ours (the two Vercel
+// production domains, any *.vercel.app preview deploy, or localhost dev). An
+// unknown origin gets the primary domain, so the browser blocks it.
+const PRIMARY_ORIGIN = 'https://trypcreators.vercel.app'
+function allowOrigin(origin: string | null): string {
+  if (!origin) return PRIMARY_ORIGIN
+  try {
+    const { hostname, protocol } = new URL(origin)
+    const ok =
+      (protocol === 'https:' && (hostname === 'trypcreators.vercel.app' || hostname === 'content-creator-program.vercel.app' || hostname.endsWith('.vercel.app'))) ||
+      ((protocol === 'http:' || protocol === 'https:') && (hostname === 'localhost' || hostname === '127.0.0.1'))
+    return ok ? origin : PRIMARY_ORIGIN
+  } catch {
+    return PRIMARY_ORIGIN
+  }
 }
-const json = (obj: unknown, status = 200) =>
-  new Response(JSON.stringify(obj), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
+function corsHeaders(req: Request) {
+  return {
+    'Access-Control-Allow-Origin': allowOrigin(req.headers.get('origin')),
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Vary': 'Origin',
+  }
+}
+const json = (req: Request, obj: unknown, status = 200) =>
+  new Response(JSON.stringify(obj), { status, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } })
 
+// The trusted proxy (Supabase's edge) appends the real client IP as the LAST
+// entry of x-forwarded-for. Using the FIRST entry lets a client spoof the value
+// (and dodge the rate limit) by sending its own x-forwarded-for header.
 function clientIp(req: Request) {
-  return (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'unknown'
+  const parts = (req.headers.get('x-forwarded-for') || '').split(',').map((s) => s.trim()).filter(Boolean)
+  return parts.length ? parts[parts.length - 1] : 'unknown'
 }
 
 // Returns true if the identifier is over the limit (and prunes old rows).
@@ -52,8 +75,8 @@ async function gotrue(path: string, body: unknown) {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
-  if (req.method !== 'POST') return json({ error: 'method not allowed' }, 405)
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
+  if (req.method !== 'POST') return json(req, { error: 'method not allowed' }, 405)
 
   const ip = clientIp(req)
   const { action, email, password, name, ref, redirectTo, captchaToken } = await req.json().catch(() => ({}))
@@ -64,34 +87,34 @@ Deno.serve(async (req) => {
   const sec = captchaToken ? { gotrue_meta_security: { captcha_token: captchaToken } } : {}
 
   if (action === 'login') {
-    if (!email || !password) return json({ error: 'Email and password are required.' }, 400)
+    if (!email || !password) return json(req, { error: 'Email and password are required.' }, 400)
     const id = `login:${String(email).toLowerCase()}|${ip}`
-    if (await isLimited(id)) return json(tooMany, 429)
+    if (await isLimited(id)) return json(req, tooMany, 429)
     await record(id)
     const { status, data } = await gotrue('token?grant_type=password', { email, password, ...sec })
-    if (status === 200 && data.access_token) { await clear(id); return json(data, 200) }
-    return json({ error: data.error_description || data.msg || data.error || 'Invalid login credentials' }, 400)
+    if (status === 200 && data.access_token) { await clear(id); return json(req, data, 200) }
+    return json(req, { error: data.error_description || data.msg || data.error || 'Invalid login credentials' }, 400)
   }
 
   if (action === 'signup') {
-    if (!email || !password) return json({ error: 'Email and password are required.' }, 400)
+    if (!email || !password) return json(req, { error: 'Email and password are required.' }, 400)
     const id = `signup:${ip}`
-    if (await isLimited(id)) return json(tooMany, 429)
+    if (await isLimited(id)) return json(req, tooMany, 429)
     await record(id)
     const { status, data } = await gotrue('signup', { email, password, data: { name: name || null, ref: ref || null }, ...sec })
-    if (status >= 400) return json({ error: data.error_description || data.msg || data.error || 'Could not sign up' }, 400)
-    return json(data, 200)
+    if (status >= 400) return json(req, { error: data.error_description || data.msg || data.error || 'Could not sign up' }, 400)
+    return json(req, data, 200)
   }
 
   if (action === 'recover') {
-    if (!email) return json({ error: 'Email is required.' }, 400)
+    if (!email) return json(req, { error: 'Email is required.' }, 400)
     const id = `recover:${ip}`
-    if (await isLimited(id)) return json(tooMany, 429)
+    if (await isLimited(id)) return json(req, tooMany, 429)
     await record(id)
     const url = redirectTo ? `recover?redirect_to=${encodeURIComponent(redirectTo)}` : 'recover'
     await gotrue(url, { email, ...sec }) // always 200 to the client (don't reveal whether the email exists)
-    return json({ ok: true }, 200)
+    return json(req, { ok: true }, 200)
   }
 
-  return json({ error: 'unknown action' }, 400)
+  return json(req, { error: 'unknown action' }, 400)
 })

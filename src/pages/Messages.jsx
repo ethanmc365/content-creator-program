@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { uploadChatImage } from '../lib/chatMedia'
+import { uploadDmImage, signDmImages, isSignedDmPath } from '../lib/chatMedia'
 import { loadRelationship } from '../lib/connections'
 import { Avatar, Badge, EmptyState, Skeleton, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
@@ -24,6 +24,8 @@ export default function Messages() {
   const [sending, setSending] = useState(false)
   const [attachError, setAttachError] = useState('')
   const [activeRelation, setActiveRelation] = useState(null)
+  // path -> short-lived signed URL, for DM images in the private dm-media bucket.
+  const [signedUrls, setSignedUrls] = useState(new Map())
   const bottomRef = useRef(null)
   const fileRef = useRef(null)
 
@@ -156,6 +158,21 @@ export default function Messages() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [thread])
 
+  // Sign any private DM-image paths in the thread so they can render. Legacy
+  // messages hold a full public URL and are skipped by signDmImages.
+  useEffect(() => {
+    const paths = thread.map((m) => m.image_url).filter(isSignedDmPath)
+    if (!paths.length) return
+    const missing = paths.filter((p) => !signedUrls.has(p))
+    if (!missing.length) return
+    let cancelled = false
+    signDmImages(missing).then((map) => {
+      if (cancelled || map.size === 0) return
+      setSignedUrls((prev) => new Map([...prev, ...map]))
+    })
+    return () => { cancelled = true }
+  }, [thread, signedUrls])
+
   async function send(e) {
     e.preventDefault()
     if (!body.trim() || !active || dmLocked) return
@@ -178,13 +195,14 @@ export default function Messages() {
     setAttachError('')
     setSending(true)
     try {
-      const url = await uploadChatImage(file, user.id)
+      // Store the private storage PATH (not a public URL); it's signed on render.
+      const path = await uploadDmImage(file, conversationId)
       const { error } = await supabase.from('direct_messages').insert({
         conversation_id: conversationId,
         sender_id: user.id,
         recipient_id: otherParticipant(active, user.id),
         body: body.trim(),
-        image_url: url,
+        image_url: path,
       })
       if (error) throw new Error(error.message)
       setBody('')
@@ -296,6 +314,8 @@ export default function Messages() {
                 {loadingThread && <div className="space-y-3"><Skeleton className="h-10 w-2/3" /><Skeleton className="ml-auto h-10 w-1/2" /><Skeleton className="h-10 w-3/5" /></div>}
                 {!loadingThread && thread.map((m) => {
                   const mine = m.sender_id === user.id
+                  // Private DM images resolve to a signed URL; legacy public URLs pass through.
+                  const imageSrc = m.image_url ? (isSignedDmPath(m.image_url) ? signedUrls.get(m.image_url) : m.image_url) : null
                   return (
                     <div key={m.id} className={cx('flex', mine && 'justify-end')}>
                       <div className={cx('max-w-[80%] sm:max-w-[65%]')}>
@@ -315,9 +335,13 @@ export default function Messages() {
                           mine ? 'rounded-br-md bg-brand text-white' : 'rounded-bl-md bg-cloud text-ink'
                         )}>
                           {m.image_url && (
-                            <a href={m.image_url} target="_blank" rel="noopener noreferrer" aria-label="Open image full size">
-                              <img src={m.image_url} alt={m.body || 'Shared image'} loading="lazy" className="max-h-72 w-full rounded-xl object-cover" />
-                            </a>
+                            imageSrc ? (
+                              <a href={imageSrc} target="_blank" rel="noopener noreferrer" aria-label="Open image full size">
+                                <img src={imageSrc} alt={m.body || 'Shared image'} loading="lazy" className="max-h-72 w-full rounded-xl object-cover" />
+                              </a>
+                            ) : (
+                              <div className="flex h-40 w-56 items-center justify-center rounded-xl bg-cloud"><Spinner /></div>
+                            )
                           )}
                           {m.body && <span className={cx('block', m.image_url && 'px-2.5 py-1.5')}>{m.body}</span>}
                         </div>

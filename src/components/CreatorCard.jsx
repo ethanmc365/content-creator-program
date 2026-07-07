@@ -34,7 +34,7 @@ export default function CreatorCard({ creator, relation, onRelationChange }) {
   return (
     <Link
       to={`/profile/${creator.id}`}
-      className="card group flex flex-col gap-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift"
+      className="card group flex flex-col gap-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift active:-translate-y-0.5 active:shadow-lift"
     >
       <div className="flex items-start justify-between">
         <Avatar src={creator.photo_url} name={creator.name} size="lg" />
