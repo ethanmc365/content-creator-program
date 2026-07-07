@@ -26,7 +26,9 @@ jobs:
           curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/postgresql.gpg
           sudo apt-get update
           sudo apt-get install -y postgresql-client-17
-          pg_dump --version
+          # The runner ships a v16 pg_dump on PATH that shadows the PGDG wrapper,
+          # so call the v17 binary by its explicit path.
+          /usr/lib/postgresql/17/bin/pg_dump --version
       - name: Dump database
         env:
           DB_URL: ${{ secrets.SUPABASE_DB_URL }}
@@ -36,7 +38,7 @@ jobs:
             exit 1
           fi
           STAMP=$(date -u +%Y-%m-%d)
-          pg_dump "$DB_URL" --no-owner --no-privileges -Fc -f "tryp-backup-$STAMP.dump"
+          /usr/lib/postgresql/17/bin/pg_dump "$DB_URL" --no-owner --no-privileges -Fc -f "tryp-backup-$STAMP.dump"
           ls -lh "tryp-backup-$STAMP.dump"
           echo "stamp=$STAMP" >> "$GITHUB_ENV"
       - name: Upload backup artifact
