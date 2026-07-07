@@ -9,7 +9,7 @@ import PullToRefresh from '../PullToRefresh'
 import { showLocalNotification } from '../../lib/push'
 import { stripMarkup } from '../../lib/richText'
 import { cx } from '../../lib/utils'
-import { useKeyboardInset } from '../../lib/useKeyboardInset'
+import { useVisualViewport } from '../../lib/useKeyboardInset'
 
 // The signed-in app shell. One shared set of icon tabs powers BOTH the
 // desktop top bar and the mobile bottom bar, so they look identical.
@@ -32,8 +32,10 @@ export default function AppLayout() {
   const [connReqs, setConnReqs] = useState(0)
   const menuRef = useRef(null)
   // When the software keyboard is open (e.g. typing a message) the bottom tab
-  // bar slides away so the composer can sit right above the keyboard.
-  const keyboardOpen = useKeyboardInset() > 0
+  // bar slides away so the composer can sit right above the keyboard. Uses the
+  // focus-driven signal so it collapses instantly (iOS often doesn't fire the
+  // viewport resize until a scroll).
+  const keyboardOpen = useVisualViewport().keyboardOpen
 
   // Unread DM badge, kept live via realtime.
   useEffect(() => {
@@ -131,7 +133,7 @@ export default function AppLayout() {
         </div>
       )}
       {/* ------- Top navbar ------- */}
-      <header className="sticky top-0 z-30 border-b border-gray-100 bg-white/90 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-gray-100 bg-white/90 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-5 sm:px-8">
           <Link to="/home" className="flex items-center gap-3">
             <img src="/brand/tryp-logo.png" alt="Tryp.com" className="h-9 rounded-lg" />
@@ -170,7 +172,7 @@ export default function AppLayout() {
                 {connReqs > 0 && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-brand ring-2 ring-white" aria-label={`${connReqs} connection requests`} />}
               </button>
               {menuOpen && (
-                <div className="absolute right-0 z-40 mt-2 max-h-[calc(100dvh-5.5rem)] w-60 overflow-y-auto overscroll-contain rounded-card border border-gray-100 bg-white p-2 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-lift animate-fade-up">
+                <div className="absolute right-0 z-40 mt-2 max-h-[calc(100dvh-9rem-env(safe-area-inset-bottom))] w-60 overflow-y-auto overscroll-contain rounded-card border border-gray-100 bg-white p-2 pb-[calc(2rem+env(safe-area-inset-bottom))] shadow-lift animate-fade-up lg:max-h-[calc(100dvh-5rem)]">
                   <div className="border-b border-gray-100 px-3 py-2">
                     <p className="truncate text-sm font-semibold">{profile?.name}</p>
                     <p className="truncate text-xs text-smoke">{user?.email}</p>

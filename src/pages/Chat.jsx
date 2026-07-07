@@ -369,7 +369,11 @@ export default function Chat() {
         // Mobile/tablet: a fixed overlay pinned to the visual viewport (geometry
         // in mobileStyle) so the document never scrolls and the composer hugs
         // the keyboard. Desktop keeps the normal centered card.
-        'fixed inset-x-0 z-30 mx-auto flex w-full max-w-6xl flex-col sm:px-8',
+        'fixed inset-x-0 mx-auto flex w-full max-w-6xl flex-col sm:px-8',
+        // While typing the overlay goes full-screen and sits ABOVE the header so
+        // it can cover it; otherwise it sits BELOW the header (z-20) so the
+        // header's bell/avatar dropdowns stay tappable over the chat.
+        kbOpen ? 'z-50' : 'z-20',
         'lg:static lg:inset-auto lg:bottom-auto lg:z-auto lg:h-[calc(100vh-4rem)] lg:translate-y-0 lg:py-6'
       )}
     >
@@ -390,7 +394,7 @@ export default function Chat() {
             >
               <Icon name={c.icon} className="h-4 w-4 shrink-0" />
               <span className="truncate">{c.label}</span>
-              {unread[c.key] && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-brand" aria-label="Unread messages" />}
+              {unread[c.key] && <span className="absolute right-0.5 top-0.5 h-2 w-2 rounded-full bg-brand sm:right-1 sm:top-1" aria-label="Unread messages" />}
             </NavLink>
           ))}
         </div>
@@ -531,7 +535,7 @@ export default function Chat() {
             {/* Admin tools: text formatting + game/resource cards (all channels)
                 + poll (announcements). Moved up here so the composer box below
                 spans the full width. Creators never see this row. */}
-            {isAdmin && !kbOpen && (
+            {isAdmin && (
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 <div className="flex items-center gap-0.5 rounded-lg border border-gray-200 p-0.5" role="group" aria-label="Text formatting">
                   <button type="button" onClick={() => applyFormat('heading')} title="Heading" aria-label="Heading" className="rounded px-2.5 py-1 text-xs font-bold text-smoke hover:bg-cloud hover:text-ink">H</button>

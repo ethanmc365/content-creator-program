@@ -5,55 +5,90 @@ import { useEffect, useState } from 'react'
 // page chrome collapsing away, and the whole surface staying pinned to the
 // visible area even on iOS (where focusing an input scrolls the page).
 //
-// The important iOS detail: opening the keyboard does NOT change the *layout*
-// viewport (`window.innerHeight`); it shrinks the *visual* viewport
-// (`visualViewport.height`) and, to reveal the focused field, gives it a
-// positive `offsetTop`. A `position: fixed` element is anchored to the layout
-// viewport, so it ends up mis-placed (floating mid-screen, behind the keyboard).
-// Countering that requires `translateY(offsetTop)` + sizing to `visualViewport`.
-function readViewport() {
+// Two iOS quirks this handles:
+//  1. Opening the keyboard does NOT change the *layout* viewport
+//     (`window.innerHeight`); it shrinks the *visual* viewport
+//     (`visualViewport.height`). A `position: fixed` element is anchored to the
+//     layout viewport, so it ends up mis-placed (floating mid-screen, behind the
+//     keyboard). Countering that needs `translateY(offsetTop)` + sizing to
+//     `visualViewport.height`.
+//  2. iOS frequently does NOT fire `visualViewport` `resize` when the keyboard
+//     opens - only a later `scroll` (e.g. the user scrolling) announces the new
+//     size, which is why it looked broken until you scrolled. The metrics are
+//     always readable though, so we (a) drive "keyboard open" off input focus so
+//     chrome collapses instantly, and (b) POLL the metrics for ~1s after focus
+//     changes to pick up the settled size without waiting for an event.
+function isEditable(el) {
+  if (!el) return false
+  const tag = el.tagName
+  return tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable
+}
+
+function readViewport(focused) {
   const vv = typeof window !== 'undefined' ? window.visualViewport : null
   if (!vv) {
     const h = typeof window !== 'undefined' ? window.innerHeight : 0
-    return { height: h, offsetTop: 0, keyboard: 0 }
+    return { height: h, offsetTop: 0, keyboard: 0, focused: !!focused }
   }
-  // Keyboard height is simply layout height minus visible height. It must NOT
-  // subtract offsetTop: on iOS the page scrolls when the keyboard opens, so
-  // offsetTop grows to ~keyboard height and subtracting it wrongly yields 0
-  // (the old bug that left the tab bar + toolbar visible while typing).
-  const keyboard = Math.max(0, Math.round(window.innerHeight - vv.height))
+  // Keyboard height is layout height minus visible height. It must NOT subtract
+  // offsetTop: on iOS the page scrolls when the keyboard opens, so offsetTop
+  // grows and subtracting it wrongly yields 0.
+  const raw = Math.round(window.innerHeight - vv.height)
+  const keyboard = raw > 120 ? raw : 0
   return {
     height: Math.round(vv.height),
     offsetTop: Math.round(vv.offsetTop),
-    // Ignore small deltas (browser toolbars showing/hiding) - only a real
-    // keyboard is >~120px tall.
-    keyboard: keyboard > 120 ? keyboard : 0,
+    keyboard,
+    focused: !!focused,
   }
 }
 
-// Full visual-viewport state: { height, offsetTop, keyboard, keyboardOpen }.
+// Full visual-viewport state, incl. keyboardOpen which is true as soon as an
+// editable field is focused (instant chrome collapse) OR a keyboard is measured.
 export function useVisualViewport() {
-  const [vp, setVp] = useState(readViewport)
+  const [vp, setVp] = useState(() => readViewport(false))
 
   useEffect(() => {
     const vv = window.visualViewport
-    if (!vv) return
     let raf = 0
-    const update = () => {
+    let timers = []
+    // Track focus of editable elements ourselves so we don't depend on the
+    // laggy resize event to know the keyboard is coming.
+    let focused = isEditable(document.activeElement)
+
+    const apply = () => {
       cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(() => setVp(readViewport()))
+      raf = requestAnimationFrame(() => setVp(readViewport(focused)))
     }
-    vv.addEventListener('resize', update)
-    vv.addEventListener('scroll', update)
-    update()
+    // Read repeatedly for a second so we catch the keyboard's final size even
+    // when iOS never fires a resize event.
+    const poll = () => {
+      timers.forEach(clearTimeout)
+      timers = [0, 60, 120, 200, 320, 480, 700, 1000].map((t) => setTimeout(apply, t))
+    }
+    const onFocusIn = (e) => { if (isEditable(e.target)) { focused = true; poll() } }
+    const onFocusOut = () => { focused = false; poll() }
+
+    document.addEventListener('focusin', onFocusIn)
+    document.addEventListener('focusout', onFocusOut)
+    if (vv) {
+      vv.addEventListener('resize', apply)
+      vv.addEventListener('scroll', apply)
+    }
+    apply()
     return () => {
       cancelAnimationFrame(raf)
-      vv.removeEventListener('resize', update)
-      vv.removeEventListener('scroll', update)
+      timers.forEach(clearTimeout)
+      document.removeEventListener('focusin', onFocusIn)
+      document.removeEventListener('focusout', onFocusOut)
+      if (vv) {
+        vv.removeEventListener('resize', apply)
+        vv.removeEventListener('scroll', apply)
+      }
     }
   }, [])
 
-  return { ...vp, keyboardOpen: vp.keyboard > 0 }
+  return { ...vp, keyboardOpen: vp.focused || vp.keyboard > 0 }
 }
 
 // Backwards-compatible helper: just the keyboard height in CSS px, 0 when closed.
