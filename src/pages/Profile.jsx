@@ -333,7 +333,7 @@ export default function Profile() {
       </section>
 
       {/* ---------- Travel photos ---------- */}
-      <ProfileGallery creatorId={creator.id} isMe={isMe} />
+      <ProfileGallery creatorId={creator.id} isMe={isMe} creatorName={creator.name} />
 
       {/* ---------- Content showcase (creators only; admins don't submit) ---------- */}
       {!creator.is_admin && (
@@ -374,9 +374,10 @@ export default function Profile() {
   )
 }
 
-// Travel photo section. Only renders when there are photos, or when it's
-// your own profile (so you get a nudge to add some).
-function ProfileGallery({ creatorId, isMe }) {
+// Travel photo section. The section ALWAYS renders (even with no photos) so a
+// profile never looks broken/incomplete. On your own profile an empty state
+// nudges you to add photos; on someone else's it says they haven't added any.
+function ProfileGallery({ creatorId, isMe, creatorName }) {
   const [count, setCount] = useState(null)
   useEffect(() => {
     supabase
@@ -386,22 +387,32 @@ function ProfileGallery({ creatorId, isMe }) {
       .then(({ count }) => setCount(count ?? 0))
   }, [creatorId])
 
+  // Hold the section until we know the count, so the empty state doesn't flash.
   if (count === null) return null
-  if (count === 0 && !isMe) return null
+
+  const firstName = creatorName?.split(' ')[0] || 'This creator'
 
   return (
     <section>
       <div className="mb-4 flex items-baseline justify-between">
-        <h2 className="text-lg font-semibold">📸 Travel photos</h2>
-        {isMe && <Link to="/profile/edit" className="text-sm font-medium text-brand hover:underline">Manage photos</Link>}
+        <h2 className="flex items-center gap-2 text-lg font-semibold"><Icon name="image" className="h-5 w-5 text-brand" /> Travel photos</h2>
+        {isMe && count > 0 && <Link to="/profile/edit" className="text-sm font-medium text-brand hover:underline">Manage photos</Link>}
       </div>
       {count === 0 ? (
-        <EmptyState
-          emoji="📸"
-          title="No travel photos yet"
-          hint="Share up to 10 shots from your trips to bring your profile to life."
-          action={<Link to="/profile/edit" className="btn-primary">Add photos</Link>}
-        />
+        isMe ? (
+          <EmptyState
+            icon={<Icon name="image" className="h-7 w-7" />}
+            title="Add your travel photos"
+            hint="Share up to 10 shots from your trips to bring your profile to life."
+            action={<Link to="/profile/edit" className="btn-primary">Add photos</Link>}
+          />
+        ) : (
+          <EmptyState
+            icon={<Icon name="image" className="h-7 w-7" />}
+            title="No travel photos yet"
+            hint={`${firstName} hasn't added any travel photos yet.`}
+          />
+        )
       ) : (
         <TravelGallery creatorId={creatorId} />
       )}

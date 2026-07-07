@@ -477,7 +477,9 @@ export default function Chat() {
           ) : canPost ? (
             <>
             {attachError && <p className="mb-2 text-xs text-red-600">{attachError}</p>}
-            {/* Admin tools: text formatting (all channels) + poll (announcements). */}
+            {/* Admin tools: text formatting + game/resource cards (all channels)
+                + poll (announcements). Moved up here so the composer box below
+                spans the full width. Creators never see this row. */}
             {isAdmin && (
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 <div className="flex items-center gap-0.5 rounded-lg border border-gray-200 p-0.5" role="group" aria-label="Text formatting">
@@ -485,6 +487,14 @@ export default function Chat() {
                   <button type="button" onClick={() => applyFormat('bold')} title="Bold" aria-label="Bold" className="rounded px-2.5 py-1 text-sm font-bold text-smoke hover:bg-cloud hover:text-ink">B</button>
                   <button type="button" onClick={() => applyFormat('italic')} title="Italic" aria-label="Italic" className="rounded px-2.5 py-1 text-sm italic text-smoke hover:bg-cloud hover:text-ink">I</button>
                 </div>
+                {/* Drop a game challenge card into this channel. */}
+                <button type="button" onClick={() => setShowGame(true)} disabled={sending} title="Post a game challenge" aria-label="Post a game challenge" className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-smoke hover:bg-cloud hover:text-ink">
+                  <Icon name="joystick" className="h-4 w-4" /> <span className="hidden sm:inline">Game</span>
+                </button>
+                {/* Drop a resource-library card into this channel. */}
+                <button type="button" onClick={openResourcePicker} disabled={sending} title="Share a resource" aria-label="Share a resource" className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-smoke hover:bg-cloud hover:text-ink">
+                  <Icon name="book" className="h-4 w-4" /> <span className="hidden sm:inline">Resource</span>
+                </button>
                 {channel === 'announcements' && (
                   <button type="button" onClick={() => setShowPoll(true)} className="btn-secondary !py-2 text-xs">
                     <Icon name="poll" className="h-4 w-4" /> Create a poll
@@ -519,32 +529,6 @@ export default function Chat() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 19.5h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25z" />
                 </svg>
               </button>
-              {/* Admin: drop a game challenge card into this channel. */}
-              {isAdmin && (
-                <button
-                  type="button"
-                  onClick={() => setShowGame(true)}
-                  disabled={sending}
-                  className="btn-ghost !px-3.5 !py-3"
-                  aria-label="Post a game challenge"
-                  title="Post a game challenge"
-                >
-                  <Icon name="joystick" className="h-5 w-5" />
-                </button>
-              )}
-              {/* Admin: drop a resource-library card into this channel. */}
-              {isAdmin && (
-                <button
-                  type="button"
-                  onClick={openResourcePicker}
-                  disabled={sending}
-                  className="btn-ghost !px-3.5 !py-3"
-                  aria-label="Share a resource"
-                  title="Share a resource"
-                >
-                  <Icon name="book" className="h-5 w-5" />
-                </button>
-              )}
               <textarea
                 ref={textareaRef}
                 rows={1}

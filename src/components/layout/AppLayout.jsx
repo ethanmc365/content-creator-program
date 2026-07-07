@@ -149,9 +149,12 @@ export default function AppLayout() {
           </nav>
 
           <div className="flex items-center gap-2">
+            {/* Admin shortcut. Visible on mobile too (creators never see it) so
+                admins can reach the panel straight from the top bar. */}
             {isAdmin && (
-              <Link to="/admin" className="hidden rounded-full border border-brand px-4 py-1.5 text-xs font-semibold text-brand transition-colors hover:bg-brand hover:text-white sm:block">
-                Admin
+              <Link to="/admin" className="flex items-center gap-1.5 rounded-full border border-brand px-3 py-1.5 text-xs font-semibold text-brand transition-colors hover:bg-brand hover:text-white sm:px-4">
+                <Icon name="shield" className="h-4 w-4" />
+                <span>Admin</span>
               </Link>
             )}
             <NotificationBell />
@@ -163,7 +166,7 @@ export default function AppLayout() {
                 {connReqs > 0 && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-brand ring-2 ring-white" aria-label={`${connReqs} connection requests`} />}
               </button>
               {menuOpen && (
-                <div className="absolute right-0 z-40 mt-2 max-h-[80vh] w-60 overflow-y-auto rounded-card border border-gray-100 bg-white p-2 shadow-lift animate-fade-up">
+                <div className="absolute right-0 z-40 mt-2 max-h-[calc(100dvh-5rem)] w-60 overflow-y-auto overscroll-contain rounded-card border border-gray-100 bg-white p-2 shadow-lift animate-fade-up">
                   <div className="border-b border-gray-100 px-3 py-2">
                     <p className="truncate text-sm font-semibold">{profile?.name}</p>
                     <p className="truncate text-xs text-smoke">{user?.email}</p>

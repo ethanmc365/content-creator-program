@@ -132,17 +132,29 @@ export default function Home() {
           )}
         </section>
       ) : (
-        <section className="card text-center !py-14">
-          <p className="text-4xl" aria-hidden>🏝️</p>
-          <h2 className="mt-3 text-xl font-semibold">No live challenge right now</h2>
-          <p className="mx-auto mt-2 max-w-md text-smoke">
-            The next one is around the corner. You'll get a notification the moment it drops.
-            Meanwhile, polish your profile or browse past challenges for inspiration.
-          </p>
-          <div className="mt-6 flex justify-center gap-3">
-            <Link to="/challenges" className="btn-primary">Past challenges</Link>
-            <Link to="/creators" className="btn-secondary">Meet the creators</Link>
+        <section className="relative overflow-hidden rounded-card border border-gray-100 bg-gradient-to-b from-brand-tint/40 to-white text-center shadow-card">
+          <div className="px-6 py-12 sm:py-16">
+            {/* Tryp.com plane coming in to land. A gentle descent/bob hints at
+                "landing soon" (disabled for reduced-motion users). */}
+            <div className="tryp-landing mx-auto mb-7 w-56 max-w-full sm:w-72">
+              <img src="/brand/tryp-plane-transparent.png" alt="Tryp.com plane coming in to land" className="w-full drop-shadow-md" />
+              <div className="mx-auto mt-1 h-px w-40 bg-gradient-to-r from-transparent via-brand/40 to-transparent" aria-hidden />
+            </div>
+            <h2 className="text-xl font-semibold sm:text-2xl">The next challenge is landing here soon</h2>
+            <p className="mx-auto mt-2 max-w-md text-smoke">
+              Your next brief is cleared for landing. You'll get a notification the moment it touches down.
+              Meanwhile, polish your profile or browse past challenges for inspiration.
+            </p>
+            <div className="mt-7 flex flex-wrap justify-center gap-3">
+              <Link to="/challenges" className="btn-primary">Past challenges</Link>
+              <Link to="/creators" className="btn-secondary">Meet the creators</Link>
+            </div>
           </div>
+          <style>{`
+            @keyframes tryp-land { 0%,100% { transform: translateY(-6px) } 50% { transform: translateY(4px) } }
+            .tryp-landing { animation: tryp-land 4s ease-in-out infinite; }
+            @media (prefers-reduced-motion: reduce) { .tryp-landing { animation: none } }
+          `}</style>
         </section>
       )}
 

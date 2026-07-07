@@ -207,15 +207,24 @@ function Round({ mode, region, questions, onQuit, onFinish }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3 text-sm">
-          <Badge tone="light"><Icon name={MODES.find((m) => m.key === mode).icon} className="h-3.5 w-3.5" /> {MODE_LABEL[mode]} · {region}</Badge>
-          <span className="font-medium text-smoke">Question {i + 1} / {questions.length}</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <span className="font-mono text-sm font-semibold tabular-nums text-ink">⏱ {fmtTime(elapsed)}</span>
-          <span className="text-sm font-semibold text-brand">{correct} correct</span>
-          <button onClick={onQuit} className="text-xs font-medium text-smoke hover:text-brand">Quit</button>
+      {/* Header. On mobile each stat stacks its label above its value so
+          nothing is crammed onto one line; it wraps to a second row if needed. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+        <Badge tone="light"><Icon name={MODES.find((m) => m.key === mode).icon} className="h-3.5 w-3.5" /> {MODE_LABEL[mode]} · {region}</Badge>
+        <div className="flex items-center gap-5 sm:gap-7">
+          <div className="text-center leading-tight">
+            <span className="block text-[10px] font-medium uppercase tracking-wide text-smoke">Question</span>
+            <span className="block text-sm font-semibold tabular-nums text-ink">{i + 1} / {questions.length}</span>
+          </div>
+          <div className="text-center leading-tight">
+            <span className="block text-[10px] font-medium uppercase tracking-wide text-smoke">Time</span>
+            <span className="block font-mono text-sm font-semibold tabular-nums text-ink">{fmtTime(elapsed)}</span>
+          </div>
+          <div className="text-center leading-tight">
+            <span className="block text-[10px] font-medium uppercase tracking-wide text-smoke">Correct</span>
+            <span className="block text-sm font-semibold tabular-nums text-brand">{correct}</span>
+          </div>
+          <button onClick={onQuit} className="self-center text-xs font-medium text-smoke hover:text-brand">Quit</button>
         </div>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-cloud">
@@ -281,11 +290,17 @@ function Feedback({ answered, answer, reveal, last, onNext }) {
 }
 
 // ---------------------------------------------------------------- Game map
+const MAP_HOME = { coordinates: [12, 8], zoom: 1 }
 function GameMap({ placed, revealed, flashWrong, answered, onPick }) {
+  // Controlled zoom so we can offer on-screen +/- buttons (much friendlier than
+  // pinch on a phone) and zoom deep enough to click small countries.
+  const [pos, setPos] = useState(MAP_HOME)
+  const clampZoom = (z) => Math.max(1, Math.min(16, z))
+  const zoomBy = (factor) => setPos((p) => ({ ...p, zoom: clampZoom(p.zoom * factor) }))
   return (
-    <div className="overflow-hidden rounded-card bg-cloud/60">
+    <div className="relative overflow-hidden rounded-card bg-cloud/60">
       <ComposableMap width={880} height={440} projectionConfig={{ scale: 160, center: [12, 8] }} style={{ width: '100%', height: 'auto', display: 'block' }}>
-        <ZoomableGroup minZoom={1} maxZoom={5}>
+        <ZoomableGroup minZoom={1} maxZoom={16} zoom={pos.zoom} center={pos.coordinates} onMoveEnd={setPos}>
           <Geographies geography={GEO_URL}>
             {({ geographies }) =>
               geographies
@@ -319,7 +334,13 @@ function GameMap({ placed, revealed, flashWrong, answered, onPick }) {
           </Geographies>
         </ZoomableGroup>
       </ComposableMap>
-      <p className="px-3 pb-2 text-center text-[11px] text-smoke">Tap the country · pinch/scroll to zoom · correct stays green, the answer shows in orange</p>
+      {/* On-screen zoom controls (drag the map to pan when zoomed in). */}
+      <div className="absolute right-2 top-2 flex flex-col gap-1.5">
+        <button type="button" onClick={() => zoomBy(1.6)} aria-label="Zoom in" className="flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-lg font-bold text-ink shadow-card transition-transform hover:scale-105 active:scale-95">+</button>
+        <button type="button" onClick={() => zoomBy(1 / 1.6)} aria-label="Zoom out" className="flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-lg font-bold text-ink shadow-card transition-transform hover:scale-105 active:scale-95">−</button>
+        <button type="button" onClick={() => setPos(MAP_HOME)} aria-label="Reset zoom" className="flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-ink shadow-card transition-transform hover:scale-105 active:scale-95"><Icon name="globe" className="h-4 w-4" /></button>
+      </div>
+      <p className="px-3 pb-2 text-center text-[11px] text-smoke">Tap the country · pinch, scroll or use +/- to zoom · drag to pan · correct stays green, the answer shows in orange</p>
     </div>
   )
 }
