@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import CountdownTimer from '../components/CountdownTimer'
 import PlatformBadges from '../components/PlatformBadges'
+import VideoThumb from '../components/VideoThumb'
 import { Avatar, Badge, Modal, PageHeader, Skeleton, EmptyState, Spinner } from '../components/ui'
 import { formatDate, timeAgo, formatViews, detectPlatform, cx, challengeDeadline } from '../lib/utils'
 
@@ -231,30 +232,34 @@ export default function ChallengeDetail() {
         ) : (
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {submissions.map((s) => (
-              <div key={s.id} className="card flex flex-col gap-4 !p-6">
-                <div className="flex items-center gap-3">
-                  <Link to={`/profile/${s.profiles?.id}`}>
-                    <Avatar src={s.profiles?.photo_url} name={s.profiles?.name} size="sm" />
-                  </Link>
-                  <div className="min-w-0 flex-1">
-                    <Link to={`/profile/${s.profiles?.id}`} className="block truncate text-sm font-semibold hover:text-brand">
-                      {s.profiles?.name}
+              <div key={s.id} className="card group flex flex-col overflow-hidden !p-0">
+                <a href={s.video_url} target="_blank" rel="noopener noreferrer" className="block">
+                  <VideoThumb url={s.video_url} platform={s.platform} className="rounded-b-none" />
+                </a>
+                <div className="flex flex-1 flex-col gap-4 p-6">
+                  <div className="flex items-center gap-3">
+                    <Link to={`/profile/${s.profiles?.id}`}>
+                      <Avatar src={s.profiles?.photo_url} name={s.profiles?.name} size="sm" />
                     </Link>
-                    <p className="text-xs text-smoke">{timeAgo(s.submitted_at)}</p>
+                    <div className="min-w-0 flex-1">
+                      <Link to={`/profile/${s.profiles?.id}`} className="block truncate text-sm font-semibold hover:text-brand">
+                        {s.profiles?.name}
+                      </Link>
+                      <p className="text-xs text-smoke">{timeAgo(s.submitted_at)}</p>
+                    </div>
                   </div>
-                  <PlatformBadges platforms={[s.platform]} />
-                </div>
-                {s.caption && <p className="text-sm text-smoke line-clamp-3">{s.caption}</p>}
-                {s.logged_views != null && (
-                  <p className="text-sm font-semibold text-brand">{formatViews(s.logged_views)} logged views</p>
-                )}
-                <div className="mt-auto flex gap-2">
-                  <a href={s.video_url} target="_blank" rel="noopener noreferrer" className="btn-secondary flex-1 !py-2 text-xs">
-                    Watch ↗
-                  </a>
-                  {s.creator_id === user.id && isLive && (
-                    <button onClick={() => removeMySubmission(s.id)} className="btn-danger !py-2 text-xs">Remove</button>
+                  {s.caption && <p className="text-sm text-smoke line-clamp-3">{s.caption}</p>}
+                  {s.logged_views != null && (
+                    <p className="text-sm font-semibold text-brand">{formatViews(s.logged_views)} logged views</p>
                   )}
+                  <div className="mt-auto flex gap-2">
+                    <a href={s.video_url} target="_blank" rel="noopener noreferrer" className="btn-secondary flex-1 !py-2 text-xs">
+                      Watch ↗
+                    </a>
+                    {s.creator_id === user.id && isLive && (
+                      <button onClick={() => removeMySubmission(s.id)} className="btn-danger !py-2 text-xs">Remove</button>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

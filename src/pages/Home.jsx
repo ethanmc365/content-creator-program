@@ -138,12 +138,11 @@ export default function Home() {
                 "landing soon" (disabled for reduced-motion users). */}
             <div className="tryp-landing mx-auto mb-7 w-56 max-w-full sm:w-72">
               <img src="/brand/tryp-plane-transparent.png" alt="Tryp.com plane coming in to land" className="w-full drop-shadow-md" />
-              <div className="mx-auto mt-1 h-px w-40 bg-gradient-to-r from-transparent via-brand/40 to-transparent" aria-hidden />
             </div>
             <h2 className="text-xl font-semibold sm:text-2xl">The next challenge is landing here soon</h2>
             <p className="mx-auto mt-2 max-w-md text-smoke">
               Your next brief is cleared for landing. You'll get a notification the moment it touches down.
-              Meanwhile, polish your profile or browse past challenges for inspiration.
+              Meanwhile, sit back, relax, explore the community and connect with other creators.
             </p>
             <div className="mt-7 flex flex-wrap justify-center gap-3">
               <Link to="/challenges" className="btn-primary">Past challenges</Link>

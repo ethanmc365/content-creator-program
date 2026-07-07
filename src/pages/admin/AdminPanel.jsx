@@ -23,6 +23,7 @@ const TOOLS = [
   { to: '/chat/general', icon: 'shield', title: 'Chat moderation', text: 'Delete messages and mute disruptive creators in any channel.' },
   { to: '/admin/audit', icon: 'clock', title: 'Audit log', text: 'A record of account actions taken by the Tryp.com Team.' },
   { to: '/admin/scheduled', icon: 'calendar', title: 'Scheduled posts', text: 'Write announcements now and auto-post them later.' },
+  { to: '/admin/whats-new', icon: 'bell', title: "What's new", text: "Announce a new feature. It lands in every creator's notification bell." },
   { to: '/admin/feedback', icon: 'chat', title: 'Bug reports & ideas', text: 'Bugs and feature suggestions creators have submitted.' },
 ]
 

@@ -58,6 +58,7 @@ const AdminEmail = lazy(() => import('./pages/admin/AdminEmail'))
 const AdminApplications = lazy(() => import('./pages/admin/AdminApplications'))
 const AdminAuditLog = lazy(() => import('./pages/admin/AdminAuditLog'))
 const AdminScheduledAnnouncements = lazy(() => import('./pages/admin/AdminScheduledAnnouncements'))
+const AdminWhatsNew = lazy(() => import('./pages/admin/AdminWhatsNew'))
 const AdminFeedback = lazy(() => import('./pages/admin/AdminFeedback'))
 
 function LazyFallback() {
@@ -133,6 +134,7 @@ export default function App() {
             <Route path="/admin/email" element={<AdminEmail />} />
             <Route path="/admin/audit" element={<AdminAuditLog />} />
             <Route path="/admin/scheduled" element={<AdminScheduledAnnouncements />} />
+            <Route path="/admin/whats-new" element={<AdminWhatsNew />} />
             <Route path="/admin/feedback" element={<AdminFeedback />} />
           </Route>
         </Route>

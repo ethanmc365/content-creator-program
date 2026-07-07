@@ -3,8 +3,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import WorldMap from '../components/WorldMap'
-import PlatformBadges from '../components/PlatformBadges'
 import TravelGallery from '../components/TravelGallery'
+import VideoThumb from '../components/VideoThumb'
 import AchievementBadges from '../components/AchievementBadges'
 import ConnectButton from '../components/ConnectButton'
 import { loadRelationship, mutualConnections } from '../lib/connections'
@@ -347,23 +347,25 @@ export default function Profile() {
             action={isMe && <Link to="/challenges" className="btn-primary">View challenges</Link>}
           />
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {submissions.map((s) => (
               <a
                 key={s.id}
                 href={s.video_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="card group !p-5 transition-all hover:-translate-y-0.5 hover:shadow-lift"
+                className="card group overflow-hidden !p-0 transition-all hover:-translate-y-0.5 hover:shadow-lift"
               >
-                <div className="flex items-center justify-between gap-3">
-                  <PlatformBadges platforms={[s.platform]} />
-                  <span className="text-xs text-smoke">{timeAgo(s.submitted_at)}</span>
+                <VideoThumb url={s.video_url} platform={s.platform} className="rounded-b-none" />
+                <div className="p-5">
+                  <div className="flex items-center justify-between gap-3 text-xs text-smoke">
+                    <span className="truncate">{s.challenges?.title}</span>
+                    <span className="shrink-0">{timeAgo(s.submitted_at)}</span>
+                  </div>
+                  <p className={cx('mt-2 text-sm font-medium group-hover:text-brand', !s.caption && 'text-smoke')}>
+                    {s.caption || 'View the video ↗'}
+                  </p>
                 </div>
-                <p className={cx('mt-3 text-sm font-medium group-hover:text-brand', !s.caption && 'text-smoke')}>
-                  {s.caption || 'View the video ↗'}
-                </p>
-                <p className="mt-2 text-xs text-smoke">{s.challenges?.title}</p>
               </a>
             ))}
           </div>
