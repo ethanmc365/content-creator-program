@@ -50,8 +50,16 @@ export default function Chat() {
   // chat is a fixed overlay pinned to the visible area so the composer hugs the
   // keyboard and page chrome collapses away. See useVisualViewport for the iOS
   // reasoning (translateY(offsetTop) + sizing to visualViewport.height).
-  const { height: vpHeight, offsetTop: vpOffset, keyboardOpen: kbOpen, smooth: vpSmooth } = useVisualViewport()
+  const { height: vpHeight, offsetTop: vpOffset, keyboard: kbHeight, keyboardOpen: kbOpen } = useVisualViewport()
   const isMobile = useIsMobile()
+
+  // The full-screen "open" geometry is only applied once the keyboard is
+  // actually MEASURED (kbHeight > 0), not the instant the field is focused. If
+  // we switched geometry on focus alone, the first frame would size the overlay
+  // to the stale full-viewport height and flash a broken layout before the real
+  // measurement lands. Chrome (tab bar/header) still collapses on focus via
+  // kbOpen; only the sizing waits, so there's no bad intermediate frame.
+  const geomOpen = kbHeight > 0
 
   // Mobile overlay geometry. When the keyboard is closed we leave room for the
   // top header (4rem) and the bottom tab bar (4.5rem + safe area) so both stay
@@ -59,14 +67,14 @@ export default function Chat() {
   // header scrolls away, the tab bar hides) for maximum typing/reading space.
   const mobileStyle = isMobile
     ? {
-        top: kbOpen ? 0 : '4rem',
-        height: kbOpen
+        top: geomOpen ? 0 : '4rem',
+        height: geomOpen
           ? `${vpHeight}px`
           : `calc(${vpHeight}px - 4rem - 4.5rem - env(safe-area-inset-bottom))`,
         transform: `translateY(${vpOffset}px)`,
         // When the overlay covers the header (keyboard open) clear the status
         // bar / notch in a standalone PWA; harmless (0) in a browser tab.
-        paddingTop: kbOpen ? 'env(safe-area-inset-top)' : undefined,
+        paddingTop: geomOpen ? 'env(safe-area-inset-top)' : undefined,
       }
     : undefined
 
@@ -370,18 +378,11 @@ export default function Chat() {
         // in mobileStyle) so the document never scrolls and the composer hugs
         // the keyboard. Desktop keeps the normal centered card.
         'fixed inset-x-0 mx-auto flex w-full max-w-6xl flex-col sm:px-8',
-        // Interpolate size/position changes into a clean slide, but ONLY for
-        // poll-driven (stepped) updates - browsers that fire live viewport
-        // events already track the keyboard per-frame, so animating those makes
-        // the panel trail and stutter. vpSmooth tells us which case we're in.
-        vpSmooth
-          ? 'motion-safe:transition-[top,height,transform] motion-safe:duration-200 motion-safe:ease-out'
-          : 'transition-none',
         // While typing the overlay goes full-screen and sits ABOVE the header so
         // it can cover it; otherwise it sits BELOW the header (z-20) so the
         // header's bell/avatar dropdowns stay tappable over the chat.
         kbOpen ? 'z-50' : 'z-20',
-        'lg:static lg:inset-auto lg:bottom-auto lg:z-auto lg:h-[calc(100vh-4rem)] lg:translate-y-0 lg:py-6 lg:transition-none'
+        'lg:static lg:inset-auto lg:bottom-auto lg:z-auto lg:h-[calc(100vh-4rem)] lg:translate-y-0 lg:py-6'
       )}
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white sm:rounded-card sm:border sm:border-gray-100 sm:shadow-card">
