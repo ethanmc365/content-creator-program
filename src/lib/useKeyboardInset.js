@@ -1,34 +1,48 @@
 import { useEffect, useState } from 'react'
 
-// Tracks the on-screen (software) keyboard height in CSS pixels, 0 when closed.
+// Tracks the on-screen (software) keyboard + visual viewport so the chat can be
+// laid out WhatsApp-style on mobile: composer hugging the top of the keyboard,
+// page chrome collapsing away, and the whole surface staying pinned to the
+// visible area even on iOS (where focusing an input scrolls the page).
 //
-// On mobile, focusing a text field opens the keyboard, which shrinks the
-// *visual* viewport while the *layout* viewport (dvh/innerHeight) stays the same
-// height. The gap between the two is the keyboard. We use that to pin the chat
-// composer directly above the keyboard and hide chrome that would waste space,
-// WhatsApp-style. Works on iOS Safari and Android Chrome (default
-// interactive-widget=resizes-visual). Desktop has no visualViewport keyboard so
-// this stays 0 there.
-export function useKeyboardInset() {
-  const [inset, setInset] = useState(0)
+// The important iOS detail: opening the keyboard does NOT change the *layout*
+// viewport (`window.innerHeight`); it shrinks the *visual* viewport
+// (`visualViewport.height`) and, to reveal the focused field, gives it a
+// positive `offsetTop`. A `position: fixed` element is anchored to the layout
+// viewport, so it ends up mis-placed (floating mid-screen, behind the keyboard).
+// Countering that requires `translateY(offsetTop)` + sizing to `visualViewport`.
+function readViewport() {
+  const vv = typeof window !== 'undefined' ? window.visualViewport : null
+  if (!vv) {
+    const h = typeof window !== 'undefined' ? window.innerHeight : 0
+    return { height: h, offsetTop: 0, keyboard: 0 }
+  }
+  // Keyboard height is simply layout height minus visible height. It must NOT
+  // subtract offsetTop: on iOS the page scrolls when the keyboard opens, so
+  // offsetTop grows to ~keyboard height and subtracting it wrongly yields 0
+  // (the old bug that left the tab bar + toolbar visible while typing).
+  const keyboard = Math.max(0, Math.round(window.innerHeight - vv.height))
+  return {
+    height: Math.round(vv.height),
+    offsetTop: Math.round(vv.offsetTop),
+    // Ignore small deltas (browser toolbars showing/hiding) - only a real
+    // keyboard is >~120px tall.
+    keyboard: keyboard > 120 ? keyboard : 0,
+  }
+}
+
+// Full visual-viewport state: { height, offsetTop, keyboard, keyboardOpen }.
+export function useVisualViewport() {
+  const [vp, setVp] = useState(readViewport)
 
   useEffect(() => {
     const vv = window.visualViewport
     if (!vv) return
-
     let raf = 0
     const update = () => {
       cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(() => {
-        // Height the keyboard is covering: full layout height minus what's
-        // still visible (and minus any offset when the page is pinch-scrolled).
-        const covered = window.innerHeight - vv.height - vv.offsetTop
-        // Ignore small deltas (browser toolbars appearing/disappearing) so we
-        // only react to a real keyboard.
-        setInset(covered > 90 ? Math.round(covered) : 0)
-      })
+      raf = requestAnimationFrame(() => setVp(readViewport()))
     }
-
     vv.addEventListener('resize', update)
     vv.addEventListener('scroll', update)
     update()
@@ -39,5 +53,27 @@ export function useKeyboardInset() {
     }
   }, [])
 
-  return inset
+  return { ...vp, keyboardOpen: vp.keyboard > 0 }
+}
+
+// Backwards-compatible helper: just the keyboard height in CSS px, 0 when closed.
+export function useKeyboardInset() {
+  return useVisualViewport().keyboard
+}
+
+// True below the `lg` breakpoint (Tailwind default 1024px), kept in sync on
+// resize/orientation change. Used to apply the mobile chat overlay geometry
+// only on phones/tablets and leave the desktop card layout untouched.
+export function useIsMobile() {
+  const [mobile, setMobile] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 1023.98px)').matches
+  )
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1023.98px)')
+    const onChange = () => setMobile(mq.matches)
+    mq.addEventListener('change', onChange)
+    onChange()
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+  return mobile
 }

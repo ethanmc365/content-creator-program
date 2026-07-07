@@ -12,7 +12,7 @@ import ResourceCard from '../components/ResourceCard'
 import { CONTINENTS } from '../lib/countries'
 import { formatChatTime, cx } from '../lib/utils'
 import { renderMessageBody } from '../lib/richText'
-import { useKeyboardInset } from '../lib/useKeyboardInset'
+import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
 
 // Real-time community chat - the WhatsApp replacement.
 //  * Three channels: #general, #announcements (admin-post-only), #content-tips.
@@ -46,10 +46,29 @@ export default function Chat() {
   const fileRef = useRef(null)
   const textareaRef = useRef(null)
 
-  // Software-keyboard height: drives the WhatsApp-style mobile layout so the
-  // composer hugs the top of the keyboard and page chrome collapses away.
-  const kbInset = useKeyboardInset()
-  const kbOpen = kbInset > 0
+  // Visual-viewport tracking drives the WhatsApp-style mobile layout: the whole
+  // chat is a fixed overlay pinned to the visible area so the composer hugs the
+  // keyboard and page chrome collapses away. See useVisualViewport for the iOS
+  // reasoning (translateY(offsetTop) + sizing to visualViewport.height).
+  const { height: vpHeight, offsetTop: vpOffset, keyboardOpen: kbOpen } = useVisualViewport()
+  const isMobile = useIsMobile()
+
+  // Mobile overlay geometry. When the keyboard is closed we leave room for the
+  // top header (4rem) and the bottom tab bar (4.5rem + safe area) so both stay
+  // usable; when it opens, the overlay takes the full visible viewport (the
+  // header scrolls away, the tab bar hides) for maximum typing/reading space.
+  const mobileStyle = isMobile
+    ? {
+        top: kbOpen ? 0 : '4rem',
+        height: kbOpen
+          ? `${vpHeight}px`
+          : `calc(${vpHeight}px - 4rem - 4.5rem - env(safe-area-inset-bottom))`,
+        transform: `translateY(${vpOffset}px)`,
+        // When the overlay covers the header (keyboard open) clear the status
+        // bar / notch in a standalone PWA; harmless (0) in a browser tab.
+        paddingTop: kbOpen ? 'env(safe-area-inset-top)' : undefined,
+      }
+    : undefined
 
   // Members (for @mention autocomplete + rendering mention links).
   const [members, setMembers] = useState([])
@@ -136,10 +155,11 @@ export default function Chat() {
     setUnread((u) => ({ ...u, [channel]: false }))
   }, [messages, channel])
 
-  // Keep the latest message in view when the keyboard opens/closes.
+  // Keep the latest message in view when the keyboard opens/closes or the
+  // visible viewport resizes.
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [kbInset])
+  }, [kbOpen, vpHeight])
 
   // Auto-grow the composer like WhatsApp: expand with the text up to a few
   // lines, then let it scroll internally instead of pushing the layout.
@@ -344,15 +364,13 @@ export default function Chat() {
 
   return (
     <div
-      style={kbOpen ? { bottom: `${kbInset}px` } : undefined}
+      style={mobileStyle}
       className={cx(
-        // Mobile/tablet: pin to the viewport (top of screen under the header,
-        // bottom above the tab bar) so the document never scrolls. That makes
-        // the on-screen keyboard shrink the visual viewport instead of shoving
-        // the whole page up, so the composer can hug the keyboard and the
-        // channel tabs stay put. Desktop keeps the normal centered card.
-        'fixed inset-x-0 top-16 z-20 mx-auto flex w-full max-w-6xl flex-col bottom-[calc(4.5rem+env(safe-area-inset-bottom))] sm:px-8',
-        'lg:static lg:inset-auto lg:bottom-auto lg:z-auto lg:h-[calc(100vh-4rem)] lg:py-6'
+        // Mobile/tablet: a fixed overlay pinned to the visual viewport (geometry
+        // in mobileStyle) so the document never scrolls and the composer hugs
+        // the keyboard. Desktop keeps the normal centered card.
+        'fixed inset-x-0 z-30 mx-auto flex w-full max-w-6xl flex-col sm:px-8',
+        'lg:static lg:inset-auto lg:bottom-auto lg:z-auto lg:h-[calc(100vh-4rem)] lg:translate-y-0 lg:py-6'
       )}
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white sm:rounded-card sm:border sm:border-gray-100 sm:shadow-card">

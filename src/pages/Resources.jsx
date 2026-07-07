@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Badge, EmptyState, PageHeader, SkeletonCards } from '../components/ui'
+import MediaAttachment from '../components/MediaAttachment'
 import { formatDate, cx } from '../lib/utils'
 
 // The permanent content library: tips, video ideas, brand guidelines,
@@ -122,6 +123,11 @@ export default function Resources() {
                   {r.body}
                 </p>
 
+                {/* Attachment: images and videos preview inline (tap the video to
+                    play); other files keep a download. Save routes through the
+                    native share sheet so mobile can save to the camera roll. */}
+                {r.file_url && <MediaAttachment url={r.file_url} />}
+
                 <div className="mt-auto flex items-center justify-between gap-3 border-t border-gray-50 pt-4">
                   <p className="text-xs text-gray-400">
                     {r.profiles?.name && `By ${r.profiles.name} · `}{formatDate(r.created_at)}
@@ -131,11 +137,6 @@ export default function Resources() {
                       <button onClick={() => setOpenId(open ? null : r.id)} className="text-xs font-medium text-brand hover:underline">
                         {open ? 'Show less' : 'Read more'}
                       </button>
-                    )}
-                    {r.file_url && (
-                      <a href={r.file_url} target="_blank" rel="noopener noreferrer" className="btn-secondary !px-4 !py-1.5 text-xs">
-                        Download ↓
-                      </a>
                     )}
                   </div>
                 </div>

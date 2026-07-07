@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Icon from './Icon'
+import MediaAttachment from './MediaAttachment'
 
 // An inline resource-library card inside a chat message: admins drop these into
 // any channel so creators can jump straight to a guide or asset. (Mirrors
@@ -30,12 +31,9 @@ export default function ResourceCard({ resourceId }) {
             {snippet}{(resource.body || '').length > 140 ? '…' : ''}
           </p>
         )}
-        <div className="flex gap-2">
-          <Link to={`/resources?open=${resourceId}`} className="btn-primary flex-1 !py-2 text-xs">Open in library →</Link>
-          {resource.file_url && (
-            <a href={resource.file_url} target="_blank" rel="noopener noreferrer" className="btn-secondary !px-3 !py-2 text-xs">↓</a>
-          )}
-        </div>
+        {/* Preview the attachment inline (image/video) with a save button. */}
+        {resource.file_url && <MediaAttachment url={resource.file_url} compact className="mb-3" />}
+        <Link to={`/resources?open=${resourceId}`} className="btn-primary block w-full !py-2 text-xs">Open in library →</Link>
       </div>
     </div>
   )

@@ -170,7 +170,7 @@ export default function AppLayout() {
                 {connReqs > 0 && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-brand ring-2 ring-white" aria-label={`${connReqs} connection requests`} />}
               </button>
               {menuOpen && (
-                <div className="absolute right-0 z-40 mt-2 max-h-[calc(100dvh-5rem)] w-60 overflow-y-auto overscroll-contain rounded-card border border-gray-100 bg-white p-2 shadow-lift animate-fade-up">
+                <div className="absolute right-0 z-40 mt-2 max-h-[calc(100dvh-5.5rem)] w-60 overflow-y-auto overscroll-contain rounded-card border border-gray-100 bg-white p-2 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-lift animate-fade-up">
                   <div className="border-b border-gray-100 px-3 py-2">
                     <p className="truncate text-sm font-semibold">{profile?.name}</p>
                     <p className="truncate text-xs text-smoke">{user?.email}</p>
