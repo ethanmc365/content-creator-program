@@ -50,16 +50,8 @@ export default function Chat() {
   // chat is a fixed overlay pinned to the visible area so the composer hugs the
   // keyboard and page chrome collapses away. See useVisualViewport for the iOS
   // reasoning (translateY(offsetTop) + sizing to visualViewport.height).
-  const { height: vpHeight, offsetTop: vpOffset, keyboard: kbHeight, keyboardOpen: kbOpen } = useVisualViewport()
+  const { height: vpHeight, offsetTop: vpOffset, keyboardOpen: kbOpen } = useVisualViewport()
   const isMobile = useIsMobile()
-
-  // The full-screen "open" geometry is only applied once the keyboard is
-  // actually MEASURED (kbHeight > 0), not the instant the field is focused. If
-  // we switched geometry on focus alone, the first frame would size the overlay
-  // to the stale full-viewport height and flash a broken layout before the real
-  // measurement lands. Chrome (tab bar/header) still collapses on focus via
-  // kbOpen; only the sizing waits, so there's no bad intermediate frame.
-  const geomOpen = kbHeight > 0
 
   // Mobile overlay geometry. When the keyboard is closed we leave room for the
   // top header (4rem) and the bottom tab bar (4.5rem + safe area) so both stay
@@ -67,14 +59,14 @@ export default function Chat() {
   // header scrolls away, the tab bar hides) for maximum typing/reading space.
   const mobileStyle = isMobile
     ? {
-        top: geomOpen ? 0 : '4rem',
-        height: geomOpen
+        top: kbOpen ? 0 : '4rem',
+        height: kbOpen
           ? `${vpHeight}px`
           : `calc(${vpHeight}px - 4rem - 4.5rem - env(safe-area-inset-bottom))`,
         transform: `translateY(${vpOffset}px)`,
         // When the overlay covers the header (keyboard open) clear the status
         // bar / notch in a standalone PWA; harmless (0) in a browser tab.
-        paddingTop: geomOpen ? 'env(safe-area-inset-top)' : undefined,
+        paddingTop: kbOpen ? 'env(safe-area-inset-top)' : undefined,
       }
     : undefined
 
