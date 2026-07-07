@@ -7,6 +7,7 @@ import {
 import { format, startOfMonth } from 'date-fns'
 import { supabase } from '../../lib/supabase'
 import { PageHeader, Skeleton, StatCard } from '../../components/ui'
+import Icon from '../../components/Icon'
 import { downloadCsv, formatMoney, formatViews } from '../../lib/utils'
 
 // Admin analytics: the program's health at a glance. Recharts (free) for the
@@ -88,7 +89,7 @@ export default function AdminAnalytics() {
         { data: rewards }, { data: messages }, { data: results },
         { data: feedback }, { count: reactionCount }, { count: pollVoteCount },
       ] = await Promise.all([
-        supabase.from('profiles').select('id, name, created_at, status, is_admin, onboarded, referred_by, deletion_requested_at, is_test'),
+        supabase.from('profiles').select('id, name, created_at, status, is_admin, onboarded, referred_by, deletion_requested_at, is_test, photo_url, dob, city, country, bio, about, instagram_url, tiktok_url, youtube_url, other_links, countries_visited, languages'),
         supabase.from('challenges').select('id, title, status, start_date').neq('status', 'draft').order('start_date'),
         supabase.from('submissions').select('id, challenge_id, creator_id, logged_views, submitted_at'),
         supabase.from('rewards').select('amount, status, challenge_id, reward_type'),
@@ -205,6 +206,33 @@ export default function AdminAnalytics() {
       { label: 'Posted a video', count: participating, to: null },
     ]
 
+    // ---- Sign-up drop-off funnel ----
+    // Derived purely from which onboarding fields each signup has filled, so we
+    // can see WHERE people abandon the multi-step onboarding without any extra
+    // tracking. Each stage is cumulative (reaching it implies the ones above).
+    // Mirrors the required fields gated in Onboarding.jsx (photos step is optional).
+    const hasBasics = (p) => p.photo_url && p.dob && p.city && p.country && p.bio && p.about
+    const hasSocial = (p) => p.instagram_url || p.tiktok_url || p.youtube_url || (Array.isArray(p.other_links) && p.other_links.length > 0)
+    const hasCountries = (p) => Array.isArray(p.countries_visited) && p.countries_visited.length > 0
+    const hasLanguages = (p) => Array.isArray(p.languages) && p.languages.length > 0
+    const signupFunnel = [
+      { label: 'Created an account', count: realCreators.length },
+      { label: 'Added a profile photo', count: realCreators.filter((p) => p.photo_url).length },
+      { label: 'Filled in the basics', count: realCreators.filter(hasBasics).length, hint: 'name, photo, DOB, city, country, bio, about' },
+      { label: 'Added a social link', count: realCreators.filter((p) => hasBasics(p) && hasSocial(p)).length },
+      { label: 'Marked countries visited', count: realCreators.filter((p) => hasBasics(p) && hasSocial(p) && hasCountries(p)).length },
+      { label: 'Selected languages', count: realCreators.filter((p) => hasBasics(p) && hasSocial(p) && hasCountries(p) && hasLanguages(p)).length },
+      { label: 'Submitted for review', count: realCreators.filter((p) => p.onboarded).length },
+    ]
+    // Biggest single drop-off step, to surface as a callout.
+    let biggestDrop = null
+    for (let i = 1; i < signupFunnel.length; i++) {
+      const lost = signupFunnel[i - 1].count - signupFunnel[i].count
+      if (!biggestDrop || lost > biggestDrop.lost) {
+        biggestDrop = { lost, from: signupFunnel[i - 1].label, to: signupFunnel[i].label, at: signupFunnel[i].label }
+      }
+    }
+
     // ---- Engagement ----
     const openFeedback = feedback.filter((f) => f.status === 'new').length
 
@@ -218,7 +246,7 @@ export default function AdminAnalytics() {
 
     return {
       growth, momentum, perChallenge, perChallengeRecent, mostActive, chat,
-      totalPaid, totalViews, verifiedViews, costPer1k, funnel,
+      totalPaid, totalViews, verifiedViews, costPer1k, funnel, signupFunnel, biggestDrop,
       engagement: { reactions: reactionCount, pollVotes: pollVoteCount, chatMessages: messages.length, feedbackTotal: feedback.length, openFeedback },
       community: { active: active.length, pendingReview: pendingReview.length, notCompleted: notCompleted.length, participating, participationRate, topReferrers },
       totals: {
@@ -285,6 +313,27 @@ export default function AdminAnalytics() {
           </div>
         </section>
       </div>
+
+      {/* ---- Sign-up drop-off ---- */}
+      <section className="card mb-10">
+        <h2 className="mb-1 font-semibold">Where sign-ups drop off</h2>
+        <p className="mb-6 text-xs text-smoke">
+          How far new creators get through onboarding before they stop. Each step shows how many reached it and the % kept from the step above.
+        </p>
+        {derived.biggestDrop && derived.biggestDrop.lost > 0 && (
+          <div className="mb-6 flex items-start gap-3 rounded-xl border border-brand/20 bg-brand-tint/50 px-4 py-3 text-sm">
+            <Icon name="chart" className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+            <p className="text-ink">
+              Biggest drop-off: <span className="font-semibold">{derived.biggestDrop.lost}</span> {derived.biggestDrop.lost === 1 ? 'creator' : 'creators'} stall at
+              {' '}<span className="font-semibold">“{derived.biggestDrop.to}”</span>. Worth a closer look or a nudge email.
+            </p>
+          </div>
+        )}
+        <Funnel stages={derived.signupFunnel.map((s) => ({ label: s.label, count: s.count }))} />
+        <p className="mt-4 text-xs text-smoke">
+          Derived from saved profile fields, so it reflects everyone who has ever started — including people who left mid-way. The travel-photos step is optional and not counted.
+        </p>
+      </section>
 
       {/* ---- Engagement snapshot ---- */}
       <div className="mb-10">
