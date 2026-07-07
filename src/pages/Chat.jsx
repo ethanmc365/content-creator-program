@@ -370,11 +370,16 @@ export default function Chat() {
         // in mobileStyle) so the document never scrolls and the composer hugs
         // the keyboard. Desktop keeps the normal centered card.
         'fixed inset-x-0 mx-auto flex w-full max-w-6xl flex-col sm:px-8',
+        // Smoothly interpolate the size/position changes as the keyboard slides
+        // up/down (the geometry lands over a few polled frames, so without this
+        // it snaps through intermediate sizes and looks juttery). Mobile only;
+        // desktop uses the static card. Respects reduced-motion.
+        'motion-safe:transition-[top,height,transform] motion-safe:duration-200 motion-safe:ease-out',
         // While typing the overlay goes full-screen and sits ABOVE the header so
         // it can cover it; otherwise it sits BELOW the header (z-20) so the
         // header's bell/avatar dropdowns stay tappable over the chat.
         kbOpen ? 'z-50' : 'z-20',
-        'lg:static lg:inset-auto lg:bottom-auto lg:z-auto lg:h-[calc(100vh-4rem)] lg:translate-y-0 lg:py-6'
+        'lg:static lg:inset-auto lg:bottom-auto lg:z-auto lg:h-[calc(100vh-4rem)] lg:translate-y-0 lg:py-6 lg:transition-none'
       )}
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white sm:rounded-card sm:border sm:border-gray-100 sm:shadow-card">
