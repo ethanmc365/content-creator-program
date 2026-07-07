@@ -344,25 +344,35 @@ export default function Chat() {
 
   return (
     <div
-      style={kbOpen ? { height: `calc(100dvh - 4rem - ${kbInset}px)` } : undefined}
-      className="mx-auto flex h-[calc(100dvh-4rem-5rem)] w-full max-w-6xl flex-col px-0 sm:px-8 sm:py-6 lg:h-[calc(100vh-4rem)]"
+      style={kbOpen ? { bottom: `${kbInset}px` } : undefined}
+      className={cx(
+        // Mobile/tablet: pin to the viewport (top of screen under the header,
+        // bottom above the tab bar) so the document never scrolls. That makes
+        // the on-screen keyboard shrink the visual viewport instead of shoving
+        // the whole page up, so the composer can hug the keyboard and the
+        // channel tabs stay put. Desktop keeps the normal centered card.
+        'fixed inset-x-0 top-16 z-20 mx-auto flex w-full max-w-6xl flex-col bottom-[calc(4.5rem+env(safe-area-inset-bottom))] sm:px-8',
+        'lg:static lg:inset-auto lg:bottom-auto lg:z-auto lg:h-[calc(100vh-4rem)] lg:py-6'
+      )}
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white sm:rounded-card sm:border sm:border-gray-100 sm:shadow-card">
         {/* ---------- Channel tabs ---------- */}
-        <div className="flex shrink-0 gap-1 border-b border-gray-100 px-3 pt-1.5 sm:px-5 sm:pt-3" role="tablist" aria-label="Chat channels">
+        <div className="flex shrink-0 items-stretch gap-1 border-b border-gray-100 px-2 pt-2 sm:px-5 sm:pt-3" role="tablist" aria-label="Chat channels">
           {CHANNELS.map((c) => (
             <NavLink
               key={c.key}
               to={`/chat/${c.key}`}
               role="tab"
               aria-selected={channel === c.key}
+              title={c.label}
               className={cx(
-                'relative rounded-t-xl px-3 py-1.5 text-sm font-medium transition-colors sm:px-4 sm:py-2.5',
+                'relative flex flex-1 items-center justify-center gap-1.5 rounded-t-xl px-2 py-2 text-xs font-semibold transition-colors sm:flex-none sm:px-4 sm:py-2.5 sm:text-sm',
                 channel === c.key ? 'bg-brand-tint text-brand' : 'text-smoke hover:bg-cloud hover:text-ink'
               )}
             >
-              <span className="flex items-center gap-2"><Icon name={c.icon} className="h-4 w-4" /> <span className="hidden sm:inline">{c.label}</span></span>
-              {unread[c.key] && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-brand" aria-label="Unread messages" />}
+              <Icon name={c.icon} className="h-4 w-4 shrink-0" />
+              <span className="truncate">{c.label}</span>
+              {unread[c.key] && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-brand" aria-label="Unread messages" />}
             </NavLink>
           ))}
         </div>
@@ -373,7 +383,7 @@ export default function Chat() {
         </div>
 
         {/* ---------- Messages ---------- */}
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:space-y-5 sm:px-8 sm:py-6">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:space-y-5 sm:px-8 sm:py-6">
           {loading && (
             <div className="space-y-5">
               {Array.from({ length: 5 }).map((_, i) => (

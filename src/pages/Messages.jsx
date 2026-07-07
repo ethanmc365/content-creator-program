@@ -233,8 +233,14 @@ export default function Messages() {
 
   return (
     <div
-      style={kbOpen ? { height: `calc(100dvh - 4rem - ${kbInset}px)` } : undefined}
-      className="mx-auto flex h-[calc(100dvh-4rem-5rem)] w-full max-w-6xl px-0 sm:px-8 sm:py-6 lg:h-[calc(100vh-4rem)]"
+      style={kbOpen ? { bottom: `${kbInset}px` } : undefined}
+      className={cx(
+        // Mobile/tablet: pin to the viewport so the document can't scroll; the
+        // keyboard then shrinks the visual viewport and the composer hugs it.
+        // Desktop keeps the normal centered card.
+        'fixed inset-x-0 top-16 z-20 mx-auto flex w-full max-w-6xl bottom-[calc(4.5rem+env(safe-area-inset-bottom))] sm:px-8',
+        'lg:static lg:inset-auto lg:bottom-auto lg:z-auto lg:h-[calc(100vh-4rem)] lg:py-6'
+      )}
     >
       <div className="flex min-h-0 flex-1 overflow-hidden bg-white sm:rounded-card sm:border sm:border-gray-100 sm:shadow-card">
         {/* ---------- Conversation list ---------- */}
@@ -332,7 +338,7 @@ export default function Messages() {
               </div>
 
               {/* Messages */}
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-6">
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-5 py-6">
                 {loadingThread && <div className="space-y-3"><Skeleton className="h-10 w-2/3" /><Skeleton className="ml-auto h-10 w-1/2" /><Skeleton className="h-10 w-3/5" /></div>}
                 {!loadingThread && thread.map((m) => {
                   const mine = m.sender_id === user.id
