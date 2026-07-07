@@ -50,7 +50,7 @@ export default function Chat() {
   // chat is a fixed overlay pinned to the visible area so the composer hugs the
   // keyboard and page chrome collapses away. See useVisualViewport for the iOS
   // reasoning (translateY(offsetTop) + sizing to visualViewport.height).
-  const { height: vpHeight, offsetTop: vpOffset, keyboardOpen: kbOpen } = useVisualViewport()
+  const { height: vpHeight, offsetTop: vpOffset, keyboardOpen: kbOpen, smooth: vpSmooth } = useVisualViewport()
   const isMobile = useIsMobile()
 
   // Mobile overlay geometry. When the keyboard is closed we leave room for the
@@ -370,11 +370,13 @@ export default function Chat() {
         // in mobileStyle) so the document never scrolls and the composer hugs
         // the keyboard. Desktop keeps the normal centered card.
         'fixed inset-x-0 mx-auto flex w-full max-w-6xl flex-col sm:px-8',
-        // Smoothly interpolate the size/position changes as the keyboard slides
-        // up/down (the geometry lands over a few polled frames, so without this
-        // it snaps through intermediate sizes and looks juttery). Mobile only;
-        // desktop uses the static card. Respects reduced-motion.
-        'motion-safe:transition-[top,height,transform] motion-safe:duration-200 motion-safe:ease-out',
+        // Interpolate size/position changes into a clean slide, but ONLY for
+        // poll-driven (stepped) updates - browsers that fire live viewport
+        // events already track the keyboard per-frame, so animating those makes
+        // the panel trail and stutter. vpSmooth tells us which case we're in.
+        vpSmooth
+          ? 'motion-safe:transition-[top,height,transform] motion-safe:duration-200 motion-safe:ease-out'
+          : 'transition-none',
         // While typing the overlay goes full-screen and sits ABOVE the header so
         // it can cover it; otherwise it sits BELOW the header (z-20) so the
         // header's bell/avatar dropdowns stay tappable over the chat.

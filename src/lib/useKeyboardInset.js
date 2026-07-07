@@ -24,11 +24,11 @@ function isEditable(el) {
   return tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable
 }
 
-function readViewport(focused) {
+function readViewport(focused, smooth) {
   const vv = typeof window !== 'undefined' ? window.visualViewport : null
   if (!vv) {
     const h = typeof window !== 'undefined' ? window.innerHeight : 0
-    return { height: h, offsetTop: 0, keyboard: 0, focused: !!focused }
+    return { height: h, offsetTop: 0, keyboard: 0, focused: !!focused, smooth: !!smooth }
   }
   // Keyboard height is layout height minus visible height. It must NOT subtract
   // offsetTop: on iOS the page scrolls when the keyboard opens, so offsetTop
@@ -40,13 +40,19 @@ function readViewport(focused) {
     offsetTop: Math.round(vv.offsetTop),
     keyboard,
     focused: !!focused,
+    // Whether this update should be CSS-animated. Live visualViewport events
+    // (browsers) already track the keyboard ~per-frame, so animating them makes
+    // the panel trail and stutter - update instantly. Poll-driven updates
+    // (installed PWA, where iOS fires no events) arrive in coarse steps, so we
+    // let CSS interpolate those into a clean slide.
+    smooth: !!smooth,
   }
 }
 
 // Full visual-viewport state, incl. keyboardOpen which is true as soon as an
 // editable field is focused (instant chrome collapse) OR a keyboard is measured.
 export function useVisualViewport() {
-  const [vp, setVp] = useState(() => readViewport(false))
+  const [vp, setVp] = useState(() => readViewport(false, false))
 
   useEffect(() => {
     const vv = window.visualViewport
@@ -55,16 +61,25 @@ export function useVisualViewport() {
     // Track focus of editable elements ourselves so we don't depend on the
     // laggy resize event to know the keyboard is coming.
     let focused = isEditable(document.activeElement)
+    // Timestamp of the last live visualViewport event, so poll updates know
+    // whether the browser is already tracking the keyboard natively. Seeded to
+    // "now" so a browser firing live events never briefly flags as smooth.
+    let lastNative = performance.now()
 
-    const apply = () => {
+    const commit = (smooth) => {
       cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(() => setVp(readViewport(focused)))
+      raf = requestAnimationFrame(() => setVp(readViewport(focused, smooth)))
     }
+    // Live browser events already track the keyboard smoothly - update instantly.
+    const onNative = () => { lastNative = performance.now(); commit(false) }
     // Read repeatedly for a second so we catch the keyboard's final size even
-    // when iOS never fires a resize event.
+    // when iOS never fires a resize event. Only animate these steps if the
+    // browser isn't already firing live events (else we'd double up and stutter).
     const poll = () => {
       timers.forEach(clearTimeout)
-      timers = [0, 60, 120, 200, 320, 480, 700, 1000].map((t) => setTimeout(apply, t))
+      timers = [0, 60, 120, 200, 320, 480, 700, 1000].map((t) =>
+        setTimeout(() => commit(performance.now() - lastNative > 250), t)
+      )
     }
     const onFocusIn = (e) => { if (isEditable(e.target)) { focused = true; poll() } }
     const onFocusOut = () => { focused = false; poll() }
@@ -72,18 +87,18 @@ export function useVisualViewport() {
     document.addEventListener('focusin', onFocusIn)
     document.addEventListener('focusout', onFocusOut)
     if (vv) {
-      vv.addEventListener('resize', apply)
-      vv.addEventListener('scroll', apply)
+      vv.addEventListener('resize', onNative)
+      vv.addEventListener('scroll', onNative)
     }
-    apply()
+    commit(false)
     return () => {
       cancelAnimationFrame(raf)
       timers.forEach(clearTimeout)
       document.removeEventListener('focusin', onFocusIn)
       document.removeEventListener('focusout', onFocusOut)
       if (vv) {
-        vv.removeEventListener('resize', apply)
-        vv.removeEventListener('scroll', apply)
+        vv.removeEventListener('resize', onNative)
+        vv.removeEventListener('scroll', onNative)
       }
     }
   }, [])
