@@ -9,6 +9,7 @@ import PullToRefresh from '../PullToRefresh'
 import { showLocalNotification } from '../../lib/push'
 import { stripMarkup } from '../../lib/richText'
 import { cx } from '../../lib/utils'
+import { useKeyboardInset } from '../../lib/useKeyboardInset'
 
 // The signed-in app shell. One shared set of icon tabs powers BOTH the
 // desktop top bar and the mobile bottom bar, so they look identical.
@@ -30,6 +31,9 @@ export default function AppLayout() {
   const [dmUnread, setDmUnread] = useState(0)
   const [connReqs, setConnReqs] = useState(0)
   const menuRef = useRef(null)
+  // When the software keyboard is open (e.g. typing a message) the bottom tab
+  // bar slides away so the composer can sit right above the keyboard.
+  const keyboardOpen = useKeyboardInset() > 0
 
   // Unread DM badge, kept live via realtime.
   useEffect(() => {
@@ -211,7 +215,14 @@ export default function AppLayout() {
       {/* ------- Mobile bottom tab bar -------
           Bottom padding includes the iPhone home-indicator safe area so the
           tabs sit higher and stay easily tappable. */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-100 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden" aria-label="Mobile">
+      <nav
+        className={cx(
+          'fixed inset-x-0 bottom-0 z-30 border-t border-gray-100 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur transition-transform duration-200 lg:hidden',
+          keyboardOpen && 'pointer-events-none translate-y-full'
+        )}
+        aria-hidden={keyboardOpen}
+        aria-label="Mobile"
+      >
         <div className="mx-auto flex max-w-lg items-center justify-around px-0.5 pb-1.5 pt-2">
           {TABS.map((tab) => (
             <NavLink

@@ -12,6 +12,7 @@ import ResourceCard from '../components/ResourceCard'
 import { CONTINENTS } from '../lib/countries'
 import { formatChatTime, cx } from '../lib/utils'
 import { renderMessageBody } from '../lib/richText'
+import { useKeyboardInset } from '../lib/useKeyboardInset'
 
 // Real-time community chat - the WhatsApp replacement.
 //  * Three channels: #general, #announcements (admin-post-only), #content-tips.
@@ -44,6 +45,11 @@ export default function Chat() {
   const bottomRef = useRef(null)
   const fileRef = useRef(null)
   const textareaRef = useRef(null)
+
+  // Software-keyboard height: drives the WhatsApp-style mobile layout so the
+  // composer hugs the top of the keyboard and page chrome collapses away.
+  const kbInset = useKeyboardInset()
+  const kbOpen = kbInset > 0
 
   // Members (for @mention autocomplete + rendering mention links).
   const [members, setMembers] = useState([])
@@ -129,6 +135,20 @@ export default function Chat() {
     localStorage.setItem(lastReadKey(channel), new Date().toISOString())
     setUnread((u) => ({ ...u, [channel]: false }))
   }, [messages, channel])
+
+  // Keep the latest message in view when the keyboard opens/closes.
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [kbInset])
+
+  // Auto-grow the composer like WhatsApp: expand with the text up to a few
+  // lines, then let it scroll internally instead of pushing the layout.
+  useEffect(() => {
+    const ta = textareaRef.current
+    if (!ta) return
+    ta.style.height = 'auto'
+    ta.style.height = `${Math.min(ta.scrollHeight, 128)}px`
+  }, [body])
 
   // ---------- Unread dots for the other channels ----------
   useEffect(() => {
@@ -323,7 +343,10 @@ export default function Chat() {
   }
 
   return (
-    <div className="mx-auto flex h-[calc(100dvh-4rem-5rem)] w-full max-w-6xl flex-col px-0 sm:px-8 sm:py-6 lg:h-[calc(100vh-4rem)]">
+    <div
+      style={kbOpen ? { height: `calc(100dvh - 4rem - ${kbInset}px)` } : undefined}
+      className="mx-auto flex h-[calc(100dvh-4rem-5rem)] w-full max-w-6xl flex-col px-0 sm:px-8 sm:py-6 lg:h-[calc(100vh-4rem)]"
+    >
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white sm:rounded-card sm:border sm:border-gray-100 sm:shadow-card">
         {/* ---------- Channel tabs ---------- */}
         <div className="flex shrink-0 gap-1 border-b border-gray-100 px-3 pt-1.5 sm:px-5 sm:pt-3" role="tablist" aria-label="Chat channels">
@@ -480,7 +503,7 @@ export default function Chat() {
             {/* Admin tools: text formatting + game/resource cards (all channels)
                 + poll (announcements). Moved up here so the composer box below
                 spans the full width. Creators never see this row. */}
-            {isAdmin && (
+            {isAdmin && !kbOpen && (
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 <div className="flex items-center gap-0.5 rounded-lg border border-gray-200 p-0.5" role="group" aria-label="Text formatting">
                   <button type="button" onClick={() => applyFormat('heading')} title="Heading" aria-label="Heading" className="rounded px-2.5 py-1 text-xs font-bold text-smoke hover:bg-cloud hover:text-ink">H</button>
@@ -532,8 +555,8 @@ export default function Chat() {
               <textarea
                 ref={textareaRef}
                 rows={1}
-                className="input max-h-32 flex-1 resize-none"
-                placeholder="Message… use @ to mention"
+                className="input max-h-32 flex-1 resize-none overflow-y-auto"
+                placeholder="Message…"
                 value={body}
                 onChange={onBodyChange}
                 onKeyDown={(e) => {

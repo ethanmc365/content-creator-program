@@ -7,6 +7,7 @@ import { loadRelationship } from '../lib/connections'
 import { Avatar, Badge, EmptyState, Skeleton, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
 import { formatChatTime, otherParticipant, cx } from '../lib/utils'
+import { useKeyboardInset } from '../lib/useKeyboardInset'
 
 // Direct messages: inbox (conversation list) + active thread, both realtime.
 // On mobile you see one panel at a time; on desktop they sit side by side.
@@ -28,6 +29,11 @@ export default function Messages() {
   const [signedUrls, setSignedUrls] = useState(new Map())
   const bottomRef = useRef(null)
   const fileRef = useRef(null)
+  const taRef = useRef(null)
+
+  // Software-keyboard height for the WhatsApp-style mobile composer layout.
+  const kbInset = useKeyboardInset()
+  const kbOpen = kbInset > 0
 
   const active = conversations.find((c) => c.id === conversationId)
   const otherId = active?.other?.id
@@ -158,6 +164,19 @@ export default function Messages() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [thread])
 
+  // Keep the latest message visible as the keyboard opens/closes.
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [kbInset])
+
+  // Auto-grow the composer like WhatsApp, capped before it scrolls internally.
+  useEffect(() => {
+    const ta = taRef.current
+    if (!ta) return
+    ta.style.height = 'auto'
+    ta.style.height = `${Math.min(ta.scrollHeight, 128)}px`
+  }, [body])
+
   // Sign any private DM-image paths in the thread so they can render. Legacy
   // messages hold a full public URL and are skipped by signDmImages.
   useEffect(() => {
@@ -213,7 +232,10 @@ export default function Messages() {
   }
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-4rem-6rem)] w-full max-w-6xl px-0 sm:px-8 sm:py-6 lg:h-[calc(100vh-4rem)]">
+    <div
+      style={kbOpen ? { height: `calc(100dvh - 4rem - ${kbInset}px)` } : undefined}
+      className="mx-auto flex h-[calc(100dvh-4rem-5rem)] w-full max-w-6xl px-0 sm:px-8 sm:py-6 lg:h-[calc(100vh-4rem)]"
+    >
       <div className="flex min-h-0 flex-1 overflow-hidden bg-white sm:rounded-card sm:border sm:border-gray-100 sm:shadow-card">
         {/* ---------- Conversation list ---------- */}
         <aside
@@ -378,8 +400,9 @@ export default function Messages() {
                     </svg>
                   </button>
                   <textarea
+                    ref={taRef}
                     rows={1}
-                    className="input max-h-32 flex-1 resize-none"
+                    className="input max-h-32 flex-1 resize-none overflow-y-auto"
                     placeholder={`Message ${active?.other?.name?.split(' ')[0] ?? ''}…`}
                     value={body}
                     onChange={(e) => setBody(e.target.value)}
