@@ -45,6 +45,7 @@ export default function Chat() {
   const bottomRef = useRef(null)
   const fileRef = useRef(null)
   const textareaRef = useRef(null)
+  const composerRef = useRef(null)
 
   // Visual-viewport tracking drives the WhatsApp-style mobile layout: the whole
   // chat is a fixed overlay pinned to the visible area so the composer hugs the
@@ -170,6 +171,37 @@ export default function Chat() {
     ta.style.height = `${Math.min(ta.scrollHeight, 128)}px`
   }, [body])
 
+  // Mobile composer gestures. The chat is a fixed overlay, so dragging on the
+  // (non-scrollable) composer chrome used to make the page body rubber-band,
+  // which fired visualViewport scroll events and jittered the overlay — that was
+  // the glitch/lag. We swallow those drags here so the body can't move, and a
+  // downward swipe smoothly dismisses the keyboard (an upward swipe is a no-op).
+  // Touches that start inside the textarea are left alone so its own multi-line
+  // scroll and caret placement keep working.
+  useEffect(() => {
+    const el = composerRef.current
+    if (!el || !isMobile) return
+    let startY = null
+    let fromTextarea = false
+    const onStart = (e) => {
+      fromTextarea = !!e.target.closest?.('textarea')
+      startY = e.touches[0]?.clientY ?? null
+    }
+    const onMove = (e) => {
+      if (fromTextarea || startY == null) return
+      const dy = (e.touches[0]?.clientY ?? startY) - startY
+      if (dy > 20) { textareaRef.current?.blur(); startY = null }
+      // Block the body from scrolling/bouncing under the overlay either way.
+      if (e.cancelable) e.preventDefault()
+    }
+    el.addEventListener('touchstart', onStart, { passive: true })
+    el.addEventListener('touchmove', onMove, { passive: false })
+    return () => {
+      el.removeEventListener('touchstart', onStart)
+      el.removeEventListener('touchmove', onMove)
+    }
+  }, [isMobile])
+
   // ---------- Unread dots for the other channels ----------
   useEffect(() => {
     async function checkUnread() {
@@ -197,7 +229,9 @@ export default function Chat() {
     setSending(true)
     const { error } = await supabase.from('messages').insert({ channel, sender_id: user.id, body: body.trim() })
     setSending(false)
-    if (!error) { setBody(''); setMention(null) }
+    // Keep focus on the composer so the mobile keyboard stays up after sending
+    // (it only closes when the user taps the chat or swipes the composer down).
+    if (!error) { setBody(''); setMention(null); textareaRef.current?.focus() }
   }
 
   // Attach an image: upload to storage, then send it as a message
@@ -405,7 +439,12 @@ export default function Chat() {
         </div>
 
         {/* ---------- Messages ---------- */}
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:space-y-5 sm:px-8 sm:py-6">
+        <div
+          // Tapping the chat dismisses the keyboard (WhatsApp-style). A scroll
+          // drag doesn't fire click, so scrolling the history leaves it up.
+          onClick={() => { if (isMobile && kbOpen) textareaRef.current?.blur() }}
+          className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:space-y-5 sm:px-8 sm:py-6"
+        >
           {loading && (
             <div className="space-y-5">
               {Array.from({ length: 5 }).map((_, i) => (
@@ -524,7 +563,7 @@ export default function Chat() {
         </div>
 
         {/* ---------- Composer ---------- */}
-        <div className="shrink-0 border-t border-gray-100 px-4 py-2.5 sm:px-8 sm:py-4">
+        <div ref={composerRef} className="shrink-0 border-t border-gray-100 px-4 py-2.5 sm:px-8 sm:py-4">
           {isMuted ? (
             <p className="rounded-xl bg-amber-50 px-4 py-3 text-center text-sm text-amber-700">
               You've been muted by the team. You can read but not post. Questions? DM an admin.
@@ -600,7 +639,16 @@ export default function Chat() {
                 }}
                 aria-label={`Message ${meta.label}`}
               />
-              <button type="submit" disabled={sending || !body.trim()} className="btn-primary !px-5" aria-label="Send">
+              <button
+                type="submit"
+                // Prevent the tap from moving focus off the textarea — that blur
+                // is what collapsed the keyboard on send. The click/submit still
+                // fires; focus (and the keyboard) stay put.
+                onMouseDown={(e) => e.preventDefault()}
+                disabled={sending || !body.trim()}
+                className="btn-primary !px-5"
+                aria-label="Send"
+              >
                 {sending ? <Spinner /> : (
                   <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3 21l18-9L3 3l3 9zm0 0h6" /></svg>
                 )}
