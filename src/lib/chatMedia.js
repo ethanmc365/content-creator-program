@@ -1,5 +1,5 @@
 import { compressImage } from './image'
-import { uploadFile, uploadPrivateFile } from './upload'
+import { uploadFile, uploadPrivateFile, uploadRawFile } from './upload'
 import { supabase } from './supabase'
 
 function validateImage(file) {
@@ -24,12 +24,19 @@ export async function uploadChatImage(file, userId) {
 // storage tier) and upload as-is; short phone clips fit fine. Rendered inline
 // with a <video> player.
 //
-// Unlike images, video goes STRAIGHT to storage (not through the base64 `upload`
-// edge function): a 25MB clip base64-encoded into a JSON body is ~33MB and was
-// timing out / failing the function — the direct path is what makes large clips
-// actually send. RLS ("chat-media: user uploads own folder") allows a signed-in
-// creator to write inside their own <uid>/ folder.
+// Video goes through the same reliable service-role `upload` edge function as
+// images, but via the RAW-binary path (uploadRawFile) instead of base64 JSON:
+// direct client-to-storage uploads intermittently fail with "new row violates
+// row-level security policy" (the storage node validates the JWT against a
+// per-node JWKS cache that lags a signing-key rotation), while base64-in-JSON
+// inflates a 25MB clip to ~33MB and blows the function's CPU budget. Raw bytes
+// through the proxy avoid both: the proxy verifies the user against the auth
+// server and writes with the service role, streaming the body straight through.
 const CHAT_VIDEO_MAX = 25 * 1024 * 1024
+// iPhone .mov is video/quicktime, which browsers can't reliably PLAY back inline
+// even after a clean upload. Map it to a browser-safe container hint; the actual
+// bytes are unchanged (most phone .mov are H.264/AAC and play fine as video/mp4).
+const VIDEO_MIME = { mov: 'video/mp4', qt: 'video/mp4', m4v: 'video/mp4', mp4: 'video/mp4', webm: 'video/webm', ogv: 'video/ogg' }
 export async function uploadChatVideo(file, userId) {
   const looksVideo = file.type.startsWith('video/') || /\.(mp4|webm|mov|m4v|ogv)$/i.test(file.name)
   if (!looksVideo) throw new Error('Only image or video files can be attached.')
@@ -37,12 +44,10 @@ export async function uploadChatVideo(file, userId) {
     throw new Error('Video is too large (max 25MB). Trim it or lower the resolution and try again.')
   }
   const ext = (file.name.split('.').pop() || 'mp4').toLowerCase()
-  const contentType = file.type || 'video/mp4'
+  const contentType = VIDEO_MIME[ext] || (file.type && file.type !== 'video/quicktime' ? file.type : 'video/mp4')
   const path = `${userId}/video-${Date.now()}.${ext}`
-  const { error } = await supabase.storage.from('chat-media').upload(path, file, { contentType, upsert: true, cacheControl: '3600' })
-  if (error) throw new Error(error.message)
-  const { data } = supabase.storage.from('chat-media').getPublicUrl(path)
-  return data.publicUrl
+  const out = await uploadRawFile('chat-media', path, file, contentType)
+  return out.publicUrl
 }
 
 // Upload a DIRECT-MESSAGE image to the PRIVATE "dm-media" bucket, keyed by the

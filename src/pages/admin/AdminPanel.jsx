@@ -28,14 +28,21 @@ const TOOLS = [
 ]
 
 export default function AdminPanel() {
-  const { setViewAsCreator } = useAuth()
+  const { enterCreatorPreview } = useAuth()
   const navigate = useNavigate()
   const [stats, setStats] = useState(null)
+  const [entering, setEntering] = useState(false)
+  const [enterError, setEnterError] = useState('')
 
-  // Enter "view as creator": hide all admin UI and land on Home, exactly as a
-  // creator sees it. A floating pill (in AppLayout) lets them exit again.
-  function enterCreatorView() {
-    setViewAsCreator(true)
+  // Enter "view as creator": step into the hidden sandbox creator account and
+  // land on Home, experiencing the app exactly as a creator does. A floating
+  // pill (in AppLayout) restores the admin session any time.
+  async function enterCreatorView() {
+    setEntering(true)
+    setEnterError('')
+    const { error } = await enterCreatorPreview()
+    setEntering(false)
+    if (error) { setEnterError(error); return }
     navigate('/home')
   }
 
@@ -130,12 +137,13 @@ export default function AdminPanel() {
 
         {/* View-as-creator sits alongside the tools as a matching card, but it's
             an action (not a link): it hides all admin UI until you exit. */}
-        <button onClick={enterCreatorView} className="card group !p-7 text-left transition-all hover:-translate-y-0.5 hover:shadow-lift">
+        <button onClick={enterCreatorView} disabled={entering} className="card group !p-7 text-left transition-all hover:-translate-y-0.5 hover:shadow-lift disabled:opacity-60">
           <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-tint text-brand">
             <Icon name="eye" className="h-6 w-6" />
           </span>
-          <h2 className="mt-4 font-semibold group-hover:text-brand">View as creator</h2>
-          <p className="mt-2 text-xs leading-relaxed text-smoke">See the community exactly as a creator does. A floating button switches you back any time.</p>
+          <h2 className="mt-4 font-semibold group-hover:text-brand">{entering ? 'Starting preview…' : 'View as creator'}</h2>
+          <p className="mt-2 text-xs leading-relaxed text-smoke">Step into a sandbox creator account and see the app exactly as a creator does — profile, chat, resources and access. A floating button switches you back any time.</p>
+          {enterError && <p className="mt-2 text-xs font-medium text-red-500">{enterError}</p>}
         </button>
       </div>
     </div>

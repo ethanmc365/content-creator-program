@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../../components/ui'
 import { formatDate } from '../../lib/utils'
+import { playableContentType } from '../../lib/media'
 
 // Resource library management: publish tips/guides, optionally attach a
 // downloadable file (stored in the public "resources" bucket).
@@ -40,7 +41,7 @@ export default function AdminResources() {
     setUploading(true)
     setError('')
     const path = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`
-    const { error: upErr } = await supabase.storage.from('resources').upload(path, file)
+    const { error: upErr } = await supabase.storage.from('resources').upload(path, file, { contentType: playableContentType(file) })
     if (upErr) {
       setError(upErr.message)
     } else {

@@ -25,7 +25,7 @@ const TABS = [
 ]
 
 export default function AppLayout() {
-  const { profile, isAdmin, isRealAdmin, viewAsCreator, setViewAsCreator, user, signOut } = useAuth()
+  const { profile, isAdmin, impersonating, exitCreatorPreview, user, signOut } = useAuth()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const [dmUnread, setDmUnread] = useState(0)
@@ -114,9 +114,10 @@ export default function AppLayout() {
     <div className="flex min-h-screen flex-col bg-white">
       <PullToRefresh />
 
-      {/* When an admin is previewing as a creator, a persistent pill floats
-          above everything so they can always exit (all admin UI is hidden). */}
-      {isRealAdmin && viewAsCreator && (
+      {/* When an admin is previewing as the sandbox creator, a persistent pill
+          floats above everything so they can always exit back to their admin
+          account (while previewing, the logged-in identity IS the creator). */}
+      {impersonating && (
         <div className="fixed inset-x-0 bottom-24 z-50 flex justify-center px-4 lg:bottom-6">
           <div className="flex items-center gap-3 rounded-full border border-brand/30 bg-white px-4 py-2 shadow-lift">
             <span className="flex items-center gap-2 text-xs font-medium text-ink">
@@ -124,7 +125,7 @@ export default function AppLayout() {
               Viewing as a creator
             </span>
             <button
-              onClick={() => setViewAsCreator(false)}
+              onClick={exitCreatorPreview}
               className="rounded-full bg-brand px-3 py-1 text-xs font-semibold text-white transition-transform hover:scale-105 active:scale-95"
             >
               Exit

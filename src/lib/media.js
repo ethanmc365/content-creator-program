@@ -13,6 +13,18 @@ export function mediaType(url) {
   return 'file'
 }
 
+// Pick a browser-PLAYABLE content type for an upload File. iPhone videos are
+// .mov / video/quicktime, which Chrome and Android refuse to play inline in a
+// <video> tag even though the bytes are almost always H.264/AAC (i.e. playable
+// as mp4). Coerce those to video/mp4 so the stored object serves a type the
+// browser will render; leave images and already-safe types unchanged.
+export function playableContentType(file) {
+  const ext = (file?.name || '').split('.').pop()?.toLowerCase()
+  const t = file?.type || ''
+  if (t === 'video/quicktime' || ext === 'mov' || ext === 'qt' || ext === 'm4v') return 'video/mp4'
+  return t || 'application/octet-stream'
+}
+
 export function fileNameFromUrl(url) {
   try {
     return decodeURIComponent(url.split('?')[0].split('/').pop()) || 'download'

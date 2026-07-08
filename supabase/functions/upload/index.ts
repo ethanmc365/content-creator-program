@@ -37,7 +37,7 @@ function allowOrigin(origin: string | null): string {
 function corsHeaders(req: Request) {
   return {
     'Access-Control-Allow-Origin': allowOrigin(req.headers.get('origin')),
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-upload-bucket, x-upload-path, x-upload-content-type',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Vary': 'Origin',
   }
@@ -58,16 +58,40 @@ Deno.serve(async (req) => {
   if (userErr || !userData?.user) return json(req, { error: 'invalid token' }, 401)
   const uid = userData.user.id
 
-  // 2) Validate the request.
-  const body = await req.json().catch(() => null)
-  if (!body?.bucket || !body?.path || !body?.dataBase64) return json(req, { error: 'bad request' }, 400)
-  const bucket = String(body.bucket)
+  // 2) Validate the request. Two body shapes are accepted:
+  //   - JSON  { bucket, path, contentType, dataBase64 }  — small files (images).
+  //   - RAW binary body + metadata in x-upload-* headers  — large files (video):
+  //     base64-in-JSON inflates a 25MB clip to ~33MB AND the atob/decode loop
+  //     blows the function's CPU budget (that was the "won't send"); a raw body
+  //     streams straight through with none of that overhead.
+  const contentTypeHeader = req.headers.get('content-type') ?? ''
+  const isRaw = !contentTypeHeader.includes('application/json')
+
+  let bucket: string
+  let path: string
+  let contentType: string
+  let getBytes: () => Promise<Uint8Array>
+
+  if (isRaw) {
+    bucket = String(req.headers.get('x-upload-bucket') ?? '')
+    path = String(req.headers.get('x-upload-path') ?? '')
+    contentType = req.headers.get('x-upload-content-type') || contentTypeHeader || 'application/octet-stream'
+    if (!bucket || !path) return json(req, { error: 'bad request' }, 400)
+    getBytes = async () => new Uint8Array(await req.arrayBuffer())
+  } else {
+    const body = await req.json().catch(() => null)
+    if (!body?.bucket || !body?.path || !body?.dataBase64) return json(req, { error: 'bad request' }, 400)
+    bucket = String(body.bucket)
+    path = String(body.path)
+    contentType = body.contentType || 'application/octet-stream'
+    getBytes = async () => Uint8Array.from(atob(body.dataBase64), (c) => c.charCodeAt(0))
+  }
+
   const isPrivate = PRIVATE_BUCKETS.has(bucket)
   if (!PUBLIC_BUCKETS.has(bucket) && !isPrivate) return json(req, { error: 'bucket not allowed' }, 403)
 
   // Path hygiene: no traversal, no odd characters, bounded length. Storage keys
   // are S3-style (no real filesystem) but this blocks abuse and keeps keys sane.
-  const path = String(body.path)
   if (path.length > 256 || path.includes('..') || !/^[A-Za-z0-9][\w./-]*$/.test(path)) {
     return json(req, { error: 'bad path' }, 400)
   }
@@ -96,10 +120,11 @@ Deno.serve(async (req) => {
   if ((count ?? 0) >= 40) return json(req, { error: 'Too many uploads in a short time. Please wait a few minutes.' }, 429)
   await admin.from('auth_attempts').insert({ identifier: `upload:${uid}` })
 
-  // 3) Decode and upload with the service role (bypasses Storage RLS safely).
-  const bytes = Uint8Array.from(atob(body.dataBase64), (c) => c.charCodeAt(0))
+  // 3) Read the bytes (decode base64, or take the raw body) and upload with the
+  // service role (bypasses Storage RLS safely).
+  const bytes = await getBytes()
   const { error: upErr } = await admin.storage.from(bucket).upload(path, bytes, {
-    contentType: body.contentType || 'application/octet-stream',
+    contentType,
     upsert: true,
   })
   if (upErr) return json(req, { error: upErr.message }, 500)

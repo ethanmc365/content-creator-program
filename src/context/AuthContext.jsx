@@ -41,15 +41,64 @@ export function AuthProvider({ children }) {
   const [profileError, setProfileError] = useState(false)
   const loadedForUser = useRef(null)
 
-  // "View as creator": an admin can preview the app exactly as a creator sees
-  // it (all admin UI hidden) for testing. Persisted so a refresh keeps it, and
-  // reset on sign-out below.
-  const [viewAsCreator, setViewAsCreatorState] = useState(
-    () => typeof localStorage !== 'undefined' && localStorage.getItem('tryp_view_as_creator') === '1'
+  // "View as creator": an admin can step into a hidden sandbox creator account
+  // (is_test=true, invisible to the community) and experience the app EXACTLY as
+  // a normal creator does — their profile, chat identity with no admin badge,
+  // their DMs / notifications / access. We stash the admin session, swap to the
+  // preview creator's session (minted server-side by the `impersonate` function),
+  // and restore the admin session on exit. `impersonating` is true whenever a
+  // stashed admin session exists, so it survives a page refresh.
+  const IMPERSONATE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/impersonate`
+  const ADMIN_STASH_KEY = 'tryp_admin_session'
+  const [impersonating, setImpersonating] = useState(
+    () => typeof localStorage !== 'undefined' && !!localStorage.getItem(ADMIN_STASH_KEY)
   )
-  const setViewAsCreator = useCallback((on) => {
-    setViewAsCreatorState(on)
-    try { on ? localStorage.setItem('tryp_view_as_creator', '1') : localStorage.removeItem('tryp_view_as_creator') } catch { /* ignore */ }
+
+  const enterCreatorPreview = useCallback(async () => {
+    const { data: { session: cur } } = await supabase.auth.getSession()
+    if (!cur) return { error: 'You need to be signed in.' }
+    let out
+    try {
+      const res = await fetch(IMPERSONATE_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${cur.access_token}`,
+        },
+        body: JSON.stringify({}),
+      })
+      out = await res.json().catch(() => ({}))
+      if (!res.ok || !out?.token_hash) return { error: out?.error || 'Could not start creator preview.' }
+    } catch {
+      return { error: 'Network error. Please try again.' }
+    }
+    // Stash the admin session BEFORE swapping so exit can always restore it.
+    try { localStorage.setItem(ADMIN_STASH_KEY, JSON.stringify({ access_token: cur.access_token, refresh_token: cur.refresh_token })) } catch { /* ignore */ }
+    const { error } = await supabase.auth.verifyOtp({ token_hash: out.token_hash, type: 'magiclink' })
+    if (error) {
+      try { localStorage.removeItem(ADMIN_STASH_KEY) } catch { /* ignore */ }
+      return { error: error.message }
+    }
+    setImpersonating(true)
+    return {}
+  }, [IMPERSONATE_URL])
+
+  const exitCreatorPreview = useCallback(async () => {
+    let saved = null
+    try {
+      saved = JSON.parse(localStorage.getItem(ADMIN_STASH_KEY) || 'null')
+      localStorage.removeItem(ADMIN_STASH_KEY)
+    } catch { /* ignore */ }
+    setImpersonating(false)
+    if (saved?.refresh_token) {
+      // Restoring the refresh token is enough — setSession refreshes an expired
+      // access token automatically. Fires onAuthStateChange → reloads the admin.
+      await supabase.auth.setSession(saved)
+    } else {
+      // No stash (shouldn't happen) — fall back to a clean sign-out.
+      await supabase.auth.signOut()
+    }
   }, [])
 
   // Storage validates tokens against the asymmetric (ES256) signing key. A
@@ -193,14 +242,14 @@ export function AuthProvider({ children }) {
     session,
     user: session?.user ?? null,
     profile,
-    // isAdmin is the EFFECTIVE flag every component gates on. When an admin
-    // turns on "view as creator" it reads false, so all admin UI and the
-    // /admin route guard hide automatically. isRealAdmin stays true so the
-    // floating "exit creator view" pill (and the admin panel toggle) still show.
-    isAdmin: realIsAdmin && !viewAsCreator,
-    isRealAdmin: realIsAdmin,
-    viewAsCreator: realIsAdmin && viewAsCreator,
-    setViewAsCreator,
+    // isAdmin gates all admin UI + the /admin route guard. During a creator
+    // preview the logged-in profile IS the sandbox creator (is_admin=false), so
+    // admin UI hides naturally. `impersonating` (a stashed admin session exists)
+    // is what surfaces the "exit creator view" pill so the admin can get back.
+    isAdmin: realIsAdmin,
+    impersonating,
+    enterCreatorPreview,
+    exitCreatorPreview,
     isSuspended: profile?.status === 'suspended',
     loading,
     profileLoaded,
@@ -224,7 +273,11 @@ export function AuthProvider({ children }) {
       return { data: { session: out, user: out.user ?? null }, error: null }
     },
 
-    signOut: () => { setViewAsCreator(false); return supabase.auth.signOut() },
+    signOut: () => {
+      try { localStorage.removeItem(ADMIN_STASH_KEY) } catch { /* ignore */ }
+      setImpersonating(false)
+      return supabase.auth.signOut()
+    },
 
     // Rate-limited password reset (always reports success, never reveals whether
     // the email exists).

@@ -23,6 +23,8 @@ export default function AdminChallenges() {
 
   useEffect(() => { load() }, [])
 
+  const [deleting, setDeleting] = useState(null)
+
   async function setStatus(challenge, status) {
     const messages = {
       active: `Publish "${challenge.title}"? Every creator will be notified that it's live.`,
@@ -32,6 +34,20 @@ export default function AdminChallenges() {
     if (!confirm(messages[status])) return
     await supabase.from('challenges').update({ status }).eq('id', challenge.id)
     load()
+  }
+
+  // Permanently delete a challenge (admins only, via a SECURITY DEFINER RPC).
+  // FK cascades remove its submissions, results and reminder records; any linked
+  // rewards keep their history with the challenge link cleared. Irreversible.
+  async function remove(challenge) {
+    const entries = challenge.submissions?.[0]?.count ?? 0
+    const warn = `Permanently delete "${challenge.title}"?\n\nThis also deletes ${entries} submission${entries === 1 ? '' : 's'} and all its results. This cannot be undone.`
+    if (!confirm(warn)) return
+    setDeleting(challenge.id)
+    const { error } = await supabase.rpc('admin_delete_challenge', { target: challenge.id })
+    setDeleting(null)
+    if (error) { alert(`Could not delete: ${error.message}`); return }
+    setChallenges((prev) => prev.filter((c) => c.id !== challenge.id))
   }
 
   return (
@@ -84,6 +100,13 @@ export default function AdminChallenges() {
                 <Link to={`/challenges/${c.id}`} className="btn-ghost !py-2 text-xs">View page</Link>
                 <Link to={`/admin/challenges/${c.id}/edit`} className="btn-secondary !py-2 text-xs">✏️ Edit</Link>
                 <Link to={`/admin/challenges/${c.id}/results`} className="btn-secondary !py-2 text-xs">📊 Results & leaderboard</Link>
+                <button
+                  onClick={() => remove(c)}
+                  disabled={deleting === c.id}
+                  className="btn-ghost ml-auto !py-2 text-xs font-medium text-red-500 hover:bg-red-50 disabled:opacity-50"
+                >
+                  {deleting === c.id ? 'Deleting…' : '🗑 Delete'}
+                </button>
               </div>
             </div>
           ))}
