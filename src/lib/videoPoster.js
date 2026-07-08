@@ -1,17 +1,18 @@
-// Capture a still poster frame from a video FILE (a local blob), before upload.
-// Doing it on the local file means the canvas is same-origin and never tainted,
-// so it works on every browser incl. iOS Safari - unlike capturing from the
-// remote <video> at render time (which iOS blocks / paints black).
+// Capture a still poster frame from a video FILE (a local blob), before upload,
+// so chat/DMs can show a real preview and let the browser's own <video controls>
+// handle playback. Capturing from the local file keeps the canvas same-origin
+// (never tainted), unlike capturing from the remote <video> at render time.
 //
-// CRITICAL iOS detail: a paused/seeked <video> does NOT decode a frame you can
-// draw to a canvas - iOS only produces a real frame once the clip actually
-// PLAYS. So we mount the element (muted, inline, hidden), play it a hair, grab
-// the presented frame via requestVideoFrameCallback (or a timeupdate fallback),
-// then stop. We upload the resulting JPEG next to the clip so chat/DMs can show
-// a real preview and let the browser's own <video controls> handle playback.
+// iOS is the hard part, and there are TWO traps:
+//   1. A <video> that is display:none / opacity:0 / offscreen does NOT decode
+//      real pixels on iOS - drawImage() just yields BLACK. So the element must
+//      be genuinely rendered. We make it 2px at opacity 0.01 in the corner:
+//      technically painted (so iOS decodes) but imperceptible.
+//   2. iOS only produces a frame once the clip actually PLAYS, and the first
+//      presented frame(s) can still be black (decoder warm-up). So we play it
+//      muted and grab a frame a few frames in / past ~0.1s of media time.
 //
-// Returns a Blob (image/jpeg) or null on any failure (never throws - a missing
-// poster just means the player falls back to the video's own frame).
+// Returns a Blob (image/jpeg) or null on any failure (never throws).
 export function captureVideoPoster(file) {
   return new Promise((resolve) => {
     let url
@@ -29,9 +30,8 @@ export function captureVideoPoster(file) {
     video.setAttribute('muted', '')
     video.setAttribute('playsinline', '')
     video.preload = 'auto'
-    video.crossOrigin = 'anonymous'
-    // iOS needs the element in the document to decode frames for canvas.
-    video.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;'
+    // Rendered but invisible: iOS won't decode a fully-hidden video.
+    video.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:0.01;pointer-events:none;z-index:2147483647;border:0;'
     document.body.appendChild(video)
     video.src = url
 
@@ -52,7 +52,6 @@ export function captureVideoPoster(file) {
         const vw = video.videoWidth
         const vh = video.videoHeight
         if (!vw || !vh) return
-        // Scale to <= 720px on the long edge; it's only a preview.
         const scale = Math.min(1, 720 / Math.max(vw, vh))
         const w = Math.round(vw * scale)
         const h = Math.round(vh * scale)
@@ -60,32 +59,41 @@ export function captureVideoPoster(file) {
         canvas.width = w
         canvas.height = h
         canvas.getContext('2d').drawImage(video, 0, 0, w, h)
-        canvas.toBlob((b) => finish(b), 'image/jpeg', 0.7)
+        canvas.toBlob((b) => finish(b), 'image/jpeg', 0.72)
       } catch {
         finish(null)
       }
     }
 
-    const startCapture = () => {
-      // Prefer the exact "a frame was presented" signal when available.
-      if ('requestVideoFrameCallback' in video) {
-        video.requestVideoFrameCallback(() => grab())
-      } else {
-        const onTime = () => { if (video.currentTime > 0) { video.removeEventListener('timeupdate', onTime); grab() } }
+    let frames = 0
+    const useRVFC = 'requestVideoFrameCallback' in video
+    const onFrame = (_now, meta) => {
+      if (done) return
+      frames += 1
+      // Wait a few presented frames AND ~0.1s of media time so we skip the
+      // black decoder warm-up, then grab.
+      const t = meta?.mediaTime ?? video.currentTime
+      if (frames >= 3 && t >= 0.08) return grab()
+      video.requestVideoFrameCallback(onFrame)
+    }
+
+    const start = () => {
+      if (useRVFC) video.requestVideoFrameCallback(onFrame)
+      else {
+        const onTime = () => { if (video.currentTime >= 0.12) { video.removeEventListener('timeupdate', onTime); grab() } }
         video.addEventListener('timeupdate', onTime)
       }
-      // Play (muted) so iOS actually decodes a frame; if autoplay is blocked,
-      // fall back to a seek + immediate grab.
       const p = video.play()
       if (p && typeof p.catch === 'function') {
-        p.catch(() => { try { video.currentTime = 0.1 } catch { /* ignore */ } grab() })
+        p.catch(() => { try { video.currentTime = 0.12 } catch { /* ignore */ } setTimeout(grab, 120) })
       }
     }
 
-    video.onloadeddata = startCapture
+    video.onloadeddata = start
     video.onerror = () => finish(null)
-    // Safety net so a stuck decode never blocks the send.
-    setTimeout(() => { grab(); setTimeout(() => finish(null), 250) }, 2500)
+    // Safety net: grab whatever we have, then give up, so a stuck decode never
+    // blocks the send.
+    setTimeout(() => { grab(); setTimeout(() => finish(null), 300) }, 3000)
   })
 }
 
