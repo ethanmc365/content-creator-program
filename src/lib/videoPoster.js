@@ -1,16 +1,17 @@
 // Capture a still poster frame from a video FILE (a local blob), before upload,
-// so chat/DMs can show a real preview and let the browser's own <video controls>
-// handle playback. Capturing from the local file keeps the canvas same-origin
+// so chat/DMs can show a real preview while the browser's own <video controls>
+// handles playback. Capturing from the local file keeps the canvas same-origin
 // (never tainted), unlike capturing from the remote <video> at render time.
 //
-// iOS is the hard part, and there are TWO traps:
-//   1. A <video> that is display:none / opacity:0 / offscreen does NOT decode
-//      real pixels on iOS - drawImage() just yields BLACK. So the element must
-//      be genuinely rendered. We make it 2px at opacity 0.01 in the corner:
-//      technically painted (so iOS decodes) but imperceptible.
-//   2. iOS only produces a frame once the clip actually PLAYS, and the first
-//      presented frame(s) can still be black (decoder warm-up). So we play it
-//      muted and grab a frame a few frames in / past ~0.1s of media time.
+// iOS is the hard part. To get a NON-BLACK frame there:
+//   * the <video> must be genuinely rendered - a display:none / opacity:0 /
+//     tiny (1-2px) element does NOT decode real pixels, so drawImage yields
+//     black. We render it at a real size (200px) but at opacity 0.01 (visually
+//     imperceptible) so iOS actually decodes it.
+//   * iOS only produces frames once the clip PLAYS, and the first frames are a
+//     black decoder warm-up. So we play it muted briefly, then SEEK to a
+//     content frame (~a third in) and capture on `seeked` - a seek forces that
+//     exact frame to render.
 //
 // Returns a Blob (image/jpeg) or null on any failure (never throws).
 export function captureVideoPoster(file) {
@@ -30,8 +31,8 @@ export function captureVideoPoster(file) {
     video.setAttribute('muted', '')
     video.setAttribute('playsinline', '')
     video.preload = 'auto'
-    // Rendered but invisible: iOS won't decode a fully-hidden video.
-    video.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:0.01;pointer-events:none;z-index:2147483647;border:0;'
+    // Real size but ~invisible: iOS won't decode a hidden/tiny video.
+    video.style.cssText = 'position:fixed;left:0;top:0;width:200px;height:auto;opacity:0.01;pointer-events:none;z-index:2147483647;border:0;'
     document.body.appendChild(video)
     video.src = url
 
@@ -65,35 +66,32 @@ export function captureVideoPoster(file) {
       }
     }
 
-    let frames = 0
-    const useRVFC = 'requestVideoFrameCallback' in video
-    const onFrame = (_now, meta) => {
-      if (done) return
-      frames += 1
-      // Wait a few presented frames AND ~0.1s of media time so we skip the
-      // black decoder warm-up, then grab.
-      const t = meta?.mediaTime ?? video.currentTime
-      if (frames >= 3 && t >= 0.08) return grab()
-      video.requestVideoFrameCallback(onFrame)
+    let seeked = false
+    const doSeek = () => {
+      if (seeked || done) return
+      seeked = true
+      try { video.pause() } catch { /* ignore */ }
+      const dur = video.duration
+      const t = dur && isFinite(dur) ? Math.min(0.6, dur / 3) : 0.2
+      video.addEventListener('seeked', grab, { once: true })
+      // If the seek doesn't fire (some browsers), grab whatever's rendered.
+      setTimeout(grab, 400)
+      try { video.currentTime = t } catch { grab() }
     }
 
-    const start = () => {
-      if (useRVFC) video.requestVideoFrameCallback(onFrame)
-      else {
-        const onTime = () => { if (video.currentTime >= 0.12) { video.removeEventListener('timeupdate', onTime); grab() } }
-        video.addEventListener('timeupdate', onTime)
-      }
+    video.onloadeddata = () => {
+      // Play muted to warm up the decoder / force iOS to render frames, then
+      // seek to a content frame and capture it.
       const p = video.play()
-      if (p && typeof p.catch === 'function') {
-        p.catch(() => { try { video.currentTime = 0.12 } catch { /* ignore */ } setTimeout(grab, 120) })
+      if (p && typeof p.then === 'function') {
+        p.then(() => setTimeout(doSeek, 150)).catch(() => doSeek())
+      } else {
+        setTimeout(doSeek, 150)
       }
     }
-
-    video.onloadeddata = start
     video.onerror = () => finish(null)
-    // Safety net: grab whatever we have, then give up, so a stuck decode never
-    // blocks the send.
-    setTimeout(() => { grab(); setTimeout(() => finish(null), 300) }, 3000)
+    // Safety net so a stuck decode never leaves the promise hanging.
+    setTimeout(() => { grab(); setTimeout(() => finish(null), 300) }, 4000)
   })
 }
 
