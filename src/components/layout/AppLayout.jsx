@@ -30,6 +30,8 @@ export default function AppLayout() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [dmUnread, setDmUnread] = useState(0)
   const [connReqs, setConnReqs] = useState(0)
+  const [exiting, setExiting] = useState(false)
+  const [exitError, setExitError] = useState('')
   const menuRef = useRef(null)
   // When the software keyboard is open (e.g. typing a message) the bottom tab
   // bar slides away so the composer can sit right above the keyboard. Uses the
@@ -119,17 +121,27 @@ export default function AppLayout() {
           account (while previewing, the logged-in identity IS the creator). */}
       {impersonating && (
         <div className="fixed inset-x-0 bottom-24 z-50 flex justify-center px-4 lg:bottom-6">
-          <div className="flex items-center gap-3 rounded-full border border-brand/30 bg-white px-4 py-2 shadow-lift">
-            <span className="flex items-center gap-2 text-xs font-medium text-ink">
-              <Icon name="eye" className="h-4 w-4 text-brand" />
-              Viewing as a creator
-            </span>
-            <button
-              onClick={exitCreatorPreview}
-              className="rounded-full bg-brand px-3 py-1 text-xs font-semibold text-white transition-transform hover:scale-105 active:scale-95"
-            >
-              Exit
-            </button>
+          <div className="flex flex-col items-center gap-1.5 rounded-2xl border border-brand/30 bg-white px-4 py-2 shadow-lift">
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-2 text-xs font-medium text-ink">
+                <Icon name="eye" className="h-4 w-4 text-brand" />
+                Viewing as a creator
+              </span>
+              <button
+                onClick={async () => {
+                  setExiting(true)
+                  const { error } = await exitCreatorPreview()
+                  setExiting(false)
+                  if (error) setExitError(error)
+                  else navigate('/admin')
+                }}
+                disabled={exiting}
+                className="rounded-full bg-brand px-3 py-1 text-xs font-semibold text-white transition-transform hover:scale-105 active:scale-95 disabled:opacity-60"
+              >
+                {exiting ? 'Exiting…' : 'Exit'}
+              </button>
+            </div>
+            {exitError && <span className="text-[11px] font-medium text-red-500">{exitError}</span>}
           </div>
         </div>
       )}

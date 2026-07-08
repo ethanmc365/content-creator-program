@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import { Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../../components/ui'
 import { formatDate } from '../../lib/utils'
 import { playableContentType } from '../../lib/media'
+import { ensureMp4Brand } from '../../lib/videoRemux'
 
 // Resource library management: publish tips/guides, optionally attach a
 // downloadable file (stored in the public "resources" bucket).
@@ -35,11 +36,14 @@ export default function AdminResources() {
 
   // Optional file attachment → public resources bucket (admin-only upload).
   async function handleFile(e) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (file.size > 25 * 1024 * 1024) return setError('Files must be under 25MB.')
+    const raw = e.target.files?.[0]
+    if (!raw) return
+    if (raw.size > 25 * 1024 * 1024) return setError('Files must be under 25MB.')
     setUploading(true)
     setError('')
+    // iPhone .mov (QuickTime H.264) won't play inline in most browsers; rewrite
+    // the container brand to MP4 so resource-card videos are playable everywhere.
+    const file = await ensureMp4Brand(raw)
     const path = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`
     const { error: upErr } = await supabase.storage.from('resources').upload(path, file, { contentType: playableContentType(file) })
     if (upErr) {

@@ -1,5 +1,6 @@
 import { compressImage } from './image'
 import { uploadFile, uploadPrivateFile, uploadRawFile } from './upload'
+import { ensureMp4Brand } from './videoRemux'
 import { supabase } from './supabase'
 
 function validateImage(file) {
@@ -33,9 +34,6 @@ export async function uploadChatImage(file, userId) {
 // through the proxy avoid both: the proxy verifies the user against the auth
 // server and writes with the service role, streaming the body straight through.
 const CHAT_VIDEO_MAX = 25 * 1024 * 1024
-// iPhone .mov is video/quicktime, which browsers can't reliably PLAY back inline
-// even after a clean upload. Map it to a browser-safe container hint; the actual
-// bytes are unchanged (most phone .mov are H.264/AAC and play fine as video/mp4).
 const VIDEO_MIME = { mov: 'video/mp4', qt: 'video/mp4', m4v: 'video/mp4', mp4: 'video/mp4', webm: 'video/webm', ogv: 'video/ogg' }
 export async function uploadChatVideo(file, userId) {
   const looksVideo = file.type.startsWith('video/') || /\.(mp4|webm|mov|m4v|ogv)$/i.test(file.name)
@@ -43,10 +41,13 @@ export async function uploadChatVideo(file, userId) {
   if (file.size > CHAT_VIDEO_MAX) {
     throw new Error('Video is too large (max 25MB). Trim it or lower the resolution and try again.')
   }
-  const ext = (file.name.split('.').pop() || 'mp4').toLowerCase()
-  const contentType = VIDEO_MIME[ext] || (file.type && file.type !== 'video/quicktime' ? file.type : 'video/mp4')
+  // iPhone .mov (QuickTime-branded H.264) won't play in Chrome/Firefox/Android;
+  // losslessly rewrite the container brand to MP4 so it plays everywhere.
+  const playable = await ensureMp4Brand(file)
+  const ext = (playable.name.split('.').pop() || 'mp4').toLowerCase()
+  const contentType = playable.type || VIDEO_MIME[ext] || 'video/mp4'
   const path = `${userId}/video-${Date.now()}.${ext}`
-  const out = await uploadRawFile('chat-media', path, file, contentType)
+  const out = await uploadRawFile('chat-media', path, playable, contentType)
   return out.publicUrl
 }
 

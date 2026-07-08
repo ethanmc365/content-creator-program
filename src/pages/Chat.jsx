@@ -228,9 +228,18 @@ export default function Chat() {
   useEffect(() => {
     const last = messages[messages.length - 1]
     const grew = messages.length > prevLenRef.current
-    const mineLast = last && last.sender_id === user.id
-    if (atBottom || mineLast) {
-      bottomRef.current?.scrollIntoView({ behavior: prevLenRef.current === 0 ? 'auto' : 'smooth' })
+    const firstPaint = prevLenRef.current === 0
+    const mineJustSent = grew && last && last.sender_id === user.id
+    // Only auto-scroll when: the reader is already at the bottom, OR a brand-new
+    // message just arrived that is THEIR OWN (jump to what they sent), OR it's the
+    // first paint. Critically we gate the "mine" case on `grew` — otherwise, when
+    // the newest message happens to be yours, EVERY re-run of this effect (e.g.
+    // when scrolling up flips `atBottom`) would yank you back down. That was the
+    // "can't scroll up, it pulls me to the bottom" bug.
+    if (firstPaint || atBottom || mineJustSent) {
+      // On first paint jump instantly; otherwise glide. A reader who scrolled up
+      // never reaches this branch, so we never fight them.
+      bottomRef.current?.scrollIntoView({ behavior: firstPaint ? 'auto' : 'smooth' })
       setNewBelow(0)
     } else if (grew) {
       setNewBelow((n) => n + (messages.length - prevLenRef.current))
@@ -873,14 +882,16 @@ export default function Chat() {
             </div>
           )}
           {!atBottom && (
-            <button
-              type="button"
-              onClick={jumpToLatest}
-              className="absolute -top-12 right-4 z-10 flex items-center gap-1.5 rounded-full bg-brand px-3.5 py-2 text-xs font-semibold text-white shadow-lift transition-transform hover:scale-105 sm:right-8"
-            >
-              {newBelow > 0 ? `${newBelow} new` : 'Latest'}
-              <Icon name="arrow-down" className="h-4 w-4" />
-            </button>
+            <div className="pointer-events-none absolute -top-14 inset-x-0 z-10 flex justify-center">
+              <button
+                type="button"
+                onClick={jumpToLatest}
+                className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-xs font-semibold text-white shadow-lift transition-transform hover:scale-105 active:scale-95"
+              >
+                {newBelow > 0 ? `${newBelow} new message${newBelow === 1 ? '' : 's'}` : 'Jump to latest'}
+                <Icon name="arrow-down" className="h-4 w-4" />
+              </button>
+            </div>
           )}
         </div>
 

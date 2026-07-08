@@ -86,19 +86,30 @@ export function AuthProvider({ children }) {
 
   const exitCreatorPreview = useCallback(async () => {
     let saved = null
-    try {
-      saved = JSON.parse(localStorage.getItem(ADMIN_STASH_KEY) || 'null')
-      localStorage.removeItem(ADMIN_STASH_KEY)
-    } catch { /* ignore */ }
-    setImpersonating(false)
-    if (saved?.refresh_token) {
-      // Restoring the refresh token is enough — setSession refreshes an expired
-      // access token automatically. Fires onAuthStateChange → reloads the admin.
-      await supabase.auth.setSession(saved)
-    } else {
-      // No stash (shouldn't happen) — fall back to a clean sign-out.
-      await supabase.auth.signOut()
+    try { saved = JSON.parse(localStorage.getItem(ADMIN_STASH_KEY) || 'null') } catch { /* ignore */ }
+    if (!saved?.access_token || !saved?.refresh_token) {
+      // Nothing to restore. Do NOT sign out (that would strand the admin) —
+      // just drop the flag; they can log back in if needed.
+      try { localStorage.removeItem(ADMIN_STASH_KEY) } catch { /* ignore */ }
+      setImpersonating(false)
+      return { error: 'Your admin session could not be found. Please log in again.' }
     }
+    // Restore the stashed admin session. Both tokens are passed so setSession can
+    // refresh if the access token has aged out. Crucially we NEVER call signOut()
+    // here — a failed restore must leave the current session intact (retryable),
+    // not log the admin out (that was the reported bug).
+    const { data, error } = await supabase.auth.setSession({
+      access_token: saved.access_token,
+      refresh_token: saved.refresh_token,
+    })
+    if (error || !data?.session) {
+      return { error: error?.message || 'Could not restore your admin session. Please try again.' }
+    }
+    // Only clear the stash once we're certain the admin session is back, so a
+    // transient failure above stays retryable.
+    try { localStorage.removeItem(ADMIN_STASH_KEY) } catch { /* ignore */ }
+    setImpersonating(false)
+    return {}
   }, [])
 
   // Storage validates tokens against the asymmetric (ES256) signing key. A
