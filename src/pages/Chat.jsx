@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { uploadChatImage, uploadChatAudio, uploadChatVideo } from '../lib/chatMedia'
+import { uploadChatImage, uploadChatVideo } from '../lib/chatMedia'
 import { Link, NavLink, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -9,20 +9,18 @@ import PollCard from '../components/PollCard'
 import GameEventCard from '../components/GameEventCard'
 import BirthdayCard from '../components/BirthdayCard'
 import ResourceCard from '../components/ResourceCard'
-import AudioMessage from '../components/AudioMessage'
-import SwipeToReply from '../components/SwipeToReply'
+import LinkPreview from '../components/LinkPreview'
 import { CONTINENTS } from '../lib/countries'
 import { formatChatTime, cx } from '../lib/utils'
 import { renderMessageBody } from '../lib/richText'
+import { firstUrl } from '../lib/linkPreview'
 import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
-import { useVoiceRecorder } from '../lib/useVoiceRecorder'
 
 // A short label for a message when it's quoted in a reply.
 function messagePreview(m) {
   if (!m) return 'Message unavailable'
   if (m.body) return m.body
   if (m.image_url) return 'Photo'
-  if (m.audio_url) return 'Voice note'
   if (m.video_url) return 'Video'
   if (m.poll_id) return 'Poll'
   if (m.game_event_id) return 'Game challenge'
@@ -33,7 +31,6 @@ function messagePreview(m) {
 // Media "kind" of a message, used to pair an optimistic bubble with the real row
 // once it comes back (its URL changes from a local blob to the storage URL).
 function messageKind(m) {
-  if (m.audio_url) return 'audio'
   if (m.video_url) return 'video'
   if (m.image_url) return 'image'
   return 'text'
@@ -46,8 +43,6 @@ function typingLabel(names) {
   if (names.length === 2) return `${names[0]} and ${names[1]} are typing…`
   return 'Several people are typing…'
 }
-
-const fmtSecs = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 
 // Real-time community chat - the WhatsApp replacement.
 //  * Three channels: #general, #announcements (admin-post-only), #content-tips.
@@ -73,8 +68,8 @@ export default function Chat() {
   const [reactions, setReactions] = useState([]) // all reactions for loaded messages
   const [loading, setLoading] = useState(true)
   const [body, setBody] = useState('')
-  const [sending, setSending] = useState(false)
   const [pickerFor, setPickerFor] = useState(null) // message id with emoji picker open
+  const [actionsFor, setActionsFor] = useState(null) // message id with its action row open (mobile tap)
   const [unread, setUnread] = useState({}) // channel -> bool
   const [attachError, setAttachError] = useState('')
   const [replyTo, setReplyTo] = useState(null)      // message being replied to
@@ -83,7 +78,6 @@ export default function Chat() {
   const [newBelow, setNewBelow] = useState(0)       // unseen messages while scrolled up
   const bottomRef = useRef(null)
   const fileRef = useRef(null)
-  const videoRef = useRef(null)
   const textareaRef = useRef(null)
   const composerRef = useRef(null)
   const scrollerRef = useRef(null)
@@ -91,7 +85,6 @@ export default function Chat() {
   const typingChanRef = useRef(null)
   const typingSentRef = useRef(0)
   const typerTimersRef = useRef({})
-  const { recording, seconds: recSeconds, start: startRec, stop: stopRec, cancel: cancelRec } = useVoiceRecorder()
 
   // Visual-viewport tracking drives the WhatsApp-style mobile layout: the whole
   // chat is a fixed overlay pinned to the visible area so the composer hugs the
@@ -126,7 +119,15 @@ export default function Chat() {
       .then(({ data }) => setMembers(data ?? []))
   }, [])
   const mentionResults = mention
-    ? members.filter((m) => m.id !== user.id && m.name?.toLowerCase().includes(mention.query.toLowerCase())).slice(0, 6)
+    ? (() => {
+        const q = mention.query.toLowerCase()
+        const people = members.filter((m) => m.id !== user.id && m.name?.toLowerCase().includes(q)).slice(0, 6)
+        // Admins can @everyone to notify the whole community.
+        if (isAdmin && 'everyone'.startsWith(q)) {
+          return [{ id: 'everyone', name: 'everyone', everyone: true }, ...people].slice(0, 6)
+        }
+        return people
+      })()
     : []
 
   // Poll composer (admins, announcements only).
@@ -148,6 +149,7 @@ export default function Chat() {
   const meta = CHANNELS.find((c) => c.key === channel) ?? CHANNELS[0]
   const canPost = channel !== 'announcements' || isAdmin
   const isMuted = profile?.status === 'muted'
+  const pinnedMsg = messages.find((m) => m.pinned && !m.deleted) ?? null
 
   // ---------- Load history ----------
   const load = useCallback(async () => {
@@ -209,7 +211,7 @@ export default function Chat() {
         (payload) => setReactions((prev) => prev.filter((r) => r.id !== payload.old.id)))
       .subscribe()
     return () => supabase.removeChannel(sub)
-  }, [channel])
+  }, [channel, mergeIncoming])
 
   // Reset scroll bookkeeping whenever the channel changes (we always land at the
   // newest message in a freshly opened channel).
@@ -379,7 +381,6 @@ export default function Chat() {
     sender_id: user.id,
     body: '',
     image_url: null,
-    audio_url: null,
     video_url: null,
     reply_to: null,
     created_at: new Date().toISOString(),
@@ -419,56 +420,42 @@ export default function Chat() {
     setMessages((prev) => prev.map((x) => (x.id === m.id ? { ...x, pending: true, failed: false } : x)))
     const { data, error } = await supabase
       .from('messages')
-      .insert({ channel, sender_id: user.id, body: m.body, image_url: m.image_url, audio_url: m.audio_url, video_url: m.video_url, reply_to: m.reply_to })
+      .insert({ channel, sender_id: user.id, body: m.body, image_url: m.image_url, video_url: m.video_url, reply_to: m.reply_to })
       .select('*, profiles:sender_id(id, name, photo_url, is_admin)')
       .single()
     if (error) markFailed(m.id)
     else mergeIncoming(data)
   }
 
-  // Attach an image: show it instantly from a local URL, upload in the
-  // background, then send it as a message (with any typed text as its caption).
-  async function sendImage(e) {
+  // Attach an image OR a video (same button). Shows it instantly from a local
+  // URL, uploads in the background (image → compressed via the upload proxy;
+  // video → straight to storage), then sends it as a message with any typed text
+  // as the caption.
+  async function sendAttachment(e) {
     const file = e.target.files?.[0]
     e.target.value = '' // allow re-selecting the same file
     if (!file) return
     setAttachError('')
+    const isVideo = file.type.startsWith('video/') || /\.(mp4|webm|mov|m4v|ogv)$/i.test(file.name)
     const caption = body.trim()
     const replyId = replyTo?.id ?? null
-    const temp = makeOptimistic({ body: caption, image_url: URL.createObjectURL(file), reply_to: replyId })
+    const localUrl = URL.createObjectURL(file)
+    const temp = makeOptimistic(
+      isVideo
+        ? { video_url: localUrl, reply_to: replyId }
+        : { body: caption, image_url: localUrl, reply_to: replyId }
+    )
     setMessages((prev) => [...prev, temp])
-    setBody(''); setReplyTo(null); setAtBottom(true)
-    try {
-      const url = await uploadChatImage(file, user.id)
-      const { data, error } = await supabase
-        .from('messages')
-        .insert({ channel, sender_id: user.id, body: caption, image_url: url, reply_to: replyId })
-        .select('*, profiles:sender_id(id, name, photo_url, is_admin)')
-        .single()
-      if (error) throw new Error(error.message)
-      mergeIncoming(data)
-    } catch (err) {
-      setAttachError(err.message)
-      markFailed(temp.id)
-    }
-  }
-
-  // Attach a video clip (size-capped, uploaded as-is), rendered inline as a
-  // playable video.
-  async function sendVideo(e) {
-    const file = e.target.files?.[0]
-    e.target.value = ''
-    if (!file) return
-    setAttachError('')
-    const replyId = replyTo?.id ?? null
-    const temp = makeOptimistic({ video_url: URL.createObjectURL(file), reply_to: replyId })
-    setMessages((prev) => [...prev, temp])
+    if (!isVideo) setBody('')
     setReplyTo(null); setAtBottom(true)
     try {
-      const url = await uploadChatVideo(file, user.id)
+      const url = isVideo ? await uploadChatVideo(file, user.id) : await uploadChatImage(file, user.id)
+      const row = isVideo
+        ? { channel, sender_id: user.id, body: '', video_url: url, reply_to: replyId }
+        : { channel, sender_id: user.id, body: caption, image_url: url, reply_to: replyId }
       const { data, error } = await supabase
         .from('messages')
-        .insert({ channel, sender_id: user.id, body: '', video_url: url, reply_to: replyId })
+        .insert(row)
         .select('*, profiles:sender_id(id, name, photo_url, is_admin)')
         .single()
       if (error) throw new Error(error.message)
@@ -479,32 +466,16 @@ export default function Chat() {
     }
   }
 
-  // Voice note: stop the recorder, show the clip instantly, upload + send.
-  async function sendVoiceNote() {
-    const res = await stopRec()
-    if (!res?.blob) return
-    const replyId = replyTo?.id ?? null
-    const temp = makeOptimistic({ audio_url: URL.createObjectURL(res.blob), reply_to: replyId })
-    setMessages((prev) => [...prev, temp])
-    setReplyTo(null); setAtBottom(true)
-    try {
-      const url = await uploadChatAudio(res.blob, user.id)
-      const { data, error } = await supabase
-        .from('messages')
-        .insert({ channel, sender_id: user.id, body: '', audio_url: url, reply_to: replyId })
-        .select('*, profiles:sender_id(id, name, photo_url, is_admin)')
-        .single()
-      if (error) throw new Error(error.message)
-      mergeIncoming(data)
-    } catch (err) {
-      setAttachError(err.message)
-      markFailed(temp.id)
+  // Pin / unpin (admins only). One pinned message per channel: pinning clears any
+  // existing pin first. RLS gates the UPDATE to admins.
+  async function togglePin(m) {
+    setActionsFor(null)
+    if (m.pinned) {
+      await supabase.from('messages').update({ pinned: false }).eq('id', m.id)
+      return
     }
-  }
-
-  async function startVoiceNote() {
-    setAttachError('')
-    try { await startRec() } catch (err) { setAttachError(err.message) }
+    await supabase.from('messages').update({ pinned: false }).eq('channel', channel).eq('pinned', true)
+    await supabase.from('messages').update({ pinned: true }).eq('id', m.id)
   }
 
   // Detect an in-progress "@query" just before the caret to drive autocomplete.
@@ -691,6 +662,22 @@ export default function Chat() {
           {meta.hint}
         </div>
 
+        {/* Pinned message bar (admins pin one per channel; everyone sees it). */}
+        {pinnedMsg && (
+          <div className="flex shrink-0 items-center gap-2 border-b border-brand/15 bg-brand-tint/60 px-4 py-2 sm:px-8">
+            <Icon name="pin" className="h-4 w-4 shrink-0 text-brand" />
+            <button type="button" onClick={() => scrollToMessage(pinnedMsg.id)} className="min-w-0 flex-1 text-left">
+              <span className="block text-[11px] font-semibold text-brand">Pinned{pinnedMsg.profiles?.name ? ` · ${pinnedMsg.profiles.name}` : ''}</span>
+              <span className="block truncate text-xs text-ink">{messagePreview(pinnedMsg)}</span>
+            </button>
+            {isAdmin && (
+              <button type="button" onClick={() => togglePin(pinnedMsg)} aria-label="Unpin message" title="Unpin" className="shrink-0 rounded-full p-1 text-smoke hover:bg-white hover:text-ink">
+                <Icon name="ban" className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        )}
+
         {/* ---------- Messages ---------- */}
         <div
           ref={scrollerRef}
@@ -723,21 +710,27 @@ export default function Chat() {
             const summary = reactionSummary(m.id)
             const orig = m.reply_to ? messages.find((x) => x.id === m.reply_to) : null
             const onDark = mine && channel !== 'announcements'
+            const linkUrl = m.body && !m.image_url && !m.video_url ? firstUrl(m.body) : null
+            const showActions = actionsFor === m.id
             return (
               <div key={m.id} id={`msg-${m.id}`} className={cx('group flex gap-3', mine && 'flex-row-reverse', m.pending && 'opacity-60')}>
                 <Link to={`/profile/${m.sender_id}`} className="shrink-0 self-end">
                   <Avatar src={m.profiles?.photo_url} name={m.profiles?.name} size="sm" />
                 </Link>
 
-                <SwipeToReply disabled={!isMobile || m.pending} onReply={() => { setReplyTo(m); textareaRef.current?.focus() }}>
-                <div className={cx('max-w-[78%] sm:max-w-[65%]', mine && 'items-end text-right')}>
-                  <div className={cx('mb-1 flex items-baseline gap-2 text-xs', mine && 'flex-row-reverse')}>
-                    <span className="font-semibold text-ink">{mine ? 'You' : m.profiles?.name}</span>
-                    {m.profiles?.is_admin && <Badge tone="light" className="!px-2 !py-0">Tryp.com Team</Badge>}
+                <div
+                  className={cx('flex max-w-[78%] flex-col sm:max-w-[65%]', mine ? 'items-end text-right' : 'items-start')}
+                  // Tap a message on mobile to reveal its reply / react actions.
+                  onClick={(e) => { if (isMobile && !e.target.closest('a,button,video,input')) setActionsFor(showActions ? null : m.id) }}
+                >
+                  <div className={cx('mb-1 flex items-center gap-2 text-xs', mine && 'flex-row-reverse')}>
                     <span className="text-gray-400">{formatChatTime(m.created_at)}</span>
+                    <span className="font-semibold text-ink">{mine ? 'You' : m.profiles?.name}</span>
+                    {m.profiles?.is_admin && <Badge tone="light" className="shrink-0 whitespace-nowrap !px-2 !py-0.5">Tryp.com Team</Badge>}
+                    {m.pinned && <Icon name="pin" className="h-3.5 w-3.5 shrink-0 text-brand" title="Pinned" />}
                   </div>
 
-                  {(m.body || m.image_url || m.audio_url || m.video_url) && (
+                  {(m.body || m.image_url || m.video_url) && (
                     <div
                       className={cx(
                         'relative inline-block whitespace-pre-line rounded-2xl text-left text-sm leading-relaxed',
@@ -786,8 +779,8 @@ export default function Chat() {
                           className="max-h-80 w-full rounded-xl bg-black object-contain"
                         />
                       )}
-                      {m.audio_url && <div className={cx((m.image_url || m.video_url) && 'px-2 pb-1 pt-2')}><AudioMessage src={m.audio_url} onDark={onDark} /></div>}
                       {m.body && <span className={cx('block', (m.image_url || m.video_url) && 'px-2.5 py-1.5')}>{renderMessageBody(m.body, { rich: m.profiles?.is_admin, members, onDark })}</span>}
+                      {linkUrl && <LinkPreview url={linkUrl} onDark={onDark} />}
                     </div>
                   )}
 
@@ -804,7 +797,9 @@ export default function Chat() {
                     </p>
                   )}
 
-                  {/* Reactions */}
+                  {/* Reactions + action row (reply / react / moderate / pin). On
+                      desktop the actions appear on hover; on mobile, tapping the
+                      message reveals them (showActions). */}
                   <div className={cx('mt-1 flex flex-wrap items-center gap-1', mine && 'justify-end')}>
                     {Object.entries(summary).map(([emoji, info]) => (
                       <button
@@ -820,11 +815,10 @@ export default function Chat() {
                       </button>
                     ))}
 
-                    {/* Hover actions: reply / react / moderate */}
-                    <div className={cx('relative flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100')}>
+                    <div className={cx('relative flex items-center gap-1 transition-opacity focus-within:opacity-100 group-hover:opacity-100', showActions ? 'opacity-100' : 'opacity-0')}>
                       {!m.pending && (
                         <button
-                          onClick={() => { setReplyTo(m); textareaRef.current?.focus() }}
+                          onClick={() => { setReplyTo(m); setActionsFor(null); textareaRef.current?.focus() }}
                           aria-label="Reply"
                           title="Reply"
                           className="rounded-full border border-gray-200 p-1 text-smoke hover:border-brand hover:text-brand"
@@ -839,8 +833,9 @@ export default function Chat() {
                       >
                         <Icon name="smile" className="h-4 w-4" />
                       </button>
-                      {isAdmin && (
+                      {isAdmin && !m.pending && (
                         <>
+                          <button onClick={() => togglePin(m)} aria-label={m.pinned ? 'Unpin message' : 'Pin message'} title={m.pinned ? 'Unpin' : 'Pin'} className={cx('rounded-full border p-1', m.pinned ? 'border-brand bg-brand-tint text-brand' : 'border-gray-200 text-smoke hover:border-brand hover:text-brand')}><Icon name="pin" className="h-4 w-4" /></button>
                           <button onClick={() => moderateDelete(m.id)} aria-label="Delete message" className="rounded-full border border-gray-200 p-1 text-smoke hover:border-red-300 hover:text-red-500"><Icon name="trash" className="h-4 w-4" /></button>
                           {!mine && !m.profiles?.is_admin && (
                             <button onClick={() => muteCreator(m.sender_id, m.profiles?.name)} aria-label="Mute creator" className="rounded-full border border-gray-200 p-1 text-smoke hover:border-red-300 hover:text-red-500"><Icon name="mute" className="h-4 w-4" /></button>
@@ -848,7 +843,7 @@ export default function Chat() {
                         </>
                       )}
                       {pickerFor === m.id && (
-                        <div className="absolute bottom-7 left-0 z-20 flex gap-1 rounded-full border border-gray-100 bg-white px-2 py-1.5 shadow-lift">
+                        <div className={cx('absolute bottom-7 z-20 flex gap-1 rounded-full border border-gray-100 bg-white px-2 py-1.5 shadow-lift', mine ? 'right-0' : 'left-0')}>
                           {QUICK_EMOJI.map((e) => (
                             <button key={e} onClick={() => toggleReaction(m.id, e)} className="rounded-full px-1 text-lg transition-transform hover:scale-125" aria-label={`React ${e}`}>
                               {e}
@@ -859,7 +854,6 @@ export default function Chat() {
                     </div>
                   </div>
                 </div>
-                </SwipeToReply>
               </div>
             )
           })}
@@ -910,11 +904,11 @@ export default function Chat() {
                   <button type="button" onClick={() => applyFormat('italic')} title="Italic" aria-label="Italic" className="rounded px-2.5 py-1 text-sm italic text-smoke hover:bg-cloud hover:text-ink">I</button>
                 </div>
                 {/* Drop a game challenge card into this channel. */}
-                <button type="button" onClick={() => setShowGame(true)} disabled={sending} title="Post a game challenge" aria-label="Post a game challenge" className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-smoke hover:bg-cloud hover:text-ink">
+                <button type="button" onClick={() => setShowGame(true)} title="Post a game challenge" aria-label="Post a game challenge" className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-smoke hover:bg-cloud hover:text-ink">
                   <Icon name="joystick" className="h-4 w-4" /> <span className="hidden sm:inline">Game</span>
                 </button>
                 {/* Drop a resource-library card into this channel. */}
-                <button type="button" onClick={openResourcePicker} disabled={sending} title="Share a resource" aria-label="Share a resource" className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-smoke hover:bg-cloud hover:text-ink">
+                <button type="button" onClick={openResourcePicker} title="Share a resource" aria-label="Share a resource" className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-smoke hover:bg-cloud hover:text-ink">
                   <Icon name="book" className="h-4 w-4" /> <span className="hidden sm:inline">Resource</span>
                 </button>
                 {channel === 'announcements' && (
@@ -924,13 +918,22 @@ export default function Chat() {
                 )}
               </div>
             )}
-            {/* @mention autocomplete */}
+            {/* @mention autocomplete (admins also get @everyone) */}
             {mention && mentionResults.length > 0 && (
               <div className="mb-2 overflow-hidden rounded-card border border-gray-100 bg-white shadow-lift">
                 {mentionResults.map((mem) => (
                   <button key={mem.id} type="button" onClick={() => selectMention(mem)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-cloud">
-                    <Avatar src={mem.photo_url} name={mem.name} size="sm" />
-                    <span className="font-medium">{mem.name}</span>
+                    {mem.everyone ? (
+                      <>
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-tint text-brand"><Icon name="megaphone" className="h-4 w-4" /></span>
+                        <span className="min-w-0"><span className="block font-medium">@everyone</span><span className="block text-xs text-smoke">Notify the whole community</span></span>
+                      </>
+                    ) : (
+                      <>
+                        <Avatar src={mem.photo_url} name={mem.name} size="sm" />
+                        <span className="font-medium">{mem.name}</span>
+                      </>
+                    )}
                   </button>
                 ))}
               </div>
@@ -950,69 +953,44 @@ export default function Chat() {
               </div>
             )}
 
-            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={sendImage} />
-            <input ref={videoRef} type="file" accept="video/*" className="hidden" onChange={sendVideo} />
+            {/* One attach button handles images AND videos. */}
+            <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden" onChange={sendAttachment} />
 
-            {recording ? (
-              /* Voice-note recording bar (replaces the input while recording). */
-              <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5">
-                <span className="h-3 w-3 shrink-0 animate-pulse rounded-full bg-red-500" />
-                <span className="flex-1 text-sm font-medium tabular-nums text-red-700">Recording… {fmtSecs(recSeconds)}</span>
-                <button type="button" onClick={cancelRec} className="btn-ghost !px-3 !py-2" aria-label="Cancel recording" title="Cancel">
-                  <Icon name="trash" className="h-5 w-5" />
-                </button>
-                <button type="button" onClick={sendVoiceNote} className="btn-primary !px-5" aria-label="Send voice note" title="Send">
-                  <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3 21l18-9L3 3l3 9zm0 0h6" /></svg>
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={send} className="flex items-end gap-2">
-                {/* Attach an image (instant local preview, uploads in background). */}
-                <button type="button" onClick={() => fileRef.current?.click()} className="btn-ghost !px-2.5 !py-3" aria-label="Attach an image" title="Attach an image">
-                  <Icon name="image" className="h-5 w-5" />
-                </button>
-                {/* Attach a video (size-capped, plays inline). */}
-                <button type="button" onClick={() => videoRef.current?.click()} className="btn-ghost !px-2.5 !py-3" aria-label="Attach a video" title="Attach a video">
-                  <Icon name="video" className="h-5 w-5" />
-                </button>
-                <textarea
-                  ref={textareaRef}
-                  rows={1}
-                  className="input max-h-32 flex-1 resize-none overflow-y-auto"
-                  placeholder="Message…"
-                  value={body}
-                  onChange={onBodyChange}
-                  onBlur={stopTyping}
-                  onKeyDown={(e) => {
-                    // Mention autocomplete grabs Enter/Escape; otherwise Enter is a
-                    // newline (sending is done with the send button, per design).
-                    if (mention && mentionResults.length) {
-                      if (e.key === 'Enter') { e.preventDefault(); selectMention(mentionResults[0]); return }
-                      if (e.key === 'Escape') { e.preventDefault(); setMention(null) }
-                    }
-                  }}
-                  aria-label={`Message ${meta.label}`}
-                />
-                {body.trim() ? (
-                  <button
-                    type="submit"
-                    // Prevent the tap from moving focus off the textarea — that blur
-                    // is what collapsed the keyboard on send. The click/submit still
-                    // fires; focus (and the keyboard) stay put.
-                    onMouseDown={(e) => e.preventDefault()}
-                    className="btn-primary !px-5"
-                    aria-label="Send"
-                  >
-                    <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3 21l18-9L3 3l3 9zm0 0h6" /></svg>
-                  </button>
-                ) : (
-                  /* Empty composer → mic to record a voice note (WhatsApp-style). */
-                  <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={startVoiceNote} className="btn-primary !px-4" aria-label="Record a voice note" title="Record a voice note">
-                    <Icon name="mic" className="h-5 w-5" strokeWidth={1.8} />
-                  </button>
-                )}
-              </form>
-            )}
+            <form onSubmit={send} className="flex items-end gap-2">
+              <button type="button" onClick={() => fileRef.current?.click()} className="btn-ghost !px-2.5 !py-3" aria-label="Attach a photo or video" title="Attach a photo or video">
+                <Icon name="image" className="h-5 w-5" />
+              </button>
+              <textarea
+                ref={textareaRef}
+                rows={1}
+                className="input max-h-32 flex-1 resize-none overflow-y-auto"
+                placeholder="Message…"
+                value={body}
+                onChange={onBodyChange}
+                onBlur={stopTyping}
+                onKeyDown={(e) => {
+                  // Mention autocomplete grabs Enter/Escape; otherwise Enter is a
+                  // newline (sending is done with the send button, per design).
+                  if (mention && mentionResults.length) {
+                    if (e.key === 'Enter') { e.preventDefault(); selectMention(mentionResults[0]); return }
+                    if (e.key === 'Escape') { e.preventDefault(); setMention(null) }
+                  }
+                }}
+                aria-label={`Message ${meta.label}`}
+              />
+              <button
+                type="submit"
+                // Prevent the tap from moving focus off the textarea — that blur
+                // is what collapsed the keyboard on send. The click/submit still
+                // fires; focus (and the keyboard) stay put.
+                onMouseDown={(e) => e.preventDefault()}
+                disabled={!body.trim()}
+                className="btn-primary !px-5"
+                aria-label="Send"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3 21l18-9L3 3l3 9zm0 0h6" /></svg>
+              </button>
+            </form>
             </>
           ) : (
             <p className="rounded-xl bg-cloud px-4 py-3 text-center text-sm text-smoke">
