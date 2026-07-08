@@ -1,6 +1,7 @@
 import { compressImage } from './image'
 import { uploadFile, uploadPrivateFile, uploadRawFile } from './upload'
 import { ensureMp4Brand } from './videoRemux'
+import { captureVideoPoster, posterPathFor } from './videoPoster'
 import { supabase } from './supabase'
 
 function validateImage(file) {
@@ -48,6 +49,12 @@ export async function uploadChatVideo(file, userId) {
   const contentType = playable.type || VIDEO_MIME[ext] || 'video/mp4'
   const path = `${userId}/video-${Date.now()}.${ext}`
   const out = await uploadRawFile('chat-media', path, playable, contentType)
+  // Capture + upload a poster thumbnail next to the clip (best-effort) so chat
+  // shows a real preview frame; <video poster> uses it.
+  const poster = await captureVideoPoster(file)
+  if (poster) {
+    await uploadFile('chat-media', posterPathFor(path), poster, 'image/jpeg').catch(() => {})
+  }
   return out.publicUrl
 }
 
@@ -78,6 +85,10 @@ export async function uploadDmVideo(file, conversationId) {
   const contentType = playable.type || VIDEO_MIME[ext] || 'video/mp4'
   const path = `${conversationId}/video-${Date.now()}.${ext}`
   const out = await uploadRawFile('dm-media', path, playable, contentType)
+  const poster = await captureVideoPoster(file)
+  if (poster) {
+    await uploadPrivateFile('dm-media', posterPathFor(path), poster, 'image/jpeg').catch(() => {})
+  }
   return out.path
 }
 

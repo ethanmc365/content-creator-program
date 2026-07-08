@@ -2,7 +2,7 @@
    Handles web-push delivery, page-driven notifications, click routing, AND
    offline app-shell caching so the app still boots with no connection. */
 
-const CACHE = 'tryp-cache-v2'
+const CACHE = 'tryp-cache-v3'
 const SHELL = ['/', '/index.html', '/brand/tryp-logo.png', '/brand/tryp-plane.png', '/manifest.webmanifest']
 
 self.addEventListener('install', (event) => {

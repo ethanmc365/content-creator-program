@@ -7,6 +7,8 @@ import { loadRelationship } from '../lib/connections'
 import { Avatar, Badge, EmptyState, Skeleton, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
 import ChatMedia from '../components/ChatMedia'
+import { mediaType } from '../lib/media'
+import { posterPathFor } from '../lib/videoPoster'
 import { formatChatTime, otherParticipant, cx } from '../lib/utils'
 import { useKeyboardInset } from '../lib/useKeyboardInset'
 
@@ -181,7 +183,11 @@ export default function Messages() {
   // Sign any private DM-image paths in the thread so they can render. Legacy
   // messages hold a full public URL and are skipped by signDmImages.
   useEffect(() => {
-    const paths = thread.map((m) => m.image_url).filter(isSignedDmPath)
+    // Sign each private media path, plus a video's sibling .jpg poster path.
+    const paths = thread.flatMap((m) => {
+      if (!isSignedDmPath(m.image_url)) return []
+      return mediaType(m.image_url) === 'video' ? [m.image_url, posterPathFor(m.image_url)] : [m.image_url]
+    })
     if (!paths.length) return
     const missing = paths.filter((p) => !signedUrls.has(p))
     if (!missing.length) return
@@ -351,6 +357,8 @@ export default function Messages() {
                   const mine = m.sender_id === user.id
                   // Private DM media resolves to a signed URL; legacy public URLs pass through.
                   const imageSrc = m.image_url ? (isSignedDmPath(m.image_url) ? signedUrls.get(m.image_url) : m.image_url) : null
+                  const isVid = m.image_url && mediaType(m.image_url) === 'video'
+                  const posterSrc = isVid && isSignedDmPath(m.image_url) ? signedUrls.get(posterPathFor(m.image_url)) : null
                   return (
                     <div key={m.id} className={cx('flex', mine && 'justify-end')}>
                       <div className={cx('max-w-[80%] sm:max-w-[65%]')}>
@@ -371,7 +379,7 @@ export default function Messages() {
                         )}>
                           {m.image_url && (
                             imageSrc ? (
-                              <ChatMedia url={imageSrc} alt={m.body || 'Shared image'} maxW={240} maxH={360} />
+                              <ChatMedia url={imageSrc} kind={isVid ? 'video' : 'image'} poster={posterSrc} alt={m.body || 'Shared image'} maxW={240} maxH={360} />
                             ) : (
                               <div className="flex h-40 w-56 items-center justify-center rounded-xl bg-cloud"><Spinner /></div>
                             )

@@ -4,17 +4,17 @@ import VideoPlayer from './VideoPlayer'
 import { Spinner } from './ui'
 import Icon from './Icon'
 
-// A chat / DM attachment (image or video) rendered WhatsApp-style: the media
-// shows inline sized to its real orientation, videos stay paused until the play
-// button is pressed and then play in place, and a LONG-PRESS (or right-click on
-// desktop) opens a small menu to Open full screen or Save it. Saving routes
-// through saveFile: on mobile that's the native share sheet ("Save Image/Video"
-// to the camera roll), on desktop a download.
+// A chat / DM attachment (image or video). Videos use the browser's native
+// <video controls> (reliable play button + inline playback everywhere, incl.
+// iOS) with a real captured poster frame. A LONG-PRESS (or right-click on
+// desktop) on either opens a small menu to Open full screen or Save it. Saving
+// routes through saveFile: mobile share sheet ("Save Image/Video" to the camera
+// roll), desktop download.
 //
-// `kind` ('image' | 'video') is passed explicitly by the caller because an
-// optimistic blob: URL has no file extension to sniff; it falls back to the
-// extension when omitted (fine for already-uploaded URLs, e.g. DMs).
-export default function ChatMedia({ url, alt, kind, maxW = 240, maxH = 360 }) {
+// `kind` ('image' | 'video') is passed explicitly by the caller (an optimistic
+// blob: URL has no extension to sniff); falls back to the extension otherwise.
+// `poster` is an explicit poster URL (DMs pass a signed one); chat derives it.
+export default function ChatMedia({ url, alt, kind, poster, maxW = 240, maxH = 360 }) {
   const isVideo = (kind || mediaType(url)) === 'video'
   const [saving, setSaving] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -35,7 +35,7 @@ export default function ChatMedia({ url, alt, kind, maxW = 240, maxH = 360 }) {
     if (!timer.current) return
     const p = e.touches?.[0] || e
     if (origin.current && Math.hypot(p.clientX - origin.current.x, p.clientY - origin.current.y) > 12) {
-      clearTimeout(timer.current); timer.current = null // scrolled/dragged - cancel
+      clearTimeout(timer.current); timer.current = null // scrolled/dragged/scrubbing - cancel
     }
   }
   function end() { clearTimeout(timer.current); timer.current = null }
@@ -60,7 +60,7 @@ export default function ChatMedia({ url, alt, kind, maxW = 240, maxH = 360 }) {
   return (
     <div className="relative select-none" style={{ WebkitTouchCallout: 'none' }} {...press}>
       {isVideo ? (
-        <VideoPlayer url={url} maxW={maxW} maxH={maxH} guardRef={fired} />
+        <VideoPlayer url={url} poster={poster} maxW={maxW} maxH={maxH} />
       ) : (
         <a
           href={url}
@@ -74,29 +74,31 @@ export default function ChatMedia({ url, alt, kind, maxW = 240, maxH = 360 }) {
       )}
 
       {saving && (
-        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-black/30">
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-black/30">
           <span className="flex items-center gap-2 rounded-full bg-white/90 px-3 py-1.5 text-xs font-medium text-ink shadow-lift">
             <Spinner className="h-4 w-4" /> Saving…
           </span>
         </div>
       )}
 
-      {/* Long-press / right-click options menu. Fixed + centered so the chat
-          bubble's overflow-hidden can't clip it. */}
+      {/* Long-press / right-click options menu (iOS-style action sheet). Fixed +
+          centered so the chat bubble's overflow-hidden can't clip it. */}
       {menuOpen && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-6"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/40 p-6"
           onClick={() => setMenuOpen(false)}
           onContextMenu={(e) => { e.preventDefault(); setMenuOpen(false) }}
         >
-          <div className="w-64 overflow-hidden rounded-2xl bg-white shadow-lift" onClick={(e) => e.stopPropagation()}>
-            <button type="button" onClick={openFull} className="flex w-full items-center gap-3 px-4 py-3.5 text-left text-sm font-medium hover:bg-cloud">
-              <Icon name="expand" className="h-5 w-5 text-smoke" /> Open full screen
+          <div className="w-72 max-w-full overflow-hidden rounded-2xl bg-white shadow-lift" onClick={(e) => e.stopPropagation()}>
+            <button type="button" onClick={openFull} className="flex w-full items-center gap-3.5 px-5 py-4 text-left text-sm font-semibold text-ink transition-colors hover:bg-cloud">
+              <Icon name="expand" className="h-5 w-5 shrink-0 text-brand" />
+              Open full screen
             </button>
-            <button type="button" onClick={doSave} className="flex w-full items-center gap-3 border-t border-gray-100 px-4 py-3.5 text-left text-sm font-medium hover:bg-cloud">
-              <Icon name="arrow-down" className="h-5 w-5 text-smoke" /> {isVideo ? 'Save video' : 'Save photo'}
+            <button type="button" onClick={doSave} className="flex w-full items-center gap-3.5 border-t border-gray-100 px-5 py-4 text-left text-sm font-semibold text-ink transition-colors hover:bg-cloud">
+              <Icon name="arrow-down" className="h-5 w-5 shrink-0 text-brand" />
+              {isVideo ? 'Save video' : 'Save photo'}
             </button>
-            <button type="button" onClick={() => setMenuOpen(false)} className="flex w-full items-center justify-center border-t border-gray-100 px-4 py-3 text-left text-sm text-smoke hover:bg-cloud">
+            <button type="button" onClick={() => setMenuOpen(false)} className="w-full border-t border-gray-100 px-5 py-3.5 text-center text-sm font-medium text-smoke transition-colors hover:bg-cloud">
               Cancel
             </button>
           </div>
