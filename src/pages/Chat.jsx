@@ -10,7 +10,7 @@ import GameEventCard from '../components/GameEventCard'
 import BirthdayCard from '../components/BirthdayCard'
 import ResourceCard from '../components/ResourceCard'
 import LinkPreview from '../components/LinkPreview'
-import VideoPlayer from '../components/VideoPlayer'
+import ChatMedia from '../components/ChatMedia'
 import { CONTINENTS } from '../lib/countries'
 import { formatChatTime, cx } from '../lib/utils'
 import { renderMessageBody } from '../lib/richText'
@@ -770,17 +770,8 @@ export default function Chat() {
                         </button>
                       )}
 
-                      {m.image_url && (
-                        <a href={m.image_url} target="_blank" rel="noopener noreferrer" aria-label="Open image full size">
-                          <img
-                            src={m.image_url}
-                            alt={m.body || 'Shared image'}
-                            loading="lazy"
-                            className="max-h-72 w-full rounded-xl object-cover"
-                          />
-                        </a>
-                      )}
-                      {m.video_url && <VideoPlayer url={m.video_url} maxW={240} maxH={360} />}
+                      {m.image_url && <ChatMedia url={m.image_url} alt={m.body || 'Shared image'} />}
+                      {m.video_url && <ChatMedia url={m.video_url} maxW={240} maxH={360} />}
                       {m.body && <span className={cx('block', (m.image_url || m.video_url) && 'px-2.5 py-1.5')}>{renderMessageBody(m.body, { rich: m.profiles?.is_admin, members, onDark })}</span>}
                       {linkUrl && <LinkPreview url={linkUrl} onDark={onDark} />}
                     </div>

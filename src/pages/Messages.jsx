@@ -6,8 +6,7 @@ import { uploadDmImage, uploadDmVideo, signDmImages, isSignedDmPath } from '../l
 import { loadRelationship } from '../lib/connections'
 import { Avatar, Badge, EmptyState, Skeleton, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
-import VideoPlayer from '../components/VideoPlayer'
-import { mediaType } from '../lib/media'
+import ChatMedia from '../components/ChatMedia'
 import { formatChatTime, otherParticipant, cx } from '../lib/utils'
 import { useKeyboardInset } from '../lib/useKeyboardInset'
 
@@ -352,7 +351,6 @@ export default function Messages() {
                   const mine = m.sender_id === user.id
                   // Private DM media resolves to a signed URL; legacy public URLs pass through.
                   const imageSrc = m.image_url ? (isSignedDmPath(m.image_url) ? signedUrls.get(m.image_url) : m.image_url) : null
-                  const isVideo = m.image_url && mediaType(m.image_url) === 'video'
                   return (
                     <div key={m.id} className={cx('flex', mine && 'justify-end')}>
                       <div className={cx('max-w-[80%] sm:max-w-[65%]')}>
@@ -373,13 +371,7 @@ export default function Messages() {
                         )}>
                           {m.image_url && (
                             imageSrc ? (
-                              isVideo ? (
-                                <VideoPlayer url={imageSrc} maxW={240} maxH={360} />
-                              ) : (
-                                <a href={imageSrc} target="_blank" rel="noopener noreferrer" aria-label="Open image full size">
-                                  <img src={imageSrc} alt={m.body || 'Shared image'} loading="lazy" className="max-h-72 w-full rounded-xl object-cover" />
-                                </a>
-                              )
+                              <ChatMedia url={imageSrc} alt={m.body || 'Shared image'} maxW={240} maxH={360} />
                             ) : (
                               <div className="flex h-40 w-56 items-center justify-center rounded-xl bg-cloud"><Spinner /></div>
                             )
