@@ -1,7 +1,6 @@
 import { compressImage } from './image'
 import { uploadFile, uploadPrivateFile, uploadRawFile } from './upload'
 import { ensureMp4Brand } from './videoRemux'
-import { captureVideoPoster, posterPathFor } from './videoPoster'
 import { supabase } from './supabase'
 
 function validateImage(file) {
@@ -42,10 +41,6 @@ export async function uploadChatVideo(file, userId) {
   if (file.size > CHAT_VIDEO_MAX) {
     throw new Error('Video is too large (max 25MB). Trim it or lower the resolution and try again.')
   }
-  // Start capturing the poster NOW, in parallel with the upload - and never
-  // await it before returning, so the message sends as soon as the clip is up
-  // (the poster lands a moment later; <video poster> picks it up on next load).
-  const posterPromise = captureVideoPoster(file)
   // iPhone .mov (QuickTime-branded H.264) won't play in Chrome/Firefox/Android;
   // losslessly rewrite the container brand to MP4 so it plays everywhere.
   const playable = await ensureMp4Brand(file)
@@ -53,9 +48,6 @@ export async function uploadChatVideo(file, userId) {
   const contentType = playable.type || VIDEO_MIME[ext] || 'video/mp4'
   const path = `${userId}/video-${Date.now()}.${ext}`
   const out = await uploadRawFile('chat-media', path, playable, contentType)
-  posterPromise
-    .then((poster) => { if (poster) return uploadFile('chat-media', posterPathFor(path), poster, 'image/jpeg') })
-    .catch(() => {})
   return out.publicUrl
 }
 
@@ -81,15 +73,11 @@ export async function uploadDmVideo(file, conversationId) {
   if (file.size > CHAT_VIDEO_MAX) {
     throw new Error('Video is too large (max 25MB). Trim it or lower the resolution and try again.')
   }
-  const posterPromise = captureVideoPoster(file)
   const playable = await ensureMp4Brand(file)
   const ext = (playable.name.split('.').pop() || 'mp4').toLowerCase()
   const contentType = playable.type || VIDEO_MIME[ext] || 'video/mp4'
   const path = `${conversationId}/video-${Date.now()}.${ext}`
   const out = await uploadRawFile('dm-media', path, playable, contentType)
-  posterPromise
-    .then((poster) => { if (poster) return uploadPrivateFile('dm-media', posterPathFor(path), poster, 'image/jpeg') })
-    .catch(() => {})
   return out.path
 }
 

@@ -13,8 +13,7 @@ import Icon from './Icon'
 //
 // `kind` ('image' | 'video') is passed explicitly by the caller (an optimistic
 // blob: URL has no extension to sniff); falls back to the extension otherwise.
-// `poster` is an explicit poster URL (DMs pass a signed one); chat derives it.
-export default function ChatMedia({ url, alt, kind, poster, maxW = 240, maxH = 360 }) {
+export default function ChatMedia({ url, alt, kind, maxW = 240, maxH = 360 }) {
   const isVideo = (kind || mediaType(url)) === 'video'
   const [saving, setSaving] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -60,7 +59,7 @@ export default function ChatMedia({ url, alt, kind, poster, maxW = 240, maxH = 3
   return (
     <div className="relative select-none" style={{ WebkitTouchCallout: 'none' }} {...press}>
       {isVideo ? (
-        <VideoPlayer url={url} poster={poster} maxW={maxW} maxH={maxH} />
+        <VideoPlayer url={url} maxW={maxW} maxH={maxH} />
       ) : (
         <a
           href={url}

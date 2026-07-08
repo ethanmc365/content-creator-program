@@ -1,23 +1,19 @@
-import { useState } from 'react'
-import { posterPathFor } from '../lib/videoPoster'
+import { useEffect, useRef, useState } from 'react'
 import { cx } from '../lib/utils'
 
-// Inline video player: the browser's OWN native <video controls>, which is the
-// version that reliably shows a play button and plays inline everywhere incl.
-// iOS Safari (custom overlay buttons were failing to start playback there).
+// Inline video player: the browser's native <video controls> (reliable play +
+// inline playback everywhere incl. iOS).
 //
-//  * Preview - `poster` is a real thumbnail captured from the file at upload
-//    time (see videoPoster.js). For public chat URLs we derive it from the clip
-//    URL (same path, .jpg); DMs pass a signed poster URL explicitly.
-//  * Orientation - we read the real dimensions on `loadedmetadata` and size the
-//    box in explicit pixels (the chat bubble is shrink-to-fit, so an auto width
-//    off aspect-ratio collapses to 0), so a vertical clip shows vertical.
-export default function VideoPlayer({ url, poster, className, maxW = 300, maxH = 420 }) {
+// Preview frame: iOS paints a black box until a frame is decoded, and it will
+// NOT decode a hidden/offscreen element (so an upload-time canvas thumbnail came
+// out solid black on iOS). The trick that DOES work is on the VISIBLE element:
+// when it scrolls into view we play it muted for an instant and immediately
+// pause - that forces the first frame to render and it stays shown, with the
+// native play button over it. No separate poster image, so sends are faster too.
+export default function VideoPlayer({ url, className, maxW = 300, maxH = 420 }) {
+  const ref = useRef(null)
   const [dims, setDims] = useState(null)
-
-  // Public chat clips: the poster lives at the same URL with a .jpg extension.
-  // DM clips pass an explicit (signed) poster and skip this.
-  const posterUrl = poster ?? (/^https?:/i.test(url) ? posterPathFor(url) : undefined)
+  const revealed = useRef(false)
 
   function fit(vw, vh) {
     const ratio = vw / vh
@@ -31,6 +27,31 @@ export default function VideoPlayer({ url, poster, className, maxW = 300, maxH =
     if (v.videoWidth && v.videoHeight) setDims(fit(v.videoWidth, v.videoHeight))
   }
 
+  // Reveal the first frame once the player is on screen.
+  useEffect(() => {
+    const v = ref.current
+    if (!v) return
+    const reveal = () => {
+      if (revealed.current || !v.paused) return
+      revealed.current = true
+      v.muted = true
+      const p = v.play()
+      if (p && typeof p.then === 'function') {
+        p.then(() => {
+          // A frame has rendered; freeze on it and restore sound for real play.
+          v.pause()
+          v.muted = false
+        }).catch(() => { revealed.current = false }) // e.g. Low Power Mode - leave it; tap plays
+      }
+    }
+    const io = new IntersectionObserver(
+      (entries) => entries.forEach((e) => { if (e.isIntersecting) reveal() }),
+      { threshold: 0.2 }
+    )
+    io.observe(v)
+    return () => io.disconnect()
+  }, [url])
+
   const box = dims || { w: maxW, h: Math.round(maxW * 9 / 16) }
 
   return (
@@ -39,8 +60,8 @@ export default function VideoPlayer({ url, poster, className, maxW = 300, maxH =
       style={{ width: box.w, height: box.h, maxWidth: '100%' }}
     >
       <video
+        ref={ref}
         src={url}
-        poster={posterUrl}
         controls
         playsInline
         preload="metadata"
