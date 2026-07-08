@@ -13,10 +13,42 @@
 //
 // Deploy:  supabase functions deploy upload --no-verify-jwt
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { createRemoteJWKSet, jwtVerify } from 'npm:jose@5'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const ANON = Deno.env.get('SUPABASE_ANON_KEY')!
+
+// Verify the caller's JWT CRYPTOGRAPHICALLY against the project's public JWKS
+// (signature + expiry + audience), exactly like PostgREST and Storage do. We
+// deliberately do NOT use auth.getUser(): that also looks the session up in
+// auth.sessions, and a global sign-out on another device deletes the session
+// row while this device's token stays valid for up to a week (jwt_exp) - the
+// rest of the app keeps working but getUser starts failing with "session not
+// found" (real incident). Signature-level trust keeps us consistent with every
+// other API the app talks to. Falls back to GoTrue /user for non-ES256 tokens.
+const JWKS = createRemoteJWKSet(new URL(`${SUPABASE_URL}/auth/v1/.well-known/jwks.json`))
+async function verifyUser(jwt: string): Promise<string | null> {
+  try {
+    const { payload } = await jwtVerify(jwt, JWKS, {
+      issuer: `${SUPABASE_URL}/auth/v1`,
+      audience: 'authenticated',
+    })
+    return payload.sub ? String(payload.sub) : null
+  } catch {
+    // Legacy/edge cases (e.g. an HS256 token with no public JWK): ask GoTrue.
+    try {
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        headers: { apikey: ANON, Authorization: `Bearer ${jwt}` },
+      })
+      if (!res.ok) return null
+      const user = await res.json()
+      return user?.id ?? null
+    } catch {
+      return null
+    }
+  }
+}
 
 const PUBLIC_BUCKETS = new Set(['avatars', 'chat-media', 'gallery'])
 const PRIVATE_BUCKETS = new Set(['dm-media'])
@@ -49,14 +81,12 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
   if (req.method !== 'POST') return json(req, { error: 'method not allowed' }, 405)
 
-  // 1) Verify the caller via the auth server (reliable, unlike storage's cache).
+  // 1) Verify the caller's JWT (signature-level, see verifyUser above).
   const authHeader = req.headers.get('Authorization') ?? ''
   const jwt = authHeader.replace('Bearer ', '')
   if (!jwt) return json(req, { error: 'missing token' }, 401)
-  const authClient = createClient(SUPABASE_URL, ANON)
-  const { data: userData, error: userErr } = await authClient.auth.getUser(jwt)
-  if (userErr || !userData?.user) return json(req, { error: 'invalid token' }, 401)
-  const uid = userData.user.id
+  const uid = await verifyUser(jwt)
+  if (!uid) return json(req, { error: 'invalid token' }, 401)
 
   // 2) Validate the request. Two body shapes are accepted:
   //   - JSON  { bucket, path, contentType, dataBase64 }  — small files (images).

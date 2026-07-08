@@ -957,7 +957,9 @@ export default function Chat() {
             <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden" onChange={sendAttachment} />
 
             <form onSubmit={send} className="flex items-end gap-2">
-              <button type="button" onClick={() => fileRef.current?.click()} className="btn-ghost !px-2.5 !py-3" aria-label="Attach a photo or video" title="Attach a photo or video">
+              {/* blur() so the global focus-visible ring doesn't stick to the
+                  button after the file dialog closes and re-focuses it */}
+              <button type="button" onClick={(e) => { e.currentTarget.blur(); fileRef.current?.click() }} className="btn-ghost !px-2.5 !py-3" aria-label="Attach a photo or video" title="Attach a photo or video">
                 <Icon name="image" className="h-5 w-5" />
               </button>
               <textarea

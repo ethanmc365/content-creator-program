@@ -142,7 +142,7 @@ export default function AdminPanel() {
             <Icon name="eye" className="h-6 w-6" />
           </span>
           <h2 className="mt-4 font-semibold group-hover:text-brand">{entering ? 'Starting preview…' : 'View as creator'}</h2>
-          <p className="mt-2 text-xs leading-relaxed text-smoke">Step into a sandbox creator account and see the app exactly as a creator does — profile, chat, resources and access. A floating button switches you back any time.</p>
+          <p className="mt-2 text-xs leading-relaxed text-smoke">Step into a sandbox creator account and see the platform as a creator does.</p>
           {enterError && <p className="mt-2 text-xs font-medium text-red-500">{enterError}</p>}
         </button>
       </div>

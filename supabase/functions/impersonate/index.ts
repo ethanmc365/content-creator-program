@@ -13,10 +13,37 @@
 //
 // Deploy:  supabase functions deploy impersonate
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { createRemoteJWKSet, jwtVerify } from 'npm:jose@5'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const ANON = Deno.env.get('SUPABASE_ANON_KEY')!
+
+// Signature-level JWT verification against the project JWKS (see the upload
+// function for the full rationale: auth.getUser() fails with "session not
+// found" for tokens whose session was revoked on another device, even though
+// the token is still valid for PostgREST/Storage).
+const JWKS = createRemoteJWKSet(new URL(`${SUPABASE_URL}/auth/v1/.well-known/jwks.json`))
+async function verifyUser(jwt: string): Promise<string | null> {
+  try {
+    const { payload } = await jwtVerify(jwt, JWKS, {
+      issuer: `${SUPABASE_URL}/auth/v1`,
+      audience: 'authenticated',
+    })
+    return payload.sub ? String(payload.sub) : null
+  } catch {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        headers: { apikey: ANON, Authorization: `Bearer ${jwt}` },
+      })
+      if (!res.ok) return null
+      const user = await res.json()
+      return user?.id ?? null
+    } catch {
+      return null
+    }
+  }
+}
 
 // The one and only account this endpoint may impersonate: a hidden sandbox
 // creator (is_test=true, not an admin, never shown in the community).
@@ -51,15 +78,14 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
   if (req.method !== 'POST') return json(req, { error: 'method not allowed' }, 405)
 
-  // 1) Verify the caller against the auth server, then confirm they are an admin.
+  // 1) Verify the caller's JWT (signature-level), then confirm they are an admin.
   const jwt = (req.headers.get('Authorization') ?? '').replace('Bearer ', '')
   if (!jwt) return json(req, { error: 'missing token' }, 401)
-  const authClient = createClient(SUPABASE_URL, ANON)
-  const { data: userData, error: userErr } = await authClient.auth.getUser(jwt)
-  if (userErr || !userData?.user) return json(req, { error: 'invalid token' }, 401)
+  const callerId = await verifyUser(jwt)
+  if (!callerId) return json(req, { error: 'invalid token' }, 401)
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } })
-  const { data: me } = await admin.from('profiles').select('is_admin').eq('id', userData.user.id).maybeSingle()
+  const { data: me } = await admin.from('profiles').select('is_admin').eq('id', callerId).maybeSingle()
   if (!me?.is_admin) return json(req, { error: 'admins only' }, 403)
 
   // 2) Confirm the fixed target is still a safe sandbox creator (test, non-admin).
