@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { uploadChatImage } from '../lib/chatMedia'
+import { uploadChatImage, uploadChatAudio, uploadChatVideo } from '../lib/chatMedia'
 import { Link, NavLink, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -9,10 +9,45 @@ import PollCard from '../components/PollCard'
 import GameEventCard from '../components/GameEventCard'
 import BirthdayCard from '../components/BirthdayCard'
 import ResourceCard from '../components/ResourceCard'
+import AudioMessage from '../components/AudioMessage'
+import SwipeToReply from '../components/SwipeToReply'
 import { CONTINENTS } from '../lib/countries'
 import { formatChatTime, cx } from '../lib/utils'
 import { renderMessageBody } from '../lib/richText'
 import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
+import { useVoiceRecorder } from '../lib/useVoiceRecorder'
+
+// A short label for a message when it's quoted in a reply.
+function messagePreview(m) {
+  if (!m) return 'Message unavailable'
+  if (m.body) return m.body
+  if (m.image_url) return 'Photo'
+  if (m.audio_url) return 'Voice note'
+  if (m.video_url) return 'Video'
+  if (m.poll_id) return 'Poll'
+  if (m.game_event_id) return 'Game challenge'
+  if (m.resource_id) return 'Resource'
+  return 'Message'
+}
+
+// Media "kind" of a message, used to pair an optimistic bubble with the real row
+// once it comes back (its URL changes from a local blob to the storage URL).
+function messageKind(m) {
+  if (m.audio_url) return 'audio'
+  if (m.video_url) return 'video'
+  if (m.image_url) return 'image'
+  return 'text'
+}
+
+const newTempId = () => `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`
+
+function typingLabel(names) {
+  if (names.length === 1) return `${names[0]} is typing…`
+  if (names.length === 2) return `${names[0]} and ${names[1]} are typing…`
+  return 'Several people are typing…'
+}
+
+const fmtSecs = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 
 // Real-time community chat - the WhatsApp replacement.
 //  * Three channels: #general, #announcements (admin-post-only), #content-tips.
@@ -42,10 +77,21 @@ export default function Chat() {
   const [pickerFor, setPickerFor] = useState(null) // message id with emoji picker open
   const [unread, setUnread] = useState({}) // channel -> bool
   const [attachError, setAttachError] = useState('')
+  const [replyTo, setReplyTo] = useState(null)      // message being replied to
+  const [typers, setTypers] = useState([])          // others currently typing
+  const [atBottom, setAtBottom] = useState(true)    // is the view scrolled to newest
+  const [newBelow, setNewBelow] = useState(0)       // unseen messages while scrolled up
   const bottomRef = useRef(null)
   const fileRef = useRef(null)
+  const videoRef = useRef(null)
   const textareaRef = useRef(null)
   const composerRef = useRef(null)
+  const scrollerRef = useRef(null)
+  const prevLenRef = useRef(0)
+  const typingChanRef = useRef(null)
+  const typingSentRef = useRef(0)
+  const typerTimersRef = useRef({})
+  const { recording, seconds: recSeconds, start: startRec, stop: stopRec, cancel: cancelRec } = useVoiceRecorder()
 
   // Visual-viewport tracking drives the WhatsApp-style mobile layout: the whole
   // chat is a fixed overlay pinned to the visible area so the composer hugs the
@@ -123,6 +169,24 @@ export default function Chat() {
 
   useEffect(() => { load() }, [load])
 
+  // Merge a real (server) message into state, reconciling it with any matching
+  // optimistic bubble so a send never flickers or double-renders. A pending
+  // bubble is paired to the real row by sender + media-kind (+ body for text),
+  // since sends are awaited one at a time.
+  const matchesPending = (t, row) =>
+    t.pending && t.sender_id === row.sender_id && messageKind(t) === messageKind(row) &&
+    (t.reply_to || null) === (row.reply_to || null) &&
+    (messageKind(row) !== 'text' || t.body === row.body)
+
+  const mergeIncoming = useCallback((row) => {
+    setMessages((prev) => {
+      if (prev.some((m) => m.id === row.id)) return prev.filter((m) => !matchesPending(m, row))
+      const idx = prev.findIndex((m) => matchesPending(m, row))
+      if (idx !== -1) { const copy = [...prev]; copy[idx] = row; return copy }
+      return [...prev, row]
+    })
+  }, [])
+
   // ---------- Realtime: messages + reactions ----------
   useEffect(() => {
     const sub = supabase
@@ -132,9 +196,7 @@ export default function Chat() {
           // Fetch the sender's profile for the incoming message.
           const { data: sender } = await supabase
             .from('profiles').select('id, name, photo_url, is_admin').eq('id', payload.new.sender_id).single()
-          setMessages((prev) =>
-            prev.some((m) => m.id === payload.new.id) ? prev : [...prev, { ...payload.new, profiles: sender }]
-          )
+          mergeIncoming({ ...payload.new, profiles: sender })
         })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages', filter: `channel=eq.${channel}` },
         (payload) => {
@@ -149,18 +211,62 @@ export default function Chat() {
     return () => supabase.removeChannel(sub)
   }, [channel])
 
-  // ---------- Auto-scroll to newest + mark channel read ----------
+  // Reset scroll bookkeeping whenever the channel changes (we always land at the
+  // newest message in a freshly opened channel).
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    prevLenRef.current = 0
+    setAtBottom(true)
+    setNewBelow(0)
+  }, [channel])
+
+  // ---------- Smart auto-scroll + "jump to latest" bookkeeping ----------
+  // Only follow new messages when the reader is already at the bottom (or the new
+  // message is their own). If they've scrolled up to read history, we leave them
+  // put and count the arrivals for the jump-to-latest pill instead.
+  useEffect(() => {
+    const last = messages[messages.length - 1]
+    const grew = messages.length > prevLenRef.current
+    const mineLast = last && last.sender_id === user.id
+    if (atBottom || mineLast) {
+      bottomRef.current?.scrollIntoView({ behavior: prevLenRef.current === 0 ? 'auto' : 'smooth' })
+      setNewBelow(0)
+    } else if (grew) {
+      setNewBelow((n) => n + (messages.length - prevLenRef.current))
+    }
+    prevLenRef.current = messages.length
     localStorage.setItem(lastReadKey(channel), new Date().toISOString())
     setUnread((u) => ({ ...u, [channel]: false }))
-  }, [messages, channel])
+  }, [messages, channel, atBottom, user.id])
 
   // Keep the latest message in view when the keyboard opens/closes or the
-  // visible viewport resizes.
+  // visible viewport resizes (only if we were already following the newest).
   useEffect(() => {
+    if (atBottom) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [kbOpen, vpHeight, atBottom])
+
+  // Track whether the reader is pinned to the bottom of the history.
+  const onScrollMessages = useCallback(() => {
+    const el = scrollerRef.current
+    if (!el) return
+    const near = el.scrollHeight - el.scrollTop - el.clientHeight < 90
+    setAtBottom(near)
+    if (near) setNewBelow(0)
+  }, [])
+
+  const jumpToLatest = useCallback(() => {
+    setAtBottom(true)
+    setNewBelow(0)
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [kbOpen, vpHeight])
+  }, [])
+
+  // Flash-highlight and scroll to a quoted original message when its reply is tapped.
+  const scrollToMessage = useCallback((id) => {
+    const el = document.getElementById(`msg-${id}`)
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el.classList.add('ring-2', 'ring-brand', 'ring-offset-2', 'rounded-2xl')
+    setTimeout(() => el.classList.remove('ring-2', 'ring-brand', 'ring-offset-2', 'rounded-2xl'), 1300)
+  }, [])
 
   // Auto-grow the composer like WhatsApp: expand with the text up to a few
   // lines, then let it scroll internally instead of pushing the layout.
@@ -174,21 +280,25 @@ export default function Chat() {
   // Mobile composer gestures. The chat is a fixed overlay, so dragging on the
   // (non-scrollable) composer chrome used to make the page body rubber-band,
   // which fired visualViewport scroll events and jittered the overlay — that was
-  // the glitch/lag. We swallow those drags here so the body can't move, and a
-  // downward swipe smoothly dismisses the keyboard (an upward swipe is a no-op).
-  // Touches that start inside the textarea are left alone so its own multi-line
-  // scroll and caret placement keep working.
+  // the glitch/lag. We swallow those drags so the body can't move, and a downward
+  // swipe smoothly dismisses the keyboard (an upward swipe is a no-op).
+  //
+  // A touch that starts inside the textarea is only left alone when the textarea
+  // is ACTUALLY scrollable (multi-line overflow); on a single-line box there's
+  // nothing to scroll, so we still swallow the drag — otherwise swiping up on the
+  // input bounced the page and shoved the composer up over the messages.
   useEffect(() => {
     const el = composerRef.current
     if (!el || !isMobile) return
     let startY = null
-    let fromTextarea = false
+    let letScroll = false
     const onStart = (e) => {
-      fromTextarea = !!e.target.closest?.('textarea')
+      const ta = e.target.closest?.('textarea')
+      letScroll = !!ta && ta.scrollHeight > ta.clientHeight + 1
       startY = e.touches[0]?.clientY ?? null
     }
     const onMove = (e) => {
-      if (fromTextarea || startY == null) return
+      if (letScroll || startY == null) return
       const dy = (e.touches[0]?.clientY ?? startY) - startY
       if (dy > 20) { textareaRef.current?.blur(); startY = null }
       // Block the body from scrolling/bouncing under the overlay either way.
@@ -201,6 +311,44 @@ export default function Chat() {
       el.removeEventListener('touchmove', onMove)
     }
   }, [isMobile])
+
+  // ---------- Typing indicators (realtime broadcast, no DB writes) ----------
+  useEffect(() => {
+    const ch = supabase.channel(`typing-${channel}`, { config: { broadcast: { self: false } } })
+    ch.on('broadcast', { event: 'typing' }, ({ payload }) => {
+      if (!payload?.id || payload.id === user.id) return
+      setTypers((prev) => {
+        const rest = prev.filter((p) => p.id !== payload.id)
+        return payload.typing ? [...rest, { id: payload.id, name: payload.name || 'Someone' }] : rest
+      })
+      clearTimeout(typerTimersRef.current[payload.id])
+      if (payload.typing) {
+        typerTimersRef.current[payload.id] = setTimeout(() => {
+          setTypers((prev) => prev.filter((p) => p.id !== payload.id))
+        }, 4500)
+      }
+    }).subscribe()
+    typingChanRef.current = ch
+    const timers = typerTimersRef.current
+    return () => {
+      Object.values(timers).forEach(clearTimeout)
+      supabase.removeChannel(ch)
+      typingChanRef.current = null
+      setTypers([])
+    }
+  }, [channel, user.id])
+
+  const pingTyping = useCallback(() => {
+    const now = Date.now()
+    if (now - typingSentRef.current < 1500) return
+    typingSentRef.current = now
+    typingChanRef.current?.send({ type: 'broadcast', event: 'typing', payload: { id: user.id, name: profile?.name, typing: true } })
+  }, [user.id, profile?.name])
+
+  const stopTyping = useCallback(() => {
+    typingSentRef.current = 0
+    typingChanRef.current?.send({ type: 'broadcast', event: 'typing', payload: { id: user.id, name: profile?.name, typing: false } })
+  }, [user.id, profile?.name])
 
   // ---------- Unread dots for the other channels ----------
   useEffect(() => {
@@ -223,42 +371,147 @@ export default function Chat() {
   }, [channel, messages.length])
 
   // ---------- Actions ----------
+  // Build an optimistic bubble that renders instantly (greyed) before the DB
+  // round-trip; mergeIncoming swaps it for the real row when it lands.
+  const makeOptimistic = (fields) => ({
+    id: newTempId(),
+    channel,
+    sender_id: user.id,
+    body: '',
+    image_url: null,
+    audio_url: null,
+    video_url: null,
+    reply_to: null,
+    created_at: new Date().toISOString(),
+    deleted: false,
+    pending: true,
+    profiles: { id: user.id, name: profile?.name, photo_url: profile?.photo_url, is_admin: isAdmin },
+    ...fields,
+  })
+
+  const markFailed = (tempId) =>
+    setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, pending: false, failed: true } : m)))
+
   async function send(e) {
-    e.preventDefault()
-    if (!body.trim()) return
-    setSending(true)
-    const { error } = await supabase.from('messages').insert({ channel, sender_id: user.id, body: body.trim() })
-    setSending(false)
-    // Keep focus on the composer so the mobile keyboard stays up after sending
+    e?.preventDefault?.()
+    const text = body.trim()
+    if (!text) return
+    const replyId = replyTo?.id ?? null
+    const temp = makeOptimistic({ body: text, reply_to: replyId })
+    setMessages((prev) => [...prev, temp])
+    // Clear the composer immediately; keep focus so the mobile keyboard stays up
     // (it only closes when the user taps the chat or swipes the composer down).
-    if (!error) { setBody(''); setMention(null); textareaRef.current?.focus() }
+    setBody(''); setMention(null); setReplyTo(null); stopTyping()
+    setAtBottom(true)
+    textareaRef.current?.focus()
+    const { data, error } = await supabase
+      .from('messages')
+      .insert({ channel, sender_id: user.id, body: text, reply_to: replyId })
+      .select('*, profiles:sender_id(id, name, photo_url, is_admin)')
+      .single()
+    if (error) markFailed(temp.id)
+    else mergeIncoming(data)
   }
 
-  // Attach an image: upload to storage, then send it as a message
-  // (with whatever text is in the composer as its caption).
+  // Re-send a bubble that failed the first time (media is already uploaded, so we
+  // only re-insert the row).
+  async function retrySend(m) {
+    setMessages((prev) => prev.map((x) => (x.id === m.id ? { ...x, pending: true, failed: false } : x)))
+    const { data, error } = await supabase
+      .from('messages')
+      .insert({ channel, sender_id: user.id, body: m.body, image_url: m.image_url, audio_url: m.audio_url, video_url: m.video_url, reply_to: m.reply_to })
+      .select('*, profiles:sender_id(id, name, photo_url, is_admin)')
+      .single()
+    if (error) markFailed(m.id)
+    else mergeIncoming(data)
+  }
+
+  // Attach an image: show it instantly from a local URL, upload in the
+  // background, then send it as a message (with any typed text as its caption).
   async function sendImage(e) {
     const file = e.target.files?.[0]
     e.target.value = '' // allow re-selecting the same file
     if (!file) return
     setAttachError('')
-    setSending(true)
+    const caption = body.trim()
+    const replyId = replyTo?.id ?? null
+    const temp = makeOptimistic({ body: caption, image_url: URL.createObjectURL(file), reply_to: replyId })
+    setMessages((prev) => [...prev, temp])
+    setBody(''); setReplyTo(null); setAtBottom(true)
     try {
       const url = await uploadChatImage(file, user.id)
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('messages')
-        .insert({ channel, sender_id: user.id, body: body.trim(), image_url: url })
+        .insert({ channel, sender_id: user.id, body: caption, image_url: url, reply_to: replyId })
+        .select('*, profiles:sender_id(id, name, photo_url, is_admin)')
+        .single()
       if (error) throw new Error(error.message)
-      setBody('')
+      mergeIncoming(data)
     } catch (err) {
       setAttachError(err.message)
+      markFailed(temp.id)
     }
-    setSending(false)
+  }
+
+  // Attach a video clip (size-capped, uploaded as-is), rendered inline as a
+  // playable video.
+  async function sendVideo(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setAttachError('')
+    const replyId = replyTo?.id ?? null
+    const temp = makeOptimistic({ video_url: URL.createObjectURL(file), reply_to: replyId })
+    setMessages((prev) => [...prev, temp])
+    setReplyTo(null); setAtBottom(true)
+    try {
+      const url = await uploadChatVideo(file, user.id)
+      const { data, error } = await supabase
+        .from('messages')
+        .insert({ channel, sender_id: user.id, body: '', video_url: url, reply_to: replyId })
+        .select('*, profiles:sender_id(id, name, photo_url, is_admin)')
+        .single()
+      if (error) throw new Error(error.message)
+      mergeIncoming(data)
+    } catch (err) {
+      setAttachError(err.message)
+      markFailed(temp.id)
+    }
+  }
+
+  // Voice note: stop the recorder, show the clip instantly, upload + send.
+  async function sendVoiceNote() {
+    const res = await stopRec()
+    if (!res?.blob) return
+    const replyId = replyTo?.id ?? null
+    const temp = makeOptimistic({ audio_url: URL.createObjectURL(res.blob), reply_to: replyId })
+    setMessages((prev) => [...prev, temp])
+    setReplyTo(null); setAtBottom(true)
+    try {
+      const url = await uploadChatAudio(res.blob, user.id)
+      const { data, error } = await supabase
+        .from('messages')
+        .insert({ channel, sender_id: user.id, body: '', audio_url: url, reply_to: replyId })
+        .select('*, profiles:sender_id(id, name, photo_url, is_admin)')
+        .single()
+      if (error) throw new Error(error.message)
+      mergeIncoming(data)
+    } catch (err) {
+      setAttachError(err.message)
+      markFailed(temp.id)
+    }
+  }
+
+  async function startVoiceNote() {
+    setAttachError('')
+    try { await startRec() } catch (err) { setAttachError(err.message) }
   }
 
   // Detect an in-progress "@query" just before the caret to drive autocomplete.
   function onBodyChange(e) {
     const val = e.target.value
     setBody(val)
+    if (val.trim()) pingTyping()
     const caret = e.target.selectionStart ?? val.length
     const m = val.slice(0, caret).match(/(?:^|\s)@([^\s@]{0,30})$/)
     setMention(m ? { query: m[1], start: caret - m[1].length - 1 } : null)
@@ -440,6 +693,8 @@ export default function Chat() {
 
         {/* ---------- Messages ---------- */}
         <div
+          ref={scrollerRef}
+          onScroll={onScrollMessages}
           // Tapping the chat dismisses the keyboard (WhatsApp-style). A scroll
           // drag doesn't fire click, so scrolling the history leaves it up.
           onClick={() => { if (isMobile && kbOpen) textareaRef.current?.blur() }}
@@ -466,12 +721,15 @@ export default function Chat() {
             if (m.deleted) return null
             const mine = m.sender_id === user.id
             const summary = reactionSummary(m.id)
+            const orig = m.reply_to ? messages.find((x) => x.id === m.reply_to) : null
+            const onDark = mine && channel !== 'announcements'
             return (
-              <div key={m.id} className={cx('group flex gap-3', mine && 'flex-row-reverse')}>
+              <div key={m.id} id={`msg-${m.id}`} className={cx('group flex gap-3', mine && 'flex-row-reverse', m.pending && 'opacity-60')}>
                 <Link to={`/profile/${m.sender_id}`} className="shrink-0 self-end">
                   <Avatar src={m.profiles?.photo_url} name={m.profiles?.name} size="sm" />
                 </Link>
 
+                <SwipeToReply disabled={!isMobile || m.pending} onReply={() => { setReplyTo(m); textareaRef.current?.focus() }}>
                 <div className={cx('max-w-[78%] sm:max-w-[65%]', mine && 'items-end text-right')}>
                   <div className={cx('mb-1 flex items-baseline gap-2 text-xs', mine && 'flex-row-reverse')}>
                     <span className="font-semibold text-ink">{mine ? 'You' : m.profiles?.name}</span>
@@ -479,11 +737,11 @@ export default function Chat() {
                     <span className="text-gray-400">{formatChatTime(m.created_at)}</span>
                   </div>
 
-                  {(m.body || m.image_url) && (
+                  {(m.body || m.image_url || m.audio_url || m.video_url) && (
                     <div
                       className={cx(
                         'relative inline-block whitespace-pre-line rounded-2xl text-left text-sm leading-relaxed',
-                        m.image_url ? 'overflow-hidden p-1.5' : 'px-4 py-2.5',
+                        (m.image_url || m.video_url) ? 'overflow-hidden p-1.5' : 'px-4 py-2.5',
                         channel === 'announcements'
                           ? 'border border-brand/20 bg-brand-tint text-ink'
                           : mine
@@ -491,6 +749,24 @@ export default function Chat() {
                             : 'bg-cloud text-ink'
                       )}
                     >
+                      {/* Quoted reply */}
+                      {m.reply_to && (
+                        <button
+                          type="button"
+                          onClick={() => orig && scrollToMessage(orig.id)}
+                          className={cx(
+                            'mb-1.5 block w-full rounded-lg border-l-2 px-2.5 py-1 text-left',
+                            (m.image_url || m.video_url) && 'mx-0.5 mt-0.5',
+                            onDark ? 'border-white/70 bg-white/15' : 'border-brand/60 bg-black/[0.04]'
+                          )}
+                        >
+                          <span className={cx('block text-[11px] font-semibold', onDark ? 'text-white' : 'text-brand')}>
+                            {orig ? (orig.sender_id === user.id ? 'You' : orig.profiles?.name) : 'Original message'}
+                          </span>
+                          <span className={cx('block truncate text-xs', onDark ? 'text-white/80' : 'text-smoke')}>{messagePreview(orig)}</span>
+                        </button>
+                      )}
+
                       {m.image_url && (
                         <a href={m.image_url} target="_blank" rel="noopener noreferrer" aria-label="Open image full size">
                           <img
@@ -501,7 +777,17 @@ export default function Chat() {
                           />
                         </a>
                       )}
-                      {m.body && <span className={cx('block', m.image_url && 'px-2.5 py-1.5')}>{renderMessageBody(m.body, { rich: m.profiles?.is_admin, members, onDark: mine && channel !== 'announcements' })}</span>}
+                      {m.video_url && (
+                        <video
+                          src={m.video_url}
+                          controls
+                          preload="metadata"
+                          playsInline
+                          className="max-h-80 w-full rounded-xl bg-black object-contain"
+                        />
+                      )}
+                      {m.audio_url && <div className={cx((m.image_url || m.video_url) && 'px-2 pb-1 pt-2')}><AudioMessage src={m.audio_url} onDark={onDark} /></div>}
+                      {m.body && <span className={cx('block', (m.image_url || m.video_url) && 'px-2.5 py-1.5')}>{renderMessageBody(m.body, { rich: m.profiles?.is_admin, members, onDark })}</span>}
                     </div>
                   )}
 
@@ -510,6 +796,13 @@ export default function Chat() {
                   {m.game_event_id && <GameEventCard eventId={m.game_event_id} />}
                   {m.birthday_for && <BirthdayCard creatorId={m.birthday_for} />}
                   {m.resource_id && <ResourceCard resourceId={m.resource_id} />}
+
+                  {m.pending && <p className={cx('mt-0.5 text-[11px] text-gray-400', mine && 'text-right')}>Sending…</p>}
+                  {m.failed && (
+                    <p className={cx('mt-0.5 text-[11px] text-red-500', mine && 'text-right')}>
+                      Couldn't send. <button type="button" onClick={() => retrySend(m)} className="font-semibold underline">Retry</button>
+                    </p>
+                  )}
 
                   {/* Reactions */}
                   <div className={cx('mt-1 flex flex-wrap items-center gap-1', mine && 'justify-end')}>
@@ -527,8 +820,18 @@ export default function Chat() {
                       </button>
                     ))}
 
-                    {/* Hover actions: react / moderate */}
+                    {/* Hover actions: reply / react / moderate */}
                     <div className={cx('relative flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100')}>
+                      {!m.pending && (
+                        <button
+                          onClick={() => { setReplyTo(m); textareaRef.current?.focus() }}
+                          aria-label="Reply"
+                          title="Reply"
+                          className="rounded-full border border-gray-200 p-1 text-smoke hover:border-brand hover:text-brand"
+                        >
+                          <Icon name="reply" className="h-4 w-4" />
+                        </button>
+                      )}
                       <button
                         onClick={() => setPickerFor(pickerFor === m.id ? null : m.id)}
                         aria-label="Add reaction"
@@ -556,10 +859,35 @@ export default function Chat() {
                     </div>
                   </div>
                 </div>
+                </SwipeToReply>
               </div>
             )
           })}
           <div ref={bottomRef} />
+        </div>
+
+        {/* Typing indicator + jump-to-latest pill float just above the composer. */}
+        <div className="relative">
+          {typers.length > 0 && (
+            <div className="pointer-events-none absolute -top-6 left-4 flex items-center gap-1.5 text-xs text-smoke sm:left-8">
+              <span className="flex gap-0.5">
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-smoke [animation-delay:-0.2s]" />
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-smoke [animation-delay:-0.1s]" />
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-smoke" />
+              </span>
+              <span className="italic">{typingLabel(typers.map((t) => t.name))}</span>
+            </div>
+          )}
+          {!atBottom && (
+            <button
+              type="button"
+              onClick={jumpToLatest}
+              className="absolute -top-12 right-4 z-10 flex items-center gap-1.5 rounded-full bg-brand px-3.5 py-2 text-xs font-semibold text-white shadow-lift transition-transform hover:scale-105 sm:right-8"
+            >
+              {newBelow > 0 ? `${newBelow} new` : 'Latest'}
+              <Icon name="arrow-down" className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
         {/* ---------- Composer ---------- */}
@@ -607,53 +935,84 @@ export default function Chat() {
                 ))}
               </div>
             )}
-            <form onSubmit={send} className="flex items-end gap-2 sm:gap-3">
-              {/* Image attach: uploads and sends immediately, with any typed
-                  text as the caption. Links pasted in the box are clickable. */}
-              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={sendImage} />
-              <button
-                type="button"
-                onClick={() => fileRef.current?.click()}
-                disabled={sending}
-                className="btn-ghost !px-3.5 !py-3"
-                aria-label="Attach an image"
-                title="Attach an image"
-              >
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 19.5h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25z" />
-                </svg>
-              </button>
-              <textarea
-                ref={textareaRef}
-                rows={1}
-                className="input max-h-32 flex-1 resize-none overflow-y-auto"
-                placeholder="Message…"
-                value={body}
-                onChange={onBodyChange}
-                onKeyDown={(e) => {
-                  if (mention && mentionResults.length) {
-                    if (e.key === 'Enter') { e.preventDefault(); selectMention(mentionResults[0]); return }
-                    if (e.key === 'Escape') { e.preventDefault(); setMention(null); return }
-                  }
-                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(e) }
-                }}
-                aria-label={`Message ${meta.label}`}
-              />
-              <button
-                type="submit"
-                // Prevent the tap from moving focus off the textarea — that blur
-                // is what collapsed the keyboard on send. The click/submit still
-                // fires; focus (and the keyboard) stay put.
-                onMouseDown={(e) => e.preventDefault()}
-                disabled={sending || !body.trim()}
-                className="btn-primary !px-5"
-                aria-label="Send"
-              >
-                {sending ? <Spinner /> : (
+            {/* Reply preview: what you're replying to, with a cancel button. */}
+            {replyTo && (
+              <div className="mb-2 flex items-center gap-2 rounded-xl border-l-2 border-brand bg-cloud/70 px-3 py-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-semibold text-brand">
+                    Replying to {replyTo.sender_id === user.id ? 'yourself' : replyTo.profiles?.name}
+                  </p>
+                  <p className="truncate text-xs text-smoke">{messagePreview(replyTo)}</p>
+                </div>
+                <button type="button" onClick={() => setReplyTo(null)} aria-label="Cancel reply" className="rounded-full p-1 text-smoke hover:bg-white hover:text-ink">
+                  <Icon name="ban" className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={sendImage} />
+            <input ref={videoRef} type="file" accept="video/*" className="hidden" onChange={sendVideo} />
+
+            {recording ? (
+              /* Voice-note recording bar (replaces the input while recording). */
+              <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5">
+                <span className="h-3 w-3 shrink-0 animate-pulse rounded-full bg-red-500" />
+                <span className="flex-1 text-sm font-medium tabular-nums text-red-700">Recording… {fmtSecs(recSeconds)}</span>
+                <button type="button" onClick={cancelRec} className="btn-ghost !px-3 !py-2" aria-label="Cancel recording" title="Cancel">
+                  <Icon name="trash" className="h-5 w-5" />
+                </button>
+                <button type="button" onClick={sendVoiceNote} className="btn-primary !px-5" aria-label="Send voice note" title="Send">
                   <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3 21l18-9L3 3l3 9zm0 0h6" /></svg>
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={send} className="flex items-end gap-2">
+                {/* Attach an image (instant local preview, uploads in background). */}
+                <button type="button" onClick={() => fileRef.current?.click()} className="btn-ghost !px-2.5 !py-3" aria-label="Attach an image" title="Attach an image">
+                  <Icon name="image" className="h-5 w-5" />
+                </button>
+                {/* Attach a video (size-capped, plays inline). */}
+                <button type="button" onClick={() => videoRef.current?.click()} className="btn-ghost !px-2.5 !py-3" aria-label="Attach a video" title="Attach a video">
+                  <Icon name="video" className="h-5 w-5" />
+                </button>
+                <textarea
+                  ref={textareaRef}
+                  rows={1}
+                  className="input max-h-32 flex-1 resize-none overflow-y-auto"
+                  placeholder="Message…"
+                  value={body}
+                  onChange={onBodyChange}
+                  onBlur={stopTyping}
+                  onKeyDown={(e) => {
+                    // Mention autocomplete grabs Enter/Escape; otherwise Enter is a
+                    // newline (sending is done with the send button, per design).
+                    if (mention && mentionResults.length) {
+                      if (e.key === 'Enter') { e.preventDefault(); selectMention(mentionResults[0]); return }
+                      if (e.key === 'Escape') { e.preventDefault(); setMention(null) }
+                    }
+                  }}
+                  aria-label={`Message ${meta.label}`}
+                />
+                {body.trim() ? (
+                  <button
+                    type="submit"
+                    // Prevent the tap from moving focus off the textarea — that blur
+                    // is what collapsed the keyboard on send. The click/submit still
+                    // fires; focus (and the keyboard) stay put.
+                    onMouseDown={(e) => e.preventDefault()}
+                    className="btn-primary !px-5"
+                    aria-label="Send"
+                  >
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3 21l18-9L3 3l3 9zm0 0h6" /></svg>
+                  </button>
+                ) : (
+                  /* Empty composer → mic to record a voice note (WhatsApp-style). */
+                  <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={startVoiceNote} className="btn-primary !px-4" aria-label="Record a voice note" title="Record a voice note">
+                    <Icon name="mic" className="h-5 w-5" strokeWidth={1.8} />
+                  </button>
                 )}
-              </button>
-            </form>
+              </form>
+            )}
             </>
           ) : (
             <p className="rounded-xl bg-cloud px-4 py-3 text-center text-sm text-smoke">
@@ -703,7 +1062,7 @@ export default function Chat() {
             <label htmlFor="game-title" className="label">Challenge title</label>
             <input id="game-title" type="text" required className="input" value={gameForm.title} onChange={(e) => setGameForm({ ...gameForm, title: e.target.value })} placeholder="e.g. Friday Flag Frenzy" />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="game-mode" className="label">Mode</label>
               <select id="game-mode" className="input" value={gameForm.mode} onChange={(e) => setGameForm({ ...gameForm, mode: e.target.value })}>

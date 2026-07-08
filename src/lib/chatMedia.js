@@ -19,6 +19,33 @@ export async function uploadChatImage(file, userId) {
   return uploadFile('chat-media', path, compressed, compressed.type || 'image/jpeg')
 }
 
+// Upload a community chat VOICE NOTE (a recorded audio blob) to chat-media and
+// return its public URL. Recordings are naturally small (a few KB/sec) so no
+// compression is needed; we cap size as a safety net.
+export async function uploadChatAudio(blob, userId) {
+  if (blob.size > 15 * 1024 * 1024) throw new Error('That voice note is too long.')
+  const t = blob.type || 'audio/webm'
+  const ext = /mp4|m4a|aac/.test(t) ? 'm4a' : /ogg/.test(t) ? 'ogg' : 'webm'
+  const path = `${userId}/voice-${Date.now()}.${ext}`
+  return uploadFile('chat-media', path, blob, t)
+}
+
+// Upload a community chat VIDEO clip. Browsers can't reliably transcode video
+// client-side without a heavy wasm library, so instead of re-encoding we cap the
+// size (protecting the free storage tier) and upload as-is; short phone clips
+// fit comfortably. Rendered inline with a <video> player.
+const CHAT_VIDEO_MAX = 25 * 1024 * 1024
+export async function uploadChatVideo(file, userId) {
+  const looksVideo = file.type.startsWith('video/') || /\.(mp4|webm|mov|m4v|ogv)$/i.test(file.name)
+  if (!looksVideo) throw new Error('Only video files can be attached here.')
+  if (file.size > CHAT_VIDEO_MAX) {
+    throw new Error('Video is too large (max 25MB). Trim it or lower the resolution and try again.')
+  }
+  const ext = (file.name.split('.').pop() || 'mp4').toLowerCase()
+  const path = `${userId}/video-${Date.now()}.${ext}`
+  return uploadFile('chat-media', path, file, file.type || 'video/mp4')
+}
+
 // Upload a DIRECT-MESSAGE image to the PRIVATE "dm-media" bucket, keyed by the
 // conversation id so only its two participants can read it back. Returns the
 // storage PATH (not a URL) - render it with signDmImage(). This keeps private
