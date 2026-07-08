@@ -114,6 +114,14 @@ export default function Chat() {
       }
     : undefined
 
+  // Lock the document while the mobile chat overlay is up so iOS can't
+  // rubber-band the page (which dragged the header down / exposed the tabs).
+  useEffect(() => {
+    if (!isMobile) return
+    document.documentElement.classList.add('overlay-lock')
+    return () => document.documentElement.classList.remove('overlay-lock')
+  }, [isMobile])
+
   // Members (for @mention autocomplete + rendering mention links).
   const [members, setMembers] = useState([])
   const [mention, setMention] = useState(null) // { query, start } while typing @…

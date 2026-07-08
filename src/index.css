@@ -24,6 +24,17 @@
     overscroll-behavior-y: none;
   }
 
+  /* When a full-screen overlay page (mobile chat / DMs) is mounted, fully lock
+     the document so iOS can't rubber-band it - that bounce was dragging the
+     sticky header down and exposing the chat above it. The overlay is
+     position:fixed and scrolls its own inner list, so nothing is lost. */
+  html.overlay-lock,
+  html.overlay-lock body {
+    overflow: hidden;
+    overscroll-behavior: none;
+    height: 100%;
+  }
+
   /* Strong, visible keyboard focus everywhere (accessibility). */
   *:focus-visible {
     @apply outline-none ring-2 ring-brand ring-offset-2 ring-offset-white;

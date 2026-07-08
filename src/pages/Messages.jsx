@@ -10,7 +10,7 @@ import ChatMedia from '../components/ChatMedia'
 import { mediaType } from '../lib/media'
 import { posterPathFor } from '../lib/videoPoster'
 import { formatChatTime, otherParticipant, cx } from '../lib/utils'
-import { useKeyboardInset } from '../lib/useKeyboardInset'
+import { useKeyboardInset, useIsMobile } from '../lib/useKeyboardInset'
 
 // Direct messages: inbox (conversation list) + active thread, both realtime.
 // On mobile you see one panel at a time; on desktop they sit side by side.
@@ -37,6 +37,15 @@ export default function Messages() {
   // Software-keyboard height for the WhatsApp-style mobile composer layout.
   const kbInset = useKeyboardInset()
   const kbOpen = kbInset > 0
+  const isMobile = useIsMobile()
+
+  // Lock the document while the mobile DM overlay is up so iOS can't rubber-band
+  // the page (which dragged the header down / exposed content above it).
+  useEffect(() => {
+    if (!isMobile) return
+    document.documentElement.classList.add('overlay-lock')
+    return () => document.documentElement.classList.remove('overlay-lock')
+  }, [isMobile])
 
   const active = conversations.find((c) => c.id === conversationId)
   const otherId = active?.other?.id
