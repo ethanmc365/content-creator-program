@@ -149,6 +149,11 @@ export default function AppLayout() {
       {/* data-ptr-handle: the only place a pull-to-refresh gesture arms, so
           scrolling chats never triggers a reload (see PullToRefresh). */}
       <header data-ptr-handle className="sticky top-0 z-40 border-b border-gray-100 bg-white/90 backdrop-blur">
+        {/* White shield directly ABOVE the header. Normally off-screen; if iOS
+            rubber-bands the page down at the top it fills that gap with clean
+            white instead of letting the fixed chat overlay's tabs peek above
+            the bar. Moves with the header, so it always covers the gap. */}
+        <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-full h-screen bg-white" />
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-5 sm:px-8">
           <Link to="/home" className="flex items-center gap-3">
             <img src="/brand/tryp-logo.png" alt="Tryp.com" className="h-9 rounded-lg" />

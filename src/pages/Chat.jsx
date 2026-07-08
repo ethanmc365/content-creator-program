@@ -104,7 +104,10 @@ export default function Chat() {
         height: kbOpen
           ? `${vpHeight}px`
           : `calc(${vpHeight}px - 4rem - 4.5rem - env(safe-area-inset-bottom))`,
-        transform: `translateY(${vpOffset}px)`,
+        // Clamp to >= 0: on iOS a downward pull at the top makes visualViewport
+        // offsetTop go negative, which would ride the overlay UP above the header
+        // (the "chat tabs peek above the bar" glitch). Never let it go up.
+        transform: `translateY(${Math.max(0, vpOffset)}px)`,
         // When the overlay covers the header (keyboard open) clear the status
         // bar / notch in a standalone PWA; harmless (0) in a browser tab.
         paddingTop: kbOpen ? 'env(safe-area-inset-top)' : undefined,
@@ -770,8 +773,8 @@ export default function Chat() {
                         </button>
                       )}
 
-                      {m.image_url && <ChatMedia url={m.image_url} alt={m.body || 'Shared image'} />}
-                      {m.video_url && <ChatMedia url={m.video_url} maxW={240} maxH={360} />}
+                      {m.image_url && <ChatMedia url={m.image_url} kind="image" alt={m.body || 'Shared image'} />}
+                      {m.video_url && <ChatMedia url={m.video_url} kind="video" maxW={240} maxH={360} />}
                       {m.body && <span className={cx('block', (m.image_url || m.video_url) && 'px-2.5 py-1.5')}>{renderMessageBody(m.body, { rich: m.profiles?.is_admin, members, onDark })}</span>}
                       {linkUrl && <LinkPreview url={linkUrl} onDark={onDark} />}
                     </div>

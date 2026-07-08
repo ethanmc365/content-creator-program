@@ -19,6 +19,9 @@
     @apply bg-white font-sans text-ink;
     overflow-x: clip;
     max-width: 100vw;
+    /* Damp the iOS page rubber-band so a pull at the top doesn't bounce the
+       whole webview (which exposed the fixed chat overlay above the header). */
+    overscroll-behavior-y: none;
   }
 
   /* Strong, visible keyboard focus everywhere (accessibility). */
