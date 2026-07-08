@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { mediaType, fileNameFromUrl, saveFile } from '../lib/media'
 import { Spinner } from './ui'
 import Icon from './Icon'
+import VideoPlayer from './VideoPlayer'
 import { cx } from '../lib/utils'
 
 // Renders a resource/chat attachment inline: images show the picture, videos
@@ -58,13 +59,7 @@ export default function MediaAttachment({ url, className, compact = false }) {
   if (type === 'video') {
     return (
       <div className={cx('space-y-2', className)}>
-        <video
-          src={url}
-          controls
-          playsInline
-          preload="metadata"
-          className="max-h-80 w-full rounded-xl border border-gray-100 bg-black"
-        />
+        <VideoPlayer url={url} maxW={compact ? 280 : 360} maxH={compact ? 380 : 480} />
         <div className="flex justify-end">{saveBtn}</div>
       </div>
     )

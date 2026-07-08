@@ -63,6 +63,24 @@ export async function uploadDmImage(file, conversationId) {
   return uploadPrivateFile('dm-media', path, compressed, compressed.type || 'image/jpeg')
 }
 
+// Upload a DIRECT-MESSAGE video clip to the PRIVATE "dm-media" bucket, keyed by
+// the conversation id. Same reliability story as uploadChatVideo (raw bytes
+// through the service-role proxy, .mov brand rewritten so it plays everywhere),
+// but private: returns the storage PATH, rendered back through a signed URL.
+export async function uploadDmVideo(file, conversationId) {
+  const looksVideo = file.type.startsWith('video/') || /\.(mp4|webm|mov|m4v|ogv)$/i.test(file.name)
+  if (!looksVideo) throw new Error('Only image or video files can be attached.')
+  if (file.size > CHAT_VIDEO_MAX) {
+    throw new Error('Video is too large (max 25MB). Trim it or lower the resolution and try again.')
+  }
+  const playable = await ensureMp4Brand(file)
+  const ext = (playable.name.split('.').pop() || 'mp4').toLowerCase()
+  const contentType = playable.type || VIDEO_MIME[ext] || 'video/mp4'
+  const path = `${conversationId}/video-${Date.now()}.${ext}`
+  const out = await uploadRawFile('dm-media', path, playable, contentType)
+  return out.path
+}
+
 // A DM image field is either a legacy full public URL (old messages, stored in
 // chat-media) or a dm-media storage path (new, private). Legacy ones render
 // directly; private paths get a short-lived signed URL.

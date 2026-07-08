@@ -1,8 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 
 // Pull-to-refresh for the installed (standalone) PWA, where the browser's own
-// pull-to-refresh gesture doesn't exist. Pull down from the very top of the
-// page past the threshold to reload. No-op in a normal browser tab.
+// pull-to-refresh gesture doesn't exist.
+//
+// The gesture is deliberately scoped to the permanent top bar (the element
+// tagged `data-ptr-handle`): pull DOWN from the Tryp.com header to reload.
+// Scoping it there fixes two things at once -
+//   * scrolling back through a chat (which scrolls an inner container, not the
+//     window) no longer counts as a pull-to-refresh, and
+//   * we can `preventDefault` the drag so iOS never rubber-bands the whole page.
+//     That rubber-band was what let the chat's own tabs peek up above the header
+//     mid-pull; suppressing it keeps the area above the bar clean white.
+// No-op in a normal browser tab (the native gesture already works there).
 const THRESHOLD = 70
 
 export default function PullToRefresh() {
@@ -17,19 +26,30 @@ export default function PullToRefresh() {
     if (!standalone) return
 
     function onStart(e) {
-      startY.current = window.scrollY <= 0 ? e.touches[0].clientY : null
+      // Only arm the gesture when it begins on the permanent header bar and the
+      // page is already scrolled to the very top.
+      const onHandle = e.target.closest?.('[data-ptr-handle]')
+      startY.current = onHandle && window.scrollY <= 0 ? e.touches[0].clientY : null
+      pullRef.current = 0
     }
     function onMove(e) {
-      if (startY.current == null || window.scrollY > 0) return
+      if (startY.current == null) return
       const dy = e.touches[0].clientY - startY.current
       if (dy > 0) {
+        // Stop the browser from rubber-banding the page under our custom pull.
+        if (e.cancelable) e.preventDefault()
         // Dampen the pull so it feels elastic.
         const val = Math.min(dy * 0.5, 90)
         pullRef.current = val
         setPull(val)
+      } else {
+        // Dragged back up past the start - cancel the pull.
+        pullRef.current = 0
+        setPull(0)
       }
     }
     function onEnd() {
+      if (startY.current == null) return
       if (pullRef.current > THRESHOLD) {
         setRefreshing(true)
         setPull(THRESHOLD)
@@ -42,12 +62,15 @@ export default function PullToRefresh() {
     }
 
     window.addEventListener('touchstart', onStart, { passive: true })
-    window.addEventListener('touchmove', onMove, { passive: true })
+    // Non-passive so we can preventDefault the page rubber-band while pulling.
+    window.addEventListener('touchmove', onMove, { passive: false })
     window.addEventListener('touchend', onEnd)
+    window.addEventListener('touchcancel', onEnd)
     return () => {
       window.removeEventListener('touchstart', onStart)
       window.removeEventListener('touchmove', onMove)
       window.removeEventListener('touchend', onEnd)
+      window.removeEventListener('touchcancel', onEnd)
     }
   }, [])
 

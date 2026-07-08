@@ -2,10 +2,12 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { uploadDmImage, signDmImages, isSignedDmPath } from '../lib/chatMedia'
+import { uploadDmImage, uploadDmVideo, signDmImages, isSignedDmPath } from '../lib/chatMedia'
 import { loadRelationship } from '../lib/connections'
 import { Avatar, Badge, EmptyState, Skeleton, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
+import VideoPlayer from '../components/VideoPlayer'
+import { mediaType } from '../lib/media'
 import { formatChatTime, otherParticipant, cx } from '../lib/utils'
 import { useKeyboardInset } from '../lib/useKeyboardInset'
 
@@ -206,16 +208,22 @@ export default function Messages() {
     if (!error) setBody('')
   }
 
-  // Attach a photo to the DM (uploads, then sends with any typed caption).
+  // Attach a photo or video to the DM (uploads, then sends with any typed
+  // caption). Both land in the private dm-media bucket; the storage PATH is
+  // stored in image_url and rendered back through a signed URL (video paths end
+  // in .mp4 etc, so the renderer picks the right player from the extension).
   async function sendImage(e) {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file || !active || dmLocked) return
+    const isVideo = file.type.startsWith('video/') || /\.(mp4|webm|mov|m4v|ogv)$/i.test(file.name)
     setAttachError('')
     setSending(true)
     try {
       // Store the private storage PATH (not a public URL); it's signed on render.
-      const path = await uploadDmImage(file, conversationId)
+      const path = isVideo
+        ? await uploadDmVideo(file, conversationId)
+        : await uploadDmImage(file, conversationId)
       const { error } = await supabase.from('direct_messages').insert({
         conversation_id: conversationId,
         sender_id: user.id,
@@ -342,8 +350,9 @@ export default function Messages() {
                 {loadingThread && <div className="space-y-3"><Skeleton className="h-10 w-2/3" /><Skeleton className="ml-auto h-10 w-1/2" /><Skeleton className="h-10 w-3/5" /></div>}
                 {!loadingThread && thread.map((m) => {
                   const mine = m.sender_id === user.id
-                  // Private DM images resolve to a signed URL; legacy public URLs pass through.
+                  // Private DM media resolves to a signed URL; legacy public URLs pass through.
                   const imageSrc = m.image_url ? (isSignedDmPath(m.image_url) ? signedUrls.get(m.image_url) : m.image_url) : null
+                  const isVideo = m.image_url && mediaType(m.image_url) === 'video'
                   return (
                     <div key={m.id} className={cx('flex', mine && 'justify-end')}>
                       <div className={cx('max-w-[80%] sm:max-w-[65%]')}>
@@ -364,9 +373,13 @@ export default function Messages() {
                         )}>
                           {m.image_url && (
                             imageSrc ? (
-                              <a href={imageSrc} target="_blank" rel="noopener noreferrer" aria-label="Open image full size">
-                                <img src={imageSrc} alt={m.body || 'Shared image'} loading="lazy" className="max-h-72 w-full rounded-xl object-cover" />
-                              </a>
+                              isVideo ? (
+                                <VideoPlayer url={imageSrc} maxW={240} maxH={360} />
+                              ) : (
+                                <a href={imageSrc} target="_blank" rel="noopener noreferrer" aria-label="Open image full size">
+                                  <img src={imageSrc} alt={m.body || 'Shared image'} loading="lazy" className="max-h-72 w-full rounded-xl object-cover" />
+                                </a>
+                              )
                             ) : (
                               <div className="flex h-40 w-56 items-center justify-center rounded-xl bg-cloud"><Spinner /></div>
                             )
@@ -396,10 +409,10 @@ export default function Messages() {
                   <p className="mb-2 text-xs text-smoke">You can send one message. If {active?.other?.name?.split(' ')[0]} replies, you’ll be connected.</p>
                 )}
                 <form onSubmit={send} className="flex items-end gap-2 sm:gap-3">
-                  <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={sendImage} />
+                  <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden" onChange={sendImage} />
                   <button
                     type="button" onClick={() => fileRef.current?.click()} disabled={sending}
-                    className="btn-ghost !px-3.5 !py-3" aria-label="Attach a photo" title="Attach a photo"
+                    className="btn-ghost !px-3.5 !py-3" aria-label="Attach a photo or video" title="Attach a photo or video"
                   >
                     <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 19.5h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25z" />

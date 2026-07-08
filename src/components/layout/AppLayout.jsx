@@ -146,7 +146,9 @@ export default function AppLayout() {
         </div>
       )}
       {/* ------- Top navbar ------- */}
-      <header className="sticky top-0 z-40 border-b border-gray-100 bg-white/90 backdrop-blur">
+      {/* data-ptr-handle: the only place a pull-to-refresh gesture arms, so
+          scrolling chats never triggers a reload (see PullToRefresh). */}
+      <header data-ptr-handle className="sticky top-0 z-40 border-b border-gray-100 bg-white/90 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-5 sm:px-8">
           <Link to="/home" className="flex items-center gap-3">
             <img src="/brand/tryp-logo.png" alt="Tryp.com" className="h-9 rounded-lg" />

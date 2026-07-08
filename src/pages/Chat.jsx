@@ -10,6 +10,7 @@ import GameEventCard from '../components/GameEventCard'
 import BirthdayCard from '../components/BirthdayCard'
 import ResourceCard from '../components/ResourceCard'
 import LinkPreview from '../components/LinkPreview'
+import VideoPlayer from '../components/VideoPlayer'
 import { CONTINENTS } from '../lib/countries'
 import { formatChatTime, cx } from '../lib/utils'
 import { renderMessageBody } from '../lib/richText'
@@ -779,15 +780,7 @@ export default function Chat() {
                           />
                         </a>
                       )}
-                      {m.video_url && (
-                        <video
-                          src={m.video_url}
-                          controls
-                          preload="metadata"
-                          playsInline
-                          className="max-h-80 w-full rounded-xl bg-black object-contain"
-                        />
-                      )}
+                      {m.video_url && <VideoPlayer url={m.video_url} maxW={240} maxH={360} />}
                       {m.body && <span className={cx('block', (m.image_url || m.video_url) && 'px-2.5 py-1.5')}>{renderMessageBody(m.body, { rich: m.profiles?.is_admin, members, onDark })}</span>}
                       {linkUrl && <LinkPreview url={linkUrl} onDark={onDark} />}
                     </div>
