@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { confirm } from '../../lib/confirm'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../../components/ui'
@@ -53,7 +54,7 @@ export default function AdminJobs() {
   }
 
   async function remove(job) {
-    if (!confirm(`Delete "${job.title}"?`)) return
+    if (!await confirm(`Delete "${job.title}"?`)) return
     await supabase.from('jobs').delete().eq('id', job.id)
     load()
   }

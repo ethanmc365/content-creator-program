@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { confirm } from '../../lib/confirm'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../../components/ui'
@@ -73,7 +74,7 @@ export default function AdminEvents() {
   }
 
   async function remove(event) {
-    if (!confirm(`Delete "${event.title}"?`)) return
+    if (!await confirm(`Delete "${event.title}"?`)) return
     await supabase.from('events').delete().eq('id', event.id)
     load()
   }

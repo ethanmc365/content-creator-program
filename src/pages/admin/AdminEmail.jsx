@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { confirm } from '../../lib/confirm'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { PageHeader, Skeleton, StatCard } from '../../components/ui'
@@ -25,7 +26,7 @@ export default function AdminEmail() {
 
   // Admins long-press a logged campaign to delete it (tidy-up).
   async function deleteCampaign(c) {
-    if (!confirm(`Delete the logged campaign "${c.subject}"?`)) return
+    if (!await confirm(`Delete the logged campaign "${c.subject}"?`)) return
     setHistory((prev) => prev.filter((x) => x.id !== c.id))
     await supabase.from('email_campaigns').delete().eq('id', c.id)
   }

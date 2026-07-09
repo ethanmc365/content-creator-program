@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { confirm } from '../../lib/confirm'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Badge, EmptyState, PageHeader, Skeleton } from '../../components/ui'
@@ -31,7 +32,7 @@ export default function AdminChallenges() {
       ended: `Close "${challenge.title}"? Creators will no longer be able to submit.`,
       archived: `Archive "${challenge.title}"? It moves to the past-challenges archive.`,
     }
-    if (!confirm(messages[status])) return
+    if (!await confirm(messages[status])) return
     await supabase.from('challenges').update({ status }).eq('id', challenge.id)
     load()
   }
@@ -42,7 +43,7 @@ export default function AdminChallenges() {
   async function remove(challenge) {
     const entries = challenge.submissions?.[0]?.count ?? 0
     const warn = `Permanently delete "${challenge.title}"?\n\nThis also deletes ${entries} submission${entries === 1 ? '' : 's'} and all its results. This cannot be undone.`
-    if (!confirm(warn)) return
+    if (!await confirm(warn)) return
     setDeleting(challenge.id)
     const { error } = await supabase.rpc('admin_delete_challenge', { target: challenge.id })
     setDeleting(null)

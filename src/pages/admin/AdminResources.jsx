@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { confirm } from '../../lib/confirm'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../../components/ui'
@@ -75,7 +76,7 @@ export default function AdminResources() {
   }
 
   async function remove(resource) {
-    if (!confirm(`Delete "${resource.title}" from the library?`)) return
+    if (!await confirm(`Delete "${resource.title}" from the library?`)) return
     await supabase.from('resources').delete().eq('id', resource.id)
     load()
   }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { confirm } from '../../lib/confirm'
 import { supabase } from '../../lib/supabase'
 import { Avatar, Badge, EmptyState, PageHeader, Skeleton, StatCard } from '../../components/ui'
 import Icon from '../../components/Icon'
@@ -44,7 +45,7 @@ export default function AdminReferrals() {
   // Long-press a lead to delete it (tidy up follow-ups).
   const pressTimer = useRef(null)
   async function deleteReferral(r) {
-    if (!confirm(`Delete the lead "${r.referred_name}"?`)) return
+    if (!await confirm(`Delete the lead "${r.referred_name}"?`)) return
     setReferrals((prev) => prev.filter((x) => x.id !== r.id))
     await supabase.from('referrals').delete().eq('id', r.id)
   }

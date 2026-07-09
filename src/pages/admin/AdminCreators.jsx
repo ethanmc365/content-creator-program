@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { confirm } from '../../lib/confirm'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
@@ -73,7 +74,7 @@ export default function AdminCreators() {
 
   async function setStatus(creator, status) {
     const verb = { active: 'reactivate', muted: 'mute', suspended: 'suspend' }[status]
-    if (!confirm(`Really ${verb} ${creator.name}?`)) return
+    if (!await confirm(`Really ${verb} ${creator.name}?`)) return
     await supabase.from('profiles').update({ status }).eq('id', creator.id)
     flash(`${creator.name} is now ${status}.`)
     setSelected(null)
@@ -82,7 +83,7 @@ export default function AdminCreators() {
 
   async function togglePromote(creator) {
     const promoting = !creator.is_admin
-    if (!confirm(promoting
+    if (!await confirm(promoting
       ? `Promote ${creator.name} to admin? They'll get FULL admin power.`
       : `Remove admin rights from ${creator.name}?`)) return
     const { error } = await supabase.rpc('admin_set_admin', { target: creator.id, make_admin: promoting })
@@ -118,7 +119,7 @@ export default function AdminCreators() {
   // Quick-approve a pending applicant straight from the list (a DB trigger
   // sends them the welcome notification, same as the Applications page).
   async function acceptCreator(creator) {
-    if (!confirm(`Approve ${creator.name}? They'll become an active member of the program.`)) return
+    if (!await confirm(`Approve ${creator.name}? They'll become an active member of the program.`)) return
     const { error } = await supabase.from('profiles').update({ status: 'active' }).eq('id', creator.id)
     if (error) return flash(`Couldn't approve: ${error.message}`)
     flash(`${creator.name} approved and welcomed.`)
@@ -128,8 +129,8 @@ export default function AdminCreators() {
 
   // Permanently delete a creator and everything they created. Irreversible.
   async function deleteCreator(creator) {
-    if (!confirm(`PERMANENTLY delete ${creator.name}? This removes their account and ALL their content (submissions, messages, photos, rewards). This cannot be undone.`)) return
-    if (!confirm(`Are you absolutely sure? Type-check: this will erase ${creator.name} forever.`)) return
+    if (!await confirm(`PERMANENTLY delete ${creator.name}? This removes their account and ALL their content (submissions, messages, photos, rewards). This cannot be undone.`)) return
+    if (!await confirm(`Are you absolutely sure? Type-check: this will erase ${creator.name} forever.`)) return
     const { error } = await supabase.rpc('admin_delete_creator', { target: creator.id })
     if (error) return flash(`Couldn't delete: ${error.message}`)
     flash(`${creator.name} has been permanently deleted.`)

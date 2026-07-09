@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { confirm } from '../../lib/confirm'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Avatar, Badge, EmptyState, PageHeader, Skeleton } from '../../components/ui'
@@ -34,7 +35,7 @@ export default function AdminApplications() {
   async function decide(app, status) {
     const verb = status === 'active' ? 'Approve' : 'Decline'
     const note = status === 'active' ? '' : ' This permanently deletes their account.'
-    if (!confirm(`${verb} ${app.name}'s application?${note}`)) return
+    if (!await confirm(`${verb} ${app.name}'s application?${note}`)) return
     setBusyId(app.id)
     if (status === 'active') {
       await supabase.from('profiles').update({ status: 'active' }).eq('id', app.id)

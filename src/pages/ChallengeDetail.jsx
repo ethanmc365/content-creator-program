@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { confirm } from '../lib/confirm'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -84,7 +85,7 @@ export default function ChallengeDetail() {
   }
 
   async function removeMySubmission(subId) {
-    if (!confirm('Remove this entry?')) return
+    if (!await confirm('Remove this entry?')) return
     await supabase.from('submissions').delete().eq('id', subId)
     load()
   }

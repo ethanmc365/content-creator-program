@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { confirm } from '../lib/confirm'
 import { useSearchParams, Link } from 'react-router-dom'
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from 'react-simple-maps'
 import { supabase } from '../lib/supabase'
@@ -407,7 +408,7 @@ function Leaderboard({ mode, region, eventId, highlightUser }) {
   const longPressedRef = useRef(false)
   async function deleteScore(r) {
     if (!isAdmin) return
-    if (!confirm(`Delete ${r.profiles?.name}'s score (${r.correct}/${r.total})?`)) return
+    if (!await confirm(`Delete ${r.profiles?.name}'s score (${r.correct}/${r.total})?`)) return
     setRows((prev) => (prev ? prev.filter((x) => x.id !== r.id) : prev))
     await supabase.from('game_scores').delete().eq('id', r.id)
   }

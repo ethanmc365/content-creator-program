@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { confirm } from '../lib/confirm'
 import { uploadChatImage, uploadChatVideo } from '../lib/chatMedia'
 import { Link, NavLink, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -551,12 +552,12 @@ export default function Chat() {
   }
 
   async function moderateDelete(messageId) {
-    if (!confirm('Delete this message for everyone?')) return
+    if (!await confirm('Delete this message for everyone?')) return
     await supabase.from('messages').update({ deleted: true }).eq('id', messageId)
   }
 
   async function muteCreator(senderId, name) {
-    if (!confirm(`Mute ${name}? They'll be able to read but not post until unmuted (Admin → Creators).`)) return
+    if (!await confirm(`Mute ${name}? They'll be able to read but not post until unmuted (Admin → Creators).`)) return
     await supabase.from('profiles').update({ status: 'muted' }).eq('id', senderId)
   }
 

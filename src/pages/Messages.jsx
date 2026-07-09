@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { confirm } from '../lib/confirm'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -152,7 +153,7 @@ export default function Messages() {
   // ---------- Admin: long-press a message to delete it for everyone ----------
   async function deleteDm(m) {
     if (!isAdmin) return
-    if (!confirm('Delete this message for everyone?')) return
+    if (!await confirm('Delete this message for everyone?')) return
     setThread((prev) => prev.filter((x) => x.id !== m.id))
     await supabase.from('direct_messages').delete().eq('id', m.id)
   }
@@ -163,7 +164,7 @@ export default function Messages() {
   const convTimer = useRef(null)
   const convLongPressed = useRef(false)
   async function deleteConversation(c) {
-    if (!confirm(`Delete your conversation with ${c.other?.name ?? 'this creator'}? This removes the whole thread.`)) return
+    if (!await confirm(`Delete your conversation with ${c.other?.name ?? 'this creator'}? This removes the whole thread.`)) return
     setConversations((prev) => prev.filter((x) => x.id !== c.id))
     if (c.id === conversationId) navigate('/messages')
     await supabase.from('conversations').delete().eq('id', c.id)

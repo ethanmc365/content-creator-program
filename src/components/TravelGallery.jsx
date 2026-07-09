@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { confirm } from '../lib/confirm'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { compressImage } from '../lib/image'
@@ -68,7 +69,7 @@ export default function TravelGallery({ creatorId, editable = false }) {
   }
 
   async function remove(photo) {
-    if (!confirm('Remove this photo?')) return
+    if (!await confirm('Remove this photo?')) return
     await supabase.from('creator_photos').delete().eq('id', photo.id)
     // Also delete the underlying storage object so it doesn't orphan and eat
     // quota. The object key is everything after ".../gallery/". RLS lets a user

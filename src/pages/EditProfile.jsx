@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { confirm } from '../lib/confirm'
 import { Link, useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import { useAuth } from '../context/AuthContext'
@@ -122,7 +123,7 @@ export default function EditProfile() {
   // GDPR erasure: schedule deletion (30-day grace). ProtectedRoute then shows
   // the restore screen; a daily job purges anything past 30 days.
   async function deleteAccount() {
-    if (!confirm('Delete your account?\n\nYour profile and content will be hidden immediately and permanently deleted after 30 days. You can restore it by logging back in within 30 days.')) return
+    if (!await confirm('Delete your account?\n\nYour profile and content will be hidden immediately and permanently deleted after 30 days. You can restore it by logging back in within 30 days.')) return
     setDeleting(true)
     const { error } = await supabase.from('profiles').update({ deletion_requested_at: new Date().toISOString() }).eq('id', user.id)
     setDeleting(false)

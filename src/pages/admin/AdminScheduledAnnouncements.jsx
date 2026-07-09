@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { confirm } from '../../lib/confirm'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { PageHeader, Skeleton, EmptyState, Badge, Spinner } from '../../components/ui'
@@ -38,7 +39,7 @@ export default function AdminScheduledAnnouncements() {
   }
 
   async function cancel(a) {
-    if (!confirm('Cancel this scheduled announcement?')) return
+    if (!await confirm('Cancel this scheduled announcement?')) return
     await supabase.from('scheduled_announcements').delete().eq('id', a.id)
     load()
   }

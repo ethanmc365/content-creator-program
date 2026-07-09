@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { confirm } from '../../lib/confirm'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Avatar, EmptyState, PageHeader, Skeleton, Spinner } from '../../components/ui'
@@ -57,7 +58,7 @@ export default function AdminResults() {
   async function generateLeaderboard() {
     const withViews = submissions.filter((s) => s.logged_views != null)
     if (withViews.length === 0) return flash('Log views on at least one submission first.')
-    if (!confirm(`Generate the leaderboard from ${withViews.length} reviewed submissions? This replaces any existing results for this challenge.`)) return
+    if (!await confirm(`Generate the leaderboard from ${withViews.length} reviewed submissions? This replaces any existing results for this challenge.`)) return
 
     setGenerating(true)
     // A creator's score = their best-performing entry.

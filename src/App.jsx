@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { ProtectedRoute, AdminRoute } from './components/ProtectedRoute'
 import AppLayout from './components/layout/AppLayout'
 import OfflineScreen from './components/OfflineScreen'
+import ConfirmHost from './components/ConfirmHost'
 import { PlaneLoader } from './components/ui'
 
 // Public pages
@@ -73,6 +74,7 @@ export default function App() {
   return (
     <>
       <OfflineScreen />
+      <ConfirmHost />
       <Suspense fallback={<LazyFallback />}>
       <Routes>
       {/* ---------- Public ---------- */}

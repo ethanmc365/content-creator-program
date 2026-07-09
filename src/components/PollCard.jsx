@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { confirm } from '../lib/confirm'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { cx } from '../lib/utils'
@@ -57,7 +58,7 @@ export default function PollCard({ pollId }) {
   }
 
   async function closePoll() {
-    if (!confirm('Close this poll? Nobody will be able to vote after this.')) return
+    if (!await confirm('Close this poll? Nobody will be able to vote after this.')) return
     await supabase.from('polls').update({ closed: true }).eq('id', pollId)
     load()
   }
