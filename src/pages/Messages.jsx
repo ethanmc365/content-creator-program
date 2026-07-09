@@ -428,7 +428,7 @@ export default function Messages() {
                     placeholder={`Message ${active?.other?.name?.split(' ')[0] ?? ''}…`}
                     value={body}
                     onChange={(e) => setBody(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(e) } }}
+                    onKeyDown={(e) => { if (!isMobile && e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(e) } }}
                     aria-label="Message"
                   />
                   <button type="submit" disabled={sending || !body.trim()} className="btn-primary !px-5" aria-label="Send">

@@ -977,11 +977,17 @@ export default function Chat() {
                 onChange={onBodyChange}
                 onBlur={stopTyping}
                 onKeyDown={(e) => {
-                  // Mention autocomplete grabs Enter/Escape; otherwise Enter is a
-                  // newline (sending is done with the send button, per design).
+                  // Mention autocomplete grabs Enter/Escape first.
                   if (mention && mentionResults.length) {
                     if (e.key === 'Enter') { e.preventDefault(); selectMention(mentionResults[0]); return }
-                    if (e.key === 'Escape') { e.preventDefault(); setMention(null) }
+                    if (e.key === 'Escape') { e.preventDefault(); setMention(null); return }
+                  }
+                  // On a laptop, Enter sends and Shift+Enter makes a new line.
+                  // On mobile (touch keyboards) Enter is always a newline and
+                  // sending is done with the button.
+                  if (!isMobile && e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    if (body.trim()) send(e)
                   }
                 }}
                 aria-label={`Message ${meta.label}`}

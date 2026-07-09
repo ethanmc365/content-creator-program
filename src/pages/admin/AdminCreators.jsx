@@ -85,7 +85,8 @@ export default function AdminCreators() {
     if (!confirm(promoting
       ? `Promote ${creator.name} to admin? They'll get FULL admin power.`
       : `Remove admin rights from ${creator.name}?`)) return
-    await supabase.from('profiles').update({ is_admin: promoting }).eq('id', creator.id)
+    const { error } = await supabase.rpc('admin_set_admin', { target: creator.id, make_admin: promoting })
+    if (error) { flash(`Couldn't update: ${error.message}`); return }
     flash(promoting ? `${creator.name} is now an admin.` : `${creator.name} is no longer an admin.`)
     setSelected(null)
     load()
