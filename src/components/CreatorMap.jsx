@@ -35,24 +35,26 @@ function initials(name = '') {
   return name.split(' ').map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '?'
 }
 
-// One map pin. Counter-scaled against the zoom so it never balloons, but grows
-// gently as you zoom in (so photos stay easy to see, never shrink away).
+// One map pin: a round photo sitting in a classic teardrop, with a small pointer
+// tip on the exact coordinate. The avatar is CONCENTRIC with the white disc so
+// it's dead-centre in the pin. Counter-scaled against the zoom so it stays a
+// calm, readable size (a hair of growth when you zoom in, never a balloon).
 function Pin({ group, zoom, active, onSelect }) {
   const lead = group.creators[0]
   const count = group.creators.length
-  const s = Math.pow(1 / Math.max(zoom, 1), 0.82) // net on-screen size ~ zoom^0.18
-  const r = 18
-  const cy = -32
+  const s = Math.pow(1 / Math.max(zoom, 1), 0.9) // net on-screen size ~ zoom^0.1
+  const r = 15 // avatar radius
+  const cy = -26 // avatar centre above the tip
+  const disc = r + 3 // white ring around the photo
   return (
     <Marker coordinates={group.coords} onClick={() => onSelect(group.key)}>
       <g transform={`scale(${s})`} style={{ cursor: 'pointer' }}>
-        {/* white teardrop body with a drop shadow */}
-        <path
-          d={`M0 0 L-9 ${cy + r - 1} A ${r + 4} ${r + 4} 0 1 1 9 ${cy + r - 1} Z`}
-          fill="#ffffff"
-          style={{ filter: 'drop-shadow(0 2px 3px rgba(20,20,30,0.30))' }}
-        />
-        {/* avatar photo (clipped to a perfect circle via objectBoundingBox) or initials */}
+        {/* pointer tail + white disc, concentric with the avatar, share one shadow */}
+        <g style={{ filter: 'drop-shadow(0 2px 3px rgba(20,20,30,0.30))' }}>
+          <path d={`M${-r * 0.62} ${cy + disc * 0.5} L0 0 L${r * 0.62} ${cy + disc * 0.5} Z`} fill="#ffffff" />
+          <circle cx={0} cy={cy} r={disc} fill="#ffffff" />
+        </g>
+        {/* avatar photo (perfect circle via objectBoundingBox) or initials, centred on (0,cy) */}
         {lead.photo_url ? (
           <image
             href={lead.photo_url}
@@ -64,14 +66,14 @@ function Pin({ group, zoom, active, onSelect }) {
           <>
             <circle cx={0} cy={cy} r={r} fill="#fbe6da" />
             <text x={0} y={cy} textAnchor="middle" dominantBaseline="central"
-              fontSize={r * 0.85} fontWeight="600" fill={BRAND}>{initials(lead.name)}</text>
+              fontSize={r * 0.8} fontWeight="600" fill={BRAND}>{initials(lead.name)}</text>
           </>
         )}
-        <circle cx={0} cy={cy} r={r} fill="none" stroke={active ? BRAND : '#ffffff'} strokeWidth={active ? 3.5 : 2.5} />
+        <circle cx={0} cy={cy} r={r} fill="none" stroke={active ? BRAND : '#ffffff'} strokeWidth={active ? 3 : 2} />
         {count > 1 && (
-          <g transform={`translate(${r - 4}, ${cy - r + 4})`}>
-            <circle r={11} fill={BRAND} stroke="#ffffff" strokeWidth={2} />
-            <text x={0} y={1} textAnchor="middle" dominantBaseline="central" fontSize={12} fontWeight="700" fill="#ffffff">
+          <g transform={`translate(${r - 3}, ${cy - r + 3})`}>
+            <circle r={9.5} fill={BRAND} stroke="#ffffff" strokeWidth={2} />
+            <text x={0} y={0.5} textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight="700" fill="#ffffff">
               {count}
             </text>
           </g>
@@ -81,17 +83,20 @@ function Pin({ group, zoom, active, onSelect }) {
   )
 }
 
-// A small airplane, pointed along the travel direction, for over-water hops.
+// A little airplane (no enclosing circle), nosed along the travel direction, for
+// the over-water hops. Path is drawn nose-up; rotate(angle+90) aims it along the
+// segment (angle is the on-screen bearing where 0deg = east).
 function Plane({ x, y, angle, zoom }) {
-  const s = 1 / Math.max(zoom, 1)
+  const s = 1.25 / Math.max(zoom, 1)
   return (
-    <g transform={`translate(${x} ${y}) scale(${s}) rotate(${angle})`} style={{ pointerEvents: 'none' }}>
-      <circle r={11} fill="#ffffff" style={{ filter: 'drop-shadow(0 1px 2px rgba(20,20,30,0.25))' }} />
-      {/* nose points to +x (0deg), matching the segment direction */}
+    <g transform={`translate(${x} ${y}) scale(${s}) rotate(${angle + 90})`} style={{ pointerEvents: 'none' }}>
       <path
-        transform="rotate(90)"
-        d="M0 -8 L2.4 -1 L7 5 L7 6.6 L1.6 4.2 L1.4 7.2 L3.4 8.6 L3.4 9.6 L0 8.6 L-3.4 9.6 L-3.4 8.6 L-1.4 7.2 L-1.6 4.2 L-7 6.6 L-7 5 L-2.4 -1 Z"
+        d="M0 -11 C1.1 -11 1.8 -9 1.8 -6.2 L1.8 -4.4 L10 1 L10 3.1 L1.8 -0.2 L1.8 5 L4.4 7.6 L4.4 9.2 L0 7.7 L-4.4 9.2 L-4.4 7.6 L-1.8 5 L-1.8 -0.2 L-10 3.1 L-10 1 L-1.8 -4.4 L-1.8 -6.2 C-1.8 -9 -1.1 -11 0 -11 Z"
         fill={BRAND}
+        stroke="#ffffff"
+        strokeWidth={1.3}
+        strokeLinejoin="round"
+        style={{ filter: 'drop-shadow(0 1px 1.5px rgba(20,20,30,0.35))' }}
       />
     </g>
   )
