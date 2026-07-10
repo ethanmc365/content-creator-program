@@ -39,6 +39,7 @@ export default function Messages() {
   const prevLenRef = useRef(0)
   const fileRef = useRef(null)
   const taRef = useRef(null)
+  const composerRef = useRef(null)
 
   // Visual-viewport tracking drives the WhatsApp-style mobile layout: the whole
   // thread becomes a fixed overlay pinned to the visible area so the composer
@@ -251,6 +252,37 @@ export default function Messages() {
     setNewBelow(0)
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [])
+
+  // Mobile composer gestures (same as #general). The thread is a fixed overlay,
+  // so a drag on the composer chrome used to rubber-band the page body under it,
+  // firing visualViewport scroll events that made the whole screen shake/jitter.
+  // We swallow those drags so the body can't move, and a downward swipe smoothly
+  // dismisses the keyboard. A touch that starts inside the textarea is left alone
+  // ONLY when the textarea is actually scrollable (a multi-line message you've
+  // typed), so you can still scroll through what you've written.
+  useEffect(() => {
+    const el = composerRef.current
+    if (!el || !isMobile) return
+    let startY = null
+    let letScroll = false
+    const onStart = (e) => {
+      const ta = e.target.closest?.('textarea')
+      letScroll = !!ta && ta.scrollHeight > ta.clientHeight + 1
+      startY = e.touches[0]?.clientY ?? null
+    }
+    const onMove = (e) => {
+      if (letScroll || startY == null) return
+      const dy = (e.touches[0]?.clientY ?? startY) - startY
+      if (dy > 20) { taRef.current?.blur(); startY = null }
+      if (e.cancelable) e.preventDefault()
+    }
+    el.addEventListener('touchstart', onStart, { passive: true })
+    el.addEventListener('touchmove', onMove, { passive: false })
+    return () => {
+      el.removeEventListener('touchstart', onStart)
+      el.removeEventListener('touchmove', onMove)
+    }
+  }, [isMobile, conversationId])
 
   // Sign any private DM-image paths in the thread so they can render. Legacy
   // messages hold a full public URL and are skipped by signDmImages.
@@ -492,7 +524,7 @@ export default function Messages() {
               </div>
 
               {/* Composer */}
-              <div className="border-t border-gray-100 px-5 py-4">
+              <div ref={composerRef} className="border-t border-gray-100 px-5 py-4">
                 {dmLocked ? (
                   <div className="rounded-card bg-cloud px-4 py-3 text-center text-sm text-smoke">
                     Message sent. You can send one message until {active?.other?.name?.split(' ')[0]} replies, which connects you.

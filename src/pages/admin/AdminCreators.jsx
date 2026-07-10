@@ -15,8 +15,9 @@ export default function AdminCreators() {
 
   const [creators, setCreators] = useState([])
   const [emails, setEmails] = useState({}) // id -> email
-  const [lastSeen, setLastSeen] = useState({}) // id -> last_sign_in_at
-  const [inactiveBefore, setInactiveBefore] = useState(0) // sign-ins older than this are "inactive"
+  const [lastSeen, setLastSeen] = useState({}) // id -> { signIn, seen }
+  const [nowTick, setNowTick] = useState(0) // current time (ms), refreshed by a timer so online dots stay fresh
+  const [inactiveBefore, setInactiveBefore] = useState(0) // last-active older than this is "inactive"
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -35,12 +36,24 @@ export default function AdminCreators() {
     // Hidden QA/test accounts never show in the roster.
     setCreators((profiles ?? []).filter((p) => !p.is_test))
     setEmails(Object.fromEntries((emailRows ?? []).map((r) => [r.id, r.email])))
-    setLastSeen(Object.fromEntries((seenRows ?? []).map((r) => [r.id, r.last_sign_in_at])))
+    setLastSeen(Object.fromEntries((seenRows ?? []).map((r) => [r.id, { signIn: r.last_sign_in_at, seen: r.last_seen_at }])))
     setInactiveBefore(Date.now() - 30 * 86400000)
     setLoading(false)
   }
 
   useEffect(() => { load() }, [])
+
+  // Keep the "online now" dots accurate without a full reload: tick every 30s
+  // and refresh the last-seen data every 60s.
+  useEffect(() => {
+    setNowTick(Date.now())
+    const tick = setInterval(() => setNowTick(Date.now()), 30000)
+    const refresh = setInterval(async () => {
+      const { data } = await supabase.rpc('admin_list_last_seen')
+      if (data) setLastSeen(Object.fromEntries(data.map((r) => [r.id, { signIn: r.last_sign_in_at, seen: r.last_seen_at }])))
+    }, 60000)
+    return () => { clearInterval(tick); clearInterval(refresh) }
+  }, [])
 
   // Load activity + private admin note when a creator is opened.
   useEffect(() => {
@@ -196,10 +209,26 @@ export default function AdminCreators() {
   const isIncomplete = (c) => c.status === 'pending' && !c.onboarded && !c.deletion_requested_at
   const isPendingReview = (c) => c.status === 'pending' && c.onboarded && !c.deletion_requested_at
   const isDeleting = (c) => !!c.deletion_requested_at
-  // Active members who haven't signed in for 30+ days — admins should follow up.
-  const isInactive = (c) =>
-    c.status === 'active' && !c.deletion_requested_at && lastSeen[c.id] &&
-    new Date(lastSeen[c.id]).getTime() < inactiveBefore
+
+  // Last activity = the more recent of their heartbeat (last_seen_at, updated
+  // while the app is open) and their last login. Returns an ISO string or null.
+  const lastActive = (c) => {
+    const s = lastSeen[c.id]
+    if (!s) return null
+    const t = [s.seen, s.signIn].filter(Boolean).sort()
+    return t.length ? t[t.length - 1] : null
+  }
+  // "Online now" = active within the last 3 minutes (heartbeat is every minute).
+  // Uses nowTick (refreshed by a timer) so this stays pure across re-renders.
+  const isOnline = (c) => {
+    const s = lastSeen[c.id]?.seen
+    return !!s && nowTick > 0 && nowTick - new Date(s).getTime() < 3 * 60000
+  }
+  // Active members with no activity for 30+ days — admins should follow up.
+  const isInactive = (c) => {
+    const la = lastActive(c)
+    return c.status === 'active' && !c.deletion_requested_at && la && new Date(la).getTime() < inactiveBefore
+  }
 
   return (
     <div className="page">
@@ -239,7 +268,10 @@ export default function AdminCreators() {
                 className="flex w-full flex-col gap-2.5 border-b border-gray-50 px-5 py-4 transition-colors last:border-0 hover:bg-cloud/60 sm:flex-row sm:items-center sm:gap-4 sm:px-7"
               >
                 <button onClick={() => setSelected(c)} className="flex min-w-0 flex-1 items-center gap-4 text-left">
-                  <Avatar src={c.photo_url} name={c.name} size="sm" />
+                  <span className="relative shrink-0">
+                    <Avatar src={c.photo_url} name={c.name} size="sm" />
+                    {isOnline(c) && <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-green-500 ring-2 ring-white" title="Online now" />}
+                  </span>
                   <div className="min-w-0 flex-1">
                     <p className="flex min-w-0 items-center gap-2 text-sm font-semibold">
                       <span className="truncate">{c.name}</span>
@@ -251,7 +283,14 @@ export default function AdminCreators() {
                 {/* On mobile these sit on their own row under the name (indented past
                     the avatar) so nothing can overlap; on desktop they're inline. */}
                 <div className="flex flex-wrap items-center gap-2 pl-[52px] sm:gap-3 sm:pl-0">
-                  <span className="hidden text-xs text-smoke sm:block">Joined {formatDate(c.accepted_at || c.created_at)}</span>
+                  {isOnline(c) ? (
+                    <span className="flex items-center gap-1.5 text-xs font-medium text-green-600"><span className="h-2 w-2 rounded-full bg-green-500" /> Online now</span>
+                  ) : lastActive(c) ? (
+                    <span className="text-xs text-smoke" title={`Last active ${formatDate(lastActive(c))}`}>Active {timeAgo(lastActive(c))}</span>
+                  ) : (
+                    <span className="hidden text-xs text-gray-300 sm:block">Never signed in</span>
+                  )}
+                  <span className="hidden text-xs text-smoke sm:block">· Joined {formatDate(c.accepted_at || c.created_at)}</span>
                   {isIncomplete(c) && (
                     <button
                       onClick={() => sendReminder(c)}
@@ -298,6 +337,15 @@ export default function AdminCreators() {
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">{emails[selected.id]}</p>
                 <p className="text-xs text-smoke">Joined {formatDate(selected.accepted_at || selected.created_at)} · {selected.age ? `${selected.age} yrs · ` : ''}{(selected.countries_visited ?? []).length} countries</p>
+                <p className="mt-0.5 text-xs">
+                  {isOnline(selected) ? (
+                    <span className="flex items-center gap-1.5 font-medium text-green-600"><span className="h-2 w-2 rounded-full bg-green-500" /> Online now</span>
+                  ) : lastActive(selected) ? (
+                    <span className="text-smoke">Last active {timeAgo(lastActive(selected))} ({formatDate(lastActive(selected))})</span>
+                  ) : (
+                    <span className="text-gray-400">Never signed in</span>
+                  )}
+                </p>
                 <div className="mt-2 flex gap-2">
                   <Badge tone={statusInfo(selected).tone}>{statusInfo(selected).label}</Badge>
                   {selected.is_admin && <Badge tone="light">Admin</Badge>}

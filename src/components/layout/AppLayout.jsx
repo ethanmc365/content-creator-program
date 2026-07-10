@@ -39,6 +39,19 @@ export default function AppLayout() {
   // viewport resize until a scroll).
   const keyboardOpen = useVisualViewport().keyboardOpen
 
+  // Presence heartbeat: while the app is open, ping the server every minute (and
+  // whenever the tab becomes visible) so admins can see who's online / when a
+  // creator was last active. Cheap: one tiny RPC that stamps our own row.
+  useEffect(() => {
+    if (!user) return
+    let stopped = false
+    const beat = () => { if (!stopped && document.visibilityState === 'visible') supabase.rpc('touch_last_seen') }
+    beat()
+    const iv = setInterval(beat, 60000)
+    document.addEventListener('visibilitychange', beat)
+    return () => { stopped = true; clearInterval(iv); document.removeEventListener('visibilitychange', beat) }
+  }, [user])
+
   // Unread DM badge, kept live via realtime.
   useEffect(() => {
     if (!user) return

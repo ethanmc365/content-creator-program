@@ -4,12 +4,15 @@
 import { feature } from 'topojson-client'
 import { geoCentroid } from 'd3-geo'
 
-// 10m (high-res) TopoJSON: unlike the 110m file it includes EVERY country,
-// down to the microstates (Monaco, Vatican, San Marino, Liechtenstein, Malta,
-// Singapore, Cabo Verde, Andorra, Maldives, Seychelles…). Every name present in
-// the old 110m file is also present here, so existing saved selections still
-// highlight; it just adds the ~78 smaller countries that were missing before.
-export const GEO_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-10m.json'
+// 50m (medium-res) TopoJSON. The 110m file we used before dropped every small
+// country (Monaco, Vatican, San Marino, Liechtenstein, Malta, Singapore, Cabo
+// Verde, Andorra, Maldives, Seychelles…); the 50m file includes them all (241
+// countries) while staying light enough to render cleanly. The 10m file has
+// them too but is ~6x more detailed per country, which made react-simple-maps
+// render one giant filled blob (a single path was ~2.4M chars) - so 50m is the
+// sweet spot. Every name in the old 110m file is also in 50m, so existing saved
+// selections still highlight.
+export const GEO_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json'
 
 let cache = null
 let inflight = null
