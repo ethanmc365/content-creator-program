@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import CreatorCard from '../components/CreatorCard'
+import CreatorMap from '../components/CreatorMap'
 import { PageHeader, SkeletonCards, EmptyState } from '../components/ui'
 import { platformsForProfile } from '../components/PlatformBadges'
 import { loadRelationships } from '../lib/connections'
@@ -56,6 +57,21 @@ export default function Directory() {
         title="Creators"
         subtitle="Meet the community. Connect, message, and find your next collab partner."
       />
+
+      {/* Creator map: where everyone in the community is based */}
+      <section className="mb-10">
+        <div className="mb-3 flex items-baseline justify-between gap-3">
+          <h2 className="text-lg font-semibold text-ink">Creator map</h2>
+          <p className="text-sm text-smoke">
+            {loading ? 'Loading…' : `${creators.length} creator${creators.length === 1 ? '' : 's'} around the world`}
+          </p>
+        </div>
+        {loading ? (
+          <div className="h-[340px] w-full animate-pulse rounded-card bg-cloud/70 sm:h-[420px]" />
+        ) : (
+          <CreatorMap creators={creators} />
+        )}
+      </section>
 
       {/* Search + filters */}
       <div className="mb-10 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">

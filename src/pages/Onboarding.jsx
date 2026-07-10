@@ -6,6 +6,7 @@ import { AvatarUpload, LanguageSelect, SocialInputs, DobField, PhoneInput, Quote
 import WorldMap from '../components/WorldMap'
 import TravelGallery from '../components/TravelGallery'
 import Icon from '../components/Icon'
+import { geocodeCity } from '../lib/geocode'
 import { Spinner } from '../components/ui'
 import { cx } from '../lib/utils'
 
@@ -85,10 +86,16 @@ export default function Onboarding() {
 
   async function finish(sayHello) {
     setBusy(true)
+    // Geocode the town so the new creator shows up on the creator map.
+    const profileUpdate = { ...draft, onboarded: true }
+    if (draft.city?.trim() || draft.country?.trim()) {
+      const coords = await geocodeCity(draft.city, draft.country)
+      if (coords) { profileUpdate.city_lat = coords.lat; profileUpdate.city_lng = coords.lng }
+    }
     await Promise.all([
       supabase
         .from('profiles')
-        .update({ ...draft, onboarded: true })
+        .update(profileUpdate)
         .eq('id', user.id),
       // Private contact details (admin-only) live in their own table.
       (contact.phone || contact.phone_country)

@@ -8,6 +8,7 @@ import { AvatarUpload, LanguageSelect, SocialInputs, DobField, PhoneInput, Quote
 import WorldMap from '../components/WorldMap'
 import TravelGallery from '../components/TravelGallery'
 import { flagForCountry } from '../lib/flags'
+import { geocodeCity } from '../lib/geocode'
 import { PageHeader, Spinner } from '../components/ui'
 
 // Edit every part of your own profile on one calm page.
@@ -64,8 +65,18 @@ export default function EditProfile() {
   async function save(e) {
     e.preventDefault()
     setBusy(true)
+    // Geocode the town so this creator lands on the creator map. Best-effort:
+    // if it changed (or was never geocoded) look it up, else keep old coords.
+    const payload = { ...form }
+    if (form.city?.trim() || form.country?.trim()) {
+      const townChanged = form.city !== profile?.city || form.country !== profile?.country
+      if (townChanged || profile?.city_lat == null) {
+        const coords = await geocodeCity(form.city, form.country)
+        if (coords) { payload.city_lat = coords.lat; payload.city_lng = coords.lng }
+      }
+    }
     const [{ error }] = await Promise.all([
-      supabase.from('profiles').update(form).eq('id', user.id),
+      supabase.from('profiles').update(payload).eq('id', user.id),
       // Upsert the private contact row (phone never goes in public profiles).
       supabase.from('creator_private').upsert({
         id: user.id,
