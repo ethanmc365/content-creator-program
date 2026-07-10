@@ -234,7 +234,7 @@ export default function Events() {
           <aside>
             <h2 className="mb-5 text-lg font-semibold">Coming up</h2>
             {upcoming.length === 0 ? (
-              <p className="text-sm text-smoke">Nothing scheduled. Enjoy the calm ☀️</p>
+              <p className="text-sm text-smoke">Nothing scheduled.</p>
             ) : (
               <ol className="space-y-4">
                 {upcoming.map((e) => (

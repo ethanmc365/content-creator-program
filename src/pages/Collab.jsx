@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { Avatar, Badge, EmptyState, PageHeader, Skeleton, Spinner } from '../components/ui'
+import { Avatar, Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
 import WorldMap from '../components/WorldMap'
 import { loadMapCountryNames, canonicalCountry } from '../lib/mapCountries'
@@ -50,6 +50,11 @@ export default function Collab() {
   const [countryNames, setCountryNames] = useState([])
   const [monthFilter, setMonthFilter] = useState('')
   const [countryFilter, setCountryFilter] = useState('')
+  // Edit an existing trip (own post for creators; any post for admins).
+  const [editing, setEditing] = useState(null) // the post being edited, or null
+  const [editForm, setEditForm] = useState({ city: '', country: '', start_date: '', end_date: '', note: '' })
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [editError, setEditError] = useState('')
   const canPost = profile?.status === 'active'
 
   useEffect(() => { loadMapCountryNames().then(setCountryNames) }, [])
@@ -126,6 +131,39 @@ export default function Collab() {
     await supabase.from('collab_posts').delete().eq('id', id)
   }
 
+  // Open the edit modal, prefilled with the post's current values.
+  function startEdit(p) {
+    setEditError('')
+    setEditForm({
+      city: p.city || '',
+      country: p.country || '',
+      start_date: p.start_date || '',
+      end_date: p.end_date || '',
+      note: p.note || '',
+    })
+    setEditing(p)
+  }
+
+  async function saveEdit(e) {
+    e.preventDefault()
+    setEditError('')
+    if (!editForm.city.trim() || !editForm.start_date || !editForm.end_date) { setEditError('Add a city and both dates.'); return }
+    if (editForm.end_date < editForm.start_date) { setEditError('The end date can’t be before the start date.'); return }
+    setSavingEdit(true)
+    const patch = {
+      city: editForm.city.trim(),
+      country: editForm.country.trim() || null,
+      start_date: editForm.start_date,
+      end_date: editForm.end_date,
+      note: editForm.note.trim() || null,
+    }
+    const { error: updErr } = await supabase.from('collab_posts').update(patch).eq('id', editing.id)
+    setSavingEdit(false)
+    if (updErr) { setEditError('Could not save those changes. Please try again.'); return }
+    setEditing(null)
+    load()
+  }
+
   async function toggleInterest(postId) {
     const has = interests.mine.has(postId)
     setInterests((prev) => {
@@ -173,9 +211,14 @@ export default function Collab() {
             </div>
           </Link>
           {(mine || isAdmin) && (
-            <button onClick={() => remove(p.id)} aria-label="Delete trip" className="shrink-0 rounded-lg p-1.5 text-smoke transition-colors hover:bg-red-50 hover:text-red-600">
-              <Icon name="trash" className="h-4 w-4" />
-            </button>
+            <div className="flex shrink-0 items-center gap-1">
+              <button onClick={() => startEdit(p)} aria-label="Edit trip" title="Edit trip" className="rounded-lg p-1.5 text-smoke transition-colors hover:bg-brand-tint hover:text-brand">
+                <Icon name="pencil" className="h-4 w-4" />
+              </button>
+              <button onClick={() => remove(p.id)} aria-label="Delete trip" title="Delete trip" className="rounded-lg p-1.5 text-smoke transition-colors hover:bg-red-50 hover:text-red-600">
+                <Icon name="trash" className="h-4 w-4" />
+              </button>
+            </div>
           )}
         </div>
 
@@ -322,6 +365,48 @@ export default function Collab() {
           </div>
         </section>
       )}
+
+      {/* ---- Edit trip modal (own post, or any post for admins) ---- */}
+      <Modal open={!!editing} onClose={() => setEditing(null)} title="Edit trip">
+        <form onSubmit={saveEdit} className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="edit-city" className="label">City / place</label>
+              <input id="edit-city" className="input" placeholder="Lisbon" value={editForm.city}
+                onChange={(e) => setEditForm((f) => ({ ...f, city: e.target.value }))} maxLength={60} />
+            </div>
+            <div>
+              <label htmlFor="edit-country" className="label">Country <span className="text-smoke">(shows on the map)</span></label>
+              <input id="edit-country" className="input" placeholder="Start typing…" value={editForm.country}
+                list="collab-edit-country-list" autoComplete="off"
+                onChange={(e) => setEditForm((f) => ({ ...f, country: e.target.value }))} maxLength={60} />
+              <datalist id="collab-edit-country-list">
+                {countryNames.map((n) => <option key={n} value={n} />)}
+              </datalist>
+            </div>
+            <div>
+              <label htmlFor="edit-start" className="label">From</label>
+              <input id="edit-start" type="date" className="input" value={editForm.start_date}
+                onChange={(e) => setEditForm((f) => ({ ...f, start_date: e.target.value, end_date: f.end_date && f.end_date < e.target.value ? e.target.value : f.end_date }))} />
+            </div>
+            <div>
+              <label htmlFor="edit-end" className="label">To</label>
+              <input id="edit-end" type="date" className="input" min={editForm.start_date || undefined} value={editForm.end_date}
+                onChange={(e) => setEditForm((f) => ({ ...f, end_date: e.target.value }))} />
+            </div>
+          </div>
+          <div>
+            <label htmlFor="edit-note" className="label">Note <span className="text-smoke">(optional)</span></label>
+            <textarea id="edit-note" className="input min-h-[80px]" maxLength={300}
+              value={editForm.note} onChange={(e) => setEditForm((f) => ({ ...f, note: e.target.value }))} />
+          </div>
+          {editError && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{editError}</p>}
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => setEditing(null)} className="btn-ghost">Cancel</button>
+            <button type="submit" disabled={savingEdit} className="btn-primary">{savingEdit ? <Spinner /> : 'Save changes'}</button>
+          </div>
+        </form>
+      </Modal>
     </div>
   )
 }

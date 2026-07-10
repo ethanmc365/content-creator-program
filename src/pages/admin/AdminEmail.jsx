@@ -7,13 +7,11 @@ import { formatDateTime } from '../../lib/utils'
 
 // Email all creators - free, no paid email service required.
 //
-// How it works: you compose one message, then "Open in email app" launches
-// your own mail client (Gmail, Outlook, Apple Mail…) with every creator's
-// address in BCC and your subject + body pre-filled. You hit send from there.
-// We log each campaign for your records.
-//
-// Want true one-click automated sending later? See README → "Bulk email"
-// for an optional free Resend Edge Function upgrade.
+// How it works: you compose one message, then "Compose in Gmail" opens Gmail's
+// web composer in a new tab with every creator's address in BCC and your
+// subject + body pre-filled, ready to review and send. "Copy all emails" copies
+// the BCC list for any other client. The recipient list is community creators
+// only (active, non-admin, excluding the test accounts). We log each campaign.
 export default function AdminEmail() {
   const { user } = useAuth()
   const [emails, setEmails] = useState([])
@@ -38,12 +36,14 @@ export default function AdminEmail() {
       // Active creators only - never the Tryp.com team (admins) or yourself.
       const [{ data: emailRows }, { data: profiles }, { data: campaigns }] = await Promise.all([
         supabase.rpc('admin_list_emails'),
-        supabase.from('profiles').select('id, status, is_admin'),
+        supabase.from('profiles').select('id, status, is_admin, is_test'),
         supabase.from('email_campaigns').select('*').order('created_at', { ascending: false }).limit(10),
       ])
+      // Community creators only: active, never admins, never the test accounts we
+      // use for checking things, and never yourself.
       const creatorIds = new Set(
         (profiles ?? [])
-          .filter((p) => p.status === 'active' && !p.is_admin && p.id !== user.id)
+          .filter((p) => p.status === 'active' && !p.is_admin && !p.is_test && p.id !== user.id)
           .map((p) => p.id)
       )
       setEmails((emailRows ?? []).filter((r) => creatorIds.has(r.id)).map((r) => r.email))
@@ -54,7 +54,6 @@ export default function AdminEmail() {
   }, [user.id])
 
   const bccList = emails.join(',')
-  const mailto = `mailto:?bcc=${encodeURIComponent(bccList)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`
   // Gmail web compose - opens in a new tab, works without a desktop mail client.
   const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&bcc=${encodeURIComponent(bccList)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`
   const tooLong = gmailUrl.length > 1900 // very large lists can exceed URL limits
@@ -72,12 +71,6 @@ export default function AdminEmail() {
   function openInGmail() {
     logCampaign()
     window.open(gmailUrl, '_blank', 'noopener')
-  }
-
-  // Secondary: hand off to the OS default mail app via mailto.
-  function openInMailApp() {
-    logCampaign()
-    window.location.href = mailto
   }
 
   // Copy with a textarea fallback for browsers that block the async clipboard.
@@ -133,15 +126,12 @@ export default function AdminEmail() {
               <button onClick={openInGmail} disabled={!subject.trim() || emails.length === 0} className="btn-primary">
                 Compose in Gmail →
               </button>
-              <button onClick={openInMailApp} disabled={!subject.trim() || emails.length === 0} className="btn-secondary">
-                Use my mail app
-              </button>
-              <button onClick={copyEmails} className="btn-secondary">{copied ? 'Copied ✓' : 'Copy all emails'}</button>
+              <button onClick={copyEmails} disabled={emails.length === 0} className="btn-secondary">{copied ? 'Copied ✓' : 'Copy all emails'}</button>
             </div>
             <p className="text-xs leading-relaxed text-smoke">
               "Compose in Gmail" opens a new tab with the subject, body and every creator in BCC,
-              ready for you to review and send. Prefer Outlook or Apple Mail? Use "Use my mail app".
-              Either way, the campaign is logged below.
+              ready for you to review and send. Or use "Copy all emails" to paste the list into any
+              email client yourself. Either way, the campaign is logged below.
             </p>
           </section>
 

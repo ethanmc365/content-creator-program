@@ -10,7 +10,7 @@ import Icon from '../components/Icon'
 import ChatMedia from '../components/ChatMedia'
 import { mediaType } from '../lib/media'
 import { formatChatTime, otherParticipant, cx } from '../lib/utils'
-import { useKeyboardInset, useIsMobile } from '../lib/useKeyboardInset'
+import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
 
 // Direct messages: inbox (conversation list) + active thread, both realtime.
 // On mobile you see one panel at a time; on desktop they sit side by side.
@@ -30,14 +30,39 @@ export default function Messages() {
   const [activeRelation, setActiveRelation] = useState(null)
   // path -> short-lived signed URL, for DM images in the private dm-media bucket.
   const [signedUrls, setSignedUrls] = useState(new Map())
+  // Scroll bookkeeping so the thread only follows new messages when you're
+  // already at the bottom (mirrors #general), with a jump-to-latest pill.
+  const [atBottom, setAtBottom] = useState(true)
+  const [newBelow, setNewBelow] = useState(0)
   const bottomRef = useRef(null)
+  const scrollerRef = useRef(null)
+  const prevLenRef = useRef(0)
   const fileRef = useRef(null)
   const taRef = useRef(null)
 
-  // Software-keyboard height for the WhatsApp-style mobile composer layout.
-  const kbInset = useKeyboardInset()
-  const kbOpen = kbInset > 0
+  // Visual-viewport tracking drives the WhatsApp-style mobile layout: the whole
+  // thread becomes a fixed overlay pinned to the visible area so the composer
+  // hugs the keyboard, the person you're messaging stays pinned at the top, and
+  // the app header + bottom tab bar collapse away while typing. Same approach as
+  // the #general chat (see useVisualViewport for the iOS reasoning).
+  const { height: vpHeight, offsetTop: vpOffset, keyboardOpen: kbOpen } = useVisualViewport()
   const isMobile = useIsMobile()
+
+  // Mobile overlay geometry. Keyboard closed: leave room for the top header
+  // (4rem) and the bottom tab bar (4.5rem + safe area). Keyboard open: take the
+  // full visible viewport so the header + tabs are hidden until it closes.
+  const mobileStyle = isMobile
+    ? {
+        top: kbOpen ? 0 : '4rem',
+        height: kbOpen
+          ? `${vpHeight}px`
+          : `calc(${vpHeight}px - 4rem - 4.5rem - env(safe-area-inset-bottom))`,
+        // Clamp to >= 0: on iOS a downward pull at the top makes offsetTop go
+        // negative, which would ride the overlay up above the header.
+        transform: `translateY(${Math.max(0, vpOffset)}px)`,
+        paddingTop: kbOpen ? 'env(safe-area-inset-top)' : undefined,
+      }
+    : undefined
 
   // Lock the document while the mobile DM overlay is up so iOS can't rubber-band
   // the page (which dragged the header down / exposed content above it).
@@ -172,14 +197,37 @@ export default function Messages() {
   const startConvPress = (c) => { convTimer.current = setTimeout(() => { convLongPressed.current = true; deleteConversation(c) }, 550) }
   const cancelConvPress = () => clearTimeout(convTimer.current)
 
+  // Reset scroll bookkeeping when the open conversation changes (we always land
+  // at the newest message in a freshly opened thread).
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [thread])
+    prevLenRef.current = 0
+    setAtBottom(true)
+    setNewBelow(0)
+  }, [conversationId])
 
-  // Keep the latest message visible as the keyboard opens/closes.
+  // Smart auto-scroll + "jump to latest" bookkeeping (same as #general): only
+  // follow new messages when the reader is already at the bottom, or the new
+  // message is their own. If they've scrolled up to read history, leave them put
+  // and count arrivals for the jump-to-latest pill instead.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [kbInset])
+    const last = thread[thread.length - 1]
+    const grew = thread.length > prevLenRef.current
+    const firstPaint = prevLenRef.current === 0
+    const mineJustSent = grew && last && last.sender_id === user.id
+    if (firstPaint || atBottom || mineJustSent) {
+      bottomRef.current?.scrollIntoView({ behavior: firstPaint ? 'auto' : 'smooth' })
+      setNewBelow(0)
+    } else if (grew) {
+      setNewBelow((n) => n + (thread.length - prevLenRef.current))
+    }
+    prevLenRef.current = thread.length
+  }, [thread, atBottom, user.id])
+
+  // Keep the latest message visible as the keyboard opens/closes or the visible
+  // viewport resizes (only if we were already following the newest).
+  useEffect(() => {
+    if (atBottom) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [kbOpen, vpHeight, atBottom])
 
   // Auto-grow the composer like WhatsApp, capped before it scrolls internally.
   useEffect(() => {
@@ -188,6 +236,21 @@ export default function Messages() {
     ta.style.height = 'auto'
     ta.style.height = `${Math.min(ta.scrollHeight, 128)}px`
   }, [body])
+
+  // Track whether the reader is pinned to the bottom of the thread.
+  const onScrollMessages = useCallback(() => {
+    const el = scrollerRef.current
+    if (!el) return
+    const near = el.scrollHeight - el.scrollTop - el.clientHeight < 90
+    setAtBottom(near)
+    if (near) setNewBelow(0)
+  }, [])
+
+  const jumpToLatest = useCallback(() => {
+    setAtBottom(true)
+    setNewBelow(0)
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [])
 
   // Sign any private DM-image paths in the thread so they can render. Legacy
   // messages hold a full public URL and are skipped by signDmImages.
@@ -207,6 +270,7 @@ export default function Messages() {
   async function send(e) {
     e.preventDefault()
     if (!body.trim() || !active || dmLocked) return
+    setAtBottom(true)
     setSending(true)
     const { error } = await supabase.from('direct_messages').insert({
       conversation_id: conversationId,
@@ -228,6 +292,7 @@ export default function Messages() {
     if (!file || !active || dmLocked) return
     const isVideo = file.type.startsWith('video/') || /\.(mp4|webm|mov|m4v|ogv)$/i.test(file.name)
     setAttachError('')
+    setAtBottom(true)
     setSending(true)
     try {
       // Store the private storage PATH (not a public URL); it's signed on render.
@@ -251,13 +316,16 @@ export default function Messages() {
 
   return (
     <div
-      style={kbOpen ? { bottom: `${kbInset}px` } : undefined}
+      style={mobileStyle}
       className={cx(
-        // Mobile/tablet: pin to the viewport so the document can't scroll; the
-        // keyboard then shrinks the visual viewport and the composer hugs it.
-        // Desktop keeps the normal centered card.
-        'fixed inset-x-0 top-16 z-20 mx-auto flex w-full max-w-6xl bottom-[calc(4.5rem+env(safe-area-inset-bottom))] sm:px-8',
-        'lg:static lg:inset-auto lg:bottom-auto lg:z-auto lg:h-[calc(100vh-4rem)] lg:py-6'
+        // Mobile/tablet: a fixed overlay pinned to the visual viewport (geometry
+        // in mobileStyle) so the document never scrolls and the composer hugs
+        // the keyboard. Desktop keeps the normal centered card.
+        'fixed inset-x-0 mx-auto flex w-full max-w-6xl sm:px-8',
+        // While typing the overlay goes full-screen ABOVE the header so it can
+        // cover it; otherwise it sits below (z-20) so the header stays tappable.
+        kbOpen ? 'z-50' : 'z-20',
+        'lg:static lg:inset-auto lg:bottom-auto lg:z-auto lg:h-[calc(100vh-4rem)] lg:translate-y-0 lg:py-6'
       )}
     >
       <div className="flex min-h-0 flex-1 overflow-hidden bg-white sm:rounded-card sm:border sm:border-gray-100 sm:shadow-card">
@@ -356,7 +424,14 @@ export default function Messages() {
               </div>
 
               {/* Messages */}
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-5 py-6">
+              <div
+                ref={scrollerRef}
+                onScroll={onScrollMessages}
+                // Tapping the thread dismisses the keyboard (WhatsApp-style); a
+                // scroll drag doesn't fire click, so scrolling history leaves it up.
+                onClick={() => { if (isMobile && kbOpen) taRef.current?.blur() }}
+                className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-5 py-6"
+              >
                 {loadingThread && <div className="space-y-3"><Skeleton className="h-10 w-2/3" /><Skeleton className="ml-auto h-10 w-1/2" /><Skeleton className="h-10 w-3/5" /></div>}
                 {!loadingThread && thread.map((m) => {
                   const mine = m.sender_id === user.id
@@ -398,6 +473,22 @@ export default function Messages() {
                   )
                 })}
                 <div ref={bottomRef} />
+              </div>
+
+              {/* Jump-to-latest pill floats just above the composer. */}
+              <div className="relative">
+                {!atBottom && (
+                  <div className="pointer-events-none absolute -top-14 inset-x-0 z-10 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={jumpToLatest}
+                      className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-xs font-semibold text-white shadow-lift transition-transform hover:scale-105 active:scale-95"
+                    >
+                      {newBelow > 0 ? `${newBelow} new message${newBelow === 1 ? '' : 's'}` : 'Jump to latest'}
+                      <Icon name="arrow-down" className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Composer */}

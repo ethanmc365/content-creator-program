@@ -42,7 +42,9 @@ export default function AdminWhatsNew() {
     if (!details.trim()) return setErr('Add a sentence on what changed.')
     setBusy(true)
     // Body is what shows in the bell preview and the #announcements channel.
-    const body = `${MARKER} — ${title.trim()}\n\n${details.trim()}`
+    // "What's new" sits on its own line as a header (no em dash), the headline
+    // on the next line, then the detail - cleaner in both the bell and the chat.
+    const body = `${MARKER}\n${title.trim()}\n\n${details.trim()}`
     const { error } = await supabase.from('messages').insert({ channel: 'announcements', sender_id: user.id, body })
     setBusy(false)
     if (error) return setErr(error.message)
@@ -54,7 +56,7 @@ export default function AdminWhatsNew() {
     <div className="page max-w-3xl">
       <PageHeader
         title="What's new"
-        subtitle="Announce a new feature or improvement. It posts to #announcements and lands in every creator's notification bell."
+        subtitle="Announce a new feature or improvement. It posts to #announcements, lands in every creator's notification bell, and emails them too (unless they've turned off announcement emails)."
       />
 
       <form onSubmit={post} className="card mb-8 space-y-4">
@@ -78,14 +80,14 @@ export default function AdminWhatsNew() {
 
         {/* Live preview of the bell/announcement copy. */}
         <div className="rounded-xl border border-brand/20 bg-brand-tint/40 p-4">
-          <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-brand"><Icon name="bell" className="h-3.5 w-3.5" /> Preview</p>
-          <p className="whitespace-pre-line text-sm text-ink">
-            {MARKER}{title.trim() ? ` — ${title.trim()}` : ''}{details.trim() ? `\n\n${details.trim()}` : ''}
-          </p>
+          <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-brand"><Icon name="bell" className="h-3.5 w-3.5" /> Preview</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand">{MARKER}</p>
+          {title.trim() && <p className="mt-1 text-sm font-semibold text-ink">{title.trim()}</p>}
+          {details.trim() && <p className="mt-1 whitespace-pre-line text-sm text-smoke">{details.trim()}</p>}
         </div>
 
         {err && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{err}</p>}
-        {ok && <p className="rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">Posted. Every creator has been notified.</p>}
+        {ok && <p className="rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">Posted. Every creator has been notified in their bell and by email.</p>}
         <div className="flex justify-end">
           <button type="submit" disabled={busy} className="btn-primary">{busy ? <Spinner /> : 'Announce to everyone'}</button>
         </div>

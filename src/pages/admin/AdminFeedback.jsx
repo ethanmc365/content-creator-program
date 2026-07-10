@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { confirm } from '../../lib/confirm'
 import { supabase } from '../../lib/supabase'
 import { Avatar, Badge, EmptyState, PageHeader, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
@@ -46,6 +47,13 @@ export default function AdminFeedback() {
     setItems((prev) => prev.map((f) => (f.id === item.id ? { ...f, admin_note } : f)))
   }
 
+  // Permanently remove a report (e.g. an old test one). Admin-only via RLS.
+  async function deleteItem(item) {
+    if (!await confirm('Delete this report for good? This can’t be undone.')) return
+    setItems((prev) => prev.filter((f) => f.id !== item.id))
+    await supabase.from('feedback').delete().eq('id', item.id)
+  }
+
   const newCount = items.filter((f) => f.status === 'new').length
   const filtered = items.filter((f) =>
     (!typeFilter || f.type === typeFilter) && (!statusFilter || f.status === statusFilter))
@@ -84,6 +92,14 @@ export default function AdminFeedback() {
                   <Badge tone={f.type === 'feature' ? 'light' : 'grey'}><Icon name={f.type === 'feature' ? 'bulb' : 'bug'} className="h-3.5 w-3.5" />{f.type === 'feature' ? 'Feature' : 'Bug'}</Badge>
                   <Badge tone={st.tone}>{st.label}</Badge>
                   <span className="ml-auto text-xs text-smoke">{formatDate(f.created_at)}</span>
+                  <button
+                    onClick={() => deleteItem(f)}
+                    aria-label="Delete report"
+                    title="Delete report"
+                    className="shrink-0 rounded-lg p-1.5 text-smoke transition-colors hover:bg-red-50 hover:text-red-600"
+                  >
+                    <Icon name="trash" className="h-4 w-4" />
+                  </button>
                 </div>
 
                 <p className="whitespace-pre-line text-sm text-ink">{f.message}</p>
