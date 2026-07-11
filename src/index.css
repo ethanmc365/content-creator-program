@@ -100,8 +100,26 @@
     @apply mb-2 block text-sm font-medium text-ink;
   }
 
-  /* Page shell: wide margins + generous vertical rhythm. */
+  /* Page shell: wide margins + generous vertical rhythm.
+     animate-page-in gives every route a soft fade so navigation never snaps.
+     (Opacity only - see the keyframe note in tailwind.config.js.) */
   .page {
-    @apply mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 sm:py-12;
+    @apply mx-auto w-full max-w-6xl px-5 py-8 animate-page-in sm:px-8 sm:py-12;
+  }
+
+  /* Loading placeholder with a sweeping shimmer (calmer than a blink). */
+  .skeleton {
+    @apply relative overflow-hidden rounded-xl bg-cloud;
+  }
+  .skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.75), transparent);
+    animation: skeleton-shimmer 1.6s ease-in-out infinite;
+  }
+  @keyframes skeleton-shimmer {
+    100% { transform: translateX(100%); }
   }
 }

@@ -327,7 +327,7 @@ export default function Collab() {
         <EmptyState
           icon={<Icon name="pin" className="h-7 w-7" />}
           title="No upcoming trips"
-          hint={canPost ? 'Be the first — post where you’re headed and let the community find you.' : 'Once your application is approved you can post your trips here.'}
+          hint={canPost ? 'Be the first to post where you’re headed and let the community find you.' : 'Once your application is approved you can post your trips here.'}
         />
       ) : filteredUpcoming.length === 0 ? (
         <EmptyState emoji="🔍" title="No trips match those filters" hint="Try a different month or country." />

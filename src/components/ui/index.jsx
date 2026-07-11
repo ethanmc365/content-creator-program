@@ -72,7 +72,7 @@ export function PlaneLoader({ label = 'Loading…', className = '' }) {
 
 /** Grey shimmer block - compose these into loading skeletons, never blank screens. */
 export function Skeleton({ className = '' }) {
-  return <div className={cx('animate-pulse rounded-xl bg-cloud', className)} />
+  return <div className={cx('skeleton', className)} />
 }
 
 /** A standard card-shaped loading skeleton used by list pages. */

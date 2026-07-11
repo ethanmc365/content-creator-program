@@ -42,6 +42,19 @@ export default {
           '0%': { transform: 'translateY(-10vh) rotate(0deg)', opacity: '1' },
           '100%': { transform: 'translateY(110vh) rotate(720deg)', opacity: '0' },
         },
+        // Gentle opacity-only entrance for page content. Deliberately has NO
+        // transform: a persisted transform on `.page` would become a containing
+        // block for position:fixed children (the mobile chat overlay).
+        'page-in': {
+          from: { opacity: '0' },
+          to: { opacity: '1' },
+        },
+        // Menus anchored to the top (avatar dropdown) scale in from their
+        // origin like native menus, instead of rising from below.
+        'menu-in': {
+          from: { opacity: '0', transform: 'scale(0.95) translateY(-4px)' },
+          to: { opacity: '1', transform: 'scale(1) translateY(0)' },
+        },
         // An aeroplane flying across, used by the airplane loader.
         fly: {
           '0%': { transform: 'translateX(-130%) translateY(2px)', opacity: '0' },
@@ -54,6 +67,8 @@ export default {
       animation: {
         'fade-up': 'fade-up 0.4s ease-out both',
         'pop-in': 'pop-in 0.35s ease-out both',
+        'page-in': 'page-in 0.35s ease-out both',
+        'menu-in': 'menu-in 0.16s ease-out both',
         confetti: 'confetti 3s linear forwards',
         fly: 'fly 1.7s ease-in-out infinite',
       },

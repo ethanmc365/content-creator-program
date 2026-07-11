@@ -48,6 +48,7 @@ export default function ConfirmHost() {
   const title = options.title ?? (danger ? 'Are you sure?' : 'Please confirm')
   const confirmLabel = options.confirmLabel ?? (danger ? 'Delete' : 'Confirm')
   const cancelLabel = options.cancelLabel ?? 'Cancel'
+  const noCancel = options.noCancel === true
 
   return (
     <div className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label={title}>
@@ -56,7 +57,9 @@ export default function ConfirmHost() {
         <h2 className="text-lg font-semibold text-ink">{title}</h2>
         <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-smoke">{message}</p>
         <div className="mt-6 flex justify-end gap-2">
-          <button onClick={() => close(false)} className="btn-secondary !py-2.5 text-sm">{cancelLabel}</button>
+          {!noCancel && (
+            <button onClick={() => close(false)} className="btn-secondary !py-2.5 text-sm">{cancelLabel}</button>
+          )}
           <button onClick={() => close(true)} autoFocus className={`${danger ? 'btn-danger' : 'btn-primary'} !py-2.5 text-sm`}>{confirmLabel}</button>
         </div>
       </div>

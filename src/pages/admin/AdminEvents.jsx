@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { confirm } from '../../lib/confirm'
+import { confirm, notice } from '../../lib/confirm'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../../components/ui'
@@ -54,7 +54,7 @@ export default function AdminEvents() {
   async function save(e) {
     e.preventDefault()
     const iso = parseDateTime(form.dateStr, form.timeStr)
-    if (!iso) { alert('Enter the date as DD/MM/YYYY and the time as HH:MM (24h).'); return }
+    if (!iso) { notice('Enter the date as DD/MM/YYYY and the time as HH:MM (24h).'); return }
     setBusy(true)
     const payload = {
       title: form.title.trim(),

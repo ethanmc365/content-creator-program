@@ -9,7 +9,7 @@ import { formatMoney } from '../lib/utils'
 // Public landing page - bright, spacious, one clear focal point per section.
 // Live stats come from the public landing_stats() / featured_creators() RPCs;
 // graceful placeholders are used until the database is connected.
-const TRYP_URL = 'https://www.tryp.com' // TODO: confirm the main site URL
+const TRYP_URL = 'https://www.tryp.com'
 
 export default function Landing() {
   const { user, loading } = useAuth()

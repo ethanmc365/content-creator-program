@@ -27,3 +27,15 @@ export function confirm(message, options = {}) {
   if (!handler) return Promise.resolve(false)
   return handler(String(message), options)
 }
+
+/**
+ * Show a single-button message dialog (replaces window.alert(), which the
+ * browser can permanently suppress the same way it suppresses confirm()).
+ * Returns a Promise that resolves when the user dismisses it.
+ * @param {string} message
+ * @param {{ confirmLabel?: string, title?: string, danger?: boolean }} [options]
+ */
+export function notice(message, options = {}) {
+  if (!handler) return Promise.resolve(true)
+  return handler(String(message), { confirmLabel: 'OK', title: 'Heads up', ...options, noCancel: true })
+}

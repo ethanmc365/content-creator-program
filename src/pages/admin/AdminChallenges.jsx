@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { confirm } from '../../lib/confirm'
+import { confirm, notice } from '../../lib/confirm'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Badge, EmptyState, PageHeader, Skeleton } from '../../components/ui'
@@ -47,7 +47,7 @@ export default function AdminChallenges() {
     setDeleting(challenge.id)
     const { error } = await supabase.rpc('admin_delete_challenge', { target: challenge.id })
     setDeleting(null)
-    if (error) { alert(`Could not delete: ${error.message}`); return }
+    if (error) { notice(`Could not delete: ${error.message}`); return }
     setChallenges((prev) => prev.filter((c) => c.id !== challenge.id))
   }
 

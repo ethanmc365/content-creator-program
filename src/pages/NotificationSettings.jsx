@@ -153,7 +153,7 @@ export default function NotificationSettings() {
             </div>
             <div className="w-11 flex justify-center">
               {c.pushOnly
-                ? <span className="text-[11px] text-gray-300">—</span>
+                ? <span className="text-[11px] text-gray-300">-</span>
                 : <Toggle on={emailPrefs[c.key] === true} onChange={(v) => toggleEmail(c.key, v)} label={`${c.label} email`} />}
             </div>
           </div>
@@ -186,7 +186,7 @@ export default function NotificationSettings() {
           })}
         </div>
         {reminderDays.length === 0 && (
-          <p className="mt-3 text-xs text-amber-600">No reminders selected — you won't be reminded about deadlines.</p>
+          <p className="mt-3 text-xs text-amber-600">No reminders selected, so you won't be reminded about deadlines.</p>
         )}
       </section>
 

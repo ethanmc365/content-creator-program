@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { Avatar, Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner, StatCard } from '../../components/ui'
 import { formatDate, formatMoney, downloadCsv } from '../../lib/utils'
+import { notice } from '../../lib/confirm'
 
 // Rewards management: every reward across the program. Add new ones,
 // mark them distributed (with payment notes), export for accounting.
@@ -54,7 +55,7 @@ export default function AdminRewards() {
     setBusyId(null)
     setDistributing(null)
     if (!error) load()
-    else alert(`Could not update: ${error.message}`)
+    else notice(`Could not update: ${error.message}`)
   }
 
   async function addReward(e) {

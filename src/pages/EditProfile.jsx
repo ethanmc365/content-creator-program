@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { confirm } from '../lib/confirm'
+import { confirm, notice } from '../lib/confirm'
 import { Link, useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import { useAuth } from '../context/AuthContext'
@@ -138,7 +138,7 @@ export default function EditProfile() {
     setDeleting(true)
     const { error } = await supabase.from('profiles').update({ deletion_requested_at: new Date().toISOString() }).eq('id', user.id)
     setDeleting(false)
-    if (error) return alert("Couldn't schedule deletion: " + error.message)
+    if (error) return notice("Couldn't schedule deletion: " + error.message)
     await refreshProfile()
   }
 

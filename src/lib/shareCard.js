@@ -176,7 +176,7 @@ export async function generateShareCard({ name, photoUrl, city, country, joinedY
   const tiles = [
     ['Videos created', stats.videos],
     ['Countries', stats.countries],
-    stats.totalViews > 0 ? ['Total views', compact(stats.totalViews)] : ['Member since', joinedYear || '—'],
+    stats.totalViews > 0 ? ['Total views', compact(stats.totalViews)] : ['Member since', joinedYear || '-'],
   ]
   const tw = 282
   const th = 150
