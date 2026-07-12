@@ -9,6 +9,21 @@ import { DEFAULT_BILL_TO, invoiceNo, invoiceMoney as money, paymentRows } from '
 const A4 = { w: 595.28, h: 841.89 }
 const MARGIN = 52
 
+// Real Poppins (the brand font), embedded and subset per document. This also
+// fixes the euro-symbol glitch: pdf-lib's built-in Helvetica ships wrong width
+// metrics for the € glyph, so adjacent digits overlapped ("€ inside the
+// number"); a real TTF carries correct widths for every glyph.
+let fontBytesPromise
+function fontBytes() {
+  if (!fontBytesPromise) {
+    fontBytesPromise = Promise.all([
+      fetch('/fonts/Poppins-Regular.ttf').then((r) => (r.ok ? r.arrayBuffer() : null)),
+      fetch('/fonts/Poppins-Bold.ttf').then((r) => (r.ok ? r.arrayBuffer() : null)),
+    ]).catch(() => [null, null])
+  }
+  return fontBytesPromise
+}
+
 // The brand logo file is a full-bleed 1200x630 card; crop the wordmark area
 // and round the corners on a canvas so the invoice gets a compact logo chip.
 // Cached module-level (the PDF is always built in the browser).
@@ -71,8 +86,20 @@ export async function buildInvoicePdf(inv) {
 
   const doc = await PDFDocument.create()
   const page = doc.addPage([A4.w, A4.h])
-  const font = await doc.embedFont(StandardFonts.Helvetica)
-  const bold = await doc.embedFont(StandardFonts.HelveticaBold)
+
+  // Embed Poppins (subset) for on-brand type + correct glyph metrics.
+  // Falls back to Helvetica only if the font files can't be fetched.
+  let font, bold
+  const [regBytes, boldBytes] = await fontBytes()
+  if (regBytes && boldBytes) {
+    const fontkit = (await import('@pdf-lib/fontkit')).default
+    doc.registerFontkit(fontkit)
+    font = await doc.embedFont(regBytes, { subset: true })
+    bold = await doc.embedFont(boldBytes, { subset: true })
+  } else {
+    font = await doc.embedFont(StandardFonts.Helvetica)
+    bold = await doc.embedFont(StandardFonts.HelveticaBold)
+  }
 
   const issue = inv.issueDate ? new Date(inv.issueDate) : new Date()
   const due = new Date(issue.getTime() + 7 * 24 * 60 * 60 * 1000)

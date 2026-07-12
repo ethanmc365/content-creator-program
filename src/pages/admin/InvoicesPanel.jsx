@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { format } from 'date-fns'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { Badge, EmptyState, PageHeader, Skeleton, Spinner, StatCard } from '../../components/ui'
+import { Badge, EmptyState, Skeleton, Spinner, StatCard } from '../../components/ui'
 import Icon from '../../components/Icon'
 import PaymentDetailsFields from '../../components/PaymentDetails'
 import { confirm, notice } from '../../lib/confirm'
@@ -36,9 +36,11 @@ const nameFromEmail = (e = '') => {
 }
 const defaultNotes = (currency) => `To be paid in ${currency === 'EUR' ? 'euros' : 'pounds'}.`
 
-// Generate, preview and email prize invoices. The creator's saved payment
-// details prefill the form; every field stays editable before sending.
-export default function AdminInvoices() {
+// The invoice generator, embedded in the Rewards dashboard. Prizes are set in
+// pounds; if the creator wants euros the amount converts automatically at
+// today's ECB rate. `prefill` (from a reward row's Invoice button) opens the
+// composer with the creator, amount and description already filled.
+export default function InvoicesPanel({ prefill }) {
   const { user, profile } = useAuth()
   const [invoices, setInvoices] = useState([])
   const [creators, setCreators] = useState([])
@@ -51,7 +53,8 @@ export default function AdminInvoices() {
   const [creatorName, setCreatorName] = useState('')
   const [payee, setPayee] = useState(EMPTY_PAYEE)
   const [hasSaved, setHasSaved] = useState(true) // did the creator save payment details?
-  const [amount, setAmount] = useState('')
+  const [gbpAmount, setGbpAmount] = useState('') // the prize, always in pounds
+  const [eurOverride, setEurOverride] = useState(null) // admin-typed euro amount (beats the auto conversion)
   const [description, setDescription] = useState('')
   const [issueDate, setIssueDate] = useState(isoToDateInput(new Date().toISOString()))
   const [billTo, setBillTo] = useState(DEFAULT_BILL_TO)
@@ -64,9 +67,8 @@ export default function AdminInvoices() {
   const [savingDefault, setSavingDefault] = useState(false)
   const [gmailPending, setGmailPending] = useState(false)
 
-  // ---- GBP -> EUR conversion helper (ECB daily rate) ----
+  // ---- GBP -> EUR conversion (ECB daily rate, applied automatically) ----
   const [fxRate, setFxRate] = useState(null) // null = not loaded, 0 = failed
-  const [gbpPrize, setGbpPrize] = useState('')
 
   async function load() {
     const [{ data: inv }, { data: c }, { data: setting }] = await Promise.all([
@@ -81,13 +83,14 @@ export default function AdminInvoices() {
   }
   useEffect(() => { load() }, [])
 
-  // Keep the default note in step with the currency until the admin edits it.
   const currency = payee.currency || 'GBP'
+
+  // Keep the default note in step with the currency until the admin edits it.
   useEffect(() => {
     if (!notesTouched.current) setNotes(defaultNotes(currency))
   }, [currency])
 
-  // Load the exchange rate the first time euros are selected.
+  // Load the exchange rate the first time euros come up.
   useEffect(() => {
     if (currency !== 'EUR' || fxRate !== null) return
     fetch(FX_URL)
@@ -95,6 +98,11 @@ export default function AdminInvoices() {
       .then((d) => setFxRate(d?.rates?.EUR || 0))
       .catch(() => setFxRate(0))
   }, [currency, fxRate])
+
+  // The amount that actually goes on the invoice: pounds as typed, or the
+  // automatic euro conversion (which the admin can overtype).
+  const autoEur = fxRate > 0 && Number(gbpAmount) > 0 ? (Number(gbpAmount) * fxRate).toFixed(2) : ''
+  const invoiceAmount = currency === 'EUR' ? (eurOverride ?? autoEur) : gbpAmount
 
   async function openComposer() {
     setOpen(true)
@@ -113,10 +121,10 @@ export default function AdminInvoices() {
     setCreatorId('')
     setCreatorName('')
     setPayee(EMPTY_PAYEE)
-    setAmount('')
+    setGbpAmount('')
+    setEurOverride(null)
     setDescription('')
     setIssueDate(isoToDateInput(new Date().toISOString()))
-    setGbpPrize('')
     setGmailPending(false)
     notesTouched.current = false
     setNotes(defaultNotes('GBP'))
@@ -135,7 +143,23 @@ export default function AdminInvoices() {
     if (!pay.currency) pay.currency = 'GBP'
     setPayee(pay)
     setHasSaved(!!data?.pay_currency)
+    setEurOverride(null)
   }
+
+  // A reward row's "Invoice" button lands here with everything prefilled.
+  const consumedPrefill = useRef(null)
+  useEffect(() => {
+    if (!prefill?.key || prefill.key === consumedPrefill.current || !creators.length) return
+    consumedPrefill.current = prefill.key
+    ;(async () => {
+      if (!open) await openComposer()
+      await selectCreator(prefill.creatorId)
+      setGbpAmount(prefill.amount != null ? String(prefill.amount) : '')
+      setEurOverride(null)
+      if (prefill.description) setDescription(prefill.description)
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefill, creators])
 
   // The invoice object shared by the live preview, the PDF and the email.
   const inv = useMemo(() => ({
@@ -143,18 +167,19 @@ export default function AdminInvoices() {
     issueDate: dateInputToIso(issueDate) || format(new Date(), 'yyyy-MM-dd'),
     creatorName: payee.name || creatorName,
     creatorAddress: payee.address,
-    amount,
+    amount: invoiceAmount,
     currency,
     description: description || 'Challenge cash prize',
     notes,
     billTo,
     payee,
-  }), [number, issueDate, creatorName, payee, amount, description, notes, billTo, currency])
+  }), [number, issueDate, creatorName, payee, invoiceAmount, description, notes, billTo, currency])
 
   function validate({ needRecipient = false } = {}) {
     const problems = []
     if (!creatorId) problems.push('Pick the creator this invoice is for.')
-    if (!(Number(amount) > 0)) problems.push('Enter the prize amount.')
+    if (!(Number(gbpAmount) > 0)) problems.push('Enter the prize amount in pounds.')
+    if (currency === 'EUR' && !(Number(invoiceAmount) > 0)) problems.push('The euro amount is missing. The exchange rate may not have loaded; type it manually.')
     if (!description.trim()) problems.push('Describe the prize (e.g. Placed 1st in the Summer Challenge).')
     if (!dateInputToIso(issueDate)) problems.push('The date should look like 15/07/2026.')
     if (!billTo.trim()) problems.push('Fill in the Tryp.com company details (Invoice to).')
@@ -199,7 +224,7 @@ export default function AdminInvoices() {
         number,
         creatorId,
         creatorName: inv.creatorName,
-        amount: Number(amount),
+        amount: Number(invoiceAmount),
         currency,
         description: description.trim(),
         issueDate: inv.issueDate,
@@ -221,7 +246,7 @@ export default function AdminInvoices() {
     const problems = validate({ needRecipient: true })
     if (problems.length) return notice(`Almost there:\n\n${problems.join('\n')}`)
     if (!await confirm(
-      `Send invoice ${invoiceRef(number)} for ${invoiceMoney(amount, currency)} to ${to.trim()}?` +
+      `Send invoice ${invoiceRef(number)} for ${invoiceMoney(invoiceAmount, currency)} to ${to.trim()}?` +
       (cc.trim() ? `\n\nYou'll be CC'd at ${cc.trim()} for your records.` : ''),
       { confirmLabel: 'Send invoice' },
     )) return
@@ -240,36 +265,41 @@ export default function AdminInvoices() {
     }
   }
 
-  // Open a prefilled Gmail compose in a new tab (the PDF downloads alongside;
-  // Gmail can't attach files from a link, so the admin drags it in and sends).
-  async function composeInGmail() {
+  // Open a prefilled Gmail compose (the PDF downloads alongside; Gmail can't
+  // attach files from a link, so the admin drags it in and sends). The tab is
+  // opened synchronously inside the click so popup blockers allow it.
+  function composeInGmail() {
     const problems = validate({ needRecipient: true })
     if (problems.length) return notice(`Almost there:\n\n${problems.join('\n')}`)
-    setDownloading(true)
-    try { await downloadInvoicePdf(inv) } finally { setDownloading(false) }
-    const names = [to, cc]
-      .map((e) => e.trim().toLowerCase())
-      .filter((e) => e && e !== user?.email?.toLowerCase())
-      .map(nameFromEmail)
-      .filter(Boolean)
-    const descPhrase = description.trim()
-      ? description.trim()[0].toLowerCase() + description.trim().slice(1)
-      : 'a challenge prize'
-    const body = [
-      `Hey ${names.length ? names.join(' and ') : 'there'},`,
-      '',
-      `I've attached the invoice for ${firstName(inv.creatorName)}, ${formatMoney(Number(amount), currency)} for ${descPhrase} in the Content Creator Program. ${notes.trim() || defaultNotes(currency)}`,
-      '',
-      'Thank you,',
-      firstName(profile?.name) || 'The Tryp.com team',
-    ].join('\n')
-    const url = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(to.trim())}` +
-      (cc.trim() && cc.trim().toLowerCase() !== user?.email?.toLowerCase() ? `&cc=${encodeURIComponent(cc.trim())}` : '') +
-      `&su=${encodeURIComponent(`Invoice ${invoiceRef(number)} · ${inv.creatorName} · ${invoiceMoney(amount, currency)}`)}` +
-      `&body=${encodeURIComponent(body)}`
-    window.open(url, '_blank', 'noopener')
-    localStorage.setItem(LAST_RECIPIENT_KEY, to.trim())
-    setGmailPending(true)
+    const win = window.open('about:blank', '_blank')
+    ;(async () => {
+      setDownloading(true)
+      try { await downloadInvoicePdf(inv) } finally { setDownloading(false) }
+      const names = [to, cc]
+        .map((e) => e.trim().toLowerCase())
+        .filter((e) => e && e !== user?.email?.toLowerCase())
+        .map(nameFromEmail)
+        .filter(Boolean)
+      const descPhrase = description.trim()
+        ? description.trim()[0].toLowerCase() + description.trim().slice(1)
+        : 'a challenge prize'
+      const body = [
+        `Hey ${names.length ? names.join(' and ') : 'there'},`,
+        '',
+        `I've attached the invoice for ${firstName(inv.creatorName)}, ${formatMoney(Number(invoiceAmount), currency)} for ${descPhrase} in the Content Creator Program. ${notes.trim() || defaultNotes(currency)}`,
+        '',
+        'Thank you,',
+        firstName(profile?.name) || 'The Tryp.com team',
+      ].join('\n')
+      const url = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(to.trim())}` +
+        (cc.trim() && cc.trim().toLowerCase() !== user?.email?.toLowerCase() ? `&cc=${encodeURIComponent(cc.trim())}` : '') +
+        `&su=${encodeURIComponent(`Invoice ${invoiceRef(number)} · ${inv.creatorName} · ${invoiceMoney(invoiceAmount, currency)}`)}` +
+        `&body=${encodeURIComponent(body)}`
+      if (win && !win.closed) win.location.replace(url)
+      else window.open(url, '_blank', 'noopener')
+      localStorage.setItem(LAST_RECIPIENT_KEY, to.trim())
+      setGmailPending(true)
+    })()
   }
 
   // After the admin actually pressed send in Gmail: record + notify.
@@ -314,23 +344,16 @@ export default function AdminInvoices() {
     return { gbp: sum('GBP'), eur: sum('EUR') }
   }, [invoices])
 
-  const eurEquiv = fxRate > 0 && Number(gbpPrize) > 0 ? (Number(gbpPrize) * fxRate).toFixed(2) : null
-
   return (
-    <div className="page">
-      <PageHeader
-        title="Invoices"
-        subtitle="Generate and email prize invoices for cash winners."
-        action={!open && (
-          <button type="button" className="btn-primary" onClick={openComposer}>+ New invoice</button>
-        )}
-      />
-
+    <div>
       {!open && (
-        <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3">
-          <StatCard label="Invoices sent" value={invoices.length} />
-          <StatCard label="Total invoiced (GBP)" value={invoiceMoney(totals.gbp, 'GBP')} />
-          <StatCard label="Total invoiced (EUR)" value={invoiceMoney(totals.eur, 'EUR')} />
+        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+          <div className="grid flex-1 grid-cols-2 gap-4 sm:grid-cols-3">
+            <StatCard label="Invoices sent" value={invoices.length} />
+            <StatCard label="Total invoiced (GBP)" value={invoiceMoney(totals.gbp, 'GBP')} />
+            <StatCard label="Total invoiced (EUR)" value={invoiceMoney(totals.eur, 'EUR')} />
+          </div>
+          <button type="button" className="btn-primary" onClick={openComposer}>+ New invoice</button>
         </div>
       )}
 
@@ -375,15 +398,14 @@ export default function AdminInvoices() {
 
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div>
-                <label htmlFor="inv-amount" className="label">Prize amount</label>
+                <label htmlFor="inv-amount" className="label">Prize amount (£)</label>
                 <div className="relative">
-                  <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-sm font-semibold text-smoke">
-                    {currency === 'EUR' ? '€' : '£'}
-                  </span>
+                  <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-sm font-semibold text-smoke">£</span>
                   <input
                     id="inv-amount" type="number" min="0" step="0.01" inputMode="decimal"
-                    className="input !pl-9" placeholder="500"
-                    value={amount} onChange={(e) => setAmount(e.target.value)}
+                    className="input !pl-9" placeholder="50"
+                    value={gbpAmount}
+                    onChange={(e) => { setGbpAmount(e.target.value); setEurOverride(null) }}
                   />
                 </div>
               </div>
@@ -398,28 +420,23 @@ export default function AdminInvoices() {
 
             {currency === 'EUR' && (
               <div className="rounded-xl bg-brand-tint px-4 py-3">
-                <p className="mb-2 text-xs font-semibold text-brand">Prize was in pounds? Convert it</p>
-                <div className="flex items-center gap-2">
-                  <div className="relative w-32">
-                    <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs font-semibold text-smoke">£</span>
+                <div className="flex flex-wrap items-center gap-3">
+                  <p className="text-xs font-semibold text-brand">{creatorName ? `${firstName(creatorName)} gets paid in euros:` : 'Paid in euros:'}</p>
+                  <div className="relative w-36">
+                    <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs font-semibold text-smoke">€</span>
                     <input
                       type="number" min="0" step="0.01" inputMode="decimal"
-                      className="input !py-2 !pl-7 text-sm" placeholder="50"
-                      value={gbpPrize} onChange={(e) => setGbpPrize(e.target.value)}
+                      className="input !py-2 !pl-7 text-sm"
+                      value={invoiceAmount}
+                      onChange={(e) => setEurOverride(e.target.value)}
                     />
                   </div>
-                  <button
-                    type="button" className="btn-secondary !py-2 text-xs"
-                    disabled={!eurEquiv}
-                    onClick={() => setAmount(eurEquiv)}
-                  >
-                    {eurEquiv ? `Use €${eurEquiv}` : 'Use €…'}
-                  </button>
                 </div>
-                <p className="mt-2 text-[11px] text-smoke">
-                  {fxRate === null ? 'Loading today’s exchange rate…'
-                    : fxRate === 0 ? 'Couldn’t load the exchange rate. Type the euro amount yourself.'
-                    : `European Central Bank rate today: £1 = €${fxRate}. The invoice is paid in euros at this amount.`}
+                <p className="mt-2 text-[11px] leading-relaxed text-smoke">
+                  {fxRate === null ? 'Fetching today’s exchange rate…'
+                    : fxRate === 0 ? 'Couldn’t load the exchange rate, so type the euro amount yourself.'
+                    : eurOverride !== null ? 'You’ve set the euro amount yourself. Change the £ prize to go back to the automatic rate.'
+                    : `Converted automatically at today’s European Central Bank rate (£1 = €${fxRate}). You can overtype it.`}
                 </p>
               </div>
             )}
@@ -478,9 +495,8 @@ export default function AdminInvoices() {
                 />
               </div>
               <p className="text-xs leading-relaxed text-smoke">
-                Compose in Gmail opens a ready-written email in your Gmail (attach the downloaded PDF, review, send).
-                Send from platform emails the PDF automatically. Either way, {firstName(inv.creatorName) || 'the creator'} gets
-                a notification to expect payment within 7 days.
+                Compose in Gmail opens a ready-written email in your Gmail: attach the downloaded PDF, review, send.
+                Either way, {firstName(inv.creatorName) || 'the creator'} gets a notification to expect payment within 7 days.
               </p>
             </div>
 
@@ -488,11 +504,11 @@ export default function AdminInvoices() {
               <button type="button" className="btn-ghost" onClick={downloadPdf} disabled={downloading}>
                 {downloading ? <Spinner /> : 'Download PDF'}
               </button>
-              <button type="button" className="btn-secondary" onClick={composeInGmail} disabled={downloading || sending}>
-                Compose in Gmail
-              </button>
-              <button type="button" className="btn-primary" onClick={send} disabled={sending}>
+              <button type="button" className="btn-secondary" onClick={send} disabled={sending}>
                 {sending && !gmailPending ? <Spinner /> : 'Send from platform'}
+              </button>
+              <button type="button" className="btn-primary" onClick={composeInGmail} disabled={downloading || sending}>
+                Compose in Gmail
               </button>
             </div>
           </div>

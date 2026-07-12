@@ -61,7 +61,6 @@ const AdminAuditLog = lazy(() => import('./pages/admin/AdminAuditLog'))
 const AdminScheduledAnnouncements = lazy(() => import('./pages/admin/AdminScheduledAnnouncements'))
 const AdminWhatsNew = lazy(() => import('./pages/admin/AdminWhatsNew'))
 const AdminFeedback = lazy(() => import('./pages/admin/AdminFeedback'))
-const AdminInvoices = lazy(() => import('./pages/admin/AdminInvoices'))
 
 function LazyFallback() {
   return (
@@ -139,7 +138,8 @@ export default function App() {
             <Route path="/admin/scheduled" element={<AdminScheduledAnnouncements />} />
             <Route path="/admin/whats-new" element={<AdminWhatsNew />} />
             <Route path="/admin/feedback" element={<AdminFeedback />} />
-            <Route path="/admin/invoices" element={<AdminInvoices />} />
+            {/* Invoices now live inside the Rewards dashboard */}
+            <Route path="/admin/invoices" element={<Navigate to="/admin/rewards?tab=invoices" replace />} />
           </Route>
         </Route>
       </Route>

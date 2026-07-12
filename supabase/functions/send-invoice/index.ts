@@ -13,6 +13,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const ANON = Deno.env.get('SUPABASE_ANON_KEY')!
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
+const APP_URL = Deno.env.get('APP_URL') ?? 'https://trypcreators.vercel.app'
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE)
 
@@ -130,22 +131,20 @@ Deno.serve(async (req) => {
       ...(ccList.length ? { cc: ccList } : {}),
       ...(replyTo ? { reply_to: replyTo } : {}),
       subject: `Invoice ${ref} · ${creatorName} · ${amountStr}`,
-      html: `<div style="font-family:Poppins,Arial,sans-serif;color:#1a1a1a;max-width:560px">
-        <div style="background:#d94407;border-radius:12px 12px 0 0;padding:20px 28px">
-          <p style="margin:0;color:#fff;font-size:20px;font-weight:700">TRYP.com</p>
-          <p style="margin:2px 0 0;color:#ffe0cc;font-size:12px">Content Creator Program</p>
-        </div>
-        <div style="border:1px solid #eee;border-top:0;border-radius:0 0 12px 12px;padding:24px 28px">
-          <p>Hi,</p>
-          <p>Please find attached invoice <strong>${ref}</strong> for <strong>${esc(creatorName)}</strong>:</p>
-          <table style="border-collapse:collapse;font-size:14px;margin:12px 0">
-            <tr><td style="padding:4px 16px 4px 0;color:#6b7280">Prize</td><td style="padding:4px 0">${esc(description)}</td></tr>
-            <tr><td style="padding:4px 16px 4px 0;color:#6b7280">Amount</td><td style="padding:4px 0"><strong>${amountStr}</strong></td></tr>
-            <tr><td style="padding:4px 16px 4px 0;color:#6b7280">Payment due</td><td style="padding:4px 0">within 7 days</td></tr>
+      html: `<div style="font-family:Poppins,Helvetica,Arial,sans-serif;color:#1a1a1a;max-width:520px;margin:0 auto;padding:8px 0">
+        <img src="${APP_URL}/brand/tryp-logo.png" alt="Tryp.com" width="128" style="display:block;border-radius:14px;margin:0 0 22px" />
+        <p style="margin:0;font-size:18px;font-weight:700">Invoice ${ref}</p>
+        <p style="margin:4px 0 22px;font-size:13px;color:#6b7280">Content Creator Program · prize payment</p>
+        <div style="border:1px solid #f0f0f0;border-radius:14px;padding:6px 24px;margin-bottom:22px">
+          <table style="border-collapse:collapse;font-size:14px;width:100%">
+            <tr><td style="padding:12px 16px 12px 0;color:#6b7280;white-space:nowrap;border-bottom:1px solid #f7f7f8">Creator</td><td style="padding:12px 0;font-weight:600;border-bottom:1px solid #f7f7f8">${esc(creatorName)}</td></tr>
+            <tr><td style="padding:12px 16px 12px 0;color:#6b7280;white-space:nowrap;border-bottom:1px solid #f7f7f8">Prize</td><td style="padding:12px 0;border-bottom:1px solid #f7f7f8">${esc(description)}</td></tr>
+            <tr><td style="padding:12px 16px 12px 0;color:#6b7280;white-space:nowrap;border-bottom:1px solid #f7f7f8">Amount</td><td style="padding:12px 0;font-weight:700;color:#d94407;border-bottom:1px solid #f7f7f8">${amountStr}</td></tr>
+            <tr><td style="padding:12px 16px 12px 0;color:#6b7280;white-space:nowrap">Payment due</td><td style="padding:12px 0">Within 7 days</td></tr>
           </table>
-          <p>The creator's bank details are on the attached PDF.</p>
-          <p style="color:#6b7280;font-size:12px;margin-top:20px">Sent from the Tryp.com Content Creator Program platform. Replies go to ${esc(replyTo ?? 'the Tryp.com team')}.</p>
         </div>
+        <p style="margin:0 0 22px;font-size:14px;line-height:1.6">The invoice is attached as a PDF, with ${esc(creatorName)}'s bank details on it.</p>
+        <p style="margin:0;padding-top:16px;border-top:1px solid #f0f0f0;font-size:12px;color:#9ca3af">Sent from the Tryp.com Content Creator Program platform. Replies go to ${esc(replyTo ?? 'the Tryp.com team')}.</p>
       </div>`,
       attachments: [{ filename: filename || `${ref}.pdf`, content: pdfBase64 }],
     }),

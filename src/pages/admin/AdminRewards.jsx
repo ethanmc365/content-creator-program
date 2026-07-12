@@ -1,12 +1,18 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Avatar, Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner, StatCard } from '../../components/ui'
 import { formatDate, formatMoney, downloadCsv } from '../../lib/utils'
 import { notice } from '../../lib/confirm'
+import InvoicesPanel from './InvoicesPanel'
 
-// Rewards management: every reward across the program. Add new ones,
-// mark them distributed (with payment notes), export for accounting.
+// The program's money hub: rewards (payouts) and prize invoices live
+// together. A reward row's Invoice button jumps straight into the invoice
+// composer with the creator, amount and challenge prefilled.
 export default function AdminRewards() {
+  const [searchParams] = useSearchParams()
+  const [tab, setTab] = useState(searchParams.get('tab') === 'invoices' ? 'invoices' : 'payouts')
+  const [invoicePrefill, setInvoicePrefill] = useState(null)
   const [rewards, setRewards] = useState([])
   const [creators, setCreators] = useState([])
   const [challenges, setChallenges] = useState([])
@@ -102,19 +108,52 @@ export default function AdminRewards() {
   const totalPaid = rewards.filter((r) => r.status === 'distributed').reduce((s, r) => s + Number(r.amount), 0)
   const totalPending = rewards.filter((r) => r.status === 'pending').reduce((s, r) => s + Number(r.amount), 0)
 
+  // Jump from a reward straight into the invoice composer, prefilled.
+  // (Counter ref instead of Date.now(): the purity lint bans clock reads here;
+  // the key only needs to differ per click so repeat clicks re-trigger.)
+  const prefillSeq = useRef(0)
+  function invoiceReward(r) {
+    prefillSeq.current += 1
+    setInvoicePrefill({
+      key: `${r.id}-${prefillSeq.current}`,
+      creatorId: r.creator_id,
+      amount: r.amount,
+      description: r.challenges?.title ? `Cash prize for ${r.challenges.title}` : 'Challenge cash prize',
+    })
+    setTab('invoices')
+  }
+
   return (
     <div className="page">
       <PageHeader
-        title="Rewards"
+        title="Rewards & invoices"
         subtitle="The program's money trail. Keep it tidy for accounting."
-        action={
+        action={tab === 'payouts' && (
           <div className="flex gap-2">
             <button onClick={exportRewards} className="btn-secondary">Export CSV ↓</button>
             <button onClick={() => setShowAdd(true)} className="btn-primary">+ Add reward</button>
           </div>
-        }
+        )}
       />
 
+      <div className="mb-8 flex gap-2">
+        {[['payouts', 'Payouts'], ['invoices', 'Invoices']].map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setTab(key)}
+            className={tab === key ? 'btn-primary !py-2 text-sm' : 'btn-secondary !py-2 text-sm'}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className={tab === 'invoices' ? '' : 'hidden'}>
+        <InvoicesPanel prefill={invoicePrefill} />
+      </div>
+
+      <div className={tab === 'payouts' ? '' : 'hidden'}>
       <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label="Total program spend" value={formatMoney(totalPaid + totalPending)} />
         <StatCard label="Distributed" value={formatMoney(totalPaid)} accent />
@@ -152,6 +191,9 @@ export default function AdminRewards() {
               </div>
               <span className="font-bold tabular-nums">{formatMoney(r.amount, r.currency)}</span>
               <Badge tone={r.status === 'distributed' ? 'green' : 'amber'}>{r.status}</Badge>
+              {r.reward_type === 'cash' && (
+                <button onClick={() => invoiceReward(r)} className="btn-secondary !py-2 text-xs">Invoice</button>
+              )}
               {r.status === 'pending' && (
                 <button onClick={() => openDistribute(r)} disabled={busyId === r.id} className="btn-primary !py-2 text-xs">
                   {busyId === r.id ? <Spinner className="h-4 w-4" /> : 'Mark distributed ✓'}
@@ -161,6 +203,7 @@ export default function AdminRewards() {
           ))}
         </div>
       )}
+      </div>{/* /payouts tab */}
 
       {/* ---------- Add reward modal ---------- */}
       <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Add a reward">
