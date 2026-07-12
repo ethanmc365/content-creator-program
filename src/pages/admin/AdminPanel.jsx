@@ -12,6 +12,7 @@ const TOOLS = [
   { to: '/admin/creators', icon: 'users', title: 'Creators', text: 'Full list with emails, activity, password resets, mute/suspend, promote.' },
   { to: '/admin/challenges', icon: 'flag', title: 'Challenges', text: 'Create, edit, close and archive challenges.' },
   { to: '/admin/rewards', icon: 'money', title: 'Rewards', text: 'Manage payouts, mark distributed, export for accounting.' },
+  { to: '/admin/invoices', icon: 'cash', title: 'Invoices', text: 'Generate a prize invoice and email it straight to finance.' },
   { to: '/admin/analytics', icon: 'chart', title: 'Analytics', text: 'Growth, submissions, views and spend, with CSV export.' },
   { to: '/admin/network', icon: 'users', title: 'Community network', text: 'Who is connecting with whom and the best-connected creators.' },
   { to: '/admin/email', icon: 'envelope', title: 'Email creators', text: 'Compose one message and send it to every creator.' },

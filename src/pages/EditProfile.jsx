@@ -7,6 +7,8 @@ import { supabase } from '../lib/supabase'
 import { AvatarUpload, LanguageSelect, SocialInputs, DobField, PhoneInput, QuoteField } from '../components/ProfileFields'
 import WorldMap from '../components/WorldMap'
 import TravelGallery from '../components/TravelGallery'
+import PaymentDetailsFields from '../components/PaymentDetails'
+import { EMPTY_PAYEE, payeeFromPrivate, payeeToPrivate, payeeStarted, validatePayee } from '../lib/invoice'
 import { flagForCountry } from '../lib/flags'
 import { geocodeCity } from '../lib/geocode'
 import { PageHeader, Spinner } from '../components/ui'
@@ -37,15 +39,21 @@ export default function EditProfile() {
     countries_visited: profile?.countries_visited || [],
   })
 
-  // Phone is stored separately (private, admin-only). Load the creator's own row.
+  // Phone + payment details are stored separately (private: only the creator
+  // and admins can read them). Load the creator's own row.
   const [contact, setContact] = useState({ phone: '', phone_country: '' })
+  const [payee, setPayee] = useState(EMPTY_PAYEE)
   useEffect(() => {
     supabase
       .from('creator_private')
-      .select('phone, phone_country')
+      .select('*')
       .eq('id', user.id)
       .maybeSingle()
-      .then(({ data }) => { if (data) setContact({ phone: data.phone || '', phone_country: data.phone_country || '' }) })
+      .then(({ data }) => {
+        if (!data) return
+        setContact({ phone: data.phone || '', phone_country: data.phone_country || '' })
+        setPayee(payeeFromPrivate(data))
+      })
   }, [user.id])
 
   // Upcoming trips, shown read-only here (managed on the collab board).
@@ -64,6 +72,12 @@ export default function EditProfile() {
 
   async function save(e) {
     e.preventDefault()
+    // Payment details get paid off directly, so never store a half-right set:
+    // once the creator has started filling them in, they must be valid.
+    if (payeeStarted(payee)) {
+      const problems = validatePayee(payee)
+      if (problems.length) return notice(`Please check your payment details:\n\n${problems.join('\n')}`)
+    }
     setBusy(true)
     // Geocode the town so this creator lands on the creator map. Best-effort:
     // if it changed (or was never geocoded) look it up, else keep old coords.
@@ -82,6 +96,7 @@ export default function EditProfile() {
         id: user.id,
         phone: contact.phone,
         phone_country: contact.phone_country,
+        ...payeeToPrivate(payee),
         updated_at: new Date().toISOString(),
       }),
     ])
@@ -213,6 +228,14 @@ export default function EditProfile() {
               + Add another link
             </button>
           </div>
+        </section>
+
+        <section className="card space-y-5">
+          <div>
+            <h2 className="text-lg font-semibold">Payment details</h2>
+            <p className="mt-1 text-sm text-smoke">Where we send your cash prizes when you win a challenge.</p>
+          </div>
+          <PaymentDetailsFields value={payee} onChange={setPayee} />
         </section>
 
         <section className="card space-y-5">
