@@ -37,6 +37,7 @@ export default function EditProfile() {
     other_links: Array.isArray(profile?.other_links) ? profile.other_links : [],
     languages: profile?.languages || [],
     countries_visited: profile?.countries_visited || [],
+    bucket_list: Array.isArray(profile?.bucket_list) ? profile.bucket_list : [],
   })
 
   // Phone + payment details are stored separately (private: only the creator
@@ -82,6 +83,10 @@ export default function EditProfile() {
     // Geocode the town so this creator lands on the creator map. Best-effort:
     // if it changed (or was never geocoded) look it up, else keep old coords.
     const payload = { ...form }
+    // Drop half-empty bucket-list rows (a destination needs at least a country).
+    payload.bucket_list = form.bucket_list
+      .map((b) => ({ country: (b.country || '').trim(), city: (b.city || '').trim() }))
+      .filter((b) => b.country)
     if (form.city?.trim() || form.country?.trim()) {
       const townChanged = form.city !== profile?.city || form.country !== profile?.country
       if (townChanged || profile?.city_lat == null) {
@@ -263,6 +268,34 @@ export default function EditProfile() {
         <section className="card space-y-5">
           <h2 className="text-lg font-semibold">Languages spoken</h2>
           <LanguageSelect selected={form.languages} onChange={(languages) => set({ languages })} />
+        </section>
+
+        <section className="card space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">Travel bucket list</h2>
+            <p className="mt-1 text-sm text-smoke">Countries (and towns) you're dreaming of visiting. They show on your profile with the flag.</p>
+          </div>
+          {form.bucket_list.map((b, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <span className="w-8 shrink-0 text-center text-2xl leading-none" aria-hidden>{flagForCountry(b.country) || '📍'}</span>
+              <input
+                type="text" placeholder="Country (e.g. Japan)" className="input flex-1"
+                value={b.country || ''}
+                onChange={(e) => { const list = [...form.bucket_list]; list[i] = { ...list[i], country: e.target.value }; set({ bucket_list: list }) }}
+                aria-label={`Bucket-list country ${i + 1}`}
+              />
+              <input
+                type="text" placeholder="Town (optional)" className="input flex-1"
+                value={b.city || ''}
+                onChange={(e) => { const list = [...form.bucket_list]; list[i] = { ...list[i], city: e.target.value }; set({ bucket_list: list }) }}
+                aria-label={`Bucket-list town ${i + 1}`}
+              />
+              <button type="button" aria-label="Remove destination" className="btn-ghost !px-3" onClick={() => set({ bucket_list: form.bucket_list.filter((_, j) => j !== i) })}>✕</button>
+            </div>
+          ))}
+          <button type="button" className="btn-secondary !py-2 text-xs" onClick={() => set({ bucket_list: [...form.bucket_list, { country: '', city: '' }] })}>
+            + Add a destination
+          </button>
         </section>
 
         <section className="card space-y-5">

@@ -267,7 +267,7 @@ export default function ChallengeDetail() {
             <div className="flex items-start gap-3 rounded-card border border-brand/20 bg-brand-tint/60 px-5 py-4">
               <Icon name="clock" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
               <div>
-                <p className="text-sm font-semibold text-brand">Interim standings</p>
+                <p className="text-sm font-semibold text-brand">Current leaderboard</p>
                 <p className="text-xs text-smoke">
                   Views logged so far{challenge.results_updated_at ? ` · updated ${timeAgo(challenge.results_updated_at)}` : ''}. These can still change. Final results are counted after the challenge closes.
                 </p>

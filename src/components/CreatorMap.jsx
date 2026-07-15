@@ -35,20 +35,41 @@ function initials(name = '') {
   return name.split(' ').map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '?'
 }
 
+// Match a creator's typed country against a map geography name. Point-in-polygon
+// (geoContains) misses coastal / island towns whose coords land just offshore,
+// so we also tint by the country the creator explicitly stated. Normalised +
+// a small alias table for the names world-atlas spells differently.
+const norm = (s) => (s || '').toLowerCase().replace(/[^a-z]/g, '')
+const COUNTRY_ALIASES = {
+  usa: 'unitedstatesofamerica', us: 'unitedstatesofamerica', unitedstates: 'unitedstatesofamerica', america: 'unitedstatesofamerica',
+  uk: 'unitedkingdom', england: 'unitedkingdom', scotland: 'unitedkingdom', wales: 'unitedkingdom',
+  northernireland: 'unitedkingdom', britain: 'unitedkingdom', greatbritain: 'unitedkingdom',
+  uae: 'unitedarabemirates', southkorea: 'southkorea', czechia: 'czechrepublic', czech: 'czechrepublic',
+  russia: 'russia', ireland: 'ireland', republicofireland: 'ireland',
+}
+const canonCountry = (s) => { const n = norm(s); return COUNTRY_ALIASES[n] || n }
+function countryNameMatches(typed, geoName) {
+  if (!typed) return false
+  return canonCountry(typed) === canonCountry(geoName)
+}
+
 // One map pin: a round photo sitting in a classic teardrop, with a small pointer
 // tip on the exact coordinate. The avatar is CONCENTRIC with the white disc so
 // it's dead-centre in the pin. Counter-scaled against the zoom so it stays a
 // calm, readable size (a hair of growth when you zoom in, never a balloon).
-function Pin({ group, zoom, active, onSelect }) {
+function Pin({ group, zoom, active, dim, onSelect }) {
   const lead = group.creators[0]
   const count = group.creators.length
-  const s = Math.pow(1 / Math.max(zoom, 1), 0.9) // net on-screen size ~ zoom^0.1
-  const r = 15 // avatar radius
+  // Counter-scale so pins are small at the default zoom (you can see the
+  // countries underneath) but grow noticeably as you zoom in to find people:
+  // net on-screen size ~ zoom^0.3.
+  const s = Math.pow(1 / Math.max(zoom, 1), 0.7)
+  const r = 12 // avatar radius (smaller base than before)
   const cy = -26 // avatar centre above the tip
   const disc = r + 3 // white ring around the photo
   return (
     <Marker coordinates={group.coords} onClick={() => onSelect(group.key)}>
-      <g transform={`scale(${s})`} style={{ cursor: 'pointer' }}>
+      <g transform={`scale(${s})`} style={{ cursor: 'pointer', opacity: dim ? 0.25 : 1, transition: 'opacity 0.2s' }}>
         {/* pointer tail + white disc, concentric with the avatar, share one shadow */}
         <g style={{ filter: 'drop-shadow(0 2px 3px rgba(20,20,30,0.30))' }}>
           <path d={`M${-r * 0.62} ${cy + disc * 0.5} L0 0 L${r * 0.62} ${cy + disc * 0.5} Z`} fill="#ffffff" />
@@ -102,7 +123,8 @@ function Plane({ x, y, angle, zoom }) {
   )
 }
 
-function CreatorMap({ creators = [] }) {
+function CreatorMap({ creators = [], highlightIds = null }) {
+  const highlighting = highlightIds && highlightIds.size > 0
   const [extraCoords, setExtraCoords] = useState({}) // legacy rows: id -> {lat,lng}
   const [homeNames, setHomeNames] = useState(() => new Set()) // countries to tint
   const [tooltip, setTooltip] = useState('')
@@ -176,7 +198,10 @@ function CreatorMap({ creators = [] }) {
         midx: 0.25 * ax + 0.5 * cx + 0.25 * bx,
         midy: 0.25 * ay + 0.5 * cyc + 0.25 * by,
         angle: (Math.atan2(dy, dx) * 180) / Math.PI,
-        overseas: geoDistance(a, b) * 6371 > 500,
+        // Only put a plane on genuinely long hops (transatlantic / to Asia /
+        // Australia). Short European city-to-city hops no longer get one, so
+        // the planes stop clustering and overlapping over the dense clusters.
+        overseas: geoDistance(a, b) * 6371 > 1800,
       })
     }
     return segs
@@ -194,7 +219,12 @@ function CreatorMap({ creators = [] }) {
         const fc = feature(topo, topo.objects.countries)
         const names = new Set()
         for (const f of fc.features) {
-          if (located.some((c) => geoContains(f, [c._lng, c._lat]))) names.add(f.properties.name)
+          const gname = f.properties.name
+          // Tint if a creator's point falls inside OR their typed country matches.
+          const hit = located.some((c) =>
+            geoContains(f, [c._lng, c._lat]) || countryNameMatches(c.country, gname)
+          )
+          if (hit) names.add(gname)
         }
         setHomeNames(names)
       })
@@ -316,7 +346,7 @@ function CreatorMap({ creators = [] }) {
               )}
               onMouseLeave={() => setTooltip('')}
             >
-              <Pin group={town} zoom={z} active={selected === town.key} onSelect={setSelected} />
+              <Pin group={town} zoom={z} active={selected === town.key} dim={highlighting && !town.creators.some((c) => highlightIds.has(c.id))} onSelect={setSelected} />
             </g>
           ))}
         </ZoomableGroup>

@@ -42,6 +42,13 @@ export default {
           '0%': { transform: 'translateY(-10vh) rotate(0deg)', opacity: '1' },
           '100%': { transform: 'translateY(110vh) rotate(720deg)', opacity: '0' },
         },
+        // A firework particle shooting outward from its burst origin and fading.
+        // --dx / --dy set per-particle to radiate in a circle.
+        burst: {
+          '0%': { transform: 'translate(0, 0) scale(1)', opacity: '1' },
+          '80%': { opacity: '1' },
+          '100%': { transform: 'translate(var(--dx, 0), var(--dy, 0)) scale(0.3)', opacity: '0' },
+        },
         // Gentle opacity-only entrance for page content. Deliberately has NO
         // transform: a persisted transform on `.page` would become a containing
         // block for position:fixed children (the mobile chat overlay).
@@ -70,6 +77,7 @@ export default {
         'page-in': 'page-in 0.35s ease-out both',
         'menu-in': 'menu-in 0.16s ease-out both',
         confetti: 'confetti 3s linear forwards',
+        burst: 'burst 1.3s ease-out infinite',
         fly: 'fly 1.7s ease-in-out infinite',
       },
     },

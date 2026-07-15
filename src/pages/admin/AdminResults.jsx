@@ -92,7 +92,7 @@ export default function AdminResults() {
     setResultsCount(ranked.length)
     flash(
       phase === 'interim'
-        ? `Interim standings published. ${ranked.length} creators ranked and live on the challenge page. Re-log views and publish again any time; publish once more after the challenge closes for the final result.`
+        ? `Current leaderboard published. ${ranked.length} creators ranked and live on the challenge page. Re-log views and publish again any time; publish once more after the challenge closes for the final result.`
         : `Final results saved. ${ranked.length} creators ranked and now live on the challenge page.`
     )
   }
@@ -124,13 +124,13 @@ export default function AdminResults() {
         title={`Results: ${challenge?.title}`}
         subtitle={
           isLive
-            ? 'Log the views you can see so far and publish an interim leaderboard mid-challenge. Re-log and publish again after it closes for the final ranking. No scraping. Your eyes are the source of truth.'
+            ? 'Log the views you can see so far and publish the current leaderboard mid-challenge. Re-log and publish again after it closes for the final ranking. No scraping. Your eyes are the source of truth.'
             : 'Open each video, check its views on the platform, and log the number here. No scraping. Your eyes are the source of truth.'
         }
         action={
           <div className="flex flex-col items-end gap-2">
             <button onClick={generateLeaderboard} disabled={generating} className="btn-primary">
-              {generating ? <Spinner /> : isLive ? 'Publish interim standings' : 'Publish final results'}
+              {generating ? <Spinner /> : isLive ? 'Publish current leaderboard' : 'Publish final results'}
             </button>
             {resultsCount > 0 && (
               <>
@@ -138,7 +138,7 @@ export default function AdminResults() {
                   {posting ? <Spinner /> : 'Post update to Announcements'}
                 </button>
                 <Link to={`/challenges/${id}`} className="text-xs font-medium text-brand hover:underline">
-                  {challenge?.results_status === 'interim' ? 'Interim' : 'Final'} leaderboard live ({resultsCount}) → view
+                  {challenge?.results_status === 'interim' ? 'Current' : 'Final'} leaderboard live ({resultsCount}) → view
                 </Link>
               </>
             )}

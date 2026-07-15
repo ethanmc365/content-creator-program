@@ -314,6 +314,22 @@ export default function Profile() {
         </section>
       )}
 
+      {/* ---------- Travel bucket list ---------- */}
+      {creator.bucket_list?.length > 0 && (
+        <section>
+          <h2 className="mb-3 text-lg font-semibold">
+            {isMe ? 'My travel bucket list' : `${creator.name.split(' ')[0]}'s travel bucket list`}
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {creator.bucket_list.map((b, i) => (
+              <Badge key={i} tone="light">
+                {flagForCountry(b.country)} {b.city ? `${b.city}, ${b.country}` : b.country}
+              </Badge>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* ---------- World map (countries visited) ---------- */}
       <section>
         <div className="mb-4 flex items-baseline justify-between">

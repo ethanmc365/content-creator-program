@@ -378,27 +378,37 @@ function GameMap({ placed, revealed, flashWrong, answered, onPick }) {
   )
 }
 
-// A custom, on-brand celebration graphic — replaces the native 🎉 emoji on the
-// results screen. A party popper bursting Tryp-coloured confetti.
-function CelebrationGraphic({ className = 'h-20 w-20' }) {
+// A looping fireworks burst behind the results centrepiece. Three staggered
+// bursts, each radiating coloured particles outward (CSS `burst` keyframe).
+const BURST_COLORS = ['#d94407', '#f5853f', '#fbbf24', '#16a34a', '#3b82f6']
+const BURSTS = [
+  { x: '50%', y: '30%', delay: 0, dist: 42 },
+  { x: '28%', y: '46%', delay: 0.45, dist: 34 },
+  { x: '72%', y: '48%', delay: 0.85, dist: 34 },
+]
+function Fireworks() {
   return (
-    <svg viewBox="0 0 64 64" className={className} fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-      {/* popper cone */}
-      <path d="M8 56 L27 31 L37 41 Z" fill="#d94407" />
-      <path d="M8 56 L27 31 L31 35 Z" fill="#f5853f" />
-      {/* cone opening highlights */}
-      <path d="M10 53 L20 43 M11 55 L23 49" stroke="#fdf0e7" strokeWidth="1.6" strokeLinecap="round" opacity="0.75" />
-      {/* streamers arcing out of the popper */}
-      <path d="M31 30 q9 -11 21 -15" stroke="#fbbf24" strokeWidth="2.4" strokeLinecap="round" />
-      <path d="M34 35 q11 -5 23 -3" stroke="#16a34a" strokeWidth="2.4" strokeLinecap="round" opacity="0.85" />
-      {/* confetti burst */}
-      <circle cx="44" cy="15" r="3" fill="#fbbf24" />
-      <circle cx="55" cy="25" r="2.5" fill="#16a34a" />
-      <circle cx="58" cy="13" r="2" fill="#f5853f" />
-      <rect x="45" y="31" width="5" height="5" rx="1" fill="#d94407" transform="rotate(20 47.5 33.5)" />
-      <rect x="33" y="9" width="5" height="5" rx="1" fill="#f5853f" transform="rotate(-15 35.5 11.5)" />
-      <path d="M50 7 l2.2 4.2 -4.4 0 z" fill="#d94407" />
-    </svg>
+    <div className="pointer-events-none absolute inset-0 overflow-hidden motion-reduce:hidden" aria-hidden>
+      {BURSTS.map((b, bi) => (
+        <div key={bi} className="absolute" style={{ left: b.x, top: b.y }}>
+          {Array.from({ length: 12 }).map((_, i) => {
+            const ang = (i / 12) * Math.PI * 2
+            return (
+              <span
+                key={i}
+                className="absolute block h-1.5 w-1.5 rounded-full animate-burst"
+                style={{
+                  backgroundColor: BURST_COLORS[(i + bi) % BURST_COLORS.length],
+                  '--dx': `${Math.cos(ang) * b.dist}px`,
+                  '--dy': `${Math.sin(ang) * b.dist}px`,
+                  animationDelay: `${b.delay}s`,
+                }}
+              />
+            )
+          })}
+        </div>
+      ))}
+    </div>
   )
 }
 
@@ -418,9 +428,21 @@ function Results({ result, mode, region, eventId, userId, onPlayAgain, onMenu })
   return (
     <div className="card flex flex-col items-center gap-4 !py-10 text-center animate-pop-in">
       {great && <Confetti count={50} />}
-      {pct >= 50
-        ? <CelebrationGraphic className="h-20 w-20" />
-        : <Icon name="globe" className="h-14 w-14 text-brand" aria-hidden />}
+      {pct >= 50 ? (
+        <div className="relative flex h-24 w-40 items-center justify-center">
+          <Fireworks />
+          <span className="relative flex h-16 w-16 items-center justify-center rounded-full bg-brand text-white shadow-lift">
+            <Icon name="trophy" className="h-8 w-8" />
+          </span>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-2">
+          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-tint text-brand">
+            <Icon name="globe" className="h-8 w-8" />
+          </span>
+          <p className="text-xs font-medium text-smoke">Keep exploring, give it another go!</p>
+        </div>
+      )}
       <h2 className="text-2xl font-bold">{result.correct} / {result.total} correct</h2>
       <div className="flex gap-3">
         <Badge tone="brand">{pct}%</Badge>
@@ -515,7 +537,7 @@ function Leaderboard({ mode, region, eventId, highlightUser }) {
                   <Avatar src={r.profiles?.photo_url} name={r.profiles?.name} size="sm" />
                   <span className="flex min-w-0 items-center gap-1.5">
                     <span className="truncate text-sm font-semibold hover:text-brand">{r.profiles?.name}{mine && <span className="ml-1 text-xs text-brand">(you)</span>}</span>
-                    {streaks[r.player_id] >= 2 && <FlameStreak n={streaks[r.player_id]} />}
+                    {streaks[r.player_id] >= 1 && <FlameStreak n={streaks[r.player_id]} />}
                   </span>
                 </Link>
                 <span className="text-sm font-bold tabular-nums">{r.correct}/{r.total}</span>

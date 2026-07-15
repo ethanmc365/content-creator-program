@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import CountdownTimer from '../components/CountdownTimer'
 import WorldMap from '../components/WorldMap'
+import CreatorSpotlight from '../components/CreatorSpotlight'
 import Icon from '../components/Icon'
 import { Avatar, Badge, Skeleton, StatCard } from '../components/ui'
 import { flagForCountry } from '../lib/flags'
@@ -211,6 +212,9 @@ export default function Home() {
           </div>
         </section>
       )}
+
+      {/* ---------- Creator spotlight (rotates daily) ---------- */}
+      <CreatorSpotlight />
 
       {/* ---------- Combined "where we've been" map ---------- */}
       <section>

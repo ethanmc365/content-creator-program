@@ -7,6 +7,7 @@ import {
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Badge, PageHeader, Skeleton } from '../components/ui'
+import EventRsvp from '../components/EventRsvp'
 import { formatDateTimeTz, cx } from '../lib/utils'
 import { downloadIcs, googleCalendarUrl } from '../lib/calendar'
 
@@ -132,6 +133,7 @@ export default function Events() {
               )}
             </div>
           </div>
+          {nextEvent.rsvp_enabled && <div className="mt-5"><EventRsvp eventId={nextEvent.id} /></div>}
         </div>
       )}
 
@@ -221,6 +223,7 @@ export default function Events() {
                             )}
                             <AddToCalendar event={e} subtle />
                           </div>
+                          {e.rsvp_enabled && <EventRsvp eventId={e.id} />}
                         </div>
                       </li>
                     ))}
@@ -261,6 +264,7 @@ export default function Events() {
                         )}
                         <AddToCalendar event={e} subtle />
                       </div>
+                      {e.rsvp_enabled && <EventRsvp eventId={e.id} />}
                     </div>
                   </li>
                 ))}

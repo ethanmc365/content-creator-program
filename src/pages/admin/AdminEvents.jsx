@@ -17,7 +17,7 @@ const TYPES = [
   { value: 'workshop', label: '🎓 Workshop' },
 ]
 
-const emptyForm = { title: '', description: '', dateStr: '', timeStr: '', type: 'event', meeting_url: '', customType: false }
+const emptyForm = { title: '', description: '', dateStr: '', timeStr: '', type: 'event', meeting_url: '', rsvp_enabled: false, customType: false }
 
 export default function AdminEvents() {
   const { user } = useAuth()
@@ -62,6 +62,7 @@ export default function AdminEvents() {
       date: iso,
       type: form.type.trim() || 'event',
       meeting_url: form.meeting_url.trim() || null,
+      rsvp_enabled: !!form.rsvp_enabled,
     }
     if (editing === 'new') {
       await supabase.from('events').insert({ ...payload, created_by: user.id })
@@ -162,6 +163,13 @@ export default function AdminEvents() {
             </label>
             <input id="ev-meet" type="url" className="input" value={form.meeting_url} onChange={(e) => setForm({ ...form, meeting_url: e.target.value })} placeholder="https://meet.google.com/…" />
           </div>
+          <label className="flex cursor-pointer items-start gap-3 rounded-xl bg-cloud/60 p-3">
+            <input type="checkbox" checked={!!form.rsvp_enabled} onChange={(e) => setForm({ ...form, rsvp_enabled: e.target.checked })} className="mt-0.5 h-4 w-4 accent-brand" />
+            <span className="text-sm">
+              <span className="font-medium">Ask creators to RSVP</span>
+              <span className="block text-xs text-smoke">They can mark whether they're going or can't make it, and see who else is attending. Leave off for deadlines and info-only dates.</span>
+            </span>
+          </label>
           <button type="submit" disabled={busy} className="btn-primary w-full">
             {busy ? <Spinner /> : editing === 'new' ? 'Add event' : 'Save changes'}
           </button>

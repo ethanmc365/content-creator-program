@@ -40,7 +40,7 @@ export default function LeaderboardCard({ challengeId }) {
     <div className="mt-1 w-72 max-w-full overflow-hidden rounded-2xl border border-brand/20 bg-white sm:w-80">
       <div className="bg-gradient-to-br from-brand to-brand-light px-4 py-3 text-white">
         <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-white/80">
-          <Icon name="trophy" className="h-3.5 w-3.5" /> {isFinal ? 'Final results' : 'Leaderboard update'}
+          <Icon name="trophy" className="h-3.5 w-3.5" /> {isFinal ? 'Final results' : 'Current leaderboard'}
         </p>
         <p className="text-sm font-bold leading-snug">{challenge.title}</p>
       </div>
@@ -59,7 +59,7 @@ export default function LeaderboardCard({ challengeId }) {
         ) : (
           <p className="mb-3 text-center text-xs text-smoke">Standings coming soon.</p>
         )}
-        {!isFinal && <p className="mb-2 text-center text-[10px] text-smoke">Interim standings, not final.</p>}
+        {!isFinal && <p className="mb-2 text-center text-[10px] text-smoke">Current leaderboard, still changing.</p>}
         <Link to={`/challenges/${challengeId}`} className="btn-primary block w-full !py-2 text-center text-xs">
           View full leaderboard →
         </Link>

@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { PlaneLoader, Spinner } from './ui'
+import ConnectGate from './ConnectGate'
 import { formatDate } from '../lib/utils'
 
 // Route guards.
@@ -161,6 +162,12 @@ export function ProtectedRoute() {
   // Default-deny: only active/muted members (or admins) get the app.
   if (!ALLOWED_STATUSES.includes(profile.status) && !profile.is_admin) {
     return <ReviewPending name={profile.name} signOut={signOut} />
+  }
+
+  // Newly-approved members connect with a few creators before the app unlocks.
+  // Existing members are grandfathered (connect_gate_done = true); admins skip.
+  if (profile.status === 'active' && !profile.is_admin && !profile.connect_gate_done) {
+    return <ConnectGate />
   }
 
   return <Outlet />

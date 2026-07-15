@@ -29,7 +29,6 @@ export default function Messages() {
   const { conversationId } = useParams()
   const { user, isAdmin } = useAuth()
   const navigate = useNavigate()
-  const pressTimer = useRef(null)
 
   const [conversations, setConversations] = useState([]) // enriched with profile + unread
   const [thread, setThread] = useState([])
@@ -253,8 +252,14 @@ export default function Messages() {
     setThread((prev) => prev.filter((x) => x.id !== m.id))
     await supabase.from('direct_messages').delete().eq('id', m.id)
   }
-  const startPress = (m) => { if (isAdmin) pressTimer.current = setTimeout(() => deleteDm(m), 550) }
-  const cancelPress = () => clearTimeout(pressTimer.current)
+
+  // Accept a pending connection request from the person I'm messaging, right in
+  // the thread (smooths the gated-DM flow: accepting connects us and unlocks it).
+  async function acceptConnection() {
+    if (!activeRelation?.rowId) return
+    const { error } = await supabase.from('connections').update({ status: 'accepted' }).eq('id', activeRelation.rowId)
+    if (!error) setActiveRelation((r) => (r ? { ...r, relation: 'connected' } : r))
+  }
 
   // ---------- Reactions ----------
   // Add / remove my reaction to a DM (same UX as #general).
@@ -579,6 +584,17 @@ export default function Messages() {
                 )}
               </div>
 
+              {/* Inline connection request: accept without leaving the thread. */}
+              {activeRelation?.relation === 'pending_received' && (
+                <div className="mx-5 mt-4 flex items-center gap-3 rounded-card border border-brand/20 bg-brand-tint/50 px-4 py-3">
+                  <Icon name="users" className="h-5 w-5 shrink-0 text-brand" />
+                  <p className="min-w-0 flex-1 text-sm">
+                    <span className="font-semibold">{active?.other?.name?.split(' ')[0]}</span> wants to connect with you.
+                  </p>
+                  <button onClick={acceptConnection} className="btn-primary shrink-0 !py-1.5 text-xs">Accept</button>
+                </div>
+              )}
+
               {/* Messages */}
               <div
                 ref={scrollerRef}
@@ -605,17 +621,8 @@ export default function Messages() {
                         onClick={(e) => { if (isMobile && !e.target.closest('a,button,video,input')) setActionsFor(showActions ? null : m.id) }}
                       >
                         <div
-                          onTouchStart={() => startPress(m)}
-                          onTouchEnd={cancelPress}
-                          onTouchMove={cancelPress}
-                          onMouseDown={() => startPress(m)}
-                          onMouseUp={cancelPress}
-                          onMouseLeave={cancelPress}
-                          onContextMenu={(e) => { if (isAdmin) { e.preventDefault(); deleteDm(m) } }}
-                          title={isAdmin ? 'Long-press to delete (admin)' : undefined}
                           className={cx(
                           'whitespace-pre-line rounded-2xl text-sm leading-relaxed',
-                          isAdmin && 'cursor-pointer select-none',
                           m.image_url ? 'overflow-hidden p-1.5' : 'px-4 py-2.5',
                           mine ? 'rounded-br-md bg-brand text-white' : 'rounded-bl-md bg-cloud text-ink'
                         )}>
@@ -679,6 +686,16 @@ export default function Messages() {
                             >
                               <Icon name="smile" className="h-4 w-4" />
                             </button>
+                            {isAdmin && (
+                              <button
+                                onClick={() => deleteDm(m)}
+                                aria-label="Delete message"
+                                title="Delete for everyone"
+                                className="rounded-full border border-gray-200 bg-white p-1 text-smoke hover:border-red-300 hover:text-red-500"
+                              >
+                                <Icon name="trash" className="h-4 w-4" />
+                              </button>
+                            )}
                             {pickerFor === m.id && (
                               <div className={cx('absolute bottom-8 z-20 flex gap-1 rounded-full border border-gray-100 bg-white px-2 py-1.5 shadow-lift', mine ? 'right-0' : 'left-0')}>
                                 {QUICK_EMOJI.map((e) => (

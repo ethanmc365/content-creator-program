@@ -3,14 +3,25 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import CreatorCard from '../components/CreatorCard'
 import CreatorMap from '../components/CreatorMap'
+import Combobox from '../components/Combobox'
+import Icon from '../components/Icon'
 import { PageHeader, SkeletonCards, EmptyState } from '../components/ui'
 import { platformsForProfile } from '../components/PlatformBadges'
 import { loadRelationships } from '../lib/connections'
+import { cx } from '../lib/utils'
+
+const norm = (s) => (s || '').toLowerCase().replace(/[^a-z]/g, '')
+function distanceKm(aLat, aLng, bLat, bLng) {
+  const R = 6371, toRad = (d) => (d * Math.PI) / 180
+  const dLat = toRad(bLat - aLat), dLng = toRad(bLng - aLng)
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(s))
+}
 
 // The creator directory: a spacious grid of cards with search + filters
 // (name, country visited, language, platform).
 export default function Directory() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const [creators, setCreators] = useState([])
   const [relationships, setRelationships] = useState(new Map())
   const [loading, setLoading] = useState(true)
@@ -19,11 +30,16 @@ export default function Directory() {
   const [country, setCountry] = useState('')
   const [language, setLanguage] = useState('')
   const [platform, setPlatform] = useState('')
+  const [nearMe, setNearMe] = useState(false)
 
   useEffect(() => {
     async function load() {
       const [{ data: profiles }, rels] = await Promise.all([
-        supabase.from('profiles').select('*').eq('status', 'active').eq('is_test', false).is('deletion_requested_at', null).order('created_at', { ascending: false }),
+        // Surface the most recently active creators first, so dormant profiles
+        // sink to the bottom.
+        supabase.from('profiles').select('*').eq('status', 'active').eq('is_test', false).is('deletion_requested_at', null)
+          .order('last_seen_at', { ascending: false, nullsFirst: false })
+          .order('created_at', { ascending: false }),
         loadRelationships(user.id),
       ])
       setCreators(profiles ?? [])
@@ -32,6 +48,27 @@ export default function Directory() {
     }
     load()
   }, [user.id])
+
+  // My location, for the "near me" filter. Prefer my own row in the list; fall
+  // back to the auth profile.
+  const me = creators.find((c) => c.id === user.id) || profile
+  const myLat = me?.city_lat, myLng = me?.city_lng, myCountry = me?.country
+  const hasMyLocation = (myLat != null && myLng != null) || !!myCountry
+
+  // Creators near me: within ~1500km if we both have coordinates, otherwise the
+  // same country. Excludes me.
+  const nearIds = useMemo(() => {
+    const set = new Set()
+    for (const c of creators) {
+      if (c.id === user.id) continue
+      if (myLat != null && myLng != null && c.city_lat != null && c.city_lng != null) {
+        if (distanceKm(myLat, myLng, c.city_lat, c.city_lng) <= 1500) set.add(c.id)
+      } else if (myCountry && c.country && norm(c.country) === norm(myCountry)) {
+        set.add(c.id)
+      }
+    }
+    return set
+  }, [creators, myLat, myLng, myCountry, user.id])
 
   // Build the filter dropdowns from real data so they never go stale.
   const allCountries = useMemo(
@@ -44,6 +81,7 @@ export default function Directory() {
   )
 
   const filtered = creators.filter((c) => {
+    if (nearMe && !nearIds.has(c.id)) return false
     if (search && !c.name.toLowerCase().includes(search.toLowerCase())) return false
     if (country && !(c.countries_visited || []).includes(country)) return false
     if (language && !(c.languages || []).includes(language)) return false
@@ -69,30 +107,36 @@ export default function Directory() {
         {loading ? (
           <div className="h-[340px] w-full animate-pulse rounded-card bg-cloud/70 sm:h-[420px]" />
         ) : (
-          <CreatorMap creators={creators} />
+          <CreatorMap creators={creators} highlightIds={nearMe ? nearIds : null} />
         )}
       </section>
 
       {/* Search + filters */}
-      <div className="mb-10 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <input
           type="search" className="input" placeholder="Search by name…"
           value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search creators by name"
         />
-        <select className="input" value={country} onChange={(e) => setCountry(e.target.value)} aria-label="Filter by country visited">
-          <option value="">Any country visited</option>
-          {allCountries.map((c) => <option key={c}>{c}</option>)}
-        </select>
-        <select className="input" value={language} onChange={(e) => setLanguage(e.target.value)} aria-label="Filter by language">
-          <option value="">Any language</option>
-          {allLanguages.map((l) => <option key={l}>{l}</option>)}
-        </select>
-        <select className="input" value={platform} onChange={(e) => setPlatform(e.target.value)} aria-label="Filter by platform">
-          <option value="">Any platform</option>
-          <option>Instagram</option>
-          <option>TikTok</option>
-          <option>YouTube</option>
-        </select>
+        <Combobox value={country} onChange={setCountry} options={allCountries} placeholder="Any country visited" ariaLabel="Filter by country visited" />
+        <Combobox value={language} onChange={setLanguage} options={allLanguages} placeholder="Any language" ariaLabel="Filter by language" />
+        <Combobox value={platform} onChange={setPlatform} options={['Instagram', 'TikTok', 'YouTube']} placeholder="Any platform" ariaLabel="Filter by platform" />
+      </div>
+
+      {/* Near me: filter to creators near you and highlight them on the map. */}
+      <div className="mb-10 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setNearMe((v) => !v)}
+          disabled={!hasMyLocation}
+          title={hasMyLocation ? undefined : 'Add your city in your profile to use this'}
+          className={cx(
+            'inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+            nearMe ? 'border-brand bg-brand text-white' : 'border-gray-200 text-smoke hover:border-brand hover:text-brand'
+          )}
+        >
+          <Icon name="pin" className="h-4 w-4" /> Creators near me
+        </button>
+        {nearMe && <span className="text-sm text-smoke">{nearIds.size} nearby, highlighted on the map</span>}
       </div>
 
       {loading ? (
@@ -103,7 +147,7 @@ export default function Directory() {
           title="No creators match those filters"
           hint="Try removing a filter or searching a different name."
           action={
-            <button onClick={() => { setSearch(''); setCountry(''); setLanguage(''); setPlatform('') }} className="btn-secondary">
+            <button onClick={() => { setSearch(''); setCountry(''); setLanguage(''); setPlatform(''); setNearMe(false) }} className="btn-secondary">
               Clear filters
             </button>
           }
