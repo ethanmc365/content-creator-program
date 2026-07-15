@@ -62,6 +62,12 @@ export default {
           from: { opacity: '0', transform: 'scale(0.95) translateY(-4px)' },
           to: { opacity: '1', transform: 'scale(1) translateY(0)' },
         },
+        // Wrong guess / blocked move: a quick horizontal shake.
+        shake: {
+          '0%, 100%': { transform: 'translateX(0)' },
+          '20%, 60%': { transform: 'translateX(-6px)' },
+          '40%, 80%': { transform: 'translateX(6px)' },
+        },
         // An aeroplane flying across, used by the airplane loader.
         fly: {
           '0%': { transform: 'translateX(-130%) translateY(2px)', opacity: '0' },
@@ -77,6 +83,7 @@ export default {
         'page-in': 'page-in 0.35s ease-out both',
         'menu-in': 'menu-in 0.16s ease-out both',
         confetti: 'confetti 3s linear forwards',
+        shake: 'shake 0.4s ease-in-out both',
         burst: 'burst 1.3s ease-out infinite',
         fly: 'fly 1.7s ease-in-out infinite',
       },

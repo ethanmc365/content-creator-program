@@ -123,7 +123,7 @@ function Plane({ x, y, angle, zoom }) {
   )
 }
 
-function CreatorMap({ creators = [], highlightIds = null }) {
+function CreatorMap({ creators = [], highlightIds = null, nearMe = false, nearCount = 0, nearMeDisabled = false, onToggleNearMe = null }) {
   const highlighting = highlightIds && highlightIds.size > 0
   const [extraCoords, setExtraCoords] = useState({}) // legacy rows: id -> {lat,lng}
   const [homeNames, setHomeNames] = useState(() => new Set()) // countries to tint
@@ -389,6 +389,25 @@ function CreatorMap({ creators = [], highlightIds = null }) {
             ))}
           </div>
         </div>
+      )}
+
+      {/* Near-me toggle: lives on the map (bottom-left, above the hint) and
+          also filters the creator cards below, nearest first. */}
+      {onToggleNearMe && (
+        <button
+          type="button"
+          onClick={onToggleNearMe}
+          disabled={nearMeDisabled}
+          title={nearMeDisabled ? 'Add your city in your profile to use this' : undefined}
+          className={`absolute bottom-10 left-3 z-10 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold shadow-card transition-all hover:scale-[1.03] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 ${
+            nearMe ? 'bg-brand text-white' : 'bg-white/95 text-ink'
+          }`}
+        >
+          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11Z" /><circle cx="12" cy="10" r="2.6" />
+          </svg>
+          Creators near me{nearMe ? ` · ${nearCount}` : ''}
+        </button>
       )}
 
       <p className="pointer-events-none absolute bottom-2 left-3 z-10 rounded-full bg-white/80 px-3 py-1 text-[11px] text-smoke">

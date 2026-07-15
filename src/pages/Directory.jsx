@@ -8,7 +8,6 @@ import Icon from '../components/Icon'
 import { PageHeader, SkeletonCards, EmptyState } from '../components/ui'
 import { platformsForProfile } from '../components/PlatformBadges'
 import { loadRelationships } from '../lib/connections'
-import { cx } from '../lib/utils'
 
 const norm = (s) => (s || '').toLowerCase().replace(/[^a-z]/g, '')
 function distanceKm(aLat, aLng, bLat, bLng) {
@@ -56,19 +55,22 @@ export default function Directory() {
   const hasMyLocation = (myLat != null && myLng != null) || !!myCountry
 
   // Creators near me: within ~1500km if we both have coordinates, otherwise the
-  // same country. Excludes me.
-  const nearIds = useMemo(() => {
-    const set = new Set()
+  // same country. Excludes me. Keeps the distance so the cards can sort
+  // nearest-first while the filter is on.
+  const nearDist = useMemo(() => {
+    const dist = new Map()
     for (const c of creators) {
       if (c.id === user.id) continue
       if (myLat != null && myLng != null && c.city_lat != null && c.city_lng != null) {
-        if (distanceKm(myLat, myLng, c.city_lat, c.city_lng) <= 1500) set.add(c.id)
+        const d = distanceKm(myLat, myLng, c.city_lat, c.city_lng)
+        if (d <= 1500) dist.set(c.id, d)
       } else if (myCountry && c.country && norm(c.country) === norm(myCountry)) {
-        set.add(c.id)
+        dist.set(c.id, 0)
       }
     }
-    return set
+    return dist
   }, [creators, myLat, myLng, myCountry, user.id])
+  const nearIds = useMemo(() => new Set(nearDist.keys()), [nearDist])
 
   // Build the filter dropdowns from real data so they never go stale.
   const allCountries = useMemo(
@@ -88,6 +90,8 @@ export default function Directory() {
     if (platform && !platformsForProfile(c).includes(platform)) return false
     return true
   })
+  // While "near me" is on, the closest creators come first.
+  if (nearMe) filtered.sort((a, b) => (nearDist.get(a.id) ?? Infinity) - (nearDist.get(b.id) ?? Infinity))
 
   return (
     <div className="page">
@@ -107,7 +111,14 @@ export default function Directory() {
         {loading ? (
           <div className="h-[340px] w-full animate-pulse rounded-card bg-cloud/70 sm:h-[420px]" />
         ) : (
-          <CreatorMap creators={creators} highlightIds={nearMe ? nearIds : null} />
+          <CreatorMap
+            creators={creators}
+            highlightIds={nearMe ? nearIds : null}
+            nearMe={nearMe}
+            nearCount={nearIds.size}
+            nearMeDisabled={!hasMyLocation}
+            onToggleNearMe={() => setNearMe((v) => !v)}
+          />
         )}
       </section>
 
@@ -122,22 +133,14 @@ export default function Directory() {
         <Combobox value={platform} onChange={setPlatform} options={['Instagram', 'TikTok', 'YouTube']} placeholder="Any platform" ariaLabel="Filter by platform" />
       </div>
 
-      {/* Near me: filter to creators near you and highlight them on the map. */}
-      <div className="mb-10 flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() => setNearMe((v) => !v)}
-          disabled={!hasMyLocation}
-          title={hasMyLocation ? undefined : 'Add your city in your profile to use this'}
-          className={cx(
-            'inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-            nearMe ? 'border-brand bg-brand text-white' : 'border-gray-200 text-smoke hover:border-brand hover:text-brand'
-          )}
-        >
-          <Icon name="pin" className="h-4 w-4" /> Creators near me
-        </button>
-        {nearMe && <span className="text-sm text-smoke">{nearIds.size} nearby, highlighted on the map</span>}
-      </div>
+      {/* Active near-me note, so it's obvious why the grid is filtered. */}
+      {nearMe && (
+        <div className="mb-6 flex items-center gap-2 text-sm text-smoke">
+          <Icon name="pin" className="h-4 w-4 text-brand" />
+          Showing the {nearIds.size} creator{nearIds.size === 1 ? '' : 's'} nearest to you, closest first.
+          <button onClick={() => setNearMe(false)} className="font-medium text-brand hover:underline">Show everyone</button>
+        </div>
+      )}
 
       {loading ? (
         <SkeletonCards count={6} />

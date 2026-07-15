@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import Icon from './Icon'
 
 const fmtTime = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`
-const MODE_LABEL = { flags: 'Guess the flag', map: 'Find on the map', airports: 'Airport codes' }
+const MODE_LABEL = { flags: 'Guess the flag', map: 'Find on the map', airports: 'Airport codes', currencies: 'Currencies' }
 
 // An inline game-event card inside a chat message: shows the challenge, a
 // "Play" button, and the live top-3 for the event. (Mirrors PollCard.)

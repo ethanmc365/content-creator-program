@@ -5,8 +5,19 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 // Mock the auth context so we can drive the guard with different profiles.
 let authValue
 vi.mock('../context/AuthContext', () => ({ useAuth: () => authValue }))
-// Avoid pulling the real Supabase client into the test.
-vi.mock('../lib/supabase', () => ({ supabase: { from: () => ({ update: () => ({ eq: () => Promise.resolve({}) }) }), auth: { signOut: vi.fn() } } }))
+// Avoid pulling the real Supabase client into the test. Any query chain
+// (from().select().eq()… / update()… / insert()…) resolves to empty data, so
+// components that fetch on mount (e.g. ConnectGate) render without crashing.
+vi.mock('../lib/supabase', () => {
+  const chain = new Proxy(function () {}, {
+    get: (_t, prop) =>
+      prop === 'then'
+        ? (res, rej) => Promise.resolve({ data: [], error: null }).then(res, rej)
+        : () => chain,
+    apply: () => chain,
+  })
+  return { supabase: { from: () => chain, auth: { signOut: vi.fn() } } }
+})
 
 import { ProtectedRoute } from './ProtectedRoute'
 
@@ -59,10 +70,22 @@ describe('ProtectedRoute default-deny', () => {
     expect(screen.queryByText('SECRET APP')).toBeNull()
   })
 
-  it('renders the app for an active member', () => {
-    authValue = { ...base, user: { id: '1' }, profile: { name: 'A', onboarded: true, status: 'active' } }
+  it('renders the app for an active member (past the connect gate)', () => {
+    authValue = { ...base, user: { id: '1' }, profile: { name: 'A', onboarded: true, status: 'active', connect_gate_done: true } }
     renderAt('/home')
     expect(screen.getByText('SECRET APP')).toBeInTheDocument()
+  })
+
+  it('renders the app straight away for an admin (no connect gate)', () => {
+    authValue = { ...base, user: { id: '1' }, profile: { name: 'A', onboarded: true, status: 'active', is_admin: true } }
+    renderAt('/home')
+    expect(screen.getByText('SECRET APP')).toBeInTheDocument()
+  })
+
+  it('holds a newly approved member at the connect gate, not the app', () => {
+    authValue = { ...base, user: { id: '1' }, profile: { name: 'A', onboarded: true, status: 'active', connect_gate_done: false } }
+    renderAt('/home')
+    expect(screen.queryByText('SECRET APP')).toBeNull()
   })
 
   it('shows the retry screen (not /login) on a transient profile error', () => {

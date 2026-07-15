@@ -10,7 +10,11 @@ import Icon from '../components/Icon'
 import {
   CONTINENTS, countriesForRegion, airportsForRegion, flagEmoji,
   countryMatches, airportMatches, shuffle,
+  currencyCountriesForRegion, currencyChoices,
 } from '../lib/countries'
+import { dayIndex } from '../lib/pinpoint'
+import PinpointGame from '../components/games/PinpointGame'
+import ZipGame from '../components/games/ZipGame'
 import { cx } from '../lib/utils'
 
 const BRAND = '#d94407'
@@ -24,8 +28,16 @@ const MODES = [
   { key: 'flags', icon: 'flag', title: 'Guess the flag', text: 'See a flag, type the country.' },
   { key: 'map', icon: 'pin', title: 'Find on the map', text: 'See a country, click it on the map.' },
   { key: 'airports', icon: 'plane', title: 'Airport codes', text: 'See an IATA code, name the city.' },
+  { key: 'currencies', icon: 'cash', title: 'Currencies', text: 'See a currency, pick the country that uses it.' },
 ]
-const MODE_LABEL = { flags: 'Flags', map: 'Find on map', airports: 'Airports' }
+const MODE_LABEL = { flags: 'Flags', map: 'Find on map', airports: 'Airports', currencies: 'Currencies', pinpoint: 'Pinpoint', zip: 'Flight Path' }
+
+// The two daily puzzles that sit above "choose a mode". Same puzzle for
+// everyone each (UTC) day; scores go to a today-only leaderboard.
+const DAILIES = [
+  { key: 'pinpoint', icon: 'eye', title: 'Pinpoint', text: 'Five clue words, guess the country. Fewer clues, more points.', store: 'tryp_pinpoint' },
+  { key: 'zip', icon: 'plane', title: 'Zip: Flight Path', text: 'Drag your plane through every stop in order, filling the whole sky.', store: 'tryp_zip' },
+]
 
 const fmtTime = (ms) => {
   const s = Math.floor(ms / 1000)
@@ -85,10 +97,16 @@ export default function Game() {
 
   function start(m, r) {
     const mm = m || mode, rr = r || region
-    const pool = mm === 'airports' ? airportsForRegion(rr) : countriesForRegion(rr)
+    const pool = mm === 'airports' ? airportsForRegion(rr)
+      : mm === 'currencies' ? currencyCountriesForRegion(rr)
+      : countriesForRegion(rr)
+    let qs = shuffle(pool).slice(0, Math.min(QUESTIONS, pool.length))
+    // Currencies is multiple choice: fix each question's six options up front
+    // (the right country + five that don't use its currency).
+    if (mm === 'currencies') qs = qs.map((t) => ({ ...t, choices: currencyChoices(t, rr) }))
     setMode(mm)
     setRegion(rr)
-    setQuestions(shuffle(pool).slice(0, Math.min(QUESTIONS, pool.length)))
+    setQuestions(qs)
     setSavedScore(null)
     setScreen('play')
   }
@@ -97,25 +115,38 @@ export default function Game() {
     <div className="page">
       <PageHeader
         title={<span className="flex items-center gap-2"><Icon name="joystick" className="h-7 w-7 text-brand" /> Travel Games</span>}
-        subtitle={event ? `Event: ${event.title}` : 'Test your travel knowledge with flags, find-on-the-map and airport codes, by continent or the whole world.'}
+        subtitle={event ? `Event: ${event.title}` : 'Daily puzzles, plus flags, find-on-the-map, airport codes and currencies, by continent or the whole world.'}
       />
 
       {/* The menu drives the shared mode/region state, so the all-time
           leaderboard below always reflects the mode you currently have selected. */}
-      {screen === 'menu' && <Menu mode={mode} setMode={setMode} region={region} setRegion={setRegion} onStart={() => start(mode, region)} eventTitle={event?.title} />}
+      {screen === 'menu' && <Menu mode={mode} setMode={setMode} region={region} setRegion={setRegion} onStart={() => start(mode, region)} onDaily={setScreen} eventTitle={event?.title} />}
       {screen === 'play' && <Round mode={mode} region={region} questions={questions} onQuit={() => setScreen('menu')} onFinish={(r) => { setSavedScore(r); setScreen('results') }} />}
       {screen === 'results' && (
         <Results result={savedScore} mode={mode} region={region} eventId={eventId} userId={user.id}
           onPlayAgain={() => start(mode, region)} onMenu={() => setScreen('menu')} />
       )}
+      {screen === 'pinpoint' && <PinpointGame onExit={() => setScreen('menu')} />}
+      {screen === 'zip' && <ZipGame onExit={() => setScreen('menu')} />}
 
-      <div className="mt-12"><Leaderboard mode={mode} region={region} eventId={eventId} highlightUser={user.id} /></div>
+      <div className="mt-12">
+        {screen === 'pinpoint' || screen === 'zip' ? (
+          <Leaderboard mode={screen} region="Daily" daily highlightUser={user.id} />
+        ) : (
+          <Leaderboard mode={mode} region={region} eventId={eventId} highlightUser={user.id} />
+        )}
+      </div>
     </div>
   )
 }
 
 // ---------------------------------------------------------------- Menu
-function Menu({ mode, setMode, region, setRegion, onStart, eventTitle }) {
+function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle }) {
+  // Ticks on the daily cards when today's puzzle is already done.
+  const [today] = useState(() => dayIndex())
+  const playedToday = (storeKey) => {
+    try { return JSON.parse(localStorage.getItem(storeKey) || 'null')?.day === today } catch { return false }
+  }
   return (
     <div className="space-y-8">
       {eventTitle && (
@@ -125,8 +156,43 @@ function Menu({ mode, setMode, region, setRegion, onStart, eventTitle }) {
       )}
 
       <section>
+        <div className="mb-3 flex items-baseline justify-between">
+          <h2 className="text-lg font-semibold">Daily puzzles</h2>
+          <span className="text-xs text-smoke">New every day, same for everyone</span>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {DAILIES.map((d) => {
+            const done = playedToday(d.store)
+            return (
+              <button
+                key={d.key}
+                onClick={() => onDaily(d.key)}
+                className="card relative flex items-start gap-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-lift"
+              >
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand text-white">
+                  <Icon name={d.icon} className="h-6 w-6" />
+                </span>
+                <span className="min-w-0">
+                  <span className="flex items-center gap-2 font-semibold">
+                    {d.title}
+                    <Badge tone="brand" className="!px-2 !py-0.5 text-[10px]">Daily</Badge>
+                  </span>
+                  <span className="mt-1 block text-sm text-smoke">{d.text}</span>
+                </span>
+                {done && (
+                  <span className="absolute right-4 top-4 flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-600" title="Played today">
+                    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12l5 5L20 6"/></svg>
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      </section>
+
+      <section>
         <h2 className="mb-3 text-lg font-semibold">Choose a mode</h2>
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {MODES.map((m) => (
             <button
               key={m.key}
@@ -186,6 +252,13 @@ function Round({ mode, region, questions, onQuit, onFinish }) {
   const current = questions[i]
   const last = i === questions.length - 1
   const isType = mode === 'flags' || mode === 'airports'
+
+  function pickChoice(country) {
+    if (answered) return
+    const right = country.name === current.name
+    if (right) setCorrect((c) => c + 1)
+    setAnswered({ right, picked: country.name })
+  }
 
   useEffect(() => {
     startRef.current = Date.now()
@@ -280,6 +353,43 @@ function Round({ mode, region, questions, onQuit, onFinish }) {
           <div className="rounded-2xl bg-brand px-8 py-5 font-mono text-5xl font-extrabold tracking-widest text-white shadow-lift sm:text-6xl">{current.code}</div>
           <TypeForm typed={typed} setTyped={setTyped} answered={answered} onSubmit={submitType} inputRef={inputRef} placeholder="Type the city…" />
           {answered && <Feedback answered={answered} answer={current.city} reveal last={last} onNext={next} />}
+        </div>
+      )}
+
+      {/* ---- Currencies ---- */}
+      {mode === 'currencies' && (
+        <div className="card flex flex-col items-center gap-6 !py-10 text-center">
+          <div>
+            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-smoke">Which country uses this currency?</p>
+            <div className="inline-flex items-baseline gap-3 rounded-2xl bg-brand px-8 py-5 text-white shadow-lift">
+              <span className="text-4xl font-extrabold sm:text-5xl">{current.symbol}</span>
+              <span className="text-2xl font-bold sm:text-3xl">{current.currency}</span>
+            </div>
+          </div>
+          <div className="grid w-full max-w-lg grid-cols-1 gap-2.5 sm:grid-cols-2">
+            {current.choices.map((c) => {
+              const isAnswer = c.name === current.name
+              const isPicked = answered?.picked === c.name
+              return (
+                <button
+                  key={c.name}
+                  onClick={() => pickChoice(c)}
+                  disabled={!!answered}
+                  className={cx(
+                    'flex items-center gap-3 rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition-all',
+                    !answered && 'border-gray-200 hover:-translate-y-0.5 hover:border-brand hover:shadow-card',
+                    answered && isAnswer && '!border-green-500 bg-green-50 text-green-700',
+                    answered && isPicked && !isAnswer && '!border-red-400 bg-red-50 text-red-600',
+                    answered && !isAnswer && !isPicked && 'border-gray-100 opacity-50'
+                  )}
+                >
+                  <span className="text-2xl leading-none" aria-hidden>{flagEmoji(c.iso2)}</span>
+                  <span className="min-w-0 truncate">{c.name}</span>
+                </button>
+              )
+            })}
+          </div>
+          {answered && <Feedback answered={answered} answer={current.name} reveal last={last} onNext={next} />}
         </div>
       )}
 
@@ -458,7 +568,7 @@ function Results({ result, mode, region, eventId, userId, onPlayAgain, onMenu })
 }
 
 // ---------------------------------------------------------------- Leaderboard
-function Leaderboard({ mode, region, eventId, highlightUser }) {
+function Leaderboard({ mode, region, eventId, highlightUser, daily = false }) {
   const { isAdmin } = useAuth()
   const [rows, setRows] = useState(null)
   const [streaks, setStreaks] = useState({}) // player_id -> weekly streak for this mode
@@ -467,6 +577,8 @@ function Leaderboard({ mode, region, eventId, highlightUser }) {
   const load = useCallback(async () => {
     let q = supabase.from('game_scores').select('*, profiles:player_id(id, name, photo_url)').eq('mode', mode).eq('region', region)
     q = eventId ? q.eq('event_id', eventId) : q.is('event_id', null)
+    // Daily puzzles rank today's solves only (everyone has the same puzzle).
+    if (daily) q = q.gte('created_at', new Date(Math.floor(Date.now() / 86_400_000) * 86_400_000).toISOString())
     const { data } = await q
     const best = {}
     for (const s of data ?? []) {
@@ -490,7 +602,7 @@ function Leaderboard({ mode, region, eventId, highlightUser }) {
     } else {
       setStreaks({})
     }
-  }, [mode, region, eventId])
+  }, [mode, region, eventId, daily])
 
   useEffect(() => { load() }, [load])
   useEffect(() => {
@@ -515,7 +627,11 @@ function Leaderboard({ mode, region, eventId, highlightUser }) {
   return (
     <section>
       <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold"><Icon name="trophy" className="h-5 w-5 text-brand" /> Leaderboard</h2>
-      <p className="mb-4 text-sm text-smoke">{MODE_LABEL[mode]} · {region}{eventId ? ' · this event' : ' · all-time'}. Ranked by score, then speed.{!eventId && ' The flame shows a creator\'s weekly play streak in this mode.'}</p>
+      <p className="mb-4 text-sm text-smoke">
+        {daily
+          ? `${MODE_LABEL[mode]} · today's puzzle. Ranked by score, then speed. The flame shows a creator's weekly play streak.`
+          : `${MODE_LABEL[mode]} · ${region}${eventId ? ' · this event' : ' · all-time'}. Ranked by score, then speed.${!eventId ? " The flame shows a creator's weekly play streak in this mode." : ''}`}
+      </p>
       {rows === null ? (
         <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-cloud" />)}</div>
       ) : rows.length === 0 ? (

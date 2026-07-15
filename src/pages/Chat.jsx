@@ -1138,6 +1138,7 @@ export default function Chat() {
                 <option value="flags">Guess the flag</option>
                 <option value="map">Find on the map</option>
                 <option value="airports">Airport codes</option>
+                <option value="currencies">Currencies</option>
               </select>
             </div>
             <div>

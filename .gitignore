@@ -28,5 +28,8 @@ dev.sh
 .env
 .vercel
 
+# graphify knowledge graph (regenerated locally)
+graphify-out/
+
 # Large source design assets (optimised copies live in public/brand)
 /Custom Tryp Plane Design.png

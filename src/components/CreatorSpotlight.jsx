@@ -51,35 +51,45 @@ export default function CreatorSpotlight() {
         <span className="text-xs text-smoke">Featured today</span>
       </div>
       <div className="card !p-5 sm:!p-6">
-        <div className="flex flex-col gap-5 sm:flex-row">
+        <div className="flex flex-col gap-6 lg:flex-row">
           {/* Identity + bio + photos */}
-          <div className="min-w-0 flex-1">
-            <Link to={`/profile/${creator.id}`} className="group flex items-center gap-4">
-              <Avatar src={creator.photo_url} name={creator.name} size="lg" />
-              <div className="min-w-0">
-                <p className="truncate text-lg font-bold group-hover:text-brand">{creator.name}</p>
-                {(creator.city || creator.country) && (
-                  <p className="truncate text-sm text-smoke">{[creator.city, creator.country].filter(Boolean).join(', ')}</p>
-                )}
-              </div>
-            </Link>
+          <div className="flex min-w-0 flex-1 flex-col">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <Link to={`/profile/${creator.id}`} className="group flex min-w-0 items-center gap-4">
+                <Avatar src={creator.photo_url} name={creator.name} size="lg" />
+                <div className="min-w-0">
+                  <p className="truncate text-lg font-bold group-hover:text-brand">{creator.name}</p>
+                  {(creator.city || creator.country) && (
+                    <p className="truncate text-sm text-smoke">{[creator.city, creator.country].filter(Boolean).join(', ')}</p>
+                  )}
+                </div>
+              </Link>
+              <Link to={`/profile/${creator.id}`} className="btn-secondary hidden !py-2 text-xs sm:inline-flex">View profile →</Link>
+            </div>
             {(creator.bio || creator.about) && (
-              <p className="mt-4 text-sm leading-relaxed text-smoke line-clamp-4">{creator.bio || creator.about}</p>
+              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-smoke line-clamp-3">{creator.bio || creator.about}</p>
             )}
             {photos.length > 0 && (
-              <div className="mt-4 grid grid-cols-4 gap-2">
+              <div className="mt-5 grid grid-cols-4 gap-2.5">
                 {photos.map((p) => (
                   <img key={p.id} src={p.photo_url} alt={p.caption || 'Travel photo'} loading="lazy" className="aspect-square w-full rounded-xl object-cover" />
                 ))}
               </div>
             )}
-            <Link to={`/profile/${creator.id}`} className="btn-secondary mt-5 inline-flex !py-2 text-xs">View profile →</Link>
+            <Link to={`/profile/${creator.id}`} className="btn-secondary mt-5 inline-flex self-start !py-2 text-xs sm:hidden">View profile →</Link>
           </div>
-          {/* Their travel map */}
+
+          {/* Their travel map: a self-contained panel that fills the column so
+              the card's two halves always line up cleanly. */}
           {creator.countries_visited?.length > 0 && (
-            <div className="shrink-0 sm:w-80">
-              <p className="mb-2 text-xs font-medium text-smoke">{firstName} has visited {creator.countries_visited.length} countries</p>
-              <div className="overflow-hidden rounded-card border border-gray-100">
+            <div className="flex shrink-0 flex-col overflow-hidden rounded-card border border-gray-100 bg-cloud/40 lg:w-96">
+              <div className="flex items-center justify-between gap-3 px-4 pt-3.5">
+                <p className="text-xs font-semibold text-ink">{firstName}'s travel map</p>
+                <span className="rounded-full bg-brand-tint px-2.5 py-1 text-[11px] font-bold text-brand">
+                  {creator.countries_visited.length} {creator.countries_visited.length === 1 ? 'country' : 'countries'}
+                </span>
+              </div>
+              <div className="flex flex-1 items-center px-2 pb-2">
                 <WorldMap selected={creator.countries_visited} />
               </div>
             </div>
