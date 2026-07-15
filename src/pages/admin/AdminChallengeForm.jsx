@@ -6,7 +6,7 @@ import { PageHeader, Skeleton, Spinner } from '../../components/ui'
 import { cx, parseDateTime, isoToDateInput, isoToTimeInput } from '../../lib/utils'
 
 // Create / edit a challenge. Everything is customisable: length, brief,
-// rules, hashtags, platforms and the full prize breakdown.
+// rules, platforms and the full prize breakdown.
 const ALL_PLATFORMS = ['Instagram', 'TikTok', 'YouTube']
 
 const DEFAULT_PRIZES = [
@@ -29,7 +29,6 @@ export default function AdminChallengeForm() {
     title: '',
     description: '',
     rules: '',
-    hashtags: '',
     platforms: ['Instagram', 'TikTok'],
     prize_structure: DEFAULT_PRIZES,
     startDateStr: '', startTimeStr: '',
@@ -88,7 +87,6 @@ export default function AdminChallengeForm() {
       title: form.title.trim(),
       description: form.description.trim(),
       rules: form.rules.trim(),
-      hashtags: form.hashtags.trim(),
       platforms: form.platforms,
       prize_structure: form.prize_structure.filter((p) => p.place && p.prize),
       start_date: startIso,
@@ -133,10 +131,6 @@ export default function AdminChallengeForm() {
           <div>
             <label htmlFor="rules" className="label">Rules</label>
             <textarea id="rules" rows={5} className="input" value={form.rules} onChange={(e) => set({ rules: e.target.value })} placeholder={'• One entry per platform\n• Tag Tryp.com in the caption\n• …'} />
-          </div>
-          <div>
-            <label htmlFor="hashtags" className="label">Hashtags <span className="font-normal text-smoke">(space-separated)</span></label>
-            <input id="hashtags" type="text" className="input" value={form.hashtags} onChange={(e) => set({ hashtags: e.target.value })} placeholder="#SameTripLessMoney #HiddenGems" />
           </div>
         </section>
 
@@ -221,7 +215,7 @@ export default function AdminChallengeForm() {
           </button>
           {(!editing || form.status === 'draft') && (
             <button type="button" disabled={busy} onClick={(e) => save(e, true)} className="btn-primary">
-              {busy ? <Spinner /> : '🚀 Save & publish'}
+              {busy ? <Spinner /> : 'Save & publish'}
             </button>
           )}
         </div>

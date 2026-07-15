@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import CountdownTimer from '../components/CountdownTimer'
+import Icon from '../components/Icon'
 import PlatformBadges from '../components/PlatformBadges'
 import VideoThumb from '../components/VideoThumb'
 import { Avatar, Badge, Modal, PageHeader, Skeleton, EmptyState, Spinner } from '../components/ui'
@@ -207,16 +208,6 @@ export default function ChallengeDetail() {
               <PlatformBadges platforms={challenge.platforms} size="md" />
             </section>
 
-            {challenge.hashtags && (
-              <section className="card !p-6">
-                <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-smoke">Hashtags</h2>
-                <div className="flex flex-wrap gap-2">
-                  {challenge.hashtags.split(/\s+/).filter(Boolean).map((h) => (
-                    <Badge key={h} tone="light">{h}</Badge>
-                  ))}
-                </div>
-              </section>
-            )}
           </div>
         </div>
       )}
@@ -270,7 +261,29 @@ export default function ChallengeDetail() {
 
       {/* ---------- Tab: leaderboard ---------- */}
       {tab === 'leaderboard' && (
-        <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
+        <div className="space-y-4">
+          {/* Interim vs final banner so creators know if these standings are live. */}
+          {challenge.results_status === 'interim' ? (
+            <div className="flex items-start gap-3 rounded-card border border-brand/20 bg-brand-tint/60 px-5 py-4">
+              <Icon name="clock" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
+              <div>
+                <p className="text-sm font-semibold text-brand">Interim standings</p>
+                <p className="text-xs text-smoke">
+                  Views logged so far{challenge.results_updated_at ? ` · updated ${timeAgo(challenge.results_updated_at)}` : ''}. These can still change. Final results are counted after the challenge closes.
+                </p>
+              </div>
+            </div>
+          ) : challenge.results_status === 'final' ? (
+            <div className="flex items-start gap-3 rounded-card border border-green-200 bg-green-50 px-5 py-4">
+              <Icon name="trophy" className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
+              <div>
+                <p className="text-sm font-semibold text-green-700">Final results</p>
+                <p className="text-xs text-green-700/80">The challenge has closed and these standings are final.</p>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
           {results.map((r) => {
             const mine = r.creator_id === user.id
             const medal = { 1: '🥇', 2: '🥈', 3: '🥉' }[r.rank]
@@ -301,6 +314,7 @@ export default function ChallengeDetail() {
               </div>
             )
           })}
+          </div>
         </div>
       )}
 
@@ -330,7 +344,7 @@ export default function ChallengeDetail() {
           </div>
           {submitError && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{submitError}</p>}
           <button type="submit" disabled={submitting} className="btn-primary w-full">
-            {submitting ? <Spinner /> : 'Enter the challenge 🚀'}
+            {submitting ? <Spinner /> : 'Enter the challenge'}
           </button>
         </form>
       </Modal>

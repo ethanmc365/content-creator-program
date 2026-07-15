@@ -8,9 +8,20 @@ import { loadRelationship } from '../lib/connections'
 import { Avatar, Badge, EmptyState, Skeleton, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
 import ChatMedia from '../components/ChatMedia'
+import ReactionPill from '../components/ReactionPill'
 import { mediaType } from '../lib/media'
 import { formatChatTime, otherParticipant, cx } from '../lib/utils'
 import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
+
+const QUICK_EMOJI = ['❤️', '🔥', '😂', '👍', '🎉', '✈️']
+
+// A short label for a DM when it's quoted in a reply.
+function dmPreview(m) {
+  if (!m) return 'Message unavailable'
+  if (m.body) return m.body
+  if (m.image_url) return mediaType(m.image_url) === 'video' ? 'Video' : 'Photo'
+  return 'Message'
+}
 
 // Direct messages: inbox (conversation list) + active thread, both realtime.
 // On mobile you see one panel at a time; on desktop they sit side by side.
@@ -22,6 +33,10 @@ export default function Messages() {
 
   const [conversations, setConversations] = useState([]) // enriched with profile + unread
   const [thread, setThread] = useState([])
+  const [reactions, setReactions] = useState([]) // dm_reactions for the open thread
+  const [pickerFor, setPickerFor] = useState(null) // message id with emoji picker open
+  const [actionsFor, setActionsFor] = useState(null) // message id with actions revealed (mobile tap)
+  const [replyTo, setReplyTo] = useState(null)     // message being replied to
   const [loadingList, setLoadingList] = useState(true)
   const [loadingThread, setLoadingThread] = useState(false)
   const [body, setBody] = useState('')
@@ -137,6 +152,14 @@ export default function Messages() {
         .order('created_at', { ascending: true })
       if (cancelled) return
       setThread(data ?? [])
+      // Load reactions for the thread (silently no-ops if the table isn't there yet).
+      const ids = (data ?? []).map((m) => m.id)
+      if (ids.length) {
+        const { data: reacts } = await supabase.from('dm_reactions').select('*').in('message_id', ids)
+        if (!cancelled) setReactions(reacts ?? [])
+      } else if (!cancelled) {
+        setReactions([])
+      }
       setLoadingThread(false)
       // Mark everything they sent me as read.
       await supabase
@@ -172,9 +195,56 @@ export default function Messages() {
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'direct_messages' }, (payload) => {
         setThread((prev) => prev.filter((m) => m.id !== payload.old.id))
       })
+      // Reactions on messages in the open thread appear instantly for both people.
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dm_reactions' }, (payload) => {
+        setThread((cur) => {
+          if (cur.some((m) => m.id === payload.new.message_id)) {
+            setReactions((prev) => (prev.some((r) => r.id === payload.new.id) ? prev : [...prev, payload.new]))
+          }
+          return cur
+        })
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'dm_reactions' }, (payload) => {
+        setReactions((prev) => prev.filter((r) => r.id !== payload.old.id))
+      })
       .subscribe()
     return () => supabase.removeChannel(sub)
   }, [user.id, conversationId, loadConversations])
+
+  // ---------- Typing indicator (realtime broadcast, no DB writes) ----------
+  const [otherTyping, setOtherTyping] = useState(false)
+  const typingChanRef = useRef(null)
+  const typingSentRef = useRef(0)
+  const typingTimerRef = useRef(null)
+  useEffect(() => {
+    setOtherTyping(false)
+    if (!conversationId) return
+    const ch = supabase.channel(`dm-typing-${conversationId}`, { config: { broadcast: { self: false } } })
+    ch.on('broadcast', { event: 'typing' }, ({ payload }) => {
+      if (!payload || payload.id === user.id) return
+      setOtherTyping(!!payload.typing)
+      clearTimeout(typingTimerRef.current)
+      if (payload.typing) typingTimerRef.current = setTimeout(() => setOtherTyping(false), 4500)
+    }).subscribe()
+    typingChanRef.current = ch
+    return () => {
+      clearTimeout(typingTimerRef.current)
+      supabase.removeChannel(ch)
+      typingChanRef.current = null
+      setOtherTyping(false)
+    }
+  }, [conversationId, user.id])
+
+  const pingTyping = useCallback(() => {
+    const now = Date.now()
+    if (now - typingSentRef.current < 1500) return
+    typingSentRef.current = now
+    typingChanRef.current?.send({ type: 'broadcast', event: 'typing', payload: { id: user.id, typing: true } })
+  }, [user.id])
+  const stopTyping = useCallback(() => {
+    typingSentRef.current = 0
+    typingChanRef.current?.send({ type: 'broadcast', event: 'typing', payload: { id: user.id, typing: false } })
+  }, [user.id])
 
   // ---------- Admin: long-press a message to delete it for everyone ----------
   async function deleteDm(m) {
@@ -185,6 +255,53 @@ export default function Messages() {
   }
   const startPress = (m) => { if (isAdmin) pressTimer.current = setTimeout(() => deleteDm(m), 550) }
   const cancelPress = () => clearTimeout(pressTimer.current)
+
+  // ---------- Reactions ----------
+  // Add / remove my reaction to a DM (same UX as #general).
+  async function toggleReaction(messageId, emoji) {
+    setPickerFor(null)
+    setActionsFor(null)
+    const mine = reactions.find((r) => r.message_id === messageId && r.creator_id === user.id && r.emoji === emoji)
+    if (mine) {
+      setReactions((prev) => prev.filter((r) => r.id !== mine.id))
+      await supabase.from('dm_reactions').delete().eq('id', mine.id)
+    } else {
+      const { data } = await supabase
+        .from('dm_reactions')
+        .insert({ message_id: messageId, creator_id: user.id, emoji })
+        .select('*')
+        .single()
+      if (data) setReactions((prev) => (prev.some((r) => r.id === data.id) ? prev : [...prev, data]))
+    }
+  }
+
+  // Only two people in a DM, so a reactor is either me or the other participant.
+  const reactorName = useCallback((id) => {
+    if (id === user.id) return 'You'
+    if (id === active?.other?.id) return active?.other?.name ?? 'Them'
+    return 'Someone'
+  }, [user.id, active?.other?.id, active?.other?.name])
+
+  // Group reactions per message: { '❤️': { count, mine, ids: [...] } }
+  function reactionSummary(messageId) {
+    const grouped = {}
+    for (const r of reactions.filter((x) => x.message_id === messageId)) {
+      grouped[r.emoji] = grouped[r.emoji] || { count: 0, mine: false, ids: [] }
+      grouped[r.emoji].count++
+      grouped[r.emoji].ids.push(r.creator_id)
+      if (r.creator_id === user.id) grouped[r.emoji].mine = true
+    }
+    return grouped
+  }
+
+  // Flash-highlight and scroll to a quoted original message when its reply is tapped.
+  const scrollToMessage = useCallback((id) => {
+    const el = document.getElementById(`dm-${id}`)
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el.classList.add('ring-2', 'ring-brand', 'ring-offset-2', 'rounded-2xl')
+    setTimeout(() => el.classList.remove('ring-2', 'ring-brand', 'ring-offset-2', 'rounded-2xl'), 1300)
+  }, [])
 
   // ---------- Anyone: long-press a conversation to delete it entirely ----------
   const convTimer = useRef(null)
@@ -204,6 +321,9 @@ export default function Messages() {
     prevLenRef.current = 0
     setAtBottom(true)
     setNewBelow(0)
+    setReplyTo(null)
+    setPickerFor(null)
+    setActionsFor(null)
   }, [conversationId])
 
   // Smart auto-scroll + "jump to latest" bookkeeping (same as #general): only
@@ -304,14 +424,16 @@ export default function Messages() {
     if (!body.trim() || !active || dmLocked) return
     setAtBottom(true)
     setSending(true)
+    const replyId = replyTo?.id ?? null
     const { error } = await supabase.from('direct_messages').insert({
       conversation_id: conversationId,
       sender_id: user.id,
       recipient_id: otherParticipant(active, user.id),
       body: body.trim(),
+      ...(replyId ? { reply_to: replyId } : {}),
     })
     setSending(false)
-    if (!error) setBody('')
+    if (!error) { setBody(''); setReplyTo(null); stopTyping() }
   }
 
   // Attach a photo or video to the DM (uploads, then sends with any typed
@@ -331,15 +453,17 @@ export default function Messages() {
       const path = isVideo
         ? await uploadDmVideo(file, conversationId)
         : await uploadDmImage(file, conversationId)
+      const replyId = replyTo?.id ?? null
       const { error } = await supabase.from('direct_messages').insert({
         conversation_id: conversationId,
         sender_id: user.id,
         recipient_id: otherParticipant(active, user.id),
         body: body.trim(),
         image_url: path,
+        ...(replyId ? { reply_to: replyId } : {}),
       })
       if (error) throw new Error(error.message)
-      setBody('')
+      setBody(''); setReplyTo(null)
     } catch (err) {
       setAttachError(err.message)
     }
@@ -470,9 +594,16 @@ export default function Messages() {
                   // Private DM media resolves to a signed URL; legacy public URLs pass through.
                   const imageSrc = m.image_url ? (isSignedDmPath(m.image_url) ? signedUrls.get(m.image_url) : m.image_url) : null
                   const isVid = m.image_url && mediaType(m.image_url) === 'video'
+                  const summary = reactionSummary(m.id)
+                  const orig = m.reply_to ? thread.find((x) => x.id === m.reply_to) : null
+                  const showActions = actionsFor === m.id
                   return (
-                    <div key={m.id} className={cx('flex', mine && 'justify-end')}>
-                      <div className={cx('max-w-[80%] sm:max-w-[65%]')}>
+                    <div key={m.id} id={`dm-${m.id}`} className={cx('group flex', mine && 'justify-end')}>
+                      <div
+                        className="max-w-[80%] sm:max-w-[65%]"
+                        // Tap a message on mobile to reveal its reply / react actions.
+                        onClick={(e) => { if (isMobile && !e.target.closest('a,button,video,input')) setActionsFor(showActions ? null : m.id) }}
+                      >
                         <div
                           onTouchStart={() => startPress(m)}
                           onTouchEnd={cancelPress}
@@ -488,6 +619,23 @@ export default function Messages() {
                           m.image_url ? 'overflow-hidden p-1.5' : 'px-4 py-2.5',
                           mine ? 'rounded-br-md bg-brand text-white' : 'rounded-bl-md bg-cloud text-ink'
                         )}>
+                          {/* Quoted reply */}
+                          {m.reply_to && (
+                            <button
+                              type="button"
+                              onClick={() => orig && scrollToMessage(orig.id)}
+                              className={cx(
+                                'mb-1.5 block w-full rounded-lg border-l-2 px-2.5 py-1 text-left',
+                                m.image_url && 'mx-0.5 mt-0.5',
+                                mine ? 'border-white/70 bg-white/15' : 'border-brand/60 bg-black/[0.04]'
+                              )}
+                            >
+                              <span className={cx('block text-[11px] font-semibold', mine ? 'text-white' : 'text-brand')}>
+                                {orig ? (orig.sender_id === user.id ? 'You' : active?.other?.name) : 'Original message'}
+                              </span>
+                              <span className={cx('block truncate text-xs', mine ? 'text-white/80' : 'text-smoke')}>{dmPreview(orig)}</span>
+                            </button>
+                          )}
                           {m.image_url && (
                             imageSrc ? (
                               <ChatMedia url={imageSrc} kind={isVid ? 'video' : 'image'} alt={m.body || 'Shared image'} maxW={240} maxH={360} />
@@ -500,6 +648,48 @@ export default function Messages() {
                         <p className={cx('mt-1 text-[10px] text-gray-400', mine && 'text-right')}>
                           {formatChatTime(m.created_at)}{mine && m.read && ' · Read'}
                         </p>
+
+                        {/* Reactions + action row (reply / react). Desktop: on hover;
+                            mobile: tap the message to reveal (showActions). */}
+                        <div className={cx('mt-0.5 flex flex-wrap items-center gap-1', mine && 'justify-end')}>
+                          {Object.entries(summary).map(([emoji, info]) => (
+                            <ReactionPill
+                              key={emoji}
+                              emoji={emoji}
+                              count={info.count}
+                              mine={info.mine}
+                              names={info.ids.map(reactorName)}
+                              onToggle={() => toggleReaction(m.id, emoji)}
+                              align={mine ? 'right' : 'left'}
+                            />
+                          ))}
+                          <div className={cx('relative flex items-center gap-1 transition-opacity focus-within:opacity-100 group-hover:opacity-100', showActions ? 'opacity-100' : 'opacity-0')}>
+                            <button
+                              onClick={() => { setReplyTo(m); setActionsFor(null); taRef.current?.focus() }}
+                              aria-label="Reply"
+                              title="Reply"
+                              className="rounded-full border border-gray-200 bg-white p-1 text-smoke hover:border-brand hover:text-brand"
+                            >
+                              <Icon name="reply" className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => setPickerFor(pickerFor === m.id ? null : m.id)}
+                              aria-label="Add reaction"
+                              className="rounded-full border border-gray-200 bg-white p-1 text-smoke hover:border-brand hover:text-brand"
+                            >
+                              <Icon name="smile" className="h-4 w-4" />
+                            </button>
+                            {pickerFor === m.id && (
+                              <div className={cx('absolute bottom-8 z-20 flex gap-1 rounded-full border border-gray-100 bg-white px-2 py-1.5 shadow-lift', mine ? 'right-0' : 'left-0')}>
+                                {QUICK_EMOJI.map((e) => (
+                                  <button key={e} onClick={() => toggleReaction(m.id, e)} className="rounded-full px-1 text-lg transition-transform hover:scale-125" aria-label={`React ${e}`}>
+                                    {e}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )
@@ -507,8 +697,18 @@ export default function Messages() {
                 <div ref={bottomRef} />
               </div>
 
-              {/* Jump-to-latest pill floats just above the composer. */}
+              {/* Typing indicator + jump-to-latest pill float above the composer. */}
               <div className="relative">
+                {otherTyping && (
+                  <div className="pointer-events-none absolute -top-6 left-5 flex items-center gap-1.5 text-xs text-smoke">
+                    <span className="flex gap-0.5">
+                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-smoke [animation-delay:-0.2s]" />
+                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-smoke [animation-delay:-0.1s]" />
+                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-smoke" />
+                    </span>
+                    <span className="italic">{active?.other?.name?.split(' ')[0]} is typing…</span>
+                  </div>
+                )}
                 {!atBottom && (
                   <div className="pointer-events-none absolute -top-14 inset-x-0 z-10 flex justify-center">
                     <button
@@ -535,6 +735,20 @@ export default function Messages() {
                 {!connected && !isAdmin && iSentCount === 0 && !theyReplied && (
                   <p className="mb-2 text-xs text-smoke">You can send one message. If {active?.other?.name?.split(' ')[0]} replies, you’ll be connected.</p>
                 )}
+                {/* Reply preview: what you're replying to, with a cancel button. */}
+                {replyTo && (
+                  <div className="mb-2 flex items-center gap-2 rounded-xl border-l-2 border-brand bg-cloud/70 px-3 py-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-semibold text-brand">
+                        Replying to {replyTo.sender_id === user.id ? 'yourself' : active?.other?.name?.split(' ')[0]}
+                      </p>
+                      <p className="truncate text-xs text-smoke">{dmPreview(replyTo)}</p>
+                    </div>
+                    <button type="button" onClick={() => setReplyTo(null)} aria-label="Cancel reply" className="rounded-full p-1 text-smoke hover:bg-white hover:text-ink">
+                      <Icon name="ban" className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
                 <form onSubmit={send} className="flex items-end gap-2 sm:gap-3">
                   <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden" onChange={sendImage} />
                   <button
@@ -551,7 +765,8 @@ export default function Messages() {
                     className="input max-h-32 flex-1 resize-none overflow-y-auto"
                     placeholder={`Message ${active?.other?.name?.split(' ')[0] ?? ''}…`}
                     value={body}
-                    onChange={(e) => setBody(e.target.value)}
+                    onChange={(e) => { setBody(e.target.value); if (e.target.value.trim()) pingTyping() }}
+                    onBlur={stopTyping}
                     onKeyDown={(e) => { if (!isMobile && e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(e) } }}
                     aria-label="Message"
                   />

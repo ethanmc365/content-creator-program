@@ -32,6 +32,38 @@ const fmtTime = (ms) => {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
+// Current weekly streak from a list of play timestamps: the run of consecutive
+// 7-day buckets ending this week (or last week — a one-week grace so a streak
+// isn't lost the instant a new week starts). Used per game mode.
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000
+function weeklyStreak(timestamps) {
+  if (!timestamps?.length) return 0
+  const weeks = new Set(timestamps.map((t) => Math.floor(new Date(t).getTime() / WEEK_MS)))
+  const now = Math.floor(Date.now() / WEEK_MS)
+  let w = weeks.has(now) ? now : weeks.has(now - 1) ? now - 1 : null
+  if (w == null) return 0
+  let streak = 0
+  while (weeks.has(w)) { streak++; w-- }
+  return streak
+}
+
+// A custom flame chip (replaces the native 🔥 emoji) with the streak count.
+function FlameStreak({ n }) {
+  return (
+    <span
+      className="inline-flex items-center gap-0.5 rounded-full bg-brand-tint px-1.5 py-0.5 text-[11px] font-bold leading-none text-brand"
+      title={`${n}-week streak`}
+      aria-label={`${n} week streak`}
+    >
+      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden>
+        <path d="M13.5 2C14 5 11.5 6 10 8.2 8.9 9.8 8 11.4 8 13.3a6 6 0 0 0 12 .2c0-2.6-1.4-4.6-2.9-6.3-.9 1.2-2.2 1.3-2-.2.15-1.6-.4-3.6-1.6-5Z" fill="#d94407" />
+        <path d="M13 12c.4 1-.4 1.7-1 2.5-.4.5-.7 1.1-.7 1.8a2.4 2.4 0 0 0 4.8.1c0-1.2-.7-2-1.5-2.8-.6.7-1.3.4-1.1-.5.1-.5-.1-.8-.5-1.1Z" fill="#fbbf24" />
+      </svg>
+      {n}
+    </span>
+  )
+}
+
 export default function Game() {
   const [params] = useSearchParams()
   const eventId = params.get('event')
@@ -346,6 +378,30 @@ function GameMap({ placed, revealed, flashWrong, answered, onPick }) {
   )
 }
 
+// A custom, on-brand celebration graphic — replaces the native 🎉 emoji on the
+// results screen. A party popper bursting Tryp-coloured confetti.
+function CelebrationGraphic({ className = 'h-20 w-20' }) {
+  return (
+    <svg viewBox="0 0 64 64" className={className} fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+      {/* popper cone */}
+      <path d="M8 56 L27 31 L37 41 Z" fill="#d94407" />
+      <path d="M8 56 L27 31 L31 35 Z" fill="#f5853f" />
+      {/* cone opening highlights */}
+      <path d="M10 53 L20 43 M11 55 L23 49" stroke="#fdf0e7" strokeWidth="1.6" strokeLinecap="round" opacity="0.75" />
+      {/* streamers arcing out of the popper */}
+      <path d="M31 30 q9 -11 21 -15" stroke="#fbbf24" strokeWidth="2.4" strokeLinecap="round" />
+      <path d="M34 35 q11 -5 23 -3" stroke="#16a34a" strokeWidth="2.4" strokeLinecap="round" opacity="0.85" />
+      {/* confetti burst */}
+      <circle cx="44" cy="15" r="3" fill="#fbbf24" />
+      <circle cx="55" cy="25" r="2.5" fill="#16a34a" />
+      <circle cx="58" cy="13" r="2" fill="#f5853f" />
+      <rect x="45" y="31" width="5" height="5" rx="1" fill="#d94407" transform="rotate(20 47.5 33.5)" />
+      <rect x="33" y="9" width="5" height="5" rx="1" fill="#f5853f" transform="rotate(-15 35.5 11.5)" />
+      <path d="M50 7 l2.2 4.2 -4.4 0 z" fill="#d94407" />
+    </svg>
+  )
+}
+
 // ---------------------------------------------------------------- Results
 function Results({ result, mode, region, eventId, userId, onPlayAgain, onMenu }) {
   const [saving, setSaving] = useState(true)
@@ -362,11 +418,13 @@ function Results({ result, mode, region, eventId, userId, onPlayAgain, onMenu })
   return (
     <div className="card flex flex-col items-center gap-4 !py-10 text-center animate-pop-in">
       {great && <Confetti count={50} />}
-      <p className="text-5xl" aria-hidden>{great ? '🏆' : pct >= 50 ? '🎉' : '🌍'}</p>
+      {pct >= 50
+        ? <CelebrationGraphic className="h-20 w-20" />
+        : <Icon name="globe" className="h-14 w-14 text-brand" aria-hidden />}
       <h2 className="text-2xl font-bold">{result.correct} / {result.total} correct</h2>
       <div className="flex gap-3">
         <Badge tone="brand">{pct}%</Badge>
-        <Badge tone="light">⏱ {fmtTime(result.time_ms)}</Badge>
+        <Badge tone="light"><Icon name="clock" className="h-3.5 w-3.5" /> {fmtTime(result.time_ms)}</Badge>
       </div>
       <p className="text-sm text-smoke">{saving ? 'Saving your score…' : 'Score saved to the leaderboard!'}</p>
       <div className="mt-2 flex flex-wrap justify-center gap-3">
@@ -381,6 +439,7 @@ function Results({ result, mode, region, eventId, userId, onPlayAgain, onMenu })
 function Leaderboard({ mode, region, eventId, highlightUser }) {
   const { isAdmin } = useAuth()
   const [rows, setRows] = useState(null)
+  const [streaks, setStreaks] = useState({}) // player_id -> weekly streak for this mode
   const pressTimer = useRef(null)
 
   const load = useCallback(async () => {
@@ -392,7 +451,23 @@ function Leaderboard({ mode, region, eventId, highlightUser }) {
       const cur = best[s.player_id]
       if (!cur || s.correct > cur.correct || (s.correct === cur.correct && s.time_ms < cur.time_ms)) best[s.player_id] = s
     }
-    setRows(Object.values(best).sort((a, b) => b.correct - a.correct || a.time_ms - b.time_ms).slice(0, 25))
+    const ranked = Object.values(best).sort((a, b) => b.correct - a.correct || a.time_ms - b.time_ms).slice(0, 25)
+    setRows(ranked)
+
+    // Weekly play streak per creator for this mode (across all regions). Only on
+    // the all-time board — a single event doesn't have a weekly cadence.
+    const ids = ranked.map((r) => r.player_id)
+    if (!eventId && ids.length) {
+      const { data: hist } = await supabase
+        .from('game_scores').select('player_id, created_at').eq('mode', mode).in('player_id', ids)
+      const byPlayer = {}
+      for (const h of hist ?? []) (byPlayer[h.player_id] ||= []).push(h.created_at)
+      const s = {}
+      for (const id of ids) s[id] = weeklyStreak(byPlayer[id])
+      setStreaks(s)
+    } else {
+      setStreaks({})
+    }
   }, [mode, region, eventId])
 
   useEffect(() => { load() }, [load])
@@ -418,7 +493,7 @@ function Leaderboard({ mode, region, eventId, highlightUser }) {
   return (
     <section>
       <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold"><Icon name="trophy" className="h-5 w-5 text-brand" /> Leaderboard</h2>
-      <p className="mb-4 text-sm text-smoke">{MODE_LABEL[mode]} · {region}{eventId ? ' · this event' : ' · all-time'}. Ranked by score, then speed.</p>
+      <p className="mb-4 text-sm text-smoke">{MODE_LABEL[mode]} · {region}{eventId ? ' · this event' : ' · all-time'}. Ranked by score, then speed.{!eventId && ' The flame shows a creator\'s weekly play streak in this mode.'}</p>
       {rows === null ? (
         <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-cloud" />)}</div>
       ) : rows.length === 0 ? (
@@ -438,7 +513,10 @@ function Leaderboard({ mode, region, eventId, highlightUser }) {
                 <span className="w-8 text-center text-lg font-bold">{{ 0: '🥇', 1: '🥈', 2: '🥉' }[idx] || idx + 1}</span>
                 <Link to={`/profile/${r.profiles?.id}`} onClick={(e) => { if (longPressedRef.current) { e.preventDefault(); longPressedRef.current = false } }} className="flex min-w-0 flex-1 items-center gap-3">
                   <Avatar src={r.profiles?.photo_url} name={r.profiles?.name} size="sm" />
-                  <span className="truncate text-sm font-semibold hover:text-brand">{r.profiles?.name}{mine && <span className="ml-1 text-xs text-brand">(you)</span>}</span>
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="truncate text-sm font-semibold hover:text-brand">{r.profiles?.name}{mine && <span className="ml-1 text-xs text-brand">(you)</span>}</span>
+                    {streaks[r.player_id] >= 2 && <FlameStreak n={streaks[r.player_id]} />}
+                  </span>
                 </Link>
                 <span className="text-sm font-bold tabular-nums">{r.correct}/{r.total}</span>
                 <span className="w-14 text-right text-xs tabular-nums text-smoke">{fmtTime(r.time_ms)}</span>

@@ -10,7 +10,9 @@ import PollCard from '../components/PollCard'
 import GameEventCard from '../components/GameEventCard'
 import BirthdayCard from '../components/BirthdayCard'
 import ResourceCard from '../components/ResourceCard'
+import LeaderboardCard from '../components/LeaderboardCard'
 import LinkPreview from '../components/LinkPreview'
+import ReactionPill from '../components/ReactionPill'
 import ChatMedia from '../components/ChatMedia'
 import { CONTINENTS } from '../lib/countries'
 import { formatChatTime, cx } from '../lib/utils'
@@ -68,6 +70,7 @@ export default function Chat() {
 
   const [messages, setMessages] = useState([])
   const [reactions, setReactions] = useState([]) // all reactions for loaded messages
+  const [reads, setReads] = useState(new Map()) // user_id -> last_read_at, for "seen by"
   const [loading, setLoading] = useState(true)
   const [body, setBody] = useState('')
   const [pickerFor, setPickerFor] = useState(null) // message id with emoji picker open
@@ -174,11 +177,13 @@ export default function Chat() {
       .order('created_at', { ascending: true })
       .limit(200)
     const ids = (msgs ?? []).map((m) => m.id)
-    const { data: reacts } = ids.length
-      ? await supabase.from('reactions').select('*').in('message_id', ids)
-      : { data: [] }
+    const [{ data: reacts }, { data: readRows }] = await Promise.all([
+      ids.length ? supabase.from('reactions').select('*').in('message_id', ids) : Promise.resolve({ data: [] }),
+      supabase.from('channel_reads').select('user_id, last_read_at').eq('channel', channel),
+    ])
     setMessages(msgs ?? [])
     setReactions(reacts ?? [])
+    setReads(new Map((readRows ?? []).map((r) => [r.user_id, r.last_read_at])))
     setLoading(false)
   }, [channel])
 
@@ -222,6 +227,12 @@ export default function Chat() {
         (payload) => setReactions((prev) => prev.some((r) => r.id === payload.new.id) ? prev : [...prev, payload.new]))
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'reactions' },
         (payload) => setReactions((prev) => prev.filter((r) => r.id !== payload.old.id)))
+      // Read receipts: someone's last-read time advanced in this channel.
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'channel_reads', filter: `channel=eq.${channel}` },
+        (payload) => {
+          const row = payload.new
+          if (row?.user_id) setReads((prev) => new Map(prev).set(row.user_id, row.last_read_at))
+        })
       .subscribe()
     return () => supabase.removeChannel(sub)
   }, [channel, mergeIncoming])
@@ -233,6 +244,23 @@ export default function Chat() {
     setAtBottom(true)
     setNewBelow(0)
   }, [channel])
+
+  // Publish my "last read" for this channel (throttled) so others get a read
+  // receipt. RLS silently rejects muted/pending users, which is fine.
+  const lastReadUpsertRef = useRef(0)
+  const markChannelRead = useCallback(() => {
+    const now = Date.now()
+    if (now - lastReadUpsertRef.current < 2500) return
+    lastReadUpsertRef.current = now
+    const iso = new Date().toISOString()
+    setReads((prev) => new Map(prev).set(user.id, iso))
+    // Supabase query builders are lazy — the request only fires once `.then` is
+    // called, so we must chain (not fire-and-forget). Errors (e.g. muted user
+    // blocked by RLS) are swallowed on purpose.
+    supabase.from('channel_reads')
+      .upsert({ channel, user_id: user.id, last_read_at: iso }, { onConflict: 'channel,user_id' })
+      .then(() => {}, () => {})
+  }, [channel, user.id])
 
   // ---------- Smart auto-scroll + "jump to latest" bookkeeping ----------
   // Only follow new messages when the reader is already at the bottom (or the new
@@ -260,7 +288,9 @@ export default function Chat() {
     prevLenRef.current = messages.length
     localStorage.setItem(lastReadKey(channel), new Date().toISOString())
     setUnread((u) => ({ ...u, [channel]: false }))
-  }, [messages, channel, atBottom, user.id])
+    // Only register a read receipt when they've actually seen the newest message.
+    if (firstPaint || atBottom) markChannelRead()
+  }, [messages, channel, atBottom, user.id, markChannelRead])
 
   // Keep the latest message in view when the keyboard opens/closes or the
   // visible viewport resizes (only if we were already following the newest).
@@ -631,12 +661,42 @@ export default function Chat() {
     setShowResource(false)
   }
 
-  // Group reactions per message: { '❤️': { count, mine } }
+  // Resolve a reactor's display name for the "who reacted" popup ("You" for me).
+  const memberName = useCallback((id) => {
+    if (id === user.id) return 'You'
+    return members.find((m) => m.id === id)?.name ?? 'Someone'
+  }, [members, user.id])
+
+  // Members who have read up to (at least) a given message, for its "seen by"
+  // row. Excludes me and the sender. Driven by channel_reads timestamps.
+  function seenBy(msg) {
+    if (!msg) return []
+    const t = new Date(msg.created_at).getTime()
+    const out = []
+    for (const mem of members) {
+      if (mem.id === user.id || mem.id === msg.sender_id) continue
+      const r = reads.get(mem.id)
+      if (r && new Date(r).getTime() >= t) out.push(mem)
+    }
+    return out
+  }
+
+  // The newest real (non-deleted, non-pending) message — the only one that
+  // carries a "seen by" row, like WhatsApp.
+  const lastVisibleId = (() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (!messages[i].deleted && !messages[i].pending) return messages[i].id
+    }
+    return null
+  })()
+
+  // Group reactions per message: { '❤️': { count, mine, ids: [...] } }
   function reactionSummary(messageId) {
     const grouped = {}
     for (const r of reactions.filter((x) => x.message_id === messageId)) {
-      grouped[r.emoji] = grouped[r.emoji] || { count: 0, mine: false }
+      grouped[r.emoji] = grouped[r.emoji] || { count: 0, mine: false, ids: [] }
       grouped[r.emoji].count++
+      grouped[r.emoji].ids.push(r.creator_id)
       if (r.creator_id === user.id) grouped[r.emoji].mine = true
     }
     return grouped
@@ -794,6 +854,7 @@ export default function Chat() {
                   {m.game_event_id && <GameEventCard eventId={m.game_event_id} />}
                   {m.birthday_for && <BirthdayCard creatorId={m.birthday_for} />}
                   {m.resource_id && <ResourceCard resourceId={m.resource_id} />}
+                  {m.leaderboard_challenge_id && <LeaderboardCard challengeId={m.leaderboard_challenge_id} />}
 
                   {m.pending && <p className={cx('mt-0.5 text-[11px] text-gray-400', mine && 'text-right')}>Sending…</p>}
                   {m.failed && (
@@ -807,17 +868,15 @@ export default function Chat() {
                       message reveals them (showActions). */}
                   <div className={cx('mt-1 flex flex-wrap items-center gap-1', mine && 'justify-end')}>
                     {Object.entries(summary).map(([emoji, info]) => (
-                      <button
+                      <ReactionPill
                         key={emoji}
-                        onClick={() => toggleReaction(m.id, emoji)}
-                        aria-label={`${emoji} ${info.count} reactions`}
-                        className={cx(
-                          'rounded-full border px-2 py-0.5 text-xs transition-colors',
-                          info.mine ? 'border-brand bg-brand-tint text-brand' : 'border-gray-200 bg-white text-smoke hover:border-brand'
-                        )}
-                      >
-                        {emoji} {info.count}
-                      </button>
+                        emoji={emoji}
+                        count={info.count}
+                        mine={info.mine}
+                        names={info.ids.map(memberName)}
+                        onToggle={() => toggleReaction(m.id, emoji)}
+                        align={mine ? 'right' : 'left'}
+                      />
                     ))}
 
                     <div className={cx('relative flex items-center gap-1 transition-opacity focus-within:opacity-100 group-hover:opacity-100', showActions ? 'opacity-100' : 'opacity-0')}>
@@ -858,6 +917,23 @@ export default function Chat() {
                       )}
                     </div>
                   </div>
+
+                  {/* Read receipts: who has seen the newest message. */}
+                  {m.id === lastVisibleId && (() => {
+                    const seen = seenBy(m)
+                    if (!seen.length) return null
+                    return (
+                      <div className={cx('mt-1 flex items-center gap-1.5', mine ? 'justify-end' : 'justify-start')}>
+                        <span className="text-[10px] text-gray-400">Seen by</span>
+                        <div className="flex -space-x-1.5">
+                          {seen.slice(0, 5).map((s) => (
+                            <Avatar key={s.id} src={s.photo_url} name={s.name} size="xs" className="!h-4 !w-4 !text-[8px] !ring-1" />
+                          ))}
+                        </div>
+                        {seen.length > 5 && <span className="text-[10px] text-gray-400">+{seen.length - 5}</span>}
+                      </div>
+                    )
+                  })()}
                 </div>
               </div>
             )

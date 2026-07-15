@@ -3,6 +3,7 @@ import { confirm } from '../../lib/confirm'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Avatar, EmptyState, PageHeader, Skeleton, Spinner } from '../../components/ui'
+import { useAuth } from '../../context/AuthContext'
 import { formatViews, timeAgo } from '../../lib/utils'
 
 // Results entry for one challenge:
@@ -12,13 +13,20 @@ import { formatViews, timeAgo } from '../../lib/utils'
 //     and writes the final results table (which feeds the Wall of Fame).
 export default function AdminResults() {
   const { id } = useParams()
+  const { user } = useAuth()
   const [challenge, setChallenge] = useState(null)
   const [submissions, setSubmissions] = useState([])
   const [resultsCount, setResultsCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [savingId, setSavingId] = useState(null)
   const [generating, setGenerating] = useState(false)
+  const [posting, setPosting] = useState(false)
   const [toast, setToast] = useState('')
+
+  // While the challenge is still running a leaderboard is an INTERIM snapshot;
+  // once it has ended (or been archived) it's the FINAL ranking.
+  const isLive = challenge?.status === 'active'
+  const phase = isLive ? 'interim' : 'final'
 
   const load = useCallback(async () => {
     const [{ data: ch }, { data: subs }, { count }] = await Promise.all([
@@ -75,10 +83,33 @@ export default function AdminResults() {
     // Replace previous results in one go.
     await supabase.from('results').delete().eq('challenge_id', id)
     const { error } = await supabase.from('results').insert(ranked)
+    if (error) { setGenerating(false); return flash(`Couldn't save results: ${error.message}`) }
+    // Stamp the challenge so the public page can label the standings correctly.
+    const updatedAt = new Date().toISOString()
+    await supabase.from('challenges').update({ results_status: phase, results_updated_at: updatedAt }).eq('id', id)
+    setChallenge((c) => (c ? { ...c, results_status: phase, results_updated_at: updatedAt } : c))
     setGenerating(false)
-    if (error) return flash(`Couldn't save results: ${error.message}`)
     setResultsCount(ranked.length)
-    flash(`Leaderboard saved. ${ranked.length} creators ranked and now live on the challenge page. 🏁`)
+    flash(
+      phase === 'interim'
+        ? `Interim standings published. ${ranked.length} creators ranked and live on the challenge page. Re-log views and publish again any time; publish once more after the challenge closes for the final result.`
+        : `Final results saved. ${ranked.length} creators ranked and now live on the challenge page.`
+    )
+  }
+
+  // Drop a leaderboard-update card into #announcements linking to the current
+  // standings (interim or final). Creators tap it to see the full leaderboard.
+  async function postLeaderboardUpdate() {
+    if (resultsCount === 0) return flash('Publish a leaderboard first, then post the update.')
+    setPosting(true)
+    const { error } = await supabase.from('messages').insert({
+      channel: 'announcements',
+      sender_id: user.id,
+      body: '',
+      leaderboard_challenge_id: id,
+    })
+    setPosting(false)
+    flash(error ? `Couldn't post update: ${error.message}` : 'Leaderboard update posted to Announcements.')
   }
 
   if (loading) {
@@ -91,16 +122,25 @@ export default function AdminResults() {
 
       <PageHeader
         title={`Results: ${challenge?.title}`}
-        subtitle="Open each video, check its views on the platform, and log the number here. No scraping. Your eyes are the source of truth."
+        subtitle={
+          isLive
+            ? 'Log the views you can see so far and publish an interim leaderboard mid-challenge. Re-log and publish again after it closes for the final ranking. No scraping. Your eyes are the source of truth.'
+            : 'Open each video, check its views on the platform, and log the number here. No scraping. Your eyes are the source of truth.'
+        }
         action={
           <div className="flex flex-col items-end gap-2">
             <button onClick={generateLeaderboard} disabled={generating} className="btn-primary">
-              {generating ? <Spinner /> : '🏁 Generate leaderboard'}
+              {generating ? <Spinner /> : isLive ? 'Publish interim standings' : 'Publish final results'}
             </button>
             {resultsCount > 0 && (
-              <Link to={`/challenges/${id}`} className="text-xs font-medium text-brand hover:underline">
-                Leaderboard saved ({resultsCount}) → view on challenge page
-              </Link>
+              <>
+                <button onClick={postLeaderboardUpdate} disabled={posting} className="btn-secondary !py-2 text-xs">
+                  {posting ? <Spinner /> : 'Post update to Announcements'}
+                </button>
+                <Link to={`/challenges/${id}`} className="text-xs font-medium text-brand hover:underline">
+                  {challenge?.results_status === 'interim' ? 'Interim' : 'Final'} leaderboard live ({resultsCount}) → view
+                </Link>
+              </>
             )}
           </div>
         }

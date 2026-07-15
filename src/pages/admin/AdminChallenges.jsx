@@ -86,7 +86,7 @@ export default function AdminChallenges() {
                 {/* Lifecycle controls */}
                 <div className="flex flex-wrap gap-2">
                   {c.status === 'draft' && (
-                    <button onClick={() => setStatus(c, 'active')} className="btn-primary !py-2 text-xs">🚀 Publish</button>
+                    <button onClick={() => setStatus(c, 'active')} className="btn-primary !py-2 text-xs">Publish</button>
                   )}
                   {c.status === 'active' && (
                     <button onClick={() => setStatus(c, 'ended')} className="btn-secondary !py-2 text-xs">⏹ Close entries</button>

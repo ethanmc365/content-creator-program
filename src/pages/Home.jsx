@@ -183,8 +183,8 @@ export default function Home() {
               <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-ink">{stripMarkup(announcement.body)}</p>
             ) : (
               <p className="mt-4 flex items-center gap-2 text-sm font-medium text-brand">
-                <Icon name={announcement.poll_id ? 'poll' : announcement.game_event_id ? 'joystick' : announcement.resource_id ? 'book' : 'megaphone'} className="h-4 w-4" />
-                {announcement.poll_id ? 'Posted a new poll' : announcement.game_event_id ? 'Shared a game challenge' : announcement.resource_id ? 'Shared a resource' : 'New announcement'} · tap to view
+                <Icon name={announcement.poll_id ? 'poll' : announcement.game_event_id ? 'joystick' : announcement.resource_id ? 'book' : announcement.leaderboard_challenge_id ? 'trophy' : 'megaphone'} className="h-4 w-4" />
+                {announcement.poll_id ? 'Posted a new poll' : announcement.game_event_id ? 'Shared a game challenge' : announcement.resource_id ? 'Shared a resource' : announcement.leaderboard_challenge_id ? 'Posted a leaderboard update' : 'New announcement'} · tap to view
               </p>
             )}
           </Link>
