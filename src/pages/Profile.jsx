@@ -29,6 +29,7 @@ export default function Profile() {
   const [challengeCount, setChallengeCount] = useState(0)
   const [relation, setRelation] = useState(null)
   const [trips, setTrips] = useState([])
+  const [todayStr] = useState(() => format(new Date(), 'yyyy-MM-dd'))
   const [mutualCount, setMutualCount] = useState(0)
   const [loading, setLoading] = useState(true)
   // Private contact details (email + phone), only fetched for admin viewers.
@@ -130,6 +131,9 @@ export default function Profile() {
     if (created) navigate(`/messages/${created.id}`)
   }
 
+  // A trip that's underway right now (trips are already end_date >= today).
+  const currentTrip = trips.find((t) => t.start_date <= todayStr) || null
+
   if (loading) {
     return (
       <div className="page space-y-8">
@@ -168,10 +172,23 @@ export default function Profile() {
             {creator.is_admin && <Badge tone="light">Tryp.com Team</Badge>}
             {(ageFromDob(creator.dob) ?? creator.age) && <span className="text-smoke">{ageFromDob(creator.dob) ?? creator.age}</span>}
           </div>
-          {(creator.city || creator.country) && (
-            <p className="mt-1 flex items-center justify-center gap-1 text-sm text-smoke sm:justify-start">
-              <svg className="h-4 w-4 text-brand" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /></svg>
-              {[creator.city, creator.country].filter(Boolean).join(', ')}
+          {(creator.city || creator.country || currentTrip) && (
+            <p className="mt-1 flex flex-wrap items-center justify-center gap-2 text-sm text-smoke sm:justify-start">
+              {(creator.city || creator.country) && (
+                <span className="flex items-center gap-1">
+                  <svg className="h-4 w-4 text-brand" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /></svg>
+                  {[creator.city, creator.country].filter(Boolean).join(', ')}
+                </span>
+              )}
+              {/* On a collab-board trip right now → live chip beside the base town */}
+              {currentTrip && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-brand-tint px-2.5 py-0.5 text-[11px] font-semibold text-brand">
+                  <svg viewBox="0 0 24 24" className="h-3 w-3" fill="currentColor" aria-hidden>
+                    <path d="M21.5 15.5v-2l-8.5-5V3.25a1.5 1.5 0 0 0-3 0V8.5l-8.5 5v2l8.5-2.5v5.25L7.75 20v1.5L12 20.25l4.25 1.25V20L14 18.25V13z" />
+                  </svg>
+                  Currently in {currentTrip.city || currentTrip.country}
+                </span>
+              )}
             </p>
           )}
           {creator.bio && <p className="mt-2 text-lg text-smoke">{creator.bio}</p>}

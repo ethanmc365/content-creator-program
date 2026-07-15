@@ -119,9 +119,16 @@ export default function Home() {
               <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/70">Closes in</p>
               <CountdownTimer endDate={challenge.end_date} />
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <Link to={`/challenges/${challenge.id}`} className="btn bg-white text-brand hover:bg-white/90">
                 {mySubmissions.length > 0 ? 'View your entry' : 'Read the brief →'}
+              </Link>
+              {/* Quick action: jump straight into the submit form. */}
+              <Link
+                to={`/challenges/${challenge.id}?submit=1`}
+                className="btn border border-white/60 bg-transparent text-white hover:bg-white/10"
+              >
+                {mySubmissions.length > 0 ? '+ Add another video' : 'Submit your video'}
               </Link>
             </div>
           </div>

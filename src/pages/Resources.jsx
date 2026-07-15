@@ -16,25 +16,46 @@ const CATEGORY_EMOJI = {
 }
 
 export default function Resources() {
-  const { isAdmin } = useAuth()
+  const { user, profile, isAdmin, refreshProfile } = useAuth()
   const [resources, setResources] = useState([])
+  const [bookmarks, setBookmarks] = useState(() => new Set())
   const [loading, setLoading] = useState(true)
   const [category, setCategory] = useState('All')
   const [search, setSearch] = useState('')
+  const [savedOnly, setSavedOnly] = useState(false)
   const [openId, setOpenId] = useState(null) // expanded card
   const [params] = useSearchParams()
   const cardRefs = useRef({})
+  // What "new" means is frozen at mount: everything since the PREVIOUS visit
+  // (the stamp below moves the marker for next time, not this render).
+  const [seenBefore] = useState(() => (profile?.resources_seen_at ? new Date(profile.resources_seen_at).getTime() : 0))
 
   useEffect(() => {
-    supabase
-      .from('resources')
-      .select('*, profiles:created_by(name)')
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        setResources(data ?? [])
-        setLoading(false)
-      })
-  }, [])
+    async function load() {
+      const [{ data }, { data: marks }] = await Promise.all([
+        supabase.from('resources').select('*, profiles:created_by(name)').order('created_at', { ascending: false }),
+        supabase.from('resource_bookmarks').select('resource_id').eq('creator_id', user.id),
+      ])
+      setResources(data ?? [])
+      setBookmarks(new Set((marks ?? []).map((m) => m.resource_id)))
+      setLoading(false)
+    }
+    load()
+    // Visiting the library clears the "new" dot for next time.
+    supabase.from('profiles').update({ resources_seen_at: new Date().toISOString() }).eq('id', user.id)
+      .then(() => refreshProfile?.())
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function toggleBookmark(r) {
+    const has = bookmarks.has(r.id)
+    setBookmarks((prev) => {
+      const next = new Set(prev)
+      has ? next.delete(r.id) : next.add(r.id)
+      return next
+    })
+    if (has) await supabase.from('resource_bookmarks').delete().eq('resource_id', r.id).eq('creator_id', user.id)
+    else await supabase.from('resource_bookmarks').insert({ resource_id: r.id, creator_id: user.id })
+  }
 
   // Deep link from a chat resource card (/resources?open=<id>): expand that
   // resource and scroll it into view once the library has loaded.
@@ -55,11 +76,12 @@ export default function Resources() {
   const filtered = useMemo(
     () =>
       resources.filter((r) => {
+        if (savedOnly && !bookmarks.has(r.id)) return false
         if (category !== 'All' && r.category !== category) return false
         if (search && !(r.title + ' ' + r.body).toLowerCase().includes(search.toLowerCase())) return false
         return true
       }),
-    [resources, category, search]
+    [resources, category, search, savedOnly, bookmarks]
   )
 
   return (
@@ -90,6 +112,18 @@ export default function Resources() {
               {c !== 'All' && <span aria-hidden>{CATEGORY_EMOJI[c]} </span>}{c}
             </button>
           ))}
+          {/* Your shelf: everything you've bookmarked */}
+          <button
+            onClick={() => setSavedOnly((v) => !v)}
+            aria-pressed={savedOnly}
+            className={cx(
+              'inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-medium transition-colors',
+              savedOnly ? 'bg-brand text-white' : 'border border-gray-200 text-smoke hover:border-brand hover:text-brand'
+            )}
+          >
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill={savedOnly ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><path d="M6 3h12v18l-6-4-6 4z" /></svg>
+            Saved{bookmarks.size > 0 ? ` · ${bookmarks.size}` : ''}
+          </button>
         </div>
       </div>
 
@@ -115,8 +149,21 @@ export default function Resources() {
                 <div className="flex items-start justify-between gap-3">
                   <h2 className="text-lg font-semibold leading-snug">
                     <span aria-hidden>{CATEGORY_EMOJI[r.category]} </span>{r.title}
+                    {new Date(r.created_at).getTime() > seenBefore && (
+                      <span className="ml-2 inline-block align-middle rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase text-white">New</span>
+                    )}
                   </h2>
-                  <Badge tone="light">{r.category}</Badge>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Badge tone="light">{r.category}</Badge>
+                    <button
+                      onClick={() => toggleBookmark(r)}
+                      aria-label={bookmarks.has(r.id) ? 'Remove bookmark' : 'Bookmark this resource'}
+                      aria-pressed={bookmarks.has(r.id)}
+                      className={cx('rounded-full p-1.5 transition-colors', bookmarks.has(r.id) ? 'text-brand' : 'text-gray-300 hover:text-brand')}
+                    >
+                      <svg viewBox="0 0 24 24" className="h-5 w-5" fill={bookmarks.has(r.id) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><path d="M6 3h12v18l-6-4-6 4z" /></svg>
+                    </button>
+                  </div>
                 </div>
 
                 <p className={cx('whitespace-pre-line text-sm leading-relaxed text-smoke', !open && long && 'line-clamp-6')}>

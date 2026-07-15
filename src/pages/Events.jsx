@@ -8,6 +8,8 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Badge, PageHeader, Skeleton } from '../components/ui'
 import EventRsvp from '../components/EventRsvp'
+import EventPolls from '../components/EventPolls'
+import { SuggestEvent, EventRatingsAdmin } from '../components/EventFeedback'
 import { formatDateTimeTz, cx } from '../lib/utils'
 import { downloadIcs, googleCalendarUrl } from '../lib/calendar'
 
@@ -271,6 +273,15 @@ export default function Events() {
               </ol>
             )}
           </aside>
+        </div>
+      )}
+
+      {/* Availability polls, creator event ideas, and (admins) post-event ratings */}
+      {!loading && (
+        <div className="mt-10">
+          <EventPolls />
+          <SuggestEvent />
+          <EventRatingsAdmin />
         </div>
       )}
     </div>

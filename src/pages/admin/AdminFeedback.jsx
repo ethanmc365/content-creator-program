@@ -103,6 +103,11 @@ export default function AdminFeedback() {
                 </div>
 
                 <p className="whitespace-pre-line text-sm text-ink">{f.message}</p>
+                {f.screenshot_url && (
+                  <a href={f.screenshot_url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block" title="Open full size">
+                    <img src={f.screenshot_url} alt="Attached screenshot" loading="lazy" className="max-h-48 rounded-xl border border-gray-100 object-cover" />
+                  </a>
+                )}
                 {f.page && <p className="mt-1 text-xs text-gray-400">Reported from {f.page}</p>}
 
                 <div className="mt-3 flex items-center gap-2">

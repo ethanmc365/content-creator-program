@@ -188,3 +188,39 @@ export function Confetti({ count = 40 }) {
     </div>
   )
 }
+
+// A looping fireworks burst behind a results centrepiece: three staggered
+// bursts, each radiating coloured particles outward (CSS `burst` keyframe).
+// Used on game win screens - it sits BEHIND its parent's content, so wrap it
+// in a `relative` container.
+const BURST_COLORS = ['#d94407', '#f5853f', '#fbbf24', '#16a34a', '#3b82f6']
+const BURSTS = [
+  { x: '50%', y: '30%', delay: 0, dist: 42 },
+  { x: '28%', y: '46%', delay: 0.45, dist: 34 },
+  { x: '72%', y: '48%', delay: 0.85, dist: 34 },
+]
+export function Fireworks() {
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden motion-reduce:hidden" aria-hidden>
+      {BURSTS.map((b, bi) => (
+        <div key={bi} className="absolute" style={{ left: b.x, top: b.y }}>
+          {Array.from({ length: 12 }).map((_, i) => {
+            const ang = (i / 12) * Math.PI * 2
+            return (
+              <span
+                key={i}
+                className="absolute block h-1.5 w-1.5 rounded-full animate-burst"
+                style={{
+                  backgroundColor: BURST_COLORS[(i + bi) % BURST_COLORS.length],
+                  '--dx': `${Math.cos(ang) * b.dist}px`,
+                  '--dy': `${Math.sin(ang) * b.dist}px`,
+                  animationDelay: `${b.delay}s`,
+                }}
+              />
+            )
+          })}
+        </div>
+      ))}
+    </div>
+  )
+}

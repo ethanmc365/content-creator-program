@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { Badge, Confetti } from '../ui'
+import { Badge, Fireworks } from '../ui'
 import Icon from '../Icon'
-import { dayIndex } from '../../lib/pinpoint'
-import { generateZip, zipIndexForDay, ZIP_LAYOUT_COUNT } from '../../lib/zip'
+import { generateZip, zipIndexForDay, wallKey } from '../../lib/zip'
+import { ukDayIndex, ukDayStartIso, untilNextUkMidnight } from '../../lib/daily'
 import { cx } from '../../lib/utils'
 
-// Zip: Flight Path. Drag the plane through the numbered stops in order, leaving
-// a contrail behind you, until every cell of the grid is covered. One daily
-// layout (same for everyone, solve time on the leaderboard) plus unscored
-// practice layouts afterwards. All layouts are generated with a solution by
-// construction and verified solvable in the test suite.
+// Flight Path: drag the plane through the numbered stops in order, leaving a
+// contrail behind you, until every cell of the sky is covered. One layout per
+// (UK) day, same for everyone; difficulty varies through the year and harder
+// days add no-fly walls. The game_scores row is the source of truth for
+// "played today" so devices stay in sync.
 const BRAND = '#d94407'
 const BRAND_LIGHT = '#f5853f'
 const STORE_KEY = 'tryp_zip'
@@ -21,6 +21,7 @@ const fmtTime = (ms) => {
   const s = Math.floor(ms / 1000)
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
+const DIFF_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard' }
 
 function loadStored(day) {
   try {
@@ -42,54 +43,84 @@ function PlaneIcon({ x, y, angle, scale = 2 }) {
   )
 }
 
+// A soft cartoon cloud built from circles, drifting across the sky.
+function Cloud({ x, y, s = 1, dur = 60, delay = 0, span }) {
+  return (
+    <g
+      className="fp-cloud"
+      style={{ '--fp-span': `${span}px`, animationDuration: `${dur}s`, animationDelay: `${delay}s` }}
+      transform={`translate(${x} ${y}) scale(${s})`}
+      opacity="0.8"
+    >
+      <ellipse cx="0" cy="0" rx="46" ry="20" fill="#ffffff" />
+      <circle cx="-22" cy="-10" r="18" fill="#ffffff" />
+      <circle cx="8" cy="-14" r="22" fill="#ffffff" />
+      <circle cx="30" cy="-6" r="15" fill="#ffffff" />
+    </g>
+  )
+}
+
 export default function ZipGame({ onExit }) {
   const { user } = useAuth()
-  const [day] = useState(() => dayIndex())
+  const [day] = useState(() => ukDayIndex())
+  const [nextIn] = useState(() => untilNextUkMidnight(Date.now()))
   const stored = useState(() => loadStored(day))[0]
 
-  // null = today's daily; a number = practice layout index (unscored).
-  const [practiceIndex, setPracticeIndex] = useState(null)
-  const isDaily = practiceIndex === null
-  const layoutIndex = isDaily ? zipIndexForDay(day) : practiceIndex
+  const layoutIndex = zipIndexForDay(day)
   const puzzle = useMemo(() => generateZip(layoutIndex), [layoutIndex])
-  const { size, dots } = puzzle
+  const { size, dots, walls, difficulty } = puzzle
   const N = size * size
   const numberAt = useMemo(() => new Map(dots.map((d) => [d.cell, d.n])), [dots])
+  const wallSet = useMemo(() => new Set(walls.map(([a, b]) => wallKey(a, b))), [walls])
   const startCell = dots[0].cell
   const lastN = dots.length
 
   const [path, setPath] = useState([startCell])
   // The pointer handlers read and write the path synchronously (several steps
-  // can land in one pointermove), so the live value is mirrored in a ref and
-  // state is only the render copy.
+  // can land in one pointermove), so the live value is mirrored in a ref.
   const pathRef = useRef(path)
   const setPathLive = (p) => { pathRef.current = p; setPath(p) }
-  const [solved, setSolved] = useState(isDaily && stored ? true : false)
-  const [solveMs, setSolveMs] = useState(isDaily && stored ? stored.time_ms : null)
-  const alreadyDone = isDaily && !!stored // solved on an earlier visit today
+
+  const [solved, setSolved] = useState(!!stored)
+  const [solveMs, setSolveMs] = useState(stored?.time_ms ?? null)
+  const [checking, setChecking] = useState(!stored)
   const [shake, setShake] = useState(false)
   const [elapsed, setElapsed] = useState(0)
   const startRef = useRef(0)
   const draggingRef = useRef(false)
+  const savedRef = useRef(!!stored)
   const svgRef = useRef(null)
 
-  // Reset the board whenever the layout changes (daily → practice etc.)
+  // Server check: already flown today on another device?
   useEffect(() => {
-    setPathLive([puzzle.dots[0].cell])
-    if (!(isDaily && stored)) { setSolved(false); setSolveMs(null) }
-    startRef.current = Date.now()
-    setElapsed(0)
-  }, [puzzle]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (stored) return
+    let alive = true
+    supabase.from('game_scores')
+      .select('time_ms')
+      .eq('player_id', user.id).eq('mode', 'zip').eq('day_key', day)
+      .gte('created_at', ukDayStartIso())
+      .limit(1)
+      .then(({ data }) => {
+        if (!alive) return
+        const row = data?.[0]
+        if (row) {
+          savedRef.current = true
+          setSolved(true)
+          setSolveMs(row.time_ms)
+        }
+        setChecking(false)
+      })
+    return () => { alive = false }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (solved) return
+    if (solved || checking) return
     startRef.current = Date.now()
     const t = setInterval(() => setElapsed(Date.now() - startRef.current), 500)
     return () => clearInterval(t)
-  }, [solved, puzzle])
+  }, [solved, checking])
 
-  // Next stop number the path still has to reach. Order is enforced on every
-  // step, so this is simply how many stops we've collected so far + 1.
+  // Next stop number the path still has to reach.
   const expected = useMemo(() => {
     let n = 0
     for (const c of path) if (numberAt.has(c)) n++
@@ -105,19 +136,19 @@ export default function ZipGame({ onExit }) {
     const time_ms = Date.now() - startRef.current
     setSolved(true)
     setSolveMs(time_ms)
-    if (isDaily && !stored) {
-      localStorage.setItem(STORE_KEY, JSON.stringify({ day, time_ms }))
-      supabase.from('game_scores').insert({
-        player_id: user.id, mode: 'zip', region: 'Daily',
-        correct: 1, total: 1, time_ms,
-      }).then(() => {})
-    }
+    localStorage.setItem(STORE_KEY, JSON.stringify({ day, time_ms }))
+    if (savedRef.current) return
+    savedRef.current = true
+    supabase.from('game_scores').insert({
+      player_id: user.id, mode: 'zip', region: 'Daily', day_key: day,
+      correct: 1, total: 1, time_ms,
+    }).then(() => {})
   }
 
-  // Try to walk to `cell`, interpolating straight-line drags, with every rule
-  // enforced per step. Runs on the live ref so multi-step drags stay in sync.
+  // Walk toward `target`, interpolating straight-line drags, enforcing every
+  // rule per step (adjacency, no revisits, stop order, walls).
   function walkTo(target) {
-    if (solved) return
+    if (solved || checking) return
     const cur = [...pathRef.current]
     let guard = size * 2
     while (guard-- > 0) {
@@ -125,8 +156,6 @@ export default function ZipGame({ onExit }) {
       if (target === head) break
       const rh = Math.floor(head / size), ch = head % size
       const rt = Math.floor(target / size), ct = target % size
-      // Move one orthogonal step toward the target; diagonals are ignored
-      // until the pointer commits to a row or column.
       let next
       if (rh === rt && ch !== ct) next = head + Math.sign(ct - ch)
       else if (ch === ct && rh !== rt) next = head + Math.sign(rt - rh) * size
@@ -134,12 +163,12 @@ export default function ZipGame({ onExit }) {
       // Backtrack: stepping onto the previous cell retracts the contrail.
       if (cur.length > 1 && next === cur[cur.length - 2]) { cur.pop(); continue }
       if (cur.includes(next)) break // can't cross your own contrail
+      if (wallSet.has(wallKey(head, next))) { blocked(); break } // no-fly wall
       const num = numberAt.get(next)
       let exp = 1
       for (const c of cur) if (numberAt.has(c)) exp++
       if (num != null && num !== exp) { blocked(); break } // stops must be in order
-      // Don't land on the final stop until the grid is full.
-      if (num === lastN && cur.length + 1 !== N) { blocked(); break }
+      if (num === lastN && cur.length + 1 !== N) { blocked(); break } // land last
       cur.push(next)
     }
     setPathLive(cur)
@@ -154,7 +183,7 @@ export default function ZipGame({ onExit }) {
   }
 
   function onPointerDown(e) {
-    if (solved) return
+    if (solved || checking) return
     e.preventDefault()
     try { svgRef.current.setPointerCapture?.(e.pointerId) } catch { /* synthetic events have no active pointer */ }
     const cell = cellFromEvent(e)
@@ -181,9 +210,6 @@ export default function ZipGame({ onExit }) {
     if (solved) return
     setPathLive([startCell])
   }
-  function practice() {
-    setPracticeIndex(Math.floor(Math.random() * ZIP_LAYOUT_COUNT))
-  }
 
   // Geometry helpers for rendering.
   const centre = (cell) => [(cell % size) * CELL + CELL / 2, Math.floor(cell / size) * CELL + CELL / 2]
@@ -197,14 +223,38 @@ export default function ZipGame({ onExit }) {
   const points = path.map((c) => centre(c).join(',')).join(' ')
   const covered = new Set(path)
   const progress = Math.round((path.length / N) * 100)
+  const W = size * CELL
+
+  // Wall segment endpoints (drawn on the shared edge, inset from the corners).
+  const wallSegment = ([a, b]) => {
+    const ra = Math.floor(a / size), ca = a % size
+    if (b === a + 1) { // vertical wall to the right of a
+      const x = (ca + 1) * CELL
+      return { x1: x, y1: ra * CELL + 8, x2: x, y2: (ra + 1) * CELL - 8 }
+    }
+    const y = (ra + 1) * CELL // horizontal wall below a
+    return { x1: ca * CELL + 8, y1: y, x2: (ca + 1) * CELL - 8, y2: y }
+  }
 
   return (
     <div className="space-y-6">
+      <style>{`
+        .fp-cloud { animation-name: fp-drift; animation-timing-function: linear; animation-iteration-count: infinite; }
+        @keyframes fp-drift {
+          from { transform: translateX(calc(var(--fp-span) * -0.25)); }
+          to { transform: translateX(var(--fp-span)); }
+        }
+        @media (prefers-reduced-motion: reduce) { .fp-cloud { animation: none; } }
+      `}</style>
+
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Badge tone="light"><Icon name="plane" className="h-3.5 w-3.5" /> Flight Path · {isDaily ? 'Daily puzzle' : `Practice #${layoutIndex + 1}`}</Badge>
+        <span className="flex items-center gap-2">
+          <Badge tone="light"><Icon name="plane" className="h-3.5 w-3.5" /> Flight Path · Daily puzzle</Badge>
+          <Badge tone={difficulty === 'hard' ? 'brand' : 'grey'} className="!px-2 !py-0.5 text-[10px]">{DIFF_LABEL[difficulty]}</Badge>
+        </span>
         <div className="flex items-center gap-5">
           <div className="text-center leading-tight">
-            <span className="block text-[10px] font-medium uppercase tracking-wide text-smoke">Filled</span>
+            <span className="block text-[10px] font-medium uppercase tracking-wide text-smoke">Sky filled</span>
             <span className="block text-sm font-semibold tabular-nums text-ink">{progress}%</span>
           </div>
           <div className="text-center leading-tight">
@@ -217,21 +267,38 @@ export default function ZipGame({ onExit }) {
 
       <div className="card !p-4 sm:!p-6">
         <p className="mb-4 text-center text-sm text-smoke">
-          Fly through every stop <span className="font-semibold text-ink">in order</span>, filling the whole sky. Drag the plane, drag backwards to undo.
+          Fly through every stop <span className="font-semibold text-ink">in order</span>, filling the whole sky.
+          {walls.length > 0 && <> Solid bars are <span className="font-semibold text-ink">no-fly walls</span>.</>} Drag the plane, drag backwards to undo.
         </p>
 
         <div className={cx('relative mx-auto w-full max-w-[520px]', shake && 'animate-shake')}>
           <svg
             ref={svgRef}
-            viewBox={`0 0 ${size * CELL} ${size * CELL}`}
-            className="block w-full select-none rounded-card"
-            style={{ touchAction: 'none', background: '#eef4fb' }}
+            viewBox={`0 0 ${W} ${W}`}
+            className="block w-full select-none overflow-hidden rounded-card"
+            style={{ touchAction: 'none' }}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerUp}
             aria-label="Flight path puzzle board"
           >
+            <defs>
+              <linearGradient id="fp-sky" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#cfe8fb" />
+                <stop offset="100%" stopColor="#eaf5fd" />
+              </linearGradient>
+            </defs>
+            {/* the sky, a low sun, and clouds drifting behind the flight grid */}
+            <rect x="0" y="0" width={W} height={W} fill="url(#fp-sky)" />
+            <circle cx={W - 55} cy={52} r={26} fill="#ffd989" opacity="0.9" />
+            <circle cx={W - 55} cy={52} r={38} fill="#ffd989" opacity="0.25" />
+            <g style={{ pointerEvents: 'none' }}>
+              <Cloud x={-80} y={W * 0.16} s={1.15} dur={75} span={W + 260} />
+              <Cloud x={-40} y={W * 0.52} s={0.8} dur={95} delay={-40} span={W + 260} />
+              <Cloud x={-120} y={W * 0.82} s={1.35} dur={110} delay={-70} span={W + 260} />
+            </g>
+
             {/* sky cells */}
             {Array.from({ length: N }).map((_, cell) => {
               const x = (cell % size) * CELL, y = Math.floor(cell / size) * CELL
@@ -239,8 +306,8 @@ export default function ZipGame({ onExit }) {
                 <rect
                   key={cell}
                   x={x + 3} y={y + 3} width={CELL - 6} height={CELL - 6} rx={14}
-                  fill={covered.has(cell) ? '#fdf0e7' : '#ffffff'}
-                  stroke={covered.has(cell) ? '#f9c9a7' : '#e5eaf1'}
+                  fill={covered.has(cell) ? 'rgba(253,240,231,0.96)' : 'rgba(255,255,255,0.66)'}
+                  stroke={covered.has(cell) ? '#f9c9a7' : 'rgba(255,255,255,0.9)'}
                   strokeWidth={1.5}
                   style={{ transition: 'fill 0.15s' }}
                 />
@@ -250,10 +317,21 @@ export default function ZipGame({ onExit }) {
             {/* the flight route + contrail */}
             {path.length > 1 && (
               <>
-                <polyline points={points} fill="none" stroke={BRAND_LIGHT} strokeOpacity={0.4} strokeWidth={46} strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
+                <polyline points={points} fill="none" stroke={BRAND_LIGHT} strokeOpacity={0.45} strokeWidth={46} strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
                 <polyline points={points} fill="none" stroke="#ffffff" strokeWidth={5} strokeDasharray="3 16" strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
               </>
             )}
+
+            {/* no-fly walls */}
+            {walls.map((wpair, i) => {
+              const s = wallSegment(wpair)
+              return (
+                <g key={i} style={{ pointerEvents: 'none' }}>
+                  <line {...s} stroke="#ffffff" strokeWidth={13} strokeLinecap="round" />
+                  <line {...s} stroke="#3f4a5a" strokeWidth={8} strokeLinecap="round" />
+                </g>
+              )
+            })}
 
             {/* numbered stops */}
             {dots.map((d) => {
@@ -270,30 +348,33 @@ export default function ZipGame({ onExit }) {
             })}
 
             {/* the plane at the head of the trail */}
-            {!solved && <PlaneIcon x={hx} y={hy} angle={angle} />}
+            {!solved && !checking && <PlaneIcon x={hx} y={hy} angle={angle} />}
           </svg>
 
           {solved && (
             <div className="absolute inset-0 flex items-center justify-center rounded-card bg-white/85 backdrop-blur-[2px]">
-              <div className="flex flex-col items-center gap-3 p-6 text-center animate-pop-in">
-                <Confetti count={40} />
-                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lift">
+              <div className="relative flex flex-col items-center gap-3 p-6 text-center animate-pop-in">
+                <Fireworks />
+                <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lift">
                   <Icon name="plane" className="h-7 w-7" />
                 </span>
-                <p className="text-xl font-bold text-ink">{alreadyDone ? 'Solved today' : 'Smooth landing!'}</p>
-                <p className="text-sm text-smoke">
-                  {isDaily ? "Today's flight" : 'Practice flight'} completed{solveMs != null ? ` in ${fmtTime(solveMs)}` : ''}.
+                <p className="relative text-xl font-bold text-ink">Smooth landing!</p>
+                <p className="relative text-sm text-smoke">
+                  Today's flight completed{solveMs != null ? ` in ${fmtTime(solveMs)}` : ''}.
                 </p>
-                <div className="flex flex-wrap justify-center gap-3">
-                  <button onClick={practice} className="btn-primary !py-2 text-sm">Practice another layout</button>
-                  <button onClick={onExit} className="btn-secondary !py-2 text-sm">Back to games</button>
-                </div>
+                <p className="relative text-xs text-smoke">New route at midnight UK time · {nextIn}</p>
+                <button onClick={onExit} className="btn-secondary relative !py-2 text-sm">Back to games</button>
               </div>
+            </div>
+          )}
+          {checking && !solved && (
+            <div className="absolute inset-0 flex items-center justify-center rounded-card bg-white/70">
+              <p className="text-sm text-smoke">Checking today's flight…</p>
             </div>
           )}
         </div>
 
-        {!solved && (
+        {!solved && !checking && (
           <div className="mt-4 flex items-center justify-center gap-3">
             <button onClick={undo} className="btn-secondary !py-2 text-sm">Undo</button>
             <button onClick={restart} className="btn-secondary !py-2 text-sm">Restart</button>

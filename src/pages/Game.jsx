@@ -5,14 +5,14 @@ import { ComposableMap, Geographies, Geography, ZoomableGroup } from 'react-simp
 import { GEO_URL } from '../lib/mapCountries'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { Avatar, Badge, PageHeader, Confetti } from '../components/ui'
+import { Avatar, Badge, PageHeader, Confetti, Fireworks } from '../components/ui'
 import Icon from '../components/Icon'
 import {
   CONTINENTS, countriesForRegion, airportsForRegion, flagEmoji,
   countryMatches, airportMatches, shuffle,
   currencyCountriesForRegion, currencyChoices,
 } from '../lib/countries'
-import { dayIndex } from '../lib/pinpoint'
+import { ukDayIndex, ukDayStartIso } from '../lib/daily'
 import PinpointGame from '../components/games/PinpointGame'
 import ZipGame from '../components/games/ZipGame'
 import { cx } from '../lib/utils'
@@ -30,13 +30,13 @@ const MODES = [
   { key: 'airports', icon: 'plane', title: 'Airport codes', text: 'See an IATA code, name the city.' },
   { key: 'currencies', icon: 'cash', title: 'Currencies', text: 'See a currency, pick the country that uses it.' },
 ]
-const MODE_LABEL = { flags: 'Flags', map: 'Find on map', airports: 'Airports', currencies: 'Currencies', pinpoint: 'Pinpoint', zip: 'Flight Path' }
+const MODE_LABEL = { flags: 'Flags', map: 'Find on map', airports: 'Airports', currencies: 'Currencies', pinpoint: 'Guess the Country', zip: 'Flight Path' }
 
 // The two daily puzzles that sit above "choose a mode". Same puzzle for
-// everyone each (UTC) day; scores go to a today-only leaderboard.
+// everyone each day, refreshing at midnight UK time.
 const DAILIES = [
-  { key: 'pinpoint', icon: 'eye', title: 'Pinpoint', text: 'Five clue words, guess the country. Fewer clues, more points.', store: 'tryp_pinpoint' },
-  { key: 'zip', icon: 'plane', title: 'Zip: Flight Path', text: 'Drag your plane through every stop in order, filling the whole sky.', store: 'tryp_zip' },
+  { key: 'pinpoint', icon: 'eye', title: 'Guess the Country', text: 'Five clue words, guess the country. Fewer clues, more points.', store: 'tryp_pinpoint' },
+  { key: 'zip', icon: 'plane', title: 'Flight Path', text: 'Drag your plane through every stop in order, filling the whole sky.', store: 'tryp_zip' },
 ]
 
 const fmtTime = (ms) => {
@@ -131,7 +131,14 @@ export default function Game() {
 
       <div className="mt-12">
         {screen === 'pinpoint' || screen === 'zip' ? (
-          <Leaderboard mode={screen} region="Daily" daily highlightUser={user.id} />
+          // Daily puzzles get two boards: today's race on the left, the
+          // all-time best scores on the right.
+          <div className="grid gap-10 lg:grid-cols-2">
+            <Leaderboard mode={screen} region="Daily" daily highlightUser={user.id}
+              heading="Today's leaderboard" blurb="Everyone plays the same puzzle today. Ranked by score, then speed." />
+            <Leaderboard mode={screen} region="Daily" highlightUser={user.id}
+              heading="All-time leaderboard" blurb="Each creator's best-ever daily result. Ranked by score, then speed." />
+          </div>
         ) : (
           <Leaderboard mode={mode} region={region} eventId={eventId} highlightUser={user.id} />
         )}
@@ -143,7 +150,7 @@ export default function Game() {
 // ---------------------------------------------------------------- Menu
 function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle }) {
   // Ticks on the daily cards when today's puzzle is already done.
-  const [today] = useState(() => dayIndex())
+  const [today] = useState(() => ukDayIndex())
   const playedToday = (storeKey) => {
     try { return JSON.parse(localStorage.getItem(storeKey) || 'null')?.day === today } catch { return false }
   }
@@ -488,40 +495,6 @@ function GameMap({ placed, revealed, flashWrong, answered, onPick }) {
   )
 }
 
-// A looping fireworks burst behind the results centrepiece. Three staggered
-// bursts, each radiating coloured particles outward (CSS `burst` keyframe).
-const BURST_COLORS = ['#d94407', '#f5853f', '#fbbf24', '#16a34a', '#3b82f6']
-const BURSTS = [
-  { x: '50%', y: '30%', delay: 0, dist: 42 },
-  { x: '28%', y: '46%', delay: 0.45, dist: 34 },
-  { x: '72%', y: '48%', delay: 0.85, dist: 34 },
-]
-function Fireworks() {
-  return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden motion-reduce:hidden" aria-hidden>
-      {BURSTS.map((b, bi) => (
-        <div key={bi} className="absolute" style={{ left: b.x, top: b.y }}>
-          {Array.from({ length: 12 }).map((_, i) => {
-            const ang = (i / 12) * Math.PI * 2
-            return (
-              <span
-                key={i}
-                className="absolute block h-1.5 w-1.5 rounded-full animate-burst"
-                style={{
-                  backgroundColor: BURST_COLORS[(i + bi) % BURST_COLORS.length],
-                  '--dx': `${Math.cos(ang) * b.dist}px`,
-                  '--dy': `${Math.sin(ang) * b.dist}px`,
-                  animationDelay: `${b.delay}s`,
-                }}
-              />
-            )
-          })}
-        </div>
-      ))}
-    </div>
-  )
-}
-
 // ---------------------------------------------------------------- Results
 function Results({ result, mode, region, eventId, userId, onPlayAgain, onMenu }) {
   const [saving, setSaving] = useState(true)
@@ -568,20 +541,22 @@ function Results({ result, mode, region, eventId, userId, onPlayAgain, onMenu })
 }
 
 // ---------------------------------------------------------------- Leaderboard
-function Leaderboard({ mode, region, eventId, highlightUser, daily = false }) {
+function Leaderboard({ mode, region, eventId, highlightUser, daily = false, heading = 'Leaderboard', blurb = null }) {
   const { isAdmin } = useAuth()
   const [rows, setRows] = useState(null)
   const [streaks, setStreaks] = useState({}) // player_id -> weekly streak for this mode
   const pressTimer = useRef(null)
 
   const load = useCallback(async () => {
-    let q = supabase.from('game_scores').select('*, profiles:player_id(id, name, photo_url)').eq('mode', mode).eq('region', region)
+    let q = supabase.from('game_scores').select('*, profiles:player_id(id, name, photo_url, is_test)').eq('mode', mode).eq('region', region)
     q = eventId ? q.eq('event_id', eventId) : q.is('event_id', null)
-    // Daily puzzles rank today's solves only (everyone has the same puzzle).
-    if (daily) q = q.gte('created_at', new Date(Math.floor(Date.now() / 86_400_000) * 86_400_000).toISOString())
+    // Daily puzzles rank today's solves only (everyone has the same puzzle,
+    // refreshing at midnight UK time).
+    if (daily) q = q.gte('created_at', ukDayStartIso())
     const { data } = await q
     const best = {}
     for (const s of data ?? []) {
+      if (s.profiles?.is_test) continue // QA accounts never rank
       const cur = best[s.player_id]
       if (!cur || s.correct > cur.correct || (s.correct === cur.correct && s.time_ms < cur.time_ms)) best[s.player_id] = s
     }
@@ -606,12 +581,15 @@ function Leaderboard({ mode, region, eventId, highlightUser, daily = false }) {
 
   useEffect(() => { load() }, [load])
   useEffect(() => {
-    const sub = supabase.channel(`gs-${mode}-${region}-${eventId || 'all'}`)
+    // Channel topic must be unique per mounted board - the daily screens mount
+    // TWO leaderboards for the same mode (today + all-time), and duplicate
+    // topics make realtime subscribe throw.
+    const sub = supabase.channel(`gs-${mode}-${region}-${eventId || 'all'}-${daily ? 'today' : 'alltime'}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'game_scores' }, load)
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'game_scores' }, load)
       .subscribe()
     return () => supabase.removeChannel(sub)
-  }, [load, mode, region, eventId])
+  }, [load, mode, region, eventId, daily])
 
   // Admins long-press a score to delete it from the leaderboard.
   const longPressedRef = useRef(false)
@@ -626,11 +604,10 @@ function Leaderboard({ mode, region, eventId, highlightUser, daily = false }) {
 
   return (
     <section>
-      <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold"><Icon name="trophy" className="h-5 w-5 text-brand" /> Leaderboard</h2>
+      <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold"><Icon name="trophy" className="h-5 w-5 text-brand" /> {heading}</h2>
       <p className="mb-4 text-sm text-smoke">
-        {daily
-          ? `${MODE_LABEL[mode]} · today's puzzle. Ranked by score, then speed. The flame shows a creator's weekly play streak.`
-          : `${MODE_LABEL[mode]} · ${region}${eventId ? ' · this event' : ' · all-time'}. Ranked by score, then speed.${!eventId ? " The flame shows a creator's weekly play streak in this mode." : ''}`}
+        {blurb
+          ?? `${MODE_LABEL[mode]} · ${region}${eventId ? ' · this event' : ' · all-time'}. Ranked by score, then speed.${!eventId ? " The flame shows a creator's weekly play streak in this mode." : ''}`}
       </p>
       {rows === null ? (
         <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-cloud" />)}</div>

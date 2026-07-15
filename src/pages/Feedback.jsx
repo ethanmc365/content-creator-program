@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Badge, EmptyState, PageHeader, Skeleton, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
+import { compressImage } from '../lib/image'
+import { uploadFile } from '../lib/upload'
 import { formatDate, cx } from '../lib/utils'
 
 // How a creator's own past reports are labelled back to them.
@@ -22,6 +24,17 @@ export default function Feedback() {
   const [sent, setSent] = useState(false)
   const [mine, setMine] = useState([])
   const [loading, setLoading] = useState(true)
+  const [shot, setShot] = useState(null) // { file, preview }
+  const [shotError, setShotError] = useState('')
+  const fileRef = useRef(null)
+
+  function pickShot(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setShotError('')
+    setShot({ file, preview: URL.createObjectURL(file) })
+  }
 
   async function load() {
     const { data } = await supabase
@@ -38,15 +51,32 @@ export default function Feedback() {
     e.preventDefault()
     if (!message.trim() || busy) return
     setBusy(true)
+    // Optional screenshot: compressed then routed through the upload proxy
+    // (same reliable path as chat images).
+    let screenshot_url = null
+    if (shot) {
+      try {
+        const compressed = await compressImage(shot.file, { maxDim: 1280 })
+        const ext = (compressed.type || 'image/jpeg').split('/')[1] || 'jpg'
+        const path = `${user.id}/feedback-${crypto.randomUUID()}.${ext}`
+        screenshot_url = await uploadFile('chat-media', path, compressed, compressed.type)
+      } catch (err) {
+        setBusy(false)
+        setShotError(err.message || 'That image could not be processed. Try a different one.')
+        return
+      }
+    }
     const { error } = await supabase.from('feedback').insert({
       creator_id: user.id,
       type,
       message: message.trim(),
       page: document.referrer ? new URL(document.referrer).pathname : null,
+      screenshot_url,
     })
     setBusy(false)
     if (error) return
     setMessage('')
+    setShot(null)
     setSent(true)
     load()
     setTimeout(() => setSent(false), 3000)
@@ -95,6 +125,29 @@ export default function Feedback() {
           className="input w-full resize-y"
         />
 
+        {/* Optional screenshot - half of all bug reports are "it looks wrong" */}
+        <div className="mt-4">
+          <input ref={fileRef} type="file" accept="image/*,.heic,.heif" className="hidden" onChange={pickShot} />
+          {shot ? (
+            <div className="flex items-center gap-3">
+              <img src={shot.preview} alt="Screenshot to attach" className="h-16 w-16 rounded-xl border border-gray-100 object-cover" />
+              <div className="text-xs text-smoke">
+                <p className="font-medium text-ink">Screenshot attached</p>
+                <button type="button" onClick={() => setShot(null)} className="text-red-500 hover:underline">Remove</button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={(e) => { e.currentTarget.blur(); fileRef.current?.click() }}
+              className="inline-flex items-center gap-2 rounded-full border border-dashed border-gray-300 px-4 py-2 text-xs font-medium text-smoke transition-colors hover:border-brand hover:text-brand"
+            >
+              <Icon name="image" className="h-4 w-4" /> Attach a screenshot (optional)
+            </button>
+          )}
+          {shotError && <p className="mt-2 text-xs text-red-500">{shotError}</p>}
+        </div>
+
         <div className="mt-4 flex items-center justify-between gap-3">
           <p className="text-xs text-smoke">{sent && <span className="font-medium text-green-700">Thanks! Your report was sent to the team. 🙌</span>}</p>
           <button type="submit" disabled={busy || !message.trim()} className="btn-primary">
@@ -121,6 +174,11 @@ export default function Feedback() {
                   <span className="ml-auto text-xs text-smoke">{formatDate(f.created_at)}</span>
                 </div>
                 <p className="whitespace-pre-line text-sm text-ink">{f.message}</p>
+                {f.screenshot_url && (
+                  <a href={f.screenshot_url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block">
+                    <img src={f.screenshot_url} alt="Attached screenshot" loading="lazy" className="max-h-40 rounded-xl border border-gray-100 object-cover" />
+                  </a>
+                )}
                 {f.admin_note && (
                   <p className="mt-3 rounded-xl bg-brand-tint/60 px-3 py-2 text-xs text-ink">
                     <span className="font-semibold text-brand">Team reply: </span>{f.admin_note}

@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { supabase } from '../../lib/supabase'
 import { Spinner } from '../../components/ui'
 import Turnstile from '../../components/Turnstile'
 import AuthShell from './AuthShell'
@@ -19,6 +20,18 @@ export default function Signup() {
   const [captchaToken, setCaptchaToken] = useState('')
   const [captchaKey, setCaptchaKey] = useState(0)
   const [agreed, setAgreed] = useState(false)
+
+  // Count one click per browser per referral code, so referrers can see their
+  // invite-link funnel (clicks → signed up → approved) on the Refer page.
+  useEffect(() => {
+    if (!ref) return
+    const key = `tryp_ref_click_${ref}`
+    try {
+      if (localStorage.getItem(key)) return
+      localStorage.setItem(key, '1')
+    } catch { /* private mode: still count the click */ }
+    supabase.rpc('increment_referral_click', { code: ref }).then(() => {})
+  }, [ref])
 
   async function handleSubmit(e) {
     e.preventDefault()

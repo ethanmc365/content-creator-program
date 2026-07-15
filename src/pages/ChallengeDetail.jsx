@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { confirm } from '../lib/confirm'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import CountdownTimer from '../components/CountdownTimer'
@@ -14,6 +14,7 @@ import { formatDate, timeAgo, formatViews, detectPlatform, cx, challengeDeadline
 // a "submit your link" flow, and (once results are in) the leaderboard.
 export default function ChallengeDetail() {
   const { id } = useParams()
+  const [searchParams] = useSearchParams()
   const { user, isAdmin } = useAuth()
 
   const [challenge, setChallenge] = useState(null)
@@ -57,6 +58,11 @@ export default function ChallengeDetail() {
   useEffect(() => {
     if (challenge && challenge.status !== 'active' && results.length > 0) setTab('leaderboard')
   }, [challenge, results.length])
+
+  // ?submit=1 (the Home quick action) opens the submit form immediately.
+  useEffect(() => {
+    if (challenge && searchParams.get('submit')) setShowSubmit(true)
+  }, [challenge]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function submitEntry(e) {
     e.preventDefault()

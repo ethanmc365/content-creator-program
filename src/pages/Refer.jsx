@@ -23,14 +23,17 @@ export default function Refer() {
   const inviteLink = `${window.location.origin}/signup?ref=${profile?.referral_code ?? ''}`
 
   const [participatedCount, setParticipatedCount] = useState(0)
+  const [linkClicks, setLinkClicks] = useState(0)
 
   async function load() {
-    const [{ data: refs }, { data: joinedProfiles }] = await Promise.all([
+    const [{ data: refs }, { data: joinedProfiles }, { data: me }] = await Promise.all([
       supabase.from('referrals').select('*').eq('referrer_id', user.id).order('created_at', { ascending: false }),
-      supabase.from('profiles').select('id, name, created_at').eq('referred_by', user.id),
+      supabase.from('profiles').select('id, name, created_at, status').eq('referred_by', user.id),
+      supabase.from('profiles').select('referral_clicks').eq('id', user.id).single(),
     ])
     setReferrals(refs ?? [])
     setJoined(joinedProfiles ?? [])
+    setLinkClicks(me?.referral_clicks ?? 0)
 
     // How many referred creators have actually participated (made a submission)?
     // This is what counts towards the £20 voucher reward.
@@ -104,6 +107,37 @@ export default function Refer() {
           <input readOnly value={inviteLink} className="input flex-1 text-sm" onFocus={(e) => e.target.select()} />
           <button onClick={copyLink} className="btn-primary shrink-0">{copied ? 'Copied ✓' : 'Copy link'}</button>
         </div>
+
+        {/* Your invite funnel: how the link is converting, stage by stage. */}
+        {!loading && (linkClicks > 0 || joined.length > 0) && (
+          <div className="mt-6 border-t border-gray-50 pt-5">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-smoke">Your invite funnel</p>
+            <div className="space-y-2.5">
+              {[
+                { label: 'Link clicks', value: linkClicks },
+                { label: 'Signed up', value: joined.length },
+                { label: 'Approved', value: joined.filter((p) => p.status === 'active').length },
+                { label: 'Participated in a challenge', value: participatedCount },
+              ].map((stage, i, stages) => {
+                const max = Math.max(stages[0].value, 1)
+                return (
+                  <div key={stage.label} className="flex items-center gap-3">
+                    <span className="w-40 shrink-0 text-xs text-smoke sm:w-48">{stage.label}</span>
+                    <div className="h-5 flex-1 overflow-hidden rounded-full bg-cloud">
+                      <div
+                        className={`flex h-full items-center justify-end rounded-full pr-2 text-[10px] font-bold text-white transition-all duration-700 ${i === 0 ? 'bg-brand-light' : 'bg-brand'}`}
+                        style={{ width: `${Math.max((stage.value / max) * 100, stage.value > 0 ? 8 : 0)}%` }}
+                      >
+                        {stage.value > 0 && stage.value}
+                      </div>
+                    </div>
+                    {stage.value === 0 && <span className="text-xs tabular-nums text-smoke">0</span>}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* Refer by name */}

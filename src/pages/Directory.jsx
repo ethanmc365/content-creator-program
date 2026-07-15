@@ -31,18 +31,30 @@ export default function Directory() {
   const [platform, setPlatform] = useState('')
   const [nearMe, setNearMe] = useState(false)
 
+  const [trips, setTrips] = useState({}) // creator_id -> next collab trip
+
   useEffect(() => {
     async function load() {
-      const [{ data: profiles }, rels] = await Promise.all([
+      const today = new Date().toISOString().slice(0, 10)
+      const [{ data: profiles }, rels, { data: tripRows }] = await Promise.all([
         // Surface the most recently active creators first, so dormant profiles
         // sink to the bottom.
         supabase.from('profiles').select('*').eq('status', 'active').eq('is_test', false).is('deletion_requested_at', null)
           .order('last_seen_at', { ascending: false, nullsFirst: false })
           .order('created_at', { ascending: false }),
         loadRelationships(user.id),
+        // Current + upcoming collab trips drive the map's "travelling now"
+        // animation and the "Currently in" chips on the cards.
+        supabase.from('collab_posts').select('creator_id, city, country, start_date, end_date')
+          .gte('end_date', today).order('start_date'),
       ])
       setCreators(profiles ?? [])
       setRelationships(rels)
+      const byCreator = {}
+      for (const t of tripRows ?? []) {
+        if (!byCreator[t.creator_id]) byCreator[t.creator_id] = { ...t, current: t.start_date <= today }
+      }
+      setTrips(byCreator)
       setLoading(false)
     }
     load()
@@ -113,6 +125,7 @@ export default function Directory() {
         ) : (
           <CreatorMap
             creators={creators}
+            trips={trips}
             highlightIds={nearMe ? nearIds : null}
             nearMe={nearMe}
             nearCount={nearIds.size}
@@ -161,6 +174,7 @@ export default function Directory() {
             <CreatorCard
               key={c.id}
               creator={c}
+              currentTrip={trips[c.id]?.current ? trips[c.id] : null}
               relation={relationships.get(c.id) || null}
               onRelationChange={(id, next) =>
                 setRelationships((prev) => {

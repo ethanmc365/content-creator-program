@@ -3,7 +3,7 @@ import { ComposableMap, Geographies, Geography, ZoomableGroup, Marker } from 're
 import { geoEqualEarth, geoDistance, geoContains } from 'd3-geo'
 import { feature } from 'topojson-client'
 import { Link } from 'react-router-dom'
-import { GEO_URL } from '../lib/mapCountries'
+import { GEO_URL, loadMapCentroids } from '../lib/mapCountries'
 import { geocodeCity } from '../lib/geocode'
 
 // The creator map directory: every creator pinned on a world map at their home
@@ -123,7 +123,7 @@ function Plane({ x, y, angle, zoom }) {
   )
 }
 
-function CreatorMap({ creators = [], highlightIds = null, nearMe = false, nearCount = 0, nearMeDisabled = false, onToggleNearMe = null }) {
+function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = false, nearCount = 0, nearMeDisabled = false, onToggleNearMe = null }) {
   const highlighting = highlightIds && highlightIds.size > 0
   const [extraCoords, setExtraCoords] = useState({}) // legacy rows: id -> {lat,lng}
   const [homeNames, setHomeNames] = useState(() => new Set()) // countries to tint
@@ -232,6 +232,41 @@ function CreatorMap({ creators = [], highlightIds = null, nearMe = false, nearCo
     return () => { cancelled = true }
   }, [located])
 
+  // "Travelling now" journeys: creators with a current/upcoming collab-board
+  // trip get a little plane animating from their home pin to the destination
+  // country, so the map shows who's on the move. Destination = the country's
+  // centroid (country-level is plenty at world zoom).
+  const [centroids, setCentroids] = useState(null)
+  useEffect(() => {
+    if (Object.keys(trips).length === 0) return
+    let cancelled = false
+    loadMapCentroids().then((c) => { if (!cancelled) setCentroids(c) })
+    return () => { cancelled = true }
+  }, [trips])
+
+  const journeys = useMemo(() => {
+    if (!centroids) return []
+    const canonToCentroid = new Map()
+    for (const [name, c] of centroids) canonToCentroid.set(canonCountry(name), c)
+    const out = []
+    for (const c of located) {
+      const trip = trips[c.id]
+      if (!trip?.country) continue
+      const dest = canonToCentroid.get(canonCountry(trip.country))
+      if (!dest) continue
+      const [ax, ay] = projection([c._lng, c._lat])
+      const [bx, by] = projection(dest)
+      const dx = bx - ax, dy = by - ay
+      const len = Math.hypot(dx, dy)
+      if (len < 14) continue // trip inside the home country: no arc to draw
+      const bulge = Math.min(len * 0.3, 55)
+      const cx2 = (ax + bx) / 2 + (-dy / len) * bulge
+      const cy2 = (ay + by) / 2 + (dx / len) * bulge
+      out.push({ id: c.id, d: `M${ax} ${ay} Q ${cx2} ${cy2} ${bx} ${by}`, dest: [bx, by] })
+    }
+    return out
+  }, [centroids, trips, located])
+
   // The view that fits everyone with a location on screen (all creators visible).
   const fitView = useMemo(() => {
     if (located.length === 0) return { coordinates: [10, 30], zoom: 1.3 }
@@ -333,6 +368,30 @@ function CreatorMap({ creators = [], highlightIds = null, nearMe = false, nearCo
             ))}
             {segments.filter((s) => s.overseas).map((seg, i) => (
               <Plane key={i} x={seg.midx} y={seg.midy} angle={seg.angle} zoom={z} />
+            ))}
+          </g>
+
+          {/* Travelling now: an animated plane flying from each traveller's
+              home pin to their next collab-trip country, on repeat. */}
+          <g style={{ pointerEvents: 'none' }}>
+            {journeys.map((j) => (
+              <g key={j.id}>
+                <path d={j.d} fill="none" stroke={BRAND} strokeWidth={1.1 / z} strokeDasharray={`${2.5 / z} ${5 / z}`} strokeLinecap="round" opacity="0.5" />
+                <circle cx={j.dest[0]} cy={j.dest[1]} fill={BRAND} opacity="0.8">
+                  <animate attributeName="r" values={`${2.5 / z};${6 / z};${2.5 / z}`} dur="2.4s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0.8;0.15;0.8" dur="2.4s" repeatCount="indefinite" />
+                </circle>
+                <g>
+                  {/* nose-up plane rotated to face along the motion path */}
+                  <g transform={`scale(${0.85 / Math.max(z, 1)}) rotate(90)`}>
+                    <path
+                      d="M0 -11 C1.1 -11 1.8 -9 1.8 -6.2 L1.8 -4.4 L10 1 L10 3.1 L1.8 -0.2 L1.8 5 L4.4 7.6 L4.4 9.2 L0 7.7 L-4.4 9.2 L-4.4 7.6 L-1.8 5 L-1.8 -0.2 L-10 3.1 L-10 1 L-1.8 -4.4 L-1.8 -6.2 C-1.8 -9 -1.1 -11 0 -11 Z"
+                      fill={BRAND} stroke="#ffffff" strokeWidth={1.2} strokeLinejoin="round"
+                    />
+                  </g>
+                  <animateMotion dur="8s" repeatCount="indefinite" rotate="auto" path={j.d} />
+                </g>
+              </g>
             ))}
           </g>
 

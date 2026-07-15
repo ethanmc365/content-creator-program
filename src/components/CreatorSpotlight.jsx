@@ -79,18 +79,19 @@ export default function CreatorSpotlight() {
             <Link to={`/profile/${creator.id}`} className="btn-secondary mt-5 inline-flex self-start !py-2 text-xs sm:hidden">View profile →</Link>
           </div>
 
-          {/* Their travel map: a self-contained panel that fills the column so
-              the card's two halves always line up cleanly. */}
+          {/* Their travel map: zoomed to the countries they've actually
+              visited (fitSelected) so it fills the panel instead of floating
+              small in an empty world. Vertically centred against the card. */}
           {creator.countries_visited?.length > 0 && (
-            <div className="flex shrink-0 flex-col overflow-hidden rounded-card border border-gray-100 bg-cloud/40 lg:w-96">
-              <div className="flex items-center justify-between gap-3 px-4 pt-3.5">
-                <p className="text-xs font-semibold text-ink">{firstName}'s travel map</p>
-                <span className="rounded-full bg-brand-tint px-2.5 py-1 text-[11px] font-bold text-brand">
-                  {creator.countries_visited.length} {creator.countries_visited.length === 1 ? 'country' : 'countries'}
-                </span>
-              </div>
-              <div className="flex flex-1 items-center px-2 pb-2">
-                <WorldMap selected={creator.countries_visited} />
+            <div className="shrink-0 self-center lg:w-[26rem]">
+              <div className="relative overflow-hidden rounded-card border border-gray-100">
+                <WorldMap selected={creator.countries_visited} fitSelected />
+                <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between gap-3 bg-gradient-to-b from-white/95 via-white/70 to-transparent px-4 pb-6 pt-3">
+                  <p className="text-xs font-semibold text-ink">{firstName}'s travel map</p>
+                  <span className="rounded-full bg-brand-tint px-2.5 py-1 text-[11px] font-bold text-brand">
+                    {creator.countries_visited.length} {creator.countries_visited.length === 1 ? 'country' : 'countries'}
+                  </span>
+                </div>
               </div>
             </div>
           )}

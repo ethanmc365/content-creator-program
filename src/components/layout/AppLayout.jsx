@@ -6,6 +6,7 @@ import { Avatar } from '../ui'
 import Icon from '../Icon'
 import NotificationBell from './NotificationBell'
 import PullToRefresh from '../PullToRefresh'
+import { EventRatingPrompt } from '../EventFeedback'
 import { showLocalNotification } from '../../lib/push'
 import { stripMarkup } from '../../lib/richText'
 import { cx } from '../../lib/utils'
@@ -30,6 +31,7 @@ export default function AppLayout() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [dmUnread, setDmUnread] = useState(0)
   const [connReqs, setConnReqs] = useState(0)
+  const [newResources, setNewResources] = useState(false)
   const [exiting, setExiting] = useState(false)
   const [exitError, setExitError] = useState('')
   const menuRef = useRef(null)
@@ -51,6 +53,21 @@ export default function AppLayout() {
     document.addEventListener('visibilitychange', beat)
     return () => { stopped = true; clearInterval(iv); document.removeEventListener('visibilitychange', beat) }
   }, [user])
+
+  // "New in the library" dot: anything published since the last time this
+  // creator opened the Resources page (which stamps resources_seen_at).
+  useEffect(() => {
+    if (!user || !profile) return
+    let alive = true
+    supabase.from('resources').select('created_at').order('created_at', { ascending: false }).limit(1)
+      .then(({ data }) => {
+        if (!alive || !data?.[0]) return
+        const latest = new Date(data[0].created_at).getTime()
+        const seen = profile.resources_seen_at ? new Date(profile.resources_seen_at).getTime() : 0
+        setNewResources(latest > seen)
+      })
+    return () => { alive = false }
+  }, [user, profile])
 
   // Unread DM badge, kept live via realtime.
   useEffect(() => {
@@ -202,7 +219,7 @@ export default function AppLayout() {
             <div className="relative" ref={menuRef}>
               <button onClick={() => setMenuOpen((o) => !o)} aria-label="Account menu" className="relative rounded-full">
                 <Avatar src={profile?.photo_url} name={profile?.name} size="sm" />
-                {connReqs > 0 && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-brand ring-2 ring-white" aria-label={`${connReqs} connection requests`} />}
+                {(connReqs > 0 || newResources) && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-brand ring-2 ring-white" aria-label={connReqs > 0 ? `${connReqs} connection requests` : 'New resources in the library'} />}
               </button>
               {menuOpen && (
                 <div className="absolute right-0 z-40 mt-2 max-h-[calc(100dvh-9rem-env(safe-area-inset-bottom))] w-60 overflow-y-auto overscroll-contain rounded-card border border-gray-100 bg-white p-2 pb-[calc(2rem+env(safe-area-inset-bottom))] shadow-lift origin-top-right animate-menu-in lg:max-h-[calc(100dvh-5rem)]">
@@ -225,7 +242,10 @@ export default function AppLayout() {
                   </Link>
                   <Link to="/collab" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Travel collab board</Link>
                   <Link to="/leaderboard" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Leaderboard</Link>
-                  <Link to="/resources" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Resource library</Link>
+                  <Link to="/resources" onClick={() => setMenuOpen(false)} className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">
+                    <span>Resource library</span>
+                    {newResources && <span className="rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase text-white">New</span>}
+                  </Link>
                   <Link to="/jobs" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Search roles</Link>
                   <Link to="/refer" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Refer a creator</Link>
                   <Link to="/game" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Travel games</Link>
@@ -246,6 +266,9 @@ export default function AppLayout() {
       <main className="flex-1 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0">
         <Outlet />
       </main>
+
+      {/* One-off "rate the event" popup after an attended event finishes */}
+      <EventRatingPrompt />
 
       {/* ------- Mobile bottom tab bar -------
           Bottom padding includes the iPhone home-indicator safe area so the

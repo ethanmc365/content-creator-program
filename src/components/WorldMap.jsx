@@ -18,10 +18,11 @@ const BRAND = '#d94407'
 const BRAND_LIGHT = '#f5853f'
 const UNSELECTED = '#ECECEE'
 
-function WorldMap({ selected = [], onToggle, selectable = false, focusCountry = null }) {
+function WorldMap({ selected = [], onToggle, selectable = false, focusCountry = null, fitSelected = false }) {
   const [tooltip, setTooltip] = useState('')
   const [position, setPosition] = useState({ coordinates: [12, 8], zoom: 1 })
   const [focusPos, setFocusPos] = useState(null)
+  const [fitPos, setFitPos] = useState(null)
   const [query, setQuery] = useState('')
   const [allNames, setAllNames] = useState([])
   const selectedSet = new Set(selected)
@@ -45,7 +46,27 @@ function WorldMap({ selected = [], onToggle, selectable = false, focusCountry = 
     return () => { cancelled = true }
   }, [focusCountry])
 
-  const view = focusPos || position
+  // fitSelected → zoom the read-only map to the countries actually visited
+  // (bounding box of their centroids), so a Europe-heavy map shows Europe big
+  // instead of a tiny world with empty oceans.
+  useEffect(() => {
+    if (!fitSelected || selected.length === 0) { setFitPos(null); return }
+    let cancelled = false
+    loadMapCentroids().then((cmap) => {
+      if (cancelled) return
+      const pts = selected.map((n) => cmap.get(n)).filter(Boolean)
+      if (pts.length === 0) return
+      const lngs = pts.map((p) => p[0]), lats = pts.map((p) => p[1])
+      const minLng = Math.min(...lngs), maxLng = Math.max(...lngs)
+      const minLat = Math.min(...lats), maxLat = Math.max(...lats)
+      const lngSpan = Math.max(maxLng - minLng, 8), latSpan = Math.max(maxLat - minLat, 8)
+      const zoom = Math.min(4, Math.max(1, Math.min(300 / (lngSpan * 1.6), 150 / (latSpan * 1.9))))
+      setFitPos({ coordinates: [(minLng + maxLng) / 2, (minLat + maxLat) / 2], zoom })
+    })
+    return () => { cancelled = true }
+  }, [fitSelected, selected])
+
+  const view = focusPos || fitPos || position
 
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase()

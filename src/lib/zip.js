@@ -1,12 +1,17 @@
-// Zip: Flight Path. Draw one continuous flight through the numbered stops in
-// order, covering every cell of the grid (LinkedIn-Zip style, reskinned as a
-// plane + contrail).
+// Flight Path: draw one continuous flight through the numbered stops in
+// order, covering every cell of the grid.
 //
-// Every layout is generated from a seed: we first build a random Hamiltonian
-// path over the grid (so a full-coverage route EXISTS by construction), then
-// drop the numbered stops onto that path in order. The generator is fully
-// deterministic, so a given layout index is the same puzzle for everyone and
-// the vitest suite can verify all layouts are solvable.
+// Every layout is generated from a seed: we build a random Hamiltonian path
+// over the grid (so a full-coverage route EXISTS by construction), drop the
+// numbered stops onto it in order, then optionally add WALLS between
+// grid-adjacent cells the solution never crosses (harder puzzles, still
+// guaranteed solvable). Generation is fully deterministic: a layout index is
+// the same puzzle for everyone, and the vitest suite verifies all 366.
+//
+// Difficulty rotates through the year:
+//   easy   - 5x5, plenty of stops, no walls
+//   medium - 6x6, fewer stops, a few walls
+//   hard   - 7x7, sparse stops, more walls
 
 /** Small fast deterministic PRNG (mulberry32). */
 export function mulberry32(seed) {
@@ -27,6 +32,11 @@ function neighbours(cell, size) {
   if (c > 0) out.push(cell - 1)
   if (c < size - 1) out.push(cell + 1)
   return out
+}
+
+/** Canonical key for the wall between two adjacent cells. */
+export function wallKey(a, b) {
+  return a < b ? `${a}-${b}` : `${b}-${a}`
 }
 
 // Random Hamiltonian path via DFS with the Warnsdorff heuristic (prefer the
@@ -96,50 +106,81 @@ function stopPositions(N, count, rng) {
   return positions
 }
 
-/** Grid size + stop count for a layout index (varied but deterministic). */
-export function layoutSpec(index) {
-  const size = [5, 6, 6, 6, 7][index % 5]
-  const stops = size + 1 + (index % 3 === 0 ? 1 : 0)
-  return { size, stops, seed: 0x51f7 + index * 7919 }
+// Walls between grid-adjacent cells that are NOT consecutive on the solution
+// path. The generator's route never crosses them, so the puzzle stays solvable
+// while alternative routes get pruned away.
+function buildWalls(size, path, count, rng) {
+  const onPath = new Set()
+  for (let i = 1; i < path.length; i++) onPath.add(wallKey(path[i - 1], path[i]))
+  const candidates = []
+  for (let cell = 0; cell < size * size; cell++) {
+    const r = Math.floor(cell / size), c = cell % size
+    if (c < size - 1 && !onPath.has(wallKey(cell, cell + 1))) candidates.push([cell, cell + 1])
+    if (r < size - 1 && !onPath.has(wallKey(cell, cell + size))) candidates.push([cell, cell + size])
+  }
+  // deterministic shuffle
+  for (let i = candidates.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1))
+    ;[candidates[i], candidates[j]] = [candidates[j], candidates[i]]
+  }
+  return candidates.slice(0, Math.min(count, candidates.length))
 }
 
-export const ZIP_LAYOUT_COUNT = 120
+export const ZIP_LAYOUT_COUNT = 366
+export const ZIP_DIFFICULTIES = ['easy', 'medium', 'hard']
+
+/** Grid size, stop count, wall count + difficulty label for a layout index. */
+export function layoutSpec(index) {
+  const difficulty = ZIP_DIFFICULTIES[index % 3]
+  const rng = mulberry32(0xa11ce + index * 2654435761)
+  if (difficulty === 'easy') {
+    return { difficulty, size: 5, stops: 8 + Math.floor(rng() * 3), walls: 0, seed: 0x51f7 + index * 7919 }
+  }
+  if (difficulty === 'medium') {
+    return { difficulty, size: 6, stops: 7 + Math.floor(rng() * 2), walls: 2 + Math.floor(rng() * 3), seed: 0x51f7 + index * 7919 }
+  }
+  return { difficulty, size: 7, stops: 7 + Math.floor(rng() * 2), walls: 6 + Math.floor(rng() * 5), seed: 0x51f7 + index * 7919 }
+}
 
 /**
- * Build layout `index` (0..ZIP_LAYOUT_COUNT-1): a { size, dots, solution }
- * puzzle where dots is [{ cell, n }] with n = 1..k, and solution is a
- * Hamiltonian path visiting the dots in order (kept for tests, never shown).
+ * Build layout `index` (0..365): { size, difficulty, dots, walls, solution }.
+ * dots is [{ cell, n }] (n = 1..k); walls is [[a,b], ...] cell pairs; solution
+ * is a Hamiltonian path visiting the dots in order without crossing a wall
+ * (kept for the tests, never shown to the player).
  */
 export function generateZip(index) {
-  const { size, stops, seed } = layoutSpec(index)
+  const { size, stops, walls: wallCount, seed, difficulty } = layoutSpec(index)
   const rng = mulberry32(seed)
   const path = hamiltonianPath(size, rng)
   const positions = stopPositions(path.length, stops, rng)
   const dots = positions.map((p, i) => ({ cell: path[p], n: i + 1 }))
-  return { size, index, dots, solution: path }
+  const walls = buildWalls(size, path, wallCount, rng)
+  return { size, index, difficulty, dots, walls, solution: path }
 }
 
-/** Today's Zip layout index (same for everyone, jumps around the set). */
+/** Today's layout index (same for everyone, jumps around the set). */
 export function zipIndexForDay(day) {
   return (day * 48271) % ZIP_LAYOUT_COUNT
 }
 
 /**
  * Is `path` a valid completed solution for `puzzle`? Checks: starts at stop 1,
- * ends at the last stop, every step orthogonally adjacent, every cell covered
- * exactly once, and the numbered stops visited in ascending order.
+ * ends at the last stop, every step orthogonally adjacent and not through a
+ * wall, every cell covered exactly once, and stops visited in order.
  */
 export function validateZip(puzzle, path) {
-  const { size, dots } = puzzle
+  const { size, dots, walls = [] } = puzzle
   const N = size * size
   if (path.length !== N) return false
   if (new Set(path).size !== N) return false
   if (path.some((c) => c < 0 || c >= N)) return false
+  const blocked = new Set(walls.map(([a, b]) => wallKey(a, b)))
   for (let i = 1; i < path.length; i++) {
     const a = path[i - 1], b = path[i]
     const ra = Math.floor(a / size), ca = a % size
     const rb = Math.floor(b / size), cb = b % size
     if (Math.abs(ra - rb) + Math.abs(ca - cb) !== 1) return false
+    if (blocked.has(wallKey(a, b))) return false
   }
   const numberAt = new Map(dots.map((d) => [d.cell, d.n]))
   if (numberAt.get(path[0]) !== 1) return false

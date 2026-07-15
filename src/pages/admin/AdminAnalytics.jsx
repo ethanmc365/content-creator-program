@@ -90,7 +90,7 @@ export default function AdminAnalytics() {
         { data: feedback }, { count: reactionCount }, { count: pollVoteCount },
       ] = await Promise.all([
         supabase.from('profiles').select('id, name, created_at, status, is_admin, onboarded, referred_by, deletion_requested_at, is_test, photo_url, dob, city, country, bio, about, instagram_url, tiktok_url, youtube_url, other_links, countries_visited, languages'),
-        supabase.from('challenges').select('id, title, status, start_date').neq('status', 'draft').order('start_date'),
+        supabase.from('challenges').select('id, title, status, start_date, vouchers_given').neq('status', 'draft').order('start_date'),
         supabase.from('submissions').select('id, challenge_id, creator_id, logged_views, submitted_at'),
         supabase.from('rewards').select('amount, status, challenge_id, reward_type'),
         supabase.from('messages').select('id, sender_id, channel').eq('deleted', false),
@@ -247,7 +247,10 @@ export default function AdminAnalytics() {
     return {
       growth, momentum, perChallenge, perChallengeRecent, mostActive, chat,
       totalPaid, totalViews, verifiedViews, costPer1k, funnel, signupFunnel, biggestDrop,
-      engagement: { reactions: reactionCount, pollVotes: pollVoteCount, chatMessages: messages.length, feedbackTotal: feedback.length, openFeedback },
+      engagement: {
+        reactions: reactionCount, pollVotes: pollVoteCount, chatMessages: messages.length, feedbackTotal: feedback.length, openFeedback,
+        vouchersGiven: challenges.reduce((sum, c) => sum + (c.vouchers_given || 0), 0),
+      },
       community: { active: active.length, pendingReview: pendingReview.length, notCompleted: notCompleted.length, participating, participationRate, topReferrers },
       totals: {
         creators: active.length,
@@ -338,7 +341,7 @@ export default function AdminAnalytics() {
       {/* ---- Engagement snapshot ---- */}
       <div className="mb-10">
         <h2 className="mb-4 text-lg font-semibold">Engagement</h2>
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
           <StatCard label="Chat messages" value={derived.engagement.chatMessages} />
           <StatCard label="Reactions" value={derived.engagement.reactions} />
           <StatCard label="Poll votes" value={derived.engagement.pollVotes} />
@@ -348,6 +351,7 @@ export default function AdminAnalytics() {
             hint={derived.engagement.openFeedback > 0 ? `${derived.engagement.openFeedback} awaiting triage` : 'all triaged'}
             onClick={() => navigate('/admin/feedback')}
           />
+          <StatCard label="Vouchers given" value={derived.engagement.vouchersGiven} hint="participation vouchers" onClick={() => navigate('/admin/challenges')} />
         </div>
         {derived.community.topReferrers.length > 0 && (
           <div className="mt-4 rounded-card border border-gray-100 p-5 shadow-card">

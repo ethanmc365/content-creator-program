@@ -7,7 +7,7 @@ import { supabase } from '../lib/supabase'
 
 // One creator in the directory grid. Whole card links to the profile;
 // Connect / Message are quick actions in the footer.
-export default function CreatorCard({ creator, relation, onRelationChange }) {
+export default function CreatorCard({ creator, relation, onRelationChange, currentTrip = null }) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const isMe = creator.id === user?.id
@@ -42,7 +42,18 @@ export default function CreatorCard({ creator, relation, onRelationChange }) {
       </div>
 
       <div>
-        <h3 className="text-lg font-semibold group-hover:text-brand">{creator.name}</h3>
+        <h3 className="flex flex-wrap items-center gap-2 text-lg font-semibold group-hover:text-brand">
+          {creator.name}
+          {/* Live "on a trip" chip, driven by the collab board */}
+          {currentTrip && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-brand-tint px-2.5 py-0.5 text-[11px] font-semibold text-brand">
+              <svg viewBox="0 0 24 24" className="h-3 w-3" fill="currentColor" aria-hidden>
+                <path d="M21.5 15.5v-2l-8.5-5V3.25a1.5 1.5 0 0 0-3 0V8.5l-8.5 5v2l8.5-2.5v5.25L7.75 20v1.5L12 20.25l4.25 1.25V20L14 18.25V13z" />
+              </svg>
+              Currently in {currentTrip.city || currentTrip.country}
+            </span>
+          )}
+        </h3>
         <p className="mt-1 line-clamp-2 text-sm text-smoke">{creator.bio || 'New to the program ✈️'}</p>
       </div>
 
