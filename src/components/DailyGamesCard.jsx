@@ -60,36 +60,39 @@ export default function DailyGamesCard() {
         <Link to="/game" className="text-sm font-medium text-brand hover:underline">All games →</Link>
       </div>
       <div className="card !p-0">
-        {GAMES.map((g, i) => {
-          const m = mine?.[g.mode]
-          return (
-            <div key={g.mode} className={`flex items-center gap-3 px-5 py-4 ${i > 0 ? 'border-t border-gray-50' : ''}`}>
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white">
-                <Icon name={g.icon} className="h-5 w-5" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="flex flex-wrap items-center gap-2 text-sm font-semibold">
-                  {g.title}
-                  {m?.streak > 0 && <StreakChip n={m.streak} title={`${m.streak}-day daily streak`} />}
-                </p>
-                <p className="text-xs text-smoke">{g.tag}</p>
+        {/* the two dailies sit side by side on anything wider than a phone */}
+        <div className="grid grid-cols-1 sm:grid-cols-2">
+          {GAMES.map((g, i) => {
+            const m = mine?.[g.mode]
+            return (
+              <div key={g.mode} className={`flex items-center gap-3 px-5 py-4 ${i > 0 ? 'border-t border-gray-50 sm:border-l sm:border-t-0' : ''}`}>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white">
+                  <Icon name={g.icon} className="h-6 w-6" strokeWidth={2.2} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+                    {g.title}
+                    {m?.streak > 0 && <StreakChip n={m.streak} title={`${m.streak}-day daily streak`} />}
+                  </p>
+                  <p className="text-xs text-smoke">{g.tag}</p>
+                </div>
+                {m?.played ? (
+                  <Link
+                    to={`/game?daily=${g.mode}`}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-green-100 px-3.5 py-1.5 text-xs font-semibold text-green-700 transition-transform hover:scale-105"
+                  >
+                    <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M4 12l5 5L20 6" /></svg>
+                    Played
+                  </Link>
+                ) : (
+                  <Link to={`/game?daily=${g.mode}`} className="btn-primary shrink-0 !px-4 !py-1.5 text-xs">
+                    Play
+                  </Link>
+                )}
               </div>
-              {m?.played ? (
-                <Link
-                  to={`/game?daily=${g.mode}`}
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-green-100 px-3.5 py-1.5 text-xs font-semibold text-green-700 transition-transform hover:scale-105"
-                >
-                  <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M4 12l5 5L20 6" /></svg>
-                  Played
-                </Link>
-              ) : (
-                <Link to={`/game?daily=${g.mode}`} className="btn-primary shrink-0 !px-4 !py-1.5 text-xs">
-                  Play
-                </Link>
-              )}
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-50 bg-cloud/40 px-5 py-2.5">
           <p className="flex items-center gap-2 text-xs text-smoke">
             <span className="relative flex h-2 w-2" aria-hidden>

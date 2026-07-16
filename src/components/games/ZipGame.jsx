@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { Badge, Fireworks, StreakChip } from '../ui'
+import { Badge, StreakChip } from '../ui'
 import Icon from '../Icon'
 import { generateZip, zipIndexForDay, wallKey } from '../../lib/zip'
 import { ukDayIndex, ukDayStartIso, untilNextUkMidnight, dailyStreak } from '../../lib/daily'
@@ -380,14 +380,9 @@ export default function ZipGame({ onExit }) {
           {solved && (
             <div className="absolute inset-0 flex items-center justify-center rounded-card bg-white/85 backdrop-blur-[2px]">
               <div className="flex flex-col items-center gap-3 p-6 text-center animate-pop-in">
-                {/* fireworks live in their own box around the icon, so they
-                    burst behind the plane rather than over the text below */}
-                <div className="relative flex h-24 w-48 items-center justify-center">
-                  <Fireworks />
-                  <span className="relative z-10 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lift">
-                    <Icon name="plane-tryp" className="h-8 w-8" />
-                  </span>
-                </div>
+                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lift">
+                  <Icon name="plane-tryp" className="h-8 w-8" />
+                </span>
                 <p className="text-xl font-bold text-ink">Smooth landing!</p>
                 <p className="text-sm text-smoke">
                   Today's flight completed{solveMs != null ? ` in ${fmtTime(solveMs)}` : ''}.

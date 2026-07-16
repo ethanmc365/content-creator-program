@@ -47,7 +47,10 @@ export default function AppLayout() {
   useEffect(() => {
     if (!user) return
     let stopped = false
-    const beat = () => { if (!stopped && document.visibilityState === 'visible') supabase.rpc('touch_last_seen') }
+    // NOTE: supabase query builders are lazy - the request only fires when the
+    // promise is consumed, so the .then() is load-bearing (without it the
+    // heartbeat silently never sent, and "last active" stayed stale forever).
+    const beat = () => { if (!stopped && document.visibilityState === 'visible') supabase.rpc('touch_last_seen').then(() => {}) }
     beat()
     const iv = setInterval(beat, 60000)
     document.addEventListener('visibilitychange', beat)

@@ -31,7 +31,7 @@ export default function Directory() {
   const [platform, setPlatform] = useState('')
   const [nearMe, setNearMe] = useState(false)
 
-  const [trips, setTrips] = useState({}) // creator_id -> next collab trip
+  const [trips, setTrips] = useState({}) // creator_id -> upcoming collab trips, soonest first
 
   useEffect(() => {
     async function load() {
@@ -50,9 +50,13 @@ export default function Directory() {
       ])
       setCreators(profiles ?? [])
       setRelationships(rels)
+      // Keep EVERY upcoming trip per creator (soonest first). The map draws only
+      // one journey per creator - its next trip that actually leaves the home
+      // country - so someone currently travelling at home (e.g. Belfast while
+      // living in Belfast) still shows their next real flight.
       const byCreator = {}
       for (const t of tripRows ?? []) {
-        if (!byCreator[t.creator_id]) byCreator[t.creator_id] = { ...t, current: t.start_date <= today }
+        (byCreator[t.creator_id] ||= []).push({ ...t, current: t.start_date <= today })
       }
       setTrips(byCreator)
       setLoading(false)
@@ -174,7 +178,7 @@ export default function Directory() {
             <CreatorCard
               key={c.id}
               creator={c}
-              currentTrip={trips[c.id]?.current ? trips[c.id] : null}
+              currentTrip={trips[c.id]?.[0]?.current ? trips[c.id][0] : null}
               relation={relationships.get(c.id) || null}
               onRelationChange={(id, next) =>
                 setRelationships((prev) => {

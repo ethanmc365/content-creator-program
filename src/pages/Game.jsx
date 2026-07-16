@@ -5,7 +5,7 @@ import { ComposableMap, Geographies, Geography, ZoomableGroup } from 'react-simp
 import { GEO_URL } from '../lib/mapCountries'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { Avatar, Badge, PageHeader, Confetti, Fireworks } from '../components/ui'
+import { Avatar, Badge, PageHeader, Confetti } from '../components/ui'
 import Icon from '../components/Icon'
 import {
   CONTINENTS, countriesForRegion, airportsForRegion, flagEmoji,
@@ -520,12 +520,9 @@ function Results({ result, mode, region, eventId, userId, onPlayAgain, onMenu })
     <div className="card flex flex-col items-center gap-4 !py-10 text-center animate-pop-in">
       {great && <Confetti count={50} />}
       {pct >= 50 ? (
-        <div className="relative flex h-24 w-40 items-center justify-center">
-          <Fireworks />
-          <span className="relative flex h-16 w-16 items-center justify-center rounded-full bg-brand text-white shadow-lift">
-            <Icon name="trophy" className="h-8 w-8" />
-          </span>
-        </div>
+        <span className="flex h-16 w-16 items-center justify-center rounded-full bg-brand text-white shadow-lift">
+          <Icon name="trophy" className="h-8 w-8" />
+        </span>
       ) : (
         <div className="flex flex-col items-center gap-2">
           <span className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-tint text-brand">

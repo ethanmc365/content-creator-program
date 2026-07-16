@@ -918,8 +918,9 @@ export default function Chat() {
                     </div>
                   </div>
 
-                  {/* Read receipts: who has seen the newest message. */}
-                  {m.id === lastVisibleId && (() => {
+                  {/* Read receipts: everyone sees who's read the newest message;
+                      admins also get a read count on EVERY earlier message. */}
+                  {m.id === lastVisibleId ? (() => {
                     const seen = seenBy(m)
                     if (!seen.length) return null
                     return (
@@ -933,7 +934,15 @@ export default function Chat() {
                         {seen.length > 5 && <span className="text-[10px] text-gray-400">+{seen.length - 5}</span>}
                       </div>
                     )
-                  })()}
+                  })() : isAdmin && !m.pending && !m.deleted ? (() => {
+                    const n = seenBy(m).length
+                    if (!n) return null
+                    return (
+                      <div className={cx('mt-0.5 flex', mine ? 'justify-end' : 'justify-start')}>
+                        <span className="text-[10px] text-gray-400" title="Members who have read this far">Seen by {n}</span>
+                      </div>
+                    )
+                  })() : null}
                 </div>
               </div>
             )

@@ -166,18 +166,24 @@ export default function Challenges() {
           {/* ---------- Live ---------- */}
           {live.map((c) => (
             <div key={c.id}>
-              <Link to={`/challenges/${c.id}`} className="block overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-6 text-white shadow-lift transition-transform hover:scale-[1.005] active:scale-[0.995] sm:p-10">
+              <div className="block overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-6 text-white shadow-lift sm:p-10">
                 <div className="flex flex-wrap items-center gap-3">
                   <Badge className="!bg-white/20 !text-white">Live now</Badge>
                   <span className="text-xs text-white/75">{formatDate(c.start_date)} → {formatDate(c.end_date)}</span>
                 </div>
-                <h2 className="mt-4 text-2xl font-bold sm:text-3xl">{c.title}</h2>
-                <p className="mt-2 max-w-2xl text-white/85 line-clamp-2">{c.description}</p>
+                <Link to={`/challenges/${c.id}`} className="block">
+                  <h2 className="mt-4 text-2xl font-bold hover:underline sm:text-3xl">{c.title}</h2>
+                  <p className="mt-2 max-w-2xl text-white/85 line-clamp-2">{c.description}</p>
+                </Link>
                 <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
                   <CountdownTimer endDate={c.end_date} />
-                  <span className="text-sm text-white/85">{c.submissions?.[0]?.count ?? 0} entries so far →</span>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="text-sm text-white/85">{c.submissions?.[0]?.count ?? 0} entries so far</span>
+                    <Link to={`/challenges/${c.id}`} className="btn border border-white/40 text-white hover:bg-white/10">Read the brief →</Link>
+                    <Link to={`/challenges/${c.id}?submit=1`} className="btn bg-white !text-brand hover:bg-white/90">Submit your video</Link>
+                  </div>
                 </div>
-              </Link>
+              </div>
 
               {/* Participation pace: nudges the quiet majority, names no one. */}
               {pct != null && participation.challengeId === c.id && (

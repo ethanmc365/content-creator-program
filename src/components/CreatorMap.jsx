@@ -5,6 +5,7 @@ import { feature } from 'topojson-client'
 import { Link } from 'react-router-dom'
 import { GEO_URL, loadMapCentroids } from '../lib/mapCountries'
 import { geocodeCity } from '../lib/geocode'
+import { formatDate } from '../lib/utils'
 
 // The creator map directory: every creator pinned on a world map at their home
 // town (photo + name), the countries they live in tinted orange, and a curved
@@ -250,22 +251,48 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
     for (const [name, c] of centroids) canonToCentroid.set(canonCountry(name), c)
     const out = []
     for (const c of located) {
-      const trip = trips[c.id]
-      if (!trip?.country) continue
-      const dest = canonToCentroid.get(canonCountry(trip.country))
-      if (!dest) continue
-      const [ax, ay] = projection([c._lng, c._lat])
-      const [bx, by] = projection(dest)
-      const dx = bx - ax, dy = by - ay
-      const len = Math.hypot(dx, dy)
-      if (len < 14) continue // trip inside the home country: no arc to draw
-      const bulge = Math.min(len * 0.3, 55)
-      const cx2 = (ax + bx) / 2 + (-dy / len) * bulge
-      const cy2 = (ay + by) / 2 + (dx / len) * bulge
-      out.push({ id: c.id, d: `M${ax} ${ay} Q ${cx2} ${cy2} ${bx} ${by}`, dest: [bx, by] })
+      // One journey per creator: their NEXT trip that actually leaves the home
+      // country (a trip within it has no arc to draw, so we fall through to
+      // the next one). Once a trip ends it drops out of `trips` server-side
+      // and the following one takes over automatically.
+      const list = Array.isArray(trips[c.id]) ? trips[c.id] : trips[c.id] ? [trips[c.id]] : []
+      for (const trip of list) {
+        if (!trip?.country) continue
+        const dest = canonToCentroid.get(canonCountry(trip.country))
+        if (!dest) continue
+        const [ax, ay] = projection([c._lng, c._lat])
+        const [bx, by] = projection(dest)
+        const dx = bx - ax, dy = by - ay
+        const len = Math.hypot(dx, dy)
+        if (len < 14) continue // inside the home country: try the next trip
+        const bulge = Math.min(len * 0.3, 55)
+        const cx2 = (ax + bx) / 2 + (-dy / len) * bulge
+        const cy2 = (ay + by) / 2 + (dx / len) * bulge
+        out.push({
+          id: c.id, name: c.name, trip,
+          d: `M${ax} ${ay} Q ${cx2} ${cy2} ${bx} ${by}`, dest: [bx, by],
+        })
+        break
+      }
     }
     return out
   }, [centroids, trips, located])
+
+  // "Who's travelling" view + single-traveller focus (tap a plane).
+  const [travelView, setTravelView] = useState(false)
+  const [focusId, setFocusId] = useState(null)
+  const focusJourney = journeys.find((j) => j.id === focusId) || null
+  const travellerIds = useMemo(() => new Set(journeys.map((j) => j.id)), [journeys])
+  const visibleTowns = useMemo(() => {
+    const only = (ids) => towns
+      .map((t) => ({ ...t, creators: t.creators.filter((c) => ids.has(c.id)) }))
+      .filter((t) => t.creators.length > 0)
+    if (focusJourney) return only(new Set([focusJourney.id]))
+    if (travelView) return only(travellerIds)
+    return towns
+  }, [towns, focusJourney, travelView, travellerIds])
+  const visibleJourneys = focusJourney ? [focusJourney] : journeys
+  const quietMap = travelView || !!focusJourney // hide the decorative threads
 
   // The view that fits everyone with a location on screen (all creators visible).
   const fitView = useMemo(() => {
@@ -352,38 +379,49 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
             }
           </Geographies>
 
-          {/* Connection lines (behind the pins) */}
-          <g style={{ pointerEvents: 'none' }}>
-            {segments.map((seg, i) => (
-              <path
-                key={i}
-                d={seg.d}
-                fill="none"
-                stroke={BRAND_LIGHT}
-                strokeWidth={1.6 / z}
-                strokeLinecap="round"
-                strokeDasharray={`${5 / z} ${5 / z}`}
-                opacity={0.75}
-              />
-            ))}
-            {segments.filter((s) => s.overseas).map((seg, i) => (
-              <Plane key={i} x={seg.midx} y={seg.midy} angle={seg.angle} zoom={z} />
-            ))}
-          </g>
+          {/* Connection lines (behind the pins). Hidden while focusing on a
+              traveller or in the who's-travelling view, to keep it clean. */}
+          {!quietMap && (
+            <g style={{ pointerEvents: 'none' }}>
+              {segments.map((seg, i) => (
+                <path
+                  key={i}
+                  d={seg.d}
+                  fill="none"
+                  stroke={BRAND_LIGHT}
+                  strokeWidth={1.6 / z}
+                  strokeLinecap="round"
+                  strokeDasharray={`${5 / z} ${5 / z}`}
+                  opacity={0.75}
+                />
+              ))}
+              {segments.filter((s) => s.overseas).map((seg, i) => (
+                <Plane key={i} x={seg.midx} y={seg.midy} angle={seg.angle} zoom={z} />
+              ))}
+            </g>
+          )}
 
           {/* Travelling now: an animated plane flying from each traveller's
-              home pin to their next collab-trip country, on repeat. */}
-          <g style={{ pointerEvents: 'none' }}>
-            {journeys.map((j) => (
-              <g key={j.id}>
-                <path d={j.d} fill="none" stroke={BRAND} strokeWidth={1.1 / z} strokeDasharray={`${2.5 / z} ${5 / z}`} strokeLinecap="round" opacity="0.5" />
+              home pin to their next collab-trip country, on repeat. Tap a
+              plane (or its destination pulse) to focus that trip. */}
+          <g>
+            {visibleJourneys.map((j) => (
+              <g
+                key={j.id}
+                onClick={() => setFocusId((cur) => (cur === j.id ? null : j.id))}
+                style={{ cursor: 'pointer' }}
+                aria-label={`${j.name} is travelling to ${j.trip.country}`}
+              >
+                <path d={j.d} fill="none" stroke={BRAND} strokeWidth={1.1 / z} strokeDasharray={`${2.5 / z} ${5 / z}`} strokeLinecap="round" opacity={focusJourney ? 0.85 : 0.5} style={{ pointerEvents: 'none' }} />
                 <circle cx={j.dest[0]} cy={j.dest[1]} fill={BRAND} opacity="0.8">
                   <animate attributeName="r" values={`${2.5 / z};${6 / z};${2.5 / z}`} dur="2.4s" repeatCount="indefinite" />
                   <animate attributeName="opacity" values="0.8;0.15;0.8" dur="2.4s" repeatCount="indefinite" />
                 </circle>
                 <g>
+                  {/* generous invisible hit-target so the moving plane is easy to tap */}
+                  <circle r={14 / Math.max(z, 1)} fill="transparent" />
                   {/* nose-up plane rotated to face along the motion path */}
-                  <g transform={`scale(${0.85 / Math.max(z, 1)}) rotate(90)`}>
+                  <g transform={`scale(${0.85 / Math.max(z, 1)}) rotate(90)`} style={{ pointerEvents: 'none' }}>
                     <path
                       d="M0 -11 C1.1 -11 1.8 -9 1.8 -6.2 L1.8 -4.4 L10 1 L10 3.1 L1.8 -0.2 L1.8 5 L4.4 7.6 L4.4 9.2 L0 7.7 L-4.4 9.2 L-4.4 7.6 L-1.8 5 L-1.8 -0.2 L-10 3.1 L-10 1 L-1.8 -4.4 L-1.8 -6.2 C-1.8 -9 -1.1 -11 0 -11 Z"
                       fill={BRAND} stroke="#ffffff" strokeWidth={1.2} strokeLinejoin="round"
@@ -395,7 +433,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
             ))}
           </g>
 
-          {towns.map((town) => (
+          {visibleTowns.map((town) => (
             <g
               key={town.key}
               onMouseEnter={() => setTooltip(
@@ -448,6 +486,41 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
             ))}
           </div>
         </div>
+      )}
+
+      {/* Focused trip: a banner naming the traveller + destination, with a
+          clear button. Everything else on the map is hidden while it's up. */}
+      {focusJourney && (
+        <div className="absolute left-1/2 top-3 z-20 flex max-w-[92%] -translate-x-1/2 items-center gap-2 rounded-full bg-ink/90 py-2 pl-4 pr-2 text-xs font-medium text-white shadow-lift">
+          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0" fill="currentColor" aria-hidden>
+            <path d="M12 1.55 C13.05 1.55 13.71 3.45 13.71 6.11 L13.71 7.82 L21.5 12.95 L21.5 14.95 L13.71 11.81 L13.71 16.75 L16.18 19.22 L16.18 20.74 L12 19.32 L7.82 20.74 L7.82 19.22 L10.29 16.75 L10.29 11.81 L2.5 14.95 L2.5 12.95 L10.29 7.82 L10.29 6.11 C10.29 3.45 10.95 1.55 12 1.55 Z" />
+          </svg>
+          <span className="min-w-0 truncate">
+            {focusJourney.name} → {(focusJourney.trip.city || '').trim() ? `${focusJourney.trip.city.trim()}, ` : ''}{focusJourney.trip.country}
+            {' · '}{formatDate(focusJourney.trip.start_date)} – {formatDate(focusJourney.trip.end_date)}
+          </span>
+          <button type="button" onClick={() => setFocusId(null)} aria-label="Show everyone again"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/20">
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+      )}
+
+      {/* Who's travelling: show only the creators with an upcoming trip and
+          their flight paths. Sits just above the near-me toggle. */}
+      {journeys.length > 0 && (
+        <button
+          type="button"
+          onClick={() => { setTravelView((v) => !v); setFocusId(null) }}
+          className={`absolute left-3 z-10 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold shadow-card transition-all hover:scale-[1.03] active:scale-95 ${
+            onToggleNearMe ? 'bottom-[5.25rem]' : 'bottom-10'
+          } ${travelView ? 'bg-brand text-white' : 'bg-white/95 text-ink'}`}
+        >
+          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor" aria-hidden>
+            <path d="M12 1.55 C13.05 1.55 13.71 3.45 13.71 6.11 L13.71 7.82 L21.5 12.95 L21.5 14.95 L13.71 11.81 L13.71 16.75 L16.18 19.22 L16.18 20.74 L12 19.32 L7.82 20.74 L7.82 19.22 L10.29 16.75 L10.29 11.81 L2.5 14.95 L2.5 12.95 L10.29 7.82 L10.29 6.11 C10.29 3.45 10.95 1.55 12 1.55 Z" />
+          </svg>
+          Who's travelling{travelView ? ` · ${journeys.length}` : ''}
+        </button>
       )}
 
       {/* Near-me toggle: lives on the map (bottom-left, above the hint) and

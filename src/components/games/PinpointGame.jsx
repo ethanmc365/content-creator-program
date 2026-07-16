@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { Badge, Fireworks, StreakChip } from '../ui'
+import { Badge, StreakChip } from '../ui'
 import Icon from '../Icon'
 import { flagEmoji } from '../../lib/countries'
 import { pinpointForDay, pinpointMatches } from '../../lib/pinpoint'
@@ -197,10 +197,7 @@ export default function PinpointGame({ onExit }) {
 
         {done && (
           <div className="flex flex-col items-center gap-3 animate-fade-up">
-            <div className="relative flex h-24 w-48 items-center justify-center">
-              {outcome === 'won' && <Fireworks />}
-              <span className="relative z-10 text-6xl leading-none" aria-hidden>{flagEmoji(country.iso2)}</span>
-            </div>
+            <span className="text-6xl leading-none" aria-hidden>{flagEmoji(country.iso2)}</span>
             {outcome === 'won' ? (
               <>
                 <p className="text-xl font-bold text-green-600">It's {country.name}!</p>
