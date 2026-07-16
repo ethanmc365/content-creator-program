@@ -72,7 +72,8 @@ export const COUNTRIES = [
   { name: 'Tunisia', iso2: 'TN', continent: 'Africa', currency: 'Tunisian dinar', symbol: 'DT' },
   { name: 'Senegal', iso2: 'SN', continent: 'Africa', currency: 'West African CFA franc', symbol: 'CFA' },
   { name: 'Uganda', iso2: 'UG', continent: 'Africa', currency: 'Ugandan shilling', symbol: 'USh' },
-  { name: 'Zimbabwe', iso2: 'ZW', continent: 'Africa' }, // multi-currency economy, left out of the currencies mode
+  // Zimbabwe is multi-currency, but ZiG has been the official currency since April 2024.
+  { name: 'Zimbabwe', iso2: 'ZW', continent: 'Africa', currency: 'Zimbabwe gold (ZiG)', symbol: 'ZiG' },
   { name: 'Namibia', iso2: 'NA', continent: 'Africa', currency: 'Namibian dollar', symbol: 'N$' },
   { name: 'Botswana', iso2: 'BW', continent: 'Africa', currency: 'Pula', symbol: 'P' },
   { name: 'Mozambique', iso2: 'MZ', continent: 'Africa', currency: 'Metical', symbol: 'MT' },
@@ -201,17 +202,23 @@ export function currencyCountriesForRegion(region) {
 }
 
 /**
- * Build one currencies question for a target country: the target plus five
- * countries that do NOT use the target's currency, shuffled. Distractors are
- * drawn from the region first, topped up from the whole world when a continent
- * doesn't have six eligible countries (e.g. Oceania).
+ * Build one currencies question for a target country: six currency options
+ * (name + symbol), exactly one of which is the target's. Distractor currencies
+ * are all DISTINCT and never the answer's currency, drawn from the region
+ * first (plausible neighbours), topped up from the whole world when a
+ * continent doesn't have six distinct currencies.
  */
-export function currencyChoices(target, region) {
-  const usable = (list) => list.filter((c) => c.name !== target.name && c.currency !== target.currency)
-  const local = shuffle(usable(currencyCountriesForRegion(region)))
-  const world = shuffle(usable(COUNTRIES.filter((c) => c.currency && !local.includes(c))))
-  const distractors = [...local, ...world].slice(0, 5)
-  return shuffle([target, ...distractors])
+export function currencyOptions(target, region) {
+  const seen = new Set([target.currency])
+  const distractors = []
+  const pool = [...shuffle(currencyCountriesForRegion(region)), ...shuffle(COUNTRIES.filter((c) => c.currency))]
+  for (const c of pool) {
+    if (seen.has(c.currency)) continue
+    seen.add(c.currency)
+    distractors.push({ currency: c.currency, symbol: c.symbol })
+    if (distractors.length === 5) break
+  }
+  return shuffle([{ currency: target.currency, symbol: target.symbol }, ...distractors])
 }
 
 /** Fisher-Yates shuffle (returns a new array). */

@@ -9,9 +9,11 @@
 // the same puzzle for everyone, and the vitest suite verifies all 366.
 //
 // Difficulty rotates through the year:
-//   easy   - 5x5, plenty of stops, no walls
-//   medium - 6x6, fewer stops, a few walls
-//   hard   - 7x7, sparse stops, more walls
+//   easy    - 5x5, plenty of stops, no walls
+//   medium  - 6x6, fewer stops, a few walls
+//   hard    - 7x7, sparse stops, more walls
+//   expert  - 8x8, sparse stops, lots of walls
+//   extreme - 10x10, the full long-haul: a big sky and a maze of walls
 
 /** Small fast deterministic PRNG (mulberry32). */
 export function mulberry32(seed) {
@@ -40,8 +42,8 @@ export function wallKey(a, b) {
 }
 
 // Random Hamiltonian path via DFS with the Warnsdorff heuristic (prefer the
-// neighbour with fewest onward options, random tiebreak). On grids this small
-// (25-49 cells) it almost always succeeds within a few restarts; a serpentine
+// neighbour with fewest onward options, random tiebreak). On grids this size
+// (25-100 cells) it almost always succeeds within a few restarts; a serpentine
 // fallback keeps it total.
 function hamiltonianPath(size, rng) {
   const N = size * size
@@ -50,7 +52,7 @@ function hamiltonianPath(size, rng) {
     const visited = new Array(N).fill(false)
     const path = [start]
     visited[start] = true
-    let budget = 120_000 // backtracking step cap so generation stays instant
+    let budget = 4000 * N // backtracking step cap so generation stays instant
 
     const step = () => {
       if (path.length === N) return true
@@ -127,19 +129,27 @@ function buildWalls(size, path, count, rng) {
 }
 
 export const ZIP_LAYOUT_COUNT = 366
-export const ZIP_DIFFICULTIES = ['easy', 'medium', 'hard']
+export const ZIP_DIFFICULTIES = ['easy', 'medium', 'hard', 'expert', 'extreme']
 
 /** Grid size, stop count, wall count + difficulty label for a layout index. */
 export function layoutSpec(index) {
-  const difficulty = ZIP_DIFFICULTIES[index % 3]
+  const difficulty = ZIP_DIFFICULTIES[index % ZIP_DIFFICULTIES.length]
   const rng = mulberry32(0xa11ce + index * 2654435761)
+  const seed = 0x51f7 + index * 7919
   if (difficulty === 'easy') {
-    return { difficulty, size: 5, stops: 8 + Math.floor(rng() * 3), walls: 0, seed: 0x51f7 + index * 7919 }
+    return { difficulty, size: 5, stops: 8 + Math.floor(rng() * 3), walls: 0, seed }
   }
   if (difficulty === 'medium') {
-    return { difficulty, size: 6, stops: 7 + Math.floor(rng() * 2), walls: 2 + Math.floor(rng() * 3), seed: 0x51f7 + index * 7919 }
+    return { difficulty, size: 6, stops: 7 + Math.floor(rng() * 2), walls: 2 + Math.floor(rng() * 3), seed }
   }
-  return { difficulty, size: 7, stops: 7 + Math.floor(rng() * 2), walls: 6 + Math.floor(rng() * 5), seed: 0x51f7 + index * 7919 }
+  if (difficulty === 'hard') {
+    return { difficulty, size: 7, stops: 7 + Math.floor(rng() * 2), walls: 6 + Math.floor(rng() * 5), seed }
+  }
+  if (difficulty === 'expert') {
+    return { difficulty, size: 8, stops: 8 + Math.floor(rng() * 2), walls: 10 + Math.floor(rng() * 6), seed }
+  }
+  // extreme: the 10x10 long-haul
+  return { difficulty, size: 10, stops: 10 + Math.floor(rng() * 3), walls: 18 + Math.floor(rng() * 8), seed }
 }
 
 /**

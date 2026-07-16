@@ -21,7 +21,8 @@ const fmtTime = (ms) => {
   const s = Math.floor(ms / 1000)
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
-const DIFF_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard' }
+const DIFF_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard', expert: 'Expert', extreme: 'Extreme' }
+const HARD_DIFFS = ['hard', 'expert', 'extreme']
 
 function loadStored(day) {
   try {
@@ -30,32 +31,68 @@ function loadStored(day) {
   } catch { return null }
 }
 
+// Turn the cell-centre points into a smooth path: straight runs stay straight,
+// every 90-degree turn gets a rounded corner (quadratic curve through the
+// corner point) so the contrail sweeps like a real flight line.
+function roundedPath(pts, r = 32) {
+  if (pts.length < 2) return ''
+  let d = `M ${pts[0][0]} ${pts[0][1]}`
+  for (let i = 1; i < pts.length - 1; i++) {
+    const [x0, y0] = pts[i - 1]
+    const [x1, y1] = pts[i]
+    const [x2, y2] = pts[i + 1]
+    const d1 = [Math.sign(x1 - x0), Math.sign(y1 - y0)]
+    const d2 = [Math.sign(x2 - x1), Math.sign(y2 - y1)]
+    if (d1[0] === d2[0] && d1[1] === d2[1]) continue // straight through, skip the point
+    d += ` L ${x1 - d1[0] * r} ${y1 - d1[1] * r} Q ${x1} ${y1} ${x1 + d2[0] * r} ${y1 + d2[1] * r}`
+  }
+  const [lx, ly] = pts[pts.length - 1]
+  d += ` L ${lx} ${ly}`
+  return d
+}
+
 // The Tryp plane, nose-up at origin (same silhouette as the creator map).
+// Position + heading are applied as CSS transforms so the plane GLIDES between
+// cells and banks into turns instead of teleporting.
 function PlaneIcon({ x, y, angle, scale = 2 }) {
   return (
-    <g transform={`translate(${x} ${y}) rotate(${angle + 90}) scale(${scale})`} style={{ pointerEvents: 'none' }}>
-      <path
-        d="M0 -11 C1.1 -11 1.8 -9 1.8 -6.2 L1.8 -4.4 L10 1 L10 3.1 L1.8 -0.2 L1.8 5 L4.4 7.6 L4.4 9.2 L0 7.7 L-4.4 9.2 L-4.4 7.6 L-1.8 5 L-1.8 -0.2 L-10 3.1 L-10 1 L-1.8 -4.4 L-1.8 -6.2 C-1.8 -9 -1.1 -11 0 -11 Z"
-        fill={BRAND} stroke="#ffffff" strokeWidth={1.3} strokeLinejoin="round"
-        style={{ filter: 'drop-shadow(0 1px 2px rgba(20,20,30,0.35))' }}
-      />
+    <g
+      style={{
+        transform: `translate(${x}px, ${y}px) rotate(${angle + 90}deg)`,
+        transition: 'transform 0.16s ease-out',
+        pointerEvents: 'none',
+      }}
+    >
+      <g className="fp-plane-bob" transform={`scale(${scale})`}>
+        <ellipse cx="0" cy="10" rx="8" ry="2.4" fill="rgba(20,20,30,0.12)" />
+        <path
+          d="M0 -11 C1.1 -11 1.8 -9 1.8 -6.2 L1.8 -4.4 L10 1 L10 3.1 L1.8 -0.2 L1.8 5 L4.4 7.6 L4.4 9.2 L0 7.7 L-4.4 9.2 L-4.4 7.6 L-1.8 5 L-1.8 -0.2 L-10 3.1 L-10 1 L-1.8 -4.4 L-1.8 -6.2 C-1.8 -9 -1.1 -11 0 -11 Z"
+          fill={BRAND} stroke="#ffffff" strokeWidth={1.3} strokeLinejoin="round"
+          style={{ filter: 'drop-shadow(0 1px 2px rgba(20,20,30,0.35))' }}
+        />
+      </g>
     </g>
   )
 }
 
-// A soft cartoon cloud built from circles, drifting across the sky.
+// A soft cartoon cloud drifting across the sky: puffy white top with a subtle
+// shaded underside so it reads as a cloud rather than a white smudge.
+// IMPORTANT: the drift animation lives on an INNER group - a CSS `transform`
+// animation on the same element would override the SVG transform attribute
+// that positions/scales the cloud (that bug put every cloud at the top edge).
 function Cloud({ x, y, s = 1, dur = 60, delay = 0, span }) {
   return (
-    <g
-      className="fp-cloud"
-      style={{ '--fp-span': `${span}px`, animationDuration: `${dur}s`, animationDelay: `${delay}s` }}
-      transform={`translate(${x} ${y}) scale(${s})`}
-      opacity="0.8"
-    >
-      <ellipse cx="0" cy="0" rx="46" ry="20" fill="#ffffff" />
-      <circle cx="-22" cy="-10" r="18" fill="#ffffff" />
-      <circle cx="8" cy="-14" r="22" fill="#ffffff" />
-      <circle cx="30" cy="-6" r="15" fill="#ffffff" />
+    <g transform={`translate(${x} ${y}) scale(${s})`}>
+      <g
+        className="fp-cloud"
+        style={{ '--fp-span': `${span / s}px`, animationDuration: `${dur}s`, animationDelay: `${delay}s` }}
+      >
+        <ellipse cx="2" cy="6" rx="52" ry="15" fill="#ffffff" />
+        <circle cx="-26" cy="-2" r="17" fill="#ffffff" />
+        <circle cx="2" cy="-11" r="23" fill="#ffffff" />
+        <circle cx="28" cy="-1" r="16" fill="#ffffff" />
+        <ellipse cx="4" cy="13" rx="44" ry="8" fill="#c7ddf2" opacity="0.55" />
+      </g>
     </g>
   )
 }
@@ -220,7 +257,7 @@ export default function ZipGame({ onExit }) {
     const [px, py] = centre(path[path.length - 2])
     angle = (Math.atan2(hy - py, hx - px) * 180) / Math.PI
   }
-  const points = path.map((c) => centre(c).join(',')).join(' ')
+  const trailD = roundedPath(path.map(centre))
   const covered = new Set(path)
   const progress = Math.round((path.length / N) * 100)
   const W = size * CELL
@@ -244,13 +281,22 @@ export default function ZipGame({ onExit }) {
           from { transform: translateX(calc(var(--fp-span) * -0.25)); }
           to { transform: translateX(var(--fp-span)); }
         }
-        @media (prefers-reduced-motion: reduce) { .fp-cloud { animation: none; } }
+        .fp-plane-bob { animation: fp-bob 2.1s ease-in-out infinite; }
+        @keyframes fp-bob {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-2.5px); }
+        }
+        .fp-trail-dash { animation: fp-dash 0.8s linear infinite; }
+        @keyframes fp-dash { to { stroke-dashoffset: -19; } }
+        @media (prefers-reduced-motion: reduce) {
+          .fp-cloud, .fp-plane-bob, .fp-trail-dash { animation: none; }
+        }
       `}</style>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <span className="flex items-center gap-2">
-          <Badge tone="light"><Icon name="plane" className="h-3.5 w-3.5" /> Flight Path · Daily puzzle</Badge>
-          <Badge tone={difficulty === 'hard' ? 'brand' : 'grey'} className="!px-2 !py-0.5 text-[10px]">{DIFF_LABEL[difficulty]}</Badge>
+          <Badge tone="light"><Icon name="plane-tryp" className="h-3.5 w-3.5" /> Flight Path · Daily puzzle</Badge>
+          <Badge tone={HARD_DIFFS.includes(difficulty) ? 'brand' : 'grey'} className="!px-2 !py-0.5 text-[10px]">{DIFF_LABEL[difficulty]}</Badge>
         </span>
         <div className="flex items-center gap-5">
           <div className="text-center leading-tight">
@@ -268,10 +314,10 @@ export default function ZipGame({ onExit }) {
       <div className="card !p-4 sm:!p-6">
         <p className="mb-4 text-center text-sm text-smoke">
           Fly through every stop <span className="font-semibold text-ink">in order</span>, filling the whole sky.
-          {walls.length > 0 && <> Solid bars are <span className="font-semibold text-ink">no-fly walls</span>.</>} Drag the plane, drag backwards to undo.
+          {walls.length > 0 && <> Striped barriers are <span className="font-semibold text-ink">no-fly zones</span>.</>} Drag the plane, drag backwards to undo.
         </p>
 
-        <div className={cx('relative mx-auto w-full max-w-[520px]', shake && 'animate-shake')}>
+        <div className={cx('relative mx-auto w-full', size >= 8 ? 'max-w-[600px]' : 'max-w-[520px]', shake && 'animate-shake')}>
           <svg
             ref={svgRef}
             viewBox={`0 0 ${W} ${W}`}
@@ -285,50 +331,57 @@ export default function ZipGame({ onExit }) {
           >
             <defs>
               <linearGradient id="fp-sky" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#cfe8fb" />
-                <stop offset="100%" stopColor="#eaf5fd" />
+                <stop offset="0%" stopColor="#aed7f5" />
+                <stop offset="55%" stopColor="#cfe8fb" />
+                <stop offset="100%" stopColor="#e8f4fd" />
               </linearGradient>
             </defs>
             {/* the sky, a low sun, and clouds drifting behind the flight grid */}
             <rect x="0" y="0" width={W} height={W} fill="url(#fp-sky)" />
             <circle cx={W - 55} cy={52} r={26} fill="#ffd989" opacity="0.9" />
-            <circle cx={W - 55} cy={52} r={38} fill="#ffd989" opacity="0.25" />
-            <g style={{ pointerEvents: 'none' }}>
-              <Cloud x={-80} y={W * 0.16} s={1.15} dur={75} span={W + 260} />
-              <Cloud x={-40} y={W * 0.52} s={0.8} dur={95} delay={-40} span={W + 260} />
-              <Cloud x={-120} y={W * 0.82} s={1.35} dur={110} delay={-70} span={W + 260} />
-            </g>
-
-            {/* sky cells */}
+            <circle cx={W - 55} cy={52} r={40} fill="#ffd989" opacity="0.3" />
+            <circle cx={W - 55} cy={52} r={56} fill="#ffd989" opacity="0.12" />
+            {/* sky cells: translucent panes over the gradient */}
             {Array.from({ length: N }).map((_, cell) => {
               const x = (cell % size) * CELL, y = Math.floor(cell / size) * CELL
               return (
                 <rect
                   key={cell}
                   x={x + 3} y={y + 3} width={CELL - 6} height={CELL - 6} rx={14}
-                  fill={covered.has(cell) ? 'rgba(253,240,231,0.96)' : 'rgba(255,255,255,0.66)'}
-                  stroke={covered.has(cell) ? '#f9c9a7' : 'rgba(255,255,255,0.9)'}
+                  fill={covered.has(cell) ? 'rgba(253,240,231,0.96)' : 'rgba(255,255,255,0.42)'}
+                  stroke={covered.has(cell) ? '#f9c9a7' : 'rgba(255,255,255,0.85)'}
                   strokeWidth={1.5}
                   style={{ transition: 'fill 0.15s' }}
                 />
               )
             })}
 
-            {/* the flight route + contrail */}
+            {/* clouds drift OVER the grid (semi-transparent, under the route and
+                stops) so they read as real clouds instead of white smudges
+                peeking through the gaps between cells */}
+            <g style={{ pointerEvents: 'none' }} opacity="0.75">
+              <Cloud x={-90} y={W * 0.2} s={1.05} dur={70} span={W + 280} />
+              <Cloud x={-30} y={W * 0.44} s={0.6} dur={100} delay={-62} span={W + 280} />
+              <Cloud x={-60} y={W * 0.66} s={0.85} dur={88} delay={-38} span={W + 280} />
+              <Cloud x={-130} y={W * 0.88} s={1.2} dur={112} delay={-75} span={W + 280} />
+            </g>
+
+            {/* the flight route + contrail: a soft orange wake with a flowing
+                dashed centre line, corners rounded like a real flight line */}
             {path.length > 1 && (
               <>
-                <polyline points={points} fill="none" stroke={BRAND_LIGHT} strokeOpacity={0.45} strokeWidth={46} strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
-                <polyline points={points} fill="none" stroke="#ffffff" strokeWidth={5} strokeDasharray="3 16" strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
+                <path d={trailD} fill="none" stroke={BRAND_LIGHT} strokeOpacity={0.45} strokeWidth={46} strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
+                <path className="fp-trail-dash" d={trailD} fill="none" stroke="#ffffff" strokeWidth={5} strokeDasharray="3 16" strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
               </>
             )}
 
-            {/* no-fly walls */}
+            {/* no-fly zones: red-and-white striped barriers */}
             {walls.map((wpair, i) => {
               const s = wallSegment(wpair)
               return (
-                <g key={i} style={{ pointerEvents: 'none' }}>
+                <g key={i} style={{ pointerEvents: 'none', filter: 'drop-shadow(0 1px 1.5px rgba(20,20,30,0.25))' }}>
                   <line {...s} stroke="#ffffff" strokeWidth={13} strokeLinecap="round" />
-                  <line {...s} stroke="#3f4a5a" strokeWidth={8} strokeLinecap="round" />
+                  <line {...s} stroke="#e11d48" strokeWidth={9} strokeDasharray="11 11" strokeLinecap="butt" />
                 </g>
               )
             })}
@@ -353,17 +406,21 @@ export default function ZipGame({ onExit }) {
 
           {solved && (
             <div className="absolute inset-0 flex items-center justify-center rounded-card bg-white/85 backdrop-blur-[2px]">
-              <div className="relative flex flex-col items-center gap-3 p-6 text-center animate-pop-in">
-                <Fireworks />
-                <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lift">
-                  <Icon name="plane" className="h-7 w-7" />
-                </span>
-                <p className="relative text-xl font-bold text-ink">Smooth landing!</p>
-                <p className="relative text-sm text-smoke">
+              <div className="flex flex-col items-center gap-3 p-6 text-center animate-pop-in">
+                {/* fireworks live in their own box around the icon, so they
+                    burst behind the plane rather than over the text below */}
+                <div className="relative flex h-24 w-48 items-center justify-center">
+                  <Fireworks />
+                  <span className="relative z-10 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lift">
+                    <Icon name="plane-tryp" className="h-8 w-8" />
+                  </span>
+                </div>
+                <p className="text-xl font-bold text-ink">Smooth landing!</p>
+                <p className="text-sm text-smoke">
                   Today's flight completed{solveMs != null ? ` in ${fmtTime(solveMs)}` : ''}.
                 </p>
-                <p className="relative text-xs text-smoke">New route at midnight UK time · {nextIn}</p>
-                <button onClick={onExit} className="btn-secondary relative !py-2 text-sm">Back to games</button>
+                <p className="text-xs text-smoke">New route at midnight UK time · {nextIn}</p>
+                <button onClick={onExit} className="btn-secondary !py-2 text-sm">Back to games</button>
               </div>
             </div>
           )}

@@ -189,32 +189,43 @@ export function Confetti({ count = 40 }) {
   )
 }
 
-// A looping fireworks burst behind a results centrepiece: three staggered
-// bursts, each radiating coloured particles outward (CSS `burst` keyframe).
+// A looping fireworks display behind a results centrepiece: staggered bursts,
+// each with a soft central flash and two rings of particles that shoot out,
+// hang, then fall with gravity as they fade (CSS `burst` keyframe).
 // Used on game win screens - it sits BEHIND its parent's content, so wrap it
-// in a `relative` container.
-const BURST_COLORS = ['#d94407', '#f5853f', '#fbbf24', '#16a34a', '#3b82f6']
+// in a `relative` container (and keep the content itself `relative` so it
+// stacks on top).
+const BURST_COLORS = ['#d94407', '#f5853f', '#fbbf24', '#16a34a', '#3b82f6', '#ec4899']
 const BURSTS = [
-  { x: '50%', y: '30%', delay: 0, dist: 42 },
-  { x: '28%', y: '46%', delay: 0.45, dist: 34 },
-  { x: '72%', y: '48%', delay: 0.85, dist: 34 },
+  { x: '50%', y: '26%', delay: 0, dist: 52 },
+  { x: '22%', y: '48%', delay: 0.55, dist: 40 },
+  { x: '78%', y: '44%', delay: 1.05, dist: 44 },
+  { x: '50%', y: '68%', delay: 1.55, dist: 36 },
 ]
 export function Fireworks() {
   return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden motion-reduce:hidden" aria-hidden>
+    <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden motion-reduce:hidden" aria-hidden>
       {BURSTS.map((b, bi) => (
         <div key={bi} className="absolute" style={{ left: b.x, top: b.y }}>
-          {Array.from({ length: 12 }).map((_, i) => {
-            const ang = (i / 12) * Math.PI * 2
+          {/* the initial flash at the burst origin */}
+          <span
+            className="absolute -ml-3 -mt-3 block h-6 w-6 rounded-full animate-burst-flash"
+            style={{ backgroundColor: BURST_COLORS[bi % BURST_COLORS.length], animationDelay: `${b.delay}s` }}
+          />
+          {/* two rings of particles: a fast outer ring and a slower inner one */}
+          {Array.from({ length: 20 }).map((_, i) => {
+            const ring = i % 2 // 0 = outer, 1 = inner
+            const ang = (i / 20) * Math.PI * 2 + (ring ? 0.3 : 0)
+            const dist = b.dist * (ring ? 0.55 : 1)
             return (
               <span
                 key={i}
-                className="absolute block h-1.5 w-1.5 rounded-full animate-burst"
+                className={`absolute block rounded-full animate-burst ${ring ? 'h-1 w-1' : 'h-1.5 w-1.5'}`}
                 style={{
                   backgroundColor: BURST_COLORS[(i + bi) % BURST_COLORS.length],
-                  '--dx': `${Math.cos(ang) * b.dist}px`,
-                  '--dy': `${Math.sin(ang) * b.dist}px`,
-                  animationDelay: `${b.delay}s`,
+                  '--dx': `${Math.cos(ang) * dist}px`,
+                  '--dy': `${Math.sin(ang) * dist}px`,
+                  animationDelay: `${b.delay + (ring ? 0.06 : 0)}s`,
                 }}
               />
             )

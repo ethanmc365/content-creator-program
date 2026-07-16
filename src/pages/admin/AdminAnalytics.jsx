@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Bar, BarChart, CartesianGrid, ComposedChart, Line, LineChart,
+  Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, LineChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
-import { format, startOfMonth } from 'date-fns'
+import { format, startOfMonth, startOfWeek, subWeeks } from 'date-fns'
 import { supabase } from '../../lib/supabase'
 import { PageHeader, Skeleton, StatCard } from '../../components/ui'
-import Icon from '../../components/Icon'
 import { downloadCsv, formatMoney, formatViews } from '../../lib/utils'
 
 // Admin analytics: the program's health at a glance. Recharts (free) for the
@@ -53,9 +52,12 @@ function Funnel({ stages }) {
             disabled={!s.onClick}
             className="group block w-full text-left disabled:cursor-default"
           >
-            <div className="mb-1 flex items-baseline justify-between text-sm">
-              <span className={s.onClick ? 'font-medium transition-colors group-hover:text-brand' : 'font-medium'}>{s.label}</span>
-              <span className="tabular-nums">
+            <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
+              <span className="min-w-0">
+                <span className={s.onClick ? 'font-medium transition-colors group-hover:text-brand' : 'font-medium'}>{s.label}</span>
+                {s.hint && <span className="ml-2 text-xs text-smoke">{s.hint}</span>}
+              </span>
+              <span className="shrink-0 tabular-nums">
                 <span className="font-semibold">{s.count}</span>
                 {rate != null && <span className="ml-2 text-xs text-smoke">{rate}% of previous</span>}
               </span>
@@ -88,23 +90,34 @@ export default function AdminAnalytics() {
         { data: profiles }, { data: challenges }, { data: submissions },
         { data: rewards }, { data: messages }, { data: results },
         { data: feedback }, { count: reactionCount }, { count: pollVoteCount },
+        { data: gameScores }, { data: connections }, { count: tripCount },
+        { data: decisions },
       ] = await Promise.all([
-        supabase.from('profiles').select('id, name, created_at, status, is_admin, onboarded, referred_by, deletion_requested_at, is_test, photo_url, dob, city, country, bio, about, instagram_url, tiktok_url, youtube_url, other_links, countries_visited, languages'),
+        supabase.from('profiles').select('id, name, created_at, status, is_admin, onboarded, referred_by, deletion_requested_at, is_test, last_seen_at'),
         supabase.from('challenges').select('id, title, status, start_date, vouchers_given').neq('status', 'draft').order('start_date'),
         supabase.from('submissions').select('id, challenge_id, creator_id, logged_views, submitted_at'),
         supabase.from('rewards').select('amount, status, challenge_id, reward_type'),
-        supabase.from('messages').select('id, sender_id, channel').eq('deleted', false),
+        supabase.from('messages').select('id, sender_id, channel, created_at').eq('deleted', false),
         supabase.from('results').select('final_views'),
         supabase.from('feedback').select('status'),
         supabase.from('reactions').select('id', { count: 'exact', head: true }),
         supabase.from('poll_votes').select('id', { count: 'exact', head: true }),
+        supabase.from('game_scores').select('mode, created_at, player_id'),
+        supabase.from('connections').select('status'),
+        supabase.from('collab_posts').select('id', { count: 'exact', head: true }),
+        supabase.from('application_decisions').select('decision, created_at'),
       ])
       // Default every dataset so one failed query can never blank the page.
+      // `loadedAt` is captured here (not in render) so derived time windows
+      // stay pure under the react-hooks purity rules.
       setRaw({
         profiles: profiles || [], challenges: challenges || [],
         submissions: submissions || [], rewards: rewards || [],
         messages: messages || [], results: results || [], feedback: feedback || [],
         reactionCount: reactionCount || 0, pollVoteCount: pollVoteCount || 0,
+        gameScores: gameScores || [], connections: connections || [],
+        tripCount: tripCount || 0, decisions: decisions || [],
+        loadedAt: Date.now(),
       })
     }
     load()
@@ -113,7 +126,10 @@ export default function AdminAnalytics() {
   // ---------- Derived datasets ----------
   const derived = useMemo(() => {
     if (!raw) return null
-    const { profiles, challenges, submissions, rewards, messages, results, feedback, reactionCount, pollVoteCount } = raw
+    const {
+      profiles, challenges, submissions, rewards, messages, results, feedback,
+      reactionCount, pollVoteCount, gameScores, connections, tripCount, decisions, loadedAt,
+    } = raw
 
     const realCreators = profiles.filter((p) => !p.is_admin && !p.deletion_requested_at && !p.is_test)
 
@@ -169,6 +185,7 @@ export default function AdminAnalytics() {
     for (const m of messages) activity[m.sender_id] = (activity[m.sender_id] || 0) + 1
     const mostActive = Object.entries(activity)
       .map(([id, score]) => ({
+        id,
         name: (nameById[id] || '?').split(' ')[0],
         fullName: nameById[id],
         score,
@@ -199,39 +216,51 @@ export default function AdminAnalytics() {
     const participationRate = active.length ? Math.round((participating / active.length) * 100) : 0
 
     // ---- Application funnel ----
+    // Counts only live accounts: anything deleted (declined applications,
+    // removed test accounts) no longer has a profile row, and QA/admin/
+    // deletion-requested rows are filtered out of realCreators above.
+    const declined = decisions.filter((d) => d.decision === 'declined').length
+    const approvedEver = decisions.filter((d) => d.decision === 'approved').length
     const funnel = [
-      { label: 'Signed up', count: realCreators.length, to: '/admin/creators' },
+      { label: 'Signed up', count: realCreators.length, to: '/admin/creators', hint: `${active.length} members + ${pendingReview.length + notCompleted.length} still pending` },
       { label: 'Completed their profile', count: realCreators.filter((p) => p.onboarded).length, to: '/admin/creators' },
       { label: 'Approved', count: active.length, to: '/admin/applications' },
       { label: 'Posted a video', count: participating, to: null },
     ]
 
-    // ---- Sign-up drop-off funnel ----
-    // Derived purely from which onboarding fields each signup has filled, so we
-    // can see WHERE people abandon the multi-step onboarding without any extra
-    // tracking. Each stage is cumulative (reaching it implies the ones above).
-    // Mirrors the required fields gated in Onboarding.jsx (photos step is optional).
-    const hasBasics = (p) => p.photo_url && p.dob && p.city && p.country && p.bio && p.about
-    const hasSocial = (p) => p.instagram_url || p.tiktok_url || p.youtube_url || (Array.isArray(p.other_links) && p.other_links.length > 0)
-    const hasCountries = (p) => Array.isArray(p.countries_visited) && p.countries_visited.length > 0
-    const hasLanguages = (p) => Array.isArray(p.languages) && p.languages.length > 0
-    const signupFunnel = [
-      { label: 'Created an account', count: realCreators.length },
-      { label: 'Added a profile photo', count: realCreators.filter((p) => p.photo_url).length },
-      { label: 'Filled in the basics', count: realCreators.filter(hasBasics).length, hint: 'name, photo, DOB, city, country, bio, about' },
-      { label: 'Added a social link', count: realCreators.filter((p) => hasBasics(p) && hasSocial(p)).length },
-      { label: 'Marked countries visited', count: realCreators.filter((p) => hasBasics(p) && hasSocial(p) && hasCountries(p)).length },
-      { label: 'Selected languages', count: realCreators.filter((p) => hasBasics(p) && hasSocial(p) && hasCountries(p) && hasLanguages(p)).length },
-      { label: 'Submitted for review', count: realCreators.filter((p) => p.onboarded).length },
-    ]
-    // Biggest single drop-off step, to surface as a callout.
-    let biggestDrop = null
-    for (let i = 1; i < signupFunnel.length; i++) {
-      const lost = signupFunnel[i - 1].count - signupFunnel[i].count
-      if (!biggestDrop || lost > biggestDrop.lost) {
-        biggestDrop = { lost, from: signupFunnel[i - 1].label, to: signupFunnel[i].label, at: signupFunnel[i].label }
+    // ---- Platform activity ----
+    const weekAgo = loadedAt - 7 * 24 * 60 * 60 * 1000
+    const activeThisWeek = realCreators.filter((p) => p.last_seen_at && new Date(p.last_seen_at).getTime() >= weekAgo).length
+    const connectionsMade = connections.filter((c) => c.status === 'accepted').length
+    const testIds = new Set(profiles.filter((p) => p.is_test).map((p) => p.id))
+    const realGameScores = gameScores.filter((g) => !testIds.has(g.player_id))
+
+    // Games played per mode (friendly labels).
+    const GAME_LABEL = { flags: 'Flags', map: 'Find on map', airports: 'Airports', currencies: 'Currencies', pinpoint: 'Guess the Country', zip: 'Flight Path' }
+    const gamesByMode = Object.entries(
+      realGameScores.reduce((acc, g) => { acc[g.mode] = (acc[g.mode] || 0) + 1; return acc }, {})
+    ).map(([m, plays]) => ({ name: GAME_LABEL[m] || m, plays })).sort((a, b) => b.plays - a.plays)
+
+    // Weekly pulse: messages, submissions and game plays per week, last 8 weeks.
+    const weeks = Array.from({ length: 8 }, (_, i) => startOfWeek(subWeeks(loadedAt, 7 - i), { weekStartsOn: 1 }))
+    const weekKey = (d) => format(startOfWeek(new Date(d), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+    const tally = (rows, dateOf) => rows.reduce((acc, r) => {
+      const k = weekKey(dateOf(r))
+      acc[k] = (acc[k] || 0) + 1
+      return acc
+    }, {})
+    const msgByWeek = tally(messages.filter((m) => m.created_at), (m) => m.created_at)
+    const subByWeek = tally(submissions, (s) => s.submitted_at)
+    const gameByWeek = tally(realGameScores, (g) => g.created_at)
+    const weeklyPulse = weeks.map((w) => {
+      const k = format(w, 'yyyy-MM-dd')
+      return {
+        week: format(w, 'd MMM'),
+        messages: msgByWeek[k] || 0,
+        submissions: subByWeek[k] || 0,
+        games: gameByWeek[k] || 0,
       }
-    }
+    })
 
     // ---- Engagement ----
     const openFeedback = feedback.filter((f) => f.status === 'new').length
@@ -246,7 +275,10 @@ export default function AdminAnalytics() {
 
     return {
       growth, momentum, perChallenge, perChallengeRecent, mostActive, chat,
-      totalPaid, totalViews, verifiedViews, costPer1k, funnel, signupFunnel, biggestDrop,
+      totalPaid, totalViews, verifiedViews, costPer1k, funnel,
+      applications: { declined, approvedEver },
+      activity7d: { activeThisWeek, connectionsMade, tripsPosted: tripCount, gamesPlayed: realGameScores.length },
+      gamesByMode, weeklyPulse,
       engagement: {
         reactions: reactionCount, pollVotes: pollVoteCount, chatMessages: messages.length, feedbackTotal: feedback.length, openFeedback,
         vouchersGiven: challenges.reduce((sum, c) => sum + (c.vouchers_given || 0), 0),
@@ -296,13 +328,17 @@ export default function AdminAnalytics() {
       <div className="mb-10 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section className="card">
           <h2 className="mb-1 font-semibold">Application funnel</h2>
-          <p className="mb-6 text-xs text-smoke">From sign-up to first video · tap a stage to manage it</p>
+          <p className="mb-6 text-xs text-smoke">From sign-up to first video · tap a stage to manage it · live accounts only, deleted and test accounts never counted</p>
           <Funnel
             stages={derived.funnel.map((s) => ({
-              label: s.label, count: s.count,
+              label: s.label, count: s.count, hint: s.hint,
               onClick: s.to ? () => navigate(s.to) : undefined,
             }))}
           />
+          <div className="mt-5 flex flex-wrap gap-x-6 gap-y-1 border-t border-gray-50 pt-4 text-xs text-smoke">
+            <span><span className="font-semibold text-green-600">{derived.applications.approvedEver}</span> applications approved all-time</span>
+            <span><span className="font-semibold text-red-500">{derived.applications.declined}</span> declined and removed</span>
+          </div>
         </section>
 
         <section className="card">
@@ -317,26 +353,16 @@ export default function AdminAnalytics() {
         </section>
       </div>
 
-      {/* ---- Sign-up drop-off ---- */}
-      <section className="card mb-10">
-        <h2 className="mb-1 font-semibold">Where sign-ups drop off</h2>
-        <p className="mb-6 text-xs text-smoke">
-          How far new creators get through onboarding before they stop. Each step shows how many reached it and the % kept from the step above.
-        </p>
-        {derived.biggestDrop && derived.biggestDrop.lost > 0 && (
-          <div className="mb-6 flex items-start gap-3 rounded-xl border border-brand/20 bg-brand-tint/50 px-4 py-3 text-sm">
-            <Icon name="chart" className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
-            <p className="text-ink">
-              Biggest drop-off: <span className="font-semibold">{derived.biggestDrop.lost}</span> {derived.biggestDrop.lost === 1 ? 'creator' : 'creators'} stall at
-              {' '}<span className="font-semibold">“{derived.biggestDrop.to}”</span>. Worth a closer look or a nudge email.
-            </p>
-          </div>
-        )}
-        <Funnel stages={derived.signupFunnel.map((s) => ({ label: s.label, count: s.count }))} />
-        <p className="mt-4 text-xs text-smoke">
-          Derived from saved profile fields, so it reflects everyone who has ever started — including people who left mid-way. The travel-photos step is optional and not counted.
-        </p>
-      </section>
+      {/* ---- Platform activity this week ---- */}
+      <div className="mb-10">
+        <h2 className="mb-4 text-lg font-semibold">Platform activity</h2>
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <StatCard label="Active this week" value={derived.activity7d.activeThisWeek} hint="opened the app in the last 7 days" accent onClick={() => navigate('/admin/creators')} />
+          <StatCard label="Games played" value={derived.activity7d.gamesPlayed} hint="all-time, all modes" onClick={() => navigate('/game')} />
+          <StatCard label="Connections made" value={derived.activity7d.connectionsMade} onClick={() => navigate('/admin/network')} />
+          <StatCard label="Trips posted" value={derived.activity7d.tripsPosted} hint="collab board" onClick={() => navigate('/collab')} />
+        </div>
+      </div>
 
       {/* ---- Engagement snapshot ---- */}
       <div className="mb-10">
@@ -406,6 +432,41 @@ export default function AdminAnalytics() {
         </ChartCard>
 
         <ChartCard
+          title="Weekly pulse"
+          subtitle="Chat messages, game plays and submissions per week, last 8 weeks"
+          onExport={() => downloadCsv('weekly-pulse.csv', derived.weeklyPulse)}
+        >
+          <ResponsiveContainer>
+            <BarChart data={derived.weeklyPulse} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
+              <XAxis dataKey="week" tick={{ fontSize: 11, fill: '#6B7280' }} />
+              <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
+              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Bar dataKey="messages" name="Messages" stackId="pulse" fill={BRAND_LIGHT} maxBarSize={32} animationDuration={700} />
+              <Bar dataKey="games" name="Game plays" stackId="pulse" fill="#fbbf24" maxBarSize={32} animationDuration={700} />
+              <Bar dataKey="submissions" name="Submissions" stackId="pulse" fill={BRAND} radius={[6, 6, 0, 0]} maxBarSize={32} animationDuration={700} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard
+          title="Games played by mode"
+          subtitle="Which travel games the community actually plays"
+          onExport={() => downloadCsv('games-by-mode.csv', derived.gamesByMode.map(({ name, plays }) => ({ mode: name, plays })))}
+        >
+          <ResponsiveContainer>
+            <BarChart data={derived.gamesByMode} layout="vertical" margin={{ top: 4, right: 16, left: 30, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" horizontal={false} />
+              <XAxis type="number" tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
+              <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#6B7280' }} width={100} />
+              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} />
+              <Bar dataKey="plays" name="Plays" fill={BRAND} radius={[0, 8, 8, 0]} maxBarSize={20} animationDuration={700} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard
           title="Submissions per challenge"
           subtitle="Recent challenges · tap a bar for the full breakdown"
           onExport={() => downloadCsv('submissions-per-challenge.csv', derived.perChallenge.map(({ fullTitle, submissions }) => ({ challenge: fullTitle, submissions })))}
@@ -456,11 +517,15 @@ export default function AdminAnalytics() {
 
         <ChartCard
           title="Most active creators"
-          subtitle="Submissions (×3) + chat messages"
+          subtitle="Submissions (×3) + chat messages · tap a bar to open their profile"
           onExport={() => downloadCsv('most-active-creators.csv', derived.mostActive.map(({ fullName, submissions, chatMessages }) => ({ creator: fullName, submissions, chat_messages: chatMessages })))}
         >
           <ResponsiveContainer>
-            <BarChart data={derived.mostActive} layout="vertical" margin={{ top: 4, right: 16, left: 8, bottom: 0 }}>
+            <BarChart
+              data={derived.mostActive} layout="vertical" style={{ cursor: 'pointer' }}
+              onClick={(d) => { const id = d?.activePayload?.[0]?.payload?.id; if (id) navigate(`/profile/${id}`) }}
+              margin={{ top: 4, right: 16, left: 8, bottom: 0 }}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" horizontal={false} />
               <XAxis type="number" tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
               <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#6B7280' }} width={70} />

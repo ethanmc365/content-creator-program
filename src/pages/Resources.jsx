@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -100,30 +100,33 @@ export default function Resources() {
         />
         <div className="flex flex-wrap gap-2">
           {CATEGORIES.map((c) => (
-            <button
-              key={c}
-              onClick={() => setCategory(c)}
-              aria-pressed={category === c}
-              className={cx(
-                'rounded-full px-4 py-1.5 text-xs font-medium transition-colors',
-                category === c ? 'bg-brand text-white' : 'border border-gray-200 text-smoke hover:border-brand hover:text-brand'
+            <Fragment key={c}>
+              <button
+                onClick={() => setCategory(c)}
+                aria-pressed={category === c}
+                className={cx(
+                  'rounded-full px-4 py-1.5 text-xs font-medium transition-colors',
+                  category === c ? 'bg-brand text-white' : 'border border-gray-200 text-smoke hover:border-brand hover:text-brand'
+                )}
+              >
+                {c !== 'All' && <span aria-hidden>{CATEGORY_EMOJI[c]} </span>}{c}
+              </button>
+              {/* Your shelf sits right beside All: everything you've bookmarked */}
+              {c === 'All' && (
+                <button
+                  onClick={() => setSavedOnly((v) => !v)}
+                  aria-pressed={savedOnly}
+                  className={cx(
+                    'inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-medium transition-colors',
+                    savedOnly ? 'bg-brand text-white' : 'border border-gray-200 text-smoke hover:border-brand hover:text-brand'
+                  )}
+                >
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill={savedOnly ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><path d="M6 3h12v18l-6-4-6 4z" /></svg>
+                  Saved{bookmarks.size > 0 ? ` · ${bookmarks.size}` : ''}
+                </button>
               )}
-            >
-              {c !== 'All' && <span aria-hidden>{CATEGORY_EMOJI[c]} </span>}{c}
-            </button>
+            </Fragment>
           ))}
-          {/* Your shelf: everything you've bookmarked */}
-          <button
-            onClick={() => setSavedOnly((v) => !v)}
-            aria-pressed={savedOnly}
-            className={cx(
-              'inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-medium transition-colors',
-              savedOnly ? 'bg-brand text-white' : 'border border-gray-200 text-smoke hover:border-brand hover:text-brand'
-            )}
-          >
-            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill={savedOnly ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><path d="M6 3h12v18l-6-4-6 4z" /></svg>
-            Saved{bookmarks.size > 0 ? ` · ${bookmarks.size}` : ''}
-          </button>
         </div>
       </div>
 

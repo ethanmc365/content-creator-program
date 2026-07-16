@@ -10,7 +10,7 @@ import Icon from '../components/Icon'
 import {
   CONTINENTS, countriesForRegion, airportsForRegion, flagEmoji,
   countryMatches, airportMatches, shuffle,
-  currencyCountriesForRegion, currencyChoices,
+  currencyCountriesForRegion, currencyOptions,
 } from '../lib/countries'
 import { ukDayIndex, ukDayStartIso } from '../lib/daily'
 import PinpointGame from '../components/games/PinpointGame'
@@ -28,15 +28,15 @@ const MODES = [
   { key: 'flags', icon: 'flag', title: 'Guess the flag', text: 'See a flag, type the country.' },
   { key: 'map', icon: 'pin', title: 'Find on the map', text: 'See a country, click it on the map.' },
   { key: 'airports', icon: 'plane', title: 'Airport codes', text: 'See an IATA code, name the city.' },
-  { key: 'currencies', icon: 'cash', title: 'Currencies', text: 'See a currency, pick the country that uses it.' },
+  { key: 'currencies', icon: 'cash', title: 'Currencies', text: 'See a country, pick the currency it uses.' },
 ]
 const MODE_LABEL = { flags: 'Flags', map: 'Find on map', airports: 'Airports', currencies: 'Currencies', pinpoint: 'Guess the Country', zip: 'Flight Path' }
 
 // The two daily puzzles that sit above "choose a mode". Same puzzle for
 // everyone each day, refreshing at midnight UK time.
 const DAILIES = [
-  { key: 'pinpoint', icon: 'eye', title: 'Guess the Country', text: 'Five clue words, guess the country. Fewer clues, more points.', store: 'tryp_pinpoint' },
-  { key: 'zip', icon: 'plane', title: 'Flight Path', text: 'Drag your plane through every stop in order, filling the whole sky.', store: 'tryp_zip' },
+  { key: 'pinpoint', icon: 'question', title: 'Guess the Country', text: 'Five clue words, guess the country. Fewer clues, more points.', store: 'tryp_pinpoint' },
+  { key: 'zip', icon: 'plane-tryp', title: 'Flight Path', text: 'Drag your plane through every stop in order, filling the whole sky.', store: 'tryp_zip' },
 ]
 
 const fmtTime = (ms) => {
@@ -102,8 +102,8 @@ export default function Game() {
       : countriesForRegion(rr)
     let qs = shuffle(pool).slice(0, Math.min(QUESTIONS, pool.length))
     // Currencies is multiple choice: fix each question's six options up front
-    // (the right country + five that don't use its currency).
-    if (mm === 'currencies') qs = qs.map((t) => ({ ...t, choices: currencyChoices(t, rr) }))
+    // (the right currency + five distinct currencies the country doesn't use).
+    if (mm === 'currencies') qs = qs.map((t) => ({ ...t, choices: currencyOptions(t, rr) }))
     setMode(mm)
     setRegion(rr)
     setQuestions(qs)
@@ -135,9 +135,11 @@ export default function Game() {
           // all-time best scores on the right.
           <div className="grid gap-10 lg:grid-cols-2">
             <Leaderboard mode={screen} region="Daily" daily highlightUser={user.id}
-              heading="Today's leaderboard" blurb="Everyone plays the same puzzle today. Ranked by score, then speed." />
+              heading="Today's leaderboard"
+              blurb={screen === 'zip' ? 'Everyone flies the same route today. Ranked by fastest landing.' : 'Everyone plays the same puzzle today. Ranked by fewest words, then speed.'} />
             <Leaderboard mode={screen} region="Daily" highlightUser={user.id}
-              heading="All-time leaderboard" blurb="Each creator's best-ever daily result. Ranked by score, then speed." />
+              heading="All-time leaderboard"
+              blurb={screen === 'zip' ? "Each creator's best-ever daily flight. Ranked by fastest landing." : "Each creator's best-ever daily result. Ranked by fewest words, then speed."} />
           </div>
         ) : (
           <Leaderboard mode={mode} region={region} eventId={eventId} highlightUser={user.id} />
@@ -260,11 +262,11 @@ function Round({ mode, region, questions, onQuit, onFinish }) {
   const last = i === questions.length - 1
   const isType = mode === 'flags' || mode === 'airports'
 
-  function pickChoice(country) {
+  function pickChoice(choice) {
     if (answered) return
-    const right = country.name === current.name
+    const right = choice.currency === current.currency
     if (right) setCorrect((c) => c + 1)
-    setAnswered({ right, picked: country.name })
+    setAnswered({ right, picked: choice.currency })
   }
 
   useEffect(() => {
@@ -363,23 +365,23 @@ function Round({ mode, region, questions, onQuit, onFinish }) {
         </div>
       )}
 
-      {/* ---- Currencies ---- */}
+      {/* ---- Currencies: show the country, pick the currency ---- */}
       {mode === 'currencies' && (
         <div className="card flex flex-col items-center gap-6 !py-10 text-center">
           <div>
-            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-smoke">Which country uses this currency?</p>
-            <div className="inline-flex items-baseline gap-3 rounded-2xl bg-brand px-8 py-5 text-white shadow-lift">
-              <span className="text-4xl font-extrabold sm:text-5xl">{current.symbol}</span>
-              <span className="text-2xl font-bold sm:text-3xl">{current.currency}</span>
+            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-smoke">Which currency does this country use?</p>
+            <div className="inline-flex items-center gap-3 rounded-2xl bg-brand px-8 py-5 text-white shadow-lift">
+              <span className="text-4xl leading-none sm:text-5xl" aria-hidden>{flagEmoji(current.iso2)}</span>
+              <span className="text-2xl font-bold sm:text-3xl">{current.name} uses…?</span>
             </div>
           </div>
           <div className="grid w-full max-w-lg grid-cols-1 gap-2.5 sm:grid-cols-2">
             {current.choices.map((c) => {
-              const isAnswer = c.name === current.name
-              const isPicked = answered?.picked === c.name
+              const isAnswer = c.currency === current.currency
+              const isPicked = answered?.picked === c.currency
               return (
                 <button
-                  key={c.name}
+                  key={c.currency}
                   onClick={() => pickChoice(c)}
                   disabled={!!answered}
                   className={cx(
@@ -390,13 +392,13 @@ function Round({ mode, region, questions, onQuit, onFinish }) {
                     answered && !isAnswer && !isPicked && 'border-gray-100 opacity-50'
                   )}
                 >
-                  <span className="text-2xl leading-none" aria-hidden>{flagEmoji(c.iso2)}</span>
-                  <span className="min-w-0 truncate">{c.name}</span>
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-tint text-sm font-extrabold text-brand" aria-hidden>{c.symbol}</span>
+                  <span className="min-w-0 truncate">{c.currency}</span>
                 </button>
               )
             })}
           </div>
-          {answered && <Feedback answered={answered} answer={current.name} reveal last={last} onNext={next} />}
+          {answered && <Feedback answered={answered} answer={`${current.currency} (${current.symbol})`} reveal last={last} onNext={next} />}
         </div>
       )}
 
@@ -633,8 +635,26 @@ function Leaderboard({ mode, region, eventId, highlightUser, daily = false, head
                     {streaks[r.player_id] >= 1 && <FlameStreak n={streaks[r.player_id]} />}
                   </span>
                 </Link>
-                <span className="text-sm font-bold tabular-nums">{r.correct}/{r.total}</span>
-                <span className="w-14 text-right text-xs tabular-nums text-smoke">{fmtTime(r.time_ms)}</span>
+                {/* Daily puzzles get human results instead of a raw score:
+                    Flight Path is all about the landing time, Guess the
+                    Country about how few clue words you needed. */}
+                {mode === 'zip' ? (
+                  <span className="text-right text-xs font-semibold text-ink sm:text-sm">
+                    Plane safely landed in <span className="tabular-nums text-brand">{fmtTime(r.time_ms)}</span>
+                  </span>
+                ) : mode === 'pinpoint' ? (
+                  <>
+                    <span className="text-right text-xs font-semibold text-ink sm:text-sm">
+                      {r.correct > 0 ? `Guessed in ${r.total + 1 - r.correct} word${r.total + 1 - r.correct === 1 ? '' : 's'}` : 'Not guessed'}
+                    </span>
+                    <span className="w-14 text-right text-xs tabular-nums text-smoke">{fmtTime(r.time_ms)}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-sm font-bold tabular-nums">{r.correct}/{r.total}</span>
+                    <span className="w-14 text-right text-xs tabular-nums text-smoke">{fmtTime(r.time_ms)}</span>
+                  </>
+                )}
               </div>
             )
           })}

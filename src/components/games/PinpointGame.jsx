@@ -122,7 +122,7 @@ export default function PinpointGame({ onExit }) {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Badge tone="light"><Icon name="eye" className="h-3.5 w-3.5" /> Guess the Country · Daily puzzle</Badge>
+        <Badge tone="light"><Icon name="question" className="h-3.5 w-3.5" /> Guess the Country · Daily puzzle</Badge>
         <div className="flex items-center gap-5">
           <div className="text-center leading-tight">
             <span className="block text-[10px] font-medium uppercase tracking-wide text-smoke">Clue</span>
@@ -184,16 +184,16 @@ export default function PinpointGame({ onExit }) {
 
         {done && (
           <div className="flex flex-col items-center gap-3 animate-fade-up">
-            <div className="relative flex h-24 w-44 items-center justify-center">
+            <div className="relative flex h-24 w-48 items-center justify-center">
               {outcome === 'won' && <Fireworks />}
-              <span className="relative text-6xl leading-none" aria-hidden>{flagEmoji(country.iso2)}</span>
+              <span className="relative z-10 text-6xl leading-none" aria-hidden>{flagEmoji(country.iso2)}</span>
             </div>
             {outcome === 'won' ? (
               <>
                 <p className="text-xl font-bold text-green-600">It's {country.name}!</p>
                 {wonOnClue != null && (
                   <p className="text-sm text-smoke">
-                    Solved on clue {wonOnClue} · {MAX_CLUES + 1 - wonOnClue} point{MAX_CLUES + 1 - wonOnClue === 1 ? '' : 's'}
+                    Guessed in {wonOnClue} word{wonOnClue === 1 ? '' : 's'}
                   </p>
                 )}
               </>

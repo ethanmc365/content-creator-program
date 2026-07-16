@@ -204,7 +204,7 @@ export default function Events() {
               <div className="card mt-5 animate-fade-up !p-6">
                 <h3 className="mb-3 text-sm font-semibold">{format(selectedDay, 'EEEE d MMMM')}</h3>
                 {dayEvents.length === 0 ? (
-                  <p className="text-sm text-smoke">Nothing on this day. A perfect filming day 🎥</p>
+                  <p className="text-sm text-smoke">Nothing planned for today. A perfect time to create a video!</p>
                 ) : (
                   <ul className="space-y-3">
                     {dayEvents.map((e) => (

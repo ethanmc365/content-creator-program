@@ -37,13 +37,16 @@ export default function AdminApplications() {
     const note = status === 'active' ? '' : ' This permanently deletes their account.'
     if (!await confirm(`${verb} ${app.name}'s application?${note}`)) return
     setBusyId(app.id)
+    let error
     if (status === 'active') {
-      await supabase.from('profiles').update({ status: 'active' }).eq('id', app.id)
+      ({ error } = await supabase.from('profiles').update({ status: 'active' }).eq('id', app.id))
     } else {
-      // Decline = fully remove the account so it never appears in the community.
-      await supabase.rpc('admin_delete_creator', { target: app.id })
+      // Decline = record the decision (for analytics), then fully remove the
+      // account so it never appears in the community.
+      ({ error } = await supabase.rpc('admin_decline_application', { target: app.id }))
     }
     setBusyId(null)
+    if (error) { flash(`Something went wrong: ${error.message}`); return }
     flash(status === 'active' ? `${app.name} approved and welcomed.` : `${app.name}'s application declined and removed.`)
     setApps((prev) => prev.filter((a) => a.id !== app.id))
   }

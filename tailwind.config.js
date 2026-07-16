@@ -42,12 +42,20 @@ export default {
           '0%': { transform: 'translateY(-10vh) rotate(0deg)', opacity: '1' },
           '100%': { transform: 'translateY(110vh) rotate(720deg)', opacity: '0' },
         },
-        // A firework particle shooting outward from its burst origin and fading.
+        // A firework particle shooting outward from its burst origin, hanging
+        // for a beat, then dropping with gravity as it fades out.
         // --dx / --dy set per-particle to radiate in a circle.
         burst: {
-          '0%': { transform: 'translate(0, 0) scale(1)', opacity: '1' },
-          '80%': { opacity: '1' },
-          '100%': { transform: 'translate(var(--dx, 0), var(--dy, 0)) scale(0.3)', opacity: '0' },
+          '0%': { transform: 'translate(0, 0) scale(0.4)', opacity: '0' },
+          '8%': { opacity: '1', transform: 'translate(calc(var(--dx, 0) * 0.2), calc(var(--dy, 0) * 0.2)) scale(1)' },
+          '55%': { transform: 'translate(var(--dx, 0), var(--dy, 0)) scale(0.9)', opacity: '1' },
+          '100%': { transform: 'translate(var(--dx, 0), calc(var(--dy, 0) + 22px)) scale(0.2)', opacity: '0' },
+        },
+        // The soft flash at a burst's origin the instant it goes off.
+        'burst-flash': {
+          '0%': { transform: 'scale(0.2)', opacity: '0.8' },
+          '30%': { transform: 'scale(1)', opacity: '0.35' },
+          '60%, 100%': { transform: 'scale(1.7)', opacity: '0' },
         },
         // Gentle opacity-only entrance for page content. Deliberately has NO
         // transform: a persisted transform on `.page` would become a containing
@@ -84,7 +92,8 @@ export default {
         'menu-in': 'menu-in 0.16s ease-out both',
         confetti: 'confetti 3s linear forwards',
         shake: 'shake 0.4s ease-in-out both',
-        burst: 'burst 1.3s ease-out infinite',
+        burst: 'burst 1.8s cubic-bezier(0.16, 1, 0.3, 1) infinite',
+        'burst-flash': 'burst-flash 1.8s ease-out infinite',
         fly: 'fly 1.7s ease-in-out infinite',
       },
     },
