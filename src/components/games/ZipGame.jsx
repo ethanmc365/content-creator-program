@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { Badge, Fireworks } from '../ui'
+import { Badge, Fireworks, StreakChip } from '../ui'
 import Icon from '../Icon'
 import { generateZip, zipIndexForDay, wallKey } from '../../lib/zip'
-import { ukDayIndex, ukDayStartIso, untilNextUkMidnight } from '../../lib/daily'
+import { ukDayIndex, ukDayStartIso, untilNextUkMidnight, dailyStreak } from '../../lib/daily'
 import { cx } from '../../lib/utils'
 
 // Flight Path: drag the plane through the numbered stops in order, leaving a
@@ -51,47 +51,25 @@ function roundedPath(pts, r = 32) {
   return d
 }
 
-// The Tryp plane, nose-up at origin (same silhouette as the creator map).
-// Position + heading are applied as CSS transforms so the plane GLIDES between
-// cells and banks into turns instead of teleporting.
-function PlaneIcon({ x, y, angle, scale = 2 }) {
+// The Tryp plane, nose-up at origin (same silhouette as the creator map),
+// on a white disc so it pops against the trail. Position + heading are CSS
+// transforms with a VERY short transition: just enough to smooth cell-to-cell
+// motion without the plane visibly lagging behind the finger.
+function PlaneIcon({ x, y, angle, scale = 2.1 }) {
   return (
     <g
       style={{
         transform: `translate(${x}px, ${y}px) rotate(${angle + 90}deg)`,
-        transition: 'transform 0.16s ease-out',
+        transition: 'transform 0.07s linear',
         pointerEvents: 'none',
       }}
     >
       <g className="fp-plane-bob" transform={`scale(${scale})`}>
-        <ellipse cx="0" cy="10" rx="8" ry="2.4" fill="rgba(20,20,30,0.12)" />
+        <circle cx="0" cy="-1" r="13.5" fill="#ffffff" style={{ filter: 'drop-shadow(0 1.5px 3px rgba(20,20,30,0.3))' }} />
         <path
           d="M0 -11 C1.1 -11 1.8 -9 1.8 -6.2 L1.8 -4.4 L10 1 L10 3.1 L1.8 -0.2 L1.8 5 L4.4 7.6 L4.4 9.2 L0 7.7 L-4.4 9.2 L-4.4 7.6 L-1.8 5 L-1.8 -0.2 L-10 3.1 L-10 1 L-1.8 -4.4 L-1.8 -6.2 C-1.8 -9 -1.1 -11 0 -11 Z"
-          fill={BRAND} stroke="#ffffff" strokeWidth={1.3} strokeLinejoin="round"
-          style={{ filter: 'drop-shadow(0 1px 2px rgba(20,20,30,0.35))' }}
+          fill={BRAND} strokeLinejoin="round"
         />
-      </g>
-    </g>
-  )
-}
-
-// A soft cartoon cloud drifting across the sky: puffy white top with a subtle
-// shaded underside so it reads as a cloud rather than a white smudge.
-// IMPORTANT: the drift animation lives on an INNER group - a CSS `transform`
-// animation on the same element would override the SVG transform attribute
-// that positions/scales the cloud (that bug put every cloud at the top edge).
-function Cloud({ x, y, s = 1, dur = 60, delay = 0, span }) {
-  return (
-    <g transform={`translate(${x} ${y}) scale(${s})`}>
-      <g
-        className="fp-cloud"
-        style={{ '--fp-span': `${span / s}px`, animationDuration: `${dur}s`, animationDelay: `${delay}s` }}
-      >
-        <ellipse cx="2" cy="6" rx="52" ry="15" fill="#ffffff" />
-        <circle cx="-26" cy="-2" r="17" fill="#ffffff" />
-        <circle cx="2" cy="-11" r="23" fill="#ffffff" />
-        <circle cx="28" cy="-1" r="16" fill="#ffffff" />
-        <ellipse cx="4" cy="13" rx="44" ry="8" fill="#c7ddf2" opacity="0.55" />
       </g>
     </g>
   )
@@ -120,6 +98,7 @@ export default function ZipGame({ onExit }) {
 
   const [solved, setSolved] = useState(!!stored)
   const [solveMs, setSolveMs] = useState(stored?.time_ms ?? null)
+  const [streakDays, setStreakDays] = useState([]) // my past day_keys for this game
   const [checking, setChecking] = useState(!stored)
   const [shake, setShake] = useState(false)
   const [elapsed, setElapsed] = useState(0)
@@ -156,6 +135,15 @@ export default function ZipGame({ onExit }) {
     const t = setInterval(() => setElapsed(Date.now() - startRef.current), 500)
     return () => clearInterval(t)
   }, [solved, checking])
+
+  // My daily streak for this game (consecutive UK days played).
+  useEffect(() => {
+    supabase.from('game_scores')
+      .select('day_key')
+      .eq('player_id', user.id).eq('mode', 'zip').not('day_key', 'is', null)
+      .then(({ data }) => setStreakDays((data ?? []).map((r) => r.day_key)))
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const streak = dailyStreak(solved ? [...streakDays, day] : streakDays, day)
 
   // Next stop number the path still has to reach.
   const expected = useMemo(() => {
@@ -276,27 +264,23 @@ export default function ZipGame({ onExit }) {
   return (
     <div className="space-y-6">
       <style>{`
-        .fp-cloud { animation-name: fp-drift; animation-timing-function: linear; animation-iteration-count: infinite; }
-        @keyframes fp-drift {
-          from { transform: translateX(calc(var(--fp-span) * -0.25)); }
-          to { transform: translateX(var(--fp-span)); }
-        }
         .fp-plane-bob { animation: fp-bob 2.1s ease-in-out infinite; }
         @keyframes fp-bob {
           0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-2.5px); }
+          50% { transform: translateY(-2px); }
         }
         .fp-trail-dash { animation: fp-dash 0.8s linear infinite; }
         @keyframes fp-dash { to { stroke-dashoffset: -19; } }
         @media (prefers-reduced-motion: reduce) {
-          .fp-cloud, .fp-plane-bob, .fp-trail-dash { animation: none; }
+          .fp-plane-bob, .fp-trail-dash { animation: none; }
         }
       `}</style>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="flex items-center gap-2">
+        <span className="flex flex-wrap items-center gap-2">
           <Badge tone="light"><Icon name="plane-tryp" className="h-3.5 w-3.5" /> Flight Path · Daily puzzle</Badge>
           <Badge tone={HARD_DIFFS.includes(difficulty) ? 'brand' : 'grey'} className="!px-2 !py-0.5 text-[10px]">{DIFF_LABEL[difficulty]}</Badge>
+          <StreakChip n={streak} title={`${streak}-day daily streak`} />
         </span>
         <div className="flex items-center gap-5">
           <div className="text-center leading-tight">
@@ -314,7 +298,7 @@ export default function ZipGame({ onExit }) {
       <div className="card !p-4 sm:!p-6">
         <p className="mb-4 text-center text-sm text-smoke">
           Fly through every stop <span className="font-semibold text-ink">in order</span>, filling the whole sky.
-          {walls.length > 0 && <> Striped barriers are <span className="font-semibold text-ink">no-fly zones</span>.</>} Drag the plane, drag backwards to undo.
+          {walls.length > 0 && <> Solid orange bars are <span className="font-semibold text-ink">no-fly walls</span>.</>} Drag the plane, drag backwards to undo.
         </p>
 
         <div className={cx('relative mx-auto w-full', size >= 8 ? 'max-w-[600px]' : 'max-w-[520px]', shake && 'animate-shake')}>
@@ -336,11 +320,8 @@ export default function ZipGame({ onExit }) {
                 <stop offset="100%" stopColor="#e8f4fd" />
               </linearGradient>
             </defs>
-            {/* the sky, a low sun, and clouds drifting behind the flight grid */}
+            {/* the sky behind the flight grid */}
             <rect x="0" y="0" width={W} height={W} fill="url(#fp-sky)" />
-            <circle cx={W - 55} cy={52} r={26} fill="#ffd989" opacity="0.9" />
-            <circle cx={W - 55} cy={52} r={40} fill="#ffd989" opacity="0.3" />
-            <circle cx={W - 55} cy={52} r={56} fill="#ffd989" opacity="0.12" />
             {/* sky cells: translucent panes over the gradient */}
             {Array.from({ length: N }).map((_, cell) => {
               const x = (cell % size) * CELL, y = Math.floor(cell / size) * CELL
@@ -356,33 +337,25 @@ export default function ZipGame({ onExit }) {
               )
             })}
 
-            {/* clouds drift OVER the grid (semi-transparent, under the route and
-                stops) so they read as real clouds instead of white smudges
-                peeking through the gaps between cells */}
-            <g style={{ pointerEvents: 'none' }} opacity="0.75">
-              <Cloud x={-90} y={W * 0.2} s={1.05} dur={70} span={W + 280} />
-              <Cloud x={-30} y={W * 0.44} s={0.6} dur={100} delay={-62} span={W + 280} />
-              <Cloud x={-60} y={W * 0.66} s={0.85} dur={88} delay={-38} span={W + 280} />
-              <Cloud x={-130} y={W * 0.88} s={1.2} dur={112} delay={-75} span={W + 280} />
-            </g>
-
-            {/* the flight route + contrail: a soft orange wake with a flowing
-                dashed centre line, corners rounded like a real flight line */}
+            {/* the flight route + contrail: a layered orange wake (soft outer
+                glow, denser core) with a flowing dashed centre line, corners
+                rounded like a real flight line */}
             {path.length > 1 && (
               <>
-                <path d={trailD} fill="none" stroke={BRAND_LIGHT} strokeOpacity={0.45} strokeWidth={46} strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
+                <path d={trailD} fill="none" stroke={BRAND_LIGHT} strokeOpacity={0.28} strokeWidth={50} strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
+                <path d={trailD} fill="none" stroke={BRAND_LIGHT} strokeOpacity={0.38} strokeWidth={30} strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
                 <path className="fp-trail-dash" d={trailD} fill="none" stroke="#ffffff" strokeWidth={5} strokeDasharray="3 16" strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
               </>
             )}
 
-            {/* no-fly zones: red-and-white striped barriers */}
+            {/* no-fly walls: solid Tryp orange bars */}
             {walls.map((wpair, i) => {
               const s = wallSegment(wpair)
               return (
-                <g key={i} style={{ pointerEvents: 'none', filter: 'drop-shadow(0 1px 1.5px rgba(20,20,30,0.25))' }}>
-                  <line {...s} stroke="#ffffff" strokeWidth={13} strokeLinecap="round" />
-                  <line {...s} stroke="#e11d48" strokeWidth={9} strokeDasharray="11 11" strokeLinecap="butt" />
-                </g>
+                <line
+                  key={i} {...s} stroke={BRAND} strokeWidth={10} strokeLinecap="round"
+                  style={{ pointerEvents: 'none', filter: 'drop-shadow(0 1px 1.5px rgba(20,20,30,0.2))' }}
+                />
               )
             })}
 

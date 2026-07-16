@@ -91,7 +91,7 @@ export default function AdminAnalytics() {
         { data: rewards }, { data: messages }, { data: results },
         { data: feedback }, { count: reactionCount }, { count: pollVoteCount },
         { data: gameScores }, { data: connections }, { count: tripCount },
-        { data: decisions },
+        { data: decisions }, { data: seenRows },
       ] = await Promise.all([
         supabase.from('profiles').select('id, name, created_at, status, is_admin, onboarded, referred_by, deletion_requested_at, is_test, last_seen_at'),
         supabase.from('challenges').select('id, title, status, start_date, vouchers_given').neq('status', 'draft').order('start_date'),
@@ -106,6 +106,7 @@ export default function AdminAnalytics() {
         supabase.from('connections').select('status'),
         supabase.from('collab_posts').select('id', { count: 'exact', head: true }),
         supabase.from('application_decisions').select('decision, created_at'),
+        supabase.rpc('admin_list_last_seen'),
       ])
       // Default every dataset so one failed query can never blank the page.
       // `loadedAt` is captured here (not in render) so derived time windows
@@ -117,6 +118,7 @@ export default function AdminAnalytics() {
         reactionCount: reactionCount || 0, pollVoteCount: pollVoteCount || 0,
         gameScores: gameScores || [], connections: connections || [],
         tripCount: tripCount || 0, decisions: decisions || [],
+        seenRows: seenRows || [],
         loadedAt: Date.now(),
       })
     }
@@ -128,7 +130,8 @@ export default function AdminAnalytics() {
     if (!raw) return null
     const {
       profiles, challenges, submissions, rewards, messages, results, feedback,
-      reactionCount, pollVoteCount, gameScores, connections, tripCount, decisions, loadedAt,
+      reactionCount, pollVoteCount, gameScores, connections, tripCount, decisions,
+      seenRows, loadedAt,
     } = raw
 
     const realCreators = profiles.filter((p) => !p.is_admin && !p.deletion_requested_at && !p.is_test)
@@ -229,8 +232,19 @@ export default function AdminAnalytics() {
     ]
 
     // ---- Platform activity ----
+    // "Active" = in-app heartbeat OR a login, whichever is newer (the RPC
+    // exposes auth last_sign_in_at, which catches people on sessions that
+    // predate the heartbeat column).
     const weekAgo = loadedAt - 7 * 24 * 60 * 60 * 1000
-    const activeThisWeek = realCreators.filter((p) => p.last_seen_at && new Date(p.last_seen_at).getTime() >= weekAgo).length
+    const lastActivityById = {}
+    for (const r of seenRows) {
+      const ts = [r.last_seen_at, r.last_sign_in_at].filter(Boolean).map((x) => new Date(x).getTime())
+      if (ts.length) lastActivityById[r.id] = Math.max(...ts)
+    }
+    const activeThisWeek = realCreators.filter((p) => {
+      const ts = lastActivityById[p.id] ?? (p.last_seen_at ? new Date(p.last_seen_at).getTime() : 0)
+      return ts >= weekAgo
+    }).length
     const connectionsMade = connections.filter((c) => c.status === 'accepted').length
     const testIds = new Set(profiles.filter((p) => p.is_test).map((p) => p.id))
     const realGameScores = gameScores.filter((g) => !testIds.has(g.player_id))

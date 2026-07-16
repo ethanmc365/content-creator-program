@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import CountdownTimer from '../components/CountdownTimer'
 import WorldMap from '../components/WorldMap'
 import CreatorSpotlight from '../components/CreatorSpotlight'
+import DailyGamesCard from '../components/DailyGamesCard'
 import Icon from '../components/Icon'
 import { Avatar, Badge, Skeleton, StatCard } from '../components/ui'
 import { flagForCountry } from '../lib/flags'
@@ -198,6 +199,9 @@ export default function Home() {
           </Link>
         </section>
       )}
+
+      {/* ---------- Daily games teaser ---------- */}
+      <DailyGamesCard />
 
       {/* ---------- Creators on the move (collab board nudge) ---------- */}
       {upcomingTrips.length > 0 && (

@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { Badge, Fireworks } from '../ui'
+import { Badge, Fireworks, StreakChip } from '../ui'
 import Icon from '../Icon'
 import { flagEmoji } from '../../lib/countries'
 import { pinpointForDay, pinpointMatches } from '../../lib/pinpoint'
-import { ukDayIndex, ukDayStartIso, untilNextUkMidnight } from '../../lib/daily'
+import { ukDayIndex, ukDayStartIso, untilNextUkMidnight, dailyStreak } from '../../lib/daily'
 import { cx } from '../../lib/utils'
 
 // Guess the Country: five travel clues revealed one at a time; you get one
@@ -43,6 +43,7 @@ export default function PinpointGame({ onExit }) {
   const [checking, setChecking] = useState(!stored) // true while we ask the server
   const [shake, setShake] = useState(false)
   const [elapsed, setElapsed] = useState(0)
+  const [streakDays, setStreakDays] = useState([]) // my past day_keys for this game
   const startRef = useRef(0)
   const elapsedRef = useRef(0) // precise copy for handlers (purity-lint safe)
   const savedRef = useRef(!!stored)
@@ -86,6 +87,15 @@ export default function PinpointGame({ onExit }) {
     return () => clearInterval(t)
   }, [outcome, checking])
 
+  // My daily streak for this game (consecutive UK days played).
+  useEffect(() => {
+    supabase.from('game_scores')
+      .select('day_key')
+      .eq('player_id', user.id).eq('mode', 'pinpoint').not('day_key', 'is', null)
+      .then(({ data }) => setStreakDays((data ?? []).map((r) => r.day_key)))
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const streak = dailyStreak(outcome ? [...streakDays, day] : streakDays, day)
+
   function finish(result, guessed, wrongGuesses, time_ms) {
     setOutcome(result)
     setWonOnClue(guessed)
@@ -122,7 +132,10 @@ export default function PinpointGame({ onExit }) {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Badge tone="light"><Icon name="question" className="h-3.5 w-3.5" /> Guess the Country · Daily puzzle</Badge>
+        <span className="flex flex-wrap items-center gap-2">
+          <Badge tone="light"><Icon name="question" className="h-3.5 w-3.5" /> Guess the Country · Daily puzzle</Badge>
+          <StreakChip n={streak} title={`${streak}-day daily streak`} />
+        </span>
         <div className="flex items-center gap-5">
           <div className="text-center leading-tight">
             <span className="block text-[10px] font-medium uppercase tracking-wide text-smoke">Clue</span>

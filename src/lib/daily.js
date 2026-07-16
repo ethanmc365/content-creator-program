@@ -24,6 +24,21 @@ export function ukDayStartIso(now = Date.now()) {
   return new Date(Math.round(hi)).toISOString()
 }
 
+/**
+ * Current daily-play streak from a list of day indexes (game_scores.day_key).
+ * Counts the run of consecutive days ending today, with a one-day grace: if
+ * today is still unplayed, a run ending yesterday counts, so the streak isn't
+ * shown as 0 before they've had a chance to play.
+ */
+export function dailyStreak(dayKeys, today = ukDayIndex()) {
+  const days = new Set(dayKeys)
+  const start = days.has(today) ? today : days.has(today - 1) ? today - 1 : null
+  if (start == null) return 0
+  let n = 0
+  while (days.has(start - n)) n++
+  return n
+}
+
 /** "Xh Ym" until the next UK midnight (when the next puzzle lands). */
 export function untilNextUkMidnight(now = Date.now()) {
   const parts = timeFmt.formatToParts(now)

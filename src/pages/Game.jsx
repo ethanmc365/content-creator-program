@@ -95,6 +95,12 @@ export default function Game() {
     })
   }, [eventId])
 
+  // Deep link straight into a daily puzzle (/game?daily=zip) from the Home teaser.
+  useEffect(() => {
+    const d = params.get('daily')
+    if (d === 'pinpoint' || d === 'zip') setScreen(d)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   function start(m, r) {
     const mm = m || mode, rr = r || region
     const pool = mm === 'airports' ? airportsForRegion(rr)
@@ -372,7 +378,7 @@ function Round({ mode, region, questions, onQuit, onFinish }) {
             <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-smoke">Which currency does this country use?</p>
             <div className="inline-flex items-center gap-3 rounded-2xl bg-brand px-8 py-5 text-white shadow-lift">
               <span className="text-4xl leading-none sm:text-5xl" aria-hidden>{flagEmoji(current.iso2)}</span>
-              <span className="text-2xl font-bold sm:text-3xl">{current.name} uses…?</span>
+              <span className="text-2xl font-bold sm:text-3xl">{current.name} uses?</span>
             </div>
           </div>
           <div className="grid w-full max-w-lg grid-cols-1 gap-2.5 sm:grid-cols-2">

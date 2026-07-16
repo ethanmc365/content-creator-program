@@ -182,9 +182,17 @@ export default function AdminCreators() {
     )
   }
 
-  const filtered = useMemo(
-    () =>
-      creators.filter((c) => {
+  const filtered = useMemo(() => {
+    // Most recently active first (heartbeat or last login, whichever is newer),
+    // so who's engaged and who's gone quiet reads top to bottom. Never-seen
+    // accounts fall to the bottom, newest sign-up first.
+    const activityTs = (c) => {
+      const s = lastSeen[c.id]
+      if (!s) return 0
+      return Math.max(...[s.seen, s.signIn].filter(Boolean).map((x) => new Date(x).getTime()), 0)
+    }
+    return creators
+      .filter((c) => {
         const email = emails[c.id] ?? ''
         if (search && !(c.name + email).toLowerCase().includes(search.toLowerCase())) return false
         if (statusFilter === 'admin') return c.is_admin
@@ -192,9 +200,11 @@ export default function AdminCreators() {
         if (statusFilter === 'incomplete') return c.status === 'pending' && !c.onboarded
         if (statusFilter && c.status !== statusFilter) return false
         return true
-      }),
-    [creators, emails, search, statusFilter]
-  )
+      })
+      .sort((a, b) =>
+        activityTs(b) - activityTs(a) || new Date(b.created_at) - new Date(a.created_at)
+      )
+  }, [creators, emails, search, statusFilter, lastSeen])
 
   const STATUS_TONE = { active: 'green', muted: 'amber', suspended: 'red' }
 
@@ -234,7 +244,7 @@ export default function AdminCreators() {
     <div className="page">
       <PageHeader
         title="Creators"
-        subtitle={`${creators.length} accounts in the program.`}
+        subtitle={`${creators.length} accounts in the program, most recently active first.`}
         action={<button onClick={exportCreators} className="btn-secondary">Export CSV ↓</button>}
       />
 

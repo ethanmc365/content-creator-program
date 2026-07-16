@@ -189,6 +189,24 @@ export function Confetti({ count = 40 }) {
   )
 }
 
+// A small flame chip showing a daily-game streak ("3 days"). Hidden at 0.
+export function StreakChip({ n, title }) {
+  if (!n) return null
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full bg-brand-tint px-2 py-0.5 text-[11px] font-bold leading-none text-brand"
+      title={title || `${n}-day streak`}
+      aria-label={`${n} day streak`}
+    >
+      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden>
+        <path d="M13.5 2C14 5 11.5 6 10 8.2 8.9 9.8 8 11.4 8 13.3a6 6 0 0 0 12 .2c0-2.6-1.4-4.6-2.9-6.3-.9 1.2-2.2 1.3-2-.2.15-1.6-.4-3.6-1.6-5Z" fill="#d94407" />
+        <path d="M13 12c.4 1-.4 1.7-1 2.5-.4.5-.7 1.1-.7 1.8a2.4 2.4 0 0 0 4.8.1c0-1.2-.7-2-1.5-2.8-.6.7-1.3.4-1.1-.5.1-.5-.1-.8-.5-1.1Z" fill="#fbbf24" />
+      </svg>
+      {n} day{n === 1 ? '' : 's'}
+    </span>
+  )
+}
+
 // A looping fireworks display behind a results centrepiece: staggered bursts,
 // each with a soft central flash and two rings of particles that shoot out,
 // hang, then fall with gravity as they fade (CSS `burst` keyframe).
