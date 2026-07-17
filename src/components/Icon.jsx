@@ -53,8 +53,19 @@ const PATHS = {
   // "bug-ant" - used for bug reports.
   bug: 'M12 12.75c1.148 0 2.278.08 3.383.237 1.037.146 1.866.966 1.866 2.013 0 3.728-2.35 6.75-5.25 6.75S6.75 18.728 6.75 15c0-1.047.83-1.867 1.866-2.013A24.224 24.224 0 0112 12.75Zm0 0c2.883 0 5.647.508 8.207 1.44a23.91 23.91 0 01-1.152 6.06M12 12.75c-2.883 0-5.647.508-8.208 1.44.125 2.104.52 4.136 1.153 6.06M12 12.75a2.25 2.25 0 002.248-2.354M12 12.75a2.25 2.25 0 01-2.248-2.354M12 8.25c.995 0 1.971-.08 2.922-.236.403-.066.74-.358.795-.762a3.778 3.778 0 00-.399-2.25M12 8.25c-.995 0-1.97-.08-2.922-.236-.402-.066-.74-.358-.795-.762a3.734 3.734 0 01.4-2.253M12 8.25a2.25 2.25 0 00-2.248 2.146M12 8.25a2.25 2.25 0 012.248 2.146M8.683 5a6.032 6.032 0 01-1.155-1.002c-.31-.38-.74-.62-1.222-.679m9.222 1.68a6.032 6.032 0 001.155-1.002c.31-.38.74-.62 1.222-.679m-7.063 9.279a25.39 25.39 0 011.5-.062 25.39 25.39 0 011.5.062',
   reply: 'M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3',
-  // A big bare question mark (no circle) - the Guess the Country mark.
-  question: 'M8.93 5.5c1.7-1.49 4.45-1.49 6.15 0 1.7 1.49 1.7 3.9 0 5.38-.3.26-.62.47-.97.64-1.08.52-2.11 1.45-2.11 2.65v1.09M12 19.7h.01',
+}
+
+// Layered icons: one glyph drawn as multiple strokes with their own weights.
+// `country` is the Guess the Country mark - a simplified Ireland outline with
+// a thick question mark inside it.
+const LAYERED_PATHS = {
+  country: [
+    {
+      d: 'M8 3.2c2-.8 4.6-.7 6.6-.1 2 .6 3.7 1.8 4.1 3.8.4 2-.1 4-.4 6-.3 2-.9 4-2.4 5.3-1.5 1.3-3.7 1.7-5.7 1.6-2-.1-4.1-.6-5-2.3-.9-1.7-.2-3.6-.4-5.6-.2-2-.5-4.1.5-5.9 1-1.8 1.5-2.3 2.7-2.8z',
+      strokeWidth: 1.4,
+    },
+    { d: 'M8.9 9.1c.3-1.5 1.6-2.5 3.1-2.4 1.5.1 2.6 1.2 2.6 2.6 0 2-2.3 2.1-2.5 3.9l-.06.7M11.8 16.5h.01', strokeWidth: 2.3 },
+  ],
 }
 
 // Solid (filled) icons - the brand marks that don't work as thin outlines.
@@ -65,6 +76,16 @@ const FILLED_PATHS = {
 }
 
 export default function Icon({ name, className = 'h-5 w-5', strokeWidth = 1.7 }) {
+  const layered = LAYERED_PATHS[name]
+  if (layered) {
+    return (
+      <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+        {layered.map((p, i) => (
+          <path key={i} strokeLinecap="round" strokeLinejoin="round" strokeWidth={p.strokeWidth} d={p.d} />
+        ))}
+      </svg>
+    )
+  }
   const filled = FILLED_PATHS[name]
   if (filled) {
     return (

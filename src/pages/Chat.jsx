@@ -42,6 +42,36 @@ function messageKind(m) {
 
 const newTempId = () => `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`
 
+// Admin-only read receipt: a small "Seen by N" chip; hovering (desktop) or
+// tapping (mobile) reveals a popup listing the individual creators' names.
+function SeenByChip({ names, align = 'left' }) {
+  const [open, setOpen] = useState(false)
+  const label = names.length <= 12 ? names.join(', ') : `${names.slice(0, 12).join(', ')} +${names.length - 12} more`
+  return (
+    <span className="group/seen relative inline-flex">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        onBlur={() => setOpen(false)}
+        aria-label={`Seen by ${names.length}: ${label}`}
+        className="text-[10px] text-gray-400 transition-colors hover:text-smoke"
+      >
+        Seen by {names.length}
+      </button>
+      <span
+        role="tooltip"
+        className={cx(
+          'pointer-events-none absolute bottom-full z-30 mb-1.5 w-max max-w-[220px] whitespace-normal rounded-lg bg-ink px-2.5 py-1.5 text-left text-[11px] font-medium leading-snug text-white shadow-lift',
+          open ? 'block' : 'hidden group-hover/seen:block',
+          align === 'right' ? 'right-0' : 'left-0'
+        )}
+      >
+        {label}
+      </span>
+    </span>
+  )
+}
+
 function typingLabel(names) {
   if (names.length === 1) return `${names[0]} is typing…`
   if (names.length === 2) return `${names[0]} and ${names[1]} are typing…`
@@ -134,6 +164,25 @@ export default function Chat() {
       .in('status', ['active', 'muted']).eq('is_test', false)
       .then(({ data }) => setMembers(data ?? []))
   }, [])
+  // Reactor names can belong to profiles outside the members list (test
+  // accounts, pending applicants, or filtered statuses), so any unknown
+  // reactor id gets looked up directly — a reactor should never show as
+  // "Someone" while their profile still exists.
+  const [extraNames, setExtraNames] = useState(new Map())
+  useEffect(() => {
+    const known = new Set([...members.map((m) => m.id), ...extraNames.keys()])
+    const missing = [...new Set(reactions.map((r) => r.creator_id))].filter((id) => id !== user.id && !known.has(id))
+    if (!missing.length) return
+    supabase.from('profiles').select('id, name').in('id', missing).then(({ data }) => {
+      if (!data?.length) return
+      setExtraNames((prev) => {
+        const next = new Map(prev)
+        for (const p of data) next.set(p.id, p.name)
+        return next
+      })
+    })
+  }, [reactions, members, extraNames, user.id])
+
   const mentionResults = mention
     ? (() => {
         const q = mention.query.toLowerCase()
@@ -664,8 +713,8 @@ export default function Chat() {
   // Resolve a reactor's display name for the "who reacted" popup ("You" for me).
   const memberName = useCallback((id) => {
     if (id === user.id) return 'You'
-    return members.find((m) => m.id === id)?.name ?? 'Someone'
-  }, [members, user.id])
+    return members.find((m) => m.id === id)?.name ?? extraNames.get(id) ?? 'Someone'
+  }, [members, extraNames, user.id])
 
   // Members who have read up to (at least) a given message, for its "seen by"
   // row. Excludes me and the sender. Driven by channel_reads timestamps.
@@ -680,15 +729,6 @@ export default function Chat() {
     }
     return out
   }
-
-  // The newest real (non-deleted, non-pending) message — the only one that
-  // carries a "seen by" row, like WhatsApp.
-  const lastVisibleId = (() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (!messages[i].deleted && !messages[i].pending) return messages[i].id
-    }
-    return null
-  })()
 
   // Group reactions per message: { '❤️': { count, mine, ids: [...] } }
   function reactionSummary(messageId) {
@@ -918,28 +958,14 @@ export default function Chat() {
                     </div>
                   </div>
 
-                  {/* Read receipts: everyone sees who's read the newest message;
-                      admins also get a read count on EVERY earlier message. */}
-                  {m.id === lastVisibleId ? (() => {
+                  {/* Read receipts are ADMIN-ONLY: a "Seen by N" count under
+                      each message; hover or tap it to see the creators' names. */}
+                  {isAdmin && !m.pending && !m.deleted ? (() => {
                     const seen = seenBy(m)
                     if (!seen.length) return null
                     return (
-                      <div className={cx('mt-1 flex items-center gap-1.5', mine ? 'justify-end' : 'justify-start')}>
-                        <span className="text-[10px] text-gray-400">Seen by</span>
-                        <div className="flex -space-x-1.5">
-                          {seen.slice(0, 5).map((s) => (
-                            <Avatar key={s.id} src={s.photo_url} name={s.name} size="xs" className="!h-4 !w-4 !text-[8px] !ring-1" />
-                          ))}
-                        </div>
-                        {seen.length > 5 && <span className="text-[10px] text-gray-400">+{seen.length - 5}</span>}
-                      </div>
-                    )
-                  })() : isAdmin && !m.pending && !m.deleted ? (() => {
-                    const n = seenBy(m).length
-                    if (!n) return null
-                    return (
                       <div className={cx('mt-0.5 flex', mine ? 'justify-end' : 'justify-start')}>
-                        <span className="text-[10px] text-gray-400" title="Members who have read this far">Seen by {n}</span>
+                        <SeenByChip names={seen.map((s) => s.name)} align={mine ? 'right' : 'left'} />
                       </div>
                     )
                   })() : null}

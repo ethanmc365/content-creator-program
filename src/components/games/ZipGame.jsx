@@ -51,10 +51,11 @@ function roundedPath(pts, r = 32) {
   return d
 }
 
-// The Tryp plane, nose-up at origin (same silhouette as the creator map),
-// on a white disc so it pops against the trail. Position + heading are CSS
-// transforms with a VERY short transition: just enough to smooth cell-to-cell
-// motion without the plane visibly lagging behind the finger.
+// The Tryp plane, nose-up at origin (same silhouette as the creator map).
+// Just the plane itself - a thin white edge + shadow keep it visible over the
+// orange trail without a backing disc. Position + heading are CSS transforms
+// with a VERY short transition: just enough to smooth cell-to-cell motion
+// without the plane visibly lagging behind the finger.
 function PlaneIcon({ x, y, angle, scale = 2.1 }) {
   return (
     <g
@@ -65,10 +66,10 @@ function PlaneIcon({ x, y, angle, scale = 2.1 }) {
       }}
     >
       <g className="fp-plane-bob" transform={`scale(${scale})`}>
-        <circle cx="0" cy="-1" r="13.5" fill="#ffffff" style={{ filter: 'drop-shadow(0 1.5px 3px rgba(20,20,30,0.3))' }} />
         <path
           d="M0 -11 C1.1 -11 1.8 -9 1.8 -6.2 L1.8 -4.4 L10 1 L10 3.1 L1.8 -0.2 L1.8 5 L4.4 7.6 L4.4 9.2 L0 7.7 L-4.4 9.2 L-4.4 7.6 L-1.8 5 L-1.8 -0.2 L-10 3.1 L-10 1 L-1.8 -4.4 L-1.8 -6.2 C-1.8 -9 -1.1 -11 0 -11 Z"
-          fill={BRAND} strokeLinejoin="round"
+          fill={BRAND} stroke="#ffffff" strokeWidth={1.4} strokeLinejoin="round"
+          style={{ filter: 'drop-shadow(0 1.5px 3px rgba(20,20,30,0.35))' }}
         />
       </g>
     </g>
@@ -269,8 +270,10 @@ export default function ZipGame({ onExit }) {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-2px); }
         }
+        /* Dashes drift BACKWARDS along the path (away from the plane at the
+           head), like a contrail streaming behind the aircraft. */
         .fp-trail-dash { animation: fp-dash 0.8s linear infinite; }
-        @keyframes fp-dash { to { stroke-dashoffset: -19; } }
+        @keyframes fp-dash { to { stroke-dashoffset: 19; } }
         @media (prefers-reduced-motion: reduce) {
           .fp-plane-bob, .fp-trail-dash { animation: none; }
         }
@@ -322,30 +325,30 @@ export default function ZipGame({ onExit }) {
             </defs>
             {/* the sky behind the flight grid */}
             <rect x="0" y="0" width={W} height={W} fill="url(#fp-sky)" />
-            {/* sky cells: translucent panes over the gradient */}
+            {/* sky cells: uncovered cells are translucent panes over the sky
+                gradient; covered cells go FULL solid orange, bleeding to the
+                cell edges so no blue outline shows between flown cells */}
             {Array.from({ length: N }).map((_, cell) => {
               const x = (cell % size) * CELL, y = Math.floor(cell / size) * CELL
+              const flown = covered.has(cell)
               return (
                 <rect
                   key={cell}
-                  x={x + 3} y={y + 3} width={CELL - 6} height={CELL - 6} rx={14}
-                  fill={covered.has(cell) ? 'rgba(253,240,231,0.96)' : 'rgba(255,255,255,0.42)'}
-                  stroke={covered.has(cell) ? '#f9c9a7' : 'rgba(255,255,255,0.85)'}
+                  x={flown ? x : x + 3} y={flown ? y : y + 3}
+                  width={flown ? CELL : CELL - 6} height={flown ? CELL : CELL - 6}
+                  rx={flown ? 0 : 14}
+                  fill={flown ? BRAND_LIGHT : 'rgba(255,255,255,0.42)'}
+                  stroke={flown ? 'none' : 'rgba(255,255,255,0.85)'}
                   strokeWidth={1.5}
                   style={{ transition: 'fill 0.15s' }}
                 />
               )
             })}
 
-            {/* the flight route + contrail: a layered orange wake (soft outer
-                glow, denser core) with a flowing dashed centre line, corners
-                rounded like a real flight line */}
+            {/* the contrail: a flowing dashed white centre line over the solid
+                orange flown cells, corners rounded like a real flight line */}
             {path.length > 1 && (
-              <>
-                <path d={trailD} fill="none" stroke={BRAND_LIGHT} strokeOpacity={0.28} strokeWidth={50} strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
-                <path d={trailD} fill="none" stroke={BRAND_LIGHT} strokeOpacity={0.38} strokeWidth={30} strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
-                <path className="fp-trail-dash" d={trailD} fill="none" stroke="#ffffff" strokeWidth={5} strokeDasharray="3 16" strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
-              </>
+              <path className="fp-trail-dash" d={trailD} fill="none" stroke="#ffffff" strokeWidth={5} strokeDasharray="3 16" strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
             )}
 
             {/* no-fly walls: solid Tryp orange bars */}
