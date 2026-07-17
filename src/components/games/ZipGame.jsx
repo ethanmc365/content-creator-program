@@ -56,7 +56,7 @@ function roundedPath(pts, r = 32) {
 // orange trail without a backing disc. Position + heading are CSS transforms
 // with a VERY short transition: just enough to smooth cell-to-cell motion
 // without the plane visibly lagging behind the finger.
-function PlaneIcon({ x, y, angle, scale = 2.7 }) {
+function PlaneIcon({ x, y, angle, scale = 3.2 }) {
   return (
     <g
       style={{
@@ -325,27 +325,36 @@ export default function ZipGame({ onExit }) {
             </defs>
             {/* the sky behind the flight grid */}
             <rect x="0" y="0" width={W} height={W} fill="url(#fp-sky)" />
-            {/* sky cells: rounded panes with the blue sky showing between
-                them; a flown cell's pane fills solid orange */}
+            {/* sky cells: translucent rounded panes with the blue sky showing
+                between them; the flown route is drawn over them as a snake */}
             {Array.from({ length: N }).map((_, cell) => {
               const x = (cell % size) * CELL, y = Math.floor(cell / size) * CELL
-              const flown = covered.has(cell)
               return (
                 <rect
                   key={cell}
                   x={x + 3} y={y + 3} width={CELL - 6} height={CELL - 6} rx={14}
-                  fill={flown ? BRAND_LIGHT : 'rgba(255,255,255,0.42)'}
-                  stroke={flown ? 'none' : 'rgba(255,255,255,0.85)'}
+                  fill="rgba(255,255,255,0.42)"
+                  stroke="rgba(255,255,255,0.85)"
                   strokeWidth={1.5}
-                  style={{ transition: 'fill 0.15s' }}
                 />
               )
             })}
 
-            {/* the contrail: a flowing dashed white centre line over the solid
-                orange flown cells, corners rounded like a real flight line */}
-            {path.length > 1 && (
-              <path className="fp-trail-dash" d={trailD} fill="none" stroke="#ffffff" strokeWidth={5} strokeDasharray="3 16" strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
+            {/* the flown sky: one continuous rounded SNAKE through every cell
+                on the route - a soft light-orange wake glow under a solid
+                rounded body (round caps = rounded head/tail), topped with the
+                flowing dashed white contrail streaming back from the plane */}
+            {path.length > 1 ? (
+              <>
+                <path d={trailD} fill="none" stroke={BRAND_LIGHT} strokeOpacity={0.35} strokeWidth={92} strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
+                <path d={trailD} fill="none" stroke={BRAND_LIGHT} strokeWidth={76} strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
+                <path className="fp-trail-dash" d={trailD} fill="none" stroke="#ffffff" strokeWidth={5} strokeDasharray="3 16" strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
+              </>
+            ) : (
+              <>
+                <rect x={hx - 46} y={hy - 46} width={92} height={92} rx={32} fill={BRAND_LIGHT} fillOpacity={0.35} style={{ pointerEvents: 'none' }} />
+                <rect x={hx - 38} y={hy - 38} width={76} height={76} rx={26} fill={BRAND_LIGHT} style={{ pointerEvents: 'none' }} />
+              </>
             )}
 
             {/* no-fly walls: solid Tryp orange bars */}
@@ -359,18 +368,21 @@ export default function ZipGame({ onExit }) {
               )
             })}
 
-            {/* numbered stops (the stop under the plane hides so the number
-                never shows through the aircraft) */}
+            {/* numbered stops. When the plane sits on a stop the circle stays
+                (so you can see it IS a stop) but the number hides so it never
+                shows through the aircraft. */}
             {dots.map((d) => {
-              if (d.cell === head && !solved && !checking) return null
+              const underPlane = d.cell === head && !solved && !checking
               const [x, y] = centre(d.cell)
               const visited = covered.has(d.cell)
               return (
                 <g key={d.n} style={{ pointerEvents: 'none' }}>
                   <circle cx={x} cy={y} r={27} fill={visited ? BRAND : '#ffffff'} stroke={visited ? '#ffffff' : BRAND} strokeWidth={4} />
-                  <text x={x} y={y + 1} textAnchor="middle" dominantBaseline="central" fontSize={26} fontWeight="700" fill={visited ? '#ffffff' : BRAND}>
-                    {d.n}
-                  </text>
+                  {!underPlane && (
+                    <text x={x} y={y + 1} textAnchor="middle" dominantBaseline="central" fontSize={26} fontWeight="700" fill={visited ? '#ffffff' : BRAND}>
+                      {d.n}
+                    </text>
+                  )}
                 </g>
               )
             })}
