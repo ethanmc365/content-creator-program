@@ -17,6 +17,17 @@ const BRAND_LIGHT = '#f5853f'
 const STORE_KEY = 'tryp_zip'
 const CELL = 100 // svg units per cell
 
+// Trail gradient: full BRAND_LIGHT at the plane, fading to this lighter peach
+// at the tail. A winding stroke can't take a real SVG gradient, so the solid
+// body is drawn as per-segment strokes with interpolated colour (round caps
+// blend the steps into a smooth ramp).
+const TRAIL_TAIL = '#fbd4b6'
+const lerpHex = (a, b, t) => {
+  const pa = [1, 3, 5].map((i) => parseInt(a.slice(i, i + 2), 16))
+  const pb = [1, 3, 5].map((i) => parseInt(b.slice(i, i + 2), 16))
+  return '#' + pa.map((v, i) => Math.round(v + (pb[i] - v) * t).toString(16).padStart(2, '0')).join('')
+}
+
 const fmtTime = (ms) => {
   const s = Math.floor(ms / 1000)
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
@@ -362,8 +373,22 @@ export default function ZipGame({ onExit }) {
               <>
                 <path d={trailD} fill="none" stroke={BRAND_LIGHT} strokeOpacity={0.22} strokeWidth={80} strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
                 <path d={trailD} fill="none" stroke={BRAND_LIGHT} strokeOpacity={0.38} strokeWidth={66} strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
-                <path d={trailD} fill="none" stroke={BRAND_LIGHT} strokeWidth={54} strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
-                <path className="fp-trail-dash" d={trailD} fill="none" stroke="#ffffff" strokeWidth={3.5} strokeDasharray="3 16" strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
+                {/* solid body: per-segment colour ramp, lightest at the tail,
+                    full orange right behind the plane */}
+                {trailPts.slice(1).map(([x2, y2], i) => {
+                  const [x1, y1] = trailPts[i]
+                  const t = trailPts.length > 2 ? i / (trailPts.length - 2) : 1
+                  return (
+                    <path
+                      key={i}
+                      d={`M ${x1} ${y1} L ${x2} ${y2}`}
+                      fill="none" stroke={lerpHex(TRAIL_TAIL, BRAND_LIGHT, t)}
+                      strokeWidth={54} strokeLinecap="round"
+                      style={{ pointerEvents: 'none' }}
+                    />
+                  )
+                })}
+                <path className="fp-trail-dash" d={trailD} fill="none" stroke="#ffffff" strokeWidth={5} strokeDasharray="3 16" strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
               </>
             ) : (
               <>
@@ -406,7 +431,10 @@ export default function ZipGame({ onExit }) {
                 <PlaneIcon x={hx} y={hy} angle={angle} />
                 {numberAt.has(head) && (
                   <g style={{ transform: `translate(${hx}px, ${hy}px)`, transition: 'transform 0.07s linear', pointerEvents: 'none' }}>
-                    <text x={0} y={1} textAnchor="middle" dominantBaseline="central" fontSize={30} fontWeight="800" fill="#ffffff" style={{ paintOrder: 'stroke' }} stroke="rgba(20,20,30,0.25)" strokeWidth={1.5}>
+                    {/* a small white badge on the fuselage keeps the stop
+                        number readable over the busy plane silhouette */}
+                    <circle cx={0} cy={0} r={16} fill="#ffffff" style={{ filter: 'drop-shadow(0 1px 2px rgba(20,20,30,0.3))' }} />
+                    <text x={0} y={1} textAnchor="middle" dominantBaseline="central" fontSize={21} fontWeight="800" fill={BRAND}>
                       {numberAt.get(head)}
                     </text>
                   </g>
