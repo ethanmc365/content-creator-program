@@ -21,7 +21,7 @@ describe('flight path layouts', () => {
   })
 
   it('difficulties are mixed and match their specs', () => {
-    const byDiff = { easy: 0, medium: 0, hard: 0, expert: 0, extreme: 0 }
+    const byDiff = { easy: 0, medium: 0, hard: 0, expert: 0, extreme: 0, ultra: 0 }
     for (let i = 0; i < ZIP_LAYOUT_COUNT; i++) {
       const spec = layoutSpec(i)
       byDiff[spec.difficulty]++
@@ -29,9 +29,10 @@ describe('flight path layouts', () => {
       if (spec.difficulty === 'hard') { expect(spec.size).toBe(7); expect(spec.walls).toBeGreaterThan(0) }
       if (spec.difficulty === 'expert') { expect(spec.size).toBe(8); expect(spec.walls).toBeGreaterThanOrEqual(10) }
       if (spec.difficulty === 'extreme') { expect(spec.size).toBe(10); expect(spec.walls).toBeGreaterThanOrEqual(18) }
+      if (spec.difficulty === 'ultra') { expect(spec.size).toBe(11); expect(spec.walls).toBeGreaterThanOrEqual(30) }
     }
-    for (const d of ['easy', 'medium', 'hard', 'expert', 'extreme']) {
-      expect(byDiff[d], `${d} appears through the year`).toBeGreaterThan(60)
+    for (const d of ['easy', 'medium', 'hard', 'expert', 'extreme', 'ultra']) {
+      expect(byDiff[d], `${d} appears through the year`).toBeGreaterThan(50)
     }
   })
 

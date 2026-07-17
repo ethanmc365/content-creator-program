@@ -55,16 +55,12 @@ const PATHS = {
   reply: 'M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3',
 }
 
-// Layered icons: one glyph drawn as multiple strokes with their own weights.
-// `country` is the Guess the Country mark - a simplified Ireland outline with
-// a thick question mark inside it.
+// Layered icons: glyphs drawn with their own stroke weights (heavier than the
+// default outline set). `country` is the Guess the Country mark - a big, thick
+// bold question mark.
 const LAYERED_PATHS = {
   country: [
-    {
-      d: 'M8 3.2c2-.8 4.6-.7 6.6-.1 2 .6 3.7 1.8 4.1 3.8.4 2-.1 4-.4 6-.3 2-.9 4-2.4 5.3-1.5 1.3-3.7 1.7-5.7 1.6-2-.1-4.1-.6-5-2.3-.9-1.7-.2-3.6-.4-5.6-.2-2-.5-4.1.5-5.9 1-1.8 1.5-2.3 2.7-2.8z',
-      strokeWidth: 1.4,
-    },
-    { d: 'M8.9 9.1c.3-1.5 1.6-2.5 3.1-2.4 1.5.1 2.6 1.2 2.6 2.6 0 2-2.3 2.1-2.5 3.9l-.06.7M11.8 16.5h.01', strokeWidth: 2.3 },
+    { d: 'M7.6 8c.4-2.6 2.6-4.4 5.2-4.2 2.6.2 4.6 2.1 4.6 4.6 0 3.5-4 3.7-4.3 6.8l-.1 1.1M12.8 20.5h.01', strokeWidth: 2.7 },
   ],
 }
 

@@ -21,8 +21,8 @@ const fmtTime = (ms) => {
   const s = Math.floor(ms / 1000)
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
-const DIFF_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard', expert: 'Expert', extreme: 'Extreme' }
-const HARD_DIFFS = ['hard', 'expert', 'extreme']
+const DIFF_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard', expert: 'Expert', extreme: 'Extreme', ultra: 'Ultra' }
+const HARD_DIFFS = ['hard', 'expert', 'extreme', 'ultra']
 
 function loadStored(day) {
   try {
@@ -56,7 +56,7 @@ function roundedPath(pts, r = 32) {
 // orange trail without a backing disc. Position + heading are CSS transforms
 // with a VERY short transition: just enough to smooth cell-to-cell motion
 // without the plane visibly lagging behind the finger.
-function PlaneIcon({ x, y, angle, scale = 2.1 }) {
+function PlaneIcon({ x, y, angle, scale = 2.7 }) {
   return (
     <g
       style={{
@@ -325,18 +325,15 @@ export default function ZipGame({ onExit }) {
             </defs>
             {/* the sky behind the flight grid */}
             <rect x="0" y="0" width={W} height={W} fill="url(#fp-sky)" />
-            {/* sky cells: uncovered cells are translucent panes over the sky
-                gradient; covered cells go FULL solid orange, bleeding to the
-                cell edges so no blue outline shows between flown cells */}
+            {/* sky cells: rounded panes with the blue sky showing between
+                them; a flown cell's pane fills solid orange */}
             {Array.from({ length: N }).map((_, cell) => {
               const x = (cell % size) * CELL, y = Math.floor(cell / size) * CELL
               const flown = covered.has(cell)
               return (
                 <rect
                   key={cell}
-                  x={flown ? x : x + 3} y={flown ? y : y + 3}
-                  width={flown ? CELL : CELL - 6} height={flown ? CELL : CELL - 6}
-                  rx={flown ? 0 : 14}
+                  x={x + 3} y={y + 3} width={CELL - 6} height={CELL - 6} rx={14}
                   fill={flown ? BRAND_LIGHT : 'rgba(255,255,255,0.42)'}
                   stroke={flown ? 'none' : 'rgba(255,255,255,0.85)'}
                   strokeWidth={1.5}
@@ -362,8 +359,10 @@ export default function ZipGame({ onExit }) {
               )
             })}
 
-            {/* numbered stops */}
+            {/* numbered stops (the stop under the plane hides so the number
+                never shows through the aircraft) */}
             {dots.map((d) => {
+              if (d.cell === head && !solved && !checking) return null
               const [x, y] = centre(d.cell)
               const visited = covered.has(d.cell)
               return (

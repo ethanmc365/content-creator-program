@@ -14,6 +14,7 @@
 //   hard    - 7x7, sparse stops, more walls
 //   expert  - 8x8, sparse stops, lots of walls
 //   extreme - 10x10, the full long-haul: a big sky and a maze of walls
+//   ultra   - 11x11, the hardest tier: a huge sky and a dense wall maze
 
 /** Small fast deterministic PRNG (mulberry32). */
 export function mulberry32(seed) {
@@ -129,7 +130,7 @@ function buildWalls(size, path, count, rng) {
 }
 
 export const ZIP_LAYOUT_COUNT = 366
-export const ZIP_DIFFICULTIES = ['easy', 'medium', 'hard', 'expert', 'extreme']
+export const ZIP_DIFFICULTIES = ['easy', 'medium', 'hard', 'expert', 'extreme', 'ultra']
 
 /** Grid size, stop count, wall count + difficulty label for a layout index. */
 export function layoutSpec(index) {
@@ -148,8 +149,11 @@ export function layoutSpec(index) {
   if (difficulty === 'expert') {
     return { difficulty, size: 8, stops: 8 + Math.floor(rng() * 2), walls: 10 + Math.floor(rng() * 6), seed }
   }
-  // extreme: the 10x10 long-haul
-  return { difficulty, size: 10, stops: 10 + Math.floor(rng() * 3), walls: 18 + Math.floor(rng() * 8), seed }
+  if (difficulty === 'extreme') {
+    return { difficulty, size: 10, stops: 10 + Math.floor(rng() * 3), walls: 18 + Math.floor(rng() * 8), seed }
+  }
+  // ultra: the hardest tier - an 11x11 sky with a dense maze of walls
+  return { difficulty, size: 11, stops: 11 + Math.floor(rng() * 3), walls: 30 + Math.floor(rng() * 10), seed }
 }
 
 /**
