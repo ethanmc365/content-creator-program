@@ -10,7 +10,7 @@ import { ukDayIndex, ukDayStartIso, dailyStreak, untilNextUkMidnight } from '../
 // creator's daily streak, and a live "N played today" counter (updates in
 // realtime as scores land) to feed a little friendly FOMO.
 const GAMES = [
-  { mode: 'pinpoint', icon: 'country', title: 'Guess the Country', tag: 'Five clue words' },
+  { mode: 'pinpoint', icon: 'magnifier', title: 'Guess the Country', tag: 'Five clue words' },
   { mode: 'zip', icon: 'plane-tryp', title: 'Flight Path', tag: "Fill today's sky" },
 ]
 

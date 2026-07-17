@@ -56,7 +56,7 @@ function roundedPath(pts, r = 32) {
 // orange trail without a backing disc. Position + heading are CSS transforms
 // with a VERY short transition: just enough to smooth cell-to-cell motion
 // without the plane visibly lagging behind the finger.
-function PlaneIcon({ x, y, angle, scale = 3.2 }) {
+function PlaneIcon({ x, y, angle, scale = 3.4 }) {
   return (
     <g
       style={{
@@ -65,12 +65,17 @@ function PlaneIcon({ x, y, angle, scale = 3.2 }) {
         pointerEvents: 'none',
       }}
     >
-      <g className="fp-plane-bob" transform={`scale(${scale})`}>
-        <path
-          d="M0 -11 C1.1 -11 1.8 -9 1.8 -6.2 L1.8 -4.4 L10 1 L10 3.1 L1.8 -0.2 L1.8 5 L4.4 7.6 L4.4 9.2 L0 7.7 L-4.4 9.2 L-4.4 7.6 L-1.8 5 L-1.8 -0.2 L-10 3.1 L-10 1 L-1.8 -4.4 L-1.8 -6.2 C-1.8 -9 -1.1 -11 0 -11 Z"
-          fill={BRAND} stroke="#ffffff" strokeWidth={1.4} strokeLinejoin="round"
-          style={{ filter: 'drop-shadow(0 1.5px 3px rgba(20,20,30,0.35))' }}
-        />
+      {/* bob class and scale attribute MUST live on separate <g>s - a CSS
+          transform animation overrides an SVG transform attribute on the
+          same element (this silently rendered the plane at scale 1). */}
+      <g className="fp-plane-bob">
+        <g transform={`scale(${scale})`}>
+          <path
+            d="M0 -11 C1.1 -11 1.8 -9 1.8 -6.2 L1.8 -4.4 L10 1 L10 3.1 L1.8 -0.2 L1.8 5 L4.4 7.6 L4.4 9.2 L0 7.7 L-4.4 9.2 L-4.4 7.6 L-1.8 5 L-1.8 -0.2 L-10 3.1 L-10 1 L-1.8 -4.4 L-1.8 -6.2 C-1.8 -9 -1.1 -11 0 -11 Z"
+            fill={BRAND} stroke="#ffffff" strokeWidth={1} strokeLinejoin="round"
+            style={{ filter: 'drop-shadow(0 1.5px 3px rgba(20,20,30,0.35))' }}
+          />
+        </g>
       </g>
     </g>
   )
@@ -246,7 +251,16 @@ export default function ZipGame({ onExit }) {
     const [px, py] = centre(path[path.length - 2])
     angle = (Math.atan2(hy - py, hx - px) * 180) / Math.PI
   }
-  const trailD = roundedPath(path.map(centre))
+  // The snake stops short of the head cell centre so its rounded cap sits
+  // BEHIND the aircraft - the plane itself is the front of the trail.
+  const pts = path.map(centre)
+  let trailPts = pts
+  if (pts.length > 1) {
+    const [ax, ay] = pts[pts.length - 2]
+    const t = 1 - 30 / (Math.hypot(hx - ax, hy - ay) || 1)
+    trailPts = [...pts.slice(0, -1), [ax + (hx - ax) * t, ay + (hy - ay) * t]]
+  }
+  const trailD = roundedPath(trailPts)
   const covered = new Set(path)
   const progress = Math.round((path.length / N) * 100)
   const W = size * CELL
@@ -346,14 +360,15 @@ export default function ZipGame({ onExit }) {
                 flowing dashed white contrail streaming back from the plane */}
             {path.length > 1 ? (
               <>
-                <path d={trailD} fill="none" stroke={BRAND_LIGHT} strokeOpacity={0.35} strokeWidth={92} strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
-                <path d={trailD} fill="none" stroke={BRAND_LIGHT} strokeWidth={76} strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
-                <path className="fp-trail-dash" d={trailD} fill="none" stroke="#ffffff" strokeWidth={5} strokeDasharray="3 16" strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
+                <path d={trailD} fill="none" stroke={BRAND_LIGHT} strokeOpacity={0.22} strokeWidth={80} strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
+                <path d={trailD} fill="none" stroke={BRAND_LIGHT} strokeOpacity={0.38} strokeWidth={66} strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
+                <path d={trailD} fill="none" stroke={BRAND_LIGHT} strokeWidth={54} strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
+                <path className="fp-trail-dash" d={trailD} fill="none" stroke="#ffffff" strokeWidth={3.5} strokeDasharray="3 16" strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
               </>
             ) : (
               <>
-                <rect x={hx - 46} y={hy - 46} width={92} height={92} rx={32} fill={BRAND_LIGHT} fillOpacity={0.35} style={{ pointerEvents: 'none' }} />
-                <rect x={hx - 38} y={hy - 38} width={76} height={76} rx={26} fill={BRAND_LIGHT} style={{ pointerEvents: 'none' }} />
+                <rect x={hx - 42} y={hy - 42} width={84} height={84} rx={30} fill={BRAND_LIGHT} fillOpacity={0.3} style={{ pointerEvents: 'none' }} />
+                <rect x={hx - 34} y={hy - 34} width={68} height={68} rx={24} fill={BRAND_LIGHT} style={{ pointerEvents: 'none' }} />
               </>
             )}
 
@@ -368,27 +383,36 @@ export default function ZipGame({ onExit }) {
               )
             })}
 
-            {/* numbered stops. When the plane sits on a stop the circle stays
-                (so you can see it IS a stop) but the number hides so it never
-                shows through the aircraft. */}
+            {/* numbered stops. The stop under the plane hides entirely - its
+                number is shown ON the aircraft instead (below). */}
             {dots.map((d) => {
-              const underPlane = d.cell === head && !solved && !checking
+              if (d.cell === head && !solved && !checking) return null
               const [x, y] = centre(d.cell)
               const visited = covered.has(d.cell)
               return (
                 <g key={d.n} style={{ pointerEvents: 'none' }}>
                   <circle cx={x} cy={y} r={27} fill={visited ? BRAND : '#ffffff'} stroke={visited ? '#ffffff' : BRAND} strokeWidth={4} />
-                  {!underPlane && (
-                    <text x={x} y={y + 1} textAnchor="middle" dominantBaseline="central" fontSize={26} fontWeight="700" fill={visited ? '#ffffff' : BRAND}>
-                      {d.n}
-                    </text>
-                  )}
+                  <text x={x} y={y + 1} textAnchor="middle" dominantBaseline="central" fontSize={26} fontWeight="700" fill={visited ? '#ffffff' : BRAND}>
+                    {d.n}
+                  </text>
                 </g>
               )
             })}
 
-            {/* the plane at the head of the trail */}
-            {!solved && !checking && <PlaneIcon x={hx} y={hy} angle={angle} />}
+            {/* the plane at the head of the trail; when it sits on a numbered
+                stop the stop's number rides on the fuselage (kept upright) */}
+            {!solved && !checking && (
+              <>
+                <PlaneIcon x={hx} y={hy} angle={angle} />
+                {numberAt.has(head) && (
+                  <g style={{ transform: `translate(${hx}px, ${hy}px)`, transition: 'transform 0.07s linear', pointerEvents: 'none' }}>
+                    <text x={0} y={1} textAnchor="middle" dominantBaseline="central" fontSize={30} fontWeight="800" fill="#ffffff" style={{ paintOrder: 'stroke' }} stroke="rgba(20,20,30,0.25)" strokeWidth={1.5}>
+                      {numberAt.get(head)}
+                    </text>
+                  </g>
+                )}
+              </>
+            )}
           </svg>
 
           {solved && (

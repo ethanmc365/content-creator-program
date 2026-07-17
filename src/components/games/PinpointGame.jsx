@@ -133,7 +133,7 @@ export default function PinpointGame({ onExit }) {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <span className="flex flex-wrap items-center gap-2">
-          <Badge tone="light"><Icon name="country" className="h-3.5 w-3.5" /> Guess the Country · Daily puzzle</Badge>
+          <Badge tone="light"><Icon name="magnifier" className="h-3.5 w-3.5" /> Guess the Country · Daily puzzle</Badge>
           <StreakChip n={streak} title={`${streak}-day daily streak`} />
         </span>
         <div className="flex items-center gap-5">

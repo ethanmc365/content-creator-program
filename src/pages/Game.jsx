@@ -35,7 +35,7 @@ const MODE_LABEL = { flags: 'Flags', map: 'Find on map', airports: 'Airports', c
 // The two daily puzzles that sit above "choose a mode". Same puzzle for
 // everyone each day, refreshing at midnight UK time.
 const DAILIES = [
-  { key: 'pinpoint', icon: 'country', title: 'Guess the Country', text: 'Five clue words, guess the country. Fewer clues, more points.', store: 'tryp_pinpoint' },
+  { key: 'pinpoint', icon: 'magnifier', title: 'Guess the Country', text: 'Five clue words, guess the country. Fewer clues, more points.', store: 'tryp_pinpoint' },
   { key: 'zip', icon: 'plane-tryp', title: 'Flight Path', text: 'Drag your plane through every stop in order, filling the whole sky.', store: 'tryp_zip' },
 ]
 

@@ -56,11 +56,13 @@ const PATHS = {
 }
 
 // Layered icons: glyphs drawn with their own stroke weights (heavier than the
-// default outline set). `country` is the Guess the Country mark - a big, thick
-// bold question mark.
+// default outline set). `magnifier` is the Guess the Country mark - a bold
+// magnifying glass with a glint inside the lens.
 const LAYERED_PATHS = {
-  country: [
-    { d: 'M7.1 8c.5-2.8 2.8-4.6 5.4-4.4 2.6.2 4.6 2.2 4.6 4.7 0 3.6-4 3.8-4.3 6.9l-.06.9M12.5 20.7h.01', strokeWidth: 3.2 },
+  magnifier: [
+    { d: 'M16.2 10.1a6.1 6.1 0 1 1-12.2 0 6.1 6.1 0 0 1 12.2 0z', strokeWidth: 2.5 },
+    { d: 'M14.7 14.6l5.6 5.6', strokeWidth: 3.4 },
+    { d: 'M7.3 9.1c.35-1.05 1.25-1.85 2.4-2.1', strokeWidth: 2.1 },
   ],
 }
 
