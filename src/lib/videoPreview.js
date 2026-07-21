@@ -79,6 +79,26 @@ export function videoEmbed(url = '') {
   return null
 }
 
+// Like videoEmbed(), but for a shortened TikTok link (vm.tiktok.com/...) with no
+// id in the URL it falls back to the oEmbed lookup to resolve the numeric video
+// id, so those entries can still play inline. Async; resolves to null when we
+// truly can't embed.
+export async function resolveVideoEmbed(url = '') {
+  const direct = videoEmbed(url)
+  if (direct) return direct
+  if (detectPlatformFromUrl(url) === 'TikTok') {
+    const p = await getVideoPreview(url)
+    if (p?.videoId) {
+      return {
+        type: 'TikTok',
+        embedUrl: `https://www.tiktok.com/player/v1/${p.videoId}?autoplay=1&controls=1&loop=0`,
+        vertical: true,
+      }
+    }
+  }
+  return null
+}
+
 // Best-effort preview. Never throws - resolves to null when nothing is available.
 export function getVideoPreview(url) {
   if (!url) return Promise.resolve(null)
@@ -104,18 +124,24 @@ export function getVideoPreview(url) {
   const p = fetch(endpoint)
     .then((r) => (r.ok ? r.json() : null))
     .then((j) => {
-      const val = {
-        thumbnail: j?.thumbnail_url || staticThumb || null,
-        title: j?.title || null,
-        author: j?.author_name || null,
+      // TikTok oEmbed resolves shortened vm.tiktok.com links and its html
+      // carries the numeric video id, which lets us build an inline player even
+      // when the original URL has no id in it.
+      let videoId = null
+      if (platform === 'TikTok' && j?.html) {
+        const m = j.html.match(/data-video-id="(\d+)"/) || j.html.match(/\/video\/(\d+)/)
+        if (m) videoId = m[1]
       }
-      // Only keep it if we actually got a thumbnail to show.
-      const result = val.thumbnail ? val : (staticThumb ? { thumbnail: staticThumb, title: null, author: null } : null)
+      const thumbnail = j?.thumbnail_url || staticThumb || null
+      // Keep the row if we got a thumbnail OR a resolvable video id.
+      const result = (thumbnail || videoId)
+        ? { thumbnail, title: j?.title || null, author: j?.author_name || null, videoId }
+        : null
       cache.set(url, result)
       return result
     })
     .catch(() => {
-      const val = staticThumb ? { thumbnail: staticThumb, title: null, author: null } : null
+      const val = staticThumb ? { thumbnail: staticThumb, title: null, author: null, videoId: null } : null
       cache.set(url, val)
       return val
     })

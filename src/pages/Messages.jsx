@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { confirm } from '../lib/confirm'
+import { loadDraft, saveDraft, clearDraft } from '../lib/drafts'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -137,6 +138,12 @@ export default function Messages() {
   }, [user.id])
 
   useEffect(() => { loadConversations() }, [loadConversations])
+
+  // Restore any half-written draft when the open conversation changes, so a
+  // message you started isn't lost when you flick away to check something.
+  useEffect(() => {
+    setBody(loadDraft(conversationId ? 'dm-' + conversationId : ''))
+  }, [conversationId])
 
   // ---------- Active thread ----------
   useEffect(() => {
@@ -438,7 +445,7 @@ export default function Messages() {
       ...(replyId ? { reply_to: replyId } : {}),
     })
     setSending(false)
-    if (!error) { setBody(''); setReplyTo(null); stopTyping() }
+    if (!error) { setBody(''); clearDraft('dm-' + conversationId); setReplyTo(null); stopTyping() }
   }
 
   // Attach a photo or video to the DM (uploads, then sends with any typed
@@ -468,7 +475,7 @@ export default function Messages() {
         ...(replyId ? { reply_to: replyId } : {}),
       })
       if (error) throw new Error(error.message)
-      setBody(''); setReplyTo(null)
+      setBody(''); clearDraft('dm-' + conversationId); setReplyTo(null)
     } catch (err) {
       setAttachError(err.message)
     }
@@ -782,7 +789,7 @@ export default function Messages() {
                     className="input max-h-32 flex-1 resize-none overflow-y-auto"
                     placeholder={`Message ${active?.other?.name?.split(' ')[0] ?? ''}…`}
                     value={body}
-                    onChange={(e) => { setBody(e.target.value); if (e.target.value.trim()) pingTyping() }}
+                    onChange={(e) => { setBody(e.target.value); saveDraft('dm-' + conversationId, e.target.value); if (e.target.value.trim()) pingTyping() }}
                     onBlur={stopTyping}
                     onKeyDown={(e) => { if (!isMobile && e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(e) } }}
                     aria-label="Message"

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { confirm } from '../lib/confirm'
+import { loadDraft, saveDraft, clearDraft } from '../lib/drafts'
 import { uploadChatImage, uploadChatVideo } from '../lib/chatMedia'
 import { Link, NavLink, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -287,11 +288,14 @@ export default function Chat() {
   }, [channel, mergeIncoming])
 
   // Reset scroll bookkeeping whenever the channel changes (we always land at the
-  // newest message in a freshly opened channel).
+  // newest message in a freshly opened channel), and restore any saved draft for
+  // this channel so a half-written post (e.g. an announcement) isn't lost when
+  // you flick to another page and back.
   useEffect(() => {
     prevLenRef.current = 0
     setAtBottom(true)
     setNewBelow(0)
+    setBody(loadDraft('chat-' + channel))
   }, [channel])
 
   // Publish my "last read" for this channel (throttled) so others get a read
@@ -503,7 +507,7 @@ export default function Chat() {
     setMessages((prev) => [...prev, temp])
     // Clear the composer immediately; keep focus so the mobile keyboard stays up
     // (it only closes when the user taps the chat or swipes the composer down).
-    setBody(''); setMention(null); setReplyTo(null); stopTyping()
+    setBody(''); clearDraft('chat-' + channel); setMention(null); setReplyTo(null); stopTyping()
     setAtBottom(true)
     textareaRef.current?.focus()
     const { data, error } = await supabase
@@ -547,7 +551,7 @@ export default function Chat() {
         : { body: caption, image_url: localUrl, reply_to: replyId }
     )
     setMessages((prev) => [...prev, temp])
-    if (!isVideo) setBody('')
+    if (!isVideo) { setBody(''); clearDraft('chat-' + channel) }
     setReplyTo(null); setAtBottom(true)
     try {
       const url = isVideo ? await uploadChatVideo(file, user.id) : await uploadChatImage(file, user.id)
@@ -583,6 +587,7 @@ export default function Chat() {
   function onBodyChange(e) {
     const val = e.target.value
     setBody(val)
+    saveDraft('chat-' + channel, val)
     if (val.trim()) pingTyping()
     const caret = e.target.selectionStart ?? val.length
     const m = val.slice(0, caret).match(/(?:^|\s)@([^\s@]{0,30})$/)

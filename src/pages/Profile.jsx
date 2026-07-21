@@ -8,6 +8,7 @@ import VideoThumb from '../components/VideoThumb'
 import AchievementBadges from '../components/AchievementBadges'
 import ConnectButton from '../components/ConnectButton'
 import { loadRelationship, mutualConnections } from '../lib/connections'
+import { confirm, notice } from '../lib/confirm'
 import { downloadShareCard } from '../lib/shareCard'
 import { flagForCountry } from '../lib/flags'
 import { Avatar, Badge, Skeleton, EmptyState } from '../components/ui'
@@ -37,6 +38,25 @@ export default function Profile() {
   // Aggregated stats that drive the achievement badges.
   const [badgeStats, setBadgeStats] = useState(null)
   const [sharing, setSharing] = useState(false)
+  const [deciding, setDeciding] = useState(false)
+
+  // This is an application profile if an admin is viewing a creator still
+  // pending review. Approving/declining right here saves the round-trip back to
+  // the admin applications list. Mirrors AdminApplications.decide().
+  const isApplication = viewerIsAdmin && !isMe && creator?.status === 'pending' && creator?.onboarded
+
+  async function decideApplication(status) {
+    const verb = status === 'active' ? 'Approve' : 'Decline'
+    const note = status === 'active' ? '' : ' This permanently deletes their account.'
+    if (!await confirm(`${verb} ${creator.name}'s application?${note}`)) return
+    setDeciding(true)
+    const { error } = status === 'active'
+      ? await supabase.from('profiles').update({ status: 'active' }).eq('id', id)
+      : await supabase.rpc('admin_decline_application', { target: id })
+    setDeciding(false)
+    if (error) { await notice(`Something went wrong: ${error.message}`); return }
+    navigate('/admin/applications')
+  }
 
   async function shareCard() {
     setSharing(true)
@@ -170,6 +190,7 @@ export default function Profile() {
           <div className="flex flex-col items-center gap-2 sm:flex-row sm:gap-3">
             <h1 className="text-3xl font-bold tracking-tight">{creator.name}</h1>
             {creator.is_admin && <Badge tone="light">Tryp.com Team</Badge>}
+            {isApplication && <Badge tone="amber">Pending review</Badge>}
             {(ageFromDob(creator.dob) ?? creator.age) && <span className="text-smoke">{ageFromDob(creator.dob) ?? creator.age}</span>}
           </div>
           {(creator.city || creator.country || currentTrip) && (
@@ -209,9 +230,9 @@ export default function Profile() {
             </p>
           )}
         </div>
-        <div className="flex shrink-0 gap-3">
+        <div className="flex shrink-0 flex-col items-stretch gap-3">
           {isMe ? (
-            <>
+            <div className="flex gap-3">
               <Link to="/profile/edit" className="btn-primary">Edit profile</Link>
               <div className="group relative">
                 <button onClick={shareCard} disabled={sharing} className="btn-secondary">{sharing ? 'Creating…' : 'Share card'}</button>
@@ -219,17 +240,27 @@ export default function Profile() {
                   Download a polished card to share on LinkedIn, Instagram or your portfolio.
                 </div>
               </div>
-            </>
+            </div>
           ) : (
             <>
-              <ConnectButton
-                myId={user.id}
-                targetId={id}
-                relation={relation}
-                onChange={setRelation}
-                className="!py-2.5"
-              />
-              <button onClick={startMessage} className="btn-secondary">Message</button>
+              <div className="flex gap-3">
+                <ConnectButton
+                  myId={user.id}
+                  targetId={id}
+                  relation={relation}
+                  onChange={setRelation}
+                  className="!py-2.5"
+                />
+                <button onClick={startMessage} className="btn-secondary">Message</button>
+              </div>
+              {/* Approve / decline right here for application profiles, so admins
+                  don't have to bounce back to the applications list. */}
+              {isApplication && (
+                <div className="flex gap-3">
+                  <button onClick={() => decideApplication('active')} disabled={deciding} className="btn-primary flex-1 !py-2.5 text-sm">Approve</button>
+                  <button onClick={() => decideApplication('declined')} disabled={deciding} className="btn-danger flex-1 !py-2.5 text-sm">Decline</button>
+                </div>
+              )}
             </>
           )}
         </div>

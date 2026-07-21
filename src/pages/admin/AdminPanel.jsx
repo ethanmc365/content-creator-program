@@ -23,6 +23,7 @@ const TOOLS = [
   { to: '/admin/scheduled', icon: 'calendar', title: 'Scheduled announcements', text: 'Write announcements now and auto-post them later.' },
   { to: '/admin/whats-new', icon: 'bell', title: "What's new", text: "Announce a new feature. It lands in every creator's notification bell." },
   { to: '/admin/feedback', icon: 'chat', title: 'Bug reports & ideas', text: 'Bugs and feature suggestions creators have submitted.' },
+  { to: '/admin/notes', icon: 'book', title: 'Notes', text: 'A private notes space for the team. Keep a bank of weekly questions, plans and playbooks.' },
 ]
 
 export default function AdminPanel() {

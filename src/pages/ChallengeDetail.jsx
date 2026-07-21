@@ -9,7 +9,6 @@ import PlatformBadges from '../components/PlatformBadges'
 import VideoThumb from '../components/VideoThumb'
 import VideoEmbedModal from '../components/VideoEmbedModal'
 import { Avatar, Badge, Modal, PageHeader, Skeleton, EmptyState, Spinner } from '../components/ui'
-import { videoEmbed } from '../lib/videoPreview'
 import { formatDate, timeAgo, formatViews, detectPlatform, cx, challengeDeadline } from '../lib/utils'
 
 // One challenge: full brief, prizes, live countdown, the submissions gallery,
@@ -28,12 +27,6 @@ export default function ChallengeDetail() {
   // Captured once so it stays pure during render; a fresh page load re-reads it.
   const [nowMs] = useState(() => Date.now())
 
-  // Play an entry inside the platform when we can build an embed; otherwise fall
-  // back to opening the original link (e.g. a shortened TikTok URL with no id).
-  function playEntry(s) {
-    if (videoEmbed(s.video_url)) setPlaying(s)
-    else window.open(s.video_url, '_blank', 'noopener,noreferrer')
-  }
 
   // Submission form state
   const [showSubmit, setShowSubmit] = useState(false)
@@ -80,6 +73,10 @@ export default function ChallengeDetail() {
     const platform = detectPlatform(videoUrl)
     if (!challenge.platforms.includes(platform)) {
       setSubmitError(`That looks like a ${platform} link. This challenge accepts: ${challenge.platforms.join(', ')}.`)
+      return
+    }
+    if (!caption.trim()) {
+      setSubmitError('Please add a caption for your entry.')
       return
     }
     setSubmitting(true)
@@ -241,7 +238,7 @@ export default function ChallengeDetail() {
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {submissions.map((s) => (
               <div key={s.id} className="card group flex flex-col overflow-hidden !p-0">
-                <button type="button" onClick={() => playEntry(s)} className="block w-full text-left" aria-label={`Play ${s.profiles?.name || 'this'} entry`}>
+                <button type="button" onClick={() => setPlaying(s)} className="block w-full text-left" aria-label={`Play ${s.profiles?.name || 'this'} entry`}>
                   <VideoThumb url={s.video_url} platform={s.platform} className="rounded-b-none" />
                 </button>
                 <div className="flex flex-1 flex-col gap-4 p-6">
@@ -261,10 +258,18 @@ export default function ChallengeDetail() {
                     <p className="text-sm font-semibold text-brand">{formatViews(s.logged_views)} logged views</p>
                   )}
                   <div className="mt-auto flex gap-2">
-                    <button type="button" onClick={() => playEntry(s)} className="btn-secondary inline-flex flex-1 items-center justify-center gap-1.5 !py-2 text-xs">
-                      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z" /></svg>
-                      Play
-                    </button>
+                    <a
+                      href={s.video_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-secondary inline-flex flex-1 items-center justify-center gap-1.5 !py-2 text-xs"
+                    >
+                      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                        <path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                      </svg>
+                      Open Link
+                    </a>
                     {s.creator_id === user.id && isLive && (
                       <button onClick={() => removeMySubmission(s.id)} className="btn-danger !py-2 text-xs">Remove</button>
                     )}
@@ -362,9 +367,9 @@ export default function ChallengeDetail() {
             )}
           </div>
           <div>
-            <label htmlFor="caption" className="label">Caption <span className="font-normal text-smoke">(optional)</span></label>
+            <label htmlFor="caption" className="label">Caption</label>
             <textarea
-              id="caption" rows={3} className="input"
+              id="caption" rows={3} required className="input"
               placeholder="The caption you used, or a note for the team…"
               value={caption} onChange={(e) => setCaption(e.target.value)}
             />

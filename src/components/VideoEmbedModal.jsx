@@ -1,13 +1,19 @@
-import { useEffect } from 'react'
-import { videoEmbed } from '../lib/videoPreview'
+import { useEffect, useState } from 'react'
+import { videoEmbed, resolveVideoEmbed } from '../lib/videoPreview'
 import { cx } from '../lib/utils'
 
 // A media-focused lightbox that plays a submitted entry INSIDE the platform:
 // YouTube / TikTok / Instagram all embed via their tokenless iframe players, so
 // creators watch without being bounced out to another app. Vertical formats
-// (Reels / TikTok) get a portrait frame; regular YouTube gets 16:9. When a link
-// can't be embedded we still show a clean "Open on <platform>" fallback.
+// (Reels / TikTok) get a portrait frame; regular YouTube gets 16:9. Shortened
+// TikTok links are resolved to their player via oEmbed; anything we still can't
+// embed shows a clean "Open on <platform>" fallback.
 export default function VideoEmbedModal({ url, platform, title, onClose }) {
+  // Try a synchronous embed first (YouTube/Instagram/full TikTok); fall back to
+  // an async resolve (shortened TikTok links) with a brief loading state.
+  const [embed, setEmbed] = useState(() => videoEmbed(url))
+  const [resolving, setResolving] = useState(() => !videoEmbed(url))
+
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose()
     document.addEventListener('keydown', onKey)
@@ -18,7 +24,15 @@ export default function VideoEmbedModal({ url, platform, title, onClose }) {
     }
   }, [onClose])
 
-  const embed = videoEmbed(url)
+  useEffect(() => {
+    let alive = true
+    const direct = videoEmbed(url)
+    if (direct) { setEmbed(direct); setResolving(false); return }
+    setResolving(true)
+    resolveVideoEmbed(url).then((e) => { if (alive) { setEmbed(e); setResolving(false) } })
+    return () => { alive = false }
+  }, [url])
+
   const label = platform || embed?.type || 'the original post'
 
   return (
@@ -32,7 +46,11 @@ export default function VideoEmbedModal({ url, platform, title, onClose }) {
           </button>
         </div>
 
-        {embed ? (
+        {resolving ? (
+          <div className="mx-auto flex aspect-[9/16] w-full max-w-[380px] items-center justify-center rounded-2xl bg-black/60">
+            <span className="h-8 w-8 animate-spin rounded-full border-2 border-white/30 border-t-white" aria-label="Loading video" />
+          </div>
+        ) : embed ? (
           <div className={cx(
             'mx-auto w-full overflow-hidden rounded-2xl bg-black shadow-lift',
             embed.vertical ? 'aspect-[9/16] max-w-[380px]' : 'aspect-video'
@@ -49,7 +67,7 @@ export default function VideoEmbedModal({ url, platform, title, onClose }) {
           </div>
         ) : (
           <div className="mx-auto w-full max-w-sm rounded-2xl bg-white p-8 text-center shadow-lift">
-            <p className="text-sm text-smoke">This video can't be played inline here.</p>
+            <p className="text-sm text-smoke">This video can't be played inline. Use "Open on {label}" below to watch it.</p>
           </div>
         )}
 
