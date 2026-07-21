@@ -107,6 +107,51 @@
     @apply mx-auto w-full max-w-6xl px-5 py-8 animate-page-in sm:px-8 sm:py-12;
   }
 
+  /* ---- WYSIWYG editor (admin Notes + admin chat composer) --------------
+     The contentEditable surface renders our small markdown set as itself, so the
+     admin never sees # ** * markers - headings look like headings, etc. */
+  .rt-editor { @apply text-ink; }
+  .rt-editor:focus { @apply outline-none; }
+  .rt-editor.is-empty::before {
+    content: attr(data-placeholder);
+    @apply pointer-events-none text-gray-300;
+  }
+  .rt-editor > *:first-child { margin-top: 0; }
+  .rt-editor h1 { @apply mb-2 mt-5 text-2xl font-bold tracking-tight text-ink; }
+  .rt-editor h2 { @apply mb-2 mt-4 text-xl font-bold tracking-tight text-ink; }
+  .rt-editor h3 { @apply mb-1.5 mt-3 text-lg font-semibold text-ink; }
+  .rt-editor p { @apply my-2 leading-relaxed; }
+  .rt-editor strong { @apply font-bold; }
+  .rt-editor em { @apply italic; }
+  .rt-editor a { @apply text-brand underline; }
+  .rt-editor code { @apply rounded bg-cloud px-1.5 py-0.5 text-[0.85em] text-brand; }
+  .rt-editor ul { @apply my-2 list-disc pl-5; }
+  .rt-editor ol { @apply my-2 list-decimal pl-5; }
+  .rt-editor li { @apply my-1 pl-1; }
+  .rt-editor blockquote { @apply my-2 border-l-2 border-brand pl-3 italic text-smoke; }
+  .rt-editor hr { @apply my-5 border-gray-200; }
+  /* Checklists: a tappable box drawn before each item; JS toggles data-checked. */
+  .rt-editor ul[data-check] { @apply list-none pl-0; }
+  .rt-editor ul[data-check] > li {
+    @apply relative flex items-start gap-2 pl-0;
+  }
+  .rt-editor ul[data-check] > li::before {
+    content: '';
+    @apply mt-1 h-4 w-4 shrink-0 cursor-pointer rounded border border-gray-300 bg-white transition-colors;
+  }
+  .rt-editor ul[data-check] > li[data-checked="1"] {
+    @apply text-smoke line-through;
+  }
+  .rt-editor ul[data-check] > li[data-checked="1"]::before {
+    @apply border-brand bg-brand;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l4 4L19 6'/%3E%3C/svg%3E");
+    background-size: 0.8rem;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+  /* @mention chips inside the chat composer. */
+  .rt-mention { @apply font-semibold text-brand; }
+
   /* Loading placeholder with a sweeping shimmer (calmer than a blink). */
   .skeleton {
     @apply relative overflow-hidden rounded-xl bg-cloud;

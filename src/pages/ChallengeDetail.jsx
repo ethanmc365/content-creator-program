@@ -239,9 +239,9 @@ export default function ChallengeDetail() {
             {submissions.map((s) => (
               <div key={s.id} className="card group flex flex-col overflow-hidden !p-0">
                 <button type="button" onClick={() => setPlaying(s)} className="block w-full text-left" aria-label={`Play ${s.profiles?.name || 'this'} entry`}>
-                  <VideoThumb url={s.video_url} platform={s.platform} className="rounded-b-none" />
+                  <VideoThumb url={s.video_url} platform={s.platform} />
                 </button>
-                <div className="flex flex-1 flex-col gap-4 p-6">
+                <div className="flex flex-1 flex-col gap-3 p-4">
                   <div className="flex items-center gap-3">
                     <Link to={`/profile/${s.profiles?.id}`}>
                       <Avatar src={s.profiles?.photo_url} name={s.profiles?.name} size="sm" />

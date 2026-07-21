@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { confirm } from '../lib/confirm'
 import { loadDraft, saveDraft, clearDraft } from '../lib/drafts'
 import { uploadChatImage, uploadChatVideo } from '../lib/chatMedia'
@@ -18,6 +18,8 @@ import ChatMedia from '../components/ChatMedia'
 import { CONTINENTS } from '../lib/countries'
 import { formatChatTime, cx } from '../lib/utils'
 import { renderMessageBody } from '../lib/richText'
+import RichEditable from '../components/RichEditable'
+import { textBeforeCaret } from '../lib/richEditor'
 import { firstUrl } from '../lib/linkPreview'
 import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
 
@@ -115,6 +117,10 @@ export default function Chat() {
   const bottomRef = useRef(null)
   const fileRef = useRef(null)
   const textareaRef = useRef(null)
+  // Admins compose on a WYSIWYG contentEditable (RichEditable); creators keep the
+  // plain textarea. `body` stays the markdown source of truth for both paths.
+  const richRef = useRef(null)
+  const mentionQueryLenRef = useRef(0)
   const composerRef = useRef(null)
   const scrollerRef = useRef(null)
   const prevLenRef = useRef(0)
@@ -165,6 +171,13 @@ export default function Chat() {
       .in('status', ['active', 'muted']).eq('is_test', false)
       .then(({ data }) => setMembers(data ?? []))
   }, [])
+  // Names for seeding @mention chips in the admin rich composer (longest first
+  // so "@Anna Smith" wins over "@Anna"). Includes @everyone for admins.
+  const memberNames = useMemo(() => {
+    const names = members.map((m) => m.name).filter((n) => n && n.length > 1)
+    if (isAdmin) names.push('everyone')
+    return names.sort((a, b) => b.length - a.length)
+  }, [members, isAdmin])
   // Reactor names can belong to profiles outside the members list (test
   // accounts, pending applicants, or filtered statuses), so any unknown
   // reactor id gets looked up directly — a reactor should never show as
@@ -400,14 +413,14 @@ export default function Chat() {
     let startY = null
     let letScroll = false
     const onStart = (e) => {
-      const ta = e.target.closest?.('textarea')
-      letScroll = !!ta && ta.scrollHeight > ta.clientHeight + 1
+      const inp = e.target.closest?.('textarea, .rt-editor')
+      letScroll = !!inp && inp.scrollHeight > inp.clientHeight + 1
       startY = e.touches[0]?.clientY ?? null
     }
     const onMove = (e) => {
       if (letScroll || startY == null) return
       const dy = (e.touches[0]?.clientY ?? startY) - startY
-      if (dy > 20) { textareaRef.current?.blur(); startY = null }
+      if (dy > 20) { (textareaRef.current || composerRef.current?.querySelector('.rt-editor'))?.blur(); startY = null }
       // Block the body from scrolling/bouncing under the overlay either way.
       if (e.cancelable) e.preventDefault()
     }
@@ -508,8 +521,9 @@ export default function Chat() {
     // Clear the composer immediately; keep focus so the mobile keyboard stays up
     // (it only closes when the user taps the chat or swipes the composer down).
     setBody(''); clearDraft('chat-' + channel); setMention(null); setReplyTo(null); stopTyping()
+    richRef.current?.clear()
     setAtBottom(true)
-    textareaRef.current?.focus()
+    ;(richRef.current ? richRef.current.focus() : textareaRef.current?.focus())
     const { data, error } = await supabase
       .from('messages')
       .insert({ channel, sender_id: user.id, body: text, reply_to: replyId })
@@ -551,7 +565,7 @@ export default function Chat() {
         : { body: caption, image_url: localUrl, reply_to: replyId }
     )
     setMessages((prev) => [...prev, temp])
-    if (!isVideo) { setBody(''); clearDraft('chat-' + channel) }
+    if (!isVideo) { setBody(''); clearDraft('chat-' + channel); richRef.current?.clear() }
     setReplyTo(null); setAtBottom(true)
     try {
       const url = isVideo ? await uploadChatVideo(file, user.id) : await uploadChatImage(file, user.id)
@@ -606,26 +620,39 @@ export default function Chat() {
     requestAnimationFrame(() => { ta?.focus(); ta?.setSelectionRange(pos, pos) })
   }
 
-  // Admin markdown helpers: wrap the current selection (or insert a placeholder).
-  function applyFormat(kind) {
-    const ta = textareaRef.current
-    if (!ta) return
-    const start = ta.selectionStart, end = ta.selectionEnd
-    const sel = body.slice(start, end)
-    let next, s, en
+  // ---- Admin WYSIWYG composer (RichEditable) ----
+  // The editor serializes to markdown into `body` on every keystroke, so send /
+  // drafts / captions all keep working unchanged.
+  function onRichChange(md) {
+    setBody(md)
+    saveDraft('chat-' + channel, md)
+    if (md.trim()) pingTyping()
+  }
+  // Detect an in-progress @mention from the caret's own text node.
+  function onRichInput() {
+    const before = textBeforeCaret()
+    const m = before.match(/(?:^|\s)@([^\s@]{0,30})$/)
+    if (m) { mentionQueryLenRef.current = m[1].length; setMention({ query: m[1], start: -1 }) }
+    else setMention(null)
+  }
+  // Toolbar for the rich composer (bold / italic / heading), driven via the handle.
+  function richFormat(kind) {
+    const ed = richRef.current
+    if (!ed) return
     if (kind === 'heading') {
-      const ls = body.lastIndexOf('\n', start - 1) + 1
-      next = body.slice(0, ls) + '# ' + body.slice(ls)
-      s = en = start + 2
+      const cur = (document.queryCommandValue('formatBlock') || '').toLowerCase()
+      ed.exec('formatBlock', cur === 'h1' ? 'p' : 'h1')
+    } else ed.exec(kind) // bold | italic
+  }
+  // Insert a mention: rich composer swaps the typed "@query" for a chip; the
+  // textarea path keeps its string-splice behaviour.
+  function chooseMention(member) {
+    if (isAdmin && richRef.current) {
+      richRef.current.insertMention(member.name, mentionQueryLenRef.current + 1)
+      setMention(null)
     } else {
-      const mark = kind === 'bold' ? '**' : '*'
-      const inner = sel || (kind === 'bold' ? 'bold' : 'italic')
-      next = body.slice(0, start) + mark + inner + mark + body.slice(end)
-      s = start + mark.length
-      en = s + inner.length
+      selectMention(member)
     }
-    setBody(next)
-    requestAnimationFrame(() => { ta.focus(); ta.setSelectionRange(s, en) })
   }
 
   async function toggleReaction(messageId, emoji) {
@@ -1022,9 +1049,9 @@ export default function Chat() {
             {isAdmin && (
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 <div className="flex items-center gap-0.5 rounded-lg border border-gray-200 p-0.5" role="group" aria-label="Text formatting">
-                  <button type="button" onClick={() => applyFormat('heading')} title="Heading" aria-label="Heading" className="rounded px-2.5 py-1 text-xs font-bold text-smoke hover:bg-cloud hover:text-ink">H</button>
-                  <button type="button" onClick={() => applyFormat('bold')} title="Bold" aria-label="Bold" className="rounded px-2.5 py-1 text-sm font-bold text-smoke hover:bg-cloud hover:text-ink">B</button>
-                  <button type="button" onClick={() => applyFormat('italic')} title="Italic" aria-label="Italic" className="rounded px-2.5 py-1 text-sm italic text-smoke hover:bg-cloud hover:text-ink">I</button>
+                  <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => richFormat('heading')} title="Heading" aria-label="Heading" className="rounded px-2.5 py-1 text-xs font-bold text-smoke hover:bg-cloud hover:text-ink">H</button>
+                  <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => richFormat('bold')} title="Bold" aria-label="Bold" className="rounded px-2.5 py-1 text-sm font-bold text-smoke hover:bg-cloud hover:text-ink">B</button>
+                  <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => richFormat('italic')} title="Italic" aria-label="Italic" className="rounded px-2.5 py-1 text-sm italic text-smoke hover:bg-cloud hover:text-ink">I</button>
                 </div>
                 {/* Drop a game challenge card into this channel. */}
                 <button type="button" onClick={() => setShowGame(true)} title="Post a game challenge" aria-label="Post a game challenge" className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-smoke hover:bg-cloud hover:text-ink">
@@ -1045,7 +1072,7 @@ export default function Chat() {
             {mention && mentionResults.length > 0 && (
               <div className="mb-2 overflow-hidden rounded-card border border-gray-100 bg-white shadow-lift">
                 {mentionResults.map((mem) => (
-                  <button key={mem.id} type="button" onClick={() => selectMention(mem)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-cloud">
+                  <button key={mem.id} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => chooseMention(mem)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-cloud">
                     {mem.everyone ? (
                       <>
                         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-tint text-brand"><Icon name="megaphone" className="h-4 w-4" /></span>
@@ -1085,30 +1112,56 @@ export default function Chat() {
               <button type="button" onClick={(e) => { e.currentTarget.blur(); fileRef.current?.click() }} className="btn-ghost !px-2.5 !py-3" aria-label="Attach a photo or video" title="Attach a photo or video">
                 <Icon name="image" className="h-5 w-5" />
               </button>
-              <textarea
-                ref={textareaRef}
-                rows={1}
-                className="input max-h-32 flex-1 resize-none overflow-y-auto"
-                placeholder="Message…"
-                value={body}
-                onChange={onBodyChange}
-                onBlur={stopTyping}
-                onKeyDown={(e) => {
-                  // Mention autocomplete grabs Enter/Escape first.
-                  if (mention && mentionResults.length) {
-                    if (e.key === 'Enter') { e.preventDefault(); selectMention(mentionResults[0]); return }
-                    if (e.key === 'Escape') { e.preventDefault(); setMention(null); return }
-                  }
-                  // On a laptop, Enter sends and Shift+Enter makes a new line.
-                  // On mobile (touch keyboards) Enter is always a newline and
-                  // sending is done with the button.
-                  if (!isMobile && e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    if (body.trim()) send(e)
-                  }
-                }}
-                aria-label={`Message ${meta.label}`}
-              />
+              {isAdmin ? (
+                <RichEditable
+                  ref={richRef}
+                  docId={channel}
+                  initialMd={loadDraft('chat-' + channel)}
+                  inlineOnly
+                  mentionNames={memberNames}
+                  placeholder="Message…"
+                  onChangeMd={onRichChange}
+                  onInput={onRichInput}
+                  onBlur={stopTyping}
+                  className="input max-h-32 flex-1 self-stretch overflow-y-auto"
+                  aria-label={`Message ${meta.label}`}
+                  onKeyDown={(e) => {
+                    if (mention && mentionResults.length) {
+                      if (e.key === 'Enter') { e.preventDefault(); chooseMention(mentionResults[0]); return }
+                      if (e.key === 'Escape') { e.preventDefault(); setMention(null); return }
+                    }
+                    if (!isMobile && e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      if (body.trim()) send(e)
+                    }
+                  }}
+                />
+              ) : (
+                <textarea
+                  ref={textareaRef}
+                  rows={1}
+                  className="input max-h-32 flex-1 resize-none overflow-y-auto"
+                  placeholder="Message…"
+                  value={body}
+                  onChange={onBodyChange}
+                  onBlur={stopTyping}
+                  onKeyDown={(e) => {
+                    // Mention autocomplete grabs Enter/Escape first.
+                    if (mention && mentionResults.length) {
+                      if (e.key === 'Enter') { e.preventDefault(); selectMention(mentionResults[0]); return }
+                      if (e.key === 'Escape') { e.preventDefault(); setMention(null); return }
+                    }
+                    // On a laptop, Enter sends and Shift+Enter makes a new line.
+                    // On mobile (touch keyboards) Enter is always a newline and
+                    // sending is done with the button.
+                    if (!isMobile && e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      if (body.trim()) send(e)
+                    }
+                  }}
+                  aria-label={`Message ${meta.label}`}
+                />
+              )}
               <button
                 type="submit"
                 // Prevent the tap from moving focus off the textarea — that blur
