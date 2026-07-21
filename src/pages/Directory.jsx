@@ -30,6 +30,10 @@ export default function Directory() {
   const [language, setLanguage] = useState('')
   const [platform, setPlatform] = useState('')
   const [nearMe, setNearMe] = useState(false)
+  // "Who's travelling" filter: when on, the grid shows only creators the map
+  // marks as travelling. The map reports that exact set via onTravellersChange.
+  const [travelOnly, setTravelOnly] = useState(false)
+  const [travellerIds, setTravellerIds] = useState(() => new Set())
 
   const [trips, setTrips] = useState({}) // creator_id -> upcoming collab trips, soonest first
 
@@ -99,6 +103,7 @@ export default function Directory() {
   )
 
   const filtered = creators.filter((c) => {
+    if (travelOnly && !travellerIds.has(c.id)) return false
     if (nearMe && !nearIds.has(c.id)) return false
     if (search && !c.name.toLowerCase().includes(search.toLowerCase())) return false
     if (country && !(c.countries_visited || []).includes(country)) return false
@@ -135,6 +140,9 @@ export default function Directory() {
             nearCount={nearIds.size}
             nearMeDisabled={!hasMyLocation}
             onToggleNearMe={() => setNearMe((v) => !v)}
+            travelActive={travelOnly}
+            onToggleTravel={() => setTravelOnly((v) => !v)}
+            onTravellersChange={setTravellerIds}
           />
         )}
       </section>
@@ -149,6 +157,17 @@ export default function Directory() {
         <Combobox value={language} onChange={setLanguage} options={allLanguages} placeholder="Any language" ariaLabel="Filter by language" />
         <Combobox value={platform} onChange={setPlatform} options={['Instagram', 'TikTok', 'YouTube']} placeholder="Any platform" ariaLabel="Filter by platform" />
       </div>
+
+      {/* Active "who's travelling" note, so it's obvious why the grid is filtered. */}
+      {travelOnly && (
+        <div className="mb-6 flex items-center gap-2 text-sm text-smoke">
+          <svg viewBox="0 0 24 24" className="h-4 w-4 text-brand" fill="currentColor" aria-hidden>
+            <path d="M12 1.55 C13.05 1.55 13.71 3.45 13.71 6.11 L13.71 7.82 L21.5 12.95 L21.5 14.95 L13.71 11.81 L13.71 16.75 L16.18 19.22 L16.18 20.74 L12 19.32 L7.82 20.74 L7.82 19.22 L10.29 16.75 L10.29 11.81 L2.5 14.95 L2.5 12.95 L10.29 7.82 L10.29 6.11 C10.29 3.45 10.95 1.55 12 1.55 Z" />
+          </svg>
+          Showing the {travellerIds.size} creator{travellerIds.size === 1 ? '' : 's'} with an upcoming trip.
+          <button onClick={() => setTravelOnly(false)} className="font-medium text-brand hover:underline">Show everyone</button>
+        </div>
+      )}
 
       {/* Active near-me note, so it's obvious why the grid is filtered. */}
       {nearMe && (
@@ -167,7 +186,7 @@ export default function Directory() {
           title="No creators match those filters"
           hint="Try removing a filter or searching a different name."
           action={
-            <button onClick={() => { setSearch(''); setCountry(''); setLanguage(''); setPlatform(''); setNearMe(false) }} className="btn-secondary">
+            <button onClick={() => { setSearch(''); setCountry(''); setLanguage(''); setPlatform(''); setNearMe(false); setTravelOnly(false) }} className="btn-secondary">
               Clear filters
             </button>
           }

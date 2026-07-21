@@ -37,6 +37,48 @@ export function staticThumbnail(url = '') {
   return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : null
 }
 
+// Build an in-app embed for a submitted link so an entry plays INSIDE the
+// platform (in a lightbox) instead of bouncing out to the app/site. Returns
+// { type, embedUrl, vertical } or null when we can't build one (a shortened
+// vm.tiktok.com link with no id, a private post, an unknown host) - the caller
+// then falls back to opening the original link in a new tab.
+//
+//  * YouTube   - youtube-nocookie.com/embed/{id}  (16:9, or 9:16 for Shorts)
+//  * TikTok    - tiktok.com/player/v1/{id}        (official tokenless player)
+//  * Instagram - instagram.com/{reel|p|tv}/{code}/embed  (tokenless embed page)
+export function videoEmbed(url = '') {
+  const platform = detectPlatformFromUrl(url)
+  if (platform === 'YouTube') {
+    const id = youtubeId(url)
+    if (!id) return null
+    return {
+      type: 'YouTube',
+      embedUrl: `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0&playsinline=1`,
+      vertical: /\/shorts\//.test(url),
+    }
+  }
+  if (platform === 'TikTok') {
+    const m = url.match(/\/video\/(\d+)/) || url.match(/[?&]item_id=(\d+)/)
+    if (!m) return null
+    return {
+      type: 'TikTok',
+      embedUrl: `https://www.tiktok.com/player/v1/${m[1]}?autoplay=1&controls=1&loop=0`,
+      vertical: true,
+    }
+  }
+  if (platform === 'Instagram') {
+    const m = url.match(/instagram\.com\/(?:[^/]+\/)?(reel|reels|p|tv)\/([A-Za-z0-9_-]+)/i)
+    if (!m) return null
+    const kind = m[1].toLowerCase() === 'reels' ? 'reel' : m[1].toLowerCase()
+    return {
+      type: 'Instagram',
+      embedUrl: `https://www.instagram.com/${kind}/${m[2]}/embed/`,
+      vertical: true,
+    }
+  }
+  return null
+}
+
 // Best-effort preview. Never throws - resolves to null when nothing is available.
 export function getVideoPreview(url) {
   if (!url) return Promise.resolve(null)

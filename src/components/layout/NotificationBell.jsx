@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { showLocalNotification } from '../../lib/push'
+import { showLocalNotification, closeNotificationsForPath } from '../../lib/push'
 import Icon from '../Icon'
 import { timeAgo, cx } from '../../lib/utils'
+
+// Pathname a notification's link points at (dropping any query/hash), so we can
+// tell when the user is looking at the exact page an alert was for.
+const linkPathname = (link) => (link || '').split(/[?#]/)[0]
 
 const TYPE_ICON = {
   challenge: 'flag', announcement: 'megaphone', results: 'trophy',
@@ -18,11 +22,16 @@ const TYPE_ICON = {
 export default function NotificationBell() {
   const { user, profile } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [items, setItems] = useState([])
   const [open, setOpen] = useState(false)
   const panelRef = useRef(null)
   const prefsRef = useRef(profile?.notif_prefs)
   useEffect(() => { prefsRef.current = profile?.notif_prefs }, [profile?.notif_prefs])
+  // Current pathname, mirrored for the realtime handler (a live notification for
+  // the page you're already on should never badge or ping).
+  const pathRef = useRef(location.pathname)
+  useEffect(() => { pathRef.current = location.pathname }, [location.pathname])
 
   const unread = items.filter((n) => !n.read).length
 
@@ -45,14 +54,22 @@ export default function NotificationBell() {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'notifications', filter: `recipient_id=eq.${user.id}` },
         (payload) => {
-          setItems((prev) => [payload.new, ...prev].slice(0, 12))
+          const n = payload.new
+          // If it's for the page they're already looking at, mark it read on the
+          // spot instead of badging - they're seeing the content right now.
+          if (linkPathname(n.link) === pathRef.current && document.visibilityState === 'visible') {
+            setItems((prev) => [{ ...n, read: true }, ...prev].slice(0, 12))
+            supabase.from('notifications').update({ read: true }).eq('id', n.id).then(() => {})
+            return
+          }
+          setItems((prev) => [n, ...prev].slice(0, 12))
           // Pop an OS notification when the app isn't in the foreground, unless
           // the creator has turned push off for this category.
-          const pushOn = prefsRef.current?.[payload.new.type] !== false
+          const pushOn = prefsRef.current?.[n.type] !== false
           if (pushOn && document.visibilityState !== 'visible') {
             showLocalNotification({
-              title: payload.new.title, body: payload.new.body,
-              link: payload.new.link || '/notifications', tag: payload.new.id,
+              title: n.title, body: n.body,
+              link: n.link || '/notifications', tag: n.id,
             })
           }
         }
@@ -60,6 +77,22 @@ export default function NotificationBell() {
       .subscribe()
     return () => supabase.removeChannel(channel)
   }, [user, load])
+
+  // When the user lands on the page a notification was for (however they got
+  // there - tapping the alert, a link, or straight navigation), clear it: mark
+  // the in-app record read and dismiss the matching OS push notification.
+  useEffect(() => {
+    if (!user) return
+    const here = location.pathname
+    // Don't touch the notifications list itself - being on /notifications isn't
+    // the target of any alert.
+    if (here === '/notifications') return
+    setItems((prev) => prev.map((n) => (!n.read && linkPathname(n.link) === here ? { ...n, read: true } : n)))
+    supabase.from('notifications').update({ read: true })
+      .eq('recipient_id', user.id).eq('read', false).eq('link', here)
+      .then(() => {})
+    closeNotificationsForPath(here)
+  }, [location.pathname, user])
 
   // Close the dropdown when clicking anywhere else.
   useEffect(() => {

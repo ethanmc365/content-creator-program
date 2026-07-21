@@ -322,7 +322,7 @@ export default function Collab() {
 
       {/* ---- Upcoming trips ---- */}
       {posts === null ? (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2"><Skeleton className="h-40" /><Skeleton className="h-40" /></div>
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3"><Skeleton className="h-40" /><Skeleton className="h-40" /><Skeleton className="h-40" /></div>
       ) : upcoming.length === 0 ? (
         <EmptyState
           icon={<Icon name="pin" className="h-7 w-7" />}
@@ -332,7 +332,7 @@ export default function Collab() {
       ) : filteredUpcoming.length === 0 ? (
         <EmptyState emoji="🔍" title="No trips match those filters" hint="Try a different month or country." />
       ) : (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {filteredUpcoming.map((p) => <TripCard key={p.id} p={p} />)}
         </div>
       )}
@@ -360,7 +360,7 @@ export default function Collab() {
         <section className="mt-12">
           <h2 className="mb-1 text-lg font-semibold">Past trips</h2>
           <p className="mb-5 text-sm text-smoke">Trips that have already happened.</p>
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {archived.map((p) => <TripCard key={p.id} p={p} past />)}
           </div>
         </section>

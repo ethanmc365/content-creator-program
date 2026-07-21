@@ -124,7 +124,7 @@ function Plane({ x, y, angle, zoom }) {
   )
 }
 
-function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = false, nearCount = 0, nearMeDisabled = false, onToggleNearMe = null }) {
+function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = false, nearCount = 0, nearMeDisabled = false, onToggleNearMe = null, travelActive = null, onToggleTravel = null, onTravellersChange = null }) {
   const highlighting = highlightIds && highlightIds.size > 0
   const [extraCoords, setExtraCoords] = useState({}) // legacy rows: id -> {lat,lng}
   const [homeNames, setHomeNames] = useState(() => new Set()) // countries to tint
@@ -278,11 +278,19 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
     return out
   }, [centroids, trips, located])
 
-  // "Who's travelling" view + single-traveller focus (tap a plane).
-  const [travelView, setTravelView] = useState(false)
+  // "Who's travelling" view + single-traveller focus (tap a plane). The view can
+  // be driven by the parent (controlled: it also filters the creator cards
+  // below) or fall back to local state when used standalone.
+  const [internalTravel, setInternalTravel] = useState(false)
+  const travelView = onToggleTravel ? !!travelActive : internalTravel
   const [focusId, setFocusId] = useState(null)
   const focusJourney = journeys.find((j) => j.id === focusId) || null
   const travellerIds = useMemo(() => new Set(journeys.map((j) => j.id)), [journeys])
+  const toggleTravel = () => { if (onToggleTravel) onToggleTravel(); else setInternalTravel((v) => !v); setFocusId(null) }
+
+  // Let the parent filter the creator cards to exactly the travellers the map
+  // shows, so the "Who's travelling" button and the grid stay in lockstep.
+  useEffect(() => { onTravellersChange?.(travellerIds) }, [travellerIds, onTravellersChange])
   const visibleTowns = useMemo(() => {
     const only = (ids) => towns
       .map((t) => ({ ...t, creators: t.creators.filter((c) => ids.has(c.id)) }))
@@ -511,7 +519,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
       {journeys.length > 0 && (
         <button
           type="button"
-          onClick={() => { setTravelView((v) => !v); setFocusId(null) }}
+          onClick={toggleTravel}
           className={`absolute left-3 z-10 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold shadow-card transition-all hover:scale-[1.03] active:scale-95 ${
             onToggleNearMe ? 'bottom-[5.25rem]' : 'bottom-10'
           } ${travelView ? 'bg-brand text-white' : 'bg-white/95 text-ink'}`}

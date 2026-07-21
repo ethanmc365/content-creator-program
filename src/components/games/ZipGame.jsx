@@ -32,8 +32,8 @@ const fmtTime = (ms) => {
   const s = Math.floor(ms / 1000)
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
-const DIFF_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard', expert: 'Expert', extreme: 'Extreme', ultra: 'Ultra' }
-const HARD_DIFFS = ['hard', 'expert', 'extreme', 'ultra']
+const DIFF_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard', expert: 'Expert', extreme: 'Extreme', ultra: 'Ultra', legend: 'Legendary' }
+const HARD_DIFFS = ['hard', 'expert', 'extreme', 'ultra', 'legend']
 
 function loadStored(day) {
   try {
@@ -272,6 +272,32 @@ export default function ZipGame({ onExit }) {
     trailPts = [...pts.slice(0, -1), [ax + (hx - ax) * t, ay + (hy - ay) * t]]
   }
   const trailD = roundedPath(trailPts)
+  // Smooth colour ramp along the trail. A winding stroke can't take a real SVG
+  // gradient, so we draw the body as many short round-capped strokes whose
+  // colour is interpolated by CUMULATIVE distance along the path. Subdividing
+  // each cell segment to hit a fixed number of colour steps keeps the ramp
+  // buttery whether the trail is 3 cells or 120 - the old one-colour-per-cell
+  // approach banded visibly on short trails ("choppy at the start").
+  const TRAIL_STEPS = 72
+  const bodySegs = []
+  if (trailPts.length > 1) {
+    const segCount = trailPts.length - 1
+    const subs = Math.max(1, Math.ceil(TRAIL_STEPS / segCount))
+    const totalSub = segCount * subs
+    let k = 0
+    for (let i = 0; i < segCount; i++) {
+      const [x1, y1] = trailPts[i]
+      const [x2, y2] = trailPts[i + 1]
+      for (let s = 0; s < subs; s++) {
+        const ta = s / subs, tb = (s + 1) / subs
+        const ax = x1 + (x2 - x1) * ta, ay = y1 + (y2 - y1) * ta
+        const bx = x1 + (x2 - x1) * tb, by = y1 + (y2 - y1) * tb
+        const frac = totalSub > 1 ? (k + 0.5) / (totalSub - 1) : 1
+        bodySegs.push({ d: `M ${ax} ${ay} L ${bx} ${by}`, c: lerpHex(TRAIL_TAIL, BRAND_LIGHT, Math.min(frac, 1)) })
+        k++
+      }
+    }
+  }
   const covered = new Set(path)
   const progress = Math.round((path.length / N) * 100)
   const W = size * CELL
@@ -329,7 +355,7 @@ export default function ZipGame({ onExit }) {
           {walls.length > 0 && <> Solid orange bars are <span className="font-semibold text-ink">no-fly walls</span>.</>} Drag the plane, drag backwards to undo.
         </p>
 
-        <div className={cx('relative mx-auto w-full', size >= 8 ? 'max-w-[600px]' : 'max-w-[520px]', shake && 'animate-shake')}>
+        <div className={cx('relative mx-auto w-full', size >= 11 ? 'max-w-[660px]' : size >= 8 ? 'max-w-[600px]' : 'max-w-[520px]', shake && 'animate-shake')}>
           <svg
             ref={svgRef}
             viewBox={`0 0 ${W} ${W}`}
@@ -373,21 +399,18 @@ export default function ZipGame({ onExit }) {
               <>
                 <path d={trailD} fill="none" stroke={BRAND_LIGHT} strokeOpacity={0.22} strokeWidth={80} strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
                 <path d={trailD} fill="none" stroke={BRAND_LIGHT} strokeOpacity={0.38} strokeWidth={66} strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
-                {/* solid body: per-segment colour ramp, lightest at the tail,
-                    full orange right behind the plane */}
-                {trailPts.slice(1).map(([x2, y2], i) => {
-                  const [x1, y1] = trailPts[i]
-                  const t = trailPts.length > 2 ? i / (trailPts.length - 2) : 1
-                  return (
-                    <path
-                      key={i}
-                      d={`M ${x1} ${y1} L ${x2} ${y2}`}
-                      fill="none" stroke={lerpHex(TRAIL_TAIL, BRAND_LIGHT, t)}
-                      strokeWidth={54} strokeLinecap="round"
-                      style={{ pointerEvents: 'none' }}
-                    />
-                  )
-                })}
+                {/* solid body: a fine colour ramp (lightest at the tail, full
+                    orange right behind the plane) drawn as many short
+                    round-capped strokes so the gradient is smooth end to end */}
+                {bodySegs.map((seg, i) => (
+                  <path
+                    key={i}
+                    d={seg.d}
+                    fill="none" stroke={seg.c}
+                    strokeWidth={54} strokeLinecap="round"
+                    style={{ pointerEvents: 'none' }}
+                  />
+                ))}
                 <path className="fp-trail-dash" d={trailD} fill="none" stroke="#ffffff" strokeWidth={5} strokeDasharray="3 16" strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
               </>
             ) : (

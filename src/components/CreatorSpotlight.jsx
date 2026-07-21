@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
+import { loadRelationship } from '../lib/connections'
+import ConnectButton from './ConnectButton'
 import WorldMap from './WorldMap'
 import Icon from './Icon'
 import { Avatar } from './ui'
@@ -10,8 +13,10 @@ import { Avatar } from './ui'
 // photo, bio, travel map, and any travel photos they've uploaded. Slots on Home
 // under "Creators on the move".
 export default function CreatorSpotlight() {
+  const { user } = useAuth()
   const [creator, setCreator] = useState(null)
   const [photos, setPhotos] = useState([])
+  const [relation, setRelation] = useState(null) // my connection status with the featured creator
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
@@ -36,13 +41,20 @@ export default function CreatorSpotlight() {
         .eq('creator_id', pick.id).order('sort_order').limit(4)
       if (!alive) return
       setPhotos(pics ?? [])
+      // My connection status with today's featured creator (skip if it's me).
+      if (user?.id && pick.id !== user.id) {
+        const rel = await loadRelationship(user.id, pick.id)
+        if (!alive) return
+        setRelation(rel)
+      }
       setLoaded(true)
     })()
     return () => { alive = false }
-  }, [])
+  }, [user?.id])
 
   if (!loaded || !creator) return null
   const firstName = creator.name?.split(' ')[0] ?? 'This creator'
+  const isMe = user?.id === creator.id
 
   return (
     <section>
@@ -64,7 +76,12 @@ export default function CreatorSpotlight() {
                   )}
                 </div>
               </Link>
-              <Link to={`/profile/${creator.id}`} className="btn-secondary hidden !py-2 text-xs sm:inline-flex">View profile →</Link>
+              <div className="hidden items-center gap-2 sm:flex">
+                {!isMe && (
+                  <ConnectButton myId={user.id} targetId={creator.id} relation={relation} onChange={setRelation} className="!py-2 text-xs" />
+                )}
+                <Link to={`/profile/${creator.id}`} className="btn-secondary !py-2 text-xs">View profile →</Link>
+              </div>
             </div>
             {(creator.bio || creator.about) && (
               <p className="mt-4 max-w-2xl text-sm leading-relaxed text-smoke line-clamp-3">{creator.bio || creator.about}</p>
@@ -76,7 +93,12 @@ export default function CreatorSpotlight() {
                 ))}
               </div>
             )}
-            <Link to={`/profile/${creator.id}`} className="btn-secondary mt-5 inline-flex self-start !py-2 text-xs sm:hidden">View profile →</Link>
+            <div className="mt-5 flex items-center gap-2 self-start sm:hidden">
+              {!isMe && (
+                <ConnectButton myId={user.id} targetId={creator.id} relation={relation} onChange={setRelation} className="!py-2 text-xs" />
+              )}
+              <Link to={`/profile/${creator.id}`} className="btn-secondary inline-flex !py-2 text-xs">View profile →</Link>
+            </div>
           </div>
 
           {/* Their travel map: zoomed to the countries they've actually

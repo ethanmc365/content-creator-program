@@ -63,6 +63,23 @@ export async function disablePush() {
   } catch { /* ignore */ }
 }
 
+// Close any already-shown OS notifications that point at `path` (matched on the
+// pathname of their stored link). Called when the user lands on the page a
+// notification was for, so a DM/chat/challenge alert clears the moment they
+// actually view it - no more stale notifications hanging around after you reply.
+export async function closeNotificationsForPath(path) {
+  if (!('serviceWorker' in navigator)) return
+  try {
+    const reg = await navigator.serviceWorker.ready
+    if (!reg?.getNotifications) return
+    const notes = await reg.getNotifications()
+    for (const n of notes) {
+      const link = (n.data && n.data.link) || ''
+      if (link.split(/[?#]/)[0] === path) n.close()
+    }
+  } catch { /* ignore */ }
+}
+
 // Show a notification now via the service worker. Used by the realtime listener
 // so notifications pop even though we have no push server yet.
 export async function showLocalNotification({ title, body, link, tag }) {

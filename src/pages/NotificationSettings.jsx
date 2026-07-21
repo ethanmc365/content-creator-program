@@ -35,6 +35,14 @@ const ADMIN_CATEGORIES = [
 const DEFAULT_PREFS = Object.fromEntries(CATEGORIES.map((c) => [c.key, true]))
 const DEFAULT_EMAIL = { announcement: true, challenge: true, event: true, results: true, reward: true, application: true, dm: false, chat: false, connection: false }
 
+// Email delivery is not wired up yet (the Resend sender domain mail.tryp.com is
+// still unverified, so only the account owner receives sandbox mail). Until that
+// is sorted we hide the whole Email column so creators aren't offered a channel
+// that silently does nothing. To re-enable later: flip this to `true`. Everything
+// else (the toggles, the email_prefs writes, the DEFAULT_EMAIL values, the
+// server-side email_prefs gating in notify-dispatch) is left intact.
+const EMAIL_ENABLED = false
+
 function Toggle({ on, onChange, label }) {
   return (
     <button
@@ -136,11 +144,19 @@ export default function NotificationSettings() {
         {pushMsg && <p className="text-sm text-smoke">{pushMsg}</p>}
       </section>
 
-      {/* ---- Per-type preferences: a push toggle and an email toggle each ---- */}
+      {/* ---- Per-type preferences: a push toggle (and, once email is live, an
+             email toggle) each. The email column is hidden while EMAIL_ENABLED
+             is false. ---- */}
       <section className="card">
+        {!EMAIL_ENABLED && (
+          <div className="mb-3 flex items-start gap-2 rounded-xl bg-cloud px-4 py-3 text-xs text-smoke">
+            <Icon name="clock" className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+            <span>Email notifications are coming soon and are turned off for now. You'll still get everything through the app and push notifications.</span>
+          </div>
+        )}
         <div className="flex items-center justify-end gap-3 border-b border-gray-100 pb-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
           <span className="w-11 text-center">Push</span>
-          <span className="w-11 text-center">Email</span>
+          {EMAIL_ENABLED && <span className="w-11 text-center">Email</span>}
         </div>
         {CATEGORIES.map((c) => (
           <div key={c.key} className="flex items-center gap-4 border-b border-gray-100 py-4 last:border-0">
@@ -151,11 +167,13 @@ export default function NotificationSettings() {
             <div className="w-11 flex justify-center">
               <Toggle on={prefs[c.key] !== false} onChange={(v) => togglePush(c.key, v)} label={`${c.label} push`} />
             </div>
-            <div className="w-11 flex justify-center">
-              {c.pushOnly
-                ? <span className="text-[11px] text-gray-300">-</span>
-                : <Toggle on={emailPrefs[c.key] === true} onChange={(v) => toggleEmail(c.key, v)} label={`${c.label} email`} />}
-            </div>
+            {EMAIL_ENABLED && (
+              <div className="w-11 flex justify-center">
+                {c.pushOnly
+                  ? <span className="text-[11px] text-gray-300">-</span>
+                  : <Toggle on={emailPrefs[c.key] === true} onChange={(v) => toggleEmail(c.key, v)} label={`${c.label} email`} />}
+              </div>
+            )}
           </div>
         ))}
       </section>
@@ -200,7 +218,7 @@ export default function NotificationSettings() {
           <p className="mb-3 text-xs text-smoke">Only the Tryp.com Team sees these. Toggle the admin notifications you want to receive.</p>
           <div className="flex items-center justify-end gap-3 border-b border-gray-100 pb-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
             <span className="w-11 text-center">Push</span>
-            <span className="w-11 text-center">Email</span>
+            {EMAIL_ENABLED && <span className="w-11 text-center">Email</span>}
           </div>
           {ADMIN_CATEGORIES.map((c) => (
             <div key={c.key} className="flex items-center gap-4 border-b border-gray-100 py-4 last:border-0">
@@ -211,16 +229,18 @@ export default function NotificationSettings() {
               <div className="w-11 flex justify-center">
                 <Toggle on={prefs[c.key] !== false} onChange={(v) => togglePush(c.key, v)} label={`${c.label} push`} />
               </div>
-              <div className="w-11 flex justify-center">
-                <Toggle on={emailPrefs[c.key] === true} onChange={(v) => toggleEmail(c.key, v)} label={`${c.label} email`} />
-              </div>
+              {EMAIL_ENABLED && (
+                <div className="w-11 flex justify-center">
+                  <Toggle on={emailPrefs[c.key] === true} onChange={(v) => toggleEmail(c.key, v)} label={`${c.label} email`} />
+                </div>
+              )}
             </div>
           ))}
         </section>
       )}
 
       <p className="mt-4 text-xs text-smoke">
-        Push sends to your devices; email sends to your inbox. Your in-app notification bell always keeps a record. Account-critical messages (like your application result) are always delivered.
+        Push sends to your devices{EMAIL_ENABLED ? '; email sends to your inbox' : ''}. Your in-app notification bell always keeps a record. Account-critical messages (like your application result) are always delivered.
       </p>
     </div>
   )

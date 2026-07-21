@@ -129,11 +129,32 @@ function buildWalls(size, path, count, rng) {
   return candidates.slice(0, Math.min(count, candidates.length))
 }
 
-export const ZIP_LAYOUT_COUNT = 366
+// The seasonal rotation (0..365) cycles through six tiers across the year; a
+// separate "legend" pack of 50 extra-hard layouts (bigger skies, a dense maze
+// of walls) is appended after it for the toughest days.
+export const ZIP_SEASONAL_COUNT = 366
+export const ZIP_HARD_PACK_COUNT = 50
+export const ZIP_HARD_PACK_START = ZIP_SEASONAL_COUNT // first legend index = 366
+export const ZIP_LAYOUT_COUNT = ZIP_SEASONAL_COUNT + ZIP_HARD_PACK_COUNT // 416
 export const ZIP_DIFFICULTIES = ['easy', 'medium', 'hard', 'expert', 'extreme', 'ultra']
 
 /** Grid size, stop count, wall count + difficulty label for a layout index. */
 export function layoutSpec(index) {
+  // ---- Legend pack (index >= 366): the hardest puzzles in the game. Larger
+  // grids (11-13) and roughly a quarter of every interior edge walled off, so
+  // the route is a real maze. Still always solvable: walls only ever land on
+  // edges the generator's own Hamiltonian path never uses.
+  if (index >= ZIP_HARD_PACK_START) {
+    const k = index - ZIP_HARD_PACK_START
+    const rng = mulberry32(0xbeef1 + index * 2654435761)
+    const seed = 0x9e37 + index * 7919
+    const size = [11, 12, 13][k % 3]
+    const internalEdges = 2 * size * (size - 1)
+    const walls = Math.floor(internalEdges * 0.25) + Math.floor(rng() * 12)
+    const stops = size + 2 + Math.floor(rng() * 3)
+    return { difficulty: 'legend', size, stops, walls, seed }
+  }
+
   const difficulty = ZIP_DIFFICULTIES[index % ZIP_DIFFICULTIES.length]
   const rng = mulberry32(0xa11ce + index * 2654435761)
   const seed = 0x51f7 + index * 7919
@@ -141,19 +162,19 @@ export function layoutSpec(index) {
     return { difficulty, size: 5, stops: 8 + Math.floor(rng() * 3), walls: 0, seed }
   }
   if (difficulty === 'medium') {
-    return { difficulty, size: 6, stops: 7 + Math.floor(rng() * 2), walls: 2 + Math.floor(rng() * 3), seed }
+    return { difficulty, size: 6, stops: 7 + Math.floor(rng() * 2), walls: 3 + Math.floor(rng() * 4), seed }
   }
   if (difficulty === 'hard') {
-    return { difficulty, size: 7, stops: 7 + Math.floor(rng() * 2), walls: 6 + Math.floor(rng() * 5), seed }
+    return { difficulty, size: 7, stops: 7 + Math.floor(rng() * 2), walls: 9 + Math.floor(rng() * 5), seed }
   }
   if (difficulty === 'expert') {
-    return { difficulty, size: 8, stops: 8 + Math.floor(rng() * 2), walls: 10 + Math.floor(rng() * 6), seed }
+    return { difficulty, size: 8, stops: 8 + Math.floor(rng() * 2), walls: 14 + Math.floor(rng() * 7), seed }
   }
   if (difficulty === 'extreme') {
-    return { difficulty, size: 10, stops: 10 + Math.floor(rng() * 3), walls: 18 + Math.floor(rng() * 8), seed }
+    return { difficulty, size: 10, stops: 10 + Math.floor(rng() * 3), walls: 24 + Math.floor(rng() * 10), seed }
   }
-  // ultra: the hardest tier - an 11x11 sky with a dense maze of walls
-  return { difficulty, size: 11, stops: 11 + Math.floor(rng() * 3), walls: 30 + Math.floor(rng() * 10), seed }
+  // ultra: an 11x11 sky with a dense maze of walls
+  return { difficulty, size: 11, stops: 11 + Math.floor(rng() * 3), walls: 36 + Math.floor(rng() * 12), seed }
 }
 
 /**

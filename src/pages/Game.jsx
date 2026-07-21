@@ -628,9 +628,9 @@ function Leaderboard({ mode, region, eventId, highlightUser, daily = false, head
                 onTouchStart={() => startPress(r)} onTouchEnd={cancelPress} onTouchMove={cancelPress}
                 onMouseDown={() => startPress(r)} onMouseUp={cancelPress} onMouseLeave={cancelPress}
                 onContextMenu={(e) => { if (isAdmin) { e.preventDefault(); deleteScore(r) } }}
-                className={cx('flex items-center gap-4 border-b border-gray-50 px-5 py-3 last:border-0 sm:px-7', mine && 'bg-brand-tint/60', isAdmin && 'select-none')}
+                className={cx('flex items-center gap-3 border-b border-gray-50 px-4 py-3 last:border-0 sm:gap-4 sm:px-7', mine && 'bg-brand-tint/60', isAdmin && 'select-none')}
               >
-                <span className="w-8 text-center text-lg font-bold">{{ 0: '🥇', 1: '🥈', 2: '🥉' }[idx] || idx + 1}</span>
+                <span className="w-7 shrink-0 text-center text-lg font-bold sm:w-8">{{ 0: '🥇', 1: '🥈', 2: '🥉' }[idx] || idx + 1}</span>
                 <Link to={`/profile/${r.profiles?.id}`} onClick={(e) => { if (longPressedRef.current) { e.preventDefault(); longPressedRef.current = false } }} className="flex min-w-0 flex-1 items-center gap-3">
                   <Avatar src={r.profiles?.photo_url} name={r.profiles?.name} size="sm" />
                   <span className="flex min-w-0 items-center gap-1.5">
@@ -642,21 +642,25 @@ function Leaderboard({ mode, region, eventId, highlightUser, daily = false, head
                     Flight Path is all about the landing time, Guess the
                     Country about how few clue words you needed. */}
                 {mode === 'zip' ? (
-                  <span className="text-right text-xs font-semibold text-ink sm:text-sm">
-                    Plane safely landed in <span className="tabular-nums text-brand">{fmtTime(r.time_ms)}</span>
+                  <span className="shrink-0 text-right text-xs font-semibold text-ink sm:text-sm">
+                    <span className="hidden sm:inline">Plane safely landed in </span>
+                    <span className="sm:hidden">Landed in </span>
+                    <span className="tabular-nums text-brand">{fmtTime(r.time_ms)}</span>
                   </span>
                 ) : mode === 'pinpoint' ? (
-                  <>
-                    <span className="text-right text-xs font-semibold text-ink sm:text-sm">
+                  // Label + time stacked on the right so the row never overflows
+                  // a narrow phone (side-by-side used to clip the time off-screen).
+                  <div className="flex shrink-0 flex-col items-end leading-tight">
+                    <span className="text-xs font-semibold text-ink sm:text-sm">
                       {r.correct > 0 ? `Guessed in ${r.total + 1 - r.correct} word${r.total + 1 - r.correct === 1 ? '' : 's'}` : 'Not guessed'}
                     </span>
-                    <span className="w-14 text-right text-xs tabular-nums text-smoke">{fmtTime(r.time_ms)}</span>
-                  </>
+                    <span className="text-[11px] tabular-nums text-smoke">{fmtTime(r.time_ms)}</span>
+                  </div>
                 ) : (
-                  <>
+                  <div className="flex shrink-0 items-center gap-3">
                     <span className="text-sm font-bold tabular-nums">{r.correct}/{r.total}</span>
-                    <span className="w-14 text-right text-xs tabular-nums text-smoke">{fmtTime(r.time_ms)}</span>
-                  </>
+                    <span className="w-12 text-right text-xs tabular-nums text-smoke sm:w-14">{fmtTime(r.time_ms)}</span>
+                  </div>
                 )}
               </div>
             )
