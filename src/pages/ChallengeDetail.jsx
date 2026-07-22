@@ -11,6 +11,23 @@ import VideoEmbedModal from '../components/VideoEmbedModal'
 import { Avatar, Badge, Modal, PageHeader, Skeleton, EmptyState, Spinner } from '../components/ui'
 import { formatDate, timeAgo, formatViews, detectPlatform, cx, challengeDeadline } from '../lib/utils'
 
+const PLATFORM_ORDER = ['Instagram', 'TikTok', 'YouTube', 'Other']
+
+// A challenge can carry a "participation" prize that rewards posting N videos
+// (e.g. "Post +3 videos"). We read the threshold + reward straight out of the
+// admin's own prize breakdown so the leaderboard tracks exactly what's shown.
+function parseParticipationPrize(prizes) {
+  for (const p of prizes) {
+    const place = p.place || ''
+    const m = place.match(/(\d+)\s*\+?\s*videos?/i)
+    if (m) return { threshold: Math.max(1, parseInt(m[1], 10)), prize: p.prize || 'Voucher' }
+    if (/all valid entries|participation|every valid entry/i.test(place)) {
+      return { threshold: 1, prize: p.prize || 'Voucher' }
+    }
+  }
+  return null
+}
+
 // One challenge: full brief, prizes, live countdown, the submissions gallery,
 // a "submit your link" flow, and (once results are in) the leaderboard.
 export default function ChallengeDetail() {
@@ -127,6 +144,21 @@ export default function ChallengeDetail() {
   const myEntries = submissions.filter((s) => s.creator_id === user.id)
   const prizes = Array.isArray(challenge.prize_structure) ? challenge.prize_structure : []
 
+  // Which platforms each creator actually SUBMITTED on (for real platform icons)
+  // and how many videos they posted (for the participation voucher).
+  const platformsByCreator = {}
+  const subCountByCreator = {}
+  for (const s of submissions) {
+    (platformsByCreator[s.creator_id] ||= new Set()).add(s.platform)
+    subCountByCreator[s.creator_id] = (subCountByCreator[s.creator_id] || 0) + 1
+  }
+  const submittedPlatforms = (creatorId) =>
+    PLATFORM_ORDER.filter((p) => platformsByCreator[creatorId]?.has(p))
+  const participation = parseParticipationPrize(prizes)
+  const earnedVoucherCount = participation
+    ? Object.values(subCountByCreator).filter((n) => n >= participation.threshold).length
+    : 0
+
   const TABS = [
     { key: 'brief', label: 'The brief' },
     { key: 'entries', label: `Entries (${submissions.length})` },
@@ -214,6 +246,13 @@ export default function ChallengeDetail() {
                 ))}
                 {prizes.length === 0 && <li className="text-sm text-smoke">Prize details coming soon.</li>}
               </ul>
+              {participation && (
+                <p className="mt-4 flex flex-wrap items-center gap-1.5 border-t border-gray-50 pt-3 text-xs text-smoke">
+                  <Icon name="ticket" className="h-4 w-4 shrink-0 text-brand" />
+                  Post {participation.threshold}+ videos to earn {participation.prize}.
+                  {earnedVoucherCount > 0 && <span className="font-semibold text-green-700">{earnedVoucherCount} earned so far.</span>}
+                </p>
+              )}
             </section>
 
             <section className="card !p-6">
@@ -326,12 +365,18 @@ export default function ChallengeDetail() {
                     {r.profiles?.name} {mine && <span className="ml-1 text-xs font-medium text-brand">(you)</span>}
                   </span>
                 </Link>
-                <PlatformBadges
-                  platforms={['instagram_url', 'tiktok_url', 'youtube_url']
-                    .filter((k) => r.profiles?.[k])
-                    .map((k) => ({ instagram_url: 'Instagram', tiktok_url: 'TikTok', youtube_url: 'YouTube' }[k]))}
-                  className="hidden sm:flex"
-                />
+                {/* Voucher badge: this creator posted enough videos to earn the
+                    participation prize. */}
+                {participation && (subCountByCreator[r.creator_id] || 0) >= participation.threshold && (
+                  <span
+                    title={`Posted ${participation.threshold}+ videos`}
+                    className="hidden shrink-0 items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-semibold text-green-700 sm:inline-flex"
+                  >
+                    <Icon name="ticket" className="h-3.5 w-3.5" /> {participation.prize}
+                  </span>
+                )}
+                {/* Only the platforms this creator actually submitted on. */}
+                <PlatformBadges platforms={submittedPlatforms(r.creator_id)} className="hidden sm:flex" />
                 <span className="w-24 text-right text-sm font-bold tabular-nums">{formatViews(r.final_views)}</span>
               </div>
             )

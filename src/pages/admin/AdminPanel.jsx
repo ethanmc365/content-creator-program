@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { PageHeader, StatCard, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
-import { formatMoney } from '../../lib/utils'
+import { cx, formatMoney } from '../../lib/utils'
 
 // The admin hub: key numbers up top, then tiles linking every admin tool.
 const TOOLS = [
@@ -26,12 +26,43 @@ const TOOLS = [
   { to: '/admin/notes', icon: 'book', title: 'Notes', text: 'A private notes space for the team. Keep a bank of weekly questions, plans and playbooks.' },
 ]
 
+// Admins can drag the tool cards into whatever order suits them; the order is
+// remembered per device. New tools added later fall in at the end.
+const ORDER_KEY = 'admin-panel-tool-order'
+function loadOrder() {
+  try { return JSON.parse(localStorage.getItem(ORDER_KEY)) || [] } catch { return [] }
+}
+function orderTools(order) {
+  if (!order.length) return TOOLS
+  const rank = new Map(order.map((to, i) => [to, i]))
+  return [...TOOLS].sort((a, b) => (rank.has(a.to) ? rank.get(a.to) : 1e9) - (rank.has(b.to) ? rank.get(b.to) : 1e9))
+}
+
 export default function AdminPanel() {
   const { enterCreatorPreview } = useAuth()
   const navigate = useNavigate()
   const [stats, setStats] = useState(null)
   const [entering, setEntering] = useState(false)
   const [enterError, setEnterError] = useState('')
+
+  // Drag-to-reorder the tool cards (grab dots on hover, top-right).
+  const [order, setOrder] = useState(loadOrder)
+  const [dragKey, setDragKey] = useState(null)
+  const [overKey, setOverKey] = useState(null)
+  const orderedTools = useMemo(() => orderTools(order), [order])
+
+  function handleDrop(targetTo) {
+    setOverKey(null)
+    if (!dragKey || dragKey === targetTo) { setDragKey(null); return }
+    const cur = orderedTools.map((t) => t.to)
+    const from = cur.indexOf(dragKey)
+    const to = cur.indexOf(targetTo)
+    if (from === -1 || to === -1) { setDragKey(null); return }
+    cur.splice(to, 0, cur.splice(from, 1)[0])
+    setOrder(cur)
+    localStorage.setItem(ORDER_KEY, JSON.stringify(cur))
+    setDragKey(null)
+  }
 
   // Enter "view as creator": step into the hidden sandbox creator account and
   // land on Home, experiencing the app exactly as a creator does. A floating
@@ -124,8 +155,31 @@ export default function AdminPanel() {
       )}
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {TOOLS.map((t) => (
-          <Link key={t.to} to={t.to} className="card group !p-7 transition-all hover:-translate-y-0.5 hover:shadow-lift">
+        {orderedTools.map((t) => (
+          <Link
+            key={t.to}
+            to={t.to}
+            draggable={false}
+            onDragOver={(e) => { if (dragKey) { e.preventDefault(); if (overKey !== t.to) setOverKey(t.to) } }}
+            onDrop={() => handleDrop(t.to)}
+            className={cx(
+              'card group relative !p-7 transition-all hover:-translate-y-0.5 hover:shadow-lift',
+              dragKey === t.to && 'opacity-40',
+              overKey === t.to && dragKey && dragKey !== t.to && 'ring-2 ring-brand'
+            )}
+          >
+            {/* Grab handle: drag from here to reorder. */}
+            <span
+              draggable
+              onDragStart={(e) => { e.stopPropagation(); setDragKey(t.to); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', t.to) }}
+              onDragEnd={() => { setDragKey(null); setOverKey(null) }}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation() }}
+              title="Drag to reorder"
+              aria-label="Drag to reorder"
+              className="absolute right-3 top-3 cursor-grab rounded-md p-1 text-gray-300 opacity-0 transition-opacity hover:text-smoke group-hover:opacity-100 active:cursor-grabbing"
+            >
+              <Icon name="grip" className="h-4 w-4" />
+            </span>
             <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-tint text-brand">
               <Icon name={t.icon} className="h-6 w-6" />
             </span>

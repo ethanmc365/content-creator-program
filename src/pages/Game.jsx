@@ -12,7 +12,7 @@ import {
   countryMatches, airportMatches, shuffle,
   currencyCountriesForRegion, currencyOptions,
 } from '../lib/countries'
-import { ukDayIndex, ukDayStartIso } from '../lib/daily'
+import { ukDayIndex, ukDayStartIso, dailyStreak } from '../lib/daily'
 import PinpointGame from '../components/games/PinpointGame'
 import ZipGame from '../components/games/ZipGame'
 import { cx } from '../lib/utils'
@@ -44,28 +44,14 @@ const fmtTime = (ms) => {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
-// Current weekly streak from a list of play timestamps: the run of consecutive
-// 7-day buckets ending this week (or last week — a one-week grace so a streak
-// isn't lost the instant a new week starts). Used per game mode.
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000
-function weeklyStreak(timestamps) {
-  if (!timestamps?.length) return 0
-  const weeks = new Set(timestamps.map((t) => Math.floor(new Date(t).getTime() / WEEK_MS)))
-  const now = Math.floor(Date.now() / WEEK_MS)
-  let w = weeks.has(now) ? now : weeks.has(now - 1) ? now - 1 : null
-  if (w == null) return 0
-  let streak = 0
-  while (weeks.has(w)) { streak++; w-- }
-  return streak
-}
-
 // A custom flame chip (replaces the native 🔥 emoji) with the streak count.
+// Shows a creator's DAILY play streak (consecutive UK days) for this game.
 function FlameStreak({ n }) {
   return (
     <span
       className="inline-flex items-center gap-0.5 rounded-full bg-brand-tint px-1.5 py-0.5 text-[11px] font-bold leading-none text-brand"
-      title={`${n}-week streak`}
-      aria-label={`${n} week streak`}
+      title={`${n}-day streak`}
+      aria-label={`${n} day streak`}
     >
       <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden>
         <path d="M13.5 2C14 5 11.5 6 10 8.2 8.9 9.8 8 11.4 8 13.3a6 6 0 0 0 12 .2c0-2.6-1.4-4.6-2.9-6.3-.9 1.2-2.2 1.3-2-.2.15-1.6-.4-3.6-1.6-5Z" fill="#d94407" />
@@ -568,16 +554,17 @@ function Leaderboard({ mode, region, eventId, highlightUser, daily = false, head
     const ranked = Object.values(best).sort((a, b) => b.correct - a.correct || a.time_ms - b.time_ms).slice(0, 25)
     setRows(ranked)
 
-    // Weekly play streak per creator for this mode (across all regions). Only on
-    // the all-time board — a single event doesn't have a weekly cadence.
+    // Daily play streak per creator for this mode (consecutive UK days). Only on
+    // the all-time board - a single event doesn't have a daily cadence. Uses the
+    // daily puzzle rows (day_key set), so it reflects exactly the days played.
     const ids = ranked.map((r) => r.player_id)
     if (!eventId && ids.length) {
       const { data: hist } = await supabase
-        .from('game_scores').select('player_id, created_at').eq('mode', mode).in('player_id', ids)
+        .from('game_scores').select('player_id, day_key').eq('mode', mode).in('player_id', ids).not('day_key', 'is', null)
       const byPlayer = {}
-      for (const h of hist ?? []) (byPlayer[h.player_id] ||= []).push(h.created_at)
+      for (const h of hist ?? []) (byPlayer[h.player_id] ||= []).push(h.day_key)
       const s = {}
-      for (const id of ids) s[id] = weeklyStreak(byPlayer[id])
+      for (const id of ids) s[id] = dailyStreak(byPlayer[id] || [])
       setStreaks(s)
     } else {
       setStreaks({})
@@ -612,7 +599,7 @@ function Leaderboard({ mode, region, eventId, highlightUser, daily = false, head
       <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold"><Icon name="trophy" className="h-5 w-5 text-brand" /> {heading}</h2>
       <p className="mb-4 text-sm text-smoke">
         {blurb
-          ?? `${MODE_LABEL[mode]} · ${region}${eventId ? ' · this event' : ' · all-time'}. Ranked by score, then speed.${!eventId ? " The flame shows a creator's weekly play streak in this mode." : ''}`}
+          ?? `${MODE_LABEL[mode]} · ${region}${eventId ? ' · this event' : ' · all-time'}. Ranked by score, then speed.${!eventId ? " The flame shows a creator's daily play streak in this mode." : ''}`}
       </p>
       {rows === null ? (
         <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-cloud" />)}</div>

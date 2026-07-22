@@ -84,14 +84,28 @@ const RichEditable = forwardRef(function RichEditable(
     // If they're all already this tag, toggle back to a normal paragraph.
     const allMatch = blocks.every((b) => b.tagName.toLowerCase() === tag.toLowerCase())
     const finalTag = allMatch && tag !== 'p' ? 'p' : tag
+    // Remember exactly what the user had selected. retag() MOVES the child text
+    // nodes into the new block (same node objects), so these endpoints stay valid
+    // - we restore the user's own selection rather than selecting the whole block
+    // (which felt like it "auto-selected everything").
+    const sC = range.startContainer, sO = range.startOffset
+    const eC = range.endContainer, eO = range.endOffset
     const newBlocks = blocks.map((b) => retag(b, finalTag))
-    const first = newBlocks[0]
-    const last = newBlocks[newBlocks.length - 1]
-    const r = document.createRange()
-    r.setStart(first, 0)
-    r.setEnd(last, last.childNodes.length)
-    sel.removeAllRanges()
-    sel.addRange(r)
+    try {
+      const r = document.createRange()
+      r.setStart(sC, sO)
+      r.setEnd(eC, eO)
+      sel.removeAllRanges()
+      sel.addRange(r)
+    } catch {
+      // The original container was an empty block that no longer exists; just
+      // drop the caret into the first converted block.
+      const r = document.createRange()
+      r.setStart(newBlocks[0], 0)
+      r.collapse(true)
+      sel.removeAllRanges()
+      sel.addRange(r)
+    }
     return fireChange()
   }
 
