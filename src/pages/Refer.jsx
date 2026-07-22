@@ -4,10 +4,13 @@ import { useAuth } from '../context/AuthContext'
 import { Badge, EmptyState, PageHeader, Skeleton, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
 import { formatDate } from '../lib/utils'
+import { referralStage } from '../lib/referrals'
 
 // Creators refer other creators two ways:
 //  1. Share their personal invite link (/signup?ref=CODE) - auto-credited.
 //  2. Submit a name/contact for the team to reach out to.
+// A referral only counts once the person they referred submits a video to a
+// challenge (see lib/referrals.js) - that is what the reward is tied to.
 const STATUS_TONE = { new: 'amber', contacted: 'light', joined: 'green', declined: 'grey' }
 
 export default function Refer() {
@@ -28,22 +31,27 @@ export default function Refer() {
   async function load() {
     const [{ data: refs }, { data: joinedProfiles }, { data: me }] = await Promise.all([
       supabase.from('referrals').select('*').eq('referrer_id', user.id).order('created_at', { ascending: false }),
-      supabase.from('profiles').select('id, name, created_at, status').eq('referred_by', user.id),
+      supabase.from('profiles').select('id, name, photo_url, created_at, status, onboarded').eq('referred_by', user.id),
       supabase.from('profiles').select('referral_clicks').eq('id', user.id).single(),
     ])
     setReferrals(refs ?? [])
-    setJoined(joinedProfiles ?? [])
     setLinkClicks(me?.referral_clicks ?? 0)
 
-    // How many referred creators have actually participated (made a submission)?
-    // This is what counts towards the £20 voucher reward.
-    const joinedIds = (joinedProfiles ?? []).map((p) => p.id)
+    // Which referred creators have actually submitted a challenge video? That is
+    // what counts towards the £20 voucher reward. Tag each person with their
+    // stage so the history list can show exactly where they've got to.
+    const list = joinedProfiles ?? []
+    const joinedIds = list.map((p) => p.id)
+    let submitted = new Set()
     if (joinedIds.length) {
       const { data: subs } = await supabase.from('submissions').select('creator_id').in('creator_id', joinedIds)
-      setParticipatedCount(new Set((subs ?? []).map((s) => s.creator_id)).size)
-    } else {
-      setParticipatedCount(0)
+      submitted = new Set((subs ?? []).map((s) => s.creator_id))
     }
+    const withStage = list
+      .map((p) => ({ ...p, stage: referralStage(p, submitted.has(p.id)) }))
+      .sort((a, b) => b.stage.step - a.stage.step || new Date(b.created_at) - new Date(a.created_at))
+    setJoined(withStage)
+    setParticipatedCount(withStage.filter((p) => p.stage.key === 'counted').length)
     setLoading(false)
   }
   useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -168,7 +176,8 @@ export default function Refer() {
 
       {/* History */}
       <section>
-        <h2 className="mb-4 text-lg font-semibold">Your referrals</h2>
+        <h2 className="mb-1 text-lg font-semibold">Your referrals</h2>
+        <p className="mb-4 text-xs text-smoke">Follow each person's progress. A referral counts once they submit a video to a challenge.</p>
         {loading ? (
           <div className="space-y-3"><Skeleton className="h-14 w-full" /><Skeleton className="h-14 w-full" /></div>
         ) : referrals.length === 0 && joined.length === 0 ? (
@@ -177,11 +186,11 @@ export default function Refer() {
           <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
             {joined.map((p) => (
               <div key={p.id} className="flex items-center justify-between gap-3 border-b border-gray-50 px-5 py-4 last:border-0 sm:px-7">
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-semibold">{p.name}</p>
-                  <p className="text-xs text-smoke">Joined via your link · {formatDate(p.created_at)}</p>
+                  <p className="truncate text-xs text-smoke">{p.stage.hint} · {formatDate(p.created_at)}</p>
                 </div>
-                <Badge tone="green">joined</Badge>
+                <Badge tone={p.stage.tone} title={p.stage.hint}>{p.stage.label}</Badge>
               </div>
             ))}
             {referrals.map((r) => (

@@ -8,6 +8,33 @@ import WorldMap from './WorldMap'
 import Icon from './Icon'
 import { Avatar } from './ui'
 
+// Deterministic per-cycle shuffle so the spotlight rotates fairly: within each
+// full pass over the pool every creator is featured exactly once (no repeats
+// over a short window), and the order is reshuffled each cycle so it never feels
+// like the same fixed sequence. Seeded by the cycle number so everyone still
+// sees the same person on a given day.
+function pickForDay(list) {
+  const n = list.length
+  if (n === 0) return null
+  const dayIndex = Math.floor(Date.now() / 86_400_000)
+  const cycle = Math.floor(dayIndex / n) // which pass over the pool we're on
+  const within = dayIndex % n // position inside this pass
+  // mulberry32 PRNG seeded by the cycle - a stable shuffle for the whole pass.
+  let seed = (cycle + 1) * 0x9e3779b1
+  const rand = () => {
+    seed |= 0; seed = (seed + 0x6d2b79f5) | 0
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+  const order = list.map((_, i) => i)
+  for (let i = n - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1))
+    ;[order[i], order[j]] = [order[j], order[i]]
+  }
+  return list[order[within]]
+}
+
 // A single creator, rotating daily (deterministic UTC-day index, so everyone
 // sees the same person on a given day and it changes each day). Shows their
 // photo, bio, travel map, and any travel photos they've uploaded. Slots on Home
@@ -32,9 +59,9 @@ export default function CreatorSpotlight() {
       const list = pool ?? []
       if (list.length === 0) { setLoaded(true); return }
       // Deterministic daily rotation: same creator for everyone on a given
-      // (UTC) day, advancing by one each day.
-      const dayIndex = Math.floor(Date.now() / 86_400_000)
-      const pick = list[dayIndex % list.length]
+      // (UTC) day, every creator featured once per cycle before any repeat.
+      const pick = pickForDay(list)
+      if (!pick) { setLoaded(true); return }
       setCreator(pick)
       const { data: pics } = await supabase
         .from('creator_photos').select('id, photo_url, caption')

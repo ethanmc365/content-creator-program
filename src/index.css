@@ -110,11 +110,14 @@
   /* ---- WYSIWYG editor (admin Notes + admin chat composer) --------------
      The contentEditable surface renders our small markdown set as itself, so the
      admin never sees # ** * markers - headings look like headings, etc. */
-  .rt-editor { @apply text-ink; }
+  .rt-editor { @apply relative text-ink; }
   .rt-editor:focus { @apply outline-none; }
+  /* Absolutely positioned so the placeholder never occupies its own line box -
+     otherwise the (block) first line was pushed down and the caret started on
+     the second line. */
   .rt-editor.is-empty::before {
     content: attr(data-placeholder);
-    @apply pointer-events-none text-gray-300;
+    @apply pointer-events-none absolute text-gray-300;
   }
   .rt-editor > *:first-child { margin-top: 0; }
   .rt-editor h1 { @apply mb-2 mt-5 text-2xl font-bold tracking-tight text-ink; }

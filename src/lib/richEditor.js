@@ -41,7 +41,9 @@ export function mdToHtml(md = '', opts = {}) {
       .map((l) => {
         const h = l.match(/^(#{1,3})\s+(.*)$/)
         const body = inlineToHtml(h ? h[2] : l, opts)
-        return `<div${h ? ' data-h="' + h[1].length + '"' : ''}>${body}</div>`
+        // Real heading tags so the toolbar's block formatting and the CSS both
+        // treat them like everywhere else; plain lines are simple <div>s.
+        return h ? `<h${h[1].length}>${body}</h${h[1].length}>` : `<div>${body}</div>`
       })
       .join('')
   }
@@ -84,7 +86,9 @@ export function mdToHtml(md = '', opts = {}) {
 
 // ---------------------------------------------------------------- html->md
 const BLOCK = new Set(['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'hr', 'ul', 'ol', 'li'])
-const clean = (s = '') => s.replace(/\u00A0/g, ' ')
+// nbsp -> space, and drop the zero-width caret anchors the editor uses when
+// toggling bold/italic off (they must never reach the stored markdown).
+const clean = (s = '') => s.replace(/\u00A0/g, ' ').replace(/[\u200B\u200C\uFEFF]/g, '')
 
 // Serialize a SINGLE node (with its own inline wrapper) to markdown. Defensive:
 // a block element nested inside inline content (execCommand can do this) drops a

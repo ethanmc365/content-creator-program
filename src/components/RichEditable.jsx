@@ -10,6 +10,8 @@ import { cx } from '../lib/utils'
 //
 // Exposes an imperative handle (focus / exec / insertHtml / insertMention /
 // clear / getMd) so the surrounding toolbar and chat logic can drive it.
+const ZWSP = String.fromCharCode(0x200b) // caret anchor when toggling bold/italic off
+
 const RichEditable = forwardRef(function RichEditable(
   { docId, initialMd = '', mentionNames, inlineOnly = false, placeholder = '', className, onChangeMd, onKeyDown, onInput, ...rest },
   ref
@@ -41,6 +43,87 @@ const RichEditable = forwardRef(function RichEditable(
 
   useEffect(() => { syncEmpty(initialMd) }, [seed, initialMd, syncEmpty])
 
+  // The top-level block (direct child of the root) that a node sits in.
+  const blockAncestor = (node) => {
+    const root = elRef.current
+    let el = node && node.nodeType === 1 ? node : node?.parentNode
+    while (el && el.parentNode && el.parentNode !== root) el = el.parentNode
+    return el && el.parentNode === root ? el : null
+  }
+
+  // Re-tag a block, keeping its inline children. Used for headings / quote / p.
+  const retag = (block, tag) => {
+    if (block.tagName.toLowerCase() === tag) return block
+    const el = document.createElement(tag)
+    while (block.firstChild) el.appendChild(block.firstChild)
+    if (!el.firstChild) el.appendChild(document.createElement('br'))
+    block.replaceWith(el)
+    return el
+  }
+
+  // Block formatting (headings / quote) done on the DOM, not execCommand, so it
+  // only ever touches the block(s) the selection actually spans - never the whole
+  // note - and toggling the same format again reliably drops back to a paragraph.
+  const applyBlock = (tag) => {
+    const root = elRef.current
+    const sel = window.getSelection()
+    if (!root || !sel || !sel.rangeCount) return fireChange()
+    const range = sel.getRangeAt(0)
+    const startBlk = blockAncestor(range.startContainer)
+    const endBlk = blockAncestor(range.endContainer)
+    if (!startBlk) { document.execCommand('formatBlock', false, tag); return fireChange() }
+    // Walk the sibling blocks the selection covers (skip lists / dividers).
+    const blocks = []
+    let cur = startBlk
+    while (cur) {
+      if (!/^(UL|OL|HR)$/.test(cur.tagName)) blocks.push(cur)
+      if (cur === endBlk) break
+      cur = cur.nextElementSibling
+    }
+    if (!blocks.length) return fireChange()
+    // If they're all already this tag, toggle back to a normal paragraph.
+    const allMatch = blocks.every((b) => b.tagName.toLowerCase() === tag.toLowerCase())
+    const finalTag = allMatch && tag !== 'p' ? 'p' : tag
+    const newBlocks = blocks.map((b) => retag(b, finalTag))
+    const first = newBlocks[0]
+    const last = newBlocks[newBlocks.length - 1]
+    const r = document.createRange()
+    r.setStart(first, 0)
+    r.setEnd(last, last.childNodes.length)
+    sel.removeAllRanges()
+    sel.addRange(r)
+    return fireChange()
+  }
+
+  // Bold / italic. A real selection just toggles natively (wrap / unwrap). A
+  // collapsed caret is the tricky one: turning the format ON leans on the
+  // browser's pending style, but turning it OFF must NOT un-format the word the
+  // caret is inside (the old bug) - instead we drop the caret just after the
+  // formatted run so the next characters are plain.
+  const inlineToggle = (tagName) => {
+    const root = elRef.current
+    const sel = window.getSelection()
+    if (!root || !sel || !sel.rangeCount) return fireChange()
+    const cmd = tagName === 'STRONG' ? 'bold' : 'italic'
+    const range = sel.getRangeAt(0)
+    if (!range.collapsed) { document.execCommand(cmd); return fireChange() }
+    let fmt = range.startContainer
+    fmt = fmt && fmt.nodeType === 1 ? fmt : fmt?.parentNode
+    while (fmt && fmt !== root && fmt.tagName !== tagName) fmt = fmt.parentNode
+    if (fmt && fmt !== root && fmt.tagName === tagName) {
+      const marker = document.createTextNode(ZWSP) // stripped on serialize
+      fmt.after(marker)
+      const r = document.createRange()
+      r.setStart(marker, 1)
+      r.collapse(true)
+      sel.removeAllRanges()
+      sel.addRange(r)
+      return fireChange()
+    }
+    document.execCommand(cmd)
+    return fireChange()
+  }
+
   // Use <p> paragraph separators so Enter creates sibling blocks (and Enter at the
   // end of a heading drops you into a normal paragraph) instead of nesting.
   useEffect(() => {
@@ -53,6 +136,11 @@ const RichEditable = forwardRef(function RichEditable(
     getMd: () => (elRef.current ? htmlToMd(elRef.current, { inlineOnly }) : ''),
     exec: (cmd, value = null) => {
       elRef.current?.focus()
+      // Route block + inline formatting through our own DOM-based handlers so
+      // they behave predictably (only the selected block, reliable toggles).
+      if (cmd === 'formatBlock') return applyBlock((value || 'p').toLowerCase())
+      if (cmd === 'bold') return inlineToggle('STRONG')
+      if (cmd === 'italic') return inlineToggle('EM')
       document.execCommand(cmd, false, value)
       return fireChange()
     },
@@ -83,10 +171,14 @@ const RichEditable = forwardRef(function RichEditable(
     },
   }))
 
-  // Toggle a checklist item when its box (the left gutter) is clicked.
+  // Toggle a checklist item when its box (the left gutter ~26px) is clicked.
+  // Measured against the item's own left edge so it works wherever the click
+  // actually lands (offsetX was relative to whatever node was under the cursor).
   const onMouseDown = (e) => {
     const li = e.target.closest?.('ul[data-check] > li')
-    if (li && e.offsetX <= 22) {
+    if (!li) return
+    const rect = li.getBoundingClientRect()
+    if (e.clientX - rect.left <= 26) {
       e.preventDefault()
       li.dataset.checked = li.dataset.checked === '1' ? '0' : '1'
       fireChange()

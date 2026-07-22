@@ -26,7 +26,7 @@ export function Avatar({ src, name = '', size = 'md', className = '' }) {
 }
 
 /** Pill badge - tone: brand | light | grey | green | amber | red */
-export function Badge({ tone = 'grey', children, className = '' }) {
+export function Badge({ tone = 'grey', children, className = '', ...rest }) {
   const tones = {
     brand: 'bg-brand text-white',
     light: 'bg-brand-tint text-brand',
@@ -36,7 +36,7 @@ export function Badge({ tone = 'grey', children, className = '' }) {
     red: 'bg-red-50 text-red-600',
   }
   return (
-    <span className={cx('inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium', tones[tone], className)}>
+    <span className={cx('inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium', tones[tone], className)} {...rest}>
       {children}
     </span>
   )
