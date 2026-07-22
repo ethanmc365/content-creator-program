@@ -31,6 +31,8 @@ export default function AdminChallengeForm() {
     rules: '',
     platforms: ['Instagram', 'TikTok'],
     prize_structure: DEFAULT_PRIZES,
+    participation_threshold: '', // videos needed to earn the participation reward
+    participation_prize: '',
     startDateStr: '', startTimeStr: '',
     endDateStr: '', endTimeStr: '',
     publishDateStr: '', publishTimeStr: '',
@@ -49,6 +51,8 @@ export default function AdminChallengeForm() {
           endDateStr: isoToDateInput(data.end_date), endTimeStr: isoToTimeInput(data.end_date),
           publishDateStr: isoToDateInput(data.publish_at), publishTimeStr: isoToTimeInput(data.publish_at),
           prize_structure: Array.isArray(data.prize_structure) ? data.prize_structure : DEFAULT_PRIZES,
+          participation_threshold: data.participation_threshold ?? '',
+          participation_prize: data.participation_prize ?? '',
         })
       }
       setLoading(false)
@@ -89,6 +93,15 @@ export default function AdminChallengeForm() {
       rules: form.rules.trim(),
       platforms: form.platforms,
       prize_structure: form.prize_structure.filter((p) => p.place && p.prize),
+      // Participation reward: earned after posting N videos. Both must be set to
+      // count; blank = no participation reward for this challenge.
+      participation_threshold:
+        form.participation_threshold && form.participation_prize.trim()
+          ? Math.max(1, parseInt(form.participation_threshold, 10) || 1)
+          : null,
+      participation_prize: form.participation_threshold && form.participation_prize.trim()
+        ? form.participation_prize.trim()
+        : null,
       start_date: startIso,
       end_date: endIso,
       // Optional auto-publish time: a cron flips the draft live at this moment.
@@ -204,6 +217,32 @@ export default function AdminChallengeForm() {
               </button>
             </div>
           ))}
+
+          {/* Participation reward: a separate, structured prize earned by posting
+              a set number of videos. The number here drives when the voucher
+              badge appears on the leaderboard. */}
+          <div className="rounded-xl border border-brand/20 bg-brand-tint/40 p-4">
+            <p className="label">Participation reward <span className="font-normal text-smoke">(optional)</span></p>
+            <p className="mb-3 text-xs text-smoke">Reward every creator who posts a set number of videos. It shows on the challenge and a badge appears beside them on the leaderboard once they hit the target.</p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-smoke">Post</span>
+                <input
+                  type="number" min="1" inputMode="numeric" className="input !w-20 text-center"
+                  value={form.participation_threshold}
+                  onChange={(e) => set({ participation_threshold: e.target.value })}
+                  placeholder="3" aria-label="Videos needed for the participation reward"
+                />
+                <span className="text-sm text-smoke">videos to earn</span>
+              </div>
+              <input
+                type="text" className="input flex-1"
+                value={form.participation_prize}
+                onChange={(e) => set({ participation_prize: e.target.value })}
+                placeholder="e.g. £10 Tryp.com voucher" aria-label="Participation reward"
+              />
+            </div>
+          </div>
         </section>
 
         {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}

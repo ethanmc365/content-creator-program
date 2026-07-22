@@ -154,7 +154,12 @@ export default function ChallengeDetail() {
   }
   const submittedPlatforms = (creatorId) =>
     PLATFORM_ORDER.filter((p) => platformsByCreator[creatorId]?.has(p))
-  const participation = parseParticipationPrize(prizes)
+  // Prefer the structured participation reward (set on the challenge form); fall
+  // back to parsing a "Post +N videos" prize row for older challenges.
+  const participation =
+    challenge.participation_threshold && challenge.participation_prize
+      ? { threshold: challenge.participation_threshold, prize: challenge.participation_prize }
+      : parseParticipationPrize(prizes)
   const earnedVoucherCount = participation
     ? Object.values(subCountByCreator).filter((n) => n >= participation.threshold).length
     : 0

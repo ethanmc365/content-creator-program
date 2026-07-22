@@ -136,7 +136,13 @@
   /* Checklists: a tappable box drawn before each item; JS toggles data-checked. */
   .rt-editor ul[data-check] { @apply list-none pl-0; }
   .rt-editor ul[data-check] > li {
-    @apply relative flex items-start gap-2 pl-0;
+    @apply relative flex min-h-[1.5rem] items-start gap-2 pl-0;
+  }
+  /* Keep a comfortable click/caret target after the box even when the item is
+     empty, so you can click beside the box and start typing. */
+  .rt-editor ul[data-check] > li::after {
+    content: '';
+    @apply min-h-[1.25rem] flex-1;
   }
   .rt-editor ul[data-check] > li::before {
     content: '';

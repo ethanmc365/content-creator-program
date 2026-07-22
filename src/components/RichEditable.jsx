@@ -70,8 +70,19 @@ const RichEditable = forwardRef(function RichEditable(
     if (!root || !sel || !sel.rangeCount) return fireChange()
     const range = sel.getRangeAt(0)
     const startBlk = blockAncestor(range.startContainer)
-    const endBlk = blockAncestor(range.endContainer)
+    let endBlk = blockAncestor(range.endContainer)
     if (!startBlk) { document.execCommand('formatBlock', false, tag); return fireChange() }
+    // A selection that stops at the very START of the next block (offset 0)
+    // shouldn't drag that block in - otherwise highlighting to the end of a line
+    // silently reformats the line below it too.
+    if (endBlk && endBlk !== startBlk) {
+      const probe = document.createRange()
+      probe.selectNodeContents(endBlk)
+      try { probe.setEnd(range.endContainer, range.endOffset) } catch { /* end not inside endBlk */ }
+      if (probe.toString().length === 0) {
+        endBlk = endBlk.previousElementSibling || startBlk
+      }
+    }
     // Walk the sibling blocks the selection covers (skip lists / dividers).
     const blocks = []
     let cur = startBlk
@@ -185,14 +196,16 @@ const RichEditable = forwardRef(function RichEditable(
     },
   }))
 
-  // Toggle a checklist item when its box (the left gutter ~26px) is clicked.
-  // Measured against the item's own left edge so it works wherever the click
-  // actually lands (offsetX was relative to whatever node was under the cursor).
+  // Toggle a checklist item ONLY when its actual box is clicked (left ~20px on
+  // the first line). Anywhere else - including just right of the box on an empty
+  // item - falls through so the caret lands there and you can type.
   const onMouseDown = (e) => {
     const li = e.target.closest?.('ul[data-check] > li')
     if (!li) return
     const rect = li.getBoundingClientRect()
-    if (e.clientX - rect.left <= 26) {
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+    if (x >= -4 && x <= 20 && y <= 28) {
       e.preventDefault()
       li.dataset.checked = li.dataset.checked === '1' ? '0' : '1'
       fireChange()
