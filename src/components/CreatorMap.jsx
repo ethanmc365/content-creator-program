@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom'
 import { GEO_URL, loadMapCentroids } from '../lib/mapCountries'
 import { geocodeCity } from '../lib/geocode'
 import { formatDate } from '../lib/utils'
+import { useIsDark } from '../lib/theme'
 
 // The creator map directory: every creator pinned on a world map at their home
 // town (photo + name), the countries they live in tinted orange, and a curved
@@ -125,6 +126,12 @@ function Plane({ x, y, angle, zoom }) {
 }
 
 function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = false, nearCount = 0, nearMeDisabled = false, onToggleNearMe = null, travelActive = null, onToggleTravel = null, onTravellersChange = null, onCreatorClick = null }) {
+  const dark = useIsDark()
+  // Dark-mode map palette: deep land on near-black sea, so the light-grey map
+  // doesn't glare. Home countries keep a muted warm tint.
+  const LAND_FILL = dark ? '#2a2c31' : LAND
+  const HOME_FILL = dark ? '#5c3a1f' : HOME
+  const SEPARATOR = dark ? '#0c0d10' : '#ffffff'
   const highlighting = highlightIds && highlightIds.size > 0
   const [extraCoords, setExtraCoords] = useState({}) // legacy rows: id -> {lat,lng}
   const [homeNames, setHomeNames] = useState(() => new Set()) // countries to tint
@@ -377,9 +384,9 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
                       key={geo.rsmKey}
                       geography={geo}
                       style={{
-                        default: { fill: isHome ? HOME : LAND, stroke: '#ffffff', strokeWidth: 0.4, outline: 'none' },
-                        hover: { fill: isHome ? HOME : LAND, stroke: '#ffffff', strokeWidth: 0.4, outline: 'none' },
-                        pressed: { fill: isHome ? HOME : LAND, outline: 'none' },
+                        default: { fill: isHome ? HOME_FILL : LAND_FILL, stroke: SEPARATOR, strokeWidth: 0.4, outline: 'none' },
+                        hover: { fill: isHome ? HOME_FILL : LAND_FILL, stroke: SEPARATOR, strokeWidth: 0.4, outline: 'none' },
+                        pressed: { fill: isHome ? HOME_FILL : LAND_FILL, outline: 'none' },
                       }}
                     />
                   )
@@ -564,7 +571,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
         </button>
       )}
 
-      <p className="pointer-events-none absolute bottom-2 left-3 z-10 rounded-full bg-white/80 px-3 py-1 text-[11px] text-smoke">
+      <p className="pointer-events-none absolute bottom-2 left-3 z-10 rounded-full bg-white/85 px-3 py-1 text-[11px] text-smoke backdrop-blur-sm">
         Tap a pin to see who's there · use + / − to zoom
       </p>
     </div>

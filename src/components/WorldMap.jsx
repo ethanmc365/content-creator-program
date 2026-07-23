@@ -1,6 +1,7 @@
 import { memo, useEffect, useMemo, useState } from 'react'
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from 'react-simple-maps'
 import { GEO_URL, loadMapCountryNames, loadMapCentroids } from '../lib/mapCountries'
+import { useIsDark } from '../lib/theme'
 
 // Interactive world map for "countries visited".
 //  * Free & open source: react-simple-maps + the world-atlas TopoJSON from
@@ -19,6 +20,11 @@ const BRAND_LIGHT = '#f5853f'
 const UNSELECTED = '#ECECEE'
 
 function WorldMap({ selected = [], onToggle, selectable = false, focusCountry = null, fitSelected = false }) {
+  const dark = useIsDark()
+  // Unvisited land + the hairline between countries darken in dark mode so the
+  // map reads as land-on-deep-sea instead of a glaring light-grey block.
+  const UNSELECTED_FILL = dark ? '#2a2c31' : UNSELECTED
+  const SEPARATOR = dark ? '#0c0d10' : '#ffffff'
   const [tooltip, setTooltip] = useState('')
   const [position, setPosition] = useState({ coordinates: [12, 8], zoom: 1 })
   const [focusPos, setFocusPos] = useState(null)
@@ -198,15 +204,15 @@ function WorldMap({ selected = [], onToggle, selectable = false, focusCountry = 
                       }
                       style={{
                         default: {
-                          fill: isSelected ? BRAND : UNSELECTED,
-                          stroke: '#ffffff',
+                          fill: isSelected ? BRAND : UNSELECTED_FILL,
+                          stroke: SEPARATOR,
                           strokeWidth: 0.4,
                           outline: 'none',
                           transition: 'fill 0.2s ease',
                         },
                         hover: {
-                          fill: isSelected ? BRAND : selectable ? BRAND_LIGHT : UNSELECTED,
-                          stroke: '#ffffff',
+                          fill: isSelected ? BRAND : selectable ? BRAND_LIGHT : UNSELECTED_FILL,
+                          stroke: SEPARATOR,
                           strokeWidth: 0.4,
                           outline: 'none',
                           cursor: selectable ? 'pointer' : 'default',
@@ -222,7 +228,7 @@ function WorldMap({ selected = [], onToggle, selectable = false, focusCountry = 
         </ComposableMap>
 
         {selectable && (
-          <p className="absolute bottom-2 left-3 rounded-full bg-white/80 px-3 py-1 text-[11px] text-smoke">
+          <p className="absolute bottom-2 left-3 rounded-full bg-white/85 px-3 py-1 text-[11px] text-smoke backdrop-blur-sm">
             Search above, or tap the map · use + / − to zoom
           </p>
         )}

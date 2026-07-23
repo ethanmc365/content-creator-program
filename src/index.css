@@ -194,14 +194,16 @@
    ===================================================================== */
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --d-bg: #0f1216;       /* app background            */
-  --d-surface: #191d24;  /* cards / raised surfaces   */
-  --d-surface-2: #212630;/* subtle sections, inputs   */
-  --d-surface-3: #262c37;/* hover / gray-100          */
-  --d-border: #2b313c;   /* hairline borders          */
-  --d-text: #e9eaed;     /* primary text              */
-  --d-text-soft: #9aa1ac;/* secondary text            */
-  --d-text-muted: #6b7280;/* muted / placeholders     */
+  /* Near-black + neutral dark greys (no navy tint), so "light grey" sections
+     become "dark grey" and white/light text reads clearly against them. */
+  --d-bg: #0a0a0b;       /* app background - near-black */
+  --d-surface: #161618;  /* cards / raised surfaces    */
+  --d-surface-2: #202023;/* subtle sections, inputs    */
+  --d-surface-3: #2a2a2e;/* hover / gray-100           */
+  --d-border: #2f2f34;   /* hairline borders           */
+  --d-text: #ededf0;     /* primary text               */
+  --d-text-soft: #a7a9b0;/* secondary text             */
+  --d-text-muted: #767880;/* muted / placeholders      */
 }
 
 html[data-theme='dark'],
@@ -215,12 +217,30 @@ html[data-theme='dark'] .bg-white { background-color: var(--d-surface); }
 /* Translucent white variants (sticky header, mobile tab bar, countdown tiles,
    the "challenge closed" pill) - keep them translucent so backdrop-blur still
    reads, just over the dark surface instead of white. */
-html[data-theme='dark'] .bg-white\/90 { background-color: rgba(25, 29, 36, 0.9); }
-html[data-theme='dark'] .bg-white\/95 { background-color: rgba(25, 29, 36, 0.95); }
+html[data-theme='dark'] .bg-white\/95 { background-color: rgba(22, 22, 24, 0.95); }
+html[data-theme='dark'] .bg-white\/90 { background-color: rgba(22, 22, 24, 0.9); }
+html[data-theme='dark'] .bg-white\/85 { background-color: rgba(22, 22, 24, 0.88); }
+html[data-theme='dark'] .bg-white\/70 { background-color: rgba(22, 22, 24, 0.8); }
+/* NB: bg-white/80 is deliberately NOT remapped - it's the white pulsing live-dot
+   on the orange "Live challenge" badge (must stay white on orange). The two map
+   caption pills that used /80 were switched to /85 so they still darken. */
 html[data-theme='dark'] .bg-cloud,
 html[data-theme='dark'] .bg-gray-50 { background-color: var(--d-surface-2); }
 html[data-theme='dark'] .bg-gray-100 { background-color: var(--d-surface-3); }
+/* Opacity-modified section tints are SEPARATE utility classes, so the remaps
+   above don't touch them - without these they render as the raw LIGHT colour at
+   partial opacity over the dark canvas (muddy grey boxes that don't match the
+   cards). Map the cloud tints to a barely-there dark grey, and the brand tints
+   to a soft orange glow, mirroring the solid remaps above. */
+html[data-theme='dark'] .bg-cloud\/40 { background-color: rgba(32, 32, 35, 0.5); }
+html[data-theme='dark'] .bg-cloud\/50 { background-color: rgba(32, 32, 35, 0.6); }
+html[data-theme='dark'] .bg-cloud\/60 { background-color: rgba(32, 32, 35, 0.7); }
+html[data-theme='dark'] .bg-cloud\/70 { background-color: rgba(32, 32, 35, 0.8); }
 html[data-theme='dark'] .bg-brand-tint { background-color: rgba(245, 133, 63, 0.16); }
+html[data-theme='dark'] .bg-brand-tint\/30 { background-color: rgba(245, 133, 63, 0.09); }
+html[data-theme='dark'] .bg-brand-tint\/40 { background-color: rgba(245, 133, 63, 0.11); }
+html[data-theme='dark'] .bg-brand-tint\/50 { background-color: rgba(245, 133, 63, 0.13); }
+html[data-theme='dark'] .bg-brand-tint\/60 { background-color: rgba(245, 133, 63, 0.15); }
 
 /* ---- Text ------------------------------------------------------------- */
 html[data-theme='dark'] .text-ink,

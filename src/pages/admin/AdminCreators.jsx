@@ -277,21 +277,23 @@ export default function AdminCreators() {
                 key={c.id}
                 className="flex w-full flex-col gap-2.5 border-b border-gray-50 px-5 py-4 transition-colors last:border-0 hover:bg-cloud/60 sm:flex-row sm:items-center sm:gap-4 sm:px-7"
               >
-                <div className="flex min-w-0 flex-1 items-center gap-2">
-                  <button onClick={() => setSelected(c)} className="flex min-w-0 flex-1 items-center gap-4 text-left">
-                    <span className="relative shrink-0">
-                      <Avatar src={c.photo_url} name={c.name} size="sm" />
-                      {isOnline(c) && <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-green-500 ring-2 ring-white" title="Online now" />}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="flex min-w-0 items-center gap-2 text-sm font-semibold">
-                        <span className="truncate">{c.name}</span>
-                        {c.is_admin && <Badge tone="light">Admin</Badge>}
-                      </p>
-                      <p className="truncate text-xs text-smoke">{emails[c.id] ?? '…'}</p>
-                    </div>
+                <div className="flex min-w-0 flex-1 items-center gap-4">
+                  <button onClick={() => setSelected(c)} className="relative shrink-0" aria-label={`Open ${c.name}`}>
+                    <Avatar src={c.photo_url} name={c.name} size="sm" />
+                    {isOnline(c) && <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-green-500 ring-2 ring-white" title="Online now" />}
                   </button>
-                  {emails[c.id] && <CopyButton value={emails[c.id]} label="Copy email" />}
+                  <div className="min-w-0 flex-1">
+                    <button onClick={() => setSelected(c)} className="flex min-w-0 max-w-full items-center gap-2 text-left text-sm font-semibold">
+                      <span className="truncate">{c.name}</span>
+                      {c.is_admin && <Badge tone="light">Admin</Badge>}
+                    </button>
+                    {/* Copy-email icon sits directly to the right of the email, not
+                        pushed out to the far edge of the row. */}
+                    <p className="flex min-w-0 items-center gap-1">
+                      <span className="truncate text-xs text-smoke">{emails[c.id] ?? '…'}</span>
+                      {emails[c.id] && <CopyButton value={emails[c.id]} label="Copy email" className="!h-6 !w-6 shrink-0" />}
+                    </p>
+                  </div>
                 </div>
                 {/* On mobile these sit on their own row under the name (indented past
                     the avatar) so nothing can overlap; on desktop they're inline. */}

@@ -16,7 +16,7 @@ import { cx } from '../lib/utils'
 const STEPS = ['Welcome', 'About you', 'Your socials', 'Travel photos', 'Your map', 'Languages', 'How it works']
 
 export default function Onboarding() {
-  const { user, profile, refreshProfile } = useAuth()
+  const { user, profile, refreshProfile, signOut } = useAuth()
   const navigate = useNavigate()
   const [step, setStep] = useState(0)
   const [busy, setBusy] = useState(false)
@@ -130,7 +130,20 @@ export default function Onboarding() {
         subtitle={pending
           ? "It's heading to the Tryp.com Team and will be reviewed shortly. We'll notify you by email soon, so keep an eye on your inbox and check back here shortly."
           : "Fastening your seatbelt. We're getting your creator profile ready for take-off."}
-      />
+      >
+        {/* Pending creators flow straight into the same review-pending screen
+            (ProtectedRoute's ReviewPending), which shows this Log out button.
+            Render it here too so it's present from the first frame - no button
+            popping in a few seconds later once the profile reloads. */}
+        {pending && (
+          <button
+            onClick={async () => { await signOut(); window.location.href = '/' }}
+            className="btn-ghost mt-6 text-sm"
+          >
+            Log out
+          </button>
+        )}
+      </TrypPlaneScene>
     )
   }
 

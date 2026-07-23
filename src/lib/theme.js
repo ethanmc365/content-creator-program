@@ -9,7 +9,31 @@
 // localStorage is a fast cache so the theme applies instantly on load without
 // waiting for the profile fetch (no bright flash before flipping to dark).
 
+import { useEffect, useState } from 'react'
+
 const KEY = 'tryp_dark_mode'
+
+// Is the community shell currently in dark mode? Reads the live attribute rather
+// than a cached preference so it's always accurate.
+export function isDarkNow() {
+  return document.documentElement.getAttribute('data-theme') === 'dark'
+}
+
+// Reactive version for components (e.g. the SVG maps) that need to swap
+// hard-coded fill colours when the creator toggles the theme. Subscribes to the
+// data-theme attribute on <html> so it updates instantly, no reload needed.
+export function useIsDark() {
+  const [dark, setDark] = useState(() => isDarkNow())
+  useEffect(() => {
+    const el = document.documentElement
+    const sync = () => setDark(el.getAttribute('data-theme') === 'dark')
+    const obs = new MutationObserver(sync)
+    obs.observe(el, { attributes: true, attributeFilter: ['data-theme'] })
+    sync()
+    return () => obs.disconnect()
+  }, [])
+  return dark
+}
 
 export function getStoredDark() {
   try {

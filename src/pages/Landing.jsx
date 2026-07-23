@@ -94,10 +94,12 @@ export default function Landing() {
       </section>
 
       {/* ---------- Stats ---------- */}
+      {/* The grey band sits behind the three headline stats only, running right
+          across the page. The live-challenge card is separate, below, on white. */}
       <section className="border-y border-gray-100 bg-cloud/50">
         <div className="mx-auto grid max-w-4xl grid-cols-3 gap-6 px-5 py-14 text-center sm:px-8">
           {[
-            { value: `${stats.creators}+`, label: 'Creators' },
+            { value: `${stats.creators}`, label: 'Creators' },
             { value: stats.challenges, label: 'Challenges run' },
             { value: formatMoney(stats.prizes), label: 'Prizes awarded' },
           ].map((s) => (
@@ -107,37 +109,37 @@ export default function Landing() {
             </div>
           ))}
         </div>
-
-        {/* Slim "a challenge is live" strip - pulsing dot, days left + prize pot. */}
-        {live && (
-          <div className="mx-auto max-w-4xl px-5 pb-14 sm:px-8">
-            <Link
-              to="/signup"
-              className="group flex flex-col items-center gap-3 rounded-card border border-brand/20 bg-white px-5 py-4 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-lift sm:flex-row sm:gap-5"
-            >
-              <span className="inline-flex items-center gap-2 rounded-full bg-brand-tint px-3 py-1 text-xs font-semibold uppercase tracking-wider text-brand">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/70" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-brand" />
-                </span>
-                Live now
-              </span>
-              <p className="min-w-0 flex-1 text-center text-sm text-ink sm:text-left">
-                <span className="font-semibold">A challenge is live</span>
-                {live.daysLeft > 0
-                  ? <> and ends in {live.daysLeft} {live.daysLeft === 1 ? 'day' : 'days'}.</>
-                  : <> and closes today.</>}
-                {' '}Join in and start earning.
-              </p>
-              {live.prizePot && (
-                <span className="shrink-0 rounded-full bg-brand px-4 py-1.5 text-sm font-bold text-white">
-                  {live.prizePot} prize pot
-                </span>
-              )}
-            </Link>
-          </div>
-        )}
       </section>
+
+      {/* ---------- Live challenge card (separate from the stats band) ---------- */}
+      {live && (
+        <section className="mx-auto max-w-4xl px-5 py-12 sm:px-8">
+          <Link
+            to="/signup"
+            className="group flex flex-col items-center gap-3 rounded-card border border-brand/20 bg-white px-5 py-4 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-lift sm:flex-row sm:gap-5"
+          >
+            <span className="inline-flex items-center gap-2 rounded-full bg-brand-tint px-3 py-1 text-xs font-semibold uppercase tracking-wider text-brand">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/70" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-brand" />
+              </span>
+              Live now
+            </span>
+            <p className="min-w-0 flex-1 text-center text-sm text-ink sm:text-left">
+              <span className="font-semibold">A challenge is live</span>
+              {live.daysLeft > 0
+                ? <> and ends in {live.daysLeft} {live.daysLeft === 1 ? 'day' : 'days'}.</>
+                : <> and closes today.</>}
+              {' '}Join in and start earning.
+            </p>
+            {live.prizePot && (
+              <span className="shrink-0 rounded-full bg-brand px-4 py-1.5 text-sm font-bold text-white">
+                {live.prizePot} to earn
+              </span>
+            )}
+          </Link>
+        </section>
+      )}
 
       {/* ---------- How it works ---------- */}
       <section className="mx-auto max-w-6xl px-5 py-24 sm:px-8">
