@@ -11,7 +11,7 @@ import Icon from '../components/Icon'
 import { Avatar, Badge, Skeleton, StatCard } from '../components/ui'
 import { flagForCountry } from '../lib/flags'
 import { stripMarkup } from '../lib/richText'
-import { formatDate, timeAgo, formatMoney, challengeDeadline } from '../lib/utils'
+import { formatDate, timeAgo, formatMoney, challengeDeadline, PRIZE_BASELINE } from '../lib/utils'
 
 // Signed-in home: the CURRENT challenge front and centre with a live
 // countdown, plus quick community pulse (latest announcement, new creators).
@@ -20,6 +20,7 @@ export default function Home() {
   const [allCountries, setAllCountries] = useState([])
   const [challenge, setChallenge] = useState(null)
   const [mySubmissions, setMySubmissions] = useState([])
+  const [entryCount, setEntryCount] = useState(0)
   const [announcement, setAnnouncement] = useState(null)
   const [newCreators, setNewCreators] = useState([])
   const [upcomingTrips, setUpcomingTrips] = useState([])
@@ -55,7 +56,7 @@ export default function Home() {
       setNewCreators(fresh ?? [])
       setStats({
         creators: creatorCount ?? 0,
-        prizes: (paid ?? []).reduce((sum, r) => sum + Number(r.amount), 0),
+        prizes: PRIZE_BASELINE + (paid ?? []).reduce((sum, r) => sum + Number(r.amount), 0),
       })
 
       // Combined "where we've been" map: union of countries across ACCEPTED
@@ -76,12 +77,12 @@ export default function Home() {
       setUpcomingTrips(tripsData ?? [])
 
       if (ch) {
-        const { data: subs } = await supabase
-          .from('submissions')
-          .select('id')
-          .eq('challenge_id', ch.id)
-          .eq('creator_id', user.id)
+        const [{ data: subs }, { count: totalEntries }] = await Promise.all([
+          supabase.from('submissions').select('id').eq('challenge_id', ch.id).eq('creator_id', user.id),
+          supabase.from('submissions').select('id', { count: 'exact', head: true }).eq('challenge_id', ch.id),
+        ])
         setMySubmissions(subs ?? [])
+        setEntryCount(totalEntries ?? 0)
       }
       setLoading(false)
     }
@@ -110,7 +111,7 @@ export default function Home() {
 
       {/* ---------- Current challenge hero ---------- */}
       {challenge ? (
-        <section className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-6 text-white shadow-lift sm:p-12">
+        <section className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-6 text-white shadow-lift sm:p-10">
           {/* Soft light bloom for depth - keeps the card clean, not flat. */}
           <div className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-white/10 blur-2xl" />
           <div className="pointer-events-none absolute -bottom-24 -left-10 h-72 w-72 rounded-full bg-black/5 blur-2xl" />
@@ -126,29 +127,34 @@ export default function Home() {
             <h2 className="mt-5 max-w-xl text-3xl font-bold leading-tight sm:text-4xl">{challenge.title}</h2>
             <p className="mt-3 max-w-xl text-white/85 line-clamp-2">{challenge.description}</p>
 
-            <div className="mt-8">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-white/75">Closes in</p>
-              <CountdownTimer endDate={challenge.end_date} hero />
+            {/* Countdown on the left, actions on the right so the card stays
+                compact instead of running tall. */}
+            <div className="mt-8 flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-white/75">Closes in</p>
+                <CountdownTimer endDate={challenge.end_date} hero />
+              </div>
+              <div className="flex flex-col gap-2.5 lg:items-end">
+                <div className="flex flex-wrap gap-3">
+                  <Link to={`/challenges/${challenge.id}`} className="btn bg-white text-brand hover:bg-white/90">
+                    {mySubmissions.length > 0 ? 'View your entry' : 'Read the brief →'}
+                  </Link>
+                  {/* Quick action: jump straight into the submit form. */}
+                  <Link
+                    to={`/challenges/${challenge.id}?submit=1`}
+                    className="btn border border-white/60 bg-transparent text-white hover:bg-white/10"
+                  >
+                    {mySubmissions.length > 0 ? '+ Add another video' : 'Submit your video'}
+                  </Link>
+                </div>
+                <p className="text-sm text-white/80">
+                  {mySubmissions.length > 0
+                    ? `You've entered with ${mySubmissions.length} ${mySubmissions.length === 1 ? 'video' : 'videos'} · `
+                    : ''}
+                  {entryCount} {entryCount === 1 ? 'entry' : 'entries'} so far
+                </p>
+              </div>
             </div>
-
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link to={`/challenges/${challenge.id}`} className="btn bg-white text-brand hover:bg-white/90">
-                {mySubmissions.length > 0 ? 'View your entry' : 'Read the brief →'}
-              </Link>
-              {/* Quick action: jump straight into the submit form. */}
-              <Link
-                to={`/challenges/${challenge.id}?submit=1`}
-                className="btn border border-white/60 bg-transparent text-white hover:bg-white/10"
-              >
-                {mySubmissions.length > 0 ? '+ Add another video' : 'Submit your video'}
-              </Link>
-            </div>
-
-            {mySubmissions.length > 0 && (
-              <p className="mt-6 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm">
-                You've entered with {mySubmissions.length} {mySubmissions.length === 1 ? 'video' : 'videos'}. Good luck!
-              </p>
-            )}
           </div>
         </section>
       ) : (
@@ -180,7 +186,7 @@ export default function Home() {
       {/* ---------- Program stats ---------- */}
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label="Creators in the program" value={stats.creators} />
-        <StatCard label="Prizes distributed" value={formatMoney(stats.prizes)} accent />
+        <StatCard label="Prizes awarded" value={formatMoney(stats.prizes)} accent />
         <StatCard label="Member since" value={formatDate(profile?.accepted_at || profile?.created_at)} />
       </section>
 

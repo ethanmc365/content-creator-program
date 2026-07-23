@@ -59,7 +59,7 @@ export default function CountdownTimer({ endDate, compact = false, hero = false 
       >
         {cells.map((c) => (
           <div key={c.label} className="flex flex-col items-center rounded-2xl bg-white px-1 py-3 shadow-[0_8px_24px_rgba(0,0,0,0.12)] sm:py-4">
-            <span className="text-3xl font-extrabold leading-none tabular-nums text-brand sm:text-5xl">
+            <span className="text-3xl font-extrabold leading-none tabular-nums text-ink sm:text-5xl">
               {String(c.value).padStart(2, '0')}
             </span>
             <span className="mt-1.5 text-[10px] font-semibold uppercase tracking-widest text-smoke sm:text-xs">{c.label}</span>

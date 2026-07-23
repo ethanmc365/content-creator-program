@@ -6,6 +6,7 @@ import { AvatarUpload, LanguageSelect, SocialInputs, DobField, PhoneInput, Quote
 import WorldMap from '../components/WorldMap'
 import TravelGallery from '../components/TravelGallery'
 import Icon from '../components/Icon'
+import TrypPlaneScene from '../components/TrypPlaneScene'
 import { geocodeCity } from '../lib/geocode'
 import { Spinner } from '../components/ui'
 import { cx } from '../lib/utils'
@@ -43,12 +44,10 @@ export default function Onboarding() {
   // Any edit clears the orange "missing fields" message.
   const set = (patch) => { setError(''); setDraft((d) => ({ ...d, ...patch })) }
 
-  // Profile completion meter shown at the top - pure encouragement.
-  const completion = [
-    draft.photo_url, draft.bio, draft.about,
-    draft.instagram_url || draft.tiktok_url || draft.youtube_url,
-    draft.countries_visited.length > 0, draft.languages.length > 0,
-  ].filter(Boolean).length
+  // Progress meter shown at the top. Endowed-progress: it starts at 20% rather
+  // than empty (people push on far more when the goal already feels underway),
+  // then fills to 100% across the steps.
+  const barPct = Math.round(20 + (step / (STEPS.length - 1)) * 80)
 
   // New creators are 'pending' until an admin approves them, so they cannot
   // post yet and land on the review screen instead of the chat.
@@ -122,6 +121,19 @@ export default function Onboarding() {
     navigate(sayHello && !pending ? '/chat/general' : '/home')
   }
 
+  // While the profile is saving, take over the screen with the branded plane
+  // scene (the same one used offline) instead of a small button spinner.
+  if (busy) {
+    return (
+      <TrypPlaneScene
+        title={pending ? 'Sending your application' : 'Setting up your profile'}
+        subtitle={pending
+          ? "Fastening your seatbelt. We're passing your profile to the Tryp.com Team for review."
+          : "Fastening your seatbelt. We're getting your creator profile ready for take-off."}
+      />
+    )
+  }
+
   return (
     <div className="min-h-screen bg-cloud/50 px-5 py-10 sm:py-16">
       <div className="mx-auto max-w-2xl">
@@ -131,12 +143,12 @@ export default function Onboarding() {
           <div className="w-full max-w-sm">
             <div className="mb-2 flex justify-between text-xs font-medium text-smoke">
               <span>Step {step + 1} of {STEPS.length}</span>
-              <span>Profile {Math.round((completion / 6) * 100)}% complete</span>
+              <span>Profile {barPct}% complete</span>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-white shadow-inner">
               <div
                 className="h-full rounded-full bg-brand transition-all duration-500"
-                style={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
+                style={{ width: `${barPct}%` }}
               />
             </div>
           </div>
@@ -211,14 +223,9 @@ export default function Onboarding() {
             <div className="space-y-6">
               <div className="text-center">
                 <h2 className="text-2xl font-bold">Add your travel photos</h2>
-                <p className="mt-2 text-sm text-smoke">Optional. Share up to 10 shots from your trips, or add them anytime later from your profile.</p>
+                <p className="mt-2 text-sm text-smoke">Optional. Share up to 10 shots from your trips, or just press Continue, you can always add them later from your profile.</p>
               </div>
               <TravelGallery creatorId={user.id} editable />
-              <div className="text-center">
-                <button onClick={next} className="text-sm font-medium text-smoke underline decoration-gray-300 underline-offset-4 hover:text-brand hover:decoration-brand">
-                  Add travel photos later →
-                </button>
-              </div>
             </div>
           )}
 

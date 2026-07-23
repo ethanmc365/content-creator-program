@@ -124,7 +124,7 @@ function Plane({ x, y, angle, zoom }) {
   )
 }
 
-function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = false, nearCount = 0, nearMeDisabled = false, onToggleNearMe = null, travelActive = null, onToggleTravel = null, onTravellersChange = null }) {
+function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = false, nearCount = 0, nearMeDisabled = false, onToggleNearMe = null, travelActive = null, onToggleTravel = null, onTravellersChange = null, onCreatorClick = null }) {
   const highlighting = highlightIds && highlightIds.size > 0
   const [extraCoords, setExtraCoords] = useState({}) // legacy rows: id -> {lat,lng}
   const [homeNames, setHomeNames] = useState(() => new Set()) // countries to tint
@@ -474,24 +474,38 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
             </button>
           </div>
           <div className="flex max-h-56 flex-col gap-1 overflow-y-auto">
-            {selectedTown.creators.map((c) => (
-              <Link key={c.id} to={`/profile/${c.id}`}
-                className="flex items-center gap-3 rounded-xl p-1.5 transition-colors hover:bg-cloud">
-                {c.photo_url ? (
-                  <img src={c.photo_url} alt={c.name} className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-white" />
-                ) : (
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-tint text-sm font-semibold text-brand ring-2 ring-white">
-                    {initials(c.name)}
-                  </span>
-                )}
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-medium text-ink">{c.name}</span>
-                  {c.countries_visited?.length > 0 && (
-                    <span className="block text-xs text-smoke">🌍 {c.countries_visited.length} countries</span>
+            {selectedTown.creators.map((c) => {
+              const inner = (
+                <>
+                  {c.photo_url ? (
+                    <img src={c.photo_url} alt={c.name} className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-white" />
+                  ) : (
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-tint text-sm font-semibold text-brand ring-2 ring-white">
+                      {initials(c.name)}
+                    </span>
                   )}
-                </span>
-              </Link>
-            ))}
+                  <span className="min-w-0 text-left">
+                    <span className="block truncate text-sm font-medium text-ink">{c.name}</span>
+                    {(c.countries_visited?.length || c.countries) > 0 && (
+                      <span className="block text-xs text-smoke">🌍 {c.countries_visited?.length || c.countries} countries</span>
+                    )}
+                  </span>
+                </>
+              )
+              // On the public landing page we intercept the click to show a
+              // mini-profile + join prompt instead of navigating into the app.
+              return onCreatorClick ? (
+                <button key={c.id} type="button" onClick={() => onCreatorClick(c)}
+                  className="flex w-full items-center gap-3 rounded-xl p-1.5 text-left transition-colors hover:bg-cloud">
+                  {inner}
+                </button>
+              ) : (
+                <Link key={c.id} to={`/profile/${c.id}`}
+                  className="flex items-center gap-3 rounded-xl p-1.5 transition-colors hover:bg-cloud">
+                  {inner}
+                </Link>
+              )
+            })}
           </div>
         </div>
       )}

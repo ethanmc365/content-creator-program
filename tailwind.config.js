@@ -61,13 +61,13 @@ export default {
           '20%, 60%': { transform: 'translateX(-6px)' },
           '40%, 80%': { transform: 'translateX(6px)' },
         },
-        // An aeroplane flying across, used by the airplane loader.
+        // An aeroplane flying straight across the dashed line. Horizontal only -
+        // no vertical bob - so its centre stays exactly on the line.
         fly: {
-          '0%': { transform: 'translateX(-130%) translateY(2px)', opacity: '0' },
+          '0%': { transform: 'translateX(-130%)', opacity: '0' },
           '15%': { opacity: '1' },
-          '50%': { transform: 'translateX(40%) translateY(-2px)' },
           '85%': { opacity: '1' },
-          '100%': { transform: 'translateX(210%) translateY(2px)', opacity: '0' },
+          '100%': { transform: 'translateX(210%)', opacity: '0' },
         },
       },
       animation: {

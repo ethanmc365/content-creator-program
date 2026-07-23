@@ -55,6 +55,12 @@ export function formatViews(n) {
   return String(n)
 }
 
+// Prizes we handed out running challenges on WhatsApp before this platform
+// existed. The public + in-app "prizes awarded" totals start from this baseline
+// and add everything distributed on-platform. Keep in sync with the same literal
+// in landing_stats() (migration 060).
+export const PRIZE_BASELINE = 500
+
 /** "£150" for whole amounts, "£12.50" when there are pennies. */
 export function formatMoney(amount, currency = 'GBP') {
   const whole = Number.isInteger(Number(amount))

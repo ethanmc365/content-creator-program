@@ -351,9 +351,12 @@ export default function Messages() {
   useEffect(() => { atBottomRef.current = atBottom }, [atBottom])
 
   // Opening a conversation, pin firmly to the newest message. Media (avatars,
-  // images, video) can finish loading AFTER the first scroll and push content
-  // down, stranding the view in the middle. Re-pin across the next few frames and
-  // whenever an image finishes loading, while the reader hasn't scrolled up.
+  // images, video posters, async link previews) can finish loading AFTER the
+  // first scroll and push content down, stranding the view in the middle. We
+  // re-pin across the next few frames AND whenever any descendant image loads -
+  // `load` doesn't bubble, so we listen in the capture phase, which also catches
+  // images inserted later. Guarded by atBottomRef so a scrolled-up reader is
+  // never yanked.
   useLayoutEffect(() => {
     if (loadingThread || !conversationId) return
     const el = scrollerRef.current
@@ -361,13 +364,12 @@ export default function Messages() {
     const pin = () => { if (atBottomRef.current) el.scrollTop = el.scrollHeight }
     el.scrollTop = el.scrollHeight
     const raf = requestAnimationFrame(pin)
-    const timers = [setTimeout(pin, 100), setTimeout(pin, 300), setTimeout(pin, 700)]
-    const imgs = Array.from(el.querySelectorAll('img'))
-    imgs.forEach((img) => { if (!img.complete) img.addEventListener('load', pin) })
+    const timers = [setTimeout(pin, 60), setTimeout(pin, 200), setTimeout(pin, 500), setTimeout(pin, 1200)]
+    el.addEventListener('load', pin, true)
     return () => {
       cancelAnimationFrame(raf)
       timers.forEach(clearTimeout)
-      imgs.forEach((img) => img.removeEventListener('load', pin))
+      el.removeEventListener('load', pin, true)
     }
   }, [loadingThread, conversationId])
 

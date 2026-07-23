@@ -343,10 +343,13 @@ export default function Chat() {
   useEffect(() => { atBottomRef.current = atBottom }, [atBottom])
 
   // Landing on a freshly opened channel, pin firmly to the newest message. Media
-  // (avatars, images, embeds) can finish loading AFTER the first scroll and push
-  // content down, stranding the view in the middle. Re-pin across the next few
-  // frames and whenever an image inside the history finishes loading, but only
-  // while the reader hasn't deliberately scrolled up.
+  // (avatars, message images, async link previews, embeds) can finish loading
+  // AFTER the first scroll and push content down, stranding the view in the
+  // middle. We re-pin across the next few frames AND whenever any image inside
+  // the history loads - `load` doesn't bubble, so we listen in the capture phase,
+  // which also catches images inserted later (e.g. link previews that fetch their
+  // thumbnail a second or two after paint). Guarded by atBottomRef so it never
+  // yanks a reader who has deliberately scrolled up.
   useLayoutEffect(() => {
     if (loading) return
     const el = scrollerRef.current
@@ -354,13 +357,12 @@ export default function Chat() {
     const pin = () => { if (atBottomRef.current) el.scrollTop = el.scrollHeight }
     el.scrollTop = el.scrollHeight
     const raf = requestAnimationFrame(pin)
-    const timers = [setTimeout(pin, 100), setTimeout(pin, 300), setTimeout(pin, 700)]
-    const imgs = Array.from(el.querySelectorAll('img'))
-    imgs.forEach((img) => { if (!img.complete) img.addEventListener('load', pin) })
+    const timers = [setTimeout(pin, 60), setTimeout(pin, 200), setTimeout(pin, 500), setTimeout(pin, 1200)]
+    el.addEventListener('load', pin, true) // capture: fires for every descendant <img>, now and later
     return () => {
       cancelAnimationFrame(raf)
       timers.forEach(clearTimeout)
-      imgs.forEach((img) => img.removeEventListener('load', pin))
+      el.removeEventListener('load', pin, true)
     }
   }, [loading, channel])
 

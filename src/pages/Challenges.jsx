@@ -166,21 +166,37 @@ export default function Challenges() {
           {/* ---------- Live ---------- */}
           {live.map((c) => (
             <div key={c.id}>
-              <div className="block overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-6 text-white shadow-lift sm:p-10">
-                <div className="flex flex-wrap items-center gap-3">
-                  <Badge className="!bg-white/20 !text-white">Live now</Badge>
-                  <span className="text-xs text-white/75">{formatDate(c.start_date)} → {formatDate(c.end_date)}</span>
-                </div>
-                <Link to={`/challenges/${c.id}`} className="block">
-                  <h2 className="mt-4 text-2xl font-bold hover:underline sm:text-3xl">{c.title}</h2>
-                  <p className="mt-2 max-w-2xl text-white/85 line-clamp-2">{c.description}</p>
-                </Link>
-                <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
-                  <CountdownTimer endDate={c.end_date} />
+              <div className="relative block overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-6 text-white shadow-lift sm:p-10">
+                {/* Soft light bloom for depth, matching the home hero. */}
+                <div className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-white/10 blur-2xl" />
+                <div className="pointer-events-none absolute -bottom-24 -left-10 h-72 w-72 rounded-full bg-black/5 blur-2xl" />
+                <div className="relative">
                   <div className="flex flex-wrap items-center gap-3">
-                    <span className="text-sm text-white/85">{c.submissions?.[0]?.count ?? 0} entries so far</span>
-                    <Link to={`/challenges/${c.id}`} className="btn border border-white/40 text-white hover:bg-white/10">Read the brief →</Link>
-                    <Link to={`/challenges/${c.id}?submit=1`} className="btn bg-white !text-brand hover:bg-white/90">Submit your video</Link>
+                    <span className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider">
+                      <span className="relative flex h-2 w-2">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/80" />
+                        <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
+                      </span>
+                      Live now
+                    </span>
+                    <span className="text-xs text-white/75">{formatDate(c.start_date)} → {formatDate(c.end_date)}</span>
+                  </div>
+                  <Link to={`/challenges/${c.id}`} className="block">
+                    <h2 className="mt-4 text-2xl font-bold hover:underline sm:text-3xl">{c.title}</h2>
+                    <p className="mt-2 max-w-2xl text-white/85 line-clamp-2">{c.description}</p>
+                  </Link>
+                  <div className="mt-8 flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
+                    <div>
+                      <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-white/75">Closes in</p>
+                      <CountdownTimer endDate={c.end_date} hero />
+                    </div>
+                    <div className="flex flex-col gap-2.5 lg:items-end">
+                      <div className="flex flex-wrap gap-3">
+                        <Link to={`/challenges/${c.id}`} className="btn border border-white/40 text-white hover:bg-white/10">Read the brief →</Link>
+                        <Link to={`/challenges/${c.id}?submit=1`} className="btn bg-white !text-brand hover:bg-white/90">Submit your video</Link>
+                      </div>
+                      <p className="text-sm text-white/80">{c.submissions?.[0]?.count ?? 0} {(c.submissions?.[0]?.count ?? 0) === 1 ? 'entry' : 'entries'} so far</p>
+                    </div>
                   </div>
                 </div>
               </div>

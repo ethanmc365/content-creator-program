@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Avatar } from '../components/ui'
 import Icon from '../components/Icon'
+import CreatorMap from '../components/CreatorMap'
 import { formatMoney } from '../lib/utils'
 
 // Public landing page - bright, spacious, one clear focal point per section.
@@ -13,8 +14,10 @@ const TRYP_URL = 'https://www.tryp.com'
 
 export default function Landing() {
   const { user, loading } = useAuth()
-  const [stats, setStats] = useState({ creators: 40, challenges: 6, prizes: 4500 })
+  const [stats, setStats] = useState({ creators: 40, challenges: 6, prizes: 500 })
   const [featured, setFeatured] = useState([])
+  const [mapData, setMapData] = useState({ creators: [], trips: {} })
+  const [miniProfile, setMiniProfile] = useState(null) // creator shown in the join-prompt modal
 
   useEffect(() => {
     supabase.rpc('landing_stats').then(({ data }) => {
@@ -22,6 +25,10 @@ export default function Landing() {
     })
     supabase.rpc('featured_creators').then(({ data }) => {
       if (data) setFeatured(data)
+    })
+    // Public community map: where creators are based and where they're headed.
+    supabase.rpc('public_creator_map').then(({ data }) => {
+      if (data) setMapData({ creators: data.creators || [], trips: data.trips || {} })
     })
   }, [])
 
@@ -50,7 +57,7 @@ export default function Landing() {
           Tryp.com Content Creator Program
         </p>
         <h1 className="mx-auto max-w-3xl text-5xl font-bold leading-[1.1] tracking-tight sm:text-7xl">
-          Create. Travel. <span className="text-brand">Earn.</span>
+          Create. Earn. <span className="text-brand">Travel.</span>
         </h1>
         <p className="mx-auto mt-8 max-w-xl text-lg leading-relaxed text-smoke">
           Join the official community of travel creators making content with Tryp.com.
@@ -124,22 +131,71 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ---------- Featured creators ---------- */}
-      {featured.length > 0 && (
+      {/* ---------- Meet the community ---------- */}
+      {(mapData.creators.length > 0 || featured.length > 0) && (
         <section className="mx-auto max-w-6xl px-5 py-24 sm:px-8">
           <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">Meet the community</h2>
-          <p className="mx-auto mt-4 max-w-md text-center text-smoke">A few of the creators already on board.</p>
-          <div className="mt-16 grid grid-cols-2 gap-6 lg:grid-cols-4">
-            {featured.map((c) => (
-              <div key={c.name} className="card flex flex-col items-center gap-3 !p-8 text-center">
-                <Avatar src={c.photo_url} name={c.name} size="lg" />
-                <p className="font-semibold">{c.name}</p>
-                <p className="text-xs leading-relaxed text-smoke line-clamp-2">{c.bio}</p>
-                <p className="flex items-center justify-center gap-1 text-xs font-semibold text-brand"><Icon name="globe" className="h-3.5 w-3.5" /> {c.countries} countries</p>
-              </div>
-            ))}
-          </div>
+          <p className="mx-auto mt-4 max-w-md text-center text-smoke">
+            Creators based all over the world, and always on the move. Tap a pin to meet them.
+          </p>
+
+          {/* Live world map: where creators are based + where they're travelling.
+              Tapping a creator opens a mini profile with a join prompt. */}
+          {mapData.creators.length > 0 && (
+            <div className="mt-12">
+              <CreatorMap creators={mapData.creators} trips={mapData.trips} onCreatorClick={setMiniProfile} />
+            </div>
+          )}
+
+          {featured.length > 0 && (
+            <div className="mt-12 grid grid-cols-2 gap-6 lg:grid-cols-4">
+              {featured.map((c) => (
+                <div key={c.name} className="card flex flex-col items-center gap-3 !p-8 text-center">
+                  <Avatar src={c.photo_url} name={c.name} size="lg" />
+                  <p className="font-semibold">{c.name}</p>
+                  <p className="text-xs leading-relaxed text-smoke line-clamp-2">{c.bio}</p>
+                  <p className="flex items-center justify-center gap-1 text-xs font-semibold text-brand"><Icon name="globe" className="h-3.5 w-3.5" /> {c.countries} countries</p>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
+      )}
+
+      {/* ---------- Mini profile + join prompt (from a map pin) ---------- */}
+      {miniProfile && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label={`${miniProfile.name}'s profile`}>
+          <button aria-label="Close" className="absolute inset-0 bg-ink/50 backdrop-blur-sm" onClick={() => setMiniProfile(null)} />
+          <div className="relative w-full max-w-sm rounded-t-card bg-white p-7 text-center shadow-lift animate-fade-up sm:rounded-card">
+            <button onClick={() => setMiniProfile(null)} aria-label="Close"
+              className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-smoke transition-colors hover:bg-cloud">
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+            <div className="mx-auto">
+              <Avatar src={miniProfile.photo_url} name={miniProfile.name} size="xl" />
+            </div>
+            <h3 className="mt-4 text-xl font-bold">{miniProfile.name}</h3>
+            {(miniProfile.city || miniProfile.country) && (
+              <p className="mt-1 flex items-center justify-center gap-1 text-sm text-smoke">
+                <Icon name="pin" className="h-3.5 w-3.5 text-brand" />
+                {[miniProfile.city, miniProfile.country].filter(Boolean).join(', ')}
+              </p>
+            )}
+            {miniProfile.bio && <p className="mt-3 text-sm leading-relaxed text-smoke line-clamp-4">{miniProfile.bio}</p>}
+            {miniProfile.countries > 0 && (
+              <p className="mt-3 inline-flex items-center gap-1 rounded-full bg-brand-tint px-3 py-1 text-xs font-semibold text-brand">
+                <Icon name="globe" className="h-3.5 w-3.5" /> {miniProfile.countries} countries explored
+              </p>
+            )}
+            <div className="mt-6 rounded-card bg-cloud/70 p-4">
+              <p className="text-sm font-medium text-ink">Join the community to connect with {miniProfile.name.split(' ')[0]}.</p>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <Link to="/signup" className="btn-primary flex-1 !py-2.5 text-sm">Sign up</Link>
+                <Link to="/login" className="btn-secondary flex-1 !py-2.5 text-sm">Log in</Link>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ---------- Final CTA ---------- */}

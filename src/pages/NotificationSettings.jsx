@@ -208,6 +208,34 @@ export default function NotificationSettings() {
         )}
       </section>
 
+      {/* ---- Daily puzzle reminders ---- */}
+      <section className="card mt-8">
+        <h2 className="text-lg font-semibold">Daily puzzle reminders</h2>
+        <p className="mt-1 text-sm text-smoke">
+          Never break a run on Guess the Country or Flight Path. These are push notifications.
+        </p>
+        <div className="mt-4">
+          <div className="flex items-center gap-4 border-b border-gray-100 py-4">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold">Streak reminder</p>
+              <p className="text-xs text-smoke">If your streak is at risk, we'll nudge you around 6pm to play before midnight.</p>
+            </div>
+            <div className="flex w-11 justify-center">
+              <Toggle on={prefs.daily_streak !== false} onChange={(v) => togglePush('daily_streak', v)} label="Daily streak reminder" />
+            </div>
+          </div>
+          <div className="flex items-center gap-4 py-4">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold">Remind me to play</p>
+              <p className="text-xs text-smoke">A gentle reminder around 10am each day to play the daily puzzles.</p>
+            </div>
+            <div className="flex w-11 justify-center">
+              <Toggle on={prefs.daily_reminder === true} onChange={(v) => togglePush('daily_reminder', v)} label="Daily puzzle reminder" />
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ---- Admin-only alerts (regular creators never see this) ---- */}
       {isAdmin && (
         <section className="card mt-8 border-brand/20 bg-brand-tint/30">
