@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react'
 import { confirm } from '../lib/confirm'
 import { loadDraft, saveDraft, clearDraft } from '../lib/drafts'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -52,6 +52,7 @@ export default function Messages() {
   const bottomRef = useRef(null)
   const scrollerRef = useRef(null)
   const prevLenRef = useRef(0)
+  const atBottomRef = useRef(true)
   const fileRef = useRef(null)
   const taRef = useRef(null)
   const composerRef = useRef(null)
@@ -338,6 +339,38 @@ export default function Messages() {
     setActionsFor(null)
   }, [conversationId])
 
+  // Jump the thread to the newest message. Setting scrollTop directly is more
+  // reliable than scrollIntoView on a sentinel inside this flex/overflow column.
+  const scrollToBottom = useCallback((behavior = 'auto') => {
+    const el = scrollerRef.current
+    if (!el) return
+    if (behavior === 'smooth') el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    else el.scrollTop = el.scrollHeight
+  }, [])
+
+  useEffect(() => { atBottomRef.current = atBottom }, [atBottom])
+
+  // Opening a conversation, pin firmly to the newest message. Media (avatars,
+  // images, video) can finish loading AFTER the first scroll and push content
+  // down, stranding the view in the middle. Re-pin across the next few frames and
+  // whenever an image finishes loading, while the reader hasn't scrolled up.
+  useLayoutEffect(() => {
+    if (loadingThread || !conversationId) return
+    const el = scrollerRef.current
+    if (!el) return
+    const pin = () => { if (atBottomRef.current) el.scrollTop = el.scrollHeight }
+    el.scrollTop = el.scrollHeight
+    const raf = requestAnimationFrame(pin)
+    const timers = [setTimeout(pin, 100), setTimeout(pin, 300), setTimeout(pin, 700)]
+    const imgs = Array.from(el.querySelectorAll('img'))
+    imgs.forEach((img) => { if (!img.complete) img.addEventListener('load', pin) })
+    return () => {
+      cancelAnimationFrame(raf)
+      timers.forEach(clearTimeout)
+      imgs.forEach((img) => img.removeEventListener('load', pin))
+    }
+  }, [loadingThread, conversationId])
+
   // Smart auto-scroll + "jump to latest" bookkeeping (same as #general): only
   // follow new messages when the reader is already at the bottom, or the new
   // message is their own. If they've scrolled up to read history, leave them put
@@ -348,19 +381,19 @@ export default function Messages() {
     const firstPaint = prevLenRef.current === 0
     const mineJustSent = grew && last && last.sender_id === user.id
     if (firstPaint || atBottom || mineJustSent) {
-      bottomRef.current?.scrollIntoView({ behavior: firstPaint ? 'auto' : 'smooth' })
+      scrollToBottom(firstPaint ? 'auto' : 'smooth')
       setNewBelow(0)
     } else if (grew) {
       setNewBelow((n) => n + (thread.length - prevLenRef.current))
     }
     prevLenRef.current = thread.length
-  }, [thread, atBottom, user.id])
+  }, [thread, atBottom, user.id, scrollToBottom])
 
   // Keep the latest message visible as the keyboard opens/closes or the visible
   // viewport resizes (only if we were already following the newest).
   useEffect(() => {
-    if (atBottom) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [kbOpen, vpHeight, atBottom])
+    if (atBottom) scrollToBottom('smooth')
+  }, [kbOpen, vpHeight, atBottom, scrollToBottom])
 
   // Auto-grow the composer like WhatsApp, capped before it scrolls internally.
   useEffect(() => {
@@ -375,15 +408,17 @@ export default function Messages() {
     const el = scrollerRef.current
     if (!el) return
     const near = el.scrollHeight - el.scrollTop - el.clientHeight < 90
+    atBottomRef.current = near
     setAtBottom(near)
     if (near) setNewBelow(0)
   }, [])
 
   const jumpToLatest = useCallback(() => {
     setAtBottom(true)
+    atBottomRef.current = true
     setNewBelow(0)
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [])
+    scrollToBottom('smooth')
+  }, [scrollToBottom])
 
   // Mobile composer gestures (same as #general). The thread is a fixed overlay,
   // so a drag on the composer chrome used to rubber-band the page body under it,

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { confirm } from '../../lib/confirm'
+import { confirm, promptText } from '../../lib/confirm'
 import { PageHeader, Skeleton, EmptyState } from '../../components/ui'
 import Icon from '../../components/Icon'
 import RichEditable from '../../components/RichEditable'
@@ -102,7 +102,7 @@ export default function AdminNotes() {
     { label: '—', title: 'Divider', act: 'divider' },
   ]
 
-  function runTool(act) {
+  async function runTool(act) {
     const ed = editorRef.current
     if (!ed) return
     const curBlock = () => (document.queryCommandValue('formatBlock') || '').toLowerCase()
@@ -119,8 +119,24 @@ export default function AdminNotes() {
       case 'check': unheading(); return ed.insertHtml('<ul data-check="1"><li data-checked="0">To do</li></ul>')
       case 'divider': unheading(); return ed.insertHtml('<hr><p><br></p>')
       case 'link': {
-        const url = window.prompt('Link URL')
-        if (url && /^https?:\/\//.test(url)) ed.exec('createLink', url)
+        // Capture the selection now, before the modal takes focus (toolbar
+        // buttons preventDefault on mousedown, so the caret is still in the note).
+        const sel = window.getSelection()
+        const saved = sel && sel.rangeCount ? sel.getRangeAt(0).cloneRange() : null
+        const hasText = saved && !saved.collapsed
+        const url = await promptText('Paste or type the web address to link.', {
+          title: 'Add a link',
+          placeholder: 'https://…',
+          confirmLabel: 'Add link',
+          inputType: 'url',
+        })
+        if (!url) return
+        const href = (/^https?:\/\//i.test(url) ? url : `https://${url}`).replace(/"/g, '%22')
+        // Put the caret/selection back into the note, then apply.
+        ed.el?.()?.focus()
+        if (saved) { const s = window.getSelection(); s.removeAllRanges(); s.addRange(saved) }
+        if (hasText) ed.exec('createLink', href)
+        else ed.insertHtml(`<a href="${href}">${href}</a>&nbsp;`)
         return
       }
       default: return

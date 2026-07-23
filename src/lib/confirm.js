@@ -39,3 +39,15 @@ export function notice(message, options = {}) {
   if (!handler) return Promise.resolve(true)
   return handler(String(message), { confirmLabel: 'OK', title: 'Heads up', ...options, noCancel: true })
 }
+
+/**
+ * Ask the user for a single line of text with a branded modal (replaces the
+ * native window.prompt(), which looks like a browser system dialog). Resolves to
+ * the trimmed string, or null if cancelled / left empty.
+ * @param {string} message  Label shown above the field.
+ * @param {{ placeholder?: string, defaultValue?: string, confirmLabel?: string, cancelLabel?: string, title?: string, inputType?: string }} [options]
+ */
+export function promptText(message, options = {}) {
+  if (!handler) return Promise.resolve(null)
+  return handler(String(message), { ...options, prompt: true })
+}

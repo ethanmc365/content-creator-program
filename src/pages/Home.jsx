@@ -110,17 +110,28 @@ export default function Home() {
 
       {/* ---------- Current challenge hero ---------- */}
       {challenge ? (
-        <section className="overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-6 text-white shadow-lift sm:p-12">
-          <Badge className="!bg-white/20 !text-white">Live challenge</Badge>
-          <h2 className="mt-4 max-w-xl text-3xl font-bold leading-tight sm:text-4xl">{challenge.title}</h2>
-          <p className="mt-3 max-w-xl text-white/85 line-clamp-2">{challenge.description}</p>
+        <section className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-6 text-white shadow-lift sm:p-12">
+          {/* Soft light bloom for depth - keeps the card clean, not flat. */}
+          <div className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-white/10 blur-2xl" />
+          <div className="pointer-events-none absolute -bottom-24 -left-10 h-72 w-72 rounded-full bg-black/5 blur-2xl" />
 
-          <div className="mt-8 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/70">Closes in</p>
-              <CountdownTimer endDate={challenge.end_date} />
+          <div className="relative">
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/80" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
+              </span>
+              Live challenge
+            </span>
+            <h2 className="mt-5 max-w-xl text-3xl font-bold leading-tight sm:text-4xl">{challenge.title}</h2>
+            <p className="mt-3 max-w-xl text-white/85 line-clamp-2">{challenge.description}</p>
+
+            <div className="mt-8">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-white/75">Closes in</p>
+              <CountdownTimer endDate={challenge.end_date} hero />
             </div>
-            <div className="flex flex-wrap gap-3">
+
+            <div className="mt-8 flex flex-wrap gap-3">
               <Link to={`/challenges/${challenge.id}`} className="btn bg-white text-brand hover:bg-white/90">
                 {mySubmissions.length > 0 ? 'View your entry' : 'Read the brief →'}
               </Link>
@@ -132,13 +143,13 @@ export default function Home() {
                 {mySubmissions.length > 0 ? '+ Add another video' : 'Submit your video'}
               </Link>
             </div>
-          </div>
 
-          {mySubmissions.length > 0 && (
-            <p className="mt-6 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm">
-              You've entered with {mySubmissions.length} {mySubmissions.length === 1 ? 'video' : 'videos'}. Good luck!
-            </p>
-          )}
+            {mySubmissions.length > 0 && (
+              <p className="mt-6 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm">
+                You've entered with {mySubmissions.length} {mySubmissions.length === 1 ? 'video' : 'videos'}. Good luck!
+              </p>
+            )}
+          </div>
         </section>
       ) : (
         <section className="relative overflow-hidden rounded-card border border-gray-100 bg-gradient-to-b from-brand-tint/40 to-white text-center shadow-card">
