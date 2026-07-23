@@ -11,7 +11,7 @@ import { loadRelationship, mutualConnections } from '../lib/connections'
 import { confirm, notice } from '../lib/confirm'
 import { downloadShareCard } from '../lib/shareCard'
 import { flagForCountry } from '../lib/flags'
-import { Avatar, Badge, Skeleton, EmptyState } from '../components/ui'
+import { Avatar, Badge, Skeleton, EmptyState, CopyButton } from '../components/ui'
 import Icon from '../components/Icon'
 import { format } from 'date-fns'
 import { formatDate, timeAgo, ageFromDob, cx } from '../lib/utils'
@@ -277,13 +277,19 @@ export default function Profile() {
             {contact.email && (
               <div>
                 <p className="text-xs font-medium text-smoke">Email</p>
-                <a href={`mailto:${contact.email}`} className="text-sm font-medium hover:text-brand">{contact.email}</a>
+                <div className="flex items-center gap-1.5">
+                  <a href={`mailto:${contact.email}`} className="break-all text-sm font-medium hover:text-brand">{contact.email}</a>
+                  <CopyButton value={contact.email} label="Copy email" />
+                </div>
               </div>
             )}
             {contact.phone && (
               <div>
                 <p className="text-xs font-medium text-smoke">Phone</p>
-                <a href={`tel:${contact.phone.replace(/\s+/g, '')}`} className="text-sm font-medium hover:text-brand">{contact.phone}</a>
+                <div className="flex items-center gap-1.5">
+                  <a href={`tel:${contact.phone.replace(/\s+/g, '')}`} className="text-sm font-medium hover:text-brand">{contact.phone}</a>
+                  <CopyButton value={contact.phone} label="Copy phone number" />
+                </div>
               </div>
             )}
           </div>

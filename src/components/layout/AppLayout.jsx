@@ -11,6 +11,7 @@ import { showLocalNotification } from '../../lib/push'
 import { stripMarkup } from '../../lib/richText'
 import { cx } from '../../lib/utils'
 import { useVisualViewport } from '../../lib/useKeyboardInset'
+import { applyTheme, getStoredDark, storeDark } from '../../lib/theme'
 
 // The signed-in app shell. One shared set of icon tabs powers BOTH the
 // desktop top bar and the mobile bottom bar, so they look identical.
@@ -56,6 +57,17 @@ export default function AppLayout() {
     document.addEventListener('visibilitychange', beat)
     return () => { stopped = true; clearInterval(iv); document.removeEventListener('visibilitychange', beat) }
   }, [user])
+
+  // Community dark mode. Applied only while this shell (a logged-in page) is
+  // mounted, so the public landing / auth pages always stay on the bright brand
+  // palette. The saved profile preference wins; until it loads we fall back to
+  // the localStorage cache so there's no bright flash for dark-mode users.
+  useEffect(() => {
+    const on = profile ? !!profile.dark_mode : getStoredDark()
+    applyTheme(on)
+    if (profile) storeDark(!!profile.dark_mode)
+    return () => applyTheme(false)
+  }, [profile, profile?.dark_mode])
 
   // "New in the library" dot: anything published since the last time this
   // creator opened the Resources page (which stamps resources_seen_at).
@@ -232,7 +244,7 @@ export default function AppLayout() {
                   </div>
                   <Link to={`/profile/${user?.id}`} onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">My profile</Link>
                   <Link to="/profile/edit" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Edit profile</Link>
-                  <Link to="/settings/notifications" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Notification settings</Link>
+                  <Link to="/settings" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Settings</Link>
                   <Link to="/rewards" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">My rewards</Link>
                   <Link to="/dashboard" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">My dashboard</Link>
 

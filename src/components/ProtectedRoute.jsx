@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { PlaneLoader, Spinner } from './ui'
 import ConnectGate from './ConnectGate'
+import TrypPlaneScene from './TrypPlaneScene'
 import { formatDate } from '../lib/utils'
 
 // Route guards.
@@ -24,20 +25,18 @@ async function signOutAndGoHome(signOut) {
   window.location.href = '/'
 }
 
-// Shown while a new creator's application is awaiting admin approval.
+// Shown while a new creator's application is awaiting admin approval. This is
+// the SAME branded plane scene shown while the application saves, so submitting
+// flows straight into it with no jarring screen swap - it's the one screen a
+// pending creator sees.
 function ReviewPending({ name, signOut }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-cloud/40 px-6 text-center">
-      <PlaneLoader />
-      <div className="max-w-md space-y-3">
-        <h1 className="text-2xl font-bold">Thanks{name ? `, ${name.split(' ')[0]}` : ''}! Your application is being reviewed</h1>
-        <p className="text-smoke">
-          The Tryp.com Team is reviewing your profile and socials right now. This usually does not take long.
-          We will notify you by email and in the app as soon as you are approved.
-        </p>
-      </div>
-      <button onClick={() => signOutAndGoHome(signOut)} className="btn-ghost text-sm">Log out</button>
-    </div>
+    <TrypPlaneScene
+      title={`Thanks${name ? `, ${name.split(' ')[0]}` : ''}! Your application is on its way`}
+      subtitle="It's heading to the Tryp.com Team and will be reviewed shortly. We'll notify you by email soon, so keep an eye on your inbox and check back here shortly."
+    >
+      <button onClick={() => signOutAndGoHome(signOut)} className="btn-ghost mt-6 text-sm">Log out</button>
+    </TrypPlaneScene>
   )
 }
 

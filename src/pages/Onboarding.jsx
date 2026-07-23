@@ -126,9 +126,9 @@ export default function Onboarding() {
   if (busy) {
     return (
       <TrypPlaneScene
-        title={pending ? 'Sending your application' : 'Setting up your profile'}
+        title={pending ? 'Your application is on its way' : 'Setting up your profile'}
         subtitle={pending
-          ? "Fastening your seatbelt. We're passing your profile to the Tryp.com Team for review."
+          ? "It's heading to the Tryp.com Team and will be reviewed shortly. We'll notify you by email soon, so keep an eye on your inbox and check back here shortly."
           : "Fastening your seatbelt. We're getting your creator profile ready for take-off."}
       />
     )

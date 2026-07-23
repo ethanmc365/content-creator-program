@@ -177,3 +177,100 @@
     100% { transform: translateX(100%); }
   }
 }
+
+/* =====================================================================
+   COMMUNITY DARK MODE
+   Opt-in per creator (Settings → Appearance). Toggled by `data-theme="dark"`
+   on <html>, applied only while a logged-in community page is mounted so the
+   public landing / auth pages keep the bright brand palette.
+
+   The app is built white-dominant with a consistent set of surface / text /
+   border utilities, so instead of adding dark: variants to hundreds of
+   components we remap those utilities (and the component recipes) here. Brand
+   orange, white-on-orange decorations (bg-white/NN, text-white) and other
+   colour accents are deliberately left untouched. Selectors are scoped under
+   html[data-theme="dark"] so they only bite in dark mode and always out-rank
+   the base single-class utilities.
+   ===================================================================== */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --d-bg: #0f1216;       /* app background            */
+  --d-surface: #191d24;  /* cards / raised surfaces   */
+  --d-surface-2: #212630;/* subtle sections, inputs   */
+  --d-surface-3: #262c37;/* hover / gray-100          */
+  --d-border: #2b313c;   /* hairline borders          */
+  --d-text: #e9eaed;     /* primary text              */
+  --d-text-soft: #9aa1ac;/* secondary text            */
+  --d-text-muted: #6b7280;/* muted / placeholders     */
+}
+
+html[data-theme='dark'],
+html[data-theme='dark'] body {
+  background-color: var(--d-bg);
+  color: var(--d-text);
+}
+
+/* ---- Surfaces --------------------------------------------------------- */
+html[data-theme='dark'] .bg-white { background-color: var(--d-surface); }
+/* Translucent white variants (sticky header, mobile tab bar, countdown tiles,
+   the "challenge closed" pill) - keep them translucent so backdrop-blur still
+   reads, just over the dark surface instead of white. */
+html[data-theme='dark'] .bg-white\/90 { background-color: rgba(25, 29, 36, 0.9); }
+html[data-theme='dark'] .bg-white\/95 { background-color: rgba(25, 29, 36, 0.95); }
+html[data-theme='dark'] .bg-cloud,
+html[data-theme='dark'] .bg-gray-50 { background-color: var(--d-surface-2); }
+html[data-theme='dark'] .bg-gray-100 { background-color: var(--d-surface-3); }
+html[data-theme='dark'] .bg-brand-tint { background-color: rgba(245, 133, 63, 0.16); }
+
+/* ---- Text ------------------------------------------------------------- */
+html[data-theme='dark'] .text-ink,
+html[data-theme='dark'] .text-black,
+html[data-theme='dark'] .text-gray-900,
+html[data-theme='dark'] .text-gray-800,
+html[data-theme='dark'] .text-gray-700 { color: var(--d-text); }
+html[data-theme='dark'] .text-smoke,
+html[data-theme='dark'] .text-gray-600,
+html[data-theme='dark'] .text-gray-500 { color: var(--d-text-soft); }
+html[data-theme='dark'] .text-gray-400,
+html[data-theme='dark'] .text-gray-300 { color: var(--d-text-muted); }
+
+/* ---- Borders ---------------------------------------------------------- */
+html[data-theme='dark'] .border-gray-50,
+html[data-theme='dark'] .border-gray-100,
+html[data-theme='dark'] .border-gray-200,
+html[data-theme='dark'] .border-gray-300 { border-color: var(--d-border); }
+
+/* ---- Component recipes (properties are inlined by @apply, so the utility
+        overrides above don't reach them - restyle them directly) --------- */
+html[data-theme='dark'] .card {
+  background-color: var(--d-surface);
+  border-color: var(--d-border);
+}
+html[data-theme='dark'] .input {
+  background-color: var(--d-surface-2);
+  border-color: var(--d-border);
+  color: var(--d-text);
+}
+html[data-theme='dark'] .input::placeholder { color: var(--d-text-muted); }
+html[data-theme='dark'] .btn-secondary {
+  background-color: var(--d-surface);
+  border-color: var(--d-border);
+  color: var(--d-text);
+}
+html[data-theme='dark'] .btn-ghost:hover {
+  background-color: var(--d-surface-2);
+  color: var(--d-text);
+}
+html[data-theme='dark'] .skeleton { background-color: var(--d-surface-2); }
+/* The shimmer is a bright white sweep - soften it on dark so it doesn't flash. */
+html[data-theme='dark'] .skeleton::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+}
+/* Keep the focus ring offset on the dark canvas, not white. */
+html[data-theme='dark'] *:focus-visible {
+  --tw-ring-offset-color: var(--d-bg);
+}
+/* Native controls (checkboxes, date pickers) render in dark too. */
+html[data-theme='dark'] input,
+html[data-theme='dark'] textarea,
+html[data-theme='dark'] select { color-scheme: dark; }

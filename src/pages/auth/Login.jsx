@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { Spinner } from '../../components/ui'
@@ -6,7 +6,7 @@ import Turnstile from '../../components/Turnstile'
 import AuthShell from './AuthShell'
 
 export default function Login() {
-  const { signIn } = useAuth()
+  const { signIn, user } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -14,6 +14,16 @@ export default function Login() {
   const [busy, setBusy] = useState(false)
   const [captchaToken, setCaptchaToken] = useState('')
   const [captchaKey, setCaptchaKey] = useState(0)
+
+  // Navigate DECLARATIVELY once the session is actually in context. Calling
+  // navigate('/home') straight after signIn() raced the auth state: setSession
+  // updates supabase, but React's `user` was still null for a tick, so
+  // ProtectedRoute saw no user and bounced back to /login with empty fields -
+  // the "have to enter my details twice" bug. Waiting for `user` to appear
+  // removes the window entirely: we only leave /login once we're truly signed in.
+  useEffect(() => {
+    if (user) navigate('/home', { replace: true })
+  }, [user, navigate])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -25,13 +35,15 @@ export default function Login() {
     const passVal = e.target.password?.value || password
     setBusy(true)
     const { error } = await signIn(emailVal, passVal, captchaToken)
-    setBusy(false)
     if (error) {
+      setBusy(false)
       setError(error.message === 'Invalid login credentials' ? 'Email or password is incorrect. Try again.' : error.message)
       setCaptchaToken(''); setCaptchaKey((k) => k + 1) // tokens are single-use; reset for retry
       return
     }
-    navigate('/home')
+    // Success: leave `busy` true and let the effect above navigate once `user`
+    // lands, so the button never flips back to an enabled "Log in" state (which
+    // looked like the form had cleared) during the redirect.
   }
 
   return (

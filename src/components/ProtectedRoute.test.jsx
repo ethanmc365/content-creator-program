@@ -47,7 +47,7 @@ describe('ProtectedRoute default-deny', () => {
     authValue = { ...base, user: { id: '1' }, profile: { name: 'A', onboarded: true, status: 'pending' } }
     renderAt('/home')
     expect(screen.queryByText('SECRET APP')).toBeNull()
-    expect(screen.getByText(/being reviewed/i)).toBeInTheDocument()
+    expect(screen.getByText(/on its way/i)).toBeInTheDocument()
   })
 
   it('does NOT render the app while the profile is still loading', () => {

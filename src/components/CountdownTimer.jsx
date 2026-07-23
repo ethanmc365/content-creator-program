@@ -53,16 +53,16 @@ export default function CountdownTimer({ endDate, compact = false, hero = false 
   if (hero) {
     return (
       <div
-        className="grid w-full max-w-md grid-cols-4 gap-2.5 sm:gap-3.5"
+        className="grid w-full max-w-xl grid-cols-4 gap-3 sm:gap-4"
         role="timer"
         aria-label={`${left.days} days ${left.hours} hours ${left.minutes} minutes remaining`}
       >
         {cells.map((c) => (
-          <div key={c.label} className="flex flex-col items-center rounded-2xl bg-white px-1 py-3 shadow-[0_8px_24px_rgba(0,0,0,0.12)] sm:py-4">
-            <span className="text-3xl font-extrabold leading-none tabular-nums text-ink sm:text-5xl">
+          <div key={c.label} className="flex flex-col items-center rounded-2xl bg-white px-1 py-4 shadow-[0_8px_24px_rgba(0,0,0,0.12)] sm:py-6">
+            <span className="text-4xl font-extrabold leading-none tabular-nums text-ink sm:text-6xl">
               {String(c.value).padStart(2, '0')}
             </span>
-            <span className="mt-1.5 text-[10px] font-semibold uppercase tracking-widest text-smoke sm:text-xs">{c.label}</span>
+            <span className="mt-2 text-[10px] font-semibold uppercase tracking-widest text-smoke sm:text-sm">{c.label}</span>
           </div>
         ))}
       </div>

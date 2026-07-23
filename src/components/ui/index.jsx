@@ -1,7 +1,8 @@
 // Small, reusable UI building blocks. Keeping them in one file makes the
 // design system easy to scan - every visual primitive lives here.
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { cx } from '../../lib/utils'
+import Icon from '../Icon'
 
 /** Circular profile photo with an initials fallback. */
 export function Avatar({ src, name = '', size = 'md', className = '' }) {
@@ -204,6 +205,77 @@ export function StreakChip({ n, title }) {
       </svg>
       {n} day{n === 1 ? '' : 's'}
     </span>
+  )
+}
+
+/** An on/off switch. Controlled: pass `on` and an `onChange(next)` handler. */
+export function Toggle({ on, onChange, label, disabled = false }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      disabled={disabled}
+      onClick={() => onChange(!on)}
+      className={cx(
+        'relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50',
+        on ? 'bg-brand' : 'bg-gray-300'
+      )}
+    >
+      <span className={cx('absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all', on ? 'left-[22px]' : 'left-0.5')} />
+    </button>
+  )
+}
+
+/**
+ * A compact "copy to clipboard" button. Shows a clipboard icon that swaps to a
+ * check for ~1.5s after a successful copy. `value` is what gets copied; `label`
+ * is the accessible name (e.g. "Copy email"). Sizing/styling is inherited from
+ * the surrounding text via currentColor so it blends into lists and cards.
+ */
+export function CopyButton({ value, label = 'Copy', className = '' }) {
+  const [copied, setCopied] = useState(false)
+  const timer = useRef(null)
+  useEffect(() => () => clearTimeout(timer.current), [])
+  async function copy(e) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!value) return
+    try {
+      await navigator.clipboard.writeText(String(value))
+    } catch {
+      // Fallback for older/insecure contexts where the async clipboard API is
+      // unavailable: use a hidden textarea + execCommand.
+      try {
+        const ta = document.createElement('textarea')
+        ta.value = String(value)
+        ta.style.position = 'fixed'
+        ta.style.opacity = '0'
+        document.body.appendChild(ta)
+        ta.select()
+        document.execCommand('copy')
+        document.body.removeChild(ta)
+      } catch { return }
+    }
+    setCopied(true)
+    clearTimeout(timer.current)
+    timer.current = setTimeout(() => setCopied(false), 1500)
+  }
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      aria-label={copied ? 'Copied' : label}
+      title={copied ? 'Copied' : label}
+      className={cx(
+        'inline-grid h-7 w-7 shrink-0 place-items-center rounded-lg text-smoke transition hover:-translate-y-px hover:bg-brand-tint hover:text-brand',
+        copied && 'text-green-600 hover:text-green-600',
+        className
+      )}
+    >
+      <Icon name={copied ? 'check' : 'copy'} className="h-4 w-4" />
+    </button>
   )
 }
 

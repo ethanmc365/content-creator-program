@@ -8,7 +8,7 @@ import AuthShell from './AuthShell'
 
 // Public creator signup. New accounts are creators by default - // admins are promoted later (see README → "Making an account an admin").
 export default function Signup() {
-  const { signUp } = useAuth()
+  const { signUp, user } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const ref = searchParams.get('ref') // referral code from a creator's invite link
@@ -33,6 +33,14 @@ export default function Signup() {
     supabase.rpc('increment_referral_click', { code: ref }).then(() => {})
   }, [ref])
 
+  // Navigate declaratively once the session is really in context, for the same
+  // reason as Login: navigating straight after signUp() raced the auth state and
+  // could bounce back through /login. Onboarding is guarded, so we only move once
+  // `user` exists (email confirmation is off, so a session always follows signup).
+  useEffect(() => {
+    if (user) navigate('/onboarding', { replace: true })
+  }, [user, navigate])
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
@@ -51,15 +59,16 @@ export default function Signup() {
     }
     setBusy(true)
     const { data, error } = await signUp(emailVal, passVal, nameVal, ref, captchaToken)
-    setBusy(false)
     if (error) {
+      setBusy(false)
       setError(error.message)
       setCaptchaToken(''); setCaptchaKey((k) => k + 1) // tokens are single-use; reset for retry
       return
     }
-    // If email confirmation is enabled in Supabase, there's no session yet.
-    if (data.session) navigate('/onboarding')
-    else setError('CHECK_EMAIL')
+    // If email confirmation is enabled in Supabase, there's no session yet, so
+    // the effect above won't fire - prompt them to confirm. Otherwise leave
+    // `busy` true and let the effect navigate once `user` lands.
+    if (!data.session) { setBusy(false); setError('CHECK_EMAIL') }
   }
 
   if (error === 'CHECK_EMAIL') {

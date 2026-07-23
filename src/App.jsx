@@ -30,6 +30,7 @@ import Resources from './pages/Resources'
 import Events from './pages/Events'
 import Notifications from './pages/Notifications'
 import NotificationSettings from './pages/NotificationSettings'
+import Settings from './pages/Settings'
 import Dashboard from './pages/Dashboard'
 import Jobs from './pages/Jobs'
 import Refer from './pages/Refer'
@@ -113,6 +114,7 @@ export default function App() {
           <Route path="/game" element={<Game />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/notifications" element={<Notifications />} />
+          <Route path="/settings" element={<Settings />} />
           <Route path="/settings/notifications" element={<NotificationSettings />} />
           <Route path="/feedback" element={<Feedback />} />
           <Route path="/dashboard" element={<Dashboard />} />

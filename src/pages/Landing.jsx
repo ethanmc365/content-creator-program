@@ -5,7 +5,22 @@ import { useAuth } from '../context/AuthContext'
 import { Avatar } from '../components/ui'
 import Icon from '../components/Icon'
 import CreatorMap from '../components/CreatorMap'
-import { formatMoney } from '../lib/utils'
+import { formatMoney, challengeDeadline } from '../lib/utils'
+
+// Sum the cash amounts in a challenge's prize breakdown into one "pot" label,
+// e.g. [{prize:'£105 cash'},{prize:'£55 cash'}] -> "£160". Returns null if there
+// are no parseable amounts.
+function prizePotLabel(structure) {
+  if (!Array.isArray(structure)) return null
+  let sum = 0
+  let symbol = '£'
+  for (const row of structure) {
+    const m = String(row?.prize || '').match(/([£€$])\s?([\d,]+(?:\.\d+)?)/)
+    if (m) { symbol = m[1]; sum += parseFloat(m[2].replace(/,/g, '')) }
+  }
+  if (sum <= 0) return null
+  return `${symbol}${Number.isInteger(sum) ? sum : sum.toFixed(2)}`
+}
 
 // Public landing page - bright, spacious, one clear focal point per section.
 // Live stats come from the public landing_stats() / featured_creators() RPCs;
@@ -18,6 +33,7 @@ export default function Landing() {
   const [featured, setFeatured] = useState([])
   const [mapData, setMapData] = useState({ creators: [], trips: {} })
   const [miniProfile, setMiniProfile] = useState(null) // creator shown in the join-prompt modal
+  const [live, setLive] = useState(null) // current live challenge snapshot for the slim card
 
   useEffect(() => {
     supabase.rpc('landing_stats').then(({ data }) => {
@@ -29,6 +45,13 @@ export default function Landing() {
     // Public community map: where creators are based and where they're headed.
     supabase.rpc('public_creator_map').then(({ data }) => {
       if (data) setMapData({ creators: data.creators || [], trips: data.trips || {} })
+    })
+    // Current live challenge for the "challenge is live" strip. We derive the
+    // days-left + prize pot here (not in render) so the count is stable.
+    supabase.rpc('public_live_challenge').then(({ data }) => {
+      if (!data) return
+      const daysLeft = Math.max(0, Math.ceil((challengeDeadline(data.end_date) - new Date()) / 86400000))
+      setLive({ title: data.title, daysLeft, prizePot: prizePotLabel(data.prize_structure) })
     })
   }, [])
 
@@ -84,6 +107,36 @@ export default function Landing() {
             </div>
           ))}
         </div>
+
+        {/* Slim "a challenge is live" strip - pulsing dot, days left + prize pot. */}
+        {live && (
+          <div className="mx-auto max-w-4xl px-5 pb-14 sm:px-8">
+            <Link
+              to="/signup"
+              className="group flex flex-col items-center gap-3 rounded-card border border-brand/20 bg-white px-5 py-4 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-lift sm:flex-row sm:gap-5"
+            >
+              <span className="inline-flex items-center gap-2 rounded-full bg-brand-tint px-3 py-1 text-xs font-semibold uppercase tracking-wider text-brand">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/70" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-brand" />
+                </span>
+                Live now
+              </span>
+              <p className="min-w-0 flex-1 text-center text-sm text-ink sm:text-left">
+                <span className="font-semibold">A challenge is live</span>
+                {live.daysLeft > 0
+                  ? <> and ends in {live.daysLeft} {live.daysLeft === 1 ? 'day' : 'days'}.</>
+                  : <> and closes today.</>}
+                {' '}Join in and start earning.
+              </p>
+              {live.prizePot && (
+                <span className="shrink-0 rounded-full bg-brand px-4 py-1.5 text-sm font-bold text-white">
+                  {live.prizePot} prize pot
+                </span>
+              )}
+            </Link>
+          </div>
+        )}
       </section>
 
       {/* ---------- How it works ---------- */}
@@ -148,16 +201,20 @@ export default function Landing() {
           )}
 
           {featured.length > 0 && (
-            <div className="mt-12 grid grid-cols-2 gap-6 lg:grid-cols-4">
-              {featured.map((c) => (
-                <div key={c.name} className="card flex flex-col items-center gap-3 !p-8 text-center">
-                  <Avatar src={c.photo_url} name={c.name} size="lg" />
-                  <p className="font-semibold">{c.name}</p>
-                  <p className="text-xs leading-relaxed text-smoke line-clamp-2">{c.bio}</p>
-                  <p className="flex items-center justify-center gap-1 text-xs font-semibold text-brand"><Icon name="globe" className="h-3.5 w-3.5" /> {c.countries} countries</p>
-                </div>
-              ))}
-            </div>
+            <>
+              <h3 className="mt-16 text-center text-lg font-semibold text-ink sm:text-xl">Recently active creators</h3>
+              <p className="mx-auto mt-2 text-center text-sm text-smoke">Some of the creators who've been busy in the community lately.</p>
+              <div className="mt-8 grid grid-cols-2 gap-6 lg:grid-cols-4">
+                {featured.map((c) => (
+                  <div key={c.name} className="card flex flex-col items-center gap-3 !p-8 text-center">
+                    <Avatar src={c.photo_url} name={c.name} size="lg" />
+                    <p className="font-semibold">{c.name}</p>
+                    <p className="text-xs leading-relaxed text-smoke line-clamp-2">{c.bio}</p>
+                    <p className="flex items-center justify-center gap-1 text-xs font-semibold text-brand"><Icon name="globe" className="h-3.5 w-3.5" /> {c.countries} countries</p>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </section>
       )}

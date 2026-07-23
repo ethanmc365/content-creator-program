@@ -3,7 +3,7 @@ import { confirm } from '../../lib/confirm'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { Avatar, Badge, Modal, PageHeader, Skeleton } from '../../components/ui'
+import { Avatar, Badge, CopyButton, Modal, PageHeader, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { formatDate, timeAgo, downloadCsv } from '../../lib/utils'
 
@@ -277,19 +277,22 @@ export default function AdminCreators() {
                 key={c.id}
                 className="flex w-full flex-col gap-2.5 border-b border-gray-50 px-5 py-4 transition-colors last:border-0 hover:bg-cloud/60 sm:flex-row sm:items-center sm:gap-4 sm:px-7"
               >
-                <button onClick={() => setSelected(c)} className="flex min-w-0 flex-1 items-center gap-4 text-left">
-                  <span className="relative shrink-0">
-                    <Avatar src={c.photo_url} name={c.name} size="sm" />
-                    {isOnline(c) && <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-green-500 ring-2 ring-white" title="Online now" />}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="flex min-w-0 items-center gap-2 text-sm font-semibold">
-                      <span className="truncate">{c.name}</span>
-                      {c.is_admin && <Badge tone="light">Admin</Badge>}
-                    </p>
-                    <p className="truncate text-xs text-smoke">{emails[c.id] ?? '…'}</p>
-                  </div>
-                </button>
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <button onClick={() => setSelected(c)} className="flex min-w-0 flex-1 items-center gap-4 text-left">
+                    <span className="relative shrink-0">
+                      <Avatar src={c.photo_url} name={c.name} size="sm" />
+                      {isOnline(c) && <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-green-500 ring-2 ring-white" title="Online now" />}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+                        <span className="truncate">{c.name}</span>
+                        {c.is_admin && <Badge tone="light">Admin</Badge>}
+                      </p>
+                      <p className="truncate text-xs text-smoke">{emails[c.id] ?? '…'}</p>
+                    </div>
+                  </button>
+                  {emails[c.id] && <CopyButton value={emails[c.id]} label="Copy email" />}
+                </div>
                 {/* On mobile these sit on their own row under the name (indented past
                     the avatar) so nothing can overlap; on desktop they're inline. */}
                 <div className="flex flex-wrap items-center gap-2 pl-[52px] sm:gap-3 sm:pl-0">
@@ -345,7 +348,10 @@ export default function AdminCreators() {
             <div className="flex flex-wrap items-center gap-4">
               <Avatar src={selected.photo_url} name={selected.name} size="lg" />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">{emails[selected.id]}</p>
+                <p className="flex items-center gap-1.5 text-sm font-medium">
+                  <span className="break-all">{emails[selected.id]}</span>
+                  {emails[selected.id] && <CopyButton value={emails[selected.id]} label="Copy email" />}
+                </p>
                 <p className="text-xs text-smoke">Joined {formatDate(selected.accepted_at || selected.created_at)} · {selected.age ? `${selected.age} yrs · ` : ''}{(selected.countries_visited ?? []).length} countries</p>
                 <p className="mt-0.5 text-xs">
                   {isOnline(selected) ? (
