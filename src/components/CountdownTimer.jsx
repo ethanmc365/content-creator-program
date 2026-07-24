@@ -21,7 +21,10 @@ function getTimeLeft(endDate) {
 // digit lines up perfectly.
 function Digits({ value }) {
   return (
-    <span className="tabular-nums">
+    // inline-flex so the two digit cells always sit on one line - on a narrow
+    // phone tile the inline-blocks could otherwise wrap the number onto a second
+    // row.
+    <span className="inline-flex tabular-nums">
       {String(value).padStart(2, '0').split('').map((ch, i) => (
         <span key={i} className="inline-block w-[1ch] text-center">{ch}</span>
       ))}
@@ -68,16 +71,16 @@ export default function CountdownTimer({ endDate, compact = false, hero = false 
   if (hero) {
     return (
       <div
-        className="grid w-full max-w-2xl grid-cols-4 gap-3 sm:gap-4"
+        className="grid w-full max-w-xl grid-cols-4 gap-2 sm:gap-3.5"
         role="timer"
         aria-label={`${left.days} days ${left.hours} hours ${left.minutes} minutes remaining`}
       >
         {cells.map((c) => (
-          <div key={c.label} className="flex flex-col items-center rounded-2xl bg-white px-3 py-4 shadow-[0_8px_24px_rgba(0,0,0,0.12)] sm:px-5 sm:py-6">
-            <span className="text-4xl font-bold leading-none text-ink sm:text-6xl">
+          <div key={c.label} className="flex flex-col items-center rounded-2xl bg-white px-1 py-3 shadow-[0_8px_24px_rgba(0,0,0,0.12)] sm:px-4 sm:py-5">
+            <span className="text-2xl font-bold leading-none text-ink sm:text-5xl">
               <Digits value={c.value} />
             </span>
-            <span className="mt-2 text-[10px] font-semibold uppercase tracking-widest text-smoke sm:text-sm">{c.label}</span>
+            <span className="mt-1.5 text-[9px] font-semibold uppercase tracking-widest text-smoke sm:mt-2 sm:text-sm">{c.label}</span>
           </div>
         ))}
       </div>

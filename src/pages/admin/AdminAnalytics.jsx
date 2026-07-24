@@ -205,10 +205,15 @@ export default function AdminAnalytics() {
     }))
 
     // ---- Money and reach ----
-    const totalPaid = rewards.filter((r) => r.status === 'distributed').reduce((s, r) => s + Number(r.amount), 0)
+    // Keep cash prizes and Tryp.com voucher value separate so the split between
+    // real cash paid out and vouchers gifted is obvious at a glance.
+    const distributed = rewards.filter((r) => r.status === 'distributed')
+    const cashPaid = distributed.filter((r) => r.reward_type !== 'voucher').reduce((s, r) => s + Number(r.amount), 0)
+    const voucherPaid = distributed.filter((r) => r.reward_type === 'voucher').reduce((s, r) => s + Number(r.amount), 0)
+    const totalPaid = cashPaid + voucherPaid
     const totalViews = perChallenge.reduce((s, c) => s + c.totalViews, 0)
     const verifiedViews = results.reduce((s, r) => s + (r.final_views || 0), 0)
-    const costPer1k = totalViews > 0 && totalPaid > 0 ? totalPaid / (totalViews / 1000) : null
+    const costPer1k = totalViews > 0 && cashPaid > 0 ? cashPaid / (totalViews / 1000) : null
 
     // ---- Community health ----
     const active = realCreators.filter((p) => p.status === 'active')
@@ -289,7 +294,7 @@ export default function AdminAnalytics() {
 
     return {
       growth, momentum, perChallenge, perChallengeRecent, mostActive, chat,
-      totalPaid, totalViews, verifiedViews, costPer1k, funnel,
+      totalPaid, cashPaid, voucherPaid, totalViews, verifiedViews, costPer1k, funnel,
       applications: { declined, approvedEver },
       activity7d: { activeThisWeek, connectionsMade, tripsPosted: tripCount, gamesPlayed: realGameScores.length },
       gamesByMode, weeklyPulse,
@@ -321,7 +326,7 @@ export default function AdminAnalytics() {
       <PageHeader title="Analytics" subtitle="The program's pulse: growth, output, reach and spend." />
 
       {/* ---- Headline numbers ---- */}
-      <div className="mb-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="mb-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         <StatCard label="Creators" value={derived.totals.creators} onClick={() => navigate('/admin/creators')} />
         <StatCard label="Challenges run" value={derived.totals.challenges} onClick={() => navigate('/admin/challenges')} />
         <StatCard label="Submissions" value={derived.totals.submissions} />
@@ -330,11 +335,12 @@ export default function AdminAnalytics() {
           value={formatViews(derived.totalViews)}
           hint={derived.verifiedViews > 0 ? `${formatViews(derived.verifiedViews)} verified` : 'logged by creators'}
         />
-        <StatCard label="Prize money paid" value={formatMoney(derived.totalPaid)} accent onClick={() => navigate('/admin/rewards')} />
+        <StatCard label="Cash prizes paid" value={formatMoney(derived.cashPaid)} accent onClick={() => navigate('/admin/rewards')} />
+        <StatCard label="Voucher value given" value={formatMoney(derived.voucherPaid)} hint="Tryp.com vouchers" onClick={() => navigate('/admin/rewards')} />
         <StatCard
           label="Cost per 1K views"
           value={derived.costPer1k != null ? formatMoney(derived.costPer1k) : '·'}
-          hint="prize spend per 1,000 views"
+          hint="cash spend per 1,000 views"
         />
       </div>
 

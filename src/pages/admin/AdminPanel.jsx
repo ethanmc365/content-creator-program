@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { PageHeader, StatCard, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
-import { cx, formatMoney } from '../../lib/utils'
+import { cx, formatMoney, PRIZE_BASELINE } from '../../lib/utils'
 
 // The admin hub: key numbers up top, then tiles linking every admin tool.
 const TOOLS = [
@@ -83,16 +83,23 @@ export default function AdminPanel() {
           supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'active').eq('is_admin', false).eq('is_test', false).is('deletion_requested_at', null),
           supabase.from('rewards').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
           supabase.from('challenges').select('id, title, end_date').eq('status', 'active').limit(1).maybeSingle(),
-          supabase.from('rewards').select('amount').eq('status', 'distributed'),
+          supabase.from('rewards').select('amount, reward_type').eq('status', 'distributed'),
           supabase.from('submissions').select('id', { count: 'exact', head: true }),
           supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'pending').eq('onboarded', true),
           supabase.from('feedback').select('id', { count: 'exact', head: true }).eq('status', 'new'),
         ])
+      // Split distributed rewards by type. Cash includes the £500 pre-platform
+      // baseline (WhatsApp-era challenges) so the headline "prizes distributed"
+      // accumulates from £500 upward as new prizes and vouchers are paid out.
+      const cashPaid = (paid ?? []).filter((r) => r.reward_type !== 'voucher').reduce((s, r) => s + Number(r.amount), 0)
+      const voucherPaid = (paid ?? []).filter((r) => r.reward_type === 'voucher').reduce((s, r) => s + Number(r.amount), 0)
       setStats({
         creators: creators ?? 0,
         pendingRewards: pendingRewards ?? 0,
         active,
-        totalPaid: (paid ?? []).reduce((s, r) => s + Number(r.amount), 0),
+        cashPaid: PRIZE_BASELINE + cashPaid,
+        voucherPaid,
+        totalPaid: PRIZE_BASELINE + cashPaid + voucherPaid,
         submissions: subsThisChallenge ?? 0,
         pendingApps: pendingApps ?? 0,
         newFeedback: newFeedback ?? 0,
@@ -111,7 +118,12 @@ export default function AdminPanel() {
         <div className="mb-12 grid grid-cols-2 gap-4 lg:grid-cols-4">
           <StatCard label="Creators" value={stats.creators} />
           <StatCard label="Total submissions" value={stats.submissions} />
-          <StatCard label="Prizes distributed" value={formatMoney(stats.totalPaid)} accent />
+          <StatCard
+            label="Prizes distributed"
+            value={formatMoney(stats.totalPaid)}
+            hint={`${formatMoney(stats.cashPaid)} cash · ${formatMoney(stats.voucherPaid)} vouchers`}
+            accent
+          />
           <StatCard
             label="Pending rewards"
             value={stats.pendingRewards}

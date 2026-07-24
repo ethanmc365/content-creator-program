@@ -1,14 +1,20 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { PageHeader } from '../components/ui'
-import Icon from '../components/Icon'
+import { Toggle } from './ui'
+import Icon from './Icon'
 import { enablePush, disablePush, pushSupported, pushPermission, showLocalNotification } from '../lib/push'
 import { cx } from '../lib/utils'
 
+// Notification preferences, extracted from the old standalone page so they can
+// live INLINE inside the Settings page (one place, no click-through). The state
+// hook is owned once by the parent and shared by both the creator sections and
+// the admin section, so toggling one never clobbers the other's keys in the
+// single profiles.notif_prefs JSON blob.
+
 // What creators can switch on and off. Keys match the notification `type`
 // column and the profiles.notif_prefs JSON.
-const CATEGORIES = [
+export const CATEGORIES = [
   { key: 'announcement', label: 'Announcements', hint: 'Official updates from the Tryp.com Team.' },
   { key: 'challenge', label: 'New challenges', hint: 'When a fresh challenge goes live.' },
   { key: 'event', label: 'Events', hint: 'Q&As, content days and milestones on the calendar.' },
@@ -19,9 +25,8 @@ const CATEGORIES = [
   { key: 'connection', label: 'New connections', hint: 'When a creator connects with you.' },
 ]
 
-// Admin-only alerts (hidden from regular creators). Keys match the notification
-// `type` column + the same notif_prefs / email_prefs JSON.
-const ADMIN_CATEGORIES = [
+// Admin-only alerts (hidden from regular creators).
+export const ADMIN_CATEGORIES = [
   { key: 'application', label: 'New creator applications', hint: 'When a creator submits their profile for review.' },
   { key: 'submission', label: 'New challenge entries', hint: 'When a creator submits a video to a challenge.' },
   { key: 'new_member', label: 'New creators joined', hint: 'When a creator is approved and becomes active.' },
@@ -31,45 +36,20 @@ const ADMIN_CATEGORIES = [
   { key: 'feedback', label: 'Bug reports & ideas', hint: 'When a creator reports a bug or suggests a feature.' },
 ]
 
-// Push defaults on; email defaults on only for the big moments.
 const DEFAULT_PREFS = Object.fromEntries(CATEGORIES.map((c) => [c.key, true]))
 const DEFAULT_EMAIL = { announcement: true, challenge: true, event: true, results: true, reward: true, application: true, dm: false, chat: false, connection: false }
 
-// Email delivery is not wired up yet (the Resend sender domain mail.tryp.com is
-// still unverified, so only the account owner receives sandbox mail). Until that
-// is sorted we hide the whole Email column so creators aren't offered a channel
-// that silently does nothing. To re-enable later: flip this to `true`. Everything
-// else (the toggles, the email_prefs writes, the DEFAULT_EMAIL values, the
-// server-side email_prefs gating in notify-dispatch) is left intact.
+// Email delivery is not wired up yet (Resend sender domain mail.tryp.com still
+// unverified), so the whole Email column is hidden until then. Flip to re-enable.
 const EMAIL_ENABLED = false
 
-function Toggle({ on, onChange, label }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      aria-label={label}
-      onClick={() => onChange(!on)}
-      className={cx('relative h-6 w-11 shrink-0 rounded-full transition-colors', on ? 'bg-brand' : 'bg-gray-300')}
-    >
-      <span className={cx('absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all', on ? 'left-[22px]' : 'left-0.5')} />
-    </button>
-  )
-}
-
-export default function NotificationSettings() {
-  const { user, profile, refreshProfile, isAdmin } = useAuth()
+// Shared state owned once by the parent (Settings). Both the creator and admin
+// sections read/write the SAME prefs object, so writes always carry every key.
+export function useNotificationPrefs() {
+  const { user, profile, refreshProfile } = useAuth()
   const [prefs, setPrefs] = useState({ ...DEFAULT_PREFS, ...(profile?.notif_prefs || {}) })
   const [emailPrefs, setEmailPrefs] = useState({ ...DEFAULT_EMAIL, ...(profile?.email_prefs || {}) })
   const [reminderDays, setReminderDays] = useState(profile?.challenge_reminder_days ?? [3, 1])
-
-  async function toggleReminderDay(d) {
-    const next = reminderDays.includes(d) ? reminderDays.filter((x) => x !== d) : [...reminderDays, d].sort((a, b) => b - a)
-    setReminderDays(next)
-    await supabase.from('profiles').update({ challenge_reminder_days: next }).eq('id', user.id)
-    refreshProfile()
-  }
   const [permission, setPermission] = useState(pushPermission())
   const [busy, setBusy] = useState(false)
   const [pushMsg, setPushMsg] = useState('')
@@ -80,53 +60,77 @@ export default function NotificationSettings() {
     await supabase.from('profiles').update({ notif_prefs: next }).eq('id', user.id)
     refreshProfile()
   }
-
   async function toggleEmail(key, value) {
     const next = { ...emailPrefs, [key]: value }
     setEmailPrefs(next)
     await supabase.from('profiles').update({ email_prefs: next }).eq('id', user.id)
     refreshProfile()
   }
-
+  async function toggleReminderDay(d) {
+    const next = reminderDays.includes(d) ? reminderDays.filter((x) => x !== d) : [...reminderDays, d].sort((a, b) => b - a)
+    setReminderDays(next)
+    await supabase.from('profiles').update({ challenge_reminder_days: next }).eq('id', user.id)
+    refreshProfile()
+  }
   async function turnOnPush() {
-    setBusy(true)
-    setPushMsg('')
+    setBusy(true); setPushMsg('')
     const result = await enablePush(user.id)
-    setPermission(pushPermission())
-    setBusy(false)
+    setPermission(pushPermission()); setBusy(false)
     if (result === 'granted') setPushMsg('Notifications are on for this device.')
     else if (result === 'denied') setPushMsg('Your browser is blocking notifications. Enable them in your browser settings, then try again.')
     else if (result === 'unsupported') setPushMsg('This browser does not support push notifications.')
     else setPushMsg('Something went wrong turning on notifications. Please try again.')
   }
-
   async function turnOffPush() {
-    setBusy(true)
-    await disablePush()
-    setBusy(false)
+    setBusy(true); await disablePush(); setBusy(false)
     setPushMsg('Push notifications turned off for this device.')
   }
 
-  const supported = pushSupported()
+  return { prefs, emailPrefs, reminderDays, permission, busy, pushMsg, togglePush, toggleEmail, toggleReminderDay, turnOnPush, turnOffPush }
+}
 
+// A single per-type row with a push toggle (and, once email is live, an email one).
+function PrefRow({ c, state }) {
   return (
-    <div className="page max-w-2xl">
-      <PageHeader title="Notification settings" subtitle="Choose what you hear about and how. Changes save automatically." />
-
-      {/* ---- Device push ---- */}
-      <section className="card mb-8 space-y-4">
-        <div>
-          <h2 className="text-lg font-semibold">Push notifications</h2>
-          <p className="mt-1 text-sm text-smoke">
-            Get alerts on this device even when the app is in the background. Add the app to your home screen for the best experience.
-          </p>
+    <div className="flex items-center gap-4 border-b border-gray-100 py-4 last:border-0">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold">{c.label}</p>
+        <p className="text-xs text-smoke">{c.hint}</p>
+      </div>
+      <div className="flex w-11 justify-center">
+        <Toggle on={state.prefs[c.key] !== false} onChange={(v) => state.togglePush(c.key, v)} label={`${c.label} push`} />
+      </div>
+      {EMAIL_ENABLED && (
+        <div className="flex w-11 justify-center">
+          {c.pushOnly
+            ? <span className="text-[11px] text-gray-300">-</span>
+            : <Toggle on={state.emailPrefs[c.key] === true} onChange={(v) => state.toggleEmail(c.key, v)} label={`${c.label} email`} />}
         </div>
+      )}
+    </div>
+  )
+}
 
+// The creator-facing notification sections (device push, per-type prefs,
+// deadline reminders, daily puzzle reminders).
+export function CreatorNotifications({ state }) {
+  const supported = pushSupported()
+  return (
+    <div className="space-y-6">
+      {/* ---- Device push ---- */}
+      <section className="card space-y-4">
+        <div className="flex items-center gap-2">
+          <Icon name="bell" className="h-5 w-5 text-brand" />
+          <h2 className="text-lg font-semibold">Notifications</h2>
+        </div>
+        <p className="-mt-2 text-sm text-smoke">
+          Get alerts on this device even when the app is in the background. Add the app to your home screen for the best experience.
+        </p>
         {!supported ? (
           <p className="rounded-xl bg-cloud px-4 py-3 text-sm text-smoke">
             This browser does not support push notifications. Try Chrome, Edge or installing the app to your home screen.
           </p>
-        ) : permission === 'granted' ? (
+        ) : state.permission === 'granted' ? (
           <div className="flex flex-wrap items-center gap-3">
             <span className="inline-flex items-center gap-2 rounded-full bg-green-50 px-3 py-1.5 text-sm font-medium text-green-700">
               <span className="h-2 w-2 rounded-full bg-green-500" /> On for this device
@@ -134,19 +138,17 @@ export default function NotificationSettings() {
             <button onClick={() => showLocalNotification({ title: 'Tryp.com', body: 'Test notification - you are all set!', link: '/notifications' })} className="btn-secondary !py-2 text-xs">
               Send a test
             </button>
-            <button onClick={turnOffPush} disabled={busy} className="btn-ghost !py-2 text-xs">Turn off</button>
+            <button onClick={state.turnOffPush} disabled={state.busy} className="btn-ghost !py-2 text-xs">Turn off</button>
           </div>
         ) : (
-          <button onClick={turnOnPush} disabled={busy} className="btn-primary">
-            {busy ? 'Enabling…' : 'Enable notifications on this device'}
+          <button onClick={state.turnOnPush} disabled={state.busy} className="btn-primary">
+            {state.busy ? 'Enabling…' : 'Enable notifications on this device'}
           </button>
         )}
-        {pushMsg && <p className="text-sm text-smoke">{pushMsg}</p>}
+        {state.pushMsg && <p className="text-sm text-smoke">{state.pushMsg}</p>}
       </section>
 
-      {/* ---- Per-type preferences: a push toggle (and, once email is live, an
-             email toggle) each. The email column is hidden while EMAIL_ENABLED
-             is false. ---- */}
+      {/* ---- Per-type preferences ---- */}
       <section className="card">
         {!EMAIL_ENABLED && (
           <div className="mb-3 flex items-start gap-2 rounded-xl bg-cloud px-4 py-3 text-xs text-smoke">
@@ -158,62 +160,50 @@ export default function NotificationSettings() {
           <span className="w-11 text-center">Push</span>
           {EMAIL_ENABLED && <span className="w-11 text-center">Email</span>}
         </div>
-        {CATEGORIES.map((c) => (
-          <div key={c.key} className="flex items-center gap-4 border-b border-gray-100 py-4 last:border-0">
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold">{c.label}</p>
-              <p className="text-xs text-smoke">{c.hint}</p>
-            </div>
-            <div className="w-11 flex justify-center">
-              <Toggle on={prefs[c.key] !== false} onChange={(v) => togglePush(c.key, v)} label={`${c.label} push`} />
-            </div>
-            {EMAIL_ENABLED && (
-              <div className="w-11 flex justify-center">
-                {c.pushOnly
-                  ? <span className="text-[11px] text-gray-300">-</span>
-                  : <Toggle on={emailPrefs[c.key] === true} onChange={(v) => toggleEmail(c.key, v)} label={`${c.label} email`} />}
-              </div>
-            )}
-          </div>
-        ))}
+        {CATEGORIES.map((c) => <PrefRow key={c.key} c={c} state={state} />)}
       </section>
 
+      <p className="text-xs text-smoke">
+        Push sends to your devices. Your in-app notification bell always keeps a record. Account-critical messages (like your application result) are always delivered.
+      </p>
+    </div>
+  )
+}
+
+// The reminder sections (deadline + daily puzzle). Kept separate so Settings can
+// lay them out full-width below the two columns, balancing the page.
+export function CreatorReminders({ state }) {
+  return (
+    <div className="grid gap-6 md:grid-cols-2">
       {/* ---- Challenge deadline reminders ---- */}
-      <section className="card mt-8">
+      <section className="card">
         <h2 className="text-lg font-semibold">Challenge deadline reminders</h2>
-        <p className="mt-1 text-sm text-smoke">
-          Get reminded before a live challenge closes so you can get your entries in. Choose when:
-        </p>
+        <p className="mt-1 text-sm text-smoke">Get reminded before a live challenge closes so you can get your entries in. Choose when:</p>
         <div className="mt-4 flex flex-wrap gap-2">
           {[14, 7, 5, 3].map((d) => {
-            const on = reminderDays.includes(d)
+            const on = state.reminderDays.includes(d)
             return (
               <button
                 key={d}
                 type="button"
-                onClick={() => toggleReminderDay(d)}
+                onClick={() => state.toggleReminderDay(d)}
                 aria-pressed={on}
-                className={cx(
-                  'rounded-full px-4 py-1.5 text-xs font-medium transition-colors',
-                  on ? 'bg-brand text-white' : 'border border-gray-200 text-smoke hover:border-brand hover:text-brand'
-                )}
+                className={cx('rounded-full px-4 py-1.5 text-xs font-medium transition-colors', on ? 'bg-brand text-white' : 'border border-gray-200 text-smoke hover:border-brand hover:text-brand')}
               >
                 {d} day{d > 1 ? 's' : ''} before
               </button>
             )
           })}
         </div>
-        {reminderDays.length === 0 && (
+        {state.reminderDays.length === 0 && (
           <p className="mt-3 text-xs text-amber-600">No reminders selected, so you won't be reminded about deadlines.</p>
         )}
       </section>
 
       {/* ---- Daily puzzle reminders ---- */}
-      <section className="card mt-8">
+      <section className="card">
         <h2 className="text-lg font-semibold">Daily puzzle reminders</h2>
-        <p className="mt-1 text-sm text-smoke">
-          Never break a run on Guess the Country or Flight Path. These are push notifications.
-        </p>
+        <p className="mt-1 text-sm text-smoke">Never break a run on Guess the Country or Flight Path. These are push notifications.</p>
         <div className="mt-4">
           <div className="flex items-center gap-4 border-b border-gray-100 py-4">
             <div className="min-w-0 flex-1">
@@ -221,7 +211,7 @@ export default function NotificationSettings() {
               <p className="text-xs text-smoke">If your streak is at risk, we'll nudge you around 6pm to play before midnight.</p>
             </div>
             <div className="flex w-11 justify-center">
-              <Toggle on={prefs.daily_streak !== false} onChange={(v) => togglePush('daily_streak', v)} label="Daily streak reminder" />
+              <Toggle on={state.prefs.daily_streak !== false} onChange={(v) => state.togglePush('daily_streak', v)} label="Daily streak reminder" />
             </div>
           </div>
           <div className="flex items-center gap-4 py-4">
@@ -230,46 +220,25 @@ export default function NotificationSettings() {
               <p className="text-xs text-smoke">A gentle reminder around 10am each day to play the daily puzzles.</p>
             </div>
             <div className="flex w-11 justify-center">
-              <Toggle on={prefs.daily_reminder === true} onChange={(v) => togglePush('daily_reminder', v)} label="Daily puzzle reminder" />
+              <Toggle on={state.prefs.daily_reminder === true} onChange={(v) => state.togglePush('daily_reminder', v)} label="Daily puzzle reminder" />
             </div>
           </div>
         </div>
       </section>
-
-      {/* ---- Admin-only alerts (regular creators never see this) ---- */}
-      {isAdmin && (
-        <section className="card mt-8 border-brand/20 bg-brand-tint/30">
-          <div className="mb-1 flex items-center gap-2">
-            <Icon name="shield" className="h-4 w-4 text-brand" />
-            <h2 className="text-lg font-semibold">Admin alerts</h2>
-          </div>
-          <p className="mb-3 text-xs text-smoke">Only the Tryp.com Team sees these. Toggle the admin notifications you want to receive.</p>
-          <div className="flex items-center justify-end gap-3 border-b border-gray-100 pb-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-            <span className="w-11 text-center">Push</span>
-            {EMAIL_ENABLED && <span className="w-11 text-center">Email</span>}
-          </div>
-          {ADMIN_CATEGORIES.map((c) => (
-            <div key={c.key} className="flex items-center gap-4 border-b border-gray-100 py-4 last:border-0">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold">{c.label}</p>
-                <p className="text-xs text-smoke">{c.hint}</p>
-              </div>
-              <div className="w-11 flex justify-center">
-                <Toggle on={prefs[c.key] !== false} onChange={(v) => togglePush(c.key, v)} label={`${c.label} push`} />
-              </div>
-              {EMAIL_ENABLED && (
-                <div className="w-11 flex justify-center">
-                  <Toggle on={emailPrefs[c.key] === true} onChange={(v) => toggleEmail(c.key, v)} label={`${c.label} email`} />
-                </div>
-              )}
-            </div>
-          ))}
-        </section>
-      )}
-
-      <p className="mt-4 text-xs text-smoke">
-        Push sends to your devices{EMAIL_ENABLED ? '; email sends to your inbox' : ''}. Your in-app notification bell always keeps a record. Account-critical messages (like your application result) are always delivered.
-      </p>
     </div>
+  )
+}
+
+// Admin-only alert toggles. Rendered at the very bottom of Settings, only for
+// admins. Shares the same prefs state as the creator section above.
+export function AdminNotifications({ state }) {
+  return (
+    <>
+      <div className="flex items-center justify-end gap-3 border-b border-gray-100 pb-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+        <span className="w-11 text-center">Push</span>
+        {EMAIL_ENABLED && <span className="w-11 text-center">Email</span>}
+      </div>
+      {ADMIN_CATEGORIES.map((c) => <PrefRow key={c.key} c={c} state={state} />)}
+    </>
   )
 }

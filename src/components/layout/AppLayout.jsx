@@ -11,7 +11,7 @@ import { showLocalNotification } from '../../lib/push'
 import { stripMarkup } from '../../lib/richText'
 import { cx } from '../../lib/utils'
 import { useVisualViewport } from '../../lib/useKeyboardInset'
-import { applyTheme, getStoredDark, storeDark } from '../../lib/theme'
+import { applyTheme, getStoredDark, storeDark, applyMotion, getStoredMotion } from '../../lib/theme'
 
 // The signed-in app shell. One shared set of icon tabs powers BOTH the
 // desktop top bar and the mobile bottom bar, so they look identical.
@@ -66,7 +66,10 @@ export default function AppLayout() {
     const on = profile ? !!profile.dark_mode : getStoredDark()
     applyTheme(on)
     if (profile) storeDark(!!profile.dark_mode)
-    return () => applyTheme(false)
+    // Reduce motion is a per-device preference (localStorage only), applied
+    // alongside the theme while the app shell is mounted.
+    applyMotion(getStoredMotion())
+    return () => { applyTheme(false); applyMotion(false) }
   }, [profile, profile?.dark_mode])
 
   // "New in the library" dot: anything published since the last time this
@@ -237,7 +240,7 @@ export default function AppLayout() {
                 {(connReqs > 0 || newResources) && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-brand ring-2 ring-white" aria-label={connReqs > 0 ? `${connReqs} connection requests` : 'New resources in the library'} />}
               </button>
               {menuOpen && (
-                <div className="absolute right-0 z-40 mt-2 max-h-[calc(100dvh-9rem-env(safe-area-inset-bottom))] w-60 overflow-y-auto overscroll-contain rounded-card border border-gray-100 bg-white p-2 pb-[calc(2rem+env(safe-area-inset-bottom))] shadow-lift origin-top-right animate-menu-in lg:max-h-[calc(100dvh-5rem)]">
+                <div data-ptr-ignore className="absolute right-0 z-40 mt-2 max-h-[calc(100dvh-9rem-env(safe-area-inset-bottom))] w-60 overflow-y-auto overscroll-contain rounded-card border border-gray-100 bg-white p-2 pb-[calc(2rem+env(safe-area-inset-bottom))] shadow-lift origin-top-right animate-menu-in lg:max-h-[calc(100dvh-5rem)]">
                   <div className="border-b border-gray-100 px-3 py-2">
                     <p className="truncate text-sm font-semibold">{profile?.name}</p>
                     <p className="truncate text-xs text-smoke">{user?.email}</p>

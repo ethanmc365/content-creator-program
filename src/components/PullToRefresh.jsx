@@ -27,9 +27,13 @@ export default function PullToRefresh() {
 
     function onStart(e) {
       // Only arm the gesture when it begins on the permanent header bar and the
-      // page is already scrolled to the very top.
+      // page is already scrolled to the very top. Bail if the touch starts
+      // inside a scrollable popover that opts out (data-ptr-ignore) - e.g. the
+      // avatar dropdown lives inside the header, so scrolling its list at the
+      // top used to be misread as a pull-to-refresh.
       const onHandle = e.target.closest?.('[data-ptr-handle]')
-      startY.current = onHandle && window.scrollY <= 0 ? e.touches[0].clientY : null
+      const ignored = e.target.closest?.('[data-ptr-ignore]')
+      startY.current = onHandle && !ignored && window.scrollY <= 0 ? e.touches[0].clientY : null
       pullRef.current = 0
     }
     function onMove(e) {

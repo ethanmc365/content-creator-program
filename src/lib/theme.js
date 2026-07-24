@@ -56,3 +56,32 @@ export function applyTheme(on) {
   if (on) el.setAttribute('data-theme', 'dark')
   else el.removeAttribute('data-theme')
 }
+
+// ---- Reduce motion (device-level, like dark mode) -----------------------
+// Lets a creator dim the app's animations/transitions without relying on an OS
+// setting. Stored in localStorage (a per-device preference) and applied by
+// flipping data-reduce-motion on <html>; a CSS layer in index.css neutralises
+// animations/transitions while it's set.
+const MOTION_KEY = 'tryp_reduce_motion'
+
+export function getStoredMotion() {
+  try {
+    return localStorage.getItem(MOTION_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function storeMotion(on) {
+  try {
+    localStorage.setItem(MOTION_KEY, on ? '1' : '0')
+  } catch {
+    /* private mode: ignore */
+  }
+}
+
+export function applyMotion(on) {
+  const el = document.documentElement
+  if (on) el.setAttribute('data-reduce-motion', '')
+  else el.removeAttribute('data-reduce-motion')
+}

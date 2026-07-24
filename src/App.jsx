@@ -29,7 +29,6 @@ import Rewards from './pages/Rewards'
 import Resources from './pages/Resources'
 import Events from './pages/Events'
 import Notifications from './pages/Notifications'
-import NotificationSettings from './pages/NotificationSettings'
 import Settings from './pages/Settings'
 import Dashboard from './pages/Dashboard'
 import Jobs from './pages/Jobs'
@@ -115,7 +114,9 @@ export default function App() {
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/notifications" element={<Notifications />} />
           <Route path="/settings" element={<Settings />} />
-          <Route path="/settings/notifications" element={<NotificationSettings />} />
+          {/* Notification settings now live inline on /settings; keep the old
+              path working for bookmarks/deep links by redirecting there. */}
+          <Route path="/settings/notifications" element={<Navigate to="/settings" replace />} />
           <Route path="/feedback" element={<Feedback />} />
           <Route path="/dashboard" element={<Dashboard />} />
 
