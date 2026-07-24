@@ -4,8 +4,9 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import CountdownTimer from '../components/CountdownTimer'
 import VideoThumb from '../components/VideoThumb'
+import Icon from '../components/Icon'
 import { Avatar, PageHeader, Badge, SkeletonCards, EmptyState } from '../components/ui'
-import { formatDate, formatViews, challengeDeadline } from '../lib/utils'
+import { formatDate, formatViews, formatMoney, challengeDeadline, PRIZE_BASELINE } from '../lib/utils'
 
 const STATUS_TONE = { active: 'brand', ended: 'amber', archived: 'grey', draft: 'red' }
 
@@ -74,6 +75,7 @@ export default function Challenges() {
   const [challenges, setChallenges] = useState([])
   const [galleries, setGalleries] = useState({}) // challenge_id -> {winners, totalViews}
   const [participation, setParticipation] = useState(null) // {posted, total} for the live challenge
+  const [prizesAwarded, setPrizesAwarded] = useState(null) // total distributed across the program
   const [loading, setLoading] = useState(true)
   // Captured once at mount (lazy initialiser, not read during render) so the
   // "is this challenge past its deadline" check stays pure per the lint rules.
@@ -88,6 +90,12 @@ export default function Challenges() {
       const all = data ?? []
       setChallenges(all)
       setLoading(false)
+
+      // Total prizes awarded across the program (moved here from the home page).
+      // Includes the pre-platform WhatsApp-era baseline so it reads honestly.
+      supabase.from('rewards').select('amount').eq('status', 'distributed').then(({ data: paid }) => {
+        setPrizesAwarded(PRIZE_BASELINE + (paid ?? []).reduce((sum, r) => sum + Number(r.amount), 0))
+      })
 
       // Hall-of-fame data: final results + each winner's video, in one sweep.
       const [{ data: results }, { data: subs }] = await Promise.all([
@@ -157,10 +165,18 @@ export default function Challenges() {
         action={isAdmin && <Link to="/admin/challenges/new" className="btn-primary">+ New challenge</Link>}
       />
 
+      {prizesAwarded != null && (
+        <div className="mb-8 inline-flex items-center gap-2.5 rounded-full border border-brand/20 bg-brand-tint/40 px-4 py-2 text-sm">
+          <Icon name="trophy" className="h-4 w-4 shrink-0 text-brand" />
+          <span className="font-semibold text-brand">{formatMoney(prizesAwarded)}</span>
+          <span className="text-smoke">awarded in prizes so far</span>
+        </div>
+      )}
+
       {loading ? (
         <SkeletonCards count={3} />
       ) : challenges.length === 0 ? (
-        <EmptyState emoji="🏁" title="No challenges yet" hint="The first challenge will appear here once the team posts it." />
+        <EmptyState icon={<Icon name="flag" className="h-7 w-7" />} title="No challenges yet" hint="The first challenge will appear here once the team posts it." />
       ) : (
         <div className="space-y-12">
           {/* ---------- Live ---------- */}

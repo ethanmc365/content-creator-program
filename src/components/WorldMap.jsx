@@ -179,6 +179,10 @@ function WorldMap({ selected = [], onToggle, selectable = false, focusCountry = 
             center={view.coordinates}
             minZoom={1}
             maxZoom={8}
+            // Keep the map inside the frame: a small margin allows a slight
+            // nudge, but you can never drag the map completely out of view,
+            // even when fully zoomed out. d3-zoom clamps panning to this extent.
+            translateExtent={[[-60, -50], [940, 490]]}
             onMoveEnd={(pos) => { if (!focusCountry) setPosition(pos) }}
           >
             <Geographies geography={GEO_URL}>

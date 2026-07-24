@@ -169,7 +169,7 @@ export default function Profile() {
   if (!creator) {
     return (
       <div className="page">
-        <EmptyState emoji="🧭" title="Creator not found" hint="They may have left the program." action={<Link to="/creators" className="btn-primary">Browse creators</Link>} />
+        <EmptyState icon={<Icon name="users" className="h-7 w-7" />} title="Creator not found" hint="They may have left the program." action={<Link to="/creators" className="btn-primary">Browse creators</Link>} />
       </div>
     )
   }

@@ -134,7 +134,7 @@ export default function ChallengeDetail() {
   if (!challenge) {
     return (
       <div className="page">
-        <EmptyState emoji="🧭" title="Challenge not found" action={<Link to="/challenges" className="btn-primary">All challenges</Link>} />
+        <EmptyState icon={<Icon name="flag" className="h-7 w-7" />} title="Challenge not found" action={<Link to="/challenges" className="btn-primary">All challenges</Link>} />
       </div>
     )
   }
@@ -273,7 +273,7 @@ export default function ChallengeDetail() {
       {tab === 'entries' && (
         submissions.length === 0 ? (
           <EmptyState
-            emoji="🎬"
+            icon={<Icon name="video" className="h-7 w-7" />}
             title="No submissions yet. Be the first to enter!"
             hint={isLive ? 'Paste your video link and claim the early-bird bragging rights.' : 'This challenge closed without entries.'}
             action={isLive && <button onClick={() => setShowSubmit(true)} className="btn-primary">Submit your video</button>}

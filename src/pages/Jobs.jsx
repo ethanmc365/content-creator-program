@@ -1,69 +1,66 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { confirm } from '../lib/confirm'
 import { Badge, EmptyState, Modal, PageHeader, SkeletonCards, Spinner } from '../components/ui'
+import Icon from '../components/Icon'
 import { timeAgo } from '../lib/utils'
 
-// Jobs board: paid roles the Tryp.com team is hiring for.
-// Creators browse and register interest, which sends an automatic DM to the
-// team with the role and a short note on why they're suited.
+// How the applicant sees their application move through the admin's pipeline.
+const APPLICANT_STATUS = {
+  new: { label: 'Application sent', tone: 'light' },
+  reviewing: { label: 'Under review', tone: 'amber' },
+  contacted: { label: 'The team reached out', tone: 'green' },
+  hired: { label: 'Hired', tone: 'green' },
+  declined: { label: 'Not this time', tone: 'grey' },
+}
+
+// Jobs board: paid roles the Tryp.com team is hiring for. Creators apply with a
+// short pitch, which is stored and reviewed on the admin jobs page (the team
+// then reaches out by email or DM). No more fire-and-forget auto DMs.
 export default function Jobs() {
   const { user, isAdmin } = useAuth()
-  const navigate = useNavigate()
   const [jobs, setJobs] = useState([])
+  const [applied, setApplied] = useState(new Map()) // job_id -> { id, status }
   const [loading, setLoading] = useState(true)
 
-  // "Register interest" modal
-  const [interestJob, setInterestJob] = useState(null)
-  const [reason, setReason] = useState('')
+  // "Apply" modal
+  const [applyJob, setApplyJob] = useState(null)
+  const [pitch, setPitch] = useState('')
   const [sending, setSending] = useState(false)
+  const [error, setError] = useState('')
 
-  useEffect(() => {
-    supabase
-      .from('jobs')
-      .select('*')
-      .eq('status', 'open')
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        setJobs(data ?? [])
-        setLoading(false)
-      })
-  }, [])
+  async function load() {
+    const [{ data: jobRows }, { data: apps }] = await Promise.all([
+      supabase.from('jobs').select('*').eq('status', 'open').order('created_at', { ascending: false }),
+      supabase.from('job_applications').select('id, job_id, status').eq('creator_id', user.id),
+    ])
+    setJobs(jobRows ?? [])
+    setApplied(new Map((apps ?? []).map((a) => [a.job_id, a])))
+    setLoading(false)
+  }
+  useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  function openInterest(job) {
-    setInterestJob(job)
-    setReason('')
+  function openApply(job) { setApplyJob(job); setPitch(''); setError('') }
+
+  async function submitApply(e) {
+    e.preventDefault()
+    if (!pitch.trim()) { setError("Add a short note on why you'd be a great fit."); return }
+    setSending(true)
+    const { error: insErr } = await supabase.from('job_applications').insert({
+      job_id: applyJob.id, creator_id: user.id, pitch: pitch.trim(),
+    })
+    setSending(false)
+    if (insErr) { setError('Could not send your application. Please try again.'); return }
+    setApplyJob(null)
+    load()
   }
 
-  // Send an automatic DM to the program lead (first admin) with the role + reason.
-  async function submitInterest(e) {
-    e.preventDefault()
-    if (!reason.trim()) return
-    setSending(true)
-    const { data: admin } = await supabase
-      .from('profiles').select('id').eq('is_admin', true).order('created_at').limit(1).maybeSingle()
-    if (!admin) { setSending(false); return }
-
-    const { data: existing } = await supabase
-      .from('conversations').select('id')
-      .or(`and(participant_a.eq.${user.id},participant_b.eq.${admin.id}),and(participant_a.eq.${admin.id},participant_b.eq.${user.id})`)
-      .maybeSingle()
-    let convoId = existing?.id
-    if (!convoId) {
-      const { data: created } = await supabase
-        .from('conversations').insert({ participant_a: user.id, participant_b: admin.id }).select('id').single()
-      convoId = created?.id
-    }
-    if (convoId) {
-      await supabase.from('direct_messages').insert({
-        conversation_id: convoId, sender_id: user.id, recipient_id: admin.id,
-        body: `👋 I'd like to register my interest in the "${interestJob.title}" role.\n\nWhy I'd be a great fit:\n${reason.trim()}`,
-      })
-    }
-    setSending(false)
-    setInterestJob(null)
-    if (convoId) navigate(`/messages/${convoId}`)
+  async function withdraw(job) {
+    if (!await confirm(`Withdraw your application for "${job.title}"?`)) return
+    setApplied((m) => { const n = new Map(m); n.delete(job.id); return n })
+    await supabase.from('job_applications').delete().eq('job_id', job.id).eq('creator_id', user.id)
   }
 
   return (
@@ -78,53 +75,67 @@ export default function Jobs() {
         <SkeletonCards count={3} />
       ) : jobs.length === 0 ? (
         <EmptyState
-          emoji="💼"
+          icon={<Icon name="briefcase" className="h-7 w-7" />}
           title="No open roles right now"
           hint="We post new positions here first. Keep creating great content and you'll be top of mind."
         />
       ) : (
         <div className="space-y-6">
-          {jobs.map((j) => (
-            <article key={j.id} className="card">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-semibold">{j.title}</h2>
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-smoke">
-                    <Badge tone="light">{j.job_type}</Badge>
-                    {j.location && <span>📍 {j.location}</span>}
-                    <span>Posted {timeAgo(j.created_at)}</span>
+          {jobs.map((j) => {
+            const app = applied.get(j.id)
+            const st = app ? APPLICANT_STATUS[app.status] || APPLICANT_STATUS.new : null
+            return (
+              <article key={j.id} className="card">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-xl font-semibold">{j.title}</h2>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-smoke">
+                      <Badge tone="light">{j.job_type}</Badge>
+                      {j.location && <span className="flex items-center gap-1"><Icon name="pin" className="h-3.5 w-3.5" />{j.location}</span>}
+                      <span>Posted {timeAgo(j.created_at)}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {j.apply_url && (
+                      <a href={j.apply_url} target="_blank" rel="noopener noreferrer" className="btn-secondary">Apply form ↗</a>
+                    )}
+                    {app ? (
+                      <div className="flex items-center gap-2">
+                        <Badge tone={st.tone}><Icon name="check" className="mr-1 inline h-3.5 w-3.5" />{st.label}</Badge>
+                        {(app.status === 'new' || app.status === 'reviewing') && (
+                          <button onClick={() => withdraw(j)} className="btn-ghost !py-2 text-xs">Withdraw</button>
+                        )}
+                      </div>
+                    ) : (
+                      <button onClick={() => openApply(j)} className="btn-primary">Apply</button>
+                    )}
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  {j.apply_url && (
-                    <a href={j.apply_url} target="_blank" rel="noopener noreferrer" className="btn-secondary">Apply form ↗</a>
-                  )}
-                  <button onClick={() => openInterest(j)} className="btn-primary">Register interest</button>
-                </div>
-              </div>
-              <p className="mt-5 whitespace-pre-line leading-relaxed text-smoke">{j.description}</p>
-            </article>
-          ))}
+                <p className="mt-5 whitespace-pre-line leading-relaxed text-smoke">{j.description}</p>
+              </article>
+            )
+          })}
         </div>
       )}
 
-      {/* Register interest modal */}
-      <Modal open={!!interestJob} onClose={() => setInterestJob(null)} title={`Register interest: ${interestJob?.title ?? ''}`}>
-        <form onSubmit={submitInterest} className="space-y-5">
+      {/* Apply modal */}
+      <Modal open={!!applyJob} onClose={() => setApplyJob(null)} title={`Apply: ${applyJob?.title ?? ''}`}>
+        <form onSubmit={submitApply} className="space-y-5">
           <p className="text-sm text-smoke">
-            Tell the team why you'd be a great fit. We'll send this straight to them as a direct message,
-            and they'll reply in your inbox.
+            Tell the team why you'd be a great fit. Your application is saved for the team to review, and
+            they'll reach out by email or a direct message. You can withdraw any time before they respond.
           </p>
           <div>
-            <label htmlFor="reason" className="label">Why are you suited to this role?</label>
+            <label htmlFor="pitch" className="label">Why are you suited to this role?</label>
             <textarea
-              id="reason" rows={5} required className="input"
-              value={reason} onChange={(e) => setReason(e.target.value)}
+              id="pitch" rows={6} required className="input"
+              value={pitch} onChange={(e) => setPitch(e.target.value)}
               placeholder="Your experience, your content niche, your reach, why you're excited…"
             />
           </div>
+          {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
           <button type="submit" disabled={sending} className="btn-primary w-full">
-            {sending ? <Spinner /> : 'Send to the team →'}
+            {sending ? <Spinner /> : 'Submit application'}
           </button>
         </form>
       </Modal>

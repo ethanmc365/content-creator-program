@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { Avatar, Badge, EmptyState, PageHeader, Skeleton, StatCard } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { formatDate, downloadCsv } from '../../lib/utils'
-import { REFERRAL_STAGES, referralStage } from '../../lib/referrals'
+import { referralStage } from '../../lib/referrals'
 
 // Admin view of referrals. Two sources:
 //  1. Creators who joined through someone's invite link (profiles.referred_by) -
@@ -130,15 +130,6 @@ export default function AdminReferrals() {
         <StatCard label="Counted referrals" value={totalCounted} accent />
         <StatCard label="In progress" value={inProgress} />
         <StatCard label="Open leads" value={referrals.filter((r) => r.status === 'new' || r.status === 'contacted').length} />
-      </div>
-
-      {/* Stage legend so the badges read clearly at a glance. */}
-      <div className="mb-8 flex flex-wrap gap-2">
-        {['signing_up', 'in_review', 'joined', 'counted'].map((k) => (
-          <span key={k} className="inline-flex items-center gap-1.5 text-xs text-smoke">
-            <StageBadge stage={REFERRAL_STAGES[k]} />
-          </span>
-        ))}
       </div>
 
       {loading ? (

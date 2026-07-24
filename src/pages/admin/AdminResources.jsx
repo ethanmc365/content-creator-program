@@ -3,6 +3,7 @@ import { confirm } from '../../lib/confirm'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../../components/ui'
+import Icon from '../../components/Icon'
 import { formatDate } from '../../lib/utils'
 import { playableContentType } from '../../lib/media'
 import { ensureMp4Brand } from '../../lib/videoRemux'
@@ -92,7 +93,7 @@ export default function AdminResources() {
       {loading ? (
         <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}</div>
       ) : resources.length === 0 ? (
-        <EmptyState emoji="📚" title="The library is empty" hint="Start with your brand guidelines and a few video hooks." />
+        <EmptyState icon={<Icon name="book" className="h-7 w-7" />} title="The library is empty" hint="Start with your brand guidelines and a few video hooks." />
       ) : (
         <div className="space-y-4">
           {resources.map((r) => (

@@ -339,6 +339,16 @@ export function AuthProvider({ children }) {
       return supabase.auth.signOut()
     },
 
+    // Sign out on every device: revokes all of this user's refresh tokens
+    // server-side (scope: 'global'), not just the local session. Because our
+    // refresh tokens never expire, this is the only way to boot a lost/stolen
+    // device. Other tabs/devices drop to the login screen on their next refresh.
+    signOutEverywhere: () => {
+      try { localStorage.removeItem(ADMIN_STASH_KEY) } catch { /* ignore */ }
+      setImpersonating(false)
+      return supabase.auth.signOut({ scope: 'global' })
+    },
+
     // Rate-limited password reset (always reports success, never reveals whether
     // the email exists).
     sendPasswordReset: async (email, captchaToken) => {

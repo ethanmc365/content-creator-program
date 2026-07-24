@@ -6,7 +6,11 @@ import { useAuth } from '../context/AuthContext'
 import { Avatar, Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
 import WorldMap from '../components/WorldMap'
+import CreatorMap from '../components/CreatorMap'
 import { loadMapCountryNames, canonicalCountry } from '../lib/mapCountries'
+
+// How many upcoming trips to show before the "View more" button.
+const TRIPS_PREVIEW = 6
 
 // Travel collab board. Creators post "I'll be in <city> on <dates>" and others
 // browse who's travelling where, then reach out via DM or "I'm interested".
@@ -44,6 +48,10 @@ export default function Collab() {
   const navigate = useNavigate()
   const [posts, setPosts] = useState(null)
   const [interests, setInterests] = useState({ count: new Map(), mine: new Set() })
+  const [expanded, setExpanded] = useState(false) // show all upcoming trips vs the first 6
+  // "Who's travelling now" map data: creators currently mid-trip, with their
+  // home location + current destination, mirroring the creators-map feature.
+  const [travellers, setTravellers] = useState({ creators: [], trips: {} })
   const [form, setForm] = useState({ city: '', country: '', start_date: '', end_date: '', note: '' })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -73,6 +81,23 @@ export default function Collab() {
       if (i.creator_id === user.id) mine.add(i.post_id)
     }
     setInterests({ count, mine })
+
+    // Who's travelling NOW: posts whose date range includes today. We pull each
+    // traveller's home location so the map can draw a plane from home to their
+    // current destination (exactly like the creators-map "who's travelling").
+    const currentPosts = (data ?? []).filter((p) => p.start_date <= today && p.end_date >= today)
+    const ids = [...new Set(currentPosts.map((p) => p.creator_id))]
+    if (ids.length) {
+      const { data: profs } = await supabase
+        .from('profiles').select('id, name, photo_url, city_lat, city_lng, country, countries_visited').in('id', ids)
+      const tripsByCreator = {}
+      for (const p of currentPosts) {
+        (tripsByCreator[p.creator_id] ||= []).push({ country: p.country, city: p.city, start_date: p.start_date, end_date: p.end_date })
+      }
+      setTravellers({ creators: profs ?? [], trips: tripsByCreator })
+    } else {
+      setTravellers({ creators: [], trips: {} })
+    }
   }
   useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -234,8 +259,9 @@ export default function Collab() {
 
         {!mine && !past && (
           <div className="mt-auto flex flex-col gap-2">
-            <button onClick={() => toggleInterest(p.id)} className={iAmInterested ? 'btn-primary w-full !py-2 text-sm' : 'btn-secondary w-full !py-2 text-sm'}>
-              {iAmInterested ? '✓ Interested' : "I'm interested"}
+            <button onClick={() => toggleInterest(p.id)} className={iAmInterested ? 'btn-primary flex w-full items-center justify-center gap-1.5 !py-2 text-sm' : 'btn-secondary w-full !py-2 text-sm'}>
+              {iAmInterested && <Icon name="check" className="h-4 w-4" />}
+              {iAmInterested ? 'Interested' : "I'm interested"}
               {interestCount > 0 && <span className="ml-1 opacity-80">· {interestCount}</span>}
             </button>
             <button onClick={() => message(p.creator_id)} className="btn-secondary w-full !py-2 text-sm">
@@ -330,28 +356,56 @@ export default function Collab() {
           hint={canPost ? 'Be the first to post where you’re headed and let the community find you.' : 'Once your application is approved you can post your trips here.'}
         />
       ) : filteredUpcoming.length === 0 ? (
-        <EmptyState emoji="🔍" title="No trips match those filters" hint="Try a different month or country." />
+        <EmptyState icon={<Icon name="magnifier" className="h-7 w-7" />} title="No trips match those filters" hint="Try a different month or country." />
       ) : (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredUpcoming.map((p) => <TripCard key={p.id} p={p} />)}
-        </div>
+        <>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {(expanded ? filteredUpcoming : filteredUpcoming.slice(0, TRIPS_PREVIEW)).map((p) => <TripCard key={p.id} p={p} />)}
+          </div>
+          {filteredUpcoming.length > TRIPS_PREVIEW && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="mt-6 flex w-full items-center justify-center gap-2 rounded-card border border-gray-100 bg-white py-3 text-sm font-semibold text-brand shadow-card transition-all hover:-translate-y-0.5 hover:shadow-lift"
+            >
+              {expanded
+                ? <>Show fewer <Icon name="chevronLeft" className="h-4 w-4 rotate-90" /></>
+                : <>View more trips ({filteredUpcoming.length - TRIPS_PREVIEW} more) <Icon name="chevronRight" className="h-4 w-4 rotate-90" /></>}
+            </button>
+          )}
+        </>
       )}
 
-      {/* ---- Big board map: everywhere the community is headed ---- */}
-      {boardCountries.length > 0 && (
+      {/* ---- Where everyone's headed ----
+          When creators are mid-trip we show the live "who's travelling" map
+          (home-country pin + dotted flight path + animated plane to where they
+          are). Otherwise we fall back to highlighting every upcoming
+          destination country. Country chips below either map filter the list. */}
+      {(travellers.creators.length > 0 || boardCountries.length > 0) && (
         <section className="mt-12">
           <h2 className="mb-1 text-lg font-semibold">Where everyone's headed</h2>
-          <p className="mb-5 text-sm text-smoke">Every country with an upcoming trip, highlighted.</p>
-          <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
-            <WorldMap selected={boardCountries} />
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {boardCountries.sort((a, b) => a.localeCompare(b)).map((c) => (
-              <button key={c} onClick={() => setCountryFilter(c)} className="inline-flex items-center gap-1.5 rounded-full bg-brand-tint px-3 py-1 text-xs font-medium text-brand transition-transform hover:scale-105">
-                <Icon name="pin" className="h-3.5 w-3.5" />{c}
-              </button>
-            ))}
-          </div>
+          {travellers.creators.length > 0 ? (
+            <>
+              <p className="mb-5 text-sm text-smoke">Creators currently on a trip, with a plane flying from their home to where they are right now.</p>
+              <CreatorMap creators={travellers.creators} trips={travellers.trips} travelOnlyView />
+            </>
+          ) : (
+            <>
+              <p className="mb-5 text-sm text-smoke">No one's mid-trip right now. Here's every country with an upcoming trip, highlighted.</p>
+              <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
+                <WorldMap selected={boardCountries} />
+              </div>
+            </>
+          )}
+          {boardCountries.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {boardCountries.sort((a, b) => a.localeCompare(b)).map((c) => (
+                <button key={c} onClick={() => setCountryFilter(c)} className="inline-flex items-center gap-1.5 rounded-full bg-brand-tint px-3 py-1 text-xs font-medium text-brand transition-transform hover:scale-105">
+                  <Icon name="pin" className="h-3.5 w-3.5" />{c}
+                </button>
+              ))}
+            </div>
+          )}
         </section>
       )}
 

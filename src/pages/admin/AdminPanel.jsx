@@ -8,7 +8,8 @@ import { cx, formatMoney, PRIZE_BASELINE } from '../../lib/utils'
 
 // The admin hub: key numbers up top, then tiles linking every admin tool.
 const TOOLS = [
-  { to: '/admin/applications', icon: 'shield', title: 'Applications', text: 'Review new signups and approve or decline them before they can join.' },
+  // Applications is intentionally NOT a tile here - the banner at the top of the
+  // panel surfaces pending applications whenever there are any to review.
   { to: '/admin/creators', icon: 'users', title: 'Creators', text: 'Full list with emails, activity, password resets, mute/suspend, promote.' },
   { to: '/admin/challenges', icon: 'flag', title: 'Challenges', text: 'Create, edit, close and archive challenges.' },
   { to: '/admin/rewards', icon: 'money', title: 'Rewards & invoices', text: 'Manage payouts, generate prize invoices, export for accounting.' },
@@ -127,7 +128,7 @@ export default function AdminPanel() {
           <StatCard
             label="Pending rewards"
             value={stats.pendingRewards}
-            hint={stats.pendingRewards > 0 ? 'Waiting to be paid out' : 'All settled ✓'}
+            hint={stats.pendingRewards > 0 ? 'Waiting to be paid out' : 'All settled'}
           />
         </div>
       )}

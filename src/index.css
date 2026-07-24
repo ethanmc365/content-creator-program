@@ -327,3 +327,15 @@ html[data-reduce-motion] *::after {
   transition-duration: 0.001ms !important;
   scroll-behavior: auto !important;
 }
+
+/* Recharts: the interactive charts (onClick) otherwise show a browser focus
+   outline as a blue box around the whole chart. We keep keyboard focus working
+   via the surrounding buttons/links, so the chart wrapper itself never needs a
+   visible outline. */
+.recharts-wrapper:focus,
+.recharts-wrapper:focus-visible,
+.recharts-surface:focus,
+.recharts-surface:focus-visible,
+.recharts-wrapper *:focus {
+  outline: none !important;
+}

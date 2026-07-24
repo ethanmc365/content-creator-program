@@ -3,6 +3,7 @@ import { confirm, notice } from '../../lib/confirm'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../../components/ui'
+import Icon from '../../components/Icon'
 import { formatDateTime, parseDateTime, isoToDateInput, isoToTimeInput } from '../../lib/utils'
 
 // Events management: add / edit / delete calendar events.
@@ -91,7 +92,7 @@ export default function AdminEvents() {
       {loading ? (
         <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}</div>
       ) : events.length === 0 ? (
-        <EmptyState emoji="📅" title="No events yet" hint='Add your first one. A "Live Q&A" is always a hit.' />
+        <EmptyState icon={<Icon name="calendar" className="h-7 w-7" />} title="No events yet" hint='Add your first one. A "Live Q&A" is always a hit.' />
       ) : (
         <div className="space-y-4">
           {events.map((ev) => (

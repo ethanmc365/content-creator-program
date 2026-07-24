@@ -34,6 +34,9 @@ export default function Directory() {
   // marks as travelling. The map reports that exact set via onTravellersChange.
   const [travelOnly, setTravelOnly] = useState(false)
   const [travellerIds, setTravellerIds] = useState(() => new Set())
+  // "My connections" filter: when on, the map + grid show only the viewer's
+  // accepted connections. Mutually exclusive with the travel view for clarity.
+  const [connectionsOnly, setConnectionsOnly] = useState(false)
 
   const [trips, setTrips] = useState({}) // creator_id -> upcoming collab trips, soonest first
 
@@ -92,6 +95,16 @@ export default function Directory() {
   }, [creators, myLat, myLng, myCountry, user.id])
   const nearIds = useMemo(() => new Set(nearDist.keys()), [nearDist])
 
+  // The viewer's accepted connections, from the relationship map.
+  const myConnectionIds = useMemo(() => {
+    const s = new Set()
+    for (const [id, rel] of relationships) if (rel?.relation === 'connected') s.add(id)
+    return s
+  }, [relationships])
+  // Toggle handlers keep the two map views mutually exclusive.
+  const toggleTravel = () => { setTravelOnly((v) => !v); setConnectionsOnly(false) }
+  const toggleConnections = () => { setConnectionsOnly((v) => !v); setTravelOnly(false) }
+
   // Build the filter dropdowns from real data so they never go stale.
   const allCountries = useMemo(
     () => [...new Set(creators.flatMap((c) => c.countries_visited || []))].sort(),
@@ -103,6 +116,7 @@ export default function Directory() {
   )
 
   const filtered = creators.filter((c) => {
+    if (connectionsOnly && !myConnectionIds.has(c.id)) return false
     if (travelOnly && !travellerIds.has(c.id)) return false
     if (nearMe && !nearIds.has(c.id)) return false
     if (search && !c.name.toLowerCase().includes(search.toLowerCase())) return false
@@ -121,13 +135,18 @@ export default function Directory() {
         subtitle="Meet the community. Connect, message, and find your next collab partner."
       />
 
+      {!loading && (
+        <div className="mb-8 inline-flex items-center gap-2.5 rounded-full border border-brand/20 bg-brand-tint/40 px-4 py-2 text-sm">
+          <Icon name="users" className="h-4 w-4 shrink-0 text-brand" />
+          <span className="font-semibold text-brand">{creators.length}</span>
+          <span className="text-smoke">creator{creators.length === 1 ? '' : 's'} from around the world</span>
+        </div>
+      )}
+
       {/* Creator map: where everyone in the community is based */}
       <section className="mb-10">
         <div className="mb-3 flex items-baseline justify-between gap-3">
           <h2 className="text-lg font-semibold text-ink">Creator map</h2>
-          <p className="text-sm text-smoke">
-            {loading ? 'Loading…' : `${creators.length} creator${creators.length === 1 ? '' : 's'} around the world`}
-          </p>
         </div>
         {loading ? (
           <div className="h-[340px] w-full animate-pulse rounded-card bg-cloud/70 sm:h-[420px]" />
@@ -141,8 +160,11 @@ export default function Directory() {
             nearMeDisabled={!hasMyLocation}
             onToggleNearMe={() => setNearMe((v) => !v)}
             travelActive={travelOnly}
-            onToggleTravel={() => setTravelOnly((v) => !v)}
+            onToggleTravel={toggleTravel}
             onTravellersChange={setTravellerIds}
+            connectionsActive={connectionsOnly}
+            onToggleConnections={toggleConnections}
+            connectionIds={myConnectionIds}
           />
         )}
       </section>
@@ -178,15 +200,26 @@ export default function Directory() {
         </div>
       )}
 
+      {/* Active "my connections" note. */}
+      {connectionsOnly && (
+        <div className="mb-6 flex items-center gap-2 text-sm text-smoke">
+          <Icon name="users" className="h-4 w-4 text-brand" />
+          {myConnectionIds.size > 0
+            ? `Showing your ${myConnectionIds.size} connection${myConnectionIds.size === 1 ? '' : 's'}.`
+            : "You haven't connected with anyone yet - browse creators and send a request."}
+          <button onClick={() => setConnectionsOnly(false)} className="font-medium text-brand hover:underline">Show everyone</button>
+        </div>
+      )}
+
       {loading ? (
         <SkeletonCards count={6} />
       ) : filtered.length === 0 ? (
         <EmptyState
-          emoji="🔍"
+          icon={<Icon name="magnifier" className="h-7 w-7" />}
           title="No creators match those filters"
           hint="Try removing a filter or searching a different name."
           action={
-            <button onClick={() => { setSearch(''); setCountry(''); setLanguage(''); setPlatform(''); setNearMe(false); setTravelOnly(false) }} className="btn-secondary">
+            <button onClick={() => { setSearch(''); setCountry(''); setLanguage(''); setPlatform(''); setNearMe(false); setTravelOnly(false); setConnectionsOnly(false) }} className="btn-secondary">
               Clear filters
             </button>
           }

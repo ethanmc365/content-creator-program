@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { confirm, notice } from '../lib/confirm'
 import { Link, useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import { useAuth } from '../context/AuthContext'
@@ -7,8 +6,6 @@ import { supabase } from '../lib/supabase'
 import { AvatarUpload, LanguageSelect, SocialInputs, DobField, PhoneInput, QuoteField } from '../components/ProfileFields'
 import WorldMap from '../components/WorldMap'
 import TravelGallery from '../components/TravelGallery'
-import PaymentDetailsFields from '../components/PaymentDetails'
-import { EMPTY_PAYEE, payeeFromPrivate, payeeToPrivate, payeeStarted, validatePayee } from '../lib/invoice'
 import { flagForCountry } from '../lib/flags'
 import { geocodeCity } from '../lib/geocode'
 import { PageHeader, Spinner } from '../components/ui'
@@ -19,8 +16,6 @@ export default function EditProfile() {
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [exporting, setExporting] = useState(false)
-  const [deleting, setDeleting] = useState(false)
 
   const [form, setForm] = useState({
     name: profile?.name || '',
@@ -40,20 +35,18 @@ export default function EditProfile() {
     bucket_list: Array.isArray(profile?.bucket_list) ? profile.bucket_list : [],
   })
 
-  // Phone + payment details are stored separately (private: only the creator
-  // and admins can read them). Load the creator's own row.
+  // Phone is stored separately (private: only the creator and admins can read
+  // it). Payment details live on the Settings page now. Load the private row.
   const [contact, setContact] = useState({ phone: '', phone_country: '' })
-  const [payee, setPayee] = useState(EMPTY_PAYEE)
   useEffect(() => {
     supabase
       .from('creator_private')
-      .select('*')
+      .select('phone, phone_country')
       .eq('id', user.id)
       .maybeSingle()
       .then(({ data }) => {
         if (!data) return
         setContact({ phone: data.phone || '', phone_country: data.phone_country || '' })
-        setPayee(payeeFromPrivate(data))
       })
   }, [user.id])
 
@@ -70,15 +63,10 @@ export default function EditProfile() {
   }, [user.id])
 
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
+  // Data export & account deletion moved to the Settings page (Account section).
 
   async function save(e) {
     e.preventDefault()
-    // Payment details get paid off directly, so never store a half-right set:
-    // once the creator has started filling them in, they must be valid.
-    if (payeeStarted(payee)) {
-      const problems = validatePayee(payee)
-      if (problems.length) return notice(`Please check your payment details:\n\n${problems.join('\n')}`)
-    }
     setBusy(true)
     // Geocode the town so this creator lands on the creator map. Best-effort:
     // if it changed (or was never geocoded) look it up, else keep old coords.
@@ -97,11 +85,12 @@ export default function EditProfile() {
     const [{ error }] = await Promise.all([
       supabase.from('profiles').update(payload).eq('id', user.id),
       // Upsert the private contact row (phone never goes in public profiles).
+      // Only the phone columns are touched here; payment details are managed on
+      // the Settings page and left untouched by this partial upsert.
       supabase.from('creator_private').upsert({
         id: user.id,
         phone: contact.phone,
         phone_country: contact.phone_country,
-        ...payeeToPrivate(payee),
         updated_at: new Date().toISOString(),
       }),
     ])
@@ -111,55 +100,6 @@ export default function EditProfile() {
       setSaved(true)
       setTimeout(() => navigate(`/profile/${user.id}`), 600)
     }
-  }
-
-  // GDPR data export: bundle everything tied to this account into a JSON file.
-  async function exportData() {
-    setExporting(true)
-    const uid = user.id
-    const own = (t, col) => supabase.from(t).select('*').eq(col, uid)
-    const [prof, priv, photos, subs, conns, reacts, votes, refs, rewards, notifs, msgs, dmA, dmB] = await Promise.all([
-      own('profiles', 'id'), own('creator_private', 'id'), own('creator_photos', 'creator_id'),
-      own('submissions', 'creator_id'), own('connections', 'creator_id'), own('reactions', 'creator_id'),
-      own('poll_votes', 'voter_id'), own('referrals', 'referrer_id'), own('rewards', 'creator_id'),
-      own('notifications', 'recipient_id'), own('messages', 'sender_id'),
-      supabase.from('direct_messages').select('*').eq('sender_id', uid),
-      supabase.from('direct_messages').select('*').eq('recipient_id', uid),
-    ])
-    const data = {
-      exported_at: new Date().toISOString(),
-      account: { id: uid, email: user.email },
-      profile: prof.data?.[0] ?? null,
-      private_contact: priv.data?.[0] ?? null,
-      travel_photos: photos.data ?? [],
-      submissions: subs.data ?? [],
-      connections: conns.data ?? [],
-      reactions: reacts.data ?? [],
-      poll_votes: votes.data ?? [],
-      referrals: refs.data ?? [],
-      rewards: rewards.data ?? [],
-      notifications: notifs.data ?? [],
-      chat_messages: msgs.data ?? [],
-      direct_messages: [...(dmA.data ?? []), ...(dmB.data ?? [])],
-    }
-    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }))
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `tryp-my-data-${uid}.json`
-    a.click()
-    URL.revokeObjectURL(url)
-    setExporting(false)
-  }
-
-  // GDPR erasure: schedule deletion (30-day grace). ProtectedRoute then shows
-  // the restore screen; a daily job purges anything past 30 days.
-  async function deleteAccount() {
-    if (!await confirm('Delete your account?\n\nYour profile and content will be hidden immediately and permanently deleted after 30 days. You can restore it by logging back in within 30 days.')) return
-    setDeleting(true)
-    const { error } = await supabase.from('profiles').update({ deletion_requested_at: new Date().toISOString() }).eq('id', user.id)
-    setDeleting(false)
-    if (error) return notice("Couldn't schedule deletion: " + error.message)
-    await refreshProfile()
   }
 
   return (
@@ -233,14 +173,6 @@ export default function EditProfile() {
               + Add another link
             </button>
           </div>
-        </section>
-
-        <section className="card space-y-5">
-          <div>
-            <h2 className="text-lg font-semibold">Payment details</h2>
-            <p className="mt-1 text-sm text-smoke">Where we send your cash prizes when you win a challenge.</p>
-          </div>
-          <PaymentDetailsFields value={payee} onChange={setPayee} />
         </section>
 
         <section className="card space-y-5">
@@ -332,28 +264,10 @@ export default function EditProfile() {
         </div>
       </form>
 
-      {/* ---- Your data & account (GDPR) ---- */}
-      <section className="card mt-10 space-y-5">
-        <div>
-          <h2 className="text-lg font-semibold">Your data &amp; account</h2>
-          <p className="mt-1 text-sm text-smoke">Download everything we hold about you, or delete your account.</p>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          <button type="button" onClick={exportData} disabled={exporting} className="btn-secondary">
-            {exporting ? <Spinner /> : 'Download my data'}
-          </button>
-        </div>
-        <div className="rounded-xl border border-red-100 bg-red-50/50 p-4">
-          <p className="text-sm font-semibold text-red-600">Delete account</p>
-          <p className="mb-3 mt-1 text-xs leading-relaxed text-smoke">
-            Your profile and content are hidden right away and permanently deleted after 30 days.
-            You can restore your account by logging back in within those 30 days.
-          </p>
-          <button type="button" onClick={deleteAccount} disabled={deleting} className="btn-danger !py-2 text-xs">
-            {deleting ? <Spinner /> : 'Delete my account'}
-          </button>
-        </div>
-      </section>
+      <p className="mt-8 text-center text-xs text-smoke">
+        Looking for payment details, data download or account deletion? They now live on your{' '}
+        <Link to="/settings" className="font-medium text-brand hover:underline">Settings</Link> page.
+      </p>
     </div>
   )
 }

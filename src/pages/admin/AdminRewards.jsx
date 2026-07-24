@@ -1,10 +1,31 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { Avatar, Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner, StatCard } from '../../components/ui'
+import { Avatar, Badge, CopyButton, EmptyState, Modal, PageHeader, Skeleton, Spinner, StatCard } from '../../components/ui'
+import Icon from '../../components/Icon'
 import { formatDate, formatMoney, downloadCsv } from '../../lib/utils'
 import { notice } from '../../lib/confirm'
+import { payeeFromPrivate, payeeStarted, formatSortCode, formatIban, cleanIban } from '../../lib/invoice'
 import InvoicesPanel from './InvoicesPanel'
+
+// Build the label / display / copy-value rows for a creator's saved bank
+// details, per currency. Numbers copy as raw digits so they paste cleanly into
+// a banking app; names/addresses copy as shown.
+function detailRows(p) {
+  const rows = []
+  const add = (label, display, copy) => { if (display) rows.push({ label, display, copy: copy ?? display }) }
+  add('Account holder', p.name)
+  add('Bank', p.bank)
+  if (p.currency === 'EUR') {
+    add('IBAN', formatIban(p.iban), cleanIban(p.iban))
+    add('BIC / SWIFT', p.bic)
+  } else if (p.currency === 'GBP') {
+    add('Sort code', formatSortCode(p.sortCode), p.sortCode)
+    add('Account number', p.accountNumber)
+  }
+  add('Address', p.address)
+  return rows
+}
 
 // The program's money hub: rewards (payouts) and prize invoices live
 // together. A reward row's Invoice button jumps straight into the invoice
@@ -28,6 +49,31 @@ export default function AdminRewards() {
   // "Mark distributed" modal (replaces a flaky window.prompt).
   const [distributing, setDistributing] = useState(null) // the reward being marked
   const [distNotes, setDistNotes] = useState('')
+
+  // Payment-details tab: creators + their private bank details (admins can read
+  // creator_private via RLS). Loaded lazily the first time the tab is opened.
+  const [payDetails, setPayDetails] = useState([])
+  const [payLoaded, setPayLoaded] = useState(false)
+  const [paySearch, setPaySearch] = useState('')
+  useEffect(() => {
+    if (tab !== 'details' || payLoaded) return
+    let alive = true
+    Promise.all([
+      supabase.from('profiles').select('id, name, photo_url').eq('status', 'active').eq('is_admin', false).order('name'),
+      supabase.from('creator_private').select('*'),
+    ]).then(([{ data: profs }, { data: privs }]) => {
+      if (!alive) return
+      const byId = new Map((privs ?? []).map((r) => [r.id, r]))
+      setPayDetails((profs ?? []).map((p) => ({ ...p, payee: payeeFromPrivate(byId.get(p.id)) })))
+      setPayLoaded(true)
+    })
+    return () => { alive = false }
+  }, [tab, payLoaded])
+
+  const payFiltered = useMemo(() => {
+    const q = paySearch.trim().toLowerCase()
+    return q ? payDetails.filter((p) => (p.name || '').toLowerCase().includes(q)) : payDetails
+  }, [payDetails, paySearch])
 
   async function load() {
     const [{ data: r }, { data: c }, { data: ch }] = await Promise.all([
@@ -137,7 +183,7 @@ export default function AdminRewards() {
       />
 
       <div className="mb-8 flex gap-2">
-        {[['payouts', 'Payouts'], ['invoices', 'Invoices']].map(([key, label]) => (
+        {[['payouts', 'Payouts'], ['invoices', 'Invoices'], ['details', 'Payment details']].map(([key, label]) => (
           <button
             key={key}
             type="button"
@@ -175,7 +221,7 @@ export default function AdminRewards() {
       {loading ? (
         <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
       ) : filtered.length === 0 ? (
-        <EmptyState emoji="💷" title="No rewards here" hint="Add rewards after a challenge closes. Winners first!" />
+        <EmptyState icon={<Icon name="wallet" className="h-7 w-7" />} title="No rewards here" hint="Add rewards after a challenge closes. Winners first!" />
       ) : (
         <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
           {filtered.map((r) => (
@@ -183,10 +229,13 @@ export default function AdminRewards() {
               <Avatar src={r.profiles?.photo_url} name={r.profiles?.name} size="sm" />
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold">{r.profiles?.name}</p>
-                <p className="truncate text-xs text-smoke">
-                  {r.reward_type === 'cash' ? '💷 Cash' : '🎟️ Voucher'}
-                  {r.challenges?.title && ` · ${r.challenges.title}`}
-                  {r.payment_notes && ` · ${r.payment_notes}`}
+                <p className="flex items-center gap-1 truncate text-xs text-smoke">
+                  <Icon name={r.reward_type === 'cash' ? 'cash' : 'ticket'} className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">
+                    {r.reward_type === 'cash' ? 'Cash' : 'Voucher'}
+                    {r.challenges?.title && ` · ${r.challenges.title}`}
+                    {r.payment_notes && ` · ${r.payment_notes}`}
+                  </span>
                 </p>
               </div>
               <span className="font-bold tabular-nums">{formatMoney(r.amount, r.currency)}</span>
@@ -196,7 +245,7 @@ export default function AdminRewards() {
               )}
               {r.status === 'pending' && (
                 <button onClick={() => openDistribute(r)} disabled={busyId === r.id} className="btn-primary !py-2 text-xs">
-                  {busyId === r.id ? <Spinner className="h-4 w-4" /> : 'Mark distributed ✓'}
+                  {busyId === r.id ? <Spinner className="h-4 w-4" /> : 'Mark distributed'}
                 </button>
               )}
             </div>
@@ -204,6 +253,58 @@ export default function AdminRewards() {
         </div>
       )}
       </div>{/* /payouts tab */}
+
+      {/* ---------- Payment details tab ---------- */}
+      <div className={tab === 'details' ? '' : 'hidden'}>
+        <p className="mb-5 max-w-2xl text-sm text-smoke">
+          Every creator's saved bank details, ready to pay a prize. Tap any copy button to grab a field.
+          These are private - only the Tryp.com team can see them.
+        </p>
+        <div className="mb-6 max-w-sm">
+          <div className="relative">
+            <Icon name="magnifier" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-smoke" />
+            <input
+              type="search" className="input !pl-9" placeholder="Search creators…"
+              value={paySearch} onChange={(e) => setPaySearch(e.target.value)}
+            />
+          </div>
+        </div>
+        {!payLoaded ? (
+          <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28 w-full" />)}</div>
+        ) : payFiltered.length === 0 ? (
+          <EmptyState icon={<Icon name="wallet" className="h-7 w-7" />} title="No creators found" hint="Try a different search." />
+        ) : (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {payFiltered.map((c) => {
+              const rows = payeeStarted(c.payee) ? detailRows(c.payee) : []
+              return (
+                <div key={c.id} className="card">
+                  <div className="mb-3 flex items-center gap-3">
+                    <Avatar src={c.photo_url} name={c.name} size="sm" />
+                    <p className="min-w-0 flex-1 truncate text-sm font-semibold">{c.name}</p>
+                    {c.payee.currency
+                      ? <Badge tone="light">{c.payee.currency === 'EUR' ? '€ Euros' : '£ Pounds'}</Badge>
+                      : <Badge tone="grey">Not set up</Badge>}
+                  </div>
+                  {rows.length === 0 ? (
+                    <p className="rounded-xl bg-cloud px-4 py-3 text-xs text-smoke">This creator hasn't added their payment details yet.</p>
+                  ) : (
+                    <dl className="divide-y divide-gray-50">
+                      {rows.map((row) => (
+                        <div key={row.label} className="flex items-center gap-3 py-2">
+                          <dt className="w-32 shrink-0 text-xs font-medium text-smoke">{row.label}</dt>
+                          <dd className="min-w-0 flex-1 truncate text-sm tabular-nums">{row.display}</dd>
+                          <CopyButton value={row.copy} label={`Copy ${row.label.toLowerCase()}`} />
+                        </div>
+                      ))}
+                    </dl>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>{/* /details tab */}
 
       {/* ---------- Add reward modal ---------- */}
       <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Add a reward">
@@ -258,7 +359,7 @@ export default function AdminRewards() {
               <input id="dist-notes" type="text" className="input" value={distNotes} onChange={(e) => setDistNotes(e.target.value)} placeholder="e.g. Bank transfer, ref TRYP-001" />
             </div>
             <button type="submit" disabled={busyId === distributing.id} className="btn-primary w-full">
-              {busyId === distributing.id ? <Spinner /> : 'Confirm distributed ✓'}
+              {busyId === distributing.id ? <Spinner /> : 'Confirm distributed'}
             </button>
           </form>
         )}

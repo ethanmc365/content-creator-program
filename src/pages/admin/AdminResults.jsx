@@ -3,6 +3,7 @@ import { confirm } from '../../lib/confirm'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Avatar, EmptyState, PageHeader, Skeleton, Spinner } from '../../components/ui'
+import Icon from '../../components/Icon'
 import { useAuth } from '../../context/AuthContext'
 import { formatViews, timeAgo } from '../../lib/utils'
 
@@ -149,7 +150,7 @@ export default function AdminResults() {
       {toast && <p className="mb-6 rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-700 animate-fade-up">{toast}</p>}
 
       {submissions.length === 0 ? (
-        <EmptyState emoji="🎬" title="No submissions to review" hint="Entries will appear here as creators submit their links." />
+        <EmptyState icon={<Icon name="video" className="h-7 w-7" />} title="No submissions to review" hint="Entries will appear here as creators submit their links." />
       ) : (
         <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
           {submissions.map((s) => (

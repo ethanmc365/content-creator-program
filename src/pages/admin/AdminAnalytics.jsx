@@ -12,8 +12,10 @@ import { downloadCsv, formatMoney, formatViews } from '../../lib/utils'
 // Admin analytics: the program's health at a glance. Recharts (free) for the
 // charts, every dataset exportable to CSV, and every tile that has a natural
 // destination is clickable.
-const BRAND = '#d94407'
-const BRAND_LIGHT = '#f5853f'
+// A family of orange shades - no yellows or off-brand colours anywhere.
+const BRAND = '#d94407'       // core Tryp orange
+const BRAND_LIGHT = '#f5853f' // lighter orange
+const BRAND_PALE = '#f9b98a'  // palest orange (for the third stacked series)
 
 const tooltipStyle = {
   borderRadius: 12, border: '1px solid #F1F1F2', fontFamily: 'Poppins',
@@ -222,6 +224,12 @@ export default function AdminAnalytics() {
     const submittedIds = new Set(submissions.map((s) => s.creator_id))
     const participating = active.filter((p) => submittedIds.has(p.id)).length
     const participationRate = active.length ? Math.round((participating / active.length) * 100) : 0
+    // New creators in the last 30 days - a quick read on recent growth momentum.
+    const thirtyAgo = loadedAt - 30 * 24 * 60 * 60 * 1000
+    const newLast30 = realCreators.filter((p) => new Date(p.created_at).getTime() >= thirtyAgo).length
+    // Average logged views per submission - a simple reach-efficiency metric.
+    const viewedCount = submissions.filter((s) => s.logged_views != null).length
+    const avgViewsPerEntry = viewedCount ? Math.round(totalViews / viewedCount) : 0
 
     // ---- Application funnel ----
     // Counts only live accounts: anything deleted (declined applications,
@@ -284,12 +292,21 @@ export default function AdminAnalytics() {
     // ---- Engagement ----
     const openFeedback = feedback.filter((f) => f.status === 'new').length
 
-    // Top referrers: who has the most creators joined via their link.
-    const refCounts = {}
-    for (const p of realCreators) if (p.referred_by) refCounts[p.referred_by] = (refCounts[p.referred_by] || 0) + 1
-    const topReferrers = Object.entries(refCounts)
-      .map(([id, count]) => ({ name: nameById[id] || 'Unknown', count }))
-      .sort((a, b) => b.count - a.count)
+    // Top referrers: for each referrer, how many people signed up via their
+    // link vs how many ACTUALLY JOINED (became active members). The old version
+    // labelled everyone who clicked a link as "joined" even when they were still
+    // pending, which read as "2 joined" for people who never actually joined.
+    const refStats = {}
+    for (const p of realCreators) {
+      if (!p.referred_by) continue
+      const r = (refStats[p.referred_by] ||= { signedUp: 0, joined: 0, posted: 0 })
+      r.signedUp += 1
+      if (p.status === 'active') r.joined += 1
+      if (submittedIds.has(p.id)) r.posted += 1
+    }
+    const topReferrers = Object.entries(refStats)
+      .map(([id, s]) => ({ name: nameById[id] || 'Unknown', ...s }))
+      .sort((a, b) => b.joined - a.joined || b.signedUp - a.signedUp)
       .slice(0, 5)
 
     return {
@@ -307,6 +324,8 @@ export default function AdminAnalytics() {
         creators: active.length,
         submissions: submissions.length,
         challenges: challenges.length,
+        newLast30,
+        avgViewsPerEntry,
       },
     }
   }, [raw])
@@ -327,9 +346,9 @@ export default function AdminAnalytics() {
 
       {/* ---- Headline numbers ---- */}
       <div className="mb-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-        <StatCard label="Creators" value={derived.totals.creators} onClick={() => navigate('/admin/creators')} />
+        <StatCard label="Creators" value={derived.totals.creators} hint={derived.totals.newLast30 > 0 ? `+${derived.totals.newLast30} in last 30 days` : undefined} onClick={() => navigate('/admin/creators')} />
         <StatCard label="Challenges run" value={derived.totals.challenges} onClick={() => navigate('/admin/challenges')} />
-        <StatCard label="Submissions" value={derived.totals.submissions} />
+        <StatCard label="Submissions" value={derived.totals.submissions} hint={derived.totals.avgViewsPerEntry > 0 ? `${formatViews(derived.totals.avgViewsPerEntry)} avg views/entry` : undefined} />
         <StatCard
           label="Total views"
           value={formatViews(derived.totalViews)}
@@ -407,12 +426,19 @@ export default function AdminAnalytics() {
             </div>
             <div className="space-y-2">
               {derived.community.topReferrers.map((r, i) => (
-                <div key={r.name + i} className="flex items-center justify-between text-sm">
-                  <span className="text-smoke">{i + 1}. {r.name}</span>
-                  <span className="font-semibold">{r.count} joined</span>
+                <div key={r.name + i} className="flex items-center justify-between gap-3 text-sm">
+                  <span className="min-w-0 truncate text-smoke">{i + 1}. {r.name}</span>
+                  <span className="shrink-0 text-right tabular-nums">
+                    <span className="font-semibold text-brand">{r.joined} joined</span>
+                    <span className="ml-2 text-xs text-smoke">of {r.signedUp} signed up</span>
+                    {r.posted > 0 && <span className="ml-2 text-xs text-green-600">{r.posted} posted</span>}
+                  </span>
                 </div>
               ))}
             </div>
+            <p className="mt-3 border-t border-gray-50 pt-3 text-[11px] text-smoke">
+              "Joined" = approved active member. "Posted" = has submitted a challenge video (a referral only counts once they post).
+            </p>
           </div>
         )}
       </div>
@@ -463,8 +489,8 @@ export default function AdminAnalytics() {
               <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} allowDecimals={false} />
               <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey="messages" name="Messages" stackId="pulse" fill={BRAND_LIGHT} maxBarSize={32} animationDuration={700} />
-              <Bar dataKey="games" name="Game plays" stackId="pulse" fill="#fbbf24" maxBarSize={32} animationDuration={700} />
+              <Bar dataKey="messages" name="Messages" stackId="pulse" fill={BRAND_PALE} maxBarSize={32} animationDuration={700} />
+              <Bar dataKey="games" name="Game plays" stackId="pulse" fill={BRAND_LIGHT} maxBarSize={32} animationDuration={700} />
               <Bar dataKey="submissions" name="Submissions" stackId="pulse" fill={BRAND} radius={[6, 6, 0, 0]} maxBarSize={32} animationDuration={700} />
             </BarChart>
           </ResponsiveContainer>

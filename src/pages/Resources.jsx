@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Badge, EmptyState, PageHeader, SkeletonCards } from '../components/ui'
+import Icon from '../components/Icon'
 import MediaAttachment from '../components/MediaAttachment'
 import { formatDate, cx } from '../lib/utils'
 
@@ -10,9 +11,10 @@ import { formatDate, cx } from '../lib/utils'
 // do's & don'ts, downloadable assets and example content.
 // Categories are admin-defined (free text), so the filter pills are built
 // from whatever categories actually exist in the library.
-const CATEGORY_EMOJI = {
-  Tips: '💡', 'Video Ideas': '🎬', 'Brand Guidelines': '🧭',
-  "Do's & Don'ts": '✅', Assets: '📦', Examples: '⭐',
+// Custom line icons per category (no emoji anywhere in the chrome).
+const CATEGORY_ICON = {
+  Tips: 'bulb', 'Video Ideas': 'video', 'Brand Guidelines': 'book',
+  "Do's & Don'ts": 'check', Assets: 'image', Examples: 'star',
 }
 
 export default function Resources() {
@@ -109,7 +111,7 @@ export default function Resources() {
                   category === c ? 'bg-brand text-white' : 'border border-gray-200 text-smoke hover:border-brand hover:text-brand'
                 )}
               >
-                {c !== 'All' && <span aria-hidden>{CATEGORY_EMOJI[c]} </span>}{c}
+                {c !== 'All' && CATEGORY_ICON[c] && <Icon name={CATEGORY_ICON[c]} className="mr-1 inline h-3.5 w-3.5 align-text-bottom" />}{c}
               </button>
               {/* Your shelf sits right beside All: everything you've bookmarked */}
               {c === 'All' && (
@@ -134,7 +136,7 @@ export default function Resources() {
         <SkeletonCards count={4} />
       ) : filtered.length === 0 ? (
         <EmptyState
-          emoji="📚"
+          icon={<Icon name="book" className="h-7 w-7" />}
           title={search || category !== 'All' ? 'Nothing matches that' : 'The library is being stocked'}
           hint={search || category !== 'All' ? 'Try a different search or category.' : 'The Tryp.com Team will publish guides and assets here soon.'}
         />
@@ -151,7 +153,7 @@ export default function Resources() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <h2 className="text-lg font-semibold leading-snug">
-                    <span aria-hidden>{CATEGORY_EMOJI[r.category]} </span>{r.title}
+                    {CATEGORY_ICON[r.category] && <Icon name={CATEGORY_ICON[r.category]} className="mr-1.5 inline h-4 w-4 align-text-bottom text-brand" />}{r.title}
                     {new Date(r.created_at).getTime() > seenBefore && (
                       <span className="ml-2 inline-block align-middle rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase text-white">New</span>
                     )}

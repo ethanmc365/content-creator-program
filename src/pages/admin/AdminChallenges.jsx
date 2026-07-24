@@ -3,6 +3,7 @@ import { confirm, notice } from '../../lib/confirm'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Badge, EmptyState, PageHeader, Skeleton } from '../../components/ui'
+import Icon from '../../components/Icon'
 import { formatDate } from '../../lib/utils'
 
 // Challenge management: every challenge with its lifecycle controls.
@@ -76,7 +77,7 @@ export default function AdminChallenges() {
         <div className="space-y-4">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-32 w-full" />)}</div>
       ) : challenges.length === 0 ? (
         <EmptyState
-          emoji="🏁"
+          icon={<Icon name="flag" className="h-7 w-7" />}
           title="No challenges yet"
           hint="Create your first challenge. Set the brief, dates and prizes, then publish."
           action={<Link to="/admin/challenges/new" className="btn-primary">Create a challenge</Link>}

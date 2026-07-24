@@ -11,7 +11,7 @@ import { showLocalNotification } from '../../lib/push'
 import { stripMarkup } from '../../lib/richText'
 import { cx } from '../../lib/utils'
 import { useVisualViewport } from '../../lib/useKeyboardInset'
-import { applyTheme, getStoredDark, storeDark, applyMotion, getStoredMotion } from '../../lib/theme'
+import { applyTheme, storeDark, applyMotion, getStoredMotion, effectiveMode, resolveDark } from '../../lib/theme'
 
 // The signed-in app shell. One shared set of icon tabs powers BOTH the
 // desktop top bar and the mobile bottom bar, so they look identical.
@@ -63,13 +63,29 @@ export default function AppLayout() {
   // palette. The saved profile preference wins; until it loads we fall back to
   // the localStorage cache so there's no bright flash for dark-mode users.
   useEffect(() => {
-    const on = profile ? !!profile.dark_mode : getStoredDark()
-    applyTheme(on)
-    if (profile) storeDark(!!profile.dark_mode)
+    // Resolve the creator's theme mode (light / dark / match-system) and apply
+    // it. The mode is a per-device preference; profiles.dark_mode is the
+    // cross-device fallback for a brand-new device.
+    const applyFromPrefs = () => {
+      const dark = resolveDark(effectiveMode(!!profile?.dark_mode))
+      applyTheme(dark)
+      storeDark(dark)
+    }
+    applyFromPrefs()
     // Reduce motion is a per-device preference (localStorage only), applied
     // alongside the theme while the app shell is mounted.
     applyMotion(getStoredMotion())
-    return () => { applyTheme(false); applyMotion(false) }
+    // Follow live OS colour-scheme flips while on "match system", and react to
+    // the user changing the theme on the Settings page in this same tab.
+    const mq = window.matchMedia?.('(prefers-color-scheme: dark)')
+    const onSys = () => applyFromPrefs()
+    mq?.addEventListener?.('change', onSys)
+    window.addEventListener('tryp-theme-change', applyFromPrefs)
+    return () => {
+      mq?.removeEventListener?.('change', onSys)
+      window.removeEventListener('tryp-theme-change', applyFromPrefs)
+      applyTheme(false); applyMotion(false)
+    }
   }, [profile, profile?.dark_mode])
 
   // "New in the library" dot: anything published since the last time this
@@ -246,7 +262,6 @@ export default function AppLayout() {
                     <p className="truncate text-xs text-smoke">{user?.email}</p>
                   </div>
                   <Link to={`/profile/${user?.id}`} onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">My profile</Link>
-                  <Link to="/profile/edit" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Edit profile</Link>
                   <Link to="/settings" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Settings</Link>
                   <Link to="/rewards" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">My rewards</Link>
                   <Link to="/dashboard" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">My dashboard</Link>

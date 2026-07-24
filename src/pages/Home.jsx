@@ -8,10 +8,10 @@ import WorldMap from '../components/WorldMap'
 import CreatorSpotlight from '../components/CreatorSpotlight'
 import DailyGamesCard from '../components/DailyGamesCard'
 import Icon from '../components/Icon'
-import { Avatar, Badge, Skeleton, StatCard } from '../components/ui'
+import { Avatar, Badge, Skeleton } from '../components/ui'
 import { flagForCountry } from '../lib/flags'
 import { stripMarkup } from '../lib/richText'
-import { formatDate, timeAgo, formatMoney, challengeDeadline, PRIZE_BASELINE } from '../lib/utils'
+import { timeAgo, challengeDeadline } from '../lib/utils'
 
 // Signed-in home: the CURRENT challenge front and centre with a live
 // countdown, plus quick community pulse (latest announcement, new creators).
@@ -24,12 +24,11 @@ export default function Home() {
   const [announcement, setAnnouncement] = useState(null)
   const [newCreators, setNewCreators] = useState([])
   const [upcomingTrips, setUpcomingTrips] = useState([])
-  const [stats, setStats] = useState({ creators: 0, prizes: 0 })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
-      const [{ data: activeChallenges }, { data: ann }, { data: fresh }, { count: creatorCount }, { data: paid }] =
+      const [{ data: activeChallenges }, { data: ann }, { data: fresh }] =
         await Promise.all([
           supabase.from('challenges').select('*').eq('status', 'active').order('end_date', { ascending: true }),
           supabase
@@ -41,8 +40,6 @@ export default function Home() {
             .limit(1)
             .maybeSingle(),
           supabase.from('profiles').select('id, name, photo_url, bio').eq('status', 'active').eq('is_admin', false).eq('is_test', false).is('deletion_requested_at', null).order('created_at', { ascending: false }).limit(4),
-          supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'active').eq('is_admin', false).eq('is_test', false).is('deletion_requested_at', null),
-          supabase.from('rewards').select('amount').eq('status', 'distributed'),
         ])
 
       // Only surface a challenge as "live" if its deadline hasn't passed. An
@@ -54,10 +51,6 @@ export default function Home() {
       setChallenge(ch)
       setAnnouncement(ann)
       setNewCreators(fresh ?? [])
-      setStats({
-        creators: creatorCount ?? 0,
-        prizes: PRIZE_BASELINE + (paid ?? []).reduce((sum, r) => sum + Number(r.amount), 0),
-      })
 
       // Combined "where we've been" map: union of countries across ACCEPTED
       // (active, non-deleted, non-test) creators only - pending signups no
@@ -104,7 +97,7 @@ export default function Home() {
       {/* ---------- Greeting ---------- */}
       <section>
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-          Hey {profile?.name?.split(' ')[0]} 👋
+          Hey {profile?.name?.split(' ')[0]}
         </h1>
         <p className="mt-2 text-smoke">Here's what's happening in the program right now.</p>
       </section>
@@ -182,13 +175,6 @@ export default function Home() {
           `}</style>
         </section>
       )}
-
-      {/* ---------- Program stats ---------- */}
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Creators in the program" value={stats.creators} />
-        <StatCard label="Prizes awarded" value={formatMoney(stats.prizes)} accent />
-        <StatCard label="Member since" value={formatDate(profile?.accepted_at || profile?.created_at)} />
-      </section>
 
       {/* ---------- Latest announcement ---------- */}
       {announcement && (
@@ -268,7 +254,7 @@ export default function Home() {
               <Avatar src={c.photo_url} name={c.name} size="md" />
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold">{c.name}</p>
-                <p className="truncate text-xs text-smoke">{c.bio || 'New creator ✈️'}</p>
+                <p className="truncate text-xs text-smoke">{c.bio || 'New creator'}</p>
               </div>
             </Link>
           ))}

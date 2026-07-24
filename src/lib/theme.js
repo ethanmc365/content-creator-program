@@ -57,6 +57,54 @@ export function applyTheme(on) {
   else el.removeAttribute('data-theme')
 }
 
+// ---- Theme mode: light / dark / system ----------------------------------
+// The creator can pick a fixed light or dark theme, or "match system" which
+// follows the OS colour-scheme preference and flips live when it changes.
+// The chosen MODE is a per-device preference (localStorage); the RESOLVED
+// dark/light boolean is still mirrored to profiles.dark_mode so cross-device
+// logins fall back to something sensible and the existing dark_mode readers
+// keep working.
+const MODE_KEY = 'tryp_theme_mode'
+
+export function getStoredMode() {
+  try {
+    const m = localStorage.getItem(MODE_KEY)
+    return m === 'light' || m === 'dark' || m === 'system' ? m : null
+  } catch {
+    return null
+  }
+}
+
+export function storeMode(mode) {
+  try {
+    localStorage.setItem(MODE_KEY, mode)
+  } catch {
+    /* private mode: ignore */
+  }
+}
+
+export function systemPrefersDark() {
+  try {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches
+  } catch {
+    return false
+  }
+}
+
+// Resolve a mode to the actual dark boolean to apply right now.
+export function resolveDark(mode) {
+  if (mode === 'system') return systemPrefersDark()
+  return mode === 'dark'
+}
+
+// The effective mode given the stored preference and, as a fallback for a
+// brand-new device, the profile's saved dark_mode boolean.
+export function effectiveMode(profileDark) {
+  const stored = getStoredMode()
+  if (stored) return stored
+  return profileDark ? 'dark' : 'light'
+}
+
 // ---- Reduce motion (device-level, like dark mode) -----------------------
 // Lets a creator dim the app's animations/transitions without relying on an OS
 // setting. Stored in localStorage (a per-device preference) and applied by
