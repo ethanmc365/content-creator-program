@@ -1,67 +1,121 @@
-# Email setup (free, unlimited-ish via Gmail SMTP)
+# Email setup (Gmail SMTP)
 
-Two separate email paths exist. Both are currently broken for the same underlying
-reason: no real sender is configured.
+## Current status: custom SMTP is ENABLED but the credentials are REJECTED
 
-| Email type | Sent by | Why it fails today | Fix |
-|---|---|---|---|
-| Password reset, login links (auth) | Supabase Auth (GoTrue) | No custom SMTP, so it uses Supabase's built-in test mailer which is heavily rate-limited and does not reliably deliver | Add custom SMTP in Supabase Auth |
-| Notifications, broadcasts | `notify-dispatch` edge fn via Resend | Resend domain `mail.tryp.com` is `not_started` (DNS never added) so sandbox mail only reaches the account owner | Set SMTP secrets on the edge fn (code already supports it) |
+Verified live on 24 Jul 2026 by triggering a real password reset. Google replied:
 
-The single cheapest fix for BOTH is one Gmail account with an **app password**
-(e.g. `ethantryp.com@gmail.com`). Gmail free sending is ~500 recipients/day,
-which is far above current needs (~34 creators). Google Workspace raises this to
-2,000/day if ever needed.
+```
+535 5.7.8 Username and Password not accepted.
+https://support.google.com/mail/?p=BadCredentials  - gsmtp
+500: Error sending recovery email
+```
 
-## Step 1 - Create a Gmail app password (only you can do this)
+So Supabase is correctly wired to Gmail, but Gmail refuses the login. Two
+separate reasons, both must be fixed:
 
-1. The Gmail account must have **2-Step Verification ON** (Google account → Security).
+### 1. Username must be the FULL email address
+
+| Field | Current (wrong) | Correct |
+|---|---|---|
+| Username | `emails` | `ethantryp.com@gmail.com` |
+
+Gmail SMTP authenticates with the whole address, never a local nickname.
+
+### 2. Password must be a Google APP PASSWORD, not the account password
+
+Google stopped accepting normal account passwords for SMTP on 30 May 2022.
+A regular password will always return `535 BadCredentials`.
+
+To create one:
+1. The Gmail account needs **2-Step Verification ON**
+   (Google Account -> Security -> 2-Step Verification).
 2. Go to https://myaccount.google.com/apppasswords
-3. Create an app password named "Tryp SMTP". Google shows a 16-character code.
-   Copy it (spaces don't matter).
+3. Create one named "Tryp Supabase". Google shows a **16-character** code
+   like `abcd efgh ijkl mnop`. Paste it as the SMTP password (spaces optional).
 
-## Step 2 - Fix password reset (Supabase Auth custom SMTP)
+App passwords are scoped to mail sending only and can be revoked individually,
+which is why they're safe to use here.
 
-Supabase Dashboard → project `heuhqqoxyggawuckxocp` → **Authentication → Emails →
-SMTP Settings** → Enable custom SMTP:
+### Everything else in the current config is already correct
 
-- Sender email: `ethantryp.com@gmail.com`
-- Sender name: `Tryp.com`
-- Host: `smtp.gmail.com`
-- Port: `465`
-- Username: `ethantryp.com@gmail.com`
-- Password: the 16-char app password from Step 1
+- Sender email `ethantryp.com@gmail.com`, Host `smtp.gmail.com`, Port `465`.
+- Consider changing Sender name from `Ethan` to `Tryp.com` so creators
+  recognise it in their inbox.
 
-Save. Password reset + all auth emails now deliver to everyone. Test with the
-"Change password" button on the Settings page.
+Once saved, test with the "Change password" button on the Settings page. The
+auth logs (Supabase -> Logs -> Auth) will show a 200 instead of the 535.
 
-## Step 3 - Fix notification / broadcast emails (edge function secrets)
+## What works once the credentials are fixed
 
-The `notify-dispatch` function already prefers SMTP when these secrets are set
-(otherwise it falls back to Resend). Set them via the dashboard
-(Edge Functions → Secrets) or the CLI:
+| Capability | Status after fix |
+|---|---|
+| Password reset / recovery links | Works immediately, no code change |
+| Magic links, email change confirmations | Works immediately |
+| Notification + broadcast emails to creators | Needs step 3 below |
+
+### 3. Notification emails (the `notify-dispatch` edge function)
+
+Supabase's custom SMTP only covers **auth** emails. The app's own notification
+and broadcast emails go through the `notify-dispatch` edge function, which
+already supports SMTP - it just needs the same credentials as secrets:
 
 ```
 supabase secrets set \
   SMTP_HOST=smtp.gmail.com \
   SMTP_PORT=465 \
   SMTP_USER=ethantryp.com@gmail.com \
-  SMTP_PASS="<16-char app password>" \
+  SMTP_PASS="<the 16-char app password>" \
   MAIL_FROM="Tryp.com <ethantryp.com@gmail.com>"
 ```
 
-Then redeploy: `supabase functions deploy notify-dispatch --no-verify-jwt`
-(or ask Claude to deploy it). Optionally do the same for `send-invoice`.
+Then redeploy: `supabase functions deploy notify-dispatch --no-verify-jwt`.
+Do the same for `send-invoice` if you want invoices emailed too.
 
-## Step 4 - Turn the email column back on
+### 4. Turn the email column back on
 
-Once Steps 2-3 are done and a test email lands, flip `EMAIL_ENABLED` to `true`
-in `src/components/NotificationPreferences.jsx` so creators can opt into email
-notifications.
+Once a test email lands, flip `EMAIL_ENABLED` to `true` in
+`src/components/NotificationPreferences.jsx` so creators can opt into email.
 
-## Alternative - verify the Resend domain instead
+## Sending limits
 
-If you prefer Resend (nicer dashboards, but 100/day free), add the 3 DNS records
-Resend generated for `mail.tryp.com` (DKIM, MX, SPF) in whoever hosts tryp.com
-DNS, click Verify, then set `MAIL_FROM="Tryp.com <hello@mail.tryp.com>"`. No SMTP
-secrets needed in that case.
+- **Gmail free: ~500 recipients per day.** A broadcast to 40 creators = 40
+  recipients, so roughly 12 full broadcasts a day. Comfortably above current
+  needs; Google Workspace raises this to 2,000/day.
+- **Supabase auth rate limit** is now 30 emails/hour (it auto-raised from 2/hour
+  when custom SMTP was enabled). Raise it under Auth -> Rate Limits if a big
+  intake ever needs more.
+- **Minimum interval per user: 60s** - a creator can't trigger two auth emails
+  within a minute. Sensible; leave it.
+
+## Deliverability (staying out of spam)
+
+Supabase shows a warning that Gmail is a personal-mail provider rather than a
+transactional one. That's fair, and it matters at scale. What protects you:
+
+**Working in your favour**
+- Gmail signs outbound mail with DKIM for `gmail.com` and has strong sender
+  reputation, so mail from a real Gmail account generally lands in the inbox.
+- Low volume to a small, engaged list of creators who know the sender.
+
+**What to do**
+1. **Send from the same address you authenticate as.** Any mismatch between
+   `MAIL_FROM` and the SMTP user makes Gmail rewrite or reject the message and
+   tanks deliverability. Keep both `ethantryp.com@gmail.com`.
+2. **Ask creators to add the address to their contacts** on their first email.
+   The single most effective anti-spam step for a small list.
+3. **Avoid spammy patterns**: no ALL CAPS subjects, no "FREE $$$", not a single
+   giant image, and always include real text.
+4. **Include an unsubscribe path.** Creators already have per-type email
+   toggles at /settings; link to that in the footer of every broadcast.
+5. **Don't blast all 40 at once repeatedly.** The dispatcher already sends one
+   message per recipient, which is the right shape (no giant BCC).
+
+**The proper long-term fix**: send from your own domain via a transactional
+provider. Resend is already integrated as a fallback in `notify-dispatch` - add
+the 3 DNS records for `mail.tryp.com` (DKIM, SPF, MX), verify, then set
+`MAIL_FROM="Tryp.com <hello@mail.tryp.com>"` and drop the SMTP secrets. That
+gives you SPF+DKIM+DMARC alignment on your own domain, proper bounce handling
+and open/click tracking. Resend free tier is 100 emails/day / 3,000 a month.
+
+Recommendation: use Gmail now to unblock password resets today, and move to the
+verified domain before the community grows much past ~100 creators.
