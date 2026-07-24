@@ -44,15 +44,41 @@ export function AuthProvider({ children }) {
   // "View as creator": an admin can step into a hidden sandbox creator account
   // (is_test=true, invisible to the community) and experience the app EXACTLY as
   // a normal creator does — their profile, chat identity with no admin badge,
-  // their DMs / notifications / access. We stash the admin session, swap to the
-  // preview creator's session (minted server-side by the `impersonate` function),
-  // and restore the admin session on exit. `impersonating` is true whenever a
-  // stashed admin session exists, so it survives a page refresh.
+  // their DMs / notifications / access.
+  //
+  // On enter we swap to the preview creator's session (minted server-side by the
+  // `impersonate` function) and keep a short-lived, signed "exit ticket". On exit
+  // the server mints a BRAND-NEW admin session from that ticket — we do NOT try to
+  // restore stashed admin tokens. That old approach broke whenever the admin's
+  // original session row had been revoked elsewhere (a sign-out on another device
+  // deletes the row while the token still looks valid), which stranded/logged out
+  // the admin. Minting a fresh session always works.
+  //
+  // `impersonating` is derived from the ACTUAL session: true only while a stash
+  // exists AND the logged-in user is the preview creator. So a leftover stash can
+  // never resurrect the "viewing as creator" pill for a real admin login.
   const IMPERSONATE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/impersonate`
   const ADMIN_STASH_KEY = 'tryp_admin_session'
-  const [impersonating, setImpersonating] = useState(
-    () => typeof localStorage !== 'undefined' && !!localStorage.getItem(ADMIN_STASH_KEY)
-  )
+  const readStash = () => {
+    try { return JSON.parse(localStorage.getItem(ADMIN_STASH_KEY) || 'null') } catch { return null }
+  }
+  const [impersonating, setImpersonating] = useState(false)
+
+  // Keep `impersonating` and the stash honest against whoever is actually logged
+  // in. Called whenever the session changes: if the stash's creator id matches
+  // the current user we're genuinely previewing; otherwise the stash is stale
+  // (e.g. a fresh admin login after a failed exit) so we clear it and hide the
+  // pill. This self-heals any admin who got stuck in the old broken state.
+  const reconcileImpersonation = useCallback((currentSession) => {
+    const stash = readStash()
+    const uid = currentSession?.user?.id
+    if (stash?.creatorId && uid && uid === stash.creatorId) {
+      setImpersonating(true)
+    } else {
+      if (stash) { try { localStorage.removeItem(ADMIN_STASH_KEY) } catch { /* ignore */ } }
+      setImpersonating(false)
+    }
+  }, [])
 
   const enterCreatorPreview = useCallback(async () => {
     const { data: { session: cur } } = await supabase.auth.getSession()
@@ -66,15 +92,22 @@ export function AuthProvider({ children }) {
           apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
           Authorization: `Bearer ${cur.access_token}`,
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ action: 'enter' }),
       })
       out = await res.json().catch(() => ({}))
-      if (!res.ok || !out?.token_hash) return { error: out?.error || 'Could not start creator preview.' }
+      if (!res.ok || !out?.token_hash || !out?.exit_ticket) return { error: out?.error || 'Could not start creator preview.' }
     } catch {
       return { error: 'Network error. Please try again.' }
     }
-    // Stash the admin session BEFORE swapping so exit can always restore it.
-    try { localStorage.setItem(ADMIN_STASH_KEY, JSON.stringify({ access_token: cur.access_token, refresh_token: cur.refresh_token })) } catch { /* ignore */ }
+    // Stash the signed exit ticket (NOT the admin's tokens) BEFORE swapping, so
+    // exit can always mint a fresh admin session even if the original one dies.
+    try {
+      localStorage.setItem(ADMIN_STASH_KEY, JSON.stringify({
+        exitTicket: out.exit_ticket,
+        creatorId: out.creator_id,
+        adminId: out.admin_id,
+      }))
+    } catch { /* ignore */ }
     const { error } = await supabase.auth.verifyOtp({ token_hash: out.token_hash, type: 'magiclink' })
     if (error) {
       try { localStorage.removeItem(ADMIN_STASH_KEY) } catch { /* ignore */ }
@@ -85,32 +118,46 @@ export function AuthProvider({ children }) {
   }, [IMPERSONATE_URL])
 
   const exitCreatorPreview = useCallback(async () => {
-    let saved = null
-    try { saved = JSON.parse(localStorage.getItem(ADMIN_STASH_KEY) || 'null') } catch { /* ignore */ }
-    if (!saved?.access_token || !saved?.refresh_token) {
-      // Nothing to restore. Do NOT sign out (that would strand the admin) —
+    const saved = readStash()
+    if (!saved?.exitTicket) {
+      // Nothing to exit with. Do NOT sign out (that would strand the admin) —
       // just drop the flag; they can log back in if needed.
       try { localStorage.removeItem(ADMIN_STASH_KEY) } catch { /* ignore */ }
       setImpersonating(false)
-      return { error: 'Your admin session could not be found. Please log in again.' }
+      return { error: 'Your admin session could not be restored automatically. Please log in again.' }
     }
-    // Restore the stashed admin session. Both tokens are passed so setSession can
-    // refresh if the access token has aged out. Crucially we NEVER call signOut()
-    // here — a failed restore must leave the current session intact (retryable),
-    // not log the admin out (that was the reported bug).
-    const { data, error } = await supabase.auth.setSession({
-      access_token: saved.access_token,
-      refresh_token: saved.refresh_token,
-    })
-    if (error || !data?.session) {
-      return { error: error?.message || 'Could not restore your admin session. Please try again.' }
+    // Ask the server to mint a FRESH admin session from the signed ticket. This
+    // never depends on the (possibly-revoked) original admin session, so it can't
+    // fail the way token-restore did.
+    let out
+    try {
+      const res = await fetch(IMPERSONATE_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ action: 'exit', exit_ticket: saved.exitTicket }),
+      })
+      out = await res.json().catch(() => ({}))
+      if (!res.ok || !out?.token_hash) {
+        // Keep the stash so the admin can retry Exit. We never sign them out.
+        return { error: out?.error || 'Could not restore your admin session. Please try again.' }
+      }
+    } catch {
+      return { error: 'Network error. Please try again.' }
     }
-    // Only clear the stash once we're certain the admin session is back, so a
-    // transient failure above stays retryable.
+    // Swap straight into the fresh admin session.
+    const { error } = await supabase.auth.verifyOtp({ token_hash: out.token_hash, type: 'magiclink' })
+    if (error) {
+      return { error: error.message || 'Could not restore your admin session. Please try again.' }
+    }
+    // Only clear the stash once the admin session is truly back.
     try { localStorage.removeItem(ADMIN_STASH_KEY) } catch { /* ignore */ }
     setImpersonating(false)
     return {}
-  }, [])
+  }, [IMPERSONATE_URL])
 
   // Storage validates tokens against the asymmetric (ES256) signing key. A
   // session minted under the old HS256 key can't upload (RLS sees no user), so
@@ -214,6 +261,7 @@ export function AuthProvider({ children }) {
         if (cancelled) return
         setSession(session)
         setLoading(false)
+        reconcileImpersonation(session)
         if (session?.user) {
           upgradeLegacyToken(session)
           loadProfile(session.user.id)
@@ -228,6 +276,7 @@ export function AuthProvider({ children }) {
       if (cancelled) return
       setSession(session)
       setLoading(false)
+      reconcileImpersonation(session)
       if (session?.user) {
         // New user (or a fresh sign-in) → make the guard wait for the profile.
         // A plain token refresh keeps the same id, so don't flash the spinner.
@@ -245,7 +294,7 @@ export function AuthProvider({ children }) {
       clearTimeout(safety)
       subscription.unsubscribe()
     }
-  }, [fetchProfile])
+  }, [fetchProfile, reconcileImpersonation])
 
   const realIsAdmin = profile?.is_admin === true
 
