@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Avatar, Badge, CopyButton, Modal, PageHeader, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
+import Turnstile from '../../components/Turnstile'
 import { formatDate, timeAgo, downloadCsv } from '../../lib/utils'
 
 // Creator management: the full list with emails (admin-only RPC), plus all
@@ -26,6 +27,10 @@ export default function AdminCreators() {
   const [note, setNote] = useState('') // private admin note for the selected creator
   const [noteSaved, setNoteSaved] = useState(false)
   const [toast, setToast] = useState('')
+  // Turnstile gate for sending a password reset (Auth rejects token-less calls).
+  const [pwFor, setPwFor] = useState(null) // creator id awaiting the human check
+  const [pwToken, setPwToken] = useState('')
+  const [pwCaptchaKey, setPwCaptchaKey] = useState(0)
 
   async function load() {
     const [{ data: profiles }, { data: emailRows }, { data: seenRows }] = await Promise.all([
@@ -106,10 +111,14 @@ export default function AdminCreators() {
     load()
   }
 
-  async function resetPassword(creator) {
+  // Password reset needs a Turnstile token: Supabase Auth has captcha
+  // protection on /recover, so a token-less call is rejected with
+  // "captcha protection: request disallowed" and no email is ever sent.
+  async function resetPassword(creator, token) {
     const email = emails[creator.id]
     if (!email) return flash('No email found for this account.')
-    const { error } = await sendPasswordReset(email)
+    const { error } = await sendPasswordReset(email, token)
+    setPwFor(null); setPwToken(''); setPwCaptchaKey((k) => k + 1)
     flash(error ? `Couldn't send: ${error.message}` : `Reset email sent to ${email}.`)
   }
 
@@ -432,7 +441,7 @@ export default function AdminCreators() {
                 {isIncomplete(selected) && (
                   <button onClick={() => sendReminder(selected)} className="btn-secondary !py-2 text-xs"><Icon name="envelope" className="h-4 w-4" /> Email reminder</button>
                 )}
-                <button onClick={() => resetPassword(selected)} className="btn-secondary !py-2 text-xs"><Icon name="key" className="h-4 w-4" /> Send password reset</button>
+                <button onClick={() => { setPwFor(selected.id); setPwToken('') }} disabled={pwFor === selected.id} className="btn-secondary !py-2 text-xs"><Icon name="key" className="h-4 w-4" /> Send password reset</button>
                 <button onClick={() => togglePromote(selected)} className="btn-secondary !py-2 text-xs">
                   <Icon name={selected.is_admin ? 'shield' : 'star'} className="h-4 w-4" /> {selected.is_admin ? 'Remove admin' : 'Promote to admin'}
                 </button>
@@ -448,6 +457,23 @@ export default function AdminCreators() {
                   <button onClick={() => setStatus(selected, 'active')} className="btn-secondary !py-2 text-xs"><Icon name="megaphone" className="h-4 w-4" /> Unmute</button>
                 )}
               </div>
+
+              {/* Human check before a reset email can be sent (Auth requires it). */}
+              {pwFor === selected.id && (
+                <div className="mt-3 rounded-xl border border-gray-100 bg-cloud/40 p-4">
+                  <p className="mb-3 text-[11px] text-smoke">
+                    Quick human check, then we'll email a reset link to <span className="font-medium text-ink">{emails[selected.id] || 'this creator'}</span>.
+                  </p>
+                  <Turnstile key={pwCaptchaKey} onToken={setPwToken} />
+                  <div className="mt-3 flex flex-wrap justify-end gap-2">
+                    <button onClick={() => { setPwFor(null); setPwToken('') }} className="btn-ghost !py-2 text-xs">Cancel</button>
+                    <button onClick={() => resetPassword(selected, pwToken)} disabled={!pwToken} className="btn-primary !py-2 text-xs">
+                      {pwToken ? 'Send reset link' : 'Verifying…'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <p className="text-[11px] leading-relaxed text-smoke">
                 Muted: can browse but not post. Suspended: locked out of the platform entirely.
               </p>

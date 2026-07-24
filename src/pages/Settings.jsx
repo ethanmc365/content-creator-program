@@ -6,6 +6,7 @@ import { confirm, notice } from '../lib/confirm'
 import { PageHeader, Toggle, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
 import PaymentDetailsFields from '../components/PaymentDetails'
+import Turnstile from '../components/Turnstile'
 import { EMPTY_PAYEE, payeeFromPrivate, payeeToPrivate, payeeStarted, validatePayee } from '../lib/invoice'
 import {
   effectiveMode, storeMode, syncTheme, resolveDark,
@@ -65,6 +66,12 @@ export default function Settings() {
   const [savingMap, setSavingMap] = useState(false)
   const [pwMsg, setPwMsg] = useState('')
   const [pwBusy, setPwBusy] = useState(false)
+  // Password reset goes through the same Turnstile check as the public
+  // forgot-password page. Without a token Supabase Auth rejects the request
+  // with "captcha protection: request disallowed" and no email is ever sent.
+  const [pwVerifying, setPwVerifying] = useState(false)
+  const [pwToken, setPwToken] = useState('')
+  const [pwCaptchaKey, setPwCaptchaKey] = useState(0)
   const [exporting, setExporting] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [signingOutAll, setSigningOutAll] = useState(false)
@@ -111,11 +118,19 @@ export default function Settings() {
   }
 
   async function changePassword() {
+    if (!pwToken) return
     setPwBusy(true)
     setPwMsg('')
-    const { error } = await sendPasswordReset(user.email)
+    const { error } = await sendPasswordReset(user.email, pwToken)
     setPwBusy(false)
-    setPwMsg(error ? `Couldn't send: ${error.message}` : `We've emailed a password reset link to ${user.email}. It can take a couple of minutes to arrive - check your spam folder too.`)
+    // Turnstile tokens are single-use: reset the widget either way.
+    setPwToken(''); setPwCaptchaKey((k) => k + 1)
+    if (error) {
+      setPwMsg(`Couldn't send: ${error.message}`)
+    } else {
+      setPwVerifying(false)
+      setPwMsg(`We've emailed a password reset link to ${user.email}. It can take a couple of minutes to arrive - check your spam folder too.`)
+    }
   }
 
   async function savePayment() {
@@ -260,10 +275,30 @@ export default function Settings() {
         <div className="mt-4 flex flex-wrap gap-3">
           <Link to="/profile/edit" className="btn-secondary !py-2.5 text-sm">Edit profile</Link>
           <Link to={`/profile/${user?.id}`} className="btn-ghost !py-2.5 text-sm">View my profile</Link>
-          <button onClick={changePassword} disabled={pwBusy} className="btn-ghost !py-2.5 text-sm">
-            {pwBusy ? 'Sending…' : 'Change password'}
+          <button
+            onClick={() => { setPwVerifying(true); setPwMsg('') }}
+            disabled={pwVerifying}
+            className="btn-ghost !py-2.5 text-sm"
+          >
+            Change password
           </button>
         </div>
+
+        {/* Human check, then send. Mirrors the public forgot-password page. */}
+        {pwVerifying && (
+          <div className="mt-4 rounded-xl border border-gray-100 bg-cloud/40 p-4">
+            <p className="mb-3 text-xs text-smoke">
+              Quick check that you're human, then we'll email a reset link to <span className="font-medium text-ink">{user.email}</span>.
+            </p>
+            <Turnstile key={pwCaptchaKey} onToken={setPwToken} />
+            <div className="mt-3 flex flex-wrap justify-end gap-2">
+              <button onClick={() => { setPwVerifying(false); setPwToken('') }} className="btn-ghost !py-2 text-xs">Cancel</button>
+              <button onClick={changePassword} disabled={pwBusy || !pwToken} className="btn-primary !py-2 text-xs">
+                {pwBusy ? <Spinner className="h-4 w-4" /> : pwToken ? 'Send reset link' : 'Verifying…'}
+              </button>
+            </div>
+          </div>
+        )}
         {pwMsg && <p className="mt-3 text-xs text-smoke">{pwMsg}</p>}
 
         <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-gray-100 pt-5">
