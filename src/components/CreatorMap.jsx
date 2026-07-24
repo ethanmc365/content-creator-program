@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ComposableMap, Geographies, Geography, ZoomableGroup, Marker } from 'react-simple-maps'
 import { geoEqualEarth, geoDistance, geoContains } from 'd3-geo'
 import { feature } from 'topojson-client'
@@ -22,12 +22,33 @@ const BRAND_LIGHT = '#f5853f'
 const LAND = '#ECECEE'
 const HOME = '#f9c9a7' // soft orange tint for countries creators live in
 
-// Every plane flies at the SAME speed, so a long transatlantic hop takes
-// proportionally longer than a short city hop (never "3x faster"). Duration is
-// path-length / speed, gently clamped so the shortest hops aren't a blur and the
-// longest aren't glacial. Speed is in projection units per second.
-const PLANE_SPEED = 20
-const flightDur = (len) => Math.max(3.5, Math.min(22, len / PLANE_SPEED))
+// Every plane flies at EXACTLY the same speed. Duration = true curve length /
+// speed, with NO clamping - clamping was what made short hops crawl and long
+// hops race. Speed is in projection units per second.
+const PLANE_SPEED = 26
+const flightDur = (len) => len / PLANE_SPEED
+
+// Arc length of the quadratic curve we draw (M a Q c b), sampled. Using the
+// straight-line chord instead would make curved (bulged) routes run fast, so we
+// measure the path the plane actually flies.
+function quadLength(ax, ay, cx, cy, bx, by, steps = 24) {
+  let len = 0, px = ax, py = ay
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps, u = 1 - t
+    const x = u * u * ax + 2 * u * t * cx + t * t * bx
+    const y = u * u * ay + 2 * u * t * cy + t * t * by
+    len += Math.hypot(x - px, y - py)
+    px = x; py = y
+  }
+  return len
+}
+
+// Planes only ride the longer threads, so dense clusters (Ireland/UK, mainland
+// Europe) stay tidy. The dashed line still connects EVERY town - only the plane
+// count is thinned.
+const MIN_PLANE_LEN = 90 // projection units; shorter hops get line but no plane
+const MAX_PLANES = 7
+
 // The Tryp plane silhouette, drawn nose-up.
 const PLANE_D = 'M0 -11 C1.1 -11 1.8 -9 1.8 -6.2 L1.8 -4.4 L10 1 L10 3.1 L1.8 -0.2 L1.8 5 L4.4 7.6 L4.4 9.2 L0 7.7 L-4.4 9.2 L-4.4 7.6 L-1.8 5 L-1.8 -0.2 L-10 3.1 L-10 1 L-1.8 -4.4 L-1.8 -6.2 C-1.8 -9 -1.1 -11 0 -11 Z'
 
@@ -139,7 +160,7 @@ function FlyingPlane({ path, dur, zoom, opacity = 1 }) {
   )
 }
 
-function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = false, nearCount = 0, nearMeDisabled = false, onToggleNearMe = null, travelActive = null, onToggleTravel = null, onTravellersChange = null, onCreatorClick = null, connectionsActive = null, onToggleConnections = null, connectionIds = null, travelOnlyView = false }) {
+function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = false, nearCount = 0, nearMeDisabled = false, onToggleNearMe = null, travelActive = null, onToggleTravel = null, onTravellersChange = null, onCreatorClick = null, connectionsActive = null, onToggleConnections = null, connectionIds = null, travelOnlyView = false, myId = null }) {
   const dark = useIsDark()
   // Dark-mode map palette: deep land on near-black sea, so the light-grey map
   // doesn't glare. Home countries keep a muted warm tint.
@@ -152,6 +173,8 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   const [tooltip, setTooltip] = useState('')
   const [selected, setSelected] = useState(null)
   const [position, setPosition] = useState({ coordinates: [10, 30], zoom: 1.3 })
+  // Tracks the zoom DURING a gesture so pin/plane counter-scaling keeps up.
+  const [liveZoom, setLiveZoom] = useState(1.3)
   const didInitCenter = useRef(false)
 
   // Resolve any legacy profile that has a town but no stored coordinates.
@@ -212,18 +235,29 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
       const [bx, by] = projection(b)
       const mx = (ax + bx) / 2, my = (ay + by) / 2
       const dx = bx - ax, dy = by - ay
-      const len = Math.hypot(dx, dy) || 1
-      const bulge = Math.min(len * 0.22, 70)
-      const cx = mx + (-dy / len) * bulge, cyc = my + (dx / len) * bulge
+      const chord = Math.hypot(dx, dy) || 1
+      const bulge = Math.min(chord * 0.22, 70)
+      const cx = mx + (-dy / chord) * bulge, cyc = my + (dx / chord) * bulge
+      const curve = quadLength(ax, ay, cx, cyc, bx, by)
       segs.push({
+        key: `${i}-${Math.round(ax)},${Math.round(ay)}`,
         d: `M${ax} ${ay} Q ${cx} ${cyc} ${bx} ${by}`,
-        // A plane flies EVERY thread now (all creators connected), each at the
-        // same speed - longer threads simply take longer to traverse.
-        dur: flightDur(len),
+        curve,
+        dur: flightDur(curve),
       })
     }
     return segs
   }, [towns])
+
+  // Which threads actually carry a plane: the longest ones, capped, so short
+  // hops in dense areas don't turn into a swarm. Every thread is still drawn.
+  const planeSegments = useMemo(() => {
+    const long = segments.filter((s) => s.curve >= MIN_PLANE_LEN)
+    // Nothing long enough (a tightly-clustered community)? Still fly one, so the
+    // "we're all connected" idea always reads.
+    const pool = long.length ? long : segments.slice()
+    return [...pool].sort((a, b) => b.curve - a.curve).slice(0, MAX_PLANES)
+  }, [segments])
 
   // Tint the countries creators actually live in. Point-in-polygon against the
   // map's own geometry, so it's name-agnostic and always correct.
@@ -288,7 +322,8 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
         out.push({
           id: c.id, name: c.name, trip,
           d: `M${ax} ${ay} Q ${cx2} ${cy2} ${bx} ${by}`, dest: [bx, by],
-          dur: flightDur(len),
+          // Same uniform speed as every other plane on the map.
+          dur: flightDur(quadLength(ax, ay, cx2, cy2, bx, by)),
         })
         break
       }
@@ -331,41 +366,38 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
     return towns
   }, [towns, focusJourney, connectionsView, connSet, travelView, travellerIds])
   const visibleJourneys = connectionsView ? [] : (focusJourney ? [focusJourney] : journeys)
-  const quietMap = travelView || connectionsView || !!focusJourney // hide the decorative threads
+  const quietMap = travelView || connectionsView || nearMe || !!focusJourney // hide the full thread web
 
-  // Declutter: merge pins that would visually overlap at the CURRENT zoom into a
-  // single count pin, so creators near each other are never hidden behind one
-  // another. The overlap threshold (in projection units) shrinks as you zoom in,
-  // so clusters split apart the closer you look. Clicking one opens everybody in
-  // it. Recomputed on zoom + whenever the visible set changes.
-  const clusters = useMemo(() => {
-    const zoomNow = position.zoom
-    const threshold = 30 / Math.pow(Math.max(zoomNow, 1), 0.7)
-    const built = []
-    for (const t of visibleTowns) {
-      const [px, py] = projection(t.coords)
-      let host = null
-      for (const cl of built) {
-        if (Math.hypot(px - cl.cx, py - cl.cy) <= threshold) { host = cl; break }
-      }
-      if (host) {
-        host.towns.push(t)
-        host.creators.push(...t.creators)
-        host.sx += px; host.sy += py
-        host.cx = host.sx / host.towns.length
-        host.cy = host.sy / host.towns.length
-      } else {
-        built.push({ towns: [t], creators: [...t.creators], sx: px, sy: py, cx: px, cy: py })
-      }
+  // Planes for the FILTERED views ("My connections" / "Creators near me"): a few
+  // flights from the viewer's own town out to those creators, so the map still
+  // feels alive and shows how you're connected. Capped so it never gets busy.
+  const linkSegments = useMemo(() => {
+    if (!(connectionsView || nearMe) || !myId) return []
+    const me = located.find((c) => c.id === myId)
+    if (!me) return []
+    const targetIds = connectionsView ? connSet : (highlightIds || new Set())
+    const [ax, ay] = projection([me._lng, me._lat])
+    const seen = new Set()
+    const out = []
+    for (const t of towns) {
+      if (!t.creators.some((c) => targetIds.has(c.id))) continue
+      const k = t.key
+      if (seen.has(k)) continue
+      seen.add(k)
+      const [bx, by] = projection(t.coords)
+      const dx = bx - ax, dy = by - ay
+      const chord = Math.hypot(dx, dy)
+      if (chord < 12) continue // same town as me: nothing to draw
+      const bulge = Math.min(chord * 0.25, 60)
+      const cx = (ax + bx) / 2 + (-dy / chord) * bulge
+      const cy = (ay + by) / 2 + (dx / chord) * bulge
+      const d = `M${ax} ${ay} Q ${cx} ${cy} ${bx} ${by}`
+      const curve = quadLength(ax, ay, cx, cy, bx, by)
+      out.push({ key: k, d, curve, dur: flightDur(curve) })
     }
-    return built.map((cl) => {
-      const lng = cl.towns.reduce((s, t) => s + t.coords[0], 0) / cl.towns.length
-      const lat = cl.towns.reduce((s, t) => s + t.coords[1], 0) / cl.towns.length
-      // Stable key from the sorted creator ids so re-clustering keeps selection.
-      const key = cl.creators.map((c) => c.id).sort().join('|')
-      return { key, coords: [lng, lat], creators: cl.creators }
-    })
-  }, [visibleTowns, position.zoom])
+    // Longest few, so the picks are visually distinct rather than a cluster.
+    return out.sort((a, b) => b.curve - a.curve).slice(0, 5)
+  }, [connectionsView, nearMe, myId, located, connSet, highlightIds, towns])
 
   // The view that fits everyone with a location on screen (all creators visible).
   const fitView = useMemo(() => {
@@ -383,16 +415,87 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
     if (didInitCenter.current || located.length === 0) return
     didInitCenter.current = true
     setPosition(fitView)
+    setLiveZoom(fitView.zoom)
   }, [located, fitView])
 
-  const selectedTown = selected // a cluster snapshot ({ key, coords, creators })
-  const z = position.zoom
+  const selectedTown = selected // a town snapshot ({ key, coords, creators })
+
+  // Counter-scaling reads the LIVE zoom, not the settled one. Reading only the
+  // post-gesture value made every pin and plane balloon for a frame mid-zoom.
+  // The rAF throttle keeps the re-renders to one per frame so it stays smooth.
+  const z = liveZoom
+  const rafRef = useRef(0)
+  const handleMove = useCallback((pos) => {
+    if (rafRef.current) return
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = 0
+      setLiveZoom(pos.zoom)
+    })
+  }, [])
+  const handleMoveEnd = useCallback((pos) => {
+    setPosition(pos)
+    setLiveZoom(pos.zoom)
+  }, [])
+  useEffect(() => () => cancelAnimationFrame(rafRef.current), [])
 
   const zoomBy = (factor) =>
-    setPosition((p) => ({ ...p, zoom: Math.min(40, Math.max(1, p.zoom * factor)) }))
-  const resetView = () => setPosition(fitView)
+    setPosition((p) => {
+      const zoom = Math.min(40, Math.max(1, p.zoom * factor))
+      setLiveZoom(zoom)
+      return { ...p, zoom }
+    })
+  const resetView = () => { setPosition(fitView); setLiveZoom(fitView.zoom) }
 
-  return (
+  // The three view filters. Rendered twice: as an overlay on desktop, and in a
+  // row beneath the map on phones (where an overlay would cover the map).
+  const filterButtons = (
+    <>
+      {onToggleConnections && (
+        <button
+          type="button"
+          onClick={onToggleConnections}
+          className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold shadow-card transition-all hover:scale-[1.03] active:scale-95 ${
+            connectionsView ? 'bg-brand text-white' : 'bg-white/95 text-ink'
+          }`}
+        >
+          <Icon name="users" className="h-3.5 w-3.5" />
+          My connections{connectionsView ? ` · ${connSet.size}` : ''}
+        </button>
+      )}
+      {journeys.length > 0 && (
+        <button
+          type="button"
+          onClick={toggleTravel}
+          className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold shadow-card transition-all hover:scale-[1.03] active:scale-95 ${
+            travelView ? 'bg-brand text-white' : 'bg-white/95 text-ink'
+          }`}
+        >
+          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor" aria-hidden>
+            <path d="M12 1.55 C13.05 1.55 13.71 3.45 13.71 6.11 L13.71 7.82 L21.5 12.95 L21.5 14.95 L13.71 11.81 L13.71 16.75 L16.18 19.22 L16.18 20.74 L12 19.32 L7.82 20.74 L7.82 19.22 L10.29 16.75 L10.29 11.81 L2.5 14.95 L2.5 12.95 L10.29 7.82 L10.29 6.11 C10.29 3.45 10.95 1.55 12 1.55 Z" />
+          </svg>
+          Who's travelling{travelView ? ` · ${journeys.length}` : ''}
+        </button>
+      )}
+      {onToggleNearMe && (
+        <button
+          type="button"
+          onClick={onToggleNearMe}
+          disabled={nearMeDisabled}
+          title={nearMeDisabled ? 'Add your city in your profile to use this' : undefined}
+          className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold shadow-card transition-all hover:scale-[1.03] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 ${
+            nearMe ? 'bg-brand text-white' : 'bg-white/95 text-ink'
+          }`}
+        >
+          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11Z" /><circle cx="12" cy="10" r="2.6" />
+          </svg>
+          Creators near me{nearMe ? ` · ${nearCount}` : ''}
+        </button>
+      )}
+    </>
+  )
+
+  const mapBox = (
     <div className="relative w-full overflow-hidden rounded-card border border-gray-100 bg-cloud/60">
       {tooltip && (
         <div className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-full bg-ink px-3 py-1 text-xs font-medium text-white">
@@ -433,7 +536,10 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           // margin) but never drag it completely out of view, even fully zoomed
           // out. d3-zoom clamps panning to this world-extent.
           translateExtent={[[-60, -50], [WIDTH + 60, HEIGHT + 50]]}
-          onMoveEnd={(pos) => setPosition(pos)}
+          // Stable callbacks: inline arrows re-registered the d3-zoom behaviour
+          // on every render, which is what made zooming feel laggy.
+          onMove={handleMove}
+          onMoveEnd={handleMoveEnd}
         >
           <Geographies geography={GEO_URL}>
             {({ geographies }) =>
@@ -472,11 +578,33 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
                   opacity={0.75}
                 />
               ))}
-              {/* A plane flies along EVERY thread (we're all connected), each at
-                  the same speed. These carry no destination pulse, so they read
-                  differently from the "travelling now" journeys below. */}
-              {segments.map((seg, i) => (
-                <FlyingPlane key={`p${i}`} path={seg.d} dur={seg.dur} zoom={z} opacity={0.9} />
+              {/* Only the longer threads carry a plane, so dense clusters stay
+                  tidy. All planes share one speed. No destination pulse, so they
+                  read differently from the "travelling now" journeys below. */}
+              {planeSegments.map((seg) => (
+                <FlyingPlane key={`p${seg.key}`} path={seg.d} dur={seg.dur} zoom={z} opacity={0.9} />
+              ))}
+            </g>
+          )}
+
+          {/* Filtered views ("My connections" / "Creators near me"): a handful of
+              flights from your town out to them, so the map still feels alive. */}
+          {(connectionsView || nearMe) && linkSegments.length > 0 && (
+            <g style={{ pointerEvents: 'none' }}>
+              {linkSegments.map((seg) => (
+                <path
+                  key={`ls${seg.key}`}
+                  d={seg.d}
+                  fill="none"
+                  stroke={BRAND_LIGHT}
+                  strokeWidth={1.4 / z}
+                  strokeLinecap="round"
+                  strokeDasharray={`${4 / z} ${5 / z}`}
+                  opacity={0.7}
+                />
+              ))}
+              {linkSegments.map((seg) => (
+                <FlyingPlane key={`lp${seg.key}`} path={seg.d} dur={seg.dur} zoom={z} opacity={0.95} />
               ))}
             </g>
           )}
@@ -513,13 +641,13 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
             ))}
           </g>
 
-          {clusters.map((town) => (
+          {visibleTowns.map((town) => (
             <g
               key={town.key}
               onMouseEnter={() => setTooltip(
                 town.creators.length === 1
                   ? `${town.creators[0].name} · ${(town.creators[0].city || '').trim()}`.trim()
-                  : `${(town.creators[0].city || 'This area').trim()} · ${town.creators.length} creators`
+                  : `${(town.creators[0].city || 'This town').trim()} · ${town.creators.length} creators`
               )}
               onMouseLeave={() => setTooltip('')}
             >
@@ -615,52 +743,10 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
         </div>
       )}
 
-      {/* Filter toggles: stacked bottom-left. My connections, who's travelling,
-          creators near me - all also filter the creator cards below. Hidden when
-          the map is a forced travel-only view (collab board). */}
-      <div className={`absolute bottom-3 left-3 z-10 flex flex-col items-start gap-2 ${travelOnlyView ? 'hidden' : ''}`}>
-        {onToggleConnections && (
-          <button
-            type="button"
-            onClick={onToggleConnections}
-            className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold shadow-card transition-all hover:scale-[1.03] active:scale-95 ${
-              connectionsView ? 'bg-brand text-white' : 'bg-white/95 text-ink'
-            }`}
-          >
-            <Icon name="users" className="h-3.5 w-3.5" />
-            My connections{connectionsView ? ` · ${connSet.size}` : ''}
-          </button>
-        )}
-        {journeys.length > 0 && (
-          <button
-            type="button"
-            onClick={toggleTravel}
-            className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold shadow-card transition-all hover:scale-[1.03] active:scale-95 ${
-              travelView ? 'bg-brand text-white' : 'bg-white/95 text-ink'
-            }`}
-          >
-            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor" aria-hidden>
-              <path d="M12 1.55 C13.05 1.55 13.71 3.45 13.71 6.11 L13.71 7.82 L21.5 12.95 L21.5 14.95 L13.71 11.81 L13.71 16.75 L16.18 19.22 L16.18 20.74 L12 19.32 L7.82 20.74 L7.82 19.22 L10.29 16.75 L10.29 11.81 L2.5 14.95 L2.5 12.95 L10.29 7.82 L10.29 6.11 C10.29 3.45 10.95 1.55 12 1.55 Z" />
-            </svg>
-            Who's travelling{travelView ? ` · ${journeys.length}` : ''}
-          </button>
-        )}
-        {onToggleNearMe && (
-          <button
-            type="button"
-            onClick={onToggleNearMe}
-            disabled={nearMeDisabled}
-            title={nearMeDisabled ? 'Add your city in your profile to use this' : undefined}
-            className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold shadow-card transition-all hover:scale-[1.03] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 ${
-              nearMe ? 'bg-brand text-white' : 'bg-white/95 text-ink'
-            }`}
-          >
-            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11Z" /><circle cx="12" cy="10" r="2.6" />
-            </svg>
-            Creators near me{nearMe ? ` · ${nearCount}` : ''}
-          </button>
-        )}
+      {/* Filter toggles overlay the map on desktop only - on phones they'd cover
+          most of it, so there they render in a row UNDER the map instead. */}
+      <div className={`absolute bottom-3 left-3 z-10 hidden flex-col items-start gap-2 sm:flex ${travelOnlyView ? '!hidden' : ''}`}>
+        {filterButtons}
       </div>
 
       {/* Hint moved to the top-right (clears the zoom buttons), out of the way
@@ -668,6 +754,18 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
       <p className="pointer-events-none absolute right-14 top-2 z-10 hidden max-w-[15rem] rounded-full bg-white/85 px-3 py-1 text-right text-[11px] text-smoke backdrop-blur-sm sm:block">
         Tap a pin to see who's there · use + / − to zoom
       </p>
+    </div>
+  )
+
+  return (
+    <div className="w-full">
+      {mapBox}
+      {/* Mobile: the same filters in a wrapping row below the map. */}
+      {!travelOnlyView && (
+        <div className="mt-3 flex flex-wrap gap-2 sm:hidden">
+          {filterButtons}
+        </div>
+      )}
     </div>
   )
 }

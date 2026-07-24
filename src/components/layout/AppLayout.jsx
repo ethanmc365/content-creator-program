@@ -11,7 +11,7 @@ import { showLocalNotification } from '../../lib/push'
 import { stripMarkup } from '../../lib/richText'
 import { cx } from '../../lib/utils'
 import { useVisualViewport } from '../../lib/useKeyboardInset'
-import { applyTheme, storeDark, applyMotion, getStoredMotion, effectiveMode, resolveDark } from '../../lib/theme'
+import { applyMotion, getStoredMotion, setShellActive, syncTheme } from '../../lib/theme'
 
 // The signed-in app shell. One shared set of icon tabs powers BOTH the
 // desktop top bar and the mobile bottom bar, so they look identical.
@@ -62,31 +62,17 @@ export default function AppLayout() {
   // mounted, so the public landing / auth pages always stay on the bright brand
   // palette. The saved profile preference wins; until it loads we fall back to
   // the localStorage cache so there's no bright flash for dark-mode users.
+  // Dark mode is scoped to this shell so the public landing / auth pages keep
+  // the bright brand palette. lib/theme owns resolution + the OS listeners, so a
+  // live system light/dark flip reaches the page without a reload.
   useEffect(() => {
-    // Resolve the creator's theme mode (light / dark / match-system) and apply
-    // it. The mode is a per-device preference; profiles.dark_mode is the
-    // cross-device fallback for a brand-new device.
-    const applyFromPrefs = () => {
-      const dark = resolveDark(effectiveMode(!!profile?.dark_mode))
-      applyTheme(dark)
-      storeDark(dark)
-    }
-    applyFromPrefs()
-    // Reduce motion is a per-device preference (localStorage only), applied
-    // alongside the theme while the app shell is mounted.
+    setShellActive(true)
     applyMotion(getStoredMotion())
-    // Follow live OS colour-scheme flips while on "match system", and react to
-    // the user changing the theme on the Settings page in this same tab.
-    const mq = window.matchMedia?.('(prefers-color-scheme: dark)')
-    const onSys = () => applyFromPrefs()
-    mq?.addEventListener?.('change', onSys)
-    window.addEventListener('tryp-theme-change', applyFromPrefs)
-    return () => {
-      mq?.removeEventListener?.('change', onSys)
-      window.removeEventListener('tryp-theme-change', applyFromPrefs)
-      applyTheme(false); applyMotion(false)
-    }
-  }, [profile, profile?.dark_mode])
+    return () => { setShellActive(false); applyMotion(false) }
+  }, [])
+
+  // Feed the saved preference in once the profile loads (and on any change).
+  useEffect(() => { syncTheme(!!profile?.dark_mode) }, [profile?.dark_mode])
 
   // "New in the library" dot: anything published since the last time this
   // creator opened the Resources page (which stamps resources_seen_at).

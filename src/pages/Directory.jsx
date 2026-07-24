@@ -135,18 +135,18 @@ export default function Directory() {
         subtitle="Meet the community. Connect, message, and find your next collab partner."
       />
 
-      {!loading && (
-        <div className="mb-8 inline-flex items-center gap-2.5 rounded-full border border-brand/20 bg-brand-tint/40 px-4 py-2 text-sm">
-          <Icon name="users" className="h-4 w-4 shrink-0 text-brand" />
-          <span className="font-semibold text-brand">{creators.length}</span>
-          <span className="text-smoke">creator{creators.length === 1 ? '' : 's'} from around the world</span>
-        </div>
-      )}
-
-      {/* Creator map: where everyone in the community is based */}
+      {/* Creator map: where everyone in the community is based. The creator
+          count sits on the right, directly above the map. */}
       <section className="mb-10">
-        <div className="mb-3 flex items-baseline justify-between gap-3">
-          <h2 className="text-lg font-semibold text-ink">Creator map</h2>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-xl font-semibold text-ink sm:text-2xl">Creator map</h2>
+          {!loading && (
+            <div className="inline-flex items-center gap-2.5 rounded-full border border-brand/20 bg-brand-tint/40 px-4 py-2 text-sm">
+              <Icon name="users" className="h-4 w-4 shrink-0 text-brand" />
+              <span className="font-semibold text-brand">{creators.length}</span>
+              <span className="text-smoke">creator{creators.length === 1 ? '' : 's'} from around the world</span>
+            </div>
+          )}
         </div>
         {loading ? (
           <div className="h-[340px] w-full animate-pulse rounded-card bg-cloud/70 sm:h-[420px]" />
@@ -165,6 +165,7 @@ export default function Directory() {
             connectionsActive={connectionsOnly}
             onToggleConnections={toggleConnections}
             connectionIds={myConnectionIds}
+            myId={user.id}
           />
         )}
       </section>

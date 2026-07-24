@@ -105,6 +105,50 @@ export function effectiveMode(profileDark) {
   return profileDark ? 'dark' : 'light'
 }
 
+// ---- The single source of truth for "what theme is showing right now" ----
+//
+// Theme resolution used to live inside an AppLayout effect. That was fragile:
+// it only re-ran when the profile object changed, so a live OS light/dark flip
+// never reached the page. It now lives here at module scope, with ONE permanent
+// set of OS listeners, and AppLayout just switches it on/off.
+//
+// `shellActive` keeps dark mode scoped to the community shell - the public
+// landing and auth pages must always stay on the bright brand palette.
+let shellActive = false
+let lastProfileDark = false
+
+/** Re-resolve and apply the theme. Pass the profile's dark_mode when it's known. */
+export function syncTheme(profileDark) {
+  if (profileDark !== undefined) lastProfileDark = !!profileDark
+  if (!shellActive) return
+  const dark = resolveDark(effectiveMode(lastProfileDark))
+  applyTheme(dark)
+  storeDark(dark)
+}
+
+/** AppLayout mounts/unmounts the community shell. */
+export function setShellActive(on) {
+  shellActive = on
+  if (on) syncTheme()
+  else applyTheme(false)
+}
+
+// Watch the OS colour scheme. Three independent triggers, because the media
+// `change` event alone is not dependable: some browsers (and macOS "Auto"
+// appearance) don't fire it for a background tab, which is exactly the case
+// where someone flips their system theme and then comes back to the app.
+if (typeof window !== 'undefined') {
+  const resync = () => { if (getStoredMode() === 'system') syncTheme() }
+  try {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    if (mq.addEventListener) mq.addEventListener('change', resync)
+    else if (mq.addListener) mq.addListener(resync) // Safari < 14
+  } catch { /* matchMedia unavailable: the other two triggers still cover it */ }
+  // Returning to the tab, or refocusing the window, re-checks the OS setting.
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) resync() })
+  window.addEventListener('focus', resync)
+}
+
 // ---- Reduce motion (device-level, like dark mode) -----------------------
 // Lets a creator dim the app's animations/transitions without relying on an OS
 // setting. Stored in localStorage (a per-device preference) and applied by

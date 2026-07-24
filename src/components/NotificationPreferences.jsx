@@ -172,9 +172,11 @@ export function CreatorNotifications({ state }) {
 
 // The reminder sections (deadline + daily puzzle). Kept separate so Settings can
 // lay them out full-width below the two columns, balancing the page.
-export function CreatorReminders({ state }) {
+// `stacked` keeps the two reminder cards in a single column, for when they sit
+// directly under the Notifications card in a narrow settings column.
+export function CreatorReminders({ state, stacked = false }) {
   return (
-    <div className="grid gap-6 md:grid-cols-2">
+    <div className={stacked ? 'space-y-6' : 'grid gap-6 md:grid-cols-2'}>
       {/* ---- Challenge deadline reminders ---- */}
       <section className="card">
         <h2 className="text-lg font-semibold">Challenge deadline reminders</h2>
