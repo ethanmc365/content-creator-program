@@ -18,7 +18,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts'
 import * as jose from 'npm:jose@5'
-import { renderEmail, textToHtml } from '../_shared/emailTemplate.ts'
+import { renderEmail, renderText, textToHtml } from '../_shared/emailTemplate.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const admin = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
@@ -41,11 +41,31 @@ const cors = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
 
+// Where an unsubscribe request or a reply actually lands.
+const REPLY_TO = Deno.env.get('REPLY_TO') ?? MAIL_FROM.match(/<([^>]+)>/)?.[1] ?? MAIL_FROM
+// Gap between messages. Sending 40 near-identical messages back to back is what
+// providers read as a spam run; spacing them out is the cheapest mitigation
+// available while we still send through a shared mailbox.
+const SEND_GAP_MS = Number(Deno.env.get('SEND_GAP_MS') ?? '800')
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+// Providers reject bulk-looking mail with a 550 5.7.x "blocked"/"unsolicited"
+// response. That is a reputation problem, not a config problem, so it is worth
+// telling apart from a plain auth or connection failure in the UI.
+function isBulkBlock(msg: string) {
+  return /5\.7\.\d|blocked|unsolicited|bulk|spam|reputation/i.test(msg)
+}
+
 // One message, one fresh connection. NOT pooled: denomailer's pooled client was
 // the likely source of a hard crash, and at this volume the extra TLS handshake
 // costs nothing. NOTE: close() returns void, not a promise - calling .catch()
 // on it throws "Cannot read properties of undefined".
-async function sendOne(to: string, subject: string, html: string) {
+//
+// Both a text and an HTML part are always sent. The previous version passed
+// `content: 'text/html'`, which denomailer treats as the plain-text BODY - so
+// every message shipped a text part reading literally "text/html". HTML-only
+// (or nonsense-text) mail is a spam signal in its own right.
+async function sendOne(to: string, subject: string, html: string, text: string) {
   const client = new SMTPClient({
     connection: {
       hostname: SMTP_HOST!, port: SMTP_PORT, tls: SMTP_PORT === 465,
@@ -53,7 +73,21 @@ async function sendOne(to: string, subject: string, html: string) {
     },
   })
   try {
-    await client.send({ from: MAIL_FROM, to, subject, html, content: 'text/html' })
+    await client.send({
+      from: MAIL_FROM,
+      to,
+      replyTo: REPLY_TO,
+      subject,
+      content: text,
+      html,
+      // RFC 2369. A real, working unsubscribe route is one of the strongest
+      // "this is not spam" signals a sender can give. Deliberately NOT
+      // advertising One-Click (List-Unsubscribe-Post): that promises a POST
+      // endpoint that actually unsubscribes, and we do not have one yet.
+      headers: {
+        'List-Unsubscribe': `<mailto:${REPLY_TO}?subject=Unsubscribe>, <${APP_URL}/settings>`,
+      },
+    })
   } finally {
     try { await client.close() } catch { /* already closed */ }
   }
@@ -86,12 +120,22 @@ Deno.serve(async (req) => {
     const path = typeof ctaPath === 'string' && ctaPath.startsWith('/') ? ctaPath : '/home'
     // {{name}} is resolved PER RECIPIENT further down; for the preview and for
     // the shared shell we use a friendly stand-in.
+    const FOOTER = 'You are receiving this because you are part of the Tryp.com Content Creator Program.'
+    const label = ctaLabel ? String(ctaLabel) : 'Open Tryp.com Content Creator Program'
     const buildHtml = (firstName: string) => renderEmail({
       title: String(subject).replaceAll('{{name}}', firstName),
       bodyHtml: textToHtml(String(body).replaceAll('{{name}}', firstName)),
-      ctaLabel: ctaLabel ? String(ctaLabel) : 'Open Tryp.com Content Creator Program',
+      ctaLabel: label,
       ctaUrl: `${APP_URL}${path}`,
-      footerNote: 'You are receiving this because you are part of the Tryp.com Content Creator Program.',
+      footerNote: FOOTER,
+      appUrl: APP_URL,
+    })
+    const buildText = (firstName: string) => renderText({
+      title: String(subject).replaceAll('{{name}}', firstName),
+      bodyText: String(body).replaceAll('{{name}}', firstName),
+      ctaLabel: label,
+      ctaUrl: `${APP_URL}${path}`,
+      footerNote: FOOTER,
       appUrl: APP_URL,
     })
 
@@ -122,8 +166,15 @@ Deno.serve(async (req) => {
         .eq('status', 'active').eq('is_admin', false).eq('is_test', false)
         .is('deletion_requested_at', null)
       // Honour the per-type preference for whatever kind of email this is.
-      const prefKey = typeof type === 'string' && type ? type : 'announcement'
-      const wanted = (profiles ?? []).filter((p) => (p.email_prefs as Record<string, boolean> | null)?.[prefKey] !== false)
+      //
+      // 'broadcast' is the admin composer: a direct message from the team to
+      // the programme, not one of the automatic notification categories a
+      // creator can switch off in Settings. It has no preference to honour, so
+      // it goes to everyone active.
+      const prefKey = typeof type === 'string' && type && type !== 'broadcast' ? type : null
+      const wanted = prefKey
+        ? (profiles ?? []).filter((p) => (p.email_prefs as Record<string, boolean> | null)?.[prefKey] !== false)
+        : (profiles ?? [])
       const { data: list } = await admin.auth.admin.listUsers({ perPage: 1000 })
       const byId = new Map((list?.users ?? []).map((u) => [u.id, u.email]))
       recipients = wanted
@@ -141,21 +192,42 @@ Deno.serve(async (req) => {
     }
 
     let sent = 0
+    let blocked = 0
     const failures: { email: string; error: string }[] = []
-    const rows: Record<string, unknown>[] = []
+    let rows: Record<string, unknown>[] = []
 
-    for (const r of recipients) {
+    // Flush the log as we go. A long run can hit the function's wall-clock
+    // limit, and the previous version only wrote the log AFTER the loop - so a
+    // timeout meant no record at all of what had already gone out.
+    const flush = async () => {
+      if (!rows.length) return
+      const batch = rows
+      rows = []
+      await admin.from('email_send_log').insert(batch)
+    }
+
+    for (let i = 0; i < recipients.length; i++) {
+      const r = recipients[i]
       try {
-        await sendOne(r.email, String(subject).replaceAll('{{name}}', r.name), buildHtml(r.name))
+        await sendOne(
+          r.email,
+          String(subject).replaceAll('{{name}}', r.name),
+          buildHtml(r.name),
+          buildText(r.name),
+        )
         sent++
         rows.push({ kind: 'broadcast', recipient_id: r.id, campaign_id: campaignId, subject, status: 'sent' })
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
+        if (isBulkBlock(msg)) blocked++
         failures.push({ email: r.email, error: msg })
         rows.push({ kind: 'broadcast', recipient_id: r.id, campaign_id: campaignId, subject, status: 'failed', error: msg })
       }
+      if (rows.length >= 10) await flush()
+      // Space the run out, but never pay for a gap after the last message.
+      if (!test && SEND_GAP_MS > 0 && i < recipients.length - 1) await sleep(SEND_GAP_MS)
     }
-    if (rows.length) await admin.from('email_send_log').insert(rows)
+    await flush()
 
     // Approving from the review queue closes that queue item out.
     if (!test && typeof outboxId === 'string') {
@@ -166,9 +238,12 @@ Deno.serve(async (req) => {
 
     // Surface the real SMTP error so the UI never has to guess.
     if (sent === 0 && failures.length) {
-      return json({ error: `Could not send: ${failures[0].error}`, sent, failed: failures.length, total: recipients.length, failures }, 502)
+      const why = blocked
+        ? `The mail provider blocked this as bulk mail: ${failures[0].error}`
+        : `Could not send: ${failures[0].error}`
+      return json({ error: why, sent, failed: failures.length, blocked, total: recipients.length, failures }, 502)
     }
-    return json({ sent, failed: failures.length, total: recipients.length, failures: failures.slice(0, 5), test: !!test })
+    return json({ sent, failed: failures.length, blocked, total: recipients.length, failures: failures.slice(0, 5), test: !!test })
   } catch (e) {
     // Never let an exception escape without CORS headers.
     return json({ error: `Server error: ${e instanceof Error ? e.message : String(e)}` }, 500)

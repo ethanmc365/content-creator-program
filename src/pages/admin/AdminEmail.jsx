@@ -15,8 +15,8 @@ import { confirm, notice } from '../../lib/confirm'
 const FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/broadcast-email`
 
 export default function AdminEmail() {
-  const [tab, setTab] = useState('compose') // compose | templates
-  const [recipientCount, setRecipientCount] = useState(0)
+  const [tab, setTab] = useState('compose') // compose | templates | queue
+  const [addresses, setAddresses] = useState([])
   const [usage, setUsage] = useState(null)
   const [loading, setLoading] = useState(true)
   const [subject, setSubject] = useState('')
@@ -25,14 +25,16 @@ export default function AdminEmail() {
   const [ctaPath, setCtaPath] = useState('')
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState(null)
+  const [copied, setCopied] = useState(false)
 
   const [templates, setTemplates] = useState([])
   const [savingKey, setSavingKey] = useState(null)
   const [queue, setQueue] = useState([])
 
   const load = useCallback(async () => {
-    const [{ data: profiles }, { data: usageRows }, { data: tpls }, { data: pending }] = await Promise.all([
-      supabase.from('profiles').select('id, status, is_admin, is_test, deletion_requested_at, email_prefs'),
+    const [{ data: profiles }, { data: emailRows }, { data: usageRows }, { data: tpls }, { data: pending }] = await Promise.all([
+      supabase.from('profiles').select('id, status, is_admin, is_test, deletion_requested_at'),
+      supabase.rpc('admin_list_emails'),
       supabase.rpc('email_usage'),
       supabase.from('email_templates').select('*').order('label'),
       supabase.from('email_outbox').select('*').eq('status', 'pending').order('created_at', { ascending: false }),
@@ -40,16 +42,45 @@ export default function AdminEmail() {
     setTemplates(tpls ?? [])
     setQueue(pending ?? [])
     // Community creators only: active, never admins, never the test accounts,
-    // and never anyone who opted out of announcement email.
-    const count = (profiles ?? []).filter((p) =>
-      p.status === 'active' && !p.is_admin && !p.is_test && !p.deletion_requested_at &&
-      p.email_prefs?.announcement !== false
-    ).length
-    setRecipientCount(count)
+    // never anyone on their way out. A message you write here is a direct
+    // message to the programme, so it is NOT filtered by notification
+    // preferences - those govern the automatic emails, not this one.
+    const creatorIds = new Set(
+      (profiles ?? [])
+        .filter((p) => p.status === 'active' && !p.is_admin && !p.is_test && !p.deletion_requested_at)
+        .map((p) => p.id)
+    )
+    setAddresses(
+      (emailRows ?? []).filter((r) => creatorIds.has(r.id) && r.email).map((r) => r.email)
+    )
     setUsage(Array.isArray(usageRows) ? usageRows[0] : usageRows)
     setLoading(false)
   }, [])
   useEffect(() => { load() }, [load])
+
+  const recipientCount = addresses.length
+
+  // Copy every creator address, with a textarea fallback for browsers that
+  // block the async clipboard API. Comma-separated so it pastes straight into
+  // a BCC field or an external mailing tool.
+  async function copyEmails() {
+    const list = addresses.join(', ')
+    try {
+      await navigator.clipboard.writeText(list)
+    } catch {
+      const ta = document.createElement('textarea')
+      ta.value = list
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.focus()
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+    }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2200)
+  }
 
   // One helper for every call to the mail function. Errors are surfaced from
   // the response body: the function always answers with JSON + CORS headers, so
@@ -90,6 +121,10 @@ export default function AdminEmail() {
     setSending(true)
     setResult(null)
     const out = await callFn({
+      // 'broadcast' is a direct message from the team, not one of the automatic
+      // notification categories, so the sender does not apply a per-type
+      // notification preference to it.
+      type: 'broadcast',
       subject: subject.trim(),
       body: bodyText.trim(),
       ctaLabel: ctaLabel.trim() || undefined,
@@ -156,18 +191,54 @@ export default function AdminEmail() {
         />
       ) : (
         <>
-          {/* ---------- Sending usage (replaces the old campaign log) ---------- */}
           <div className="mx-auto max-w-3xl">
+          {/* ---------- Deliverability warning ----------
+              Mail currently leaves through a personal Gmail account. Gmail's
+              own outbound filter treats 30+ near-identical messages as bulk
+              mail and returns "Message blocked ... unsolicited". Nothing in
+              this page can fix that: it needs a sending domain we control. */}
+          <section className="mb-8 rounded-card border border-amber-200 bg-amber-50 px-5 py-4">
+            <div className="flex items-start gap-3">
+              <Icon name="shield" className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+              <div className="min-w-0 text-sm text-amber-900">
+                <p className="font-semibold">Large sends are being blocked by Gmail</p>
+                <p className="mt-1 text-xs leading-relaxed text-amber-800">
+                  Email leaves through a personal Gmail account, and Gmail rejects a run of
+                  near-identical messages as unsolicited bulk mail. Until a Tryp sending domain is
+                  verified with a proper email provider, keep broadcasts small, lean on the in-app
+                  and push notification for anything urgent, and use "Copy all emails" if you need
+                  to send from somewhere else. See <code className="font-semibold">docs/EMAIL_SETUP.md</code>.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* ---------- Sending usage (replaces the old campaign log) ---------- */}
           <section className="card mb-8">
             <div className="mb-4 flex items-center gap-2">
               <Icon name="chart" className="h-5 w-5 text-brand" />
               <h2 className="text-lg font-semibold">Sending usage</h2>
             </div>
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-              <StatCard label="Recipients" value={recipientCount} hint="Opted-in creators" accent />
+              <StatCard label="Recipients" value={recipientCount} hint="Active creators" accent />
               <StatCard label="Sent today" value={sentToday} hint={`of ${dailyLimit} daily limit`} />
               <StatCard label="This month" value={Number(usage?.sent_month ?? 0)} />
               <StatCard label="All time" value={Number(usage?.sent_total ?? 0)} />
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-gray-100 pt-4">
+              <button
+                onClick={copyEmails}
+                disabled={recipientCount === 0}
+                className="btn-secondary !py-2 text-xs inline-flex items-center gap-2"
+              >
+                <Icon name={copied ? 'check' : 'copy'} className="h-4 w-4" />
+                {copied ? `Copied ${recipientCount} addresses` : 'Copy all emails'}
+              </button>
+              <p className="text-xs text-smoke">
+                Every active creator, comma separated. Admins and test accounts are left out.
+                Paste it into a BCC field or an external mailing tool.
+              </p>
             </div>
 
             <div className="mt-5">
@@ -250,14 +321,20 @@ export default function AdminEmail() {
                       {result.failed} failed{result.failures?.length ? `: ${result.failures.map((f) => f.email).join(', ')}` : ''}
                     </p>
                   )}
+                  {result.blocked > 0 && (
+                    <p className="mt-1 text-xs text-red-600">
+                      {result.blocked} of those were blocked as bulk mail, not a broken address.
+                      Some providers also accept a message and bounce it back minutes later, so
+                      check the sending inbox too.
+                    </p>
+                  )}
                 </div>
               )
             )}
 
             <p className="text-xs leading-relaxed text-smoke">
-              Every creator gets their own copy, so nobody sees anyone else's address.
-              Creators who turned off announcement emails in their settings are skipped automatically.
-              Always use "Send test to me" first.
+              This goes to every active creator. Each one gets their own copy, so nobody sees
+              anyone else's address. Always use "Send test to me" first.
             </p>
           </section>
           </div>

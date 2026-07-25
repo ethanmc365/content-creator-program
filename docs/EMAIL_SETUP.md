@@ -1,6 +1,59 @@
 # Email setup (Gmail SMTP)
 
-## Current status: custom SMTP is ENABLED but the credentials are REJECTED
+## Current status (25 Jul 2026): sending WORKS, but bulk broadcasts get BLOCKED
+
+The credential problem below is **fixed**. Auth emails, password resets and 1:1
+notification emails all send correctly.
+
+The new, separate problem is **volume**. A broadcast to the whole programme
+produced bounces like:
+
+```
+Message blocked. Your message to <creator> has been blocked.
+Gmail has detected this message as unsolicited mail. To reduce the amount of
+spam sent to Gmail, this message has been blocked.
+```
+
+This is **Gmail's own outbound filter**, not the recipients rejecting anything.
+A personal Gmail account is not a bulk sender: send 30-40 near-identical
+messages in a burst and Google throttles or blocks a share of them. It will get
+worse as the programme grows, and no amount of tuning inside the app fixes it.
+
+### What has been done in code to soften it
+
+- Every message now carries a real **plain-text part** as well as HTML.
+  (The old code passed `content: 'text/html'`, which denomailer treats as the
+  plain-text body, so every message shipped a text part reading `text/html`.
+  HTML-only or nonsense-text mail is itself a spam signal.)
+- **`List-Unsubscribe`** header (RFC 2369) on every message, pointing at a real
+  mailto and at /settings.
+- **`Reply-To`** set, so replies reach a human.
+- Sends are **spaced out** (`SEND_GAP_MS`, default 800ms) instead of firing as
+  a burst, and the send log is flushed as the run progresses so a timeout no
+  longer loses the record of what already went.
+- Blocked-as-bulk failures are reported separately from broken addresses.
+
+These help. They do not solve it.
+
+### The actual fix: send from a domain we control
+
+Ranked by effort:
+
+1. **`mail.tryp.com` via Resend** (already integrated, domain already created,
+   status `not_started`). Someone with DNS access to `tryp.com` adds the DKIM,
+   SPF and MX records Resend shows, clicks Verify, then set
+   `MAIL_FROM="Tryp.com <hello@mail.tryp.com>"` and drop the SMTP secrets.
+   Free tier 100/day, 3,000/month. **Best option if DNS access is available.**
+2. **A domain we own outright** (e.g. `trypcreators.com`, ~£10/yr) verified in
+   Resend the same way. No dependency on anyone else's DNS. Slightly off-brand
+   in the From line, but it sends.
+3. **Google Workspace on tryp.com** fixes the "personal account" part but is
+   still not a bulk sender and still gets throttled. Not a real answer.
+
+Until one of those is done: **push and in-app notifications are the broadcast
+channel**, and email is for small or 1:1 sends only.
+
+## History: the credential failure (fixed 25 Jul 2026)
 
 Verified live on 24 Jul 2026 by triggering a real password reset. Google replied:
 
@@ -10,8 +63,8 @@ https://support.google.com/mail/?p=BadCredentials  - gsmtp
 500: Error sending recovery email
 ```
 
-So Supabase is correctly wired to Gmail, but Gmail refuses the login. Two
-separate reasons, both must be fixed:
+So Supabase was correctly wired to Gmail, but Gmail refused the login. Two
+separate reasons, both since corrected:
 
 ### 1. Username must be the FULL email address
 

@@ -17,7 +17,7 @@
 import webpush from 'npm:web-push@3.6.7'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts'
-import { renderEmail, textToHtml } from '../_shared/emailTemplate.ts'
+import { renderEmail, renderText, textToHtml } from '../_shared/emailTemplate.ts'
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -50,7 +50,13 @@ function parseFrom(s: string): { name?: string; mail: string } {
 
 // Send one email via SMTP (preferred) or Resend (fallback). A fresh SMTP
 // connection per message keeps it simple and robust at this volume.
-async function sendEmail(to: string, subject: string, html: string) {
+// Every message carries BOTH a text and an HTML part. HTML-only mail is a spam
+// signal, and the old call passed `content: 'text/html'` - which denomailer
+// treats as the plain-text BODY, so the text part literally read "text/html".
+// `List-Unsubscribe` (RFC 2369) gives providers a real opt-out route to see.
+async function sendEmail(to: string, subject: string, html: string, text: string) {
+  const replyTo = Deno.env.get('REPLY_TO') ?? MAIL_FROM.match(/<([^>]+)>/)?.[1] ?? MAIL_FROM
+  const listUnsub = `<mailto:${replyTo}?subject=Unsubscribe>, <${APP_URL}/settings>`
   if (SMTP_READY) {
     const client = new SMTPClient({
       connection: {
@@ -62,7 +68,11 @@ async function sendEmail(to: string, subject: string, html: string) {
     })
     try {
       const from = parseFrom(MAIL_FROM)
-      await client.send({ from: from.name ? `${from.name} <${from.mail}>` : from.mail, to, subject, html, content: 'text/html' })
+      await client.send({
+        from: from.name ? `${from.name} <${from.mail}>` : from.mail,
+        to, subject, html, content: text, replyTo,
+        headers: { 'List-Unsubscribe': listUnsub },
+      })
     } finally {
       try { await client.close() } catch { /* already closed */ }
     }
@@ -72,7 +82,10 @@ async function sendEmail(to: string, subject: string, html: string) {
     await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: MAIL_FROM, to, subject, html }),
+      body: JSON.stringify({
+        from: MAIL_FROM, to, subject, html, text, reply_to: replyTo,
+        headers: { 'List-Unsubscribe': listUnsub },
+      }),
     })
   }
 }
@@ -172,16 +185,18 @@ Deno.serve(async (req) => {
       const subject = fill(tpl?.subject || '{{title}}')
       const bodyText = fill(tpl?.body || 'Hi {{name}},\n\n{{body}}')
 
+      const ctaLabel = tpl?.cta_label || 'Open Tryp.com Content Creator Program'
+      const ctaUrl = `${APP_URL}${n.link || tpl?.cta_path || '/notifications'}`
+      const footerNote = 'You can choose exactly which emails you get in your settings.'
       const html = renderEmail({
         title: subject,
         bodyHtml: textToHtml(bodyText),
-        ctaLabel: tpl?.cta_label || 'Open Tryp.com Content Creator Program',
-        ctaUrl: `${APP_URL}${n.link || tpl?.cta_path || '/notifications'}`,
-        footerNote: 'You can choose exactly which emails you get in your settings.',
+        ctaLabel, ctaUrl, footerNote,
         appUrl: APP_URL,
       })
+      const text = renderText({ title: subject, bodyText, ctaLabel, ctaUrl, footerNote, appUrl: APP_URL })
       try {
-        await sendEmail(email, subject, html)
+        await sendEmail(email, subject, html, text)
         await supabase.from('email_send_log').insert({
           kind: 'notification', recipient_id: n.recipient_id, subject, status: 'sent',
         })

@@ -41,6 +41,27 @@ export function textToHtml(text: string) {
     .join('')
 }
 
+/**
+ * The plain-text half of the message.
+ *
+ * Every email must carry BOTH parts. An HTML-only message is a well known spam
+ * signal, and it is one of the things Gmail weighs when it decides a run of
+ * near-identical mail is unsolicited bulk. Callers pass the ORIGINAL plain text
+ * they already have, so nothing has to be un-parsed back out of the HTML.
+ */
+export function renderText(o: { title: string; bodyText: string; ctaLabel?: string; ctaUrl?: string; footerNote?: string; appUrl: string }) {
+  const lines = [
+    o.title,
+    '',
+    String(o.bodyText ?? '').trim(),
+  ]
+  if (o.ctaLabel && o.ctaUrl) lines.push('', `${o.ctaLabel}: ${o.ctaUrl}`)
+  lines.push('', '--')
+  if (o.footerNote) lines.push(o.footerNote)
+  lines.push(`Tryp.com Content Creator Program - email preferences: ${o.appUrl}/settings`)
+  return lines.join('\n')
+}
+
 export function renderEmail(o: EmailOpts) {
   const cta = o.ctaLabel && o.ctaUrl
     ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:28px 0 8px">
