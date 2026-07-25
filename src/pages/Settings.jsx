@@ -12,13 +12,13 @@ import {
   effectiveMode, storeMode, syncTheme, resolveDark,
   applyMotion, storeMotion, getStoredMotion,
 } from '../lib/theme'
-import { useNotificationPrefs, CreatorNotifications, CreatorReminders, AdminNotifications } from '../components/NotificationPreferences'
+import { useNotificationPrefs, CreatorNotifications, AdminNotifications } from '../components/NotificationPreferences'
 
-// The three appearance choices. "System" tracks the OS colour scheme live.
+// Light or dark, explicitly. A "match system" option was tried and removed:
+// following the OS colour scheme was unreliable across real devices.
 const THEME_MODES = [
   { key: 'light', label: 'Light', icon: 'sun' },
   { key: 'dark', label: 'Dark', icon: 'moon' },
-  { key: 'system', label: 'System', icon: 'device' },
 ]
 
 // On phones the settings page is a menu of sections rather than one very long
@@ -218,8 +218,8 @@ export default function Settings() {
 
       <div className="mt-5 border-t border-gray-100 pt-5">
         <p className="text-sm font-semibold">Theme</p>
-        <p className="text-xs text-smoke">Choose a light or dark look, or match whatever your device is set to.</p>
-        <div className="mt-3 grid grid-cols-3 gap-2" role="radiogroup" aria-label="Theme">
+        <p className="text-xs text-smoke">Choose how the community looks on this device.</p>
+        <div className="mt-3 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Theme">
           {THEME_MODES.map((m) => {
             const active = themeMode === m.key
             return (
@@ -239,12 +239,6 @@ export default function Settings() {
             )
           })}
         </div>
-        {themeMode === 'system' && (
-          <p className="mt-3 flex items-center gap-2 rounded-xl bg-cloud px-4 py-2.5 text-xs text-smoke">
-            <Icon name="device" className="h-4 w-4 shrink-0 text-brand" />
-            Following your device. Change your phone or laptop to dark mode and the community follows automatically.
-          </p>
-        )}
       </div>
 
       <div className="mt-5 flex items-center gap-4 border-t border-gray-100 pt-5">
@@ -257,12 +251,7 @@ export default function Settings() {
     </section>
   )
 
-  const NotificationsSection = (
-    <div className="space-y-6">
-      <CreatorNotifications state={notif} />
-      <CreatorReminders state={notif} stacked />
-    </div>
-  )
+  const NotificationsSection = <CreatorNotifications state={notif} />
 
   const AccountSection = (
     <div className="space-y-6">

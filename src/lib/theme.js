@@ -57,19 +57,21 @@ export function applyTheme(on) {
   else el.removeAttribute('data-theme')
 }
 
-// ---- Theme mode: light / dark / system ----------------------------------
-// The creator can pick a fixed light or dark theme, or "match system" which
-// follows the OS colour-scheme preference and flips live when it changes.
-// The chosen MODE is a per-device preference (localStorage); the RESOLVED
-// dark/light boolean is still mirrored to profiles.dark_mode so cross-device
-// logins fall back to something sensible and the existing dark_mode readers
-// keep working.
+// ---- Theme mode: light / dark -------------------------------------------
+// A "match system" option existed briefly but was removed: following the OS
+// colour scheme proved unreliable in practice across the browsers/devices
+// creators actually use, so the choice is now an explicit light or dark.
+// The MODE is a per-device preference (localStorage); the resolved dark
+// boolean is mirrored to profiles.dark_mode so a new device has a sensible
+// default and the existing dark_mode readers keep working.
 const MODE_KEY = 'tryp_theme_mode'
 
 export function getStoredMode() {
   try {
     const m = localStorage.getItem(MODE_KEY)
-    return m === 'light' || m === 'dark' || m === 'system' ? m : null
+    // 'system' may still be in localStorage from the old build; treat it as
+    // "not set" so those devices fall back to their saved profile preference.
+    return m === 'light' || m === 'dark' ? m : null
   } catch {
     return null
   }
@@ -83,17 +85,8 @@ export function storeMode(mode) {
   }
 }
 
-export function systemPrefersDark() {
-  try {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches
-  } catch {
-    return false
-  }
-}
-
 // Resolve a mode to the actual dark boolean to apply right now.
 export function resolveDark(mode) {
-  if (mode === 'system') return systemPrefersDark()
   return mode === 'dark'
 }
 
@@ -133,21 +126,6 @@ export function setShellActive(on) {
   else applyTheme(false)
 }
 
-// Watch the OS colour scheme. Three independent triggers, because the media
-// `change` event alone is not dependable: some browsers (and macOS "Auto"
-// appearance) don't fire it for a background tab, which is exactly the case
-// where someone flips their system theme and then comes back to the app.
-if (typeof window !== 'undefined') {
-  const resync = () => { if (getStoredMode() === 'system') syncTheme() }
-  try {
-    const mq = window.matchMedia('(prefers-color-scheme: dark)')
-    if (mq.addEventListener) mq.addEventListener('change', resync)
-    else if (mq.addListener) mq.addListener(resync) // Safari < 14
-  } catch { /* matchMedia unavailable: the other two triggers still cover it */ }
-  // Returning to the tab, or refocusing the window, re-checks the OS setting.
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) resync() })
-  window.addEventListener('focus', resync)
-}
 
 // ---- Reduce motion (device-level, like dark mode) -----------------------
 // Lets a creator dim the app's animations/transitions without relying on an OS

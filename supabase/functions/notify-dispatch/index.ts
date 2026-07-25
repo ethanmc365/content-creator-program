@@ -89,9 +89,20 @@ Deno.serve(async (req) => {
   // Channel preferences: notif_prefs gates device push, email_prefs gates email.
   // The in-app row already exists (the bell is the always-on inbox).
   const { data: profile } = await supabase
-    .from('profiles').select('notif_prefs, email_prefs').eq('id', n.recipient_id).single()
+    .from('profiles').select('notif_prefs, email_prefs, is_admin').eq('id', n.recipient_id).single()
   const pushOn = profile?.notif_prefs?.[n.type] !== false
-  const emailOn = profile?.email_prefs?.[n.type] === true
+  let emailOn = profile?.email_prefs?.[n.type] === true
+
+  // Admin-only alert types must NEVER be emailed to a regular creator, whatever
+  // their prefs blob happens to contain. This is the server-side guarantee that
+  // backs the admin email toggles in Settings.
+  //
+  // NOTE: 'application' is deliberately NOT in this list - it is dual-purpose.
+  // Admins get "New creator awaiting review", but the creator themselves gets
+  // "Finish setting up your profile" / "You're in! Welcome aboard" under the
+  // same type, and those SHOULD still reach them.
+  const ADMIN_ONLY_TYPES = ['submission', 'new_member', 'referral', 'deletion', 'inactive', 'feedback']
+  if (ADMIN_ONLY_TYPES.includes(n.type) && profile?.is_admin !== true) emailOn = false
 
   // 1) Web push to every registered device (when push is on for this type).
   if (pushOn) {

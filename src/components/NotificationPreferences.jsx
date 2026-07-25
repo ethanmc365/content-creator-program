@@ -31,14 +31,18 @@ export const CATEGORIES = [
 ]
 
 // Admin-only alerts (hidden from regular creators).
+// Admin-only alerts (hidden from regular creators). All are emailable: an admin
+// running the program genuinely wants these off-platform. The edge function
+// independently refuses to email these types to a non-admin recipient, so a
+// creator can never receive one even if their prefs blob says otherwise.
 export const ADMIN_CATEGORIES = [
-  { key: 'application', label: 'New creator applications', hint: 'When a creator submits their profile for review.' },
-  { key: 'submission', label: 'New challenge entries', hint: 'When a creator submits a video to a challenge.' },
-  { key: 'new_member', label: 'New creators joined', hint: 'When a creator is approved and becomes active.' },
-  { key: 'referral', label: 'New referrals', hint: 'When a creator logs a referral lead.' },
-  { key: 'deletion', label: 'Account deletion requests', hint: 'When a creator schedules their account for deletion.' },
-  { key: 'inactive', label: 'Inactive creators', hint: 'When a creator has not logged in for 30+ days.' },
-  { key: 'feedback', label: 'Bug reports & ideas', hint: 'When a creator reports a bug or suggests a feature.' },
+  { key: 'application', label: 'New creator applications', hint: 'When a creator submits their profile for review.', emailable: true },
+  { key: 'submission', label: 'New challenge entries', hint: 'When a creator submits a video to a challenge.', emailable: true },
+  { key: 'new_member', label: 'New creators joined', hint: 'When a creator is approved and becomes active.', emailable: true },
+  { key: 'referral', label: 'New referrals', hint: 'When a creator logs a referral lead.', emailable: true },
+  { key: 'deletion', label: 'Account deletion requests', hint: 'When a creator schedules their account for deletion.', emailable: true },
+  { key: 'inactive', label: 'Inactive creators', hint: 'When a creator has not logged in for 30+ days.', emailable: true },
+  { key: 'feedback', label: 'Bug reports & ideas', hint: 'When a creator reports a bug or suggests a feature.', emailable: true },
 ]
 
 const DEFAULT_PREFS = Object.fromEntries(CATEGORIES.map((c) => [c.key, true]))
@@ -120,21 +124,40 @@ function PrefRow({ c, state }) {
   )
 }
 
-// The creator-facing notification sections (device push, per-type prefs,
-// deadline reminders, daily puzzle reminders).
+// A labelled divider between blocks inside the single notifications card.
+function Divider({ title, hint }) {
+  return (
+    <div className="border-t border-gray-100 pt-6">
+      <h3 className="text-sm font-semibold text-ink">{title}</h3>
+      {hint && <p className="mt-0.5 text-xs text-smoke">{hint}</p>}
+    </div>
+  )
+}
+
+// EVERY notification setting in ONE card: this device, what you're notified
+// about, challenge deadline reminders and daily puzzle reminders. Previously
+// four separate cards, which read as unrelated settings when they're all the
+// same thing.
 export function CreatorNotifications({ state }) {
   const supported = pushSupported()
   return (
-    <div className="space-y-6">
-      {/* ---- Device push ---- */}
-      <section className="card space-y-4">
-        <div className="flex items-center gap-2">
-          <Icon name="bell" className="h-5 w-5 text-brand" />
-          <h2 className="text-lg font-semibold">Notifications</h2>
+    <section className="card">
+      <div className="flex items-center gap-2">
+        <Icon name="bell" className="h-5 w-5 text-brand" />
+        <h2 className="text-lg font-semibold">Notifications</h2>
+      </div>
+      <p className="mt-1 text-sm text-smoke">
+        Choose how you hear about what's happening. Your in-app bell always keeps a record.
+      </p>
+
+      {/* ---- This device ---- */}
+      <div className="mt-6 space-y-4">
+        <div>
+          <h3 className="text-sm font-semibold text-ink">This device</h3>
+          <p className="mt-0.5 text-xs text-smoke">
+            Get alerts even when the app is closed. Add the app to your home screen for the best experience.
+          </p>
         </div>
-        <p className="-mt-2 text-sm text-smoke">
-          Get alerts on this device even when the app is in the background. Add the app to your home screen for the best experience.
-        </p>
         {!supported ? (
           <p className="rounded-xl bg-cloud px-4 py-3 text-sm text-smoke">
             This browser does not support push notifications. Try Chrome, Edge or installing the app to your home screen.
@@ -155,42 +178,25 @@ export function CreatorNotifications({ state }) {
           </button>
         )}
         {state.pushMsg && <p className="text-sm text-smoke">{state.pushMsg}</p>}
-      </section>
+      </div>
 
-      {/* ---- Per-type preferences ---- */}
-      <section className="card">
-        {!EMAIL_ENABLED && (
-          <div className="mb-3 flex items-start gap-2 rounded-xl bg-cloud px-4 py-3 text-xs text-smoke">
-            <Icon name="clock" className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
-            <span>Email notifications are coming soon and are turned off for now. You'll still get everything through the app and push notifications.</span>
-          </div>
-        )}
-        <div className="flex items-center justify-end gap-3 border-b border-gray-100 pb-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+      {/* ---- What you're notified about ---- */}
+      <div className="mt-6">
+        <Divider
+          title="What you're notified about"
+          hint={EMAIL_ENABLED ? 'Email is reserved for the things worth leaving the app for. A dash means in-app and push only.' : undefined}
+        />
+        <div className="mt-3 flex items-center justify-end gap-3 border-b border-gray-100 pb-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
           <span className="w-11 text-center">Push</span>
           {EMAIL_ENABLED && <span className="w-11 text-center">Email</span>}
         </div>
         {CATEGORIES.map((c) => <PrefRow key={c.key} c={c} state={state} />)}
-      </section>
+      </div>
 
-      <p className="text-xs text-smoke">
-        Push sends to your devices. Your in-app notification bell always keeps a record. Account-critical messages (like your application result) are always delivered.
-      </p>
-    </div>
-  )
-}
-
-// The reminder sections (deadline + daily puzzle). Kept separate so Settings can
-// lay them out full-width below the two columns, balancing the page.
-// `stacked` keeps the two reminder cards in a single column, for when they sit
-// directly under the Notifications card in a narrow settings column.
-export function CreatorReminders({ state, stacked = false }) {
-  return (
-    <div className={stacked ? 'space-y-6' : 'grid gap-6 md:grid-cols-2'}>
       {/* ---- Challenge deadline reminders ---- */}
-      <section className="card">
-        <h2 className="text-lg font-semibold">Challenge deadline reminders</h2>
-        <p className="mt-1 text-sm text-smoke">Get reminded before a live challenge closes so you can get your entries in. Choose when:</p>
-        <div className="mt-4 flex flex-wrap gap-2">
+      <div className="mt-6">
+        <Divider title="Challenge deadline reminders" hint="Get reminded before a live challenge closes so you can get your entries in." />
+        <div className="mt-3 flex flex-wrap gap-2">
           {[14, 7, 5, 3].map((d) => {
             const on = state.reminderDays.includes(d)
             return (
@@ -209,13 +215,12 @@ export function CreatorReminders({ state, stacked = false }) {
         {state.reminderDays.length === 0 && (
           <p className="mt-3 text-xs text-amber-600">No reminders selected, so you won't be reminded about deadlines.</p>
         )}
-      </section>
+      </div>
 
       {/* ---- Daily puzzle reminders ---- */}
-      <section className="card">
-        <h2 className="text-lg font-semibold">Daily puzzle reminders</h2>
-        <p className="mt-1 text-sm text-smoke">Never break a run on Guess the Country or Flight Path. These are push notifications.</p>
-        <div className="mt-4">
+      <div className="mt-6">
+        <Divider title="Daily puzzle reminders" hint="Never break a run on Guess the Country or Flight Path. Push only." />
+        <div className="mt-1">
           <div className="flex items-center gap-4 border-b border-gray-100 py-4">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold">Streak reminder</p>
@@ -235,10 +240,15 @@ export function CreatorReminders({ state, stacked = false }) {
             </div>
           </div>
         </div>
-      </section>
-    </div>
+      </div>
+
+      <p className="mt-5 border-t border-gray-100 pt-4 text-xs text-smoke">
+        Account-critical messages, like your application result, are always delivered.
+      </p>
+    </section>
   )
 }
+
 
 // Admin-only alert toggles. Rendered at the very bottom of Settings, only for
 // admins. Shares the same prefs state as the creator section above.
@@ -250,6 +260,9 @@ export function AdminNotifications({ state }) {
         {EMAIL_ENABLED && <span className="w-11 text-center">Email</span>}
       </div>
       {ADMIN_CATEGORIES.map((c) => <PrefRow key={c.key} c={c} state={state} />)}
+      <p className="mt-4 text-xs text-smoke">
+        These alerts only ever go to the Tryp.com Team. Creators never receive them, even by mistake.
+      </p>
     </>
   )
 }
