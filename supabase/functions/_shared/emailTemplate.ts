@@ -42,7 +42,6 @@ export function textToHtml(text: string) {
 }
 
 export function renderEmail(o: EmailOpts) {
-  const logo = o.logoUrl ?? `${o.appUrl}/brand/tryp-logo.png`
   const cta = o.ctaLabel && o.ctaUrl
     ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:28px 0 8px">
          <tr><td style="border-radius:9999px;background:${BRAND}">
@@ -64,10 +63,17 @@ export function renderEmail(o: EmailOpts) {
       <table role="presentation" width="600" cellpadding="0" cellspacing="0"
              style="width:100%;max-width:600px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #ececee">
 
-        <!-- Brand bar -->
-        <tr><td style="background:${BRAND};padding:22px 32px">
-          <img src="${esc(logo)}" alt="Tryp.com" width="104"
-               style="display:block;border:0;height:auto;max-width:104px" />
+        <!-- Brand bar. The wordmark is TEXT, deliberately not an image:
+             most mail clients block remote images by default, and the brand PNG
+             is a 1200x630 social card whose orange background disappears
+             against this bar. Text always renders, crisp, in every client. -->
+        <tr><td style="background:${BRAND};padding:24px 32px">
+          <div style="font-family:${FONT};font-size:26px;line-height:1;font-weight:800;letter-spacing:-0.5px;color:#ffffff">
+            TRYP<span style="font-size:14px;font-weight:700">.com</span>
+          </div>
+          <div style="margin-top:7px;font-family:${FONT};font-size:12px;line-height:1;font-weight:600;letter-spacing:0.4px;color:#ffffff;opacity:0.85">
+            Content Creator Program
+          </div>
         </td></tr>
 
         <!-- Body -->

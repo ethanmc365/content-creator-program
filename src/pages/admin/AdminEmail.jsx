@@ -118,7 +118,7 @@ export default function AdminEmail() {
       />
 
       <div className="mb-8 flex gap-2">
-        {[['compose', 'Compose'], ['queue', 'Review queue'], ['templates', 'Automatic emails']].map(([key, label]) => (
+        {[['compose', 'Compose'], ['templates', 'Automatic emails'], ['queue', 'Review queue']].map(([key, label]) => (
           <button
             key={key}
             type="button"
@@ -269,18 +269,44 @@ export default function AdminEmail() {
 }
 
 
-// ---------------------------------------------------------------------------
-// Automatic emails: a wide two-pane editor. Copy on the left, a true-to-life
-// preview of the real email on the right. The preview HTML is rendered by the
-// same edge function that sends, so what you see is exactly what lands.
-const PLACEHOLDERS = [
-  ['{{title}}', "the notification's headline"],
-  ['{{body}}', "the notification's message"],
-  ['{{name}}', "the recipient's first name"],
-]
 
-// Fill placeholders with the template's realistic sample values, so the preview
-// reads like a genuine email instead of showing raw {{tokens}}.
+// ---------------------------------------------------------------------------
+// Automatic emails.
+//
+// The previous version exposed the raw {{body}} token, which read as gibberish:
+// you saw "{{body}}" where you expected the actual message. The model here is
+// explicit instead - an automatic email is three stacked parts:
+//
+//   1. Your intro      (you write it, optional)
+//   2. The message     (filled in automatically from the announcement/event -
+//                       shown read-only with a real example, never as a token)
+//   3. Your sign-off   (you write it, optional)
+//
+// Under the hood that is still one `body` string with {{body}} in the middle,
+// so nothing about sending changed - only how it is presented.
+const AUTO_BLURB = {
+  announcement: "The announcement's own text",
+  challenge: "The challenge title and details",
+  event: "The event details, date and link",
+  application: "The welcome message",
+}
+
+function splitBody(body) {
+  const raw = String(body ?? '')
+  const i = raw.indexOf('{{body}}')
+  if (i === -1) return { intro: raw, outro: '', hasAuto: false }
+  return {
+    intro: raw.slice(0, i).replace(/\n+$/, ''),
+    outro: raw.slice(i + '{{body}}'.length).replace(/^\n+/, ''),
+    hasAuto: true,
+  }
+}
+function joinBody(intro, outro, hasAuto) {
+  if (!hasAuto) return intro
+  return [intro.trim(), '{{body}}', outro.trim()].filter(Boolean).join('\n\n')
+}
+
+// Swap the tokens for this template's realistic example values.
 function withSample(text, t) {
   return String(text ?? '')
     .replaceAll('{{title}}', t.sample_title || t.label)
@@ -298,8 +324,16 @@ function TemplatesPanel({ templates, setTemplates, savingKey, setSavingKey, rend
   const patch = (key, changes) =>
     setTemplates((list) => list.map((t) => (t.key === key ? { ...t, ...changes } : t)))
 
-  // Re-render the preview whenever the selected template or its copy changes.
-  // Debounced so typing doesn't fire a request per keystroke.
+  const parts = active ? splitBody(active.body) : { intro: '', outro: '', hasAuto: false }
+  const setPart = (which, value) =>
+    patch(active.key, {
+      body: joinBody(
+        which === 'intro' ? value : parts.intro,
+        which === 'outro' ? value : parts.outro,
+        parts.hasAuto,
+      ),
+    })
+
   useEffect(() => {
     if (!active) return
     let alive = true
@@ -323,8 +357,9 @@ function TemplatesPanel({ templates, setTemplates, savingKey, setSavingKey, rend
     const { error } = await supabase
       .from('email_templates')
       .update({
-        subject: active.subject, body: active.body, cta_label: active.cta_label,
-        enabled: active.enabled, updated_at: new Date().toISOString(),
+        subject: active.subject, body: active.body,
+        cta_label: active.cta_label, auto_send: active.auto_send,
+        updated_at: new Date().toISOString(),
       })
       .eq('key', active.key)
     setSavingKey(null)
@@ -363,12 +398,10 @@ function TemplatesPanel({ templates, setTemplates, savingKey, setSavingKey, rend
             }`}
           >
             {t.label}
-            {t.enabled && <span className={`h-1.5 w-1.5 rounded-full ${t.key === active.key ? 'bg-white' : 'bg-green-500'}`} />}
           </button>
         ))}
       </div>
 
-      {/* Two panes: editor | live preview */}
       <div className="grid items-start gap-6 xl:grid-cols-2">
         {/* ---- Editor ---- */}
         <section className="card">
@@ -377,71 +410,115 @@ function TemplatesPanel({ templates, setTemplates, savingKey, setSavingKey, rend
               <h2 className="text-lg font-semibold">{active.label}</h2>
               <p className="mt-1 text-sm text-smoke">{active.description}</p>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <span className="text-xs text-smoke">Use my copy</span>
-              <Toggle on={!!active.enabled} onChange={(v) => patch(active.key, { enabled: v })} label={`Use custom copy for ${active.label}`} />
-            </div>
           </div>
 
-          <div className={`mt-5 space-y-4 border-t border-gray-100 pt-5 ${active.enabled ? '' : 'opacity-50'}`}>
+          <div className="mt-5 space-y-5 border-t border-gray-100 pt-5">
             <div>
-              <label htmlFor="tpl-subject" className="label">Subject</label>
+              <label htmlFor="tpl-subject" className="label">Subject line</label>
               <input
-                id="tpl-subject" type="text" className="input" disabled={!active.enabled}
+                id="tpl-subject" type="text" className="input"
                 value={active.subject} onChange={(e) => patch(active.key, { subject: e.target.value })}
               />
-            </div>
-            <div>
-              <label htmlFor="tpl-body" className="label">Message</label>
-              <textarea
-                id="tpl-body" rows={9} className="input" disabled={!active.enabled}
-                value={active.body} onChange={(e) => patch(active.key, { body: e.target.value })}
-              />
-            </div>
-            <div>
-              <label htmlFor="tpl-cta" className="label">Button text</label>
-              <input
-                id="tpl-cta" type="text" className="input" disabled={!active.enabled}
-                value={active.cta_label || ''} onChange={(e) => patch(active.key, { cta_label: e.target.value })}
-                placeholder="Open the Creator Program"
-              />
-              <p className="mt-1 text-xs text-smoke">
-                The button always opens the Creator Program app at <code className="text-brand">{active.cta_path}</code>. You choose the wording, not the destination.
+              <p className="mt-1.5 text-xs text-smoke">
+                Creators will see: <span className="font-medium text-ink">{withSample(active.subject, active)}</span>
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-4">
-              {PLACEHOLDERS.map(([token, what]) => (
-                <span key={token} className="inline-flex items-center gap-1.5 rounded-full bg-cloud px-3 py-1 text-[11px] text-smoke">
-                  <code className="font-semibold text-brand">{token}</code> {what}
-                </span>
-              ))}
+            {/* The three stacked parts of the message */}
+            <div>
+              <p className="label">Message</p>
+
+              <div className="rounded-xl border border-gray-200 bg-white p-3">
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">1 &middot; Your intro</p>
+                <textarea
+                  rows={2} className="input !border-0 !bg-cloud/50 !p-3 text-sm"
+                  value={parts.intro} onChange={(e) => setPart('intro', e.target.value)}
+                  placeholder="Hi {{name}},"
+                  aria-label="Intro"
+                />
+
+                {parts.hasAuto && (
+                  <div className="mt-3">
+                    <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                      <Icon name="bulb" className="h-3.5 w-3.5 text-brand" />
+                      2 &middot; {AUTO_BLURB[active.key] || 'The message'} &mdash; filled in automatically
+                    </p>
+                    <div className="rounded-lg border border-dashed border-brand/30 bg-brand-tint/25 p-3">
+                      <p className="whitespace-pre-line text-sm leading-relaxed text-ink/80">
+                        {active.sample_body || 'The message from the notification appears here.'}
+                      </p>
+                      <p className="mt-2 text-[11px] italic text-smoke">
+                        Example only. The real text comes from the actual {active.label.toLowerCase()}.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-3">
+                  <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                    {parts.hasAuto ? '3' : '2'} &middot; Your sign-off <span className="font-normal normal-case tracking-normal">(optional)</span>
+                  </p>
+                  <textarea
+                    rows={2} className="input !border-0 !bg-cloud/50 !p-3 text-sm"
+                    value={parts.outro} onChange={(e) => setPart('outro', e.target.value)}
+                    placeholder="See you there!"
+                    aria-label="Sign-off"
+                  />
+                </div>
+              </div>
+
+              <p className="mt-2 text-xs text-smoke">
+                Use <code className="font-semibold text-brand">{'{{name}}'}</code> anywhere to drop in each creator's first name.
+              </p>
+            </div>
+
+            <div>
+              <label htmlFor="tpl-cta" className="label">Button text</label>
+              <input
+                id="tpl-cta" type="text" className="input"
+                value={active.cta_label || ''} onChange={(e) => patch(active.key, { cta_label: e.target.value })}
+                placeholder="Open Tryp.com Content Creator Program"
+              />
+              <p className="mt-1 text-xs text-smoke">
+                Always opens the Creator Program at <code className="text-brand">{active.cta_path}</code>.
+              </p>
+            </div>
+
+            {/* Whether this one needs approval before it goes out */}
+            <div className="flex items-center gap-4 rounded-xl bg-cloud/50 px-4 py-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold">Send without asking me</p>
+                <p className="text-xs text-smoke">
+                  {active.auto_send
+                    ? 'Goes straight out to creators as soon as it happens.'
+                    : 'Waits in the Review queue so you can check, edit or decline it first.'}
+                </p>
+              </div>
+              <Toggle
+                on={!!active.auto_send}
+                onChange={(v) => patch(active.key, { auto_send: v })}
+                label={`Send ${active.label} without approval`}
+              />
             </div>
           </div>
-
-          {!active.enabled && (
-            <p className="mt-4 rounded-xl bg-cloud px-4 py-3 text-xs text-smoke">
-              Currently using the default wording from the notification itself. Switch on "Use my copy" to write your own.
-            </p>
-          )}
 
           <div className="mt-5 flex flex-wrap items-center justify-end gap-2 border-t border-gray-100 pt-4">
             {active.justSaved && <span className="mr-auto text-sm font-medium text-green-600">Saved</span>}
             <button onClick={test} disabled={testing} className="btn-secondary !py-2 text-xs">
               {testing ? 'Sending…' : 'Send test to me'}
             </button>
-            <button onClick={save} disabled={savingKey === active.key || !active.enabled} className="btn-primary !py-2 text-xs">
+            <button onClick={save} disabled={savingKey === active.key} className="btn-primary !py-2 text-xs">
               {savingKey === active.key ? <Spinner className="h-4 w-4" /> : 'Save'}
             </button>
           </div>
         </section>
 
         {/* ---- Live preview ---- */}
-        <section className="card">
+        <section className="card xl:sticky xl:top-24">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold">Preview</h2>
-              <p className="text-xs text-smoke">Exactly what a creator receives, rendered by the sender itself.</p>
+              <p className="text-xs text-smoke">A real example, exactly as a creator receives it.</p>
             </div>
             {busy && <Spinner className="h-4 w-4 text-smoke" />}
           </div>
@@ -449,7 +526,7 @@ function TemplatesPanel({ templates, setTemplates, savingKey, setSavingKey, rend
             <iframe
               title="Email preview"
               srcDoc={html}
-              className="h-[34rem] w-full bg-white"
+              className="h-[36rem] w-full bg-white"
               sandbox="allow-same-origin"
             />
           </div>
