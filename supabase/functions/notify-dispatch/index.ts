@@ -124,40 +124,62 @@ Deno.serve(async (req) => {
     }))
   }
 
-  // 2) Email (when the creator has opted into email for this type).
+  // 2) Email.
+  //
+  // BROADCAST types (one message going to the whole community) do NOT email
+  // immediately. They land in email_outbox for an admin to review, edit,
+  // approve or decline first. Push still went out above, instantly.
+  // Personal, one-to-one emails (welcome, application result) send straight
+  // away - there is nothing to review and holding them would be strange.
+  const QUEUED_TYPES = ['announcement', 'challenge', 'event']
+
+  if (QUEUED_TYPES.includes(n.type)) {
+    const { data: tpl } = await supabase
+      .from('email_templates').select('subject, body, cta_label, cta_path, auto_send').eq('key', n.type).maybeSingle()
+    if (tpl && tpl.auto_send !== true) {
+      // Fill only {{title}}/{{body}} here; {{name}} stays as a token because the
+      // recipient is not known until the broadcast is actually sent.
+      const fillShared = (str: string) => String(str ?? '')
+        .replaceAll('{{title}}', n.title ?? '')
+        .replaceAll('{{body}}', n.body ?? '')
+      // Unique index on (type, subject, cta_path) where status='pending' makes
+      // the first of N per-recipient notifications win; the rest no-op.
+      await supabase.from('email_outbox').insert({
+        type: n.type,
+        subject: fillShared(tpl.subject),
+        body: fillShared(tpl.body),
+        cta_label: tpl.cta_label,
+        cta_path: n.link || tpl.cta_path || '/home',
+      })
+      return new Response('queued', { status: 200 })
+    }
+  }
+
   if (EMAIL_READY && emailOn) {
     const { data: u } = await supabase.auth.admin.getUserById(n.recipient_id)
     const email = u?.user?.email
     if (email) {
-      // An admin can customise the copy for this notification type in
-      // Admin -> Email creators -> Templates. Until they enable one, we pass
-      // the notification's own title/body straight through, so behaviour is
-      // identical to before.
       const { data: tpl } = await supabase
-        .from('email_templates').select('subject, body, cta_label, enabled').eq('key', n.type).maybeSingle()
+        .from('email_templates').select('subject, body, cta_label, cta_path').eq('key', n.type).maybeSingle()
       const { data: prof } = await supabase
         .from('profiles').select('name').eq('id', n.recipient_id).maybeSingle()
-      const fill = (s: string) => String(s ?? '')
+      const firstName = (prof?.name ?? '').trim().split(' ')[0] || 'there'
+      const fill = (str: string) => String(str ?? '')
         .replaceAll('{{title}}', n.title ?? '')
         .replaceAll('{{body}}', n.body ?? '')
-        .replaceAll('{{name}}', (prof?.name ?? '').split(' ')[0] || 'there')
+        .replaceAll('{{name}}', firstName)
 
-      const useTpl = tpl?.enabled === true
-      const subject = useTpl ? fill(tpl.subject) : n.title
-      const bodyText = useTpl ? fill(tpl.body) : (n.body ?? '')
+      const subject = fill(tpl?.subject || '{{title}}')
+      const bodyText = fill(tpl?.body || 'Hi {{name}},\n\n{{body}}')
 
-      // Same branded shell as broadcasts and invoices, so every email the
-      // platform sends looks like it came from the same company.
       const html = renderEmail({
         title: subject,
         bodyHtml: textToHtml(bodyText),
-        ctaLabel: (useTpl && tpl.cta_label) ? tpl.cta_label : 'Open in the app',
-        ctaUrl: `${APP_URL}${n.link || '/notifications'}`,
+        ctaLabel: tpl?.cta_label || 'Open Tryp.com Content Creator Program',
+        ctaUrl: `${APP_URL}${n.link || tpl?.cta_path || '/notifications'}`,
         footerNote: 'You can choose exactly which emails you get in your settings.',
         appUrl: APP_URL,
       })
-      // Log every attempt so the admin email dashboard can show real volume
-      // against the provider's daily cap.
       try {
         await sendEmail(email, subject, html)
         await supabase.from('email_send_log').insert({

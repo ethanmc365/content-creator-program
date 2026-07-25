@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { PageHeader, Skeleton, StatCard, Spinner, Toggle } from '../../components/ui'
 import Icon from '../../components/Icon'
-import { notice } from '../../lib/confirm'
+import { formatDateTime } from '../../lib/utils'
+import { confirm, notice } from '../../lib/confirm'
 
 // Email all creators, sent straight from the platform.
 //
@@ -27,14 +28,17 @@ export default function AdminEmail() {
 
   const [templates, setTemplates] = useState([])
   const [savingKey, setSavingKey] = useState(null)
+  const [queue, setQueue] = useState([])
 
   const load = useCallback(async () => {
-    const [{ data: profiles }, { data: usageRows }, { data: tpls }] = await Promise.all([
+    const [{ data: profiles }, { data: usageRows }, { data: tpls }, { data: pending }] = await Promise.all([
       supabase.from('profiles').select('id, status, is_admin, is_test, deletion_requested_at, email_prefs'),
       supabase.rpc('email_usage'),
       supabase.from('email_templates').select('*').order('label'),
+      supabase.from('email_outbox').select('*').eq('status', 'pending').order('created_at', { ascending: false }),
     ])
     setTemplates(tpls ?? [])
+    setQueue(pending ?? [])
     // Community creators only: active, never admins, never the test accounts,
     // and never anyone who opted out of announcement email.
     const count = (profiles ?? []).filter((p) =>
@@ -107,27 +111,40 @@ export default function AdminEmail() {
   const wouldExceed = sentToday + recipientCount > dailyLimit
 
   return (
-    <div className={tab === 'templates' ? 'page max-w-7xl' : 'page max-w-3xl'}>
+    <div className="page max-w-7xl">
       <PageHeader
         title="Email creators"
         subtitle="Compose once and send it to every creator, straight from the platform. Each person gets their own branded copy."
       />
 
       <div className="mb-8 flex gap-2">
-        {[['compose', 'Compose'], ['templates', 'Automatic emails']].map(([key, label]) => (
+        {[['compose', 'Compose'], ['queue', 'Review queue'], ['templates', 'Automatic emails']].map(([key, label]) => (
           <button
             key={key}
             type="button"
             onClick={() => setTab(key)}
-            className={tab === key ? 'btn-primary !py-2 text-sm' : 'btn-secondary !py-2 text-sm'}
+            className={`${tab === key ? 'btn-primary' : 'btn-secondary'} !py-2 text-sm inline-flex items-center gap-2`}
           >
             {label}
+            {key === 'queue' && queue.length > 0 && (
+              <span className={`inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-bold ${tab === key ? 'bg-white text-brand' : 'bg-brand text-white'}`}>
+                {queue.length}
+              </span>
+            )}
           </button>
         ))}
       </div>
 
       {loading ? (
         <Skeleton className="h-96 w-full" />
+      ) : tab === 'queue' ? (
+        <ReviewQueue
+          queue={queue}
+          setQueue={setQueue}
+          renderPreview={renderPreview}
+          callFn={callFn}
+          reload={load}
+        />
       ) : tab === 'templates' ? (
         <TemplatesPanel
           templates={templates}
@@ -140,6 +157,7 @@ export default function AdminEmail() {
       ) : (
         <>
           {/* ---------- Sending usage (replaces the old campaign log) ---------- */}
+          <div className="mx-auto max-w-3xl">
           <section className="card mb-8">
             <div className="mb-4 flex items-center gap-2">
               <Icon name="chart" className="h-5 w-5 text-brand" />
@@ -242,6 +260,7 @@ export default function AdminEmail() {
               Always use "Send test to me" first.
             </p>
           </section>
+          </div>
         </>
       )}
 
@@ -431,8 +450,196 @@ function TemplatesPanel({ templates, setTemplates, savingKey, setSavingKey, rend
               title="Email preview"
               srcDoc={html}
               className="h-[34rem] w-full bg-white"
-              sandbox=""
+              sandbox="allow-same-origin"
             />
+          </div>
+        </section>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Review queue: every broadcast email waits here until an admin approves it.
+// Push notifications already went out instantly; only the EMAIL is held, so a
+// small announcement can be declined without anyone getting a pointless inbox
+// interruption. Each item can be edited before it goes.
+const TYPE_META = {
+  announcement: { label: 'Announcement', icon: 'megaphone' },
+  challenge: { label: 'New challenge', icon: 'flag' },
+  event: { label: 'Event', icon: 'calendar' },
+}
+
+function ReviewQueue({ queue, setQueue, renderPreview, callFn, reload }) {
+  const [openId, setOpenId] = useState(queue[0]?.id ?? null)
+  const [html, setHtml] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [acting, setActing] = useState(null) // 'send' | 'decline' | 'test'
+  const item = queue.find((q) => q.id === openId) || queue[0]
+
+  const patch = (id, changes) => setQueue((list) => list.map((q) => (q.id === id ? { ...q, ...changes } : q)))
+
+  useEffect(() => {
+    if (!item) { setHtml(''); return }
+    let alive = true
+    setBusy(true)
+    const t = setTimeout(async () => {
+      const out = await renderPreview({
+        subject: item.subject, body: item.body,
+        ctaLabel: item.cta_label, ctaPath: item.cta_path,
+      })
+      if (!alive) return
+      if (out?.html) setHtml(out.html)
+      setBusy(false)
+    }, 350)
+    return () => { alive = false; clearTimeout(t) }
+  }, [item, renderPreview])
+
+  async function approve() {
+    setActing('send')
+    const out = await callFn({
+      outboxId: item.id, type: item.type,
+      subject: item.subject, body: item.body,
+      ctaLabel: item.cta_label, ctaPath: item.cta_path,
+    })
+    setActing(null)
+    if (out.error) return notice(out.error)
+    notice(`Sent to ${out.sent} creator${out.sent === 1 ? '' : 's'}.`)
+    setQueue((list) => list.filter((q) => q.id !== item.id))
+    reload()
+  }
+
+  async function decline() {
+    if (!await confirm(`Decline this email?\n\n"${item.subject}"\n\nCreators already got the in-app notification and push. Only the email is cancelled.`)) return
+    setActing('decline')
+    await supabase.from('email_outbox')
+      .update({ status: 'declined', decided_at: new Date().toISOString() })
+      .eq('id', item.id)
+    setActing(null)
+    setQueue((list) => list.filter((q) => q.id !== item.id))
+  }
+
+  async function test() {
+    setActing('test')
+    const out = await callFn({
+      test: true, subject: item.subject, body: item.body,
+      ctaLabel: item.cta_label, ctaPath: item.cta_path,
+    })
+    setActing(null)
+    notice(out.error || 'Test sent to your inbox.')
+  }
+
+  async function saveEdits() {
+    await supabase.from('email_outbox')
+      .update({ subject: item.subject, body: item.body, cta_label: item.cta_label })
+      .eq('id', item.id)
+    notice('Changes saved to this queued email.')
+  }
+
+  if (queue.length === 0) {
+    return (
+      <div className="rounded-card border border-dashed border-gray-200 bg-white px-8 py-16 text-center">
+        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-tint text-brand">
+          <Icon name="check" className="h-7 w-7" />
+        </div>
+        <h3 className="text-lg font-semibold">Nothing waiting for review</h3>
+        <p className="mx-auto mt-1 max-w-md text-sm text-smoke">
+          When an announcement, challenge or event goes out, its email lands here first so you can
+          check it before it reaches everyone. Push notifications are never held up.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="grid items-start gap-6 xl:grid-cols-[22rem_1fr]">
+      {/* ---- Queue list ---- */}
+      <div className="space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+          {queue.length} waiting for approval
+        </p>
+        {queue.map((q) => {
+          const meta = TYPE_META[q.type] || { label: q.type, icon: 'envelope' }
+          return (
+            <button
+              key={q.id}
+              onClick={() => setOpenId(q.id)}
+              className={`card w-full !p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-lift ${
+                q.id === item.id ? 'ring-2 ring-brand' : ''
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Icon name={meta.icon} className="h-4 w-4 shrink-0 text-brand" />
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-smoke">{meta.label}</span>
+              </div>
+              <p className="mt-1.5 line-clamp-2 text-sm font-semibold">{q.subject}</p>
+              <p className="mt-1 text-xs text-smoke">{formatDateTime(q.created_at)}</p>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* ---- Editor + preview for the selected item ---- */}
+      <div className="grid items-start gap-6 2xl:grid-cols-2">
+        <section className="card">
+          <h2 className="text-lg font-semibold">Check before it sends</h2>
+          <p className="mt-1 text-sm text-smoke">
+            Edit anything here, then approve. Creators already received the in-app and push
+            notification; this is only the email.
+          </p>
+
+          <div className="mt-5 space-y-4 border-t border-gray-100 pt-5">
+            <div>
+              <label htmlFor="q-subject" className="label">Subject</label>
+              <input
+                id="q-subject" type="text" className="input"
+                value={item.subject} onChange={(e) => patch(item.id, { subject: e.target.value })}
+              />
+            </div>
+            <div>
+              <label htmlFor="q-body" className="label">Message</label>
+              <textarea
+                id="q-body" rows={8} className="input"
+                value={item.body} onChange={(e) => patch(item.id, { body: e.target.value })}
+              />
+              <p className="mt-1 text-xs text-smoke">
+                <code className="font-semibold text-brand">{'{{name}}'}</code> becomes each creator's first name.
+              </p>
+            </div>
+            <div>
+              <label htmlFor="q-cta" className="label">Button text</label>
+              <input
+                id="q-cta" type="text" className="input"
+                value={item.cta_label || ''} onChange={(e) => patch(item.id, { cta_label: e.target.value })}
+              />
+              <p className="mt-1 text-xs text-smoke">Opens the Creator Program at <code className="text-brand">{item.cta_path}</code>.</p>
+            </div>
+          </div>
+
+          <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-4">
+            <button onClick={approve} disabled={!!acting} className="btn-primary !py-2 text-xs">
+              {acting === 'send' ? <Spinner className="h-4 w-4" /> : 'Approve and send to everyone'}
+            </button>
+            <button onClick={test} disabled={!!acting} className="btn-secondary !py-2 text-xs">
+              {acting === 'test' ? 'Sending…' : 'Send test to me'}
+            </button>
+            <button onClick={saveEdits} disabled={!!acting} className="btn-ghost !py-2 text-xs">Save changes</button>
+            <button onClick={decline} disabled={!!acting} className="btn-danger !py-2 text-xs ml-auto">
+              {acting === 'decline' ? 'Declining…' : 'Decline'}
+            </button>
+          </div>
+        </section>
+
+        <section className="card">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold">Preview</h2>
+              <p className="text-xs text-smoke">Exactly what a creator receives.</p>
+            </div>
+            {busy && <Spinner className="h-4 w-4 text-smoke" />}
+          </div>
+          <div className="overflow-hidden rounded-xl border border-gray-100 bg-[#f6f6f7]">
+            <iframe title="Queued email preview" srcDoc={html} className="h-[34rem] w-full bg-white" sandbox="allow-same-origin" />
           </div>
         </section>
       </div>

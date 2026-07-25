@@ -78,16 +78,18 @@ Deno.serve(async (req) => {
     const { data: caller } = await admin.from('profiles').select('is_admin').eq('id', callerId).single()
     if (!caller?.is_admin) return json({ error: 'Admins only.' }, 403)
 
-    const { subject, body, ctaLabel, ctaPath, test, testTo, action } =
+    const { subject, body, ctaLabel, ctaPath, test, testTo, action, outboxId, type } =
       await req.json().catch(() => ({} as Record<string, unknown>))
     if (!subject || !body) return json({ error: 'A subject and a message are both required.' }, 400)
 
     // Callers pass a PATH only, so an email can never be pointed off-platform.
     const path = typeof ctaPath === 'string' && ctaPath.startsWith('/') ? ctaPath : '/home'
-    const html = renderEmail({
-      title: String(subject),
-      bodyHtml: textToHtml(String(body)),
-      ctaLabel: ctaLabel ? String(ctaLabel) : 'Open the Creator Program',
+    // {{name}} is resolved PER RECIPIENT further down; for the preview and for
+    // the shared shell we use a friendly stand-in.
+    const buildHtml = (firstName: string) => renderEmail({
+      title: String(subject).replaceAll('{{name}}', firstName),
+      bodyHtml: textToHtml(String(body).replaceAll('{{name}}', firstName)),
+      ctaLabel: ctaLabel ? String(ctaLabel) : 'Open Tryp.com Content Creator Program',
       ctaUrl: `${APP_URL}${path}`,
       footerNote: 'You are receiving this because you are part of the Tryp.com Content Creator Program.',
       appUrl: APP_URL,
@@ -95,7 +97,7 @@ Deno.serve(async (req) => {
 
     // Preview is handled BEFORE the SMTP check so templates can be designed
     // even before mail credentials exist.
-    if (action === 'preview') return json({ html })
+    if (action === 'preview') return json({ html: buildHtml(String(testTo || 'Alex').split('@')[0] || 'Alex') })
 
     if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
       return json({
@@ -104,24 +106,29 @@ Deno.serve(async (req) => {
     }
 
     // ---- Recipients --------------------------------------------------------
-    let recipients: { id: string | null; email: string }[] = []
+    let recipients: { id: string | null; email: string; name: string }[] = []
     if (test) {
       if (typeof testTo === 'string' && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(testTo)) {
-        recipients = [{ id: null, email: testTo }]
+        recipients = [{ id: null, email: testTo, name: 'Ethan' }]
       } else {
         const { data: u } = await admin.auth.admin.getUserById(callerId)
-        if (u?.user?.email) recipients = [{ id: callerId, email: u.user.email }]
+        const { data: me } = await admin.from('profiles').select('name').eq('id', callerId).maybeSingle()
+        if (u?.user?.email) recipients = [{ id: callerId, email: u.user.email, name: (me?.name ?? '').split(' ')[0] || 'there' }]
       }
     } else {
       const { data: profiles } = await admin
         .from('profiles')
-        .select('id, email_prefs')
+        .select('id, name, email_prefs')
         .eq('status', 'active').eq('is_admin', false).eq('is_test', false)
         .is('deletion_requested_at', null)
-      const wanted = (profiles ?? []).filter((p) => (p.email_prefs as Record<string, boolean> | null)?.announcement !== false)
+      // Honour the per-type preference for whatever kind of email this is.
+      const prefKey = typeof type === 'string' && type ? type : 'announcement'
+      const wanted = (profiles ?? []).filter((p) => (p.email_prefs as Record<string, boolean> | null)?.[prefKey] !== false)
       const { data: list } = await admin.auth.admin.listUsers({ perPage: 1000 })
       const byId = new Map((list?.users ?? []).map((u) => [u.id, u.email]))
-      recipients = wanted.map((p) => ({ id: p.id, email: byId.get(p.id) ?? '' })).filter((r) => !!r.email)
+      recipients = wanted
+        .map((p) => ({ id: p.id, email: byId.get(p.id) ?? '', name: (p.name ?? '').split(' ')[0] || 'there' }))
+        .filter((r) => !!r.email)
     }
     if (recipients.length === 0) return json({ error: 'No recipients to send to.' }, 400)
 
@@ -139,7 +146,7 @@ Deno.serve(async (req) => {
 
     for (const r of recipients) {
       try {
-        await sendOne(r.email, String(subject), html)
+        await sendOne(r.email, String(subject).replaceAll('{{name}}', r.name), buildHtml(r.name))
         sent++
         rows.push({ kind: 'broadcast', recipient_id: r.id, campaign_id: campaignId, subject, status: 'sent' })
       } catch (e) {
@@ -149,6 +156,13 @@ Deno.serve(async (req) => {
       }
     }
     if (rows.length) await admin.from('email_send_log').insert(rows)
+
+    // Approving from the review queue closes that queue item out.
+    if (!test && typeof outboxId === 'string') {
+      await admin.from('email_outbox')
+        .update({ status: 'sent', recipient_count: sent, decided_at: new Date().toISOString(), decided_by: callerId })
+        .eq('id', outboxId)
+    }
 
     // Surface the real SMTP error so the UI never has to guess.
     if (sent === 0 && failures.length) {
