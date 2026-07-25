@@ -59,14 +59,16 @@ Supabase's custom SMTP only covers **auth** emails. The app's own notification
 and broadcast emails go through the `notify-dispatch` edge function, which
 already supports SMTP - it just needs the same credentials as secrets:
 
-```
-supabase secrets set \
-  SMTP_HOST=smtp.gmail.com \
-  SMTP_PORT=465 \
-  SMTP_USER=ethantryp.com@gmail.com \
-  SMTP_PASS="<the 16-char app password>" \
-  MAIL_FROM="Tryp.com <ethantryp.com@gmail.com>"
-```
+Set these five secrets (values live only in the Supabase dashboard, never in
+this repo) using `supabase secrets set`:
+
+| Secret | Value |
+|---|---|
+| `SMTP_HOST` | the provider host, same as the Auth SMTP setting |
+| `SMTP_PORT` | `465` |
+| `SMTP_USER` | the same full address you authenticate with |
+| `SMTP_PASS` | the app password (never commit it) |
+| `MAIL_FROM` | `Tryp.com <same address as SMTP_USER>` |
 
 Then redeploy: `supabase functions deploy notify-dispatch --no-verify-jwt`.
 Do the same for `send-invoice` if you want invoices emailed too.

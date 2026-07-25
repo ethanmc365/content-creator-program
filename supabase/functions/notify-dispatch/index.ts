@@ -9,10 +9,9 @@
 // Webhook: Database → Webhooks → on INSERT public.notifications → POST this function URL.
 //
 // EMAIL SENDING (see docs/EMAIL_SETUP.md):
-//   Preferred = SMTP (free, unlimited-ish). Set these secrets and email flows
-//   through them, e.g. a Gmail account with an app password:
-//     SMTP_HOST=smtp.gmail.com  SMTP_PORT=465  SMTP_USER=ethantryp.com@gmail.com
-//     SMTP_PASS=<16-char app password>  MAIL_FROM="Tryp.com <ethantryp.com@gmail.com>"
+//   Preferred = SMTP. Configure via edge-function secrets (never in source):
+//   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS and MAIL_FROM.
+//   See docs/EMAIL_SETUP.md for the current provider and how to set them.
 //   Fallback = Resend (only reaches the account owner until a domain is verified).
 //   MAIL_FROM also overrides the Resend "from" once a domain is verified.
 import webpush from 'npm:web-push@3.6.7'

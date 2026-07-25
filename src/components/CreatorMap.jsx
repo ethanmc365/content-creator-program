@@ -25,7 +25,7 @@ const HOME = '#f9c9a7' // soft orange tint for countries creators live in
 // Every plane flies at EXACTLY the same speed. Duration = true curve length /
 // speed, with NO clamping - clamping was what made short hops crawl and long
 // hops race. Speed is in projection units per second.
-const PLANE_SPEED = 26
+const PLANE_SPEED = 10
 const flightDur = (len) => len / PLANE_SPEED
 
 // Arc length of the quadratic curve we draw (M a Q c b), sampled. Using the

@@ -101,9 +101,18 @@ export default function Directory() {
     for (const [id, rel] of relationships) if (rel?.relation === 'connected') s.add(id)
     return s
   }, [relationships])
-  // Toggle handlers keep the two map views mutually exclusive.
-  const toggleTravel = () => { setTravelOnly((v) => !v); setConnectionsOnly(false) }
-  const toggleConnections = () => { setConnectionsOnly((v) => !v); setTravelOnly(false) }
+  // The three map views are mutually exclusive: pressing one turns the other
+  // two off, so you can never have (say) "my connections" and "who's
+  // travelling" filtering the map and the grid at the same time. Pressing the
+  // active one again clears it and shows everyone.
+  const setView = (view) => {
+    setConnectionsOnly(view === 'connections' && !connectionsOnly)
+    setTravelOnly(view === 'travel' && !travelOnly)
+    setNearMe(view === 'near' && !nearMe)
+  }
+  const toggleTravel = () => setView('travel')
+  const toggleConnections = () => setView('connections')
+  const toggleNearMe = () => setView('near')
 
   // Build the filter dropdowns from real data so they never go stale.
   const allCountries = useMemo(
@@ -158,7 +167,7 @@ export default function Directory() {
             nearMe={nearMe}
             nearCount={nearIds.size}
             nearMeDisabled={!hasMyLocation}
-            onToggleNearMe={() => setNearMe((v) => !v)}
+            onToggleNearMe={toggleNearMe}
             travelActive={travelOnly}
             onToggleTravel={toggleTravel}
             onTravellersChange={setTravellerIds}
