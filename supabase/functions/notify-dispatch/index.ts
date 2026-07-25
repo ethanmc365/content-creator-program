@@ -129,12 +129,29 @@ Deno.serve(async (req) => {
     const { data: u } = await supabase.auth.admin.getUserById(n.recipient_id)
     const email = u?.user?.email
     if (email) {
+      // An admin can customise the copy for this notification type in
+      // Admin -> Email creators -> Templates. Until they enable one, we pass
+      // the notification's own title/body straight through, so behaviour is
+      // identical to before.
+      const { data: tpl } = await supabase
+        .from('email_templates').select('subject, body, cta_label, enabled').eq('key', n.type).maybeSingle()
+      const { data: prof } = await supabase
+        .from('profiles').select('name').eq('id', n.recipient_id).maybeSingle()
+      const fill = (s: string) => String(s ?? '')
+        .replaceAll('{{title}}', n.title ?? '')
+        .replaceAll('{{body}}', n.body ?? '')
+        .replaceAll('{{name}}', (prof?.name ?? '').split(' ')[0] || 'there')
+
+      const useTpl = tpl?.enabled === true
+      const subject = useTpl ? fill(tpl.subject) : n.title
+      const bodyText = useTpl ? fill(tpl.body) : (n.body ?? '')
+
       // Same branded shell as broadcasts and invoices, so every email the
       // platform sends looks like it came from the same company.
       const html = renderEmail({
-        title: n.title,
-        bodyHtml: textToHtml(n.body ?? ''),
-        ctaLabel: 'Open in the app',
+        title: subject,
+        bodyHtml: textToHtml(bodyText),
+        ctaLabel: (useTpl && tpl.cta_label) ? tpl.cta_label : 'Open in the app',
         ctaUrl: `${APP_URL}${n.link || '/notifications'}`,
         footerNote: 'You can choose exactly which emails you get in your settings.',
         appUrl: APP_URL,
@@ -142,14 +159,14 @@ Deno.serve(async (req) => {
       // Log every attempt so the admin email dashboard can show real volume
       // against the provider's daily cap.
       try {
-        await sendEmail(email, n.title, html)
+        await sendEmail(email, subject, html)
         await supabase.from('email_send_log').insert({
-          kind: 'notification', recipient_id: n.recipient_id, subject: n.title, status: 'sent',
+          kind: 'notification', recipient_id: n.recipient_id, subject, status: 'sent',
         })
       } catch (e) {
         console.error('email send failed', e)
         await supabase.from('email_send_log').insert({
-          kind: 'notification', recipient_id: n.recipient_id, subject: n.title,
+          kind: 'notification', recipient_id: n.recipient_id, subject,
           status: 'failed', error: e instanceof Error ? e.message : String(e),
         })
       }

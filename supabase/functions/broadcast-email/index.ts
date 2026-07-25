@@ -39,10 +39,6 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405)
 
-  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
-    return json({ error: 'Email sending is not configured yet. Set the SMTP secrets on this function.' }, 503)
-  }
-
   // ---- Verify the caller is a real, signed-in admin -----------------------
   const auth = req.headers.get('Authorization') ?? ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
@@ -58,8 +54,31 @@ Deno.serve(async (req) => {
   if (!caller?.is_admin) return json({ error: 'Admins only.' }, 403)
 
   // ---- Payload -------------------------------------------------------------
-  const { subject, body, ctaLabel, ctaUrl, test } = await req.json().catch(() => ({} as Record<string, unknown>))
+  const { subject, body, ctaLabel, ctaUrl, test, action } = await req.json().catch(() => ({} as Record<string, unknown>))
   if (!subject || !body) return json({ error: 'A subject and a message are both required.' }, 400)
+
+  // `preview` renders the exact HTML that would be sent and returns it without
+  // sending anything. Deliberately handled BEFORE the SMTP check so admins can
+  // design and preview templates even before the mail credentials are set.
+  if (action === 'preview') {
+    return json({
+      html: renderEmail({
+        title: String(subject),
+        bodyHtml: textToHtml(String(body)),
+        ctaLabel: ctaLabel ? String(ctaLabel) : undefined,
+        ctaUrl: ctaUrl ? String(ctaUrl) : undefined,
+        footerNote: 'You are receiving this because you are part of the Tryp.com Content Creator Program.',
+        appUrl: APP_URL,
+      }),
+    })
+  }
+
+  // Anything past this point actually sends, so the credentials must exist.
+  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
+    return json({
+      error: 'Email sending is not configured yet. Add SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS and MAIL_FROM as SEPARATE secrets on this function.',
+    }, 503)
+  }
 
   // ---- Recipients ----------------------------------------------------------
   // Active, non-admin, non-test creators who have not opted out of announcement
