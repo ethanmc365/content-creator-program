@@ -26,3 +26,10 @@ insert into public.email_templates (key, label, description, cta_label) values
   ('event', 'Event', 'Sent for Q&As, content sessions and calendar milestones.', 'See the event'),
   ('application', 'Welcome / application', 'Sent when a creator is approved, or nudged to finish their profile.', 'Open Tryp.com')
 on conflict (key) do nothing;
+
+-- Sample data + a fixed in-app path per template, so the admin preview shows the
+-- actual email a creator receives rather than raw {{placeholders}}.
+alter table public.email_templates
+  add column if not exists sample_title text,
+  add column if not exists sample_body text,
+  add column if not exists cta_path text not null default '/home';

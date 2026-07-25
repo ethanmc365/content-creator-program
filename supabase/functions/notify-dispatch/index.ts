@@ -64,7 +64,7 @@ async function sendEmail(to: string, subject: string, html: string) {
       const from = parseFrom(MAIL_FROM)
       await client.send({ from: from.name ? `${from.name} <${from.mail}>` : from.mail, to, subject, html, content: 'text/html' })
     } finally {
-      await client.close().catch(() => {})
+      try { await client.close() } catch { /* already closed */ }
     }
     return
   }

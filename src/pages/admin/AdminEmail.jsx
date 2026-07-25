@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Badge, Modal, PageHeader, Skeleton, StatCard, Spinner, Toggle } from '../../components/ui'
+import { PageHeader, Skeleton, StatCard, Spinner, Toggle } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { notice } from '../../lib/confirm'
 
@@ -21,7 +21,7 @@ export default function AdminEmail() {
   const [subject, setSubject] = useState('')
   const [bodyText, setBodyText] = useState('')
   const [ctaLabel, setCtaLabel] = useState('')
-  const [ctaUrl, setCtaUrl] = useState('')
+  const [ctaPath, setCtaPath] = useState('')
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState(null)
 
@@ -47,66 +47,58 @@ export default function AdminEmail() {
   }, [])
   useEffect(() => { load() }, [load])
 
+  // One helper for every call to the mail function. Errors are surfaced from
+  // the response body: the function always answers with JSON + CORS headers, so
+  // a real failure never shows up as a bogus "network error".
+  const callFn = useCallback(async (payload) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(FN_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify(payload),
+      })
+      const out = await res.json().catch(() => ({}))
+      if (!res.ok) return { error: out.error || `Request failed (${res.status}).` }
+      return out
+    } catch (e) {
+      return { error: `Could not reach the email service: ${e.message}` }
+    }
+  }, [])
+
+  // Render the exact HTML the sender would produce.
+  const renderPreview = useCallback(
+    (p) => callFn({ action: 'preview', ...p }),
+    [callFn]
+  )
+  // Send a single copy to the signed-in admin.
+  const sendTest = useCallback(
+    async (p) => { const out = await callFn({ test: true, ...p }); load(); return out },
+    [callFn, load]
+  )
+
   async function send({ test }) {
     if (!subject.trim() || !bodyText.trim()) return notice('Add a subject and a message first.')
     setSending(true)
     setResult(null)
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch(FN_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify({
-          subject: subject.trim(),
-          body: bodyText.trim(),
-          ctaLabel: ctaLabel.trim() || undefined,
-          ctaUrl: ctaUrl.trim() || undefined,
-          test,
-        }),
-      })
-      const out = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        setResult({ error: out.error || 'Could not send. Please try again.' })
-      } else {
-        setResult(out)
-        if (!test) { setSubject(''); setBodyText(''); setCtaLabel(''); setCtaUrl('') }
-        load()
-      }
-    } catch {
-      setResult({ error: 'Network error. Please try again.' })
+    const out = await callFn({
+      subject: subject.trim(),
+      body: bodyText.trim(),
+      ctaLabel: ctaLabel.trim() || undefined,
+      ctaPath: ctaPath.trim() || undefined,
+      test,
+    })
+    if (out.error) setResult({ error: out.error })
+    else {
+      setResult(out)
+      if (!test) { setSubject(''); setBodyText(''); setCtaLabel(''); setCtaPath('') }
+      load()
     }
     setSending(false)
-  }
-
-  // Ask the edge function to render the exact HTML it would send, so the
-  // preview can never drift from the real thing.
-  const [previewHtml, setPreviewHtml] = useState('')
-  const [previewing, setPreviewing] = useState(false)
-  async function preview({ subject: s, body: b, ctaLabel: cl }) {
-    if (!s?.trim() || !b?.trim()) return notice('Add a subject and a message first.')
-    setPreviewing(true)
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch(FN_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify({ action: 'preview', subject: s, body: b, ctaLabel: cl || undefined, ctaUrl: cl ? window.location.origin : undefined }),
-      })
-      const out = await res.json().catch(() => ({}))
-      if (out.html) setPreviewHtml(out.html)
-      else notice(out.error || 'Could not build the preview.')
-    } catch {
-      notice('Network error building the preview.')
-    }
-    setPreviewing(false)
   }
 
   const sentToday = Number(usage?.sent_today ?? 0)
@@ -115,7 +107,7 @@ export default function AdminEmail() {
   const wouldExceed = sentToday + recipientCount > dailyLimit
 
   return (
-    <div className="page max-w-3xl">
+    <div className={tab === 'templates' ? 'page max-w-7xl' : 'page max-w-3xl'}>
       <PageHeader
         title="Email creators"
         subtitle="Compose once and send it to every creator, straight from the platform. Each person gets their own branded copy."
@@ -142,8 +134,8 @@ export default function AdminEmail() {
           setTemplates={setTemplates}
           savingKey={savingKey}
           setSavingKey={setSavingKey}
-          onPreview={preview}
-          previewing={previewing}
+          renderPreview={renderPreview}
+          sendTest={sendTest}
         />
       ) : (
         <>
@@ -205,8 +197,9 @@ export default function AdminEmail() {
                 <input id="cta-label" type="text" className="input" value={ctaLabel} onChange={(e) => setCtaLabel(e.target.value)} placeholder="e.g. Read the brief" />
               </div>
               <div>
-                <label htmlFor="cta-url" className="label">Button link</label>
-                <input id="cta-url" type="url" className="input" value={ctaUrl} onChange={(e) => setCtaUrl(e.target.value)} placeholder="https://…" />
+                <label htmlFor="cta-url" className="label">Button opens</label>
+                <input id="cta-url" type="text" className="input" value={ctaPath} onChange={(e) => setCtaPath(e.target.value)} placeholder="/challenges" />
+                <p className="mt-1 text-xs text-smoke">An in-app path. Buttons always open the Creator Program, never tryp.com.</p>
               </div>
             </div>
 
@@ -252,134 +245,197 @@ export default function AdminEmail() {
         </>
       )}
 
-      {/* Live preview of the real rendered email, in an isolated iframe so the
-          email's own styles can never leak into the admin page. */}
-      <Modal open={!!previewHtml} onClose={() => setPreviewHtml('')} title="Email preview" wide>
-        <iframe
-          title="Email preview"
-          srcDoc={previewHtml}
-          className="h-[60vh] w-full rounded-xl border border-gray-100 bg-white"
-          sandbox=""
-        />
-      </Modal>
     </div>
   )
 }
 
+
 // ---------------------------------------------------------------------------
-// Automatic emails: the copy for each email the platform sends on its own.
-// Until a template is switched on, the email uses the notification's own
-// wording, so nothing changes until an admin deliberately customises it.
+// Automatic emails: a wide two-pane editor. Copy on the left, a true-to-life
+// preview of the real email on the right. The preview HTML is rendered by the
+// same edge function that sends, so what you see is exactly what lands.
 const PLACEHOLDERS = [
   ['{{title}}', "the notification's headline"],
   ['{{body}}', "the notification's message"],
   ['{{name}}', "the recipient's first name"],
 ]
 
-function TemplatesPanel({ templates, setTemplates, savingKey, setSavingKey, onPreview, previewing }) {
+// Fill placeholders with the template's realistic sample values, so the preview
+// reads like a genuine email instead of showing raw {{tokens}}.
+function withSample(text, t) {
+  return String(text ?? '')
+    .replaceAll('{{title}}', t.sample_title || t.label)
+    .replaceAll('{{body}}', t.sample_body || '')
+    .replaceAll('{{name}}', 'Ethan')
+}
+
+function TemplatesPanel({ templates, setTemplates, savingKey, setSavingKey, renderPreview, sendTest }) {
+  const [activeKey, setActiveKey] = useState(templates[0]?.key ?? null)
+  const [html, setHtml] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [testing, setTesting] = useState(false)
+  const active = templates.find((t) => t.key === activeKey) || templates[0]
+
   const patch = (key, changes) =>
     setTemplates((list) => list.map((t) => (t.key === key ? { ...t, ...changes } : t)))
 
-  async function save(t) {
-    setSavingKey(t.key)
+  // Re-render the preview whenever the selected template or its copy changes.
+  // Debounced so typing doesn't fire a request per keystroke.
+  useEffect(() => {
+    if (!active) return
+    let alive = true
+    setBusy(true)
+    const id = setTimeout(async () => {
+      const out = await renderPreview({
+        subject: withSample(active.subject, active),
+        body: withSample(active.body, active),
+        ctaLabel: active.cta_label,
+        ctaPath: active.cta_path,
+      })
+      if (!alive) return
+      if (out?.html) setHtml(out.html)
+      setBusy(false)
+    }, 400)
+    return () => { alive = false; clearTimeout(id) }
+  }, [active, renderPreview])
+
+  async function save() {
+    setSavingKey(active.key)
     const { error } = await supabase
       .from('email_templates')
       .update({
-        subject: t.subject, body: t.body, cta_label: t.cta_label,
-        enabled: t.enabled, updated_at: new Date().toISOString(),
+        subject: active.subject, body: active.body, cta_label: active.cta_label,
+        enabled: active.enabled, updated_at: new Date().toISOString(),
       })
-      .eq('key', t.key)
+      .eq('key', active.key)
     setSavingKey(null)
     if (error) return notice("Couldn't save: " + error.message)
-    // `justSaved` is UI-only; save() picks explicit columns so it never hits the DB.
-    patch(t.key, { justSaved: true })
-    setTimeout(() => patch(t.key, { justSaved: false }), 2000)
+    patch(active.key, { justSaved: true })
+    setTimeout(() => patch(active.key, { justSaved: false }), 2000)
+  }
+
+  async function test() {
+    setTesting(true)
+    const out = await sendTest({
+      subject: withSample(active.subject, active),
+      body: withSample(active.body, active),
+      ctaLabel: active.cta_label,
+      ctaPath: active.cta_path,
+    })
+    setTesting(false)
+    notice(out?.error ? out.error : 'Test sent to your inbox.')
+  }
+
+  if (!active) {
+    return <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke">No templates found.</p>
   }
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-card border border-gray-100 bg-cloud/40 p-5">
-        <p className="text-sm font-semibold text-ink">How these work</p>
-        <p className="mt-1 text-xs leading-relaxed text-smoke">
-          These are the emails the platform sends by itself. Each one is off by default and uses the
-          wording from the notification it came from. Switch one on to write your own copy. Use the
-          placeholders below and they get swapped for the real values when the email is sent.
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {PLACEHOLDERS.map(([token, what]) => (
-            <span key={token} className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-[11px] text-smoke">
-              <code className="font-semibold text-brand">{token}</code> {what}
-            </span>
-          ))}
-        </div>
-        <p className="mt-3 text-xs text-smoke">
-          Password resets and other sign-in emails are sent by Supabase Auth, not from here.
-          Edit those under Authentication &rarr; Emails in the Supabase dashboard.
-        </p>
+    <div className="space-y-5">
+      {/* Which email you're editing */}
+      <div className="flex flex-wrap gap-2">
+        {templates.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setActiveKey(t.key)}
+            className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition-all hover:-translate-y-0.5 ${
+              t.key === active.key ? 'bg-brand text-white shadow-card' : 'border border-gray-200 bg-white text-smoke hover:border-brand hover:text-brand'
+            }`}
+          >
+            {t.label}
+            {t.enabled && <span className={`h-1.5 w-1.5 rounded-full ${t.key === active.key ? 'bg-white' : 'bg-green-500'}`} />}
+          </button>
+        ))}
       </div>
 
-      {templates.length === 0 ? (
-        <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke">
-          No templates found.
-        </p>
-      ) : templates.map((t) => (
-        <section key={t.key} className="card">
+      {/* Two panes: editor | live preview */}
+      <div className="grid items-start gap-6 xl:grid-cols-2">
+        {/* ---- Editor ---- */}
+        <section className="card">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-lg font-semibold">{t.label}</h2>
-                <Badge tone={t.enabled ? 'green' : 'grey'}>{t.enabled ? 'Custom copy' : 'Default wording'}</Badge>
-              </div>
-              <p className="mt-1 text-sm text-smoke">{t.description}</p>
+              <h2 className="text-lg font-semibold">{active.label}</h2>
+              <p className="mt-1 text-sm text-smoke">{active.description}</p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <span className="text-xs text-smoke">Use custom copy</span>
-              <Toggle on={!!t.enabled} onChange={(v) => patch(t.key, { enabled: v })} label={`Use custom copy for ${t.label}`} />
+              <span className="text-xs text-smoke">Use my copy</span>
+              <Toggle on={!!active.enabled} onChange={(v) => patch(active.key, { enabled: v })} label={`Use custom copy for ${active.label}`} />
             </div>
           </div>
 
-          {t.enabled && (
-            <div className="mt-5 space-y-4 border-t border-gray-100 pt-5">
-              <div>
-                <label htmlFor={`s-${t.key}`} className="label">Subject</label>
-                <input
-                  id={`s-${t.key}`} type="text" className="input"
-                  value={t.subject} onChange={(e) => patch(t.key, { subject: e.target.value })}
-                />
-              </div>
-              <div>
-                <label htmlFor={`b-${t.key}`} className="label">Message</label>
-                <textarea
-                  id={`b-${t.key}`} rows={6} className="input"
-                  value={t.body} onChange={(e) => patch(t.key, { body: e.target.value })}
-                />
-              </div>
-              <div>
-                <label htmlFor={`c-${t.key}`} className="label">Button text</label>
-                <input
-                  id={`c-${t.key}`} type="text" className="input"
-                  value={t.cta_label || ''} onChange={(e) => patch(t.key, { cta_label: e.target.value })}
-                  placeholder="e.g. Open in the app"
-                />
-              </div>
+          <div className={`mt-5 space-y-4 border-t border-gray-100 pt-5 ${active.enabled ? '' : 'opacity-50'}`}>
+            <div>
+              <label htmlFor="tpl-subject" className="label">Subject</label>
+              <input
+                id="tpl-subject" type="text" className="input" disabled={!active.enabled}
+                value={active.subject} onChange={(e) => patch(active.key, { subject: e.target.value })}
+              />
             </div>
+            <div>
+              <label htmlFor="tpl-body" className="label">Message</label>
+              <textarea
+                id="tpl-body" rows={9} className="input" disabled={!active.enabled}
+                value={active.body} onChange={(e) => patch(active.key, { body: e.target.value })}
+              />
+            </div>
+            <div>
+              <label htmlFor="tpl-cta" className="label">Button text</label>
+              <input
+                id="tpl-cta" type="text" className="input" disabled={!active.enabled}
+                value={active.cta_label || ''} onChange={(e) => patch(active.key, { cta_label: e.target.value })}
+                placeholder="Open the Creator Program"
+              />
+              <p className="mt-1 text-xs text-smoke">
+                The button always opens the Creator Program app at <code className="text-brand">{active.cta_path}</code>. You choose the wording, not the destination.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-4">
+              {PLACEHOLDERS.map(([token, what]) => (
+                <span key={token} className="inline-flex items-center gap-1.5 rounded-full bg-cloud px-3 py-1 text-[11px] text-smoke">
+                  <code className="font-semibold text-brand">{token}</code> {what}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {!active.enabled && (
+            <p className="mt-4 rounded-xl bg-cloud px-4 py-3 text-xs text-smoke">
+              Currently using the default wording from the notification itself. Switch on "Use my copy" to write your own.
+            </p>
           )}
 
           <div className="mt-5 flex flex-wrap items-center justify-end gap-2 border-t border-gray-100 pt-4">
-            {t.justSaved && <span className="mr-auto text-sm font-medium text-green-600">Saved</span>}
-            <button
-              onClick={() => onPreview({ subject: t.subject, body: t.body, ctaLabel: t.cta_label })}
-              disabled={previewing}
-              className="btn-secondary !py-2 text-xs"
-            >
-              {previewing ? 'Building…' : 'Preview'}
+            {active.justSaved && <span className="mr-auto text-sm font-medium text-green-600">Saved</span>}
+            <button onClick={test} disabled={testing} className="btn-secondary !py-2 text-xs">
+              {testing ? 'Sending…' : 'Send test to me'}
             </button>
-            <button onClick={() => save(t)} disabled={savingKey === t.key} className="btn-primary !py-2 text-xs">
-              {savingKey === t.key ? <Spinner className="h-4 w-4" /> : 'Save'}
+            <button onClick={save} disabled={savingKey === active.key || !active.enabled} className="btn-primary !py-2 text-xs">
+              {savingKey === active.key ? <Spinner className="h-4 w-4" /> : 'Save'}
             </button>
           </div>
         </section>
-      ))}
+
+        {/* ---- Live preview ---- */}
+        <section className="card">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold">Preview</h2>
+              <p className="text-xs text-smoke">Exactly what a creator receives, rendered by the sender itself.</p>
+            </div>
+            {busy && <Spinner className="h-4 w-4 text-smoke" />}
+          </div>
+          <div className="overflow-hidden rounded-xl border border-gray-100 bg-[#f6f6f7]">
+            <iframe
+              title="Email preview"
+              srcDoc={html}
+              className="h-[34rem] w-full bg-white"
+              sandbox=""
+            />
+          </div>
+        </section>
+      </div>
     </div>
   )
 }
