@@ -14,10 +14,15 @@ import { cx } from '../lib/utils'
 
 // What creators can switch on and off. Keys match the notification `type`
 // column and the profiles.notif_prefs JSON.
+// `emailable` marks the few categories that are worth an email. Everything else
+// is push + the in-app bell only. The rule: email is for things a creator would
+// be annoyed to MISS (a challenge opening, an event they'd attend, an official
+// announcement). Chatter - DMs, general chat, reactions - stays in the app, and
+// rewards/connections are timely enough as push.
 export const CATEGORIES = [
-  { key: 'announcement', label: 'Announcements', hint: 'Official updates from the Tryp.com Team.' },
-  { key: 'challenge', label: 'New challenges', hint: 'When a fresh challenge goes live.' },
-  { key: 'event', label: 'Events', hint: 'Q&As, content days and milestones on the calendar.' },
+  { key: 'announcement', label: 'Announcements', hint: 'Official updates from the Tryp.com Team.', emailable: true },
+  { key: 'challenge', label: 'New challenges', hint: 'When a fresh challenge goes live.', emailable: true },
+  { key: 'event', label: 'Events', hint: 'Q&As, content days and milestones on the calendar.', emailable: true },
   { key: 'dm', label: 'Direct messages', hint: 'When another creator messages you directly.' },
   { key: 'chat', label: 'General chat', hint: 'New messages in the #general channel.', pushOnly: true },
   { key: 'results', label: 'Results', hint: "When a challenge's results are published." },
@@ -37,11 +42,13 @@ export const ADMIN_CATEGORIES = [
 ]
 
 const DEFAULT_PREFS = Object.fromEntries(CATEGORIES.map((c) => [c.key, true]))
-const DEFAULT_EMAIL = { announcement: true, challenge: true, event: true, results: true, reward: true, application: true, dm: false, chat: false, connection: false }
+// Only the emailable categories default to on; everything else is push-only.
+const DEFAULT_EMAIL = { announcement: true, challenge: true, event: true, dm: false, chat: false, connection: false, results: false, reward: false }
 
-// Email delivery is not wired up yet (Resend sender domain mail.tryp.com still
-// unverified), so the whole Email column is hidden until then. Flip to re-enable.
-const EMAIL_ENABLED = false
+// Email delivery is live (custom SMTP on Supabase Auth + the SMTP secrets on the
+// notify-dispatch function). The Email column only renders for the categories
+// marked `emailable` above.
+const EMAIL_ENABLED = true
 
 // Shared state owned once by the parent (Settings). Both the creator and admin
 // sections read/write the SAME prefs object, so writes always carry every key.
@@ -102,9 +109,11 @@ function PrefRow({ c, state }) {
       </div>
       {EMAIL_ENABLED && (
         <div className="flex w-11 justify-center">
-          {c.pushOnly
-            ? <span className="text-[11px] text-gray-300">-</span>
-            : <Toggle on={state.emailPrefs[c.key] === true} onChange={(v) => state.toggleEmail(c.key, v)} label={`${c.label} email`} />}
+          {/* Only a few categories are worth emailing; the rest show a dash so
+              it's clear they're in-app/push only rather than switched off. */}
+          {c.emailable
+            ? <Toggle on={state.emailPrefs[c.key] === true} onChange={(v) => state.toggleEmail(c.key, v)} label={`${c.label} email`} />
+            : <span className="text-[11px] text-gray-300" title="This one is in-app and push only">-</span>}
         </div>
       )}
     </div>

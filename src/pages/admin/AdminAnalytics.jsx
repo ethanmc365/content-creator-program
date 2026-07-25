@@ -93,7 +93,7 @@ export default function AdminAnalytics() {
         { data: rewards }, { data: messages }, { data: results },
         { data: feedback }, { count: reactionCount }, { count: pollVoteCount },
         { data: gameScores }, { data: connections }, { count: tripCount },
-        { data: decisions }, { data: seenRows },
+        { data: decisions }, { data: seenRows }, { data: emailRows },
       ] = await Promise.all([
         supabase.from('profiles').select('id, name, created_at, status, is_admin, onboarded, referred_by, deletion_requested_at, is_test, last_seen_at'),
         supabase.from('challenges').select('id, title, status, start_date, vouchers_given').neq('status', 'draft').order('start_date'),
@@ -109,6 +109,7 @@ export default function AdminAnalytics() {
         supabase.from('collab_posts').select('id', { count: 'exact', head: true }),
         supabase.from('application_decisions').select('decision, created_at'),
         supabase.rpc('admin_list_last_seen'),
+        supabase.rpc('email_usage'),
       ])
       // Default every dataset so one failed query can never blank the page.
       // `loadedAt` is captured here (not in render) so derived time windows
@@ -121,6 +122,7 @@ export default function AdminAnalytics() {
         gameScores: gameScores || [], connections: connections || [],
         tripCount: tripCount || 0, decisions: decisions || [],
         seenRows: seenRows || [],
+        emailUsage: (Array.isArray(emailRows) ? emailRows[0] : emailRows) || null,
         loadedAt: Date.now(),
       })
     }
@@ -133,7 +135,7 @@ export default function AdminAnalytics() {
     const {
       profiles, challenges, submissions, rewards, messages, results, feedback,
       reactionCount, pollVoteCount, gameScores, connections, tripCount, decisions,
-      seenRows, loadedAt,
+      seenRows, emailUsage, loadedAt,
     } = raw
 
     const realCreators = profiles.filter((p) => !p.is_admin && !p.deletion_requested_at && !p.is_test)
@@ -319,6 +321,12 @@ export default function AdminAnalytics() {
         reactions: reactionCount, pollVotes: pollVoteCount, chatMessages: messages.length, feedbackTotal: feedback.length, openFeedback,
         vouchersGiven: challenges.reduce((sum, c) => sum + (c.vouchers_given || 0), 0),
       },
+      email: {
+        today: Number(emailUsage?.sent_today ?? 0),
+        month: Number(emailUsage?.sent_month ?? 0),
+        total: Number(emailUsage?.sent_total ?? 0),
+        limit: Number(emailUsage?.daily_limit ?? 500),
+      },
       community: { active: active.length, pendingReview: pendingReview.length, notCompleted: notCompleted.length, participating, participationRate, topReferrers },
       totals: {
         creators: active.length,
@@ -417,6 +425,12 @@ export default function AdminAnalytics() {
             onClick={() => navigate('/admin/feedback')}
           />
           <StatCard label="Vouchers given" value={derived.engagement.vouchersGiven} hint="participation vouchers" onClick={() => navigate('/admin/challenges')} />
+          <StatCard
+            label="Emails sent"
+            value={derived.email.total}
+            hint={`${derived.email.today} today · ${derived.email.month} this month`}
+            onClick={() => navigate('/admin/email')}
+          />
         </div>
         {derived.community.topReferrers.length > 0 && (
           <div className="mt-4 rounded-card border border-gray-100 p-5 shadow-card">

@@ -1,110 +1,134 @@
-import { useEffect, useRef, useState } from 'react'
-import { confirm } from '../../lib/confirm'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { useAuth } from '../../context/AuthContext'
-import { PageHeader, Skeleton, StatCard } from '../../components/ui'
-import { formatDateTime } from '../../lib/utils'
+import { PageHeader, Skeleton, StatCard, Spinner } from '../../components/ui'
+import Icon from '../../components/Icon'
+import { notice } from '../../lib/confirm'
 
-// Email all creators - free, no paid email service required.
+// Email all creators, sent straight from the platform.
 //
-// How it works: you compose one message, then "Compose in Gmail" opens Gmail's
-// web composer in a new tab with every creator's address in BCC and your
-// subject + body pre-filled, ready to review and send. "Copy all emails" copies
-// the BCC list for any other client. The recipient list is community creators
-// only (active, non-admin, excluding the test accounts). We log each campaign.
+// The old flow opened Gmail's web composer with everyone in BCC. This now posts
+// to the `broadcast-email` edge function, which verifies you're an admin and
+// sends ONE branded message per recipient over SMTP (never a shared BCC, which
+// is what keeps deliverability healthy and lets us log per-recipient results).
+// "Send test to me" delivers a single copy to your own address first.
+const FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/broadcast-email`
+
 export default function AdminEmail() {
-  const { user } = useAuth()
-  const [emails, setEmails] = useState([])
+  const [recipientCount, setRecipientCount] = useState(0)
+  const [usage, setUsage] = useState(null)
   const [loading, setLoading] = useState(true)
   const [subject, setSubject] = useState('')
   const [bodyText, setBodyText] = useState('')
-  const [copied, setCopied] = useState(false)
-  const [history, setHistory] = useState([])
-  const pressTimer = useRef(null)
+  const [ctaLabel, setCtaLabel] = useState('')
+  const [ctaUrl, setCtaUrl] = useState('')
+  const [sending, setSending] = useState(false)
+  const [result, setResult] = useState(null)
 
-  // Admins long-press a logged campaign to delete it (tidy-up).
-  async function deleteCampaign(c) {
-    if (!await confirm(`Delete the logged campaign "${c.subject}"?`)) return
-    setHistory((prev) => prev.filter((x) => x.id !== c.id))
-    await supabase.from('email_campaigns').delete().eq('id', c.id)
-  }
-  const startPress = (c) => { pressTimer.current = setTimeout(() => deleteCampaign(c), 550) }
-  const cancelPress = () => clearTimeout(pressTimer.current)
+  const load = useCallback(async () => {
+    const [{ data: profiles }, { data: usageRows }] = await Promise.all([
+      supabase.from('profiles').select('id, status, is_admin, is_test, deletion_requested_at, email_prefs'),
+      supabase.rpc('email_usage'),
+    ])
+    // Community creators only: active, never admins, never the test accounts,
+    // and never anyone who opted out of announcement email.
+    const count = (profiles ?? []).filter((p) =>
+      p.status === 'active' && !p.is_admin && !p.is_test && !p.deletion_requested_at &&
+      p.email_prefs?.announcement !== false
+    ).length
+    setRecipientCount(count)
+    setUsage(Array.isArray(usageRows) ? usageRows[0] : usageRows)
+    setLoading(false)
+  }, [])
+  useEffect(() => { load() }, [load])
 
-  useEffect(() => {
-    async function load() {
-      // Active creators only - never the Tryp.com team (admins) or yourself.
-      const [{ data: emailRows }, { data: profiles }, { data: campaigns }] = await Promise.all([
-        supabase.rpc('admin_list_emails'),
-        supabase.from('profiles').select('id, status, is_admin, is_test'),
-        supabase.from('email_campaigns').select('*').order('created_at', { ascending: false }).limit(10),
-      ])
-      // Community creators only: active, never admins, never the test accounts we
-      // use for checking things, and never yourself.
-      const creatorIds = new Set(
-        (profiles ?? [])
-          .filter((p) => p.status === 'active' && !p.is_admin && !p.is_test && p.id !== user.id)
-          .map((p) => p.id)
-      )
-      setEmails((emailRows ?? []).filter((r) => creatorIds.has(r.id)).map((r) => r.email))
-      setHistory(campaigns ?? [])
-      setLoading(false)
-    }
-    load()
-  }, [user.id])
-
-  const bccList = emails.join(',')
-  // Gmail web compose - opens in a new tab, works without a desktop mail client.
-  const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&bcc=${encodeURIComponent(bccList)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`
-  const tooLong = gmailUrl.length > 1900 // very large lists can exceed URL limits
-
-  async function logCampaign() {
-    if (!subject.trim()) return
-    await supabase.from('email_campaigns').insert({
-      subject: subject.trim(), body: bodyText.trim(), recipient_count: emails.length, sent_by: user.id,
-    })
-    const { data } = await supabase.from('email_campaigns').select('*').order('created_at', { ascending: false }).limit(10)
-    setHistory(data ?? [])
-  }
-
-  // Primary: open Gmail compose in a new tab (reliable in any browser).
-  function openInGmail() {
-    logCampaign()
-    window.open(gmailUrl, '_blank', 'noopener')
-  }
-
-  // Copy with a textarea fallback for browsers that block the async clipboard.
-  async function copyEmails() {
+  async function send({ test }) {
+    if (!subject.trim() || !bodyText.trim()) return notice('Add a subject and a message first.')
+    setSending(true)
+    setResult(null)
     try {
-      await navigator.clipboard.writeText(bccList)
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(FN_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({
+          subject: subject.trim(),
+          body: bodyText.trim(),
+          ctaLabel: ctaLabel.trim() || undefined,
+          ctaUrl: ctaUrl.trim() || undefined,
+          test,
+        }),
+      })
+      const out = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setResult({ error: out.error || 'Could not send. Please try again.' })
+      } else {
+        setResult(out)
+        if (!test) { setSubject(''); setBodyText(''); setCtaLabel(''); setCtaUrl('') }
+        load()
+      }
     } catch {
-      const ta = document.createElement('textarea')
-      ta.value = bccList
-      ta.style.position = 'fixed'
-      ta.style.opacity = '0'
-      document.body.appendChild(ta)
-      ta.focus()
-      ta.select()
-      document.execCommand('copy')
-      document.body.removeChild(ta)
+      setResult({ error: 'Network error. Please try again.' })
     }
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    setSending(false)
   }
+
+  const sentToday = Number(usage?.sent_today ?? 0)
+  const dailyLimit = Number(usage?.daily_limit ?? 500)
+  const pctUsed = Math.min(100, Math.round((sentToday / dailyLimit) * 100))
+  const wouldExceed = sentToday + recipientCount > dailyLimit
 
   return (
     <div className="page max-w-3xl">
-      <PageHeader title="Email creators" subtitle="Compose once, send to everyone. Opens in your own email app with all creators in BCC." />
+      <PageHeader
+        title="Email creators"
+        subtitle="Compose once and send it to every creator, straight from the platform. Each person gets their own branded copy."
+      />
 
       {loading ? (
         <Skeleton className="h-96 w-full" />
       ) : (
         <>
-          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <StatCard label="Recipients" value={emails.length} hint="Active creators" accent />
-            <StatCard label="Sent so far" value={history.length >= 10 ? '10+' : history.length} hint="Logged campaigns" />
-          </div>
+          {/* ---------- Sending usage (replaces the old campaign log) ---------- */}
+          <section className="card mb-8">
+            <div className="mb-4 flex items-center gap-2">
+              <Icon name="chart" className="h-5 w-5 text-brand" />
+              <h2 className="text-lg font-semibold">Sending usage</h2>
+            </div>
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              <StatCard label="Recipients" value={recipientCount} hint="Opted-in creators" accent />
+              <StatCard label="Sent today" value={sentToday} hint={`of ${dailyLimit} daily limit`} />
+              <StatCard label="This month" value={Number(usage?.sent_month ?? 0)} />
+              <StatCard label="All time" value={Number(usage?.sent_total ?? 0)} />
+            </div>
 
+            <div className="mt-5">
+              <div className="mb-1.5 flex items-baseline justify-between text-xs">
+                <span className="font-medium text-ink">Daily allowance</span>
+                <span className="tabular-nums text-smoke">{sentToday} / {dailyLimit}</span>
+              </div>
+              <div className="h-2.5 overflow-hidden rounded-full bg-cloud">
+                <div
+                  className={`h-full rounded-full transition-all duration-700 ${pctUsed > 85 ? 'bg-red-500' : 'bg-gradient-to-r from-brand to-brand-light'}`}
+                  style={{ width: `${Math.max(pctUsed, 2)}%` }}
+                />
+              </div>
+              <p className="mt-2 text-xs text-smoke">
+                Counted per recipient, which is how the provider measures it. One broadcast to{' '}
+                {recipientCount} creators uses {recipientCount} of today's allowance. Resets at midnight UTC.
+              </p>
+              {Number(usage?.failed_today ?? 0) > 0 && (
+                <p className="mt-2 text-xs font-medium text-red-600">
+                  {Number(usage.failed_today)} failed to send today. Check the SMTP settings.
+                </p>
+              )}
+            </div>
+          </section>
+
+          {/* ---------- Composer ---------- */}
           <section className="card space-y-5">
             <div>
               <label htmlFor="subject" className="label">Subject</label>
@@ -112,49 +136,64 @@ export default function AdminEmail() {
             </div>
             <div>
               <label htmlFor="email-body" className="label">Message</label>
-              <textarea id="email-body" rows={10} className="input" value={bodyText} onChange={(e) => setBodyText(e.target.value)} placeholder="Write your email to the whole community…" />
+              <textarea
+                id="email-body" rows={10} className="input" value={bodyText}
+                onChange={(e) => setBodyText(e.target.value)}
+                placeholder="Write your email to the whole community…&#10;&#10;Leave a blank line between paragraphs."
+              />
+              <p className="mt-1 text-xs text-smoke">Plain text. Blank lines become paragraphs, and we wrap it in the Tryp.com branded template.</p>
             </div>
 
-            {tooLong && (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="cta-label" className="label">Button text <span className="font-normal text-smoke">(optional)</span></label>
+                <input id="cta-label" type="text" className="input" value={ctaLabel} onChange={(e) => setCtaLabel(e.target.value)} placeholder="e.g. Read the brief" />
+              </div>
+              <div>
+                <label htmlFor="cta-url" className="label">Button link</label>
+                <input id="cta-url" type="url" className="input" value={ctaUrl} onChange={(e) => setCtaUrl(e.target.value)} placeholder="https://…" />
+              </div>
+            </div>
+
+            {wouldExceed && (
               <p className="rounded-xl bg-amber-50 px-4 py-3 text-xs text-amber-700">
-                You have a lot of recipients. If the BCC list looks cut off, use "Copy all emails"
-                and paste them into your email's BCC field instead.
+                This send ({recipientCount}) would push you past today's limit of {dailyLimit}.
+                Wait until tomorrow, or upgrade the sending provider.
               </p>
             )}
 
             <div className="flex flex-wrap items-center gap-3">
-              <button onClick={openInGmail} disabled={!subject.trim() || emails.length === 0} className="btn-primary">
-                Compose in Gmail →
+              <button onClick={() => send({ test: false })} disabled={sending || wouldExceed || recipientCount === 0} className="btn-primary">
+                {sending ? <Spinner /> : `Send to ${recipientCount} creators`}
               </button>
-              <button onClick={copyEmails} disabled={emails.length === 0} className="btn-secondary">{copied ? 'Copied ✓' : 'Copy all emails'}</button>
+              <button onClick={() => send({ test: true })} disabled={sending} className="btn-secondary">
+                Send test to me
+              </button>
             </div>
+
+            {result && (
+              result.error ? (
+                <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{result.error}</p>
+              ) : (
+                <div className="rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">
+                  <p className="font-semibold">
+                    {result.test ? 'Test sent to your inbox.' : `Sent to ${result.sent} of ${result.total} creators.`}
+                  </p>
+                  {result.failed > 0 && (
+                    <p className="mt-1 text-xs text-red-600">
+                      {result.failed} failed{result.failures?.length ? `: ${result.failures.map((f) => f.email).join(', ')}` : ''}
+                    </p>
+                  )}
+                </div>
+              )
+            )}
+
             <p className="text-xs leading-relaxed text-smoke">
-              "Compose in Gmail" opens a new tab with the subject, body and every creator in BCC,
-              ready for you to review and send. Or use "Copy all emails" to paste the list into any
-              email client yourself. Either way, the campaign is logged below.
+              Every creator gets their own copy, so nobody sees anyone else's address.
+              Creators who turned off announcement emails in their settings are skipped automatically.
+              Always use "Send test to me" first.
             </p>
           </section>
-
-          {history.length > 0 && (
-            <section className="mt-10">
-              <h2 className="mb-1 text-lg font-semibold">Recent campaigns</h2>
-              <p className="mb-4 text-xs text-smoke">Long-press a campaign to delete it.</p>
-              <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
-                {history.map((c) => (
-                  <div
-                    key={c.id}
-                    onTouchStart={() => startPress(c)} onTouchEnd={cancelPress} onTouchMove={cancelPress}
-                    onMouseDown={() => startPress(c)} onMouseUp={cancelPress} onMouseLeave={cancelPress}
-                    onContextMenu={(e) => { e.preventDefault(); deleteCampaign(c) }}
-                    className="select-none border-b border-gray-50 px-5 py-4 last:border-0 sm:px-7"
-                  >
-                    <p className="text-sm font-semibold">{c.subject}</p>
-                    <p className="text-xs text-smoke">{formatDateTime(c.created_at)} · {c.recipient_count} recipients</p>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
         </>
       )}
     </div>

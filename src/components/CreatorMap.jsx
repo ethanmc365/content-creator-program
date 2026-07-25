@@ -365,6 +365,22 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
     if (travelView) return only(travellerIds)
     return towns
   }, [towns, focusJourney, connectionsView, connSet, travelView, travellerIds])
+  // SVG has no z-index: whatever is drawn LAST sits on top. Two rules:
+  //  1. Draw north-to-south, so a southern pin's body naturally overlaps its
+  //     northern neighbour rather than being sliced by it.
+  //  2. Float the SELECTED pin to the very end, so tapping a pin always brings
+  //     it fully to the front instead of leaving it buried behind others.
+  //     Deselecting restores the normal order.
+  const paintOrder = useMemo(() => {
+    const list = [...visibleTowns].sort((a, b) => b.coords[1] - a.coords[1])
+    if (!selected) return list
+    const i = list.findIndex((t) => t.key === selected.key)
+    if (i === -1) return list
+    const [picked] = list.splice(i, 1)
+    list.push(picked)
+    return list
+  }, [visibleTowns, selected])
+
   const visibleJourneys = connectionsView ? [] : (focusJourney ? [focusJourney] : journeys)
   const quietMap = travelView || connectionsView || nearMe || !!focusJourney // hide the full thread web
 
@@ -641,7 +657,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
             ))}
           </g>
 
-          {visibleTowns.map((town) => (
+          {paintOrder.map((town) => (
             <g
               key={town.key}
               onMouseEnter={() => setTooltip(
