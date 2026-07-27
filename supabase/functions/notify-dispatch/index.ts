@@ -1,23 +1,28 @@
 // Supabase Edge Function: notify-dispatch
 // Triggered by a Database Webhook on INSERT into public.notifications.
-// Sends a Web Push to every device the recipient registered, and (for the
-// important categories) an email via Resend. This is what makes notifications
-// arrive when the PWA is fully closed.
+// Sends a Web Push to every device the recipient registered. This is what makes
+// notifications arrive when the PWA is fully closed.
+//
+// THIS FUNCTION NO LONGER SENDS EMAIL (rebuild, Jul 27 2026).
+//
+// It used to email the "important" categories and park broadcasts in an
+// approval queue. Sending a run of near-identical messages from a shared
+// mailbox got the platform flagged as a bulk sender and Gmail began blocking
+// the mail outright, so automatic email is off across the board. The platform
+// now sends exactly two kinds of email, neither of them from here:
+//
+//   - password resets, sent by Supabase Auth over SMTP (see auth-gate)
+//   - a welcome email per accepted creator, queued by a database trigger for an
+//     admin to approve on /admin/email, then sent by the send-welcome function
+//
+// Notifications themselves are unaffected: the in-app bell row is always
+// written by notify_user/notify_all, and push still goes out instantly below.
 //
 // Deploy:  supabase functions deploy notify-dispatch --no-verify-jwt
-// Secrets: supabase secrets set VAPID_PUBLIC_KEY=... VAPID_PRIVATE_KEY=... RESEND_API_KEY=...
+// Secrets: supabase secrets set VAPID_PUBLIC_KEY=... VAPID_PRIVATE_KEY=...
 // Webhook: Database → Webhooks → on INSERT public.notifications → POST this function URL.
-//
-// EMAIL SENDING (see docs/EMAIL_SETUP.md):
-//   Preferred = SMTP. Configure via edge-function secrets (never in source):
-//   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS and MAIL_FROM.
-//   See docs/EMAIL_SETUP.md for the current provider and how to set them.
-//   Fallback = Resend (only reaches the account owner until a domain is verified).
-//   MAIL_FROM also overrides the Resend "from" once a domain is verified.
 import webpush from 'npm:web-push@3.6.7'
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts'
-import { renderEmail, renderText, textToHtml } from '../_shared/emailTemplate.ts'
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -26,189 +31,54 @@ const supabase = createClient(
 
 const VAPID_PUBLIC = Deno.env.get('VAPID_PUBLIC_KEY')!
 const VAPID_PRIVATE = Deno.env.get('VAPID_PRIVATE_KEY')!
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
-const APP_URL = Deno.env.get('APP_URL') ?? 'https://trypcreators.vercel.app'
-
-// Email sender config. SMTP wins when configured; otherwise fall back to Resend.
-const SMTP_HOST = Deno.env.get('SMTP_HOST')
-const SMTP_PORT = Number(Deno.env.get('SMTP_PORT') ?? '465')
-const SMTP_USER = Deno.env.get('SMTP_USER')
-const SMTP_PASS = Deno.env.get('SMTP_PASS')
-const MAIL_FROM = Deno.env.get('MAIL_FROM') ?? 'Tryp.com <onboarding@resend.dev>'
-const SMTP_READY = !!(SMTP_HOST && SMTP_USER && SMTP_PASS)
-const EMAIL_READY = SMTP_READY || !!RESEND_API_KEY
 
 webpush.setVapidDetails('mailto:hello@tryp.com', VAPID_PUBLIC, VAPID_PRIVATE)
 
 const WEBHOOK_SECRET = Deno.env.get('WEBHOOK_SECRET')
-
-// Parse a "Name <addr@x.com>" from-string into denomailer's {name?, mail} shape.
-function parseFrom(s: string): { name?: string; mail: string } {
-  const m = s.match(/^\s*(.*?)\s*<([^>]+)>\s*$/)
-  return m ? { name: m[1] || undefined, mail: m[2] } : { mail: s.trim() }
-}
-
-// Send one email via SMTP (preferred) or Resend (fallback). A fresh SMTP
-// connection per message keeps it simple and robust at this volume.
-// Every message carries BOTH a text and an HTML part. HTML-only mail is a spam
-// signal, and the old call passed `content: 'text/html'` - which denomailer
-// treats as the plain-text BODY, so the text part literally read "text/html".
-// `List-Unsubscribe` (RFC 2369) gives providers a real opt-out route to see.
-async function sendEmail(to: string, subject: string, html: string, text: string) {
-  const replyTo = Deno.env.get('REPLY_TO') ?? MAIL_FROM.match(/<([^>]+)>/)?.[1] ?? MAIL_FROM
-  const listUnsub = `<mailto:${replyTo}?subject=Unsubscribe>, <${APP_URL}/settings>`
-  if (SMTP_READY) {
-    const client = new SMTPClient({
-      connection: {
-        hostname: SMTP_HOST!,
-        port: SMTP_PORT,
-        tls: SMTP_PORT === 465,
-        auth: { username: SMTP_USER!, password: SMTP_PASS! },
-      },
-    })
-    try {
-      const from = parseFrom(MAIL_FROM)
-      await client.send({
-        from: from.name ? `${from.name} <${from.mail}>` : from.mail,
-        to, subject, html, content: text, replyTo,
-        headers: { 'List-Unsubscribe': listUnsub },
-      })
-    } finally {
-      try { await client.close() } catch { /* already closed */ }
-    }
-    return
-  }
-  if (RESEND_API_KEY) {
-    await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from: MAIL_FROM, to, subject, html, text, reply_to: replyTo,
-        headers: { 'List-Unsubscribe': listUnsub },
-      }),
-    })
-  }
-}
 
 Deno.serve(async (req) => {
   // Only the database webhook (which knows the shared secret) may call this.
   if (WEBHOOK_SECRET && req.headers.get('x-webhook-secret') !== WEBHOOK_SECRET) {
     return new Response('unauthorized', { status: 401 })
   }
-  const payload = await req.json().catch(() => ({}))
-  const n = payload.record ?? payload
-  if (!n?.recipient_id) return new Response('no recipient', { status: 200 })
 
-  // Channel preferences: notif_prefs gates device push, email_prefs gates email.
-  // The in-app row already exists (the bell is the always-on inbox).
-  const { data: profile } = await supabase
-    .from('profiles').select('notif_prefs, email_prefs, is_admin').eq('id', n.recipient_id).single()
-  const pushOn = profile?.notif_prefs?.[n.type] !== false
-  let emailOn = profile?.email_prefs?.[n.type] === true
+  try {
+    const payload = await req.json().catch(() => ({}))
+    const n = payload.record ?? payload
+    if (!n?.recipient_id) return new Response('no recipient', { status: 200 })
 
-  // Admin-only alert types must NEVER be emailed to a regular creator, whatever
-  // their prefs blob happens to contain. This is the server-side guarantee that
-  // backs the admin email toggles in Settings.
-  //
-  // NOTE: 'application' is deliberately NOT in this list - it is dual-purpose.
-  // Admins get "New creator awaiting review", but the creator themselves gets
-  // "Finish setting up your profile" / "You're in! Welcome aboard" under the
-  // same type, and those SHOULD still reach them.
-  const ADMIN_ONLY_TYPES = ['submission', 'new_member', 'referral', 'deletion', 'inactive', 'feedback']
-  if (ADMIN_ONLY_TYPES.includes(n.type) && profile?.is_admin !== true) emailOn = false
+    // notif_prefs gates device push per notification type. The in-app row
+    // already exists either way, because the bell is the always-on inbox.
+    const { data: profile } = await supabase
+      .from('profiles').select('notif_prefs').eq('id', n.recipient_id).single()
+    if (profile?.notif_prefs?.[n.type] === false) return new Response('push off', { status: 200 })
 
-  // 1) Web push to every registered device (when push is on for this type).
-  if (pushOn) {
     const { data: subs } = await supabase
       .from('push_subscriptions').select('*').eq('user_id', n.recipient_id)
+
     const body = JSON.stringify({
       title: n.title, body: n.body ?? '', link: n.link || '/notifications', tag: n.id,
     })
+
     await Promise.all((subs ?? []).map(async (s) => {
       try {
         await webpush.sendNotification(
           { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, body,
         )
       } catch (e) {
+        // 404/410 mean the browser threw the subscription away (uninstalled the
+        // PWA, cleared site data). Drop it so we stop retrying forever.
         if (e?.statusCode === 404 || e?.statusCode === 410) {
           await supabase.from('push_subscriptions').delete().eq('endpoint', s.endpoint)
         }
       }
     }))
+
+    return new Response('ok', { status: 200 })
+  } catch (e) {
+    // A webhook that 500s gets retried; log the reason and answer 200 so a bad
+    // payload cannot wedge the queue.
+    console.error('notify-dispatch failed', e)
+    return new Response('error', { status: 200 })
   }
-
-  // 2) Email.
-  //
-  // BROADCAST types (one message going to the whole community) do NOT email
-  // immediately. They land in email_outbox for an admin to review, edit,
-  // approve or decline first. Push still went out above, instantly.
-  // Personal, one-to-one emails (welcome, application result) send straight
-  // away - there is nothing to review and holding them would be strange.
-  const QUEUED_TYPES = ['announcement', 'challenge', 'event']
-
-  if (QUEUED_TYPES.includes(n.type)) {
-    const { data: tpl } = await supabase
-      .from('email_templates').select('subject, body, cta_label, cta_path, auto_send').eq('key', n.type).maybeSingle()
-    if (tpl && tpl.auto_send !== true) {
-      // Fill only {{title}}/{{body}} here; {{name}} stays as a token because the
-      // recipient is not known until the broadcast is actually sent.
-      const fillShared = (str: string) => String(str ?? '')
-        .replaceAll('{{title}}', n.title ?? '')
-        .replaceAll('{{body}}', n.body ?? '')
-      // Unique index on (type, subject, cta_path) where status='pending' makes
-      // the first of N per-recipient notifications win; the rest no-op.
-      await supabase.from('email_outbox').insert({
-        type: n.type,
-        subject: fillShared(tpl.subject),
-        body: fillShared(tpl.body),
-        cta_label: tpl.cta_label,
-        cta_path: n.link || tpl.cta_path || '/home',
-      })
-      return new Response('queued', { status: 200 })
-    }
-  }
-
-  if (EMAIL_READY && emailOn) {
-    const { data: u } = await supabase.auth.admin.getUserById(n.recipient_id)
-    const email = u?.user?.email
-    if (email) {
-      const { data: tpl } = await supabase
-        .from('email_templates').select('subject, body, cta_label, cta_path').eq('key', n.type).maybeSingle()
-      const { data: prof } = await supabase
-        .from('profiles').select('name').eq('id', n.recipient_id).maybeSingle()
-      const firstName = (prof?.name ?? '').trim().split(' ')[0] || 'there'
-      const fill = (str: string) => String(str ?? '')
-        .replaceAll('{{title}}', n.title ?? '')
-        .replaceAll('{{body}}', n.body ?? '')
-        .replaceAll('{{name}}', firstName)
-
-      const subject = fill(tpl?.subject || '{{title}}')
-      const bodyText = fill(tpl?.body || 'Hi {{name}},\n\n{{body}}')
-
-      const ctaLabel = tpl?.cta_label || 'Open Tryp.com Content Creator Program'
-      const ctaUrl = `${APP_URL}${n.link || tpl?.cta_path || '/notifications'}`
-      const footerNote = 'You can choose exactly which emails you get in your settings.'
-      const html = renderEmail({
-        title: subject,
-        bodyHtml: textToHtml(bodyText),
-        ctaLabel, ctaUrl, footerNote,
-        appUrl: APP_URL,
-      })
-      const text = renderText({ title: subject, bodyText, ctaLabel, ctaUrl, footerNote, appUrl: APP_URL })
-      try {
-        await sendEmail(email, subject, html, text)
-        await supabase.from('email_send_log').insert({
-          kind: 'notification', recipient_id: n.recipient_id, subject, status: 'sent',
-        })
-      } catch (e) {
-        console.error('email send failed', e)
-        await supabase.from('email_send_log').insert({
-          kind: 'notification', recipient_id: n.recipient_id, subject,
-          status: 'failed', error: e instanceof Error ? e.message : String(e),
-        })
-      }
-    }
-  }
-
-  return new Response('ok', { status: 200 })
 })

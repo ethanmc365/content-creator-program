@@ -65,6 +65,26 @@ async function isLimited(identifier: string) {
 const record = (identifier: string) => admin.from('auth_attempts').insert({ identifier })
 const clear = (identifier: string) => admin.from('auth_attempts').delete().eq('identifier', identifier)
 
+// Record a password reset request in the admin email log.
+//
+// The account may not exist at all (we never reveal that to the caller), so the
+// email string is stored as-is and recipient_id is filled in only when it maps
+// to a real account. GoTrue answers 200 whether or not it sent anything, so a
+// non-2xx is the only signal we have that the send itself failed.
+async function logRecovery(email: string, status: number) {
+  const wanted = email.trim().toLowerCase()
+  const { data: list } = await admin.auth.admin.listUsers({ perPage: 1000 })
+  const match = (list?.users ?? []).find((u) => (u.email ?? '').toLowerCase() === wanted)
+  await admin.from('email_send_log').insert({
+    kind: 'password_reset',
+    recipient_id: match?.id ?? null,
+    recipient_email: wanted,
+    subject: 'Password reset link',
+    status: status < 400 ? 'sent' : 'failed',
+    error: status < 400 ? null : `Auth responded ${status}`,
+  })
+}
+
 async function gotrue(path: string, body: unknown) {
   const res = await fetch(`${SUPABASE_URL}/auth/v1/${path}`, {
     method: 'POST',
@@ -112,8 +132,13 @@ Deno.serve(async (req) => {
     if (await isLimited(id)) return json(req, tooMany, 429)
     await record(id)
     const url = redirectTo ? `recover?redirect_to=${encodeURIComponent(redirectTo)}` : 'recover'
-    await gotrue(url, { email, ...sec }) // always 200 to the client (don't reveal whether the email exists)
-    return json(req, { ok: true }, 200)
+    const { status } = await gotrue(url, { email, ...sec })
+    // Log the request for the admin email log. Password reset mail is sent by
+    // Supabase Auth, not by us, so this is the only point where the platform
+    // ever sees one - and it records the REQUEST, not a delivery receipt.
+    // Deliberately fire-and-forget: a logging failure must never break a reset.
+    await logRecovery(String(email), status).catch(() => {})
+    return json(req, { ok: true }, 200) // always 200 (don't reveal whether the email exists)
   }
 
   return json(req, { error: 'unknown action' }, 400)

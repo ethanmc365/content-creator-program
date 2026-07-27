@@ -15,7 +15,7 @@ const TOOLS = [
   { to: '/admin/rewards', icon: 'money', title: 'Rewards & invoices', text: 'Manage payouts, generate prize invoices, export for accounting.' },
   { to: '/admin/analytics', icon: 'chart', title: 'Analytics', text: 'Growth, submissions, views and spend, with CSV export.' },
   { to: '/admin/network', icon: 'users', title: 'Community network', text: 'Who is connecting with whom and the best-connected creators.' },
-  { to: '/admin/email', icon: 'envelope', title: 'Email creators', text: 'Compose one message and send it to every creator.' },
+  { to: '/admin/email', icon: 'envelope', title: 'Email', text: 'Approve welcome emails, copy the address list, see what was sent.' },
   { to: '/admin/jobs', icon: 'briefcase', title: 'Jobs', text: 'Post roles you are hiring for. Every creator gets notified.' },
   { to: '/admin/referrals', icon: 'share', title: 'Referrals', text: 'See who referred whom, and follow up on leads.' },
   { to: '/admin/events', icon: 'calendar', title: 'Events', text: 'Q&As, content days and milestones on the calendar.' },

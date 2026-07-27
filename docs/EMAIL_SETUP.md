@@ -1,6 +1,39 @@
 # Email setup (Gmail SMTP)
 
-## Current status (25 Jul 2026): sending WORKS, but bulk broadcasts get BLOCKED
+## Current status (27 Jul 2026): email cut back to two jobs
+
+The bulk-blocking problem described below was not solvable from inside the app,
+so the answer was to stop sending bulk mail. The platform now sends **only**:
+
+1. **Password resets** - Supabase Auth over SMTP. Low volume, always expected by
+   the person receiving it, never a deliverability problem. Logged by the
+   `auth-gate` function into `email_send_log`.
+2. **Welcome emails** - one per newly accepted creator. A database trigger
+   (`trg_creator_welcome_email`) queues a draft into `email_outbox` when a
+   profile goes `pending` -> `active`. An admin reads it on `/admin/email`,
+   edits it if they want, then presses send, which calls the **`send-welcome`**
+   function. Nothing sends automatically. This one matters because a brand new
+   creator has not enabled push yet, so email is the only way to reach them.
+
+Everything else is **push and the in-app bell only**:
+
+- `notify-dispatch` no longer sends email at all, and no longer queues
+  broadcasts. It is push + the always-on bell row.
+- `broadcast-email` is a **retired stub** returning 410. It is kept in the repo
+  and deployed over, rather than deleted, because the old mass-sending version
+  was already live and deleting the directory would have left it reachable.
+- The Email column in notification settings is hidden behind
+  `EMAIL_ENABLED = false` in `NotificationPreferences.jsx`. The toggles,
+  `email_prefs` writes and defaults are all left intact, so flipping it back to
+  `true` is the only change needed once there is a verified sending domain.
+- To reach the whole community, copy the address list from `/admin/email` and
+  send from a real mailing tool.
+
+The rest of this document is the history of how the sending credentials were
+fixed, plus the deliverability guidance that still applies if broadcasts ever
+come back.
+
+## Previous status (25 Jul 2026): sending WORKS, but bulk broadcasts get BLOCKED
 
 The credential problem below is **fixed**. Auth emails, password resets and 1:1
 notification emails all send correctly.

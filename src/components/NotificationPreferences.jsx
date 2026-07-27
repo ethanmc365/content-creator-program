@@ -14,11 +14,11 @@ import { cx } from '../lib/utils'
 
 // What creators can switch on and off. Keys match the notification `type`
 // column and the profiles.notif_prefs JSON.
-// `emailable` marks the few categories that are worth an email. Everything else
-// is push + the in-app bell only. The rule: email is for things a creator would
-// be annoyed to MISS (a challenge opening, an event they'd attend, an official
-// announcement). Chatter - DMs, general chat, reactions - stays in the app, and
-// rewards/connections are timely enough as push.
+//
+// `emailable` used to mark the categories that also went out by email. Email
+// notifications are OFF across the board as of Jul 27 2026 (see EMAIL_ENABLED
+// below), so the flag currently does nothing but is left in place: it records
+// which categories are worth an email if and when they come back.
 export const CATEGORIES = [
   { key: 'announcement', label: 'Announcements', hint: 'Official updates from the Tryp.com Team.', emailable: true },
   { key: 'challenge', label: 'New challenges', hint: 'When a fresh challenge goes live.', emailable: true },
@@ -30,11 +30,8 @@ export const CATEGORIES = [
   { key: 'connection', label: 'New connections', hint: 'When a creator connects with you.' },
 ]
 
-// Admin-only alerts (hidden from regular creators).
-// Admin-only alerts (hidden from regular creators). All are emailable: an admin
-// running the program genuinely wants these off-platform. The edge function
-// independently refuses to email these types to a non-admin recipient, so a
-// creator can never receive one even if their prefs blob says otherwise.
+// Admin-only alerts (hidden from regular creators). Push and the in-app bell
+// only, same as everything else while email notifications are off.
 export const ADMIN_CATEGORIES = [
   { key: 'application', label: 'New creator applications', hint: 'When a creator submits their profile for review.', emailable: true },
   { key: 'submission', label: 'New challenge entries', hint: 'When a creator submits a video to a challenge.', emailable: true },
@@ -49,10 +46,18 @@ const DEFAULT_PREFS = Object.fromEntries(CATEGORIES.map((c) => [c.key, true]))
 // Only the emailable categories default to on; everything else is push-only.
 const DEFAULT_EMAIL = { announcement: true, challenge: true, event: true, dm: false, chat: false, connection: false, results: false, reward: false }
 
-// Email delivery is live (custom SMTP on Supabase Auth + the SMTP secrets on the
-// notify-dispatch function). The Email column only renders for the categories
-// marked `emailable` above.
-const EMAIL_ENABLED = true
+// Email notifications are OFF (Jul 27 2026).
+//
+// Mailing the whole community from a shared mailbox got the platform flagged as
+// a bulk sender, and Gmail started blocking the messages. Rather than ship
+// toggles for something that does not reliably arrive, the Email column is
+// hidden and notify-dispatch no longer sends email at all. The platform now
+// emails only password resets and one welcome message per new creator.
+//
+// Everything behind this flag (the toggles, the email_prefs writes, DEFAULT_EMAIL)
+// is left intact, so flipping it back to true is all it takes once there is a
+// verified sending domain.
+const EMAIL_ENABLED = false
 
 // Shared state owned once by the parent (Settings). Both the creator and admin
 // sections read/write the SAME prefs object, so writes always carry every key.
@@ -184,7 +189,7 @@ export function CreatorNotifications({ state }) {
       <div className="mt-6">
         <Divider
           title="What you're notified about"
-          hint={EMAIL_ENABLED ? 'Email is reserved for the things worth leaving the app for. A dash means in-app and push only.' : undefined}
+          hint={EMAIL_ENABLED ? 'Email is reserved for the things worth leaving the app for. A dash means in-app and push only.' : 'Push notifications and your in-app bell. Email notifications are coming soon.'}
         />
         <div className="mt-3 flex items-center justify-end gap-3 border-b border-gray-100 pb-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
           <span className="w-11 text-center">Push</span>
@@ -243,7 +248,7 @@ export function CreatorNotifications({ state }) {
       </div>
 
       <p className="mt-5 border-t border-gray-100 pt-4 text-xs text-smoke">
-        Account-critical messages, like your application result, are always delivered.
+        Account-critical email, like a password reset link, is always sent whatever you choose here.
       </p>
     </section>
   )
