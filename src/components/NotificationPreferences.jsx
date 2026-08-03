@@ -24,7 +24,10 @@ export const CATEGORIES = [
   { key: 'challenge', label: 'New challenges', hint: 'When a fresh challenge goes live.', emailable: true },
   { key: 'event', label: 'Events', hint: 'Q&As, content days and milestones on the calendar.', emailable: true },
   { key: 'dm', label: 'Direct messages', hint: 'When another creator messages you directly.' },
-  { key: 'chat', label: 'General chat', hint: 'New messages in the #general channel.', pushOnly: true },
+  // Chat notifications are throttled server-side (one per channel every 15
+  // minutes, and never while you're actively in the app), so a busy #general
+  // costs a nudge rather than a stream of buzzes. See migration 067.
+  { key: 'chat', label: 'Community chat', hint: 'New messages in #general and #content-tips, at most one nudge every 15 minutes.', pushOnly: true },
   { key: 'results', label: 'Results', hint: "When a challenge's results are published." },
   { key: 'reward', label: 'Rewards', hint: 'When a reward or payout comes your way.' },
   { key: 'connection', label: 'New connections', hint: 'When a creator connects with you.' },

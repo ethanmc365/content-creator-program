@@ -3,7 +3,7 @@ import { Avatar, Badge } from './ui'
 import PlatformBadges, { platformsForProfile } from './PlatformBadges'
 import ConnectButton from './ConnectButton'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabase'
+import { openConversation } from '../lib/dm'
 
 // One creator in the directory grid. Whole card links to the profile;
 // Connect / Message are quick actions in the footer.
@@ -15,20 +15,8 @@ export default function CreatorCard({ creator, relation, onRelationChange, curre
   // Open (or create) the 1:1 conversation, then jump into it.
   async function message(e) {
     e.preventDefault()
-    const { data: existing } = await supabase
-      .from('conversations')
-      .select('id')
-      .or(
-        `and(participant_a.eq.${user.id},participant_b.eq.${creator.id}),and(participant_a.eq.${creator.id},participant_b.eq.${user.id})`
-      )
-      .maybeSingle()
-    if (existing) return navigate(`/messages/${existing.id}`)
-    const { data: created } = await supabase
-      .from('conversations')
-      .insert({ participant_a: user.id, participant_b: creator.id })
-      .select('id')
-      .single()
-    if (created) navigate(`/messages/${created.id}`)
+    const id = await openConversation(user.id, creator.id)
+    if (id) navigate(`/messages/${id}`)
   }
 
   return (

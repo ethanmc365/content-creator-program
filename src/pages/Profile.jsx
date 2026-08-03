@@ -8,6 +8,7 @@ import VideoThumb from '../components/VideoThumb'
 import AchievementBadges from '../components/AchievementBadges'
 import ConnectButton from '../components/ConnectButton'
 import { loadRelationship, mutualConnections } from '../lib/connections'
+import { openConversation } from '../lib/dm'
 import { confirm, notice } from '../lib/confirm'
 import { downloadShareCard } from '../lib/shareCard'
 import { flagForCountry } from '../lib/flags'
@@ -137,18 +138,8 @@ export default function Profile() {
   }, [id, viewerIsAdmin, isMe])
 
   async function startMessage() {
-    const { data: existing } = await supabase
-      .from('conversations')
-      .select('id')
-      .or(`and(participant_a.eq.${user.id},participant_b.eq.${id}),and(participant_a.eq.${id},participant_b.eq.${user.id})`)
-      .maybeSingle()
-    if (existing) return navigate(`/messages/${existing.id}`)
-    const { data: created } = await supabase
-      .from('conversations')
-      .insert({ participant_a: user.id, participant_b: id })
-      .select('id')
-      .single()
-    if (created) navigate(`/messages/${created.id}`)
+    const convId = await openConversation(user.id, id)
+    if (convId) navigate(`/messages/${convId}`)
   }
 
   // A trip that's underway right now (trips are already end_date >= today).

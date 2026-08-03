@@ -913,7 +913,9 @@ export default function Chat() {
                 </Link>
 
                 <div
-                  className={cx('flex max-w-[78%] flex-col sm:max-w-[65%]', mine ? 'items-end text-right' : 'items-start')}
+                  // min-w-0 matters: a flex item defaults to min-width:auto, so
+                  // without it a wide child can push the column past max-w.
+                  className={cx('flex min-w-0 max-w-[78%] flex-col sm:max-w-[65%]', mine ? 'items-end text-right' : 'items-start')}
                   // Tap a message on mobile to reveal its reply / react actions.
                   onClick={(e) => { if (isMobile && !e.target.closest('a,button,video,input')) setActionsFor(showActions ? null : m.id) }}
                 >
@@ -927,7 +929,7 @@ export default function Chat() {
                   {(m.body || m.image_url || m.video_url) && (
                     <div
                       className={cx(
-                        'relative inline-block whitespace-pre-line rounded-2xl text-left text-sm leading-relaxed',
+                        'relative inline-block max-w-full whitespace-pre-line break-words rounded-2xl text-left text-sm leading-relaxed',
                         (m.image_url || m.video_url) ? 'overflow-hidden p-1.5' : 'px-4 py-2.5',
                         channel === 'announcements'
                           ? 'border border-brand/20 bg-brand-tint text-ink'
@@ -942,15 +944,20 @@ export default function Chat() {
                           type="button"
                           onClick={() => orig && scrollToMessage(orig.id)}
                           className={cx(
-                            'mb-1.5 block w-full rounded-lg border-l-2 px-2.5 py-1 text-left',
+                            'mb-1.5 block w-full max-w-full overflow-hidden rounded-lg border-l-2 px-2.5 py-1 text-left',
                             (m.image_url || m.video_url) && 'mx-0.5 mt-0.5',
                             onDark ? 'border-white/70 bg-white/15' : 'border-brand/60 bg-black/[0.04]'
                           )}
                         >
-                          <span className={cx('block text-[11px] font-semibold', onDark ? 'text-white' : 'text-brand')}>
+                          <span className={cx('block truncate text-[11px] font-semibold', onDark ? 'text-white' : 'text-brand')}>
                             {orig ? (orig.sender_id === user.id ? 'You' : orig.profiles?.name) : 'Original message'}
                           </span>
-                          <span className={cx('block truncate text-xs', onDark ? 'text-white/80' : 'text-smoke')}>{messagePreview(orig)}</span>
+                          {/* line-clamp, NOT truncate: truncate sets white-space:nowrap, which
+                              makes this preview's min-content width the whole quoted line. The
+                              bubble is shrink-to-fit, so that min-content won the sizing race
+                              and a reply to a long message stretched way off screen. Clamping a
+                              WRAPPING line keeps min-content down to one word. */}
+                          <span className={cx('line-clamp-1 text-xs [overflow-wrap:anywhere]', onDark ? 'text-white/80' : 'text-smoke')}>{messagePreview(orig)}</span>
                         </button>
                       )}
 

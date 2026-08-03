@@ -53,13 +53,20 @@ export default function AdminResults() {
   }
 
   // Save one submission's logged views (on blur or Enter).
+  //
+  // Typing a number here marks the row 'manual', which tells the TikTok sync job
+  // to leave it alone from then on: a deliberate correction always outranks the
+  // automatic figure, so a typo in the API or a deleted video can't undo it.
   async function saveViews(submission, raw) {
     const views = raw === '' ? null : parseInt(raw, 10)
     if (raw !== '' && (isNaN(views) || views < 0)) return
     if (views === submission.logged_views) return
     setSavingId(submission.id)
-    await supabase.from('submissions').update({ logged_views: views }).eq('id', submission.id)
-    setSubmissions((prev) => prev.map((s) => (s.id === submission.id ? { ...s, logged_views: views } : s)))
+    await supabase
+      .from('submissions')
+      .update({ logged_views: views, views_source: 'manual' })
+      .eq('id', submission.id)
+    setSubmissions((prev) => prev.map((s) => (s.id === submission.id ? { ...s, logged_views: views, views_source: 'manual' } : s)))
     setSavingId(null)
   }
 
@@ -158,20 +165,38 @@ export default function AdminResults() {
               <Avatar src={s.profiles?.photo_url} name={s.profiles?.name} size="sm" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold">{s.profiles?.name}</p>
-                <p className="text-xs text-smoke">{s.platform} · {timeAgo(s.submitted_at)}</p>
+                <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-smoke">
+                  <span>{s.platform} · {timeAgo(s.submitted_at)}</span>
+                  {/* Synced straight from the creator's connected account. */}
+                  {s.views_source === 'tiktok' && (
+                    <span
+                      className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-semibold text-green-700"
+                      title={s.views_synced_at ? `Read from TikTok ${timeAgo(s.views_synced_at)}` : 'Read from TikTok'}
+                    >
+                      <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                      Auto
+                    </span>
+                  )}
+                </p>
               </div>
               <a href={s.video_url} target="_blank" rel="noopener noreferrer" className="btn-secondary !py-2 text-xs">
                 Watch ↗
               </a>
               <div className="flex items-center gap-2">
                 <label className="sr-only" htmlFor={`views-${s.id}`}>Logged views for {s.profiles?.name}</label>
+                {/* Plain text + inputMode numeric rather than type="number": the
+                    view count is always typed in full, so the stepper arrows were
+                    only clutter (and one stray scroll could change a saved figure).
+                    Non-digits are stripped as you type; mobile still gets a number pad. */}
                 <input
                   id={`views-${s.id}`}
-                  type="number"
-                  min="0"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="off"
                   className="input !w-32 text-right tabular-nums"
                   placeholder="views"
                   defaultValue={s.logged_views ?? ''}
+                  onInput={(e) => { e.target.value = e.target.value.replace(/\D+/g, '') }}
                   onBlur={(e) => saveViews(s, e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && e.target.blur()}
                 />
@@ -187,6 +212,10 @@ export default function AdminResults() {
       <p className="mt-6 text-xs leading-relaxed text-smoke">
         💡 A creator with multiple entries is ranked by their <strong>best</strong> video.
         Generating the leaderboard replaces previous results for this challenge, so it's safe to redo if you spot a typo.
+      </p>
+      <p className="mt-2 text-xs leading-relaxed text-smoke">
+        Entries marked <strong>Auto</strong> come straight from the creator's connected TikTok account
+        and refresh every hour. Typing a number over one hands that entry back to manual entry for good.
       </p>
     </div>
   )

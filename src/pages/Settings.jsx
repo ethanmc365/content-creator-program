@@ -13,6 +13,7 @@ import {
   applyMotion, storeMotion, getStoredMotion,
 } from '../lib/theme'
 import { useNotificationPrefs, CreatorNotifications, AdminNotifications } from '../components/NotificationPreferences'
+import ConnectedAccounts from '../components/ConnectedAccounts'
 
 // Light or dark, explicitly. A "match system" option was tried and removed:
 // following the OS colour scheme was unreliable across real devices.
@@ -27,6 +28,7 @@ const THEME_MODES = [
 const SECTIONS = [
   { key: 'display', label: 'Display', icon: 'bulb', hint: 'Theme and motion' },
   { key: 'notifications', label: 'Notifications', icon: 'bell', hint: 'Alerts and reminders' },
+  { key: 'accounts', label: 'Connected accounts', icon: 'link', hint: 'Automatic challenge views' },
   { key: 'account', label: 'Account', icon: 'users', hint: 'Profile, privacy, password, your data' },
   { key: 'payment', label: 'Payment details', icon: 'wallet', hint: 'Where your prizes get paid' },
 ]
@@ -393,9 +395,12 @@ export default function Settings() {
     </section>
   )
 
+  const AccountsSection = <ConnectedAccounts />
+
   const BODIES = {
     display: DisplaySection,
     notifications: NotificationsSection,
+    accounts: AccountsSection,
     account: AccountSection,
     payment: PaymentSection,
     admin: AdminSection,
@@ -469,9 +474,10 @@ export default function Settings() {
       <PageHeader title="Settings" subtitle="Manage how the community looks, what you share, how you get paid, and what you hear about. Changes save automatically." />
 
       <div className="grid items-start gap-6 xl:grid-cols-3">
-        {/* Column 1: display + payment */}
+        {/* Column 1: display + connected accounts + payment */}
         <div className="space-y-6">
           {DisplaySection}
+          {AccountsSection}
           {PaymentSection}
         </div>
 

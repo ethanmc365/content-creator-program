@@ -5,7 +5,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { uploadDmImage, uploadDmVideo, signDmImages, isSignedDmPath } from '../lib/chatMedia'
-import { loadRelationship } from '../lib/connections'
+import { loadRelationship, loadRelationships } from '../lib/connections'
+import { openConversation } from '../lib/dm'
 import { Avatar, Badge, EmptyState, Skeleton, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
 import ChatMedia from '../components/ChatMedia'
@@ -43,6 +44,11 @@ export default function Messages() {
   const [sending, setSending] = useState(false)
   const [attachError, setAttachError] = useState('')
   const [activeRelation, setActiveRelation] = useState(null)
+  // Inbox search + the people it searches over (every creator you could DM).
+  const [search, setSearch] = useState('')
+  const [people, setPeople] = useState([])
+  const [connectionIds, setConnectionIds] = useState(new Set())
+  const [starting, setStarting] = useState(null) // creator id being opened
   // path -> short-lived signed URL, for DM images in the private dm-media bucket.
   const [signedUrls, setSignedUrls] = useState(new Map())
   // Scroll bookkeeping so the thread only follows new messages when you're
@@ -139,6 +145,42 @@ export default function Messages() {
   }, [user.id])
 
   useEffect(() => { loadConversations() }, [loadConversations])
+
+  // Everyone you could message, for the inbox search box and the empty state.
+  // Same visibility rules as the creator directory (active, non-test, not
+  // pending deletion), ordered most-recently-active first so the suggestions
+  // shown to a creator with no connections are people actually around.
+  useEffect(() => {
+    let cancelled = false
+    async function loadPeople() {
+      const [{ data: profiles }, rels] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('id, name, photo_url, bio, is_admin, city, country')
+          .eq('status', 'active').eq('is_test', false).is('deletion_requested_at', null)
+          .order('last_seen_at', { ascending: false, nullsFirst: false })
+          .order('created_at', { ascending: false }),
+        loadRelationships(user.id),
+      ])
+      if (cancelled) return
+      setPeople((profiles ?? []).filter((p) => p.id !== user.id))
+      setConnectionIds(new Set([...rels.entries()].filter(([, v]) => v.relation === 'connected').map(([id]) => id)))
+    }
+    loadPeople()
+    return () => { cancelled = true }
+  }, [user.id])
+
+  // Jump into a conversation with someone from search / the suggestions list,
+  // creating the thread if this is the first time.
+  async function startConversation(creatorId) {
+    setStarting(creatorId)
+    const id = await openConversation(user.id, creatorId)
+    setStarting(null)
+    if (!id) return
+    setSearch('')
+    await loadConversations()
+    navigate(`/messages/${id}`)
+  }
 
   // Restore any half-written draft when the open conversation changes, so a
   // message you started isn't lost when you flick away to check something.
@@ -519,6 +561,45 @@ export default function Messages() {
     setSending(false)
   }
 
+  // ---------- Inbox search + suggestions ----------
+  const q = search.trim().toLowerCase()
+  // Existing threads that match what you typed.
+  const shownConversations = q
+    ? conversations.filter((c) => (c.other?.name ?? '').toLowerCase().includes(q))
+    : conversations
+  // Creators you match but haven't messaged yet: "start a new chat with…".
+  const talkingTo = new Set(conversations.map((c) => c.other?.id).filter(Boolean))
+  const searchMatches = q
+    ? people.filter((p) => !talkingTo.has(p.id) && (p.name ?? '').toLowerCase().includes(q)).slice(0, 12)
+    : []
+  // Nobody in the inbox yet: nudge them towards their own connections, or, if
+  // they haven't connected with anyone, towards creators who are active here.
+  const myConnections = people.filter((p) => connectionIds.has(p.id))
+  const emptyStatePeople = (myConnections.length > 0 ? myConnections : people.filter((p) => !p.is_admin)).slice(0, 6)
+
+  // One row in the inbox for someone you haven't messaged yet.
+  const personRow = (p, hint) => (
+    <button
+      key={p.id}
+      type="button"
+      onClick={() => startConversation(p.id)}
+      disabled={starting === p.id}
+      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-cloud disabled:opacity-60"
+    >
+      <Avatar src={p.photo_url} name={p.name} size="sm" />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <p className="truncate text-sm font-semibold">{p.name}</p>
+          {p.is_admin && <Badge tone="light" className="!px-2 !py-0">Tryp.com</Badge>}
+        </div>
+        <p className="truncate text-xs text-smoke">{hint ?? p.bio ?? [p.city, p.country].filter(Boolean).join(', ')}</p>
+      </div>
+      {starting === p.id
+        ? <Spinner />
+        : <Icon name="envelope" className="h-4 w-4 shrink-0 text-smoke" />}
+    </button>
+  )
+
   return (
     <div
       style={mobileStyle}
@@ -544,7 +625,30 @@ export default function Messages() {
         >
           <div className="border-b border-gray-100 px-5 py-4">
             <h1 className="text-lg font-bold">Messages</h1>
-            <p className="text-xs text-smoke">Collabs start here.</p>
+            {/* Search doubles as the "new message" entry point: type a name to
+                filter your threads and to start a fresh one with anyone in the
+                community, instead of scrolling the inbox to find them. */}
+            <div className="relative mt-3">
+              <Icon name="magnifier" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-smoke" />
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search creators…"
+                aria-label="Search creators to message"
+                className="input !py-2.5 !pl-9 !pr-9"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  aria-label="Clear search"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-smoke hover:bg-cloud hover:text-ink"
+                >
+                  <Icon name="close" className="h-4 w-4" />
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto">
@@ -556,18 +660,52 @@ export default function Messages() {
               </div>
             )}
 
-            {!loadingList && conversations.length === 0 && (
+            {/* Nothing in the inbox: rather than a dead end, offer the people
+                you're already connected to. Someone who hasn't connected with
+                anyone yet gets creators who are active in the community. */}
+            {!loadingList && conversations.length === 0 && !q && (
+              <div className="p-5">
+                <div className="rounded-card border border-brand/20 bg-brand-tint/40 px-4 py-4 text-center">
+                  <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-brand" aria-hidden>
+                    <Icon name="envelope" className="h-6 w-6" />
+                  </span>
+                  <p className="mt-3 text-sm font-semibold">No messages yet</p>
+                  <p className="mt-1 text-xs leading-relaxed text-smoke">
+                    {myConnections.length > 0
+                      ? 'Say hi to one of your connections. A quick hello is how most collabs start.'
+                      : 'Say hi to someone new. A quick hello is how most collabs start.'}
+                  </p>
+                </div>
+
+                {emptyStatePeople.length > 0 && (
+                  <div className="mt-4">
+                    <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                      {myConnections.length > 0 ? 'Your connections' : 'Suggestions'}
+                    </p>
+                    <div className="space-y-0.5">
+                      {emptyStatePeople.map((p) => personRow(p, 'Send a hello'))}
+                    </div>
+                  </div>
+                )}
+
+                <Link to="/creators" className="mt-4 block text-center text-xs font-semibold text-brand hover:underline">
+                  Browse all creators
+                </Link>
+              </div>
+            )}
+
+            {/* Search found nothing at all. */}
+            {!loadingList && q && shownConversations.length === 0 && searchMatches.length === 0 && (
               <div className="p-5">
                 <EmptyState
-                  icon={<Icon name="envelope" className="h-7 w-7" />}
-                  title="No conversations yet"
-                  hint="Find a creator you'd love to collab with and hit Message on their profile."
-                  action={<Link to="/creators" className="btn-primary !py-2 text-xs">Browse creators</Link>}
+                  icon={<Icon name="magnifier" className="h-7 w-7" />}
+                  title="No creators found"
+                  hint="Try a different name."
                 />
               </div>
             )}
 
-            {conversations.map((c) => (
+            {shownConversations.map((c) => (
               <button
                 key={c.id}
                 onClick={() => { if (convLongPressed.current) { convLongPressed.current = false; return } navigate(`/messages/${c.id}`) }}
@@ -594,6 +732,19 @@ export default function Messages() {
                 )}
               </button>
             ))}
+
+            {/* People matching the search that you haven't messaged before:
+                tapping one opens a brand new thread with them. */}
+            {searchMatches.length > 0 && (
+              <div className="px-2 pb-4 pt-2">
+                <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                  Start a new chat
+                </p>
+                <div className="space-y-0.5">
+                  {searchMatches.map((p) => personRow(p))}
+                </div>
+              </div>
+            )}
           </div>
         </aside>
 
@@ -660,13 +811,13 @@ export default function Messages() {
                   return (
                     <div key={m.id} id={`dm-${m.id}`} className={cx('group flex', mine && 'justify-end')}>
                       <div
-                        className="max-w-[80%] sm:max-w-[65%]"
+                        className="min-w-0 max-w-[80%] sm:max-w-[65%]"
                         // Tap a message on mobile to reveal its reply / react actions.
                         onClick={(e) => { if (isMobile && !e.target.closest('a,button,video,input')) setActionsFor(showActions ? null : m.id) }}
                       >
                         <div
                           className={cx(
-                          'whitespace-pre-line rounded-2xl text-sm leading-relaxed',
+                          'max-w-full whitespace-pre-line break-words rounded-2xl text-sm leading-relaxed',
                           m.image_url ? 'overflow-hidden p-1.5' : 'px-4 py-2.5',
                           mine ? 'rounded-br-md bg-brand text-white' : 'rounded-bl-md bg-cloud text-ink'
                         )}>
@@ -676,15 +827,18 @@ export default function Messages() {
                               type="button"
                               onClick={() => orig && scrollToMessage(orig.id)}
                               className={cx(
-                                'mb-1.5 block w-full rounded-lg border-l-2 px-2.5 py-1 text-left',
+                                'mb-1.5 block w-full max-w-full overflow-hidden rounded-lg border-l-2 px-2.5 py-1 text-left',
                                 m.image_url && 'mx-0.5 mt-0.5',
                                 mine ? 'border-white/70 bg-white/15' : 'border-brand/60 bg-black/[0.04]'
                               )}
                             >
-                              <span className={cx('block text-[11px] font-semibold', mine ? 'text-white' : 'text-brand')}>
+                              <span className={cx('block truncate text-[11px] font-semibold', mine ? 'text-white' : 'text-brand')}>
                                 {orig ? (orig.sender_id === user.id ? 'You' : active?.other?.name) : 'Original message'}
                               </span>
-                              <span className={cx('block truncate text-xs', mine ? 'text-white/80' : 'text-smoke')}>{dmPreview(orig)}</span>
+                              {/* line-clamp, NOT truncate: nowrap made this preview's min-content
+                                  width the whole quoted line, and the shrink-to-fit bubble grew to
+                                  match, so replying to a long message ran off screen. */}
+                              <span className={cx('line-clamp-1 text-xs [overflow-wrap:anywhere]', mine ? 'text-white/80' : 'text-smoke')}>{dmPreview(orig)}</span>
                             </button>
                           )}
                           {m.image_url && (
