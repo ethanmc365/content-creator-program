@@ -37,6 +37,19 @@ export default function AdminChallengeForm() {
     endDateStr: '', endTimeStr: '',
     publishDateStr: '', publishTimeStr: '',
     status: 'draft',
+    // Reporting fields. None of them change what a creator sees; they are what
+    // makes a challenge comparable to every other one on the analytics page
+    // (cost per thousand views, cost per post, performance by market/format).
+    market: '',
+    format: 'monthly',
+    audience: 'general',
+    prize_amount: '',
+    prize_currency: 'GBP',
+    winners_count: '',
+    prize_type: 'cash',
+    content_type: 'free',
+    objective: 'views',
+    cpm_target: '0.50',
   })
 
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
@@ -53,6 +66,16 @@ export default function AdminChallengeForm() {
           prize_structure: Array.isArray(data.prize_structure) ? data.prize_structure : DEFAULT_PRIZES,
           participation_threshold: data.participation_threshold ?? '',
           participation_prize: data.participation_prize ?? '',
+          market: data.market ?? '',
+          format: data.format ?? 'monthly',
+          audience: data.audience ?? 'general',
+          prize_amount: data.prize_amount ?? '',
+          prize_currency: data.prize_currency ?? 'GBP',
+          winners_count: data.winners_count ?? '',
+          prize_type: data.prize_type ?? 'cash',
+          content_type: data.content_type ?? 'free',
+          objective: data.objective ?? 'views',
+          cpm_target: data.cpm_target ?? '0.50',
         })
       }
       setLoading(false)
@@ -108,6 +131,17 @@ export default function AdminChallengeForm() {
       publish_at: parseDateTime(form.publishDateStr, form.publishTimeStr) || null,
       // "Save & publish" flips a draft live (creators get notified by the DB trigger).
       status: publishNow ? 'active' : form.status,
+      // Reporting fields (admin-only, never shown to creators).
+      market: form.market.trim() || null,
+      format: form.format || null,
+      audience: form.audience || null,
+      prize_amount: form.prize_amount === '' ? null : Number(form.prize_amount),
+      prize_currency: form.prize_currency || 'GBP',
+      winners_count: form.winners_count === '' ? null : parseInt(form.winners_count, 10),
+      prize_type: form.prize_type || null,
+      content_type: form.content_type || null,
+      objective: form.objective || null,
+      cpm_target: form.cpm_target === '' ? null : Number(form.cpm_target),
     }
 
     const { error: dbError } = editing
@@ -241,6 +275,127 @@ export default function AdminChallengeForm() {
                 onChange={(e) => set({ participation_prize: e.target.value })}
                 placeholder="e.g. £10 Tryp.com voucher" aria-label="Participation reward"
               />
+            </div>
+          </div>
+        </section>
+
+        {/* Reporting. Nothing here is shown to a creator: these are the fields
+            that let /admin/analytics compare one challenge to another (cost per
+            thousand views, cost per post, performance by market and format).
+            The prize pot is a single number on purpose - the prize breakdown
+            above is copy for creators, this is the figure finance works from. */}
+        <section className="card space-y-6">
+          <div>
+            <h2 className="text-lg font-semibold">Reporting</h2>
+            <p className="mt-1 text-sm text-smoke">
+              Admin only, never shown to creators. These fields are what make this challenge
+              comparable to every other one on the analytics page.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <label htmlFor="prize_amount" className="label">Total prize pot</label>
+              <div className="flex gap-2">
+                <select
+                  className="input !w-24" value={form.prize_currency}
+                  onChange={(e) => set({ prize_currency: e.target.value })}
+                  aria-label="Prize currency"
+                >
+                  <option value="GBP">GBP</option>
+                  <option value="EUR">EUR</option>
+                  <option value="USD">USD</option>
+                </select>
+                <input
+                  id="prize_amount" type="text" inputMode="decimal" className="input flex-1"
+                  value={form.prize_amount}
+                  onInput={(e) => { e.target.value = e.target.value.replace(/[^0-9.]/g, '') }}
+                  onChange={(e) => set({ prize_amount: e.target.value })}
+                  placeholder="190"
+                />
+              </div>
+              <p className="mt-1 text-xs text-smoke">Cash + voucher value, added together.</p>
+            </div>
+            <div>
+              <label htmlFor="winners_count" className="label">Number of winners</label>
+              <input
+                id="winners_count" type="text" inputMode="numeric" className="input"
+                value={form.winners_count}
+                onInput={(e) => { e.target.value = e.target.value.replace(/\D/g, '') }}
+                onChange={(e) => set({ winners_count: e.target.value })}
+                placeholder="3"
+              />
+            </div>
+            <div>
+              <label htmlFor="cpm_target" className="label">CPM target</label>
+              <input
+                id="cpm_target" type="text" inputMode="decimal" className="input"
+                value={form.cpm_target}
+                onInput={(e) => { e.target.value = e.target.value.replace(/[^0-9.]/g, '') }}
+                onChange={(e) => set({ cpm_target: e.target.value })}
+                placeholder="0.50"
+              />
+              <p className="mt-1 text-xs text-smoke">Cost per 1,000 views to beat.</p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <label htmlFor="market" className="label">Market</label>
+              <input
+                id="market" type="text" className="input" value={form.market}
+                onChange={(e) => set({ market: e.target.value.toUpperCase().slice(0, 4) })}
+                placeholder="UK"
+              />
+              <p className="mt-1 text-xs text-smoke">Country code, e.g. UK, ES, DE.</p>
+            </div>
+            <div>
+              <label htmlFor="format" className="label">Format</label>
+              <select id="format" className="input" value={form.format} onChange={(e) => set({ format: e.target.value })}>
+                <option value="monthly">Monthly</option>
+                <option value="express">Express</option>
+                <option value="always_on">Always on</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="audience" className="label">Group</label>
+              <select id="audience" className="input" value={form.audience} onChange={(e) => set({ audience: e.target.value })}>
+                <option value="general">General</option>
+                <option value="ugc">UGC</option>
+                <option value="vip">VIP</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <label htmlFor="prize_type" className="label">Prize type</label>
+              <select id="prize_type" className="input" value={form.prize_type} onChange={(e) => set({ prize_type: e.target.value })}>
+                <option value="cash">Cash</option>
+                <option value="voucher">Travel voucher</option>
+                <option value="cash_voucher">Cash &amp; voucher</option>
+                <option value="product">Product</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="content_type" className="label">Content type</label>
+              <select id="content_type" className="input" value={form.content_type} onChange={(e) => set({ content_type: e.target.value })}>
+                <option value="free">Free</option>
+                <option value="suggested">Suggested videos</option>
+                <option value="talking">Talking style</option>
+                <option value="hooks">Hooks</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="objective" className="label">Objective</label>
+              <select id="objective" className="input" value={form.objective} onChange={(e) => set({ objective: e.target.value })}>
+                <option value="views">Views</option>
+                <option value="videos">Number of videos</option>
+                <option value="creativity">Creativity</option>
+                <option value="trust">Views / trust</option>
+              </select>
             </div>
           </div>
         </section>

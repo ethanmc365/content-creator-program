@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, LineChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -7,7 +7,15 @@ import {
 import { format, startOfMonth, startOfWeek, subWeeks } from 'date-fns'
 import { supabase } from '../../lib/supabase'
 import { PageHeader, Skeleton, StatCard } from '../../components/ui'
-import { downloadCsv, formatMoney, formatViews } from '../../lib/utils'
+import { downloadCsv, formatMoney, formatViews, cx } from '../../lib/utils'
+import ProgrammePerformance from './analytics/ProgrammePerformance'
+import CommunityHealth from './analytics/CommunityHealth'
+
+const TABS = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'programme', label: 'Programme performance' },
+  { key: 'community', label: 'Community health' },
+]
 
 // Admin analytics: the program's health at a glance. Recharts (free) for the
 // charts, every dataset exportable to CSV, and every tile that has a natural
@@ -79,6 +87,7 @@ function Funnel({ stages }) {
 
 export default function AdminAnalytics() {
   const navigate = useNavigate()
+  const [params, setParams] = useSearchParams()
   const [raw, setRaw] = useState(null)
   // Clicking any per-challenge bar opens that challenge's deep-dive page.
   const openChallenge = (data) => {
@@ -330,6 +339,49 @@ export default function AdminAnalytics() {
     }
   }, [raw])
 
+  // The three tabs answer three different questions, and each is a page's worth
+  // of material on its own: what is happening, what the money bought, and
+  // whether the community is actually alive. The tab is in the URL so a link to
+  // "the CPM table" lands on the CPM table.
+  const tab = params.get('tab') || 'overview'
+  const setTab = (next) => setParams(next === 'overview' ? {} : { tab: next }, { replace: true })
+
+  const tabBar = (
+    <div className="mb-8 flex flex-wrap gap-1 border-b border-gray-100">
+      {TABS.map((t) => (
+        <button
+          key={t.key}
+          onClick={() => setTab(t.key)}
+          className={cx(
+            'relative -mb-px border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors',
+            tab === t.key ? 'border-brand text-brand' : 'border-transparent text-smoke hover:text-ink'
+          )}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  )
+
+  if (tab === 'programme') {
+    return (
+      <div className="page">
+        <PageHeader title="Analytics" subtitle="What the programme costs and what it returns." />
+        {tabBar}
+        <ProgrammePerformance />
+      </div>
+    )
+  }
+  if (tab === 'community') {
+    return (
+      <div className="page">
+        <PageHeader title="Analytics" subtitle="Who is here, who takes part, and who we can reach." />
+        {tabBar}
+        <CommunityHealth />
+      </div>
+    )
+  }
+
   if (!derived) {
     return (
       <div className="page space-y-6">
@@ -343,6 +395,7 @@ export default function AdminAnalytics() {
   return (
     <div className="page">
       <PageHeader title="Analytics" subtitle="The program's pulse: growth, output, reach and spend." />
+      {tabBar}
 
       {/* ---- Headline numbers ---- */}
       <div className="mb-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">

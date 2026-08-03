@@ -313,6 +313,54 @@ html[data-theme='dark'] input,
 html[data-theme='dark'] textarea,
 html[data-theme='dark'] select { color-scheme: dark; }
 
+/* ---- Status tints (red / green / amber) --------------------------------
+   Same trap as the cloud and brand tints above: `bg-red-50`, `bg-green-50` and
+   friends are their own utility classes, and nothing here remapped them. Left
+   alone they paint a pale LIGHT wash over the dark canvas, which is what turned
+   the "Delete account" panel into a flat grey box with unreadable body text.
+   Remap each to a low-alpha version of its own hue so the panel still reads as
+   danger / success / warning, and lift the text a shade for contrast. */
+html[data-theme='dark'] .bg-red-50 { background-color: rgba(220, 38, 38, 0.12); }
+html[data-theme='dark'] .bg-red-50\/50 { background-color: rgba(220, 38, 38, 0.08); }
+html[data-theme='dark'] .bg-green-50 { background-color: rgba(22, 163, 74, 0.12); }
+html[data-theme='dark'] .bg-amber-50 { background-color: rgba(217, 119, 6, 0.12); }
+html[data-theme='dark'] .bg-yellow-50 { background-color: rgba(202, 138, 4, 0.12); }
+html[data-theme='dark'] .border-red-100,
+html[data-theme='dark'] .border-red-200 { border-color: rgba(220, 38, 38, 0.32); }
+html[data-theme='dark'] .border-green-200 { border-color: rgba(22, 163, 74, 0.32); }
+html[data-theme='dark'] .border-amber-200,
+html[data-theme='dark'] .border-amber-300 { border-color: rgba(217, 119, 6, 0.32); }
+/* The 600/700 text shades are tuned for a white background and go muddy on
+   dark; step them up to the 400s, which sit right on a near-black surface. */
+html[data-theme='dark'] .text-red-600,
+html[data-theme='dark'] .text-red-700 { color: #f87171; }
+html[data-theme='dark'] .text-green-600,
+html[data-theme='dark'] .text-green-700 { color: #4ade80; }
+html[data-theme='dark'] .text-amber-600,
+html[data-theme='dark'] .text-amber-700 { color: #fbbf24; }
+/* btn-danger inlines its properties via @apply, so the utility remaps above
+   never reach it - restyle the recipe directly. */
+html[data-theme='dark'] .btn-danger {
+  background-color: var(--d-surface);
+  border-color: rgba(220, 38, 38, 0.4);
+  color: #f87171;
+}
+html[data-theme='dark'] .btn-danger:hover { background-color: rgba(220, 38, 38, 0.16); }
+
+/* ---- Search fields ------------------------------------------------------
+   `type="search"` draws its own clear button (::-webkit-search-cancel-button),
+   so any field that also renders a styled clear button shows TWO X icons - the
+   native blue one and ours. Ours is the one that matches the design, so hide
+   the native mark everywhere and keep the field's search semantics. */
+input[type='search']::-webkit-search-cancel-button,
+input[type='search']::-webkit-search-decoration,
+input[type='search']::-webkit-search-results-button,
+input[type='search']::-webkit-search-results-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+
 /* =====================================================================
    REDUCE MOTION (Settings -> Appearance)
    A manual, in-app version of prefers-reduced-motion: when the creator turns
