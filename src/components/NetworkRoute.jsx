@@ -1,4 +1,5 @@
-import { Navigate, Outlet } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
 
@@ -20,6 +21,15 @@ import { useCommunity } from '../context/CommunityContext'
 export default function NetworkRoute() {
   const { isAdmin, profileLoaded } = useAuth()
   const { preview } = useCommunity()
+  const { pathname } = useLocation()
+
+  // React Router keeps the scroll position across navigations and this app has
+  // no global scroll restoration. Arriving at /global from a scrolled /admin
+  // therefore lands you part-way down the hero, which reads as a broken page.
+  // Scoped to the network routes deliberately: adding it app-wide would change
+  // behaviour on pages creators use today, which is out of bounds while a
+  // challenge is running.
+  useEffect(() => { window.scrollTo(0, 0) }, [pathname])
 
   // Wait for the profile before deciding. Treating "not loaded yet" as "not an
   // admin" would bounce a genuine admin to Home on every hard refresh.

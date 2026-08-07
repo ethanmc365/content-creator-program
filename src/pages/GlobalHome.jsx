@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useCommunity } from '../context/CommunityContext'
 import { useAuth } from '../context/AuthContext'
 import WorldMap from '../components/WorldMap'
+import NetworkMotion from '../components/NetworkMotion'
 import Icon from '../components/Icon'
 import { Skeleton, EmptyState } from '../components/ui'
 import { cx } from '../lib/utils'
@@ -119,7 +120,17 @@ export default function GlobalHome() {
       ] = await Promise.all([
         // One grouped read rather than a count per card, so a seventh market
         // does not add a seventh round trip.
-        supabase.from('community_members').select('community_id').eq('status', 'active'),
+        // Joined against profiles so a chapter's headline number counts the same
+        // people the network headline does. Counting raw membership rows made UK
+        // read "51 creators" directly under a hero saying 43, because the rows
+        // include admins, test accounts and pending signups.
+        supabase
+          .from('community_members')
+          .select('community_id, profiles!inner(is_admin, is_test, status)')
+          .eq('status', 'active')
+          .eq('profiles.is_admin', false)
+          .eq('profiles.is_test', false)
+          .eq('profiles.status', 'active'),
         supabase.from('profiles').select('id', { count: 'exact', head: true })
           .eq('status', 'active').eq('is_admin', false).eq('is_test', false),
         supabase.from('connections').select('id', { count: 'exact', head: true }),
@@ -129,6 +140,9 @@ export default function GlobalHome() {
         supabase.from('profiles').select('country_code').eq('status', 'active').not('country_code', 'is', null),
       ])
       if (cancelled) return
+      // Default every known community to 0 rather than leaving it undefined, so
+      // an open-but-empty market like Spain reads "0 creators" instead of an
+      // em dash that looks like a failed load.
       const tally = {}
       for (const m of mems || []) tally[m.community_id] = (tally[m.community_id] || 0) + 1
       const live = {}
@@ -159,11 +173,17 @@ export default function GlobalHome() {
     )
   }
 
-  const activeChapters = chapters.filter((c) => c.is_active)
+  // Your own chapter leads, then the rest alphabetically. Sorting purely by name
+  // put Spain, which you are not in and which is empty, above the market running
+  // the live challenge.
+  const activeChapters = chapters
+    .filter((c) => c.is_active)
+    .sort((a, b) => (b.id === home?.id) - (a.id === home?.id) || a.name.localeCompare(b.name))
   const comingChapters = chapters.filter((c) => !c.is_active)
   const networkRooms = (d?.rooms || []).filter((r) => r.community_id === network?.id)
 
   return (
+    <NetworkMotion>
     <motion.div {...pageFade} className="page mx-auto w-full max-w-5xl space-y-12 px-4 py-8">
       {/* ---------- Welcome ---------- */}
       <section>
@@ -274,7 +294,7 @@ export default function GlobalHome() {
               key={c.id}
               chapter={c}
               mine={myCommunities.find((m) => m.id === c.id)}
-              memberCount={d?.counts?.[c.id] ?? null}
+              memberCount={d ? (d.counts[c.id] ?? 0) : null}
               liveChallenge={d?.live?.[c.id]}
             />
           ))}
@@ -363,5 +383,6 @@ export default function GlobalHome() {
         {d ? <WorldMap selected={d.visited} /> : <Skeleton className="h-64" />}
       </section>
     </motion.div>
+    </NetworkMotion>
   )
 }

@@ -13,13 +13,14 @@
 export const SPRING = { type: 'spring', stiffness: 400, damping: 30 }
 export const SOFT_SPRING = { type: 'spring', stiffness: 260, damping: 26 }
 
-// Respect the OS setting. This is an accessibility requirement, not a nicety:
-// vestibular disorders make large motion genuinely unpleasant, and the browser
-// already knows the answer.
-export function prefersReducedMotion() {
-  if (typeof window === 'undefined' || !window.matchMedia) return false
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
-}
+// Reduced motion is handled globally by <MotionConfig reducedMotion="user"> in
+// main.jsx, not per component. Motion then drops transform and layout
+// animations for anyone with the OS setting on, while still cross-fading
+// opacity so content does not pop in abruptly.
+//
+// It is deliberately NOT a hand-rolled matchMedia check here: an exported
+// helper that every new component has to remember to call is a helper that
+// gets forgotten, and the failure mode is invisible to whoever forgets.
 
 // Container that reveals its children one after another. Stagger is small on
 // purpose: past about 60ms a grid stops reading as "arriving" and starts

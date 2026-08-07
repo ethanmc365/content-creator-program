@@ -6,6 +6,7 @@ import { listContainer, listItem, cardHover, pageFade, SOFT_SPRING } from '../li
 import { useCommunity } from '../context/CommunityContext'
 import { PageHeader, StatCard, Skeleton, EmptyState, Badge } from '../components/ui'
 import Icon from '../components/Icon'
+import NetworkMotion from '../components/NetworkMotion'
 import { cx } from '../lib/utils'
 
 const MotionLink = motion.create(Link)
@@ -31,8 +32,16 @@ export default function ChapterHome() {
       const [{ data: channels }, { count: members }, { data: challenges }] = await Promise.all([
         supabase.from('channels').select('id, key, label, hint, icon, visibility, position')
           .eq('community_id', chapter.id).order('position'),
-        supabase.from('community_members').select('profile_id', { count: 'exact', head: true })
-          .eq('community_id', chapter.id).eq('status', 'active'),
+        // Joined against profiles for the same reason GlobalHome does it: a raw
+        // membership count includes admins, test accounts and pending signups,
+        // which made this read 51 while the network hub said 43 for the same
+        // chapter.
+        supabase.from('community_members')
+          .select('profile_id, profiles!inner(is_admin, is_test, status)', { count: 'exact', head: true })
+          .eq('community_id', chapter.id).eq('status', 'active')
+          .eq('profiles.is_admin', false)
+          .eq('profiles.is_test', false)
+          .eq('profiles.status', 'active'),
         supabase.from('challenges').select('id, title, status, end_date')
           .eq('community_id', chapter.id).order('end_date', { ascending: false }).limit(5),
       ])
@@ -83,6 +92,7 @@ export default function ChapterHome() {
   const activeChallenge = data?.challenges?.find((c) => c.status === 'active')
 
   return (
+    <NetworkMotion>
     <motion.div {...pageFade} className="page mx-auto w-full max-w-5xl px-4 py-8">
       {/* Breadcrumb first: you are in the network, and this is one room in it. */}
       <Link
@@ -116,7 +126,11 @@ export default function ChapterHome() {
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Members" value={loading ? '—' : data?.members ?? 0} accent={!!mine} />
         <StatCard label="Currency" value={chapter.currency} hint={chapter.country_codes?.join(' · ') || 'Global'} />
-        <StatCard label="CPM target" value={Number(chapter.cpm_target).toFixed(2)} hint="Set per market" />
+        <StatCard
+          label="CPM target"
+          value={`${chapter.currency} ${Number(chapter.cpm_target).toFixed(2)}`}
+          hint="Set per market"
+        />
       </div>
 
       {activeChallenge && (
@@ -196,5 +210,6 @@ export default function ChapterHome() {
         <p className="mt-4 text-sm text-smoke">No challenges in this market yet.</p>
       )}
     </motion.div>
+    </NetworkMotion>
   )
 }
