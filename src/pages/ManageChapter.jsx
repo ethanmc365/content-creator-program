@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
 import { confirm, notice, promptText } from '../lib/confirm'
 import NetworkMotion from '../components/NetworkMotion'
+import NetworkLayout from '../components/network/NetworkLayout'
 import Icon from '../components/Icon'
 import { Badge, EmptyState, PageHeader, Skeleton } from '../components/ui'
 import { listContainer, listItem, pageFade } from '../lib/motion'
@@ -250,26 +251,26 @@ export default function ManageChapter() {
   }
 
   if (ctxLoading && !chapter) {
-    return <div className="page mx-auto w-full max-w-4xl px-4 py-8"><Skeleton className="h-64" /></div>
+    return <NetworkLayout><Skeleton className="h-64" /></NetworkLayout>
   }
 
   if (!chapter) {
     return (
-      <div className="page mx-auto w-full max-w-4xl px-4 py-8">
+      <NetworkLayout>
         <EmptyState icon={<Icon name="pin" className="h-6 w-6" />} title="No such market"
           hint={`Nothing here is called "${slug}".`}
           action={<Link to="/global" className="btn-secondary">Back to Worldwide</Link>} />
-      </div>
+      </NetworkLayout>
     )
   }
 
   if (!canManage) {
     return (
-      <div className="page mx-auto w-full max-w-4xl px-4 py-8">
+      <NetworkLayout>
         <EmptyState icon={<Icon name="shield" className="h-6 w-6" />} title="Not your market"
           hint={`You do not manage ${chapter.name}. Managers are set per market, so running one gives you no access to another.`}
           action={<Link to={`/c/${slug}`} className="btn-secondary">View the market</Link>} />
-      </div>
+      </NetworkLayout>
     )
   }
 
@@ -278,7 +279,8 @@ export default function ManageChapter() {
 
   return (
     <NetworkMotion>
-      <motion.div {...pageFade} className="page mx-auto w-full max-w-4xl px-4 py-8">
+      <NetworkLayout>
+      <motion.div {...pageFade} className="page">
         <Link to={`/c/${slug}`} className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-smoke transition-colors hover:text-brand">
           <Icon name="chevronLeft" className="h-4 w-4" />
           {chapter.name}
@@ -406,8 +408,8 @@ export default function ManageChapter() {
             </Section>
 
             {/* ---------------- Roster ---------------- */}
-            <Section icon="users" title={`Roster (${realMembers.length})`}
-              hint="Creators whose home is this market. Points shown are their total here.">
+            <Section icon="users" title={`Creators (${realMembers.length})`}
+              hint="Everyone in this market. Points shown are their total here.">
               <div className="space-y-1.5">
                 {realMembers.length === 0 && (
                   <p className="rounded-xl bg-cloud px-4 py-6 text-center text-sm text-smoke">
@@ -442,6 +444,7 @@ export default function ManageChapter() {
           </motion.div>
         )}
       </motion.div>
+      </NetworkLayout>
     </NetworkMotion>
   )
 }

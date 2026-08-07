@@ -50,6 +50,8 @@ export default function AdminChallengeForm() {
     content_type: 'free',
     objective: 'views',
     cpm_target: '0.50',
+    scoring: 'prize',
+    threshold_mode: 'highest',
   })
 
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
@@ -75,6 +77,8 @@ export default function AdminChallengeForm() {
           prize_type: data.prize_type ?? 'cash',
           content_type: data.content_type ?? 'free',
           objective: data.objective ?? 'views',
+          scoring: data.scoring ?? 'prize',
+          threshold_mode: data.threshold_mode ?? 'highest',
           cpm_target: data.cpm_target ?? '0.50',
         })
       }
@@ -141,6 +145,8 @@ export default function AdminChallengeForm() {
       prize_type: form.prize_type || null,
       content_type: form.content_type || null,
       objective: form.objective || null,
+      scoring: form.scoring || 'prize',
+      threshold_mode: form.threshold_mode || 'highest',
       cpm_target: form.cpm_target === '' ? null : Number(form.cpm_target),
     }
 
@@ -388,6 +394,34 @@ export default function AdminChallengeForm() {
                 <option value="other">Other</option>
               </select>
             </div>
+            <div>
+              {/* How the challenge is WON, which is a different question from
+                  what it optimises for. A prize challenge is judged on final
+                  views; a points challenge accumulates against the market's
+                  rules and shows a live leaderboard instead. */}
+              <label htmlFor="scoring" className="label">How it is scored</label>
+              <select id="scoring" className="input" value={form.scoring} onChange={(e) => set({ scoring: e.target.value })}>
+                <option value="prize">Cash prizes, ranked on views</option>
+                <option value="points">Points leaderboard</option>
+              </select>
+              <p className="mt-1 text-xs text-smoke">
+                {form.scoring === 'points'
+                  ? "Uses this market's scoring rules. Edit them in the market settings."
+                  : 'Winners are ranked on final logged views and paid from the pot.'}
+              </p>
+            </div>
+            {form.scoring === 'points' && (
+              <div>
+                <label htmlFor="threshold_mode" className="label">View milestones</label>
+                <select id="threshold_mode" className="input" value={form.threshold_mode} onChange={(e) => set({ threshold_mode: e.target.value })}>
+                  <option value="highest">Highest milestone only</option>
+                  <option value="cumulative">Every milestone passed</option>
+                </select>
+                <p className="mt-1 text-xs text-smoke">
+                  A video past 50k scores {form.threshold_mode === 'highest' ? 'just the 50k tier' : 'the 5k, 10k and 50k tiers together'}.
+                </p>
+              </div>
+            )}
             <div>
               <label htmlFor="objective" className="label">Objective</label>
               <select id="objective" className="input" value={form.objective} onChange={(e) => set({ objective: e.target.value })}>
