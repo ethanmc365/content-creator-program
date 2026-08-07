@@ -45,6 +45,7 @@ import Feedback from './pages/Feedback'
 // navigates here, so it must not add a byte to a creator's initial bundle.
 const GlobalHome = lazy(() => import('./pages/GlobalHome'))
 const ChapterHome = lazy(() => import('./pages/ChapterHome'))
+const ManageChapter = lazy(() => import('./pages/ManageChapter'))
 
 const Game = lazy(() => import('./pages/Game'))
 const Leaderboard = lazy(() => import('./pages/Leaderboard'))
@@ -132,6 +133,7 @@ export default function App() {
           <Route element={<NetworkRoute />}>
             <Route path="/global" element={<GlobalHome />} />
             <Route path="/c/:slug" element={<ChapterHome />} />
+            <Route path="/manage/:slug" element={<ManageChapter />} />
           </Route>
 
           {/* ---------- Admin only ---------- */}

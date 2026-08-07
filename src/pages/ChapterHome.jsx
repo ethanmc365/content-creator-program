@@ -29,7 +29,7 @@ export default function ChapterHome() {
     let cancelled = false
     async function load() {
       setLoading(true)
-      const [{ data: channels }, { count: members }, { data: challenges }] = await Promise.all([
+      const [{ data: channels }, { count: members }, { data: challenges }, { data: standings }, { data: rules }] = await Promise.all([
         supabase.from('channels').select('id, key, label, hint, icon, visibility, position')
           .eq('community_id', chapter.id).order('position'),
         // Joined against profiles for the same reason GlobalHome does it: a raw
@@ -42,11 +42,24 @@ export default function ChapterHome() {
           .eq('profiles.is_admin', false)
           .eq('profiles.is_test', false)
           .eq('profiles.status', 'active'),
-        supabase.from('challenges').select('id, title, status, end_date')
+        supabase.from('challenges').select('id, title, status, end_date, scoring')
           .eq('community_id', chapter.id).order('end_date', { ascending: false }).limit(5),
+        // Standings for the market, joined to names so the board is readable
+        // without a second lookup per row.
+        supabase.from('community_standings')
+          .select('creator_id, points, profiles!inner(id, name, photo_url, is_test)')
+          .eq('community_id', chapter.id).order('points', { ascending: false }).limit(10),
+        supabase.from('point_rules').select('id, kind, label, points, threshold, max_points')
+          .eq('community_id', chapter.id).is('challenge_id', null).order('position'),
       ])
       if (cancelled) return
-      setData({ channels: channels || [], members, challenges: challenges || [] })
+      setData({
+        channels: channels || [],
+        members,
+        challenges: challenges || [],
+        standings: (standings || []).filter((s) => !s.profiles.is_test),
+        rules: rules || [],
+      })
       setLoading(false)
     }
     load()
@@ -111,11 +124,8 @@ export default function ChapterHome() {
             : 'This market is not open yet. It stays invisible to creators until it has a lead.'
         }
         action={
-          // The per-chapter manage surface (/manage/:slug) is phase 5. Until it
-          // exists this points at the current admin panel rather than at a route
-          // that would bounce to the landing page.
           manages(chapter.id) ? (
-            <Link to="/admin" className="btn-secondary">
+            <Link to={`/manage/${chapter.slug}`} className="btn-secondary">
               <Icon name="shield" className="h-4 w-4" />
               Manage
             </Link>
@@ -151,6 +161,60 @@ export default function ChapterHome() {
           </div>
           <Icon name="chevronRight" className="ml-auto h-5 w-5 shrink-0 text-gray-300" />
         </MotionLink>
+      )}
+
+      {/* How this market scores. Shown to everyone, not just staff: a points
+          challenge whose rules you have to ask about is a challenge people opt
+          out of. */}
+      {data?.rules?.length > 0 && (
+        <>
+          <h2 className="mt-10 text-lg font-semibold tracking-tight">How points work here</h2>
+          <p className="mt-1 text-sm text-smoke">
+            Every challenge in this market starts from these rules. The team can add one-off bonuses on top.
+          </p>
+          <motion.div variants={listContainer} initial="hidden" animate="show" className="mt-4 grid gap-2 sm:grid-cols-2">
+            {data.rules.map((r) => (
+              <motion.div key={r.id} variants={listItem}
+                className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white px-4 py-3">
+                <Icon name={r.kind === 'views_threshold' ? 'chart' : r.kind === 'bonus' ? 'star' : 'video'}
+                  className="h-4 w-4 shrink-0 text-brand" />
+                <span className="min-w-0 truncate text-sm">{r.label}</span>
+                <span className="ml-auto shrink-0 text-sm font-semibold text-brand">
+                  {Number(r.points)} {Number(r.points) === 1 ? 'pt' : 'pts'}
+                </span>
+                {r.max_points != null && (
+                  <span className="shrink-0 text-xs text-smoke">max {Number(r.max_points)}</span>
+                )}
+              </motion.div>
+            ))}
+          </motion.div>
+        </>
+      )}
+
+      {/* Standings. Only rendered once somebody has points: an empty leaderboard
+          in a market nobody has joined yet reads as broken rather than as new. */}
+      {data?.standings?.length > 0 && (
+        <>
+          <h2 className="mt-10 text-lg font-semibold tracking-tight">Standings</h2>
+          <p className="mt-1 text-sm text-smoke">Points earned in this market, all challenges combined.</p>
+          <motion.div variants={listContainer} initial="hidden" animate="show" className="mt-4 space-y-2">
+            {data.standings.map((s, i) => (
+              <motion.div key={s.creator_id} variants={listItem}
+                className={cx(
+                  'flex items-center gap-3 rounded-xl border bg-white px-4 py-3',
+                  i === 0 ? 'border-brand/30 bg-brand-tint/20' : 'border-gray-100',
+                )}>
+                <span className={cx('w-6 shrink-0 text-sm font-bold', i === 0 ? 'text-brand' : 'text-smoke')}>
+                  {i + 1}
+                </span>
+                <Link to={`/profile/${s.creator_id}`} className="min-w-0 truncate text-sm font-medium hover:text-brand">
+                  {s.profiles.name}
+                </Link>
+                <span className="ml-auto shrink-0 text-sm font-bold text-brand">{Number(s.points)} pts</span>
+              </motion.div>
+            ))}
+          </motion.div>
+        </>
       )}
 
       <h2 className="mt-10 text-lg font-semibold tracking-tight">Rooms</h2>
