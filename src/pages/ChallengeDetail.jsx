@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { confirm } from '../lib/confirm'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -81,6 +81,7 @@ export default function ChallengeDetail() {
   const [errorField, setErrorField] = useState('') // 'url' | 'caption' - rings the offending input
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(null) // { count, platform } once an entry lands
+  const deepLinkedRef = useRef(false) // ?submit=/?tab= are consumed once, not on every reload
 
   const load = useCallback(async () => {
     const [{ data: ch }, { data: subs }, { data: res }] = await Promise.all([
@@ -109,16 +110,19 @@ export default function ChallengeDetail() {
     if (challenge && challenge.status !== 'active' && results.length > 0) setTab('leaderboard')
   }, [challenge, results.length])
 
-  // ?submit=1 (the Home quick action) opens the submit form immediately.
+  // Deep links from the home hero: ?submit=1 opens the submit form,
+  // ?tab= lands on a tab other than the brief.
+  //
+  // This runs ONCE, the first time the challenge loads. It used to key off
+  // [challenge] alone, so the load() after a successful submit handed back a
+  // fresh challenge object, the effect re-ran, ?submit=1 was still sitting in
+  // the URL and the form re-opened behind the success card.
   useEffect(() => {
-    if (challenge && searchParams.get('submit')) setShowSubmit(true)
-  }, [challenge]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ?tab=entries|leaderboard so the home hero can deep-link "View your entry"
-  // straight to the gallery instead of dropping people on the brief.
-  useEffect(() => {
+    if (!challenge || deepLinkedRef.current) return
+    deepLinkedRef.current = true
+    if (searchParams.get('submit')) setShowSubmit(true)
     const t = searchParams.get('tab')
-    if (challenge && (t === 'entries' || t === 'brief' || t === 'leaderboard')) setTab(t)
+    if (t === 'entries' || t === 'brief' || t === 'leaderboard') setTab(t)
   }, [challenge]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function fail(field, message) {
