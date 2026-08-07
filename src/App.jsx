@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { ProtectedRoute, AdminRoute } from './components/ProtectedRoute'
+import NetworkRoute from './components/NetworkRoute'
 import AppLayout from './components/layout/AppLayout'
 import OfflineScreen from './components/OfflineScreen'
 import ConfirmHost from './components/ConfirmHost'
@@ -40,6 +41,11 @@ import Feedback from './pages/Feedback'
 // Heavier / rarely-visited pages are code-split so they don't ship in the
 // initial bundle. Game + Leaderboard pull in extra weight; the whole admin area
 // is never needed by regular creators, so it loads on demand only.
+// The global network shell. Code-split: with the preview flag off nobody ever
+// navigates here, so it must not add a byte to a creator's initial bundle.
+const GlobalHome = lazy(() => import('./pages/GlobalHome'))
+const ChapterHome = lazy(() => import('./pages/ChapterHome'))
+
 const Game = lazy(() => import('./pages/Game'))
 const Leaderboard = lazy(() => import('./pages/Leaderboard'))
 const AdminPanel = lazy(() => import('./pages/admin/AdminPanel'))
@@ -119,6 +125,14 @@ export default function App() {
           <Route path="/settings/notifications" element={<Navigate to="/settings" replace />} />
           <Route path="/feedback" element={<Feedback />} />
           <Route path="/dashboard" element={<Dashboard />} />
+
+          {/* ---------- Global network (behind the preview flag) ---------- */}
+          {/* NetworkRoute renders nothing but a redirect when the flag is off,
+              so these paths are inert for every creator until it is on. */}
+          <Route element={<NetworkRoute />}>
+            <Route path="/global" element={<GlobalHome />} />
+            <Route path="/c/:slug" element={<ChapterHome />} />
+          </Route>
 
           {/* ---------- Admin only ---------- */}
           <Route element={<AdminRoute />}>
