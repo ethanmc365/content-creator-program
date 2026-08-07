@@ -128,18 +128,47 @@ export default function Home() {
                 <CountdownTimer endDate={challenge.end_date} hero />
               </div>
               <div className="flex flex-col gap-2.5 lg:items-end">
-                <div className="flex flex-wrap gap-3">
-                  <Link to={`/challenges/${challenge.id}`} className="btn bg-white text-brand hover:bg-white/90">
-                    {mySubmissions.length > 0 ? 'View your entry' : 'Read the brief →'}
-                  </Link>
-                  {/* Quick action: jump straight into the submit form. */}
-                  <Link
-                    to={`/challenges/${challenge.id}?submit=1`}
-                    className="btn border border-white/60 bg-transparent text-white hover:bg-white/10"
-                  >
-                    {mySubmissions.length > 0 ? '+ Add another video' : 'Submit your video'}
-                  </Link>
-                </div>
+                {/* Once you've entered, the brief doesn't go away: it stays as the
+                    big button on top (it's the way through to the rules, prizes
+                    and leaderboard), with the entry actions beneath it. */}
+                {mySubmissions.length > 0 ? (
+                  <div className="flex w-full flex-col gap-3 lg:w-auto lg:items-stretch">
+                    <Link
+                      to={`/challenges/${challenge.id}`}
+                      className="btn w-full justify-center bg-white text-brand hover:bg-white/90"
+                    >
+                      Read the brief →
+                    </Link>
+                    <div className="flex flex-wrap gap-3">
+                      <Link
+                        to={`/challenges/${challenge.id}?tab=entries`}
+                        className="btn flex-1 justify-center whitespace-nowrap border border-white/60 bg-transparent text-white hover:bg-white/10"
+                      >
+                        View your entry
+                      </Link>
+                      {/* Quick action: jump straight into the submit form. */}
+                      <Link
+                        to={`/challenges/${challenge.id}?submit=1`}
+                        className="btn flex-1 justify-center whitespace-nowrap border border-white/60 bg-transparent text-white hover:bg-white/10"
+                      >
+                        + Add another video
+                      </Link>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-3">
+                    <Link to={`/challenges/${challenge.id}`} className="btn bg-white text-brand hover:bg-white/90">
+                      Read the brief →
+                    </Link>
+                    {/* Quick action: jump straight into the submit form. */}
+                    <Link
+                      to={`/challenges/${challenge.id}?submit=1`}
+                      className="btn border border-white/60 bg-transparent text-white hover:bg-white/10"
+                    >
+                      Submit your video
+                    </Link>
+                  </div>
+                )}
                 <p className="text-sm text-white/80">
                   {mySubmissions.length > 0
                     ? `You've entered with ${mySubmissions.length} ${mySubmissions.length === 1 ? 'video' : 'videos'} · `

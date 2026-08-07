@@ -156,7 +156,11 @@ export function Modal({ open, onClose, title, children, wide = false }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label={title}>
       <button aria-label="Close" className="absolute inset-0 bg-ink/40" onClick={onClose} />
-      <div className={cx('relative max-h-[90vh] w-full overflow-y-auto rounded-t-card bg-white p-6 shadow-lift animate-fade-up sm:rounded-card sm:p-8', wide ? 'sm:max-w-3xl' : 'sm:max-w-lg')}>
+      {/* On mobile this is a bottom sheet running to the edge of the screen,
+          where the tab bar sits over it - so the last control inside gets the
+          tab bar's height (plus the home-indicator safe area) as padding, or a
+          tall modal's submit button ends up unreachable underneath it. */}
+      <div className={cx('relative max-h-[90vh] w-full overflow-y-auto rounded-t-card bg-white p-6 pb-[calc(6rem+env(safe-area-inset-bottom))] shadow-lift animate-fade-up sm:rounded-card sm:p-8 sm:pb-8', wide ? 'sm:max-w-3xl' : 'sm:max-w-lg')}>
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-xl font-semibold">{title}</h2>
           <button onClick={onClose} className="rounded-full p-2 text-smoke hover:bg-cloud hover:text-ink" aria-label="Close dialog">
