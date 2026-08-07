@@ -127,19 +127,22 @@ export default function Home() {
                 <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-white/75">Closes in</p>
                 <CountdownTimer endDate={challenge.end_date} hero />
               </div>
-              <div className="flex flex-col gap-2.5 lg:items-end">
+              {/* One column holding the buttons and the entry-count line, so the
+                  line always centres under whatever buttons are showing rather
+                  than hugging the right edge of the card. */}
+              <div className="flex w-full flex-col gap-2.5 lg:w-auto">
                 {/* Once you've entered, the brief doesn't go away: it stays as the
                     big button on top (it's the way through to the rules, prizes
                     and leaderboard), with the entry actions beneath it. */}
                 {mySubmissions.length > 0 ? (
-                  <div className="flex w-full flex-col gap-3 lg:w-auto lg:items-stretch">
+                  <div className="flex flex-col gap-3">
                     <Link
                       to={`/challenges/${challenge.id}`}
                       className="btn w-full justify-center bg-white text-brand hover:bg-white/90"
                     >
                       Read the brief →
                     </Link>
-                    <div className="flex flex-wrap gap-3">
+                    <div className="flex gap-3">
                       <Link
                         to={`/challenges/${challenge.id}?tab=entries`}
                         className="btn flex-1 justify-center whitespace-nowrap border border-white/60 bg-transparent text-white hover:bg-white/10"
@@ -156,7 +159,7 @@ export default function Home() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex flex-wrap gap-3">
+                  <div className="flex flex-wrap gap-3 lg:justify-end">
                     <Link to={`/challenges/${challenge.id}`} className="btn bg-white text-brand hover:bg-white/90">
                       Read the brief →
                     </Link>
@@ -169,7 +172,7 @@ export default function Home() {
                     </Link>
                   </div>
                 )}
-                <p className="text-sm text-white/80">
+                <p className="text-center text-sm text-white/80">
                   {mySubmissions.length > 0
                     ? `You've entered with ${mySubmissions.length} ${mySubmissions.length === 1 ? 'video' : 'videos'} · `
                     : ''}

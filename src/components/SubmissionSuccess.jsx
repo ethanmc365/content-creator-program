@@ -8,9 +8,9 @@
 import { useEffect } from 'react'
 
 const CLOUDS = [
-  { top: '14%', scale: 0.55, dur: 9, delay: -1, o: 0.9 },
-  { top: '52%', scale: 0.38, dur: 7, delay: -4, o: 0.75 },
-  { top: '32%', scale: 0.7, dur: 12, delay: -8, o: 0.55 },
+  { top: '10%', scale: 0.5, dur: 13, delay: -2, o: 0.9 },
+  { top: '54%', scale: 0.34, dur: 10, delay: -6, o: 0.75 },
+  { top: '30%', scale: 0.64, dur: 17, delay: -12, o: 0.5 },
 ]
 
 // Same chunky cloud as the full-screen scene, drawn white-on-orange here.
@@ -56,7 +56,7 @@ export default function SubmissionSuccess({
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center"
+      className="fixed inset-0 z-[70] flex items-end justify-center px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:items-center sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-label="Video submitted"
@@ -71,59 +71,65 @@ export default function SubmissionSuccess({
           0%,100% { transform: translate(0,0) rotate(-1deg) }
           50%     { transform: translate(-5px,-7px) rotate(1deg) }
         }
-        @keyframes trypCloudSm { from { transform: translateX(-40%) } to { transform: translateX(340%) } }
+        /* The track is the full width of the band, so -100%/100% put the cloud
+           completely off the left/right edge - it drifts on and off instead of
+           popping in and out partway across. The fade at each end hides the
+           wrap for anyone watching a single cloud. */
+        @keyframes trypCloudSm {
+          0%        { transform: translateX(-100%); opacity: 0 }
+          12%, 88%  { opacity: 1 }
+          100%      { transform: translateX(100%); opacity: 0 }
+        }
         .sx-plane  { animation: trypTakeoff 1s cubic-bezier(.22,.9,.3,1) both }
         .sx-bob    { animation: trypCruiseSm 4s ease-in-out infinite 1s; transform-origin: center }
-        .sx-cloud  { position:absolute; left:0; pointer-events:none; animation: trypCloudSm linear infinite }
+        .sx-cloud  { position:absolute; left:0; width:100%; pointer-events:none; animation: trypCloudSm linear infinite }
         @media (prefers-reduced-motion: reduce) {
           .sx-plane { animation: none; opacity: 1 }
-          .sx-bob, .sx-cloud { animation: none }
+          .sx-bob { animation: none }
+          .sx-cloud { animation: none; transform: translateX(20%); opacity: 1 }
         }
       `}</style>
 
       <button aria-label="Close" className="absolute inset-0 bg-ink/40" onClick={onDone} />
 
-      <div className="relative w-full overflow-hidden rounded-t-card bg-white shadow-lift animate-fade-up sm:max-w-md sm:rounded-card">
+      <div className="relative w-full max-w-sm overflow-hidden rounded-card bg-white shadow-lift animate-fade-up sm:max-w-md">
         {/* Plane taking off through the clouds */}
-        <div className="relative h-44 overflow-hidden bg-gradient-to-br from-brand to-brand-light sm:h-48">
+        <div className="relative h-32 overflow-hidden bg-gradient-to-br from-brand to-brand-light sm:h-44">
           <div className="pointer-events-none absolute inset-0 z-10" aria-hidden="true">
             {CLOUDS.map((c, i) => (
               <div
                 key={i}
                 className="sx-cloud"
-                style={{ top: c.top, opacity: c.o, animationDuration: `${c.dur}s`, animationDelay: `${c.delay}s` }}
+                style={{ top: c.top, animationDuration: `${c.dur}s`, animationDelay: `${c.delay}s` }}
               >
-                <Cloud style={{ width: 150 * c.scale }} />
+                <Cloud style={{ width: 150 * c.scale, opacity: c.o }} />
               </div>
             ))}
           </div>
           <div className="absolute inset-0 z-20 flex items-center justify-center">
-            <div className="sx-plane w-56 max-w-[70%] sm:w-64">
+            <div className="sx-plane w-44 max-w-[72%] sm:w-56">
               <div className="sx-bob">
                 <img
-                  src="/brand/tryp-plane-transparent.png"
+                  src="/brand/tryp-plane-cutout.png"
                   alt="Tryp.com plane taking off"
-                  className="w-full drop-shadow-[0_8px_20px_rgba(0,0,0,0.25)]"
+                  className="w-full drop-shadow-[0_6px_14px_rgba(0,0,0,0.18)]"
                 />
               </div>
             </div>
           </div>
         </div>
 
-        {/* On mobile the sheet runs to the bottom of the screen, where the tab
-            bar sits on top of it, so the buttons get the tab bar's height (plus
-            the home-indicator safe area) as extra padding. */}
-        <div className="p-6 pb-[calc(6rem+env(safe-area-inset-bottom))] text-center sm:p-8 sm:pb-8">
-          <h2 className="text-xl font-bold sm:text-2xl">Your video is submitted</h2>
-          <p className="mx-auto mt-2 max-w-xs text-sm leading-relaxed text-smoke">
-            {platform ? `Your ${platform} entry is in.` : 'Your entry is in.'} We'll log the views and it will show up
-            on the leaderboard while the challenge is live.
+        <div className="p-5 text-center sm:p-7">
+          <h2 className="text-lg font-bold sm:text-2xl">Your video is submitted</h2>
+          <p className="mx-auto mt-1.5 max-w-xs text-[13px] leading-relaxed text-smoke sm:mt-2 sm:text-sm">
+            {platform ? `Your ${platform} entry is in.` : 'Your entry is in.'} Once we log the views it will show up
+            on the leaderboard.
           </p>
-          <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-brand">
+          <p className="mt-2.5 text-xs font-semibold uppercase tracking-wider text-brand">
             {count} {count === 1 ? 'video entered' : 'videos entered'}
           </p>
 
-          <div className="mt-7 flex flex-col gap-3">
+          <div className="mt-5 flex flex-col gap-2.5 sm:mt-6 sm:gap-3">
             <button type="button" onClick={onAddAnother} className="btn-primary w-full">
               + Submit another video
             </button>
