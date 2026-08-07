@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
+import { useCommunity } from '../../context/CommunityContext'
 import { PageHeader, StatCard, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { cx, formatMoney, PRIZE_BASELINE } from '../../lib/utils'
@@ -41,6 +42,7 @@ function orderTools(order) {
 
 export default function AdminPanel() {
   const { enterCreatorPreview } = useAuth()
+  const { enterPreview } = useCommunity()
   const navigate = useNavigate()
   const [stats, setStats] = useState(null)
   const [entering, setEntering] = useState(false)
@@ -158,6 +160,30 @@ export default function AdminPanel() {
           <span className="shrink-0 text-sm font-semibold text-brand">Review →</span>
         </Link>
       )}
+
+      {/* The global network build, testable without exposing it to anyone else.
+          Entering only flips a device-local flag, so no creator is affected and
+          exiting is instant. */}
+      <div className="mb-6 flex flex-col gap-4 rounded-card border border-gray-200 bg-white p-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand">
+            <Icon name="globe" className="h-5 w-5" />
+          </span>
+          <div>
+            <p className="font-semibold text-ink">Global network preview</p>
+            <p className="mt-0.5 max-w-xl text-sm text-smoke">
+              Step into the worldwide network shell and see how the markets sit inside it. Only this device is affected, creators see nothing, and you can exit any time.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => { enterPreview(); navigate('/global') }}
+          className="btn-primary shrink-0"
+        >
+          Enter testing mode
+        </button>
+      </div>
 
       {stats?.active && (
         <Link to={`/admin/challenges/${stats.active.id}/results`} className="mb-12 block rounded-card border border-brand/30 bg-brand-tint/50 p-6 transition-shadow hover:shadow-lift sm:p-8">

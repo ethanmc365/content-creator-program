@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { useCommunity } from '../../context/CommunityContext'
 import { supabase } from '../../lib/supabase'
 import { Avatar } from '../ui'
 import Icon from '../Icon'
@@ -28,6 +29,7 @@ const TABS = [
 
 export default function AppLayout() {
   const { profile, isAdmin, impersonating, exitCreatorPreview, user, signOut } = useAuth()
+  const { preview: networkPreview, exitPreview } = useCommunity()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const [dmUnread, setDmUnread] = useState(0)
@@ -195,6 +197,33 @@ export default function AppLayout() {
           </div>
         </div>
       )}
+      {/* Same pattern as the creator preview pill above, deliberately: an admin
+          testing the network build should always have one obvious way out, in
+          the same place, whichever preview they are in. Sits slightly higher so
+          the two never overlap if both are somehow on. */}
+      {networkPreview && !impersonating && (
+        <div className="fixed inset-x-0 bottom-24 z-50 flex justify-center px-4 lg:bottom-6">
+          <div className="flex items-center gap-3 rounded-2xl border border-brand/30 bg-white px-4 py-2 shadow-lift">
+            <span className="flex items-center gap-2 text-xs font-medium text-ink">
+              <Icon name="globe" className="h-4 w-4 text-brand" />
+              Global network preview
+            </span>
+            <Link
+              to="/global"
+              className="text-xs font-medium text-smoke transition-colors hover:text-brand"
+            >
+              Worldwide
+            </Link>
+            <button
+              onClick={() => { exitPreview(); navigate('/admin') }}
+              className="rounded-full bg-brand px-3 py-1 text-xs font-semibold text-white transition-transform hover:scale-105 active:scale-95"
+            >
+              Exit
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ------- Top navbar ------- */}
       {/* data-ptr-handle: the only place a pull-to-refresh gesture arms, so
           scrolling chats never triggers a reload (see PullToRefresh). */}

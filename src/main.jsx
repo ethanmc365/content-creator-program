@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { AuthProvider } from './context/AuthContext'
+import { CommunityProvider } from './context/CommunityContext'
 import { registerServiceWorker } from './lib/push'
 import { initMonitoring } from './lib/monitoring'
 import './index.css'
@@ -14,7 +15,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <App />
+        {/* Inert while the network preview flag is off: it issues no queries, so
+            a live UK creator pays nothing for it being mounted here. */}
+        <CommunityProvider>
+          <App />
+        </CommunityProvider>
       </AuthProvider>
     </BrowserRouter>
   </React.StrictMode>
