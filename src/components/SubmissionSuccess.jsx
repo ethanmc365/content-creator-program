@@ -62,14 +62,18 @@ export default function SubmissionSuccess({
       aria-label="Video submitted"
     >
       <style>{`
+        /* Takeoff runs straight through to its resting pose with no hold at the
+           end, and the cruise picks up from exactly that pose - identity. The
+           two used to meet at different rotations (0deg vs -1deg), so the plane
+           visibly snapped a degree the moment the handover happened. */
         @keyframes trypTakeoff {
-          0%   { transform: translate(-46%, 22px) scale(.86); opacity: 0 }
-          45%  { transform: translate(0, 0) scale(1); opacity: 1 }
+          0%   { transform: translate(-42%, 18px) scale(.88); opacity: 0 }
+          55%  { opacity: 1 }
           100% { transform: translate(0, 0) scale(1); opacity: 1 }
         }
         @keyframes trypCruiseSm {
-          0%,100% { transform: translate(0,0) rotate(-1deg) }
-          50%     { transform: translate(-5px,-7px) rotate(1deg) }
+          0%,100% { transform: translate(0,0) rotate(0deg) }
+          50%     { transform: translate(-5px,-7px) rotate(1.2deg) }
         }
         /* The track is the full width of the band, so -100%/100% put the cloud
            completely off the left/right edge - it drifts on and off instead of
@@ -80,9 +84,15 @@ export default function SubmissionSuccess({
           12%, 88%  { opacity: 1 }
           100%      { transform: translateX(100%); opacity: 0 }
         }
-        .sx-plane  { animation: trypTakeoff 1s cubic-bezier(.22,.9,.3,1) both }
-        .sx-bob    { animation: trypCruiseSm 4s ease-in-out infinite 1s; transform-origin: center }
-        .sx-cloud  { position:absolute; left:0; width:100%; pointer-events:none; animation: trypCloudSm linear infinite }
+        /* will-change keeps the plane on its own compositor layer: it is a
+           1200px-wide bitmap drawn at ~180px, and scaling that on the main
+           thread hitches on the opening frames. */
+        .sx-plane  { animation: trypTakeoff .85s cubic-bezier(.22,.9,.3,1) both;
+                     will-change: transform, opacity; backface-visibility: hidden }
+        .sx-bob    { animation: trypCruiseSm 4s ease-in-out infinite .85s;
+                     transform-origin: center; will-change: transform; backface-visibility: hidden }
+        .sx-cloud  { position:absolute; left:0; width:100%; pointer-events:none;
+                     animation: trypCloudSm linear infinite; will-change: transform, opacity }
         @media (prefers-reduced-motion: reduce) {
           .sx-plane { animation: none; opacity: 1 }
           .sx-bob { animation: none }
