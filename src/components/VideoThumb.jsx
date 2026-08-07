@@ -1,4 +1,5 @@
 import { detectPlatformFromUrl } from '../lib/videoPreview'
+import { TIKTOK_PATH } from './PlatformBadges'
 import { cx } from '../lib/utils'
 
 // The face of a submitted entry. Deliberately no thumbnail fetch (Instagram
@@ -28,8 +29,10 @@ const PLATFORMS = {
   TikTok: {
     label: 'TikTok',
     icon: (
-      <svg viewBox="0 0 24 24" fill="currentColor" className="h-full w-full" aria-hidden>
-        <path d="M19.6 7.1a5.1 5.1 0 01-3.7-1.6 5.1 5.1 0 01-1.3-2.7h-3.2v12.9a2.7 2.7 0 11-2.7-2.7c.2 0 .5 0 .7.1V9.8a6 6 0 00-.7 0 6 6 0 106 6V10a8.3 8.3 0 004.9 1.6V8.3a5 5 0 01-.9-.1l.9-1.1z" />
+      // Padded viewBox: the TikTok mark fills its full 24x24 grid while the other
+      // logos are inset, so without this it renders noticeably larger than them.
+      <svg viewBox="-1.5 -1.5 27 27" fill="currentColor" className="h-full w-full" aria-hidden>
+        <path d={TIKTOK_PATH} />
       </svg>
     ),
   },

@@ -8,10 +8,38 @@ import Icon from '../components/Icon'
 import PlatformBadges from '../components/PlatformBadges'
 import VideoThumb from '../components/VideoThumb'
 import VideoEmbedModal from '../components/VideoEmbedModal'
+import SubmissionSuccess from '../components/SubmissionSuccess'
 import { Avatar, Badge, Modal, PageHeader, Skeleton, EmptyState, Spinner } from '../components/ui'
 import { formatDate, timeAgo, formatViews, detectPlatform, cx, challengeDeadline } from '../lib/utils'
 
 const PLATFORM_ORDER = ['Instagram', 'TikTok', 'YouTube', 'Other']
+
+// The submit form does its own validation so problems are shown in the branded
+// card, never in Chrome's grey "Please enter a URL" speech bubble (which sits
+// outside our design and can be suppressed by the browser).
+function urlProblem(raw) {
+  const value = (raw || '').trim()
+  if (!value) return 'Paste the link to your video to enter.'
+  // Creators habitually paste "tiktok.com/@me/video/123" with no scheme, which
+  // is a perfectly good link - accept it and normalise instead of rejecting.
+  const withScheme = /^https?:\/\//i.test(value) ? value : `https://${value}`
+  let parsed
+  try {
+    parsed = new URL(withScheme)
+  } catch {
+    return "That doesn't look like a link. Copy the share link from the app and paste the whole thing."
+  }
+  if (!parsed.hostname.includes('.') || /\s/.test(value)) {
+    return "That doesn't look like a link. Copy the share link from the app and paste the whole thing."
+  }
+  return null
+}
+
+/** Same normalisation as above, for what we actually store. */
+function normaliseUrl(raw) {
+  const value = (raw || '').trim()
+  return /^https?:\/\//i.test(value) ? value : `https://${value}`
+}
 
 // A challenge can carry a "participation" prize that rewards posting N videos
 // (e.g. "Post +3 videos"). We read the threshold + reward straight out of the
@@ -50,7 +78,9 @@ export default function ChallengeDetail() {
   const [videoUrl, setVideoUrl] = useState('')
   const [caption, setCaption] = useState('')
   const [submitError, setSubmitError] = useState('')
+  const [errorField, setErrorField] = useState('') // 'url' | 'caption' - rings the offending input
   const [submitting, setSubmitting] = useState(false)
+  const [success, setSuccess] = useState(null) // { count, platform } once an entry lands
 
   const load = useCallback(async () => {
     const [{ data: ch }, { data: subs }, { data: res }] = await Promise.all([
@@ -84,35 +114,63 @@ export default function ChallengeDetail() {
     if (challenge && searchParams.get('submit')) setShowSubmit(true)
   }, [challenge]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ?tab=entries|leaderboard so the home hero can deep-link "View your entry"
+  // straight to the gallery instead of dropping people on the brief.
+  useEffect(() => {
+    const t = searchParams.get('tab')
+    if (challenge && (t === 'entries' || t === 'brief' || t === 'leaderboard')) setTab(t)
+  }, [challenge]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function fail(field, message) {
+    setErrorField(field)
+    setSubmitError(message)
+  }
+
   async function submitEntry(e) {
     e.preventDefault()
     setSubmitError('')
-    const platform = detectPlatform(videoUrl)
+    setErrorField('')
+
+    const urlError = urlProblem(videoUrl)
+    if (urlError) return fail('url', urlError)
+
+    const url = normaliseUrl(videoUrl)
+    const platform = detectPlatform(url)
     if (!challenge.platforms.includes(platform)) {
-      setSubmitError(`That looks like a ${platform} link. This challenge accepts: ${challenge.platforms.join(', ')}.`)
-      return
+      return fail(
+        'url',
+        platform === 'Other'
+          ? `We couldn't tell which platform that link is from. This challenge accepts: ${challenge.platforms.join(', ')}.`
+          : `That looks like a ${platform} link. This challenge accepts: ${challenge.platforms.join(', ')}.`
+      )
     }
-    if (!caption.trim()) {
-      setSubmitError('Please add a caption for your entry.')
-      return
-    }
+    if (!caption.trim()) return fail('caption', 'Please add a caption for your entry.')
+
     setSubmitting(true)
     const { error } = await supabase.from('submissions').insert({
       creator_id: user.id,
       challenge_id: id,
       platform,
-      video_url: videoUrl.trim(),
+      video_url: url,
       caption: caption.trim(),
     })
     setSubmitting(false)
-    if (error) {
-      setSubmitError(error.message)
-      return
-    }
+    if (error) return fail('', error.message)
+
     setShowSubmit(false)
     setVideoUrl('')
     setCaption('')
+    // The reload below hasn't landed yet, so count this entry in by hand.
+    const mine = submissions.filter((s) => s.creator_id === user.id).length
+    setSuccess({ count: mine + 1, platform })
     load()
+  }
+
+  function submitAnother() {
+    setSuccess(null)
+    setSubmitError('')
+    setErrorField('')
+    setShowSubmit(true)
   }
 
   async function removeMySubmission(subId) {
@@ -401,35 +459,74 @@ export default function ChallengeDetail() {
       )}
 
       {/* ---------- Submit modal ---------- */}
+      {/* noValidate: we validate ourselves so every problem is shown in the
+          branded card below, not in the browser's own popup bubble. */}
       <Modal open={showSubmit} onClose={() => setShowSubmit(false)} title="Submit your entry">
-        <form onSubmit={submitEntry} className="space-y-5">
+        <form onSubmit={submitEntry} noValidate className="space-y-5">
           <div>
             <label htmlFor="video_url" className="label">Video link</label>
             <input
-              id="video_url" type="url" required className="input"
+              id="video_url"
+              type="text"
+              inputMode="url"
+              autoComplete="off"
+              spellCheck={false}
+              aria-invalid={errorField === 'url'}
+              aria-describedby={submitError ? 'submit-error' : undefined}
+              className={cx('input', errorField === 'url' && '!border-red-300 !ring-2 !ring-red-100')}
               placeholder="Paste your Instagram or TikTok link…"
-              value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)}
+              value={videoUrl}
+              onChange={(e) => {
+                setVideoUrl(e.target.value)
+                if (errorField === 'url') { setSubmitError(''); setErrorField('') }
+              }}
             />
-            {videoUrl && (
+            {videoUrl.trim() && !urlProblem(videoUrl) && (
               <p className="mt-2 text-xs text-smoke">
-                Detected platform: <span className="font-semibold text-ink">{detectPlatform(videoUrl)}</span>
+                Detected platform: <span className="font-semibold text-ink">{detectPlatform(normaliseUrl(videoUrl))}</span>
               </p>
             )}
           </div>
           <div>
             <label htmlFor="caption" className="label">Caption</label>
             <textarea
-              id="caption" rows={3} required className="input"
+              id="caption"
+              rows={3}
+              aria-invalid={errorField === 'caption'}
+              aria-describedby={submitError ? 'submit-error' : undefined}
+              className={cx('input', errorField === 'caption' && '!border-red-300 !ring-2 !ring-red-100')}
               placeholder="The caption you used, or a note for the team…"
-              value={caption} onChange={(e) => setCaption(e.target.value)}
+              value={caption}
+              onChange={(e) => {
+                setCaption(e.target.value)
+                if (errorField === 'caption') { setSubmitError(''); setErrorField('') }
+              }}
             />
           </div>
-          {submitError && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{submitError}</p>}
+          {submitError && (
+            <div
+              id="submit-error"
+              role="alert"
+              className="flex items-start gap-3 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600"
+            >
+              <Icon name="alert" className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{submitError}</span>
+            </div>
+          )}
           <button type="submit" disabled={submitting} className="btn-primary w-full">
             {submitting ? <Spinner /> : 'Enter the challenge'}
           </button>
         </form>
       </Modal>
+
+      {/* ---------- Entry submitted ---------- */}
+      <SubmissionSuccess
+        open={!!success}
+        count={success?.count ?? 1}
+        platform={success?.platform}
+        onDone={() => { setSuccess(null); setTab('entries') }}
+        onAddAnother={submitAnother}
+      />
     </div>
   )
 }
