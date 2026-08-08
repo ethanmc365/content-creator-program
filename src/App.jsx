@@ -45,6 +45,9 @@ import Feedback from './pages/Feedback'
 // navigates here, so it must not add a byte to a creator's initial bundle.
 const GlobalHome = lazy(() => import('./pages/GlobalHome'))
 const ChapterHome = lazy(() => import('./pages/ChapterHome'))
+const MarketChallenges = lazy(() => import('./pages/MarketChallenges'))
+const MarketMembers = lazy(() => import('./pages/MarketMembers'))
+const ExploreMarkets = lazy(() => import('./pages/ExploreMarkets'))
 const ManageChapter = lazy(() => import('./pages/ManageChapter'))
 const NetworkChat = lazy(() => import('./pages/NetworkChat'))
 const GlobalSettings = lazy(() => import('./pages/GlobalSettings'))
@@ -134,12 +137,15 @@ export default function App() {
               so these paths are inert for every creator until it is on. */}
           <Route element={<NetworkRoute />}>
             <Route path="/global" element={<GlobalHome />} />
+            <Route path="/global/markets" element={<ExploreMarkets />} />
             <Route path="/global/settings" element={<GlobalSettings />} />
             {/* Worldwide rooms and each market's rooms share one component;
                 the presence of :slug is what scopes it. */}
             <Route path="/global/chat" element={<Navigate to="/global/chat/general" replace />} />
             <Route path="/global/chat/:channelKey" element={<NetworkChat />} />
             <Route path="/c/:slug" element={<ChapterHome />} />
+            <Route path="/c/:slug/challenges" element={<MarketChallenges />} />
+            <Route path="/c/:slug/members" element={<MarketMembers />} />
             <Route path="/c/:slug/chat" element={<NetworkChat />} />
             <Route path="/c/:slug/chat/:channelKey" element={<NetworkChat />} />
             <Route path="/manage/:slug" element={<ManageChapter />} />

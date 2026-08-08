@@ -9,6 +9,7 @@ import PlatformBadges from '../components/PlatformBadges'
 import VideoThumb from '../components/VideoThumb'
 import VideoEmbedModal from '../components/VideoEmbedModal'
 import SubmissionSuccess from '../components/SubmissionSuccess'
+import ScoringPanel from '../components/network/ScoringPanel'
 import { Avatar, Badge, Modal, PageHeader, Skeleton, EmptyState, Spinner } from '../components/ui'
 import { formatDate, timeAgo, formatViews, detectPlatform, cx, challengeDeadline } from '../lib/utils'
 
@@ -296,6 +297,18 @@ export default function ChallengeDetail() {
                 <h2 className="mb-3 text-lg font-semibold">Rules</h2>
                 <p className="whitespace-pre-line leading-relaxed text-smoke">{challenge.rules}</p>
               </section>
+            )}
+            {/* How it is decided, which until now was stored on the row and
+                shown nowhere. Somebody posting eight short videos into a
+                best-video challenge is wasting their month.
+
+                Legacy 'prize' challenges are deliberately excluded. The live UK
+                challenge is one, and adding a provisional leaderboard to a
+                contest people are already halfway through is a product change
+                nobody asked for. New challenges pick one of the three modes and
+                get the panel. */}
+            {challenge.scoring && challenge.scoring !== 'prize' && (
+              <ScoringPanel challenge={challenge} submissions={submissions} myId={user?.id} />
             )}
           </div>
 

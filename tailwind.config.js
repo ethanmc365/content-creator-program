@@ -69,6 +69,18 @@ export default {
           '85%': { opacity: '1' },
           '100%': { transform: 'translateX(210%)', opacity: '0' },
         },
+        // A plane PARKED on a card rather than crossing it: a slow, small drift
+        // so the card has a pulse without anything ever entering or leaving.
+        // Both ends are identical so the loop has no seam.
+        cruise: {
+          '0%, 100%': { transform: 'translate3d(0, 0, 0) rotate(-4deg)' },
+          '50%': { transform: 'translate3d(-7px, -9px, 0) rotate(-1.5deg)' },
+        },
+        // The dashed contrail behind it, drawn as an SVG path. Marching the
+        // dash offset reads as travel; animating the path itself would not.
+        contrail: {
+          to: { strokeDashoffset: '-28' },
+        },
       },
       animation: {
         'fade-up': 'fade-up 0.4s ease-out both',
@@ -78,6 +90,8 @@ export default {
         confetti: 'confetti 3s linear forwards',
         shake: 'shake 0.4s ease-in-out both',
         fly: 'fly 1.7s ease-in-out infinite',
+        cruise: 'cruise 7s ease-in-out infinite',
+        contrail: 'contrail 1.4s linear infinite',
       },
     },
   },

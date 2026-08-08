@@ -12,6 +12,7 @@ import { Avatar, Badge, Skeleton } from '../components/ui'
 import { flagForCountry } from '../lib/flags'
 import { stripMarkup } from '../lib/richText'
 import { timeAgo, challengeDeadline } from '../lib/utils'
+import { loadMyScopes, inScope } from '../lib/scope'
 
 // Signed-in home: the CURRENT challenge front and centre with a live
 // countdown, plus quick community pulse (latest announcement, new creators).
@@ -45,8 +46,15 @@ export default function Home() {
       // Only surface a challenge as "live" if its deadline hasn't passed. An
       // admin may not have archived a finished contest yet; showing it as live
       // (with a "Challenge closed" countdown) is confusing for new members.
+      //
+      // And only if it belongs to a market the viewer is actually in. An admin
+      // can read every market's challenges, so without this the hero on their
+      // home page is whichever market happens to end soonest.
       const nowMs = Date.now()
-      const ch = (activeChallenges ?? []).find((c) => challengeDeadline(c.end_date).getTime() > nowMs) ?? null
+      const { ids: scopeIds } = await loadMyScopes()
+      const ch = (activeChallenges ?? []).find(
+        (c) => inScope(scopeIds, c.community_id) && challengeDeadline(c.end_date).getTime() > nowMs,
+      ) ?? null
 
       setChallenge(ch)
       setAnnouncement(ann)

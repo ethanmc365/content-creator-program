@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
+import { isoForCountryName, suggestMarkets } from '../lib/markets'
+import { flagFromIso } from '../lib/flags'
 import { AvatarUpload, LanguageSelect, SocialInputs, DobField, PhoneInput, QuoteField } from '../components/ProfileFields'
 import WorldMap from '../components/WorldMap'
 import TravelGallery from '../components/TravelGallery'
@@ -13,7 +15,7 @@ import { cx } from '../lib/utils'
 
 // First-login onboarding: a warm, step-by-step profile builder.
 // Steps: welcome → photo & basics → socials → country map → languages → how it works.
-const STEPS = ['Welcome', 'About you', 'Your socials', 'Travel photos', 'Your map', 'Languages', 'How it works']
+const STEPS = ['Welcome', 'About you', 'Your socials', 'Travel photos', 'Your map', 'Languages', 'Your market', 'How it works']
 
 export default function Onboarding() {
   const { user, profile, refreshProfile, signOut } = useAuth()
@@ -40,6 +42,28 @@ export default function Onboarding() {
 
   // Phone is saved to the private, admin-only creator_private table, not profiles.
   const [contact, setContact] = useState({ phone: '', phone_country: '' })
+
+  // Your market. Everyone lands in the worldwide network automatically (a DB
+  // trigger does it at signup), and then picks the market they work in. Those
+  // are two different things and the step says so, because a creator who thinks
+  // joining Spain means leaving everyone else will not join anything.
+  const [suggested, setSuggested] = useState([])
+  const [pickedMarket, setPickedMarket] = useState('')
+  const isoCode = isoForCountryName(draft.country)
+
+  useEffect(() => {
+    let alive = true
+    if (!isoCode) { setSuggested([]); setPickedMarket(''); return }
+    suggestMarkets(isoCode).then((ms) => {
+      if (!alive) return
+      setSuggested(ms)
+      // Pre-selected, not auto-joined. One market matching their country is the
+      // overwhelmingly common case and making them pick it again is friction;
+      // silently joining them to something they never saw is worse.
+      setPickedMarket((p) => p || (ms.length === 1 ? ms[0].slug : ''))
+    })
+    return () => { alive = false }
+  }, [isoCode])
 
   // Any edit clears the orange "missing fields" message.
   const set = (patch) => { setError(''); setDraft((d) => ({ ...d, ...patch })) }
@@ -86,7 +110,13 @@ export default function Onboarding() {
   async function finish(sayHello) {
     setBusy(true)
     // Geocode the town so the new creator shows up on the creator map.
-    const profileUpdate = { ...draft, onboarded: true }
+    //
+    // country_code is derived here rather than asked for. `country` is free
+    // text and always has been, and the ISO-2 is what the market system routes
+    // on: without it a new creator can never be offered their market, which is
+    // exactly what was happening to everyone who signed up after migration 070
+    // backfilled the then-existing rows and nothing kept it current.
+    const profileUpdate = { ...draft, onboarded: true, country_code: isoCode }
     if (draft.city?.trim() || draft.country?.trim()) {
       const coords = await geocodeCity(draft.city, draft.country)
       if (coords) { profileUpdate.city_lat = coords.lat; profileUpdate.city_lng = coords.lng }
@@ -106,6 +136,19 @@ export default function Onboarding() {
           })
         : Promise.resolve(),
     ])
+
+    // The market they picked. AFTER the profile write, deliberately: join_market
+    // checks profiles.country_code against the market's countries, and until the
+    // update above lands that column is still null, so joining first would be
+    // refused for the exact creator it is meant to let in.
+    //
+    // A failure here is not allowed to block onboarding. Landing in the network
+    // with no market is a legal state the whole shell handles; being stuck on a
+    // spinner because a market join failed is not.
+    if (pickedMarket) {
+      const { error: joinErr } = await supabase.rpc('join_market', { p_slug: pickedMarket })
+      if (joinErr) console.warn('Could not join market at onboarding:', joinErr.message)
+    }
 
     // Optional friendly hello in #general to break the ice (approved members only).
     if (sayHello && !pending) {
@@ -277,8 +320,77 @@ export default function Onboarding() {
             </div>
           )}
 
-          {/* ---- Step 6: how it works + hello ---- */}
+          {/* ---- Step 6: your market ---- */}
+          {/* Two memberships, explained as two things. Everyone is in the
+              worldwide community from the moment they sign up; a market is the
+              place their briefs and challenges come from. Creators who think
+              picking Spain means leaving everyone else will pick nothing. */}
           {step === 6 && (
+            <div className="space-y-6">
+              <div className="text-center">
+                <h2 className="text-2xl font-bold">Where do you create?</h2>
+                <p className="mx-auto mt-2 max-w-md text-sm text-smoke">
+                  You are already part of the worldwide community. A market is where your briefs,
+                  challenges and local rooms come from.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 rounded-card border border-brand/25 bg-brand-tint/25 px-4 py-3.5">
+                <Icon name="globe" className="h-5 w-5 shrink-0 text-brand" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">Worldwide community</p>
+                  <p className="text-xs text-smoke">
+                    Joined. Every creator, every country. Your connections, messages, the map and the games live here.
+                  </p>
+                </div>
+                <Icon name="check" className="ml-auto h-5 w-5 shrink-0 text-brand" />
+              </div>
+
+              {suggested.length === 0 ? (
+                <div className="rounded-card border border-dashed border-gray-200 px-5 py-8 text-center">
+                  <p className="text-sm font-medium">No market covers {draft.country || 'your country'} yet</p>
+                  <p className="mx-auto mt-1.5 max-w-sm text-xs text-smoke">
+                    That is completely fine. You are in the worldwide community and can enter anything open to
+                    everyone. We will let you know the moment a market opens near you.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-center text-xs font-semibold uppercase tracking-wide text-smoke">
+                    {suggested.length === 1 ? 'Suggested for you' : 'Pick one'}
+                  </p>
+                  {suggested.map((m) => (
+                    <button
+                      key={m.slug} type="button"
+                      onClick={() => setPickedMarket(pickedMarket === m.slug ? '' : m.slug)}
+                      aria-pressed={pickedMarket === m.slug}
+                      className={cx(
+                        'flex w-full items-center gap-3 rounded-card border p-4 text-left transition-all duration-200 hover:-translate-y-0.5',
+                        pickedMarket === m.slug ? 'border-brand bg-brand-tint/40 shadow-card' : 'border-gray-200 hover:border-brand/40',
+                      )}
+                    >
+                      <span className="shrink-0 text-2xl leading-none" aria-hidden>
+                        {(m.country_codes || []).map(flagFromIso).join('')}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold">{m.name}</span>
+                        <span className="block text-xs text-smoke">
+                          {m.tagline || `Challenges and rooms for ${m.name}.`}
+                        </span>
+                      </span>
+                      {pickedMarket === m.slug && <Icon name="check" className="h-5 w-5 shrink-0 text-brand" />}
+                    </button>
+                  ))}
+                  <p className="pt-1 text-center text-xs text-smoke">
+                    You can change this any time, and you can be in more than one.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ---- Step 7: how it works + hello ---- */}
+          {step === 7 && (
             <div className="space-y-6 text-center">
               <h2 className="text-2xl font-bold">How the program works</h2>
               <div className="grid grid-cols-1 gap-4 text-left sm:grid-cols-3">

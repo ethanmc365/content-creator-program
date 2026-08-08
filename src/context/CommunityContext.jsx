@@ -45,7 +45,7 @@ export function CommunityProvider({ children }) {
         .eq('status', 'active'),
       supabase
         .from('communities')
-        .select('id, slug, name, kind, country_codes, currency, is_active, cpm_target, prize_baseline')
+        .select('id, slug, name, kind, country_codes, currency, timezone, language, is_active, cpm_target, prize_baseline, tagline, join_policy, settings, lead_id')
         .order('kind', { ascending: false })
         .order('name'),
     ])

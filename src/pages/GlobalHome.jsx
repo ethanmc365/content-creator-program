@@ -5,8 +5,9 @@ import { motion } from 'motion/react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
-import NetworkLayout, { flagFromIso } from '../components/network/NetworkLayout'
+import NetworkLayout, { RailCard, flagFromIso } from '../components/network/NetworkLayout'
 import NetworkMotion from '../components/NetworkMotion'
+import TrypPlane from '../components/network/TrypPlane'
 import WorldMap from '../components/WorldMap'
 import CreatorSpotlight from '../components/CreatorSpotlight'
 import Icon from '../components/Icon'
@@ -19,9 +20,18 @@ import { listContainer, listItem, cardHover, pageFade, SOFT_SPRING } from '../li
 // The Worldwide hub. Reads as a HOME PAGE, not a directory of markets: a
 // greeting, then what is happening, then where everyone is.
 //
-// Everything here is NETWORK level. Market content (challenges, briefs, rooms,
-// standings) lives on the market's own page. Mixing the two is what made
-// Worldwide and Spain feel like the same place.
+// THE DIVISION OF LABOUR, which the whole shell depends on
+//
+// Worldwide owns the PEOPLE. Connections, DMs, the map, the collab board, the
+// creator directory, the daily game and the combined standings all live here and
+// are never split by country, because splitting them is what would make a
+// four-market network feel like four small lonely apps.
+//
+// A market owns the WORK. Challenges, briefs, rooms, its own standings and its
+// own team. Those belong to the place they were set for.
+//
+// The rail on the right is the people layer made reachable from anywhere,
+// because those pages have no natural home in a feed.
 
 const MotionLink = motion.create(Link)
 
@@ -34,7 +44,7 @@ function SectionHead({ icon, title, hint, to, toLabel }) {
         </h2>
         {hint && <p className="mt-1 text-sm text-smoke">{hint}</p>}
       </div>
-      {to && <Link to={to} className="text-sm font-medium text-brand hover:underline">{toLabel} →</Link>}
+      {to && <Link to={to} className="shrink-0 text-sm font-medium text-brand transition-transform duration-200 hover:scale-105">{toLabel} →</Link>}
     </div>
   )
 }
@@ -42,11 +52,10 @@ function SectionHead({ icon, title, hint, to, toLabel }) {
 // A market as a DOOR, not a summary.
 //
 // This card used to print the market's live challenge title, which is what made
-// Worldwide and Spain feel intertwined: you would be reading the network hub
-// and half of what you saw belonged to one market. A challenge belongs on its
-// market's page. What survives here is only what helps you decide where to go:
-// the name, its size, and whether anything is running at all.
-function MarketCard({ chapter, mine, memberCount, hasLive }) {
+// Worldwide and Spain feel intertwined: you would be reading the network hub and
+// half of what you saw belonged to one market. A challenge belongs on its
+// market's page. What survives is only what helps you decide where to go.
+function MarketCard({ chapter, mine, isHome, memberCount, hasLive }) {
   const flags = (chapter.country_codes || []).map(flagFromIso).join(' ')
   return (
     <MotionLink
@@ -62,10 +71,10 @@ function MarketCard({ chapter, mine, memberCount, hasLive }) {
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
           <span className="truncate font-semibold">{chapter.name}</span>
-          {mine && <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-[10px] font-semibold text-white">Yours</span>}
+          {isHome && <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-[10px] font-semibold text-white">Home</span>}
         </span>
-        <span className="mt-0.5 flex items-center gap-2 text-xs text-smoke">
-          {memberCount == null ? '—' : memberCount} {memberCount === 1 ? 'creator' : 'creators'}
+        <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-smoke">
+          <span>{memberCount == null ? '—' : memberCount} {memberCount === 1 ? 'creator' : 'creators'}</span>
           {hasLive && (
             <>
               <span aria-hidden>•</span>
@@ -85,9 +94,20 @@ function MarketCard({ chapter, mine, memberCount, hasLive }) {
   )
 }
 
+// The people layer, as one block. These are full pages, not panels, so the rail
+// links to them rather than trying to inline them.
+const PEOPLE_LINKS = [
+  { to: '/creators', icon: 'users', label: 'Creator directory', hint: 'Everyone, on a map' },
+  { to: '/connections', icon: 'heart', label: 'Connections', hint: 'Requests and mutuals' },
+  { to: '/messages', icon: 'envelope', label: 'Direct messages', hint: 'Anyone, any market' },
+  { to: '/collab', icon: 'pin', label: 'Travel collab board', hint: 'Who is going where' },
+  { to: '/game', icon: 'joystick', label: 'Daily games', hint: 'One puzzle a day' },
+  { to: '/resources', icon: 'book', label: 'Resource library', hint: 'Guides and templates' },
+]
+
 export default function GlobalHome() {
   const { profile } = useAuth()
-  const { network, chapters, myCommunities, error } = useCommunity()
+  const { network, chapters, myChapters, myCommunities, isGlobalAdmin, error } = useCommunity()
   const [d, setD] = useState(null)
 
   useEffect(() => {
@@ -105,7 +125,7 @@ export default function GlobalHome() {
           .eq('profiles.is_admin', false).eq('profiles.is_test', false).eq('profiles.status', 'active'),
         supabase.from('profiles').select('id', { count: 'exact', head: true })
           .eq('status', 'active').eq('is_admin', false).eq('is_test', false),
-        supabase.from('challenges').select('id, title, community_id, status').eq('status', 'active'),
+        supabase.from('challenges').select('id, title, community_id, status, end_date, scoring').eq('status', 'active'),
         // The worldwide announcement thread. Chapter announcements live in the
         // market's own room and are shown there, not mixed in here.
         supabase.from('messages')
@@ -115,14 +135,16 @@ export default function GlobalHome() {
         supabase.from('collab_posts')
           .select('id, city, country, start_date, end_date, profiles:creator_id(name, photo_url)')
           .gte('end_date', today).order('start_date', { ascending: true }).limit(6),
-        supabase.from('profiles').select('id, name, photo_url, bio')
+        // Six, not four. Four left a hole at the end of a three-across grid and
+        // read as "we only have four", which is the opposite of the point.
+        supabase.from('profiles').select('id, name, photo_url, bio, country_code')
           .eq('status', 'active').eq('is_admin', false).eq('is_test', false)
-          .is('deletion_requested_at', null).order('created_at', { ascending: false }).limit(4),
+          .is('deletion_requested_at', null).order('created_at', { ascending: false }).limit(6),
         supabase.from('profiles').select('countries_visited'),
         supabase.from('profiles').select('country_code').eq('status', 'active').not('country_code', 'is', null),
         supabase.from('network_standings')
           .select('creator_id, points, markets, profiles!inner(id, name, photo_url, is_test)')
-          .order('points', { ascending: false }).limit(10),
+          .order('points', { ascending: false }).limit(8),
       ])
       if (cancelled) return
       const tally = {}
@@ -149,15 +171,115 @@ export default function GlobalHome() {
     )
   }
 
-  const home = myCommunities.find((c) => c.membership.is_home)
+  const home = myChapters.find((c) => c.membership?.is_home)
   const openMarkets = chapters
     .filter((c) => c.is_active)
     .sort((a, b) => (b.id === home?.id) - (a.id === home?.id) || a.name.localeCompare(b.name))
+  const myMarkets = myChapters
+    .slice()
+    .sort((a, b) => (b.id === home?.id) - (a.id === home?.id) || a.name.localeCompare(b.name))
+  // Live challenges in markets the viewer is actually in. A market they can
+  // read but have not joined is not "their" live challenge.
+  const myLive = myMarkets.map((m) => (d?.live?.[m.id] ? { market: m, challenge: d.live[m.id] } : null)).filter(Boolean)
+
+  const rail = (
+    <>
+      {/* ---------- Live now ---------- */}
+      <RailCard icon={<Icon name="flag" className="h-3.5 w-3.5 text-brand" />} title="Live now">
+        {myLive.length === 0 ? (
+          <div className="flex items-center gap-3 rounded-xl bg-brand-tint/30 px-3 py-3">
+            <TrypPlane variant="badge" className="h-5 w-5" />
+            <p className="text-xs text-smoke">
+              Nothing running in your markets right now. The next brief lands here.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {myLive.map(({ market, challenge }) => (
+              <Link key={challenge.id} to={`/challenges/${challenge.id}`}
+                className="block rounded-xl border border-brand/25 bg-brand-tint/25 px-3 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card">
+                <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-brand">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/60" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand" />
+                  </span>
+                  {(market.country_codes || []).map(flagFromIso).join('')} {market.name}
+                </p>
+                <p className="mt-1 line-clamp-2 text-sm font-medium">{challenge.title}</p>
+              </Link>
+            ))}
+          </div>
+        )}
+      </RailCard>
+
+      {/* ---------- Your places ---------- */}
+      <RailCard
+        icon={<Icon name="globe" className="h-3.5 w-3.5 text-brand" />}
+        title="Your places"
+        action={
+          <Link to="/global/markets" className="text-[11px] font-medium text-brand transition-transform duration-200 hover:scale-105">
+            Explore
+          </Link>
+        }
+      >
+        <div className="space-y-1">
+          <Link to="/global" className="flex items-center gap-2.5 rounded-xl bg-brand-tint px-3 py-2 text-sm font-medium text-brand">
+            <Icon name="globe" className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 truncate">{network?.name || 'Worldwide'}</span>
+          </Link>
+          {myMarkets.map((c) => (
+            <Link key={c.id} to={`/c/${c.slug}`}
+              className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors hover:bg-cloud">
+              <span className="w-4 shrink-0 text-center leading-none" aria-hidden>
+                {(c.country_codes || []).map(flagFromIso).join('') || '•'}
+              </span>
+              <span className="min-w-0 flex-1 truncate">{c.name}</span>
+              {d?.live?.[c.id] && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand" title="Challenge running" />}
+            </Link>
+          ))}
+          {myMarkets.length === 0 && (
+            <Link to="/global/markets" className="block rounded-xl border border-dashed border-gray-200 px-3 py-3 text-xs text-smoke transition-colors hover:border-brand hover:text-brand">
+              You have not joined a market yet. Find yours →
+            </Link>
+          )}
+        </div>
+      </RailCard>
+
+      {/* ---------- The people layer ---------- */}
+      <RailCard icon={<Icon name="users" className="h-3.5 w-3.5 text-brand" />} title="Across the network">
+        <div className="space-y-0.5">
+          {PEOPLE_LINKS.map((l) => (
+            <Link key={l.to} to={l.to}
+              className="group flex items-center gap-2.5 rounded-xl px-3 py-2 transition-colors hover:bg-cloud">
+              <Icon name={l.icon} className="h-4 w-4 shrink-0 text-smoke transition-colors group-hover:text-brand" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">{l.label}</span>
+                <span className="block truncate text-[11px] text-smoke">{l.hint}</span>
+              </span>
+              <Icon name="chevronRight" className="h-3.5 w-3.5 shrink-0 text-gray-300" />
+            </Link>
+          ))}
+        </div>
+      </RailCard>
+
+      {/* ---------- Worldwide rooms ---------- */}
+      <RailCard icon={<Icon name="chat" className="h-3.5 w-3.5 text-brand" />} title="Worldwide rooms">
+        <div className="space-y-0.5">
+          <Link to="/global/chat/general" className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors hover:bg-cloud">
+            <Icon name="chat" className="h-4 w-4 shrink-0 text-smoke" /> General
+          </Link>
+          <Link to="/global/chat/announcements" className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors hover:bg-cloud">
+            <Icon name="megaphone" className="h-4 w-4 shrink-0 text-smoke" /> Announcements
+          </Link>
+        </div>
+      </RailCard>
+    </>
+  )
 
   return (
     <NetworkMotion>
-      <NetworkLayout>
-        <motion.div {...pageFade} className="page space-y-12">
+      <NetworkLayout rail={rail}>
+        <motion.div {...pageFade} className="space-y-11">
 
           {/* ---------- Greeting ---------- */}
           <section>
@@ -174,6 +296,7 @@ export default function GlobalHome() {
           >
             <div className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-white/10 blur-2xl" />
             <div className="pointer-events-none absolute -bottom-24 -left-10 h-72 w-72 rounded-full bg-black/5 blur-2xl" />
+            <TrypPlane variant="corner" />
             <div className="relative">
               <span className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider">
                 <Icon name="globe" className="h-3.5 w-3.5" />
@@ -204,12 +327,18 @@ export default function GlobalHome() {
 
           {/* ---------- Markets ---------- */}
           <section>
-            <SectionHead icon="flag" title="Markets"
-              hint="Challenges, briefs and rooms live inside a market. Open one to see what is happening there." />
+            <SectionHead
+              icon="flag"
+              title={myMarkets.length ? 'Your markets' : 'Markets'}
+              hint="Challenges, briefs and rooms live inside a market. Open one to see what is happening there."
+              to="/global/markets"
+              toLabel={isGlobalAdmin ? 'All markets' : 'Explore'}
+            />
             <motion.div variants={listContainer} initial="hidden" animate="show" className="grid gap-3 sm:grid-cols-2">
-              {openMarkets.map((c) => (
+              {(myMarkets.length ? myMarkets : openMarkets).map((c) => (
                 <MarketCard key={c.id} chapter={c}
                   mine={myCommunities.some((m) => m.id === c.id)}
+                  isHome={c.id === home?.id}
                   memberCount={d ? (d.counts[c.id] ?? 0) : null}
                   hasLive={!!d?.live?.[c.id]} />
               ))}
@@ -219,8 +348,8 @@ export default function GlobalHome() {
           {/* ---------- Network standings ---------- */}
           {/* Points are earned inside a market but they add up across the whole
               network, so this is the one leaderboard that belongs at network
-              level rather than in a market. A creator who moves from Spain to
-              the UK keeps their standing here. */}
+              level. A creator who moves from Spain to the UK keeps their
+              standing here. */}
           {d?.network?.length > 0 && (
             <section>
               <SectionHead icon="trophy" title="Across the network"
@@ -236,7 +365,7 @@ export default function GlobalHome() {
                       {s.profiles.name}
                     </Link>
                     {s.markets > 1 && (
-                      <span className="shrink-0 rounded-full bg-cloud px-2 py-0.5 text-[10px] font-medium text-smoke">
+                      <span className="hidden shrink-0 rounded-full bg-cloud px-2 py-0.5 text-[10px] font-medium text-smoke sm:inline">
                         {s.markets} markets
                       </span>
                     )}
@@ -270,7 +399,7 @@ export default function GlobalHome() {
             <section>
               <SectionHead icon="pin" title="Creators on the move" to="/collab" toLabel="Collab board" />
               <motion.div variants={listContainer} initial="hidden" animate="show"
-                className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {d.trips.map((t) => (
                   <MotionLink key={t.id} to="/collab" variants={listItem} {...cardHover}
                     className="card flex items-center gap-3 !p-4 hover:shadow-lift">
@@ -304,14 +433,17 @@ export default function GlobalHome() {
             <section>
               <SectionHead icon="users" title="New in the community" to="/creators" toLabel="All creators" />
               <motion.div variants={listContainer} initial="hidden" animate="show"
-                className="grid gap-3 sm:grid-cols-2">
+                className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {d.fresh.map((c) => (
                   <MotionLink key={c.id} to={`/profile/${c.id}`} variants={listItem} {...cardHover}
-                    className="card flex items-center gap-4 !p-5 hover:shadow-lift">
-                    <Avatar src={c.photo_url} name={c.name} />
-                    <div className="min-w-0">
-                      <p className="truncate font-semibold">{c.name}</p>
-                      {c.bio && <p className="truncate text-sm text-smoke">{c.bio}</p>}
+                    className="card flex min-w-0 items-center gap-3 !p-4 hover:shadow-lift">
+                    <Avatar src={c.photo_url} name={c.name} size="sm" />
+                    <div className="min-w-0 flex-1">
+                      <p className="flex items-center gap-1.5 truncate font-semibold">
+                        <span className="truncate">{c.name}</span>
+                        {c.country_code && <span className="shrink-0 text-xs" aria-hidden>{flagFromIso(c.country_code)}</span>}
+                      </p>
+                      {c.bio && <p className="truncate text-xs text-smoke">{c.bio}</p>}
                     </div>
                   </MotionLink>
                 ))}

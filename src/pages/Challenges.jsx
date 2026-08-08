@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { useMyScopes, inScope } from '../lib/scope'
 import CountdownTimer from '../components/CountdownTimer'
 import VideoThumb from '../components/VideoThumb'
 import Icon from '../components/Icon'
@@ -72,9 +73,13 @@ function WinnersGallery({ winners, entries, totalViews }) {
 // All challenges: the live one up top, past challenges browsable below.
 export default function Challenges() {
   const { isAdmin } = useAuth()
+  const { ids: scopeIds, loading: scopesLoading } = useMyScopes()
   const [challenges, setChallenges] = useState([])
   const [galleries, setGalleries] = useState({}) // challenge_id -> {winners, totalViews}
-  const [participation, setParticipation] = useState(null) // {posted, total} for the live challenge
+  // challenge_id -> {posted, total}. Keyed rather than singular: the moment a
+  // second market opened, "the live challenge" stopped being a single thing,
+  // and a lone object silently attached the UK bar to Spain's numbers.
+  const [participation, setParticipation] = useState({})
   const [prizesAwarded, setPrizesAwarded] = useState(null) // total distributed across the program
   const [loading, setLoading] = useState(true)
   // Captured once at mount (lazy initialiser, not read during render) so the
@@ -129,33 +134,62 @@ export default function Challenges() {
         }
       }
       setGalleries(built)
-
-      // Participation for the live challenge: distinct creators who posted vs
-      // every active member (admins and test accounts excluded).
-      const liveNow = all.find((c) => c.status === 'active' && challengeDeadline(c.end_date).getTime() > Date.now())
-      if (liveNow) {
-        const [{ data: entrants }, { count }] = await Promise.all([
-          supabase.from('submissions').select('creator_id').eq('challenge_id', liveNow.id),
-          supabase.from('profiles').select('id', { count: 'exact', head: true })
-            .eq('status', 'active').eq('is_admin', false).eq('is_test', false).is('deletion_requested_at', null),
-        ])
-        setParticipation({
-          challengeId: liveNow.id,
-          posted: new Set((entrants ?? []).map((e) => e.creator_id)).size,
-          total: count ?? 0,
-        })
-      }
     }
     load()
   }, [])
 
-  const isLive = (c) => c.status === 'active' && challengeDeadline(c.end_date).getTime() > nowMs
-  const live = challenges.filter(isLive)
-  const past = challenges.filter((c) => !isLive(c))
+  // Participation, computed per live challenge and against the RIGHT crowd.
+  //
+  // This used to count every active profile on the platform, which was correct
+  // while there was one market and became wrong the instant there were two: a
+  // Spanish challenge with no Spanish creators reported "0 of 43", 43 being the
+  // UK. The denominator is the challenge's own market, so a market with nobody
+  // in it says so instead of borrowing another market's roster.
+  useEffect(() => {
+    const liveOnes = challenges.filter(
+      (c) => c.status === 'active' && challengeDeadline(c.end_date).getTime() > Date.now(),
+    )
+    if (liveOnes.length === 0) return
+    let cancelled = false
+    async function tally() {
+      const entries = await Promise.all(liveOnes.map(async (c) => {
+        const roster = c.community_id
+          ? supabase.from('community_members')
+              .select('profile_id, profiles!inner(is_admin, is_test, status, deletion_requested_at)', { count: 'exact', head: true })
+              .eq('community_id', c.community_id).eq('status', 'active')
+              .eq('profiles.is_admin', false).eq('profiles.is_test', false).eq('profiles.status', 'active')
+              .is('profiles.deletion_requested_at', null)
+          : supabase.from('profiles').select('id', { count: 'exact', head: true })
+              .eq('status', 'active').eq('is_admin', false).eq('is_test', false)
+              .is('deletion_requested_at', null)
+        const [{ data: entrants }, { count }] = await Promise.all([
+          supabase.from('submissions').select('creator_id').eq('challenge_id', c.id),
+          roster,
+        ])
+        return [c.id, {
+          posted: new Set((entrants ?? []).map((e) => e.creator_id)).size,
+          total: count ?? 0,
+        }]
+      }))
+      if (!cancelled) setParticipation(Object.fromEntries(entries))
+    }
+    tally()
+    return () => { cancelled = true }
+  }, [challenges])
 
-  const pct = participation && participation.total > 0
-    ? Math.round((participation.posted / participation.total) * 100)
-    : null
+  const isLive = (c) => c.status === 'active' && challengeDeadline(c.end_date).getTime() > nowMs
+  // This page is the creator's OWN community's challenge board. RLS already
+  // narrows it for a creator; an admin can read every market, so without this
+  // they get Spain's live card stacked above the UK's with no way to tell which
+  // is which. Every market's board is at /c/<slug>/challenges.
+  const mine = challenges.filter((c) => inScope(scopeIds, c.community_id))
+  const live = mine.filter(isLive)
+  const past = mine.filter((c) => !isLive(c))
+
+  const pctFor = (id) => {
+    const p = participation[id]
+    return p && p.total > 0 ? Math.round((p.posted / p.total) * 100) : null
+  }
 
   return (
     <div className="page">
@@ -173,9 +207,9 @@ export default function Challenges() {
         </div>
       )}
 
-      {loading ? (
+      {loading || scopesLoading ? (
         <SkeletonCards count={3} />
-      ) : challenges.length === 0 ? (
+      ) : mine.length === 0 ? (
         <EmptyState icon={<Icon name="flag" className="h-7 w-7" />} title="No challenges yet" hint="The first challenge will appear here once the team posts it." />
       ) : (
         <div className="space-y-12">
@@ -197,8 +231,15 @@ export default function Challenges() {
                     </span>
                     <span className="text-xs text-white/75">{formatDate(c.start_date)} → {formatDate(c.end_date)}</span>
                   </div>
-                  <Link to={`/challenges/${c.id}`} className="block">
-                    <h2 className="mt-4 text-2xl font-bold hover:underline sm:text-3xl">{c.title}</h2>
+                  {/* The title grows slightly on hover rather than underlining.
+                      An underline reads as "this is a link in a paragraph"; a
+                      heading that swells reads as "this whole thing is the
+                      target", which is what it actually is. origin-left keeps
+                      it anchored to the text's start instead of drifting. */}
+                  <Link to={`/challenges/${c.id}`} className="group block">
+                    <h2 className="mt-4 inline-block origin-left text-2xl font-bold transition-transform duration-200 ease-out group-hover:scale-[1.03] sm:text-3xl">
+                      {c.title}
+                    </h2>
                     <p className="mt-2 max-w-2xl text-white/85 line-clamp-2">{c.description}</p>
                   </Link>
                   <div className="mt-8 flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
@@ -218,17 +259,17 @@ export default function Challenges() {
               </div>
 
               {/* Participation pace: nudges the quiet majority, names no one. */}
-              {pct != null && participation.challengeId === c.id && (
+              {pctFor(c.id) != null && (
                 <div className="mt-4 rounded-card border border-gray-100 bg-white px-5 py-4 shadow-card">
                   <div className="mb-2 flex items-baseline justify-between gap-3">
                     <p className="text-sm font-semibold text-ink">Creator participation</p>
-                    <p className="text-sm font-bold tabular-nums text-brand">{pct}%</p>
+                    <p className="text-sm font-bold tabular-nums text-brand">{pctFor(c.id)}%</p>
                   </div>
                   <div className="h-2.5 overflow-hidden rounded-full bg-cloud">
-                    <div className="h-full rounded-full bg-gradient-to-r from-brand to-brand-light transition-all duration-700" style={{ width: `${Math.max(pct, 2)}%` }} />
+                    <div className="h-full rounded-full bg-gradient-to-r from-brand to-brand-light transition-all duration-700" style={{ width: `${Math.max(pctFor(c.id), 2)}%` }} />
                   </div>
                   <p className="mt-2 text-xs text-smoke">
-                    {participation.posted} of {participation.total} creators have posted so far. Get your entry in!
+                    {participation[c.id].posted} of {participation[c.id].total} creators have posted so far. Get your entry in!
                   </p>
                 </div>
               )}

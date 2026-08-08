@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { motion } from 'motion/react'
 import { supabase } from '../lib/supabase'
@@ -6,20 +6,48 @@ import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
 import { confirm, notice, promptText } from '../lib/confirm'
 import NetworkMotion from '../components/NetworkMotion'
-import NetworkLayout from '../components/network/NetworkLayout'
+import NetworkLayout, { flagFromIso } from '../components/network/NetworkLayout'
+import { BigToggle } from './GlobalSettings'
 import Icon from '../components/Icon'
-import { Badge, EmptyState, PageHeader, Skeleton } from '../components/ui'
+import { Avatar, Badge, EmptyState, PageHeader, Skeleton } from '../components/ui'
+import { scoringMode } from '../lib/scoring'
+import { COUNTRIES } from '../lib/countries'
+import { clearScopeCache } from '../lib/scope'
+import { cx } from '../lib/utils'
 import { listContainer, listItem, pageFade } from '../lib/motion'
 
 // The country manager's desk: everything one market owns, and nothing that
 // belongs to another one.
 //
 // Every control here is gated by `manages(chapter.id)`, which is
-// my_managed_scopes() in the database. A Spain manager opening /manage/uk gets
-// a read-only page and, more importantly, every write they attempt is refused
-// by RLS rather than by this component choosing to hide a button.
+// my_managed_scopes() in the database. A Spain manager opening /manage/uk gets a
+// read-only page and, more importantly, every write they attempt is refused by
+// RLS rather than by this component choosing to hide a button.
+//
+// WHAT LEFT THIS PAGE
+//
+// Scoring rules. They used to live here as "the template every new challenge in
+// this market starts with", which sounds tidy and was wrong: a market runs a
+// points challenge one month and a best-video challenge the next, so a
+// market-level rule set has no meaning half the time, and editing it silently
+// changed the value of a challenge people were already competing in. Rules are
+// written on the challenge that uses them.
 
 const CURRENCIES = ['GBP', 'EUR', 'USD', 'SEK', 'DKK', 'NOK', 'RON', 'PLN', 'CHF']
+
+const JOIN_POLICIES = [
+  { value: 'country', label: 'Creators based here', icon: 'pin', hint: 'Country must match this market' },
+  { value: 'open', label: 'Any creator', icon: 'globe', hint: 'Anyone in the network' },
+  { value: 'invite', label: 'Invite only', icon: 'key', hint: 'A manager adds each person' },
+]
+
+const ADDABLE_ROOMS = [
+  { key: 'meetups', label: 'Meetups', hint: 'Who is filming where, and when.', icon: 'calendar' },
+  { key: 'introductions', label: 'Introductions', hint: 'New here? Say hello.', icon: 'users' },
+  { key: 'feedback', label: 'Feedback', hint: 'Tell the team what would help.', icon: 'bulb' },
+  { key: 'gear', label: 'Gear', hint: 'Kit, apps and what you shoot on.', icon: 'video' },
+  { key: 'wins', label: 'Wins', hint: 'Post a result you are proud of.', icon: 'trophy' },
+]
 
 function Section({ icon, title, hint, children, action }) {
   return (
@@ -29,7 +57,7 @@ function Section({ icon, title, hint, children, action }) {
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <Icon name={icon} className="h-5 w-5 text-brand" /> {title}
           </h2>
-          {hint && <p className="mt-1 text-sm text-smoke">{hint}</p>}
+          {hint && <p className="mt-1 max-w-xl text-sm text-smoke">{hint}</p>}
         </div>
         {action}
       </div>
@@ -38,129 +66,86 @@ function Section({ icon, title, hint, children, action }) {
   )
 }
 
-// One editable rule row. Kept dumb on purpose: the parent owns the list so a
-// rule can be reordered or removed without this component knowing how.
-function RuleRow({ rule, onChange, onRemove, disabled }) {
-  const isThreshold = rule.kind === 'views_threshold'
-  return (
-    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-100 bg-white px-3 py-2.5">
-      <Icon
-        name={isThreshold ? 'chart' : rule.kind === 'bonus' ? 'star' : 'video'}
-        className="h-4 w-4 shrink-0 text-brand"
-      />
-      <input
-        className="input !w-auto min-w-0 flex-1 !py-1.5 !text-sm"
-        value={rule.label}
-        disabled={disabled}
-        onChange={(e) => onChange({ ...rule, label: e.target.value })}
-        aria-label="Rule name"
-      />
-      {isThreshold && (
-        <label className="flex items-center gap-1.5 text-xs text-smoke">
-          over
-          <input
-            type="number"
-            className="input !w-24 !py-1.5 !text-sm"
-            value={rule.threshold ?? ''}
-            disabled={disabled}
-            onChange={(e) => onChange({ ...rule, threshold: e.target.value === '' ? null : Number(e.target.value) })}
-            aria-label="View threshold"
-          />
-          views
-        </label>
-      )}
-      {rule.kind === 'per_post' && (
-        <label className="flex items-center gap-1.5 text-xs text-smoke">
-          max
-          <input
-            type="number"
-            className="input !w-20 !py-1.5 !text-sm"
-            value={rule.max_points ?? ''}
-            disabled={disabled}
-            onChange={(e) => onChange({ ...rule, max_points: e.target.value === '' ? null : Number(e.target.value) })}
-            aria-label="Maximum points"
-          />
-        </label>
-      )}
-      <label className="flex items-center gap-1.5 text-xs font-semibold text-ink">
-        <input
-          type="number"
-          step="0.5"
-          className="input !w-20 !py-1.5 !text-sm"
-          value={rule.points}
-          disabled={disabled}
-          onChange={(e) => onChange({ ...rule, points: Number(e.target.value) })}
-          aria-label="Points"
-        />
-        pts
-      </label>
-      {!disabled && (
-        <button
-          type="button"
-          onClick={onRemove}
-          className="rounded-lg p-1.5 text-smoke transition-colors hover:bg-red-50 hover:text-red-600"
-          aria-label={`Remove ${rule.label}`}
-        >
-          <Icon name="trash" className="h-4 w-4" />
-        </button>
-      )}
-    </div>
-  )
-}
-
 export default function ManageChapter() {
   const { slug } = useParams()
   const { profile } = useAuth()
-  const { bySlug, manages, reload, loading: ctxLoading } = useCommunity()
+  const { bySlug, manages, isGlobalAdmin, reload, loading: ctxLoading } = useCommunity()
   const chapter = bySlug(slug)
   const canManage = chapter ? manages(chapter.id) : false
 
   const [d, setD] = useState(null)
   const [loading, setLoading] = useState(true)
   const [settings, setSettings] = useState(null)
-  const [rules, setRules] = useState([])
   const [saving, setSaving] = useState('')
+  const [countryQuery, setCountryQuery] = useState('')
 
   const load = useCallback(async () => {
     if (!chapter) return
     setLoading(true)
-    const [{ data: members }, { data: chans }, { data: challenges }, { data: tmpl }, { data: standings }] =
+    const [{ data: members }, { data: chans }, { data: challenges }, { data: standings }, { data: everyone }] =
       await Promise.all([
         supabase.from('community_members')
           .select('profile_id, role, is_home, status, profiles!inner(id, name, photo_url, country_code, is_admin, is_test, status)')
           .eq('community_id', chapter.id).eq('status', 'active'),
         supabase.from('channels').select('id, key, label, hint, icon, visibility, post_policy, position')
           .eq('community_id', chapter.id).order('position'),
-        supabase.from('challenges').select('id, title, status, scoring, end_date, threshold_mode')
+        supabase.from('challenges').select('id, title, status, scoring, end_date')
           .eq('community_id', chapter.id).order('end_date', { ascending: false }),
-        supabase.from('point_rules').select('*').eq('community_id', chapter.id).is('challenge_id', null).order('position'),
         supabase.from('community_standings').select('creator_id, points').eq('community_id', chapter.id),
+        // For adding a creator by hand, which is the only way in when the
+        // market is invite only.
+        supabase.from('profiles').select('id, name, photo_url, country_code')
+          .eq('status', 'active').eq('is_test', false).order('name').limit(300),
       ])
     setD({
       members: members || [],
       channels: chans || [],
       challenges: challenges || [],
       standings: standings || [],
+      everyone: everyone || [],
     })
-    setRules(tmpl || [])
     setSettings({
       name: chapter.name,
+      tagline: chapter.tagline || '',
       currency: chapter.currency,
+      timezone: chapter.timezone || 'UTC',
       cpm_target: chapter.cpm_target,
       is_active: chapter.is_active,
+      join_policy: chapter.join_policy || 'country',
+      country_codes: chapter.country_codes || [],
+      welcome: chapter.settings?.welcome || '',
+      show_standings: chapter.settings?.show_standings !== false,
     })
     setLoading(false)
   }, [chapter])
 
   useEffect(() => { load() }, [load])
 
+  const memberIds = useMemo(() => new Set((d?.members || []).map((m) => m.profile_id)), [d])
+  const countryHits = useMemo(() => {
+    const q = countryQuery.trim().toLowerCase()
+    if (!q) return []
+    return COUNTRIES.filter(
+      (c) => c.name.toLowerCase().includes(q) || c.iso2.toLowerCase() === q,
+    ).slice(0, 6)
+  }, [countryQuery])
+
   async function saveSettings() {
     setSaving('settings')
     const { error } = await supabase.from('communities').update({
       name: settings.name,
+      tagline: settings.tagline.trim() || null,
       currency: settings.currency,
+      timezone: settings.timezone,
       cpm_target: settings.cpm_target,
       is_active: settings.is_active,
+      join_policy: settings.join_policy,
+      country_codes: settings.country_codes,
+      settings: {
+        ...(chapter.settings || {}),
+        welcome: settings.welcome.trim() || null,
+        show_standings: settings.show_standings,
+      },
     }).eq('id', chapter.id)
     setSaving('')
     if (error) { notice(`Could not save: ${error.message}`); return }
@@ -168,44 +153,79 @@ export default function ManageChapter() {
     notice('Market settings saved.')
   }
 
-  // The whole rule set is replaced rather than diffed. A market has a handful of
-  // rules, and replace-all removes an entire class of bug where a deleted row is
-  // left behind because the diff missed it.
-  async function saveRules() {
-    setSaving('rules')
-    const { error: delErr } = await supabase.from('point_rules')
-      .delete().eq('community_id', chapter.id).is('challenge_id', null)
-    if (delErr) { setSaving(''); notice(`Could not save: ${delErr.message}`); return }
-    if (rules.length) {
-      const { error } = await supabase.from('point_rules').insert(
-        rules.map((r, i) => ({
-          community_id: chapter.id,
-          challenge_id: null,
-          kind: r.kind,
-          label: r.label,
-          points: r.points,
-          threshold: r.kind === 'views_threshold' ? r.threshold : null,
-          max_points: r.kind === 'per_post' ? r.max_points : null,
-          position: i,
-          is_active: true,
-        }))
-      )
-      if (error) { setSaving(''); notice(`Could not save: ${error.message}`); return }
-    }
-    setSaving('')
+  // ------------------------------------------------------------------ rooms
+  async function addRoom(room) {
+    const nextPos = Math.max(0, ...(d.channels.map((c) => c.position) || [0])) + 1
+    const { error } = await supabase.from('channels').insert({
+      community_id: chapter.id,
+      key: room.key,
+      label: room.label,
+      hint: room.hint,
+      icon: room.icon,
+      post_policy: 'all',
+      visibility: 'scope',
+      position: nextPos,
+    })
+    if (error) { notice(`Could not add the room: ${error.message}`); return }
     await load()
-    notice('Scoring rules saved. New challenges in this market will start with them.')
   }
 
-  function addRule(kind) {
-    setRules((r) => [...r, {
-      id: `new-${r.length}-${kind}`,
-      kind,
-      label: kind === 'per_post' ? 'Video posted' : kind === 'views_threshold' ? 'Passed 10,000 views' : 'Bonus',
-      points: kind === 'views_threshold' ? 5 : 1,
-      threshold: kind === 'views_threshold' ? 10000 : null,
-      max_points: kind === 'per_post' ? 10 : null,
-    }])
+  async function renameRoom(ch) {
+    const label = await promptText(`Rename ${ch.label}`, { defaultValue: ch.label, confirmLabel: 'Rename' })
+    if (!label) return
+    const { error } = await supabase.from('channels').update({ label }).eq('id', ch.id)
+    if (error) { notice(error.message); return }
+    await load()
+  }
+
+  async function removeRoom(ch) {
+    // General and Announcements are structural: a market with no main room and
+    // no way for the team to reach it is not a market.
+    if (ch.key === 'general' || ch.key === 'announcements') {
+      notice(`${ch.label} is part of every market and cannot be removed.`)
+      return
+    }
+    const { count } = await supabase.from('messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('channel', `${chapter.slug}:${ch.key}`).eq('deleted', false)
+    const ok = await confirm(
+      count
+        ? `${ch.label} has ${count} ${count === 1 ? 'message' : 'messages'} in it. Removing the room hides the conversation for good. Continue?`
+        : `Remove ${ch.label}? It is empty, so nothing is lost.`,
+    )
+    if (!ok) return
+    const { error } = await supabase.from('channels').delete().eq('id', ch.id)
+    if (error) { notice(error.message); return }
+    await load()
+  }
+
+  async function toggleRoomPolicy(ch) {
+    const next = ch.post_policy === 'all' ? 'staff' : 'all'
+    const { error } = await supabase.from('channels').update({ post_policy: next }).eq('id', ch.id)
+    if (error) { notice(error.message); return }
+    await load()
+  }
+
+  // ---------------------------------------------------------------- people
+  async function addMember(profileId) {
+    const { error } = await supabase.from('community_members').insert({
+      community_id: chapter.id, profile_id: profileId, role: 'creator', is_home: false, status: 'active',
+    })
+    if (error) { notice(error.message); return }
+    clearScopeCache()
+    await load()
+  }
+
+  async function removeMember(member) {
+    const ok = await confirm(
+      `Remove ${member.profiles.name} from ${chapter.name}? They keep every point they earned here, and every connection they made stays.`,
+    )
+    if (!ok) return
+    const { error } = await supabase.from('community_members').delete()
+      .eq('community_id', chapter.id).eq('profile_id', member.profile_id)
+    if (error) { notice(error.message); return }
+    clearScopeCache()
+    await load()
   }
 
   // Manual points. Every award lands in the same ledger the automatic ones do,
@@ -276,11 +296,12 @@ export default function ManageChapter() {
 
   const standingsBy = new Map((d?.standings || []).map((s) => [s.creator_id, Number(s.points)]))
   const realMembers = (d?.members || []).filter((m) => !m.profiles.is_test)
+  const roomsToAdd = ADDABLE_ROOMS.filter((r) => !(d?.channels || []).some((c) => c.key === r.key))
 
   return (
     <NetworkMotion>
       <NetworkLayout>
-      <motion.div {...pageFade} className="page">
+      <motion.div {...pageFade}>
         <Link to={`/c/${slug}`} className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-smoke transition-colors hover:text-brand">
           <Icon name="chevronLeft" className="h-4 w-4" />
           {chapter.name}
@@ -289,7 +310,7 @@ export default function ManageChapter() {
         <PageHeader
           title={`Manage ${chapter.name}`}
           subtitle="Everything this market owns. Nothing here reaches another market."
-          action={<Badge tone={chapter.is_active ? 'light' : 'grey'}>{chapter.is_active ? 'Open' : 'Closed'}</Badge>}
+          action={<Badge tone={chapter.is_active ? 'green' : 'grey'}>{chapter.is_active ? 'Open' : 'Closed'}</Badge>}
         />
 
         {loading || !settings ? (
@@ -297,8 +318,53 @@ export default function ManageChapter() {
         ) : (
           <motion.div variants={listContainer} initial="hidden" animate="show" className="space-y-6">
 
-            {/* ---------------- Settings ---------------- */}
-            <Section icon="pencil" title="Market settings" hint="The basics every market carries."
+            {/* ---------------- Visibility ---------------- */}
+            {/* First, and its own card, because it is the setting with the
+                largest blast radius and it used to be a 16px checkbox tucked
+                into the corner of a grid. */}
+            <Section icon="eye" title="Visibility"
+              hint="A closed market is invisible to creators: it does not appear in the market list, its challenges are unreadable and nobody can join it.">
+              <BigToggle
+                on={settings.is_active}
+                onChange={(v) => setSettings({ ...settings, is_active: v })}
+                title={`${chapter.name} is ${settings.is_active ? 'open to creators' : 'closed'}`}
+                hint={settings.is_active
+                  ? 'Creators can find it, join it and enter its challenges.'
+                  : 'Only you and its managers can see it. Turn it on when the first brief is ready.'}
+                onLabel="Open"
+                offLabel="Closed"
+              />
+              <div className="mt-4">
+                <p className="mb-2 text-sm font-medium">Who can join</p>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {JOIN_POLICIES.map((p) => (
+                    <button key={p.value} type="button"
+                      onClick={() => setSettings({ ...settings, join_policy: p.value })}
+                      aria-pressed={settings.join_policy === p.value}
+                      className={cx(
+                        'flex items-center gap-2.5 rounded-xl border px-3.5 py-3 text-left transition-all duration-200 hover:-translate-y-0.5',
+                        settings.join_policy === p.value
+                          ? 'border-brand bg-brand-tint/40'
+                          : 'border-gray-200 bg-white hover:border-brand/40',
+                      )}>
+                      <Icon name={p.icon} className={cx('h-4 w-4 shrink-0', settings.join_policy === p.value ? 'text-brand' : 'text-smoke')} />
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold">{p.label}</span>
+                        <span className="block text-xs text-smoke">{p.hint}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="mt-5 flex justify-end">
+                <button onClick={saveSettings} disabled={saving === 'settings'} className="btn-primary !py-2 !px-5 !text-sm">
+                  {saving === 'settings' ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            </Section>
+
+            {/* ---------------- Identity ---------------- */}
+            <Section icon="pencil" title="Identity" hint="How this market introduces itself."
               action={
                 <button onClick={saveSettings} disabled={saving === 'settings'} className="btn-primary !py-2 !px-5 !text-sm">
                   {saving === 'settings' ? 'Saving…' : 'Save'}
@@ -311,6 +377,62 @@ export default function ManageChapter() {
                     onChange={(e) => setSettings({ ...settings, name: e.target.value })} />
                 </label>
                 <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium">Tagline</span>
+                  <input className="input" value={settings.tagline} maxLength={120}
+                    placeholder={`Challenges, briefs and rooms for ${chapter.name}.`}
+                    onChange={(e) => setSettings({ ...settings, tagline: e.target.value })} />
+                  <span className="mt-1 block text-xs text-smoke">One line, shown under the market name.</span>
+                </label>
+              </div>
+
+              <label className="mt-4 block">
+                <span className="mb-1.5 block text-sm font-medium">Welcome message</span>
+                <textarea className="input" rows={3} value={settings.welcome} maxLength={600}
+                  placeholder="Shown to a creator the first time they open this market. What is it for, what is expected, what is coming up."
+                  onChange={(e) => setSettings({ ...settings, welcome: e.target.value })} />
+              </label>
+
+              <div className="mt-4">
+                <p className="mb-1.5 text-sm font-medium">Countries</p>
+                <p className="mb-2 text-xs text-smoke">
+                  Who is suggested this market at signup, and under the default rule, who may join it.
+                </p>
+                <div className="mb-2 flex flex-wrap gap-2">
+                  {settings.country_codes.map((c) => (
+                    <button key={c} type="button"
+                      onClick={() => setSettings({ ...settings, country_codes: settings.country_codes.filter((x) => x !== c) })}
+                      className="flex items-center gap-1.5 rounded-full border border-brand bg-brand-tint px-3 py-1.5 text-sm font-medium text-brand transition-transform duration-200 hover:scale-105">
+                      {flagFromIso(c)} {COUNTRIES.find((x) => x.iso2 === c)?.name || c}
+                      <Icon name="close" className="h-3 w-3" />
+                    </button>
+                  ))}
+                  {settings.country_codes.length === 0 && <span className="text-xs text-smoke">None.</span>}
+                </div>
+                <input className="input" value={countryQuery} placeholder="Search a country to add…"
+                  onChange={(e) => setCountryQuery(e.target.value)} />
+                {countryHits.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {countryHits.map((c) => (
+                      <button key={c.iso2} type="button" disabled={settings.country_codes.includes(c.iso2)}
+                        onClick={() => { setSettings({ ...settings, country_codes: [...settings.country_codes, c.iso2] }); setCountryQuery('') }}
+                        className="rounded-full border border-gray-200 px-3 py-1.5 text-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand disabled:opacity-40">
+                        {flagFromIso(c.iso2)} {c.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </Section>
+
+            {/* ---------------- Operating ---------------- */}
+            <Section icon="wallet" title="Money and time" hint="Never shown to a creator."
+              action={
+                <button onClick={saveSettings} disabled={saving === 'settings'} className="btn-primary !py-2 !px-5 !text-sm">
+                  {saving === 'settings' ? 'Saving…' : 'Save'}
+                </button>
+              }>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <label className="block">
                   <span className="mb-1.5 block text-sm font-medium">Currency</span>
                   <select className="input" value={settings.currency}
                     onChange={(e) => setSettings({ ...settings, currency: e.target.value })}>
@@ -318,93 +440,105 @@ export default function ManageChapter() {
                   </select>
                 </label>
                 <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium">Timezone</span>
+                  <input className="input" value={settings.timezone}
+                    onChange={(e) => setSettings({ ...settings, timezone: e.target.value })} />
+                  <span className="mt-1 block text-xs text-smoke">Deadlines land at local midnight here.</span>
+                </label>
+                <label className="block">
                   <span className="mb-1.5 block text-sm font-medium">CPM target</span>
                   <input type="number" step="0.01" className="input" value={settings.cpm_target}
                     onChange={(e) => setSettings({ ...settings, cpm_target: Number(e.target.value) })} />
                   <span className="mt-1 block text-xs text-smoke">
-                    Each market sets its own. Lead with cost per accepted asset; CPM is the number a paid media team will ask for.
-                  </span>
-                </label>
-                <label className="flex items-start gap-3 pt-7">
-                  <input type="checkbox" checked={settings.is_active} className="mt-0.5 h-4 w-4 accent-[#d94407]"
-                    onChange={(e) => setSettings({ ...settings, is_active: e.target.checked })} />
-                  <span>
-                    <span className="block text-sm font-medium">Open to creators</span>
-                    <span className="block text-xs text-smoke">A closed market is invisible and unjoinable.</span>
+                    Each market sets its own. Cost per 1,000 views to beat.
                   </span>
                 </label>
               </div>
-            </Section>
-
-            {/* ---------------- Scoring ---------------- */}
-            <Section icon="trophy" title="Scoring rules"
-              hint="The template every new challenge in this market starts with. Editing it never rescores a challenge already running."
-              action={
-                <button onClick={saveRules} disabled={saving === 'rules'} className="btn-primary !py-2 !px-5 !text-sm">
-                  {saving === 'rules' ? 'Saving…' : 'Save rules'}
-                </button>
-              }>
-              <div className="space-y-2">
-                {rules.length === 0 && (
-                  <p className="rounded-xl bg-cloud px-4 py-6 text-center text-sm text-smoke">
-                    No scoring rules yet. Add one below and this market can run a points challenge.
-                  </p>
-                )}
-                {rules.map((r, i) => (
-                  <RuleRow key={r.id}
-                    rule={r}
-                    onChange={(next) => setRules((all) => all.map((x, j) => (j === i ? next : x)))}
-                    onRemove={() => setRules((all) => all.filter((_, j) => j !== i))}
-                  />
-                ))}
+              <div className="mt-4">
+                <BigToggle
+                  on={settings.show_standings}
+                  onChange={(v) => setSettings({ ...settings, show_standings: v })}
+                  title="Show a standings table in this market"
+                  hint="Turn off for a market where ranking creators against each other would do more harm than good."
+                  onLabel="Shown"
+                  offLabel="Hidden"
+                />
               </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button onClick={() => addRule('per_post')} className="btn-secondary !py-2 !px-4 !text-sm">
-                  <Icon name="video" className="h-4 w-4" /> Per post
-                </button>
-                <button onClick={() => addRule('views_threshold')} className="btn-secondary !py-2 !px-4 !text-sm">
-                  <Icon name="chart" className="h-4 w-4" /> View milestone
-                </button>
-                <button onClick={() => addRule('bonus')} className="btn-secondary !py-2 !px-4 !text-sm">
-                  <Icon name="star" className="h-4 w-4" /> Bonus
-                </button>
-              </div>
-            </Section>
-
-            {/* ---------------- Challenges ---------------- */}
-            <Section icon="flag" title="Challenges" hint="Everything this market has run.">
-              {d.challenges.length === 0 ? (
-                <p className="rounded-xl bg-cloud px-4 py-6 text-center text-sm text-smoke">No challenges yet.</p>
-              ) : (
-                <div className="space-y-2">
-                  {d.challenges.map((c) => (
-                    <Link key={c.id} to={`/challenges/${c.id}`}
-                      className="flex items-center gap-3 rounded-xl border border-gray-100 px-4 py-3 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card">
-                      <span className="truncate font-medium">{c.title}</span>
-                      <Badge tone={c.scoring === 'points' ? 'light' : 'grey'} className="ml-auto shrink-0">
-                        {c.scoring === 'points' ? 'Points' : 'Prize'}
-                      </Badge>
-                      <Badge tone={c.status === 'active' ? 'green' : 'grey'} className="shrink-0">{c.status}</Badge>
-                    </Link>
-                  ))}
-                </div>
-              )}
             </Section>
 
             {/* ---------------- Rooms ---------------- */}
-            <Section icon="chat" title="Rooms" hint="This market's own channels, alongside the worldwide ones.">
-              <div className="grid gap-2 sm:grid-cols-2">
+            <Section icon="chat" title="Rooms"
+              hint="This market's own channels. General and Announcements are part of every market; the rest are yours to choose.">
+              <div className="space-y-2">
                 {d.channels.map((ch) => (
-                  <div key={ch.id} className="flex items-center gap-2 rounded-xl border border-gray-100 px-4 py-3">
+                  <div key={ch.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-100 px-4 py-3">
                     <Icon name={ch.icon || 'chat'} className="h-4 w-4 shrink-0 text-brand" />
-                    <span className="truncate text-sm font-medium">{ch.label}</span>
-                    {ch.visibility === 'staff' && <Badge tone="grey" className="ml-auto shrink-0">Staff</Badge>}
-                    {ch.post_policy === 'staff' && ch.visibility !== 'staff' && (
-                      <Badge tone="grey" className="ml-auto shrink-0">Read only</Badge>
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">{ch.label}</span>
+                    {ch.key === 'general' && <Badge tone="light">Main room</Badge>}
+                    {ch.visibility === 'staff' && <Badge tone="grey">Staff</Badge>}
+                    <button onClick={() => toggleRoomPolicy(ch)}
+                      className="shrink-0 rounded-full border border-gray-200 px-3 py-1 text-xs font-medium transition-transform duration-200 hover:scale-105 hover:border-brand hover:text-brand">
+                      {ch.post_policy === 'all' ? 'Everyone posts' : 'Team posts only'}
+                    </button>
+                    <button onClick={() => renameRoom(ch)}
+                      className="shrink-0 rounded-full border border-gray-200 px-3 py-1 text-xs font-medium transition-transform duration-200 hover:scale-105 hover:border-brand hover:text-brand">
+                      Rename
+                    </button>
+                    {ch.key !== 'general' && ch.key !== 'announcements' && (
+                      <button onClick={() => removeRoom(ch)} aria-label={`Remove ${ch.label}`}
+                        className="shrink-0 rounded-lg p-1.5 text-smoke transition-colors hover:bg-red-50 hover:text-red-600">
+                        <Icon name="trash" className="h-4 w-4" />
+                      </button>
                     )}
                   </div>
                 ))}
               </div>
+              {roomsToAdd.length > 0 && (
+                <div className="mt-4">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-smoke">Add a room</p>
+                  <div className="flex flex-wrap gap-2">
+                    {roomsToAdd.map((r) => (
+                      <button key={r.key} onClick={() => addRoom(r)} className="btn-secondary !py-2 !px-4 !text-sm">
+                        <Icon name={r.icon} className="h-4 w-4" /> {r.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </Section>
+
+            {/* ---------------- Challenges ---------------- */}
+            <Section icon="flag" title="Challenges" hint="Everything this market has run. Scoring is set on each challenge."
+              action={
+                <Link to={`/admin/challenges/new?market=${chapter.slug}`} className="btn-primary !py-2 !px-5 !text-sm">
+                  + New
+                </Link>
+              }>
+              {d.challenges.length === 0 ? (
+                <p className="rounded-xl bg-cloud px-4 py-6 text-center text-sm text-smoke">No challenges yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {d.challenges.map((c) => {
+                    const mode = scoringMode(c.scoring)
+                    return (
+                      <div key={c.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-gray-100 px-4 py-3">
+                        <Link to={`/challenges/${c.id}`}
+                          className="min-w-0 flex-1 truncate font-medium transition-colors hover:text-brand">
+                          {c.title}
+                        </Link>
+                        <Badge tone="light" className="shrink-0">
+                          <Icon name={mode.icon} className="h-3 w-3" /> {mode.short}
+                        </Badge>
+                        <Badge tone={c.status === 'active' ? 'green' : 'grey'} className="shrink-0">{c.status}</Badge>
+                        <Link to={`/admin/challenges/${c.id}`}
+                          className="shrink-0 rounded-full border border-gray-200 px-3 py-1 text-xs font-medium transition-transform duration-200 hover:scale-105 hover:border-brand hover:text-brand">
+                          Edit
+                        </Link>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </Section>
 
             {/* ---------------- Roster ---------------- */}
@@ -421,7 +555,8 @@ export default function ManageChapter() {
                   .sort((a, b) => (standingsBy.get(b.profile_id) || 0) - (standingsBy.get(a.profile_id) || 0))
                   .map((m) => (
                     <div key={m.profile_id} className="flex flex-wrap items-center gap-3 rounded-xl border border-gray-100 px-4 py-2.5">
-                      <Link to={`/profile/${m.profile_id}`} className="truncate text-sm font-medium hover:text-brand">
+                      <Avatar src={m.profiles.photo_url} name={m.profiles.name} size="xs" />
+                      <Link to={`/profile/${m.profile_id}`} className="min-w-0 truncate text-sm font-medium hover:text-brand">
                         {m.profiles.name}
                       </Link>
                       {m.role === 'manager' && <Badge tone="light">Manager</Badge>}
@@ -437,10 +572,40 @@ export default function ManageChapter() {
                         className="shrink-0 rounded-full border border-gray-200 px-3 py-1 text-xs font-medium transition-transform duration-200 hover:scale-105 hover:border-brand hover:text-brand">
                         {m.role === 'manager' ? 'Demote' : 'Make manager'}
                       </button>
+                      <button onClick={() => removeMember(m)} aria-label={`Remove ${m.profiles.name}`}
+                        className="shrink-0 rounded-lg p-1.5 text-smoke transition-colors hover:bg-red-50 hover:text-red-600">
+                        <Icon name="trash" className="h-4 w-4" />
+                      </button>
                     </div>
                   ))}
               </div>
+
+              {/* Adding by hand. The only route in for an invite-only market,
+                  and the fix for a creator whose profile country is wrong. */}
+              <div className="mt-5 rounded-xl bg-cloud/60 p-4">
+                <p className="mb-2 text-sm font-medium">Add a creator</p>
+                <select className="input" value=""
+                  onChange={(e) => e.target.value && addMember(e.target.value)}>
+                  <option value="">Pick someone…</option>
+                  {(d.everyone || []).filter((p) => !memberIds.has(p.id)).map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}{p.country_code ? ` · ${p.country_code}` : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-2 text-xs text-smoke">
+                  Adding someone here bypasses the join rule. It does not change their home market.
+                </p>
+              </div>
             </Section>
+
+            {isGlobalAdmin && (
+              <Section icon="shield" title="Platform" hint="Global admin only.">
+                <Link to="/global/settings" className="btn-secondary !py-2.5">
+                  <Icon name="globe" className="h-4 w-4" /> Network settings
+                </Link>
+              </Section>
+            )}
           </motion.div>
         )}
       </motion.div>

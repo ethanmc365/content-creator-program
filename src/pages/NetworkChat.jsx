@@ -1,30 +1,41 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { motion } from 'motion/react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
-import { flagFromIso } from '../components/network/MarketSwitcher'
+import { flagFromIso } from '../components/network/PlaceSwitcher'
 import NetworkMotion from '../components/NetworkMotion'
 import Icon from '../components/Icon'
 import { Avatar, EmptyState, Skeleton } from '../components/ui'
+import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
 import { cx, timeAgo } from '../lib/utils'
 import { SOFT_SPRING } from '../lib/motion'
 
-// Per-market chat. Spain's #general, the UK's #general and the Worldwide
-// #general are three separate rooms that happen to share a layout.
+// Per-market chat. Spain's General, the UK's General and the Worldwide General
+// are three separate rooms that happen to share a layout.
 //
 // HOW THEY ARE KEPT APART, AND WHY IT MATTERS
 //
-// The live Chat.jsx that 44 creators use every day selects with
+// The live Chat.jsx that 43 creators use every day selects with
 // `.eq('channel', 'general')` on a TEXT column. If a Spanish message were
-// written with channel='general' it would appear in the UK creators' chat.
-// So every chapter room writes a NAMESPACED key, `<slug>:<key>`, which that
-// query can never match. Rooms cannot merge by construction, not by care.
+// written with channel='general' it would appear in the UK creators' chat. So
+// every chapter room writes a NAMESPACED key, `<slug>:<key>`, which that query
+// can never match. Rooms cannot merge by construction, not by care.
 //
-// Worldwide is the exception and deliberately so: its #general IS the existing
-// conversation (110 of the platform's 127 messages), so it keeps the bare key
+// Worldwide is the exception and deliberately so: its General IS the existing
+// conversation (111 of the platform's 128 messages), so it keeps the bare key
 // and shows the real thread rather than an empty room pretending to be it.
+//
+// MOBILE
+//
+// This page used to be a plain card with `h-[min(70vh,640px)]`, which on a
+// phone means: the room header floats somewhere in the middle of the screen,
+// the software keyboard covers the last few messages, and the tab bar sits on
+// top of the composer. Chat.jsx solved all of that a while ago with a fixed
+// overlay pinned to the visual viewport, and the geometry there is hard-won
+// (see the notes in useKeyboardInset). This uses the same geometry rather than
+// inventing a second answer that will drift from it.
 
 const scopedKey = (community, key) =>
   community?.kind === 'network' ? key : `${community.slug}:${key}`
@@ -41,7 +52,35 @@ export default function NetworkChat() {
   const [loading, setLoading] = useState(true)
   const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)
-  const endRef = useRef(null)
+  const scrollerRef = useRef(null)
+  const inputRef = useRef(null)
+  const atBottomRef = useRef(true)
+
+  const { height: vpHeight, offsetTop: vpOffset, keyboardOpen: kbOpen } = useVisualViewport()
+  const isMobile = useIsMobile()
+
+  // Same geometry as Chat.jsx, for the same reasons. Closed keyboard: leave the
+  // header (4rem) and the tab bar (4.5rem + safe area) alone. Open: take the
+  // whole visible viewport, because the header has scrolled away and the tab bar
+  // has hidden itself. offsetTop is clamped to >= 0 because iOS reports a
+  // negative one during a rubber-band pull, which would ride the overlay up over
+  // the header.
+  const mobileStyle = isMobile
+    ? {
+        top: kbOpen ? 0 : '4rem',
+        height: kbOpen
+          ? `${vpHeight}px`
+          : `calc(${vpHeight}px - 4rem - 4.5rem - env(safe-area-inset-bottom))`,
+        transform: `translateY(${Math.max(0, vpOffset)}px)`,
+        paddingTop: kbOpen ? 'env(safe-area-inset-top)' : undefined,
+      }
+    : undefined
+
+  useEffect(() => {
+    if (!isMobile) return
+    document.documentElement.classList.add('overlay-lock')
+    return () => document.documentElement.classList.remove('overlay-lock')
+  }, [isMobile])
 
   const active = useMemo(
     () => channels.find((c) => c.key === channelKey) || channels[0] || null,
@@ -49,8 +88,8 @@ export default function NetworkChat() {
   )
 
   // The one room that is genuinely live to every creator on the platform.
-  // Posting here during a preview would reach all 44 of them, so the composer
-  // is disabled rather than trusting whoever is testing to notice.
+  // Posting here during a preview would reach all of them, so the composer is
+  // disabled rather than trusting whoever is testing to notice.
   const isLiveWorldwide = community?.kind === 'network'
   const canPost =
     active && !isLiveWorldwide &&
@@ -102,9 +141,41 @@ export default function NetworkChat() {
     return () => supabase.removeChannel(ch)
   }, [community, active])
 
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ block: 'end' })
-  }, [messages.length])
+  // Landing on the newest message, reliably.
+  //
+  // Setting scrollTop directly beats scrollIntoView on a sentinel inside a flex
+  // column, and the re-pins across rAF and timers exist because a room's images
+  // and link previews land after the first paint and each one changes the
+  // scroll height. The capture-phase listener catches every descendant image,
+  // including ones inserted seconds later.
+  const pin = useCallback(() => {
+    const el = scrollerRef.current
+    if (el && atBottomRef.current) el.scrollTop = el.scrollHeight
+  }, [])
+
+  useLayoutEffect(() => {
+    atBottomRef.current = true
+    pin()
+    const raf = requestAnimationFrame(pin)
+    const timers = [60, 200, 500, 1200].map((t) => setTimeout(pin, t))
+    const el = scrollerRef.current
+    el?.addEventListener('load', pin, true)
+    return () => {
+      cancelAnimationFrame(raf)
+      timers.forEach(clearTimeout)
+      el?.removeEventListener('load', pin, true)
+    }
+  }, [loading, active?.key, community?.id, pin])
+
+  useEffect(() => { pin() }, [messages.length, pin])
+  // Reflow when the keyboard opens: the scroller just got shorter, so the
+  // message the user was reading has to stay at the bottom.
+  useEffect(() => { pin() }, [kbOpen, vpHeight, pin])
+
+  function onScroll(e) {
+    const el = e.currentTarget
+    atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+  }
 
   async function send(e) {
     e?.preventDefault?.()
@@ -112,6 +183,7 @@ export default function NetworkChat() {
     if (!text || !canPost || sending) return
     setSending(true)
     setBody('')
+    atBottomRef.current = true
     const { data, error } = await supabase.from('messages').insert({
       channel: scopedKey(community, active.key),
       channel_id: active.id,
@@ -139,52 +211,162 @@ export default function NetworkChat() {
   const base = slug ? `/c/${slug}/chat` : '/global/chat'
   const flags = (community.country_codes || []).map(flagFromIso).join('')
 
+  // --------------------------------------------------------------- the room
+  const room = (
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white lg:rounded-card lg:border lg:border-gray-100 lg:shadow-card">
+      {/* Room tabs. On mobile these ARE the navigation: the sidebar is a
+          desktop-only shape and a stack of full-width room buttons above a
+          conversation pushes the conversation off the screen. */}
+      <div
+        className="flex shrink-0 items-stretch gap-1 overflow-x-auto border-b border-gray-100 px-2 pt-2 [scrollbar-width:none] lg:hidden [&::-webkit-scrollbar]:hidden"
+        role="tablist"
+        aria-label={`${community.name} rooms`}
+      >
+        {channels.map((c) => (
+          <button
+            key={c.id}
+            role="tab"
+            aria-selected={active?.key === c.key}
+            onClick={() => navigate(`${base}/${c.key}`)}
+            className={cx(
+              'flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-xl px-3.5 py-2 text-sm font-semibold transition-colors',
+              active?.key === c.key ? 'bg-brand-tint text-brand' : 'text-smoke hover:bg-cloud hover:text-ink',
+            )}
+          >
+            <Icon name={c.icon || 'chat'} className="h-4 w-4 shrink-0" />
+            {c.label}
+          </button>
+        ))}
+      </div>
+
+      {/* The hint bar doubles as the room's identity on mobile, where the page
+          heading is scrolled away. */}
+      {active && (
+        <div className={cx(
+          'shrink-0 px-4 py-1.5 text-[11px] sm:px-5 sm:py-2.5 sm:text-xs',
+          active.key === 'announcements' ? 'bg-brand-tint font-medium text-brand' : 'bg-cloud/60 text-smoke',
+        )}>
+          <span className="font-semibold">{active.label}</span>
+          {active.hint && <span className="hidden sm:inline"> · {active.hint}</span>}
+        </div>
+      )}
+
+      <div ref={scrollerRef} onScroll={onScroll} className="flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
+        {loading ? (
+          <><Skeleton className="h-12" /><Skeleton className="h-12" /><Skeleton className="h-12" /></>
+        ) : messages.length === 0 ? (
+          <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
+            <Icon name="chat" className="h-8 w-8 text-gray-200" />
+            <p className="text-sm font-medium">Nothing here yet</p>
+            <p className="max-w-xs text-xs text-smoke">
+              This room is brand new. It is separate from every other market, so it starts empty.
+            </p>
+          </div>
+        ) : (
+          messages.map((m, i) => {
+            const prev = messages[i - 1]
+            const grouped = prev && prev.sender_id === m.sender_id
+            return (
+              <motion.div
+                key={m.id}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={SOFT_SPRING}
+                className={cx('flex gap-3', grouped && '!mt-1')}
+              >
+                <div className="w-9 shrink-0">
+                  {!grouped && <Avatar src={m.profiles?.photo_url} name={m.profiles?.name} size="sm" />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  {!grouped && (
+                    <p className="mb-0.5 flex flex-wrap items-baseline gap-x-2">
+                      <span className="text-sm font-semibold">{m.profiles?.name || 'Someone'}</span>
+                      {m.profiles?.is_admin && (
+                        <span className="rounded-full bg-brand-tint px-1.5 py-0.5 text-[10px] font-semibold text-brand">Team</span>
+                      )}
+                      <span className="text-[11px] text-smoke">{timeAgo(m.created_at)}</span>
+                    </p>
+                  )}
+                  <p className="whitespace-pre-wrap break-words text-sm text-ink">{m.body}</p>
+                </div>
+              </motion.div>
+            )
+          })
+        )}
+      </div>
+
+      <div className="shrink-0 border-t border-gray-100 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:pb-3">
+        {isLiveWorldwide ? (
+          <p className="rounded-xl bg-cloud px-4 py-3 text-center text-xs text-smoke">
+            Worldwide is the room every creator is already in. It is read only here so a test message
+            cannot reach all of them by accident. Post in a market room to try this out.
+          </p>
+        ) : !canPost ? (
+          <p className="rounded-xl bg-cloud px-4 py-3 text-center text-xs text-smoke">
+            Only the team posts in {active?.label}.
+          </p>
+        ) : (
+          <form onSubmit={send} className="flex items-center gap-2">
+            {/* text-base on mobile, deliberately: anything smaller makes iOS
+                zoom the page on focus and the overlay geometry never recovers. */}
+            <input
+              ref={inputRef}
+              className="input text-base sm:text-sm"
+              placeholder={`Message ${active?.label}`}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              aria-label={`Message ${active?.label}`}
+            />
+            <button type="submit" disabled={!body.trim() || sending} className="btn-primary shrink-0 !px-5 !py-2.5">
+              {sending ? '…' : 'Send'}
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
+  )
+
   return (
     <NetworkMotion>
-      <div className="mx-auto w-full max-w-6xl px-4 pb-28 pt-6 lg:pb-24 lg:pt-8">
-        <div className="mb-5">
-          <Link
-            to={slug ? `/c/${slug}` : '/global'}
-            className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-smoke transition-colors hover:text-brand"
-          >
-            <Icon name="chevronLeft" className="h-4 w-4" />
-            {community.name}
-          </Link>
-          <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight sm:text-3xl">
-            {flags && <span aria-hidden>{flags}</span>}
-            {community.name}
-          </h1>
-          <p className="mt-1 text-sm text-smoke">
-            {isLiveWorldwide
-              ? 'The rooms every creator in every market shares.'
-              : `Only ${community.name}. Nothing posted here reaches another market.`}
-          </p>
-        </div>
+      {/* Desktop heading. Hidden on mobile because the overlay covers the area
+          it would occupy, and a heading nobody can see still costs layout. */}
+      <div className="mx-auto hidden w-full max-w-7xl px-4 pt-8 sm:px-6 lg:block lg:px-8">
+        <Link
+          to={slug ? `/c/${slug}` : '/global'}
+          className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-smoke transition-colors hover:text-brand"
+        >
+          <Icon name="chevronLeft" className="h-4 w-4" />
+          {community.name}
+        </Link>
+        <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight sm:text-3xl">
+          {flags && <span aria-hidden>{flags}</span>}
+          {community.name}
+        </h1>
+        <p className="mt-1 text-sm text-smoke">
+          {isLiveWorldwide
+            ? 'The rooms every creator in every market shares.'
+            : `Only ${community.name}. Nothing posted here reaches another market.`}
+        </p>
+      </div>
 
-        {/* Rooms belonging to THIS community only. There is deliberately no
-            market switcher on this page: a strip of other markets above a
-            conversation makes the room feel like a tab in a directory rather
-            than somewhere you are. Leaving is the back link, one target. */}
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
-          <nav aria-label="Rooms" className="lg:w-56 lg:shrink-0">
-            <div className="-mx-4 overflow-x-auto px-4 lg:hidden">
-              <div className="flex gap-2 pb-1">
-                {channels.map((c) => (
-                  <button key={c.id} onClick={() => navigate(`${base}/${c.key}`)}
-                    className={cx(
-                      'flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-medium transition-all duration-200 hover:-translate-y-0.5',
-                      active?.key === c.key
-                        ? 'border-brand bg-brand-tint text-brand'
-                        : 'border-gray-200 bg-white text-smoke hover:text-ink',
-                    )}>
-                    <Icon name={c.icon || 'chat'} className="h-4 w-4" />
-                    {c.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="hidden rounded-card border border-gray-100 bg-white p-2 shadow-card lg:sticky lg:top-24 lg:flex lg:flex-col lg:gap-0.5">
+      <div
+        style={mobileStyle}
+        className={cx(
+          // Mobile: a fixed overlay pinned to the visual viewport so the
+          // document never scrolls and the composer hugs the keyboard. Desktop
+          // keeps the normal centred card.
+          'fixed inset-x-0 flex w-full flex-col',
+          kbOpen ? 'z-50' : 'z-20',
+          'lg:static lg:inset-auto lg:z-auto lg:mx-auto lg:h-[calc(100vh-11rem)] lg:max-w-7xl lg:translate-y-0 lg:px-8 lg:pb-8 lg:pt-4',
+        )}
+      >
+        <div className="flex min-h-0 flex-1 flex-col lg:flex-row lg:items-stretch lg:gap-6">
+          {/* Rooms sidebar, desktop only. There is deliberately no market
+              switcher on this page: a strip of other markets above a
+              conversation makes the room feel like a tab in a directory rather
+              than somewhere you are. Leaving is the back link, one target. */}
+          <nav aria-label="Rooms" className="hidden lg:block lg:w-56 lg:shrink-0">
+            <div className="flex flex-col gap-0.5 rounded-card border border-gray-100 bg-white p-2 shadow-card">
               {channels.map((c) => (
                 <button key={c.id} onClick={() => navigate(`${base}/${c.key}`)}
                   className={cx(
@@ -194,6 +376,9 @@ export default function NetworkChat() {
                   <Icon name={c.icon || 'chat'}
                     className={cx('h-4 w-4 shrink-0', active?.key === c.key ? 'text-brand' : 'text-smoke')} />
                   <span className="min-w-0 flex-1 truncate text-sm font-medium">{c.label}</span>
+                  {c.key === 'general' && (
+                    <span className="shrink-0 rounded-full bg-brand/10 px-1.5 py-0.5 text-[10px] font-semibold text-brand">Main</span>
+                  )}
                   {c.visibility === 'staff' && (
                     <span className="shrink-0 rounded-full bg-cloud px-1.5 py-0.5 text-[10px] font-medium text-smoke">Staff</span>
                   )}
@@ -202,95 +387,7 @@ export default function NetworkChat() {
             </div>
           </nav>
 
-          <div className="flex h-[min(70vh,640px)] min-w-0 flex-1 flex-col overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
-          {active && (
-            <div className="shrink-0 border-b border-gray-100 px-5 py-3">
-              <p className="flex items-center gap-2 text-sm font-semibold">
-                <Icon name={active.icon || 'chat'} className="h-4 w-4 text-brand" />
-                {active.label}
-              </p>
-              {active.hint && <p className="mt-0.5 text-xs text-smoke">{active.hint}</p>}
-            </div>
-          )}
-
-          <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
-            {loading ? (
-              <><Skeleton className="h-12" /><Skeleton className="h-12" /><Skeleton className="h-12" /></>
-            ) : messages.length === 0 ? (
-              <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-                <Icon name="chat" className="h-8 w-8 text-gray-200" />
-                <p className="text-sm font-medium">Nothing here yet</p>
-                <p className="max-w-xs text-xs text-smoke">
-                  This room is brand new. It is separate from every other market, so it starts empty.
-                </p>
-              </div>
-            ) : (
-              messages.map((m, i) => {
-                const mine = m.sender_id === user?.id
-                const prev = messages[i - 1]
-                const grouped = prev && prev.sender_id === m.sender_id
-                return (
-                  <motion.div
-                    key={m.id}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={SOFT_SPRING}
-                    className={cx('flex gap-3', grouped && 'mt-1')}
-                  >
-                    <div className="w-9 shrink-0">
-                      {!grouped && <Avatar src={m.profiles?.photo_url} name={m.profiles?.name} size="sm" />}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      {!grouped && (
-                        <p className="mb-0.5 flex items-baseline gap-2">
-                          <span className="text-sm font-semibold">{m.profiles?.name || 'Someone'}</span>
-                          {m.profiles?.is_admin && (
-                            <span className="rounded-full bg-brand-tint px-1.5 py-0.5 text-[10px] font-semibold text-brand">Team</span>
-                          )}
-                          <span className="text-[11px] text-smoke">{timeAgo(m.created_at)}</span>
-                        </p>
-                      )}
-                      <p className={cx('whitespace-pre-wrap break-words text-sm', mine ? 'text-ink' : 'text-ink')}>
-                        {m.body}
-                      </p>
-                    </div>
-                  </motion.div>
-                )
-              })
-            )}
-            <div ref={endRef} />
-          </div>
-
-          <div className="shrink-0 border-t border-gray-100 p-3">
-            {isLiveWorldwide ? (
-              <p className="rounded-xl bg-cloud px-4 py-3 text-center text-xs text-smoke">
-                Worldwide is the room every creator is already in. It is read only here so a test message cannot reach all {' '}
-                <span className="font-semibold">44 of them</span> by accident. Post in a market room to try this out.
-              </p>
-            ) : !canPost ? (
-              <p className="rounded-xl bg-cloud px-4 py-3 text-center text-xs text-smoke">
-                Only the team posts in {active?.label}.
-              </p>
-            ) : (
-              <form onSubmit={send} className="flex items-center gap-2">
-                <input
-                  className="input"
-                  placeholder={`Message ${active?.label}`}
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                  aria-label={`Message ${active?.label}`}
-                />
-                <button
-                  type="submit"
-                  disabled={!body.trim() || sending}
-                  className="btn-primary shrink-0 !px-5 !py-2.5"
-                >
-                  {sending ? '…' : 'Send'}
-                </button>
-              </form>
-            )}
-          </div>
-          </div>
+          {room}
         </div>
       </div>
     </NetworkMotion>

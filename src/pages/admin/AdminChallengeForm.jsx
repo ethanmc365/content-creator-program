@@ -1,12 +1,17 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
+import Icon from '../../components/Icon'
+import PointRulesEditor from '../../components/network/PointRulesEditor'
+import { flagFromIso } from '../../components/network/PlaceSwitcher'
 import { PageHeader, Skeleton, Spinner } from '../../components/ui'
+import { SCORING_MODES, scoringMode, DEFAULT_SCORING, STARTER_POINT_RULES } from '../../lib/scoring'
 import { cx, parseDateTime, isoToDateInput, isoToTimeInput } from '../../lib/utils'
 
-// Create / edit a challenge. Everything is customisable: length, brief,
-// rules, platforms and the full prize breakdown.
+// Create / edit a challenge. Everything is customisable: which market it runs
+// in, how it is won, length, brief, rules, platforms and the full prize
+// breakdown.
 const ALL_PLATFORMS = ['Instagram', 'TikTok', 'YouTube']
 
 const DEFAULT_PRIZES = [
@@ -20,11 +25,17 @@ export default function AdminChallengeForm() {
   const { id } = useParams() // present when editing
   const { user } = useAuth()
   const navigate = useNavigate()
+  const [params] = useSearchParams()
   const editing = !!id
 
   const [loading, setLoading] = useState(editing)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  // Markets this admin may create a challenge in. A challenge with no market is
+  // the old, unscoped shape: readable by everyone, which is exactly how a
+  // Spanish brief ended up on a UK creator's board.
+  const [markets, setMarkets] = useState([])
+  const [rules, setRules] = useState([])
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -50,11 +61,39 @@ export default function AdminChallengeForm() {
     content_type: 'free',
     objective: 'views',
     cpm_target: '0.50',
-    scoring: 'prize',
+    community_id: '',
+    scoring: DEFAULT_SCORING,
     threshold_mode: 'highest',
   })
 
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
+
+  // The market list, and the ?market=<slug> prefill that the "New challenge"
+  // buttons on a market's own pages send. Creating a challenge from inside a
+  // market and then having to pick that market again is the kind of small
+  // stupidity that gets a challenge filed in the wrong place.
+  useEffect(() => {
+    let alive = true
+    supabase.from('communities')
+      .select('id, slug, name, kind, country_codes, currency, is_active')
+      .eq('kind', 'chapter').order('name')
+      .then(({ data }) => {
+        if (!alive) return
+        setMarkets(data || [])
+        const wanted = params.get('market')
+        if (!editing && wanted) {
+          const m = (data || []).find((c) => c.slug === wanted)
+          if (m) setForm((f) => ({ ...f, community_id: m.id, prize_currency: m.currency || f.prize_currency }))
+        }
+      })
+    return () => { alive = false }
+  }, [editing, params])
+
+  useEffect(() => {
+    if (!editing) return
+    supabase.from('point_rules').select('*').eq('challenge_id', id).order('position')
+      .then(({ data }) => setRules(data || []))
+  }, [editing, id])
 
   useEffect(() => {
     if (!editing) return
@@ -77,6 +116,9 @@ export default function AdminChallengeForm() {
           prize_type: data.prize_type ?? 'cash',
           content_type: data.content_type ?? 'free',
           objective: data.objective ?? 'views',
+          community_id: data.community_id ?? '',
+          // Legacy rows keep 'prize'. Not remapped: it is what the challenge
+          // was actually run under.
           scoring: data.scoring ?? 'prize',
           threshold_mode: data.threshold_mode ?? 'highest',
           cpm_target: data.cpm_target ?? '0.50',
@@ -112,6 +154,12 @@ export default function AdminChallengeForm() {
       return setError('The end date must be after the start date.')
     }
     if (form.platforms.length === 0) return setError('Pick at least one platform.')
+    if (!form.community_id) {
+      return setError('Pick the market this challenge runs in. A challenge with no market is visible to every creator on the platform.')
+    }
+    if (form.scoring === 'points' && rules.length === 0) {
+      return setError('A points challenge needs at least one scoring rule, or nobody can score.')
+    }
 
     setBusy(true)
     const payload = {
@@ -145,17 +193,53 @@ export default function AdminChallengeForm() {
       prize_type: form.prize_type || null,
       content_type: form.content_type || null,
       objective: form.objective || null,
-      scoring: form.scoring || 'prize',
+      community_id: form.community_id,
+      scoring: form.scoring || DEFAULT_SCORING,
       threshold_mode: form.threshold_mode || 'highest',
       cpm_target: form.cpm_target === '' ? null : Number(form.cpm_target),
     }
 
-    const { error: dbError } = editing
-      ? await supabase.from('challenges').update(payload).eq('id', id)
-      : await supabase.from('challenges').insert({ ...payload, created_by: user.id })
+    const { data: saved, error: dbError } = editing
+      ? await supabase.from('challenges').update(payload).eq('id', id).select('id').single()
+      : await supabase.from('challenges').insert({ ...payload, created_by: user.id }).select('id').single()
+
+    if (dbError) { setBusy(false); return setError(dbError.message) }
+
+    // Scoring rules, written after the challenge exists because they point at
+    // it. Replace-all rather than diffed: a market has a handful of rules, and
+    // replacing removes the whole class of bug where a deleted row survives
+    // because the diff missed it. A non-points challenge has none, so switching
+    // a challenge away from points clears them rather than leaving a ledger
+    // nothing reads.
+    const challengeId = saved?.id ?? id
+    if (challengeId) {
+      const { error: delErr } = await supabase.from('point_rules').delete().eq('challenge_id', challengeId)
+      if (delErr) { setBusy(false); return setError(delErr.message) }
+      if (form.scoring === 'points' && rules.length) {
+        const { error: ruleErr } = await supabase.from('point_rules').insert(
+          rules.map((r, i) => ({
+            community_id: form.community_id,
+            challenge_id: challengeId,
+            kind: r.kind,
+            label: r.label,
+            points: r.points,
+            threshold: r.kind === 'views_threshold' ? r.threshold : null,
+            max_points: r.kind === 'per_post' ? r.max_points : null,
+            position: i,
+            is_active: true,
+          })),
+        )
+        if (ruleErr) { setBusy(false); return setError(ruleErr.message) }
+      }
+      // Rebuild the ledger from the rules that now exist. Without this an edit
+      // to the rules leaves yesterday's points standing until the next
+      // submission happens to fire the trigger.
+      if (form.scoring === 'points') {
+        await supabase.rpc('recalc_challenge_points', { p_challenge: challengeId })
+      }
+    }
 
     setBusy(false)
-    if (dbError) return setError(dbError.message)
     navigate('/admin/challenges')
   }
 
@@ -171,6 +255,127 @@ export default function AdminChallengeForm() {
       />
 
       <form onSubmit={save} className="space-y-10">
+        {/* ---------------- Where it runs ---------------- */}
+        {/* First, deliberately. Everything below reads differently depending on
+            the answer (currency, who gets notified, whose board it lands on),
+            and a challenge saved without one is readable by every creator on
+            the platform. */}
+        <section className="card space-y-5">
+          <div>
+            <h2 className="text-lg font-semibold">Which market</h2>
+            <p className="mt-1 text-sm text-smoke">
+              Only this market&rsquo;s creators see it, get notified about it, and can enter it.
+            </p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {markets.map((m) => (
+              <button
+                key={m.id} type="button"
+                onClick={() => set({ community_id: m.id, prize_currency: m.currency || form.prize_currency,
+                  market: (m.country_codes || [])[0] || form.market })}
+                aria-pressed={form.community_id === m.id}
+                className={cx(
+                  'flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all duration-200 hover:-translate-y-0.5',
+                  form.community_id === m.id
+                    ? 'border-brand bg-brand-tint/40'
+                    : 'border-gray-200 bg-white hover:border-brand/40',
+                )}
+              >
+                <span className="shrink-0 text-lg leading-none" aria-hidden>
+                  {(m.country_codes || []).map(flagFromIso).join('') || '🌍'}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold">{m.name}</span>
+                  <span className="block text-xs text-smoke">
+                    {m.currency}{!m.is_active && ' · not open yet'}
+                  </span>
+                </span>
+                {form.community_id === m.id && <Icon name="check" className="h-4 w-4 shrink-0 text-brand" />}
+              </button>
+            ))}
+          </div>
+          {markets.length === 0 && (
+            <p className="rounded-xl bg-cloud px-4 py-6 text-center text-sm text-smoke">
+              No markets exist yet. Open one from the network settings first.
+            </p>
+          )}
+        </section>
+
+        {/* ---------------- How it is won ---------------- */}
+        <section className="card space-y-5">
+          <div>
+            <h2 className="text-lg font-semibold">How it is won</h2>
+            <p className="mt-1 text-sm text-smoke">
+              Set per challenge, not per market. The same market can run a points month and a best-video month.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            {SCORING_MODES.map((m) => (
+              <button
+                key={m.value} type="button" onClick={() => {
+                  set({ scoring: m.value })
+                  // Seed the standard rules the first time points is chosen, so
+                  // the common case is one click rather than four.
+                  if (m.value === 'points' && rules.length === 0) {
+                    setRules(STARTER_POINT_RULES.map((r, i) => ({ ...r, id: `seed-${i}` })))
+                  }
+                }}
+                aria-pressed={form.scoring === m.value}
+                className={cx(
+                  'flex flex-col rounded-xl border p-4 text-left transition-all duration-200 hover:-translate-y-0.5',
+                  form.scoring === m.value
+                    ? 'border-brand bg-brand-tint/40 shadow-card'
+                    : 'border-gray-200 bg-white hover:border-brand/40',
+                )}
+              >
+                <span className="flex items-center gap-2">
+                  <Icon name={m.icon} className={cx('h-5 w-5 shrink-0', form.scoring === m.value ? 'text-brand' : 'text-smoke')} />
+                  <span className="text-sm font-semibold">{m.label}</span>
+                </span>
+                <span className="mt-2 text-xs leading-relaxed text-smoke">{m.blurb}</span>
+                <span className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-brand">{m.winner}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* A challenge already run under the old prize format keeps it. The
+              option is not offered for a new one, but hiding it while editing
+              would make the form silently propose changing the rules of a
+              finished contest. */}
+          {form.scoring === 'prize' && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-sm font-semibold text-amber-800">This challenge uses the original prize format</p>
+              <p className="mt-1 text-xs text-amber-700">
+                Judged by the team, ranked on final views. Picking one of the three above changes how this
+                challenge is decided, so only do it if that is what you mean.
+              </p>
+            </div>
+          )}
+
+          {form.scoring === 'points' && (
+            <div className="rounded-xl border border-brand/20 bg-brand-tint/20 p-4">
+              <p className="label">Scoring rules for this challenge</p>
+              <p className="mb-4 text-xs text-smoke">
+                Creators see these on the brief. Editing them after the challenge is live rescores it.
+              </p>
+              <PointRulesEditor
+                rules={rules}
+                onChange={setRules}
+                thresholdMode={form.threshold_mode}
+                onThresholdMode={(v) => set({ threshold_mode: v })}
+              />
+            </div>
+          )}
+
+          {(form.scoring === 'best_video' || form.scoring === 'total_views') && (
+            <p className="rounded-xl bg-cloud/60 px-4 py-3 text-sm text-smoke">
+              {scoringMode(form.scoring).winner} Views come from the logged view count on each entry,
+              so keep those up to date as the challenge runs.
+            </p>
+          )}
+        </section>
+
         <section className="card space-y-6">
           <h2 className="text-lg font-semibold">The basics</h2>
           <div>
@@ -394,34 +599,8 @@ export default function AdminChallengeForm() {
                 <option value="other">Other</option>
               </select>
             </div>
-            <div>
-              {/* How the challenge is WON, which is a different question from
-                  what it optimises for. A prize challenge is judged on final
-                  views; a points challenge accumulates against the market's
-                  rules and shows a live leaderboard instead. */}
-              <label htmlFor="scoring" className="label">How it is scored</label>
-              <select id="scoring" className="input" value={form.scoring} onChange={(e) => set({ scoring: e.target.value })}>
-                <option value="prize">Cash prizes, ranked on views</option>
-                <option value="points">Points leaderboard</option>
-              </select>
-              <p className="mt-1 text-xs text-smoke">
-                {form.scoring === 'points'
-                  ? "Uses this market's scoring rules. Edit them in the market settings."
-                  : 'Winners are ranked on final logged views and paid from the pot.'}
-              </p>
-            </div>
-            {form.scoring === 'points' && (
-              <div>
-                <label htmlFor="threshold_mode" className="label">View milestones</label>
-                <select id="threshold_mode" className="input" value={form.threshold_mode} onChange={(e) => set({ threshold_mode: e.target.value })}>
-                  <option value="highest">Highest milestone only</option>
-                  <option value="cumulative">Every milestone passed</option>
-                </select>
-                <p className="mt-1 text-xs text-smoke">
-                  A video past 50k scores {form.threshold_mode === 'highest' ? 'just the 50k tier' : 'the 5k, 10k and 50k tiers together'}.
-                </p>
-              </div>
-            )}
+            {/* How the challenge is won lives in its own section above. It is a
+                product decision creators see, not a reporting field. */}
             <div>
               <label htmlFor="objective" className="label">Objective</label>
               <select id="objective" className="input" value={form.objective} onChange={(e) => set({ objective: e.target.value })}>

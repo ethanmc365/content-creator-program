@@ -33,9 +33,14 @@ export default function AppLayout() {
   const { pathname } = useLocation()
   // The pill is fixed to the viewport bottom, which is exactly where a chat
   // composer sits. Padding cannot solve that (the pill is not in the flow), so
-  // on the network pages it docks under the header instead. Those pages open
-  // with a back link and a heading, not with content that reaches the top edge.
+  // on the network pages it docks out of the way on the right instead. Docking
+  // it under the header was the previous answer and it landed straight on top
+  // of the place switcher.
   const onNetworkPage = /^\/(global|c|manage)(\/|$)/.test(pathname)
+  // A network room is a full-screen overlay on mobile with its own composer.
+  // Nothing may float over it: the pill would sit exactly where the send button
+  // is. The room's own back link is the way out.
+  const onNetworkChat = onNetworkPage && /\/chat(\/|$)/.test(pathname)
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const [dmUnread, setDmUnread] = useState(0)
@@ -207,10 +212,12 @@ export default function AppLayout() {
           testing the network build should always have one obvious way out, in
           the same place, whichever preview they are in. Sits slightly higher so
           the two never overlap if both are somehow on. */}
-      {networkPreview && !impersonating && (
+      {networkPreview && !impersonating && !onNetworkChat && (
         <div className={cx(
-          'fixed inset-x-0 z-50 flex justify-center px-4',
-          onNetworkPage ? 'top-20 lg:top-24' : 'bottom-24 lg:bottom-6',
+          'fixed z-50 flex px-4',
+          onNetworkPage
+            ? 'bottom-24 right-0 justify-end lg:bottom-6'
+            : 'inset-x-0 bottom-24 justify-center lg:bottom-6',
         )}>
           <div className="flex items-center gap-3 rounded-2xl border border-brand/30 bg-white px-4 py-2 shadow-lift">
             <span className="flex items-center gap-2 text-xs font-medium text-ink">
