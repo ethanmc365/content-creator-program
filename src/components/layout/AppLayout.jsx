@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useCommunity } from '../../context/CommunityContext'
 import { supabase } from '../../lib/supabase'
@@ -30,6 +30,12 @@ const TABS = [
 export default function AppLayout() {
   const { profile, isAdmin, impersonating, exitCreatorPreview, user, signOut } = useAuth()
   const { preview: networkPreview, exitPreview } = useCommunity()
+  const { pathname } = useLocation()
+  // The pill is fixed to the viewport bottom, which is exactly where a chat
+  // composer sits. Padding cannot solve that (the pill is not in the flow), so
+  // on the network pages it docks under the header instead. Those pages open
+  // with a back link and a heading, not with content that reaches the top edge.
+  const onNetworkPage = /^\/(global|c|manage)(\/|$)/.test(pathname)
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const [dmUnread, setDmUnread] = useState(0)
@@ -202,7 +208,10 @@ export default function AppLayout() {
           the same place, whichever preview they are in. Sits slightly higher so
           the two never overlap if both are somehow on. */}
       {networkPreview && !impersonating && (
-        <div className="fixed inset-x-0 bottom-24 z-50 flex justify-center px-4 lg:bottom-6">
+        <div className={cx(
+          'fixed inset-x-0 z-50 flex justify-center px-4',
+          onNetworkPage ? 'top-20 lg:top-24' : 'bottom-24 lg:bottom-6',
+        )}>
           <div className="flex items-center gap-3 rounded-2xl border border-brand/30 bg-white px-4 py-2 shadow-lift">
             <span className="flex items-center gap-2 text-xs font-medium text-ink">
               <Icon name="globe" className="h-4 w-4 text-brand" />

@@ -19,9 +19,9 @@ import { listContainer, listItem, cardHover, pageFade, SOFT_SPRING } from '../li
 // The Worldwide hub. Reads as a HOME PAGE, not a directory of markets: a
 // greeting, then what is happening, then where everyone is.
 //
-// The market cards deliberately do NOT lead. Someone opening this wants to know
-// what is going on, and only occasionally wants to change market, which is what
-// the rail on the right is for.
+// Everything here is NETWORK level. Market content (challenges, briefs, rooms,
+// standings) lives on the market's own page. Mixing the two is what made
+// Worldwide and Spain feel like the same place.
 
 const MotionLink = motion.create(Link)
 
@@ -39,7 +39,14 @@ function SectionHead({ icon, title, hint, to, toLabel }) {
   )
 }
 
-function MarketCard({ chapter, mine, memberCount, liveChallenge }) {
+// A market as a DOOR, not a summary.
+//
+// This card used to print the market's live challenge title, which is what made
+// Worldwide and Spain feel intertwined: you would be reading the network hub
+// and half of what you saw belonged to one market. A challenge belongs on its
+// market's page. What survives here is only what helps you decide where to go:
+// the name, its size, and whether anything is running at all.
+function MarketCard({ chapter, mine, memberCount, hasLive }) {
   const flags = (chapter.country_codes || []).map(flagFromIso).join(' ')
   return (
     <MotionLink
@@ -47,31 +54,33 @@ function MarketCard({ chapter, mine, memberCount, liveChallenge }) {
       variants={listItem}
       {...cardHover}
       className={cx(
-        'card flex flex-col gap-3 !p-5 hover:shadow-lift',
-        mine && 'border-brand/30 bg-brand-tint/20',
+        'flex items-center gap-3 rounded-card border bg-white px-5 py-4 hover:shadow-lift',
+        mine ? 'border-brand/30 bg-brand-tint/20' : 'border-gray-100',
       )}
     >
-      <div className="flex items-center gap-2">
-        {flags && <span className="text-lg leading-none" aria-hidden>{flags}</span>}
-        <h3 className="min-w-0 truncate font-semibold">{chapter.name}</h3>
-        {mine && <span className="ml-auto shrink-0 rounded-full bg-brand px-2 py-0.5 text-[10px] font-semibold text-white">Yours</span>}
-      </div>
-
-      {liveChallenge ? (
-        <div className="flex items-center gap-2 rounded-xl bg-brand-tint px-3 py-2">
-          <span className="relative flex h-2 w-2 shrink-0">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/60" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-brand" />
-          </span>
-          <span className="truncate text-xs font-semibold text-brand">{liveChallenge.title}</span>
-        </div>
-      ) : (
-        <div className="rounded-xl bg-cloud px-3 py-2 text-xs font-medium text-smoke">No live challenge</div>
-      )}
-
-      <p className="text-xs text-smoke">
-        {memberCount == null ? '—' : memberCount} {memberCount === 1 ? 'creator' : 'creators'}
-      </p>
+      {flags && <span className="shrink-0 whitespace-nowrap text-lg leading-none" aria-hidden>{flags}</span>}
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-2">
+          <span className="truncate font-semibold">{chapter.name}</span>
+          {mine && <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-[10px] font-semibold text-white">Yours</span>}
+        </span>
+        <span className="mt-0.5 flex items-center gap-2 text-xs text-smoke">
+          {memberCount == null ? '—' : memberCount} {memberCount === 1 ? 'creator' : 'creators'}
+          {hasLive && (
+            <>
+              <span aria-hidden>•</span>
+              <span className="flex items-center gap-1.5 font-medium text-brand">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/60" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand" />
+                </span>
+                Challenge running
+              </span>
+            </>
+          )}
+        </span>
+      </span>
+      <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
     </MotionLink>
   )
 }
@@ -88,6 +97,7 @@ export default function GlobalHome() {
       const [
         { data: mems }, { count: creators }, { data: challenges },
         { data: ann }, { data: trips }, { data: fresh }, { data: visited }, { data: countries },
+        { data: netStandings },
       ] = await Promise.all([
         supabase.from('community_members')
           .select('community_id, profiles!inner(is_admin, is_test, status)')
@@ -110,6 +120,9 @@ export default function GlobalHome() {
           .is('deletion_requested_at', null).order('created_at', { ascending: false }).limit(4),
         supabase.from('profiles').select('countries_visited'),
         supabase.from('profiles').select('country_code').eq('status', 'active').not('country_code', 'is', null),
+        supabase.from('network_standings')
+          .select('creator_id, points, markets, profiles!inner(id, name, photo_url, is_test)')
+          .order('points', { ascending: false }).limit(10),
       ])
       if (cancelled) return
       const tally = {}
@@ -120,6 +133,7 @@ export default function GlobalHome() {
         counts: tally, creators, live, ann, trips: trips || [], fresh: fresh || [],
         visited: [...new Set((visited || []).flatMap((p) => p.countries_visited || []))],
         nations: new Set((countries || []).map((p) => p.country_code)).size,
+        network: (netStandings || []).filter((s) => !s.profiles.is_test),
       })
     }
     load()
@@ -191,17 +205,47 @@ export default function GlobalHome() {
           {/* ---------- Markets ---------- */}
           <section>
             <SectionHead icon="flag" title="Markets"
-              hint="Each one runs its own challenges and briefs. Everything social stays worldwide." />
-            <motion.div variants={listContainer} initial="hidden" animate="show"
-              className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              hint="Challenges, briefs and rooms live inside a market. Open one to see what is happening there." />
+            <motion.div variants={listContainer} initial="hidden" animate="show" className="grid gap-3 sm:grid-cols-2">
               {openMarkets.map((c) => (
                 <MarketCard key={c.id} chapter={c}
                   mine={myCommunities.some((m) => m.id === c.id)}
                   memberCount={d ? (d.counts[c.id] ?? 0) : null}
-                  liveChallenge={d?.live?.[c.id]} />
+                  hasLive={!!d?.live?.[c.id]} />
               ))}
             </motion.div>
           </section>
+
+          {/* ---------- Network standings ---------- */}
+          {/* Points are earned inside a market but they add up across the whole
+              network, so this is the one leaderboard that belongs at network
+              level rather than in a market. A creator who moves from Spain to
+              the UK keeps their standing here. */}
+          {d?.network?.length > 0 && (
+            <section>
+              <SectionHead icon="trophy" title="Across the network"
+                hint="Points earned in any market, added up. Your standing follows you if you move." />
+              <motion.div variants={listContainer} initial="hidden" animate="show" className="space-y-2">
+                {d.network.map((s, i) => (
+                  <motion.div key={s.creator_id} variants={listItem}
+                    className={cx('flex items-center gap-3 rounded-card border bg-white px-5 py-3.5',
+                      i === 0 ? 'border-brand/30 bg-brand-tint/20' : 'border-gray-100')}>
+                    <span className={cx('w-5 shrink-0 text-sm font-bold', i === 0 ? 'text-brand' : 'text-smoke')}>{i + 1}</span>
+                    <Avatar src={s.profiles.photo_url} name={s.profiles.name} size="sm" />
+                    <Link to={`/profile/${s.creator_id}`} className="min-w-0 flex-1 truncate text-sm font-medium hover:text-brand">
+                      {s.profiles.name}
+                    </Link>
+                    {s.markets > 1 && (
+                      <span className="shrink-0 rounded-full bg-cloud px-2 py-0.5 text-[10px] font-medium text-smoke">
+                        {s.markets} markets
+                      </span>
+                    )}
+                    <span className="shrink-0 text-sm font-bold text-brand">{Number(s.points)} pts</span>
+                  </motion.div>
+                ))}
+              </motion.div>
+            </section>
+          )}
 
           {/* ---------- Latest announcement ---------- */}
           {d?.ann && (

@@ -4,7 +4,7 @@ import { motion } from 'motion/react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
-import NetworkLayout from '../components/network/NetworkLayout'
+import { flagFromIso } from '../components/network/MarketSwitcher'
 import NetworkMotion from '../components/NetworkMotion'
 import Icon from '../components/Icon'
 import { Avatar, EmptyState, Skeleton } from '../components/ui'
@@ -32,7 +32,7 @@ const scopedKey = (community, key) =>
 export default function NetworkChat() {
   const { slug, channelKey } = useParams()
   const navigate = useNavigate()
-  const { user, profile } = useAuth()
+  const { user } = useAuth()
   const { bySlug, network, manages, loading: ctxLoading } = useCommunity()
 
   const community = slug ? bySlug(slug) : network
@@ -124,23 +124,24 @@ export default function NetworkChat() {
   }
 
   if (ctxLoading && !community) {
-    return <NetworkLayout><Skeleton className="h-96" /></NetworkLayout>
+    return <div className="mx-auto w-full max-w-5xl px-4 py-8"><Skeleton className="h-96" /></div>
   }
 
   if (!community) {
     return (
-      <NetworkLayout>
+      <div className="mx-auto w-full max-w-5xl px-4 py-8">
         <EmptyState icon={<Icon name="pin" className="h-6 w-6" />} title="No such market"
           action={<Link to="/global" className="btn-secondary">Back to Worldwide</Link>} />
-      </NetworkLayout>
+      </div>
     )
   }
 
   const base = slug ? `/c/${slug}/chat` : '/global/chat'
+  const flags = (community.country_codes || []).map(flagFromIso).join('')
 
   return (
     <NetworkMotion>
-      <NetworkLayout>
+      <div className="mx-auto w-full max-w-6xl px-4 pb-28 pt-6 lg:pb-24 lg:pt-8">
         <div className="mb-5">
           <Link
             to={slug ? `/c/${slug}` : '/global'}
@@ -149,37 +150,59 @@ export default function NetworkChat() {
             <Icon name="chevronLeft" className="h-4 w-4" />
             {community.name}
           </Link>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            {community.name} rooms
+          <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight sm:text-3xl">
+            {flags && <span aria-hidden>{flags}</span>}
+            {community.name}
           </h1>
           <p className="mt-1 text-sm text-smoke">
-            Separate from every other market. Nothing posted here appears anywhere else.
+            {isLiveWorldwide
+              ? 'The rooms every creator in every market shares.'
+              : `Only ${community.name}. Nothing posted here reaches another market.`}
           </p>
         </div>
 
-        {/* Room switcher. Scrolls horizontally on phones rather than wrapping
-            into three rows and pushing the conversation off screen. */}
-        <div className="-mx-4 mb-4 overflow-x-auto px-4">
-          <div className="flex gap-2 pb-1">
-            {channels.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => navigate(`${base}/${c.key}`)}
-                className={cx(
-                  'flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-medium transition-all duration-200 hover:-translate-y-0.5',
-                  active?.key === c.key
-                    ? 'border-brand bg-brand-tint text-brand'
-                    : 'border-gray-200 bg-white text-smoke hover:text-ink',
-                )}
-              >
-                <Icon name={c.icon || 'chat'} className="h-4 w-4" />
-                {c.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        {/* Rooms belonging to THIS community only. There is deliberately no
+            market switcher on this page: a strip of other markets above a
+            conversation makes the room feel like a tab in a directory rather
+            than somewhere you are. Leaving is the back link, one target. */}
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+          <nav aria-label="Rooms" className="lg:w-56 lg:shrink-0">
+            <div className="-mx-4 overflow-x-auto px-4 lg:hidden">
+              <div className="flex gap-2 pb-1">
+                {channels.map((c) => (
+                  <button key={c.id} onClick={() => navigate(`${base}/${c.key}`)}
+                    className={cx(
+                      'flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-medium transition-all duration-200 hover:-translate-y-0.5',
+                      active?.key === c.key
+                        ? 'border-brand bg-brand-tint text-brand'
+                        : 'border-gray-200 bg-white text-smoke hover:text-ink',
+                    )}>
+                    <Icon name={c.icon || 'chat'} className="h-4 w-4" />
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-        <div className="flex h-[min(70vh,640px)] flex-col overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
+            <div className="hidden rounded-card border border-gray-100 bg-white p-2 shadow-card lg:sticky lg:top-24 lg:flex lg:flex-col lg:gap-0.5">
+              {channels.map((c) => (
+                <button key={c.id} onClick={() => navigate(`${base}/${c.key}`)}
+                  className={cx(
+                    'flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-colors duration-200',
+                    active?.key === c.key ? 'bg-brand-tint text-brand' : 'text-ink hover:bg-cloud',
+                  )}>
+                  <Icon name={c.icon || 'chat'}
+                    className={cx('h-4 w-4 shrink-0', active?.key === c.key ? 'text-brand' : 'text-smoke')} />
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{c.label}</span>
+                  {c.visibility === 'staff' && (
+                    <span className="shrink-0 rounded-full bg-cloud px-1.5 py-0.5 text-[10px] font-medium text-smoke">Staff</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </nav>
+
+          <div className="flex h-[min(70vh,640px)] min-w-0 flex-1 flex-col overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
           {active && (
             <div className="shrink-0 border-b border-gray-100 px-5 py-3">
               <p className="flex items-center gap-2 text-sm font-semibold">
@@ -267,12 +290,9 @@ export default function NetworkChat() {
               </form>
             )}
           </div>
+          </div>
         </div>
-
-        <p className="mt-3 text-center text-xs text-smoke">
-          Signed in as {profile?.name}
-        </p>
-      </NetworkLayout>
+      </div>
     </NetworkMotion>
   )
 }

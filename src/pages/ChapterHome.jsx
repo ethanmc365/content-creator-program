@@ -7,7 +7,8 @@ import NetworkLayout, { flagFromIso } from '../components/network/NetworkLayout'
 import NetworkMotion from '../components/NetworkMotion'
 import Icon from '../components/Icon'
 import { Avatar, Badge, EmptyState, Skeleton } from '../components/ui'
-import { cx } from '../lib/utils'
+import { cx, timeAgo } from '../lib/utils'
+import { stripMarkup } from '../lib/richText'
 import { listContainer, listItem, cardHover, pageFade, SOFT_SPRING } from '../lib/motion'
 
 // A single market, seen by the people IN it.
@@ -33,7 +34,7 @@ export default function ChapterHome() {
     let cancelled = false
     async function load() {
       setLoading(true)
-      const [{ data: channels }, { count: members }, { data: challenges }, { data: standings }, { data: rules }] =
+      const [{ data: channels }, { count: members }, { data: challenges }, { data: standings }, { data: rules }, { data: ann }] =
         await Promise.all([
           supabase.from('channels').select('id, key, label, hint, icon, visibility, position')
             .eq('community_id', chapter.id).order('position'),
@@ -48,12 +49,20 @@ export default function ChapterHome() {
             .eq('community_id', chapter.id).order('points', { ascending: false }).limit(10),
           supabase.from('point_rules').select('id, kind, label, points, threshold, max_points')
             .eq('community_id', chapter.id).is('challenge_id', null).order('position'),
+          // THIS market's announcements, not the network's. The two are
+          // different rooms and mixing them is what made the markets feel like
+          // views onto one shared feed.
+          supabase.from('messages')
+            .select('id, body, created_at, profiles:sender_id(name, photo_url)')
+            .eq('channel', `${chapter.slug}:announcements`).eq('deleted', false)
+            .order('created_at', { ascending: false }).limit(1).maybeSingle(),
         ])
       if (cancelled) return
       setData({
         channels: channels || [], members, challenges: challenges || [],
         standings: (standings || []).filter((s) => !s.profiles.is_test),
         rules: rules || [],
+        ann,
       })
       setLoading(false)
     }
@@ -140,6 +149,28 @@ export default function ChapterHome() {
                 </p>
               </div>
             </MotionLink>
+          )}
+
+          {/* ---------- This market's latest announcement ---------- */}
+          {data?.ann && (
+            <section>
+              <div className="mb-4">
+                <h2 className="flex items-center gap-2 text-lg font-semibold">
+                  <Icon name="megaphone" className="h-5 w-5 text-brand" /> Latest from {chapter.name}
+                </h2>
+              </div>
+              <MotionLink to={`/c/${chapter.slug}/chat/announcements`} {...cardHover}
+                className="card block border-l-4 !border-l-brand hover:shadow-lift">
+                <div className="flex items-center gap-3">
+                  <Avatar src={data.ann.profiles?.photo_url} name={data.ann.profiles?.name} size="sm" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold">{data.ann.profiles?.name}</p>
+                    <p className="text-xs text-smoke">{timeAgo(data.ann.created_at)}</p>
+                  </div>
+                </div>
+                <p className="mt-3 line-clamp-3 text-sm">{stripMarkup(data.ann.body)}</p>
+              </MotionLink>
+            </section>
           )}
 
           {/* ---------- Rooms ---------- */}
