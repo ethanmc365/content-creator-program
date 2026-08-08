@@ -9,6 +9,8 @@ import NetworkLayout, { RailCard, flagFromIso } from '../components/network/Netw
 import NetworkMotion from '../components/NetworkMotion'
 import TrypPlane from '../components/network/TrypPlane'
 import LiveChallengeCard from '../components/network/LiveChallengeCard'
+import { CountUp, Reveal } from '../components/network/Motion'
+import ProfileProgress from '../components/network/ProfileProgress'
 import WorldMap from '../components/WorldMap'
 import CreatorSpotlight from '../components/CreatorSpotlight'
 import Icon from '../components/Icon'
@@ -101,17 +103,20 @@ function MarketCard({ chapter, mine, isHome, memberCount, hasLive }) {
 // unlabelled links in a 240px menu is a list you scan by hunting; the same links
 // grouped, described and always in the same place on the hub is navigation. The
 // menu now keeps only what is about you.
+// `short` is what the mobile quick-action grid shows: four across at 375px is
+// about nine characters, and "Travel collab board" truncated to "Travel c…"
+// helps nobody.
 const NETWORK_LINKS = [
-  { to: '/creators', icon: 'users', label: 'Creator directory', hint: 'Everyone, on a map' },
-  { to: '/connections', icon: 'heart', label: 'Connections', hint: 'Requests and mutuals', badge: 'connections' },
-  { to: '/messages', icon: 'envelope', label: 'Direct messages', hint: 'Anyone, any market' },
-  { to: '/collab', icon: 'pin', label: 'Travel collab board', hint: 'Who is going where' },
-  { to: '/events', icon: 'calendar', label: 'Calendar', hint: 'Events and meetups' },
-  { to: '/leaderboard', icon: 'chart', label: 'Leaderboard', hint: 'Across every market' },
-  { to: '/game', icon: 'joystick', label: 'Daily games', hint: 'One puzzle a day' },
-  { to: '/resources', icon: 'book', label: 'Resource library', hint: 'Guides and templates', badge: 'resources' },
-  { to: '/jobs', icon: 'briefcase', label: 'Roles', hint: 'Paid work with Tryp.com' },
-  { to: '/refer', icon: 'share', label: 'Refer a creator', hint: 'Bring someone in' },
+  { to: '/creators', icon: 'users', label: 'Creator directory', short: 'Creators', hint: 'Everyone, on a map' },
+  { to: '/messages', icon: 'envelope', label: 'Direct messages', short: 'DMs', hint: 'Anyone, any market' },
+  { to: '/connections', icon: 'heart', label: 'Connections', short: 'Connect', hint: 'Requests and mutuals', badge: 'connections' },
+  { to: '/collab', icon: 'pin', label: 'Travel collab board', short: 'Collab', hint: 'Who is going where' },
+  { to: '/events', icon: 'calendar', label: 'Calendar', short: 'Calendar', hint: 'Events and meetups' },
+  { to: '/leaderboard', icon: 'chart', label: 'Leaderboard', short: 'Ranks', hint: 'Across every market' },
+  { to: '/game', icon: 'joystick', label: 'Daily games', short: 'Games', hint: 'One puzzle a day' },
+  { to: '/resources', icon: 'book', label: 'Resource library', short: 'Library', hint: 'Guides and templates', badge: 'resources' },
+  { to: '/jobs', icon: 'briefcase', label: 'Roles', short: 'Roles', hint: 'Paid work with Tryp.com' },
+  { to: '/refer', icon: 'share', label: 'Refer a creator', short: 'Refer', hint: 'Bring someone in' },
 ]
 
 export default function GlobalHome() {
@@ -369,6 +374,52 @@ export default function GlobalHome() {
             <p className="mt-2 text-smoke">Here is what is happening across the network right now.</p>
           </section>
 
+          {/* ---------- Quick actions (phones and tablets only) ----------
+              On desktop these live in the rail, which is always in view. On a
+              phone the rail is at the BOTTOM of a long page, so the ten most
+              useful destinations in the product were a full scroll away from
+              the page that is supposed to be the way in. A grid of eight up
+              here is one thumb-reach instead. */}
+          <section className="lg:hidden">
+            <div className="grid grid-cols-4 gap-2">
+              {NETWORK_LINKS.slice(0, 8).map((l) => {
+                const count = l.badge === 'connections' ? d?.connReqs : 0
+                const isNew = l.badge === 'resources' && d?.newResources
+                return (
+                  <Link
+                    key={l.to}
+                    to={l.to}
+                    className="relative flex flex-col items-center gap-1.5 rounded-2xl border border-gray-100 bg-white px-1 py-3 text-center transition-transform duration-200 active:scale-95"
+                  >
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-tint">
+                      <Icon name={l.icon} className="h-4 w-4 text-brand" />
+                    </span>
+                    <span className="w-full truncate px-0.5 text-[11px] font-medium leading-tight">
+                      {l.short || l.label}
+                    </span>
+                    {count > 0 && (
+                      <span className="absolute right-1.5 top-1.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-brand px-1 text-[9px] font-semibold text-white">
+                        {count > 9 ? '9+' : count}
+                      </span>
+                    )}
+                    {isNew && <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-brand" />}
+                  </Link>
+                )
+              })}
+            </div>
+            <Link
+              to="/global/markets"
+              className="mt-2 flex items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-200 py-2.5 text-sm font-medium text-smoke transition-colors active:border-brand active:text-brand"
+            >
+              <Icon name="magnifier" className="h-4 w-4" /> Explore markets
+            </Link>
+          </section>
+
+          {/* ---------- Finish your profile ---------- */}
+          {/* Removes itself at 100%. A checklist that survives completion is
+              nagging, and this is a nudge. */}
+          <ProfileProgress />
+
           {/* ---------- Welcome ---------- */}
           <motion.section
             initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={SOFT_SPRING}
@@ -388,19 +439,22 @@ export default function GlobalHome() {
               <p className="mt-3 max-w-xl text-white/85">
                 One community across every market. Your connections, messages, the map and the daily game live here and are never split by country.
               </p>
+              {/* Counting up, once, when the card is first seen. A number that
+                  moves reads as a quantity that grows, which is the one thing
+                  this card is trying to say. */}
               <div className="mt-8 flex flex-wrap items-center gap-x-10 gap-y-4">
-                <div>
-                  <p className="text-2xl font-bold sm:text-3xl">{d?.creators ?? '—'}</p>
-                  <p className="text-xs font-medium uppercase tracking-widest text-white/70">Creators worldwide</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold sm:text-3xl">{openMarkets.length}</p>
-                  <p className="text-xs font-medium uppercase tracking-widest text-white/70">Markets open</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold sm:text-3xl">{d?.nations ?? '—'}</p>
-                  <p className="text-xs font-medium uppercase tracking-widest text-white/70">Nations</p>
-                </div>
+                {[
+                  { n: d?.creators, label: 'Creators worldwide' },
+                  { n: openMarkets.length, label: 'Markets open' },
+                  { n: d?.nations, label: 'Nations' },
+                ].map((s) => (
+                  <div key={s.label}>
+                    <p className="text-2xl font-bold sm:text-3xl">
+                      {s.n == null ? '—' : <CountUp value={s.n} />}
+                    </p>
+                    <p className="text-xs font-medium uppercase tracking-widest text-white/70">{s.label}</p>
+                  </div>
+                ))}
               </div>
             </div>
           </motion.section>
@@ -444,6 +498,9 @@ export default function GlobalHome() {
           </section>
 
           {/* ---------- Network standings ---------- */}
+          {/* Reveal, not a stagger: these sections are below the fold, and a
+              list that already animated in before you scrolled to it has spent
+              its motion on nobody. */}
           {/* Points are earned inside a market but they add up across the whole
               network, so this is the one leaderboard that belongs at network
               level. A creator who moves from Spain to the UK keeps their
@@ -520,11 +577,11 @@ export default function GlobalHome() {
           <CreatorSpotlight />
 
           {/* ---------- The map ---------- */}
-          <section>
+          <Reveal as="section">
             <SectionHead icon="globe" title="Where we have been, together"
               hint={d?.visited?.length ? `Every creator in the network, on one map. ${d.visited.length} countries so far.` : 'Every creator in the network, on one map.'} />
             {d ? <WorldMap selected={d.visited} /> : <Skeleton className="h-64" />}
-          </section>
+          </Reveal>
 
           {/* ---------- New creators ---------- */}
           {d?.fresh?.length > 0 && (

@@ -72,9 +72,24 @@ export default {
         // A plane PARKED on a card rather than crossing it: a slow, small drift
         // so the card has a pulse without anything ever entering or leaving.
         // Both ends are identical so the loop has no seam.
+        //
+        // Rotation stays under a degree and is POSITIVE at the top of the bob.
+        // The artwork faces left, so a positive (clockwise) rotation lifts the
+        // nose; the previous keyframe rotated to -4deg and pitched it into a
+        // permanent dive. The static pitch correction lives on the image itself
+        // (TrypPlane's PITCH_FIX) so this only has to add the motion.
         cruise: {
-          '0%, 100%': { transform: 'translate3d(0, 0, 0) rotate(-4deg)' },
-          '50%': { transform: 'translate3d(-7px, -9px, 0) rotate(-1.5deg)' },
+          '0%, 100%': { transform: 'translate3d(0, 0, 0) rotate(0deg)' },
+          '50%': { transform: 'translate3d(-6px, -7px, 0) rotate(0.8deg)' },
+        },
+        // A toast arriving: up from below with a touch of overshoot, which is
+        // what makes it read as a physical thing landing rather than a div
+        // appearing. Kept in CSS so the toast host never imports the animation
+        // runtime (see the note in ToastHost).
+        'toast-in': {
+          '0%': { opacity: '0', transform: 'translateY(18px) scale(0.94)' },
+          '65%': { transform: 'translateY(-3px) scale(1.01)' },
+          '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
         },
         // The dashed contrail behind it, drawn as an SVG path. Marching the
         // dash offset reads as travel; animating the path itself would not.
@@ -93,6 +108,7 @@ export default {
         confetti: 'confetti 3s linear forwards',
         shake: 'shake 0.4s ease-in-out both',
         fly: 'fly 1.7s ease-in-out infinite',
+        'toast-in': 'toast-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both',
         cruise: 'cruise 7s ease-in-out infinite',
         contrail: 'contrail 1.4s linear infinite',
       },

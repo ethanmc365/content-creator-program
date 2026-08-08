@@ -7,6 +7,8 @@ import NetworkLayout, { RailCard, flagFromIso } from '../components/network/Netw
 import NetworkMotion from '../components/NetworkMotion'
 import MarketHeader from '../components/network/MarketHeader'
 import MarketMap from '../components/network/MarketMap'
+import MarketActivity from '../components/network/MarketActivity'
+import { isOnline, countOnline } from '../lib/presence'
 import { MarketOverviewSkeleton, LiveChallengeSkeleton, CardGridSkeleton, RailCardSkeleton } from '../components/network/Skeletons'
 import LiveChallengeCard, { NoLiveChallenge } from '../components/network/LiveChallengeCard'
 import Icon from '../components/Icon'
@@ -69,9 +71,9 @@ export default function ChapterHome() {
           .eq('channel', `${chapter.slug}:announcements`).eq('deleted', false)
           .order('created_at', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('community_members')
-          .select('profile_id, profiles!inner(id, name, photo_url, country_code, is_admin, is_test, status)')
+          .select('profile_id, profiles!inner(id, name, photo_url, country_code, last_seen_at, is_admin, is_test, status)')
           .eq('community_id', chapter.id).eq('status', 'active')
-          .eq('profiles.is_test', false).eq('profiles.status', 'active').limit(12),
+          .eq('profiles.is_test', false).eq('profiles.status', 'active').limit(24),
       ])
       if (cancelled) return
 
@@ -172,13 +174,32 @@ export default function ChapterHome() {
             </Link>
           }
         >
+          {/* Presence, from the heartbeat AppLayout already sends. The number
+              of people actually around is the single most useful thing a
+              community page can say, and nothing was reading it. */}
+          {countOnline(data.roster) > 0 && (
+            <p className="mb-2.5 flex items-center gap-1.5 px-1 text-xs font-medium text-green-600">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500/70" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-green-500" />
+              </span>
+              {countOnline(data.roster)} online now
+            </p>
+          )}
           <div className="flex flex-wrap gap-1.5">
-            {data.roster.slice(0, 10).map((p) => (
-              <Link key={p.id} to={`/profile/${p.id}`} title={p.name}
-                className="transition-transform duration-200 hover:scale-110">
-                <Avatar src={p.photo_url} name={p.name} size="sm" />
-              </Link>
-            ))}
+            {data.roster
+              .slice()
+              .sort((a, b) => (isOnline(b.last_seen_at) ? 1 : 0) - (isOnline(a.last_seen_at) ? 1 : 0))
+              .slice(0, 12)
+              .map((p) => (
+                <Link key={p.id} to={`/profile/${p.id}`} title={p.name}
+                  className="relative transition-transform duration-200 hover:scale-110">
+                  <Avatar src={p.photo_url} name={p.name} size="sm" />
+                  {isOnline(p.last_seen_at) && (
+                    <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-white" />
+                  )}
+                </Link>
+              ))}
           </div>
         </RailCard>
       )}
@@ -280,6 +301,19 @@ export default function ChapterHome() {
                 ))}
               </motion.div>
             )}
+          </section>
+
+          {/* ---------- Recent activity ---------- */}
+          {/* A market can be entirely correct and still read as abandoned. This
+              is the cheapest possible proof that it is not. */}
+          <section>
+            <div className="mb-4">
+              <h2 className="flex items-center gap-2 text-lg font-semibold">
+                <Icon name="clock" className="h-5 w-5 text-brand" /> Lately in {chapter.name}
+              </h2>
+              <p className="mt-1 text-sm text-smoke">Who joined, who posted, who entered.</p>
+            </div>
+            <MarketActivity market={chapter} />
           </section>
 
           {/* ---------- Where this market is ---------- */}

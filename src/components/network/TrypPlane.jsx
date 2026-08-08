@@ -10,80 +10,96 @@ import { cx } from '../../lib/utils'
 // `tryp-plane-cutout.png` is the cleaned version and is the only one that
 // belongs here.
 //
-// WHY THE PLANE AND ITS TRAIL ARE ONE SVG
+// WHICH WAY THE PLANE FACES, measured rather than assumed
 //
-// They were two things: an absolutely-positioned <img> and a separate SVG whose
-// path happened to pass nearby. Nothing tied the end of the path to the back of
-// the plane, so the dashes ran straight through the fuselage and out past the
-// nose, which reads as a plane flying INTO its own contrail. Putting the image
-// inside the SVG means the path can terminate at the tail by construction.
+// The first version of this got it backwards, which is why the contrail came
+// out of the nose and the plane looked like it was diving. Profiling the alpha
+// channel of the 1200x471 asset column by column settles it:
 //
-// The geometry below is measured from the asset, not guessed. In the 1200x471
-// PNG the opaque pixels span x 41..1177, y 38..387; the tail sits at about
-// (x 0.045, y 0.66) of the whole image and the nose at (x 0.975, y 0.49), so
-// the plane points right and slightly up. TAIL_X / TAIL_Y are those fractions.
+//   x=42    height 4px    <- a fine point: the NOSE
+//   x=609   height 155px  <- fuselage plus wing root
+//   x=1050  height 237px  <- the tallest structure on the plane: the TAIL FIN
+//   x=1176  height 2px    <- the tip of the horizontal stabiliser
+//
+// So the plane flies LEFT. The fuselage centreline runs from y≈309 at the nose
+// to y≈248 near the tail, which means the nose sits about 2 degrees BELOW the
+// tail: the artwork is pitched slightly nose-down on its own. PITCH_FIX cancels
+// that, and the cruise animation oscillates around level instead of adding to
+// the dive (the old keyframe rotated to -4deg, which with a left-facing nose
+// pushed it down another four degrees).
+// Only the tail is used (it is where the contrail attaches); the nose is
+// recorded because it is what the numbers above are evidence FOR, and the next
+// person to touch this will want the measurement, not the conclusion.
+// NOSE = { x: 0.035, y: 0.656 }
+const TAIL = { x: 0.95, y: 0.505 }
+// Clockwise, in degrees. With the nose on the left, a positive rotation lifts
+// it. Enough to read as level, not so much that it looks like it is climbing.
+const PITCH_FIX = 2.5
 
-const TAIL_X = 0.045
-const TAIL_Y = 0.66
-
-// One drawing, scaled by the caller. viewBox units are arbitrary; everything is
-// expressed relative to the plane box so changing PLANE_W moves the trail with
-// it instead of leaving it behind.
+// One drawing, scaled by the caller. Everything is expressed relative to the
+// plane's own box, so changing PLANE_W moves the contrail with it rather than
+// leaving it behind.
 function Drawing({ id, animate }) {
-  const VB_W = 460
+  const VB_W = 470
   const VB_H = 250
-  const PLANE_W = 268
+  const PLANE_W = 300
   const PLANE_H = PLANE_W * (471 / 1200) // the asset's own aspect ratio
-  // Inset from the right so the nose does not kiss the card's edge. The asset's
-  // opaque pixels run to 0.975 of its width, so a small margin here is the
-  // difference between "flying past" and "clipped".
-  const PLANE_X = VB_W - PLANE_W - 26
-  // Low in its own box, not centred. The box is anchored to a corner of the
-  // card, so where the plane sits INSIDE the box is what decides whether it
-  // lands in the free quadrant or across the heading. Sitting low leaves the
-  // room the trail needs beneath it and keeps the plane out of the text.
-  const PLANE_Y = 88
+  // Left of centre, because the trail extends to the RIGHT (the plane is
+  // flying left, so what it leaves behind is behind it, which is to its right).
+  const PLANE_X = 14
+  const PLANE_Y = 84
 
-  const tailX = PLANE_X + TAIL_X * PLANE_W
-  const tailY = PLANE_Y + TAIL_Y * PLANE_H
+  const tailX = PLANE_X + TAIL.x * PLANE_W
+  const tailY = PLANE_Y + TAIL.y * PLANE_H
 
   return (
     <svg viewBox={`0 0 ${VB_W} ${VB_H}`} fill="none" aria-hidden className="h-full w-full">
       <defs>
-        {/* The trail fades out the further it gets from the plane, which is
-            what stops a dashed line reading as a border. */}
+        {/* Strong where it meets the tail, gone by the far end. A dashed line of
+            constant opacity reads as a border, not as exhaust. */}
         <linearGradient id={`${id}-fade`} x1="0" y1="1" x2="1" y2="0">
-          <stop offset="0%" stopColor="currentColor" stopOpacity="0" />
-          <stop offset="45%" stopColor="currentColor" stopOpacity="0.32" />
-          <stop offset="100%" stopColor="currentColor" stopOpacity="0.75" />
+          <stop offset="0%" stopColor="currentColor" stopOpacity="0.7" />
+          <stop offset="55%" stopColor="currentColor" stopOpacity="0.3" />
+          <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
         </linearGradient>
       </defs>
 
-      {/* Ends AT the tail. The curve is drawn from far away toward the plane so
-          a positive dash offset marches the dashes backwards, away from it,
-          which is the direction a real contrail moves. */}
-      <path
-        d={`M 4 ${VB_H - 14} C ${VB_W * 0.22} ${VB_H - 20}, ${VB_W * 0.33} ${VB_H - 56}, ${tailX} ${tailY}`}
-        stroke={`url(#${id}-fade)`}
-        strokeWidth="3"
-        strokeLinecap="round"
-        strokeDasharray="11 13"
-        className={animate ? 'animate-contrail' : undefined}
-      />
-
-      <image
-        href="/brand/tryp-plane-cutout.png"
-        x={PLANE_X}
-        y={PLANE_Y}
-        width={PLANE_W}
-        height={PLANE_H}
+      {/* Plane and trail move as ONE group. Animating them separately would
+          unglue the trail from the tail on every frame of the bob. */}
+      <g
         className={animate ? 'animate-cruise' : undefined}
-        // transform-box defaults differ across engines for SVG children, so a
-        // bare `transform-origin: center` can resolve against the whole viewBox
-        // and swing the plane in an arc. fill-box pins it to the image's own
-        // box, which is what "rotate slightly about itself" means.
         style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
-      />
+      >
+        {/* Drawn from the far end TO the tail, so a positive dash offset marches
+            the dashes away from the plane, which is the direction real exhaust
+            goes. The path never crosses the fuselage: it starts beyond the tail
+            and stops at it. */}
+        <path
+          d={`M ${VB_W - 8} 14 C ${VB_W * 0.82} 60, ${tailX + 56} 118, ${tailX} ${tailY}`}
+          stroke={`url(#${id}-fade)`}
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeDasharray="11 13"
+          className={animate ? 'animate-contrail' : undefined}
+        />
+
+        <image
+          href="/brand/tryp-plane-cutout.png"
+          x={PLANE_X}
+          y={PLANE_Y}
+          width={PLANE_W}
+          height={PLANE_H}
+          // transform-box defaults differ across engines for SVG children, so a
+          // bare `transform-origin: center` can resolve against the whole
+          // viewBox and swing the plane in an arc. fill-box pins it to the
+          // image's own box.
+          style={{
+            transformBox: 'fill-box',
+            transformOrigin: 'center',
+            transform: `rotate(${PITCH_FIX}deg)`,
+          }}
+        />
+      </g>
     </svg>
   )
 }
@@ -91,10 +107,6 @@ function Drawing({ id, animate }) {
 // Where on the card the plane parks. Not a style preference: each card has a
 // different free corner, and a plane over a heading is just a heading nobody
 // can read.
-//   bottom - stats and copy are top/left, the lower right is empty (welcome,
-//            explore, the new-market invitation)
-//   top    - the live challenge card, whose buttons sit bottom right on desktop
-//            and whose badges sit top LEFT
 const ANCHOR = {
   bottom: 'bottom-0 right-0',
   top: 'top-0 right-0',
@@ -103,7 +115,8 @@ const ANCHOR = {
 
 /**
  * @param {'hero'|'inline'|'badge'} variant
- *   hero   - large, on a brand-orange card
+ *   hero   - large, on a brand-orange card. Needs a card at least `lg` wide and
+ *            text that has been told to keep clear of it.
  *   inline - large, centred, for empty states
  *   badge  - small mark next to a line of text
  * @param {'bottom'|'top'|'center'} anchor  which corner it parks in
@@ -124,21 +137,23 @@ export default function TrypPlane({ variant = 'hero', anchor = 'bottom', classNa
     return (
       <span
         aria-hidden
-        className={cx('pointer-events-none block h-32 w-60 text-brand sm:h-40 sm:w-80', className)}
+        className={cx('pointer-events-none block h-28 w-56 text-brand sm:h-36 sm:w-80', className)}
       >
         <Drawing id={`${id}-inline`} animate={animate} />
       </span>
     )
   }
 
-  // hero. Hidden below `md` because on a phone the card is all text and a plane
-  // behind it is noise at best; from `md` up there is a free corner to park in.
+  // hero. Hidden below `lg`, not `md`: at tablet widths the card's copy still
+  // runs the full width and the plane ends up behind the description, which is
+  // exactly what it looked like before. Cards that show it also reserve the
+  // space (see LiveChallengeCard's pr-* on the copy column).
   return (
     <span
       aria-hidden
       className={cx(
-        'pointer-events-none absolute hidden h-[11rem] w-[20rem] text-white md:block',
-        'lg:h-[13.5rem] lg:w-[25rem] xl:h-[15rem] xl:w-[28rem]',
+        'pointer-events-none absolute hidden h-[13rem] w-[24rem] text-white lg:block',
+        'xl:h-[15rem] xl:w-[27rem]',
         ANCHOR[anchor] || ANCHOR.bottom,
         className,
       )}

@@ -8,7 +8,10 @@ import { confirm, notice, promptText } from '../lib/confirm'
 import NetworkMotion from '../components/NetworkMotion'
 import NetworkLayout, { flagFromIso } from '../components/network/NetworkLayout'
 import { BigToggle } from './GlobalSettings'
+import Segmented from '../components/network/Segmented'
+import PeoplePicker from '../components/network/PeoplePicker'
 import { MarketHeaderSkeleton, CardGridSkeleton } from '../components/network/Skeletons'
+import { toast } from '../lib/toast'
 import Icon from '../components/Icon'
 import { Avatar, Badge, EmptyState, PageHeader } from '../components/ui'
 import { scoringMode } from '../lib/scoring'
@@ -79,6 +82,8 @@ export default function ManageChapter() {
   const [settings, setSettings] = useState(null)
   const [saving, setSaving] = useState('')
   const [countryQuery, setCountryQuery] = useState('')
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [adding, setAdding] = useState(false)
 
   const load = useCallback(async () => {
     if (!chapter) return
@@ -95,8 +100,10 @@ export default function ManageChapter() {
         supabase.from('community_standings').select('creator_id, points').eq('community_id', chapter.id),
         // For adding a creator by hand, which is the only way in when the
         // market is invite only.
-        supabase.from('profiles').select('id, name, photo_url, country_code')
-          .eq('status', 'active').eq('is_test', false).order('name').limit(300),
+        // city/country too: the picker searches on them, because "which Sam"
+        // is answered by a face and a city, not by a surname.
+        supabase.from('profiles').select('id, name, photo_url, country_code, city, country')
+          .eq('status', 'active').eq('is_test', false).order('name').limit(500),
       ])
     setD({
       members: members || [],
@@ -200,21 +207,47 @@ export default function ManageChapter() {
     await load()
   }
 
-  async function toggleRoomPolicy(ch) {
-    const next = ch.post_policy === 'all' ? 'staff' : 'all'
+  // Set, not toggle. A toggle cannot express "leave it as it is", which is what
+  // a manager pressing the button that already describes the current state
+  // almost always means.
+  async function setRoomPolicy(ch, next) {
+    if (next === ch.post_policy) return
+    // Optimistic: the segmented control's highlight should move under the
+    // finger, not after a round trip. Rolled back if the write fails.
+    setD((cur) => ({
+      ...cur,
+      channels: cur.channels.map((c) => (c.id === ch.id ? { ...c, post_policy: next } : c)),
+    }))
     const { error } = await supabase.from('channels').update({ post_policy: next }).eq('id', ch.id)
-    if (error) { notice(error.message); return }
-    await load()
+    if (error) {
+      setD((cur) => ({
+        ...cur,
+        channels: cur.channels.map((c) => (c.id === ch.id ? { ...c, post_policy: ch.post_policy } : c)),
+      }))
+      notice(`Could not change who posts in ${ch.label}: ${error.message}`)
+      return
+    }
+    toast(next === 'all' ? `Everyone can post in ${ch.label}` : `Only the team posts in ${ch.label}`)
   }
 
   // ---------------------------------------------------------------- people
-  async function addMember(profileId) {
-    const { error } = await supabase.from('community_members').insert({
-      community_id: chapter.id, profile_id: profileId, role: 'creator', is_home: false, status: 'active',
-    })
-    if (error) { notice(error.message); return }
+  // Many at once. Adding creators to a market one native-select pick at a time
+  // is the tedious version of the same job, and the native list cannot show a
+  // face, which is what people actually recognise each other by.
+  async function addMembers(ids) {
+    if (!ids.length) return
+    setAdding(true)
+    const { error } = await supabase.from('community_members').insert(
+      ids.map((profile_id) => ({
+        community_id: chapter.id, profile_id, role: 'creator', is_home: false, status: 'active',
+      })),
+    )
+    setAdding(false)
+    if (error) { notice(`Could not add: ${error.message}`); return }
     clearScopeCache()
+    setPickerOpen(false)
     await load()
+    toast(`Added ${ids.length} ${ids.length === 1 ? 'creator' : 'creators'} to ${chapter.name}`, { tone: 'success' })
   }
 
   async function removeMember(member) {
@@ -470,27 +503,49 @@ export default function ManageChapter() {
             {/* ---------------- Rooms ---------------- */}
             <Section icon="chat" title="Rooms"
               hint="This market's own channels. General and Announcements are part of every market; the rest are yours to choose.">
-              <div className="space-y-2">
+              {/* Each room is a small editor, not a row of same-looking pills.
+                  The old version had a button whose LABEL WAS ITS STATE
+                  ("Everyone posts"), so you could not tell whether it described
+                  the room or offered to change it, and one click silently made
+                  a market's main room staff-only with nothing to undo it. */}
+              <div className="space-y-2.5">
                 {d.channels.map((ch) => (
-                  <div key={ch.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-100 px-4 py-3">
-                    <Icon name={ch.icon || 'chat'} className="h-4 w-4 shrink-0 text-brand" />
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium">{ch.label}</span>
-                    {ch.key === 'general' && <Badge tone="light">Main room</Badge>}
-                    {ch.visibility === 'staff' && <Badge tone="grey">Staff</Badge>}
-                    <button onClick={() => toggleRoomPolicy(ch)}
-                      className="shrink-0 rounded-full border border-gray-200 px-3 py-1 text-xs font-medium transition-transform duration-200 hover:scale-105 hover:border-brand hover:text-brand">
-                      {ch.post_policy === 'all' ? 'Everyone posts' : 'Team posts only'}
-                    </button>
-                    <button onClick={() => renameRoom(ch)}
-                      className="shrink-0 rounded-full border border-gray-200 px-3 py-1 text-xs font-medium transition-transform duration-200 hover:scale-105 hover:border-brand hover:text-brand">
-                      Rename
-                    </button>
-                    {ch.key !== 'general' && ch.key !== 'announcements' && (
-                      <button onClick={() => removeRoom(ch)} aria-label={`Remove ${ch.label}`}
-                        className="shrink-0 rounded-lg p-1.5 text-smoke transition-colors hover:bg-red-50 hover:text-red-600">
-                        <Icon name="trash" className="h-4 w-4" />
+                  <div key={ch.id} className="rounded-xl border border-gray-100 p-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Icon name={ch.icon || 'chat'} className="h-4 w-4 shrink-0 text-brand" />
+                      <span className="min-w-0 flex-1 truncate text-sm font-semibold">{ch.label}</span>
+                      {ch.key === 'general' && <Badge tone="light">Main room</Badge>}
+                      {ch.visibility === 'staff' && <Badge tone="grey">Staff only</Badge>}
+                      <button onClick={() => renameRoom(ch)}
+                        className="shrink-0 rounded-full border border-gray-200 px-3 py-1 text-xs font-medium transition-transform duration-200 hover:scale-105 hover:border-brand hover:text-brand">
+                        Rename
                       </button>
-                    )}
+                      {ch.key !== 'general' && ch.key !== 'announcements' && (
+                        <button onClick={() => removeRoom(ch)} aria-label={`Remove ${ch.label}`}
+                          className="shrink-0 rounded-lg p-1.5 text-smoke transition-colors hover:bg-red-50 hover:text-red-600">
+                          <Icon name="trash" className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      <span className="text-xs font-medium text-smoke">Who can post</span>
+                      <Segmented
+                        size="sm"
+                        id={`post-${ch.id}`}
+                        label={`Who can post in ${ch.label}`}
+                        value={ch.post_policy}
+                        onChange={(v) => setRoomPolicy(ch, v)}
+                        options={[
+                          { value: 'all', label: 'Everyone' },
+                          { value: 'staff', label: 'Team only' },
+                        ]}
+                      />
+                      {ch.key === 'announcements' && ch.post_policy === 'all' && (
+                        <span className="text-xs text-amber-700">
+                          Announcements is usually team only.
+                        </span>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -583,18 +638,11 @@ export default function ManageChapter() {
 
               {/* Adding by hand. The only route in for an invite-only market,
                   and the fix for a creator whose profile country is wrong. */}
-              <div className="mt-5 rounded-xl bg-cloud/60 p-4">
-                <p className="mb-2 text-sm font-medium">Add a creator</p>
-                <select className="input" value=""
-                  onChange={(e) => e.target.value && addMember(e.target.value)}>
-                  <option value="">Pick someone…</option>
-                  {(d.everyone || []).filter((p) => !memberIds.has(p.id)).map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}{p.country_code ? ` · ${p.country_code}` : ''}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-2 text-xs text-smoke">
+              <div className="mt-5 flex flex-wrap items-center gap-3 rounded-xl bg-cloud/60 p-4">
+                <button onClick={() => setPickerOpen(true)} className="btn-primary !py-2.5">
+                  <Icon name="users" className="h-4 w-4" /> Add creators
+                </button>
+                <p className="min-w-0 flex-1 text-xs text-smoke">
                   Adding someone here bypasses the join rule. It does not change their home market.
                 </p>
               </div>
@@ -610,6 +658,17 @@ export default function ManageChapter() {
           </motion.div>
         )}
       </motion.div>
+
+      <PeoplePicker
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        people={(d?.everyone || []).filter((p) => !memberIds.has(p.id))}
+        onConfirm={addMembers}
+        busy={adding}
+        title={`Add creators to ${chapter.name}`}
+        hint="Search by name or city. Pick as many as you like."
+        confirmLabel="Add"
+      />
       </NetworkLayout>
     </NetworkMotion>
   )

@@ -62,7 +62,12 @@ export default function LiveChallengeCard({
             on desktop, so this is the only corner that is genuinely free. */}
         {!compact && <TrypPlane variant="hero" anchor="top" id={`live-${challenge.id}`} />}
 
-        <div className="relative">
+        {/* The copy column RESERVES the plane's space rather than trusting
+            max-width to keep clear of it. A `max-w-2xl` description is 672px
+            wide whatever the card is doing, so on a card narrower than about
+            1100px it ran straight under the fuselage. Padding scales with the
+            card; a fixed max-width does not. */}
+        <div className={cx('relative', !compact && 'lg:pr-[21rem] xl:pr-[24rem]')}>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <span className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider">
               <Pulse />

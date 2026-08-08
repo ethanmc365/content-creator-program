@@ -1,0 +1,283 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { motion, AnimatePresence } from 'motion/react'
+import { supabase } from '../../lib/supabase'
+import Icon from '../Icon'
+import { Avatar } from '../ui'
+import { cx } from '../../lib/utils'
+import { SNAPPY, overlay } from '../../lib/motion'
+
+// The three things a room needs before it is a room rather than a log:
+// something to react with, a way to find what was said, and a way to point at
+// somebody. The legacy chat has all three; the network rooms shipped without
+// them, which is why they felt like a preview rather than a place.
+
+export const QUICK_EMOJI = ['👍', '🔥', '❤️', '😂', '🎉', '👀']
+
+// ---------------------------------------------------------------- reactions
+//
+// Stored in the existing `reactions` table (message_id, creator_id, emoji), the
+// same one the live chat uses. Reusing it means a message reacted to in a market
+// room and one reacted to in #general are the same shape of data, and there is
+// one place to change if reactions ever grow up.
+
+export function ReactionRow({ messageId, reactions, myId, onToggle }) {
+  const mine = useMemo(
+    () => new Set(reactions.filter((r) => r.creator_id === myId).map((r) => r.emoji)),
+    [reactions, myId],
+  )
+  const counts = useMemo(() => {
+    const m = new Map()
+    for (const r of reactions) m.set(r.emoji, (m.get(r.emoji) || 0) + 1)
+    return [...m.entries()]
+  }, [reactions])
+
+  const [picking, setPicking] = useState(false)
+
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-1">
+      <AnimatePresence initial={false}>
+        {counts.map(([emoji, n]) => (
+          <motion.button
+            key={emoji}
+            layout
+            initial={{ opacity: 0, scale: 0.6 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.6 }}
+            transition={SNAPPY}
+            onClick={() => onToggle(messageId, emoji)}
+            className={cx(
+              'flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors',
+              mine.has(emoji)
+                ? 'border-brand bg-brand-tint text-brand'
+                : 'border-gray-200 bg-white text-smoke hover:border-brand/40',
+            )}
+          >
+            <span aria-hidden>{emoji}</span>
+            <span className="font-semibold tabular-nums">{n}</span>
+          </motion.button>
+        ))}
+      </AnimatePresence>
+
+      <div className="relative">
+        <button
+          onClick={() => setPicking((p) => !p)}
+          aria-label="Add a reaction"
+          className={cx(
+            'flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 text-smoke transition-all',
+            'opacity-0 hover:border-brand hover:text-brand focus-visible:opacity-100 group-hover/msg:opacity-100',
+            picking && 'opacity-100',
+          )}
+        >
+          <Icon name="smile" className="h-3.5 w-3.5" />
+        </button>
+        <AnimatePresence>
+          {picking && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setPicking(false)} />
+              <motion.div
+                initial={{ opacity: 0, y: 6, scale: 0.92 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 4, scale: 0.95 }}
+                transition={SNAPPY}
+                className="absolute bottom-full left-0 z-20 mb-1 flex gap-0.5 rounded-full border border-gray-100 bg-white p-1 shadow-lift"
+              >
+                {QUICK_EMOJI.map((e) => (
+                  <button
+                    key={e}
+                    onClick={() => { onToggle(messageId, e); setPicking(false) }}
+                    className="rounded-full px-1.5 py-1 text-base leading-none transition-transform hover:scale-125"
+                  >
+                    {e}
+                  </button>
+                ))}
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  )
+}
+
+export function useReactions(messageIds, myId) {
+  const [rows, setRows] = useState([])
+  const key = messageIds.join(',')
+
+  useEffect(() => {
+    if (!messageIds.length) { setRows([]); return }
+    let alive = true
+    supabase.from('reactions').select('id, message_id, creator_id, emoji')
+      .in('message_id', messageIds)
+      .then(({ data }) => { if (alive) setRows(data || []) })
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key])
+
+  // Realtime on the whole table then filtered client-side: the id list changes
+  // on every page of history, and re-subscribing per list would churn a
+  // websocket channel every time somebody scrolls.
+  useEffect(() => {
+    const ch = supabase.channel('net-reactions')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reactions' }, (payload) => {
+        const row = payload.new?.id ? payload.new : payload.old
+        if (!row) return
+        setRows((cur) => {
+          if (payload.eventType === 'DELETE') return cur.filter((r) => r.id !== row.id)
+          if (cur.some((r) => r.id === row.id)) return cur
+          return [...cur, row]
+        })
+      })
+      .subscribe()
+    return () => supabase.removeChannel(ch)
+  }, [])
+
+  const byMessage = useMemo(() => {
+    const m = new Map()
+    for (const r of rows) {
+      if (!m.has(r.message_id)) m.set(r.message_id, [])
+      m.get(r.message_id).push(r)
+    }
+    return m
+  }, [rows])
+
+  async function toggle(messageId, emoji) {
+    const existing = rows.find((r) => r.message_id === messageId && r.creator_id === myId && r.emoji === emoji)
+    // Optimistic both ways: a reaction that waits for the network reads as a
+    // broken button.
+    if (existing) {
+      setRows((cur) => cur.filter((r) => r.id !== existing.id))
+      const { error } = await supabase.from('reactions').delete().eq('id', existing.id)
+      if (error) setRows((cur) => [...cur, existing])
+    } else {
+      const temp = { id: `tmp-${Date.now()}`, message_id: messageId, creator_id: myId, emoji }
+      setRows((cur) => [...cur, temp])
+      const { data, error } = await supabase.from('reactions')
+        .insert({ message_id: messageId, creator_id: myId, emoji })
+        .select('id, message_id, creator_id, emoji').single()
+      setRows((cur) => {
+        const without = cur.filter((r) => r.id !== temp.id)
+        return error || !data ? without : [...without, data]
+      })
+    }
+  }
+
+  return { byMessage, toggle }
+}
+
+// ------------------------------------------------------------------- search
+//
+// Filters what is already loaded rather than querying. A room holds 200
+// messages in memory; searching them is instant and works offline, and a
+// server round trip for something this small would be slower AND worse.
+
+export function RoomSearch({ value, onChange, count, total }) {
+  const ref = useRef(null)
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    if (open) ref.current?.focus()
+    else onChange('')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        aria-label="Search this room"
+        className="shrink-0 rounded-lg p-1.5 text-smoke transition-colors hover:bg-white hover:text-ink"
+      >
+        <Icon name="magnifier" className="h-4 w-4" />
+      </button>
+    )
+  }
+
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-2">
+      <Icon name="magnifier" className="h-3.5 w-3.5 shrink-0 text-smoke" />
+      <input
+        ref={ref}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
+        placeholder="Search this room"
+        className="min-w-0 flex-1 border-0 bg-transparent text-sm outline-none placeholder:text-gray-400"
+      />
+      {value && (
+        <span className="shrink-0 text-[11px] tabular-nums text-smoke">
+          {count} of {total}
+        </span>
+      )}
+      <button onClick={() => setOpen(false)} aria-label="Close search"
+        className="shrink-0 rounded-lg p-1 text-smoke transition-colors hover:text-ink">
+        <Icon name="close" className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  )
+}
+
+// Highlights the matched run inside a message without dangerouslySetInnerHTML.
+export function Highlight({ text, term }) {
+  if (!term) return text
+  const i = text.toLowerCase().indexOf(term.toLowerCase())
+  if (i === -1) return text
+  return (
+    <>
+      {text.slice(0, i)}
+      <mark className="rounded bg-brand/20 px-0.5 text-inherit">{text.slice(i, i + term.length)}</mark>
+      {text.slice(i + term.length)}
+    </>
+  )
+}
+
+// ----------------------------------------------------------------- mentions
+//
+// Autocomplete over the room's own members. Scoped to the community rather than
+// every profile on the platform: @-ing somebody who cannot read the room is a
+// mention that goes nowhere.
+
+export function MentionMenu({ query, members, onPick, onClose }) {
+  const hits = useMemo(() => {
+    const q = query.toLowerCase()
+    return members.filter((m) => m.name?.toLowerCase().includes(q)).slice(0, 6)
+  }, [members, query])
+
+  useEffect(() => {
+    const onKey = (e) => e.key === 'Escape' && onClose()
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  if (hits.length === 0) return null
+
+  return (
+    <motion.div
+      {...overlay}
+      className="absolute bottom-full left-3 right-3 z-30 mb-2 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-lift"
+    >
+      {hits.map((m) => (
+        <button
+          key={m.id}
+          onClick={() => onPick(m)}
+          className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-cloud"
+        >
+          <Avatar src={m.photo_url} name={m.name} size="xs" />
+          <span className="min-w-0 flex-1 truncate text-sm font-medium">{m.name}</span>
+        </button>
+      ))}
+    </motion.div>
+  )
+}
+
+// Renders @Name runs in brand orange. Plain-text in, React out, so a message
+// body is never injected as HTML.
+export function withMentions(body, names) {
+  if (!names?.size) return body
+  const parts = body.split(/(@[\w' -]{2,40})/g)
+  return parts.map((p, i) => {
+    if (!p.startsWith('@')) return p
+    const clean = p.slice(1).trim().toLowerCase()
+    const hit = [...names].some((n) => clean.startsWith(n))
+    return hit ? <span key={i} className="font-semibold text-brand">{p}</span> : p
+  })
+}

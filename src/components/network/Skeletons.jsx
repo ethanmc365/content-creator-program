@@ -48,8 +48,10 @@ export function MarketHeaderSkeleton() {
           <Skeleton className="h-10 w-24 rounded-full" />
         </div>
       </div>
+      {/* Keyed by index, not by the width class: two tabs happen to be the same
+          width, and using the class as the key made them duplicate keys. */}
       <div className="mt-6 flex gap-6 border-b border-gray-100 pb-3">
-        {['w-20', 'w-24', 'w-16', 'w-20'].map((w) => <Line key={w} w={w} h="h-4" />)}
+        {['w-20', 'w-24', 'w-16', 'w-20'].map((w, i) => <Line key={i} w={w} h="h-4" />)}
       </div>
     </div>
   )

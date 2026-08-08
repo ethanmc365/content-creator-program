@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useCommunity } from '../../context/CommunityContext'
@@ -38,6 +38,11 @@ const TABS = [
 // Swapped, never appended: six items is one too many for a phone's bottom bar,
 // and this set is only used when the network preview is on, so a UK creator's
 // bar is byte-for-byte what it was.
+// Lazy, and never rendered with the flag off. It imports `motion`, so a static
+// import here would put the animation runtime back in the bundle every UK
+// creator downloads. Same reason the network pages are code-split.
+const CommandPalette = lazy(() => import('../network/CommandPalette'))
+
 const NETWORK_TABS = [
   { to: '/home', label: 'Home', icon: 'home' },
   { to: '/challenges', label: 'Challenges', icon: 'flag' },
@@ -68,7 +73,27 @@ export default function AppLayout() {
   const [newResources, setNewResources] = useState(false)
   const [exiting, setExiting] = useState(false)
   const [exitError, setExitError] = useState('')
+  const [paletteOpen, setPaletteOpen] = useState(false)
   const menuRef = useRef(null)
+
+  // Cmd/Ctrl+K opens the palette from anywhere, and `/` does too when you are
+  // not already typing. The typing check matters: without it, `/` in a chat
+  // composer would open a search box instead of a slash.
+  useEffect(() => {
+    if (!networkPreview) return
+    const onKey = (e) => {
+      const typing = /^(INPUT|TEXTAREA)$/.test(e.target?.tagName) || e.target?.isContentEditable
+      if ((e.key === 'k' || e.key === 'K') && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        setPaletteOpen((o) => !o)
+      } else if (e.key === '/' && !typing && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault()
+        setPaletteOpen(true)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [networkPreview])
   // When the software keyboard is open (e.g. typing a message) the bottom tab
   // bar slides away so the composer can sit right above the keyboard. Uses the
   // focus-driven signal so it collapses instantly (iOS often doesn't fire the
@@ -239,14 +264,18 @@ export default function AppLayout() {
             ? 'bottom-24 right-0 justify-end lg:bottom-6'
             : 'inset-x-0 bottom-24 justify-center lg:bottom-6',
         )}>
-          <div className="flex items-center gap-3 rounded-2xl border border-brand/30 bg-white px-4 py-2 shadow-lift">
+          {/* Compact on a phone. The full pill is 260px of floating chrome over
+              whatever you were reading; on a 375px screen that is most of the
+              width, and the only part anyone needs on the move is the way out. */}
+          <div className="flex items-center gap-2 rounded-2xl border border-brand/30 bg-white px-3 py-2 shadow-lift sm:gap-3 sm:px-4">
             <span className="flex items-center gap-2 text-xs font-medium text-ink">
               <Icon name="globe" className="h-4 w-4 text-brand" />
-              Global network preview
+              <span className="hidden sm:inline">Global network preview</span>
+              <span className="sm:hidden">Preview</span>
             </span>
             <Link
               to="/global"
-              className="text-xs font-medium text-smoke transition-colors hover:text-brand"
+              className="hidden text-xs font-medium text-smoke transition-colors hover:text-brand sm:block"
             >
               Worldwide
             </Link>
@@ -290,6 +319,18 @@ export default function AppLayout() {
           </nav>
 
           <div className="flex items-center gap-2">
+            {/* Search. A visible affordance for the palette: a keyboard shortcut
+                nobody is told about is a feature that does not exist. */}
+            {networkPreview && (
+              <button
+                onClick={() => setPaletteOpen(true)}
+                aria-label="Search"
+                className="flex items-center gap-2 rounded-full border border-gray-200 px-2.5 py-1.5 text-smoke transition-colors hover:border-brand hover:text-brand sm:pr-2"
+              >
+                <Icon name="magnifier" className="h-4 w-4" />
+                <kbd className="hidden text-[10px] font-medium sm:block">⌘K</kbd>
+              </button>
+            )}
             {/* Admin shortcut. Visible on mobile too (creators never see it) so
                 admins can reach the panel straight from the top bar. */}
             {isAdmin && (
@@ -378,6 +419,12 @@ export default function AppLayout() {
 
       {/* One-off "rate the event" popup after an attended event finishes */}
       <EventRatingPrompt />
+
+      {networkPreview && paletteOpen && (
+        <Suspense fallback={null}>
+          <CommandPalette open onClose={() => setPaletteOpen(false)} />
+        </Suspense>
+      )}
 
       {/* ------- Mobile bottom tab bar -------
           Bottom padding includes the iPhone home-indicator safe area so the

@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { motion } from 'motion/react'
+import { motion, AnimatePresence } from 'motion/react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
 import { flagFromIso } from '../components/network/PlaceSwitcher'
 import NetworkMotion from '../components/NetworkMotion'
 import IntroPrompt from '../components/network/IntroPrompt'
+import { ReactionRow, useReactions, RoomSearch, Highlight, MentionMenu, withMentions } from '../components/network/ChatExtras'
 import { ChatSkeleton } from '../components/network/Skeletons'
 import Icon from '../components/Icon'
 import { Avatar, EmptyState } from '../components/ui'
@@ -54,6 +55,9 @@ export default function NetworkChat() {
   const [loading, setLoading] = useState(true)
   const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)
+  const [search, setSearch] = useState('')
+  const [members, setMembers] = useState([])
+  const [mention, setMention] = useState(null) // { query, start } while typing @…
   const scrollerRef = useRef(null)
   const inputRef = useRef(null)
   const atBottomRef = useRef(true)
@@ -133,6 +137,21 @@ export default function NetworkChat() {
 
   useEffect(() => { load() }, [load])
 
+  // Room members, for @-autocomplete. Scoped to THIS community: @-ing somebody
+  // who cannot read the room is a mention that goes nowhere.
+  useEffect(() => {
+    if (!community) return
+    let alive = true
+    supabase.from('community_members')
+      .select('profile_id, profiles!inner(id, name, photo_url, status, is_test)')
+      .eq('community_id', community.id).eq('status', 'active')
+      .eq('profiles.status', 'active').eq('profiles.is_test', false)
+      .then(({ data }) => {
+        if (alive) setMembers((data || []).map((r) => r.profiles))
+      })
+    return () => { alive = false }
+  }, [community])
+
   // Realtime, filtered on the same namespaced key the reads use so a Spanish
   // message can never arrive in a UK subscriber's stream.
   useEffect(() => {
@@ -183,6 +202,42 @@ export default function NetworkChat() {
   // Reflow when the keyboard opens: the scroller just got shorter, so the
   // message the user was reading has to stay at the bottom.
   useEffect(() => { pin() }, [kbOpen, vpHeight, pin])
+
+  const messageIds = useMemo(() => messages.map((m) => m.id), [messages])
+  const { byMessage: reactionsByMessage, toggle: toggleReaction } = useReactions(messageIds, user?.id)
+
+  // Search filters what is already in memory. A room holds 200 messages; a
+  // server round trip for this would be slower and would not work offline.
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return messages
+    return messages.filter(
+      (m) => m.body?.toLowerCase().includes(q) || m.profiles?.name?.toLowerCase().includes(q),
+    )
+  }, [messages, search])
+
+  const memberFirstNames = useMemo(
+    () => new Set(members.map((m) => m.name?.split(' ')[0]?.toLowerCase()).filter(Boolean)),
+    [members],
+  )
+
+  // Typing "@" opens the picker; a space or a match closes it.
+  function onBodyChange(e) {
+    const value = e.target.value
+    setBody(value)
+    const upto = value.slice(0, e.target.selectionStart ?? value.length)
+    const m = /(?:^|\s)@([\w' -]{0,20})$/.exec(upto)
+    setMention(m ? { query: m[1], start: upto.length - m[1].length - 1 } : null)
+  }
+
+  function pickMention(person) {
+    if (!mention) return
+    const before = body.slice(0, mention.start)
+    const after = body.slice(mention.start + mention.query.length + 1)
+    setBody(`${before}@${person.name} ${after}`)
+    setMention(null)
+    inputRef.current?.focus()
+  }
 
   function onScroll(e) {
     const el = e.currentTarget
@@ -266,11 +321,16 @@ export default function NetworkChat() {
           heading is scrolled away. */}
       {active && (
         <div className={cx(
-          'shrink-0 px-4 py-1.5 text-[11px] sm:px-5 sm:py-2.5 sm:text-xs',
+          'flex shrink-0 items-center gap-2 px-3 py-1 text-[11px] sm:px-4 sm:py-1.5 sm:text-xs',
           active.key === 'announcements' ? 'bg-brand-tint font-medium text-brand' : 'bg-cloud/60 text-smoke',
         )}>
-          <span className="font-semibold">{active.label}</span>
-          {active.hint && <span className="hidden sm:inline"> · {active.hint}</span>}
+          <RoomSearch value={search} onChange={setSearch} count={visible.length} total={messages.length} />
+          {!search && (
+            <span className="min-w-0 flex-1 truncate">
+              <span className="font-semibold">{active.label}</span>
+              {active.hint && <span className="hidden sm:inline"> · {active.hint}</span>}
+            </span>
+          )}
         </div>
       )}
 
@@ -285,17 +345,25 @@ export default function NetworkChat() {
               This room is brand new. It is separate from every other market, so it starts empty.
             </p>
           </div>
+        ) : visible.length === 0 ? (
+          <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
+            <Icon name="magnifier" className="h-8 w-8 text-gray-200" />
+            <p className="text-sm font-medium">No messages match &ldquo;{search}&rdquo;</p>
+          </div>
         ) : (
-          messages.map((m, i) => {
-            const prev = messages[i - 1]
-            const grouped = prev && prev.sender_id === m.sender_id
+          visible.map((m, i) => {
+            const prev = visible[i - 1]
+            // Grouping is suppressed while searching: consecutive results are
+            // not consecutive messages, so hiding the second author is a lie.
+            const grouped = !search && prev && prev.sender_id === m.sender_id
+            const reactions = reactionsByMessage.get(m.id) || []
             return (
               <motion.div
                 key={m.id}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={SOFT_SPRING}
-                className={cx('flex gap-3', grouped && '!mt-1')}
+                className={cx('group/msg flex gap-3', grouped && '!mt-1')}
               >
                 <div className="w-9 shrink-0">
                   {!grouped && <Avatar src={m.profiles?.photo_url} name={m.profiles?.name} size="sm" />}
@@ -310,7 +378,17 @@ export default function NetworkChat() {
                       <span className="text-[11px] text-smoke">{timeAgo(m.created_at)}</span>
                     </p>
                   )}
-                  <p className="whitespace-pre-wrap break-words text-sm text-ink">{m.body}</p>
+                  <p className="whitespace-pre-wrap break-words text-sm text-ink">
+                    {search
+                      ? <Highlight text={m.body || ''} term={search} />
+                      : withMentions(m.body || '', memberFirstNames)}
+                  </p>
+                  <ReactionRow
+                    messageId={m.id}
+                    reactions={reactions}
+                    myId={user?.id}
+                    onToggle={toggleReaction}
+                  />
                 </div>
               </motion.div>
             )
@@ -329,7 +407,18 @@ export default function NetworkChat() {
             Only the team posts in {active?.label}.
           </p>
         ) : (
-          <form onSubmit={send} className="flex items-center gap-2">
+          <form onSubmit={send} className="relative flex items-center gap-2">
+            {/* @-autocomplete, anchored to the composer. */}
+            <AnimatePresence>
+              {mention && (
+                <MentionMenu
+                  query={mention.query}
+                  members={members}
+                  onPick={pickMention}
+                  onClose={() => setMention(null)}
+                />
+              )}
+            </AnimatePresence>
             {/* text-base on mobile, deliberately: anything smaller makes iOS
                 zoom the page on focus and the overlay geometry never recovers. */}
             <input
@@ -337,7 +426,7 @@ export default function NetworkChat() {
               className="input text-base sm:text-sm"
               placeholder={`Message ${active?.label}`}
               value={body}
-              onChange={(e) => setBody(e.target.value)}
+              onChange={onBodyChange}
               aria-label={`Message ${active?.label}`}
             />
             <button type="submit" disabled={!body.trim() || sending} className="btn-primary shrink-0 !px-5 !py-2.5">

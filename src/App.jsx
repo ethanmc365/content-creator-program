@@ -5,6 +5,7 @@ import NetworkRoute from './components/NetworkRoute'
 import AppLayout from './components/layout/AppLayout'
 import OfflineScreen from './components/OfflineScreen'
 import ConfirmHost from './components/ConfirmHost'
+import ToastHost from './components/ToastHost'
 import { PlaneLoader } from './components/ui'
 
 // Public pages
@@ -88,6 +89,7 @@ export default function App() {
     <>
       <OfflineScreen />
       <ConfirmHost />
+      <ToastHost />
       <Suspense fallback={<LazyFallback />}>
       <Routes>
       {/* ---------- Public ---------- */}
