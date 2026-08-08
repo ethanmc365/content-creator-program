@@ -27,20 +27,26 @@ export function loadMyScopes() {
   if (cache) return cache
   cache = (async () => {
     const { data: { user } = {} } = await supabase.auth.getUser()
-    if (!user) return { ids: new Set(), homeId: null, rows: [] }
-    const { data, error } = await supabase
-      .from('community_members')
-      .select('community_id, role, is_home')
-      .eq('profile_id', user.id)
-      .eq('status', 'active')
+    if (!user) return { ids: new Set(), homeId: null, networkId: null, rows: [] }
+    const [{ data, error }, { data: net }] = await Promise.all([
+      supabase
+        .from('community_members')
+        .select('community_id, role, is_home')
+        .eq('profile_id', user.id)
+        .eq('status', 'active'),
+      // The network's id, so a page can tell a GLOBAL challenge from a market
+      // one without carrying the whole community list around.
+      supabase.from('communities').select('id').eq('kind', 'network').maybeSingle(),
+    ])
     // A read failure must fail OPEN. If the membership tables are unreadable for
     // any reason, showing a creator every challenge is the behaviour they had
     // before markets existed; showing them none would empty the page they use
     // to enter the live challenge.
-    if (error || !data) return { ids: null, homeId: null, rows: [] }
+    if (error || !data) return { ids: null, homeId: null, networkId: net?.id ?? null, rows: [] }
     return {
       ids: new Set(data.map((r) => r.community_id)),
       homeId: data.find((r) => r.is_home)?.community_id ?? null,
+      networkId: net?.id ?? null,
       rows: data,
     }
   })()
@@ -52,7 +58,7 @@ export function clearScopeCache() {
 }
 
 export function useMyScopes() {
-  const [state, setState] = useState({ ids: null, homeId: null, rows: [], loading: true })
+  const [state, setState] = useState({ ids: null, homeId: null, networkId: null, rows: [], loading: true })
   useEffect(() => {
     let alive = true
     loadMyScopes().then((s) => { if (alive) setState({ ...s, loading: false }) })

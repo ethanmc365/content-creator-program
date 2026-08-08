@@ -6,8 +6,10 @@ import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
 import { flagFromIso } from '../components/network/PlaceSwitcher'
 import NetworkMotion from '../components/NetworkMotion'
+import IntroPrompt from '../components/network/IntroPrompt'
+import { ChatSkeleton } from '../components/network/Skeletons'
 import Icon from '../components/Icon'
-import { Avatar, EmptyState, Skeleton } from '../components/ui'
+import { Avatar, EmptyState } from '../components/ui'
 import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
 import { cx, timeAgo } from '../lib/utils'
 import { SOFT_SPRING } from '../lib/motion'
@@ -87,10 +89,20 @@ export default function NetworkChat() {
     [channels, channelKey],
   )
 
-  // The one room that is genuinely live to every creator on the platform.
-  // Posting here during a preview would reach all of them, so the composer is
-  // disabled rather than trusting whoever is testing to notice.
-  const isLiveWorldwide = community?.kind === 'network'
+  // Which Worldwide rooms are genuinely live to every creator on the platform.
+  //
+  // This used to be "all of them", which was right when the network was a week
+  // old and wrong now. The live Chat.jsx has a HARD-CODED channel list of
+  // general, announcements and content_tips; those three are what 43 creators
+  // read every day, and a test message in one reaches all of them. Every other
+  // worldwide room is invisible to that app, so posting in it can reach nobody
+  // by accident.
+  //
+  // Keyed on the legacy list rather than on kind, because "is this room live"
+  // is a fact about the room, not about the community.
+  const LEGACY_LIVE_ROOMS = ['general', 'announcements', 'content_tips']
+  const isNetwork = community?.kind === 'network'
+  const isLiveWorldwide = isNetwork && active && LEGACY_LIVE_ROOMS.includes(active.key)
   const canPost =
     active && !isLiveWorldwide &&
     (active.post_policy === 'all' || manages(community.id))
@@ -196,7 +208,7 @@ export default function NetworkChat() {
   }
 
   if (ctxLoading && !community) {
-    return <div className="mx-auto w-full max-w-5xl px-4 py-8"><Skeleton className="h-96" /></div>
+    return <div className="mx-auto w-full max-w-7xl px-4 py-8"><ChatSkeleton /></div>
   }
 
   if (!community) {
@@ -210,6 +222,9 @@ export default function NetworkChat() {
 
   const base = slug ? `/c/${slug}/chat` : '/global/chat'
   const flags = (community.country_codes || []).map(flagFromIso).join('')
+  // Derived from the messages already loaded rather than a second query: if
+  // you have posted in this room, you have introduced yourself.
+  const hasIntroduced = messages.some((m) => m.sender_id === user?.id)
 
   // --------------------------------------------------------------- the room
   const room = (
@@ -239,6 +254,14 @@ export default function NetworkChat() {
         ))}
       </div>
 
+      {/* Introductions gets a guided composer instead of a blank room, and only
+          until you have actually used it. "Say hello" asks for a blank page
+          from the person in the room with the least context; five questions
+          produce a post somebody can reply to. */}
+      {active?.key === 'introductions' && canPost && !hasIntroduced && (
+        <IntroPrompt community={community} channel={active} onPosted={load} />
+      )}
+
       {/* The hint bar doubles as the room's identity on mobile, where the page
           heading is scrolled away. */}
       {active && (
@@ -253,7 +276,7 @@ export default function NetworkChat() {
 
       <div ref={scrollerRef} onScroll={onScroll} className="flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
         {loading ? (
-          <><Skeleton className="h-12" /><Skeleton className="h-12" /><Skeleton className="h-12" /></>
+          <ChatSkeleton />
         ) : messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
             <Icon name="chat" className="h-8 w-8 text-gray-200" />
@@ -298,8 +321,8 @@ export default function NetworkChat() {
       <div className="shrink-0 border-t border-gray-100 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:pb-3">
         {isLiveWorldwide ? (
           <p className="rounded-xl bg-cloud px-4 py-3 text-center text-xs text-smoke">
-            Worldwide is the room every creator is already in. It is read only here so a test message
-            cannot reach all of them by accident. Post in a market room to try this out.
+            {active?.label} is a room every creator is already in today. It is read only here so a test
+            message cannot reach all of them by accident. The other rooms are open.
           </p>
         ) : !canPost ? (
           <p className="rounded-xl bg-cloud px-4 py-3 text-center text-xs text-smoke">

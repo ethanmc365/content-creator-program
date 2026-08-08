@@ -6,10 +6,11 @@ import { useCommunity } from '../context/CommunityContext'
 import NetworkLayout from '../components/network/NetworkLayout'
 import NetworkMotion from '../components/NetworkMotion'
 import MarketHeader from '../components/network/MarketHeader'
+import { MarketHeaderSkeleton, LiveChallengeSkeleton } from '../components/network/Skeletons'
 import LiveChallengeCard, { NoLiveChallenge } from '../components/network/LiveChallengeCard'
 import Icon from '../components/Icon'
 import { flagFromIso } from '../components/network/PlaceSwitcher'
-import { Avatar, Badge, EmptyState, Skeleton } from '../components/ui'
+import { Avatar, Badge, EmptyState } from '../components/ui'
 import { scoringMode } from '../lib/scoring'
 import { cx, formatDate, formatViews, challengeDeadline } from '../lib/utils'
 import { listContainer, listItem, cardHover, pageFade } from '../lib/motion'
@@ -89,7 +90,7 @@ export default function MarketChallenges() {
   }, [market])
 
   if (ctxLoading && !market) {
-    return <NetworkLayout><Skeleton className="h-96" /></NetworkLayout>
+    return <NetworkLayout><MarketHeaderSkeleton /></NetworkLayout>
   }
   if (!market) {
     return (
@@ -127,7 +128,7 @@ export default function MarketChallenges() {
             </div>
 
             {loading ? (
-              <Skeleton className="h-56" />
+              <LiveChallengeSkeleton />
             ) : d.live ? (
               <LiveChallengeCard
                 challenge={d.live}

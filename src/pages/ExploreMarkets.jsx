@@ -208,7 +208,7 @@ export default function ExploreMarkets() {
         <motion.div {...pageFade} className="space-y-10">
           <section className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-6 text-white shadow-lift sm:p-9">
             <div className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
-            <TrypPlane variant="corner" />
+            <TrypPlane variant="hero" id="markets" />
             <div className="relative">
               <Link to="/global" className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-white/80 transition-colors hover:text-white">
                 <Icon name="chevronLeft" className="h-4 w-4" /> {network?.name || 'Worldwide'}

@@ -1,5 +1,6 @@
-import { NavLink, Link } from 'react-router-dom'
-import { motion } from 'motion/react'
+import { useEffect, useState } from 'react'
+import { NavLink, Link, useLocation } from 'react-router-dom'
+import { motion, AnimatePresence } from 'motion/react'
 import { useCommunity } from '../../context/CommunityContext'
 import Icon from '../Icon'
 import { flagFromIso } from '../../lib/flags'
@@ -15,27 +16,26 @@ export { flagFromIso }
 //
 // WHAT CHANGED AND WHY
 //
-// The strip this replaces listed every market on the platform. That is a
-// directory, not a switcher: a UK creator was shown a Spain pill they could not
-// join, could not read and had no reason to think about, and the one place they
-// actually live was buried among countries that meant nothing to them. Worse,
-// it grew: at ten markets the strip is a scrolling wall of flags.
+// The first version listed every market on the platform. That is a directory,
+// not a switcher: a UK creator was shown a Spain pill they could not join, could
+// not read and had no reason to think about, and the one place they actually
+// live was buried among countries that meant nothing to them.
 //
-// So the rule is now: this shows the places you ARE, and one door to the places
-// you are not. Discovery is a page (/global/markets) because discovery deserves
-// room to explain itself, and a pill cannot.
+// The second version fixed that but grew a fourth control, an admin-only "All
+// markets" pill, which put three different doors to the same place on one strip
+// (Explore, All markets, and the rail's Your places). Admins now reach closed
+// markets through Explore itself, which already groups them, so the strip is
+// back to one job: you are here, and here is where else you belong.
 //
-// Global admins get a separate, clearly-labelled door rather than the old
-// mixed-in dashed pills. Their need is real (they must see markets that are
-// closed or empty) but it is an operating need, and dressing it up as ordinary
-// navigation is what made the strip confusing for everyone else.
+// ON A PHONE it is not a strip at all. A horizontal scroller of pills above the
+// content is a row you have to discover by dragging; a single button that says
+// where you are, opening a sheet, is one tap and always legible.
 
-function Pill({ to, end, children, tone = 'default', title }) {
+function Pill({ to, end, children, tone = 'default' }) {
   return (
     <NavLink
       to={to}
       end={end}
-      title={title}
       className={({ isActive }) =>
         cx(
           'flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-medium',
@@ -53,71 +53,205 @@ function Pill({ to, end, children, tone = 'default', title }) {
   )
 }
 
+function Row({ to, onPick, active, flags, name, badge, hint }) {
+  return (
+    <Link
+      to={to}
+      onClick={onPick}
+      className={cx(
+        'flex items-center gap-3 rounded-2xl px-4 py-3.5 transition-colors',
+        active ? 'bg-brand-tint' : 'hover:bg-cloud',
+      )}
+    >
+      <span className="w-7 shrink-0 text-center text-lg leading-none" aria-hidden>{flags || '🌍'}</span>
+      <span className="min-w-0 flex-1">
+        <span className={cx('flex items-center gap-2 truncate font-semibold', active && 'text-brand')}>
+          {name}
+          {badge && (
+            <span className="shrink-0 rounded-full bg-brand px-1.5 py-0.5 text-[10px] font-semibold text-white">
+              {badge}
+            </span>
+          )}
+        </span>
+        {hint && <span className="block truncate text-xs text-smoke">{hint}</span>}
+      </span>
+      {active && <Icon name="check" className="h-4 w-4 shrink-0 text-brand" />}
+    </Link>
+  )
+}
+
 export default function PlaceSwitcher() {
   const { network, chapters, myChapters, isGlobalAdmin } = useCommunity()
-  const home = myChapters.find((c) => c.membership?.is_home)
+  const { pathname } = useLocation()
+  const [sheet, setSheet] = useState(false)
 
-  // Your markets, home first. Everything else is behind a door.
+  // Any navigation closes it. Without this, tapping a market leaves the sheet
+  // sitting over the page it just took you to.
+  useEffect(() => { setSheet(false) }, [pathname])
+
+  // The body must not scroll behind an open sheet, or a flick on the backdrop
+  // scrolls the page underneath and the sheet appears to be stuck to nothing.
+  useEffect(() => {
+    if (!sheet) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (e) => e.key === 'Escape' && setSheet(false)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = prev
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [sheet])
+
+  const home = myChapters.find((c) => c.membership?.is_home)
   const mine = myChapters
     .slice()
     .sort((a, b) => (b.id === home?.id) - (a.id === home?.id) || a.name.localeCompare(b.name))
-
   const joinable = chapters.filter((c) => c.is_active && !myChapters.some((m) => m.id === c.id))
 
+  const onGlobal = pathname === '/global'
+  const currentSlug = pathname.startsWith('/c/') ? pathname.split('/')[2] : null
+  const current = mine.find((c) => c.slug === currentSlug)
+    || chapters.find((c) => c.slug === currentSlug)
+  const currentFlags = current
+    ? (current.country_codes || []).map(flagFromIso).join('')
+    : ''
+
   return (
-    <motion.nav
-      initial={{ opacity: 0, y: -6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, ease: 'easeOut' }}
-      aria-label="Switch community"
-      className="-mx-4 mb-7 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-    >
-      <div className="flex items-center gap-2 pb-1">
-        <Pill to="/global" end>
-          <Icon name="globe" className="h-4 w-4" />
-          {network?.name || 'Worldwide'}
-        </Pill>
-
-        {mine.length > 0 && <span className="h-6 w-px shrink-0 bg-gray-200" aria-hidden />}
-
-        {mine.map((c) => (
-          <Pill key={c.id} to={`/c/${c.slug}`} title={c.is_active ? undefined : 'Not open to creators yet'}>
-            <span className="whitespace-nowrap" aria-hidden>
-              {(c.country_codes || []).map(flagFromIso).join('')}
+    <>
+      {/* ---------- Phone: one button, one sheet ---------- */}
+      <div className="mb-6 lg:hidden">
+        <button
+          type="button"
+          onClick={() => setSheet(true)}
+          aria-haspopup="dialog"
+          aria-expanded={sheet}
+          className="flex w-full items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-left transition-shadow hover:shadow-card"
+        >
+          <span className="w-6 shrink-0 text-center text-base leading-none" aria-hidden>
+            {onGlobal || !current ? '🌍' : currentFlags || '📍'}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[10px] font-semibold uppercase tracking-widest text-smoke">
+              You are in
             </span>
-            <span className="whitespace-nowrap">{c.name}</span>
-            {c.id === home?.id && (
-              <span className="rounded-full bg-brand/10 px-1.5 py-0.5 text-[10px] font-semibold text-brand">Home</span>
-            )}
-          </Pill>
-        ))}
-
-        {/* One door, not a list. Hidden entirely when there is genuinely
-            nowhere else to go, so a single-market platform is not asking a
-            creator to explore an empty room. */}
-        {joinable.length > 0 && (
-          <Pill to="/global/markets" tone="ghost">
-            <Icon name="magnifier" className="h-4 w-4" />
-            <span className="whitespace-nowrap">Explore markets</span>
-          </Pill>
-        )}
-
-        {isGlobalAdmin && (
-          <>
-            <span className="h-6 w-px shrink-0 bg-gray-200" aria-hidden />
-            <Link
-              to="/global/settings"
-              className="flex shrink-0 items-center gap-1.5 rounded-full border border-brand/30 bg-white px-3.5 py-2 text-sm font-medium text-brand transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card"
-            >
-              <Icon name="shield" className="h-4 w-4" />
-              <span className="whitespace-nowrap">All markets</span>
-              <span className="rounded-full bg-brand-tint px-1.5 py-0.5 text-[10px] font-semibold tabular-nums">
-                {chapters.length}
-              </span>
-            </Link>
-          </>
-        )}
+            <span className="block truncate font-semibold">
+              {onGlobal || !current ? (network?.name || 'Worldwide') : current.name}
+            </span>
+          </span>
+          <Icon name="chevronRight" className="h-4 w-4 shrink-0 rotate-90 text-gray-300" />
+        </button>
       </div>
-    </motion.nav>
+
+      <AnimatePresence>
+        {sheet && (
+          <div className="fixed inset-0 z-[60] lg:hidden" role="dialog" aria-modal="true" aria-label="Switch place">
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              onClick={() => setSheet(false)}
+              className="absolute inset-0 bg-ink/40 backdrop-blur-[2px]"
+            />
+            <motion.div
+              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+              transition={{ type: 'spring', stiffness: 380, damping: 36 }}
+              className="absolute inset-x-0 bottom-0 max-h-[82vh] overflow-y-auto rounded-t-[28px] bg-white pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-lift"
+            >
+              <div className="sticky top-0 z-10 flex flex-col items-center bg-white pb-2 pt-3">
+                <span aria-hidden className="h-1.5 w-11 rounded-full bg-gray-200" />
+              </div>
+              <div className="px-3 pb-2">
+                <p className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-widest text-smoke">
+                  The network
+                </p>
+                <Row
+                  to="/global"
+                  onPick={() => setSheet(false)}
+                  active={onGlobal}
+                  flags="🌍"
+                  name={network?.name || 'Worldwide'}
+                  hint="Everyone, everywhere. Your people layer."
+                />
+
+                {mine.length > 0 && (
+                  <p className="px-4 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-widest text-smoke">
+                    Your markets
+                  </p>
+                )}
+                {mine.map((c) => (
+                  <Row
+                    key={c.id}
+                    to={`/c/${c.slug}`}
+                    onPick={() => setSheet(false)}
+                    active={c.slug === currentSlug}
+                    flags={(c.country_codes || []).map(flagFromIso).join('')}
+                    name={c.name}
+                    badge={c.id === home?.id ? 'Home' : null}
+                    hint={c.tagline}
+                  />
+                ))}
+
+                {joinable.length > 0 && (
+                  <>
+                    <p className="px-4 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-widest text-smoke">
+                      Somewhere else
+                    </p>
+                    <Row
+                      to="/global/markets"
+                      onPick={() => setSheet(false)}
+                      active={false}
+                      flags="🔎"
+                      name="Explore markets"
+                      hint={`${joinable.length} more ${joinable.length === 1 ? 'market' : 'markets'} open`}
+                    />
+                  </>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ---------- Desktop: the strip ---------- */}
+      <motion.nav
+        initial={{ opacity: 0, y: -6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, ease: 'easeOut' }}
+        aria-label="Switch community"
+        className="-mx-4 mb-7 hidden overflow-x-auto px-4 [scrollbar-width:none] lg:block [&::-webkit-scrollbar]:hidden"
+      >
+        <div className="flex items-center gap-2 pb-1">
+          <Pill to="/global" end>
+            <Icon name="globe" className="h-4 w-4" />
+            {network?.name || 'Worldwide'}
+          </Pill>
+
+          {mine.length > 0 && <span className="h-6 w-px shrink-0 bg-gray-200" aria-hidden />}
+
+          {mine.map((c) => (
+            <Pill key={c.id} to={`/c/${c.slug}`}>
+              <span className="whitespace-nowrap" aria-hidden>
+                {(c.country_codes || []).map(flagFromIso).join('')}
+              </span>
+              <span className="whitespace-nowrap">{c.name}</span>
+              {c.id === home?.id && (
+                <span className="rounded-full bg-brand/10 px-1.5 py-0.5 text-[10px] font-semibold text-brand">Home</span>
+              )}
+            </Pill>
+          ))}
+
+          {/* One door, not three. Admins reach closed markets through this page
+              too, which already groups them under "Not open yet". */}
+          {(joinable.length > 0 || isGlobalAdmin) && (
+            <Pill to="/global/markets" tone="ghost">
+              <Icon name="magnifier" className="h-4 w-4" />
+              <span className="whitespace-nowrap">
+                {isGlobalAdmin ? `All markets (${chapters.length})` : 'Explore markets'}
+              </span>
+            </Pill>
+          )}
+        </div>
+      </motion.nav>
+    </>
   )
 }

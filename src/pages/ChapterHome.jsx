@@ -6,9 +6,11 @@ import { useCommunity } from '../context/CommunityContext'
 import NetworkLayout, { RailCard, flagFromIso } from '../components/network/NetworkLayout'
 import NetworkMotion from '../components/NetworkMotion'
 import MarketHeader from '../components/network/MarketHeader'
+import MarketMap from '../components/network/MarketMap'
+import { MarketOverviewSkeleton, LiveChallengeSkeleton, CardGridSkeleton, RailCardSkeleton } from '../components/network/Skeletons'
 import LiveChallengeCard, { NoLiveChallenge } from '../components/network/LiveChallengeCard'
 import Icon from '../components/Icon'
-import { Avatar, EmptyState, Skeleton } from '../components/ui'
+import { Avatar, EmptyState } from '../components/ui'
 import { cx, timeAgo, challengeDeadline } from '../lib/utils'
 import { stripMarkup } from '../lib/richText'
 import { listContainer, listItem, cardHover, pageFade } from '../lib/motion'
@@ -106,7 +108,7 @@ export default function ChapterHome() {
     return <NetworkLayout><EmptyState icon={<Icon name="alert" className="h-6 w-6" />} title="Not readable yet" hint={error} /></NetworkLayout>
   }
   if (ctxLoading && !chapter) {
-    return <NetworkLayout><Skeleton className="h-96" /></NetworkLayout>
+    return <NetworkLayout><MarketOverviewSkeleton /></NetworkLayout>
   }
   if (!chapter) {
     return (
@@ -124,7 +126,7 @@ export default function ChapterHome() {
   const rail = (
     <>
       <RailCard icon={<Icon name="chat" className="h-3.5 w-3.5 text-brand" />} title="Rooms">
-        {loading ? <Skeleton className="h-24" /> : (
+        {loading ? <RailCardSkeleton rows={3} /> : (
           <div className="space-y-0.5">
             {data.channels.map((ch) => (
               <Link key={ch.id} to={`/c/${chapter.slug}/chat/${ch.key}`}
@@ -204,7 +206,7 @@ export default function ChapterHome() {
           {/* ---------- Live challenge ---------- */}
           <section>
             {loading ? (
-              <Skeleton className="h-56" />
+              <LiveChallengeSkeleton />
             ) : data.live ? (
               <LiveChallengeCard
                 challenge={data.live}
@@ -249,7 +251,7 @@ export default function ChapterHome() {
               </p>
             </div>
             {loading ? (
-              <div className="grid gap-3 sm:grid-cols-2"><Skeleton className="h-20" /><Skeleton className="h-20" /></div>
+              <CardGridSkeleton count={3} height="h-20" />
             ) : (
               <motion.div variants={listContainer} initial="hidden" animate="show" className="grid gap-3 sm:grid-cols-2">
                 {data.channels.map((ch) => (
@@ -279,6 +281,61 @@ export default function ChapterHome() {
               </motion.div>
             )}
           </section>
+
+          {/* ---------- Where this market is ---------- */}
+          {/* Zoomed to the market, not the world. It also does real layout
+              work: a market with no challenge and no announcement used to end
+              after two room tiles, leaving the page visibly unfinished. */}
+          <section>
+            <div className="mb-4">
+              <h2 className="flex items-center gap-2 text-lg font-semibold">
+                <Icon name="pin" className="h-5 w-5 text-brand" /> Where we are in {chapter.name}
+              </h2>
+              <p className="mt-1 text-sm text-smoke">
+                Every creator here, in the town they filmed this morning.
+              </p>
+            </div>
+            <MarketMap marketId={chapter.id} marketName={chapter.name} />
+          </section>
+
+          {/* ---------- Getting started ---------- */}
+          {/* Only for whoever runs a market that has not opened yet. It is the
+              difference between an empty page and a page with a next step. */}
+          {canManage && (!chapter.is_active || (data && data.members === 0)) && (
+            <section>
+              <div className="rounded-card border border-brand/25 bg-brand-tint/20 p-6">
+                <h2 className="text-lg font-semibold">Getting {chapter.name} off the ground</h2>
+                <p className="mt-1 text-sm text-smoke">
+                  Nobody sees any of this until you switch the market on.
+                </p>
+                <ul className="mt-5 space-y-2.5">
+                  {[
+                    { done: !!chapter.tagline, label: 'Write a tagline so it introduces itself', to: `/manage/${chapter.slug}` },
+                    { done: (data?.channels?.length || 0) > 2, label: 'Add a room beyond General and Announcements', to: `/manage/${chapter.slug}` },
+                    { done: (data?.challenges?.length || 0) > 0, label: 'Create the first challenge', to: `/admin/challenges/new?market=${chapter.slug}` },
+                    { done: (data?.members || 0) > 0, label: 'Get the first creators in', to: `/manage/${chapter.slug}` },
+                    { done: chapter.is_active, label: 'Open it to creators', to: `/manage/${chapter.slug}` },
+                  ].map((step) => (
+                    <li key={step.label}>
+                      <Link to={step.to}
+                        className="flex items-center gap-3 rounded-xl bg-white px-4 py-3 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card">
+                        <span className={cx(
+                          'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px]',
+                          step.done ? 'border-brand bg-brand text-white' : 'border-gray-300 text-transparent',
+                        )}>
+                          ✓
+                        </span>
+                        <span className={cx('min-w-0 flex-1 text-sm', step.done ? 'text-smoke line-through' : 'font-medium')}>
+                          {step.label}
+                        </span>
+                        <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </section>
+          )}
 
           {/* ---------- Recent challenges ---------- */}
           {past.length > 0 && (

@@ -8,6 +8,7 @@ import { useCommunity } from '../context/CommunityContext'
 import NetworkLayout, { RailCard, flagFromIso } from '../components/network/NetworkLayout'
 import NetworkMotion from '../components/NetworkMotion'
 import TrypPlane from '../components/network/TrypPlane'
+import LiveChallengeCard from '../components/network/LiveChallengeCard'
 import WorldMap from '../components/WorldMap'
 import CreatorSpotlight from '../components/CreatorSpotlight'
 import Icon from '../components/Icon'
@@ -94,21 +95,30 @@ function MarketCard({ chapter, mine, isHome, memberCount, hasLive }) {
   )
 }
 
-// The people layer, as one block. These are full pages, not panels, so the rail
-// links to them rather than trying to inline them.
-const PEOPLE_LINKS = [
+// The people layer, as one block.
+//
+// This IS the old avatar dropdown, moved somewhere it can be read. Fourteen
+// unlabelled links in a 240px menu is a list you scan by hunting; the same links
+// grouped, described and always in the same place on the hub is navigation. The
+// menu now keeps only what is about you.
+const NETWORK_LINKS = [
   { to: '/creators', icon: 'users', label: 'Creator directory', hint: 'Everyone, on a map' },
-  { to: '/connections', icon: 'heart', label: 'Connections', hint: 'Requests and mutuals' },
+  { to: '/connections', icon: 'heart', label: 'Connections', hint: 'Requests and mutuals', badge: 'connections' },
   { to: '/messages', icon: 'envelope', label: 'Direct messages', hint: 'Anyone, any market' },
   { to: '/collab', icon: 'pin', label: 'Travel collab board', hint: 'Who is going where' },
+  { to: '/events', icon: 'calendar', label: 'Calendar', hint: 'Events and meetups' },
+  { to: '/leaderboard', icon: 'chart', label: 'Leaderboard', hint: 'Across every market' },
   { to: '/game', icon: 'joystick', label: 'Daily games', hint: 'One puzzle a day' },
-  { to: '/resources', icon: 'book', label: 'Resource library', hint: 'Guides and templates' },
+  { to: '/resources', icon: 'book', label: 'Resource library', hint: 'Guides and templates', badge: 'resources' },
+  { to: '/jobs', icon: 'briefcase', label: 'Roles', hint: 'Paid work with Tryp.com' },
+  { to: '/refer', icon: 'share', label: 'Refer a creator', hint: 'Bring someone in' },
 ]
 
 export default function GlobalHome() {
-  const { profile } = useAuth()
+  const { profile, session } = useAuth()
   const { network, chapters, myChapters, myCommunities, isGlobalAdmin, error } = useCommunity()
   const [d, setD] = useState(null)
+  const networkId = network?.id ?? null
 
   useEffect(() => {
     let cancelled = false
@@ -117,7 +127,7 @@ export default function GlobalHome() {
       const [
         { data: mems }, { count: creators }, { data: challenges },
         { data: ann }, { data: trips }, { data: fresh }, { data: visited }, { data: countries },
-        { data: netStandings },
+        { data: netStandings }, { count: connCount }, { data: latestRes },
       ] = await Promise.all([
         supabase.from('community_members')
           .select('community_id, profiles!inner(is_admin, is_test, status)')
@@ -145,22 +155,57 @@ export default function GlobalHome() {
         supabase.from('network_standings')
           .select('creator_id, points, markets, profiles!inner(id, name, photo_url, is_test)')
           .order('points', { ascending: false }).limit(8),
+        // Badge counts for the rail. They were in the avatar menu; the menu no
+        // longer holds these links, so the signal has to move with them or a
+        // pending connection request becomes invisible.
+        supabase.from('connections').select('id', { count: 'exact', head: true })
+          .eq('connected_creator_id', session?.user?.id ?? '00000000-0000-0000-0000-000000000000')
+          .eq('status', 'pending'),
+        supabase.from('resources').select('created_at').order('created_at', { ascending: false }).limit(1),
       ])
       if (cancelled) return
       const tally = {}
       for (const m of mems || []) tally[m.community_id] = (tally[m.community_id] || 0) + 1
       const live = {}
       for (const c of challenges || []) live[c.community_id] = c
+
+      // Entries and pace for a global challenge, if one is running. The
+      // denominator is the network roster, which is every creator, so this is
+      // the one participation bar where "of 43" is the honest number.
+      let globalEntries = null
+      let globalParticipation = null
+      const globalChallenge = networkId ? live[networkId] : null
+      if (globalChallenge) {
+        const [{ data: entrants }, { count: netMembers }] = await Promise.all([
+          supabase.from('submissions').select('creator_id').eq('challenge_id', globalChallenge.id),
+          supabase.from('community_members')
+            .select('profile_id, profiles!inner(is_admin, is_test, status)', { count: 'exact', head: true })
+            .eq('community_id', networkId).eq('status', 'active')
+            .eq('profiles.is_admin', false).eq('profiles.is_test', false).eq('profiles.status', 'active'),
+        ])
+        if (cancelled) return
+        globalEntries = (entrants || []).length
+        globalParticipation = {
+          posted: new Set((entrants || []).map((e) => e.creator_id)).size,
+          total: netMembers ?? 0,
+        }
+      }
+      const latestResource = latestRes?.[0]?.created_at ? new Date(latestRes[0].created_at).getTime() : 0
+      const seenResources = profile?.resources_seen_at ? new Date(profile.resources_seen_at).getTime() : 0
       setD({
         counts: tally, creators, live, ann, trips: trips || [], fresh: fresh || [],
         visited: [...new Set((visited || []).flatMap((p) => p.countries_visited || []))],
         nations: new Set((countries || []).map((p) => p.country_code)).size,
         network: (netStandings || []).filter((s) => !s.profiles.is_test),
+        connReqs: connCount ?? 0,
+        newResources: latestResource > seenResources,
+        globalEntries,
+        globalParticipation,
       })
     }
     load()
     return () => { cancelled = true }
-  }, [])
+  }, [session?.user?.id, profile?.resources_seen_at, networkId])
 
   if (error) {
     return (
@@ -179,8 +224,13 @@ export default function GlobalHome() {
     .slice()
     .sort((a, b) => (b.id === home?.id) - (a.id === home?.id) || a.name.localeCompare(b.name))
   // Live challenges in markets the viewer is actually in. A market they can
-  // read but have not joined is not "their" live challenge.
-  const myLive = myMarkets.map((m) => (d?.live?.[m.id] ? { market: m, challenge: d.live[m.id] } : null)).filter(Boolean)
+  // read but have not joined is not "their" live challenge. The network's own
+  // challenge is everybody's, so it leads.
+  const globalLive = network ? d?.live?.[network.id] : null
+  const myLive = [
+    ...(globalLive ? [{ market: network, challenge: globalLive, global: true }] : []),
+    ...myMarkets.map((m) => (d?.live?.[m.id] ? { market: m, challenge: d.live[m.id] } : null)).filter(Boolean),
+  ]
 
   const rail = (
     <>
@@ -188,14 +238,14 @@ export default function GlobalHome() {
       <RailCard icon={<Icon name="flag" className="h-3.5 w-3.5 text-brand" />} title="Live now">
         {myLive.length === 0 ? (
           <div className="flex items-center gap-3 rounded-xl bg-brand-tint/30 px-3 py-3">
-            <TrypPlane variant="badge" className="h-5 w-5" />
+            <TrypPlane variant="badge" />
             <p className="text-xs text-smoke">
               Nothing running in your markets right now. The next brief lands here.
             </p>
           </div>
         ) : (
           <div className="space-y-2">
-            {myLive.map(({ market, challenge }) => (
+            {myLive.map(({ market, challenge, global: isGlobal }) => (
               <Link key={challenge.id} to={`/challenges/${challenge.id}`}
                 className="block rounded-xl border border-brand/25 bg-brand-tint/25 px-3 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card">
                 <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-brand">
@@ -203,7 +253,9 @@ export default function GlobalHome() {
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/60" />
                     <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand" />
                   </span>
-                  {(market.country_codes || []).map(flagFromIso).join('')} {market.name}
+                  {isGlobal
+                    ? 'Global · everyone'
+                    : `${(market.country_codes || []).map(flagFromIso).join('')} ${market.name}`}
                 </p>
                 <p className="mt-1 line-clamp-2 text-sm font-medium">{challenge.title}</p>
               </Link>
@@ -248,19 +300,47 @@ export default function GlobalHome() {
       {/* ---------- The people layer ---------- */}
       <RailCard icon={<Icon name="users" className="h-3.5 w-3.5 text-brand" />} title="Across the network">
         <div className="space-y-0.5">
-          {PEOPLE_LINKS.map((l) => (
-            <Link key={l.to} to={l.to}
-              className="group flex items-center gap-2.5 rounded-xl px-3 py-2 transition-colors hover:bg-cloud">
-              <Icon name={l.icon} className="h-4 w-4 shrink-0 text-smoke transition-colors group-hover:text-brand" />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium">{l.label}</span>
-                <span className="block truncate text-[11px] text-smoke">{l.hint}</span>
-              </span>
-              <Icon name="chevronRight" className="h-3.5 w-3.5 shrink-0 text-gray-300" />
-            </Link>
-          ))}
+          {NETWORK_LINKS.map((l) => {
+            const count = l.badge === 'connections' ? d?.connReqs : 0
+            const isNew = l.badge === 'resources' && d?.newResources
+            return (
+              <Link key={l.to} to={l.to}
+                className="group flex items-center gap-2.5 rounded-xl px-3 py-2 transition-colors hover:bg-cloud">
+                <Icon name={l.icon} className="h-4 w-4 shrink-0 text-smoke transition-colors group-hover:text-brand" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">{l.label}</span>
+                  <span className="block truncate text-[11px] text-smoke">{l.hint}</span>
+                </span>
+                {count > 0 && (
+                  <span className="inline-flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-semibold text-white">
+                    {count > 9 ? '9+' : count}
+                  </span>
+                )}
+                {isNew && (
+                  <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase text-white">New</span>
+                )}
+                <Icon name="chevronRight" className="h-3.5 w-3.5 shrink-0 text-gray-300" />
+              </Link>
+            )
+          })}
         </div>
       </RailCard>
+
+      {isGlobalAdmin && (
+        <RailCard icon={<Icon name="shield" className="h-3.5 w-3.5 text-brand" />} title="Running the platform">
+          <div className="space-y-0.5">
+            <Link to="/global/settings" className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors hover:bg-cloud">
+              <Icon name="globe" className="h-4 w-4 shrink-0 text-smoke" /> Network settings
+            </Link>
+            <Link to="/global/markets" className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors hover:bg-cloud">
+              <Icon name="flag" className="h-4 w-4 shrink-0 text-smoke" /> All markets
+            </Link>
+            <Link to="/admin" className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors hover:bg-cloud">
+              <Icon name="shield" className="h-4 w-4 shrink-0 text-smoke" /> Admin panel
+            </Link>
+          </div>
+        </RailCard>
+      )}
 
       {/* ---------- Worldwide rooms ---------- */}
       <RailCard icon={<Icon name="chat" className="h-3.5 w-3.5 text-brand" />} title="Worldwide rooms">
@@ -296,7 +376,7 @@ export default function GlobalHome() {
           >
             <div className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-white/10 blur-2xl" />
             <div className="pointer-events-none absolute -bottom-24 -left-10 h-72 w-72 rounded-full bg-black/5 blur-2xl" />
-            <TrypPlane variant="corner" />
+            <TrypPlane variant="hero" id="welcome" />
             <div className="relative">
               <span className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider">
                 <Icon name="globe" className="h-3.5 w-3.5" />
@@ -324,6 +404,24 @@ export default function GlobalHome() {
               </div>
             </div>
           </motion.section>
+
+          {/* ---------- Global challenge ---------- */}
+          {/* Above the markets on purpose. A global challenge is the one thing
+              on this page that everybody reading it can act on right now, and
+              burying it under a list of places would be exactly backwards. */}
+          {globalLive && (
+            <section>
+              <SectionHead icon="globe" title="Open to everyone"
+                hint="A global brief. Enter from any market, anywhere in the world." />
+              <LiveChallengeCard
+                challenge={globalLive}
+                market={network?.name}
+                entries={d?.globalEntries ?? null}
+                participation={d?.globalParticipation ?? null}
+                global
+              />
+            </section>
+          )}
 
           {/* ---------- Markets ---------- */}
           <section>

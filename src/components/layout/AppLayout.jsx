@@ -27,6 +27,25 @@ const TABS = [
   { to: '/events', label: 'Calendar', icon: 'calendar' },
 ]
 
+// The same five slots, re-cut for the network.
+//
+// The old set plus the network's own chrome meant three overlapping ways to
+// reach the same handful of pages: a Calendar tab nobody opened daily, a place
+// switcher, and an avatar menu holding fourteen links. Calendar moves into
+// "Across the network" on the Worldwide hub, and the slot it frees becomes the
+// door to that hub, so the whole people layer is one tap from anywhere.
+//
+// Swapped, never appended: six items is one too many for a phone's bottom bar,
+// and this set is only used when the network preview is on, so a UK creator's
+// bar is byte-for-byte what it was.
+const NETWORK_TABS = [
+  { to: '/home', label: 'Home', icon: 'home' },
+  { to: '/challenges', label: 'Challenges', icon: 'flag' },
+  { to: '/chat', label: 'Rooms', icon: 'chat' },
+  { to: '/messages', label: 'DMs', icon: 'envelope' },
+  { to: '/global', label: 'Worldwide', icon: 'globe' },
+]
+
 export default function AppLayout() {
   const { profile, isAdmin, impersonating, exitCreatorPreview, user, signOut } = useAuth()
   const { preview: networkPreview, exitPreview } = useCommunity()
@@ -41,6 +60,7 @@ export default function AppLayout() {
   // Nothing may float over it: the pill would sit exactly where the send button
   // is. The room's own back link is the way out.
   const onNetworkChat = onNetworkPage && /\/chat(\/|$)/.test(pathname)
+  const tabs = networkPreview ? NETWORK_TABS : TABS
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const [dmUnread, setDmUnread] = useState(0)
@@ -256,7 +276,7 @@ export default function AppLayout() {
           </Link>
 
           <nav className="hidden items-center gap-2 lg:flex" aria-label="Main">
-            {TABS.map((item) => (
+            {tabs.map((item) => (
               <NavLink key={item.to} to={item.to} className={navLinkClass}>
                 <Icon name={item.icon} className="h-5 w-5" />
                 {item.label}
@@ -297,22 +317,47 @@ export default function AppLayout() {
                   <Link to="/rewards" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">My rewards</Link>
                   <Link to="/dashboard" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">My dashboard</Link>
 
-                  {/* Explore - secondary destinations not in the main tab bar */}
-                  <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Explore</p>
-                  <Link to="/creators" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Creators</Link>
-                  <Link to="/connections" onClick={() => setMenuOpen(false)} className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">
-                    <span>Connections</span>
-                    {connReqs > 0 && <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-semibold text-white">{connReqs > 9 ? '9+' : connReqs}</span>}
-                  </Link>
-                  <Link to="/collab" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Travel collab board</Link>
-                  <Link to="/leaderboard" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Leaderboard</Link>
-                  <Link to="/resources" onClick={() => setMenuOpen(false)} className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">
-                    <span>Resource library</span>
-                    {newResources && <span className="rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase text-white">New</span>}
-                  </Link>
-                  <Link to="/jobs" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Search roles</Link>
-                  <Link to="/refer" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Refer a creator</Link>
-                  <Link to="/game" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Travel games</Link>
+                  {/* Secondary destinations.
+                      With the network on, all of these live in one place on the
+                      Worldwide hub instead of a fourteen-item menu that nobody
+                      could scan: the menu keeps only what is genuinely about
+                      YOU (profile, settings, money) and points at the rest.
+                      With it off, this is the menu the UK has today. */}
+                  {networkPreview ? (
+                    <Link
+                      to="/global"
+                      onClick={() => setMenuOpen(false)}
+                      className="mt-2 flex items-center justify-between rounded-xl bg-cloud px-3 py-2.5 text-sm font-medium hover:bg-brand-tint hover:text-brand"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Icon name="globe" className="h-4 w-4" />
+                        Across the network
+                      </span>
+                      {connReqs > 0 && (
+                        <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-semibold text-white">
+                          {connReqs > 9 ? '9+' : connReqs}
+                        </span>
+                      )}
+                    </Link>
+                  ) : (
+                    <>
+                      <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Explore</p>
+                      <Link to="/creators" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Creators</Link>
+                      <Link to="/connections" onClick={() => setMenuOpen(false)} className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">
+                        <span>Connections</span>
+                        {connReqs > 0 && <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-semibold text-white">{connReqs > 9 ? '9+' : connReqs}</span>}
+                      </Link>
+                      <Link to="/collab" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Travel collab board</Link>
+                      <Link to="/leaderboard" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Leaderboard</Link>
+                      <Link to="/resources" onClick={() => setMenuOpen(false)} className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">
+                        <span>Resource library</span>
+                        {newResources && <span className="rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase text-white">New</span>}
+                      </Link>
+                      <Link to="/jobs" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Search roles</Link>
+                      <Link to="/refer" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Refer a creator</Link>
+                      <Link to="/game" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Travel games</Link>
+                    </>
+                  )}
 
                   <div className="my-1 border-t border-gray-100" />
                   <Link to="/feedback" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Help us improve</Link>
@@ -346,7 +391,7 @@ export default function AppLayout() {
         aria-label="Mobile"
       >
         <div className="mx-auto flex max-w-lg items-center justify-around px-0.5 pb-1.5 pt-2">
-          {TABS.map((tab) => (
+          {tabs.map((tab) => (
             <NavLink
               key={tab.to}
               to={tab.to}

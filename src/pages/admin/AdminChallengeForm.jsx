@@ -68,15 +68,23 @@ export default function AdminChallengeForm() {
 
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
 
+  const globalCommunity = markets.find((m) => m.kind === 'network')
+  const chapterMarkets = markets.filter((m) => m.kind === 'chapter')
+
   // The market list, and the ?market=<slug> prefill that the "New challenge"
   // buttons on a market's own pages send. Creating a challenge from inside a
   // market and then having to pick that market again is the kind of small
   // stupidity that gets a challenge filed in the wrong place.
   useEffect(() => {
     let alive = true
+    // The network row is fetched alongside the chapters, not excluded. A
+    // challenge scoped to Worldwide is a GLOBAL challenge: every creator is an
+    // active member of Worldwide, so `community_id in my_scopes()` is true for
+    // all of them and one brief reaches the whole network without any new
+    // policy, notification path or special case.
     supabase.from('communities')
       .select('id, slug, name, kind, country_codes, currency, is_active')
-      .eq('kind', 'chapter').order('name')
+      .order('kind', { ascending: false }).order('name')
       .then(({ data }) => {
         if (!alive) return
         setMarkets(data || [])
@@ -262,13 +270,41 @@ export default function AdminChallengeForm() {
             the platform. */}
         <section className="card space-y-5">
           <div>
-            <h2 className="text-lg font-semibold">Which market</h2>
+            <h2 className="text-lg font-semibold">Who it is for</h2>
             <p className="mt-1 text-sm text-smoke">
-              Only this market&rsquo;s creators see it, get notified about it, and can enter it.
+              A market challenge reaches that market only. A global challenge reaches everybody.
             </p>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {markets.map((m) => (
+
+          {/* Worldwide first and on its own, because it is a different KIND of
+              decision from picking between markets, not another market. */}
+          {globalCommunity && (
+            <button
+              type="button"
+              onClick={() => set({ community_id: globalCommunity.id })}
+              aria-pressed={form.community_id === globalCommunity.id}
+              className={cx(
+                'flex w-full items-center gap-4 rounded-xl border p-4 text-left transition-all duration-200 hover:-translate-y-0.5',
+                form.community_id === globalCommunity.id
+                  ? 'border-brand bg-brand-tint/40 shadow-card'
+                  : 'border-gray-200 bg-white hover:border-brand/40',
+              )}
+            >
+              <span className="shrink-0 text-2xl leading-none" aria-hidden>🌍</span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold">Global challenge</span>
+                <span className="mt-0.5 block text-xs text-smoke">
+                  Every creator in every market can enter, wherever they are based. In English.
+                </span>
+              </span>
+              {form.community_id === globalCommunity.id && <Icon name="check" className="h-4 w-4 shrink-0 text-brand" />}
+            </button>
+          )}
+
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-smoke">Or one market</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+            {chapterMarkets.map((m) => (
               <button
                 key={m.id} type="button"
                 onClick={() => set({ community_id: m.id, prize_currency: m.currency || form.prize_currency,
@@ -293,10 +329,18 @@ export default function AdminChallengeForm() {
                 {form.community_id === m.id && <Icon name="check" className="h-4 w-4 shrink-0 text-brand" />}
               </button>
             ))}
+            </div>
+            {chapterMarkets.length === 0 && (
+              <p className="rounded-xl bg-cloud px-4 py-6 text-center text-sm text-smoke">
+                No markets exist yet. Open one from the network settings first.
+              </p>
+            )}
           </div>
-          {markets.length === 0 && (
-            <p className="rounded-xl bg-cloud px-4 py-6 text-center text-sm text-smoke">
-              No markets exist yet. Open one from the network settings first.
+
+          {form.community_id === globalCommunity?.id && (
+            <p className="rounded-xl border border-brand/20 bg-brand-tint/30 px-4 py-3 text-sm">
+              Publishing this notifies <span className="font-semibold">every creator on the platform</span>,
+              in every market. Write the brief in English.
             </p>
           )}
         </section>

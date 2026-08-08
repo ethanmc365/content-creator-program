@@ -73,7 +73,7 @@ function WinnersGallery({ winners, entries, totalViews }) {
 // All challenges: the live one up top, past challenges browsable below.
 export default function Challenges() {
   const { isAdmin } = useAuth()
-  const { ids: scopeIds, loading: scopesLoading } = useMyScopes()
+  const { ids: scopeIds, networkId, loading: scopesLoading } = useMyScopes()
   const [challenges, setChallenges] = useState([])
   const [galleries, setGalleries] = useState({}) // challenge_id -> {winners, totalViews}
   // challenge_id -> {posted, total}. Keyed rather than singular: the moment a
@@ -229,6 +229,15 @@ export default function Challenges() {
                       </span>
                       Live now
                     </span>
+                    {/* A global brief sits on every creator's board in every
+                        country, so it has to say so or it reads as one more
+                        local challenge that happens to be in English. */}
+                    {networkId && c.community_id === networkId && (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-brand">
+                        <Icon name="globe" className="h-3.5 w-3.5" />
+                        Open to everyone
+                      </span>
+                    )}
                     <span className="text-xs text-white/75">{formatDate(c.start_date)} → {formatDate(c.end_date)}</span>
                   </div>
                   {/* The title grows slightly on hover rather than underlining.

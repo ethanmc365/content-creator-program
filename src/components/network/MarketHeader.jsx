@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../context/AuthContext'
 import { useCommunity } from '../../context/CommunityContext'
 import { confirm, notice } from '../../lib/confirm'
 import { clearScopeCache } from '../../lib/scope'
@@ -28,11 +29,35 @@ const TABS = [
 
 export default function MarketHeader({ market, memberCount, canManage, tab }) {
   const { network, myChapters, reload } = useCommunity()
+  const { profile, refreshProfile } = useAuth()
   const [busy, setBusy] = useState(false)
   const flags = (market.country_codes || []).map(flagFromIso).join(' ')
   const membership = myChapters.find((c) => c.id === market.id)?.membership
   const isMember = !!membership
   const isHome = !!membership?.is_home
+
+  // Per-market notifications. An absent key means notify, so a creator who has
+  // never touched this is exactly where they were. The list is ids rather than
+  // slugs because a market can be renamed and re-slugged, and a mute that
+  // silently un-mutes itself is worse than no mute.
+  const muted = (profile?.notif_prefs?.muted_markets || []).includes(market.id)
+
+  async function toggleMute() {
+    const current = profile?.notif_prefs || {}
+    const list = current.muted_markets || []
+    const next = muted ? list.filter((id) => id !== market.id) : [...list, market.id]
+    setBusy(true)
+    const { error } = await supabase
+      .from('profiles')
+      .update({ notif_prefs: { ...current, muted_markets: next } })
+      .eq('id', profile.id)
+    setBusy(false)
+    if (error) { notice(`Could not save: ${error.message}`); return }
+    await refreshProfile()
+    notice(muted
+      ? `Notifications from ${market.name} are back on.`
+      : `Muted ${market.name}. You will still see everything when you open it.`)
+  }
 
   async function join() {
     setBusy(true)
@@ -114,6 +139,23 @@ export default function MarketHeader({ market, memberCount, canManage, tab }) {
           {!isMember && (
             <button onClick={join} disabled={busy} className="btn-primary !py-2.5">
               {busy ? 'Joining…' : `Join ${market.name}`}
+            </button>
+          )}
+          {isMember && (
+            <button
+              onClick={toggleMute}
+              disabled={busy}
+              title={muted ? `Unmute ${market.name}` : `Mute notifications from ${market.name}`}
+              aria-pressed={muted}
+              className={cx(
+                'flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-medium transition-transform duration-200 hover:scale-105',
+                muted
+                  ? 'border-gray-200 text-smoke hover:border-brand hover:text-brand'
+                  : 'border-brand/30 text-brand',
+              )}
+            >
+              <Icon name={muted ? 'mute' : 'bell'} className="h-4 w-4" />
+              <span className="hidden sm:inline">{muted ? 'Muted' : 'Notify me'}</span>
             </button>
           )}
           {isMember && !isHome && (

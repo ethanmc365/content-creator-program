@@ -34,6 +34,10 @@ export default function LiveChallengeCard({
   entries = null,
   participation = null,
   compact = false,
+  // A challenge scoped to the network rather than a market. Reads differently
+  // because it IS different: nobody has to be in the right country, so the
+  // label must not imply a place.
+  global: isGlobal = false,
 }) {
   if (!challenge) return null
   const mode = scoringMode(challenge.scoring)
@@ -54,15 +58,23 @@ export default function LiveChallengeCard({
       >
         <div className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-white/10 blur-2xl" />
         <div className="pointer-events-none absolute -bottom-24 -left-10 h-72 w-72 rounded-full bg-black/5 blur-2xl" />
-        {!compact && <TrypPlane variant="corner" />}
+        {/* Top right: the badges are top LEFT and the buttons are bottom right
+            on desktop, so this is the only corner that is genuinely free. */}
+        {!compact && <TrypPlane variant="hero" anchor="top" id={`live-${challenge.id}`} />}
 
         <div className="relative">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <span className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider">
               <Pulse />
-              {flags && <span aria-hidden>{flags}</span>}
-              {market ? `Live in ${market}` : 'Live now'}
+              {isGlobal
+                ? <><Icon name="globe" className="h-3.5 w-3.5" /> Live worldwide</>
+                : <>{flags && <span aria-hidden>{flags}</span>}{market ? `Live in ${market}` : 'Live now'}</>}
             </span>
+            {isGlobal && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-brand">
+                Open to everyone
+              </span>
+            )}
             <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold">
               <Icon name={mode.icon} className="h-3.5 w-3.5" />
               {mode.creatorLine}
@@ -126,7 +138,8 @@ export default function LiveChallengeCard({
             />
           </div>
           <p className="mt-2 text-xs text-smoke">
-            {participation.posted} of {participation.total} creators in {market || 'this market'} have posted so far.
+            {participation.posted} of {participation.total} creators
+            {isGlobal ? ' across the network' : ` in ${market || 'this market'}`} have posted so far.
           </p>
         </div>
       )}
@@ -141,7 +154,7 @@ export function NoLiveChallenge({ market, canCreate = false, slug, hint }) {
   return (
     <div className="relative overflow-hidden rounded-card border border-dashed border-brand/25 bg-brand-tint/25 px-6 py-10 text-center">
       <div className="flex justify-center">
-        <TrypPlane variant="inline" />
+        <TrypPlane variant="inline" id={`empty-${slug || "market"}`} />
       </div>
       <p className="mt-2 text-base font-semibold text-ink">
         No challenge running in {market || 'this market'} right now

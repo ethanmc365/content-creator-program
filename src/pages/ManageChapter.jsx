@@ -8,8 +8,9 @@ import { confirm, notice, promptText } from '../lib/confirm'
 import NetworkMotion from '../components/NetworkMotion'
 import NetworkLayout, { flagFromIso } from '../components/network/NetworkLayout'
 import { BigToggle } from './GlobalSettings'
+import { MarketHeaderSkeleton, CardGridSkeleton } from '../components/network/Skeletons'
 import Icon from '../components/Icon'
-import { Avatar, Badge, EmptyState, PageHeader, Skeleton } from '../components/ui'
+import { Avatar, Badge, EmptyState, PageHeader } from '../components/ui'
 import { scoringMode } from '../lib/scoring'
 import { COUNTRIES } from '../lib/countries'
 import { clearScopeCache } from '../lib/scope'
@@ -271,7 +272,7 @@ export default function ManageChapter() {
   }
 
   if (ctxLoading && !chapter) {
-    return <NetworkLayout><Skeleton className="h-64" /></NetworkLayout>
+    return <NetworkLayout><MarketHeaderSkeleton /></NetworkLayout>
   }
 
   if (!chapter) {
@@ -314,7 +315,7 @@ export default function ManageChapter() {
         />
 
         {loading || !settings ? (
-          <div className="space-y-4"><Skeleton className="h-48" /><Skeleton className="h-48" /></div>
+          <div className="space-y-6"><CardGridSkeleton count={1} cols="grid-cols-1" height="h-56" /><CardGridSkeleton count={1} cols="grid-cols-1" height="h-72" /></div>
         ) : (
           <motion.div variants={listContainer} initial="hidden" animate="show" className="space-y-6">
 

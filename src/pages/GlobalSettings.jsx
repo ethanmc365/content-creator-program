@@ -430,7 +430,7 @@ export default function GlobalSettings() {
               <button onClick={() => setOpen(true)}
                 className="relative w-full overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-6 text-left text-white shadow-lift transition-transform duration-200 hover:-translate-y-1 sm:p-8">
                 <div className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
-                <TrypPlane variant="corner" />
+                <TrypPlane variant="hero" id="new-market" />
                 <div className="relative">
                   <p className="text-xs font-semibold uppercase tracking-widest text-white/75">New market</p>
                   <p className="mt-2 text-2xl font-bold sm:text-3xl">Open somewhere new</p>

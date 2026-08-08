@@ -6,9 +6,10 @@ import { useCommunity } from '../context/CommunityContext'
 import NetworkLayout from '../components/network/NetworkLayout'
 import NetworkMotion from '../components/NetworkMotion'
 import MarketHeader from '../components/network/MarketHeader'
+import { MarketHeaderSkeleton, CardGridSkeleton } from '../components/network/Skeletons'
 import Icon from '../components/Icon'
 import { flagFromIso } from '../components/network/PlaceSwitcher'
-import { Avatar, Badge, EmptyState, Skeleton } from '../components/ui'
+import { Avatar, Badge, EmptyState } from '../components/ui'
 import { cx } from '../lib/utils'
 import { listContainer, listItem, cardHover, pageFade } from '../lib/motion'
 
@@ -55,7 +56,7 @@ export default function MarketMembers() {
   }, [market])
 
   if (ctxLoading && !market) {
-    return <NetworkLayout><Skeleton className="h-96" /></NetworkLayout>
+    return <NetworkLayout><MarketHeaderSkeleton /></NetworkLayout>
   }
   if (!market) {
     return (
@@ -80,9 +81,7 @@ export default function MarketMembers() {
           <MarketHeader market={market} memberCount={loading ? null : creators.length} canManage={canManage} tab="Creators" />
 
           {loading ? (
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              <Skeleton className="h-24" /><Skeleton className="h-24" /><Skeleton className="h-24" />
-            </div>
+            <CardGridSkeleton count={6} cols="sm:grid-cols-2 xl:grid-cols-3" height="h-20" />
           ) : creators.length === 0 ? (
             <EmptyState
               icon={<Icon name="users" className="h-7 w-7" />}

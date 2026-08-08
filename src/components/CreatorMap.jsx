@@ -160,7 +160,7 @@ function FlyingPlane({ path, dur, zoom, opacity = 1 }) {
   )
 }
 
-function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = false, nearCount = 0, nearMeDisabled = false, onToggleNearMe = null, travelActive = null, onToggleTravel = null, onTravellersChange = null, onCreatorClick = null, connectionsActive = null, onToggleConnections = null, connectionIds = null, travelOnlyView = false, myId = null }) {
+function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = false, nearCount = 0, nearMeDisabled = false, onToggleNearMe = null, travelActive = null, onToggleTravel = null, onTravellersChange = null, onCreatorClick = null, connectionsActive = null, onToggleConnections = null, connectionIds = null, travelOnlyView = false, myId = null, maxFitZoom = 6, controls = true }) {
   const dark = useIsDark()
   // Dark-mode map palette: deep land on near-black sea, so the light-grey map
   // doesn't glare. Home countries keep a muted warm tint.
@@ -416,15 +416,21 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   }, [connectionsView, nearMe, myId, located, connSet, highlightIds, towns])
 
   // The view that fits everyone with a location on screen (all creators visible).
+  //
+  // maxFitZoom is a prop because the right answer depends on what the map is
+  // OF. A world map of 43 creators across 13 nations wants a ceiling, or one
+  // outlier in Australia drags everyone else into a smudge. A market map of the
+  // creators in Spain wants to go much closer, because that IS the point: you
+  // are looking for Madrid and Valencia, not for Europe.
   const fitView = useMemo(() => {
     if (located.length === 0) return { coordinates: [10, 30], zoom: 1.3 }
     const lngs = located.map((c) => c._lng), lats = located.map((c) => c._lat)
     const minLng = Math.min(...lngs), maxLng = Math.max(...lngs)
     const minLat = Math.min(...lats), maxLat = Math.max(...lats)
     const lngSpan = Math.max(maxLng - minLng, 0.01), latSpan = Math.max(maxLat - minLat, 0.01)
-    const zoom = Math.min(6, Math.max(1, Math.min(360 / (lngSpan * 1.5), 180 / (latSpan * 1.8))))
+    const zoom = Math.min(maxFitZoom, Math.max(1, Math.min(360 / (lngSpan * 1.5), 180 / (latSpan * 1.8))))
     return { coordinates: [(minLng + maxLng) / 2, (minLat + maxLat) / 2], zoom }
-  }, [located])
+  }, [located, maxFitZoom])
 
   // Fit to everyone on first load.
   useEffect(() => {
@@ -464,7 +470,12 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
 
   // The three view filters. Rendered twice: as an overlay on desktop, and in a
   // row beneath the map on phones (where an overlay would cover the map).
-  const filterButtons = (
+  //
+  // `controls={false}` drops them entirely. A market map is already a filtered
+  // view (these creators, this place), so offering "who's travelling" over the
+  // top of it would let you filter a filter and land somewhere nobody asked to
+  // be.
+  const filterButtons = !controls ? null : (
     <>
       {onToggleConnections && (
         <button
