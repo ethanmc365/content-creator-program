@@ -162,19 +162,24 @@ function FlyingPlane({ path, dur, zoom, opacity = 1 }) {
 
 // How far ahead a planned trip is worth putting on the map.
 //
-// Sixty days. Long enough to plan around - the whole point of showing upcoming
-// trips at all is so two creators can find each other before one of them books -
-// and short enough that the map is not carrying somebody's Christmas flight
-// through the summer. Trips further out still live on the collab board, which is
-// a list and can afford to be exhaustive.
-const TRIP_HORIZON_DAYS = 60
+// Three months. Long enough to plan around - the whole point of showing
+// upcoming trips at all is so two creators can find each other before one of
+// them books - and short enough that the map is not carrying somebody's
+// Christmas flight through the summer. Trips further out still live on the
+// collab board, which is a list and can afford to be exhaustive.
+const TRIP_HORIZON_DAYS = 90
 
 function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = false, nearCount = 0, nearMeDisabled = false, onToggleNearMe = null, travelActive = null, onToggleTravel = null, onTravellersChange = null, onCreatorClick = null, connectionsActive = null, onToggleConnections = null, connectionIds = null, travelOnlyView = false, myId = null, maxFitZoom = 6, controls = true }) {
   const dark = useIsDark()
   // Dark-mode map palette: deep land on near-black sea, so the light-grey map
   // doesn't glare. Home countries keep a muted warm tint.
   const LAND_FILL = dark ? '#2a2c31' : LAND
-  const HOME_FILL = dark ? '#5c3a1f' : HOME
+  // A DESATURATED BROWN IS NOT THE BRAND. The old dark-mode home tint was
+  // #5c3a1f, which is what you get by darkening orange: it reads as mud. Using
+  // the brand orange itself at partial alpha over the near-black sea keeps the
+  // hue and lets the darkness come from the background rather than from the
+  // colour, so a tinted country still looks orange.
+  const HOME_FILL = dark ? 'rgba(217, 68, 7, 0.55)' : HOME
   const SEPARATOR = dark ? '#0c0d10' : '#ffffff'
   const highlighting = highlightIds && highlightIds.size > 0
   const [extraCoords, setExtraCoords] = useState({}) // legacy rows: id -> {lat,lng}
@@ -346,7 +351,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
         const cx2 = (ax + bx) / 2 + (-dy / len) * bulge
         const cy2 = (ay + by) / 2 + (dx / len) * bulge
         out.push({
-          id: c.id, name: c.name, trip, current, daysUntil,
+          id: c.id, name: c.name, photo_url: c.photo_url, trip, current, daysUntil,
           d: `M${ax} ${ay} Q ${cx2} ${cy2} ${bx} ${by}`, dest: [bx, by],
           // Same uniform speed as every other plane on the map.
           dur: flightDur(quadLength(ax, ay, cx2, cy2, bx, by)),
@@ -702,6 +707,24 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
                 ) : (
                   <circle cx={j.dest[0]} cy={j.dest[1]} r={2.6 / z} fill="none" stroke={BRAND} strokeWidth={1.2 / z} opacity="0.55" />
                 )}
+                {/* WHERE THEY ACTUALLY ARE. A creator mid-trip is not at home,
+                    and pinning them there is the map telling a small lie. Their
+                    face is drawn at the destination as well, so "in Lisbon now"
+                    and "leaving for Lisbon in three weeks" are two different
+                    pictures rather than the same one with a different opacity. */}
+                {j.current && (
+                  <g transform={`translate(${j.dest[0]} ${j.dest[1]}) scale(${Math.pow(1 / Math.max(z, 1), 0.7)})`}>
+                    <circle r="13" fill="#ffffff" style={{ filter: 'drop-shadow(0 2px 3px rgba(20,20,30,0.30))' }} />
+                    {j.photo_url ? (
+                      <image href={j.photo_url} x="-10" y="-10" width="20" height="20"
+                        clipPath="url(#creator-pin-clip)" preserveAspectRatio="xMidYMid slice" />
+                    ) : (
+                      <text x="0" y="0" textAnchor="middle" dominantBaseline="central"
+                        fontSize="9" fontWeight="600" fill={BRAND}>{initials(j.name)}</text>
+                    )}
+                    <circle r="10" fill="none" stroke={BRAND} strokeWidth="2.5" />
+                  </g>
+                )}
                 <g>
                   {/* generous invisible hit-target so the moving plane is easy to tap */}
                   <circle r={14 / Math.max(z, 1)} fill="transparent" />
@@ -784,6 +807,23 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
               )
             })}
           </div>
+        </div>
+      )}
+
+      {/* WHAT THE TWO PLANES MEAN. A solid plane and a hollow one is a
+          distinction nobody can be expected to guess, and an unexplained
+          symbol is worse than no symbol. Only shown when both kinds are
+          actually on the map. */}
+      {travelView && !focusJourney && journeys.some((j) => j.current) && journeys.some((j) => !j.current) && (
+        <div className="absolute bottom-3 left-3 z-20 flex flex-col gap-1.5 rounded-xl bg-white/95 px-3 py-2 text-[11px] shadow-card backdrop-blur">
+          <span className="flex items-center gap-2">
+            <svg viewBox="0 0 24 24" className="h-3 w-3 shrink-0" fill={BRAND} aria-hidden><path d={PLANE_D} transform="translate(12 12) scale(0.9)" /></svg>
+            <span className="font-medium text-ink">There now</span>
+          </span>
+          <span className="flex items-center gap-2">
+            <svg viewBox="0 0 24 24" className="h-3 w-3 shrink-0" fill="#ffffff" stroke={BRAND} strokeWidth="2" aria-hidden><path d={PLANE_D} transform="translate(12 12) scale(0.9)" /></svg>
+            <span className="text-smoke">Heading there soon</span>
+          </span>
         </div>
       )}
 

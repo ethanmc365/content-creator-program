@@ -25,6 +25,7 @@ const TOOLS = [
   { to: '/admin/scheduled', icon: 'calendar', title: 'Scheduled announcements', text: 'Write announcements now and auto-post them later.' },
   { to: '/admin/whats-new', icon: 'bell', title: "What's new", text: "Announce a new feature. It lands in every creator's notification bell." },
   { to: '/admin/feedback', icon: 'chat', title: 'Bug reports & ideas', text: 'Bugs and feature suggestions creators have submitted.' },
+  { to: '/admin/milestones', icon: 'plane', title: 'Milestones', text: 'The route every creator flies. Thresholds, rewards and order, all editable.' },
   { to: '/admin/team', icon: 'shield', title: 'Tryp.com team', text: 'Who runs the programme, what they can do, and the title each of them carries.' },
   { to: '/admin/notes', icon: 'book', title: 'Notes', text: 'A private notes space for the team. Keep a bank of weekly questions, plans and playbooks.' },
 ]

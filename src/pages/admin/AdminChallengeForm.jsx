@@ -14,6 +14,9 @@ import { cx, parseDateTime, isoToDateInput, isoToTimeInput } from '../../lib/uti
 // breakdown.
 const ALL_PLATFORMS = ['Instagram', 'TikTok', 'YouTube']
 
+const CURRENCIES = ['GBP', 'EUR', 'USD', 'RON', 'SEK', 'NOK', 'DKK']
+const CURRENCY_SYMBOL = { GBP: '£', EUR: '€', USD: '$', RON: 'lei ', SEK: 'kr ', NOK: 'kr ', DKK: 'kr ' }
+
 const DEFAULT_PRIZES = [
   { place: '1st', prize: '£150 cash' },
   { place: '2nd', prize: '£100 cash' },
@@ -83,7 +86,7 @@ export default function AdminChallengeForm() {
     // all of them and one brief reaches the whole network without any new
     // policy, notification path or special case.
     supabase.from('communities')
-      .select('id, slug, name, kind, country_codes, currency, is_active')
+      .select('id, slug, name, kind, country_codes, currency, is_active, cpm_target')
       .order('kind', { ascending: false }).order('name')
       .then(({ data }) => {
         if (!alive) return
@@ -91,7 +94,7 @@ export default function AdminChallengeForm() {
         const wanted = params.get('market')
         if (!editing && wanted) {
           const m = (data || []).find((c) => c.slug === wanted)
-          if (m) setForm((f) => ({ ...f, community_id: m.id, prize_currency: m.currency || f.prize_currency }))
+          if (m) setForm((f) => ({ ...f, community_id: m.id, prize_currency: m.currency || f.prize_currency, cpm_target: m.cpm_target ?? f.cpm_target }))
         }
       })
     return () => { alive = false }
@@ -195,9 +198,12 @@ export default function AdminChallengeForm() {
       market: form.market.trim() || null,
       format: form.format || null,
       audience: form.audience || null,
-      prize_amount: form.prize_amount === '' ? null : Number(form.prize_amount),
       prize_currency: form.prize_currency || 'GBP',
-      winners_count: form.winners_count === '' ? null : parseInt(form.winners_count, 10),
+      // Written from the breakdown, not from a field. /admin/analytics reads
+      // these columns and neither it nor the database needs to know they became
+      // derived.
+      prize_amount: derivedPot || null,
+      winners_count: derivedWinners || null,
       prize_type: form.prize_type || null,
       content_type: form.content_type || null,
       objective: form.objective || null,
@@ -255,6 +261,21 @@ export default function AdminChallengeForm() {
     return <div className="page max-w-3xl space-y-6"><Skeleton className="h-10 w-72" /><Skeleton className="h-96 w-full" /></div>
   }
 
+  // Pot and winners come OUT of the prize breakdown rather than being typed
+  // beside it. Two fields that have to agree with a list above them will
+  // eventually disagree, and it is the reporting number that ends up wrong.
+  //
+  // THE FALLBACK IS NOT OPTIONAL. Challenges written before this change have
+  // prize rows with no `amount`, including the one running in the UK right now.
+  // Deriving strictly would compute a pot of zero and write it over a figure
+  // finance is using, the first time anybody opened the form to fix a typo.
+  // Rows win when they have numbers; the stored value stands until they do.
+  const rowPot = form.prize_structure.reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+  const rowWinners = form.prize_structure.filter((p) => p.place?.trim() && Number(p.amount) > 0).length
+  const derivedPot = rowPot || Number(form.prize_amount) || 0
+  const derivedWinners = rowWinners || Number(form.winners_count) || 0
+  const potIsLegacy = !rowPot && derivedPot > 0
+
   return (
     <div className="page max-w-3xl">
       <PageHeader
@@ -307,7 +328,7 @@ export default function AdminChallengeForm() {
             {chapterMarkets.map((m) => (
               <button
                 key={m.id} type="button"
-                onClick={() => set({ community_id: m.id, prize_currency: m.currency || form.prize_currency,
+                onClick={() => set({ community_id: m.id, prize_currency: m.currency || form.prize_currency, cpm_target: m.cpm_target ?? form.cpm_target,
                   market: (m.country_codes || [])[0] || form.market })}
                 aria-pressed={form.community_id === m.id}
                 className={cx(
@@ -485,27 +506,84 @@ export default function AdminChallengeForm() {
         </section>
 
         <section className="card space-y-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Prize breakdown</h2>
-            <button type="button" className="btn-secondary !py-2 text-xs" onClick={() => set({ prize_structure: [...form.prize_structure, { place: '', prize: '' }] })}>
-              + Add prize
-            </button>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold">Prize breakdown</h2>
+              <p className="mt-1 text-sm text-smoke">
+                What creators see, and where the reporting numbers come from.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {/* The currency lives HERE, beside the amounts it applies to,
+                  rather than buried in a reporting section further down. It is
+                  also the thing that makes a prize legible to a creator in
+                  Bucharest reading a brief written in London. */}
+              <select
+                className="input !w-24" value={form.prize_currency}
+                onChange={(e) => set({ prize_currency: e.target.value })}
+                aria-label="Prize currency"
+              >
+                {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <button type="button" className="btn-secondary !py-2 text-xs" onClick={() => set({ prize_structure: [...form.prize_structure, { place: '', prize: '', amount: '' }] })}>
+                + Add prize
+              </button>
+            </div>
           </div>
           {form.prize_structure.map((p, i) => (
-            <div key={i} className="flex gap-2">
+            <div key={i} className="flex flex-wrap gap-2">
               <input
-                type="text" className="input !w-40" placeholder="Place (e.g. 1st)"
+                type="text" className="input !w-32" placeholder="Place (e.g. 1st)"
                 value={p.place} onChange={(e) => setPrize(i, 'place', e.target.value)} aria-label={`Prize ${i + 1} place`}
               />
               <input
-                type="text" className="input flex-1" placeholder="Prize (e.g. £150 cash)"
+                type="text" className="input min-w-0 flex-1" placeholder="What they get (e.g. £150 cash)"
                 value={p.prize} onChange={(e) => setPrize(i, 'prize', e.target.value)} aria-label={`Prize ${i + 1} description`}
               />
+              {/* The VALUE, separate from the words. "£150 cash and a jacket" is
+                  the right thing to show a creator and an impossible thing to
+                  add up, so the number it is worth is its own field and the
+                  total below is arithmetic rather than a second guess. */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-medium text-smoke">{CURRENCY_SYMBOL[form.prize_currency] || ''}</span>
+                <input
+                  type="text" inputMode="decimal" className="input !w-24" placeholder="150"
+                  value={p.amount ?? ''}
+                  onInput={(e) => { e.target.value = e.target.value.replace(/[^0-9.]/g, '') }}
+                  onChange={(e) => setPrize(i, 'amount', e.target.value)}
+                  aria-label={`Prize ${i + 1} value`}
+                />
+              </div>
               <button type="button" aria-label="Remove prize" className="btn-ghost !px-3" onClick={() => set({ prize_structure: form.prize_structure.filter((_, j) => j !== i) })}>
                 ✕
               </button>
             </div>
           ))}
+
+          {/* The totals, derived. Nothing to type and nothing to keep in sync. */}
+          <div className="flex flex-wrap items-center gap-x-8 gap-y-2 rounded-xl bg-cloud/60 px-4 py-3 text-sm">
+            <span>
+              <span className="text-smoke">Total prize pot </span>
+              <span className="font-bold text-brand">
+                {CURRENCY_SYMBOL[form.prize_currency] || ''}{derivedPot.toLocaleString()}
+              </span>
+            </span>
+            <span>
+              <span className="text-smoke">Winners </span>
+              <span className="font-bold">{derivedWinners}</span>
+            </span>
+            <span>
+              <span className="text-smoke">CPM target </span>
+              <span className="font-bold">{form.cpm_target || '—'}</span>
+              <span className="text-xs text-smoke"> (from the market)</span>
+            </span>
+            {potIsLegacy && (
+              <span className="basis-full text-xs text-smoke">
+                Carried over from before values were itemised. Add a value to each prize row and this
+                starts adding itself up.
+              </span>
+            )}
+          </div>
 
           {/* Participation reward: a separate, structured prize earned by posting
               a set number of videos. The number here drives when the voucher
@@ -548,52 +626,13 @@ export default function AdminChallengeForm() {
             </p>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div>
-              <label htmlFor="prize_amount" className="label">Total prize pot</label>
-              <div className="flex gap-2">
-                <select
-                  className="input !w-24" value={form.prize_currency}
-                  onChange={(e) => set({ prize_currency: e.target.value })}
-                  aria-label="Prize currency"
-                >
-                  <option value="GBP">GBP</option>
-                  <option value="EUR">EUR</option>
-                  <option value="USD">USD</option>
-                </select>
-                <input
-                  id="prize_amount" type="text" inputMode="decimal" className="input flex-1"
-                  value={form.prize_amount}
-                  onInput={(e) => { e.target.value = e.target.value.replace(/[^0-9.]/g, '') }}
-                  onChange={(e) => set({ prize_amount: e.target.value })}
-                  placeholder="190"
-                />
-              </div>
-              <p className="mt-1 text-xs text-smoke">Cash + voucher value, added together.</p>
-            </div>
-            <div>
-              <label htmlFor="winners_count" className="label">Number of winners</label>
-              <input
-                id="winners_count" type="text" inputMode="numeric" className="input"
-                value={form.winners_count}
-                onInput={(e) => { e.target.value = e.target.value.replace(/\D/g, '') }}
-                onChange={(e) => set({ winners_count: e.target.value })}
-                placeholder="3"
-              />
-            </div>
-            <div>
-              <label htmlFor="cpm_target" className="label">CPM target</label>
-              <input
-                id="cpm_target" type="text" inputMode="decimal" className="input"
-                value={form.cpm_target}
-                onInput={(e) => { e.target.value = e.target.value.replace(/[^0-9.]/g, '') }}
-                onChange={(e) => set({ cpm_target: e.target.value })}
-                placeholder="0.50"
-              />
-              <p className="mt-1 text-xs text-smoke">Cost per 1,000 views to beat.</p>
-            </div>
-          </div>
-
+          {/* The three numbers that used to be typed here - pot, winners and
+              CPM target - are now DERIVED: the first two from the prize
+              breakdown above, the third from the market this challenge belongs
+              to. They were the most-forgotten fields on the form and the ones
+              the analytics page depends on most, which is the worst possible
+              combination. What is left here is the labelling that genuinely has
+              no other source. */}
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
               <label htmlFor="market" className="label">Market</label>

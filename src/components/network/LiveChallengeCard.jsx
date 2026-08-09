@@ -72,7 +72,7 @@ export default function LiveChallengeCard({
             actually overlaps, and letting the countdown row have the full card,
             fixes both at once. */}
         <div className="relative">
-          <div className={cx('flex flex-wrap items-center gap-x-3 gap-y-2', !compact && 'lg:pr-[15rem] xl:pr-[17rem]')}>
+          <div className={cx('flex flex-wrap items-center gap-x-3 gap-y-2', !compact && 'lg:pr-[21rem] xl:pr-[23rem]')}>
             <span className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider">
               <Pulse />
               {isGlobal
@@ -95,7 +95,7 @@ export default function LiveChallengeCard({
               which it is. origin-left keeps it anchored to the first letter. */}
           <Link
             to={`/challenges/${challenge.id}`}
-            className={cx('group mt-4 block', !compact && 'lg:pr-[15rem] xl:pr-[17rem]')}
+            className={cx('group mt-4 block', !compact && 'lg:pr-[21rem] xl:pr-[23rem]')}
           >
             <h2
               className={cx(

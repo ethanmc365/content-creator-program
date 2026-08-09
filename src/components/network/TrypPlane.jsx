@@ -49,31 +49,58 @@ const PITCH_FIX = 2.5
 // to stay clear of it, which is what crushed the countdown into 88px tiles and
 // stacked the two buttons on top of each other.
 //
-// The trail is what needs the room, and it needs it VERTICALLY, not
-// horizontally: a steep short sweep up to the corner reads as exhaust just as
-// well as a long shallow one and costs a fraction of the width. So the plane
-// now sits low and hard right in a tighter box (90% of the way across, 97% of
-// the way down), and the box is scaled so the aircraft renders at exactly the
-// size it did before. Same plane, same size, actually in the corner.
+// THE CONTRAIL RUNS STRAIGHT BACK. Two earlier versions curved it up to the
+// corner of the card, which is what a firework does, not an aeroplane: a plane
+// in level flight leaves its trail along the line it just flew, which is
+// horizontal. The curve also made the plane read as climbing steeply while its
+// own fuselage was level, so the two halves of the drawing disagreed.
+//
+// It is now a straight horizontal line from the tail to the right edge of the
+// box, fading out as it goes, so it reads as continuing off the card rather
+// than stopping. The plane sits far enough in from that edge to leave the trail
+// somewhere to be.
+//
+// MEETING THE TAIL EXACTLY. The image is rotated by PITCH_FIX about its own
+// centre, which MOVES the tail: at 135 units from centre a 2.5 degree rotation
+// drops it about 6 units. Drawing the trail at the unrotated tail height left a
+// visible step where the two met. `rotateAboutCentre` below does the arithmetic
+// rather than leaving the next person to notice the gap and nudge a magic
+// number until it closes.
+function rotateAboutCentre(px, py, cx, cy, deg) {
+  const a = (deg * Math.PI) / 180
+  const dx = px - cx
+  const dy = py - cy
+  return [cx + dx * Math.cos(a) - dy * Math.sin(a), cy + dx * Math.sin(a) + dy * Math.cos(a)]
+}
+
 function Drawing({ id, animate }) {
   const VB_W = 400
   const VB_H = 220
   const PLANE_W = 300
   const PLANE_H = PLANE_W * (471 / 1200) // the asset's own aspect ratio
-  const PLANE_X = 62
+  // Left of where it used to sit, by exactly the length the trail needs.
+  const PLANE_X = 40
   const PLANE_Y = 96
 
-  const tailX = PLANE_X + TAIL.x * PLANE_W
-  const tailY = PLANE_Y + TAIL.y * PLANE_H
+  const [tailX, tailY] = rotateAboutCentre(
+    PLANE_X + TAIL.x * PLANE_W,
+    PLANE_Y + TAIL.y * PLANE_H,
+    PLANE_X + PLANE_W / 2,
+    PLANE_Y + PLANE_H / 2,
+    PITCH_FIX,
+  )
 
   return (
     <svg viewBox={`0 0 ${VB_W} ${VB_H}`} fill="none" aria-hidden className="h-full w-full">
       <defs>
         {/* Strong where it meets the tail, gone by the far end. A dashed line of
             constant opacity reads as a border, not as exhaust. */}
-        <linearGradient id={`${id}-fade`} x1="0" y1="1" x2="1" y2="0">
-          <stop offset="0%" stopColor="currentColor" stopOpacity="0.7" />
-          <stop offset="55%" stopColor="currentColor" stopOpacity="0.3" />
+        {/* Left to right, because that is now the direction the trail runs:
+            strong where it leaves the tail, gone by the edge of the card. A
+            dashed line of constant opacity reads as a border, not as exhaust. */}
+        <linearGradient id={`${id}-fade`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="currentColor" stopOpacity="0.75" />
+          <stop offset="55%" stopColor="currentColor" stopOpacity="0.32" />
           <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
         </linearGradient>
       </defs>
@@ -84,12 +111,13 @@ function Drawing({ id, animate }) {
         className={animate ? 'animate-cruise' : undefined}
         style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
       >
-        {/* Drawn from the far end TO the tail, so a positive dash offset marches
-            the dashes away from the plane, which is the direction real exhaust
-            goes. The path never crosses the fuselage: it starts beyond the tail
-            and stops at it. */}
+        {/* Tail to edge, level. Drawn tail-first so the gradient's 0% lands on
+            the end that touches the plane, and so a positive dash offset marches
+            the dashes AWAY from it, which is the direction real exhaust goes.
+            It starts a few units clear of the tail fin so the first dash is not
+            sitting on the artwork. */}
         <path
-          d={`M ${VB_W - 2} 4 C ${VB_W - 14} 46, ${tailX + 34} 96, ${tailX} ${tailY}`}
+          d={`M ${tailX + 6} ${tailY} L ${VB_W} ${tailY}`}
           stroke={`url(#${id}-fade)`}
           strokeWidth="3"
           strokeLinecap="round"

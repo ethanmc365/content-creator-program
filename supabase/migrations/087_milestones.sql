@@ -1,0 +1,17 @@
+-- The milestone ladder. See the tables `milestones` and `creator_milestones`
+-- and the functions creator_metrics / milestone_progress / milestone_standings.
+--
+-- It is NOT a points economy: no currency, no XP, nothing that rises every time
+-- you open the app. A milestone is a threshold on something a creator was doing
+-- anyway - videos, views, referrals, challenges, time served - with a real
+-- reward behind it. You climb it by persistence rather than by beating anybody,
+-- which is why it can sit beside the per-challenge leaderboard without the two
+-- fighting.
+--
+-- Thresholds, rewards, titles, order and metric are all ROWS, so adding
+-- "post 50 videos, get a jacket" is an insert rather than a deploy.
+--
+-- `sort_order`, not `position`: `position` is reserved in a RETURNS TABLE.
+--
+-- Applied to production 9 Aug 2026. The authoritative definitions live in the
+-- database; this file records intent and the shape of the change.

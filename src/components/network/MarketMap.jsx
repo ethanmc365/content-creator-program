@@ -29,6 +29,11 @@ export default function MarketMap({ marketId, marketName, showOnMapOnly = true }
       .eq('status', 'active')
       .eq('profiles.status', 'active')
       .eq('profiles.is_test', false)
+      // CREATORS, NOT STAFF. The programme lead is a member of every market so
+      // that the rooms and standings work, and their pin is wherever they live.
+      // Without this filter "Where we are in Germany" drew one pin on the UK,
+      // which is a map of the person reading it rather than of the market.
+      .eq('profiles.is_admin', false)
       .then(({ data }) => {
         if (!alive) return
         setCreators(

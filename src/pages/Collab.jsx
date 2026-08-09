@@ -83,14 +83,21 @@ export default function Collab() {
     }
     setInterests({ count, mine })
 
-    // Who's travelling NOW: posts whose date range includes today. We pull each
-    // traveller's home location so the map can draw a plane from home to their
-    // current destination (exactly like the creators-map "who's travelling").
-    const currentPosts = (data ?? []).filter((p) => p.start_date <= today && p.end_date >= today)
+    // Who is on the move: mid-trip today, OR leaving within the next three
+    // months. It used to be only the first, which on a normal Tuesday is two
+    // people and an almost empty map - and which answered the wrong question.
+    // The point of the board is finding somebody to meet BEFORE they book, so
+    // the map has to show the trips that have not happened yet.
+    // CreatorMap decides how far ahead is worth drawing (TRIP_HORIZON_DAYS) and
+    // draws current and upcoming differently; this just has to hand it enough.
+    const horizon = new Date()
+    horizon.setDate(horizon.getDate() + 92)
+    const horizonYmd = format(horizon, 'yyyy-MM-dd')
+    const currentPosts = (data ?? []).filter((p) => p.end_date >= today && p.start_date <= horizonYmd)
     const ids = [...new Set(currentPosts.map((p) => p.creator_id))]
     if (ids.length) {
       const { data: profs } = await supabase
-        .from('profiles').select('id, name, photo_url, city_lat, city_lng, country, countries_visited').in('id', ids)
+        .from('profiles').select('id, name, photo_url, city, city_lat, city_lng, country, countries_visited').in('id', ids)
       const tripsByCreator = {}
       for (const p of currentPosts) {
         (tripsByCreator[p.creator_id] ||= []).push({ country: p.country, city: p.city, start_date: p.start_date, end_date: p.end_date })
@@ -362,6 +369,35 @@ export default function Collab() {
         </section>
       )}
 
+      {(travellers.creators.length > 0 || boardCountries.length > 0) && (
+        <section className="mb-10">
+          <h2 className="mb-1 text-lg font-semibold">Where everyone's headed</h2>
+          {travellers.creators.length > 0 ? (
+            <>
+              <p className="mb-5 text-sm text-smoke">Everyone on the move: a filled plane for creators who are there now, a hollow one for trips in the next three months.</p>
+              <CreatorMap creators={travellers.creators} trips={travellers.trips} travelOnlyView />
+            </>
+          ) : (
+            <>
+              <p className="mb-5 text-sm text-smoke">No one's mid-trip right now. Here's every country with an upcoming trip, highlighted.</p>
+              <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
+                <WorldMap selected={boardCountries} />
+              </div>
+            </>
+          )}
+          {boardCountries.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {boardCountries.sort((a, b) => a.localeCompare(b)).map((c) => (
+                <button key={c} onClick={() => setCountryFilter(c)} className="inline-flex items-center gap-1.5 rounded-full bg-brand-tint px-3 py-1 text-xs font-medium text-brand transition-transform hover:scale-105">
+                  <Icon name="pin" className="h-3.5 w-3.5" />{c}
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+
       {/* ---- Post your trip ----
           Behind a button now. An always-open five-field form is the first thing
           you saw on a page whose content is other people's trips: it pushed the
@@ -461,34 +497,6 @@ export default function Collab() {
           (home-country pin + dotted flight path + animated plane to where they
           are). Otherwise we fall back to highlighting every upcoming
           destination country. Country chips below either map filter the list. */}
-      {(travellers.creators.length > 0 || boardCountries.length > 0) && (
-        <section className="mt-12">
-          <h2 className="mb-1 text-lg font-semibold">Where everyone's headed</h2>
-          {travellers.creators.length > 0 ? (
-            <>
-              <p className="mb-5 text-sm text-smoke">Creators currently on a trip, with a plane flying from their home to where they are right now.</p>
-              <CreatorMap creators={travellers.creators} trips={travellers.trips} travelOnlyView />
-            </>
-          ) : (
-            <>
-              <p className="mb-5 text-sm text-smoke">No one's mid-trip right now. Here's every country with an upcoming trip, highlighted.</p>
-              <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
-                <WorldMap selected={boardCountries} />
-              </div>
-            </>
-          )}
-          {boardCountries.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {boardCountries.sort((a, b) => a.localeCompare(b)).map((c) => (
-                <button key={c} onClick={() => setCountryFilter(c)} className="inline-flex items-center gap-1.5 rounded-full bg-brand-tint px-3 py-1 text-xs font-medium text-brand transition-transform hover:scale-105">
-                  <Icon name="pin" className="h-3.5 w-3.5" />{c}
-                </button>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
-
       {/* ---- Archive: trips whose dates have passed ---- */}
       {archived.length > 0 && (
         <section className="mt-12">

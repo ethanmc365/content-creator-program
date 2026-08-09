@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import CreatorCard from '../components/CreatorCard'
 import CreatorMap from '../components/CreatorMap'
+import BackLink from '../components/BackLink'
+import Reveal from '../components/network/Reveal'
 import WorldMap from '../components/WorldMap'
 import Combobox from '../components/Combobox'
 import Icon from '../components/Icon'
@@ -140,6 +142,7 @@ export default function Directory() {
 
   return (
     <div className="page">
+      <BackLink />
       <PageHeader
         title="Creators"
         subtitle="Meet the community. Connect, message, and find your next collab partner."
@@ -236,7 +239,7 @@ export default function Directory() {
           }
         />
       ) : (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <Reveal className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((c) => (
             <CreatorCard
               key={c.id}
@@ -252,7 +255,7 @@ export default function Directory() {
               }
             />
           ))}
-        </div>
+        </Reveal>
       )}
 
       {/* ---------- Where we have been, together ----------

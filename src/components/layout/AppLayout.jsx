@@ -46,7 +46,10 @@ const CommandPalette = lazy(() => import('../network/CommandPalette'))
 const NETWORK_TABS = [
   { to: '/home', label: 'Home', icon: 'home' },
   { to: '/challenges', label: 'Challenges', icon: 'flag' },
-  { to: '/chat', label: 'Rooms', icon: 'chat' },
+  // /rooms, not /chat. The legacy chat is one hard-coded conversation; this
+  // tab has to answer "where is everyone talking", which across six markets is
+  // a grouped index rather than whichever room the router happened to pick.
+  { to: '/rooms', label: 'Rooms', icon: 'chat' },
   { to: '/messages', label: 'DMs', icon: 'envelope' },
   { to: '/global', label: 'Worldwide', icon: 'globe' },
 ]
@@ -357,6 +360,16 @@ export default function AppLayout() {
                   <Link to="/settings" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Settings</Link>
                   <Link to="/rewards" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">My rewards</Link>
                   <Link to="/dashboard" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">My dashboard</Link>
+                  {/* Two things that ARE about you and have no home in the nav:
+                      how far along the route you are, and who to ask when
+                      something goes wrong. Both belong in the menu that already
+                      holds your profile and your money. */}
+                  {networkPreview && (
+                    <>
+                      <Link to="/milestones" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">My route</Link>
+                      <Link to="/team" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">The Tryp.com team</Link>
+                    </>
+                  )}
 
                   {/* Secondary destinations.
                       With the network on, all of these live in one place on the
@@ -364,23 +377,11 @@ export default function AppLayout() {
                       could scan: the menu keeps only what is genuinely about
                       YOU (profile, settings, money) and points at the rest.
                       With it off, this is the menu the UK has today. */}
-                  {networkPreview ? (
-                    <Link
-                      to="/global"
-                      onClick={() => setMenuOpen(false)}
-                      className="mt-2 flex items-center justify-between rounded-xl bg-cloud px-3 py-2.5 text-sm font-medium hover:bg-brand-tint hover:text-brand"
-                    >
-                      <span className="flex items-center gap-2">
-                        <Icon name="globe" className="h-4 w-4" />
-                        Across the network
-                      </span>
-                      {connReqs > 0 && (
-                        <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-semibold text-white">
-                          {connReqs > 9 ? '9+' : connReqs}
-                        </span>
-                      )}
-                    </Link>
-                  ) : (
+                  {/* The "Across the network" link that used to sit here is
+                      gone: the Worldwide tab in the nav goes to the same page,
+                      and two doors to one room in a menu this small is one door
+                      too many. Its unread badge moved to the tab. */}
+                  {networkPreview ? null : (
                     <>
                       <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Explore</p>
                       <Link to="/creators" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Creators</Link>

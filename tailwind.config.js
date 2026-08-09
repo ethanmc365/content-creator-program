@@ -93,11 +93,14 @@ export default {
         },
         // The dashed contrail behind it, drawn as an SVG path. Marching the
         // dash offset reads as travel; animating the path itself would not.
-        // POSITIVE, deliberately: the path is drawn from far away toward the
-        // plane's tail, so a positive offset moves the dashes backwards, away
-        // from the plane. A negative one runs them into the fuselage.
+        // NEGATIVE, deliberately. The sign depends entirely on which end of the
+        // path is drawn first, and that changed: the trail used to run from the
+        // far corner INTO the tail and now runs from the tail OUT to the edge.
+        // A dash offset shifts the pattern back toward the path's start, so
+        // with the tail as the start it has to be negative or the dashes crawl
+        // forwards into the fuselage.
         contrail: {
-          to: { strokeDashoffset: '24' },
+          to: { strokeDashoffset: '-24' },
         },
       },
       animation: {

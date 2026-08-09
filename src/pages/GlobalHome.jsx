@@ -12,6 +12,7 @@ import LiveChallengeCard from '../components/network/LiveChallengeCard'
 import { CountUp, Reveal } from '../components/network/Motion'
 import ProfileProgress from '../components/network/ProfileProgress'
 import Reorderable from '../components/network/Reorderable'
+import FlagStack from '../components/network/FlagStack'
 import CreatorMap from '../components/CreatorMap'
 import CreatorSpotlight from '../components/CreatorSpotlight'
 import Icon from '../components/Icon'
@@ -60,7 +61,6 @@ function SectionHead({ icon, title, hint, to, toLabel }) {
 // half of what you saw belonged to one market. A challenge belongs on its
 // market's page. What survives is only what helps you decide where to go.
 function MarketCard({ chapter, mine, isHome, memberCount, hasLive }) {
-  const flags = (chapter.country_codes || []).map(flagFromIso).join(' ')
   return (
     <MotionLink
       to={`/c/${chapter.slug}`}
@@ -71,7 +71,7 @@ function MarketCard({ chapter, mine, isHome, memberCount, hasLive }) {
         mine ? 'border-brand/30 bg-brand-tint/20' : 'border-gray-100',
       )}
     >
-      {flags && <span className="shrink-0 whitespace-nowrap text-lg leading-none" aria-hidden>{flags}</span>}
+      <FlagStack codes={chapter.country_codes} className="text-lg" />
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
           <span className="truncate font-semibold">{chapter.name}</span>
@@ -114,7 +114,7 @@ const NETWORK_LINKS = [
   { to: '/collab', icon: 'pin', label: 'Travel collab board', short: 'Collab', hint: 'Who is going where' },
   { to: '/events', icon: 'calendar', label: 'Calendar', short: 'Calendar', hint: 'Events and meetups' },
   { to: '/leaderboard', icon: 'chart', label: 'Leaderboard', short: 'Ranks', hint: 'Across every market' },
-  { to: '/game', icon: 'joystick', label: 'Daily games', short: 'Games', hint: 'One puzzle a day' },
+  { to: '/game', icon: 'joystick', label: 'Travel games', short: 'Games', hint: 'Puzzles, quizzes and streaks' },
   { to: '/resources', icon: 'book', label: 'Resource library', short: 'Library', hint: 'Guides and templates', badge: 'resources' },
   { to: '/jobs', icon: 'briefcase', label: 'Roles', short: 'Roles', hint: 'Paid work with Tryp.com' },
   { to: '/refer', icon: 'share', label: 'Refer a creator', short: 'Refer', hint: 'Bring someone in' },
@@ -131,9 +131,29 @@ const NETWORK_LINKS = [
 // Links added to the product later fall in at the end rather than vanishing,
 // because the saved value is an order, not a whitelist.
 const ORDER_KEY = 'network-links-order'
+// Your places gets the same treatment, keyed separately. Somebody in four
+// markets has a favourite, and it is not always the one they call home.
+const MARKET_ORDER_KEY = 'network-market-order'
 
 function loadOrder() {
   try { return JSON.parse(localStorage.getItem(ORDER_KEY)) || [] } catch { return [] }
+}
+
+function loadMarketOrder() {
+  try { return JSON.parse(localStorage.getItem(MARKET_ORDER_KEY)) || [] } catch { return [] }
+}
+
+// A saved order is a preference over the markets you had THEN. Markets you join
+// later fall in at the end rather than disappearing, and markets you leave drop
+// out without leaving a hole.
+function orderMarkets(markets, order, homeId) {
+  if (!order.length) return markets
+  const rank = new Map(order.map((id, i) => [id, i]))
+  return [...markets].sort(
+    (a, b) => (rank.has(a.id) ? rank.get(a.id) : 1e9) - (rank.has(b.id) ? rank.get(b.id) : 1e9)
+      || (b.id === homeId) - (a.id === homeId)
+      || a.name.localeCompare(b.name),
+  )
 }
 
 function orderLinks(order) {
@@ -184,6 +204,7 @@ export default function GlobalHome() {
   const { network, chapters, myChapters, myCommunities, isGlobalAdmin, error } = useCommunity()
   const [d, setD] = useState(null)
   const [order, setOrder] = useState(loadOrder)
+  const [marketOrder, setMarketOrder] = useState(loadMarketOrder)
   const links = useMemo(() => orderLinks(order), [order])
   const networkId = network?.id ?? null
 
@@ -191,6 +212,12 @@ export default function GlobalHome() {
     const keys = next.map((l) => l.to)
     setOrder(keys)
     try { localStorage.setItem(ORDER_KEY, JSON.stringify(keys)) } catch { /* private mode */ }
+  }
+
+  function saveMarketOrder(next) {
+    const ids = next.map((m) => m.id)
+    setMarketOrder(ids)
+    try { localStorage.setItem(MARKET_ORDER_KEY, JSON.stringify(ids)) } catch { /* private mode */ }
   }
 
   useEffect(() => {
@@ -315,6 +342,8 @@ export default function GlobalHome() {
   const myMarkets = myChapters
     .slice()
     .sort((a, b) => (b.id === home?.id) - (a.id === home?.id) || a.name.localeCompare(b.name))
+  const orderedMarkets = orderMarkets(myMarkets, marketOrder, home?.id)
+
   // Live challenges in markets the viewer is actually in. A market they can
   // read but have not joined is not "their" live challenge. The network's own
   // challenge is everybody's, so it leads.
@@ -347,7 +376,7 @@ export default function GlobalHome() {
                   </span>
                   {isGlobal
                     ? 'Global · everyone'
-                    : `${(market.country_codes || []).map(flagFromIso).join('')} ${market.name}`}
+                    : market.name}
                 </p>
                 <p className="mt-1 line-clamp-2 text-sm font-medium">{challenge.title}</p>
               </Link>
@@ -366,38 +395,42 @@ export default function GlobalHome() {
           </Link>
         }
       >
-        <div className="space-y-1">
-          <Link to="/global" className="flex items-center gap-2.5 rounded-xl bg-brand-tint px-3 py-2 text-sm font-medium text-brand">
-            <Icon name="globe" className="h-4 w-4 shrink-0" />
-            <span className="min-w-0 truncate">{network?.name || 'Worldwide'}</span>
-          </Link>
-          {myMarkets.map((c) => (
-            <Link key={c.id} to={`/c/${c.slug}`}
-              className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors hover:bg-cloud">
-              <span className="w-4 shrink-0 text-center leading-none" aria-hidden>
-                {(c.country_codes || []).map(flagFromIso).join('') || '•'}
-              </span>
+        {/* Worldwide is pinned and NOT reorderable: it is the one place
+            everybody is in and the parent of all the others, so letting it be
+            dragged below Spain would be letting somebody file the building
+            under one of its rooms. Only the markets move. */}
+        <Link to="/global" className="mb-1 flex items-center gap-2.5 rounded-xl bg-brand-tint px-3 py-2 text-sm font-medium text-brand">
+          <Icon name="globe" className="h-4 w-4 shrink-0" />
+          <span className="min-w-0 truncate">{network?.name || 'Worldwide'}</span>
+        </Link>
+        <Reorderable
+          items={orderedMarkets}
+          onReorder={saveMarketOrder}
+          handleLabel="Reorder this market"
+          renderItem={(c, { handleProps }) => (
+            <Link
+              to={`/c/${c.slug}`}
+              {...handleProps}
+              role={undefined}
+              className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors hover:bg-cloud"
+            >
+              <FlagStack codes={c.country_codes} className="text-[13px]" />
               <span className="min-w-0 flex-1 truncate">{c.name}</span>
               {d?.live?.[c.id] && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand" title="Challenge running" />}
             </Link>
-          ))}
-          {myMarkets.length === 0 && (
-            <Link to="/global/markets" className="block rounded-xl border border-dashed border-gray-200 px-3 py-3 text-xs text-smoke transition-colors hover:border-brand hover:text-brand">
-              You have not joined a market yet. Find yours →
-            </Link>
           )}
-        </div>
+        />
+        {myMarkets.length === 0 && (
+          <Link to="/global/markets" className="block rounded-xl border border-dashed border-gray-200 px-3 py-3 text-xs text-smoke transition-colors hover:border-brand hover:text-brand">
+            You have not joined a market yet. Find yours →
+          </Link>
+        )}
       </RailCard>
 
       {/* ---------- The people layer, in your order ---------- */}
       <RailCard
         icon={<Icon name="users" className="h-3.5 w-3.5 text-brand" />}
         title="Across the network"
-        action={
-          <span className="hidden items-center gap-1 text-[10px] font-medium text-gray-300 lg:flex">
-            <Icon name="grip" className="h-3 w-3" /> drag to reorder
-          </span>
-        }
       >
         <Reorderable
           items={links}
@@ -581,7 +614,6 @@ export default function GlobalHome() {
             <SectionHead
               icon="flag"
               title={myMarkets.length ? 'Your markets' : 'Markets'}
-              hint="Challenges, briefs and rooms live inside a market. Open one to see what is happening there."
               to="/global/markets"
               toLabel={isGlobalAdmin ? 'All markets' : 'Explore'}
             />

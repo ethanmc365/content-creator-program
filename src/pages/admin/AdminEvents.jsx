@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { confirm, notice } from '../../lib/confirm'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
+import { useCommunity } from '../../context/CommunityContext'
 import { Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { formatDateTime, parseDateTime, isoToDateInput, isoToTimeInput } from '../../lib/utils'
@@ -18,10 +19,17 @@ const TYPES = [
   { value: 'workshop', label: '🎓 Workshop' },
 ]
 
-const emptyForm = { title: '', description: '', dateStr: '', timeStr: '', type: 'event', meeting_url: '', rsvp_enabled: false, customType: false }
+const emptyForm = {
+  title: '', description: '', dateStr: '', timeStr: '', type: 'event',
+  meeting_url: '', rsvp_enabled: false, customType: false,
+  // '' means everybody. A market id means only that market sees it, and it
+  // shows up on that market's page as well as on the calendar.
+  community_id: '',
+}
 
 export default function AdminEvents() {
   const { user } = useAuth()
+  const { chapters } = useCommunity()
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(null) // null | 'new' | event row
@@ -46,6 +54,7 @@ export default function AdminEvents() {
         timeStr: isoToTimeInput(event.date),
         meeting_url: event.meeting_url || '',
         customType: !known,
+        community_id: event.community_id || '',
       })
     } else {
       setForm(emptyForm)
@@ -64,6 +73,8 @@ export default function AdminEvents() {
       type: form.type.trim() || 'event',
       meeting_url: form.meeting_url.trim() || null,
       rsvp_enabled: !!form.rsvp_enabled,
+      // Null, not '': the column is a uuid and an empty string is not one.
+      community_id: form.community_id || null,
     }
     if (editing === 'new') {
       await supabase.from('events').insert({ ...payload, created_by: user.id })
@@ -157,6 +168,29 @@ export default function AdminEvents() {
                 </select>
               )}
             </div>
+          </div>
+          {/* WHO SEES IT. A Spanish meetup on 43 UK creators' calendars is
+              noise, and a network-wide Q&A that only shows up in one market is
+              a Q&A half the programme misses. Scope is a decision every event
+              has, so it is a field rather than something to remember. */}
+          <div>
+            <label htmlFor="ev-scope" className="label">Who sees this</label>
+            <select
+              id="ev-scope"
+              className="input"
+              value={form.community_id}
+              onChange={(e) => setForm({ ...form, community_id: e.target.value })}
+            >
+              <option value="">Everyone, every market</option>
+              {chapters.map((c) => (
+                <option key={c.id} value={c.id}>Only {c.name}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-smoke">
+              {form.community_id
+                ? 'Shows on that market’s page and only on its creators’ calendars.'
+                : 'Shows on every creator’s calendar, in every market.'}
+            </p>
           </div>
           <div>
             <label htmlFor="ev-meet" className="label">

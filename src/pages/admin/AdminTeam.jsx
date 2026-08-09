@@ -27,9 +27,9 @@ import { cx } from '../../lib/utils'
 // Nobody else can demote, delete, retitle or unseat them - that is a trigger and
 // two RPC guards in migration 084, so it holds whether the request comes from
 // this page, the API or a stray script. What the lead CAN do is hand the role
-// on, which is the row at the bottom.
+// on, which is an action on the row of whoever would receive it.
 
-function RoleRow({ person, isMe, viewerIsLead, onTitle, onDemote, busy }) {
+function RoleRow({ person, isMe, viewerIsLead, onTitle, onDemote, onHandOver, busy }) {
   const lead = person.platform_role === 'owner'
   return (
     <div className={cx(
@@ -68,16 +68,31 @@ function RoleRow({ person, isMe, viewerIsLead, onTitle, onDemote, busy }) {
           {person.role_title ? 'Change title' : 'Give a title'}
         </button>
         {/* The lead has no demote button at all, for anybody including
-            themselves. Handing over is the only way out, and it is its own
-            deliberate flow at the bottom of the page. */}
+            themselves: handing over is the only way out of the role.
+            Handing the programme on lives HERE, on the row of the person who
+            would receive it, and only for the lead looking at an existing team
+            member. It used to be a permanent section at the bottom of the page
+            headed "one day somebody else will run this", which is a thing to
+            think about once every few years sitting under a page you open every
+            week. An action belongs next to its object. */}
         {!lead && !isMe && viewerIsLead && (
-          <button
-            onClick={() => onDemote(person)}
-            disabled={busy}
-            className="rounded-full border border-gray-200 px-3.5 py-1.5 text-xs font-medium text-smoke transition-transform duration-200 hover:scale-105 hover:border-red-300 hover:text-red-600 disabled:opacity-40"
-          >
-            Remove from team
-          </button>
+          <>
+            <button
+              onClick={() => onHandOver(person)}
+              disabled={busy}
+              title={`Make ${person.name} the programme lead`}
+              className="rounded-full border border-gray-200 px-3.5 py-1.5 text-xs font-medium transition-transform duration-200 hover:scale-105 hover:border-brand hover:text-brand disabled:opacity-40"
+            >
+              Make lead
+            </button>
+            <button
+              onClick={() => onDemote(person)}
+              disabled={busy}
+              className="rounded-full border border-gray-200 px-3.5 py-1.5 text-xs font-medium text-smoke transition-transform duration-200 hover:scale-105 hover:border-red-300 hover:text-red-600 disabled:opacity-40"
+            >
+              Remove from team
+            </button>
+          </>
         )}
       </div>
     </div>
@@ -167,29 +182,24 @@ export default function AdminTeam() {
     toast(`${person.name} is a creator again.`)
   }
 
-  // Handing the programme on. Three steps, and the last one is typing their
+  // Handing the programme on. Two steps, and the second one is typing their
   // name: this is the single least reversible action on the platform, because
   // the moment it lands the person doing it can no longer undo it.
-  async function handOver() {
-    const candidates = (team || []).filter((t) => t.platform_role === 'global_admin')
-    if (candidates.length === 0) {
-      notice('Add somebody to the Tryp.com team first. The programme can only be handed to somebody already on it.')
-      return
-    }
-    const name = await promptText(
-      `Who takes over? Type their name exactly.\n\nOn the team right now: ${candidates.map((c) => c.name).join(', ')}.`,
-      { title: 'Hand over the programme', confirmLabel: 'Continue' },
-    )
-    if (!name) return
-    const target = candidates.find((c) => c.name.toLowerCase() === name.trim().toLowerCase())
-    if (!target) { notice(`Nobody on the team is called "${name}".`); return }
-
+  async function handOver(target) {
     const ok = await confirm(
       `${target.name} becomes the ${LEAD_TITLE_SHORT}. You stay on the Tryp.com team with every admin power except this one.\n\n`
       + 'From then on only they can hand it back. You cannot undo this yourself.',
       { title: `Hand the programme to ${target.name}?`, confirmLabel: 'Hand it over', danger: true },
     )
     if (!ok) return
+    const typed = await promptText(
+      `Type ${target.name} to confirm.`,
+      { title: 'This cannot be undone by you', placeholder: target.name, confirmLabel: 'Hand over the lead' },
+    )
+    if (!typed || typed.trim().toLowerCase() !== target.name.toLowerCase()) {
+      if (typed) notice(`That did not match "${target.name}", so nothing has changed.`)
+      return
+    }
 
     setBusy(true)
     const { error } = await supabase.rpc('transfer_ownership', { target: target.id })
@@ -247,6 +257,7 @@ export default function AdminTeam() {
                 viewerIsLead={viewerIsLead}
                 onTitle={setTitle}
                 onDemote={demote}
+                onHandOver={handOver}
                 busy={busy}
               />
             ) : (
@@ -269,7 +280,7 @@ export default function AdminTeam() {
               <div className="space-y-3">
                 {admins.map((p) => (
                   <RoleRow key={p.id} person={p} isMe={p.id === profile?.id}
-                    viewerIsLead={viewerIsLead} onTitle={setTitle} onDemote={demote} busy={busy} />
+                    viewerIsLead={viewerIsLead} onTitle={setTitle} onDemote={demote} onHandOver={handOver} busy={busy} />
                 ))}
               </div>
             )}
@@ -285,26 +296,12 @@ export default function AdminTeam() {
               <div className="space-y-3">
                 {managers.map((p) => (
                   <RoleRow key={p.id} person={p} isMe={p.id === profile?.id}
-                    viewerIsLead={viewerIsLead} onTitle={setTitle} onDemote={demote} busy={busy} />
+                    viewerIsLead={viewerIsLead} onTitle={setTitle} onDemote={demote} onHandOver={handOver} busy={busy} />
                 ))}
               </div>
             </section>
           )}
 
-          {viewerIsLead && (
-            <section className="rounded-card border border-dashed border-gray-200 p-6">
-              <h2 className="text-base font-semibold">Handing the programme on</h2>
-              <p className="mt-1 max-w-2xl text-sm text-smoke">
-                One day somebody else will run this. When that day comes, this passes the lead role to
-                somebody already on the Tryp.com team. You keep every other admin power; you simply stop being
-                the person nobody can remove.
-              </p>
-              <button onClick={handOver} disabled={busy}
-                className="mt-4 rounded-full border border-gray-200 px-5 py-2.5 text-sm font-medium transition-transform duration-200 hover:scale-105 hover:border-brand hover:text-brand disabled:opacity-40">
-                Hand over the programme lead
-              </button>
-            </section>
-          )}
         </div>
       )}
     </div>

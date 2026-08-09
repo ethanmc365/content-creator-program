@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { format } from 'date-fns'
 import { Link, useParams } from 'react-router-dom'
 import { motion } from 'motion/react'
 import { supabase } from '../lib/supabase'
@@ -51,7 +52,7 @@ export default function ChapterHome() {
       setLoading(true)
       const [
         { data: channels }, { count: members }, { data: challenges },
-        { data: standings }, { data: ann }, { data: roster },
+        { data: standings }, { data: ann }, { data: roster }, { data: events },
       ] = await Promise.all([
         supabase.from('channels').select('id, key, label, hint, icon, visibility, position')
           .eq('community_id', chapter.id).order('position'),
@@ -79,6 +80,14 @@ export default function ChapterHome() {
           .select('profile_id, role, profiles!inner(id, name, photo_url, country_code, last_seen_at, is_admin, is_test, status, platform_role, role_title)')
           .eq('community_id', chapter.id).eq('status', 'active')
           .eq('profiles.is_test', false).eq('profiles.status', 'active'),
+        // What is coming up here. Events scoped to THIS market plus the
+        // network-wide ones, because a worldwide Q&A is still something a
+        // Spanish creator should see on the Spanish page.
+        supabase.from('events')
+          .select('id, title, date, type, community_id')
+          .or(`community_id.eq.${chapter.id},community_id.is.null`)
+          .gte('date', new Date().toISOString())
+          .order('date').limit(4),
       ])
       if (cancelled) return
 
@@ -107,6 +116,7 @@ export default function ChapterHome() {
         channels: channels || [], members, challenges: challenges || [],
         standings: (standings || []).filter((s) => !s.profiles.is_test),
         ann, live, participation,
+        events: events || [],
         roster: everyone.filter((p) => !p.is_admin && p.memberRole !== 'manager'),
         team: everyone
           .filter((p) => p.is_admin || p.memberRole === 'manager')
@@ -171,6 +181,37 @@ export default function ChapterHome() {
                 </Link>
                 <span className="shrink-0 text-xs font-bold text-brand">{Number(s.points)}</span>
               </div>
+            ))}
+          </div>
+        </RailCard>
+      )}
+
+      {data?.events?.length > 0 && (
+        <RailCard
+          icon={<Icon name="calendar" className="h-3.5 w-3.5 text-brand" />}
+          title="Coming up"
+          action={
+            <Link to="/events" className="text-[11px] font-medium text-brand transition-transform duration-200 hover:scale-105">
+              Calendar
+            </Link>
+          }
+        >
+          <div className="space-y-1">
+            {data.events.map((ev) => (
+              <Link key={ev.id} to="/events"
+                className="flex items-start gap-2.5 rounded-xl px-2 py-2 transition-colors hover:bg-cloud">
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 flex-col items-center justify-center rounded-xl bg-brand-tint leading-none">
+                  <span className="text-[9px] font-semibold uppercase text-brand">{format(new Date(ev.date), 'MMM')}</span>
+                  <span className="text-xs font-bold text-brand">{format(new Date(ev.date), 'd')}</span>
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-xs font-semibold">{ev.title}</span>
+                  <span className="block truncate text-[11px] text-smoke">
+                    {format(new Date(ev.date), 'HH:mm')}
+                    {ev.community_id ? ` · ${chapter.name}` : ' · Everyone'}
+                  </span>
+                </span>
+              </Link>
             ))}
           </div>
         </RailCard>
@@ -329,19 +370,6 @@ export default function ChapterHome() {
             )}
           </section>
 
-          {/* ---------- Recent activity ---------- */}
-          {/* A market can be entirely correct and still read as abandoned. This
-              is the cheapest possible proof that it is not. */}
-          <section>
-            <div className="mb-4">
-              <h2 className="flex items-center gap-2 text-lg font-semibold">
-                <Icon name="clock" className="h-5 w-5 text-brand" /> Lately in {chapter.name}
-              </h2>
-              <p className="mt-1 text-sm text-smoke">Who joined, who posted, who entered.</p>
-            </div>
-            <MarketActivity market={chapter} />
-          </section>
-
           {/* ---------- Where this market is ---------- */}
           {/* Zoomed to the market, not the world. It also does real layout
               work: a market with no challenge and no announcement used to end
@@ -358,44 +386,18 @@ export default function ChapterHome() {
             <MarketMap marketId={chapter.id} marketName={chapter.name} />
           </section>
 
-          {/* ---------- Getting started ---------- */}
-          {/* Only for whoever runs a market that has not opened yet. It is the
-              difference between an empty page and a page with a next step. */}
-          {canManage && (!chapter.is_active || (data && data.members === 0)) && (
-            <section>
-              <div className="rounded-card border border-brand/25 bg-brand-tint/20 p-6">
-                <h2 className="text-lg font-semibold">Getting {chapter.name} off the ground</h2>
-                <p className="mt-1 text-sm text-smoke">
-                  Nobody sees any of this until you switch the market on.
-                </p>
-                <ul className="mt-5 space-y-2.5">
-                  {[
-                    { done: !!chapter.tagline, label: 'Write a tagline so it introduces itself', to: `/manage/${chapter.slug}` },
-                    { done: (data?.channels?.length || 0) > 2, label: 'Add a room beyond General and Announcements', to: `/manage/${chapter.slug}` },
-                    { done: (data?.challenges?.length || 0) > 0, label: 'Create the first challenge', to: `/admin/challenges/new?market=${chapter.slug}` },
-                    { done: (data?.members || 0) > 0, label: 'Get the first creators in', to: `/manage/${chapter.slug}` },
-                    { done: chapter.is_active, label: 'Open it to creators', to: `/manage/${chapter.slug}` },
-                  ].map((step) => (
-                    <li key={step.label}>
-                      <Link to={step.to}
-                        className="flex items-center gap-3 rounded-xl bg-white px-4 py-3 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card">
-                        <span className={cx(
-                          'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px]',
-                          step.done ? 'border-brand bg-brand text-white' : 'border-gray-300 text-transparent',
-                        )}>
-                          ✓
-                        </span>
-                        <span className={cx('min-w-0 flex-1 text-sm', step.done ? 'text-smoke line-through' : 'font-medium')}>
-                          {step.label}
-                        </span>
-                        <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </section>
-          )}
+          {/* ---------- Recent activity ---------- */}
+          {/* A market can be entirely correct and still read as abandoned. This
+              is the cheapest possible proof that it is not. */}
+          <section>
+            <div className="mb-4">
+              <h2 className="flex items-center gap-2 text-lg font-semibold">
+                <Icon name="clock" className="h-5 w-5 text-brand" /> Lately in {chapter.name}
+              </h2>
+              <p className="mt-1 text-sm text-smoke">Who joined, who posted, who entered.</p>
+            </div>
+            <MarketActivity market={chapter} />
+          </section>
 
           {/* ---------- Recent challenges ---------- */}
           {past.length > 0 && (

@@ -1,0 +1,14 @@
+-- Streaks that survive a forgotten Tuesday.
+--
+-- Adds `streak_freezes` and `my_game_streak()`, which returns the current run,
+-- the BEST run ever, and how many of the three monthly freezes are left.
+--
+-- The old streak was computed on the fly and forgotten the moment it broke, so
+-- a forty-day run became a zero with nothing left to show it existed. That is
+-- the mechanic that makes somebody stop playing rather than start again. Best
+-- streak is now remembered, and three freezes a month are spent AUTOMATICALLY
+-- on the day they are needed (a freeze you have to remember to spend is one you
+-- learn about the day after you needed it). A freeze covers one day only, so two
+-- missed days in a row still ends the run.
+--
+-- Applied to production 9 Aug 2026.

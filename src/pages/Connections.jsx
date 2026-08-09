@@ -5,6 +5,8 @@ import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
 import { loadRelationships } from '../lib/connections'
 import ConnectButton from '../components/ConnectButton'
+import BackLink from '../components/BackLink'
+import Reveal from '../components/network/Reveal'
 import { Avatar, EmptyState, PageHeader, Skeleton } from '../components/ui'
 import Icon from '../components/Icon'
 import { isOnline, presenceLabel } from '../lib/presence'
@@ -264,6 +266,7 @@ export default function Connections() {
 
   return (
     <div className="page max-w-4xl">
+      <BackLink />
       <PageHeader title="Connections" subtitle="Who you know, who wants to know you, and who you should meet." />
 
       {/* Three numbers, not three sentences. The count of people waiting on you
@@ -373,7 +376,7 @@ export default function Connections() {
                 <EmptyState icon={<Icon name="magnifier" className="h-6 w-6" />}
                   title={`Nobody in your network matches "${search}"`} />
               ) : (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Reveal className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {filteredConnections.map((c) => (
                     <PersonCard
                       key={c.id}
@@ -392,7 +395,7 @@ export default function Connections() {
                       }
                     />
                   ))}
-                </div>
+                </Reveal>
               )}
             </>
           )}
@@ -403,11 +406,11 @@ export default function Connections() {
             <EmptyState
               icon={<Icon name="sparkles" className="h-7 w-7" />}
               title="Nobody left to suggest"
-              hint="Everyone we can find a genuine reason to introduce you to, you already know. The directory has the rest of the network."
+              hint="New suggestions appear as people join, post and connect."
               action={<button onClick={() => navigate('/creators')} className="btn-secondary">Browse every creator</button>}
             />
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Reveal className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {visibleSuggestions.map((s) => (
                 <PersonCard
                   key={s.id}
@@ -435,7 +438,7 @@ export default function Connections() {
                   }
                 />
               ))}
-            </div>
+            </Reveal>
           )}
         </section>
       )}

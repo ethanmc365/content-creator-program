@@ -51,6 +51,8 @@ const MarketMembers = lazy(() => import('./pages/MarketMembers'))
 const ExploreMarkets = lazy(() => import('./pages/ExploreMarkets'))
 const ManageChapter = lazy(() => import('./pages/ManageChapter'))
 const NetworkChat = lazy(() => import('./pages/NetworkChat'))
+const Rooms = lazy(() => import('./pages/Rooms'))
+const Milestones = lazy(() => import('./pages/Milestones'))
 const GlobalSettings = lazy(() => import('./pages/GlobalSettings'))
 
 const Game = lazy(() => import('./pages/Game'))
@@ -72,6 +74,8 @@ const AdminEmail = lazy(() => import('./pages/admin/AdminEmail'))
 const AdminApplications = lazy(() => import('./pages/admin/AdminApplications'))
 const AdminAuditLog = lazy(() => import('./pages/admin/AdminAuditLog'))
 const AdminTeam = lazy(() => import('./pages/admin/AdminTeam'))
+const AdminMilestones = lazy(() => import('./pages/admin/AdminMilestones'))
+const Team = lazy(() => import('./pages/Team'))
 const AdminScheduledAnnouncements = lazy(() => import('./pages/admin/AdminScheduledAnnouncements'))
 const AdminWhatsNew = lazy(() => import('./pages/admin/AdminWhatsNew'))
 const AdminFeedback = lazy(() => import('./pages/admin/AdminFeedback'))
@@ -125,6 +129,8 @@ export default function App() {
           <Route path="/refer" element={<Refer />} />
           <Route path="/collab" element={<Collab />} />
           <Route path="/connections" element={<Connections />} />
+          <Route path="/team" element={<Team />} />
+          <Route path="/milestones" element={<Milestones />} />
           <Route path="/game" element={<Game />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/notifications" element={<Notifications />} />
@@ -144,6 +150,7 @@ export default function App() {
             <Route path="/global/settings" element={<GlobalSettings />} />
             {/* Worldwide rooms and each market's rooms share one component;
                 the presence of :slug is what scopes it. */}
+            <Route path="/rooms" element={<Rooms />} />
             <Route path="/global/chat" element={<Navigate to="/global/chat/general" replace />} />
             <Route path="/global/chat/:channelKey" element={<NetworkChat />} />
             <Route path="/c/:slug" element={<ChapterHome />} />
@@ -174,6 +181,7 @@ export default function App() {
             <Route path="/admin/email" element={<AdminEmail />} />
             <Route path="/admin/audit" element={<AdminAuditLog />} />
             <Route path="/admin/team" element={<AdminTeam />} />
+            <Route path="/admin/milestones" element={<AdminMilestones />} />
             <Route path="/admin/scheduled" element={<AdminScheduledAnnouncements />} />
             <Route path="/admin/whats-new" element={<AdminWhatsNew />} />
             <Route path="/admin/feedback" element={<AdminFeedback />} />

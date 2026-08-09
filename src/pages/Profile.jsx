@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import WorldMap from '../components/WorldMap'
 import TravelGallery from '../components/TravelGallery'
 import VideoThumb from '../components/VideoThumb'
-import AchievementBadges from '../components/AchievementBadges'
+import MilestoneSnippet from '../components/network/MilestoneSnippet'
 import ConnectButton from '../components/ConnectButton'
 import { loadRelationship, mutualConnections } from '../lib/connections'
 import { openConversation } from '../lib/dm'
@@ -311,11 +311,16 @@ export default function Profile() {
         </section>
       )}
 
-      {/* ---------- Achievements ---------- */}
-      {badgeStats && !creator.is_admin && (
+      {/* ---------- Where they are on the route ----------
+          THIS REPLACES THE ACHIEVEMENT BADGES. Those were effort tiers with
+          nothing on the other side of them: they appeared, they were grey, and
+          reaching one changed nothing, which is why nobody chased them. A
+          milestone is the same idea with the two missing halves attached - a
+          threshold you can see coming and a real reward behind it - so one line
+          here does more than nine icons did. */}
+      {!creator.is_admin && (
         <section>
-          <h2 className="mb-4 text-lg font-semibold">Achievements</h2>
-          <AchievementBadges stats={badgeStats} showLocked />
+          <MilestoneSnippet profileId={creator.id} own={isMe} />
         </section>
       )}
 

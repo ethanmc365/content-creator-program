@@ -6,6 +6,7 @@ import {
 } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { useMyScopes, inScope } from '../lib/scope'
 import { Badge, PageHeader, Skeleton } from '../components/ui'
 import EventRsvp from '../components/EventRsvp'
 import EventPolls from '../components/EventPolls'
@@ -70,6 +71,12 @@ const metaFor = (type) => TYPE_META[type] || { emoji: '📌', tone: 'grey', labe
 
 export default function Events() {
   const { isAdmin } = useAuth()
+  // Always-on scope helper, not CommunityContext: this page is one of the ones
+  //43 live creators open, and it has to scope correctly whether or not the
+  // network preview flag is set. `inScope` fails OPEN, so an unscoped event is
+  // everybody's and an unreadable membership table degrades to the old
+  // behaviour rather than to an empty calendar.
+  const { ids: scopeIds } = useMyScopes()
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
   const [month, setMonth] = useState(new Date())
@@ -86,11 +93,12 @@ export default function Events() {
         { id: `${c.id}-start`, title: `${c.title}: starts`, date: c.start_date, type: 'challenge', link: `/challenges/${c.id}` },
         { id: `${c.id}-end`, title: `${c.title}: deadline`, date: c.end_date, type: 'deadline', link: `/challenges/${c.id}` },
       ])
-      setEvents([...(ev ?? []), ...challengeEvents].sort((a, b) => new Date(a.date) - new Date(b.date)))
+      const mine = (ev ?? []).filter((e) => inScope(scopeIds, e.community_id))
+      setEvents([...mine, ...challengeEvents].sort((a, b) => new Date(a.date) - new Date(b.date)))
       setLoading(false)
     }
     load()
-  }, [])
+  }, [scopeIds])
 
   const days = useMemo(() => {
     const gridStart = startOfWeek(startOfMonth(month), { weekStartsOn: 1 })

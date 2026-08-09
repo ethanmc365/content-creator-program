@@ -6,6 +6,7 @@ import { GEO_URL } from '../lib/mapCountries'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Avatar, Badge, PageHeader, Confetti } from '../components/ui'
+import StreakCard from '../components/games/StreakCard'
 import Icon from '../components/Icon'
 import {
   CONTINENTS, countriesForRegion, airportsForRegion, flagEmoji,
@@ -109,6 +110,9 @@ export default function Game() {
         title={<span className="flex items-center gap-2"><Icon name="joystick" className="h-7 w-7 text-brand" /> Travel Games</span>}
         subtitle={event ? `Event: ${event.title}` : 'Daily puzzles, plus flags, find-on-the-map, airport codes and currencies, by continent or the whole world.'}
       />
+
+      {/* Above the menu, because it is the reason to come back. */}
+      {!event && <StreakCard className="mb-8" />}
 
       {/* The menu drives the shared mode/region state, so the all-time
           leaderboard below always reflects the mode you currently have selected. */}

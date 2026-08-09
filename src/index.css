@@ -237,10 +237,20 @@ html[data-theme='dark'] .bg-cloud\/50 { background-color: rgba(32, 32, 35, 0.6);
 html[data-theme='dark'] .bg-cloud\/60 { background-color: rgba(32, 32, 35, 0.7); }
 html[data-theme='dark'] .bg-cloud\/70 { background-color: rgba(32, 32, 35, 0.8); }
 html[data-theme='dark'] .bg-brand-tint { background-color: rgba(245, 133, 63, 0.16); }
-html[data-theme='dark'] .bg-brand-tint\/30 { background-color: rgba(245, 133, 63, 0.09); }
+/* EVERY opacity step that exists in the codebase has to be here.
+   `bg-brand-tint/25` is its own utility class, so the remap of `.bg-brand-tint`
+   above never reaches it, and unmapped it paints the raw LIGHT peach at 25%
+   over near-black - which comes out as the muddy dark-grey card reported on
+   "Live now". Whenever a new opacity step is used in a component, add it here;
+   `grep -rho "bg-brand-tint/[0-9]*" src | sort -u` lists them all. */
+html[data-theme='dark'] .bg-brand-tint\/15 { background-color: rgba(245, 133, 63, 0.07); }
+html[data-theme='dark'] .bg-brand-tint\/20 { background-color: rgba(245, 133, 63, 0.08); }
+html[data-theme='dark'] .bg-brand-tint\/25 { background-color: rgba(245, 133, 63, 0.09); }
+html[data-theme='dark'] .bg-brand-tint\/30 { background-color: rgba(245, 133, 63, 0.10); }
 html[data-theme='dark'] .bg-brand-tint\/40 { background-color: rgba(245, 133, 63, 0.11); }
 html[data-theme='dark'] .bg-brand-tint\/50 { background-color: rgba(245, 133, 63, 0.13); }
 html[data-theme='dark'] .bg-brand-tint\/60 { background-color: rgba(245, 133, 63, 0.15); }
+html[data-theme='dark'] .bg-brand-tint\/70 { background-color: rgba(245, 133, 63, 0.17); }
 
 /* ---- Hover / focus surfaces --------------------------------------------
    CRITICAL: `hover:bg-cloud`, `hover:bg-red-50` etc. are their OWN utility
