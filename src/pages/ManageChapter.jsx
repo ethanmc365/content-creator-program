@@ -73,7 +73,7 @@ function Section({ icon, title, hint, children, action }) {
 export default function ManageChapter() {
   const { slug } = useParams()
   const { profile } = useAuth()
-  const { bySlug, manages, isGlobalAdmin, reload, loading: ctxLoading } = useCommunity()
+  const { bySlug, manages, isGlobalAdmin, chapters, reload, loading: ctxLoading } = useCommunity()
   const chapter = bySlug(slug)
   const canManage = chapter ? manages(chapter.id) : false
 
@@ -161,6 +161,48 @@ export default function ManageChapter() {
     if (error) { notice(`Could not save: ${error.message}`); return }
     await reload()
     notice('Market settings saved.')
+  }
+
+  // Move a creator to another market. One RPC, so their membership never
+  // blinks out of existence between the two writes. Their points stay with the
+  // market they earned them in: those were awarded under that market's rules,
+  // and carrying them over would rewrite a leaderboard other people are on.
+  async function moveCreator(m) {
+    const others = (chapters || []).filter((c) => c.id !== chapter.id && !c.retired_at)
+    if (!others.length) { notice('There is nowhere else to move them to yet.'); return }
+    const name = await promptText(
+      `Move ${m.profiles.name} to which market?\n\nOpen right now: ${others.map((c) => c.name).join(', ')}.`,
+      { title: 'Move creator', placeholder: others[0].name, confirmLabel: 'Move' },
+    )
+    if (!name) return
+    const target = others.find((c) => c.name.toLowerCase() === name.trim().toLowerCase())
+    if (!target) { notice(`No open market is called "${name}".`); return }
+    const { error } = await supabase.rpc('move_creator_market', {
+      p_profile: m.profile_id, p_from: chapter.id, p_to: target.id,
+    })
+    if (error) { notice(error.message); return }
+    await load()
+    toast(`${m.profiles.name} is now in ${target.name}.`)
+  }
+
+  // Retiring keeps everything. `is_active = false` already hides a market from
+  // creators but hides it from the team too, so the only way to make a failed
+  // market stop cluttering Explore used to be deleting it - and that takes its
+  // challenges, entries and history with it.
+  async function toggleRetired() {
+    const retiring = !chapter.retired_at
+    const ok = await confirm(
+      retiring
+        ? `${chapter.name} closes and disappears from every creator's list. Its challenges, entries, rooms and standings are all kept, and the team can still open this page.\n\nCreators already in it stay members; they simply stop seeing it.`
+        : `${chapter.name} comes back as a closed market. You still have to open it before creators can join.`,
+      { title: retiring ? `Retire ${chapter.name}?` : `Bring ${chapter.name} back?`, confirmLabel: retiring ? 'Retire it' : 'Bring it back', danger: retiring },
+    )
+    if (!ok) return
+    const { error } = await supabase.rpc('set_market_retired', { p_market: chapter.id, p_retired: retiring })
+    if (error) { notice(error.message); return }
+    await reload()
+    await load()
+    toast(retiring ? `${chapter.name} is retired.` : `${chapter.name} is back.`)
   }
 
   // ------------------------------------------------------------------ rooms
@@ -390,6 +432,16 @@ export default function ManageChapter() {
                 into the corner of a grid. */}
             <Section icon="eye" title="Visibility"
               hint="A closed market is invisible to creators: it does not appear in the market list, its challenges are unreadable and nobody can join it.">
+              {chapter.retired_at && (
+                <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-cloud/60 px-4 py-3">
+                  <Icon name="ban" className="h-4 w-4 shrink-0 text-smoke" />
+                  <p className="min-w-0 flex-1 text-sm text-smoke">
+                    This market is <span className="font-semibold text-ink">retired</span>. Creators cannot see it;
+                    everything it holds is kept.
+                  </p>
+                  <button onClick={toggleRetired} className="btn-secondary shrink-0 !py-2 !text-sm">Bring it back</button>
+                </div>
+              )}
               <BigToggle
                 on={settings.is_active}
                 onChange={(v) => setSettings({ ...settings, is_active: v })}
@@ -689,6 +741,14 @@ export default function ManageChapter() {
                         className="shrink-0 rounded-full border border-gray-200 px-3 py-1 text-xs font-medium transition-transform duration-200 hover:scale-105 hover:border-brand hover:text-brand">
                         {m.role === 'manager' ? 'Demote' : 'Make manager'}
                       </button>
+                      {/* Moving, not removing-and-re-adding. The day the Nordics
+                          splits into four countries somebody has to move forty
+                          people, and doing it as two separate actions leaves a
+                          window where they are in no market at all. */}
+                      <button onClick={() => moveCreator(m)}
+                        className="shrink-0 rounded-full border border-gray-200 px-3 py-1 text-xs font-medium transition-transform duration-200 hover:scale-105 hover:border-brand hover:text-brand">
+                        Move
+                      </button>
                       <button onClick={() => removeMember(m)} aria-label={`Remove ${m.profiles.name}`}
                         className="shrink-0 rounded-lg p-1.5 text-smoke transition-colors hover:bg-red-50 hover:text-red-600">
                         <Icon name="trash" className="h-4 w-4" />
@@ -707,6 +767,28 @@ export default function ManageChapter() {
                   Adding someone here bypasses the join rule. It does not change their home market.
                 </p>
               </div>
+
+              {/* Retiring, placed HERE rather than in a "danger zone" at the
+                  bottom of the page, because the thing you need to see before
+                  retiring a market is who is currently in it - and that list is
+                  directly above. Only the network team, never a market
+                  manager: retiring your own market is not a decision that
+                  should sit with the person running it. */}
+              {isGlobalAdmin && !chapter.retired_at && (
+                <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-gray-200 p-4">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold">Retire {chapter.name}</p>
+                    <p className="mt-0.5 text-xs text-smoke">
+                      Closes it and takes it off every creator&rsquo;s list. Challenges, entries, rooms and
+                      standings are all kept and stay readable by the team. Reversible.
+                    </p>
+                  </div>
+                  <button onClick={toggleRetired}
+                    className="shrink-0 rounded-full border border-gray-200 px-4 py-2 text-sm font-medium text-smoke transition-transform duration-200 hover:scale-105 hover:border-red-300 hover:text-red-600">
+                    Retire this market
+                  </button>
+                </div>
+              )}
             </Section>
 
             {isGlobalAdmin && (

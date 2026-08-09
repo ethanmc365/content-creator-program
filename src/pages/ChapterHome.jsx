@@ -250,8 +250,14 @@ export default function ChapterHome() {
             {byRecency(data.roster)
               .slice(0, fillRows(data.roster.length, 6, 24))
               .map((p) => (
+                // `inline-flex` + `justify-self-center`, not a bare `relative`.
+                // A <Link> is a block-level grid ITEM here, so it fills the
+                // whole 6-column cell and an absolutely positioned dot anchors
+                // to the cell's corner - which is why the green dot appeared
+                // floating beside somebody's face instead of on it. Shrinking
+                // the link to its content puts the dot back on the avatar.
                 <Link key={p.id} to={`/profile/${p.id}`} title={p.name}
-                  className="relative transition-transform duration-200 hover:scale-110">
+                  className="relative inline-flex justify-self-center transition-transform duration-200 hover:scale-110">
                   <Avatar src={p.photo_url} name={p.name} size="sm" />
                   {isOnline(p.last_seen_at) && (
                     <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-white" />

@@ -637,28 +637,11 @@ export default function Chat() {
     await supabase.from('messages').update({ pinned: true }).eq('id', m.id)
   }
 
-  // Detect an in-progress "@query" just before the caret to drive autocomplete.
-  function onBodyChange(e) {
-    const val = e.target.value
-    setBody(val)
-    saveDraft('chat-' + channel, val)
-    if (val.trim()) pingTyping()
-    const caret = e.target.selectionStart ?? val.length
-    const m = val.slice(0, caret).match(/(?:^|\s)@([^\s@]{0,30})$/)
-    setMention(m ? { query: m[1], start: caret - m[1].length - 1 } : null)
-  }
-
-  function selectMention(member) {
-    const ta = textareaRef.current
-    const caret = ta?.selectionStart ?? body.length
-    const start = mention?.start ?? caret
-    const insert = '@' + member.name + ' '
-    const next = body.slice(0, start) + insert + body.slice(caret)
-    setBody(next)
-    setMention(null)
-    const pos = start + insert.length
-    requestAnimationFrame(() => { ta?.focus(); ta?.setSelectionRange(pos, pos) })
-  }
+  // `onBodyChange` and `selectMention` lived here to drive the plain textarea
+  // composer. That composer is gone - everybody gets the WYSIWYG one now - and
+  // the editor has its own caret handling (`onRichChange` / `chooseMention`
+  // below), so keeping a second, subtly different implementation of mention
+  // detection around was an invitation for the two to drift.
 
   // ---- Admin WYSIWYG composer (RichEditable) ----
   // The editor serializes to markdown into `body` on every keystroke, so send /
@@ -684,15 +667,13 @@ export default function Chat() {
       ed.exec('formatBlock', cur === 'h1' ? 'p' : 'h1')
     } else ed.exec(kind) // bold | italic
   }
-  // Insert a mention: rich composer swaps the typed "@query" for a chip; the
-  // textarea path keeps its string-splice behaviour.
+  // Insert a mention: the composer swaps the typed "@query" for a chip. No
+  // longer gated on isAdmin - there is only one composer now, and gating it
+  // meant a creator picking a name from the menu silently did nothing.
   function chooseMention(member) {
-    if (isAdmin && richRef.current) {
-      richRef.current.insertMention(member.name, mentionQueryLenRef.current + 1)
-      setMention(null)
-    } else {
-      selectMention(member)
-    }
+    if (!richRef.current) return
+    richRef.current.insertMention(member.name, mentionQueryLenRef.current + 1)
+    setMention(null)
   }
 
   async function toggleReaction(messageId, emoji) {
@@ -1037,9 +1018,17 @@ export default function Chat() {
                     </div>
                   </div>
 
-                  {/* Read receipts are ADMIN-ONLY: a "Seen by N" count under
-                      each message; hover or tap it to see the creators' names. */}
-                  {isAdmin && !m.pending && !m.deleted ? (() => {
+                  {/* Read receipts, for EVERYONE now, not just admins.
+                      They were admin-only out of caution when they shipped, and
+                      the caution was misplaced: the value of "seen by 12" is
+                      knowing your message landed, and that is worth more to the
+                      creator who posted a question into a quiet room than to the
+                      team. Only shown on YOUR OWN messages though - who read
+                      somebody else's post is their business, not yours, and a
+                      room where everybody can audit everybody's reading is a
+                      room people stop opening. Admins keep the full view,
+                      because moderating needs it. */}
+                  {(isAdmin || mine) && !m.pending && !m.deleted ? (() => {
                     const seen = seenBy(m)
                     if (!seen.length) return null
                     return (
@@ -1090,16 +1079,21 @@ export default function Chat() {
           ) : canPost ? (
             <>
             {attachError && <p className="mb-2 text-xs text-red-600">{attachError}</p>}
-            {/* Admin tools: text formatting + game/resource cards (all channels)
-                + poll (announcements). Moved up here so the composer box below
-                spans the full width. Creators never see this row. */}
-            {isAdmin && (
+            {/* FORMATTING IS FOR EVERYONE; the rest of this row is not.
+                Heading, bold and italic were admin-only on the theory that
+                creators would not need them, which was wrong: they ask
+                questions, share links and write their own mini-briefs all day.
+                Posting a game card, a resource card or a poll IS an admin
+                action - those write to shared library rows - so those stay
+                behind the check. One row, two audiences. */}
+            {(isAdmin || canPost) && (
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 <div className="flex items-center gap-0.5 rounded-lg border border-gray-200 p-0.5" role="group" aria-label="Text formatting">
                   <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => richFormat('heading')} title="Heading" aria-label="Heading" className="rounded px-2.5 py-1 text-xs font-bold text-smoke hover:bg-cloud hover:text-ink">H</button>
                   <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => richFormat('bold')} title="Bold" aria-label="Bold" className="rounded px-2.5 py-1 text-sm font-bold text-smoke hover:bg-cloud hover:text-ink">B</button>
                   <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => richFormat('italic')} title="Italic" aria-label="Italic" className="rounded px-2.5 py-1 text-sm italic text-smoke hover:bg-cloud hover:text-ink">I</button>
                 </div>
+                {isAdmin && (<>
                 {/* Drop a game challenge card into this channel. */}
                 <button type="button" onClick={() => setShowGame(true)} title="Post a game challenge" aria-label="Post a game challenge" className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-smoke hover:bg-cloud hover:text-ink">
                   <Icon name="joystick" className="h-4 w-4" /> <span className="hidden sm:inline">Game</span>
@@ -1113,6 +1107,7 @@ export default function Chat() {
                     <Icon name="poll" className="h-4 w-4" /> Create a poll
                   </button>
                 )}
+                </>)}
               </div>
             )}
             {/* @mention autocomplete (admins also get @everyone) */}
@@ -1159,7 +1154,14 @@ export default function Chat() {
               <button type="button" onClick={(e) => { e.currentTarget.blur(); fileRef.current?.click() }} className="btn-ghost !px-2.5 !py-3" aria-label="Attach a photo or video" title="Attach a photo or video">
                 <Icon name="image" className="h-5 w-5" />
               </button>
-              {isAdmin ? (
+              {/* THE RICH COMPOSER IS NOT AN ADMIN FEATURE.
+                  Bold, headings and @-mentions were limited to the team on the
+                  theory that creators would not need them. They ask questions,
+                  post briefs of their own and share links all day; making them
+                  type `**like this**` and see the asterisks was a worse
+                  experience for the larger half of the room. `body` is still
+                  markdown underneath, so drafts, mentions, notifications and
+                  the mobile keyboard path are all unchanged. */}
                 <RichEditable
                   ref={richRef}
                   docId={channel}
@@ -1183,32 +1185,6 @@ export default function Chat() {
                     }
                   }}
                 />
-              ) : (
-                <textarea
-                  ref={textareaRef}
-                  rows={1}
-                  className="input max-h-32 flex-1 resize-none overflow-y-auto"
-                  placeholder="Message…"
-                  value={body}
-                  onChange={onBodyChange}
-                  onBlur={stopTyping}
-                  onKeyDown={(e) => {
-                    // Mention autocomplete grabs Enter/Escape first.
-                    if (mention && mentionResults.length) {
-                      if (e.key === 'Enter') { e.preventDefault(); selectMention(mentionResults[0]); return }
-                      if (e.key === 'Escape') { e.preventDefault(); setMention(null); return }
-                    }
-                    // On a laptop, Enter sends and Shift+Enter makes a new line.
-                    // On mobile (touch keyboards) Enter is always a newline and
-                    // sending is done with the button.
-                    if (!isMobile && e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault()
-                      if (body.trim()) send(e)
-                    }
-                  }}
-                  aria-label={`Message ${meta.label}`}
-                />
-              )}
               <button
                 type="submit"
                 // Prevent the tap from moving focus off the textarea — that blur

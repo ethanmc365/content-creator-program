@@ -1,0 +1,18 @@
+-- Moving creators between markets, and retiring a market without losing it.
+--
+-- Adds `communities.retired_at`, `move_creator_market()` and
+-- `set_market_retired()`.
+--
+-- The Nordics is one market covering four countries; the day it splits,
+-- somebody has to move forty people, and doing it as remove-then-add leaves a
+-- window where they belong to nothing. And a market that does not work has to
+-- be closable: `is_active = false` hides it from creators AND from the team, so
+-- the only way to stop a failed market cluttering Explore was to delete it,
+-- taking its challenges, entries and history with it.
+--
+-- Points stay with the market they were earned in on a move: they were awarded
+-- under that market's rules, and carrying them over would rewrite a leaderboard
+-- other people are on. The network-wide total is unaffected either way, and that
+-- is the number that follows a creator around.
+--
+-- Applied to production 9 Aug 2026.

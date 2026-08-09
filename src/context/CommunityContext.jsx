@@ -51,7 +51,7 @@ export function CommunityProvider({ children }) {
         .eq('status', 'active'),
       supabase
         .from('communities')
-        .select('id, slug, name, kind, country_codes, currency, timezone, language, is_active, cpm_target, prize_baseline, tagline, join_policy, settings, lead_id')
+        .select('id, slug, name, kind, country_codes, currency, timezone, language, is_active, cpm_target, prize_baseline, tagline, join_policy, settings, lead_id, retired_at')
         .order('kind', { ascending: false })
         .order('name'),
     ])
@@ -76,7 +76,12 @@ export function CommunityProvider({ children }) {
     .filter(Boolean)
 
   const network = communities.find((c) => c.kind === 'network') || null
-  const chapters = communities.filter((c) => c.kind === 'chapter')
+  // A RETIRED market keeps all its data and disappears from the lists creators
+  // browse. It stays visible to the team, because the reason to retire rather
+  // than delete is being able to look at what happened afterwards.
+  const chapters = communities.filter(
+    (c) => c.kind === 'chapter' && (!c.retired_at || isGlobalRole(profile?.platform_role)),
+  )
   const myChapters = myCommunities.filter((c) => c.kind === 'chapter')
   const home = myCommunities.find((c) => c.membership.is_home) || null
 
