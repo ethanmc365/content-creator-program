@@ -1,0 +1,671 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tryp.com Content Creator Community — What We Build Next</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand:#d94407;
+    --brand-light:#f5853f;
+    --tint:#fdf0e9;
+    --ink:#1a1a1e;
+    --smoke:#6b6b76;
+    --line:#e8e8ec;
+    --cloud:#f6f6f8;
+  }
+  @page { size: A4; margin: 16mm 14mm 16mm 14mm; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    font-family:'Poppins', system-ui, -apple-system, sans-serif;
+    color:var(--ink);
+    font-size:9.6pt;
+    line-height:1.52;
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
+  h1,h2,h3,h4{ margin:0; line-height:1.15; letter-spacing:-0.02em; }
+  p{ margin:0 0 7pt; }
+
+  /* ---------- cover ---------- */
+  .cover{
+    height:265mm; display:flex; flex-direction:column; justify-content:space-between;
+    background:linear-gradient(150deg,var(--brand) 0%, var(--brand-light) 100%);
+    color:#fff; padding:20mm 16mm; margin:-16mm -14mm 0; page-break-after:always;
+    position:relative; overflow:hidden;
+  }
+  .cover .bloom{ position:absolute; border-radius:50%; background:rgba(255,255,255,.10); }
+  .b1{ width:120mm;height:120mm; right:-40mm; top:-30mm; }
+  .b2{ width:100mm;height:100mm; left:-35mm; bottom:-25mm; background:rgba(0,0,0,.06); }
+  .wordmark{
+    display:inline-block; background:#fff; color:var(--brand); font-weight:800;
+    font-size:15pt; letter-spacing:-.03em; padding:5pt 11pt; border-radius:7pt;
+  }
+  .wordmark span{ font-size:8pt; vertical-align:super; font-weight:600; }
+  .cover h1{ font-size:38pt; font-weight:800; line-height:1.03; max-width:150mm; }
+  .cover .kicker{
+    font-size:8.5pt; font-weight:600; letter-spacing:.18em; text-transform:uppercase;
+    opacity:.85; margin-bottom:8mm;
+  }
+  .cover .lede{ font-size:12pt; font-weight:300; max-width:135mm; opacity:.95; line-height:1.5; margin-top:7mm; }
+  .cover .foot{ display:flex; gap:14mm; font-size:8.5pt; opacity:.85; }
+  .cover .foot b{ display:block; font-size:15pt; font-weight:700; opacity:1; }
+
+  /* ---------- structure ---------- */
+  .section{ page-break-before:always; }
+  .eyebrow{
+    font-size:7.5pt; font-weight:700; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--brand); margin-bottom:3pt;
+  }
+  h2{ font-size:20pt; font-weight:700; margin-bottom:4pt; }
+  h2 + .sub{ color:var(--smoke); font-size:10pt; margin-bottom:10pt; max-width:150mm; }
+  h3{ font-size:12pt; font-weight:650; margin:12pt 0 4pt; }
+  h4{ font-size:9.6pt; font-weight:650; margin:9pt 0 3pt; }
+  .rule{ height:2pt; width:34pt; background:var(--brand); border-radius:2pt; margin:0 0 9pt; }
+
+  .card{ border:1px solid var(--line); border-radius:9pt; padding:9pt 11pt; margin:7pt 0; }
+  .card.tint{ background:var(--tint); border-color:rgba(217,68,7,.22); }
+  .card.grey{ background:var(--cloud); border-color:var(--line); }
+  .card h4{ margin-top:0; }
+
+  .cols2{ display:grid; grid-template-columns:1fr 1fr; gap:9pt; }
+  .cols3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:8pt; }
+
+  .verdict{
+    border-left:3pt solid var(--brand); background:var(--tint);
+    padding:8pt 11pt; border-radius:0 7pt 7pt 0; margin:8pt 0;
+  }
+  .verdict b{ color:var(--brand); }
+
+  table{ width:100%; border-collapse:collapse; font-size:8.8pt; margin:6pt 0 10pt; }
+  th{ text-align:left; font-weight:650; font-size:7.5pt; letter-spacing:.09em; text-transform:uppercase;
+      color:var(--smoke); border-bottom:1.2pt solid var(--line); padding:5pt 6pt 4pt; }
+  td{ padding:5pt 6pt; border-bottom:.6pt solid var(--line); vertical-align:top; }
+  tr:last-child td{ border-bottom:none; }
+  td.num{ color:var(--brand); font-weight:700; width:22pt; }
+
+  ul{ margin:0 0 7pt; padding-left:13pt; }
+  li{ margin-bottom:2.5pt; }
+
+  /* feature list */
+  .feat{ display:grid; grid-template-columns:20pt 1fr 52pt; gap:0; }
+  .feat > div{ padding:4.5pt 5pt; border-bottom:.6pt solid var(--line); }
+  .feat .n{ color:var(--brand); font-weight:700; font-size:8.4pt; }
+  .feat .t b{ font-weight:600; }
+  .feat .t span{ color:var(--smoke); }
+  .feat .m{ text-align:right; font-size:7.2pt; font-weight:600; letter-spacing:.03em; white-space:nowrap; }
+  .pill{ display:inline-block; padding:1.5pt 5pt; border-radius:20pt; font-size:6.8pt; font-weight:700; letter-spacing:.04em; }
+  .p-now{ background:var(--brand); color:#fff; }
+  .p-next{ background:var(--tint); color:var(--brand); border:.6pt solid rgba(217,68,7,.3); }
+  .p-later{ background:var(--cloud); color:var(--smoke); }
+
+  .grouphead{
+    display:flex; align-items:baseline; justify-content:space-between; gap:8pt;
+    margin:13pt 0 2pt; padding-bottom:3pt; border-bottom:1.5pt solid var(--ink);
+  }
+  .grouphead h3{ margin:0; font-size:11pt; }
+  .grouphead span{ font-size:7.5pt; color:var(--smoke); font-weight:600; letter-spacing:.06em; text-transform:uppercase; }
+
+  .tiny{ font-size:8pt; color:var(--smoke); }
+  .keep-together{ page-break-inside:avoid; }
+  a{ color:var(--brand); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<!-- ============================== COVER ============================== -->
+<div class="cover">
+  <div class="bloom b1"></div><div class="bloom b2"></div>
+  <div style="position:relative">
+    <div class="wordmark">TRYP<span>.com</span></div>
+  </div>
+  <div style="position:relative">
+    <div class="kicker">Content Creator Community &middot; Strategy &amp; Roadmap &middot; August 2026</div>
+    <h1>What we build next.</h1>
+    <p class="lede">
+      Three decisions to make before we build anything, a role structure that scales past
+      one person, a rewards ladder that costs less than cash and means more, and 126 things
+      worth building &mdash; ranked, sequenced, and with the ones we should deliberately
+      refuse to build listed at the end.
+    </p>
+  </div>
+  <div class="foot" style="position:relative">
+    <div><b>6</b>markets open</div>
+    <div><b>126</b>ideas, ranked</div>
+    <div><b>3</b>decisions first</div>
+    <div><b>90</b>day sequence</div>
+  </div>
+</div>
+
+<!-- ============================== WHERE WE ARE ============================== -->
+<div class="section" style="page-break-before:auto">
+  <div class="eyebrow">Chapter 00</div>
+  <h2>Where we actually are</h2>
+  <div class="rule"></div>
+  <p class="sub">
+    Worth writing down, because half of the ideas people suggest for a community like this are
+    already built and the other half assume something that is not.
+  </p>
+
+  <div class="cols2">
+    <div class="card">
+      <h4>Built and running</h4>
+      <ul>
+        <li>One network, six markets nested inside it (UK &amp; Ireland, Spain, Portugal, Germany, Romania, Nordics)</li>
+        <li>Challenges with briefs, entries, leaderboards, prizes and a participation voucher</li>
+        <li>Per-market rooms, worldwide rooms, DMs with a request model</li>
+        <li>Connections, creator directory, live creator map, travel collab board</li>
+        <li>Daily games, resource library, events, referrals, invoicing and payouts</li>
+        <li>A points engine, wired but deliberately not switched on everywhere</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>The honest gaps</h4>
+      <ul>
+        <li>There is no <b>identity ladder</b>. Everybody is &ldquo;a creator&rdquo; on day one and on day four hundred.</li>
+        <li>Rewards are cash prizes for winning. Nothing rewards <b>showing up for a year</b>.</li>
+        <li>The community produces video. It does not yet produce <b>reviews, photography, local knowledge, or product feedback</b> &mdash; all of which Tryp.com needs and none of which we ask for.</li>
+        <li>We measure views. We do not measure <b>what a creator is worth to the business</b>, so we cannot argue for budget.</li>
+        <li>Nothing physical has ever arrived in a creator&rsquo;s hands.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="verdict">
+    <b>The through-line for everything below.</b> The programme currently pays for output.
+    The next version should pay for <i>belonging</i>, because belonging is what produces output
+    for years instead of for one campaign, and it is dramatically cheaper per unit of content.
+  </div>
+</div>
+
+<!-- ============================== DECISION 1 ============================== -->
+<div class="section">
+  <div class="eyebrow">Decision 01</div>
+  <h2>How far do we gamify?</h2>
+  <div class="rule"></div>
+  <p class="sub">
+    You asked whether to add points, leaderboards and the rest of it, or whether the views
+    leaderboard is enough. This is the most consequential decision in the document, because
+    it is very hard to reverse.
+  </p>
+
+  <h3>What the evidence says</h3>
+  <div class="cols2">
+    <div class="card grey">
+      <h4>The overjustification effect</h4>
+      <p style="margin:0">Attaching points to something people already enjoy makes them
+      dependent on the points, and <i>less</i> interested once the points stop. Creators post
+      travel content because they like making travel content. Paying them in abstract currency
+      for it is the one intervention that can reliably make them like it less.</p>
+    </div>
+    <div class="card grey">
+      <h4>Global leaderboards demotivate</h4>
+      <p style="margin:0">A single ranked list of everybody motivates the top five and
+      discourages everyone else. With 44 creators we would be publishing a weekly reminder to
+      39 people that they are not winning.</p>
+    </div>
+  </div>
+  <div class="card grey" style="margin-top:0">
+    <h4>Badge inflation</h4>
+    <p style="margin:0">Badges work when they are scarce and genuinely hard. A badge anybody
+    can get for logging in signals that logging in is what we value. We already have
+    effort-based badges on profiles; adding twenty more would devalue the ones that mean something.</p>
+  </div>
+
+  <div class="verdict">
+    <b>Recommendation: do not build a points economy.</b> Keep the <b>views leaderboard, per
+    challenge</b> &mdash; it is not really gamification, it is the scoreboard of a competition
+    with real money attached, and that is a different thing. Then add recognition in three
+    forms that do not have the failure modes above: <b>seasonal</b> (resets, so everyone
+    starts level), <b>segmented</b> (most improved, best first video, most helpful in the
+    rooms &mdash; many winners, not one), and <b>milestone</b> (a ladder you climb by
+    persistence rather than by beating anyone).
+  </div>
+
+  <h3>What that means concretely</h3>
+  <table>
+    <tr><th>Build</th><th>Do not build</th></tr>
+    <tr>
+      <td>Per-challenge views leaderboard (already live)</td>
+      <td>A single all-time platform leaderboard</td>
+    </tr>
+    <tr>
+      <td>A season: 3 months, resets, its own table and its own small prize</td>
+      <td>Lifetime points that only ever go up</td>
+    </tr>
+    <tr>
+      <td>Milestones: 5 videos, 25 videos, one year, first million views</td>
+      <td>XP, levels, streaks, daily login rewards</td>
+    </tr>
+    <tr>
+      <td>Peer-nominated awards decided monthly by the community</td>
+      <td>Automated badges for trivial actions</td>
+    </tr>
+    <tr>
+      <td>Private progress (&ldquo;you are 2 videos from your voucher&rdquo;)</td>
+      <td>Public ranking of who posts least</td>
+    </tr>
+  </table>
+  <p class="tiny">The points engine already in the database stays. It is per-challenge and
+  opt-in per brief, which is exactly the shape that survives this recommendation: a
+  challenge can choose to be scored on points without the platform becoming a points game.</p>
+</div>
+
+<!-- ============================== DECISION 2 ============================== -->
+<div class="section">
+  <div class="eyebrow">Decision 02</div>
+  <h2>What we call people</h2>
+  <div class="rule"></div>
+  <p class="sub">
+    You floated &ldquo;Tryp.com Ambassador&rdquo;, and a Campus Leaders or City Lead programme
+    inside it. Both are right, and they are answering two different questions that should not
+    share one name.
+  </p>
+
+  <div class="cols2">
+    <div class="card tint">
+      <h4>Identity: what you ARE</h4>
+      <p style="margin:0">Earned by time and contribution. Everybody has one. It never
+      expires and it is what goes in a creator&rsquo;s Instagram bio. This is the ladder.</p>
+    </div>
+    <div class="card">
+      <h4>Role: what you DO</h4>
+      <p style="margin:0">A job, with responsibilities and usually a budget or a stipend.
+      Few people have one. It can be handed back. This is the org chart.</p>
+    </div>
+  </div>
+
+  <h3>The identity ladder</h3>
+  <table>
+    <tr><th style="width:34%">Name</th><th style="width:26%">How you get there</th><th>What it unlocks</th></tr>
+    <tr><td><b>Tryp.com Creator</b></td><td>Accepted into the programme</td><td>Briefs, rooms, the map, challenges</td></tr>
+    <tr><td><b>Tryp.com Ambassador</b></td><td>5 published videos <i>or</i> 3 months active</td><td>Merch drop, profile badge, early briefs, name on the site</td></tr>
+    <tr><td><b>Tryp.com Senior Ambassador</b></td><td>25 videos <i>or</i> a year in</td><td>Travel voucher, first refusal on paid work, a vote on next quarter&rsquo;s briefs</td></tr>
+    <tr><td><b>Tryp.com Insider</b></td><td>Invitation only, ~10 people worldwide</td><td>Product roadmap access, an annual trip, direct line to the team</td></tr>
+  </table>
+  <p class="tiny">Four rungs, not seven. Every rung has to be worth putting in a bio, and the
+  gap between rungs has to be a year of real work, or the top one means nothing.</p>
+
+  <h3>The role structure</h3>
+  <table>
+    <tr><th style="width:34%">Role</th><th>What it is</th></tr>
+    <tr><td><b>Tryp.com CCC Lead</b><br><span class="tiny">Content Creator Community Lead</span></td>
+        <td>You. One person, cannot be removed by anyone else, can hand it on. <b>Built and live.</b></td></tr>
+    <tr><td><b>Country Manager</b><br><span class="tiny">e.g. &ldquo;Spain Country Manager&rdquo;</span></td>
+        <td>Runs one market: its briefs, its rooms, its recruitment, its budget. Paid or stipended. <b>Titles are live now on /admin/team.</b></td></tr>
+    <tr><td><b>City Lead</b><br><span class="tiny">e.g. &ldquo;Lisbon City Lead&rdquo;</span></td>
+        <td>Volunteer. Runs meetups in one city, welcomes new creators there, knows the good spots. Rewarded in vouchers and status, not salary. This is the Airbnb Host Club model and it is the single best-proven structure in this space.</td></tr>
+    <tr><td><b>Campus Lead</b></td>
+        <td>A student who runs Tryp.com at one university. Deliberately a <i>separate programme</i>, not a rung &mdash; see below.</td></tr>
+  </table>
+
+  <div class="verdict">
+    <b>On Campus Leaders.</b> Keep it separate from the creator ladder and give it its own
+    name and its own front door. A campus programme is an <i>acquisition</i> channel: the goal
+    is bookings from students, and the people who are good at it are organisers rather than
+    videographers. Folding it into the creator ladder would blur what &ldquo;Ambassador&rdquo;
+    means and put us in the position of ranking a great organiser below a mediocre filmmaker.
+    Run it as <b>Tryp.com on Campus</b>, let people hold both, and let the two feed each other.
+  </div>
+
+  <h3>Other names worth changing</h3>
+  <table>
+    <tr><th style="width:30%">Today</th><th style="width:30%">Better</th><th>Why</th></tr>
+    <tr><td>Challenges</td><td>Keep</td><td>Everyone understands it and it is competitive in the right way</td></tr>
+    <tr><td>Collab board</td><td><b>Where we&rsquo;re going</b></td><td>&ldquo;Collab&rdquo; describes the mechanism; the name should describe the payoff</td></tr>
+    <tr><td>Roles (jobs page)</td><td><b>Paid work</b></td><td>Now collides with the role structure above, and &ldquo;paid&rdquo; is the part people care about</td></tr>
+    <tr><td>Rooms</td><td>Keep</td><td>Better than &ldquo;channels&rdquo;, which is software language</td></tr>
+    <tr><td>Resource library</td><td><b>The playbook</b></td><td>A library is somewhere you browse; a playbook is something you use</td></tr>
+    <tr><td>Referrals</td><td><b>Bring someone in</b></td><td>Referral is affiliate-marketing language for a thing that is actually about friends</td></tr>
+  </table>
+</div>
+
+<!-- ============================== DECISION 3 ============================== -->
+<div class="section">
+  <div class="eyebrow">Decision 03</div>
+  <h2>What the community is for, beyond content</h2>
+  <div class="rule"></div>
+  <p class="sub">
+    Right now the community exists to produce videos for challenges. That is one use of 44
+    engaged travellers who love the brand, and it is not the most valuable one.
+  </p>
+
+  <h3>Eight things this community can do that a media buy cannot</h3>
+  <div class="cols2">
+    <div class="card"><h4>1. Paid social creative</h4><p style="margin:0">Whitelisted creator video run as ads from the creator&rsquo;s own handle typically beats studio-produced brand ads on cost per order. We are already producing the assets and using them once.</p></div>
+    <div class="card"><h4>2. Destination content at scale</h4><p style="margin:0">Every landing page for every city needs photography, a paragraph, and three things to do. We have people standing in those cities.</p></div>
+    <div class="card"><h4>3. Reviews and trust</h4><p style="margin:0">The single highest-converting asset in travel is other travellers. Creators can seed genuine, disclosed reviews of real trips.</p></div>
+    <div class="card"><h4>4. Product feedback</h4><p style="margin:0">44 people who book flights constantly and will tell you exactly where the funnel hurts, for free, if asked properly.</p></div>
+    <div class="card"><h4>5. Local intelligence</h4><p style="margin:0">Which routes are cheap right now, what is on in Porto in October, where the airport transfer is a trap. This is merchandising input.</p></div>
+    <div class="card"><h4>6. Recruitment</h4><p style="margin:0">Creators recruit creators far better than ads do. The referral flow exists; the reward is too small to move anyone.</p></div>
+    <div class="card"><h4>7. Events and presence</h4><p style="margin:0">A Tryp.com meetup in six cities is brand presence at a cost a media plan cannot approach.</p></div>
+    <div class="card"><h4>8. Distribution for launches</h4><p style="margin:0">A new market, a new feature, a sale: 44 accounts posting inside 48 hours is a launch channel we own.</p></div>
+  </div>
+
+  <div class="verdict">
+    <b>Recommendation.</b> Add exactly one non-video ask per quarter, and pay for it properly.
+    Start with <b>destination content</b> (highest commercial value, easiest to brief, most
+    reusable). Do not add all eight at once: a community asked for eight different things
+    becomes a community that does none of them.
+  </div>
+</div>
+
+<!-- ============================== MILESTONES & MERCH ============================== -->
+<div class="section">
+  <div class="eyebrow">Chapter 04</div>
+  <h2>Milestones, rewards and merch</h2>
+  <div class="rule"></div>
+  <p class="sub">
+    A ladder of things to reach for, costed. The principle throughout: <b>status and access are
+    cheaper than cash and are remembered longer</b>, so cash should be reserved for the
+    moments where nothing else will do.
+  </p>
+
+  <h3>The milestone ladder</h3>
+  <table>
+    <tr><th style="width:23%">Milestone</th><th style="width:33%">Reward</th><th>Why this reward</th></tr>
+    <tr><td><b>First video published</b></td><td>Welcome pack: stickers, luggage tag, handwritten note</td><td>The cheapest loyalty you will ever buy. Physical post is disproportionately memorable.</td></tr>
+    <tr><td><b>3 videos</b></td><td>Profile badge + featured in the newsletter</td><td>Free. Recognition, at the point where people decide whether this is for them.</td></tr>
+    <tr><td><b>5 videos / 3 months</b></td><td><b>Ambassador</b> status + the merch drop</td><td>The rung that has to feel like arriving. Merch is the visible proof.</td></tr>
+    <tr><td><b>10 videos</b></td><td>&pound;50 travel voucher</td><td>Spendable on the product, so the cost is marginal rather than face value.</td></tr>
+    <tr><td><b>25 videos / 1 year</b></td><td><b>Senior Ambassador</b> + &pound;150 voucher + first refusal on paid work</td><td>Access is worth more than the voucher and costs nothing.</td></tr>
+    <tr><td><b>1M cumulative views</b></td><td>Flight to a Tryp.com trip, or a &pound;300 voucher</td><td>The headline milestone. Should be rare, public and photographed.</td></tr>
+    <tr><td><b>2 years active</b></td><td>Insider invitation</td><td>Time served, not output. Rewards the quiet reliable people the leaderboard never sees.</td></tr>
+    <tr><td><b>Brought in 3 creators</b></td><td>&pound;100 voucher + &ldquo;Recruiter&rdquo; note on profile</td><td>Current referral reward is too small to change behaviour.</td></tr>
+  </table>
+
+  <h3>Merch: what, and when</h3>
+  <div class="cols3">
+    <div class="card grey"><h4>Tier 1 &mdash; Welcome</h4>
+      <p class="tiny" style="margin:0">Sticker sheet, luggage tag, card. <b>~&pound;3</b>. Everyone who publishes once.</p></div>
+    <div class="card grey"><h4>Tier 2 &mdash; Ambassador</h4>
+      <p class="tiny" style="margin:0">Heavyweight tee or cap, packing cube, enamel pin. <b>~&pound;25</b>. Earned, never sold.</p></div>
+    <div class="card grey"><h4>Tier 3 &mdash; Senior / Insider</h4>
+      <p class="tiny" style="margin:0">Numbered jacket or holdall with the creator&rsquo;s name. <b>~&pound;70</b>. Fewer than 15 a year.</p></div>
+  </div>
+  <div class="card tint">
+    <h4>Three rules that decide whether merch works</h4>
+    <ul style="margin-bottom:0">
+      <li><b>Never sell it.</b> The moment it is purchasable it stops being a marker of status
+      and becomes a t-shirt. A shop is a different business; this is a badge.</li>
+      <li><b>Make it good enough to wear when not filming.</b> Cheap merch is worse than no
+      merch: it tells people what they are worth. One excellent item beats five printed ones.</li>
+      <li><b>Number and name it.</b> &ldquo;Ambassador 014&rdquo; embroidered inside the collar
+      costs almost nothing and converts a garment into an artefact.</li>
+    </ul>
+  </div>
+  <p class="tiny">Practical note: merch needs an address, a size and a delivery status per
+  creator. That is a small feature (nos. 20&ndash;23 below) and it should ship before the
+  first order, not after.</p>
+</div>
+
+<!-- ============================== FEATURE LIST ============================== -->
+<div class="section">
+  <div class="eyebrow">Chapter 05</div>
+  <h2>126 things worth building</h2>
+  <div class="rule"></div>
+  <p class="sub">
+    Grouped by what they are for. <span class="pill p-now">NOW</span> is the next 90 days,
+    <span class="pill p-next">NEXT</span> is this year, <span class="pill p-later">LATER</span>
+    is worth writing down but not worth starting.
+  </p>
+
+  <div class="grouphead"><h3>A. Challenges and briefs</h3><span>01 &ndash; 14</span></div>
+  <div class="feat">
+    <div class="n">1</div><div class="t"><b>Brief templates</b> <span>&mdash; a new challenge starts from a proven shape rather than a blank form</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">2</div><div class="t"><b>Scheduled challenges</b> <span>&mdash; write it in August, it opens in September on its own</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">3</div><div class="t"><b>Multi-market challenges</b> <span>&mdash; one brief, six leaderboards, one prize pot</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">4</div><div class="t"><b>Head-to-head weeks</b> <span>&mdash; Spain versus Portugal on combined views</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">5</div><div class="t"><b>Brief comments</b> <span>&mdash; questions answered publicly, so the same one is not asked eleven times</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">6</div><div class="t"><b>Draft review</b> <span>&mdash; optional feedback on a cut before it is posted</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">7</div><div class="t"><b>Reference reel</b> <span>&mdash; three examples of what winning looks like, attached to the brief</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">8</div><div class="t"><b>Auto view-count import</b> <span>&mdash; stop logging views by hand</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">9</div><div class="t"><b>Entry deadline reminders</b> <span>&mdash; 72h, 24h, 3h, only to people who have not entered</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">10</div><div class="t"><b>Mid-challenge standings</b> <span>&mdash; provisional, clearly labelled, which the code already supports</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">11</div><div class="t"><b>Themed seasons</b> <span>&mdash; &ldquo;Autumn city breaks&rdquo; running across three challenges</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">12</div><div class="t"><b>Sponsor-funded briefs</b> <span>&mdash; a tourism board pays the prize pot</span></div><div class="m"><span class="pill p-later">LATER</span></div>
+    <div class="n">13</div><div class="t"><b>Rematch</b> <span>&mdash; rerun a brief that worked, a year on, with the old winners as judges</span></div><div class="m"><span class="pill p-later">LATER</span></div>
+    <div class="n">14</div><div class="t"><b>Challenge post-mortem</b> <span>&mdash; what won and why, published to everyone who entered</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+  </div>
+
+  <div class="grouphead"><h3>B. Rewards, milestones and merch</h3><span>15 &ndash; 28</span></div>
+  <div class="feat">
+    <div class="n">15</div><div class="t"><b>Milestone engine</b> <span>&mdash; the ladder in chapter 04, tracked and awarded automatically</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">16</div><div class="t"><b>Private progress</b> <span>&mdash; &ldquo;2 videos from your voucher&rdquo;, visible only to you</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">17</div><div class="t"><b>Voucher wallet</b> <span>&mdash; issue, track and redeem Tryp.com credit in one place</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">18</div><div class="t"><b>Milestone moment</b> <span>&mdash; a full-screen celebration and a shareable card when you hit one</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">19</div><div class="t"><b>Anniversary recognition</b> <span>&mdash; one year in the programme, said publicly</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">20</div><div class="t"><b>Shipping details</b> <span>&mdash; address and size on the profile, private, encrypted</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">21</div><div class="t"><b>Merch fulfilment queue</b> <span>&mdash; who is owed what, what has shipped</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">22</div><div class="t"><b>Tracking notifications</b> <span>&mdash; &ldquo;your Ambassador pack is on its way&rdquo;</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">23</div><div class="t"><b>Unboxing prompt</b> <span>&mdash; the pack arriving is itself a piece of content, so ask</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">24</div><div class="t"><b>Peer-nominated monthly awards</b> <span>&mdash; most helpful, best first video, best comeback</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">25</div><div class="t"><b>Seasonal table</b> <span>&mdash; resets quarterly so everyone starts level</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">26</div><div class="t"><b>Surprise upgrades</b> <span>&mdash; unannounced rewards for quiet consistency</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">27</div><div class="t"><b>Prize history on profile</b> <span>&mdash; everything you have won, in one place</span></div><div class="m"><span class="pill p-later">LATER</span></div>
+    <div class="n">28</div><div class="t"><b>Charity option</b> <span>&mdash; take the voucher or send it somewhere</span></div><div class="m"><span class="pill p-later">LATER</span></div>
+  </div>
+
+  <div class="grouphead"><h3>C. Roles, progression and recognition</h3><span>29 &ndash; 40</span></div>
+  <div class="feat">
+    <div class="n">29</div><div class="t"><b>The identity ladder</b> <span>&mdash; Creator / Ambassador / Senior / Insider, shown everywhere a name is</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">30</div><div class="t"><b>City Lead role</b> <span>&mdash; a volunteer job with a remit, a budget and a handbook</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">31</div><div class="t"><b>Tryp.com on Campus</b> <span>&mdash; a separate programme with its own application and its own metrics</span></div><div class="m"><span class="pill p-later">LATER</span></div>
+    <div class="n">32</div><div class="t"><b>Role applications</b> <span>&mdash; apply to run a city, rather than waiting to be asked</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">33</div><div class="t"><b>Public team page</b> <span>&mdash; who runs each market, with faces and titles</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">34</div><div class="t"><b>Ambassador directory on tryp.com</b> <span>&mdash; a real backlink and a real bragging right</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">35</div><div class="t"><b>Verified badge on socials</b> <span>&mdash; a supplied bio line and link everyone uses</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">36</div><div class="t"><b>Manager handover</b> <span>&mdash; hand a market to somebody else without an admin doing it in SQL</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">37</div><div class="t"><b>Role stipends</b> <span>&mdash; recurring payouts through the existing invoice system</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">38</div><div class="t"><b>Mentor pairing</b> <span>&mdash; every new creator gets an Ambassador for their first month</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">39</div><div class="t"><b>Alumni status</b> <span>&mdash; leaving well, so people come back</span></div><div class="m"><span class="pill p-later">LATER</span></div>
+    <div class="n">40</div><div class="t"><b>Creator council</b> <span>&mdash; six elected creators who see the roadmap before it is built</span></div><div class="m"><span class="pill p-later">LATER</span></div>
+  </div>
+
+  <div class="grouphead"><h3>D. Community and rooms</h3><span>41 &ndash; 52</span></div>
+  <div class="feat">
+    <div class="n">41</div><div class="t"><b>Threads in rooms</b> <span>&mdash; one busy day currently buries a week of conversation</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">42</div><div class="t"><b>Unread counts per room</b> <span>&mdash; the single most-missed piece of chat furniture</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">43</div><div class="t"><b>Voice notes</b> <span>&mdash; creators are talkers; typing is a tax</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">44</div><div class="t"><b>Polls in rooms</b> <span>&mdash; already exist for events, not for chat</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">45</div><div class="t"><b>Weekly prompt</b> <span>&mdash; an automatic question every Monday so the room is never cold</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">46</div><div class="t"><b>City rooms</b> <span>&mdash; creatable on demand once three creators share a city</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">47</div><div class="t"><b>Room digests</b> <span>&mdash; a weekly email of what you missed, for the 60% who do not open chat</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">48</div><div class="t"><b>Pinned welcome</b> <span>&mdash; every room explains itself to the person who just arrived</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">49</div><div class="t"><b>Office hours</b> <span>&mdash; a recurring live call, per market, in the calendar</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">50</div><div class="t"><b>Introduce yourself flow</b> <span>&mdash; guided, so the first post is never a blank page</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">51</div><div class="t"><b>Quiet-creator nudge</b> <span>&mdash; private, warm, never public shaming</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">52</div><div class="t"><b>Community guidelines</b> <span>&mdash; written down, agreed at signup, enforceable</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+  </div>
+
+  <div class="grouphead"><h3>E. Discovery and connections</h3><span>53 &ndash; 62</span></div>
+  <div class="feat">
+    <div class="n">53</div><div class="t"><b>Mutual connections</b> <span>&mdash; shipped today; the strongest signal there is</span></div><div class="m"><span class="pill p-now">DONE</span></div>
+    <div class="n">54</div><div class="t"><b>Creator search by skill</b> <span>&mdash; drone, editing, food, hiking, languages</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">55</div><div class="t"><b>&ldquo;Who should I meet&rdquo; digest</b> <span>&mdash; three people a month, with the reason</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">56</div><div class="t"><b>Group DMs</b> <span>&mdash; three creators planning one trip currently cannot talk in one place</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">57</div><div class="t"><b>Profile prompts</b> <span>&mdash; &ldquo;the trip that changed how I film&rdquo; beats an empty bio</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">58</div><div class="t"><b>Language matching</b> <span>&mdash; increasingly load-bearing across six markets</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">59</div><div class="t"><b>Nearby alerts</b> <span>&mdash; opt-in, when a connection lands in your city</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">60</div><div class="t"><b>Endorsements</b> <span>&mdash; vouch for someone you have actually filmed with</span></div><div class="m"><span class="pill p-later">LATER</span></div>
+    <div class="n">61</div><div class="t"><b>Creator of the week</b> <span>&mdash; rotating, everyone before anyone repeats</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">62</div><div class="t"><b>New joiner spotlight</b> <span>&mdash; arrival is the moment somebody is most willing to connect</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+  </div>
+
+  <div class="grouphead"><h3>F. Travel and collaboration</h3><span>63 &ndash; 72</span></div>
+  <div class="feat">
+    <div class="n">63</div><div class="t"><b>Trip overlap alerts</b> <span>&mdash; on the board today; should also be a notification</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">64</div><div class="t"><b>Open invitations</b> <span>&mdash; &ldquo;I have a spare seat in the car to Sintra&rdquo;</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">65</div><div class="t"><b>Meetup creation</b> <span>&mdash; turn an overlap into an event in one tap</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">66</div><div class="t"><b>Trip cost splitting</b> <span>&mdash; who paid for the Airbnb, settled in the app</span></div><div class="m"><span class="pill p-later">LATER</span></div>
+    <div class="n">67</div><div class="t"><b>Deal alerts on planned trips</b> <span>&mdash; the product, delivered into the plan</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">68</div><div class="t"><b>Trip reports</b> <span>&mdash; what it cost, what was worth it, published to the community</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">69</div><div class="t"><b>Collab requests</b> <span>&mdash; &ldquo;I need someone to film me in Berlin&rdquo;, answerable</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">70</div><div class="t"><b>Route sharing</b> <span>&mdash; the actual flights and times, so somebody can copy it</span></div><div class="m"><span class="pill p-later">LATER</span></div>
+    <div class="n">71</div><div class="t"><b>Group trips</b> <span>&mdash; Tryp.com organises one a year and creators apply</span></div><div class="m"><span class="pill p-later">LATER</span></div>
+    <div class="n">72</div><div class="t"><b>Past trips archive</b> <span>&mdash; searchable, so &ldquo;has anybody done Tirana&rdquo; has an answer</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+  </div>
+
+  <div class="grouphead"><h3>G. Learning and creator growth</h3><span>73 &ndash; 82</span></div>
+  <div class="feat">
+    <div class="n">73</div><div class="t"><b>The playbook</b> <span>&mdash; the library, restructured into paths rather than a pile</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">74</div><div class="t"><b>Hook bank</b> <span>&mdash; opening lines that measurably worked, searchable by destination</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">75</div><div class="t"><b>Teardowns</b> <span>&mdash; a winning video annotated second by second</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">76</div><div class="t"><b>Workshops</b> <span>&mdash; monthly live session with somebody good, recorded</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">77</div><div class="t"><b>Editing presets</b> <span>&mdash; LUTs, captions, sound, in Tryp.com&rsquo;s look</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">78</div><div class="t"><b>Music guidance</b> <span>&mdash; what is safe to use, kept current</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">79</div><div class="t"><b>Your stats</b> <span>&mdash; a creator&rsquo;s own performance over time, honestly</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">80</div><div class="t"><b>Feedback on request</b> <span>&mdash; ask the team to look at a video that underperformed</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">81</div><div class="t"><b>Brand and legal kit</b> <span>&mdash; logos, disclosure wording, what not to claim</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">82</div><div class="t"><b>Certification</b> <span>&mdash; a short course that ends in a credential worth putting on a CV</span></div><div class="m"><span class="pill p-later">LATER</span></div>
+  </div>
+
+  <div class="grouphead"><h3>H. Markets and expansion</h3><span>83 &ndash; 92</span></div>
+  <div class="feat">
+    <div class="n">83</div><div class="t"><b>Market launch checklist</b> <span>&mdash; the thing a new Country Manager is handed on day one</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">84</div><div class="t"><b>Market health dashboard</b> <span>&mdash; active creators, entries, views, cost per view, per market</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">85</div><div class="t"><b>Recruitment funnel per market</b> <span>&mdash; applications, approvals, first video, by country</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">86</div><div class="t"><b>Local language rooms</b> <span>&mdash; the English-only rule is right for Worldwide and wrong for Romania</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">87</div><div class="t"><b>Local currency prizes</b> <span>&mdash; RON for Romania, SEK for the Nordics</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">88</div><div class="t"><b>Market landing pages</b> <span>&mdash; a public page per market to recruit into</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">89</div><div class="t"><b>Waitlists for closed markets</b> <span>&mdash; capture demand in Italy before opening Italy</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">90</div><div class="t"><b>Manager handbook</b> <span>&mdash; what to do in week one, week two, month two</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">91</div><div class="t"><b>Cross-market spotlights</b> <span>&mdash; a Spanish video shown to the Nordics on purpose</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">92</div><div class="t"><b>Market retirement</b> <span>&mdash; how to close one kindly, if a market does not work</span></div><div class="m"><span class="pill p-later">LATER</span></div>
+  </div>
+
+  <div class="grouphead"><h3>I. Data, insight and proving value</h3><span>93 &ndash; 102</span></div>
+  <div class="feat">
+    <div class="n">93</div><div class="t"><b>Cost per view, tracked properly</b> <span>&mdash; the number that justifies the whole programme</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">94</div><div class="t"><b>Attributed bookings</b> <span>&mdash; per-creator links, so we know what content is worth</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">95</div><div class="t"><b>Content library</b> <span>&mdash; every video ever made, searchable and rights-cleared</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">96</div><div class="t"><b>Usage rights on file</b> <span>&mdash; what we may run as an ad, agreed up front</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">97</div><div class="t"><b>Quarterly board pack</b> <span>&mdash; generated, not assembled by hand the night before</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">98</div><div class="t"><b>Retention cohorts</b> <span>&mdash; are creators from March still posting in September</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">99</div><div class="t"><b>Churn early warning</b> <span>&mdash; who has gone quiet, before they have gone</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">100</div><div class="t"><b>Creator NPS</b> <span>&mdash; asked quarterly, acted on visibly</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">101</div><div class="t"><b>Benchmark pack</b> <span>&mdash; what good looks like, so creators can place themselves</span></div><div class="m"><span class="pill p-later">LATER</span></div>
+    <div class="n">102</div><div class="t"><b>Public annual report</b> <span>&mdash; what the community did this year, published</span></div><div class="m"><span class="pill p-later">LATER</span></div>
+  </div>
+
+  <div class="grouphead"><h3>J. Marketing Tryp.com through the community</h3><span>103 &ndash; 116</span></div>
+  <div class="feat">
+    <div class="n">103</div><div class="t"><b>Whitelisted creator ads</b> <span>&mdash; run the best entries as paid social from the creator&rsquo;s handle</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">104</div><div class="t"><b>Destination content commissions</b> <span>&mdash; paid, briefed, reusable on tryp.com</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">105</div><div class="t"><b>Creator photography bank</b> <span>&mdash; stills for landing pages, licensed properly</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">106</div><div class="t"><b>Reviews programme</b> <span>&mdash; genuine, disclosed, from real trips</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">107</div><div class="t"><b>Creator-written destination guides</b> <span>&mdash; SEO that a content agency cannot fake</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">108</div><div class="t"><b>Launch squad</b> <span>&mdash; a standing group that posts within 48h of any launch</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">109</div><div class="t"><b>Product feedback loop</b> <span>&mdash; a monthly question from the product team, answered</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">110</div><div class="t"><b>Route and deal intelligence</b> <span>&mdash; creators flag what is cheap; merchandising uses it</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">111</div><div class="t"><b>Meetups in six cities</b> <span>&mdash; brand presence at a cost no media plan can match</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">112</div><div class="t"><b>Creator takeovers</b> <span>&mdash; of the Tryp.com channels, one week each</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">113</div><div class="t"><b>Affiliate layer</b> <span>&mdash; commission on bookings, on top of prizes rather than instead</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">114</div><div class="t"><b>Tourism board partnerships</b> <span>&mdash; they fund the trip, we bring the creators</span></div><div class="m"><span class="pill p-later">LATER</span></div>
+    <div class="n">115</div><div class="t"><b>Press and case studies</b> <span>&mdash; the programme itself is a story worth placing</span></div><div class="m"><span class="pill p-later">LATER</span></div>
+    <div class="n">116</div><div class="t"><b>Creator-led newsletter</b> <span>&mdash; written by the community, sent to customers</span></div><div class="m"><span class="pill p-later">LATER</span></div>
+  </div>
+
+  <div class="grouphead"><h3>K. Platform craft and trust</h3><span>117 &ndash; 126</span></div>
+  <div class="feat">
+    <div class="n">117</div><div class="t"><b>Notification settings that make sense</b> <span>&mdash; per market, per type, in one place</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">118</div><div class="t"><b>Email digest instead of per-event mail</b> <span>&mdash; one good email beats nine</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">119</div><div class="t"><b>Onboarding rebuilt around the first video</b> <span>&mdash; not around filling in a profile</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">120</div><div class="t"><b>Offline and slow-network handling</b> <span>&mdash; creators are on hotel wifi and roaming</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">121</div><div class="t"><b>Full mobile pass on every legacy page</b> <span>&mdash; the network shell is done; the rest is not</span></div><div class="m"><span class="pill p-now">NOW</span></div>
+    <div class="n">122</div><div class="t"><b>Accessibility audit</b> <span>&mdash; contrast, focus order, screen readers, reduced motion</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">123</div><div class="t"><b>Search across everything</b> <span>&mdash; the palette exists; it should reach messages and resources</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">124</div><div class="t"><b>Data export and deletion, self-serve</b> <span>&mdash; already built; keep it working as the network grows</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+    <div class="n">125</div><div class="t"><b>Status page</b> <span>&mdash; when a challenge deadline is near, silence during an outage is expensive</span></div><div class="m"><span class="pill p-later">LATER</span></div>
+    <div class="n">126</div><div class="t"><b>Payout automation</b> <span>&mdash; prizes and stipends without a human moving money by hand</span></div><div class="m"><span class="pill p-next">NEXT</span></div>
+  </div>
+</div>
+
+<!-- ============================== NOT BUILDING ============================== -->
+<div class="section">
+  <div class="eyebrow">Chapter 06</div>
+  <h2>What we should refuse to build</h2>
+  <div class="rule"></div>
+  <p class="sub">
+    A roadmap without this section is a wish list. Each of these is a reasonable idea that
+    would make the product worse.
+  </p>
+
+  <div class="cols2">
+    <div class="card"><h4>A universal points economy</h4><p style="margin:0">Covered in chapter 01. It would make the intrinsically motivated creators &mdash; the good ones &mdash; care less.</p></div>
+    <div class="card"><h4>An all-time global leaderboard</h4><p style="margin:0">Motivates five people and quietly tells 39 they are losing.</p></div>
+    <div class="card"><h4>Streaks and daily login rewards</h4><p style="margin:0">This is not a language app. Punishing somebody for being on a flight is absurd.</p></div>
+    <div class="card"><h4>A merch shop</h4><p style="margin:0">The moment it is purchasable it stops being status. Sell merch and you have a small clothing business and no badge.</p></div>
+    <div class="card"><h4>An in-app video editor</h4><p style="margin:0">Creators have CapCut and Premiere and are better at them than we will ever be.</p></div>
+    <div class="card"><h4>Auto-generated content</h4><p style="margin:0">The whole asset class we sell is &ldquo;a real person went there&rdquo;.</p></div>
+    <div class="card"><h4>Public follower counts</h4><p style="margin:0">Turns a community of peers into a hierarchy in one deploy, and the briefs do not care.</p></div>
+    <div class="card"><h4>Ranking creators publicly by earnings</h4><p style="margin:0">The fastest way to make people who like each other stop.</p></div>
+  </div>
+</div>
+
+<!-- ============================== SEQUENCE ============================== -->
+<div class="section">
+  <div class="eyebrow">Chapter 07</div>
+  <h2>The next 90 days</h2>
+  <div class="rule"></div>
+  <p class="sub">
+    Everything marked <span class="pill p-now">NOW</span> above, sequenced so each month ends
+    with something a creator would actually notice.
+  </p>
+
+  <div class="card tint keep-together">
+    <h4>Month 1 &mdash; Say what people are</h4>
+    <ul style="margin-bottom:0">
+      <li>Ship the identity ladder and backfill everybody into it <span class="tiny">(29)</span></li>
+      <li>Milestone engine plus private progress <span class="tiny">(15, 16)</span></li>
+      <li>Shipping details, sizes and the fulfilment queue <span class="tiny">(20, 21)</span></li>
+      <li>Order the welcome pack and the Ambassador drop</li>
+      <li>Community guidelines, written and agreed at signup <span class="tiny">(52)</span></li>
+    </ul>
+  </div>
+
+  <div class="card tint keep-together">
+    <h4>Month 2 &mdash; Make the rooms worth opening</h4>
+    <ul style="margin-bottom:0">
+      <li>Unread counts, pinned welcomes, the weekly prompt <span class="tiny">(42, 45, 48)</span></li>
+      <li>Brief templates, scheduled challenges, reference reels <span class="tiny">(1, 2, 7)</span></li>
+      <li>Deadline reminders to non-entrants only <span class="tiny">(9)</span></li>
+      <li>The playbook restructure and the hook bank <span class="tiny">(73, 74)</span></li>
+      <li>First welcome packs land in the post</li>
+    </ul>
+  </div>
+
+  <div class="card tint keep-together">
+    <h4>Month 3 &mdash; Prove what it is worth</h4>
+    <ul style="margin-bottom:0">
+      <li>Cost per view and attributed bookings, properly tracked <span class="tiny">(93, 94)</span></li>
+      <li>Usage rights captured up front, then the first whitelisted ads <span class="tiny">(96, 103)</span></li>
+      <li>First paid destination-content commissions <span class="tiny">(104)</span></li>
+      <li>Market health dashboard and the launch checklist <span class="tiny">(83, 84)</span></li>
+      <li>Creator NPS, asked and answered in public <span class="tiny">(100)</span></li>
+    </ul>
+  </div>
+
+  <div class="verdict">
+    <b>The one number to watch.</b> Not views, and not entries. <b>The share of creators who
+    published something this month.</b> A programme where 80% of people post is worth more
+    than one where 20% post twice as much, because the first one compounds and the second one
+    is four freelancers and a mailing list.
+  </div>
+
+  <h3 style="margin-top:16pt">Sources</h3>
+  <p class="tiny" style="margin-bottom:0">
+    GetYourGuide Creator Community &middot; Airbnb Ambassadors, Host Clubs and Community
+    Leaders &middot; Duolingo volunteer ambassador programme &middot; research on the
+    overjustification effect, leaderboard demotivation and badge inflation in community
+    gamification &middot; industry data on influencer whitelisting and creator-led paid social
+    performance &middot; ambassador tier and milestone-reward practice across DTC and travel
+    brands. Reviewed August 2026.
+  </p>
+</div>
+
+</body>
+</html>
