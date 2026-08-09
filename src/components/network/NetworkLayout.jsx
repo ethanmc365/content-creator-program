@@ -23,6 +23,20 @@ import { cx } from '../../lib/utils'
 // below the content on mobile, in that DOM order. That ordering is the whole
 // point: the rail is context (who is here, what is running, what to do next),
 // so on a phone it belongs after the thing it is context for, not before it.
+//
+// THE RAIL SCROLLS ITSELF
+//
+// `sticky top-24` alone only works while the rail is shorter than the viewport.
+// The moment it is taller - five cards on the Worldwide hub, which is the normal
+// case - the bottom of it is simply unreachable except by scrolling the PAGE,
+// and the page's length is set by the article, not by the rail. That is exactly
+// the reported symptom: having to scroll the left column to the bottom to see
+// the bottom of the right one, and the wheel over the rail moving the page
+// anyway, because the rail was not a scroll container and had nothing to give.
+//
+// Capping it at the viewport and letting it scroll makes the wheel land where
+// the pointer is. `overscroll-contain` stops the page from taking over the
+// moment the rail hits its end, which is the other half of the same complaint.
 export default function NetworkLayout({ children, switcher = true, rail = null, width = 'default' }) {
   const max = width === 'narrow' ? 'max-w-4xl' : width === 'full' ? 'max-w-[1600px]' : 'max-w-7xl'
   return (
@@ -31,7 +45,21 @@ export default function NetworkLayout({ children, switcher = true, rail = null, 
       {rail ? (
         <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-8 xl:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="min-w-0">{children}</div>
-          <aside className="mt-10 space-y-4 lg:mt-0 lg:sticky lg:top-24">{rail}</aside>
+          <aside
+            className={cx(
+              'mt-10 space-y-4 lg:mt-0',
+              'lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:overscroll-contain',
+              // The scrollbar is hidden because the rail is chrome, not content:
+              // a permanent grey gutter down the side of five white cards reads
+              // as a seam. The region is still keyboard and wheel scrollable.
+              'lg:[scrollbar-width:none] lg:[&::-webkit-scrollbar]:hidden',
+              // Room for the last card's shadow, which a hard overflow edge
+              // would otherwise slice off.
+              'lg:pb-4 lg:pr-1',
+            )}
+          >
+            {rail}
+          </aside>
         </div>
       ) : (
         children

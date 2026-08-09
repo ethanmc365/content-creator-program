@@ -10,6 +10,7 @@ import VideoThumb from '../components/VideoThumb'
 import VideoEmbedModal from '../components/VideoEmbedModal'
 import SubmissionSuccess from '../components/SubmissionSuccess'
 import ScoringPanel from '../components/network/ScoringPanel'
+import ParticipationBar from '../components/network/ParticipationBar'
 import { Avatar, Badge, Modal, PageHeader, Skeleton, EmptyState, Spinner } from '../components/ui'
 import { formatDate, timeAgo, formatViews, detectPlatform, cx, challengeDeadline } from '../lib/utils'
 
@@ -59,8 +60,24 @@ function parseParticipationPrize(prizes) {
 
 // One challenge: full brief, prizes, live countdown, the submissions gallery,
 // a "submit your link" flow, and (once results are in) the leaderboard.
-export default function ChallengeDetail() {
-  const { id } = useParams()
+//
+// EMBEDDED MODE
+//
+// A market's Challenges tab used to show a second live card with a second
+// button that took you here, which is a click and a page load to reach the
+// thing you had already asked for twice. Passing `challengeId` and `embedded`
+// renders this exact page inside that tab instead: same brief, same entries,
+// same leaderboard, same submit flow, no duplicate implementation to drift.
+//
+// Everything below behaves identically when the props are absent, which is what
+// keeps the live UK challenge on /challenges/:id untouched.
+// `marketParticipation` is how much of a market has entered, and is NOT the
+// same thing as the `participation` computed below, which is the voucher
+// threshold ("post 3+ videos"). Two very different numbers that both wanted the
+// same word.
+export default function ChallengeDetail({ challengeId = null, embedded = false, marketParticipation = null }) {
+  const { id: routeId } = useParams()
+  const id = challengeId || routeId
   const [searchParams] = useSearchParams()
   const { user, isAdmin } = useAuth()
 
@@ -184,9 +201,14 @@ export default function ChallengeDetail() {
     load()
   }
 
+  // `page` owns the max-width and gutters. Embedded, the market page has
+  // already applied both, and applying them twice indents the brief inside its
+  // own tab.
+  const shellClass = embedded ? '' : 'page'
+
   if (loading) {
     return (
-      <div className="page space-y-6">
+      <div className={cx(shellClass, 'space-y-6')}>
         <Skeleton className="h-10 w-72" />
         <Skeleton className="h-48 w-full" />
         <Skeleton className="h-64 w-full" />
@@ -196,7 +218,7 @@ export default function ChallengeDetail() {
 
   if (!challenge) {
     return (
-      <div className="page">
+      <div className={shellClass}>
         <EmptyState icon={<Icon name="flag" className="h-7 w-7" />} title="Challenge not found" action={<Link to="/challenges" className="btn-primary">All challenges</Link>} />
       </div>
     )
@@ -234,8 +256,10 @@ export default function ChallengeDetail() {
   ]
 
   return (
-    <div className="page">
-      <Link to="/challenges" className="mb-6 inline-block text-sm font-medium text-smoke hover:text-brand">← All challenges</Link>
+    <div className={shellClass}>
+      {!embedded && (
+        <Link to="/challenges" className="mb-6 inline-block text-sm font-medium text-smoke hover:text-brand">← All challenges</Link>
+      )}
 
       <PageHeader
         title={challenge.title}
@@ -264,6 +288,12 @@ export default function ChallengeDetail() {
             {myEntries.length > 0 ? '+ Add another entry' : 'Submit your video 🎬'}
           </button>
         </div>
+      )}
+
+      {/* Only ever passed by a market's Challenges tab, which is the one place
+          that knows the denominator: how many creators are in THIS market. */}
+      {isLive && marketParticipation && (
+        <ParticipationBar participation={marketParticipation} where="here" className="mb-10" />
       )}
 
       {/* Tabs */}

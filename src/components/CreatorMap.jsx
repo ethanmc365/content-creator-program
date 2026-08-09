@@ -160,6 +160,15 @@ function FlyingPlane({ path, dur, zoom, opacity = 1 }) {
   )
 }
 
+// How far ahead a planned trip is worth putting on the map.
+//
+// Sixty days. Long enough to plan around - the whole point of showing upcoming
+// trips at all is so two creators can find each other before one of them books -
+// and short enough that the map is not carrying somebody's Christmas flight
+// through the summer. Trips further out still live on the collab board, which is
+// a list and can afford to be exhaustive.
+const TRIP_HORIZON_DAYS = 60
+
 function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = false, nearCount = 0, nearMeDisabled = false, onToggleNearMe = null, travelActive = null, onToggleTravel = null, onTravellersChange = null, onCreatorClick = null, connectionsActive = null, onToggleConnections = null, connectionIds = null, travelOnlyView = false, myId = null, maxFitZoom = 6, controls = true }) {
   const dark = useIsDark()
   // Dark-mode map palette: deep land on near-black sea, so the light-grey map
@@ -300,6 +309,8 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
     if (!centroids) return []
     const canonToCentroid = new Map()
     for (const [name, c] of centroids) canonToCentroid.set(canonCountry(name), c)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
     const out = []
     for (const c of located) {
       // One journey per creator: their NEXT trip that actually leaves the home
@@ -311,6 +322,21 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
         if (!trip?.country) continue
         const dest = canonToCentroid.get(canonCountry(trip.country))
         if (!dest) continue
+
+        // CURRENT VERSUS UPCOMING, and how far ahead is worth drawing.
+        //
+        // The map used to treat both identically, so it answered "who is away
+        // right now" and nothing else - which on a normal Tuesday is two people
+        // and an empty map. The useful question for a collab board is "who is
+        // going somewhere I could join", and that is answered weeks ahead.
+        //
+        // The horizon is 60 days. Far enough to plan a trip around, near enough
+        // that the map is not carrying somebody's Christmas flight in August.
+        const start = new Date(`${trip.start_date}T00:00:00`)
+        const daysUntil = Math.round((start - today) / 86400000)
+        if (daysUntil > TRIP_HORIZON_DAYS) continue
+        const current = daysUntil <= 0
+
         const [ax, ay] = projection([c._lng, c._lat])
         const [bx, by] = projection(dest)
         const dx = bx - ax, dy = by - ay
@@ -320,7 +346,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
         const cx2 = (ax + bx) / 2 + (-dy / len) * bulge
         const cy2 = (ay + by) / 2 + (dx / len) * bulge
         out.push({
-          id: c.id, name: c.name, trip,
+          id: c.id, name: c.name, trip, current, daysUntil,
           d: `M${ax} ${ay} Q ${cx2} ${cy2} ${bx} ${by}`, dest: [bx, by],
           // Same uniform speed as every other plane on the map.
           dur: flightDur(quadLength(ax, ay, cx2, cy2, bx, by)),
@@ -328,7 +354,9 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
         break
       }
     }
-    return out
+    // In the air first, then soonest to leave. A list sorted by "who is
+    // actually gone" reads as news; sorted by creator id it reads as a dump.
+    return out.sort((a, b) => (b.current ? 1 : 0) - (a.current ? 1 : 0) || a.daysUntil - b.daysUntil)
   }, [centroids, trips, located])
 
   // "Who's travelling" view + single-traveller focus (tap a plane). The view can
@@ -500,7 +528,11 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor" aria-hidden>
             <path d="M12 1.55 C13.05 1.55 13.71 3.45 13.71 6.11 L13.71 7.82 L21.5 12.95 L21.5 14.95 L13.71 11.81 L13.71 16.75 L16.18 19.22 L16.18 20.74 L12 19.32 L7.82 20.74 L7.82 19.22 L10.29 16.75 L10.29 11.81 L2.5 14.95 L2.5 12.95 L10.29 7.82 L10.29 6.11 C10.29 3.45 10.95 1.55 12 1.55 Z" />
           </svg>
-          Who's travelling{travelView ? ` · ${journeys.length}` : ''}
+          {/* The label names both halves. "Who's travelling" on a map that also
+              carries next month's flights is a label that undersells its own
+              content, and a creator scanning for somebody to meet in Lisbon in
+              three weeks had no reason to press it. */}
+          On the move{travelView ? ` · ${journeys.length}` : ''}
         </button>
       )}
       {onToggleNearMe && (
@@ -645,21 +677,39 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
                 key={j.id}
                 onClick={() => setFocusId((cur) => (cur === j.id ? null : j.id))}
                 style={{ cursor: 'pointer' }}
-                aria-label={`${j.name} is travelling to ${j.trip.country}`}
+                aria-label={j.current
+                  ? `${j.name} is in ${j.trip.country} now`
+                  : `${j.name} leaves for ${j.trip.country} in ${j.daysUntil} days`}
               >
-                <path d={j.d} fill="none" stroke={BRAND} strokeWidth={1.1 / z} strokeDasharray={`${2.5 / z} ${5 / z}`} strokeLinecap="round" opacity={focusJourney ? 0.85 : 0.5} style={{ pointerEvents: 'none' }} />
-                <circle cx={j.dest[0]} cy={j.dest[1]} fill={BRAND} opacity="0.8">
-                  <animate attributeName="r" values={`${2.5 / z};${6 / z};${2.5 / z}`} dur="2.4s" repeatCount="indefinite" />
-                  <animate attributeName="opacity" values="0.8;0.15;0.8" dur="2.4s" repeatCount="indefinite" />
-                </circle>
+                {/* A trip that has not started yet is drawn QUIETER: thinner
+                    thread, dimmer plane, no pulsing arrival marker. Both are on
+                    the map because both are useful, but "in the air now" and
+                    "leaving in five weeks" are different facts and a map that
+                    draws them identically is lying about one of them. */}
+                <path
+                  d={j.d} fill="none" stroke={BRAND}
+                  strokeWidth={(j.current ? 1.1 : 0.8) / z}
+                  strokeDasharray={`${2.5 / z} ${5 / z}`}
+                  strokeLinecap="round"
+                  opacity={focusJourney ? 0.85 : j.current ? 0.5 : 0.3}
+                  style={{ pointerEvents: 'none' }}
+                />
+                {j.current ? (
+                  <circle cx={j.dest[0]} cy={j.dest[1]} fill={BRAND} opacity="0.8">
+                    <animate attributeName="r" values={`${2.5 / z};${6 / z};${2.5 / z}`} dur="2.4s" repeatCount="indefinite" />
+                    <animate attributeName="opacity" values="0.8;0.15;0.8" dur="2.4s" repeatCount="indefinite" />
+                  </circle>
+                ) : (
+                  <circle cx={j.dest[0]} cy={j.dest[1]} r={2.6 / z} fill="none" stroke={BRAND} strokeWidth={1.2 / z} opacity="0.55" />
+                )}
                 <g>
                   {/* generous invisible hit-target so the moving plane is easy to tap */}
                   <circle r={14 / Math.max(z, 1)} fill="transparent" />
                   {/* nose-up plane rotated to face along the motion path */}
-                  <g transform={`scale(${0.85 / Math.max(z, 1)}) rotate(90)`} style={{ pointerEvents: 'none' }}>
+                  <g transform={`scale(${0.85 / Math.max(z, 1)}) rotate(90)`} style={{ pointerEvents: 'none' }} opacity={j.current ? 1 : 0.55}>
                     <path
                       d="M0 -11 C1.1 -11 1.8 -9 1.8 -6.2 L1.8 -4.4 L10 1 L10 3.1 L1.8 -0.2 L1.8 5 L4.4 7.6 L4.4 9.2 L0 7.7 L-4.4 9.2 L-4.4 7.6 L-1.8 5 L-1.8 -0.2 L-10 3.1 L-10 1 L-1.8 -4.4 L-1.8 -6.2 C-1.8 -9 -1.1 -11 0 -11 Z"
-                      fill={BRAND} stroke="#ffffff" strokeWidth={1.2} strokeLinejoin="round"
+                      fill={j.current ? BRAND : '#ffffff'} stroke={j.current ? '#ffffff' : BRAND} strokeWidth={1.2} strokeLinejoin="round"
                     />
                   </g>
                   <animateMotion dur={`${j.dur}s`} repeatCount="indefinite" rotate="auto" path={j.d} />
@@ -747,6 +797,14 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           <span className="min-w-0 truncate">
             {focusJourney.name} → {(focusJourney.trip.city || '').trim() ? `${focusJourney.trip.city.trim()}, ` : ''}{focusJourney.trip.country}
             {' · '}{formatDate(focusJourney.trip.start_date)} – {formatDate(focusJourney.trip.end_date)}
+            {/* Whether this has happened yet, in the words somebody would use.
+                "12 Sep - 20 Sep" makes the reader do the date arithmetic; "in
+                9 days" is the thing they were working it out to find. */}
+            <span className="ml-1.5 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+              {focusJourney.current
+                ? 'There now'
+                : focusJourney.daysUntil <= 1 ? 'Leaves tomorrow' : `In ${focusJourney.daysUntil} days`}
+            </span>
           </span>
           <button type="button" onClick={() => setFocusId(null)} aria-label="Show everyone again"
             className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/20">

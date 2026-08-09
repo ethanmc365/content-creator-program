@@ -7,9 +7,9 @@ import NetworkLayout from '../components/network/NetworkLayout'
 import NetworkMotion from '../components/NetworkMotion'
 import MarketHeader from '../components/network/MarketHeader'
 import { MarketHeaderSkeleton, LiveChallengeSkeleton } from '../components/network/Skeletons'
-import LiveChallengeCard, { NoLiveChallenge } from '../components/network/LiveChallengeCard'
+import { NoLiveChallenge } from '../components/network/LiveChallengeCard'
+import ChallengeDetail from './ChallengeDetail'
 import Icon from '../components/Icon'
-import { flagFromIso } from '../components/network/PlaceSwitcher'
 import { Avatar, Badge, EmptyState } from '../components/ui'
 import { scoringMode } from '../lib/scoring'
 import { cx, formatDate, formatViews, challengeDeadline } from '../lib/utils'
@@ -101,7 +101,6 @@ export default function MarketChallenges() {
     )
   }
 
-  const flags = (market.country_codes || []).map(flagFromIso).join(' ')
   const past = (d?.all || []).filter((c) => c.id !== d?.live?.id)
 
   return (
@@ -110,8 +109,16 @@ export default function MarketChallenges() {
         <motion.div {...pageFade} className="space-y-10">
           <MarketHeader market={market} memberCount={loading ? null : d?.members} canManage={canManage} tab="Challenges" />
 
+          {/* THE LIVE BRIEF, NOT A CARD ABOUT IT.
+              This tab used to show a second live challenge card carrying a
+              button to the challenge page: two clicks and a page load to reach
+              the brief you had already asked for by opening the tab called
+              Challenges. It now renders the challenge itself - brief, prizes,
+              entries, leaderboard, submit flow - by embedding the same
+              component /challenges/:id uses, so there is one implementation and
+              the two can never drift apart. */}
           <section>
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="flex items-center gap-2 text-lg font-semibold">
                   <Icon name="flag" className="h-5 w-5 text-brand" /> Challenges in {market.name}
@@ -130,13 +137,7 @@ export default function MarketChallenges() {
             {loading ? (
               <LiveChallengeSkeleton />
             ) : d.live ? (
-              <LiveChallengeCard
-                challenge={d.live}
-                market={market.name}
-                flags={flags}
-                entries={d.live.submissions?.[0]?.count ?? 0}
-                participation={d.participation}
-              />
+              <ChallengeDetail challengeId={d.live.id} marketParticipation={d.participation} embedded />
             ) : (
               <NoLiveChallenge market={market.name} canCreate={canManage} slug={market.slug} />
             )}

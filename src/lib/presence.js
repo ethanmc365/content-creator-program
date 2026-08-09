@@ -20,6 +20,32 @@ export function countOnline(people = []) {
   return people.filter((p) => isOnline(p?.last_seen_at)).length
 }
 
+// Most recently seen first, never-seen last.
+//
+// The default order a roster comes back in is whatever the planner felt like,
+// which is why "who is here" looked like a random dozen. Sorting by presence is
+// what makes the panel worth looking at twice: the faces move, and the ones that
+// move are the ones who were just in the room.
+export function byRecency(people = []) {
+  return people
+    .slice()
+    .sort((a, b) => {
+      const at = a?.last_seen_at ? new Date(a.last_seen_at).getTime() : 0
+      const bt = b?.last_seen_at ? new Date(b.last_seen_at).getTime() : 0
+      if (at !== bt) return bt - at
+      return (a?.name || '').localeCompare(b?.name || '')
+    })
+}
+
+// How many items to show so the last row of a grid is not a gap-toothed
+// fragment: the largest multiple of `perRow` that fits, capped, and never fewer
+// than one row's worth if we have that many.
+export function fillRows(total, perRow, max) {
+  const capped = Math.min(total, max)
+  if (capped <= perRow) return capped
+  return Math.floor(capped / perRow) * perRow
+}
+
 // "Active now" / "Active 2h ago" / null when we have never seen them.
 export function presenceLabel(lastSeenAt) {
   if (!lastSeenAt) return null

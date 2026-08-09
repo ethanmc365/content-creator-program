@@ -202,10 +202,24 @@ export default function CommandPalette({ open, onClose }) {
         />
         <motion.div
           {...overlay}
-          className="relative flex max-h-[70vh] w-full max-w-xl flex-col overflow-hidden rounded-card bg-white shadow-lift"
+          className="relative flex max-h-[70vh] w-full max-w-xl flex-col overflow-hidden rounded-card border border-white/60 bg-white/95 shadow-lift backdrop-blur-xl"
         >
+          {/* THE SEARCH ROW.
+              The orange box that used to appear around this field was the app's
+              global `*:focus-visible { ring-2 ring-brand ring-offset-2 }`, which
+              is the right rule everywhere else and the wrong one here: the field
+              is focused programmatically the instant the palette opens, so the
+              ring arrived without anybody pressing Tab, and it was drawn inside
+              a panel whose whole job is to look like one surface. The ring is
+              turned off for THIS input only - focus is already unambiguous, it
+              is the only text field on screen and it has the caret - and every
+              other focusable thing in here, including the result rows, keeps it.
+              `outline-none` alone never fixed it, because the indicator is a
+              box-shadow ring rather than an outline. */}
           <div className="flex shrink-0 items-center gap-3 border-b border-gray-100 px-4">
-            <Icon name="magnifier" className="h-4 w-4 shrink-0 text-smoke" />
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand-tint">
+              <Icon name="magnifier" className="h-4 w-4 text-brand" />
+            </span>
             <input
               ref={inputRef}
               value={query}
@@ -213,8 +227,18 @@ export default function CommandPalette({ open, onClose }) {
               onKeyDown={onKeyDown}
               placeholder="Search markets, rooms, challenges, creators"
               aria-label="Search"
-              className="min-w-0 flex-1 border-0 bg-transparent py-4 text-base outline-none placeholder:text-gray-400 sm:text-sm"
+              className="min-w-0 flex-1 border-0 bg-transparent py-4 text-base outline-none placeholder:text-gray-400 focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
             />
+            {query && (
+              <button
+                type="button"
+                onClick={() => { setQuery(''); inputRef.current?.focus() }}
+                aria-label="Clear search"
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cloud text-smoke transition-transform duration-200 hover:scale-110 hover:text-ink"
+              >
+                <Icon name="close" className="h-3 w-3" />
+              </button>
+            )}
             <kbd className="hidden shrink-0 rounded-md border border-gray-200 px-1.5 py-0.5 text-[10px] font-medium text-smoke sm:block">
               esc
             </kbd>
@@ -239,8 +263,14 @@ export default function CommandPalette({ open, onClose }) {
                       onMouseEnter={() => setActive(i)}
                       onClick={() => go(r)}
                       className={cx(
-                        'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors',
-                        i === active ? 'bg-brand-tint' : 'hover:bg-cloud',
+                        'relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors',
+                        // A brand edge on the active row as well as the tint.
+                        // Tint alone is a 4% wash that disappears the moment the
+                        // row underneath is also hovered, so arrowing down a
+                        // list under the cursor lost track of where it was.
+                        i === active
+                          ? 'bg-brand-tint before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-brand'
+                          : 'hover:bg-cloud',
                       )}
                     >
                       {r.avatar !== undefined ? (

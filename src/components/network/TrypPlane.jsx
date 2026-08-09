@@ -39,15 +39,29 @@ const PITCH_FIX = 2.5
 // One drawing, scaled by the caller. Everything is expressed relative to the
 // plane's own box, so changing PLANE_W moves the contrail with it rather than
 // leaving it behind.
+//
+// WHERE THE PLANE SITS IN ITS OWN BOX, and why it moved
+//
+// It used to sit at x=14 of a 470-wide box, which put a third of the box - pure
+// empty space - between the plane and whichever corner it was anchored to. On a
+// card anchored top-right that read as a plane parked in the middle of the card
+// rather than tucked into the corner, and the copy column had to reserve 24rem
+// to stay clear of it, which is what crushed the countdown into 88px tiles and
+// stacked the two buttons on top of each other.
+//
+// The trail is what needs the room, and it needs it VERTICALLY, not
+// horizontally: a steep short sweep up to the corner reads as exhaust just as
+// well as a long shallow one and costs a fraction of the width. So the plane
+// now sits low and hard right in a tighter box (90% of the way across, 97% of
+// the way down), and the box is scaled so the aircraft renders at exactly the
+// size it did before. Same plane, same size, actually in the corner.
 function Drawing({ id, animate }) {
-  const VB_W = 470
-  const VB_H = 250
+  const VB_W = 400
+  const VB_H = 220
   const PLANE_W = 300
   const PLANE_H = PLANE_W * (471 / 1200) // the asset's own aspect ratio
-  // Left of centre, because the trail extends to the RIGHT (the plane is
-  // flying left, so what it leaves behind is behind it, which is to its right).
-  const PLANE_X = 14
-  const PLANE_Y = 84
+  const PLANE_X = 62
+  const PLANE_Y = 96
 
   const tailX = PLANE_X + TAIL.x * PLANE_W
   const tailY = PLANE_Y + TAIL.y * PLANE_H
@@ -75,7 +89,7 @@ function Drawing({ id, animate }) {
             goes. The path never crosses the fuselage: it starts beyond the tail
             and stops at it. */}
         <path
-          d={`M ${VB_W - 8} 14 C ${VB_W * 0.82} 60, ${tailX + 56} 118, ${tailX} ${tailY}`}
+          d={`M ${VB_W - 2} 4 C ${VB_W - 14} 46, ${tailX + 34} 96, ${tailX} ${tailY}`}
           stroke={`url(#${id}-fade)`}
           strokeWidth="3"
           strokeLinecap="round"
@@ -147,13 +161,18 @@ export default function TrypPlane({ variant = 'hero', anchor = 'bottom', classNa
   // hero. Hidden below `lg`, not `md`: at tablet widths the card's copy still
   // runs the full width and the plane ends up behind the description, which is
   // exactly what it looked like before. Cards that show it also reserve the
-  // space (see LiveChallengeCard's pr-* on the copy column).
+  // space (see LiveChallengeCard's pr-* on the heading block).
+  //
+  // The box is sized by width and an explicit aspect ratio rather than by a
+  // width/height pair. The svg is `xMidYMid meet`, so a box whose ratio drifts
+  // from the viewBox's letterboxes the drawing and floats the plane back off
+  // the corner it was just moved into. Tying the two together makes that
+  // impossible to get wrong later.
   return (
     <span
       aria-hidden
       className={cx(
-        'pointer-events-none absolute hidden h-[13rem] w-[24rem] text-white lg:block',
-        'xl:h-[15rem] xl:w-[27rem]',
+        'pointer-events-none absolute hidden aspect-[20/11] w-[23rem] text-white lg:block xl:w-[25rem]',
         ANCHOR[anchor] || ANCHOR.bottom,
         className,
       )}

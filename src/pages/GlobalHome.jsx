@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import { motion } from 'motion/react'
@@ -11,7 +11,8 @@ import TrypPlane from '../components/network/TrypPlane'
 import LiveChallengeCard from '../components/network/LiveChallengeCard'
 import { CountUp, Reveal } from '../components/network/Motion'
 import ProfileProgress from '../components/network/ProfileProgress'
-import WorldMap from '../components/WorldMap'
+import Reorderable from '../components/network/Reorderable'
+import CreatorMap from '../components/CreatorMap'
 import CreatorSpotlight from '../components/CreatorSpotlight'
 import Icon from '../components/Icon'
 import { Avatar, EmptyState, Skeleton } from '../components/ui'
@@ -119,11 +120,78 @@ const NETWORK_LINKS = [
   { to: '/refer', icon: 'share', label: 'Refer a creator', short: 'Refer', hint: 'Bring someone in' },
 ]
 
+// Everyone gets to put these in their own order.
+//
+// Ten links in a fixed order is somebody else's guess at what matters to you.
+// A creator who lives in the DMs and never opens the game should not scroll past
+// the game to reach the DMs, and the cost of letting them fix that is one array
+// in localStorage. Per device on purpose: it is a layout preference, not an
+// account setting, and it should not need a round trip to take effect.
+//
+// Links added to the product later fall in at the end rather than vanishing,
+// because the saved value is an order, not a whitelist.
+const ORDER_KEY = 'network-links-order'
+
+function loadOrder() {
+  try { return JSON.parse(localStorage.getItem(ORDER_KEY)) || [] } catch { return [] }
+}
+
+function orderLinks(order) {
+  if (!order.length) return NETWORK_LINKS
+  const rank = new Map(order.map((to, i) => [to, i]))
+  return [...NETWORK_LINKS].sort(
+    (a, b) => (rank.has(a.to) ? rank.get(a.to) : 1e9) - (rank.has(b.to) ? rank.get(b.to) : 1e9),
+  )
+}
+
+// One row of the "Across the network" list. Module scope, not nested: a
+// component defined during render is a new type every render, which would
+// unmount the row mid-drag.
+function NetworkLinkRow({ link, count, isNew, handleProps, dragging }) {
+  return (
+    <div className={cx('group flex items-center gap-1 rounded-xl transition-colors', !dragging && 'hover:bg-cloud')}>
+      <Link to={link.to} className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-3 py-2">
+        <Icon name={link.icon} className="h-4 w-4 shrink-0 text-smoke transition-colors group-hover:text-brand" />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-medium">{link.label}</span>
+          <span className="block truncate text-[11px] text-smoke">{link.hint}</span>
+        </span>
+        {count > 0 && (
+          <span className="inline-flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-semibold text-white">
+            {count > 9 ? '9+' : count}
+          </span>
+        )}
+        {isNew && (
+          <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase text-white">New</span>
+        )}
+      </Link>
+      {/* The handle is always in the DOM and only visible on hover or focus.
+          A control that appears on hover is invisible on a touch screen, so it
+          stays at full opacity below `sm` where there is no hover to speak of. */}
+      <span
+        {...handleProps}
+        title="Drag to reorder"
+        className="mr-1 flex h-8 w-6 shrink-0 cursor-grab items-center justify-center rounded-md text-gray-300 transition-opacity hover:text-smoke focus:opacity-100 focus:outline-none focus-visible:text-brand active:cursor-grabbing sm:opacity-0 sm:group-hover:opacity-100"
+      >
+        <Icon name="grip" className="h-4 w-4" />
+      </span>
+    </div>
+  )
+}
+
 export default function GlobalHome() {
   const { profile, session } = useAuth()
   const { network, chapters, myChapters, myCommunities, isGlobalAdmin, error } = useCommunity()
   const [d, setD] = useState(null)
+  const [order, setOrder] = useState(loadOrder)
+  const links = useMemo(() => orderLinks(order), [order])
   const networkId = network?.id ?? null
+
+  function saveOrder(next) {
+    const keys = next.map((l) => l.to)
+    setOrder(keys)
+    try { localStorage.setItem(ORDER_KEY, JSON.stringify(keys)) } catch { /* private mode */ }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -133,6 +201,7 @@ export default function GlobalHome() {
         { data: mems }, { count: creators }, { data: challenges },
         { data: ann }, { data: trips }, { data: fresh }, { data: visited }, { data: countries },
         { data: netStandings }, { count: connCount }, { data: latestRes },
+        { data: mapPeople }, { data: mapTrips },
       ] = await Promise.all([
         supabase.from('community_members')
           .select('community_id, profiles!inner(is_admin, is_test, status)')
@@ -167,6 +236,16 @@ export default function GlobalHome() {
           .eq('connected_creator_id', session?.user?.id ?? '00000000-0000-0000-0000-000000000000')
           .eq('status', 'pending'),
         supabase.from('resources').select('created_at').order('created_at', { ascending: false }).limit(1),
+        // The map's own data. CreatorMap takes creators and trips as props
+        // rather than fetching for itself, because the directory page needs the
+        // same rows for its card grid and filters and two components loading
+        // the roster twice on one page is how a fast page becomes a slow one.
+        // Here there is no grid, so this is the only reader.
+        supabase.from('profiles')
+          .select('id, name, photo_url, city, country, country_code, city_lat, city_lng, show_on_map')
+          .eq('status', 'active').eq('is_test', false).is('deletion_requested_at', null),
+        supabase.from('collab_posts').select('creator_id, city, country, start_date, end_date')
+          .gte('end_date', today).order('start_date'),
       ])
       if (cancelled) return
       const tally = {}
@@ -204,6 +283,14 @@ export default function GlobalHome() {
         network: (netStandings || []).filter((s) => !s.profiles.is_test),
         connReqs: connCount ?? 0,
         newResources: latestResource > seenResources,
+        mapPeople: mapPeople || [],
+        // Every upcoming trip per creator, soonest first. CreatorMap picks the
+        // one it can actually draw an arc for and decides how far ahead is
+        // worth showing.
+        mapTrips: (mapTrips || []).reduce((acc, t) => {
+          (acc[t.creator_id] ||= []).push({ ...t, current: t.start_date <= today })
+          return acc
+        }, {}),
         globalEntries,
         globalParticipation,
       })
@@ -302,33 +389,31 @@ export default function GlobalHome() {
         </div>
       </RailCard>
 
-      {/* ---------- The people layer ---------- */}
-      <RailCard icon={<Icon name="users" className="h-3.5 w-3.5 text-brand" />} title="Across the network">
-        <div className="space-y-0.5">
-          {NETWORK_LINKS.map((l) => {
-            const count = l.badge === 'connections' ? d?.connReqs : 0
-            const isNew = l.badge === 'resources' && d?.newResources
-            return (
-              <Link key={l.to} to={l.to}
-                className="group flex items-center gap-2.5 rounded-xl px-3 py-2 transition-colors hover:bg-cloud">
-                <Icon name={l.icon} className="h-4 w-4 shrink-0 text-smoke transition-colors group-hover:text-brand" />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">{l.label}</span>
-                  <span className="block truncate text-[11px] text-smoke">{l.hint}</span>
-                </span>
-                {count > 0 && (
-                  <span className="inline-flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-semibold text-white">
-                    {count > 9 ? '9+' : count}
-                  </span>
-                )}
-                {isNew && (
-                  <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase text-white">New</span>
-                )}
-                <Icon name="chevronRight" className="h-3.5 w-3.5 shrink-0 text-gray-300" />
-              </Link>
-            )
-          })}
-        </div>
+      {/* ---------- The people layer, in your order ---------- */}
+      <RailCard
+        icon={<Icon name="users" className="h-3.5 w-3.5 text-brand" />}
+        title="Across the network"
+        action={
+          <span className="hidden items-center gap-1 text-[10px] font-medium text-gray-300 lg:flex">
+            <Icon name="grip" className="h-3 w-3" /> drag to reorder
+          </span>
+        }
+      >
+        <Reorderable
+          items={links}
+          getId={(l) => l.to}
+          onReorder={saveOrder}
+          handleLabel="Reorder this link"
+          renderItem={(l, { handleProps, dragging }) => (
+            <NetworkLinkRow
+              link={l}
+              dragging={dragging}
+              handleProps={handleProps}
+              count={l.badge === 'connections' ? (d?.connReqs ?? 0) : 0}
+              isNew={l.badge === 'resources' && d?.newResources}
+            />
+          )}
+        />
       </RailCard>
 
       {isGlobalAdmin && (
@@ -364,25 +449,39 @@ export default function GlobalHome() {
   return (
     <NetworkMotion>
       <NetworkLayout rail={rail}>
-        <motion.div {...pageFade} className="space-y-11">
+        <motion.div {...pageFade} className="space-y-9">
 
-          {/* ---------- Greeting ---------- */}
-          <section>
-            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+          {/* ---------- Greeting ----------
+              `-mb-3` against the page's own `space-y-9`. A greeting is a label
+              for the thing under it, not a section in its own right, and eleven
+              units of air between "here is what is happening right now" and the
+              first thing that is happening read as a missing card. */}
+          {/* On a phone the greeting is 2xl, not 3xl. At 375px "Here is what is
+              happening across the network right now" already wraps to two lines
+              under a 3xl name, and the pair was eating 140px of an 812px screen
+              before a single piece of content. */}
+          <section className="-mb-3">
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">
               Hey {profile?.name?.split(' ')[0]}
             </h1>
-            <p className="mt-2 text-smoke">Here is what is happening across the network right now.</p>
+            <p className="mt-1.5 text-sm text-smoke sm:text-base">
+              Here is what is happening across the network right now.
+            </p>
           </section>
 
           {/* ---------- Quick actions (phones and tablets only) ----------
               On desktop these live in the rail, which is always in view. On a
               phone the rail is at the BOTTOM of a long page, so the ten most
               useful destinations in the product were a full scroll away from
-              the page that is supposed to be the way in. A grid of eight up
-              here is one thumb-reach instead. */}
+              the page that is supposed to be the way in. A grid up here is one
+              thumb-reach instead.
+              ALL TEN, in the creator's own order. It used to show the first
+              eight of a fixed list, so Roles and Refer existed on desktop and
+              simply did not on a phone, and reordering the rail changed nothing
+              for the people who only ever see this grid. */}
           <section className="lg:hidden">
             <div className="grid grid-cols-4 gap-2">
-              {NETWORK_LINKS.slice(0, 8).map((l) => {
+              {links.map((l) => {
                 const count = l.badge === 'connections' ? d?.connReqs : 0
                 const isNew = l.badge === 'resources' && d?.newResources
                 return (
@@ -576,11 +675,25 @@ export default function GlobalHome() {
           {/* ---------- Spotlight ---------- */}
           <CreatorSpotlight />
 
-          {/* ---------- The map ---------- */}
+          {/* ---------- The map ----------
+              THE PEOPLE MAP, NOT THE COUNTRY MAP.
+              This slot used to hold "Where we have been, together": every
+              country anybody in the network had ever visited, shaded in. It is a
+              nice picture and it is the wrong one for a hub, because it answers
+              a question about the past and shows you nobody. The network hub is
+              where you find PEOPLE, so it now carries the creator map - every
+              creator in every market, in the town they are actually in, with the
+              planes joining them up.
+              The countries-visited map moved to the creator directory, where a
+              page already about the community is the right place for a picture
+              of where that community has been. */}
           <Reveal as="section">
-            <SectionHead icon="globe" title="Where we have been, together"
-              hint={d?.visited?.length ? `Every creator in the network, on one map. ${d.visited.length} countries so far.` : 'Every creator in the network, on one map.'} />
-            {d ? <WorldMap selected={d.visited} /> : <Skeleton className="h-64" />}
+            <SectionHead icon="globe" title="Everyone, right now"
+              hint="Every creator in the network on one map, wherever they are based. Tap a pin to see who is there."
+              to="/creators" toLabel="Creator directory" />
+            {d
+              ? <CreatorMap creators={d.mapPeople} trips={d.mapTrips} myId={session?.user?.id} />
+              : <Skeleton className="h-72" />}
           </Reveal>
 
           {/* ---------- New creators ---------- */}

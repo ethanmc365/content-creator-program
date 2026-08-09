@@ -75,12 +75,18 @@ export default function CountdownTimer({ endDate, compact = false, hero = false 
         role="timer"
         aria-label={`${left.days} days ${left.hours} hours ${left.minutes} minutes remaining`}
       >
+        {/* The digit size steps up with the breakpoint rather than jumping
+            straight to 5xl at `sm`. A tile is only as wide as the column it is
+            given, and on a card that also carries two buttons that column can
+            be 88px: two 48px digits plus 32px of padding does not fit in it,
+            which is what made this clock look broken. Padding shrinks with it
+            for the same reason. */}
         {cells.map((c) => (
-          <div key={c.label} className="flex flex-col items-center rounded-2xl bg-white px-1 py-3 shadow-[0_8px_24px_rgba(0,0,0,0.12)] sm:px-4 sm:py-5">
-            <span className="text-2xl font-bold leading-none text-ink sm:text-5xl">
+          <div key={c.label} className="flex min-w-0 flex-col items-center rounded-2xl bg-white px-1 py-3 shadow-[0_8px_24px_rgba(0,0,0,0.12)] sm:px-2 sm:py-5 lg:px-3">
+            <span className="text-2xl font-bold leading-none text-ink sm:text-3xl lg:text-4xl xl:text-5xl">
               <Digits value={c.value} />
             </span>
-            <span className="mt-1.5 text-[9px] font-semibold uppercase tracking-widest text-smoke sm:mt-2 sm:text-sm">{c.label}</span>
+            <span className="mt-1.5 text-[9px] font-semibold uppercase tracking-widest text-smoke sm:mt-2 sm:text-xs lg:text-sm">{c.label}</span>
           </div>
         ))}
       </div>

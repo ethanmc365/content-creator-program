@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import CreatorCard from '../components/CreatorCard'
 import CreatorMap from '../components/CreatorMap'
+import WorldMap from '../components/WorldMap'
 import Combobox from '../components/Combobox'
 import Icon from '../components/Icon'
 import { PageHeader, SkeletonCards, EmptyState } from '../components/ui'
@@ -252,6 +253,23 @@ export default function Directory() {
             />
           ))}
         </div>
+      )}
+
+      {/* ---------- Where we have been, together ----------
+          Moved here from the Worldwide hub, which now carries the creator map
+          instead. A hub is for finding people; a directory is already about the
+          community, so a picture of everywhere that community has been belongs
+          at the end of it rather than in place of the people. */}
+      {allCountries.length > 0 && (
+        <section className="mt-14">
+          <h2 className="flex items-center gap-2 text-lg font-semibold">
+            <Icon name="globe" className="h-5 w-5 text-brand" /> Where we have been, together
+          </h2>
+          <p className="mb-4 mt-1 text-sm text-smoke">
+            Every country somebody in the network has filmed in. {allCountries.length} so far.
+          </p>
+          <WorldMap selected={allCountries} />
+        </section>
       )}
     </div>
   )

@@ -71,6 +71,7 @@ const AdminReferrals = lazy(() => import('./pages/admin/AdminReferrals'))
 const AdminEmail = lazy(() => import('./pages/admin/AdminEmail'))
 const AdminApplications = lazy(() => import('./pages/admin/AdminApplications'))
 const AdminAuditLog = lazy(() => import('./pages/admin/AdminAuditLog'))
+const AdminTeam = lazy(() => import('./pages/admin/AdminTeam'))
 const AdminScheduledAnnouncements = lazy(() => import('./pages/admin/AdminScheduledAnnouncements'))
 const AdminWhatsNew = lazy(() => import('./pages/admin/AdminWhatsNew'))
 const AdminFeedback = lazy(() => import('./pages/admin/AdminFeedback'))
@@ -172,6 +173,7 @@ export default function App() {
             <Route path="/admin/referrals" element={<AdminReferrals />} />
             <Route path="/admin/email" element={<AdminEmail />} />
             <Route path="/admin/audit" element={<AdminAuditLog />} />
+            <Route path="/admin/team" element={<AdminTeam />} />
             <Route path="/admin/scheduled" element={<AdminScheduledAnnouncements />} />
             <Route path="/admin/whats-new" element={<AdminWhatsNew />} />
             <Route path="/admin/feedback" element={<AdminFeedback />} />

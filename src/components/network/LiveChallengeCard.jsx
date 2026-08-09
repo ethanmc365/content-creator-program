@@ -3,6 +3,7 @@ import { motion } from 'motion/react'
 import CountdownTimer from '../CountdownTimer'
 import Icon from '../Icon'
 import TrypPlane from './TrypPlane'
+import ParticipationBar from './ParticipationBar'
 import { scoringMode } from '../../lib/scoring'
 import { SOFT_SPRING } from '../../lib/motion'
 import { cx } from '../../lib/utils'
@@ -62,13 +63,16 @@ export default function LiveChallengeCard({
             on desktop, so this is the only corner that is genuinely free. */}
         {!compact && <TrypPlane variant="hero" anchor="top" id={`live-${challenge.id}`} />}
 
-        {/* The copy column RESERVES the plane's space rather than trusting
-            max-width to keep clear of it. A `max-w-2xl` description is 672px
-            wide whatever the card is doing, so on a card narrower than about
-            1100px it ran straight under the fuselage. Padding scales with the
-            card; a fixed max-width does not. */}
-        <div className={cx('relative', !compact && 'lg:pr-[21rem] xl:pr-[24rem]')}>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        {/* THE HEADING RESERVES THE PLANE'S SPACE. The whole column used to,
+            which is the bug that made this card look broken: a 24rem reservation
+            left 752px for a row holding a 576px countdown and two buttons, so
+            the clock squeezed to 88px tiles and the buttons stacked on top of
+            each other in a 176px gutter.
+            The plane only ever occupies the top right. Padding the block it
+            actually overlaps, and letting the countdown row have the full card,
+            fixes both at once. */}
+        <div className="relative">
+          <div className={cx('flex flex-wrap items-center gap-x-3 gap-y-2', !compact && 'lg:pr-[15rem] xl:pr-[17rem]')}>
             <span className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider">
               <Pulse />
               {isGlobal
@@ -89,7 +93,10 @@ export default function LiveChallengeCard({
           {/* Magnify, never underline. An underline reads as a link inside a
               sentence; a heading that swells reads as "the card is the target",
               which it is. origin-left keeps it anchored to the first letter. */}
-          <Link to={`/challenges/${challenge.id}`} className="group mt-4 block">
+          <Link
+            to={`/challenges/${challenge.id}`}
+            className={cx('group mt-4 block', !compact && 'lg:pr-[15rem] xl:pr-[17rem]')}
+          >
             <h2
               className={cx(
                 'inline-block origin-left font-bold leading-tight transition-transform duration-200 ease-out group-hover:scale-[1.03]',
@@ -103,17 +110,25 @@ export default function LiveChallengeCard({
             )}
           </Link>
 
-          <div className={cx('flex flex-col gap-6', compact ? 'mt-5' : 'mt-8 lg:flex-row lg:items-end lg:justify-between')}>
-            <div>
+          {/* The clock takes the room it needs and the buttons take what is
+              left, rather than both being squeezed into halves of a column that
+              was already short. `min-w-0` on the clock and `shrink-0` on the
+              buttons is what stops a long market name or a three-digit day
+              count from folding the row. */}
+          <div className={cx(
+            'flex flex-col gap-6',
+            compact ? 'mt-5' : 'mt-8 lg:flex-row lg:items-end lg:justify-between lg:gap-8',
+          )}>
+            <div className="min-w-0 flex-1">
               <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-white/75">Closes in</p>
               <CountdownTimer endDate={challenge.end_date} hero={!compact} />
             </div>
-            <div className="flex flex-col gap-2.5 lg:items-end">
+            <div className="flex flex-col gap-2.5 lg:shrink-0 lg:items-end">
               <div className="flex flex-wrap gap-3">
-                <Link to={`/challenges/${challenge.id}`} className="btn border border-white/40 text-white hover:bg-white/10">
+                <Link to={`/challenges/${challenge.id}`} className="btn whitespace-nowrap border border-white/40 text-white hover:bg-white/10">
                   Read the brief →
                 </Link>
-                <Link to={`/challenges/${challenge.id}?submit=1`} className="btn bg-white !text-brand hover:bg-white/90">
+                <Link to={`/challenges/${challenge.id}?submit=1`} className="btn whitespace-nowrap bg-white !text-brand hover:bg-white/90">
                   Submit your video
                 </Link>
               </div>
@@ -127,26 +142,12 @@ export default function LiveChallengeCard({
         </div>
       </motion.div>
 
-      {/* Participation pace: nudges the quiet majority, names no one. The
-          denominator is THIS market's roster, so an empty market says "0 of 0"
-          rather than borrowing another market's creator count. */}
       {pct != null && (
-        <div className="mt-4 rounded-card border border-gray-100 bg-white px-5 py-4 shadow-card">
-          <div className="mb-2 flex items-baseline justify-between gap-3">
-            <p className="text-sm font-semibold text-ink">Creator participation</p>
-            <p className="text-sm font-bold tabular-nums text-brand">{pct}%</p>
-          </div>
-          <div className="h-2.5 overflow-hidden rounded-full bg-cloud">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-brand to-brand-light transition-all duration-700"
-              style={{ width: `${Math.max(pct, 2)}%` }}
-            />
-          </div>
-          <p className="mt-2 text-xs text-smoke">
-            {participation.posted} of {participation.total} creators
-            {isGlobal ? ' across the network' : ` in ${market || 'this market'}`} have posted so far.
-          </p>
-        </div>
+        <ParticipationBar
+          className="mt-4"
+          participation={participation}
+          where={isGlobal ? 'across the network' : `in ${market || 'this market'}`}
+        />
       )}
     </div>
   )

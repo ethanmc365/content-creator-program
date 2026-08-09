@@ -48,6 +48,7 @@ export default function Collab() {
   const navigate = useNavigate()
   const [posts, setPosts] = useState(null)
   const [interests, setInterests] = useState({ count: new Map(), mine: new Set() })
+  const [posting, setPosting] = useState(false)
   const [expanded, setExpanded] = useState(false) // show all upcoming trips vs the first 6
   // "Who's travelling now" map data: creators currently mid-trip, with their
   // home location + current destination, mirroring the creators-map feature.
@@ -125,6 +126,34 @@ export default function Collab() {
     return true
   }), [upcoming, monthFilter, countryFilter, countryNames])
 
+  // Trips that collide with one of mine: same country, overlapping dates.
+  //
+  // Country rather than city on purpose. Two creators in Portugal the same week
+  // is a coffee worth having even if one is in Lisbon and the other in Porto;
+  // requiring the same city would reduce this to almost never firing, which is
+  // the same as not building it.
+  const overlaps = useMemo(() => {
+    const mineTrips = upcoming.filter((p) => p.creator_id === user.id)
+    if (!mineTrips.length) return []
+    const out = []
+    for (const p of upcoming) {
+      if (p.creator_id === user.id) continue
+      const theirCountry = canonicalCountry(p.country, countryNames) || p.country
+      if (!theirCountry) continue
+      for (const m of mineTrips) {
+        const myCountry = canonicalCountry(m.country, countryNames) || m.country
+        if (!myCountry || myCountry !== theirCountry) continue
+        const from = p.start_date > m.start_date ? p.start_date : m.start_date
+        const to = p.end_date < m.end_date ? p.end_date : m.end_date
+        if (from > to) continue
+        const days = Math.round((localDate(to) - localDate(from)) / 86400000) + 1
+        out.push({ post: p, mineTrip: m, days })
+        break
+      }
+    }
+    return out.sort((a, b) => b.days - a.days)
+  }, [upcoming, user.id, countryNames])
+
   const boardCountries = useMemo(() => {
     const set = new Set()
     for (const p of filteredUpcoming) { const c = canonicalCountry(p.country, countryNames); if (c) set.add(c) }
@@ -148,6 +177,9 @@ export default function Collab() {
     setBusy(false)
     if (insErr) { setError('Could not post that. Please try again.'); return }
     setForm({ city: '', country: '', start_date: '', end_date: '', note: '' })
+    // Close the form on success. Leaving it open with empty fields reads as
+    // "that did not work, try again".
+    setPosting(false)
     load()
   }
 
@@ -284,10 +316,58 @@ export default function Collab() {
       <PageHeader
         title="Travel collab board"
         subtitle="Heading somewhere? Post your trip so nearby creators can meet up, grab a coffee, film together or plan a trip."
+        action={canPost && (
+          <button onClick={() => setPosting((v) => !v)} className="btn-primary !py-2.5">
+            <Icon name={posting ? 'close' : 'plus'} className="h-4 w-4" />
+            {posting ? 'Close' : 'Post a trip'}
+          </button>
+        )}
       />
 
-      {/* ---- Post your trip ---- */}
-      {canPost && (
+      {/* ---- Overlaps ----
+          THE ONE THING A COLLAB BOARD IS FOR.
+          The board's whole promise is "somebody else will be where you are
+          going". It was making every creator work that out by eye, off a grid
+          sorted by date, against trips they had posted on another page. This
+          does the comparison for them and puts the answer at the top. If nobody
+          overlaps, the section is not there at all. */}
+      {overlaps.length > 0 && (
+        <section className="mb-10 rounded-card border border-brand/25 bg-brand-tint/20 p-5 sm:p-6">
+          <h2 className="flex items-center gap-2 text-lg font-semibold">
+            <Icon name="sparkles" className="h-5 w-5 text-brand" />
+            You will be in the same place
+          </h2>
+          <p className="mb-4 mt-1 text-sm text-smoke">
+            These trips overlap with yours, in the same country and on the same dates.
+          </p>
+          <div className="space-y-2.5">
+            {overlaps.map(({ post, mineTrip, days }) => (
+              <div key={post.id} className="flex flex-wrap items-center gap-3 rounded-card bg-white px-4 py-3 shadow-card">
+                <Avatar src={post.profiles?.photo_url} name={post.profiles?.name} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold">
+                    {post.profiles?.name} is in {post.city}{post.country ? `, ${post.country}` : ''}
+                  </p>
+                  <p className="truncate text-xs text-smoke">
+                    {days} {days === 1 ? 'day' : 'days'} overlapping your {mineTrip.city} trip
+                    {' · '}{fmtRange(post.start_date, post.end_date)}
+                  </p>
+                </div>
+                <button onClick={() => message(post.creator_id)} className="btn-primary shrink-0 !py-2 !px-4 text-xs">
+                  Say hello
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ---- Post your trip ----
+          Behind a button now. An always-open five-field form is the first thing
+          you saw on a page whose content is other people's trips: it pushed the
+          board itself below the fold, and it asked everybody who came to READ
+          to scroll past a form they were not there to fill in. */}
+      {canPost && posting && (
         <form onSubmit={submit} className="card mb-10 !p-6">
           <h2 className="mb-4 font-semibold">Post a trip</h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

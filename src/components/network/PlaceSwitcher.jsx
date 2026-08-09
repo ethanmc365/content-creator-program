@@ -119,27 +119,28 @@ export default function PlaceSwitcher() {
 
   return (
     <>
-      {/* ---------- Phone: one button, one sheet ---------- */}
-      <div className="mb-6 lg:hidden">
+      {/* ---------- Phone: one button, one sheet ----------
+          A PILL, NOT A CARD. This was a full-width two-line card 68px tall,
+          sitting above the greeting on every network page, spending a tenth of
+          a 812px screen restating something the bottom tab bar already says.
+          It is a control you press about once a session. It now takes one line,
+          sits inline so anything short can share the row with it, and gives the
+          ~40px back to the content. */}
+      <div className="mb-4 flex items-center lg:hidden">
         <button
           type="button"
           onClick={() => setSheet(true)}
           aria-haspopup="dialog"
           aria-expanded={sheet}
-          className="flex w-full items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-left transition-shadow hover:shadow-card"
+          className="flex max-w-full items-center gap-2 rounded-full border border-gray-200 bg-white py-1.5 pl-3 pr-2.5 text-left transition-transform duration-200 active:scale-95"
         >
-          <span className="w-6 shrink-0 text-center text-base leading-none" aria-hidden>
+          <span className="shrink-0 text-sm leading-none" aria-hidden>
             {onGlobal || !current ? '🌍' : currentFlags || '📍'}
           </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-[10px] font-semibold uppercase tracking-widest text-smoke">
-              You are in
-            </span>
-            <span className="block truncate font-semibold">
-              {onGlobal || !current ? (network?.name || 'Worldwide') : current.name}
-            </span>
+          <span className="min-w-0 truncate text-sm font-semibold">
+            {onGlobal || !current ? (network?.name || 'Worldwide') : current.name}
           </span>
-          <Icon name="chevronRight" className="h-4 w-4 shrink-0 rotate-90 text-gray-300" />
+          <Icon name="chevronRight" className="h-3.5 w-3.5 shrink-0 rotate-90 text-gray-400" />
         </button>
       </div>
 

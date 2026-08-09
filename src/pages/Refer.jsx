@@ -131,13 +131,21 @@ export default function Refer() {
                 return (
                   <div key={stage.label} className="flex items-center gap-3">
                     <span className="w-40 shrink-0 text-xs text-smoke sm:w-48">{stage.label}</span>
+                    {/* A stage with nothing in it renders NO bar at all, not a
+                        bar of width zero. The fill carries `pr-2` so its number
+                        clears the rounded end, and padding is inside the box:
+                        a 0%-wide element still paints its 8px of padding, which
+                        is the sliver of orange that sat under "0 signed up" and
+                        made the picture contradict the number. */}
                     <div className="h-5 flex-1 overflow-hidden rounded-full bg-cloud">
-                      <div
-                        className={`flex h-full items-center justify-end rounded-full pr-2 text-[10px] font-bold text-white transition-all duration-700 ${i === 0 ? 'bg-brand-light' : 'bg-brand'}`}
-                        style={{ width: `${Math.max((stage.value / max) * 100, stage.value > 0 ? 8 : 0)}%` }}
-                      >
-                        {stage.value > 0 && stage.value}
-                      </div>
+                      {stage.value > 0 && (
+                        <div
+                          className={`flex h-full items-center justify-end rounded-full pr-2 text-[10px] font-bold text-white transition-all duration-700 ${i === 0 ? 'bg-brand-light' : 'bg-brand'}`}
+                          style={{ width: `${Math.max((stage.value / max) * 100, 8)}%` }}
+                        >
+                          {stage.value}
+                        </div>
+                      )}
                     </div>
                     {stage.value === 0 && <span className="text-xs tabular-nums text-smoke">0</span>}
                   </div>

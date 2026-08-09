@@ -8,13 +8,14 @@ import NetworkMotion from '../components/NetworkMotion'
 import MarketHeader from '../components/network/MarketHeader'
 import MarketMap from '../components/network/MarketMap'
 import MarketActivity from '../components/network/MarketActivity'
-import { isOnline, countOnline } from '../lib/presence'
+import { isOnline, countOnline, byRecency, fillRows } from '../lib/presence'
 import { MarketOverviewSkeleton, LiveChallengeSkeleton, CardGridSkeleton, RailCardSkeleton } from '../components/network/Skeletons'
 import LiveChallengeCard, { NoLiveChallenge } from '../components/network/LiveChallengeCard'
 import Icon from '../components/Icon'
 import { Avatar, EmptyState } from '../components/ui'
 import { cx, timeAgo, challengeDeadline } from '../lib/utils'
 import { stripMarkup } from '../lib/richText'
+import { roleTitle } from '../lib/roles'
 import { listContainer, listItem, cardHover, pageFade } from '../lib/motion'
 
 // A single market's overview, seen by the people IN it.
@@ -70,10 +71,14 @@ export default function ChapterHome() {
           .select('id, body, created_at, profiles:sender_id(name, photo_url)')
           .eq('channel', `${chapter.slug}:announcements`).eq('deleted', false)
           .order('created_at', { ascending: false }).limit(1).maybeSingle(),
+        // No `limit`. The panel that reads this shows a fixed number of faces,
+        // but it has to pick them by who was here most recently, and you cannot
+        // sort by presence over a slice the database chose for you. A market
+        // roster is tens of rows, not thousands.
         supabase.from('community_members')
-          .select('profile_id, profiles!inner(id, name, photo_url, country_code, last_seen_at, is_admin, is_test, status)')
+          .select('profile_id, role, profiles!inner(id, name, photo_url, country_code, last_seen_at, is_admin, is_test, status, platform_role, role_title)')
           .eq('community_id', chapter.id).eq('status', 'active')
-          .eq('profiles.is_test', false).eq('profiles.status', 'active').limit(24),
+          .eq('profiles.is_test', false).eq('profiles.status', 'active'),
       ])
       if (cancelled) return
 
@@ -94,11 +99,18 @@ export default function ChapterHome() {
         }
       }
 
+      // The team and the creators are two different panels, so they are split
+      // once here rather than filtered twice at the render site. A manager who
+      // is also a creator would otherwise appear in both.
+      const everyone = (roster || []).map((r) => ({ ...r.profiles, memberRole: r.role }))
       setData({
         channels: channels || [], members, challenges: challenges || [],
         standings: (standings || []).filter((s) => !s.profiles.is_test),
         ann, live, participation,
-        roster: (roster || []).map((r) => r.profiles),
+        roster: everyone.filter((p) => !p.is_admin && p.memberRole !== 'manager'),
+        team: everyone
+          .filter((p) => p.is_admin || p.memberRole === 'manager')
+          .map((p) => ({ ...p, title: roleTitle(p, chapter.name) })),
       })
       setLoading(false)
     }
@@ -170,7 +182,7 @@ export default function ChapterHome() {
           title="Who is here"
           action={
             <Link to={`/c/${chapter.slug}/members`} className="text-[11px] font-medium text-brand transition-transform duration-200 hover:scale-105">
-              All
+              All {data.roster.length}
             </Link>
           }
         >
@@ -186,11 +198,16 @@ export default function ChapterHome() {
               {countOnline(data.roster)} online now
             </p>
           )}
-          <div className="flex flex-wrap gap-1.5">
-            {data.roster
-              .slice()
-              .sort((a, b) => (isOnline(b.last_seen_at) ? 1 : 0) - (isOnline(a.last_seen_at) ? 1 : 0))
-              .slice(0, 12)
+          {/* FULL, AND IN A MEANINGFUL ORDER.
+              This grid used to show 12 of whatever order Postgres handed back
+              and looked half empty in a market with 20 people in it, because 12
+              avatars do not fill four rows of six. It now takes as many as the
+              roster has, up to a number that fills the last row exactly, and
+              sorts by who was here most recently rather than by nothing at all.
+              A face you saw in the room this morning is the reason to click. */}
+          <div className="grid grid-cols-6 gap-1.5">
+            {byRecency(data.roster)
+              .slice(0, fillRows(data.roster.length, 6, 24))
               .map((p) => (
                 <Link key={p.id} to={`/profile/${p.id}`} title={p.name}
                   className="relative transition-transform duration-200 hover:scale-110">
@@ -204,17 +221,26 @@ export default function ChapterHome() {
         </RailCard>
       )}
 
-      {/* The network is one link away from every market page. Without it a
-          market becomes a place you fall into and have to use the browser back
-          button to leave. */}
-      <RailCard icon={<Icon name="globe" className="h-3.5 w-3.5 text-brand" />} title="Worldwide">
-        <p className="mb-3 px-1 text-xs text-smoke">
-          Your connections, DMs, the map and the daily game are shared by every market.
-        </p>
-        <Link to="/global" className="btn-secondary w-full justify-center !py-2 !text-sm">
-          Go to Worldwide
-        </Link>
-      </RailCard>
+      {/* Who runs this place. A market with a named manager reads as a market
+          somebody is accountable for; the same market without one reads as
+          automated. Titles come from `profiles.role_title` so a Spain lead can
+          be called what they are actually called. */}
+      {data?.team?.length > 0 && (
+        <RailCard icon={<Icon name="shield" className="h-3.5 w-3.5 text-brand" />} title="The team here">
+          <div className="space-y-1">
+            {data.team.map((m) => (
+              <Link key={m.id} to={`/profile/${m.id}`}
+                className="flex items-center gap-2.5 rounded-xl px-1.5 py-1.5 transition-colors hover:bg-cloud">
+                <Avatar src={m.photo_url} name={m.name} size="xs" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-xs font-semibold">{m.name}</span>
+                  <span className="block truncate text-[11px] text-smoke">{m.title}</span>
+                </span>
+              </Link>
+            ))}
+          </div>
+        </RailCard>
+      )}
     </>
   )
 

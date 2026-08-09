@@ -47,10 +47,11 @@ export default function NetworkChat() {
   const { slug, channelKey } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { bySlug, network, manages, loading: ctxLoading } = useCommunity()
+  const { bySlug, network, manages, myCommunities, loading: ctxLoading } = useCommunity()
 
   const community = slug ? bySlug(slug) : network
   const [channels, setChannels] = useState([])
+  const [otherRooms, setOtherRooms] = useState([])
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(true)
   const [body, setBody] = useState('')
@@ -120,6 +121,31 @@ export default function NetworkChat() {
       .then(({ data }) => { if (!cancelled) setChannels(data || []) })
     return () => { cancelled = true }
   }, [community])
+
+  // Every room in every OTHER place the viewer belongs to.
+  //
+  // One query for all of them rather than one per market: the sidebar needs the
+  // whole set before it can draw anything, and five sequential round trips to
+  // build a nav that is 200px wide is the kind of thing that makes a page feel
+  // slow for no reason a user could name.
+  //
+  // RLS already scopes `channels` to communities you can see, so this cannot
+  // leak a market's room list to somebody outside it; the `in` filter is about
+  // asking for less, not about permission.
+  const otherIds = useMemo(
+    () => myCommunities.map((c) => c.id).filter((id) => id !== community?.id),
+    [myCommunities, community],
+  )
+
+  useEffect(() => {
+    if (!otherIds.length) { setOtherRooms([]); return undefined }
+    let cancelled = false
+    supabase.from('channels')
+      .select('id, key, label, icon, visibility, position, community_id')
+      .in('community_id', otherIds).order('position')
+      .then(({ data }) => { if (!cancelled) setOtherRooms(data || []) })
+    return () => { cancelled = true }
+  }, [otherIds])
 
   const load = useCallback(async () => {
     if (!community || !active) return
@@ -277,6 +303,19 @@ export default function NetworkChat() {
 
   const base = slug ? `/c/${slug}/chat` : '/global/chat'
   const flags = (community.country_codes || []).map(flagFromIso).join('')
+
+  // The other places, each with its rooms, Worldwide first and then markets
+  // alphabetically. A place with no rooms is dropped rather than rendered as an
+  // empty heading.
+  const elsewhere = myCommunities
+    .filter((c) => c.id !== community.id)
+    .map((c) => ({
+      ...c,
+      flags: (c.country_codes || []).map(flagFromIso).join(''),
+      rooms: otherRooms.filter((r) => r.community_id === c.id),
+    }))
+    .filter((c) => c.rooms.length > 0)
+    .sort((a, b) => (b.kind === 'network') - (a.kind === 'network') || a.name.localeCompare(b.name))
   // Derived from the messages already loaded rather than a second query: if
   // you have posted in this room, you have introduced yourself.
   const hasIntroduced = messages.some((m) => m.sender_id === user?.id)
@@ -307,6 +346,26 @@ export default function NetworkChat() {
             {c.label}
           </button>
         ))}
+
+        {/* The same "all your rooms in one place" the desktop rail gives, in the
+            shape a phone can take: the other markets' rooms continue the strip
+            after a divider, each carrying its flag so it is obvious you are
+            about to leave this conversation for another one. */}
+        {elsewhere.length > 0 && (
+          <span className="mx-1 my-2 w-px shrink-0 self-stretch bg-gray-200" aria-hidden />
+        )}
+        {elsewhere.flatMap((place) =>
+          place.rooms.map((c) => (
+            <Link
+              key={`${place.id}-${c.id}`}
+              to={`${place.kind === 'network' ? '/global/chat' : `/c/${place.slug}/chat`}/${c.key}`}
+              className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-xl px-3.5 py-2 text-sm font-medium text-smoke transition-colors hover:bg-cloud hover:text-ink"
+            >
+              <span aria-hidden>{place.flags || '🌍'}</span>
+              {c.label}
+            </Link>
+          )),
+        )}
       </div>
 
       {/* Introductions gets a guided composer instead of a blank room, and only
@@ -477,26 +536,72 @@ export default function NetworkChat() {
               switcher on this page: a strip of other markets above a
               conversation makes the room feel like a tab in a directory rather
               than somewhere you are. Leaving is the back link, one target. */}
-          <nav aria-label="Rooms" className="hidden lg:block lg:w-56 lg:shrink-0">
-            <div className="flex flex-col gap-0.5 rounded-card border border-gray-100 bg-white p-2 shadow-card">
-              {channels.map((c) => (
-                <button key={c.id} onClick={() => navigate(`${base}/${c.key}`)}
-                  className={cx(
-                    'flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-colors duration-200',
-                    active?.key === c.key ? 'bg-brand-tint text-brand' : 'text-ink hover:bg-cloud',
-                  )}>
-                  <Icon name={c.icon || 'chat'}
-                    className={cx('h-4 w-4 shrink-0', active?.key === c.key ? 'text-brand' : 'text-smoke')} />
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{c.label}</span>
-                  {c.key === 'general' && (
-                    <span className="shrink-0 rounded-full bg-brand/10 px-1.5 py-0.5 text-[10px] font-semibold text-brand">Main</span>
-                  )}
-                  {c.visibility === 'staff' && (
-                    <span className="shrink-0 rounded-full bg-cloud px-1.5 py-0.5 text-[10px] font-medium text-smoke">Staff</span>
-                  )}
-                </button>
-              ))}
+          {/* TWO CARDS, NOT ONE LIST.
+              The top card is where you ARE: this place's rooms, General first.
+              The card under it is every other room you belong to, grouped by
+              market, so a creator in Worldwide and Spain reaches the Spanish
+              General without going back to Spain first, and somebody in every
+              market reaches all of them from wherever they happen to be
+              standing. It is still not a market switcher: these are rooms you
+              are already in, not places to browse. */}
+          <nav aria-label="Rooms" className="hidden lg:flex lg:w-60 lg:shrink-0 lg:flex-col lg:gap-3 lg:overflow-y-auto lg:overscroll-contain lg:[scrollbar-width:none] lg:[&::-webkit-scrollbar]:hidden">
+            <div className="rounded-card border border-gray-100 bg-white p-2 shadow-card">
+              <p className="px-3 pb-1.5 pt-1 text-[10px] font-semibold uppercase tracking-widest text-smoke">
+                {community.name}
+              </p>
+              <div className="flex flex-col gap-0.5">
+                {channels.map((c) => (
+                  <button key={c.id} onClick={() => navigate(`${base}/${c.key}`)}
+                    className={cx(
+                      'flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-colors duration-200',
+                      active?.key === c.key ? 'bg-brand-tint text-brand' : 'text-ink hover:bg-cloud',
+                    )}>
+                    <Icon name={c.icon || 'chat'}
+                      className={cx('h-4 w-4 shrink-0', active?.key === c.key ? 'text-brand' : 'text-smoke')} />
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">{c.label}</span>
+                    {c.key === 'general' && (
+                      <span className="shrink-0 rounded-full bg-brand/10 px-1.5 py-0.5 text-[10px] font-semibold text-brand">Main</span>
+                    )}
+                    {c.visibility === 'staff' && (
+                      <span className="shrink-0 rounded-full bg-cloud px-1.5 py-0.5 text-[10px] font-medium text-smoke">Staff</span>
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {elsewhere.length > 0 && (
+              <div className="rounded-card border border-gray-100 bg-white p-2 shadow-card">
+                <p className="px-3 pb-1.5 pt-1 text-[10px] font-semibold uppercase tracking-widest text-smoke">
+                  Your other rooms
+                </p>
+                <div className="flex flex-col gap-2">
+                  {elsewhere.map((place) => (
+                    <div key={place.id}>
+                      <Link
+                        to={place.kind === 'network' ? '/global' : `/c/${place.slug}`}
+                        className="flex items-center gap-2 px-3 py-1 text-[11px] font-semibold text-smoke transition-colors hover:text-brand"
+                      >
+                        <span aria-hidden>{place.flags || '🌍'}</span>
+                        <span className="min-w-0 truncate">{place.name}</span>
+                      </Link>
+                      <div className="flex flex-col gap-0.5">
+                        {place.rooms.map((c) => (
+                          <Link
+                            key={c.id}
+                            to={`${place.kind === 'network' ? '/global/chat' : `/c/${place.slug}/chat`}/${c.key}`}
+                            className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-ink transition-colors hover:bg-cloud"
+                          >
+                            <Icon name={c.icon || 'chat'} className="h-3.5 w-3.5 shrink-0 text-smoke" />
+                            <span className="min-w-0 flex-1 truncate text-[13px]">{c.label}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </nav>
 
           {room}

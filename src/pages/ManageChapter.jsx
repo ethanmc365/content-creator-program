@@ -84,6 +84,8 @@ export default function ManageChapter() {
   const [countryQuery, setCountryQuery] = useState('')
   const [pickerOpen, setPickerOpen] = useState(false)
   const [adding, setAdding] = useState(false)
+  const [newRoom, setNewRoom] = useState('')
+  const [addingRoom, setAddingRoom] = useState(false)
 
   const load = useCallback(async () => {
     if (!chapter) return
@@ -176,6 +178,36 @@ export default function ManageChapter() {
     })
     if (error) { notice(`Could not add the room: ${error.message}`); return }
     await load()
+  }
+
+  // A room named by the person running the market.
+  //
+  // The KEY is derived rather than asked for. It is a database identifier that
+  // ends up in a namespaced channel string (`spain:barcelona`) and in a URL, and
+  // asking a market lead to invent a URL-safe slug alongside the name they
+  // actually care about is asking them to do the computer's job.
+  async function addCustomRoom(e) {
+    e.preventDefault()
+    const label = newRoom.trim()
+    if (!label) return
+    const key = label
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // "Malaga" from "Málaga"
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 24)
+    if (!key) {
+      notice('Give the room a name with at least one letter or number in it.')
+      return
+    }
+    if (d.channels.some((c) => c.key === key)) {
+      notice(`${chapter.name} already has a room called ${label}.`)
+      return
+    }
+    setAddingRoom(true)
+    await addRoom({ key, label, hint: null, icon: 'chat' })
+    setAddingRoom(false)
+    setNewRoom('')
   }
 
   async function renameRoom(ch) {
@@ -549,18 +581,47 @@ export default function ManageChapter() {
                   </div>
                 ))}
               </div>
-              {roomsToAdd.length > 0 && (
-                <div className="mt-4">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-smoke">Add a room</p>
-                  <div className="flex flex-wrap gap-2">
+              {/* ADD A ROOM: presets, AND anything you can think of.
+                  The five presets are the rooms most markets end up wanting, and
+                  one tap is the right cost for those. They were also the ONLY
+                  rooms a market could ever have, which made the list a menu of
+                  what we had imagined rather than a tool: a Spanish lead who
+                  wants #barcelona, or a Nordics lead who wants #northern-lights,
+                  had nowhere to put it. The field below takes any name, derives
+                  the key the database wants, and refuses the two that already
+                  mean something. */}
+              <div className="mt-5 border-t border-gray-50 pt-4">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-smoke">Add a room</p>
+                {roomsToAdd.length > 0 && (
+                  <div className="mb-3 flex flex-wrap gap-2">
                     {roomsToAdd.map((r) => (
                       <button key={r.key} onClick={() => addRoom(r)} className="btn-secondary !py-2 !px-4 !text-sm">
                         <Icon name={r.icon} className="h-4 w-4" /> {r.label}
                       </button>
                     ))}
                   </div>
-                </div>
-              )}
+                )}
+                <form onSubmit={addCustomRoom} className="flex flex-col gap-2 sm:flex-row">
+                  <input
+                    value={newRoom}
+                    onChange={(e) => setNewRoom(e.target.value)}
+                    maxLength={28}
+                    placeholder="Or name your own, e.g. Barcelona"
+                    aria-label="New room name"
+                    className="input flex-1 !py-2 text-sm"
+                  />
+                  <button type="submit" disabled={!newRoom.trim() || addingRoom}
+                    className="btn-primary shrink-0 !py-2 !px-5 !text-sm disabled:opacity-40">
+                    {addingRoom ? 'Adding…' : 'Add room'}
+                  </button>
+                </form>
+                {newRoom.trim() && (
+                  <p className="mt-2 text-xs text-smoke">
+                    Creators will see it as <span className="font-medium text-ink">{newRoom.trim()}</span>.
+                    Only {chapter.name} can read it.
+                  </p>
+                )}
+              </div>
             </Section>
 
             {/* ---------------- Challenges ---------------- */}

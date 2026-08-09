@@ -8,11 +8,9 @@ import NetworkLayout, { flagFromIso } from '../components/network/NetworkLayout'
 import NetworkMotion from '../components/NetworkMotion'
 import TrypPlane from '../components/network/TrypPlane'
 import Icon from '../components/Icon'
-import { notice } from '../lib/confirm'
-import { clearScopeCache } from '../lib/scope'
 import { Badge, Skeleton } from '../components/ui'
 import { cx } from '../lib/utils'
-import { listContainer, listItem, pageFade } from '../lib/motion'
+import { listContainer, listItem, cardHover, pageFade } from '../lib/motion'
 
 // Every market, and whether it is yours.
 //
@@ -21,9 +19,24 @@ import { listContainer, listItem, pageFade } from '../lib/motion'
 // what joining changes. A pill in a strip can do none of that, and trying made
 // the strip a wall of flags a UK creator had no use for.
 //
-// The joinability rule is `communities.join_policy`, enforced by join_market()
-// in the database. This page mirrors it so the reason is visible BEFORE the
-// click rather than arriving as an error afterwards.
+// EXPLORE OPENS DOORS. IT DOES NOT ASK FOR COMMITMENTS.
+//
+// Every card used to carry a filled "Join" button beside a quiet "Look first"
+// link, which is a choice between committing to a place you have never seen and
+// admitting you would rather not. Nobody should be asked to answer that from a
+// 200px card, and the two buttons made the smaller, sensible one look like the
+// timid option.
+//
+// So a card is now a door: one action, "Open", on every market. The invitation
+// to join lives inside the market, under its header, once you have actually
+// looked at it (see MarketHeader). What survives here is the part that genuinely
+// belongs to discovery: whether you COULD join, said plainly, so the answer is
+// visible before you spend a click rather than arriving as an error after one.
+//
+// The rule is `communities.join_policy`, enforced by join_market() in the
+// database. This mirrors it; the database is still the one that decides.
+
+const MotionLink = motion.create(Link)
 
 function joinability(market, profile, isGlobalAdmin) {
   if (!market.is_active) {
@@ -51,13 +64,17 @@ function joinability(market, profile, isGlobalAdmin) {
 // during render is a NEW component type on every render, so React unmounts and
 // remounts the whole subtree each time - which here would drop the "Joining…"
 // state the instant the join finished.
-function MarketCard({ market, highlight, isMine, joinState, count, hasLive, busy, onJoin }) {
+function MarketCard({ market, highlight, isMine, joinState, count, hasLive }) {
   const flags = (market.country_codes || []).map(flagFromIso).join(' ')
+  // The whole card is the door. A card with one action in it should not make
+  // you find the action.
   return (
-    <motion.div
+    <MotionLink
+      to={`/c/${market.slug}`}
       variants={listItem}
+      {...cardHover}
       className={cx(
-        'flex flex-col rounded-card border bg-white p-5 transition-shadow duration-200 hover:shadow-card',
+        'flex flex-col rounded-card border bg-white p-5 transition-shadow duration-200 hover:shadow-lift',
         highlight ? 'border-brand/40 bg-brand-tint/20' : isMine ? 'border-brand/25' : 'border-gray-100',
       )}
     >
@@ -65,10 +82,7 @@ function MarketCard({ market, highlight, isMine, joinState, count, hasLive, busy
         <span className="shrink-0 text-2xl leading-none" aria-hidden>{flags || '🌍'}</span>
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-2">
-            <Link to={`/c/${market.slug}`}
-              className="inline-block origin-left truncate font-semibold transition-transform duration-200 hover:scale-105">
-              {market.name}
-            </Link>
+            <span className="truncate font-semibold">{market.name}</span>
             {isMine && <Badge tone="light">Yours</Badge>}
             {!market.is_active && <Badge tone="grey">Closed</Badge>}
           </p>
@@ -98,29 +112,19 @@ function MarketCard({ market, highlight, isMine, joinState, count, hasLive, busy
         )}
       </div>
 
-      <div className="mt-5 flex items-center gap-2">
-        {isMine ? (
-          <Link to={`/c/${market.slug}`} className="btn-secondary flex-1 justify-center !py-2 !text-sm">
-            Open
-          </Link>
-        ) : joinState.can ? (
-          <button onClick={() => onJoin(market)} disabled={busy}
-            className="btn-primary flex-1 justify-center !py-2 !text-sm">
-            {busy ? 'Joining…' : 'Join'}
-          </button>
-        ) : (
-          <span className="flex-1 rounded-full bg-cloud px-3 py-2 text-center text-xs text-smoke">
-            {joinState.why}
-          </span>
-        )}
-        {!isMine && joinState.can && (
-          <Link to={`/c/${market.slug}`}
-            className="rounded-full border border-gray-200 px-3 py-2 text-xs font-medium transition-transform duration-200 hover:scale-105 hover:border-brand hover:text-brand">
-            Look first
-          </Link>
-        )}
+      {/* Not a button. Whether you could join, and the one action, on one line:
+          the eligibility line is information the reader needs before spending a
+          click, and "Open" is the only thing there is to do. */}
+      <div className="mt-5 flex items-center gap-3 border-t border-gray-50 pt-4">
+        <span className="min-w-0 flex-1 truncate text-xs text-smoke">
+          {isMine ? 'You are a member' : joinState.can ? `Open to you · ${joinState.why}` : joinState.why}
+        </span>
+        <span className="flex shrink-0 items-center gap-1 text-sm font-semibold text-brand">
+          {isMine ? 'Open' : 'Have a look'}
+          <Icon name="chevronRight" className="h-4 w-4" />
+        </span>
       </div>
-    </motion.div>
+    </MotionLink>
   )
 }
 
@@ -141,10 +145,9 @@ function Group({ title, hint, children }) {
 
 export default function ExploreMarkets() {
   const { profile } = useAuth()
-  const { network, chapters, myChapters, isGlobalAdmin, reload, loading: ctxLoading } = useCommunity()
+  const { network, chapters, myChapters, isGlobalAdmin, loading: ctxLoading } = useCommunity()
   const [counts, setCounts] = useState(null)
   const [live, setLive] = useState({})
-  const [busy, setBusy] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -168,16 +171,6 @@ export default function ExploreMarkets() {
     return () => { cancelled = true }
   }, [])
 
-  async function join(market) {
-    setBusy(market.slug)
-    const { error } = await supabase.rpc('join_market', { p_slug: market.slug })
-    setBusy('')
-    if (error) { notice(error.message); return }
-    clearScopeCache()
-    await reload()
-    notice(`You are in ${market.name}.`)
-  }
-
   const mineIds = new Set(myChapters.map((c) => c.id))
   const suggested = chapters.filter(
     (c) => c.is_active && !mineIds.has(c.id)
@@ -197,8 +190,6 @@ export default function ExploreMarkets() {
         joinState={joinability(m, profile, isGlobalAdmin)}
         count={counts ? (counts[m.id] ?? 0) : null}
         hasLive={!!live[m.id]}
-        busy={busy === m.slug}
-        onJoin={join}
       />
     ))
 

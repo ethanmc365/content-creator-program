@@ -11,6 +11,12 @@ import { isNetworkPreviewOn, setNetworkPreview, subscribeToFlags } from '../lib/
 // mode on a page they use today.
 const CommunityContext = createContext(null)
 
+// The two platform roles that can run the network. Kept as a function rather
+// than inlined so there is exactly one place to add a third.
+export function isGlobalRole(role) {
+  return role === 'global_admin' || role === 'owner'
+}
+
 export function CommunityProvider({ children }) {
   const { session, profile, isAdmin } = useAuth()
   // The flag AND admin, matching NetworkRoute. A creator with a hand-set
@@ -90,9 +96,16 @@ export function CommunityProvider({ children }) {
     home,
     // Platform role, not a membership. `is_admin` is the old boolean and is still
     // what gates the admin routes; this is what the new shell reads.
-    isGlobalAdmin: profile?.platform_role === 'global_admin',
+    //
+    // `owner` is a global admin AND MORE. Testing for equality with
+    // 'global_admin' is the trap here: the moment the programme lead's row was
+    // given its own role, every admin surface in the shell would have vanished
+    // for the one person who runs the platform. Read it through the helper.
+    isGlobalAdmin: isGlobalRole(profile?.platform_role),
+    isOwner: profile?.platform_role === 'owner',
+    roleTitle: profile?.role_title || null,
     manages: (communityId) =>
-      profile?.platform_role === 'global_admin'
+      isGlobalRole(profile?.platform_role)
       || memberships.some((m) => m.community_id === communityId && m.role === 'manager'),
     bySlug: (slug) => communities.find((c) => c.slug === slug) || null,
   }
