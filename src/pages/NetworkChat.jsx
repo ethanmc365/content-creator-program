@@ -10,6 +10,7 @@ import IntroPrompt from '../components/network/IntroPrompt'
 import { ReactionRow, useReactions, RoomSearch, Highlight, MentionMenu, withMentions } from '../components/network/ChatExtras'
 import { ChatSkeleton } from '../components/network/Skeletons'
 import Icon from '../components/Icon'
+import Reorderable from '../components/network/Reorderable'
 import { Avatar, EmptyState } from '../components/ui'
 import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
 import { cx, formatMessageTime, messageTimeTitle } from '../lib/utils'
@@ -43,6 +44,15 @@ import { SOFT_SPRING } from '../lib/motion'
 const scopedKey = (community, key) =>
   community?.kind === 'network' ? key : `${community.slug}:${key}`
 
+// The reader's own order for the market cards in the sidebar. Per device, like
+// every other reorderable list here: it is a preference about a layout, not a
+// fact about the person, and a round trip to store it would be the tail wagging
+// the dog.
+const ROOM_ORDER_KEY = 'rooms-market-order'
+const loadRoomOrder = () => {
+  try { return JSON.parse(localStorage.getItem(ROOM_ORDER_KEY)) || [] } catch { return [] }
+}
+
 export default function NetworkChat() {
   const { slug, channelKey } = useParams()
   const navigate = useNavigate()
@@ -59,6 +69,7 @@ export default function NetworkChat() {
   const [search, setSearch] = useState('')
   const [members, setMembers] = useState([])
   const [mention, setMention] = useState(null) // { query, start } while typing @…
+  const [roomOrder, setRoomOrder] = useState(loadRoomOrder)
   const scrollerRef = useRef(null)
   const inputRef = useRef(null)
   const atBottomRef = useRef(true)
@@ -316,6 +327,20 @@ export default function NetworkChat() {
     }))
     .filter((c) => c.rooms.length > 0)
     .sort((a, b) => (b.kind === 'network') - (a.kind === 'network') || a.name.localeCompare(b.name))
+
+  // The saved order, with anything it has not heard of (a market opened since
+  // you last dragged) falling in behind at its alphabetical place rather than
+  // disappearing.
+  function saveRoomOrder(next) {
+    const ids = next.map((c) => c.id)
+    setRoomOrder(ids)
+    try { localStorage.setItem(ROOM_ORDER_KEY, JSON.stringify(ids)) } catch { /* private mode */ }
+  }
+
+  const rank = new Map(roomOrder.map((id, i) => [id, i]))
+  const orderedElsewhere = [...elsewhere].sort(
+    (a, b) => (rank.has(a.id) ? rank.get(a.id) : 1e9) - (rank.has(b.id) ? rank.get(b.id) : 1e9),
+  )
   // Derived from the messages already loaded rather than a second query: if
   // you have posted in this room, you have introduced yourself.
   const hasIntroduced = messages.some((m) => m.sender_id === user?.id)
@@ -567,37 +592,59 @@ export default function NetworkChat() {
               </div>
             </div>
 
-            {elsewhere.length > 0 && (
-              <div className="rounded-card border border-gray-100 bg-white p-2 shadow-card">
-                <p className="px-3 pb-1.5 pt-1 text-[10px] font-semibold uppercase tracking-widest text-smoke">
-                  Your other rooms
-                </p>
-                <div className="flex flex-col gap-2">
-                  {elsewhere.map((place) => (
-                    <div key={place.id}>
+            {/* ONE CARD PER MARKET, IN YOUR ORDER.
+                These were sub-headings inside a single "Your other rooms" box,
+                which made six markets read as one long undifferentiated list -
+                exactly the flat-list problem the /rooms page exists to solve,
+                reproduced in the sidebar. Germany is a place. It gets a card.
+
+                And the order is the reader's. Somebody who lives in the
+                Portuguese room should not have to scroll past Germany and the
+                Nordics to reach it every time, and there is no ordering we
+                could pick centrally that would be right for everybody. Drag
+                the grip; it is remembered on this device. */}
+            {orderedElsewhere.length > 0 && (
+              <Reorderable
+                items={orderedElsewhere}
+                onReorder={saveRoomOrder}
+                handleLabel="Reorder this market"
+                className="flex flex-col gap-3"
+                renderItem={(place, { handleProps, dragging }) => (
+                  <div className={cx(
+                    'group rounded-card border bg-white p-2 shadow-card transition-colors',
+                    dragging ? 'border-brand/40' : 'border-gray-100',
+                  )}>
+                    <div className="flex items-center gap-1 px-1 pb-1.5 pt-1">
                       <Link
                         to={place.kind === 'network' ? '/global' : `/c/${place.slug}`}
-                        className="flex items-center gap-2 px-3 py-1 text-[11px] font-semibold text-smoke transition-colors hover:text-brand"
+                        className="flex min-w-0 flex-1 items-center gap-2 text-[11px] font-semibold text-smoke transition-colors hover:text-brand"
                       >
                         <span aria-hidden>{place.flags || '🌍'}</span>
                         <span className="min-w-0 truncate">{place.name}</span>
                       </Link>
-                      <div className="flex flex-col gap-0.5">
-                        {place.rooms.map((c) => (
-                          <Link
-                            key={c.id}
-                            to={`${place.kind === 'network' ? '/global/chat' : `/c/${place.slug}/chat`}/${c.key}`}
-                            className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-ink transition-colors hover:bg-cloud"
-                          >
-                            <Icon name={c.icon || 'chat'} className="h-3.5 w-3.5 shrink-0 text-smoke" />
-                            <span className="min-w-0 flex-1 truncate text-[13px]">{c.label}</span>
-                          </Link>
-                        ))}
-                      </div>
+                      <span
+                        {...handleProps}
+                        title="Drag to reorder"
+                        className="flex h-6 w-5 shrink-0 items-center justify-center rounded-md text-gray-300 transition-opacity hover:text-smoke focus:opacity-100 focus:outline-none focus-visible:text-brand sm:opacity-40 sm:group-hover:opacity-100"
+                      >
+                        <Icon name="grip" className="h-3.5 w-3.5" />
+                      </span>
                     </div>
-                  ))}
-                </div>
-              </div>
+                    <div className="flex flex-col gap-0.5">
+                      {place.rooms.map((c) => (
+                        <Link
+                          key={c.id}
+                          to={`${place.kind === 'network' ? '/global/chat' : `/c/${place.slug}/chat`}/${c.key}`}
+                          className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-ink transition-colors hover:bg-cloud"
+                        >
+                          <Icon name={c.icon || 'chat'} className="h-3.5 w-3.5 shrink-0 text-smoke" />
+                          <span className="min-w-0 flex-1 truncate text-[13px]">{c.label}</span>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              />
             )}
           </nav>
 

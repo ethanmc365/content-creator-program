@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { motion } from 'motion/react'
 import { supabase } from '../lib/supabase'
 import { useCommunity } from '../context/CommunityContext'
@@ -11,6 +11,7 @@ import Icon from '../components/Icon'
 import { Avatar, EmptyState, Skeleton } from '../components/ui'
 import { stripMarkup } from '../lib/richText'
 import { cx, timeAgo } from '../lib/utils'
+import { useIsMobile } from '../lib/useKeyboardInset'
 import { pageFade } from '../lib/motion'
 
 // Every room you can post in, grouped by the place it belongs to.
@@ -102,6 +103,7 @@ function PlaceCard({ place, rooms, lastByChannel, isNetwork }) {
 
 export default function Rooms() {
   const { myCommunities, network, loading: ctxLoading } = useCommunity()
+  const isMobile = useIsMobile()
   const [rooms, setRooms] = useState(null)
   const [lastByChannel, setLastByChannel] = useState(new Map())
 
@@ -154,6 +156,20 @@ export default function Rooms() {
       .sort((a, b) => (b.place.kind === 'network') - (a.place.kind === 'network')
         || a.place.name.localeCompare(b.place.name))
   }, [rooms, myCommunities])
+
+  // ON A DESKTOP, ROOMS IS A CONVERSATION.
+  //
+  // Pressing Rooms used to land on this index and nothing else: a page listing
+  // rooms, with no room open. That is a table of contents where a chat was
+  // expected, and the reported symptom was exactly that - "it doesn't show up
+  // any chat at all". On a wide screen there is no reason to choose: the chat
+  // page already carries the whole index in its left sidebar, so Rooms goes
+  // straight to Worldwide's General with every other room one click away.
+  //
+  // On a phone there IS a reason to choose - 375px cannot hold a sidebar and a
+  // conversation - so the index stays, and it is the page the chat's own "all
+  // your rooms" link points at.
+  if (!isMobile) return <Navigate to="/global/chat/general" replace />
 
   return (
     <NetworkMotion>

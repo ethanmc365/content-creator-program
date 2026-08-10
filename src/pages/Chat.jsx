@@ -15,6 +15,7 @@ import LeaderboardCard from '../components/LeaderboardCard'
 import LinkPreview from '../components/LinkPreview'
 import ReactionPill from '../components/ReactionPill'
 import ReactionPicker from '../components/ReactionPicker'
+import { RoomSearch } from '../components/ChatSearch'
 import ChatMedia from '../components/ChatMedia'
 import { CONTINENTS } from '../lib/countries'
 import { formatMessageTime, messageTimeTitle, cx } from '../lib/utils'
@@ -106,6 +107,11 @@ export default function Chat() {
   const [reads, setReads] = useState(new Map()) // user_id -> last_read_at, for "seen by"
   const [loading, setLoading] = useState(true)
   const [body, setBody] = useState('')
+  // In-channel search. Filters the messages already in memory rather than
+  // querying: the channel holds its recent history right here, so a match is
+  // instant, works with no connection, and a round trip would be both slower
+  // and worse. Same component the network rooms use.
+  const [search, setSearch] = useState('')
   const [pickerFor, setPickerFor] = useState(null)
   const [showFormatting, setShowFormatting] = useState(false) // mobile: formatting row revealed
   const [actionsFor, setActionsFor] = useState(null) // message id with its action row open (mobile tap)
@@ -231,6 +237,21 @@ export default function Chat() {
   const canPost = channel !== 'announcements' || isAdmin
   const isMuted = profile?.status === 'muted'
   const pinnedMsg = messages.find((m) => m.pinned && !m.deleted) ?? null
+
+  // What the message list actually renders. Without a search that is simply
+  // every message; with one it is the matches, by body or by who wrote it -
+  // "what did Jacob say about Lisbon" is one of the two ways anybody looks for
+  // an old message, and the other is the words themselves.
+  const visibleMessages = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return messages
+    return messages.filter(
+      (m) => !m.deleted && (
+        (m.body || '').toLowerCase().includes(q) ||
+        (m.profiles?.name || '').toLowerCase().includes(q)
+      ),
+    )
+  }, [messages, search])
 
   // ---------- Load history ----------
   const load = useCallback(async () => {
@@ -833,9 +854,18 @@ export default function Chat() {
           ))}
         </div>
 
-        {/* Channel hint bar */}
-        <div className={cx('shrink-0 px-5 py-1 text-[11px] sm:py-2.5 sm:text-xs', channel === 'announcements' ? 'bg-brand-tint font-medium text-brand' : 'bg-cloud/60 text-smoke')}>
-          {meta.hint}
+        {/* Channel hint bar, which doubles as the search bar. The hint is a
+            sentence you read once; the row it sits in is otherwise empty, and
+            a channel with a few hundred messages in it needs a way to find
+            the one you remember. */}
+        <div className={cx('flex shrink-0 items-center gap-2 px-5 py-1 text-[11px] sm:py-2 sm:text-xs', channel === 'announcements' ? 'bg-brand-tint font-medium text-brand' : 'bg-cloud/60 text-smoke')}>
+          {!search && <span className="min-w-0 flex-1 truncate">{meta.hint}</span>}
+          <RoomSearch
+            value={search}
+            onChange={setSearch}
+            count={visibleMessages.length}
+            total={messages.filter((m) => !m.deleted).length}
+          />
         </div>
 
         {/* Pinned message bar (admins pin one per channel; everyone sees it). */}
@@ -871,7 +901,15 @@ export default function Chat() {
             </div>
           )}
 
-          {!loading && messages.filter((m) => !m.deleted).length === 0 && (
+          {!loading && search && visibleMessages.length === 0 && (
+            <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-smoke">
+              <Icon name="magnifier" className="h-8 w-8" />
+              <p className="font-semibold text-ink">Nothing matches "{search}"</p>
+              <p className="text-sm">Only the messages loaded in this channel are searched.</p>
+            </div>
+          )}
+
+          {!loading && !search && messages.filter((m) => !m.deleted).length === 0 && (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-smoke">
               <Icon name={meta.icon} className="h-10 w-10" />
               <p className="font-semibold text-ink">It's quiet in #{meta.label.toLowerCase()}…</p>
@@ -879,7 +917,7 @@ export default function Chat() {
             </div>
           )}
 
-          {!loading && messages.map((m) => {
+          {!loading && visibleMessages.map((m) => {
             // Deleted messages simply disappear for everyone.
             if (m.deleted) return null
             const mine = m.sender_id === user.id
