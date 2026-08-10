@@ -9,6 +9,7 @@ import Icon from '../components/Icon'
 import { Avatar, PageHeader, Badge, SkeletonCards, EmptyState } from '../components/ui'
 import { formatDate, formatViews, formatMoney, challengeDeadline, PRIZE_BASELINE } from '../lib/utils'
 import Reveal from '../components/network/Reveal'
+import ParticipationBar from '../components/network/ParticipationBar'
 
 const STATUS_TONE = { active: 'brand', ended: 'amber', archived: 'grey', draft: 'red' }
 
@@ -187,11 +188,6 @@ export default function Challenges() {
   const live = mine.filter(isLive)
   const past = mine.filter((c) => !isLive(c))
 
-  const pctFor = (id) => {
-    const p = participation[id]
-    return p && p.total > 0 ? Math.round((p.posted / p.total) * 100) : null
-  }
-
   return (
     <div className="page">
       <PageHeader
@@ -268,20 +264,17 @@ export default function Challenges() {
                 </div>
               </div>
 
-              {/* Participation pace: nudges the quiet majority, names no one. */}
-              {pctFor(c.id) != null && (
-                <div className="mt-4 rounded-card border border-gray-100 bg-white px-5 py-4 shadow-card">
-                  <div className="mb-2 flex items-baseline justify-between gap-3">
-                    <p className="text-sm font-semibold text-ink">Creator participation</p>
-                    <p className="text-sm font-bold tabular-nums text-brand">{pctFor(c.id)}%</p>
-                  </div>
-                  <div className="h-2.5 overflow-hidden rounded-full bg-cloud">
-                    <div className="h-full rounded-full bg-gradient-to-r from-brand to-brand-light transition-all duration-700" style={{ width: `${Math.max(pctFor(c.id), 2)}%` }} />
-                  </div>
-                  <p className="mt-2 text-xs text-smoke">
-                    {participation[c.id].posted} of {participation[c.id].total} creators have posted so far. Get your entry in!
-                  </p>
-                </div>
+              {/* Participation pace: nudges the quiet majority, names no one.
+                  The shared component, not a fourth hand-rolled copy of it -
+                  this one had drifted into `Math.max(pct, 2)`, which paints a
+                  sliver of orange under "0 of 43 have posted" and is the exact
+                  bug ParticipationBar was written to avoid. */}
+              {participation[c.id] && (
+                <ParticipationBar
+                  participation={participation[c.id]}
+                  where=""
+                  className="mt-4"
+                />
               )}
             </div>
           ))}

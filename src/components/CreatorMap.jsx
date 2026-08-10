@@ -49,23 +49,32 @@ function quadLength(ax, ay, cx, cy, bx, by, steps = 24) {
 const MIN_PLANE_LEN = 90 // projection units; shorter hops get line but no plane
 const MAX_PLANES = 7
 
-// FANNING A TOWN OUT AS YOU ZOOM IN.
+// SHOWING A SHARED TOWN'S PEOPLE AS YOU ZOOM IN.
 //
 // Creators who typed the same town share one coordinate exactly, so no amount
-// of zooming separates them: six people in London stay one pin with a "6" on
-// it forever, and the only way to see who they are is the tap card. Past this
-// zoom the pin fans into a ring of individual faces around the town point,
-// each on a hairline back to it, which is what zooming in is FOR.
+// of zooming separates them: eight people in London stay one pin with an 8 on
+// it forever, and the only way to see who they are is the tap card.
 //
-// 4.5 rather than something higher because that is roughly the zoom at which a
-// single country fills the frame - the moment the map stops being "the world"
-// and starts being "this place", which is when you want the people in it.
+// THE FIRST ATTEMPT MOVED THE PINS, AND THAT WAS A LIE ABOUT THE MAP.
+//
+// It fanned them into a ring whose radius was measured in PROJECTION units and
+// counter-scaled like the pins (zoom^-0.7), so the ring grew on screen as you
+// zoomed - which means it grew on the GROUND much faster. At zoom 10 the offset
+// was about 9 projection units, roughly three degrees of longitude: three
+// hundred kilometres. Creators appeared in the North Sea, in the wrong country,
+// and snapped back when you zoomed out. It also needed a leader line per pin to
+// explain itself, and eight hairlines through eight faces looked like a mess.
+//
+// So nothing moves. Past this zoom the town's pin becomes a WIDER pin - one
+// capsule of faces sitting above the exact same point, on the same pointer tip,
+// counter-scaled like every other pin. A pin has always been drawn above its
+// coordinate and nobody reads a pin's body as being where its body is, so a
+// pin with room for four faces is exactly as honest as a pin with room for one.
+// No offsets, no leader lines, nothing in the sea.
 const SPREAD_ZOOM = 4.5
-// Ring radius in projection units, counter-scaled exactly like the pins
-// (zoom^-0.7) so the gap between faces tracks the faces' own on-screen size at
-// every zoom instead of collapsing or flying apart.
-const spreadRadius = (count, zoom) =>
-  (24 + Math.min(count, 10) * 3.4) * Math.pow(1 / Math.max(zoom, 1), 0.7)
+// How many faces fit before it becomes "+N". Four is what fits at a readable
+// size without the capsule growing wider than a small country at this zoom.
+const CLUSTER_FACES = 4
 
 // The Tryp plane silhouette, drawn nose-up.
 const PLANE_D = 'M0 -11 C1.1 -11 1.8 -9 1.8 -6.2 L1.8 -4.4 L10 1 L10 3.1 L1.8 -0.2 L1.8 5 L4.4 7.6 L4.4 9.2 L0 7.7 L-4.4 9.2 L-4.4 7.6 L-1.8 5 L-1.8 -0.2 L-10 3.1 L-10 1 L-1.8 -4.4 L-1.8 -6.2 C-1.8 -9 -1.1 -11 0 -11 Z'
@@ -108,7 +117,7 @@ function countryNameMatches(typed, geoName) {
 // tip on the exact coordinate. The avatar is CONCENTRIC with the white disc so
 // it's dead-centre in the pin. Counter-scaled against the zoom so it stays a
 // calm, readable size (a hair of growth when you zoom in, never a balloon).
-function Pin({ group, zoom, active, dim, onSelect, offset = null }) {
+function Pin({ group, zoom, active, dim, onSelect }) {
   const lead = group.creators[0]
   const count = group.creators.length
   // Counter-scale so pins are small at the default zoom (you can see the
@@ -120,17 +129,8 @@ function Pin({ group, zoom, active, dim, onSelect, offset = null }) {
   const disc = r + 3 // white ring around the photo
   return (
     <Marker coordinates={group.coords} onClick={() => onSelect(group)}>
-      {/* A fanned-out pin keeps a hairline back to the town it belongs to, so
-          six faces around London still read as "these people are in London"
-          rather than as six separate towns in the home counties. */}
-      {offset && (
-        <line
-          x1={0} y1={0} x2={offset[0]} y2={offset[1]}
-          stroke={BRAND} strokeWidth={0.9 * s} opacity={0.45} style={{ pointerEvents: 'none' }}
-        />
-      )}
       <g
-        transform={`${offset ? `translate(${offset[0]} ${offset[1]}) ` : ''}scale(${s})`}
+        transform={`scale(${s})`}
         style={{ cursor: 'pointer', opacity: dim ? 0.25 : 1, transition: 'opacity 0.2s' }}
       >
         {/* pointer tail + white disc, concentric with the avatar, share one shadow */}
@@ -160,6 +160,88 @@ function Pin({ group, zoom, active, dim, onSelect, offset = null }) {
             <text x={0} y={0.5} textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight="700" fill="#ffffff">
               {count}
             </text>
+          </g>
+        )}
+      </g>
+    </Marker>
+  )
+}
+
+// A town several creators share, once you are close enough to want their faces.
+//
+// It is the SAME pin as above with a wider body: one white capsule on one
+// pointer tip, sitting on the town's exact coordinate. Up to CLUSTER_FACES
+// faces, then a "+N" chip. Tapping a face picks that creator; tapping the
+// capsule itself opens the whole town.
+//
+// Everything is counter-scaled by the same zoom^-0.7 as a normal pin, so the
+// capsule keeps a steady on-screen size and never turns into a banner across
+// three countries.
+function ClusterPin({ group, zoom, dim, activeId, highlightIds, onSelectCreator, onSelectTown }) {
+  const s = Math.pow(1 / Math.max(zoom, 1), 0.7)
+  const shown = group.creators.slice(0, CLUSTER_FACES)
+  const extra = group.creators.length - shown.length
+  const slots = shown.length + (extra > 0 ? 1 : 0)
+
+  const r = 10            // face radius
+  const gap = 3
+  const padX = 6
+  const w = slots * (r * 2) + (slots - 1) * gap + padX * 2
+  const h = r * 2 + 10
+  const cy = -(h / 2) - 12          // capsule centre, clear of the tip
+  const top = cy - h / 2
+  const firstX = -w / 2 + padX + r  // centre of the first face
+
+  return (
+    <Marker coordinates={group.coords}>
+      <g transform={`scale(${s})`} style={{ opacity: dim ? 0.25 : 1, transition: 'opacity 0.2s' }}>
+        <g style={{ filter: 'drop-shadow(0 2px 3px rgba(20,20,30,0.30))' }}>
+          {/* the tip, on the coordinate itself */}
+          <path d={`M-6 ${top + h - 1} L0 0 L6 ${top + h - 1} Z`} fill="#ffffff" />
+          <rect x={-w / 2} y={top} width={w} height={h} rx={h / 2} fill="#ffffff" />
+        </g>
+        {/* the capsule is the town: tapping the background opens all of them */}
+        <rect
+          x={-w / 2} y={top} width={w} height={h} rx={h / 2} fill="transparent"
+          style={{ cursor: 'pointer' }} onClick={onSelectTown}
+        />
+        {shown.map((c, i) => {
+          const x = firstX + i * (r * 2 + gap)
+          const faded = highlightIds && !highlightIds.has(c.id)
+          return (
+            <g
+              key={c.id}
+              transform={`translate(${x} ${cy})`}
+              style={{ cursor: 'pointer', opacity: faded ? 0.3 : 1 }}
+              onClick={(e) => { e.stopPropagation(); onSelectCreator(c) }}
+            >
+              {c.photo_url ? (
+                <image
+                  href={c.photo_url}
+                  x={-r} y={-r} width={r * 2} height={r * 2}
+                  clipPath="url(#creator-pin-clip)"
+                  preserveAspectRatio="xMidYMid slice"
+                />
+              ) : (
+                <>
+                  <circle r={r} fill="#fbe6da" />
+                  <text x={0} y={0} textAnchor="middle" dominantBaseline="central"
+                    fontSize={r * 0.8} fontWeight="600" fill={BRAND}>{initials(c.name)}</text>
+                </>
+              )}
+              <circle r={r} fill="none" stroke={activeId === c.id ? BRAND : '#ffffff'} strokeWidth={activeId === c.id ? 2.5 : 1.5} />
+            </g>
+          )
+        })}
+        {extra > 0 && (
+          <g
+            transform={`translate(${firstX + shown.length * (r * 2 + gap)} ${cy})`}
+            style={{ cursor: 'pointer' }}
+            onClick={(e) => { e.stopPropagation(); onSelectTown() }}
+          >
+            <circle r={r} fill={BRAND} />
+            <text x={0} y={0.5} textAnchor="middle" dominantBaseline="central"
+              fontSize={r * 0.75} fontWeight="700" fill="#ffffff">+{extra}</text>
           </g>
         )}
       </g>
@@ -450,8 +532,6 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
 
   const visibleJourneys = connectionsView ? [] : (focusJourney ? [focusJourney] : journeys)
   const quietMap = travelView || connectionsView || nearMe || !!focusJourney // hide the full thread web
-  // Any state that is not "the whole map".
-  const isFiltered = quietMap
 
   // Planes for the FILTERED views ("My connections" / "Creators near me"): a few
   // flights from the viewer's own town out to those creators, so the map still
@@ -530,41 +610,30 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
     setLiveZoom(fitView.zoom)
   }, [located, fitView])
 
-  // AND ONE MORE FIT, WHEN THE DESTINATIONS TURN UP.
+  // AND ONE MORE FIT, WHEN THE DESTINATIONS TURN UP - ON THE COLLAB BOARD ONLY.
   //
   // Country centroids are fetched, so on the first paint `journeys` is empty
-  // and the fit above can only see home towns. By the time the destinations
-  // exist the map has already decided it is done, which is why the collab
-  // board opened zoomed in no matter what the fit was taught. This re-frames
-  // exactly once, when the journeys first arrive, and only on a map that is
-  // actually about them - so it can never yank the view out from under
-  // somebody who has started panning around the normal map.
+  // and the fit can only see home towns. The collab board's map IS the
+  // journeys, has no filter to press, and would otherwise open framed on
+  // Europe with the planes flying off the edge - so it re-frames once, when
+  // the destinations arrive.
+  //
+  // THE INTERACTIVE MAPS DO NOT DO THIS, and that is the fix for the judder.
+  // This effect used to fire on `travelView` too, which meant the FIRST press
+  // of "On the move" re-framed the camera to fit the journeys - a lurch right
+  // and a zoom change - and every press after it did nothing, because the
+  // once-only guard had been spent. "It jutters the first time and works the
+  // second" is exactly that. A filter changes WHAT IS DRAWN; it has no business
+  // moving the camera out from under the reader, and the reset control in the
+  // corner is there for anybody who does want the whole map back.
   const refitWithJourneys = useRef(false)
   useEffect(() => {
     if (refitWithJourneys.current) return
-    if (journeys.length === 0 || !(travelView || travelOnlyView)) return
+    if (journeys.length === 0 || !travelOnlyView) return
     refitWithJourneys.current = true
     setPosition(fitView)
     setLiveZoom(fitView.zoom)
-  }, [journeys.length, travelView, travelOnlyView, fitView])
-
-  // LEAVING A FILTERED VIEW PUTS THE MAP BACK.
-  //
-  // There used to be a separate "Show the whole map" button for this. It was
-  // wrong twice over: it sat in the same corner as the legend and got buried
-  // under it, and it answered a question nobody had - the button that turned
-  // "On the move" on is obviously the button that turns it off, and needing a
-  // second, differently-styled button to undo the first is the interface
-  // admitting it does not trust itself. Pressing the filter again is the way
-  // out, so the map has to follow that press home on its own.
-  const wasFiltered = useRef(false)
-  useEffect(() => {
-    if (wasFiltered.current && !isFiltered) {
-      setPosition(fitView)
-      setLiveZoom(fitView.zoom)
-    }
-    wasFiltered.current = isFiltered
-  }, [isFiltered, fitView])
+  }, [journeys.length, travelOnlyView, fitView])
 
   const selectedTown = selected // a town snapshot ({ key, coords, creators })
 
@@ -868,58 +937,32 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           {paintOrder.map((town) => {
             const dimTown = highlighting && !town.creators.some((c) => highlightIds.has(c.id))
             // Zoomed in far enough that a shared town should show its people
-            // individually rather than as one pin with a number on it.
-            const fanned = z >= SPREAD_ZOOM && town.creators.length > 1
-            if (!fanned) {
-              return (
-                <g
-                  key={town.key}
-                  onMouseEnter={() => setTooltip(
-                    town.creators.length === 1
-                      ? `${town.creators[0].name} · ${(town.creators[0].city || '').trim()}`.trim()
-                      : `${(town.creators[0].city || 'This town').trim()} · ${town.creators.length} creators`
-                  )}
-                  onMouseLeave={() => setTooltip('')}
-                >
-                  <Pin group={town} zoom={z} active={selected?.key === town.key} dim={dimTown} onSelect={setSelected} />
-                </g>
-              )
-            }
-            const n = town.creators.length
-            const R = spreadRadius(n, z)
+            // individually rather than as one pin with a number on it. Nothing
+            // moves off the coordinate - the pin just gets wider. See the note
+            // by SPREAD_ZOOM for what the first attempt got wrong.
+            const clustered = z >= SPREAD_ZOOM && town.creators.length > 1
+            const label = town.creators.length === 1
+              ? `${town.creators[0].name} · ${(town.creators[0].city || '').trim()}`.trim()
+              : `${(town.creators[0].city || 'This town').trim()} · ${town.creators.length} creators`
             return (
-              <g key={town.key}>
-                {/* the town's own point stays marked, so the ring has a centre */}
-                <Marker coordinates={town.coords}>
-                  <circle r={1.6 * Math.pow(1 / Math.max(z, 1), 0.7)} fill={BRAND} opacity={dimTown ? 0.2 : 0.7} style={{ pointerEvents: 'none' }} />
-                </Marker>
-                {town.creators.map((c, i) => {
-                  // Start at the top and go clockwise. The pin's tip is at its
-                  // own origin and its face sits ABOVE that, so a ring offset
-                  // straight up would hide the centre pin behind the face of
-                  // the one above it; the vertical axis is squashed to 0.62 to
-                  // keep the ring wide and flat, which is also how it reads
-                  // against a map.
-                  const a = (i / n) * Math.PI * 2 - Math.PI / 2
-                  const offset = [Math.cos(a) * R, Math.sin(a) * R * 0.62]
-                  const one = { key: `${town.key}:${c.id}`, coords: town.coords, creators: [c] }
-                  return (
-                    <g
-                      key={c.id}
-                      onMouseEnter={() => setTooltip(`${c.name} · ${(c.city || '').trim()}`.trim())}
-                      onMouseLeave={() => setTooltip('')}
-                    >
-                      <Pin
-                        group={one}
-                        zoom={z}
-                        offset={offset}
-                        active={selected?.key === one.key}
-                        dim={highlighting && !highlightIds.has(c.id)}
-                        onSelect={setSelected}
-                      />
-                    </g>
-                  )
-                })}
+              <g
+                key={town.key}
+                onMouseEnter={() => setTooltip(label)}
+                onMouseLeave={() => setTooltip('')}
+              >
+                {clustered ? (
+                  <ClusterPin
+                    group={town}
+                    zoom={z}
+                    dim={dimTown}
+                    activeId={selected?.creators?.length === 1 ? selected.creators[0].id : null}
+                    highlightIds={highlighting ? highlightIds : null}
+                    onSelectCreator={(c) => setSelected({ key: `${town.key}:${c.id}`, coords: town.coords, creators: [c] })}
+                    onSelectTown={() => setSelected(town)}
+                  />
+                ) : (
+                  <Pin group={town} zoom={z} active={selected?.key === town.key} dim={dimTown} onSelect={setSelected} />
+                )}
               </g>
             )
           })}

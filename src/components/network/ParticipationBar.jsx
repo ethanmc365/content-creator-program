@@ -17,8 +17,29 @@ import { cx } from '../../lib/utils'
 // roster of ONE place, so an empty market says "0 of 0" rather than borrowing
 // another market's creator count.
 export default function ParticipationBar({ participation, where = 'in this market', className }) {
-  if (!participation || !(participation.total > 0)) return null
-  const pct = Math.round((participation.posted / participation.total) * 100)
+  if (!participation) return null
+  const total = Number(participation.total) || 0
+  const posted = Number(participation.posted) || 0
+
+  // A MARKET WITH NOBODY IN IT SAYS SO.
+  //
+  // This used to return null whenever the denominator was zero, which is how
+  // "the bar is missing under this challenge" happened: a challenge in a market
+  // with no creators yet simply had no bar, and a missing bar is indistinguishable
+  // from a broken one. Zero of zero is a real state and worth a sentence.
+  if (total === 0) {
+    return (
+      <div className={cx('rounded-card border border-gray-100 bg-white px-5 py-4 shadow-card', className)}>
+        <p className="text-sm font-semibold text-ink">Creator participation</p>
+        <p className="mt-1 text-xs text-smoke">
+          No creators have joined this market yet, so there is nobody to count.
+          {posted > 0 ? ` ${posted} ${posted === 1 ? 'entry has' : 'entries have'} come in anyway.` : ''}
+        </p>
+      </div>
+    )
+  }
+
+  const pct = Math.round((posted / total) * 100)
   return (
     <div className={cx('rounded-card border border-gray-100 bg-white px-5 py-4 shadow-card', className)}>
       <div className="mb-2 flex items-baseline justify-between gap-3">
@@ -36,7 +57,7 @@ export default function ParticipationBar({ participation, where = 'in this marke
         />
       </div>
       <p className="mt-2 text-xs text-smoke">
-        {participation.posted} of {participation.total} creators {where} have posted so far.
+        {posted} of {total} creators {where} have posted so far.
       </p>
     </div>
   )

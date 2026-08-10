@@ -51,7 +51,12 @@ export function RoomSearch({ value, onChange, count, total }) {
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
         placeholder="Search this room"
-        className="min-w-0 flex-1 border-0 bg-transparent text-sm outline-none placeholder:text-gray-400"
+        /* focus-visible:ring-0 because index.css puts a brand ring on
+           *:focus-visible, and this input is focused PROGRAMMATICALLY the
+           moment it opens - so the ring fired every single time and read as an
+           orange box round the search bar. `outline-none` cannot clear it: the
+           ring is a box-shadow. Same fix as the command palette input. */
+        className="min-w-0 flex-1 border-0 bg-transparent text-sm outline-none focus-visible:ring-0 placeholder:text-gray-400"
       />
       {value && (
         <span className="shrink-0 text-[11px] tabular-nums text-smoke">

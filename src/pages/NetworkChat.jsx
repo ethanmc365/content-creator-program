@@ -7,9 +7,12 @@ import { useCommunity } from '../context/CommunityContext'
 import { flagFromIso } from '../components/network/PlaceSwitcher'
 import NetworkMotion from '../components/NetworkMotion'
 import IntroPrompt from '../components/network/IntroPrompt'
-import { ReactionRow, useReactions, RoomSearch, Highlight, MentionMenu, withMentions } from '../components/network/ChatExtras'
+import { ReactionRow, useReactions, RoomSearch, Highlight, MentionMenu } from '../components/network/ChatExtras'
 import { ChatSkeleton } from '../components/network/Skeletons'
 import Icon from '../components/Icon'
+import ChatMedia from '../components/ChatMedia'
+import { uploadChatImage, uploadChatVideo } from '../lib/chatMedia'
+import { renderMessageBody } from '../lib/richText'
 import Reorderable from '../components/network/Reorderable'
 import { Avatar, EmptyState } from '../components/ui'
 import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
@@ -70,6 +73,9 @@ export default function NetworkChat() {
   const [members, setMembers] = useState([])
   const [mention, setMention] = useState(null) // { query, start } while typing @…
   const [roomOrder, setRoomOrder] = useState(loadRoomOrder)
+  const [showFormatting, setShowFormatting] = useState(false)
+  const [attachError, setAttachError] = useState('')
+  const fileRef = useRef(null)
   const scrollerRef = useRef(null)
   const inputRef = useRef(null)
   const atBottomRef = useRef(true)
@@ -253,11 +259,6 @@ export default function NetworkChat() {
     )
   }, [messages, search])
 
-  const memberFirstNames = useMemo(
-    () => new Set(members.map((m) => m.name?.split(' ')[0]?.toLowerCase()).filter(Boolean)),
-    [members],
-  )
-
   // Typing "@" opens the picker; a space or a match closes it.
   function onBodyChange(e) {
     const value = e.target.value
@@ -281,6 +282,18 @@ export default function NetworkChat() {
     atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
   }
 
+  async function postMessage(fields) {
+    const { data, error } = await supabase.from('messages').insert({
+      channel: scopedKey(community, active.key),
+      channel_id: active.id,
+      community_id: community.id,
+      sender_id: user.id,
+      ...fields,
+    }).select('*, profiles:sender_id(id, name, photo_url, is_admin)').single()
+    if (!error && data) setMessages((prev) => (prev.some((m) => m.id === data.id) ? prev : [...prev, data]))
+    return { data, error }
+  }
+
   async function send(e) {
     e?.preventDefault?.()
     const text = body.trim()
@@ -288,15 +301,66 @@ export default function NetworkChat() {
     setSending(true)
     setBody('')
     atBottomRef.current = true
-    const { data, error } = await supabase.from('messages').insert({
-      channel: scopedKey(community, active.key),
-      channel_id: active.id,
-      community_id: community.id,
-      sender_id: user.id,
-      body: text,
-    }).select('*, profiles:sender_id(id, name, photo_url, is_admin)').single()
+    await postMessage({ body: text })
     setSending(false)
-    if (!error && data) setMessages((prev) => (prev.some((m) => m.id === data.id) ? prev : [...prev, data]))
+  }
+
+  // PHOTOS AND VIDEO, IN EVERY ROOM.
+  //
+  // The market rooms had no attach control at all - the only place on the
+  // platform you could send a picture was the legacy UK chat, which made the
+  // rooms feel like a downgrade for everybody who moved into one. It reuses
+  // `uploadChatImage` / `uploadChatVideo`, so the compression rules are the
+  // same ones the live chat has used all along: images are re-encoded to
+  // 1280px at quality 0.82 before they leave the device, and video is capped
+  // rather than transcoded (there is no reliable in-browser transcoder, so a
+  // clear limit beats a silent 200MB upload).
+  async function attach(file) {
+    if (!file || !canPost || sending) return
+    setAttachError('')
+    const isVideo = file.type.startsWith('video/')
+    setSending(true)
+    atBottomRef.current = true
+    try {
+      const url = isVideo ? await uploadChatVideo(file, user.id) : await uploadChatImage(file, user.id)
+      await postMessage(isVideo ? { video_url: url } : { image_url: url })
+    } catch (err) {
+      setAttachError(err?.message || 'That file could not be sent.')
+    }
+    setSending(false)
+  }
+
+  // Wrap the selection in markdown markers, or toggle them off again. The
+  // legacy chat does this with a contentEditable surface; a textarea and four
+  // characters gets the same `body` out the other end, and the body is what
+  // both renderers read.
+  function format(kind) {
+    const el = inputRef.current
+    if (!el) return
+    const start = el.selectionStart ?? body.length
+    const end = el.selectionEnd ?? body.length
+    const sel = body.slice(start, end)
+    if (kind === 'heading') {
+      const lineStart = body.lastIndexOf('\n', Math.max(0, start - 1)) + 1
+      const has = body.slice(lineStart).startsWith('# ')
+      const next = has
+        ? body.slice(0, lineStart) + body.slice(lineStart + 2)
+        : body.slice(0, lineStart) + '# ' + body.slice(lineStart)
+      setBody(next)
+      requestAnimationFrame(() => { el.focus(); const d = has ? -2 : 2; el.setSelectionRange(start + d, end + d) })
+      return
+    }
+    const mark = kind === 'bold' ? '**' : '*'
+    const wrapped = sel.startsWith(mark) && sel.endsWith(mark) && sel.length > mark.length * 2
+    const next = wrapped
+      ? body.slice(0, start) + sel.slice(mark.length, -mark.length) + body.slice(end)
+      : body.slice(0, start) + mark + (sel || (kind === 'bold' ? 'bold text' : 'italic text')) + mark + body.slice(end)
+    setBody(next)
+    requestAnimationFrame(() => {
+      el.focus()
+      const len = (sel || (kind === 'bold' ? 'bold text' : 'italic text')).length
+      el.setSelectionRange(start + (wrapped ? 0 : mark.length), start + (wrapped ? len - mark.length * 2 : mark.length + len))
+    })
   }
 
   if (ctxLoading && !community) {
@@ -459,11 +523,25 @@ export default function NetworkChat() {
                       <span className="text-[11px] text-smoke" title={messageTimeTitle(m.created_at)}>{formatMessageTime(m.created_at)}</span>
                     </p>
                   )}
-                  <p className="whitespace-pre-wrap break-words text-sm text-ink">
-                    {search
-                      ? <Highlight text={m.body || ''} term={search} />
-                      : withMentions(m.body || '', memberFirstNames)}
-                  </p>
+                  {/* MARKDOWN, LIKE EVERY OTHER ROOM.
+                      This rendered the raw body with nothing but mention
+                      highlighting, so a message written with the formatting
+                      buttons arrived as literal asterisks and hashes. The
+                      legacy chat has parsed this since it shipped; there was
+                      never a reason for a market room to be the one place that
+                      shows you your own markup. `rich` is unconditional -
+                      formatting is open to every creator now, so gating the
+                      RENDERER on is_admin would mean a creator's bold text
+                      looked broken to everyone including themselves. */}
+                  {m.image_url && <ChatMedia url={m.image_url} kind="image" alt={m.body || 'Shared image'} />}
+                  {m.video_url && <ChatMedia url={m.video_url} kind="video" />}
+                  {m.body && (
+                    <p className="whitespace-pre-wrap break-words text-sm text-ink">
+                      {search
+                        ? <Highlight text={m.body} term={search} />
+                        : renderMessageBody(m.body, { rich: true, members })}
+                    </p>
+                  )}
                   <ReactionRow
                     messageId={m.id}
                     reactions={reactions}
@@ -488,7 +566,29 @@ export default function NetworkChat() {
             Only the team posts in {active?.label}.
           </p>
         ) : (
-          <form onSubmit={send} className="relative flex items-center gap-2">
+          <>
+            {attachError && (
+              <p role="alert" className="mb-2 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">{attachError}</p>
+            )}
+            {/* FORMATTING, FOR EVERY CREATOR, IN EVERY ROOM.
+                Collapsed behind the Aa button on a phone for the same reason
+                the legacy chat collapses it: this row sits directly above the
+                composer and the keyboard needs the pixels more. Open on
+                desktop, where the space is free. */}
+            <div className={cx('mb-2 items-center gap-2', showFormatting ? 'flex' : 'hidden sm:flex')}>
+              <div className="flex items-center gap-0.5 rounded-lg border border-gray-200 p-0.5" role="group" aria-label="Text formatting">
+                <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => format('heading')}
+                  title="Heading" aria-label="Heading"
+                  className="rounded px-2.5 py-1 text-xs font-bold text-smoke transition-colors hover:bg-cloud hover:text-ink">H</button>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => format('bold')}
+                  title="Bold" aria-label="Bold"
+                  className="rounded px-2.5 py-1 text-xs font-bold text-smoke transition-colors hover:bg-cloud hover:text-ink">B</button>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => format('italic')}
+                  title="Italic" aria-label="Italic"
+                  className="rounded px-2.5 py-1 text-xs italic text-smoke transition-colors hover:bg-cloud hover:text-ink">I</button>
+              </div>
+            </div>
+          <form onSubmit={send} className="relative flex items-end gap-2">
             {/* @-autocomplete, anchored to the composer. */}
             <AnimatePresence>
               {mention && (
@@ -500,20 +600,56 @@ export default function NetworkChat() {
                 />
               )}
             </AnimatePresence>
+            {/* Attach. Same control, same limits and the same compression as
+                the legacy chat - see `attach` above. */}
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*,video/*"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; attach(f) }}
+            />
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={sending}
+              aria-label="Attach a photo or video"
+              title="Attach a photo or video"
+              className="btn-ghost shrink-0 !px-2.5 !py-3 disabled:opacity-50"
+            >
+              <Icon name="image" className="h-5 w-5" />
+            </button>
             {/* text-base on mobile, deliberately: anything smaller makes iOS
                 zoom the page on focus and the overlay geometry never recovers. */}
-            <input
+            <textarea
               ref={inputRef}
-              className="input text-base sm:text-sm"
+              rows={1}
+              className="input max-h-32 min-h-0 resize-none py-2.5 text-base sm:text-sm"
               placeholder={`Message ${active?.label}`}
               value={body}
               onChange={onBodyChange}
+              onKeyDown={(e) => {
+                // Enter sends, Shift+Enter is a new line. The same bargain the
+                // legacy chat makes, so muscle memory carries between rooms.
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(e) }
+              }}
               aria-label={`Message ${active?.label}`}
             />
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setShowFormatting((v) => !v)}
+              aria-pressed={showFormatting}
+              aria-label="Formatting"
+              className={cx('btn-ghost shrink-0 !px-2.5 !py-3 sm:hidden', showFormatting && '!text-brand')}
+            >
+              <span className="text-sm font-bold">Aa</span>
+            </button>
             <button type="submit" disabled={!body.trim() || sending} className="btn-primary shrink-0 !px-5 !py-2.5">
               {sending ? '…' : 'Send'}
             </button>
           </form>
+          </>
         )}
       </div>
     </div>

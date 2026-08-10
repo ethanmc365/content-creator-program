@@ -332,6 +332,59 @@ export default function Collab() {
         )}
       />
 
+      {/* ---- Post your trip ----
+          Behind a button. An always-open five-field form was the first thing you
+          saw on a page whose content is other people's trips: it pushed the
+          board below the fold and asked everybody who came to READ to scroll
+          past a form they were not there to fill in.
+
+          IT OPENS WHERE THE BUTTON IS. It used to render four sections down,
+          under the overlap alerts and the whole map, so pressing "Post a trip"
+          at the top of the page changed something two screens below the fold
+          and read as nothing happening at all. A control and the thing it
+          reveals belong next to each other. */}
+      {canPost && posting && (
+        <form onSubmit={submit} className="card mb-10 !p-6">
+          <h2 className="mb-4 font-semibold">Post a trip</h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="city" className="label">City / place</label>
+              <input id="city" className="input" placeholder="Lisbon" value={form.city}
+                onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} maxLength={60} />
+            </div>
+            <div>
+              <label htmlFor="country" className="label">Country <span className="text-smoke">(shows on the map)</span></label>
+              <input id="country" className="input" placeholder="Start typing…" value={form.country}
+                list="collab-country-list" autoComplete="off"
+                onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))} maxLength={60} />
+              <datalist id="collab-country-list">
+                {countryNames.map((n) => <option key={n} value={n} />)}
+              </datalist>
+            </div>
+            <div>
+              <label htmlFor="start" className="label">From</label>
+              <input id="start" type="date" className="input" min={todayYmd()} value={form.start_date}
+                onChange={(e) => setForm((f) => ({ ...f, start_date: e.target.value, end_date: f.end_date && f.end_date < e.target.value ? e.target.value : f.end_date }))} />
+            </div>
+            <div>
+              <label htmlFor="end" className="label">To</label>
+              <input id="end" type="date" className="input" min={form.start_date || todayYmd()} value={form.end_date}
+                onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value }))} />
+            </div>
+          </div>
+          <div className="mt-4">
+            <label htmlFor="note" className="label">Note <span className="text-smoke">(optional)</span></label>
+            <textarea id="note" className="input min-h-[80px]" maxLength={300}
+              placeholder="Anyone around for a coffee and a collab? Keen to shoot some content around the city."
+              value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} />
+          </div>
+          {error && <p role="alert" className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
+          <div className="mt-4 flex justify-end">
+            <button type="submit" disabled={busy} className="btn-primary">{busy ? <Spinner /> : 'Post trip'}</button>
+          </div>
+        </form>
+      )}
+
       {/* ---- Overlaps ----
           THE ONE THING A COLLAB BOARD IS FOR.
           The board's whole promise is "somebody else will be where you are
@@ -399,53 +452,6 @@ export default function Collab() {
       )}
 
 
-      {/* ---- Post your trip ----
-          Behind a button now. An always-open five-field form is the first thing
-          you saw on a page whose content is other people's trips: it pushed the
-          board itself below the fold, and it asked everybody who came to READ
-          to scroll past a form they were not there to fill in. */}
-      {canPost && posting && (
-        <form onSubmit={submit} className="card mb-10 !p-6">
-          <h2 className="mb-4 font-semibold">Post a trip</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label htmlFor="city" className="label">City / place</label>
-              <input id="city" className="input" placeholder="Lisbon" value={form.city}
-                onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} maxLength={60} />
-            </div>
-            <div>
-              <label htmlFor="country" className="label">Country <span className="text-smoke">(shows on the map)</span></label>
-              <input id="country" className="input" placeholder="Start typing…" value={form.country}
-                list="collab-country-list" autoComplete="off"
-                onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))} maxLength={60} />
-              <datalist id="collab-country-list">
-                {countryNames.map((n) => <option key={n} value={n} />)}
-              </datalist>
-            </div>
-            <div>
-              <label htmlFor="start" className="label">From</label>
-              <input id="start" type="date" className="input" min={todayYmd()} value={form.start_date}
-                onChange={(e) => setForm((f) => ({ ...f, start_date: e.target.value, end_date: f.end_date && f.end_date < e.target.value ? e.target.value : f.end_date }))} />
-            </div>
-            <div>
-              <label htmlFor="end" className="label">To</label>
-              <input id="end" type="date" className="input" min={form.start_date || todayYmd()} value={form.end_date}
-                onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value }))} />
-            </div>
-          </div>
-          <div className="mt-4">
-            <label htmlFor="note" className="label">Note <span className="text-smoke">(optional)</span></label>
-            <textarea id="note" className="input min-h-[80px]" maxLength={300}
-              placeholder="Anyone around for a coffee and a collab? Keen to shoot some content around the city."
-              value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} />
-          </div>
-          {error && <p role="alert" className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
-          <div className="mt-4 flex justify-end">
-            <button type="submit" disabled={busy} className="btn-primary">{busy ? <Spinner /> : 'Post trip'}</button>
-          </div>
-        </form>
-      )}
-
       {/* ---- Filters ---- */}
       {upcoming.length > 0 && (
         <div className="mb-6 flex flex-wrap items-center gap-3">
@@ -487,7 +493,7 @@ export default function Collab() {
             >
               {expanded
                 ? <>Show fewer <Icon name="chevronLeft" className="h-4 w-4 rotate-90" /></>
-                : <>View more trips ({filteredUpcoming.length - TRIPS_PREVIEW} more) <Icon name="chevronRight" className="h-4 w-4 rotate-90" /></>}
+                : <>View more upcoming trips ({filteredUpcoming.length - TRIPS_PREVIEW} more) <Icon name="chevronRight" className="h-4 w-4 rotate-90" /></>}
             </button>
           )}
         </>

@@ -43,6 +43,18 @@ import { cx } from '../../lib/utils'
 
 const GLIDE = 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1)'
 
+// The nearest ancestor that actually scrolls, so a drag inside a scrolling
+// panel can subtract the panel's own movement back out.
+function findScroller(node) {
+  let el = node?.parentElement
+  while (el && el !== document.body) {
+    const oy = getComputedStyle(el).overflowY
+    if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) return el
+    el = el.parentElement
+  }
+  return null
+}
+
 export default function Reorderable({
   items,
   getId = (it) => it.id,
@@ -73,6 +85,15 @@ export default function Reorderable({
     e.stopPropagation()
     const row = e.currentTarget.closest('[data-reorder-row]')
     const rows = row ? Array.from(row.parentElement.children) : []
+    // THE LIST MAY LIVE INSIDE SOMETHING THAT SCROLLS.
+    //
+    // The rooms sidebar does. Pointer capture keeps the move events coming
+    // while the container scrolls underneath, and `clientY` is measured against
+    // the VIEWPORT - so any scroll during a drag added itself to the offset and
+    // the held card slid away on its own, kept sliding after release, and ended
+    // up parked at the top of the rail. Remembering the scroller and its
+    // starting scrollTop lets `move` subtract that back out.
+    const scroller = findScroller(row)
     e.currentTarget.setPointerCapture?.(e.pointerId)
     setDrag({
       id,
@@ -80,6 +101,8 @@ export default function Reorderable({
       to: index,
       dy: 0,
       startY: e.clientY,
+      scroller,
+      startScroll: scroller ? scroller.scrollTop : 0,
       pointerId: e.pointerId,
       tops: rows.map((r) => r.offsetTop),
       heights: rows.map((r) => r.offsetHeight),
@@ -89,7 +112,8 @@ export default function Reorderable({
   function move(e) {
     setDrag((prev) => {
       if (!prev || e.pointerId !== prev.pointerId) return prev
-      const dy = e.clientY - prev.startY
+      const scrolled = prev.scroller ? prev.scroller.scrollTop - prev.startScroll : 0
+      const dy = e.clientY - prev.startY + scrolled
 
       // The centre of the held row in its original coordinate space, and which
       // slot's midpoint it has now crossed.
@@ -157,7 +181,12 @@ export default function Reorderable({
               zIndex: held ? 20 : undefined,
               position: 'relative',
             }}
-            className={cx(held && 'scale-[1.01] rounded-xl bg-white shadow-lift')}
+            // No scale. Scaling a bordered card by 1% against its neighbours
+            // is what put the faint grey seams down the side of the list while
+            // a card was moving - a half-pixel of the row underneath showing
+            // past the edge of the one on top of it. The shadow is enough to
+            // say "this one is in your hand".
+            className={cx(held && 'rounded-xl shadow-lift')}
           >
             {renderItem(it, {
               dragging: held,
