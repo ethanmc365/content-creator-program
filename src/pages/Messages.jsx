@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { confirm } from '../lib/confirm'
 import { loadDraft, saveDraft, clearDraft } from '../lib/drafts'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -15,6 +15,7 @@ import { mediaType } from '../lib/media'
 import { formatChatTime, formatMessageTime, messageTimeTitle, otherParticipant, cx } from '../lib/utils'
 import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
 import ReactionPicker from '../components/ReactionPicker'
+import { RoomSearch } from '../components/ChatSearch'
 
 
 // A short label for a DM when it's quoted in a reply.
@@ -36,6 +37,17 @@ export default function Messages() {
   const [thread, setThread] = useState([])
   const [reactions, setReactions] = useState([]) // dm_reactions for the open thread
   const [pickerFor, setPickerFor] = useState(null) // message id with emoji picker open
+  // Searching THIS conversation. The inbox search above finds a person; this
+  // finds a message, and they are different questions - "where is Jacob" and
+  // "what did Jacob say about the Lisbon shoot" - so they are two controls.
+  const [threadSearch, setThreadSearch] = useState('')
+
+  // What the thread actually renders. Without a search that is every message.
+  const visibleThread = useMemo(() => {
+    const q = threadSearch.trim().toLowerCase()
+    if (!q) return thread
+    return thread.filter((m) => (m.body || '').toLowerCase().includes(q))
+  }, [thread, threadSearch])
   const [actionsFor, setActionsFor] = useState(null) // message id with actions revealed (mobile tap)
   const [replyTo, setReplyTo] = useState(null)     // message being replied to
   const [loadingList, setLoadingList] = useState(true)
@@ -766,7 +778,7 @@ export default function Messages() {
                   <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
                 </button>
                 {active?.other && (
-                  <Link to={`/profile/${active.other.id}`} className="flex min-w-0 items-center gap-3">
+                  <Link to={`/profile/${active.other.id}`} className="flex min-w-0 flex-1 items-center gap-3">
                     <Avatar src={active.other.photo_url} name={active.other.name} size="sm" />
                     <div className="min-w-0">
                       <p className="flex items-center gap-2 truncate text-sm font-semibold hover:text-brand">
@@ -777,6 +789,12 @@ export default function Messages() {
                     </div>
                   </Link>
                 )}
+                <RoomSearch
+                  value={threadSearch}
+                  onChange={setThreadSearch}
+                  count={visibleThread.length}
+                  total={thread.length}
+                />
               </div>
 
               {/* Inline connection request: accept without leaving the thread. */}
@@ -800,7 +818,7 @@ export default function Messages() {
                 className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-5 py-6"
               >
                 {loadingThread && <div className="space-y-3"><Skeleton className="h-10 w-2/3" /><Skeleton className="ml-auto h-10 w-1/2" /><Skeleton className="h-10 w-3/5" /></div>}
-                {!loadingThread && thread.map((m) => {
+                {!loadingThread && visibleThread.map((m) => {
                   const mine = m.sender_id === user.id
                   // Private DM media resolves to a signed URL; legacy public URLs pass through.
                   const imageSrc = m.image_url ? (isSignedDmPath(m.image_url) ? signedUrls.get(m.image_url) : m.image_url) : null
