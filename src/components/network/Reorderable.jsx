@@ -87,14 +87,11 @@ export default function Reorderable({
     const rows = row ? Array.from(row.parentElement.children) : []
     // THE LIST MAY LIVE INSIDE SOMETHING THAT SCROLLS.
     //
-    // The rooms sidebar does. Pointer capture keeps the move events coming
-    // while the container scrolls underneath, and `clientY` is measured against
-    // the VIEWPORT - so any scroll during a drag added itself to the offset and
-    // the held card slid away on its own, kept sliding after release, and ended
-    // up parked at the top of the rail. Remembering the scroller and its
-    // starting scrollTop lets `move` subtract that back out.
+    // The rooms sidebar does. `clientY` is measured against the VIEWPORT, so
+    // any scroll during a drag added itself to the offset and the held card
+    // slid away on its own. Remembering the scroller and its starting scrollTop
+    // lets `move` subtract that back out.
     const scroller = findScroller(row)
-    e.currentTarget.setPointerCapture?.(e.pointerId)
     setDrag({
       id,
       from: index,
@@ -109,40 +106,87 @@ export default function Reorderable({
     })
   }
 
-  function move(e) {
-    setDrag((prev) => {
-      if (!prev || e.pointerId !== prev.pointerId) return prev
-      const scrolled = prev.scroller ? prev.scroller.scrollTop - prev.startScroll : 0
-      const dy = e.clientY - prev.startY + scrolled
+  // THE DRAG IS OWNED BY THE DOCUMENT, NOT BY THE GRIP.
+  //
+  // THE BUG THIS FIXES. The move/up handlers used to live on the grip itself,
+  // with `setPointerCapture` keeping the stream pointed at it. That works right
+  // up until the capture is lost - and it is lost routinely: the pointer leaves
+  // the window, the tab loses focus, the browser drops the capture when the
+  // captured node moves under a transform, or the row re-renders. When it goes,
+  // `pointerup` is delivered somewhere else, `up` never runs, and `drag` stays
+  // set forever. What that LOOKS like is exactly what was reported: you let go
+  // and the card just hangs there on top of another one, glued to nothing,
+  // unfixable without a reload. Worse, `releasePointerCapture` THROWS if the id
+  // is no longer active, so even a stray release could abort `up` before the
+  // `setDrag(null)` on the next line.
+  //
+  // Listening on the document instead means every possible ending is heard:
+  // pointerup anywhere on the page, pointercancel, the window losing focus, or
+  // Escape. There is no path left where a drag can survive the gesture that
+  // started it. The effect also unsubscribes on unmount, so navigating away
+  // mid-drag cannot leave listeners behind.
+  useEffect(() => {
+    if (!drag) return undefined
 
-      // The centre of the held row in its original coordinate space, and which
-      // slot's midpoint it has now crossed.
-      const heldCentre = prev.tops[prev.from] + prev.heights[prev.from] / 2 + dy
-      let to = prev.from
-      if (dy > 0) {
-        for (let i = prev.from + 1; i < prev.tops.length; i += 1) {
-          if (heldCentre > prev.tops[i] + prev.heights[i] / 2) to = i
-        }
-      } else if (dy < 0) {
-        for (let i = prev.from - 1; i >= 0; i -= 1) {
-          if (heldCentre < prev.tops[i] + prev.heights[i] / 2) to = i
-        }
-      }
-      return { ...prev, dy, to }
-    })
-  }
+    const move = (e) => {
+      if (e.pointerId !== drag.pointerId) return
+      // A touch drag must not also scroll the page. `touch-action: none` on the
+      // grip covers the common case; this covers a browser that has already
+      // decided otherwise.
+      if (e.cancelable) e.preventDefault()
+      setDrag((prev) => {
+        if (!prev || e.pointerId !== prev.pointerId) return prev
+        const scrolled = prev.scroller ? prev.scroller.scrollTop - prev.startScroll : 0
+        const dy = e.clientY - prev.startY + scrolled
 
-  function up(e) {
-    if (!drag) return
-    e.currentTarget.releasePointerCapture?.(drag.pointerId)
-    const { from, to } = drag
-    setDrag(null)
-    if (to !== from) {
-      const next = items.slice()
-      next.splice(to, 0, next.splice(from, 1)[0])
-      onReorder(next)
+        // The centre of the held row in its original coordinate space, and
+        // which slot's midpoint it has now crossed.
+        const heldCentre = prev.tops[prev.from] + prev.heights[prev.from] / 2 + dy
+        let to = prev.from
+        if (dy > 0) {
+          for (let i = prev.from + 1; i < prev.tops.length; i += 1) {
+            if (heldCentre > prev.tops[i] + prev.heights[i] / 2) to = i
+          }
+        } else if (dy < 0) {
+          for (let i = prev.from - 1; i >= 0; i -= 1) {
+            if (heldCentre < prev.tops[i] + prev.heights[i] / 2) to = i
+          }
+        }
+        return { ...prev, dy, to }
+      })
     }
-  }
+
+    // Commit whatever slot the card is over. There is no "invalid drop": a
+    // release is always a decision, and releasing over nothing means "leave it
+    // where it looks like it is", never "keep holding it".
+    const finish = (commit) => {
+      const { from, to } = drag
+      setDrag(null)
+      if (commit && to !== from) {
+        const next = items.slice()
+        next.splice(to, 0, next.splice(from, 1)[0])
+        onReorder(next)
+      }
+    }
+
+    const onUp = (e) => { if (e.pointerId === drag.pointerId) finish(true) }
+    const onCancel = (e) => { if (e.pointerId === drag.pointerId) finish(false) }
+    const onBlur = () => finish(false)
+    const onKey = (e) => { if (e.key === 'Escape') finish(false) }
+
+    document.addEventListener('pointermove', move, { passive: false })
+    document.addEventListener('pointerup', onUp)
+    document.addEventListener('pointercancel', onCancel)
+    window.addEventListener('blur', onBlur)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointermove', move)
+      document.removeEventListener('pointerup', onUp)
+      document.removeEventListener('pointercancel', onCancel)
+      window.removeEventListener('blur', onBlur)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [drag, items, onReorder])
 
   // How far a row that is NOT held has to move to make room for the one that is.
   function shiftFor(index) {
@@ -181,12 +225,15 @@ export default function Reorderable({
               zIndex: held ? 20 : undefined,
               position: 'relative',
             }}
-            // No scale. Scaling a bordered card by 1% against its neighbours
-            // is what put the faint grey seams down the side of the list while
-            // a card was moving - a half-pixel of the row underneath showing
-            // past the edge of the one on top of it. The shadow is enough to
-            // say "this one is in your hand".
-            className={cx(held && 'rounded-xl shadow-lift')}
+            // NOTHING IS PAINTED ON THE WRAPPER. No scale (that put faint grey
+            // seams down the side of the list - a half-pixel of the row under
+            // showing past the edge of the one on top) and, now, no shadow
+            // either: `shadow-lift` on a plain div behind a card with its own
+            // larger corner radius drew grey arcs poking out at all four
+            // corners, which is the "grey outline on that column" that survived
+            // the last fix. The card itself already knows it is being dragged -
+            // `renderItem` gets `dragging` - so the elevation belongs there,
+            // inside the same border radius as the thing being lifted.
           >
             {renderItem(it, {
               dragging: held,
@@ -200,10 +247,9 @@ export default function Reorderable({
                 // The grip never scrolls the page - it has exactly one job and
                 // the browser must not compete for the gesture.
                 style: { touchAction: 'none', cursor: held ? 'grabbing' : 'grab' },
+                // Only the START of the drag is the grip's business. Everything
+                // after it belongs to the document - see the effect above.
                 onPointerDown: (e) => down(e, i, id),
-                onPointerMove: move,
-                onPointerUp: up,
-                onPointerCancel: up,
                 // Stop a press on the grip reaching the link underneath at all.
                 onClick: (e) => { e.preventDefault(); e.stopPropagation() },
                 onKeyDown: (e) => {

@@ -14,8 +14,59 @@ import Icon from './Icon'
 // vocabulary grouped under headings so it can be SCANNED - a flat grid of
 // sixty emoji is a search task, and nobody is willing to do a search task to
 // say "nice photo".
+// The nearest ancestor that clips its overflow. THAT is what a popover has to
+// fit inside, not the window: a message thread is a scroll container with a
+// sticky header above it, so a popover that fits the screen perfectly well can
+// still be sliced off by the top of the conversation.
+function clipBounds(node) {
+  let el = node?.parentElement
+  while (el && el !== document.body) {
+    const oy = getComputedStyle(el).overflowY
+    if (oy === 'auto' || oy === 'scroll' || oy === 'hidden') {
+      const r = el.getBoundingClientRect()
+      return { top: r.top, bottom: r.bottom }
+    }
+    el = el.parentElement
+  }
+  return { top: 0, bottom: window.innerHeight || 0 }
+}
+
 export default function ReactionPicker({ onPick, onClose, align = 'left' }) {
   const [expanded, setExpanded] = useState(false)
+  // WHICH WAY IT OPENS.
+  //
+  // THE BUG THIS FIXES. It always opened upward (`bottom-full`). Reacting to a
+  // message at the TOP of a thread therefore put the popover above the top of
+  // the scroller - so it was clipped by the conversation and disappeared under
+  // the header showing who you are talking to. Pressing `+` made it taller and
+  // made it worse, which is exactly the report: the emoji panel ends up behind
+  // the name bar.
+  //
+  // So it measures itself once it is on screen and flips below the message when
+  // there is not room above. Measured against the SCROLLER, not the window,
+  // because the scroller is what does the clipping.
+  const [node, setNode] = useState(null)
+  const [placement, setPlacement] = useState('above')
+
+  useEffect(() => {
+    if (!node) return
+    const r = node.getBoundingClientRect()
+    const limit = clipBounds(node)
+    const PAD = 8
+    if (placement === 'above' && r.top < limit.top + PAD) {
+      // Only flip if there is genuinely more room the other way. On a very
+      // short scroller neither side fits and moving it achieves nothing.
+      const roomBelow = limit.bottom - r.bottom
+      const roomAbove = r.top - limit.top
+      if (roomBelow > roomAbove) setPlacement('below')
+    } else if (placement === 'below' && r.bottom > limit.bottom - PAD) {
+      const roomAbove = r.top - limit.top
+      const roomBelow = limit.bottom - r.bottom
+      if (roomAbove > roomBelow) setPlacement('above')
+    }
+    // Re-measured when it grows: the six-emoji strip fits almost anywhere and
+    // the full panel is ten times taller.
+  }, [node, expanded, placement])
 
   // Escape closes it. A popover you can only dismiss by clicking exactly the
   // right patch of backdrop is a popover people close by navigating away.
@@ -26,14 +77,17 @@ export default function ReactionPicker({ onPick, onClose, align = 'left' }) {
   }, [onClose])
 
   const pick = (emoji) => { onPick(emoji); onClose?.() }
+  const below = placement === 'below'
 
   return (
     <div
+      ref={setNode}
       role="dialog"
       aria-label="Pick a reaction"
       className={cx(
-        'absolute bottom-full z-30 mb-1 rounded-2xl border border-gray-100 bg-white shadow-lift',
-        'animate-[reaction-pop_140ms_cubic-bezier(0.22,1,0.36,1)] origin-bottom',
+        'absolute z-30 rounded-2xl border border-gray-100 bg-white shadow-lift',
+        below ? 'top-full mt-1 origin-top' : 'bottom-full mb-1 origin-bottom',
+        'animate-[reaction-pop_140ms_cubic-bezier(0.22,1,0.36,1)]',
         align === 'right' ? 'right-0' : 'left-0',
         expanded ? 'w-[17rem] p-2' : 'flex items-center gap-0.5 p-1',
       )}

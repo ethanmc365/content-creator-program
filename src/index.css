@@ -221,21 +221,27 @@
   .reveal-item {
     height: 100%;
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(20px);
     will-change: opacity, transform;
   }
   /* Direction, set by <Reveal from="...">. A two-column page reads better when
      the columns do not arrive the same way: the article rises, the rail slides
      in from the edge it lives against. */
-  .reveal[data-from='right'] > .reveal-item { transform: translateX(22px); }
-  .reveal[data-from='left']  > .reveal-item { transform: translateX(-22px); }
-  .reveal[data-from='down']  > .reveal-item { transform: translateY(-14px); }
+  .reveal[data-from='right'] > .reveal-item { transform: translateX(38px); }
+  .reveal[data-from='left']  > .reveal-item { transform: translateX(-38px); }
+  .reveal[data-from='down']  > .reveal-item { transform: translateY(-26px); }
+  /* THE DURATION IS THE WHOLE POINT.
+     At 460ms a card was on screen before the eye had found it, which is what
+     "it just appears very quickly" meant: the motion was technically running
+     and telling nobody anything. 760ms is long enough to be READ as arriving
+     and still short enough that a reader scrolling fast is never waiting for
+     the page. The curve is unchanged - one house easing everywhere. */
   .reveal.is-in > .reveal-item {
     opacity: 1;
     transform: none;
     transition:
-      opacity 460ms cubic-bezier(0.22, 1, 0.36, 1),
-      transform 460ms cubic-bezier(0.22, 1, 0.36, 1);
+      opacity 760ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 760ms cubic-bezier(0.22, 1, 0.36, 1);
     transition-delay: calc(var(--reveal-i, 0) * var(--reveal-stagger, 45ms));
   }
   /* Once it has landed, stop claiming a compositor layer for every card. */

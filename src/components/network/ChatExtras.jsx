@@ -19,7 +19,7 @@ import { SNAPPY, overlay } from '../../lib/motion'
 // room and one reacted to in #general are the same shape of data, and there is
 // one place to change if reactions ever grow up.
 
-export function ReactionRow({ messageId, reactions, myId, onToggle }) {
+export function ReactionRow({ messageId, reactions, myId, onToggle, revealed = false }) {
   const mine = useMemo(
     () => new Set(reactions.filter((r) => r.creator_id === myId).map((r) => r.emoji)),
     [reactions, myId],
@@ -62,9 +62,13 @@ export function ReactionRow({ messageId, reactions, myId, onToggle }) {
           onClick={() => setPicking((p) => !p)}
           aria-label="Add a reaction"
           className={cx(
-            'flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 text-smoke transition-all',
+            // `revealed` is the phone's answer to hover. Without it the only
+            // way to open this picker was `group-hover/msg`, which never fires
+            // on a touch screen - so market rooms had reactions that a phone
+            // could see and could not add.
+            'flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-smoke transition-all',
             'opacity-0 hover:border-brand hover:text-brand focus-visible:opacity-100 group-hover/msg:opacity-100',
-            picking && 'opacity-100',
+            (picking || revealed) && 'opacity-100',
           )}
         >
           <Icon name="smile" className="h-3.5 w-3.5" />

@@ -56,6 +56,55 @@ const loadRoomOrder = () => {
   try { return JSON.parse(localStorage.getItem(ROOM_ORDER_KEY)) || [] } catch { return [] }
 }
 
+// MESSAGES THAT ARE A CARD AND NOT A SENTENCE.
+//
+// THE BUG THIS FIXES. The legacy chat can post a poll, a game event or a
+// resource as a message with `body: ''` and an id in `poll_id` /
+// `game_event_id` / `resource_id` - the card IS the message, so there is
+// deliberately no text. This page only ever rendered body, image and video, so
+// every one of those arrived as a row containing an avatar, a name, a timestamp
+// and NOTHING: the reported "blank messages from me". And because a blank row
+// still gets its reaction affordance, two of them in a row read as "double
+// emoji reaction places below the last few messages" - the doubled circles were
+// the blank messages, not a duplicated control.
+//
+// They are rendered as what they are now: a card that says which thing it is
+// and goes there. The legacy chat owns voting and playing; this is a reference
+// to something that lives somewhere else, and a reference should say so rather
+// than pretend to be the thing.
+const CARD_KINDS = [
+  { idKey: 'poll_id', table: 'polls', select: 'id, question', label: (r) => r?.question, kind: 'Poll', icon: 'chart', to: () => '/chat' },
+  { idKey: 'game_event_id', table: 'game_events', select: 'id, title', label: (r) => r?.title, kind: 'Game', icon: 'joystick', to: () => '/game' },
+  { idKey: 'resource_id', table: 'resources', select: 'id, title', label: (r) => r?.title, kind: 'From the library', icon: 'book', to: () => '/resources' },
+]
+
+// Anything that would make a message worth drawing. A row with none of these is
+// not a quiet message, it is a data artefact, and drawing it as an empty bubble
+// with a reaction button under it helps nobody.
+const hasContent = (m) =>
+  !!(m.body?.trim() || m.image_url || m.video_url || m.poll_id || m.game_event_id || m.resource_id)
+
+function AttachedCard({ message, titles }) {
+  const spec = CARD_KINDS.find((c) => message[c.idKey])
+  if (!spec) return null
+  const title = titles.get(`${spec.table}:${message[spec.idKey]}`)
+  return (
+    <Link
+      to={spec.to()}
+      className="mt-1 flex items-center gap-2.5 rounded-xl border border-gray-200 bg-white px-3 py-2 transition-colors hover:border-brand/40 hover:bg-brand-tint/20"
+    >
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-tint text-brand">
+        <Icon name={spec.icon} className="h-4 w-4" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[10px] font-semibold uppercase tracking-wider text-smoke">{spec.kind}</span>
+        <span className="block truncate text-sm font-medium">{title || 'Open it'}</span>
+      </span>
+      <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
+    </Link>
+  )
+}
+
 export default function NetworkChat() {
   const { slug, channelKey } = useParams()
   const navigate = useNavigate()
@@ -75,6 +124,12 @@ export default function NetworkChat() {
   const [roomOrder, setRoomOrder] = useState(loadRoomOrder)
   const [showFormatting, setShowFormatting] = useState(false)
   const [attachError, setAttachError] = useState('')
+  // Titles for poll / game / resource cards, keyed `table:id`.
+  const [cardTitles, setCardTitles] = useState(new Map())
+  // Which message has its actions revealed by a TAP. On a phone there is no
+  // hover, so `group-hover` alone meant the reaction button was permanently
+  // invisible and market rooms simply had no reactions on mobile.
+  const [actionsFor, setActionsFor] = useState(null)
   const fileRef = useRef(null)
   const scrollerRef = useRef(null)
   const inputRef = useRef(null)
@@ -246,15 +301,40 @@ export default function NetworkChat() {
   // message the user was reading has to stay at the bottom.
   useEffect(() => { pin() }, [kbOpen, vpHeight, pin])
 
+  // The titles behind any poll / game / resource cards in this room. One query
+  // per kind, only for the kinds actually present, and only when the set of ids
+  // changes - a room with no cards in it issues nothing.
+  const cardKey = useMemo(
+    () => CARD_KINDS.map((c) => messages.map((m) => m[c.idKey]).filter(Boolean).join(',')).join('|'),
+    [messages],
+  )
+  useEffect(() => {
+    const groups = CARD_KINDS
+      .map((c) => ({ spec: c, ids: [...new Set(messages.map((m) => m[c.idKey]).filter(Boolean))] }))
+      .filter((g) => g.ids.length)
+    if (!groups.length) return undefined
+    let alive = true
+    Promise.all(groups.map((g) =>
+      supabase.from(g.spec.table).select(g.spec.select).in('id', g.ids)
+        .then(({ data }) => (data || []).map((r) => [`${g.spec.table}:${r.id}`, g.spec.label(r)])),
+    )).then((pairs) => {
+      if (alive) setCardTitles(new Map(pairs.flat()))
+    })
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cardKey])
+
   const messageIds = useMemo(() => messages.map((m) => m.id), [messages])
   const { byMessage: reactionsByMessage, toggle: toggleReaction } = useReactions(messageIds, user?.id)
 
   // Search filters what is already in memory. A room holds 200 messages; a
   // server round trip for this would be slower and would not work offline.
   const visible = useMemo(() => {
+    // Rows with nothing in them at all never reach the screen. See `hasContent`.
+    const real = messages.filter(hasContent)
     const q = search.trim().toLowerCase()
-    if (!q) return messages
-    return messages.filter(
+    if (!q) return real
+    return real.filter(
       (m) => m.body?.toLowerCase().includes(q) || m.profiles?.name?.toLowerCase().includes(q),
     )
   }, [messages, search])
@@ -463,10 +543,17 @@ export default function NetworkChat() {
       )}
 
       {/* The hint bar doubles as the room's identity on mobile, where the page
-          heading is scrolled away. */}
+          heading is scrolled away.
+
+          THE BAR HAS TO BE TALL ENOUGH FOR THE CONTROL IN IT. It was `py-1` at
+          11px, which is a strip about eighteen pixels high, and the search field
+          was then squeezed into that - the "very, very cramped" report. The DM
+          thread header gives its search real height and reads properly, so this
+          matches it: enough room for a 36px field with air round it, and the
+          hint text steps up to the same size. */}
       {active && (
         <div className={cx(
-          'flex shrink-0 items-center gap-2 px-3 py-1 text-[11px] sm:px-4 sm:py-1.5 sm:text-xs',
+          'flex shrink-0 items-center gap-2.5 px-3 py-1.5 text-xs sm:px-4 sm:py-2',
           active.key === 'announcements' ? 'bg-brand-tint font-medium text-brand' : 'bg-cloud/60 text-smoke',
         )}>
           <RoomSearch value={search} onChange={setSearch} count={visible.length} total={messages.length} />
@@ -508,6 +595,14 @@ export default function NetworkChat() {
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={SOFT_SPRING}
+                // Tap a message on a phone to reveal its reaction button, the
+                // same bargain the DMs make. Taps on a link, a button or a video
+                // are left alone so the tap-to-reveal never eats a real one.
+                onClick={(e) => {
+                  if (!isMobile) return
+                  if (e.target.closest?.('a,button,video,input')) return
+                  setActionsFor((cur) => (cur === m.id ? null : m.id))
+                }}
                 className={cx('group/msg flex gap-3', grouped && '!mt-1')}
               >
                 <div className="w-9 shrink-0">
@@ -542,11 +637,13 @@ export default function NetworkChat() {
                         : renderMessageBody(m.body, { rich: true, members })}
                     </p>
                   )}
+                  <AttachedCard message={m} titles={cardTitles} />
                   <ReactionRow
                     messageId={m.id}
                     reactions={reactions}
                     myId={user?.id}
                     onToggle={toggleReaction}
+                    revealed={actionsFor === m.id}
                   />
                 </div>
               </motion.div>
@@ -702,7 +799,13 @@ export default function NetworkChat() {
               market reaches all of them from wherever they happen to be
               standing. It is still not a market switcher: these are rooms you
               are already in, not places to browse. */}
-          <nav aria-label="Rooms" className="hidden lg:flex lg:w-60 lg:shrink-0 lg:flex-col lg:gap-3 lg:overflow-y-auto lg:overscroll-contain lg:[scrollbar-width:none] lg:[&::-webkit-scrollbar]:hidden">
+          {/* `focus:outline-none` because Chrome makes any element with
+              `overflow-y: auto` keyboard focusable and paints its own grey
+              focus ring round the whole region the moment you click inside it -
+              which on a column of white cards reads as a box drawn round the
+              sidebar. The region stays wheel and keyboard scrollable; only the
+              ring goes. */}
+          <nav aria-label="Rooms" className="hidden focus:outline-none lg:flex lg:w-60 lg:shrink-0 lg:flex-col lg:gap-3 lg:overflow-y-auto lg:overscroll-contain lg:[scrollbar-width:none] lg:[&::-webkit-scrollbar]:hidden">
             <div className="rounded-card border border-gray-100 bg-white p-2 shadow-card">
               <p className="px-3 pb-1.5 pt-1 text-[10px] font-semibold uppercase tracking-widest text-smoke">
                 {community.name}
@@ -745,10 +848,14 @@ export default function NetworkChat() {
                 onReorder={saveRoomOrder}
                 handleLabel="Reorder this market"
                 className="flex flex-col gap-3"
+                // The lift lives on the CARD, not on Reorderable's wrapper. A
+                // shadow on the wrapper is a shadow at the wrong corner radius,
+                // and its four grey arcs poking past the card are what read as
+                // an outline down this column.
                 renderItem={(place, { handleProps, dragging }) => (
                   <div className={cx(
-                    'group rounded-card border bg-white p-2 shadow-card transition-colors',
-                    dragging ? 'border-brand/40' : 'border-gray-100',
+                    'group rounded-card border bg-white p-2 transition-shadow',
+                    dragging ? 'border-brand/40 shadow-lift' : 'border-gray-100 shadow-card',
                   )}>
                     <div className="flex items-center gap-1 px-1 pb-1.5 pt-1">
                       <Link

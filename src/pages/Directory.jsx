@@ -128,6 +128,21 @@ export default function Directory() {
   )
 
   const filtered = creators.filter((c) => {
+    // YOU ARE NOT IN YOUR OWN DIRECTORY.
+    //
+    // The grid is ordered by `last_seen_at`, and the person reading the page is
+    // by definition the most recently seen creator on it - so the first card in
+    // the directory was always your own, every single time you opened it. A
+    // directory is a list of other people; there is nothing to do with your own
+    // card here (no Connect, no Message) and it pushes a real creator off the
+    // first row.
+    //
+    // The MAP still shows you, deliberately: a map of where everyone is with
+    // you missing from it is a map that is wrong, and your own pin is how you
+    // find yourself among the others. `creators` is untouched, so the map, the
+    // count pill, the near-me distances and the filter dropdowns all still see
+    // the whole roster - only the card grid drops you.
+    if (c.id === user.id) return false
     if (connectionsOnly && !myConnectionIds.has(c.id)) return false
     if (travelOnly && !travellerIds.has(c.id)) return false
     if (nearMe && !nearIds.has(c.id)) return false

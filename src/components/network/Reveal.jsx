@@ -85,15 +85,33 @@ export default function Reveal({
     return () => io.disconnect()
   }, [node, shown])
 
-  // Belt and braces: if the observer has not fired within a second (a hidden
-  // tab, a preview pane where rAF is frozen, a layout that never scrolls),
-  // show the content anyway. An animation failing should cost the animation,
-  // never the content.
+  // Belt and braces, BUT ONLY FOR WHAT IS ACTUALLY ON SCREEN.
+  //
+  // This used to reveal everything unconditionally after a second, which was
+  // safe when a page had one Reveal wrapped round the whole article and is
+  // exactly wrong now that every section carries its own. A hub eleven sections
+  // long would quietly hand its motion to all of them one second after load -
+  // so the six screens you had not scrolled to yet were already finished by the
+  // time you got there, and the page read as "it just appears". That is the
+  // reported bug, and the fallback was causing it.
+  //
+  // So the net still catches a broken observer, and it checks first: if the
+  // element is genuinely within (or above) the viewport and still hidden,
+  // something has gone wrong and the content wins. If it is below the fold,
+  // waiting IS the correct behaviour and we keep waiting.
   useEffect(() => {
-    if (shown) return undefined
-    const t = setTimeout(() => setShown(true), 1000)
+    if (shown || !node) return undefined
+    const t = setTimeout(() => {
+      const vh = window.innerHeight || 0
+      // A viewport of zero height means we are somewhere that cannot answer the
+      // question - a headless pane, a hidden iframe - and "I cannot tell" must
+      // resolve to showing the content, never to hiding it.
+      if (vh === 0) { setShown(true); return }
+      const r = node.getBoundingClientRect()
+      if (r.top < vh) setShown(true)
+    }, 1200)
     return () => clearTimeout(t)
-  }, [shown])
+  }, [shown, node])
 
   // LOOK THROUGH A FRAGMENT.
   //

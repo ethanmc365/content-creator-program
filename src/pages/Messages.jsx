@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from 'react'
-import { confirm } from '../lib/confirm'
+import { confirm, notice } from '../lib/confirm'
 import { loadDraft, saveDraft, clearDraft } from '../lib/drafts'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -16,6 +16,11 @@ import { formatChatTime, formatMessageTime, messageTimeTitle, otherParticipant, 
 import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
 import ReactionPicker from '../components/ReactionPicker'
 import { RoomSearch } from '../components/ChatSearch'
+import { GroupAvatar, NewGroupModal, GroupSettingsModal } from '../components/GroupPanels'
+import {
+  groupName, acceptInvite, declineInvite, leaveGroup,
+  loadGroupMembers, loadMyInvites, markGroupRead,
+} from '../lib/groups'
 
 
 // A short label for a DM when it's quoted in a reply.
@@ -30,10 +35,22 @@ function dmPreview(m) {
 // On mobile you see one panel at a time; on desktop they sit side by side.
 export default function Messages() {
   const { conversationId } = useParams()
-  const { user, isAdmin } = useAuth()
+  const { user, profile, isAdmin } = useAuth()
   const navigate = useNavigate()
 
-  const [conversations, setConversations] = useState([]) // enriched with profile + unread
+  const [conversations, setConversations] = useState([]) // enriched with profile/members + unread
+  // GROUPS.
+  //
+  // The inbox holds two shapes now. A 'direct' conversation is the pair it has
+  // always been; a 'group' is a room with a membership table behind it. They
+  // share this page rather than getting a second one because they share
+  // everything that makes a conversation work - media, replies, reactions,
+  // typing, the mobile overlay - and because an inbox split in two is an inbox
+  // you have to check twice.
+  const [invites, setInvites] = useState([])          // groups waiting on my answer
+  const [showNewGroup, setShowNewGroup] = useState(false)
+  const [showGroupSettings, setShowGroupSettings] = useState(false)
+  const [groupInvites, setGroupInvites] = useState([]) // pending invites for the OPEN group
   const [thread, setThread] = useState([])
   const [reactions, setReactions] = useState([]) // dm_reactions for the open thread
   const [pickerFor, setPickerFor] = useState(null) // message id with emoji picker open
@@ -108,6 +125,19 @@ export default function Messages() {
   }, [isMobile])
 
   const active = conversations.find((c) => c.id === conversationId)
+  const isGroup = active?.kind === 'group'
+  const activeMembers = useMemo(() => active?.members ?? [], [active])
+  // Who a message is FROM, in a group. A 1:1 needs no such lookup - there are
+  // only two people and one of them is you - which is why the thread never
+  // carried sender profiles before.
+  const memberById = useMemo(
+    () => new Map(activeMembers.map((m) => [m.id, m])),
+    [activeMembers],
+  )
+  const activeTitle = isGroup ? groupName(active, activeMembers, user.id) : (active?.other?.name ?? 'Creator')
+  // A group has no "other" and therefore no DM gate: the gate exists to stop a
+  // stranger sending twelve messages to one person, and a room you were invited
+  // into is not that.
   const otherId = active?.other?.id
 
   // DM gating: a non-connection may send only until the other person replies
@@ -127,31 +157,70 @@ export default function Messages() {
 
   // ---------- Inbox ----------
   const loadConversations = useCallback(async () => {
-    const { data: convos } = await supabase
-      .from('conversations')
-      .select('*')
-      .order('last_message_at', { ascending: false })
+    const [{ data: convos }, myInvites] = await Promise.all([
+      supabase.from('conversations').select('*').order('last_message_at', { ascending: false }),
+      loadMyInvites(user.id),
+    ])
+    setInvites(myInvites)
     if (!convos?.length) {
       setConversations([])
       setLoadingList(false)
       return
     }
-    // Pull the other participant's profile + my unread count per conversation.
-    const otherIds = convos.map((c) => otherParticipant(c, user.id))
-    const [{ data: profiles }, { data: unreadMsgs }] = await Promise.all([
-      supabase.from('profiles').select('id, name, photo_url, is_admin, bio').in('id', otherIds),
+    const groups = convos.filter((c) => c.kind === 'group')
+    const directs = convos.filter((c) => c.kind !== 'group')
+
+    // The other participant of each 1:1, the membership of each group, and my
+    // unread counts, in as few round trips as the shapes allow.
+    const otherIds = directs.map((c) => otherParticipant(c, user.id)).filter(Boolean)
+    const [{ data: profiles }, { data: unreadMsgs }, memberData, { data: groupMsgs }] = await Promise.all([
+      otherIds.length
+        ? supabase.from('profiles').select('id, name, photo_url, is_admin, bio').in('id', otherIds)
+        : Promise.resolve({ data: [] }),
       supabase.from('direct_messages').select('id, conversation_id').eq('recipient_id', user.id).eq('read', false),
+      loadGroupMembers(groups.map((c) => c.id)),
+      // UNREAD IN A GROUP IS A WATERMARK, NOT A FLAG. `direct_messages.read` is
+      // one boolean on one row and a group message has many readers, so "new
+      // since you last looked" is `created_at > your last_read_at` instead.
+      groups.length
+        ? supabase.from('direct_messages')
+            .select('id, conversation_id, sender_id, created_at')
+            .in('conversation_id', groups.map((c) => c.id))
+        : Promise.resolve({ data: [] }),
     ])
+
     const profileById = Object.fromEntries((profiles ?? []).map((p) => [p.id, p]))
     const unreadByConvo = {}
     for (const m of unreadMsgs ?? []) unreadByConvo[m.conversation_id] = (unreadByConvo[m.conversation_id] || 0) + 1
 
+    const memberProfiles = new Map()
+    const myRow = new Map()
+    for (const [cid, rows] of memberData.byConversation) {
+      memberProfiles.set(cid, rows.map((r) => r.profiles).filter(Boolean))
+      const mine = rows.find((r) => r.profile_id === user.id)
+      if (mine) myRow.set(cid, mine)
+    }
+    const groupUnread = {}
+    for (const m of groupMsgs ?? []) {
+      if (m.sender_id === user.id) continue
+      const since = myRow.get(m.conversation_id)?.last_read_at
+      if (since && new Date(m.created_at) <= new Date(since)) continue
+      groupUnread[m.conversation_id] = (groupUnread[m.conversation_id] || 0) + 1
+    }
+
     setConversations(
-      convos.map((c) => ({
-        ...c,
-        other: profileById[otherParticipant(c, user.id)],
-        unread: unreadByConvo[c.id] || 0,
-      }))
+      convos.map((c) => (c.kind === 'group'
+        ? {
+            ...c,
+            members: memberProfiles.get(c.id) || [],
+            myRole: myRow.get(c.id)?.role ?? null,
+            unread: groupUnread[c.id] || 0,
+          }
+        : {
+            ...c,
+            other: profileById[otherParticipant(c, user.id)],
+            unread: unreadByConvo[c.id] || 0,
+          }))
     )
     setLoadingList(false)
   }, [user.id])
@@ -222,18 +291,36 @@ export default function Messages() {
         setReactions([])
       }
       setLoadingThread(false)
-      // Mark everything they sent me as read.
-      await supabase
-        .from('direct_messages')
-        .update({ read: true })
-        .eq('conversation_id', conversationId)
-        .eq('recipient_id', user.id)
-        .eq('read', false)
+      // Mark everything they sent me as read. In a group there is no per-reader
+      // flag on the message - one row, many readers - so the watermark on my
+      // own membership row moves instead.
+      await Promise.all([
+        supabase
+          .from('direct_messages')
+          .update({ read: true })
+          .eq('conversation_id', conversationId)
+          .eq('recipient_id', user.id)
+          .eq('read', false),
+        markGroupRead(conversationId, user.id),
+      ])
       loadConversations() // refresh unread badges
     }
     loadThread()
     return () => { cancelled = true }
   }, [conversationId, user.id, loadConversations])
+
+  // The invites still waiting on other people for the group that is open, so
+  // the settings panel can say "3 invites not answered yet" rather than
+  // silently offering to invite somebody who already has one.
+  useEffect(() => {
+    if (!isGroup || !conversationId) { setGroupInvites([]); return undefined }
+    let cancelled = false
+    supabase.from('conversation_invites')
+      .select('id, invited_profile_id, status')
+      .eq('conversation_id', conversationId).eq('status', 'pending')
+      .then(({ data }) => { if (!cancelled) setGroupInvites(data || []) })
+    return () => { cancelled = true }
+  }, [isGroup, conversationId, showGroupSettings])
 
   // ---------- Realtime: new DMs in any of my conversations ----------
   useEffect(() => {
@@ -241,13 +328,25 @@ export default function Messages() {
       .channel(`dms-${user.id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'direct_messages' }, async (payload) => {
         const msg = payload.new
-        // Only react to messages I can see (mine or to me).
-        if (msg.sender_id !== user.id && msg.recipient_id !== user.id) return
+        // Only react to messages I can see: mine, addressed to me, or posted in
+        // a conversation I am in. That last clause is what carries GROUP
+        // messages - they have no recipient at all, so the old two-way test
+        // dropped every one of them and a group only updated on a reload.
+        // Realtime already applies RLS, so anything that arrives here is
+        // something this session is allowed to read; this is about which OPEN
+        // thread it belongs to.
+        const mine = msg.sender_id === user.id || msg.recipient_id === user.id
+        if (!mine && msg.conversation_id !== conversationId) return
         if (msg.conversation_id === conversationId) {
           setThread((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]))
           // I'm looking at this thread - mark it read immediately.
           if (msg.recipient_id === user.id) {
             await supabase.from('direct_messages').update({ read: true }).eq('id', msg.id)
+          } else if (msg.recipient_id == null && msg.sender_id !== user.id) {
+            // A group message arriving in the thread I have open. Move the
+            // watermark or `loadConversations` below will count it as unread
+            // while it is on my screen.
+            await markGroupRead(msg.conversation_id, user.id)
           }
         }
         loadConversations()
@@ -273,39 +372,43 @@ export default function Messages() {
   }, [user.id, conversationId, loadConversations])
 
   // ---------- Typing indicator (realtime broadcast, no DB writes) ----------
-  const [otherTyping, setOtherTyping] = useState(false)
+  // In a 1:1 there is only one person who could be typing, so this was a
+  // boolean. In a group it has to say WHO, or "someone is typing" in a room of
+  // eight is noise.
+  const [otherTyping, setOtherTyping] = useState(null) // null | { id, name }
   const typingChanRef = useRef(null)
   const typingSentRef = useRef(0)
   const typingTimerRef = useRef(null)
   useEffect(() => {
-    setOtherTyping(false)
+    setOtherTyping(null)
     if (!conversationId) return
     const ch = supabase.channel(`dm-typing-${conversationId}`, { config: { broadcast: { self: false } } })
     ch.on('broadcast', { event: 'typing' }, ({ payload }) => {
       if (!payload || payload.id === user.id) return
-      setOtherTyping(!!payload.typing)
+      setOtherTyping(payload.typing ? { id: payload.id, name: payload.name } : null)
       clearTimeout(typingTimerRef.current)
-      if (payload.typing) typingTimerRef.current = setTimeout(() => setOtherTyping(false), 4500)
+      if (payload.typing) typingTimerRef.current = setTimeout(() => setOtherTyping(null), 4500)
     }).subscribe()
     typingChanRef.current = ch
     return () => {
       clearTimeout(typingTimerRef.current)
       supabase.removeChannel(ch)
       typingChanRef.current = null
-      setOtherTyping(false)
+      setOtherTyping(null)
     }
   }, [conversationId, user.id])
 
+  const myName = profile?.name ?? 'Someone'
   const pingTyping = useCallback(() => {
     const now = Date.now()
     if (now - typingSentRef.current < 1500) return
     typingSentRef.current = now
-    typingChanRef.current?.send({ type: 'broadcast', event: 'typing', payload: { id: user.id, typing: true } })
-  }, [user.id])
+    typingChanRef.current?.send({ type: 'broadcast', event: 'typing', payload: { id: user.id, name: myName, typing: true } })
+  }, [user.id, myName])
   const stopTyping = useCallback(() => {
     typingSentRef.current = 0
-    typingChanRef.current?.send({ type: 'broadcast', event: 'typing', payload: { id: user.id, typing: false } })
-  }, [user.id])
+    typingChanRef.current?.send({ type: 'broadcast', event: 'typing', payload: { id: user.id, name: myName, typing: false } })
+  }, [user.id, myName])
 
   // ---------- Admin: long-press a message to delete it for everyone ----------
   async function deleteDm(m) {
@@ -342,12 +445,13 @@ export default function Messages() {
     }
   }
 
-  // Only two people in a DM, so a reactor is either me or the other participant.
+  // Two people in a DM, so a reactor is either me or the other participant. In
+  // a group it is whoever the membership says it is.
   const reactorName = useCallback((id) => {
     if (id === user.id) return 'You'
     if (id === active?.other?.id) return active?.other?.name ?? 'Them'
-    return 'Someone'
-  }, [user.id, active?.other?.id, active?.other?.name])
+    return memberById.get(id)?.name ?? 'Someone'
+  }, [user.id, active?.other?.id, active?.other?.name, memberById])
 
   // Group reactions per message: { '❤️': { count, mine, ids: [...] } }
   function reactionSummary(messageId) {
@@ -374,10 +478,32 @@ export default function Messages() {
   const convTimer = useRef(null)
   const convLongPressed = useRef(false)
   async function deleteConversation(c) {
+    // LEAVING A GROUP IS NOT DELETING IT. A long-press that ended everybody
+    // else's conversation because one member wanted it out of their inbox would
+    // be a genuinely destructive accident, and RLS refuses it anyway unless you
+    // own the group - so the gesture means "leave" here, and deleting for
+    // everyone lives behind a named button in the settings panel.
+    if (c.kind === 'group') {
+      const name = groupName(c, c.members, user.id)
+      if (!await confirm(`Leave ${name}? The conversation carries on without you.`)) return
+      setConversations((prev) => prev.filter((x) => x.id !== c.id))
+      if (c.id === conversationId) navigate('/messages')
+      await leaveGroup(c.id, user.id)
+      return
+    }
     if (!await confirm(`Delete your conversation with ${c.other?.name ?? 'this creator'}? This removes the whole thread.`)) return
     setConversations((prev) => prev.filter((x) => x.id !== c.id))
     if (c.id === conversationId) navigate('/messages')
     await supabase.from('conversations').delete().eq('id', c.id)
+  }
+
+  // ---------- Group invites ----------
+  async function answerInvite(invite, yes) {
+    setInvites((prev) => prev.filter((i) => i.id !== invite.id))
+    const { error } = yes ? await acceptInvite(invite, user.id) : await declineInvite(invite)
+    if (error) { notice(error); loadConversations(); return }
+    await loadConversations()
+    if (yes) navigate(`/messages/${invite.conversation_id}`)
   }
   const startConvPress = (c) => { convTimer.current = setTimeout(() => { convLongPressed.current = true; deleteConversation(c) }, 550) }
   const cancelConvPress = () => clearTimeout(convTimer.current)
@@ -531,7 +657,10 @@ export default function Messages() {
     const { error } = await supabase.from('direct_messages').insert({
       conversation_id: conversationId,
       sender_id: user.id,
-      recipient_id: otherParticipant(active, user.id),
+      // A GROUP MESSAGE IS ADDRESSED TO THE ROOM. `recipient_id` stays null,
+      // and the RLS policy insists on it: a message in a group that named a
+      // recipient would land in somebody's 1:1 unread count.
+      recipient_id: isGroup ? null : otherParticipant(active, user.id),
       body: body.trim(),
       ...(replyId ? { reply_to: replyId } : {}),
     })
@@ -560,7 +689,7 @@ export default function Messages() {
       const { error } = await supabase.from('direct_messages').insert({
         conversation_id: conversationId,
         sender_id: user.id,
-        recipient_id: otherParticipant(active, user.id),
+        recipient_id: isGroup ? null : otherParticipant(active, user.id),
         body: body.trim(),
         image_url: path,
         ...(replyId ? { reply_to: replyId } : {}),
@@ -577,7 +706,12 @@ export default function Messages() {
   const q = search.trim().toLowerCase()
   // Existing threads that match what you typed.
   const shownConversations = q
-    ? conversations.filter((c) => (c.other?.name ?? '').toLowerCase().includes(q))
+    ? conversations.filter((c) => (c.kind === 'group'
+        ? groupName(c, c.members, user.id).toLowerCase().includes(q)
+          // A group is also findable by who is in it, which is how you find the
+          // one whose name you never bothered to set.
+          || (c.members || []).some((m) => (m.name ?? '').toLowerCase().includes(q))
+        : (c.other?.name ?? '').toLowerCase().includes(q)))
     : conversations
   // Creators you match but haven't messaged yet: "start a new chat with…".
   const talkingTo = new Set(conversations.map((c) => c.other?.id).filter(Boolean))
@@ -636,7 +770,20 @@ export default function Messages() {
           aria-label="Conversations"
         >
           <div className="border-b border-gray-100 px-5 py-4">
-            <h1 className="text-lg font-bold">Messages</h1>
+            <div className="flex items-center justify-between gap-2">
+              <h1 className="text-lg font-bold">Messages</h1>
+              {/* Starting a group is a different intent from finding a person,
+                  so it is a different control. Folding it into the search box
+                  ("type a name…") would mean the only way to discover groups
+                  exist is to already know. */}
+              <button
+                type="button"
+                onClick={() => setShowNewGroup(true)}
+                className="flex items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold text-smoke transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand"
+              >
+                <Icon name="users" className="h-3.5 w-3.5" /> New group
+              </button>
+            </div>
             {/* Search doubles as the "new message" entry point: type a name to
                 filter your threads and to start a fresh one with anyone in the
                 community, instead of scrolling the inbox to find them. */}
@@ -664,6 +811,38 @@ export default function Messages() {
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto">
+            {/* GROUP INVITES SIT ABOVE THE INBOX.
+                An invite is the one thing here that expires socially: a group
+                gets going in its first day or it never does. Putting it in the
+                notification list and nowhere else means it is answered by
+                whoever happens to check notifications, which is not everybody. */}
+            {invites.length > 0 && !q && (
+              <div className="border-b border-gray-100 bg-brand-tint/25 px-3 py-3">
+                <p className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-brand">
+                  Group invite{invites.length === 1 ? '' : 's'}
+                </p>
+                <div className="space-y-1.5">
+                  {invites.map((i) => (
+                    <div key={i.id} className="flex items-center gap-2.5 rounded-xl bg-white px-3 py-2.5">
+                      <GroupAvatar conversation={i.conversations} size="sm" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold">{i.conversations?.title || 'A group'}</p>
+                        <p className="truncate text-xs text-smoke">
+                          {i.inviter?.name?.split(' ')[0] ?? 'Someone'} invited you
+                        </p>
+                      </div>
+                      <button type="button" onClick={() => answerInvite(i, true)}
+                        className="btn-primary shrink-0 !px-3 !py-1.5 !text-xs">Join</button>
+                      <button type="button" onClick={() => answerInvite(i, false)} aria-label="Decline invite"
+                        className="shrink-0 rounded-full p-1.5 text-smoke transition-colors hover:bg-cloud hover:text-ink">
+                        <Icon name="close" className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {loadingList && (
               <div className="space-y-4 p-5">
                 {Array.from({ length: 4 }).map((_, i) => (
@@ -729,11 +908,17 @@ export default function Messages() {
                   c.id === conversationId && 'bg-brand-tint/50'
                 )}
               >
-                <Avatar src={c.other?.photo_url} name={c.other?.name} size="md" />
+                {c.kind === 'group'
+                  ? <GroupAvatar conversation={c} members={c.members} />
+                  : <Avatar src={c.other?.photo_url} name={c.other?.name} size="md" />}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="truncate text-sm font-semibold">{c.other?.name ?? 'Creator'}</p>
-                    {c.other?.is_admin && <Badge tone="light" className="!px-2 !py-0">Tryp.com</Badge>}
+                    <p className="truncate text-sm font-semibold">
+                      {c.kind === 'group' ? groupName(c, c.members, user.id) : (c.other?.name ?? 'Creator')}
+                    </p>
+                    {c.kind === 'group'
+                      ? <Badge tone="light" className="!px-2 !py-0">{c.members?.length ?? 0}</Badge>
+                      : c.other?.is_admin && <Badge tone="light" className="!px-2 !py-0">Tryp.com</Badge>}
                   </div>
                   <p className="truncate text-xs text-smoke">{formatChatTime(c.last_message_at)}</p>
                 </div>
@@ -777,7 +962,29 @@ export default function Messages() {
                 <button onClick={() => navigate('/messages')} className="rounded-full p-2 text-smoke hover:bg-cloud sm:hidden" aria-label="Back to inbox">
                   <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
                 </button>
-                {active?.other && (
+                {isGroup ? (
+                  // The whole header is the way into the group's settings.
+                  // Renaming a group is something you do BECAUSE you are
+                  // looking at its name, so the name is the button.
+                  <button
+                    type="button"
+                    onClick={() => setShowGroupSettings(true)}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                  >
+                    <GroupAvatar conversation={active} members={activeMembers} size="sm" />
+                    <div className="min-w-0">
+                      <p className="flex items-center gap-1.5 truncate text-sm font-semibold hover:text-brand">
+                        {activeTitle}
+                        <Icon name="pencil" className="h-3 w-3 shrink-0 text-gray-300" />
+                      </p>
+                      <p className="truncate text-xs text-smoke">
+                        {activeMembers.length} {activeMembers.length === 1 ? 'member' : 'members'}
+                        {activeMembers.length > 0 && ' · '}
+                        {activeMembers.filter((m) => m.id !== user.id).map((m) => m.name?.split(' ')[0]).join(', ')}
+                      </p>
+                    </div>
+                  </button>
+                ) : active?.other && (
                   <Link to={`/profile/${active.other.id}`} className="flex min-w-0 flex-1 items-center gap-3">
                     <Avatar src={active.other.photo_url} name={active.other.name} size="sm" />
                     <div className="min-w-0">
@@ -794,6 +1001,7 @@ export default function Messages() {
                   onChange={setThreadSearch}
                   count={visibleThread.length}
                   total={thread.length}
+                  label="Search this conversation"
                 />
               </div>
 
@@ -818,8 +1026,17 @@ export default function Messages() {
                 className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-5 py-6"
               >
                 {loadingThread && <div className="space-y-3"><Skeleton className="h-10 w-2/3" /><Skeleton className="ml-auto h-10 w-1/2" /><Skeleton className="h-10 w-3/5" /></div>}
-                {!loadingThread && visibleThread.map((m) => {
+                {!loadingThread && visibleThread.map((m, i) => {
                   const mine = m.sender_id === user.id
+                  // WHO SAID IT. A 1:1 never needed this - there are two people
+                  // and one of them is you - but eight anonymous grey bubbles
+                  // is not a conversation. Shown once per run of consecutive
+                  // messages from the same person, and suppressed entirely
+                  // while searching, where "consecutive" is not true.
+                  const sender = isGroup && !mine ? memberById.get(m.sender_id) : null
+                  const startsRun = !threadSearch.trim()
+                    ? visibleThread[i - 1]?.sender_id !== m.sender_id
+                    : true
                   // Private DM media resolves to a signed URL; legacy public URLs pass through.
                   const imageSrc = m.image_url ? (isSignedDmPath(m.image_url) ? signedUrls.get(m.image_url) : m.image_url) : null
                   const isVid = m.image_url && mediaType(m.image_url) === 'video'
@@ -827,12 +1044,29 @@ export default function Messages() {
                   const orig = m.reply_to ? thread.find((x) => x.id === m.reply_to) : null
                   const showActions = actionsFor === m.id
                   return (
-                    <div key={m.id} id={`dm-${m.id}`} className={cx('group flex', mine && 'justify-end')}>
+                    <div key={m.id} id={`dm-${m.id}`} className={cx('group flex gap-2', mine && 'justify-end')}>
+                      {/* The face column. Reserved even on the rows that do not
+                          draw one, so a run of messages from one person stays
+                          aligned under the first. */}
+                      {isGroup && !mine && (
+                        <span className="w-8 shrink-0 self-end pb-5">
+                          {startsRun && (
+                            <Link to={`/profile/${m.sender_id}`}>
+                              <Avatar src={sender?.photo_url} name={sender?.name} size="xs" />
+                            </Link>
+                          )}
+                        </span>
+                      )}
                       <div
                         className="min-w-0 max-w-[80%] sm:max-w-[65%]"
                         // Tap a message on mobile to reveal its reply / react actions.
                         onClick={(e) => { if (isMobile && !e.target.closest('a,button,video,input')) setActionsFor(showActions ? null : m.id) }}
                       >
+                        {isGroup && !mine && startsRun && (
+                          <p className="mb-0.5 truncate pl-1 text-[11px] font-semibold text-smoke">
+                            {sender?.name ?? 'Someone'}
+                          </p>
+                        )}
                         <div
                           className={cx(
                           'max-w-full whitespace-pre-line break-words rounded-2xl text-sm leading-relaxed',
@@ -851,7 +1085,7 @@ export default function Messages() {
                               )}
                             >
                               <span className={cx('block truncate text-[11px] font-semibold', mine ? 'text-white' : 'text-brand')}>
-                                {orig ? (orig.sender_id === user.id ? 'You' : active?.other?.name) : 'Original message'}
+                                {orig ? (orig.sender_id === user.id ? 'You' : reactorName(orig.sender_id)) : 'Original message'}
                               </span>
                               {/* line-clamp, NOT truncate: nowrap made this preview's min-content
                                   width the whole quoted line, and the shrink-to-fit bubble grew to
@@ -940,7 +1174,9 @@ export default function Messages() {
                       <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-smoke [animation-delay:-0.1s]" />
                       <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-smoke" />
                     </span>
-                    <span className="italic">{active?.other?.name?.split(' ')[0]} is typing…</span>
+                    <span className="italic">
+                      {(otherTyping.name || active?.other?.name || 'Someone').split(' ')[0]} is typing…
+                    </span>
                   </div>
                 )}
                 {!atBottom && (
@@ -974,7 +1210,7 @@ export default function Messages() {
                   <div className="mb-2 flex items-center gap-2 rounded-xl border-l-2 border-brand bg-cloud/70 px-3 py-2">
                     <div className="min-w-0 flex-1">
                       <p className="text-[11px] font-semibold text-brand">
-                        Replying to {replyTo.sender_id === user.id ? 'yourself' : active?.other?.name?.split(' ')[0]}
+                        Replying to {replyTo.sender_id === user.id ? 'yourself' : reactorName(replyTo.sender_id).split(' ')[0]}
                       </p>
                       <p className="truncate text-xs text-smoke">{dmPreview(replyTo)}</p>
                     </div>
@@ -997,7 +1233,7 @@ export default function Messages() {
                     ref={taRef}
                     rows={1}
                     className="input max-h-32 flex-1 resize-none overflow-y-auto"
-                    placeholder={`Message ${active?.other?.name?.split(' ')[0] ?? ''}…`}
+                    placeholder={`Message ${isGroup ? activeTitle : (active?.other?.name?.split(' ')[0] ?? '')}…`}
                     value={body}
                     onChange={(e) => { setBody(e.target.value); saveDraft('dm-' + conversationId, e.target.value); if (e.target.value.trim()) pingTyping() }}
                     onBlur={stopTyping}
@@ -1017,6 +1253,34 @@ export default function Messages() {
           )}
         </section>
       </div>
+
+      <NewGroupModal
+        open={showNewGroup}
+        onClose={() => setShowNewGroup(false)}
+        people={people}
+        connectionIds={connectionIds}
+        myId={user.id}
+        onCreated={async (id) => {
+          setShowNewGroup(false)
+          await loadConversations()
+          navigate(`/messages/${id}`)
+        }}
+      />
+
+      {isGroup && (
+        <GroupSettingsModal
+          open={showGroupSettings}
+          onClose={() => setShowGroupSettings(false)}
+          conversation={active}
+          members={activeMembers}
+          invites={groupInvites}
+          myId={user.id}
+          people={people}
+          connectionIds={connectionIds}
+          onChanged={loadConversations}
+          onLeft={() => { setShowGroupSettings(false); loadConversations(); navigate('/messages') }}
+        />
+      )}
     </div>
   )
 }

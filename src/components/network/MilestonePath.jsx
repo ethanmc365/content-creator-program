@@ -107,6 +107,21 @@ function pointAtFraction(segs, f) {
   return cubicAt(segs[i], t - i)
 }
 
+// The aircraft, drawn nose-up at the origin. `rotate="auto"` on animateMotion
+// aligns the local +x axis with the direction of travel, so the glyph is turned
+// a quarter turn to put its nose there. Module scope: a component defined during
+// render is a new type on every render, and this one is inside an SVG that
+// re-renders on every resize observation.
+const PLANE_D = 'M0 -9 C0.9 -9 1.5 -7.4 1.5 -5.1 L1.5 -3.6 L8.2 0.8 L8.2 2.5 L1.5 -0.2 L1.5 4.1 L3.6 6.2 L3.6 7.5 L0 6.3 L-3.6 7.5 L-3.6 6.2 L-1.5 4.1 L-1.5 -0.2 L-8.2 2.5 L-8.2 0.8 L-1.5 -3.6 L-1.5 -5.1 C-1.5 -7.4 -0.9 -9 0 -9 Z'
+
+function PlaneMark() {
+  return (
+    <g transform="rotate(90)">
+      <path d={PLANE_D} fill="#d94407" stroke="#ffffff" strokeWidth="1.4" strokeLinejoin="round" />
+    </g>
+  )
+}
+
 const REWARD_TONE = {
   merch: 'bg-brand text-white',
   voucher: 'bg-green-600 text-white',
@@ -156,6 +171,44 @@ export default function MilestonePath({ milestones = [], standings = [], preview
     return () => ro.disconnect()
   }, [box0])
 
+  // THE FLIGHT STARTS WHEN YOU LOOK AT IT.
+  //
+  // THE BUG THIS FIXES. The plane was driven by `animateMotion`, and SMIL
+  // begins against the SVG document's own timeline the moment the element
+  // exists - not when the element is seen. The orange line underneath it used
+  // Motion's `whileInView`, which waits. So on a page you have to scroll to
+  // reach, the plane had already flown its whole route and parked (fill=freeze)
+  // before you got there, and all you ever saw was the line drawing itself
+  // under a stationary aircraft. That is "the animation still isn't what I
+  // wanted": the flight was real, it just happened to nobody.
+  //
+  // `begin="indefinite"` means SMIL will not start on its own. An observer
+  // starts it, and starts the line with it, so the two are the same movement.
+  const [started, setStarted] = useState(false)
+  const [glowAnim, setGlowAnim] = useState(null)
+  const [planeAnim, setPlaneAnim] = useState(null)
+
+  useEffect(() => {
+    if (!box0 || started) return undefined
+    if (typeof IntersectionObserver === 'undefined') { setStarted(true); return undefined }
+    const io = new IntersectionObserver(
+      (entries) => { if (entries.some((e) => e.isIntersecting)) setStarted(true) },
+      { rootMargin: '0px 0px -15% 0px' },
+    )
+    io.observe(box0)
+    return () => io.disconnect()
+  }, [box0, started])
+
+  useEffect(() => {
+    if (!started) return
+    // beginElement is the only way to start an `indefinite` SMIL animation, and
+    // it throws in engines that stubbed the element without implementing it.
+    // A route that draws without its plane is a degraded route, not a broken
+    // page, so a failure here is swallowed.
+    try { glowAnim?.beginElement() } catch { /* no SMIL */ }
+    try { planeAnim?.beginElement() } catch { /* no SMIL */ }
+  }, [started, glowAnim, planeAnim])
+
   // Node 0 is "you joined". Everything after it is a milestone, so a creator
   // with nothing done yet still sees a road with a start on it rather than an
   // empty state.
@@ -175,6 +228,36 @@ export default function MilestonePath({ milestones = [], standings = [], preview
 
   const planeSeg = segs[Math.min(reached, segs.length - 1)]
   const plane = planeSeg ? cubicAt(planeSeg, reached >= segs.length ? 1 : legFraction) : null
+  // Where the aeroplane waits before take-off: the first dot, facing the way
+  // the route leaves it. Null once the flight has started.
+  const start = !started && segs.length ? cubicAt(segs[0], 0) : null
+
+  // HOW LONG THE FLIGHT TAKES.
+  //
+  // Scaled to the distance actually being flown, not fixed. A creator one stop
+  // in and a creator who has finished the whole route were both given 1.4
+  // seconds, which made the first look like a twitch and the second look like a
+  // fast-forward - and 1.4s over five stops is roughly 250ms per leg, which is
+  // below the point at which the eye reads a moving object as travelling rather
+  // than teleporting. Per-leg pacing keeps every route feeling like the same
+  // aeroplane. The floor stops a two-percent journey being over before it
+  // registers; the ceiling stops a long route becoming something you wait for.
+  const flightSeconds = Math.max(2.4, Math.min(7.5, 1 + progress * legs * 1.2))
+  // Slow off the mark, cruise, settle onto the stop. An ease-out alone lands
+  // the plane correctly but leaves it at full speed the instant it starts,
+  // which reads as being thrown rather than taking off.
+  const FLIGHT_SPLINE = '0.42 0 0.16 1'
+
+  // A stop lights up as the plane reaches it, rather than the whole ladder
+  // popping in on its own stagger while the aircraft is still on leg one. Nodes
+  // beyond where the creator has got to arrive just after the plane parks -
+  // they are the route ahead, and the route ahead is part of the picture.
+  const arrivalDelay = (i) => {
+    const f = i / legs
+    if (progress <= 0) return Math.min(i * 0.12, 1)
+    if (f >= progress) return flightSeconds + Math.min((f - progress) * legs * 0.12, 0.6)
+    return (f / progress) * flightSeconds
+  }
 
   // WHERE EVERYBODY ELSE IS.
   //
@@ -217,6 +300,10 @@ export default function MilestonePath({ milestones = [], standings = [], preview
         {/* The part already flown. `pathLength` is animated rather than the
             dasharray, so Motion owns the arithmetic and the route draws itself
             from the start rather than fading in as a finished line. */}
+        {/* Driven by the SAME trigger and the SAME duration as the plane. It
+            used to have its own `whileInView` at its own duration, which is how
+            the two came apart: the line waited to be seen and the plane did
+            not. The line is the plane's contrail; they are one animation. */}
         <motion.path
           d={d}
           fill="none"
@@ -224,9 +311,8 @@ export default function MilestonePath({ milestones = [], standings = [], preview
           strokeWidth="4"
           strokeLinecap="round"
           initial={{ pathLength: 0 }}
-          whileInView={{ pathLength: progress }}
-          viewport={{ once: true, margin: '0px 0px -20% 0px' }}
-          transition={{ duration: 1.4, ease: EASE }}
+          animate={{ pathLength: started ? progress : 0 }}
+          transition={{ duration: flightSeconds, ease: [0.42, 0, 0.16, 1] }}
         />
 
         {/* THE PLANE FLIES THE ROUTE, IT DOES NOT APPEAR ON IT.
@@ -245,30 +331,49 @@ export default function MilestonePath({ milestones = [], standings = [], preview
         {/* Drawn even at zero progress: a creator who has not reached a stop
             yet is AT THE START of the route, which is a place on it, and a
             route with no plane on it looks like a route that is not yours. */}
-        {plane && (
-          <g>
-            <circle r="15" fill="#d94407" opacity="0.14">
-              <animateMotion
-                dur="1.4s" fill="freeze" path={d}
-                keyPoints={`0;${progress}`} keyTimes="0;1" calcMode="spline" keySplines="0.22 1 0.36 1"
-              />
-            </circle>
+        {plane && (start
+          ? (
+            /* PARKED AT THE FIRST DOT UNTIL THE FLIGHT BEGINS.
+               An `animateMotion` with `begin="indefinite"` contributes NOTHING
+               until it is triggered, so its target sits at the local origin -
+               the top-left corner of the viewBox. Rendering the animated group
+               before the trigger therefore parks a plane in the corner of the
+               card until you scroll to it. This static copy holds the start of
+               the route instead, turned to face the way the route leaves it,
+               and is swapped for the animated one at take-off. */
+            <g transform={`translate(${start.x} ${start.y}) rotate(${start.angle})`}>
+              <circle r="15" fill="#d94407" opacity="0.14" />
+              <PlaneMark />
+            </g>
+          )
+          : (
             <g>
-              <g transform="rotate(90)">
-                <path
-                  d="M0 -9 C0.9 -9 1.5 -7.4 1.5 -5.1 L1.5 -3.6 L8.2 0.8 L8.2 2.5 L1.5 -0.2 L1.5 4.1 L3.6 6.2 L3.6 7.5 L0 6.3 L-3.6 7.5 L-3.6 6.2 L-1.5 4.1 L-1.5 -0.2 L-8.2 2.5 L-8.2 0.8 L-1.5 -3.6 L-1.5 -5.1 C-1.5 -7.4 -0.9 -9 0 -9 Z"
-                  fill="#d94407"
-                  stroke="#ffffff"
-                  strokeWidth="1.4"
-                  strokeLinejoin="round"
+              <circle r="15" fill="#d94407" opacity="0.14">
+                <animateMotion
+                  ref={setGlowAnim}
+                  begin="indefinite"
+                  dur={`${flightSeconds}s`} fill="freeze" path={d}
+                  keyPoints={`0;${progress}`} keyTimes="0;1" calcMode="spline" keySplines={FLIGHT_SPLINE}
+                />
+              </circle>
+              <g>
+                <PlaneMark />
+                {/* `begin="indefinite"` + beginElement, NOT a bare dur. See the
+                    note on `started` above: SMIL against the document timeline
+                    had already finished by the time anybody scrolled here.
+                    keyPoints stops the flight at exactly the creator's own
+                    position and fill="freeze" parks it there - somebody one stop
+                    in watches the plane fly one stop and land, which is the
+                    whole point of drawing a route instead of a bar. */}
+                <animateMotion
+                  ref={setPlaneAnim}
+                  begin="indefinite"
+                  dur={`${flightSeconds}s`} fill="freeze" rotate="auto" path={d}
+                  keyPoints={`0;${progress}`} keyTimes="0;1" calcMode="spline" keySplines={FLIGHT_SPLINE}
                 />
               </g>
-              <animateMotion
-                dur="1.4s" fill="freeze" rotate="auto" path={d}
-                keyPoints={`0;${progress}`} keyTimes="0;1" calcMode="spline" keySplines="0.22 1 0.36 1"
-              />
             </g>
-          </g>
+          )
         )}
 
         {/* EVERYONE ELSE ON THE ROAD, WHERE THEY ACTUALLY ARE.
@@ -303,9 +408,9 @@ export default function MilestonePath({ milestones = [], standings = [], preview
             <motion.g
               key={n.id || 'start'}
               initial={{ scale: 0.4, opacity: 0 }}
-              whileInView={{ scale: 1, opacity: 1 }}
-              viewport={{ once: true, margin: '0px 0px -15% 0px' }}
-              transition={{ delay: Math.min(i * 0.08, 0.8), type: 'spring', stiffness: 320, damping: 22 }}
+              animate={started ? { scale: 1, opacity: 1 } : { scale: 0.4, opacity: 0 }}
+              // A stop appears as the plane gets to it, not on its own stagger.
+              transition={{ delay: arrivalDelay(i), type: 'spring', stiffness: 320, damping: 22 }}
               style={{ transformOrigin: `${x}px ${y}px` }}
             >
               {isNext && (
@@ -346,9 +451,8 @@ export default function MilestonePath({ milestones = [], standings = [], preview
           <motion.div
             key={n.id || 'start-label'}
             initial={{ opacity: 0, x: rightSide ? -10 : 10 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true, margin: '0px 0px -15% 0px' }}
-            transition={{ delay: Math.min(i * 0.08 + 0.1, 0.9), duration: 0.45, ease: EASE }}
+            animate={started ? { opacity: 1, x: 0 } : { opacity: 0, x: rightSide ? -10 : 10 }}
+            transition={{ delay: arrivalDelay(i) + 0.12, duration: 0.5, ease: EASE }}
             className={cx('absolute', rightSide ? 'text-left' : 'text-right')}
             style={{
               top: `${(y / H) * 100}%`,

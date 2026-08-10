@@ -9,7 +9,7 @@ import NetworkLayout, { RailCard, flagFromIso } from '../components/network/Netw
 import NetworkMotion from '../components/NetworkMotion'
 import TrypPlane from '../components/network/TrypPlane'
 import LiveChallengeCard from '../components/network/LiveChallengeCard'
-import { CountUp, RiseIn } from '../components/network/Motion'
+import { CountUp } from '../components/network/Motion'
 import ProfileProgress from '../components/network/ProfileProgress'
 import Reorderable from '../components/network/Reorderable'
 import FlagStack from '../components/network/FlagStack'
@@ -20,7 +20,7 @@ import { Avatar, EmptyState, Skeleton } from '../components/ui'
 import { flagForCountry } from '../lib/flags'
 import { stripMarkup } from '../lib/richText'
 import { cx, timeAgo } from '../lib/utils'
-import { listContainer, listItem, cardHover,  SOFT_SPRING } from '../lib/motion'
+import { cardHover } from '../lib/motion'
 import Reveal from '../components/network/Reveal'
 
 // The Worldwide hub. Reads as a HOME PAGE, not a directory of markets: a
@@ -65,7 +65,6 @@ function MarketCard({ chapter, mine, isHome, memberCount, hasLive }) {
   return (
     <MotionLink
       to={`/c/${chapter.slug}`}
-      variants={listItem}
       {...cardHover}
       className={cx(
         'flex items-center gap-3 rounded-card border bg-white px-5 py-4 hover:shadow-lift',
@@ -175,7 +174,13 @@ function orderLinks(order) {
 // a link. Same shape as NetworkLinkRow below, for the same reason.
 function MarketLinkRow({ market, live, handleProps, dragging }) {
   return (
-    <div className={cx('group flex items-center gap-1 rounded-xl transition-colors', !dragging && 'hover:bg-cloud')}>
+    <div className={cx(
+      'group flex items-center gap-1 rounded-xl transition-shadow',
+      // The lift is on the row itself. Reorderable used to draw it on its own
+      // wrapper, at a different corner radius, which showed as grey arcs at the
+      // corners of whatever was being dragged.
+      dragging ? 'bg-white shadow-card' : 'hover:bg-cloud',
+    )}>
       <Link to={`/c/${market.slug}`} className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-3 py-2 text-sm">
         <FlagStack codes={market.country_codes} className="text-[13px]" />
         <span className="min-w-0 flex-1 truncate">{market.name}</span>
@@ -200,7 +205,13 @@ const GRIP_CLASS = 'mr-1 flex h-8 w-6 shrink-0 items-center justify-center round
 // unmount the row mid-drag.
 function NetworkLinkRow({ link, count, isNew, handleProps, dragging }) {
   return (
-    <div className={cx('group flex items-center gap-1 rounded-xl transition-colors', !dragging && 'hover:bg-cloud')}>
+    <div className={cx(
+      'group flex items-center gap-1 rounded-xl transition-shadow',
+      // The lift is on the row itself. Reorderable used to draw it on its own
+      // wrapper, at a different corner radius, which showed as grey arcs at the
+      // corners of whatever was being dragged.
+      dragging ? 'bg-white shadow-card' : 'hover:bg-cloud',
+    )}>
       <Link to={link.to} className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-3 py-2">
         <Icon name={link.icon} className="h-4 w-4 shrink-0 text-smoke transition-colors group-hover:text-brand" />
         <span className="min-w-0 flex-1">
@@ -250,7 +261,7 @@ export default function GlobalHome() {
       const today = new Date().toISOString().slice(0, 10)
       const [
         { data: mems }, { count: creators }, { data: challenges },
-        { data: ann }, { data: trips }, { data: fresh }, { data: visited }, { data: countries },
+        { data: ann }, { data: trips }, { data: fresh }, { data: visited },
         { data: netStandings }, { count: connCount }, { data: latestRes },
         { data: mapPeople }, { data: mapTrips },
       ] = await Promise.all([
@@ -276,7 +287,6 @@ export default function GlobalHome() {
           .eq('status', 'active').eq('is_admin', false).eq('is_test', false)
           .is('deletion_requested_at', null).order('created_at', { ascending: false }).limit(6),
         supabase.from('profiles').select('countries_visited'),
-        supabase.from('profiles').select('country_code').eq('status', 'active').not('country_code', 'is', null),
         supabase.from('network_standings')
           .select('creator_id, points, markets, profiles!inner(id, name, photo_url, is_test)')
           .order('points', { ascending: false }).limit(8),
@@ -330,7 +340,6 @@ export default function GlobalHome() {
       setD({
         counts: tally, creators, live, ann, trips: trips || [], fresh: fresh || [],
         visited: [...new Set((visited || []).flatMap((p) => p.countries_visited || []))],
-        nations: new Set((countries || []).map((p) => p.country_code)).size,
         network: (netStandings || []).filter((s) => !s.profiles.is_test),
         connReqs: connCount ?? 0,
         newResources: latestResource > seenResources,
@@ -507,12 +516,19 @@ export default function GlobalHome() {
   return (
     <NetworkMotion>
       <NetworkLayout rail={rail}>
-        {/* The article rises as it assembles, section by section, while the rail
-            slides in from the right. This replaces a single opacity fade over
-            the whole column, which is what made the first paint look like it
-            stuttered: everything - cards, counters and the plane - started
-            moving on the same frame. */}
-        <Reveal className="space-y-9" from="down" stagger={0.06}>
+        {/* EVERY SECTION WATCHES ITSELF INTO VIEW.
+            This was ONE <Reveal> wrapped round the whole article, and that is
+            why the page "just appeared": a single IntersectionObserver on a
+            container that starts at the top of the viewport fires on the first
+            frame, so all eleven sections ran their stagger immediately and the
+            entire hub - including the six screens of it nobody had scrolled to
+            yet - had finished animating before the reader looked at it.
+            Now each section carries its own observer and arrives as YOU reach
+            it, dropping down into place, while the rail slides in from the
+            right (NetworkLayout). The grids inside stagger their cards the same
+            way the creator directory does, because that is the motion Ethan
+            picked and there should only be one. */}
+        <div className="space-y-9">
 
           {/* ---------- Greeting ----------
               `-mb-3` against the page's own `space-y-9`. A greeting is a label
@@ -523,14 +539,16 @@ export default function GlobalHome() {
               happening across the network right now" already wraps to two lines
               under a 3xl name, and the pair was eating 140px of an 812px screen
               before a single piece of content. */}
-          <section className="-mb-3">
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">
-              Hey {profile?.name?.split(' ')[0]}
-            </h1>
-            <p className="mt-1.5 text-sm text-smoke sm:text-base">
-              Here is what is happening across the network right now.
-            </p>
-          </section>
+          <Reveal from="down" className="-mb-3">
+            <section>
+              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">
+                Hey {profile?.name?.split(' ')[0]}
+              </h1>
+              <p className="mt-1.5 text-sm text-smoke sm:text-base">
+                Here is what is happening across the network right now.
+              </p>
+            </section>
+          </Reveal>
 
           {/* ---------- Live now (phones only) ----------
               On desktop this is the top card of the rail, which is always in
@@ -539,26 +557,28 @@ export default function GlobalHome() {
               brief that is running and closing - was six screens below the fold
               and under a map. It leads on mobile instead. */}
           {myLive.length > 0 && (
-            <section className="lg:hidden">
-              <div className="space-y-2">
-                {myLive.map(({ market, challenge, global: isGlobal }) => (
-                  <Link key={challenge.id} to={`/challenges/${challenge.id}`}
-                    className="block rounded-card border border-brand/30 bg-brand-tint/30 p-4 transition-transform duration-200 active:scale-[0.99]">
-                    <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-brand">
-                      <span className="relative flex h-1.5 w-1.5">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/60" />
-                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand" />
+            <Reveal from="down" className="lg:hidden">
+              <section>
+                <div className="space-y-2">
+                  {myLive.map(({ market, challenge, global: isGlobal }) => (
+                    <Link key={challenge.id} to={`/challenges/${challenge.id}`}
+                      className="block rounded-card border border-brand/30 bg-brand-tint/30 p-4 transition-transform duration-200 active:scale-[0.99]">
+                      <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-brand">
+                        <span className="relative flex h-1.5 w-1.5">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/60" />
+                          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand" />
+                        </span>
+                        {isGlobal ? 'Live · everyone' : `Live in ${market.name}`}
+                      </p>
+                      <p className="mt-1.5 font-semibold leading-snug">{challenge.title}</p>
+                      <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white">
+                        Submit your video
                       </span>
-                      {isGlobal ? 'Live · everyone' : `Live in ${market.name}`}
-                    </p>
-                    <p className="mt-1.5 font-semibold leading-snug">{challenge.title}</p>
-                    <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white">
-                      Submit your video
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </section>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            </Reveal>
           )}
 
           {/* ---------- Quick actions (phones and tablets only) ----------
@@ -571,7 +591,8 @@ export default function GlobalHome() {
               eight of a fixed list, so Roles and Refer existed on desktop and
               simply did not on a phone, and reordering the rail changed nothing
               for the people who only ever see this grid. */}
-          <section className="lg:hidden">
+          <Reveal from="down" className="lg:hidden">
+            <section>
             <div className="grid grid-cols-4 gap-2">
               {links.map((l) => {
                 const count = l.badge === 'connections' ? d?.connReqs : 0
@@ -604,16 +625,22 @@ export default function GlobalHome() {
             >
               <Icon name="magnifier" className="h-4 w-4" /> Explore markets
             </Link>
-          </section>
+            </section>
+          </Reveal>
 
           {/* ---------- Finish your profile ---------- */}
           {/* Removes itself at 100%. A checklist that survives completion is
               nagging, and this is a nudge. */}
-          <ProfileProgress />
+          <Reveal from="down"><ProfileProgress /></Reveal>
 
           {/* ---------- Welcome ---------- */}
-          <motion.section
-            initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={SOFT_SPRING}
+          {/* No `initial/animate` of its own any more. It had a mount tween
+              while everything around it had a scroll trigger, so the one card
+              that is always above the fold was also the one card that animated
+              on a different clock. The Reveal owns it now, like every other
+              section. */}
+          <Reveal from="down">
+          <section
             className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-6 text-white shadow-lift sm:p-10"
           >
             <div className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-white/10 blur-2xl" />
@@ -638,10 +665,15 @@ export default function GlobalHome() {
                   moves reads as a quantity that grows, which is the one thing
                   this card is trying to say. */}
               <div className="mt-6 flex flex-wrap items-center gap-x-8 gap-y-4 sm:mt-8 sm:gap-x-10">
+                {/* TWO NUMBERS, NOT THREE. "Nations" was a count of distinct
+                    `country_code` values on active profiles, and that column is
+                    only ever filled in by onboarding - so for most of the
+                    roster it is null and the card said "0 Nations" underneath
+                    two real numbers. A stat that is wrong is worse than a stat
+                    that is missing, and the card reads cleaner with two. */}
                 {[
                   { n: d?.creators, label: 'Creators worldwide' },
                   { n: openMarkets.length, label: 'Markets open' },
-                  { n: d?.nations, label: 'Nations' },
                 ].map((s) => (
                   <div key={s.label}>
                     <p className="text-2xl font-bold sm:text-3xl">
@@ -652,44 +684,49 @@ export default function GlobalHome() {
                 ))}
               </div>
             </div>
-          </motion.section>
+          </section>
+          </Reveal>
 
           {/* ---------- Global challenge ---------- */}
           {/* Above the markets on purpose. A global challenge is the one thing
               on this page that everybody reading it can act on right now, and
               burying it under a list of places would be exactly backwards. */}
           {globalLive && (
-            <section>
-              <SectionHead icon="globe" title="Open to everyone"
-                hint="A global brief. Enter from any market, anywhere in the world." />
-              <LiveChallengeCard
-                challenge={globalLive}
-                market={network?.name}
-                entries={d?.globalEntries ?? null}
-                participation={d?.globalParticipation ?? null}
-                global
-              />
-            </section>
+            <Reveal from="down">
+              <section>
+                <SectionHead icon="globe" title="Open to everyone"
+                  hint="A global brief. Enter from any market, anywhere in the world." />
+                <LiveChallengeCard
+                  challenge={globalLive}
+                  market={network?.name}
+                  entries={d?.globalEntries ?? null}
+                  participation={d?.globalParticipation ?? null}
+                  global
+                />
+              </section>
+            </Reveal>
           )}
 
           {/* ---------- Markets ---------- */}
-          <section>
-            <SectionHead
-              icon="flag"
-              title={myMarkets.length ? 'Your markets' : 'Markets'}
-              to="/global/markets"
-              toLabel={isGlobalAdmin ? 'All markets' : 'Explore'}
-            />
-            <motion.div variants={listContainer} initial="hidden" animate="show" className="grid gap-3 sm:grid-cols-2">
-              {(myMarkets.length ? myMarkets : openMarkets).map((c) => (
-                <MarketCard key={c.id} chapter={c}
-                  mine={myCommunities.some((m) => m.id === c.id)}
-                  isHome={c.id === home?.id}
-                  memberCount={d ? (d.counts[c.id] ?? 0) : null}
-                  hasLive={!!d?.live?.[c.id]} />
-              ))}
-            </motion.div>
-          </section>
+          <Reveal from="down">
+            <section>
+              <SectionHead
+                icon="flag"
+                title={myMarkets.length ? 'Your markets' : 'Markets'}
+                to="/global/markets"
+                toLabel={isGlobalAdmin ? 'All markets' : 'Explore'}
+              />
+              <Reveal className="grid gap-3 sm:grid-cols-2" stagger={0.07}>
+                {(myMarkets.length ? myMarkets : openMarkets).map((c) => (
+                  <MarketCard key={c.id} chapter={c}
+                    mine={myCommunities.some((m) => m.id === c.id)}
+                    isHome={c.id === home?.id}
+                    memberCount={d ? (d.counts[c.id] ?? 0) : null}
+                    hasLive={!!d?.live?.[c.id]} />
+                ))}
+              </Reveal>
+            </section>
+          </Reveal>
 
           {/* ---------- Network standings ---------- */}
           {/* Reveal, not a stagger: these sections are below the fold, and a
@@ -700,47 +737,51 @@ export default function GlobalHome() {
               level. A creator who moves from Spain to the UK keeps their
               standing here. */}
           {d?.network?.length > 0 && (
-            <section>
-              <SectionHead icon="trophy" title="Across the network"
-                hint="Points earned in any market, added up. Your standing follows you if you move." />
-              <motion.div variants={listContainer} initial="hidden" animate="show" className="space-y-2">
-                {d.network.map((s, i) => (
-                  <motion.div key={s.creator_id} variants={listItem}
-                    className={cx('flex items-center gap-3 rounded-card border bg-white px-5 py-3.5',
-                      i === 0 ? 'border-brand/30 bg-brand-tint/20' : 'border-gray-100')}>
-                    <span className={cx('w-5 shrink-0 text-sm font-bold', i === 0 ? 'text-brand' : 'text-smoke')}>{i + 1}</span>
-                    <Avatar src={s.profiles.photo_url} name={s.profiles.name} size="sm" />
-                    <Link to={`/profile/${s.creator_id}`} className="min-w-0 flex-1 truncate text-sm font-medium hover:text-brand">
-                      {s.profiles.name}
-                    </Link>
-                    {s.markets > 1 && (
-                      <span className="hidden shrink-0 rounded-full bg-cloud px-2 py-0.5 text-[10px] font-medium text-smoke sm:inline">
-                        {s.markets} markets
-                      </span>
-                    )}
-                    <span className="shrink-0 text-sm font-bold text-brand">{Number(s.points)} pts</span>
-                  </motion.div>
-                ))}
-              </motion.div>
-            </section>
+            <Reveal from="down">
+              <section>
+                <SectionHead icon="trophy" title="Across the network"
+                  hint="Points earned in any market, added up. Your standing follows you if you move." />
+                <Reveal className="space-y-2" stagger={0.05}>
+                  {d.network.map((s, i) => (
+                    <div key={s.creator_id}
+                      className={cx('flex items-center gap-3 rounded-card border bg-white px-5 py-3.5',
+                        i === 0 ? 'border-brand/30 bg-brand-tint/20' : 'border-gray-100')}>
+                      <span className={cx('w-5 shrink-0 text-sm font-bold', i === 0 ? 'text-brand' : 'text-smoke')}>{i + 1}</span>
+                      <Avatar src={s.profiles.photo_url} name={s.profiles.name} size="sm" />
+                      <Link to={`/profile/${s.creator_id}`} className="min-w-0 flex-1 truncate text-sm font-medium hover:text-brand">
+                        {s.profiles.name}
+                      </Link>
+                      {s.markets > 1 && (
+                        <span className="hidden shrink-0 rounded-full bg-cloud px-2 py-0.5 text-[10px] font-medium text-smoke sm:inline">
+                          {s.markets} markets
+                        </span>
+                      )}
+                      <span className="shrink-0 text-sm font-bold text-brand">{Number(s.points)} pts</span>
+                    </div>
+                  ))}
+                </Reveal>
+              </section>
+            </Reveal>
           )}
 
           {/* ---------- Latest announcement ---------- */}
           {d?.ann && (
-            <section>
-              <SectionHead icon="megaphone" title="Latest announcement" to="/global/chat/announcements" toLabel="All announcements" />
-              <Link to="/global/chat/announcements"
-                className="card block border-l-4 !border-l-brand transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift">
-                <div className="flex items-center gap-3">
-                  <Avatar src={d.ann.profiles?.photo_url} name={d.ann.profiles?.name} size="sm" />
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold">{d.ann.profiles?.name}</p>
-                    <p className="text-xs text-smoke">{timeAgo(d.ann.created_at)}</p>
+            <Reveal from="down">
+              <section>
+                <SectionHead icon="megaphone" title="Latest announcement" to="/global/chat/announcements" toLabel="All announcements" />
+                <Link to="/global/chat/announcements"
+                  className="card block border-l-4 !border-l-brand transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift">
+                  <div className="flex items-center gap-3">
+                    <Avatar src={d.ann.profiles?.photo_url} name={d.ann.profiles?.name} size="sm" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold">{d.ann.profiles?.name}</p>
+                      <p className="text-xs text-smoke">{timeAgo(d.ann.created_at)}</p>
+                    </div>
                   </div>
-                </div>
-                <p className="mt-3 line-clamp-3 text-sm text-ink">{stripMarkup(d.ann.body)}</p>
-              </Link>
-            </section>
+                  <p className="mt-3 line-clamp-3 text-sm text-ink">{stripMarkup(d.ann.body)}</p>
+                </Link>
+              </section>
+            </Reveal>
           )}
 
           {/* ---------- The map ----------
@@ -755,65 +796,69 @@ export default function GlobalHome() {
               The countries-visited map moved to the creator directory, where a
               page already about the community is the right place for a picture
               of where that community has been. */}
-          <RiseIn as="section">
-            <SectionHead icon="globe" title="Everyone, right now"
-              hint="Every creator in the network on one map, wherever they are based. Tap a pin to see who is there."
-              to="/creators" toLabel="Creator directory" />
-            {d
-              ? <CreatorMap creators={d.mapPeople} trips={d.mapTrips} myId={session?.user?.id} />
-              : <Skeleton className="h-72" />}
-          </RiseIn>
+          <Reveal from="down">
+            <section>
+              <SectionHead icon="globe" title="Everyone, right now"
+                hint="Every creator in the network on one map, wherever they are based. Tap a pin to see who is there."
+                to="/creators" toLabel="Creator directory" />
+              {d
+                ? <CreatorMap creators={d.mapPeople} trips={d.mapTrips} myId={session?.user?.id} />
+                : <Skeleton className="h-72" />}
+            </section>
+          </Reveal>
 
           {/* ---------- Creators on the move ---------- */}
           {d?.trips?.length > 0 && (
-            <section>
-              <SectionHead icon="pin" title="Creators on the move" to="/collab" toLabel="Collab board" />
-              <motion.div variants={listContainer} initial="hidden" animate="show"
-                className="trim-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {d.trips.map((t) => (
-                  <MotionLink key={t.id} to="/collab" variants={listItem} {...cardHover}
-                    className="card flex items-center gap-3 !p-4 hover:shadow-lift">
-                    <Avatar src={t.profiles?.photo_url} name={t.profiles?.name} size="sm" />
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">
-                        {t.profiles?.name?.split(' ')[0]} → {flagForCountry(t.country)} {t.city}
-                      </p>
-                      <p className="truncate text-xs text-smoke">
-                        {format(new Date(t.start_date), 'd MMM')} – {format(new Date(t.end_date), 'd MMM')}
-                      </p>
-                    </div>
-                  </MotionLink>
-                ))}
-              </motion.div>
-            </section>
+            <Reveal from="down">
+              <section>
+                <SectionHead icon="pin" title="Creators on the move" to="/collab" toLabel="Collab board" />
+                <Reveal className="trim-4 grid grid-cols-1 gap-3 sm:grid-cols-2" stagger={0.07}>
+                  {d.trips.map((t) => (
+                    <MotionLink key={t.id} to="/collab" {...cardHover}
+                      className="card flex items-center gap-3 !p-4 hover:shadow-lift">
+                      <Avatar src={t.profiles?.photo_url} name={t.profiles?.name} size="sm" />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold">
+                          {t.profiles?.name?.split(' ')[0]} → {flagForCountry(t.country)} {t.city}
+                        </p>
+                        <p className="truncate text-xs text-smoke">
+                          {format(new Date(t.start_date), 'd MMM')} – {format(new Date(t.end_date), 'd MMM')}
+                        </p>
+                      </div>
+                    </MotionLink>
+                  ))}
+                </Reveal>
+              </section>
+            </Reveal>
           )}
 
           {/* ---------- Spotlight ---------- */}
-          <CreatorSpotlight />
+          <Reveal from="down"><CreatorSpotlight /></Reveal>
 
           {/* ---------- New creators ---------- */}
           {d?.fresh?.length > 0 && (
-            <section>
-              <SectionHead icon="users" title="New in the community" to="/creators" toLabel="All creators" />
-              <motion.div variants={listContainer} initial="hidden" animate="show"
-                className="trim-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {d.fresh.map((c) => (
-                  <MotionLink key={c.id} to={`/profile/${c.id}`} variants={listItem} {...cardHover}
-                    className="card flex min-w-0 items-center gap-3 !p-4 hover:shadow-lift">
-                    <Avatar src={c.photo_url} name={c.name} size="sm" />
-                    <div className="min-w-0 flex-1">
-                      <p className="flex items-center gap-1.5 truncate font-semibold">
-                        <span className="truncate">{c.name}</span>
-                        {c.country_code && <span className="shrink-0 text-xs" aria-hidden>{flagFromIso(c.country_code)}</span>}
-                      </p>
-                      {c.bio && <p className="truncate text-xs text-smoke">{c.bio}</p>}
-                    </div>
-                  </MotionLink>
-                ))}
-              </motion.div>
-            </section>
+            <Reveal from="down">
+              <section>
+                <SectionHead icon="users" title="New in the community" to="/creators" toLabel="All creators" />
+                <Reveal className="trim-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3" stagger={0.07}>
+                  {d.fresh.map((c) => (
+                    <MotionLink key={c.id} to={`/profile/${c.id}`} {...cardHover}
+                      className="card flex min-w-0 items-center gap-3 !p-4 hover:shadow-lift">
+                      <Avatar src={c.photo_url} name={c.name} size="sm" />
+                      <div className="min-w-0 flex-1">
+                        <p className="flex items-center gap-1.5 truncate font-semibold">
+                          <span className="truncate">{c.name}</span>
+                          {c.country_code && <span className="shrink-0 text-xs" aria-hidden>{flagFromIso(c.country_code)}</span>}
+                        </p>
+                        {c.bio && <p className="truncate text-xs text-smoke">{c.bio}</p>}
+                      </div>
+                    </MotionLink>
+                  ))}
+                </Reveal>
+              </section>
+            </Reveal>
           )}
-        </Reveal>
+        </div>
       </NetworkLayout>
     </NetworkMotion>
   )

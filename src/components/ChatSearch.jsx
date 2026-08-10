@@ -20,7 +20,7 @@ import Icon from './Icon'
 // messages in memory; searching them is instant and works offline, and a
 // server round trip for something this small would be slower AND worse.
 
-export function RoomSearch({ value, onChange, count, total }) {
+export function RoomSearch({ value, onChange, count, total, label = 'Search this room' }) {
   const ref = useRef(null)
   const [open, setOpen] = useState(false)
 
@@ -30,12 +30,22 @@ export function RoomSearch({ value, onChange, count, total }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
+  // SIZED LIKE THE DM ONE, BECAUSE THE DM ONE IS RIGHT.
+  //
+  // This was a bare 14px input on a transparent background wedged into the
+  // room's hint strip, which is 1 unit of vertical padding tall. Opening it gave
+  // you a text field with nowhere to sit and a magnifier the size of the text
+  // beside it - the reported "very, very cramped". The DM header gives its
+  // search a real field with real height, and that is the one that "fits much
+  // nicer", so this is now that: a 36px rounded field with its own surface, and
+  // a 36px square target when closed.
   if (!open) {
     return (
       <button
         onClick={() => setOpen(true)}
-        aria-label="Search this room"
-        className="shrink-0 rounded-lg p-1.5 text-smoke transition-colors hover:bg-white hover:text-ink"
+        aria-label={label}
+        title={label}
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-smoke transition-colors hover:bg-white hover:text-ink"
       >
         <Icon name="magnifier" className="h-4 w-4" />
       </button>
@@ -43,28 +53,28 @@ export function RoomSearch({ value, onChange, count, total }) {
   }
 
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-2">
-      <Icon name="magnifier" className="h-3.5 w-3.5 shrink-0 text-smoke" />
+    <div className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-full border border-gray-200 bg-white pl-3 pr-1.5 shadow-sm">
+      <Icon name="magnifier" className="h-4 w-4 shrink-0 text-smoke" />
       <input
         ref={ref}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
-        placeholder="Search this room"
+        placeholder={label}
         /* focus-visible:ring-0 because index.css puts a brand ring on
            *:focus-visible, and this input is focused PROGRAMMATICALLY the
            moment it opens - so the ring fired every single time and read as an
            orange box round the search bar. `outline-none` cannot clear it: the
            ring is a box-shadow. Same fix as the command palette input. */
-        className="min-w-0 flex-1 border-0 bg-transparent text-sm outline-none focus-visible:ring-0 placeholder:text-gray-400"
+        className="min-w-0 flex-1 border-0 bg-transparent p-0 text-sm outline-none focus-visible:ring-0 placeholder:text-gray-400"
       />
       {value && (
-        <span className="shrink-0 text-[11px] tabular-nums text-smoke">
+        <span className="shrink-0 whitespace-nowrap text-[11px] tabular-nums text-smoke">
           {count} of {total}
         </span>
       )}
       <button onClick={() => setOpen(false)} aria-label="Close search"
-        className="shrink-0 rounded-lg p-1 text-smoke transition-colors hover:text-ink">
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-smoke transition-colors hover:bg-cloud hover:text-ink">
         <Icon name="close" className="h-3.5 w-3.5" />
       </button>
     </div>
