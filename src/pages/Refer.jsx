@@ -5,6 +5,7 @@ import { Badge, EmptyState, PageHeader, Skeleton, Spinner } from '../components/
 import Icon from '../components/Icon'
 import { formatDate } from '../lib/utils'
 import { referralStage } from '../lib/referrals'
+import Reveal from '../components/network/Reveal'
 
 // Creators refer other creators two ways:
 //  1. Share their personal invite link (/signup?ref=CODE) - auto-credited.
@@ -161,7 +162,7 @@ export default function Refer() {
         <h2 className="text-lg font-semibold">Or refer someone directly</h2>
         <p className="mt-1 text-sm text-smoke">Give us their details and the team will reach out.</p>
         <form onSubmit={submit} className="mt-5 space-y-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Reveal className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="r-name" className="label">Their name</label>
               <input id="r-name" type="text" required className="input" value={form.referred_name} onChange={(e) => setForm({ ...form, referred_name: e.target.value })} placeholder="e.g. Leo Fairbanks" />
@@ -170,7 +171,7 @@ export default function Refer() {
               <label htmlFor="r-contact" className="label">Contact <span className="font-normal text-smoke">(handle or email)</span></label>
               <input id="r-contact" type="text" className="input" value={form.referred_contact} onChange={(e) => setForm({ ...form, referred_contact: e.target.value })} placeholder="@handle or email" />
             </div>
-          </div>
+          </Reveal>
           <div>
             <label htmlFor="r-note" className="label">Why them? <span className="font-normal text-smoke">(optional)</span></label>
             <textarea id="r-note" rows={2} className="input" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="A line on their content and following…" />

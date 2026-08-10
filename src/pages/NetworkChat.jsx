@@ -12,7 +12,7 @@ import { ChatSkeleton } from '../components/network/Skeletons'
 import Icon from '../components/Icon'
 import { Avatar, EmptyState } from '../components/ui'
 import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
-import { cx, timeAgo } from '../lib/utils'
+import { cx, formatMessageTime, messageTimeTitle } from '../lib/utils'
 import { SOFT_SPRING } from '../lib/motion'
 
 // Per-market chat. Spain's General, the UK's General and the Worldwide General
@@ -431,7 +431,7 @@ export default function NetworkChat() {
                       {m.profiles?.is_admin && (
                         <span className="rounded-full bg-brand-tint px-1.5 py-0.5 text-[10px] font-semibold text-brand">Team</span>
                       )}
-                      <span className="text-[11px] text-smoke">{timeAgo(m.created_at)}</span>
+                      <span className="text-[11px] text-smoke" title={messageTimeTitle(m.created_at)}>{formatMessageTime(m.created_at)}</span>
                     </p>
                   )}
                   <p className="whitespace-pre-wrap break-words text-sm text-ink">

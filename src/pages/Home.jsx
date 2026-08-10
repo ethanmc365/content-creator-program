@@ -13,6 +13,7 @@ import { flagForCountry } from '../lib/flags'
 import { stripMarkup } from '../lib/richText'
 import { timeAgo, challengeDeadline } from '../lib/utils'
 import { loadMyScopes, inScope } from '../lib/scope'
+import Reveal from '../components/network/Reveal'
 
 // Signed-in home: the CURRENT challenge front and centre with a live
 // countdown, plus quick community pulse (latest announcement, new creators).
@@ -253,7 +254,7 @@ export default function Home() {
             <h2 className="flex items-center gap-2 text-lg font-semibold"><Icon name="pin" className="h-5 w-5 text-brand" /> Creators on the move</h2>
             <Link to="/collab" className="text-sm font-medium text-brand hover:underline">Collab board →</Link>
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <Reveal className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {upcomingTrips.map((t) => (
               <Link key={t.id} to="/collab" className="card flex items-center gap-3 !p-4 transition-all hover:-translate-y-0.5 hover:shadow-lift active:-translate-y-0.5 active:shadow-lift">
                 <Avatar src={t.profiles?.photo_url} name={t.profiles?.name} size="sm" />
@@ -263,7 +264,7 @@ export default function Home() {
                 </div>
               </Link>
             ))}
-          </div>
+          </Reveal>
         </section>
       )}
 
@@ -288,7 +289,7 @@ export default function Home() {
           <h2 className="flex items-center gap-2 text-lg font-semibold"><Icon name="users" className="h-5 w-5 text-brand" /> New in the community</h2>
           <Link to="/creators" className="mt-1 inline-block text-sm font-medium text-brand hover:underline">Browse all →</Link>
         </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Reveal className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {newCreators.map((c) => (
             <Link key={c.id} to={`/profile/${c.id}`} className="card flex items-center gap-4 !p-5 transition-all hover:-translate-y-0.5 hover:shadow-lift active:-translate-y-0.5 active:shadow-lift">
               <Avatar src={c.photo_url} name={c.name} size="md" />
@@ -298,7 +299,7 @@ export default function Home() {
               </div>
             </Link>
           ))}
-        </div>
+        </Reveal>
       </section>
     </div>
   )

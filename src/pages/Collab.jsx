@@ -8,6 +8,7 @@ import Icon from '../components/Icon'
 import WorldMap from '../components/WorldMap'
 import CreatorMap from '../components/CreatorMap'
 import { loadMapCountryNames, canonicalCountry } from '../lib/mapCountries'
+import Reveal from '../components/network/Reveal'
 
 // How many upcoming trips to show before the "View more" button.
 const TRIPS_PREVIEW = 6
@@ -475,9 +476,9 @@ export default function Collab() {
         <EmptyState icon={<Icon name="magnifier" className="h-7 w-7" />} title="No trips match those filters" hint="Try a different month or country." />
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <Reveal className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {(expanded ? filteredUpcoming : filteredUpcoming.slice(0, TRIPS_PREVIEW)).map((p) => <TripCard key={p.id} p={p} />)}
-          </div>
+          </Reveal>
           {filteredUpcoming.length > TRIPS_PREVIEW && (
             <button
               type="button"
@@ -502,9 +503,9 @@ export default function Collab() {
         <section className="mt-12">
           <h2 className="mb-1 text-lg font-semibold">Past trips</h2>
           <p className="mb-5 text-sm text-smoke">Trips that have already happened.</p>
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <Reveal className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {archived.map((p) => <TripCard key={p.id} p={p} past />)}
-          </div>
+          </Reveal>
         </section>
       )}
 

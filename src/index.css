@@ -242,6 +242,16 @@
       transition-delay: 0ms;
     }
   }
+
+  /* The reaction popover growing out of the button that opened it. CSS so the
+     eagerly routed chat can use it without the Motion runtime. */
+  @keyframes reaction-pop {
+    from { opacity: 0; transform: translateY(4px) scale(0.94); }
+    to   { opacity: 1; transform: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    @keyframes reaction-pop { from { opacity: 0 } to { opacity: 1 } }
+  }
 }
 
 /* =====================================================================

@@ -12,10 +12,10 @@ import Icon from '../components/Icon'
 import ChatMedia from '../components/ChatMedia'
 import ReactionPill from '../components/ReactionPill'
 import { mediaType } from '../lib/media'
-import { formatChatTime, otherParticipant, cx } from '../lib/utils'
+import { formatChatTime, formatMessageTime, messageTimeTitle, otherParticipant, cx } from '../lib/utils'
 import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
+import ReactionPicker from '../components/ReactionPicker'
 
-const QUICK_EMOJI = ['❤️', '🔥', '😂', '👍', '🎉', '✈️']
 
 // A short label for a DM when it's quoted in a reply.
 function dmPreview(m) {
@@ -851,7 +851,7 @@ export default function Messages() {
                           {m.body && <span className={cx('block', m.image_url && 'px-2.5 py-1.5')}>{m.body}</span>}
                         </div>
                         <p className={cx('mt-1 text-[10px] text-gray-400', mine && 'text-right')}>
-                          {formatChatTime(m.created_at)}{mine && m.read && ' · Read'}
+                          <span title={messageTimeTitle(m.created_at)}>{formatMessageTime(m.created_at)}</span>{mine && m.read && ' · Read'}
                         </p>
 
                         {/* Reactions + action row (reply / react). Desktop: on hover;
@@ -895,13 +895,14 @@ export default function Messages() {
                               </button>
                             )}
                             {pickerFor === m.id && (
-                              <div className={cx('absolute bottom-8 z-20 flex gap-1 rounded-full border border-gray-100 bg-white px-2 py-1.5 shadow-lift', mine ? 'right-0' : 'left-0')}>
-                                {QUICK_EMOJI.map((e) => (
-                                  <button key={e} onClick={() => toggleReaction(m.id, e)} className="rounded-full px-1 text-lg transition-transform hover:scale-125" aria-label={`React ${e}`}>
-                                    {e}
-                                  </button>
-                                ))}
-                              </div>
+                              <>
+                                <div className="fixed inset-0 z-20" onClick={() => setPickerFor(null)} />
+                                <ReactionPicker
+                                  align={mine ? 'right' : 'left'}
+                                  onPick={(e) => toggleReaction(m.id, e)}
+                                  onClose={() => setPickerFor(null)}
+                                />
+                              </>
                             )}
                           </div>
                         </div>

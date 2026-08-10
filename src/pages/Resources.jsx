@@ -6,6 +6,7 @@ import { Badge, EmptyState, PageHeader, SkeletonCards } from '../components/ui'
 import Icon from '../components/Icon'
 import MediaAttachment from '../components/MediaAttachment'
 import { formatDate, cx } from '../lib/utils'
+import Reveal from '../components/network/Reveal'
 
 // The permanent content library: tips, video ideas, brand guidelines,
 // do's & don'ts, downloadable assets and example content.
@@ -141,7 +142,7 @@ export default function Resources() {
           hint={search || category !== 'All' ? 'Try a different search or category.' : 'The Tryp.com Team will publish guides and assets here soon.'}
         />
       ) : (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Reveal className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {filtered.map((r) => {
             const open = openId === r.id
             const long = (r.body || '').length > 280
@@ -195,7 +196,7 @@ export default function Resources() {
               </article>
             )
           })}
-        </div>
+        </Reveal>
       )}
     </div>
   )

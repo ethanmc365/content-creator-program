@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { supabase } from '../../lib/supabase'
 import Icon from '../Icon'
+import ReactionPicker from '../ReactionPicker'
 import { Avatar } from '../ui'
 import { cx } from '../../lib/utils'
 import { SNAPPY, overlay } from '../../lib/motion'
@@ -10,8 +11,6 @@ import { SNAPPY, overlay } from '../../lib/motion'
 // something to react with, a way to find what was said, and a way to point at
 // somebody. The legacy chat has all three; the network rooms shipped without
 // them, which is why they felt like a preview rather than a place.
-
-export const QUICK_EMOJI = ['👍', '🔥', '❤️', '😂', '🎉', '👀']
 
 // ---------------------------------------------------------------- reactions
 //
@@ -70,30 +69,15 @@ export function ReactionRow({ messageId, reactions, myId, onToggle }) {
         >
           <Icon name="smile" className="h-3.5 w-3.5" />
         </button>
-        <AnimatePresence>
-          {picking && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={() => setPicking(false)} />
-              <motion.div
-                initial={{ opacity: 0, y: 6, scale: 0.92 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 4, scale: 0.95 }}
-                transition={SNAPPY}
-                className="absolute bottom-full left-0 z-20 mb-1 flex gap-0.5 rounded-full border border-gray-100 bg-white p-1 shadow-lift"
-              >
-                {QUICK_EMOJI.map((e) => (
-                  <button
-                    key={e}
-                    onClick={() => { onToggle(messageId, e); setPicking(false) }}
-                    className="rounded-full px-1.5 py-1 text-base leading-none transition-transform hover:scale-125"
-                  >
-                    {e}
-                  </button>
-                ))}
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
+        {picking && (
+          <>
+            <div className="fixed inset-0 z-20" onClick={() => setPicking(false)} />
+            <ReactionPicker
+              onPick={(e) => onToggle(messageId, e)}
+              onClose={() => setPicking(false)}
+            />
+          </>
+        )}
       </div>
     </div>
   )

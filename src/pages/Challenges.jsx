@@ -8,6 +8,7 @@ import VideoThumb from '../components/VideoThumb'
 import Icon from '../components/Icon'
 import { Avatar, PageHeader, Badge, SkeletonCards, EmptyState } from '../components/ui'
 import { formatDate, formatViews, formatMoney, challengeDeadline, PRIZE_BASELINE } from '../lib/utils'
+import Reveal from '../components/network/Reveal'
 
 const STATUS_TONE = { active: 'brand', ended: 'amber', archived: 'grey', draft: 'red' }
 
@@ -289,7 +290,7 @@ export default function Challenges() {
           {past.length > 0 && (
             <section>
               <h2 className="mb-5 text-lg font-semibold text-smoke">Past challenges</h2>
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <Reveal className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                 {past.map((c) => (
                   <Link key={c.id} to={`/challenges/${c.id}`} className="card group transition-all hover:-translate-y-0.5 hover:shadow-lift active:translate-y-0">
                     <div className="flex items-center justify-between gap-3">
@@ -310,7 +311,7 @@ export default function Challenges() {
                     )}
                   </Link>
                 ))}
-              </div>
+              </Reveal>
             </section>
           )}
         </div>

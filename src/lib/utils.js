@@ -33,6 +33,49 @@ export function formatDateTimeTz(date) {
   return tz ? `${base} ${tz}` : base
 }
 
+/**
+ * The timestamp on a message.
+ *
+ * WHAT WAS WRONG WITH THE OLD ONES. There were two, and both threw away the
+ * thing you wanted. `formatChatTime` gave "Yesterday" and "12 Jun" - a date
+ * with no time on it, so you could never tell whether a message landed at
+ * breakfast or at midnight. `timeAgo` gave "6 days ago", which is worse: it is
+ * arithmetic the reader has to undo before it means anything, and past about a
+ * day nobody thinks in days-ago. "11 days ago" is not a time. It is a puzzle
+ * whose answer is a time.
+ *
+ * WHAT THIS DOES. Inside today, relative - "3 hours ago" is genuinely how you
+ * think about something that happened this morning, and the exact minute does
+ * not matter yet. Beyond today, the actual day AND the actual time, because by
+ * then the minute is the only thing that distinguishes one message from
+ * another. The year appears only when it is not this one.
+ *
+ * The full stamp is always available on hover via `messageTimeTitle`.
+ */
+export function formatMessageTime(date) {
+  if (!date) return ''
+  const d = new Date(date)
+  const mins = Math.round((Date.now() - d.getTime()) / 60000)
+
+  // Clock skew, or a message that arrived a moment ago and is optimistically
+  // rendered before the server stamps it. Either way "in 4 seconds" is wrong.
+  if (mins < 1) return 'Just now'
+  if (isToday(d)) {
+    if (mins < 60) return `${mins} min ago`
+    const hrs = Math.round(mins / 60)
+    return `${hrs} ${hrs === 1 ? 'hour' : 'hours'} ago`
+  }
+  if (isYesterday(d)) return `Yesterday at ${format(d, 'HH:mm')}`
+  const sameYear = d.getFullYear() === new Date().getFullYear()
+  return format(d, sameYear ? "d MMM 'at' HH:mm" : "d MMM yyyy 'at' HH:mm")
+}
+
+/** The unabbreviated stamp, for a `title` tooltip next to the short one. */
+export function messageTimeTitle(date) {
+  if (!date) return ''
+  return formatDateTimeTz(date)
+}
+
 /** Chat-friendly timestamp: "14:30" today, "Yesterday", else "12 Jun". */
 export function formatChatTime(date) {
   const d = new Date(date)

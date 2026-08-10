@@ -14,9 +14,10 @@ import ResourceCard from '../components/ResourceCard'
 import LeaderboardCard from '../components/LeaderboardCard'
 import LinkPreview from '../components/LinkPreview'
 import ReactionPill from '../components/ReactionPill'
+import ReactionPicker from '../components/ReactionPicker'
 import ChatMedia from '../components/ChatMedia'
 import { CONTINENTS } from '../lib/countries'
-import { formatChatTime, cx } from '../lib/utils'
+import { formatMessageTime, messageTimeTitle, cx } from '../lib/utils'
 import { renderMessageBody } from '../lib/richText'
 import RichEditable from '../components/RichEditable'
 import { textBeforeCaret } from '../lib/richEditor'
@@ -93,7 +94,6 @@ const CHANNELS = [
   { key: 'content_tips', label: 'Content Tips', icon: 'bulb', hint: 'Tips and tricks. Share what works' },
 ]
 
-const QUICK_EMOJI = ['❤️', '🔥', '😂', '👍', '🎉', '✈️']
 
 const lastReadKey = (channel) => `tryp-chat-last-read-${channel}`
 
@@ -902,7 +902,7 @@ export default function Chat() {
                   onClick={(e) => { if (isMobile && !e.target.closest('a,button,video,input')) setActionsFor(showActions ? null : m.id) }}
                 >
                   <div className={cx('mb-1 flex items-center gap-2 text-xs', mine && 'flex-row-reverse')}>
-                    <span className="text-gray-400">{formatChatTime(m.created_at)}</span>
+                    <span className="text-gray-400" title={messageTimeTitle(m.created_at)}>{formatMessageTime(m.created_at)}</span>
                     <span className="font-semibold text-ink">{mine ? 'You' : m.profiles?.name}</span>
                     {m.profiles?.is_admin && <Badge tone="light" className="shrink-0 whitespace-nowrap !px-2 !py-0.5">Tryp.com Team</Badge>}
                     {m.pinned && <Icon name="pin" className="h-3.5 w-3.5 shrink-0 text-brand" title="Pinned" />}
@@ -1008,13 +1008,16 @@ export default function Chat() {
                         </>
                       )}
                       {pickerFor === m.id && (
-                        <div className={cx('absolute bottom-7 z-20 flex gap-1 rounded-full border border-gray-100 bg-white px-2 py-1.5 shadow-lift', mine ? 'right-0' : 'left-0')}>
-                          {QUICK_EMOJI.map((e) => (
-                            <button key={e} onClick={() => toggleReaction(m.id, e)} className="rounded-full px-1 text-lg transition-transform hover:scale-125" aria-label={`React ${e}`}>
-                              {e}
-                            </button>
-                          ))}
-                        </div>
+                        <>
+                          {/* Backdrop. Without one the only way out of the
+                              picker is to react with something. */}
+                          <div className="fixed inset-0 z-20" onClick={() => setPickerFor(null)} />
+                          <ReactionPicker
+                            align={mine ? 'right' : 'left'}
+                            onPick={(e) => toggleReaction(m.id, e)}
+                            onClose={() => setPickerFor(null)}
+                          />
+                        </>
                       )}
                     </div>
                   </div>
