@@ -156,21 +156,61 @@ export default function AdminMilestones() {
                 placeholder="Tryp.com t-shirt"
                 onChange={(e) => setEditing((m) => ({ ...m, reward: e.target.value }))} />
             </Field>
+            {/* A ROW OF CHOICES, NOT A ROLLER.
+                A native <select> renders as the OS picker - a grey iOS roller
+                on a phone, a system dropdown on a Mac - which is why this one
+                field looked like it belonged to a different application than
+                everything around it. There are five metrics and they never
+                change: showing all five is cheaper than hiding them behind a
+                control that has to be opened, and it means the hint under the
+                field can describe the one you are actually on.
+                (Same reasoning as PeoplePicker replacing a select of 300
+                names, and Segmented replacing the post-policy button.) */}
             <Field label="Measured on" hint={METRICS.find((x) => x.value === editing.metric)?.hint}>
-              <select className="input" value={editing.metric}
-                onChange={(e) => setEditing((m) => ({ ...m, metric: e.target.value }))}>
-                {METRICS.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}
-              </select>
+              <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Measured on">
+                {METRICS.map((x) => (
+                  <button
+                    key={x.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={editing.metric === x.value}
+                    onClick={() => setEditing((m) => ({ ...m, metric: x.value }))}
+                    className={cx(
+                      'rounded-full border px-3 py-1.5 text-xs font-semibold transition-all duration-200 hover:scale-105',
+                      editing.metric === x.value
+                        ? 'border-brand bg-brand text-white'
+                        : 'border-gray-200 text-smoke hover:border-brand/40',
+                    )}
+                  >
+                    {x.label}
+                  </button>
+                ))}
+              </div>
             </Field>
             <Field label="Threshold" hint="Reached when the number is at or above this.">
               <input className="input" type="number" min="1" value={editing.threshold}
                 onChange={(e) => setEditing((m) => ({ ...m, threshold: e.target.value }))} />
             </Field>
             <Field label="Reward type" hint="Sets the colour of the chip.">
-              <select className="input" value={editing.reward_kind}
-                onChange={(e) => setEditing((m) => ({ ...m, reward_kind: e.target.value }))}>
-                {KINDS.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}
-              </select>
+              <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Reward type">
+                {KINDS.map((x) => (
+                  <button
+                    key={x.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={editing.reward_kind === x.value}
+                    onClick={() => setEditing((m) => ({ ...m, reward_kind: x.value }))}
+                    className={cx(
+                      'rounded-full border px-3 py-1.5 text-xs font-semibold transition-all duration-200 hover:scale-105',
+                      editing.reward_kind === x.value
+                        ? 'border-brand bg-brand text-white'
+                        : 'border-gray-200 text-smoke hover:border-brand/40',
+                    )}
+                  >
+                    {x.label}
+                  </button>
+                ))}
+              </div>
             </Field>
             <Field label="Description" hint="One line, shown to the creator.">
               <input className="input" value={editing.description || ''} maxLength={120}
@@ -247,8 +287,11 @@ export default function AdminMilestones() {
         <aside className="lg:sticky lg:top-24">
           <h2 className="mb-1 text-lg font-semibold">How it looks</h2>
           <p className="mb-4 text-sm text-smoke">A creator two stops in.</p>
-          <div className="max-h-[70vh] overflow-y-auto rounded-card border border-gray-100 bg-white px-3 py-5">
-            <MilestonePath milestones={preview} />
+          {/* The preview lays itself out from ITS OWN width now, so a 22rem
+              rail gets the narrow lane rather than the wide serpentine
+              squeezed into a third of the room it needs. */}
+          <div className="max-h-[70vh] overflow-y-auto overscroll-contain rounded-card border border-gray-100 bg-white px-2 py-5">
+            <MilestonePath milestones={preview} standings={[]} />
           </div>
         </aside>
       </div>

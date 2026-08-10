@@ -7,7 +7,7 @@ import BackLink from '../components/BackLink'
 import MilestonePath from '../components/network/MilestonePath'
 import Icon from '../components/Icon'
 import { Avatar, EmptyState, PageHeader, Skeleton } from '../components/ui'
-import { cx, formatViews } from '../lib/utils'
+import { formatViews } from '../lib/utils'
 import { pageFade } from '../lib/motion'
 
 // Where a creator has got to, and what is next.
@@ -34,8 +34,6 @@ export default function Milestones() {
   const [rows, setRows] = useState(null)
   const [standings, setStandings] = useState([])
   const [metrics, setMetrics] = useState(null)
-  const [showPeople, setShowPeople] = useState(true)
-  const [showCrowd, setShowCrowd] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -119,53 +117,27 @@ export default function Milestones() {
             hint="The team is still setting these up." />
         ) : (
           <>
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
               <h2 className="text-lg font-semibold">The route</h2>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  onClick={() => setShowPeople((v) => !v)}
-                  aria-pressed={showPeople}
-                  className={cx(
-                    'flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-transform duration-200 hover:scale-105',
-                    showPeople ? 'border-brand/30 bg-brand-tint text-brand' : 'border-gray-200 text-smoke',
-                  )}
-                >
-                  <Icon name="users" className="h-3.5 w-3.5" />
-                  Faces at each stop
-                </button>
-                {/* ADMIN-ONLY, DELIBERATELY. Where every individual creator has
-                    got to is a picture of the whole community's progress, which
-                    is a management view; a creator seeing themselves as a dot
-                    behind twelve other dots is a leaderboard nobody entered. */}
-                {isAdmin && (
-                  <button
-                    onClick={() => setShowCrowd((v) => !v)}
-                    aria-pressed={showCrowd}
-                    className={cx(
-                      'flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-transform duration-200 hover:scale-105',
-                      showCrowd ? 'border-brand/30 bg-brand-tint text-brand' : 'border-gray-200 text-smoke',
-                    )}
-                  >
-                    <Icon name="pin" className="h-3.5 w-3.5" />
-                    Everyone on the road
-                  </button>
-                )}
-              </div>
+              {isAdmin && (
+                <p className="text-xs text-smoke">
+                  Showing the whole route as flown, so you can check it end to end.
+                </p>
+              )}
             </div>
 
-            {/* THE ROUTE IN ITS OWN PANEL, WITH THE READING BESIDE IT.
-                The path used to run the full width of the page, which on a
-                desktop meant a 1000px-wide picture of a line and a lot of white
-                either side of it. It now takes about half, and the column next
-                to it carries what the picture cannot say: where you are, what
-                is next, and - for the team - the way in to change any of it. */}
+            {/* NO CARD ROUND THE ROUTE.
+                A white panel inside a white page is a border drawn for its own
+                sake: it added an inset, a shadow and a hard edge around a
+                drawing that already has all the structure it needs. The route
+                sits on the page. The reading beside it keeps its card, because
+                that one IS a distinct object. */}
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
-              <div className="rounded-card border border-gray-100 bg-white px-3 py-6 shadow-card sm:px-6">
+              <div className="px-1 py-2">
                 <MilestonePath
                   milestones={rows}
                   standings={standings}
-                  showPeople={showPeople}
-                  showCrowd={isAdmin && showCrowd}
+                  preview={isAdmin}
                 />
               </div>
 

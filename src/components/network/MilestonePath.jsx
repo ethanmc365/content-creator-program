@@ -1,8 +1,8 @@
+import { useEffect, useState } from 'react'
 import { motion } from 'motion/react'
 import { Link } from 'react-router-dom'
 import Icon from '../Icon'
 import { Avatar } from '../ui'
-import { useIsMobile } from '../../lib/useKeyboardInset'
 import { cx, formatViews } from '../../lib/utils'
 import { EASE } from '../../lib/motion'
 
@@ -127,18 +127,43 @@ function metricLabel(metric, value, threshold) {
   return `${Math.floor(v)} / ${t}`
 }
 
-export default function MilestonePath({ milestones = [], standings = [], showPeople = false, showCrowd = false }) {
-  const isMobile = useIsMobile()
-  const L = isMobile ? LAYOUT.narrow : LAYOUT.wide
+// `preview` draws the whole route as flown, whatever the viewer has actually
+// done. It is how an admin checks the animation and the layout end to end
+// without waiting to earn a million views.
+export default function MilestonePath({ milestones = [], standings = [], preview = false }) {
+  // THE LAYOUT COMES FROM THIS COMPONENT'S OWN WIDTH, NOT THE WINDOW'S.
+  //
+  // It used to ask `useIsMobile`, which asks the WINDOW. That is right on the
+  // route page, where the drawing gets most of the page, and completely wrong
+  // in the admin editor, where the live preview sits in a 22rem rail on a
+  // desktop: the window said "not mobile", so the preview drew the wide
+  // serpentine - nodes 190 units apart and labels 38% of the width - inside a
+  // 340px box. Every label landed on top of the next one and spilled out of
+  // the panel. That is the "text is overlapping, not inside the boxes" report.
+  //
+  // A drawing that has to fit a container should measure the container.
+  const [box0, setBox0] = useState(null)   // the element
+  const [box, setBox] = useState(null)     // its width
+  const narrow = box == null ? false : box < 520
+  const L = narrow ? LAYOUT.narrow : LAYOUT.wide
+  const isMobile = narrow
+
+  useEffect(() => {
+    if (!box0) return undefined
+    const ro = new ResizeObserver(([e]) => setBox(e.contentRect.width))
+    ro.observe(box0)
+    setBox(box0.getBoundingClientRect().width)
+    return () => ro.disconnect()
+  }, [box0])
 
   // Node 0 is "you joined". Everything after it is a milestone, so a creator
   // with nothing done yet still sees a road with a start on it rather than an
   // empty state.
-  const nodes = [{ start: true }, ...milestones]
+  const nodes = [{ start: true }, ...(preview ? milestones.map((m) => ({ ...m, reached: true })) : milestones)]
   const H = TOP + (nodes.length - 1) * L.gap + TOP
   const { d, segs } = buildRoute(nodes.length, L)
 
-  const reached = milestones.filter((m) => m.reached).length
+  const reached = preview ? milestones.length : milestones.filter((m) => m.reached).length
   const next = milestones[reached] || null
   // How far into the current leg. Measured against the NEXT milestone's own
   // metric, which is the only number that answers "how close am I".
@@ -159,7 +184,7 @@ export default function MilestonePath({ milestones = [], standings = [], showPeo
   // hidden underneath it, and the shape of the queue is itself the answer to
   // "how is the community doing": a bunch near the start and a straggler out
   // front looks completely different from an even spread.
-  const crowd = !showCrowd ? [] : (() => {
+  const crowd = (() => {
     const seen = new Map()
     return standings.map((s) => {
       const node = Math.min(Number(s.reached) || 0, legs)
@@ -172,7 +197,7 @@ export default function MilestonePath({ milestones = [], standings = [], showPeo
   })()
 
   return (
-    <div className="relative w-full" style={{ aspectRatio: `${L.W} / ${H}` }}>
+    <div ref={setBox0} className="relative w-full" style={{ aspectRatio: `${L.W} / ${H}` }}>
       <svg viewBox={`0 0 ${L.W} ${H}`} className="absolute inset-0 h-full w-full" aria-hidden>
         <defs>
           <clipPath id="milestone-face" clipPathUnits="objectBoundingBox">
@@ -253,7 +278,7 @@ export default function MilestonePath({ milestones = [], standings = [], showPeo
             route only had one person on it. Each creator gets a dot at their own
             fraction of the route, fanned sideways so a cluster at the same stop
             is still countable. */}
-        {showCrowd && crowd.map((c) => (
+        {crowd.map((c) => (
           <g key={c.id} transform={`translate(${c.x} ${c.y})`}>
             <circle r="9" fill="#ffffff" stroke="#d94407" strokeWidth="1.5"
               style={{ filter: 'drop-shadow(0 1px 2px rgba(20,20,30,0.25))' }} />
@@ -315,6 +340,8 @@ export default function MilestonePath({ milestones = [], standings = [], showPeo
         // On a phone every label sits to the right of the lane. On desktop they
         // alternate so the curve has room to breathe.
         const rightSide = isMobile ? true : i % 2 === 0
+        // Everybody who has got at least this far.
+        const atStop = n.start ? [] : standings.filter((p) => p.reached >= i)
         return (
           <motion.div
             key={n.id || 'start-label'}
@@ -352,19 +379,24 @@ export default function MilestonePath({ milestones = [], standings = [], showPeo
                 <p className="mt-1 text-[11px] text-smoke">
                   {done ? 'Reached' : metricLabel(n.metric, n.value, n.threshold)}
                 </p>
-                {/* Everyone else who has got at least this far. Seeing four
-                    faces at the stop ahead of you is the single most motivating
-                    thing this page can show, and it costs one extra query. */}
-                {showPeople && (
-                  <div className="mt-1.5 flex -space-x-1.5">
-                    {standings.filter((s) => s.reached >= i).slice(0, 5).map((s) => (
-                      <Link key={s.id} to={`/profile/${s.id}`} title={s.name} className="transition-transform hover:scale-110 hover:z-10">
-                        <Avatar src={s.photo_url} name={s.name} size="xs" className="ring-2 ring-white" />
+                {/* WHO IS AT THIS STOP.
+                    Always, not behind a toggle. There were two buttons here -
+                    "Faces at each stop" and "Everyone on the road" - and
+                    neither name told you what it would do, which is the whole
+                    problem with a toggle for something that should just be
+                    true. Three faces and a count is the answer to "am I on my
+                    own out here", and it is short enough to live under every
+                    label without becoming the label. */}
+                {atStop.length > 0 && (
+                  <div className="mt-1.5 flex items-center -space-x-1.5">
+                    {atStop.slice(0, 3).map((s2) => (
+                      <Link key={s2.id} to={`/profile/${s2.id}`} title={s2.name} className="transition-transform hover:z-10 hover:scale-110">
+                        <Avatar src={s2.photo_url} name={s2.name} size="xs" className="ring-2 ring-white" />
                       </Link>
                     ))}
-                    {standings.filter((s) => s.reached >= i).length > 5 && (
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-cloud text-[9px] font-semibold text-smoke ring-2 ring-white">
-                        +{standings.filter((s) => s.reached >= i).length - 5}
+                    {atStop.length > 3 && (
+                      <span className="flex h-6 items-center rounded-full bg-cloud px-1.5 text-[9px] font-semibold text-smoke ring-2 ring-white">
+                        +{atStop.length - 3}
                       </span>
                     )}
                   </div>
