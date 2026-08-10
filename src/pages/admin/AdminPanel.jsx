@@ -1,77 +1,167 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useCommunity } from '../../context/CommunityContext'
 import { PageHeader, StatCard, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
+import Reveal from '../../components/network/Reveal'
 import { cx, formatMoney, PRIZE_BASELINE } from '../../lib/utils'
 
-// The admin hub: key numbers up top, then tiles linking every admin tool.
-const TOOLS = [
-  // Applications is intentionally NOT a tile here - the banner at the top of the
-  // panel surfaces pending applications whenever there are any to review.
-  { to: '/admin/creators', icon: 'users', title: 'Creators', text: 'Full list with emails, activity, password resets, mute/suspend, promote.' },
-  { to: '/admin/challenges', icon: 'flag', title: 'Challenges', text: 'Create, edit, close and archive challenges.' },
-  { to: '/admin/rewards', icon: 'money', title: 'Rewards & invoices', text: 'Manage payouts, generate prize invoices, export for accounting.' },
-  { to: '/admin/analytics', icon: 'chart', title: 'Analytics', text: 'Growth, submissions, views and spend, with CSV export.' },
-  { to: '/admin/network', icon: 'users', title: 'Community network', text: 'Who is connecting with whom and the best-connected creators.' },
-  { to: '/admin/email', icon: 'envelope', title: 'Email', text: 'Approve welcome emails, copy the address list, see what was sent.' },
-  { to: '/admin/jobs', icon: 'briefcase', title: 'Jobs', text: 'Post roles you are hiring for. Every creator gets notified.' },
-  { to: '/admin/referrals', icon: 'share', title: 'Referrals', text: 'See who referred whom, and follow up on leads.' },
-  { to: '/admin/events', icon: 'calendar', title: 'Events', text: 'Q&As, content days and milestones on the calendar.' },
-  { to: '/admin/resources', icon: 'book', title: 'Resources', text: 'Publish tips, guidelines and downloadable assets.' },
-  { to: '/admin/audit', icon: 'clock', title: 'Audit log', text: 'A record of account actions taken by the Tryp.com Team.' },
-  { to: '/admin/scheduled', icon: 'calendar', title: 'Scheduled announcements', text: 'Write announcements now and auto-post them later.' },
-  { to: '/admin/whats-new', icon: 'bell', title: "What's new", text: "Announce a new feature. It lands in every creator's notification bell." },
-  { to: '/admin/feedback', icon: 'chat', title: 'Bug reports & ideas', text: 'Bugs and feature suggestions creators have submitted.' },
-  { to: '/admin/milestones', icon: 'plane', title: 'Milestones', text: 'The route every creator flies. Thresholds, rewards and order, all editable.' },
-  { to: '/admin/team', icon: 'shield', title: 'Tryp.com team', text: 'Who runs the programme, what they can do, and the title each of them carries.' },
-  { to: '/admin/notes', icon: 'book', title: 'Notes', text: 'A private notes space for the team. Keep a bank of weekly questions, plans and playbooks.' },
+// The admin hub.
+//
+// WHAT WAS WRONG WITH IT
+//
+// Seventeen identical tiles in one flat grid, in whatever order you had dragged
+// them into on this particular device. That is the same problem the avatar
+// dropdown had before the network hub fixed it: a list you scan by hunting
+// rather than navigation you read. Nothing on the page said which tools were
+// about people and which were about money, three separate coloured banners
+// competed to be the thing you noticed first, and there was no route at all to
+// the per-market pages - so the person who runs Germany had to know that
+// /manage/germany existed and type it.
+//
+// WHAT IT IS NOW
+//
+//   1. ON YOUR DESK   - only the things actually waiting for a decision, in one
+//                       block, with counts. Empty when there is nothing, which
+//                       is the point: an empty desk is information.
+//   2. The numbers.
+//   3. YOUR MARKETS   - every market you manage, as a door to its own settings.
+//   4. The tools, GROUPED. The grouping IS the information.
+//
+// The manual drag-to-reorder is gone with the flat grid it existed to survive.
+// Ordering seventeen things by hand is a workaround for not being able to find
+// them, and five named groups of three or four is the actual fix.
+
+const GROUPS = [
+  {
+    name: 'People',
+    hint: 'Who is in the community and who runs it.',
+    tools: [
+      { to: '/admin/creators', icon: 'users', title: 'Creators', text: 'The full roster: emails, activity, password resets, mute, suspend, promote.' },
+      { to: '/admin/applications', icon: 'shield', title: 'Applications', text: 'Approve or decline the people asking to join.' },
+      { to: '/admin/referrals', icon: 'share', title: 'Referrals', text: 'Who brought whom in, and which leads to follow up.' },
+      { to: '/admin/network', icon: 'heart', title: 'Community network', text: 'Who is connecting with whom, and the best-connected creators.' },
+      { to: '/admin/team', icon: 'shield', title: 'Tryp.com team', text: 'Who runs the programme, what they can do, and their titles.', globalOnly: true },
+    ],
+  },
+  {
+    name: 'The programme',
+    hint: 'The work creators are here to do.',
+    tools: [
+      { to: '/admin/challenges', icon: 'flag', title: 'Challenges', text: 'Create, edit, close and archive briefs.' },
+      { to: '/admin/milestones', icon: 'plane', title: 'Milestones', text: 'The route every creator flies. Thresholds, rewards and order.' },
+      { to: '/admin/events', icon: 'calendar', title: 'Events', text: 'Q&As, content days and meetups on the calendar.' },
+      { to: '/admin/resources', icon: 'book', title: 'Resources', text: 'Guides, guidelines and downloadable assets.' },
+      { to: '/admin/jobs', icon: 'briefcase', title: 'Roles', text: 'Paid work you are hiring for. Every creator is notified.' },
+    ],
+  },
+  {
+    name: 'Money',
+    hint: 'Nothing is paid without a second pair of eyes.',
+    tools: [
+      { to: '/admin/rewards', icon: 'money', title: 'Rewards & invoices', text: 'The approval queue, payouts, invoices and payment details.' },
+      { to: '/admin/analytics', icon: 'chart', title: 'Analytics', text: 'Growth, submissions, views and spend, with CSV export.' },
+    ],
+  },
+  {
+    name: 'Talking to everyone',
+    hint: 'Anything that lands in a creator’s inbox or notifications.',
+    tools: [
+      { to: '/admin/email', icon: 'envelope', title: 'Email', text: 'Approve welcome emails, copy the address list, see what went out.' },
+      { to: '/admin/scheduled', icon: 'clock', title: 'Scheduled announcements', text: 'Write now, post later.' },
+      { to: '/admin/whats-new', icon: 'bell', title: "What's new", text: 'Announce a feature. It lands in every notification bell.' },
+      { to: '/admin/feedback', icon: 'chat', title: 'Bugs & ideas', text: 'What creators have flagged, waiting to be triaged.' },
+      { to: '/admin/notes', icon: 'pencil', title: 'Notes', text: 'The team’s private space for plans, playbooks and question banks.' },
+    ],
+  },
+  {
+    name: 'The platform',
+    hint: 'Settings and records that apply to everything.',
+    globalOnly: true,
+    tools: [
+      { to: '/global/settings', icon: 'globe', title: 'Network settings', text: 'The worldwide network itself.' },
+      { to: '/global/markets', icon: 'flag', title: 'All markets', text: 'Every market, open and closed, and how to open another.' },
+      { to: '/admin/audit', icon: 'eye', title: 'Audit log', text: 'A record of account actions taken by the team.' },
+    ],
+  },
 ]
 
-// Admins can drag the tool cards into whatever order suits them; the order is
-// remembered per device. New tools added later fall in at the end.
-const ORDER_KEY = 'admin-panel-tool-order'
-function loadOrder() {
-  try { return JSON.parse(localStorage.getItem(ORDER_KEY)) || [] } catch { return [] }
+// SOME OF THESE LIVE INSIDE THE NETWORK SHELL, WHICH IS BEHIND A FLAG.
+//
+// `/manage/:slug`, `/global/settings` and `/global/markets` are all under
+// NetworkRoute, which redirects to /home unless the device-local preview flag
+// is on. So a plain <Link> to any of them from here is a link that silently
+// bounces you to the home page - which is exactly how a market's settings came
+// to be reachable only by typing the URL. Anything network-scoped turns the
+// flag on first; it is device-local, it affects no creator, and an admin
+// pressing "market settings" has unambiguously asked to go there.
+const NETWORK_PATH = (to) => to.startsWith('/manage/') || to.startsWith('/global/')
+
+function ToolCard({ tool, onNetworkOpen }) {
+  const props = NETWORK_PATH(tool.to)
+    ? { as: 'button', onClick: () => onNetworkOpen(tool.to) }
+    : { as: 'link' }
+  const inner = (
+    <>
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand">
+        <Icon name={tool.icon} className="h-5 w-5" />
+      </span>
+      <span className="min-w-0">
+        <span className="block font-semibold transition-colors group-hover:text-brand">{tool.title}</span>
+        <span className="mt-1 block text-xs leading-relaxed text-smoke">{tool.text}</span>
+      </span>
+    </>
+  )
+  const className = 'card group flex w-full items-start gap-3 !p-5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift'
+  if (props.as === 'button') {
+    return <button type="button" onClick={props.onClick} className={className}>{inner}</button>
+  }
+  return <Link to={tool.to} className={className}>{inner}</Link>
 }
-function orderTools(order) {
-  if (!order.length) return TOOLS
-  const rank = new Map(order.map((to, i) => [to, i]))
-  return [...TOOLS].sort((a, b) => (rank.has(a.to) ? rank.get(a.to) : 1e9) - (rank.has(b.to) ? rank.get(b.to) : 1e9))
+
+// ON YOUR DESK.
+//
+// One row per thing that is genuinely waiting for a person. This replaces three
+// separate full-width coloured banners that each claimed to be the most urgent
+// thing on the page - and which, between them, pushed the actual tools below
+// the fold on a laptop. A count and a verb is enough.
+function DeskRow({ to, icon, count, label, hint }) {
+  return (
+    <Link
+      to={to}
+      className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-white"
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-brand">
+        <Icon name={icon} className="h-4 w-4" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-semibold">{count} {label}</span>
+        <span className="block truncate text-xs text-smoke">{hint}</span>
+      </span>
+      <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
+    </Link>
+  )
 }
 
 export default function AdminPanel() {
-  const { enterCreatorPreview } = useAuth()
+  const { enterCreatorPreview, profile } = useAuth()
   const { enterPreview } = useCommunity()
   const navigate = useNavigate()
   const [stats, setStats] = useState(null)
+  const [markets, setMarkets] = useState(null)
   const [entering, setEntering] = useState(false)
   const [enterError, setEnterError] = useState('')
 
-  // Drag-to-reorder the tool cards (grab dots on hover, top-right).
-  const [order, setOrder] = useState(loadOrder)
-  const [dragKey, setDragKey] = useState(null)
-  const [overKey, setOverKey] = useState(null)
-  const orderedTools = useMemo(() => orderTools(order), [order])
+  const isGlobal = profile?.platform_role === 'global_admin' || profile?.platform_role === 'owner'
 
-  function handleDrop(targetTo) {
-    setOverKey(null)
-    if (!dragKey || dragKey === targetTo) { setDragKey(null); return }
-    const cur = orderedTools.map((t) => t.to)
-    const from = cur.indexOf(dragKey)
-    const to = cur.indexOf(targetTo)
-    if (from === -1 || to === -1) { setDragKey(null); return }
-    cur.splice(to, 0, cur.splice(from, 1)[0])
-    setOrder(cur)
-    localStorage.setItem(ORDER_KEY, JSON.stringify(cur))
-    setDragKey(null)
+  // Turn the network shell on, then go. See NETWORK_PATH above.
+  function openInNetwork(path) {
+    enterPreview()
+    navigate(path)
   }
 
-  // Enter "view as creator": step into the hidden sandbox creator account and
-  // land on Home, experiencing the app exactly as a creator does. A floating
-  // pill (in AppLayout) restores the admin session any time.
   async function enterCreatorView() {
     setEntering(true)
     setEnterError('')
@@ -83,19 +173,21 @@ export default function AdminPanel() {
 
   useEffect(() => {
     async function load() {
-      const [{ count: creators }, { count: pendingRewards }, { data: active }, { data: paid }, { count: subsThisChallenge }, { count: pendingApps }, { count: newFeedback }] =
-        await Promise.all([
-          supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'active').eq('is_admin', false).eq('is_test', false).is('deletion_requested_at', null),
-          supabase.from('rewards').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-          supabase.from('challenges').select('id, title, end_date').eq('status', 'active').limit(1).maybeSingle(),
-          supabase.from('rewards').select('amount, reward_type').eq('status', 'distributed'),
-          supabase.from('submissions').select('id', { count: 'exact', head: true }),
-          supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'pending').eq('onboarded', true),
-          supabase.from('feedback').select('id', { count: 'exact', head: true }).eq('status', 'new'),
-        ])
-      // Split distributed rewards by type. Cash includes the £500 pre-platform
-      // baseline (WhatsApp-era challenges) so the headline "prizes distributed"
-      // accumulates from £500 upward as new prizes and vouchers are paid out.
+      const [
+        { count: creators }, { count: pendingRewards }, { data: active }, { data: paid },
+        { count: submissions }, { count: pendingApps }, { count: newFeedback }, { count: toApprove },
+      ] = await Promise.all([
+        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'active').eq('is_admin', false).eq('is_test', false).is('deletion_requested_at', null),
+        supabase.from('rewards').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase.from('challenges').select('id, title, end_date').eq('status', 'active').limit(1).maybeSingle(),
+        supabase.from('rewards').select('amount, reward_type').eq('status', 'distributed'),
+        supabase.from('submissions').select('id', { count: 'exact', head: true }),
+        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'pending').eq('onboarded', true),
+        supabase.from('feedback').select('id', { count: 'exact', head: true }).eq('status', 'new'),
+        // The queue built in migration 091. This is the number that decides
+        // whether anybody gets paid this week.
+        supabase.from('invoices').select('id', { count: 'exact', head: true }).eq('stage', 'awaiting_approval'),
+      ])
       const cashPaid = (paid ?? []).filter((r) => r.reward_type !== 'voucher').reduce((s, r) => s + Number(r.amount), 0)
       const voucherPaid = (paid ?? []).filter((r) => r.reward_type === 'voucher').reduce((s, r) => s + Number(r.amount), 0)
       setStats({
@@ -105,140 +197,226 @@ export default function AdminPanel() {
         cashPaid: PRIZE_BASELINE + cashPaid,
         voucherPaid,
         totalPaid: PRIZE_BASELINE + cashPaid + voucherPaid,
-        submissions: subsThisChallenge ?? 0,
+        submissions: submissions ?? 0,
         pendingApps: pendingApps ?? 0,
         newFeedback: newFeedback ?? 0,
+        toApprove: toApprove ?? 0,
       })
     }
     load()
   }, [])
 
+  // THE MARKETS ARE QUERIED HERE RATHER THAN READ FROM CommunityContext.
+  //
+  // That context deliberately issues no queries at all unless the network
+  // preview flag is on, so on this page it is usually empty - and a "your
+  // markets" section that is blank for everybody who has not turned on a
+  // device-local flag is worse than not having one. Two small queries.
+  useEffect(() => {
+    let alive = true
+    async function load() {
+      const [{ data: comms }, { data: mine }, { data: counts }, { data: live }] = await Promise.all([
+        supabase.from('communities').select('id, name, slug, kind, country_codes, is_active, retired_at').eq('kind', 'chapter').order('name'),
+        supabase.from('community_members').select('community_id, role').eq('profile_id', profile?.id ?? '00000000-0000-0000-0000-000000000000').eq('status', 'active'),
+        supabase.from('community_members')
+          .select('community_id, profiles!inner(is_admin, is_test, status)')
+          .eq('status', 'active').eq('profiles.is_admin', false).eq('profiles.is_test', false).eq('profiles.status', 'active'),
+        supabase.from('challenges').select('id, community_id').eq('status', 'active'),
+      ])
+      if (!alive) return
+      const managed = new Set((mine || []).filter((m) => m.role === 'manager').map((m) => m.community_id))
+      const tally = {}
+      for (const c of counts || []) tally[c.community_id] = (tally[c.community_id] || 0) + 1
+      const liveIn = new Set((live || []).map((c) => c.community_id))
+      setMarkets(
+        (comms || [])
+          .filter((c) => (isGlobal ? true : managed.has(c.id)))
+          .map((c) => ({ ...c, members: tally[c.id] || 0, live: liveIn.has(c.id) })),
+      )
+    }
+    if (profile?.id) load()
+    return () => { alive = false }
+  }, [profile?.id, isGlobal])
+
+  const desk = stats ? [
+    stats.pendingApps > 0 && { to: '/admin/applications', icon: 'shield', count: stats.pendingApps, label: `application${stats.pendingApps === 1 ? '' : 's'} to review`, hint: 'Nobody can post until they are approved.' },
+    stats.toApprove > 0 && { to: '/admin/rewards?tab=queue', icon: 'money', count: stats.toApprove, label: `invoice${stats.toApprove === 1 ? '' : 's'} to approve`, hint: 'Money does not go out until somebody signs these off.' },
+    stats.newFeedback > 0 && { to: '/admin/feedback', icon: 'chat', count: stats.newFeedback, label: `bug report${stats.newFeedback === 1 ? '' : 's'} and ideas`, hint: 'Creators have flagged something.' },
+    stats.pendingRewards > 0 && { to: '/admin/rewards?tab=payouts', icon: 'wallet', count: stats.pendingRewards, label: `reward${stats.pendingRewards === 1 ? '' : 's'} still to pay`, hint: 'Awarded but not yet distributed.' },
+  ].filter(Boolean) : []
+
   return (
     <div className="page">
-      <PageHeader title="Admin panel" subtitle="Everything you need to run the program, in one place." />
+      <PageHeader
+        title="Admin panel"
+        subtitle="What is waiting on you, then everything you need to run the programme."
+      />
 
-      {!stats ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-4"><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /></div>
-      ) : (
-        <div className="mb-12 grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatCard label="Creators" value={stats.creators} />
-          <StatCard label="Total submissions" value={stats.submissions} />
-          <StatCard
-            label="Prizes distributed"
-            value={formatMoney(stats.totalPaid)}
-            hint={`${formatMoney(stats.cashPaid)} cash · ${formatMoney(stats.voucherPaid)} vouchers`}
-            accent
-          />
-          <StatCard
-            label="Pending rewards"
-            value={stats.pendingRewards}
-            hint={stats.pendingRewards > 0 ? 'Waiting to be paid out' : 'All settled'}
-          />
-        </div>
-      )}
+      <div className="space-y-10">
+        {/* ---------- On your desk ---------- */}
+        {desk.length > 0 && (
+          <Reveal from="down">
+            <section className="rounded-card border border-brand/25 bg-brand-tint/25 p-4">
+              <h2 className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-widest text-brand">On your desk</h2>
+              <div className="space-y-0.5">
+                {desk.map((r) => <DeskRow key={r.to} {...r} />)}
+              </div>
+            </section>
+          </Reveal>
+        )}
 
-      {stats?.pendingApps > 0 && (
-        <Link to="/admin/applications" className="mb-6 flex items-center justify-between gap-4 rounded-card border border-amber-300 bg-amber-50 p-5 transition-shadow hover:shadow-lift">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-700"><Icon name="shield" className="h-5 w-5" /></span>
-            <div>
-              <p className="font-semibold text-amber-900">{stats.pendingApps} application{stats.pendingApps === 1 ? '' : 's'} waiting for review</p>
-              <p className="text-sm text-amber-700">Approve or decline new creators so they can join the program.</p>
-            </div>
+        {/* ---------- The numbers ---------- */}
+        {!stats ? (
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" />
           </div>
-          <span className="shrink-0 text-sm font-semibold text-amber-800">Review →</span>
-        </Link>
-      )}
+        ) : (
+          <Reveal className="grid grid-cols-2 gap-4 lg:grid-cols-4" stagger={0.06}>
+            <StatCard label="Creators" value={stats.creators} />
+            <StatCard label="Total submissions" value={stats.submissions} />
+            <StatCard
+              label="Prizes distributed"
+              value={formatMoney(stats.totalPaid)}
+              hint={`${formatMoney(stats.cashPaid)} cash · ${formatMoney(stats.voucherPaid)} vouchers`}
+              accent
+            />
+            <StatCard
+              label="Rewards to pay"
+              value={stats.pendingRewards}
+              hint={stats.pendingRewards > 0 ? 'Awarded, not yet distributed' : 'All settled'}
+            />
+          </Reveal>
+        )}
 
-      {stats?.newFeedback > 0 && (
-        <Link to="/admin/feedback" className="mb-6 flex items-center justify-between gap-4 rounded-card border border-brand/30 bg-brand-tint/50 p-5 transition-shadow hover:shadow-lift">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-tint text-brand"><Icon name="chat" className="h-5 w-5" /></span>
-            <div>
-              <p className="font-semibold text-ink">{stats.newFeedback} new bug report{stats.newFeedback === 1 ? '' : 's'} / idea{stats.newFeedback === 1 ? '' : 's'}</p>
-              <p className="text-sm text-smoke">Creators have flagged something. Take a look and triage it.</p>
-            </div>
-          </div>
-          <span className="shrink-0 text-sm font-semibold text-brand">Review →</span>
-        </Link>
-      )}
+        {/* ---------- The live challenge ---------- */}
+        {stats?.active && (
+          <Reveal from="down">
+            <Link to={`/admin/challenges/${stats.active.id}/results`}
+              className="block rounded-card border border-brand/30 bg-brand-tint/50 p-6 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift sm:p-8">
+              <p className="text-xs font-semibold uppercase tracking-wider text-brand">Live challenge</p>
+              <p className="mt-2 text-xl font-bold">{stats.active.title}</p>
+              <p className="mt-1 text-sm text-smoke">Manage entries and log views when it closes →</p>
+            </Link>
+          </Reveal>
+        )}
 
-      {/* The global network build, testable without exposing it to anyone else.
-          Entering only flips a device-local flag, so no creator is affected and
-          exiting is instant. */}
-      <div className="mb-6 flex flex-col gap-4 rounded-card border border-gray-200 bg-white p-6 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand">
-            <Icon name="globe" className="h-5 w-5" />
-          </span>
-          <div>
-            <p className="font-semibold text-ink">Global network preview</p>
-            <p className="mt-0.5 max-w-xl text-sm text-smoke">
-              Step into the worldwide network shell and see how the markets sit inside it. Only this device is affected, creators see nothing, and you can exit any time.
+        {/* ---------- Your markets ----------
+            THE MISSING DOOR. Per-market settings have existed at /manage/:slug
+            for a while and nothing anywhere linked to them, so running a market
+            meant knowing the URL. A market is the unit of work for everybody
+            except the owner; it belongs above the platform-wide tools, not
+            hidden behind them. */}
+        {markets?.length > 0 && (
+          <Reveal from="down">
+            <section>
+              <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                <div>
+                  <h2 className="text-lg font-semibold">
+                    {isGlobal ? 'Markets' : 'Your markets'}
+                  </h2>
+                  <p className="mt-0.5 text-sm text-smoke">
+                    Rooms, members, standings, join policy and the market’s own settings.
+                  </p>
+                </div>
+                {isGlobal && (
+                  <button type="button" onClick={() => openInNetwork('/global/markets')}
+                    className="shrink-0 text-sm font-medium text-brand transition-transform duration-200 hover:scale-105">
+                    Open another →
+                  </button>
+                )}
+              </div>
+              <Reveal className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" stagger={0.06}>
+                {markets.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => openInNetwork(`/manage/${m.slug}`)}
+                    className={cx(
+                      'card flex w-full items-center gap-3 !p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift',
+                      m.retired_at && 'opacity-60',
+                    )}
+                  >
+                    <span className="text-lg" aria-hidden>
+                      {(m.country_codes || []).slice(0, 2).map((c) =>
+                        String.fromCodePoint(...[...c.toUpperCase()].map((ch) => 127397 + ch.charCodeAt(0)))).join('') || '🌍'}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-2">
+                        <span className="truncate font-semibold">{m.name}</span>
+                        {m.retired_at
+                          ? <span className="shrink-0 rounded-full bg-cloud px-2 py-0.5 text-[10px] font-semibold text-smoke">Retired</span>
+                          : !m.is_active && <span className="shrink-0 rounded-full bg-cloud px-2 py-0.5 text-[10px] font-semibold text-smoke">Closed</span>}
+                      </span>
+                      <span className="mt-0.5 flex items-center gap-2 text-xs text-smoke">
+                        <span>{m.members} {m.members === 1 ? 'creator' : 'creators'}</span>
+                        {m.live && (
+                          <>
+                            <span aria-hidden>•</span>
+                            <span className="font-medium text-brand">Challenge running</span>
+                          </>
+                        )}
+                      </span>
+                    </span>
+                    <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
+                  </button>
+                ))}
+              </Reveal>
+            </section>
+          </Reveal>
+        )}
+
+        {/* ---------- The tools, grouped ---------- */}
+        {GROUPS.filter((g) => !g.globalOnly || isGlobal).map((group) => {
+          const tools = group.tools.filter((t) => !t.globalOnly || isGlobal)
+          if (!tools.length) return null
+          return (
+            <Reveal from="down" key={group.name}>
+              <section>
+                <h2 className="text-lg font-semibold">{group.name}</h2>
+                <p className="mb-3 mt-0.5 text-sm text-smoke">{group.hint}</p>
+                <Reveal className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" stagger={0.05}>
+                  {tools.map((t) => <ToolCard key={t.to} tool={t} onNetworkOpen={openInNetwork} />)}
+                </Reveal>
+              </section>
+            </Reveal>
+          )
+        })}
+
+        {/* ---------- Seeing it as somebody else ----------
+            Both of these change what YOU see and nothing about the platform, so
+            they sit together at the bottom rather than pretending to be tools. */}
+        <Reveal from="down">
+          <section className="rounded-card border border-gray-200 bg-white p-5">
+            <h2 className="text-sm font-semibold">See it as somebody else</h2>
+            <p className="mt-0.5 text-xs text-smoke">
+              Both are local to this device. No creator is affected and you can come back any time.
             </p>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={() => { enterPreview(); navigate('/global') }}
-          className="btn-primary shrink-0"
-        >
-          Enter testing mode
-        </button>
-      </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <button onClick={enterCreatorView} disabled={entering}
+                className="flex items-start gap-3 rounded-xl border border-gray-100 p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-card disabled:opacity-60">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand">
+                  <Icon name="eye" className="h-4 w-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold">{entering ? 'Starting preview…' : 'View as creator'}</span>
+                  <span className="mt-0.5 block text-xs text-smoke">Step into a sandbox creator account and use the platform as they do.</span>
+                  {enterError && <span className="mt-1 block text-xs font-medium text-red-500">{enterError}</span>}
+                </span>
+              </button>
 
-      {stats?.active && (
-        <Link to={`/admin/challenges/${stats.active.id}/results`} className="mb-12 block rounded-card border border-brand/30 bg-brand-tint/50 p-6 transition-shadow hover:shadow-lift sm:p-8">
-          <p className="text-xs font-semibold uppercase tracking-wider text-brand">Live challenge</p>
-          <p className="mt-2 text-xl font-bold">{stats.active.title}</p>
-          <p className="mt-1 text-sm text-smoke">Manage entries and log views when it closes →</p>
-        </Link>
-      )}
-
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {orderedTools.map((t) => (
-          <Link
-            key={t.to}
-            to={t.to}
-            draggable={false}
-            onDragOver={(e) => { if (dragKey) { e.preventDefault(); if (overKey !== t.to) setOverKey(t.to) } }}
-            onDrop={() => handleDrop(t.to)}
-            className={cx(
-              'card group relative !p-7 transition-all hover:-translate-y-0.5 hover:shadow-lift',
-              dragKey === t.to && 'opacity-40',
-              overKey === t.to && dragKey && dragKey !== t.to && 'ring-2 ring-brand'
-            )}
-          >
-            {/* Grab handle: drag from here to reorder. */}
-            <span
-              draggable
-              onDragStart={(e) => { e.stopPropagation(); setDragKey(t.to); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', t.to) }}
-              onDragEnd={() => { setDragKey(null); setOverKey(null) }}
-              onClick={(e) => { e.preventDefault(); e.stopPropagation() }}
-              title="Drag to reorder"
-              aria-label="Drag to reorder"
-              className="absolute right-3 top-3 cursor-grab rounded-md p-1 text-gray-300 opacity-0 transition-opacity hover:text-smoke group-hover:opacity-100 active:cursor-grabbing"
-            >
-              <Icon name="grip" className="h-4 w-4" />
-            </span>
-            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-tint text-brand">
-              <Icon name={t.icon} className="h-6 w-6" />
-            </span>
-            <h2 className="mt-4 font-semibold group-hover:text-brand">{t.title}</h2>
-            <p className="mt-2 text-xs leading-relaxed text-smoke">{t.text}</p>
-          </Link>
-        ))}
-
-        {/* View-as-creator sits alongside the tools as a matching card, but it's
-            an action (not a link): it hides all admin UI until you exit. */}
-        <button onClick={enterCreatorView} disabled={entering} className="card group !p-7 text-left transition-all hover:-translate-y-0.5 hover:shadow-lift disabled:opacity-60">
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-tint text-brand">
-            <Icon name="eye" className="h-6 w-6" />
-          </span>
-          <h2 className="mt-4 font-semibold group-hover:text-brand">{entering ? 'Starting preview…' : 'View as creator'}</h2>
-          <p className="mt-2 text-xs leading-relaxed text-smoke">Step into a sandbox creator account and see the platform as a creator does.</p>
-          {enterError && <p className="mt-2 text-xs font-medium text-red-500">{enterError}</p>}
-        </button>
+              <button onClick={() => { enterPreview(); navigate('/global') }}
+                className="flex items-start gap-3 rounded-xl border border-gray-100 p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-card">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand">
+                  <Icon name="globe" className="h-4 w-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold">Global network preview</span>
+                  <span className="mt-0.5 block text-xs text-smoke">The worldwide shell, with the markets sitting inside it.</span>
+                </span>
+              </button>
+            </div>
+          </section>
+        </Reveal>
       </div>
     </div>
   )
