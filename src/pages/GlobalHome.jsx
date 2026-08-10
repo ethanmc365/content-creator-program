@@ -164,6 +164,36 @@ function orderLinks(order) {
   )
 }
 
+// THE GRIP IS A SEPARATE ELEMENT FROM THE LINK.
+//
+// This row used to spread `handleProps` straight onto its <Link>, which made
+// the entire link the drag handle. Every press on it was therefore a press on
+// a handle first and a navigation second, and the disambiguation lost often
+// enough that the markets in the rail read as simply not clickable. The grip
+// is its own target now, sitting outside the <Link>, and the link is only ever
+// a link. Same shape as NetworkLinkRow below, for the same reason.
+function MarketLinkRow({ market, live, handleProps, dragging }) {
+  return (
+    <div className={cx('group flex items-center gap-1 rounded-xl transition-colors', !dragging && 'hover:bg-cloud')}>
+      <Link to={`/c/${market.slug}`} className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-3 py-2 text-sm">
+        <FlagStack codes={market.country_codes} className="text-[13px]" />
+        <span className="min-w-0 flex-1 truncate">{market.name}</span>
+        {live && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand" title="Challenge running" />}
+      </Link>
+      <span {...handleProps} title="Drag to reorder" className={GRIP_CLASS}>
+        <Icon name="grip" className="h-4 w-4" />
+      </span>
+    </div>
+  )
+}
+
+// The grip is always in the DOM. It used to be fully transparent until hover,
+// which was survivable when the whole row could be dragged and is not now that
+// the grip is the only way to reorder anything: a control you cannot see is a
+// feature nobody has. It sits at low opacity instead, and comes up to full on
+// hover or focus. Below `sm` there is no hover to speak of, so it stays lit.
+const GRIP_CLASS = 'mr-1 flex h-8 w-6 shrink-0 items-center justify-center rounded-md text-gray-300 transition-opacity hover:text-smoke focus:opacity-100 focus:outline-none focus-visible:text-brand sm:opacity-40 sm:group-hover:opacity-100'
+
 // One row of the "Across the network" list. Module scope, not nested: a
 // component defined during render is a new type every render, which would
 // unmount the row mid-drag.
@@ -185,14 +215,7 @@ function NetworkLinkRow({ link, count, isNew, handleProps, dragging }) {
           <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase text-white">New</span>
         )}
       </Link>
-      {/* The handle is always in the DOM and only visible on hover or focus.
-          A control that appears on hover is invisible on a touch screen, so it
-          stays at full opacity below `sm` where there is no hover to speak of. */}
-      <span
-        {...handleProps}
-        title="Drag to reorder"
-        className="mr-1 flex h-8 w-6 shrink-0 cursor-grab items-center justify-center rounded-md text-gray-300 transition-opacity hover:text-smoke focus:opacity-100 focus:outline-none focus-visible:text-brand active:cursor-grabbing sm:opacity-0 sm:group-hover:opacity-100"
-      >
+      <span {...handleProps} title="Drag to reorder" className={GRIP_CLASS}>
         <Icon name="grip" className="h-4 w-4" />
       </span>
     </div>
@@ -416,17 +439,8 @@ export default function GlobalHome() {
           items={orderedMarkets}
           onReorder={saveMarketOrder}
           handleLabel="Reorder this market"
-          renderItem={(c, { handleProps }) => (
-            <Link
-              to={`/c/${c.slug}`}
-              {...handleProps}
-              role={undefined}
-              className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors hover:bg-cloud"
-            >
-              <FlagStack codes={c.country_codes} className="text-[13px]" />
-              <span className="min-w-0 flex-1 truncate">{c.name}</span>
-              {d?.live?.[c.id] && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand" title="Challenge running" />}
-            </Link>
+          renderItem={(c, { handleProps, dragging }) => (
+            <MarketLinkRow market={c} live={!!d?.live?.[c.id]} handleProps={handleProps} dragging={dragging} />
           )}
         />
         {myMarkets.length === 0 && (
@@ -723,33 +737,6 @@ export default function GlobalHome() {
             </section>
           )}
 
-          {/* ---------- Creators on the move ---------- */}
-          {d?.trips?.length > 0 && (
-            <section>
-              <SectionHead icon="pin" title="Creators on the move" to="/collab" toLabel="Collab board" />
-              <motion.div variants={listContainer} initial="hidden" animate="show"
-                className="grid grid-cols-1 gap-3 sm:grid-cols-2 [&>*:nth-child(n+5)]:hidden sm:[&>*:nth-child(n+5)]:block">
-                {d.trips.map((t) => (
-                  <MotionLink key={t.id} to="/collab" variants={listItem} {...cardHover}
-                    className="card flex items-center gap-3 !p-4 hover:shadow-lift">
-                    <Avatar src={t.profiles?.photo_url} name={t.profiles?.name} size="sm" />
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">
-                        {t.profiles?.name?.split(' ')[0]} → {flagForCountry(t.country)} {t.city}
-                      </p>
-                      <p className="truncate text-xs text-smoke">
-                        {format(new Date(t.start_date), 'd MMM')} – {format(new Date(t.end_date), 'd MMM')}
-                      </p>
-                    </div>
-                  </MotionLink>
-                ))}
-              </motion.div>
-            </section>
-          )}
-
-          {/* ---------- Spotlight ---------- */}
-          <CreatorSpotlight />
-
           {/* ---------- The map ----------
               THE PEOPLE MAP, NOT THE COUNTRY MAP.
               This slot used to hold "Where we have been, together": every
@@ -771,12 +758,39 @@ export default function GlobalHome() {
               : <Skeleton className="h-72" />}
           </Reveal>
 
+          {/* ---------- Creators on the move ---------- */}
+          {d?.trips?.length > 0 && (
+            <section>
+              <SectionHead icon="pin" title="Creators on the move" to="/collab" toLabel="Collab board" />
+              <motion.div variants={listContainer} initial="hidden" animate="show"
+                className="trim-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {d.trips.map((t) => (
+                  <MotionLink key={t.id} to="/collab" variants={listItem} {...cardHover}
+                    className="card flex items-center gap-3 !p-4 hover:shadow-lift">
+                    <Avatar src={t.profiles?.photo_url} name={t.profiles?.name} size="sm" />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">
+                        {t.profiles?.name?.split(' ')[0]} → {flagForCountry(t.country)} {t.city}
+                      </p>
+                      <p className="truncate text-xs text-smoke">
+                        {format(new Date(t.start_date), 'd MMM')} – {format(new Date(t.end_date), 'd MMM')}
+                      </p>
+                    </div>
+                  </MotionLink>
+                ))}
+              </motion.div>
+            </section>
+          )}
+
+          {/* ---------- Spotlight ---------- */}
+          <CreatorSpotlight />
+
           {/* ---------- New creators ---------- */}
           {d?.fresh?.length > 0 && (
             <section>
               <SectionHead icon="users" title="New in the community" to="/creators" toLabel="All creators" />
               <motion.div variants={listContainer} initial="hidden" animate="show"
-                className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 [&>*:nth-child(n+5)]:hidden sm:[&>*:nth-child(n+5)]:block">
+                className="trim-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {d.fresh.map((c) => (
                   <MotionLink key={c.id} to={`/profile/${c.id}`} variants={listItem} {...cardHover}
                     className="card flex min-w-0 items-center gap-3 !p-4 hover:shadow-lift">

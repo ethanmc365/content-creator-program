@@ -49,6 +49,24 @@ function quadLength(ax, ay, cx, cy, bx, by, steps = 24) {
 const MIN_PLANE_LEN = 90 // projection units; shorter hops get line but no plane
 const MAX_PLANES = 7
 
+// FANNING A TOWN OUT AS YOU ZOOM IN.
+//
+// Creators who typed the same town share one coordinate exactly, so no amount
+// of zooming separates them: six people in London stay one pin with a "6" on
+// it forever, and the only way to see who they are is the tap card. Past this
+// zoom the pin fans into a ring of individual faces around the town point,
+// each on a hairline back to it, which is what zooming in is FOR.
+//
+// 4.5 rather than something higher because that is roughly the zoom at which a
+// single country fills the frame - the moment the map stops being "the world"
+// and starts being "this place", which is when you want the people in it.
+const SPREAD_ZOOM = 4.5
+// Ring radius in projection units, counter-scaled exactly like the pins
+// (zoom^-0.7) so the gap between faces tracks the faces' own on-screen size at
+// every zoom instead of collapsing or flying apart.
+const spreadRadius = (count, zoom) =>
+  (24 + Math.min(count, 10) * 3.4) * Math.pow(1 / Math.max(zoom, 1), 0.7)
+
 // The Tryp plane silhouette, drawn nose-up.
 const PLANE_D = 'M0 -11 C1.1 -11 1.8 -9 1.8 -6.2 L1.8 -4.4 L10 1 L10 3.1 L1.8 -0.2 L1.8 5 L4.4 7.6 L4.4 9.2 L0 7.7 L-4.4 9.2 L-4.4 7.6 L-1.8 5 L-1.8 -0.2 L-10 3.1 L-10 1 L-1.8 -4.4 L-1.8 -6.2 C-1.8 -9 -1.1 -11 0 -11 Z'
 
@@ -90,7 +108,7 @@ function countryNameMatches(typed, geoName) {
 // tip on the exact coordinate. The avatar is CONCENTRIC with the white disc so
 // it's dead-centre in the pin. Counter-scaled against the zoom so it stays a
 // calm, readable size (a hair of growth when you zoom in, never a balloon).
-function Pin({ group, zoom, active, dim, onSelect }) {
+function Pin({ group, zoom, active, dim, onSelect, offset = null }) {
   const lead = group.creators[0]
   const count = group.creators.length
   // Counter-scale so pins are small at the default zoom (you can see the
@@ -102,7 +120,19 @@ function Pin({ group, zoom, active, dim, onSelect }) {
   const disc = r + 3 // white ring around the photo
   return (
     <Marker coordinates={group.coords} onClick={() => onSelect(group)}>
-      <g transform={`scale(${s})`} style={{ cursor: 'pointer', opacity: dim ? 0.25 : 1, transition: 'opacity 0.2s' }}>
+      {/* A fanned-out pin keeps a hairline back to the town it belongs to, so
+          six faces around London still read as "these people are in London"
+          rather than as six separate towns in the home counties. */}
+      {offset && (
+        <line
+          x1={0} y1={0} x2={offset[0]} y2={offset[1]}
+          stroke={BRAND} strokeWidth={0.9 * s} opacity={0.45} style={{ pointerEvents: 'none' }}
+        />
+      )}
+      <g
+        transform={`${offset ? `translate(${offset[0]} ${offset[1]}) ` : ''}scale(${s})`}
+        style={{ cursor: 'pointer', opacity: dim ? 0.25 : 1, transition: 'opacity 0.2s' }}
+      >
         {/* pointer tail + white disc, concentric with the avatar, share one shadow */}
         <g style={{ filter: 'drop-shadow(0 2px 3px rgba(20,20,30,0.30))' }}>
           <path d={`M${-r * 0.62} ${cy + disc * 0.5} L0 0 L${r * 0.62} ${cy + disc * 0.5} Z`} fill="#ffffff" />
@@ -353,6 +383,10 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
         out.push({
           id: c.id, name: c.name, photo_url: c.photo_url, trip, current, daysUntil,
           d: `M${ax} ${ay} Q ${cx2} ${cy2} ${bx} ${by}`, dest: [bx, by],
+          // The destination in LONGITUDE/LATITUDE as well as projected pixels.
+          // `dest` is already projected and so is useless for working out what
+          // the map should be framing; the fit needs real coordinates.
+          destLngLat: dest,
           // Same uniform speed as every other plane on the map.
           dur: flightDur(quadLength(ax, ay, cx2, cy2, bx, by)),
         })
@@ -416,6 +450,8 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
 
   const visibleJourneys = connectionsView ? [] : (focusJourney ? [focusJourney] : journeys)
   const quietMap = travelView || connectionsView || nearMe || !!focusJourney // hide the full thread web
+  // Any state that is not "the whole map".
+  const isFiltered = quietMap
 
   // Planes for the FILTERED views ("My connections" / "Creators near me"): a few
   // flights from the viewer's own town out to those creators, so the map still
@@ -455,15 +491,36 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   // outlier in Australia drags everyone else into a smudge. A market map of the
   // creators in Spain wants to go much closer, because that IS the point: you
   // are looking for Madrid and Valencia, not for Europe.
+  // WHAT THE FIT HAS TO CONTAIN.
+  //
+  // Normally: everybody's home town. But on a map whose whole subject is the
+  // journeys - the collab board's "where everyone's headed", and the travel
+  // view anywhere else - the DESTINATIONS are half the picture, and fitting
+  // only the home towns is what left that board framed on Europe with the
+  // planes flying off the edge of it. If the answer to "where is everyone
+  // headed" is Thailand, Thailand has to be on screen.
+  const fitPoints = useMemo(() => {
+    if ((travelView || travelOnlyView) && journeys.length > 0) {
+      const pts = []
+      for (const j of journeys) {
+        const home = located.find((c) => c.id === j.id)
+        if (home) pts.push([home._lng, home._lat])
+        if (j.destLngLat) pts.push(j.destLngLat)
+      }
+      if (pts.length > 0) return pts
+    }
+    return located.map((c) => [c._lng, c._lat])
+  }, [travelView, travelOnlyView, journeys, located])
+
   const fitView = useMemo(() => {
-    if (located.length === 0) return { coordinates: [10, 30], zoom: 1.3 }
-    const lngs = located.map((c) => c._lng), lats = located.map((c) => c._lat)
+    if (fitPoints.length === 0) return { coordinates: [10, 30], zoom: 1.3 }
+    const lngs = fitPoints.map((p) => p[0]), lats = fitPoints.map((p) => p[1])
     const minLng = Math.min(...lngs), maxLng = Math.max(...lngs)
     const minLat = Math.min(...lats), maxLat = Math.max(...lats)
     const lngSpan = Math.max(maxLng - minLng, 0.01), latSpan = Math.max(maxLat - minLat, 0.01)
     const zoom = Math.min(maxFitZoom, Math.max(1, Math.min(360 / (lngSpan * 1.5), 180 / (latSpan * 1.8))))
     return { coordinates: [(minLng + maxLng) / 2, (minLat + maxLat) / 2], zoom }
-  }, [located, maxFitZoom])
+  }, [fitPoints, maxFitZoom])
 
   // Fit to everyone on first load.
   useEffect(() => {
@@ -472,6 +529,42 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
     setPosition(fitView)
     setLiveZoom(fitView.zoom)
   }, [located, fitView])
+
+  // AND ONE MORE FIT, WHEN THE DESTINATIONS TURN UP.
+  //
+  // Country centroids are fetched, so on the first paint `journeys` is empty
+  // and the fit above can only see home towns. By the time the destinations
+  // exist the map has already decided it is done, which is why the collab
+  // board opened zoomed in no matter what the fit was taught. This re-frames
+  // exactly once, when the journeys first arrive, and only on a map that is
+  // actually about them - so it can never yank the view out from under
+  // somebody who has started panning around the normal map.
+  const refitWithJourneys = useRef(false)
+  useEffect(() => {
+    if (refitWithJourneys.current) return
+    if (journeys.length === 0 || !(travelView || travelOnlyView)) return
+    refitWithJourneys.current = true
+    setPosition(fitView)
+    setLiveZoom(fitView.zoom)
+  }, [journeys.length, travelView, travelOnlyView, fitView])
+
+  // LEAVING A FILTERED VIEW PUTS THE MAP BACK.
+  //
+  // There used to be a separate "Show the whole map" button for this. It was
+  // wrong twice over: it sat in the same corner as the legend and got buried
+  // under it, and it answered a question nobody had - the button that turned
+  // "On the move" on is obviously the button that turns it off, and needing a
+  // second, differently-styled button to undo the first is the interface
+  // admitting it does not trust itself. Pressing the filter again is the way
+  // out, so the map has to follow that press home on its own.
+  const wasFiltered = useRef(false)
+  useEffect(() => {
+    if (wasFiltered.current && !isFiltered) {
+      setPosition(fitView)
+      setLiveZoom(fitView.zoom)
+    }
+    wasFiltered.current = isFiltered
+  }, [isFiltered, fitView])
 
   const selectedTown = selected // a town snapshot ({ key, coords, creators })
 
@@ -493,12 +586,39 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   }, [])
   useEffect(() => () => cancelAnimationFrame(rafRef.current), [])
 
-  const zoomBy = (factor) =>
-    setPosition((p) => {
-      const zoom = Math.min(40, Math.max(1, p.zoom * factor))
-      setLiveZoom(zoom)
-      return { ...p, zoom }
-    })
+  // liveZoom FOLLOWS position.zoom, always.
+  //
+  // There are four things that can move this map - a wheel/pinch gesture, a
+  // drag, the +/- buttons and a programmatic re-fit - and they arrive through
+  // three different channels (onMove, onMoveEnd, and our own setPosition). Every
+  // one of them has to end with `liveZoom` agreeing with `position.zoom`,
+  // because liveZoom is what counter-scales the pins and planes: when the two
+  // disagree the map is at one zoom and everything drawn on it is sized for
+  // another, which is how a single face ended up covering a third of Europe.
+  //
+  // Rather than remember to set it in all four places (and get it wrong in the
+  // fourth), it is derived here. The handlers still set it eagerly so there is
+  // no lag mid-gesture; this only ever catches what they miss.
+  useEffect(() => { setLiveZoom(position.zoom) }, [position.zoom])
+
+  // TWO PLAIN SET-STATES, NOT ONE NESTED INSIDE THE OTHER.
+  //
+  // This used to call setLiveZoom from INSIDE the setPosition updater. An
+  // updater has to be a pure function of the previous state - React is free to
+  // call it more than once, and to call it during render - so the setLiveZoom
+  // in there simply never landed. The map zoomed (the group's own transform
+  // comes from `position`) while `liveZoom` stayed at whatever the last real
+  // gesture left it at, and since liveZoom is what counter-scales the pins,
+  // every press of + left the pins scaled for a zoom the map was no longer at.
+  // Four presses of + and one face covered a third of Europe.
+  //
+  // Programmatic zoom does not fire the group's onMoveEnd either, so nothing
+  // downstream was ever going to correct it.
+  const zoomBy = (factor) => {
+    const zoom = Math.min(40, Math.max(1, position.zoom * factor))
+    setPosition((p) => ({ ...p, zoom }))
+    setLiveZoom(zoom)
+  }
   const resetView = () => { setPosition(fitView); setLiveZoom(fitView.zoom) }
 
   // The three view filters. Rendered twice: as an overlay on desktop, and in a
@@ -508,38 +628,23 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   // view (these creators, this place), so offering "who's travelling" over the
   // top of it would let you filter a filter and land somewhere nobody asked to
   // be.
-  // Any state that is not "the whole map". The reset below exists because a
-  // filter you cannot see is a filter you cannot leave: once the travel view is
-  // on, the map shows planes and a legend, and the only way back was noticing
-  // that the button which turned it on is also the button that turns it off.
-  // Filtered views get an explicit way out, said in words.
-  const isFiltered = travelView || connectionsView || nearMe || !!focusJourney
+  // ONE SHAPE FOR EVERY FILTER. They are the same kind of thing - a view of the
+  // map you can be in or out of - so they are the same button, and the only
+  // difference between them is whether they are on. Mixing a dark pill, a white
+  // pill and an orange pill in one corner made three equal choices look like a
+  // hierarchy that does not exist.
+  const pill = (on) =>
+    `inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold shadow-card backdrop-blur transition-all hover:scale-[1.03] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 ${
+      on ? 'bg-brand text-white ring-1 ring-brand' : 'bg-white/95 text-ink ring-1 ring-black/5'
+    }`
 
   const filterButtons = !controls ? null : (
     <>
-      {isFiltered && (
-        <button
-          type="button"
-          onClick={() => {
-            setFocusId(null)
-            if (travelView) { if (onToggleTravel) onToggleTravel(); else setInternalTravel(false) }
-            if (connectionsView && onToggleConnections) onToggleConnections()
-            if (nearMe && onToggleNearMe) onToggleNearMe()
-            resetView()
-          }}
-          className="inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-xs font-semibold text-white shadow-card transition-all hover:scale-[1.03] active:scale-95"
-        >
-          <Icon name="close" className="h-3.5 w-3.5" />
-          Show the whole map
-        </button>
-      )}
       {onToggleConnections && (
         <button
           type="button"
           onClick={onToggleConnections}
-          className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold shadow-card transition-all hover:scale-[1.03] active:scale-95 ${
-            connectionsView ? 'bg-brand text-white' : 'bg-white/95 text-ink'
-          }`}
+          className={pill(connectionsView)}
         >
           <Icon name="users" className="h-3.5 w-3.5" />
           My connections{connectionsView ? ` · ${connSet.size}` : ''}
@@ -549,9 +654,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
         <button
           type="button"
           onClick={toggleTravel}
-          className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold shadow-card transition-all hover:scale-[1.03] active:scale-95 ${
-            travelView ? 'bg-brand text-white' : 'bg-white/95 text-ink'
-          }`}
+          className={pill(travelView)}
         >
           <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor" aria-hidden>
             <path d="M12 1.55 C13.05 1.55 13.71 3.45 13.71 6.11 L13.71 7.82 L21.5 12.95 L21.5 14.95 L13.71 11.81 L13.71 16.75 L16.18 19.22 L16.18 20.74 L12 19.32 L7.82 20.74 L7.82 19.22 L10.29 16.75 L10.29 11.81 L2.5 14.95 L2.5 12.95 L10.29 7.82 L10.29 6.11 C10.29 3.45 10.95 1.55 12 1.55 Z" />
@@ -569,9 +672,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           onClick={onToggleNearMe}
           disabled={nearMeDisabled}
           title={nearMeDisabled ? 'Add your city in your profile to use this' : undefined}
-          className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold shadow-card transition-all hover:scale-[1.03] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 ${
-            nearMe ? 'bg-brand text-white' : 'bg-white/95 text-ink'
-          }`}
+          className={pill(nearMe)}
         >
           <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11Z" /><circle cx="12" cy="10" r="2.6" />
@@ -764,19 +865,64 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
             ))}
           </g>
 
-          {paintOrder.map((town) => (
-            <g
-              key={town.key}
-              onMouseEnter={() => setTooltip(
-                town.creators.length === 1
-                  ? `${town.creators[0].name} · ${(town.creators[0].city || '').trim()}`.trim()
-                  : `${(town.creators[0].city || 'This town').trim()} · ${town.creators.length} creators`
-              )}
-              onMouseLeave={() => setTooltip('')}
-            >
-              <Pin group={town} zoom={z} active={selected?.key === town.key} dim={highlighting && !town.creators.some((c) => highlightIds.has(c.id))} onSelect={setSelected} />
-            </g>
-          ))}
+          {paintOrder.map((town) => {
+            const dimTown = highlighting && !town.creators.some((c) => highlightIds.has(c.id))
+            // Zoomed in far enough that a shared town should show its people
+            // individually rather than as one pin with a number on it.
+            const fanned = z >= SPREAD_ZOOM && town.creators.length > 1
+            if (!fanned) {
+              return (
+                <g
+                  key={town.key}
+                  onMouseEnter={() => setTooltip(
+                    town.creators.length === 1
+                      ? `${town.creators[0].name} · ${(town.creators[0].city || '').trim()}`.trim()
+                      : `${(town.creators[0].city || 'This town').trim()} · ${town.creators.length} creators`
+                  )}
+                  onMouseLeave={() => setTooltip('')}
+                >
+                  <Pin group={town} zoom={z} active={selected?.key === town.key} dim={dimTown} onSelect={setSelected} />
+                </g>
+              )
+            }
+            const n = town.creators.length
+            const R = spreadRadius(n, z)
+            return (
+              <g key={town.key}>
+                {/* the town's own point stays marked, so the ring has a centre */}
+                <Marker coordinates={town.coords}>
+                  <circle r={1.6 * Math.pow(1 / Math.max(z, 1), 0.7)} fill={BRAND} opacity={dimTown ? 0.2 : 0.7} style={{ pointerEvents: 'none' }} />
+                </Marker>
+                {town.creators.map((c, i) => {
+                  // Start at the top and go clockwise. The pin's tip is at its
+                  // own origin and its face sits ABOVE that, so a ring offset
+                  // straight up would hide the centre pin behind the face of
+                  // the one above it; the vertical axis is squashed to 0.62 to
+                  // keep the ring wide and flat, which is also how it reads
+                  // against a map.
+                  const a = (i / n) * Math.PI * 2 - Math.PI / 2
+                  const offset = [Math.cos(a) * R, Math.sin(a) * R * 0.62]
+                  const one = { key: `${town.key}:${c.id}`, coords: town.coords, creators: [c] }
+                  return (
+                    <g
+                      key={c.id}
+                      onMouseEnter={() => setTooltip(`${c.name} · ${(c.city || '').trim()}`.trim())}
+                      onMouseLeave={() => setTooltip('')}
+                    >
+                      <Pin
+                        group={one}
+                        zoom={z}
+                        offset={offset}
+                        active={selected?.key === one.key}
+                        dim={highlighting && !highlightIds.has(c.id)}
+                        onSelect={setSelected}
+                      />
+                    </g>
+                  )
+                })}
+              </g>
+            )
+          })}
         </ZoomableGroup>
       </ComposableMap>
 
@@ -837,8 +983,13 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           distinction nobody can be expected to guess, and an unexplained
           symbol is worse than no symbol. Only shown when both kinds are
           actually on the map. */}
+      {/* TOP-LEFT, NOT BOTTOM-LEFT. The filter pills live in the bottom-left
+          corner, and this sat on top of them at a higher z-index, so turning
+          the travel view on hid the controls that turned it off. Top-left is
+          the only free corner: the tooltip is top-centre, the zoom stack and
+          hint are top-right, and the town card owns the bottom. */}
       {travelView && !focusJourney && journeys.some((j) => j.current) && journeys.some((j) => !j.current) && (
-        <div className="absolute bottom-3 left-3 z-20 flex flex-col gap-1.5 rounded-xl bg-white/95 px-3 py-2 text-[11px] shadow-card backdrop-blur">
+        <div className="absolute left-3 top-3 z-20 flex flex-col gap-1.5 rounded-xl bg-white/95 px-3 py-2 text-[11px] shadow-card ring-1 ring-black/5 backdrop-blur">
           <span className="flex items-center gap-2">
             <svg viewBox="0 0 24 24" className="h-3 w-3 shrink-0" fill={BRAND} aria-hidden><path d={PLANE_D} transform="translate(12 12) scale(0.9)" /></svg>
             <span className="font-medium text-ink">There now</span>
