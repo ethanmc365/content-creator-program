@@ -407,14 +407,23 @@ export default function Settings() {
     if (open) {
       return (
         <div className="page max-w-3xl">
-          <button
-            onClick={() => setSection(null)}
-            className="mb-5 -ml-1 flex items-center gap-1.5 rounded-xl px-2 py-2 text-sm font-medium text-brand transition-colors hover:bg-brand-tint/50"
-          >
-            <Icon name="chevronLeft" className="h-4 w-4" />
-            All settings
-          </button>
-          <h1 className="mb-6 text-2xl font-bold tracking-tight">{open.label}</h1>
+          {/* THE ARROW SITS BESIDE THE TITLE, NOT ABOVE IT.
+              A labelled "All settings" row above the heading cost a whole line
+              of a phone screen to say something the arrow already says, and it
+              pushed the actual settings further down on the one device where
+              vertical space is scarcest. Inline, it costs nothing: the row was
+              going to exist for the heading anyway. The label lives on as the
+              accessible name. */}
+          <div className="mb-6 flex items-center gap-1.5">
+            <button
+              onClick={() => setSection(null)}
+              aria-label="All settings"
+              className="-ml-2.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-smoke transition-all hover:bg-cloud hover:text-ink active:scale-95"
+            >
+              <Icon name="chevronLeft" className="h-5 w-5" />
+            </button>
+            <h1 className="min-w-0 truncate text-2xl font-bold tracking-tight">{open.label}</h1>
+          </div>
           {BODIES[open.key]}
         </div>
       )

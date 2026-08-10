@@ -101,6 +101,21 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const [success, setSuccess] = useState(null) // { count, platform } once an entry lands
   const deepLinkedRef = useRef(false) // ?submit=/?tab= are consumed once, not on every reload
 
+  // WHO THE CHALLENGE IS OPEN TO.
+  //
+  // The participation bar only ever appeared when a market's Challenges tab
+  // handed one down, so it showed under a challenge opened from inside Spain
+  // and vanished from the SAME challenge opened from /challenges. That reads as
+  // the bar being broken, and it was reported that way. It is not a fact about
+  // where you happened to click; it is a fact about the challenge.
+  //
+  // The denominator is the challenge's own audience: the roster of the
+  // community it belongs to, or every active creator for a challenge that has
+  // no community (the legacy UK contest) or belongs to Worldwide, which
+  // everybody is in. Admins and QA accounts are excluded from both halves, the
+  // same rule every other member count here follows.
+  const [audience, setAudience] = useState(null)
+
   const load = useCallback(async () => {
     const [{ data: ch }, { data: subs }, { data: res }] = await Promise.all([
       supabase.from('challenges').select('*').eq('id', id).single(),
@@ -119,6 +134,29 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     setSubmissions(subs ?? [])
     setResults(res ?? [])
     setLoading(false)
+
+    // The size of the roster this challenge is running in front of.
+    if (ch?.community_id) {
+      // The join column is `profile_id`. Same query MarketChallenges runs for
+      // its own bar, so the two can never disagree about who counts.
+      const { count } = await supabase
+        .from('community_members')
+        .select('profile_id, profiles!inner(is_admin, is_test, status)', { count: 'exact', head: true })
+        .eq('community_id', ch.community_id)
+        .eq('status', 'active')
+        .eq('profiles.is_admin', false)
+        .eq('profiles.is_test', false)
+        .eq('profiles.status', 'active')
+      setAudience(count ?? 0)
+    } else {
+      const { count } = await supabase
+        .from('profiles')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'active')
+        .eq('is_admin', false)
+        .eq('is_test', false)
+      setAudience(count ?? 0)
+    }
   }, [id])
 
   useEffect(() => { load() }, [load])
@@ -227,6 +265,21 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // Live only while active AND before the deadline (midnight after the end date).
   const isLive = challenge.status === 'active' && nowMs < challengeDeadline(challenge.end_date).getTime()
   const myEntries = submissions.filter((s) => s.creator_id === user.id)
+
+  // Given, or worked out. `audience` is null until the count lands, which is
+  // why this is not simply an `||` with a zero default: a bar that says
+  // "0 of 0" for a moment and then jumps is worse than a bar that arrives.
+  const participationShown = marketParticipation
+    ? { data: marketParticipation, where: 'here' }
+    : audience != null && audience > 0
+      ? {
+          data: {
+            posted: new Set(submissions.map((s) => s.creator_id)).size,
+            total: audience,
+          },
+          where: 'in this challenge',
+        }
+      : null
   const prizes = Array.isArray(challenge.prize_structure) ? challenge.prize_structure : []
 
   // Which platforms each creator actually SUBMITTED on (for real platform icons)
@@ -290,11 +343,16 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         </div>
       )}
 
-      {/* Only ever passed by a market's Challenges tab, which is the one place
-          that knows the denominator: how many creators are in THIS market. */}
-      {isLive && marketParticipation && (
-        <ParticipationBar participation={marketParticipation} where="here" className="mb-10" />
-      )}
+      {/* A market's Challenges tab passes its own numbers down, because it has
+          already counted its roster and can say "here". Everywhere else the
+          page works them out for itself rather than showing nothing. */}
+      {isLive && (participationShown ? (
+        <ParticipationBar
+          participation={participationShown.data}
+          where={participationShown.where}
+          className="mb-10"
+        />
+      ) : null)}
 
       {/* Tabs */}
       <div className="mb-8 flex gap-2 border-b border-gray-100" role="tablist">

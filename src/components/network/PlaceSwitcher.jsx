@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Link, useLocation } from 'react-router-dom'
-import { motion, AnimatePresence } from 'motion/react'
+import { motion, AnimatePresence, useDragControls } from 'motion/react'
 import { useCommunity } from '../../context/CommunityContext'
 import Icon from '../Icon'
 import { flagFromIso } from '../../lib/flags'
@@ -84,6 +84,7 @@ export default function PlaceSwitcher() {
   const { network, chapters, myChapters, isGlobalAdmin } = useCommunity()
   const { pathname } = useLocation()
   const [sheet, setSheet] = useState(false)
+  const dragControls = useDragControls()
 
   // Any navigation closes it. Without this, tapping a market leaves the sheet
   // sitting over the page it just took you to.
@@ -153,15 +154,47 @@ export default function PlaceSwitcher() {
               onClick={() => setSheet(false)}
               className="absolute inset-0 bg-ink/40 backdrop-blur-[2px]"
             />
+            {/* SWIPE IT AWAY, AND SCROLL IT WITHOUT MOVING THE PAGE.
+                Two faults, one shape. The sheet WAS the scroller, so a flick
+                that ran past its last row chained straight through to the
+                document and scrolled the page behind it - the sheet looked
+                stuck to nothing. And there was no way to dismiss it by
+                gesture at all: the only exits were the backdrop and picking
+                somewhere, so a phone user who opened it to look had to tap
+                something to get out.
+
+                So the sheet no longer scrolls; the list inside it does, with
+                `overscroll-contain` to stop the chaining at its own edges.
+                And the sheet drags, but ONLY from the grabber - dragListener
+                is off and the gesture is started by hand from the handle, or
+                every attempt to scroll the list would drag the whole sheet
+                down instead. That is the same "two gestures need two targets"
+                rule the reorder grip follows. */}
             <motion.div
               initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
               transition={{ type: 'spring', stiffness: 380, damping: 36 }}
-              className="absolute inset-x-0 bottom-0 max-h-[82vh] overflow-y-auto rounded-t-[28px] bg-white pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-lift"
+              drag="y"
+              dragListener={false}
+              dragControls={dragControls}
+              dragConstraints={{ top: 0, bottom: 0 }}
+              dragElastic={{ top: 0, bottom: 0.5 }}
+              onDragEnd={(_, info) => {
+                // Distance OR speed. A slow deliberate pull past a third of the
+                // handle's travel is a dismissal, and so is a quick flick that
+                // barely moved - insisting on distance alone makes the sheet
+                // feel like it is resisting you.
+                if (info.offset.y > 90 || info.velocity.y > 600) setSheet(false)
+              }}
+              className="absolute inset-x-0 bottom-0 flex max-h-[82vh] flex-col rounded-t-[28px] bg-white pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-lift"
             >
-              <div className="sticky top-0 z-10 flex flex-col items-center bg-white pb-2 pt-3">
-                <span aria-hidden className="h-1.5 w-11 rounded-full bg-gray-200" />
+              <div
+                onPointerDown={(e) => dragControls.start(e)}
+                style={{ touchAction: 'none' }}
+                className="flex shrink-0 cursor-grab flex-col items-center bg-white pb-2 pt-3 active:cursor-grabbing"
+              >
+                <span aria-hidden className="h-1.5 w-11 rounded-full bg-gray-300" />
               </div>
-              <div className="px-3 pb-2">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-2">
                 <p className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-widest text-smoke">
                   The network
                 </p>

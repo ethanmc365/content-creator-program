@@ -19,8 +19,14 @@ export default function BackLink({ to = '/global', label = 'Back', className }) 
   const navigate = useNavigate()
   const canGoBack = typeof window !== 'undefined' && window.history.length > 1
 
+  // ON A PHONE IT IS JUST THE ARROW.
+  //
+  // The word "Back" next to a back arrow is the arrow said twice, and on a
+  // 375px screen the pair took a full-width row above every page heading. The
+  // label stays from `sm` up, where the space is free and the extra clarity
+  // costs nothing, and stays in the accessible name everywhere.
   const classes = cx(
-    'group -ml-1 mb-4 inline-flex items-center gap-1 rounded-full py-1 pl-1 pr-3 text-sm font-medium text-smoke',
+    'group -ml-1 mb-2 inline-flex items-center gap-1 rounded-full py-1 pl-1 text-sm font-medium text-smoke sm:mb-4 sm:pr-3',
     'transition-colors hover:text-brand',
     className,
   )
@@ -30,7 +36,7 @@ export default function BackLink({ to = '/global', label = 'Back', className }) 
       <span className="flex h-6 w-6 items-center justify-center rounded-full transition-transform duration-200 group-hover:-translate-x-0.5">
         <Icon name="chevronLeft" className="h-4 w-4" />
       </span>
-      {label}
+      <span className="hidden sm:inline">{label}</span>
     </>
   )
 
@@ -41,5 +47,6 @@ export default function BackLink({ to = '/global', label = 'Back', className }) 
       </button>
     )
   }
-  return <Link to={to} className={classes}>{inner}</Link>
+  // aria-label, not just the text, because below `sm` there IS no text.
+  return <Link to={to} className={classes} aria-label={label}>{inner}</Link>
 }

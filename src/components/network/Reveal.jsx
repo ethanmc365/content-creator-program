@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 // A grid or list whose children arrive one after another as it scrolls into
 // view. THE animation of this product, extracted.
@@ -52,12 +52,17 @@ export default function Reveal({
   ...rest
 }) {
   const [shown, setShown] = useState(false)
+  // The node in STATE, not a ref, with the observer in an effect keyed on it.
+  //
+  // This was a callback ref that returned its own cleanup, which reads
+  // naturally and is a React 19 feature - on 18 a callback ref returning a
+  // function is a warning and the cleanup never runs, so every conditionally
+  // rendered grid leaked an observer. State is also what makes the effect
+  // re-run when a grid unmounts and comes back.
+  const [node, setNode] = useState(null)
 
-  // A callback ref rather than useRef + useEffect: the node arrives with the
-  // callback, so there is no render where the observer does not exist yet, and
-  // a conditionally-rendered grid re-observes itself correctly when it returns.
-  const observe = useCallback((node) => {
-    if (!node) return undefined
+  useEffect(() => {
+    if (!node || shown) return undefined
     // No IntersectionObserver (very old browser, some test environments) must
     // never mean "invisible content". Show it and move on.
     if (typeof IntersectionObserver === 'undefined') {
@@ -65,16 +70,12 @@ export default function Reveal({
       return undefined
     }
     const io = new IntersectionObserver(
-      (entries) => {
-        if (!entries.some((e) => e.isIntersecting)) return
-        setShown(true)
-        io.disconnect()
-      },
+      (entries) => { if (entries.some((e) => e.isIntersecting)) setShown(true) },
       { rootMargin: '0px 0px -10% 0px' },
     )
     io.observe(node)
     return () => io.disconnect()
-  }, [])
+  }, [node, shown])
 
   // Belt and braces: if the observer has not fired within a second (a hidden
   // tab, a preview pane where rAF is frozen, a layout that never scrolls),
@@ -89,7 +90,7 @@ export default function Reveal({
   const kids = Array.isArray(children) ? children : [children]
   return (
     <Tag
-      ref={observe}
+      ref={setNode}
       className={`reveal${shown ? ' is-in' : ''}${className ? ` ${className}` : ''}`}
       style={{ '--reveal-stagger': `${Math.round(stagger * 1000)}ms` }}
       {...rest}
