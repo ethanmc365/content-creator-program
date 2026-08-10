@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
+import { useCommunity } from '../../context/CommunityContext'
 import { Modal } from '../ui'
 import { notice } from '../../lib/confirm'
 import { cx } from '../../lib/utils'
@@ -311,12 +313,33 @@ const DONE_KEY = 'intro-posted'
 const SNOOZE_KEY = 'intro-snoozed'
 
 export default function IntroGate() {
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
+  const { preview } = useCommunity()
+  const { pathname } = useLocation()
   const [open, setOpen] = useState(false)
   const [target, setTarget] = useState(null) // { community, channel }
 
+  // NOT YET, AND NOT EVERYWHERE.
+  //
+  // TWO GATES, both required, both added after this shipped once too widely.
+  //
+  // 1. THE PREVIEW FLAG. The introductions room lives in the network shell, and
+  //    the legacy chat that 44 creators actually use has a HARD-CODED channel
+  //    list that does not include it. So a creator answering this popup would
+  //    write an introduction and then have nowhere to see it. Same gate as
+  //    NetworkRoute - device-local flag AND admin - so this is invisible to
+  //    every creator until the network itself is launched.
+  //
+  // 2. THE CHAT PAGES. Even for the team, a modal that opens over the admin
+  //    panel or the rewards queue is an interruption in the middle of somebody
+  //    else's task. An introduction belongs where the conversations are, so it
+  //    only ever appears on a chat surface.
+  const onChat = pathname.startsWith('/chat') || pathname.startsWith('/rooms')
+    || pathname.includes('/chat/')
+  const allowed = !!preview && !!isAdmin && onChat
+
   useEffect(() => {
-    if (!user?.id) return undefined
+    if (!user?.id || !allowed) return undefined
     let done = false
     let snoozed = false
     try {
@@ -351,9 +374,9 @@ export default function IntroGate() {
     }
     check()
     return () => { alive = false }
-  }, [user?.id])
+  }, [user?.id, allowed])
 
-  if (!target) return null
+  if (!target || !allowed) return null
 
   return (
     <IntroModal
