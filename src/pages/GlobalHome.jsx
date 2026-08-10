@@ -550,6 +550,25 @@ export default function GlobalHome() {
             </section>
           </Reveal>
 
+          {/* NOTHING BELOW THE GREETING RENDERS UNTIL THE DATA IS IN.
+              THE BUG THIS FIXES: five of the sections here are conditional on
+              the load (`myLive`, `globalLive`, standings, the announcement, the
+              trips), so the page first drew the ones that need nothing, and then
+              the query landed and INSERTED four more into the middle of it.
+              Everything below jumped down a screen and re-animated - the
+              reported "the order isn't right, and then it corrects itself after
+              a split second". You cannot stagger your way out of that; the only
+              fix is to not draw a list you are about to reorder. The greeting
+              stays instant because it depends on nothing. */}
+          {!d ? (
+            <div className="space-y-9" aria-hidden>
+              <Skeleton className="h-32" />
+              <Skeleton className="h-56" />
+              <Skeleton className="h-40" />
+            </div>
+          ) : (
+          <>
+
           {/* ---------- Live now (phones only) ----------
               On desktop this is the top card of the rail, which is always in
               view. On a phone the rail is at the BOTTOM of a very long page, so
@@ -557,7 +576,7 @@ export default function GlobalHome() {
               brief that is running and closing - was six screens below the fold
               and under a map. It leads on mobile instead. */}
           {myLive.length > 0 && (
-            <Reveal from="down" className="lg:hidden">
+            <Reveal from="down" delay={0.1} className="lg:hidden">
               <section>
                 <div className="space-y-2">
                   {myLive.map(({ market, challenge, global: isGlobal }) => (
@@ -591,7 +610,7 @@ export default function GlobalHome() {
               eight of a fixed list, so Roles and Refer existed on desktop and
               simply did not on a phone, and reordering the rail changed nothing
               for the people who only ever see this grid. */}
-          <Reveal from="down" className="lg:hidden">
+          <Reveal from="down" delay={0.16} className="lg:hidden">
             <section>
             <div className="grid grid-cols-4 gap-2">
               {links.map((l) => {
@@ -631,7 +650,7 @@ export default function GlobalHome() {
           {/* ---------- Finish your profile ---------- */}
           {/* Removes itself at 100%. A checklist that survives completion is
               nagging, and this is a nudge. */}
-          <Reveal from="down"><ProfileProgress /></Reveal>
+          <Reveal from="down" delay={0.22}><ProfileProgress /></Reveal>
 
           {/* ---------- Welcome ---------- */}
           {/* No `initial/animate` of its own any more. It had a mount tween
@@ -639,7 +658,7 @@ export default function GlobalHome() {
               that is always above the fold was also the one card that animated
               on a different clock. The Reveal owns it now, like every other
               section. */}
-          <Reveal from="down">
+          <Reveal from="down" delay={0.28}>
           <section
             className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-6 text-white shadow-lift sm:p-10"
           >
@@ -692,7 +711,7 @@ export default function GlobalHome() {
               on this page that everybody reading it can act on right now, and
               burying it under a list of places would be exactly backwards. */}
           {globalLive && (
-            <Reveal from="down">
+            <Reveal from="down" delay={0.36}>
               <section>
                 <SectionHead icon="globe" title="Open to everyone"
                   hint="A global brief. Enter from any market, anywhere in the world." />
@@ -708,7 +727,7 @@ export default function GlobalHome() {
           )}
 
           {/* ---------- Markets ---------- */}
-          <Reveal from="down">
+          <Reveal from="down" delay={0.44}>
             <section>
               <SectionHead
                 icon="flag"
@@ -857,6 +876,8 @@ export default function GlobalHome() {
                 </Reveal>
               </section>
             </Reveal>
+          )}
+          </>
           )}
         </div>
       </NetworkLayout>

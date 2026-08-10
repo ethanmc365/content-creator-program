@@ -8,6 +8,7 @@ import Icon from '../Icon'
 import NotificationBell from './NotificationBell'
 import PullToRefresh from '../PullToRefresh'
 import { EventRatingPrompt } from '../EventFeedback'
+import IntroGate from '../network/IntroPrompt'
 import { showLocalNotification } from '../../lib/push'
 import { stripMarkup } from '../../lib/richText'
 import { cx } from '../../lib/utils'
@@ -420,6 +421,12 @@ export default function AppLayout() {
 
       {/* One-off "rate the event" popup after an attended event finishes */}
       <EventRatingPrompt />
+
+      {/* "Introduce yourself", for anybody who has not. Lives at the shell
+          rather than inside the introductions room, because the creator it is
+          for has not found that room yet. Takes an X, and stays gone for the
+          rest of the visit if you use it. */}
+      <IntroGate />
 
       {networkPreview && paletteOpen && (
         <Suspense fallback={null}>

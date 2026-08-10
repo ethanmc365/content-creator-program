@@ -221,28 +221,31 @@
   .reveal-item {
     height: 100%;
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(28px);
     will-change: opacity, transform;
   }
   /* Direction, set by <Reveal from="...">. A two-column page reads better when
      the columns do not arrive the same way: the article rises, the rail slides
      in from the edge it lives against. */
-  .reveal[data-from='right'] > .reveal-item { transform: translateX(38px); }
-  .reveal[data-from='left']  > .reveal-item { transform: translateX(-38px); }
-  .reveal[data-from='down']  > .reveal-item { transform: translateY(-26px); }
-  /* THE DURATION IS THE WHOLE POINT.
-     At 460ms a card was on screen before the eye had found it, which is what
-     "it just appears very quickly" meant: the motion was technically running
-     and telling nobody anything. 760ms is long enough to be READ as arriving
-     and still short enough that a reader scrolling fast is never waiting for
-     the page. The curve is unchanged - one house easing everywhere. */
+  .reveal[data-from='right'] > .reveal-item { transform: translateX(48px); }
+  .reveal[data-from='left']  > .reveal-item { transform: translateX(-48px); }
+  .reveal[data-from='down']  > .reveal-item { transform: translateY(-34px); }
+  /* THE DURATION AND THE DISTANCE TOGETHER ARE THE WHOLE POINT.
+     460ms was over before the eye had found the card; 760ms was still reading
+     as a flash, because a long duration over twelve pixels of travel is a card
+     that barely moves for most of it. 980ms over 28 is a card you can watch
+     arrive. The curve is unchanged - one house easing everywhere - but the tail
+     is where most of the time now goes, which is what makes it feel like it is
+     settling rather than stopping.
+     `--reveal-base` is the container's head start, so a page can arrive top to
+     bottom instead of all at once. See the `delay` prop in Reveal.jsx. */
   .reveal.is-in > .reveal-item {
     opacity: 1;
     transform: none;
     transition:
-      opacity 760ms cubic-bezier(0.22, 1, 0.36, 1),
-      transform 760ms cubic-bezier(0.22, 1, 0.36, 1);
-    transition-delay: calc(var(--reveal-i, 0) * var(--reveal-stagger, 45ms));
+      opacity 980ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 980ms cubic-bezier(0.22, 1, 0.36, 1);
+    transition-delay: calc(var(--reveal-base, 0ms) + var(--reveal-i, 0) * var(--reveal-stagger, 45ms));
   }
   /* Once it has landed, stop claiming a compositor layer for every card. */
   .reveal.is-in > .reveal-item { will-change: auto; }

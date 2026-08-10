@@ -57,6 +57,17 @@ export default function Reveal({
   // in from the side it lives on - and that difference is what makes a layout
   // feel composed rather than merely animated.
   from = 'up',
+  // A head start, in seconds, added before this container's own stagger.
+  //
+  // WHY A PAGE NEEDS THIS. Every section on a hub carries its own observer, and
+  // the three or four that are above the fold therefore all fire on the same
+  // frame - so a page that is supposed to assemble instead flashes in as one
+  // block, which is exactly the "you can't even really see the animation, it
+  // just appears" report. Giving the first few sections an increasing delay
+  // makes the page arrive top to bottom. Sections further down pass 0: they are
+  // already separated in time by the act of scrolling to them, and a delay
+  // there would just be a page that lags behind your thumb.
+  delay = 0,
   ...rest
 }) {
   const [shown, setShown] = useState(false)
@@ -131,7 +142,10 @@ export default function Reveal({
       ref={setNode}
       data-from={from}
       className={`reveal${shown ? ' is-in' : ''}${className ? ` ${className}` : ''}`}
-      style={{ '--reveal-stagger': `${Math.round(stagger * 1000)}ms` }}
+      style={{
+        '--reveal-stagger': `${Math.round(stagger * 1000)}ms`,
+        '--reveal-base': `${Math.round(delay * 1000)}ms`,
+      }}
       {...rest}
     >
       {kids.filter(Boolean).map((child, i) => (

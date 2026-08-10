@@ -199,6 +199,22 @@ export default function MilestonePath({ milestones = [], standings = [], preview
     return () => io.disconnect()
   }, [box0, started])
 
+  // The same safety net Reveal carries, and for the same reason: if the
+  // observer never fires, the plane never takes off AND the orange line never
+  // draws, so the route renders as though the creator had flown none of it.
+  // A broken animation must never cost the information underneath it. Guarded
+  // on the element actually being on screen so a route further down the page
+  // still waits for the scroll - and unconditional when the viewport reports
+  // zero height, which means we are somewhere that cannot answer the question.
+  useEffect(() => {
+    if (started || !box0) return undefined
+    const t = setTimeout(() => {
+      const vh = window.innerHeight || 0
+      if (vh === 0 || box0.getBoundingClientRect().top < vh) setStarted(true)
+    }, 1200)
+    return () => clearTimeout(t)
+  }, [started, box0])
+
   useEffect(() => {
     if (!started) return
     // beginElement is the only way to start an `indefinite` SMIL animation, and
@@ -242,11 +258,17 @@ export default function MilestonePath({ milestones = [], standings = [], preview
   // than teleporting. Per-leg pacing keeps every route feeling like the same
   // aeroplane. The floor stops a two-percent journey being over before it
   // registers; the ceiling stops a long route becoming something you wait for.
-  const flightSeconds = Math.max(2.4, Math.min(7.5, 1 + progress * legs * 1.2))
-  // Slow off the mark, cruise, settle onto the stop. An ease-out alone lands
-  // the plane correctly but leaves it at full speed the instant it starts,
-  // which reads as being thrown rather than taking off.
-  const FLIGHT_SPLINE = '0.42 0 0.16 1'
+  const flightSeconds = Math.max(3.5, Math.min(12, 2 + progress * legs * 1.1))
+  // NEARLY CONSTANT SPEED, and that is deliberate.
+  //
+  // This was `0.42 0 0.16 1`, a proper ease-in-out, and over a long route that
+  // curve spends most of its length in the fast middle - so the plane crawled
+  // off the first dot, sprinted the body of the journey and glided to a halt.
+  // Read as "too fast" even though the total duration was generous, because
+  // the part you actually watch is the middle. This one is close to linear with
+  // only enough softness at each end to avoid a jerk on take-off and landing,
+  // so the aircraft holds one readable pace the whole way down the line.
+  const FLIGHT_SPLINE = '0.32 0.18 0.36 0.86'
 
   // A stop lights up as the plane reaches it, rather than the whole ladder
   // popping in on its own stagger while the aircraft is still on leg one. Nodes
@@ -312,7 +334,7 @@ export default function MilestonePath({ milestones = [], standings = [], preview
           strokeLinecap="round"
           initial={{ pathLength: 0 }}
           animate={{ pathLength: started ? progress : 0 }}
-          transition={{ duration: flightSeconds, ease: [0.42, 0, 0.16, 1] }}
+          transition={{ duration: flightSeconds, ease: [0.32, 0.18, 0.36, 0.86] }}
         />
 
         {/* THE PLANE FLIES THE ROUTE, IT DOES NOT APPEAR ON IT.

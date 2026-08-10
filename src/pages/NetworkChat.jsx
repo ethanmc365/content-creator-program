@@ -6,7 +6,6 @@ import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
 import { flagFromIso } from '../components/network/PlaceSwitcher'
 import NetworkMotion from '../components/NetworkMotion'
-import IntroPrompt from '../components/network/IntroPrompt'
 import { ReactionRow, useReactions, RoomSearch, Highlight, MentionMenu } from '../components/network/ChatExtras'
 import { ChatSkeleton } from '../components/network/Skeletons'
 import Icon from '../components/Icon'
@@ -485,9 +484,6 @@ export default function NetworkChat() {
   const orderedElsewhere = [...elsewhere].sort(
     (a, b) => (rank.has(a.id) ? rank.get(a.id) : 1e9) - (rank.has(b.id) ? rank.get(b.id) : 1e9),
   )
-  // Derived from the messages already loaded rather than a second query: if
-  // you have posted in this room, you have introduced yourself.
-  const hasIntroduced = messages.some((m) => m.sender_id === user?.id)
 
   // --------------------------------------------------------------- the room
   const room = (
@@ -534,14 +530,12 @@ export default function NetworkChat() {
         )}
       </div>
 
-      {/* Introductions gets a guided composer instead of a blank room, and only
-          until you have actually used it. "Say hello" asks for a blank page
-          from the person in the room with the least context; five questions
-          produce a post somebody can reply to. */}
-      {active?.key === 'introductions' && canPost && !hasIntroduced && (
-        <IntroPrompt community={community} channel={active} onPosted={load} />
-      )}
-
+      {/* THE INTRO PROMPT IS NOT HERE ANY MORE.
+          It was a bar pinned to the top of this room, which reached only the
+          people who had already found a room that exists so you can meet people
+          you have not met. It is an app-wide popup now (`IntroGate` in
+          AppLayout), so the creator it is actually for - the one who has not
+          been anywhere yet - gets asked. */}
       {/* The hint bar doubles as the room's identity on mobile, where the page
           heading is scrolled away.
 

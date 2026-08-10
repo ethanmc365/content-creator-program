@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import { QUICK_REACTIONS, REACTION_GROUPS } from '../lib/reactions'
 import { cx } from '../lib/utils'
 import Icon from './Icon'
@@ -48,7 +48,16 @@ export default function ReactionPicker({ onPick, onClose, align = 'left' }) {
   const [node, setNode] = useState(null)
   const [placement, setPlacement] = useState('above')
 
-  useEffect(() => {
+  // useLayoutEffect, NOT useEffect, and that is the whole fix for the flicker.
+  //
+  // A passive effect runs AFTER the browser has painted, so the sequence was:
+  // paint the panel above (where it does not fit) -> measure -> set state ->
+  // paint it below. You saw it at the top for a frame and then jump. A layout
+  // effect runs after the DOM is written and BEFORE paint, and React flushes
+  // the resulting re-render in the same commit, so the only frame that ever
+  // reaches the screen is the correct one. Same on expand: pressing `+` makes
+  // the panel ten times taller, which is exactly when it needs to move.
+  useLayoutEffect(() => {
     if (!node) return
     const r = node.getBoundingClientRect()
     const limit = clipBounds(node)

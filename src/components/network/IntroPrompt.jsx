@@ -1,7 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import Icon from '../Icon'
 import { Modal } from '../ui'
 import { notice } from '../../lib/confirm'
 import { cx } from '../../lib/utils'
@@ -118,11 +117,10 @@ function Field({ label, hint, children }) {
 const MAKES_MAX = 5
 const WANTS_MAX = 3
 
-export default function IntroPrompt({ community, channel, onPosted }) {
+// THE FORM ITSELF, AS A DIALOG. See IntroGate below for who opens it and when.
+export function IntroModal({ open, onClose, community, channel, onPosted }) {
   const { profile, user } = useAuth()
-  const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [more, setMore] = useState(false)
   // Options the creator typed themselves, kept beside the built-in lists so
   // they render as chips like everything else and can be un-picked again.
   const [ownMakes, setOwnMakes] = useState([])
@@ -133,8 +131,6 @@ export default function IntroPrompt({ community, channel, onPosted }) {
     next: '',
     ask: '',
     fact: '',
-    again: '',
-    kit: '',
     wants: [],
   })
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
@@ -171,8 +167,6 @@ export default function IntroPrompt({ community, channel, onPosted }) {
     if (form.next.trim()) lines.push(`Next trip: ${form.next.trim()}.`)
     if (form.ask.trim()) lines.push(`Ask me about: ${form.ask.trim()}.`)
     if (form.fact.trim()) lines.push(`Fun fact: ${form.fact.trim()}.`)
-    if (form.again.trim()) lines.push(`I would go back to ${form.again.trim()} tomorrow.`)
-    if (form.kit.trim()) lines.push(`I shoot on: ${form.kit.trim()}.`)
     if (form.wants.length) lines.push(`Hoping to find: ${form.wants.join(', ')}.`)
     return lines.join('\n')
   }, [form, profile?.name])
@@ -192,32 +186,12 @@ export default function IntroPrompt({ community, channel, onPosted }) {
     })
     setBusy(false)
     if (error) { notice(`Could not post: ${error.message}`); return }
-    setOpen(false)
     onPosted?.()
   }
 
   return (
     <>
-      <div className="border-b border-gray-100 bg-brand-tint/25 px-4 py-3 sm:px-5">
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="flex w-full items-center gap-3 text-left"
-        >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-white">
-            <Icon name="smile" className="h-4 w-4" />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-semibold">Introduce yourself</span>
-            <span className="block text-xs text-smoke">
-              A few quick questions. We will write the post for you.
-            </span>
-          </span>
-          <span className="btn-primary shrink-0 !px-4 !py-2 !text-xs">Start</span>
-        </button>
-      </div>
-
-      <Modal open={open} onClose={() => setOpen(false)} title="Introduce yourself">
+      <Modal open={open} onClose={onClose} title="Introduce yourself">
         <p className="-mt-3 mb-5 text-sm text-smoke">
           Skip anything you would rather not say. Only the last box gets posted.
         </p>
@@ -277,27 +251,11 @@ export default function IntroPrompt({ community, channel, onPosted }) {
             />
           </Field>
 
-          {/* Behind a toggle on purpose. Eight boxes on the screen at once is a
-              form; six with two more if you want them is a conversation. */}
-          {!more ? (
-            <button type="button" onClick={() => setMore(true)}
-              className="flex items-center gap-1.5 text-sm font-medium text-brand transition-transform duration-200 hover:translate-x-0.5">
-              <Icon name="plus" className="h-4 w-4" /> Two more, if you fancy
-            </button>
-          ) : (
-            <div className="space-y-5 border-t border-gray-100 pt-5">
-              <Field label="One place you would go back to tomorrow">
-                <input className="input text-base sm:text-sm" value={form.again}
-                  placeholder="Kotor"
-                  onChange={(e) => set({ again: e.target.value })} />
-              </Field>
-              <Field label="What do you shoot on?">
-                <input className="input text-base sm:text-sm" value={form.kit}
-                  placeholder="iPhone 15 Pro and a DJI Mini"
-                  onChange={(e) => set({ kit: e.target.value })} />
-              </Field>
-            </div>
-          )}
+          {/* "One place you would go back to tomorrow" and "What do you shoot
+              on?" were here behind a toggle and are gone at Ethan's call. Both
+              were fine questions and neither earned its place: the first is
+              answered by the next-trip line above it, and the second turns an
+              introduction into a gear thread. */}
 
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-smoke">
@@ -312,7 +270,7 @@ export default function IntroPrompt({ community, channel, onPosted }) {
             <button type="button" onClick={post} disabled={!enough || busy} className="btn-primary disabled:opacity-40">
               {busy ? 'Posting…' : 'Post my intro'}
             </button>
-            <button type="button" onClick={() => setOpen(false)} className="btn-ghost">
+            <button type="button" onClick={onClose} className="btn-ghost">
               Not now
             </button>
             {!enough && (
@@ -322,5 +280,94 @@ export default function IntroPrompt({ community, channel, onPosted }) {
         </div>
       </Modal>
     </>
+  )
+}
+
+// ---------------------------------------------------------------- the gate
+//
+// WHO SEES IT, AND WHEN.
+//
+// This used to be a bar pinned to the top of the introductions room, which
+// means it only ever reached people who had already found a room that exists
+// for the express purpose of meeting people they have not met. The person it is
+// for is the one who has not been anywhere yet.
+//
+// So it is a popup over the app, for anybody who has not introduced themselves,
+// every time they come back - and it takes an X, because being unable to read
+// the community until you have performed for it is a worse first impression
+// than an empty introductions room.
+//
+// THREE PIECES OF STATE, THREE DIFFERENT LIFETIMES, deliberately:
+//   - posted        -> localStorage, forever. You did it; never ask again.
+//   - dismissed     -> sessionStorage. Gone for this visit, back on the next
+//                      one. That is what "should always come for creators that
+//                      haven't yet done it" means without it becoming a modal
+//                      that reopens on every navigation.
+//   - the DB check  -> the source of truth, run once per session, because
+//                      localStorage is per device and somebody who introduced
+//                      themselves on their phone must not be asked again on a
+//                      laptop.
+const DONE_KEY = 'intro-posted'
+const SNOOZE_KEY = 'intro-snoozed'
+
+export default function IntroGate() {
+  const { user } = useAuth()
+  const [open, setOpen] = useState(false)
+  const [target, setTarget] = useState(null) // { community, channel }
+
+  useEffect(() => {
+    if (!user?.id) return undefined
+    let done = false
+    let snoozed = false
+    try {
+      done = localStorage.getItem(DONE_KEY) === '1'
+      snoozed = sessionStorage.getItem(SNOOZE_KEY) === '1'
+    } catch { /* private mode: ask, it is not the end of the world */ }
+    if (done || snoozed) return undefined
+
+    let alive = true
+    async function check() {
+      // The worldwide introductions room. A market's introductions room is a
+      // different conversation and does not count for this.
+      const { data: network } = await supabase
+        .from('communities').select('id, kind, slug, name').eq('kind', 'network').maybeSingle()
+      if (!alive || !network) return
+      const { data: channel } = await supabase
+        .from('channels').select('id, key, label')
+        .eq('community_id', network.id).eq('key', 'introductions').maybeSingle()
+      if (!alive || !channel) return
+      const { data: mine } = await supabase
+        .from('messages').select('id')
+        .eq('channel', 'introductions').eq('sender_id', user.id).limit(1)
+      if (!alive) return
+      if (mine?.length) {
+        try { localStorage.setItem(DONE_KEY, '1') } catch { /* private mode */ }
+        return
+      }
+      setTarget({ community: network, channel })
+      // A beat, so it lands on a page that has finished arriving rather than
+      // on top of a loading skeleton.
+      setTimeout(() => { if (alive) setOpen(true) }, 1400)
+    }
+    check()
+    return () => { alive = false }
+  }, [user?.id])
+
+  if (!target) return null
+
+  return (
+    <IntroModal
+      open={open}
+      community={target.community}
+      channel={target.channel}
+      onClose={() => {
+        setOpen(false)
+        try { sessionStorage.setItem(SNOOZE_KEY, '1') } catch { /* private mode */ }
+      }}
+      onPosted={() => {
+        setOpen(false)
+        try { localStorage.setItem(DONE_KEY, '1') } catch { /* private mode */ }
+      }}
+    />
   )
 }

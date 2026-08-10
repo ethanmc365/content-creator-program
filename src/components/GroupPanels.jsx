@@ -84,14 +84,48 @@ function PersonToggle({ person, on, onToggle, hint }) {
 
 // The look controls, shared by "new group" and "group settings" so a group
 // cannot be given an emoji at birth and then have nowhere to change it.
+// TWELVE TRAVEL ICONS, AND THEN THE WHOLE STOCK.
+//
+// The twelve are the answer for almost every group anybody here will make, and
+// twelve is a row you can scan rather than a search task. But a fixed twelve is
+// somebody else's idea of what your group is about, and a Christmas-markets
+// group that has to settle for a generic globe is a group that feels like it
+// came out of a template. So: the shortlist first, and "more icons" opens the
+// stock set grouped under headings - the same two-state bargain the reaction
+// picker makes, for the same reason.
+const SUGGESTED_ICONS = ['✈️', '🌍', '📸', '🎬', '🏔️', '🏖️', '🍜', '🎒', '☕️', '🔥', '⭐️', '🎉']
+
+const ICON_GROUPS = [
+  { name: 'Getting there', emoji: ['✈️', '🚆', '🚗', '🛳️', '🚐', '🛵', '🚲', '🎒', '🧳', '🗺️', '🧭', '🛎️'] },
+  { name: 'Places', emoji: ['🌍', '🌎', '🌏', '🏔️', '🏝️', '🏖️', '🏜️', '🌋', '🗻', '🏞️', '🌅', '🌌', '🏙️', '🌉', '🕌', '⛩️', '🏰', '🗼'] },
+  { name: 'Making it', emoji: ['📸', '🎬', '🎥', '🎙️', '💻', '📝', '🎨', '🚁', '🔦', '📱', '🎞️', '✂️'] },
+  { name: 'Eating and drinking', emoji: ['🍜', '🍕', '🌮', '🍣', '🥐', '☕️', '🍷', '🍺', '🍹', '🧉', '🍦', '🥘'] },
+  { name: 'Doing things', emoji: ['🏄', '🥾', '🧗', '🏂', '🤿', '🚵', '🧘', '⚽️', '🎿', '🎣', '🏊', '🛶'] },
+  { name: 'Weather and seasons', emoji: ['☀️', '🌧️', '❄️', '🌪️', '🌈', '🌙', '⛱️', '🍁', '🌸', '🎄', '🎃', '🎆'] },
+  { name: 'Odds and ends', emoji: ['🔥', '⭐️', '🎉', '💡', '💬', '❤️', '🤝', '🏆', '💰', '🔑', '🚀', '🦄', '🐧', '🐬', '🐝', '🌻'] },
+]
+
 function LookControls({ emoji, accent, onEmoji, onAccent }) {
-  const SUGGESTED = ['✈️', '🌍', '📸', '🎬', '🏔️', '🏖️', '🍜', '🎒', '☕️', '🔥', '⭐️', '🎉']
+  const [expanded, setExpanded] = useState(false)
   return (
     <>
       <div>
-        <p className="mb-2 text-sm font-semibold">Pick an icon</p>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <p className="text-sm font-semibold">Pick an icon</p>
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="flex items-center gap-1 text-xs font-semibold text-brand transition-transform duration-200 hover:translate-x-0.5"
+          >
+            <Icon name={expanded ? 'chevronLeft' : 'plus'} className="h-3.5 w-3.5" />
+            {expanded ? 'Show fewer' : 'More icons'}
+          </button>
+        </div>
         <div className="flex flex-wrap gap-1.5">
-          {SUGGESTED.map((e) => (
+          {/* Whatever is currently chosen is always on the shortlist, even if it
+              came from the stock set - or picking a custom icon and reopening
+              the panel would show nothing selected. */}
+          {[...new Set([...SUGGESTED_ICONS, ...(emoji ? [emoji] : [])])].map((e) => (
             <button
               key={e}
               type="button"
@@ -106,6 +140,32 @@ function LookControls({ emoji, accent, onEmoji, onAccent }) {
             </button>
           ))}
         </div>
+        {expanded && (
+          <div className="mt-3 max-h-56 overflow-y-auto overscroll-contain rounded-xl border border-gray-100 p-2">
+            {ICON_GROUPS.map((g) => (
+              <div key={g.name} className="mb-2 last:mb-0">
+                <p className="px-1 pb-1 text-[10px] font-semibold uppercase tracking-wide text-smoke">{g.name}</p>
+                <div className="grid grid-cols-8 gap-0.5">
+                  {g.emoji.map((e) => (
+                    <button
+                      key={e}
+                      type="button"
+                      onClick={() => onEmoji(emoji === e ? '' : e)}
+                      aria-pressed={emoji === e}
+                      aria-label={`Use ${e} as the group icon`}
+                      className={cx(
+                        'flex h-8 items-center justify-center rounded-lg text-lg transition-transform duration-150 hover:scale-125',
+                        emoji === e && 'bg-brand-tint',
+                      )}
+                    >
+                      {e}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
       <div>
         <p className="mb-2 text-sm font-semibold">Colour</p>
