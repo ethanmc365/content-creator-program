@@ -1,5 +1,6 @@
 import PlaceSwitcher, { flagFromIso } from './PlaceSwitcher'
 import { cx } from '../../lib/utils'
+import Reveal from './Reveal'
 
 // Frame for the network pages that are ABOUT choosing and comparing places: the
 // Worldwide hub, a market's home, a market's settings.
@@ -47,7 +48,7 @@ export default function NetworkLayout({ children, switcher = true, rail = null, 
           <div className="min-w-0">{children}</div>
           <aside
             className={cx(
-              'mt-10 space-y-4 lg:mt-0',
+              'mt-10 lg:mt-0',
               'lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:overscroll-contain',
               // The scrollbar is hidden because the rail is chrome, not content:
               // a permanent grey gutter down the side of five white cards reads
@@ -58,7 +59,11 @@ export default function NetworkLayout({ children, switcher = true, rail = null, 
               'lg:pb-4 lg:pr-1',
             )}
           >
-            {rail}
+            {/* The rail arrives from the side it lives on, a beat behind the
+                article. Two columns that enter identically read as one block
+                fading in; two columns that enter from where they sit read as a
+                layout assembling itself. */}
+            <Reveal className="space-y-4" from="right" stagger={0.07}>{rail}</Reveal>
           </aside>
         </div>
       ) : (

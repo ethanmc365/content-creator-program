@@ -224,6 +224,12 @@
     transform: translateY(12px);
     will-change: opacity, transform;
   }
+  /* Direction, set by <Reveal from="...">. A two-column page reads better when
+     the columns do not arrive the same way: the article rises, the rail slides
+     in from the edge it lives against. */
+  .reveal[data-from='right'] > .reveal-item { transform: translateX(22px); }
+  .reveal[data-from='left']  > .reveal-item { transform: translateX(-22px); }
+  .reveal[data-from='down']  > .reveal-item { transform: translateY(-14px); }
   .reveal.is-in > .reveal-item {
     opacity: 1;
     transform: none;
@@ -236,7 +242,8 @@
   .reveal.is-in > .reveal-item { will-change: auto; }
 
   @media (prefers-reduced-motion: reduce) {
-    .reveal-item { transform: none; }
+    .reveal-item,
+    .reveal[data-from] > .reveal-item { transform: none; }
     .reveal.is-in > .reveal-item {
       transition: opacity 200ms linear;
       transition-delay: 0ms;

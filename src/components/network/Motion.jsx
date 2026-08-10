@@ -15,8 +15,14 @@ import { cx } from '../../lib/utils'
 // `useReducedMotion`, which reads the same signal as the global MotionConfig in
 // main.jsx. Reduced motion gets the end state instantly, never a broken layout.
 
-/** A section that rises into view once, as it scrolls in. */
-export function Reveal({ children, delay = 0, className, as = 'div' }) {
+/** A section that rises into view once, as it scrolls in.
+ *
+ * NAMED RiseIn, not Reveal. There is a `Reveal` in this folder already - the
+ * staggered grid one - and having two exports called Reveal that do different
+ * things has now caused two separate mistakes, because an import line does not
+ * say which you got. This one animates ONE element; that one animates a list.
+ */
+export function RiseIn({ children, delay = 0, className, as = 'div' }) {
   const reduced = useReducedMotion()
   const Tag = motion[as] || motion.div
   if (reduced) return <div className={className}>{children}</div>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Children, Fragment, useEffect, useState } from 'react'
 
 // A grid or list whose children arrive one after another as it scrolls into
 // view. THE animation of this product, extracted.
@@ -49,6 +49,14 @@ export default function Reveal({
   // staggered at 45ms would take nearly two seconds to finish drawing, and the
   // cards at the end would animate long after the reader had scrolled past them.
   maxStagger = 12,
+  // WHERE THE CHILDREN COME FROM.
+  //
+  // 'up' (the default) is the house entrance: everything rises a little as it
+  // arrives. The others exist because a two-column page reads better when the
+  // two columns do not arrive identically - the article rises, the rail slides
+  // in from the side it lives on - and that difference is what makes a layout
+  // feel composed rather than merely animated.
+  from = 'up',
   ...rest
 }) {
   const [shown, setShown] = useState(false)
@@ -87,10 +95,23 @@ export default function Reveal({
     return () => clearTimeout(t)
   }, [shown])
 
-  const kids = Array.isArray(children) ? children : [children]
+  // LOOK THROUGH A FRAGMENT.
+  //
+  // Callers pass a list of cards, and a list of cards is very often wrapped in
+  // a <>…</> by whatever built it - NetworkLayout's `rail` prop is exactly
+  // that. React.Children then reports ONE child, the fragment, so the whole
+  // rail arrived as a single block and the stagger did nothing. Unwrapping a
+  // lone fragment costs nothing and removes a trap nobody would think to look
+  // for.
+  const raw = Array.isArray(children) ? children : [children]
+  const unwrapped = raw.length === 1 && raw[0]?.type === Fragment
+    ? Children.toArray(raw[0].props.children)
+    : raw
+  const kids = unwrapped
   return (
     <Tag
       ref={setNode}
+      data-from={from}
       className={`reveal${shown ? ' is-in' : ''}${className ? ` ${className}` : ''}`}
       style={{ '--reveal-stagger': `${Math.round(stagger * 1000)}ms` }}
       {...rest}

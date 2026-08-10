@@ -9,7 +9,7 @@ import NetworkLayout, { RailCard, flagFromIso } from '../components/network/Netw
 import NetworkMotion from '../components/NetworkMotion'
 import TrypPlane from '../components/network/TrypPlane'
 import LiveChallengeCard from '../components/network/LiveChallengeCard'
-import { CountUp, Reveal } from '../components/network/Motion'
+import { CountUp, RiseIn } from '../components/network/Motion'
 import ProfileProgress from '../components/network/ProfileProgress'
 import Reorderable from '../components/network/Reorderable'
 import FlagStack from '../components/network/FlagStack'
@@ -20,7 +20,8 @@ import { Avatar, EmptyState, Skeleton } from '../components/ui'
 import { flagForCountry } from '../lib/flags'
 import { stripMarkup } from '../lib/richText'
 import { cx, timeAgo } from '../lib/utils'
-import { listContainer, listItem, cardHover, pageFade, SOFT_SPRING } from '../lib/motion'
+import { listContainer, listItem, cardHover,  SOFT_SPRING } from '../lib/motion'
+import Reveal from '../components/network/Reveal'
 
 // The Worldwide hub. Reads as a HOME PAGE, not a directory of markets: a
 // greeting, then what is happening, then where everyone is.
@@ -506,7 +507,12 @@ export default function GlobalHome() {
   return (
     <NetworkMotion>
       <NetworkLayout rail={rail}>
-        <motion.div {...pageFade} className="space-y-9">
+        {/* The article rises as it assembles, section by section, while the rail
+            slides in from the right. This replaces a single opacity fade over
+            the whole column, which is what made the first paint look like it
+            stuttered: everything - cards, counters and the plane - started
+            moving on the same frame. */}
+        <Reveal className="space-y-9" from="down" stagger={0.06}>
 
           {/* ---------- Greeting ----------
               `-mb-3` against the page's own `space-y-9`. A greeting is a label
@@ -749,14 +755,14 @@ export default function GlobalHome() {
               The countries-visited map moved to the creator directory, where a
               page already about the community is the right place for a picture
               of where that community has been. */}
-          <Reveal as="section">
+          <RiseIn as="section">
             <SectionHead icon="globe" title="Everyone, right now"
               hint="Every creator in the network on one map, wherever they are based. Tap a pin to see who is there."
               to="/creators" toLabel="Creator directory" />
             {d
               ? <CreatorMap creators={d.mapPeople} trips={d.mapTrips} myId={session?.user?.id} />
               : <Skeleton className="h-72" />}
-          </Reveal>
+          </RiseIn>
 
           {/* ---------- Creators on the move ---------- */}
           {d?.trips?.length > 0 && (
@@ -807,7 +813,7 @@ export default function GlobalHome() {
               </motion.div>
             </section>
           )}
-        </motion.div>
+        </Reveal>
       </NetworkLayout>
     </NetworkMotion>
   )
