@@ -1,6 +1,7 @@
 // Small, reusable UI building blocks. Keeping them in one file makes the
 // design system easy to scan - every visual primitive lives here.
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { cx } from '../../lib/utils'
 import Icon from '../Icon'
 
@@ -153,7 +154,17 @@ export function Modal({ open, onClose, title, children, wide = false }) {
   }, [open, onClose])
 
   if (!open) return null
-  return (
+  // PORTALLED TO THE BODY, AND IT HAS TO BE.
+  //
+  // `position: fixed` is measured against the nearest ancestor with a
+  // transform, not against the viewport - and the mobile chat, the DM thread
+  // and the market rooms are all fixed overlays that carry a `translateY` to
+  // track the visual viewport. A modal opened from inside one of them therefore
+  // laid itself out inside THAT box: `inset-0` meant the chat area, `max-h-90vh`
+  // was taller than the box it was now trapped in, and the dialog's own title
+  // was clipped off the top by an ancestor it never knew it had. Anything
+  // claiming the whole screen has to be a child of the body to get it.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label={title}>
       <button aria-label="Close" className="absolute inset-0 bg-ink/40" onClick={onClose} />
       {/* On mobile this is a bottom sheet running to the edge of the screen,
@@ -169,7 +180,8 @@ export function Modal({ open, onClose, title, children, wide = false }) {
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

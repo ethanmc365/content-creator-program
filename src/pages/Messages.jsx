@@ -1233,7 +1233,12 @@ export default function Messages() {
                     ref={taRef}
                     rows={1}
                     className="input max-h-32 flex-1 resize-none overflow-y-auto"
-                    placeholder={`Message ${isGroup ? activeTitle : (active?.other?.name?.split(' ')[0] ?? '')}…`}
+                    // Short on a phone: this textarea auto-grows, so a wrapping
+                    // placeholder makes an empty composer two rows tall for no
+                    // reason, and a group's name can be sixty characters.
+                    placeholder={isMobile
+                      ? 'Message…'
+                      : `Message ${isGroup ? activeTitle : (active?.other?.name?.split(' ')[0] ?? '')}…`}
                     value={body}
                     onChange={(e) => { setBody(e.target.value); saveDraft('dm-' + conversationId, e.target.value); if (e.target.value.trim()) pingTyping() }}
                     onBlur={stopTyping}

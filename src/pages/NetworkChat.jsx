@@ -722,7 +722,13 @@ export default function NetworkChat() {
               ref={inputRef}
               rows={1}
               className="input max-h-32 min-h-0 resize-none py-2.5 text-base sm:text-sm"
-              placeholder={`Message ${active?.label}`}
+              // A one-row textarea cannot show a placeholder that wraps, and at
+              // 375px "Message Introductions" wrapped and had its second line
+              // sliced off by the box - which reads as a broken composer before
+              // you have typed anything. The room's name is in the tab strip
+              // and the hint bar directly above; the placeholder does not need
+              // to repeat it on a phone.
+              placeholder={isMobile ? 'Message' : `Message ${active?.label}`}
               value={body}
               onChange={onBodyChange}
               onKeyDown={(e) => {
