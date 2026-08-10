@@ -30,10 +30,12 @@ const SUMMARY = [
 
 export default function Milestones() {
   const { profile } = useAuth()
+  const isAdmin = !!profile?.is_admin
   const [rows, setRows] = useState(null)
   const [standings, setStandings] = useState([])
   const [metrics, setMetrics] = useState(null)
   const [showPeople, setShowPeople] = useState(true)
+  const [showCrowd, setShowCrowd] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -64,7 +66,7 @@ export default function Milestones() {
   const next = rows.find((r) => !r.reached) || null
 
   return (
-    <div className="page max-w-4xl">
+    <div className="page max-w-6xl">
       <BackLink />
       <motion.div {...pageFade}>
         <PageHeader
@@ -117,22 +119,98 @@ export default function Milestones() {
             hint="The team is still setting these up." />
         ) : (
           <>
-            <div className="mb-4 flex items-center justify-between gap-3">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-lg font-semibold">The route</h2>
-              <button
-                onClick={() => setShowPeople((v) => !v)}
-                aria-pressed={showPeople}
-                className={cx(
-                  'flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-transform duration-200 hover:scale-105',
-                  showPeople ? 'border-brand/30 bg-brand-tint text-brand' : 'border-gray-200 text-smoke',
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => setShowPeople((v) => !v)}
+                  aria-pressed={showPeople}
+                  className={cx(
+                    'flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-transform duration-200 hover:scale-105',
+                    showPeople ? 'border-brand/30 bg-brand-tint text-brand' : 'border-gray-200 text-smoke',
+                  )}
+                >
+                  <Icon name="users" className="h-3.5 w-3.5" />
+                  Faces at each stop
+                </button>
+                {/* ADMIN-ONLY, DELIBERATELY. Where every individual creator has
+                    got to is a picture of the whole community's progress, which
+                    is a management view; a creator seeing themselves as a dot
+                    behind twelve other dots is a leaderboard nobody entered. */}
+                {isAdmin && (
+                  <button
+                    onClick={() => setShowCrowd((v) => !v)}
+                    aria-pressed={showCrowd}
+                    className={cx(
+                      'flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-transform duration-200 hover:scale-105',
+                      showCrowd ? 'border-brand/30 bg-brand-tint text-brand' : 'border-gray-200 text-smoke',
+                    )}
+                  >
+                    <Icon name="pin" className="h-3.5 w-3.5" />
+                    Everyone on the road
+                  </button>
                 )}
-              >
-                <Icon name="users" className="h-3.5 w-3.5" />
-                Show everyone
-              </button>
+              </div>
             </div>
-            <div className="rounded-card border border-gray-100 bg-white px-3 py-6 shadow-card sm:px-6">
-              <MilestonePath milestones={rows} standings={standings} showPeople={showPeople} />
+
+            {/* THE ROUTE IN ITS OWN PANEL, WITH THE READING BESIDE IT.
+                The path used to run the full width of the page, which on a
+                desktop meant a 1000px-wide picture of a line and a lot of white
+                either side of it. It now takes about half, and the column next
+                to it carries what the picture cannot say: where you are, what
+                is next, and - for the team - the way in to change any of it. */}
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+              <div className="rounded-card border border-gray-100 bg-white px-3 py-6 shadow-card sm:px-6">
+                <MilestonePath
+                  milestones={rows}
+                  standings={standings}
+                  showPeople={showPeople}
+                  showCrowd={isAdmin && showCrowd}
+                />
+              </div>
+
+              <aside className="space-y-4 lg:sticky lg:top-24">
+                <div className="rounded-card border border-gray-100 bg-white p-5 shadow-card">
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-smoke">Where you are</p>
+                  <p className="mt-2 text-3xl font-bold text-brand">
+                    {reached}<span className="text-lg text-smoke"> / {rows.length}</span>
+                  </p>
+                  <p className="text-xs text-smoke">stops reached</p>
+                  {next && (
+                    <div className="mt-4 border-t border-gray-100 pt-4">
+                      <p className="text-[11px] font-semibold uppercase tracking-widest text-smoke">Next stop</p>
+                      <p className="mt-1 text-sm font-semibold">{next.title}</p>
+                      <p className="mt-0.5 text-xs text-smoke">
+                        {next.metric === 'views'
+                          ? `${formatViews(Number(next.value))} of ${formatViews(Number(next.threshold))} views`
+                          : `${Math.floor(Number(next.value))} of ${Number(next.threshold)}`}
+                      </p>
+                      {next.reward && (
+                        <span className="mt-2 inline-block rounded-full bg-brand-tint px-2.5 py-1 text-[11px] font-semibold text-brand">
+                          {next.reward}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* THE WAY IN. There was no route from this page to the editor
+                    at all, so the person who decides what the stops ARE had to
+                    know /admin/milestones existed and type it. */}
+                {isAdmin && (
+                  <div className="rounded-card border border-brand/25 bg-brand-tint/20 p-5">
+                    <p className="flex items-center gap-2 text-sm font-semibold text-brand">
+                      <Icon name="shield" className="h-4 w-4" /> Running the route
+                    </p>
+                    <p className="mt-1 text-xs text-smoke">
+                      Add, retitle, reorder or retire a stop, and set what each one is worth.
+                    </p>
+                    <Link to="/admin/milestones" className="btn-primary mt-3 inline-flex !py-2 !px-4 text-xs">
+                      Edit the milestones
+                    </Link>
+                  </div>
+                )}
+              </aside>
             </div>
           </>
         )}

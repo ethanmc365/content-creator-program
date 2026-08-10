@@ -37,35 +37,49 @@ import { EASE } from '../../lib/motion'
 // type scale, and every one of those matters more here than the convenience of
 // keeping the label in the same document as the dot it belongs to.
 
-const GAP = 150          // vertical distance between nodes
 const TOP = 62           // where the first node sits
 
-// Desktop serpentines across the full width; a phone keeps the route in a
-// narrow lane on the left and stacks every label in a column to its right,
-// because alternating 120px-wide labels at 375px is unreadable.
+// WHY THE PHONE LAYOUT IS A LANE AND NOT A SMALLER SERPENTINE.
+//
+// It used to serpentine on a phone too, in a 150-unit-wide box with nodes at
+// x=40 and x=104 and the labels pushed to whatever was left. For the right-hand
+// nodes that was `(150 - 104 - 30) / 150` of the width - ELEVEN PER CENT - so
+// every other milestone's title wrapped one character per line down the side of
+// the screen. That is the "nothing is formatted correctly" report, and it is not
+// a tuning problem: alternating labels need width to alternate INTO, and 375px
+// does not have it.
+//
+// So the phone gets one lane down the left and a full-width column of labels to
+// its right. The route still snakes - the control points wave even though the
+// nodes are in a column - so it reads as a flight path rather than a list.
 const LAYOUT = {
-  wide: { W: 340, left: 76, right: 264 },
-  narrow: { W: 150, left: 40, right: 104 },
+  wide: { W: 340, left: 76, right: 264, gap: 150, wave: 0, labelPct: 38 },
+  narrow: { W: 320, left: 34, right: 34, gap: 122, wave: 26, labelPct: 74 },
 }
 
 function nodeX(i, L) {
   return i % 2 === 0 ? L.left : L.right
 }
 
-function nodeY(i) {
-  return TOP + i * GAP
+function nodeY(i, L) {
+  return TOP + i * L.gap
 }
 
-// The whole route as one path string, plus the control points, so the plane can
-// be placed on it without asking the DOM where anything is.
+// The whole route as one path string, plus the control points, so the plane and
+// everybody else on the road can be placed on it without asking the DOM where
+// anything is.
 function buildRoute(count, L) {
   const segs = []
-  let d = `M ${nodeX(0, L)} ${nodeY(0)}`
+  let d = `M ${nodeX(0, L)} ${nodeY(0, L)}`
   for (let i = 0; i < count - 1; i += 1) {
-    const p0 = [nodeX(i, L), nodeY(i)]
-    const p3 = [nodeX(i + 1, L), nodeY(i + 1)]
-    const c1 = [p0[0], p0[1] + GAP * 0.55]
-    const c2 = [p3[0], p3[1] - GAP * 0.55]
+    const p0 = [nodeX(i, L), nodeY(i, L)]
+    const p3 = [nodeX(i + 1, L), nodeY(i + 1, L)]
+    // `wave` bends the curve sideways when the nodes themselves are in a
+    // straight column, which is the only thing keeping the phone layout from
+    // being a vertical line with dots on it.
+    const w = L.wave * (i % 2 === 0 ? 1 : -1)
+    const c1 = [p0[0] + w, p0[1] + L.gap * 0.55]
+    const c2 = [p3[0] + w, p3[1] - L.gap * 0.55]
     d += ` C ${c1[0]} ${c1[1]}, ${c2[0]} ${c2[1]}, ${p3[0]} ${p3[1]}`
     segs.push([p0, c1, c2, p3])
   }
@@ -81,6 +95,16 @@ function cubicAt(seg, t) {
   const dx = 3 * u * u * (c1[0] - p0[0]) + 6 * u * t * (c2[0] - c1[0]) + 3 * t * t * (p3[0] - c2[0])
   const dy = 3 * u * u * (c1[1] - p0[1]) + 6 * u * t * (c2[1] - c1[1]) + 3 * t * t * (p3[1] - c2[1])
   return { x, y, angle: (Math.atan2(dy, dx) * 180) / Math.PI }
+}
+
+// A point at a fraction of the whole route. Every segment is the same length by
+// construction (see the geometry note above), so the fraction maps onto segments
+// linearly and no arc-length integration is needed.
+function pointAtFraction(segs, f) {
+  if (!segs.length) return null
+  const t = Math.max(0, Math.min(1, f)) * segs.length
+  const i = Math.min(segs.length - 1, Math.floor(t))
+  return cubicAt(segs[i], t - i)
 }
 
 const REWARD_TONE = {
@@ -103,7 +127,7 @@ function metricLabel(metric, value, threshold) {
   return `${Math.floor(v)} / ${t}`
 }
 
-export default function MilestonePath({ milestones = [], standings = [], showPeople = false }) {
+export default function MilestonePath({ milestones = [], standings = [], showPeople = false, showCrowd = false }) {
   const isMobile = useIsMobile()
   const L = isMobile ? LAYOUT.narrow : LAYOUT.wide
 
@@ -111,7 +135,7 @@ export default function MilestonePath({ milestones = [], standings = [], showPeo
   // with nothing done yet still sees a road with a start on it rather than an
   // empty state.
   const nodes = [{ start: true }, ...milestones]
-  const H = TOP + (nodes.length - 1) * GAP + TOP
+  const H = TOP + (nodes.length - 1) * L.gap + TOP
   const { d, segs } = buildRoute(nodes.length, L)
 
   const reached = milestones.filter((m) => m.reached).length
@@ -127,9 +151,34 @@ export default function MilestonePath({ milestones = [], standings = [], showPeo
   const planeSeg = segs[Math.min(reached, segs.length - 1)]
   const plane = planeSeg ? cubicAt(planeSeg, reached >= segs.length ? 1 : legFraction) : null
 
+  // WHERE EVERYBODY ELSE IS.
+  //
+  // Not stacked at the stop they last passed - queued ALONG the route just
+  // behind it, each one a little further back than the last. Two creators on
+  // the same stop are two faces on the line rather than one face with another
+  // hidden underneath it, and the shape of the queue is itself the answer to
+  // "how is the community doing": a bunch near the start and a straggler out
+  // front looks completely different from an even spread.
+  const crowd = !showCrowd ? [] : (() => {
+    const seen = new Map()
+    return standings.map((s) => {
+      const node = Math.min(Number(s.reached) || 0, legs)
+      const rank = seen.get(node) || 0
+      seen.set(node, rank + 1)
+      const f = Math.max(0, (node - rank * 0.13) / legs)
+      const p = pointAtFraction(segs, f)
+      return p ? { ...s, x: p.x, y: p.y } : null
+    }).filter(Boolean)
+  })()
+
   return (
     <div className="relative w-full" style={{ aspectRatio: `${L.W} / ${H}` }}>
       <svg viewBox={`0 0 ${L.W} ${H}`} className="absolute inset-0 h-full w-full" aria-hidden>
+        <defs>
+          <clipPath id="milestone-face" clipPathUnits="objectBoundingBox">
+            <circle cx="0.5" cy="0.5" r="0.5" />
+          </clipPath>
+        </defs>
         {/* The whole route, faint and dashed: everything still ahead. */}
         <path
           d={d}
@@ -155,34 +204,76 @@ export default function MilestonePath({ milestones = [], standings = [], showPeo
           transition={{ duration: 1.4, ease: EASE }}
         />
 
-        {/* The plane, where the creator has actually got to. */}
+        {/* THE PLANE FLIES THE ROUTE, IT DOES NOT APPEAR ON IT.
+            It used to be placed at the current position and faded in, which
+            drew the right dot and told the wrong story: the point of a route is
+            the travelling, and a plane that is simply THERE says nothing about
+            having got there. It now takes off from the start and flies to
+            exactly where the creator has reached, in step with the orange line
+            drawing itself underneath, and stops.
+
+            animateMotion with keyPoints rather than a Motion tween, because the
+            browser is already solving "where is this point along that cubic"
+            for the path we handed it, and doing that arithmetic ourselves means
+            keeping two copies of the geometry in sync forever. fill="freeze"
+            is what leaves it parked at the creator's position. */}
+        {/* Drawn even at zero progress: a creator who has not reached a stop
+            yet is AT THE START of the route, which is a place on it, and a
+            route with no plane on it looks like a route that is not yours. */}
         {plane && (
-          <motion.g
-            initial={{ opacity: 0, scale: 0.6 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            transition={{ delay: 1.1, duration: 0.5, ease: EASE }}
-            style={{ transformOrigin: `${plane.x}px ${plane.y}px` }}
-          >
-            <circle cx={plane.x} cy={plane.y} r="15" fill="#d94407" opacity="0.14" />
-            <g transform={`translate(${plane.x} ${plane.y}) rotate(${plane.angle - 90})`}>
-              <path
-                d="M0 -9 C0.9 -9 1.5 -7.4 1.5 -5.1 L1.5 -3.6 L8.2 0.8 L8.2 2.5 L1.5 -0.2 L1.5 4.1 L3.6 6.2 L3.6 7.5 L0 6.3 L-3.6 7.5 L-3.6 6.2 L-1.5 4.1 L-1.5 -0.2 L-8.2 2.5 L-8.2 0.8 L-1.5 -3.6 L-1.5 -5.1 C-1.5 -7.4 -0.9 -9 0 -9 Z"
-                fill="#d94407"
-                stroke="#ffffff"
-                strokeWidth="1.4"
-                strokeLinejoin="round"
+          <g>
+            <circle r="15" fill="#d94407" opacity="0.14">
+              <animateMotion
+                dur="1.4s" fill="freeze" path={d}
+                keyPoints={`0;${progress}`} keyTimes="0;1" calcMode="spline" keySplines="0.22 1 0.36 1"
+              />
+            </circle>
+            <g>
+              <g transform="rotate(90)">
+                <path
+                  d="M0 -9 C0.9 -9 1.5 -7.4 1.5 -5.1 L1.5 -3.6 L8.2 0.8 L8.2 2.5 L1.5 -0.2 L1.5 4.1 L3.6 6.2 L3.6 7.5 L0 6.3 L-3.6 7.5 L-3.6 6.2 L-1.5 4.1 L-1.5 -0.2 L-8.2 2.5 L-8.2 0.8 L-1.5 -3.6 L-1.5 -5.1 C-1.5 -7.4 -0.9 -9 0 -9 Z"
+                  fill="#d94407"
+                  stroke="#ffffff"
+                  strokeWidth="1.4"
+                  strokeLinejoin="round"
+                />
+              </g>
+              <animateMotion
+                dur="1.4s" fill="freeze" rotate="auto" path={d}
+                keyPoints={`0;${progress}`} keyTimes="0;1" calcMode="spline" keySplines="0.22 1 0.36 1"
               />
             </g>
-          </motion.g>
+          </g>
         )}
+
+        {/* EVERYONE ELSE ON THE ROAD, WHERE THEY ACTUALLY ARE.
+            Admin-only for now. The page already stacked faces AT each stop,
+            which answers "who has passed this point" and not "where is everybody
+            up to" - and with one creator ahead of the pack it looked like the
+            route only had one person on it. Each creator gets a dot at their own
+            fraction of the route, fanned sideways so a cluster at the same stop
+            is still countable. */}
+        {showCrowd && crowd.map((c) => (
+          <g key={c.id} transform={`translate(${c.x} ${c.y})`}>
+            <circle r="9" fill="#ffffff" stroke="#d94407" strokeWidth="1.5"
+              style={{ filter: 'drop-shadow(0 1px 2px rgba(20,20,30,0.25))' }} />
+            {c.photo_url ? (
+              <image href={c.photo_url} x="-7.5" y="-7.5" width="15" height="15"
+                clipPath="url(#milestone-face)" preserveAspectRatio="xMidYMid slice" />
+            ) : (
+              <text x="0" y="0.5" textAnchor="middle" dominantBaseline="central"
+                fontSize="7" fontWeight="700" fill="#d94407">{(c.name || '?').slice(0, 1)}</text>
+            )}
+            <title>{`${c.name} · ${c.reached} ${c.reached === 1 ? 'stop' : 'stops'}`}</title>
+          </g>
+        ))}
 
         {/* The stops. Drawn after the route so the line never crosses a dot. */}
         {nodes.map((n, i) => {
           const done = n.start || n.reached
           const isNext = !done && i === reached + 1
           const x = nodeX(i, L)
-          const y = nodeY(i)
+          const y = nodeY(i, L)
           return (
             <motion.g
               key={n.id || 'start'}
@@ -220,7 +311,7 @@ export default function MilestonePath({ milestones = [], standings = [], showPeo
         const done = n.start || n.reached
         const isNext = !done && i === reached + 1
         const x = nodeX(i, L)
-        const y = nodeY(i)
+        const y = nodeY(i, L)
         // On a phone every label sits to the right of the lane. On desktop they
         // alternate so the curve has room to breathe.
         const rightSide = isMobile ? true : i % 2 === 0
@@ -236,7 +327,7 @@ export default function MilestonePath({ milestones = [], standings = [], showPeo
               top: `${(y / H) * 100}%`,
               left: rightSide ? `${((x + 24) / L.W) * 100}%` : undefined,
               right: rightSide ? undefined : `${((L.W - x + 24) / L.W) * 100}%`,
-              width: isMobile ? `${((L.W - x - 30) / L.W) * 100}%` : '38%',
+              width: `${L.labelPct}%`,
               transform: 'translateY(-50%)',
             }}
           >
