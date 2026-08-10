@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => null)
   if (!body) return json(req, { error: 'bad request' }, 400)
   const {
-    channel = 'resend', number, creatorId, creatorName, amount, currency, description,
+    channel = 'resend', invoiceId, number, creatorId, creatorName, amount, currency, description,
     issueDate, billTo, notes, payment, to, cc, filename, pdfBase64,
   } = body
 
@@ -111,6 +111,24 @@ Deno.serve(async (req) => {
   if (channel === 'resend') {
     if (typeof pdfBase64 !== 'string' || pdfBase64.length < 100) return json(req, { error: 'missing invoice PDF' }, 400)
     if (pdfBase64.length > 4_000_000) return json(req, { error: 'invoice PDF too large' }, 400)
+  }
+
+  // 2b) THE APPROVAL GATE, ENFORCED HERE AND NOT ONLY IN THE UI.
+  //
+  // The queue exists so money does not leave on one person's say-so. A rule
+  // that lives only in the React app is a rule anybody with a fetch call can
+  // skip, and this function has the service role - it is the last place that
+  // can actually say no. An invoice must exist, and it must be approved.
+  let existing: { id: string; stage: string; number: number } | null = null
+  if (invoiceId) {
+    const { data } = await admin.from('invoices').select('id, stage, number').eq('id', invoiceId).single()
+    if (!data) return json(req, { error: 'that invoice no longer exists' }, 404)
+    existing = data
+    if (data.stage !== 'approved') {
+      return json(req, { error: `that invoice is "${data.stage}", not approved - it cannot be sent yet` }, 409)
+    }
+  } else {
+    return json(req, { error: 'invoices are sent from the approval queue' }, 400)
   }
 
   const ref = `Tryp.com ${String(number).padStart(3, '0')}`
@@ -154,9 +172,13 @@ Deno.serve(async (req) => {
     return json(req, { error: `Email failed: ${err?.message || emailRes.statusText}` }, 502)
   }
 
-  // 4) Record the invoice (after the send, so history = what actually went out).
-  const { data: row, error: insErr } = await admin.from('invoices').insert({
-    number,
+  // 4) Record what actually went out, ON THE ROW THAT WAS APPROVED.
+  //
+  // This used to INSERT. That was right when an invoice came into being at the
+  // moment it was emailed; now the row already exists - it was drafted when the
+  // prize was awarded and approved by a second admin - so inserting would mint
+  // a duplicate and leave the approved one sitting in the queue forever.
+  const { data: row, error: insErr } = await admin.from('invoices').update({
     creator_id: creatorId || null,
     creator_name: creatorName,
     amount: Number(amount),
@@ -168,10 +190,10 @@ Deno.serve(async (req) => {
     notes: notes || null,
     sent_to: to.trim(),
     cc: cc?.trim() || null,
+    stage: 'sent',
     status: 'sent',
     sent_at: new Date().toISOString(),
-    created_by: uid,
-  }).select('id').single()
+  }).eq('id', existing.id).select('id').single()
 
   // 5) Tell the winner their money is on the way (best-effort).
   if (creatorId) {

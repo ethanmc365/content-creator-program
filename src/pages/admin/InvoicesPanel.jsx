@@ -49,6 +49,16 @@ export default function InvoicesPanel({ prefill }) {
   // ---- Composer state ----
   const [open, setOpen] = useState(false)
   const [number, setNumber] = useState(null)
+  // THE ROW THIS COMPOSER IS EDITING, if it came from the approval queue.
+  //
+  // The composer used to be write-only: it built a PDF, emailed it, and the
+  // edge function INSERTED a fresh row afterwards. That is the right shape when
+  // an invoice comes into being at the moment it is sent, and the wrong one now
+  // that awarding a prize writes the draft first (migration 091) - without an
+  // id, sending a queued invoice would mint a SECOND row and leave the approved
+  // one sitting in the queue forever.
+  const [invoiceId, setInvoiceId] = useState(null)
+  const [stage, setStage] = useState(null)
   const [creatorId, setCreatorId] = useState('')
   const [creatorName, setCreatorName] = useState('')
   const [payee, setPayee] = useState(EMPTY_PAYEE)
@@ -118,6 +128,8 @@ export default function InvoicesPanel({ prefill }) {
   function closeComposer() {
     setOpen(false)
     setNumber(null)
+    setInvoiceId(null)
+    setStage(null)
     setCreatorId('')
     setCreatorName('')
     setPayee(EMPTY_PAYEE)
@@ -152,6 +164,32 @@ export default function InvoicesPanel({ prefill }) {
     if (!prefill?.key || prefill.key === consumedPrefill.current || !creators.length) return
     consumedPrefill.current = prefill.key
     ;(async () => {
+      // A QUEUED INVOICE ALREADY HAS A NUMBER AND A PAYEE SNAPSHOT.
+      // Reserving a new number would leave the row's own number orphaned, and
+      // re-reading the bank details would quietly swap what was approved for
+      // whatever is on file now - which is the one thing an approval is
+      // supposed to pin down.
+      if (prefill.invoiceId) {
+        setOpen(true)
+        setTo(localStorage.getItem(LAST_RECIPIENT_KEY) || '')
+        setCc(user?.email || '')
+        setInvoiceId(prefill.invoiceId)
+        setStage(prefill.stage || null)
+        setNumber(prefill.number)
+        setCreatorId(prefill.creatorId || '')
+        setCreatorName(prefill.creatorName || '')
+        // The currency is DERIVED from the payee (`payee.currency`), so the
+        // snapshot sets it. In euros the stored amount is already the euro
+        // figure, so it goes in as the override rather than being re-converted
+        // from a pound amount nobody kept.
+        if (prefill.payee) { setPayee(prefill.payee); setHasSaved(!!prefill.payee.currency) }
+        if (prefill.currency === 'EUR') setEurOverride(String(prefill.amount ?? ''))
+        setGbpAmount(prefill.currency === 'EUR' ? '' : String(prefill.amount ?? ''))
+        if (prefill.description) setDescription(prefill.description)
+        if (prefill.billTo) setBillTo(prefill.billTo)
+        if (prefill.notes) { notesTouched.current = true; setNotes(prefill.notes) }
+        return
+      }
       if (!open) await openComposer()
       await selectCreator(prefill.creatorId)
       setGbpAmount(prefill.amount != null ? String(prefill.amount) : '')
@@ -200,6 +238,55 @@ export default function InvoicesPanel({ prefill }) {
     notice(error ? `Couldn't save: ${error.message}` : 'Saved. These company details will prefill every new invoice.')
   }
 
+  // Only an approved row may be emailed. Everything else goes to the queue.
+  const approvedToSend = !!invoiceId && stage === 'approved'
+
+  // Write (or update) the draft and put it in front of an approver. This is the
+  // ONLY way an invoice leaves this form now.
+  async function saveToQueue() {
+    const problems = validate()
+    if (problems.length) return notice(`Almost there:\n\n${problems.join('\n')}`)
+    setSending(true)
+    try {
+      const row = {
+        number,
+        creator_id: creatorId || null,
+        creator_name: inv.creatorName,
+        amount: Number(invoiceAmount),
+        currency,
+        description: description.trim(),
+        issue_date: inv.issueDate,
+        bill_to: billTo,
+        payment: payee,
+        notes,
+        stage: 'draft',
+        status: 'draft',
+      }
+      let id = invoiceId
+      if (id) {
+        const { error } = await supabase.from('invoices').update(row).eq('id', id)
+        if (error) throw new Error(error.message)
+      } else {
+        const { data, error } = await supabase.from('invoices')
+          .insert({ ...row, created_by: user.id }).select('id').single()
+        if (error) throw new Error(error.message)
+        id = data.id
+      }
+      // `submit_invoice` re-reads the creator's bank details and refuses if
+      // they are missing, so this is also the point at which a half-filled
+      // invoice is caught.
+      const { error: subErr } = await supabase.rpc('submit_invoice', { p_id: id })
+      if (subErr) throw new Error(subErr.message)
+      notice(`Invoice ${invoiceRef(number)} is with an approver.\n\nIt appears under "Waiting for approval" in the queue.`)
+      closeComposer()
+      load()
+    } catch (e) {
+      notice(e.message)
+    } finally {
+      setSending(false)
+    }
+  }
+
   async function downloadPdf() {
     const problems = validate().filter((p) => !p.startsWith('Pick the creator'))
     if (problems.length) return notice(`Almost there:\n\n${problems.join('\n')}`)
@@ -221,6 +308,7 @@ export default function InvoicesPanel({ prefill }) {
       },
       body: JSON.stringify({
         channel,
+        invoiceId,
         number,
         creatorId,
         creatorName: inv.creatorName,
@@ -500,17 +588,51 @@ export default function InvoicesPanel({ prefill }) {
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center justify-end gap-3">
-              <button type="button" className="btn-ghost" onClick={downloadPdf} disabled={downloading}>
-                {downloading ? <Spinner /> : 'Download PDF'}
-              </button>
-              <button type="button" className="btn-secondary" onClick={send} disabled={sending}>
-                {sending && !gmailPending ? <Spinner /> : 'Send from platform'}
-              </button>
-              <button type="button" className="btn-primary" onClick={composeInGmail} disabled={downloading || sending}>
-                Compose in Gmail
-              </button>
-            </div>
+            {/* SENDING IS GATED ON APPROVAL, AND THAT INCLUDES THIS FORM.
+                An approval queue that any admin can walk around by opening the
+                composer instead is not a control, it is a suggestion. So a
+                hand-written invoice goes into the queue like every other one -
+                the only difference is that the automation did not write it.
+                Only a row that has come back APPROVED gets a send button. */}
+            {!approvedToSend ? (
+              <div className="rounded-card border border-brand/25 bg-brand-tint/25 px-4 py-4">
+                <p className="flex items-center gap-2 text-sm font-semibold">
+                  <Icon name="shield" className="h-4 w-4 shrink-0 text-brand" />
+                  {stage === 'awaiting_approval'
+                    ? 'This one is with an approver'
+                    : stage === 'rejected'
+                      ? 'This came back for a change'
+                      : 'Invoices are approved before they go out'}
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-smoke">
+                  {stage === 'awaiting_approval'
+                    ? 'Nothing to do here until somebody approves it. It will appear under "Approved, ready to send" in the queue.'
+                    : 'Save it to the approval queue. Once another admin approves it, open it again from the queue and the send buttons are here.'}
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <button type="button" className="btn-ghost" onClick={downloadPdf} disabled={downloading}>
+                    {downloading ? <Spinner /> : 'Download PDF'}
+                  </button>
+                  {stage !== 'awaiting_approval' && (
+                    <button type="button" className="btn-primary" onClick={saveToQueue} disabled={sending}>
+                      {sending ? <Spinner /> : 'Send for approval'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center justify-end gap-3">
+                <button type="button" className="btn-ghost" onClick={downloadPdf} disabled={downloading}>
+                  {downloading ? <Spinner /> : 'Download PDF'}
+                </button>
+                <button type="button" className="btn-secondary" onClick={send} disabled={sending}>
+                  {sending && !gmailPending ? <Spinner /> : 'Send from platform'}
+                </button>
+                <button type="button" className="btn-primary" onClick={composeInGmail} disabled={downloading || sending}>
+                  Compose in Gmail
+                </button>
+              </div>
+            )}
           </div>
 
           {/* ---- Live preview ---- */}

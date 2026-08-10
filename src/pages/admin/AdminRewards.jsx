@@ -7,6 +7,7 @@ import { formatDate, formatMoney, downloadCsv } from '../../lib/utils'
 import { notice } from '../../lib/confirm'
 import { payeeFromPrivate, payeeStarted, formatSortCode, formatIban, cleanIban } from '../../lib/invoice'
 import InvoicesPanel from './InvoicesPanel'
+import InvoiceQueue from './InvoiceQueue'
 
 // Build the label / display / copy-value rows for a creator's saved bank
 // details, per currency. Numbers copy as raw digits so they paste cleanly into
@@ -32,7 +33,11 @@ function detailRows(p) {
 // composer with the creator, amount and challenge prefilled.
 export default function AdminRewards() {
   const [searchParams] = useSearchParams()
-  const [tab, setTab] = useState(searchParams.get('tab') === 'invoices' ? 'invoices' : 'payouts')
+  const TABS = ['queue', 'payouts', 'invoices', 'details']
+  const [tab, setTab] = useState(() => {
+    const t = searchParams.get('tab')
+    return TABS.includes(t) ? t : 'queue'
+  })
   const [invoicePrefill, setInvoicePrefill] = useState(null)
   const [rewards, setRewards] = useState([])
   const [creators, setCreators] = useState([])
@@ -169,6 +174,30 @@ export default function AdminRewards() {
     setTab('invoices')
   }
 
+  // OPENING A QUEUED INVOICE LOADS THE ROW, NOT A BLANK FORM. The draft already
+  // holds the number, the creator, the amount, the description and a snapshot
+  // of the bank details; retyping any of that would be a second chance to get
+  // it wrong. `invoiceId` is what tells the composer to update this row rather
+  // than mint a new one - see InvoicesPanel.
+  function editInvoice(inv) {
+    prefillSeq.current += 1
+    setInvoicePrefill({
+      key: `${inv.id}-${prefillSeq.current}`,
+      invoiceId: inv.id,
+      number: inv.number,
+      creatorId: inv.creator_id,
+      creatorName: inv.creator_name,
+      amount: inv.amount,
+      currency: inv.currency,
+      description: inv.description,
+      billTo: inv.bill_to,
+      notes: inv.notes,
+      payee: inv.payment,
+      stage: inv.stage,
+    })
+    setTab('invoices')
+  }
+
   return (
     <div className="page">
       <PageHeader
@@ -182,8 +211,12 @@ export default function AdminRewards() {
         )}
       />
 
-      <div className="mb-8 flex gap-2">
-        {[['payouts', 'Payouts'], ['invoices', 'Invoices'], ['details', 'Payment details']].map(([key, label]) => (
+      {/* THE QUEUE LEADS, and that is the point of it. Awarding a prize now
+          writes its own draft invoice (migration 091), so the first question on
+          this page stopped being "what shall I invoice" and became "what is
+          waiting on me". */}
+      <div className="mb-8 flex flex-wrap gap-2">
+        {[['queue', 'Approval queue'], ['payouts', 'Payouts'], ['invoices', 'Invoices'], ['details', 'Payment details']].map(([key, label]) => (
           <button
             key={key}
             type="button"
@@ -193,6 +226,10 @@ export default function AdminRewards() {
             {label}
           </button>
         ))}
+      </div>
+
+      <div className={tab === 'queue' ? '' : 'hidden'}>
+        <InvoiceQueue onEdit={editInvoice} />
       </div>
 
       <div className={tab === 'invoices' ? '' : 'hidden'}>
