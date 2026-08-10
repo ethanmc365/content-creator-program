@@ -106,7 +106,8 @@ export default function Chat() {
   const [reads, setReads] = useState(new Map()) // user_id -> last_read_at, for "seen by"
   const [loading, setLoading] = useState(true)
   const [body, setBody] = useState('')
-  const [pickerFor, setPickerFor] = useState(null) // message id with emoji picker open
+  const [pickerFor, setPickerFor] = useState(null)
+  const [showFormatting, setShowFormatting] = useState(false) // mobile: formatting row revealed
   const [actionsFor, setActionsFor] = useState(null) // message id with its action row open (mobile tap)
   const [unread, setUnread] = useState({}) // channel -> bool
   const [attachError, setAttachError] = useState('')
@@ -1087,7 +1088,17 @@ export default function Chat() {
                 action - those write to shared library rows - so those stay
                 behind the check. One row, two audiences. */}
             {(isAdmin || canPost) && (
-              <div className="mb-2 flex flex-wrap items-center gap-2">
+              /* COLLAPSED ON A PHONE. This row sits directly above the
+                 composer, and on a 375px screen every pixel it takes is a
+                 pixel of conversation. Formatting is a thing you reach for
+                 occasionally and the keyboard is a thing you need constantly,
+                 so on mobile it hides behind the Aa button beside the composer
+                 and only the row's admin tools survive. On desktop, where the
+                 space is free, it stays open. */
+              <div className={cx(
+                'mb-2 flex-wrap items-center gap-2',
+                showFormatting ? 'flex' : 'hidden sm:flex',
+              )}>
                 <div className="flex items-center gap-0.5 rounded-lg border border-gray-200 p-0.5" role="group" aria-label="Text formatting">
                   <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => richFormat('heading')} title="Heading" aria-label="Heading" className="rounded px-2.5 py-1 text-xs font-bold text-smoke hover:bg-cloud hover:text-ink">H</button>
                   <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => richFormat('bold')} title="Bold" aria-label="Bold" className="rounded px-2.5 py-1 text-sm font-bold text-smoke hover:bg-cloud hover:text-ink">B</button>
@@ -1153,6 +1164,17 @@ export default function Chat() {
                   button after the file dialog closes and re-focuses it */}
               <button type="button" onClick={(e) => { e.currentTarget.blur(); fileRef.current?.click() }} className="btn-ghost !px-2.5 !py-3" aria-label="Attach a photo or video" title="Attach a photo or video">
                 <Icon name="image" className="h-5 w-5" />
+              </button>
+              {/* Mobile-only: reveals the formatting row above. 44px target. */}
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setShowFormatting((v) => !v)}
+                aria-pressed={showFormatting}
+                aria-label="Formatting"
+                className={cx('btn-ghost !px-2.5 !py-3 sm:hidden', showFormatting && '!text-brand')}
+              >
+                <span className="text-sm font-bold leading-none">Aa</span>
               </button>
               {/* THE RICH COMPOSER IS NOT AN ADMIN FEATURE.
                   Bold, headings and @-mentions were limited to the team on the

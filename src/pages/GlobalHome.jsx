@@ -356,7 +356,15 @@ export default function GlobalHome() {
   const rail = (
     <>
       {/* ---------- Live now ---------- */}
-      <RailCard icon={<Icon name="flag" className="h-3.5 w-3.5 text-brand" />} title="Live now">
+      {/* DESKTOP ONLY, all four of these.
+          On a phone the rail renders BELOW the article, and every card in it
+          repeats something the page has already said: the live challenge now
+          leads the page, the quick-action grid near the top IS "Across the
+          network", "Your places" is the Your markets section, and the rooms are
+          a tab in the nav. Rendering them anyway added roughly 1,200px of
+          duplicate navigation to the bottom of an already long page - which is
+          most of what "there is too much scrolling" was. */}
+      <RailCard className="hidden lg:block" icon={<Icon name="flag" className="h-3.5 w-3.5 text-brand" />} title="Live now">
         {myLive.length === 0 ? (
           <div className="flex items-center gap-3 rounded-xl bg-brand-tint/30 px-3 py-3">
             <TrypPlane variant="badge" />
@@ -387,6 +395,7 @@ export default function GlobalHome() {
 
       {/* ---------- Your places ---------- */}
       <RailCard
+        className="hidden lg:block"
         icon={<Icon name="globe" className="h-3.5 w-3.5 text-brand" />}
         title="Your places"
         action={
@@ -429,6 +438,7 @@ export default function GlobalHome() {
 
       {/* ---------- The people layer, in your order ---------- */}
       <RailCard
+        className="hidden lg:block"
         icon={<Icon name="users" className="h-3.5 w-3.5 text-brand" />}
         title="Across the network"
       >
@@ -466,7 +476,7 @@ export default function GlobalHome() {
       )}
 
       {/* ---------- Worldwide rooms ---------- */}
-      <RailCard icon={<Icon name="chat" className="h-3.5 w-3.5 text-brand" />} title="Worldwide rooms">
+      <RailCard className="hidden lg:block" icon={<Icon name="chat" className="h-3.5 w-3.5 text-brand" />} title="Worldwide rooms">
         <div className="space-y-0.5">
           <Link to="/global/chat/general" className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors hover:bg-cloud">
             <Icon name="chat" className="h-4 w-4 shrink-0 text-smoke" /> General
@@ -501,6 +511,35 @@ export default function GlobalHome() {
               Here is what is happening across the network right now.
             </p>
           </section>
+
+          {/* ---------- Live now (phones only) ----------
+              On desktop this is the top card of the rail, which is always in
+              view. On a phone the rail is at the BOTTOM of a very long page, so
+              the one thing on the whole hub a creator can act on today - the
+              brief that is running and closing - was six screens below the fold
+              and under a map. It leads on mobile instead. */}
+          {myLive.length > 0 && (
+            <section className="lg:hidden">
+              <div className="space-y-2">
+                {myLive.map(({ market, challenge, global: isGlobal }) => (
+                  <Link key={challenge.id} to={`/challenges/${challenge.id}`}
+                    className="block rounded-card border border-brand/30 bg-brand-tint/30 p-4 transition-transform duration-200 active:scale-[0.99]">
+                    <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-brand">
+                      <span className="relative flex h-1.5 w-1.5">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/60" />
+                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand" />
+                      </span>
+                      {isGlobal ? 'Live · everyone' : `Live in ${market.name}`}
+                    </p>
+                    <p className="mt-1.5 font-semibold leading-snug">{challenge.title}</p>
+                    <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white">
+                      Submit your video
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* ---------- Quick actions (phones and tablets only) ----------
               On desktop these live in the rail, which is always in view. On a
@@ -565,16 +604,20 @@ export default function GlobalHome() {
                 <Icon name="globe" className="h-3.5 w-3.5" />
                 {network?.name || 'Worldwide'}
               </span>
-              <h2 className="mt-5 max-w-2xl text-2xl font-bold leading-tight sm:text-4xl">
+              <h2 className="mt-5 max-w-2xl text-xl font-bold leading-tight sm:text-3xl lg:text-4xl">
                 Welcome to the Tryp.com content creator community
               </h2>
-              <p className="mt-3 max-w-xl text-white/85">
+              {/* The explanation is for somebody's first week. On a phone it is
+                  three lines of text a returning creator scrolls past every
+                  single day, so it earns its place only where the space is
+                  free. */}
+              <p className="mt-3 hidden max-w-xl text-white/85 sm:block">
                 One community across every market. Your connections, messages, the map and the daily game live here and are never split by country.
               </p>
               {/* Counting up, once, when the card is first seen. A number that
                   moves reads as a quantity that grows, which is the one thing
                   this card is trying to say. */}
-              <div className="mt-8 flex flex-wrap items-center gap-x-10 gap-y-4">
+              <div className="mt-6 flex flex-wrap items-center gap-x-8 gap-y-4 sm:mt-8 sm:gap-x-10">
                 {[
                   { n: d?.creators, label: 'Creators worldwide' },
                   { n: openMarkets.length, label: 'Markets open' },
@@ -685,7 +728,7 @@ export default function GlobalHome() {
             <section>
               <SectionHead icon="pin" title="Creators on the move" to="/collab" toLabel="Collab board" />
               <motion.div variants={listContainer} initial="hidden" animate="show"
-                className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                className="grid grid-cols-1 gap-3 sm:grid-cols-2 [&>*:nth-child(n+5)]:hidden sm:[&>*:nth-child(n+5)]:block">
                 {d.trips.map((t) => (
                   <MotionLink key={t.id} to="/collab" variants={listItem} {...cardHover}
                     className="card flex items-center gap-3 !p-4 hover:shadow-lift">
@@ -733,7 +776,7 @@ export default function GlobalHome() {
             <section>
               <SectionHead icon="users" title="New in the community" to="/creators" toLabel="All creators" />
               <motion.div variants={listContainer} initial="hidden" animate="show"
-                className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 [&>*:nth-child(n+5)]:hidden sm:[&>*:nth-child(n+5)]:block">
                 {d.fresh.map((c) => (
                   <MotionLink key={c.id} to={`/profile/${c.id}`} variants={listItem} {...cardHover}
                     className="card flex min-w-0 items-center gap-3 !p-4 hover:shadow-lift">

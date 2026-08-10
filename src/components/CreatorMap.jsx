@@ -508,8 +508,31 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   // view (these creators, this place), so offering "who's travelling" over the
   // top of it would let you filter a filter and land somewhere nobody asked to
   // be.
+  // Any state that is not "the whole map". The reset below exists because a
+  // filter you cannot see is a filter you cannot leave: once the travel view is
+  // on, the map shows planes and a legend, and the only way back was noticing
+  // that the button which turned it on is also the button that turns it off.
+  // Filtered views get an explicit way out, said in words.
+  const isFiltered = travelView || connectionsView || nearMe || !!focusJourney
+
   const filterButtons = !controls ? null : (
     <>
+      {isFiltered && (
+        <button
+          type="button"
+          onClick={() => {
+            setFocusId(null)
+            if (travelView) { if (onToggleTravel) onToggleTravel(); else setInternalTravel(false) }
+            if (connectionsView && onToggleConnections) onToggleConnections()
+            if (nearMe && onToggleNearMe) onToggleNearMe()
+            resetView()
+          }}
+          className="inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-xs font-semibold text-white shadow-card transition-all hover:scale-[1.03] active:scale-95"
+        >
+          <Icon name="close" className="h-3.5 w-3.5" />
+          Show the whole map
+        </button>
+      )}
       {onToggleConnections && (
         <button
           type="button"

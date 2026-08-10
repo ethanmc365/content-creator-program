@@ -347,24 +347,21 @@ export default function NetworkChat() {
           </button>
         ))}
 
-        {/* The same "all your rooms in one place" the desktop rail gives, in the
-            shape a phone can take: the other markets' rooms continue the strip
-            after a divider, each carrying its flag so it is obvious you are
-            about to leave this conversation for another one. */}
+        {/* ALL YOUR ROOMS IS A DESTINATION, NOT MORE TABS.
+            This strip briefly continued into every other market's rooms, which
+            on a 375px screen turned the one piece of navigation above a
+            conversation into a horizontal scroller of a dozen near-identical
+            names - and the room you were IN scrolled off the left. The other
+            markets live on /rooms, which is a page built to group them. One
+            tap, and the tab strip stays about the place you are standing in. */}
         {elsewhere.length > 0 && (
-          <span className="mx-1 my-2 w-px shrink-0 self-stretch bg-gray-200" aria-hidden />
-        )}
-        {elsewhere.flatMap((place) =>
-          place.rooms.map((c) => (
-            <Link
-              key={`${place.id}-${c.id}`}
-              to={`${place.kind === 'network' ? '/global/chat' : `/c/${place.slug}/chat`}/${c.key}`}
-              className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-xl px-3.5 py-2 text-sm font-medium text-smoke transition-colors hover:bg-cloud hover:text-ink"
-            >
-              <span aria-hidden>{place.flags || '🌍'}</span>
-              {c.label}
-            </Link>
-          )),
+          <Link
+            to="/rooms"
+            className="ml-auto flex shrink-0 items-center gap-1.5 self-center rounded-full border border-gray-200 px-3 py-1.5 text-xs font-medium text-smoke transition-colors active:bg-cloud"
+          >
+            <Icon name="globe" className="h-3.5 w-3.5" />
+            All rooms
+          </Link>
         )}
       </div>
 

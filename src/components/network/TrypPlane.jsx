@@ -93,12 +93,21 @@ function Drawing({ id, animate }) {
   return (
     <svg viewBox={`0 0 ${VB_W} ${VB_H}`} fill="none" aria-hidden className="h-full w-full">
       <defs>
-        {/* Strong where it meets the tail, gone by the far end. A dashed line of
-            constant opacity reads as a border, not as exhaust. */}
-        {/* Left to right, because that is now the direction the trail runs:
-            strong where it leaves the tail, gone by the edge of the card. A
-            dashed line of constant opacity reads as a border, not as exhaust. */}
-        <linearGradient id={`${id}-fade`} x1="0" y1="0" x2="1" y2="0">
+        {/* Strong where it leaves the tail, gone by the edge of the card. A
+            dashed line of constant opacity reads as a border, not as exhaust.
+
+            `userSpaceOnUse`, NOT the default `objectBoundingBox`, and this is
+            not a preference. The trail is now a perfectly HORIZONTAL line, so
+            its bounding box has zero height, and a gradient in bounding-box
+            units on a zero-height box is degenerate: per spec the element is
+            simply not rendered. That is exactly what happened when the curve was
+            straightened - the contrail did not move or fade, it disappeared
+            outright. Absolute coordinates have no such failure mode. */}
+        <linearGradient
+          id={`${id}-fade`}
+          gradientUnits="userSpaceOnUse"
+          x1={tailX} y1={tailY} x2={VB_W} y2={tailY}
+        >
           <stop offset="0%" stopColor="currentColor" stopOpacity="0.75" />
           <stop offset="55%" stopColor="currentColor" stopOpacity="0.32" />
           <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
