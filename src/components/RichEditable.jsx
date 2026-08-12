@@ -51,6 +51,56 @@ const RichEditable = forwardRef(function RichEditable(
     return el && el.parentNode === root ? el : null
   }
 
+  // EVERY LINE MUST LIVE IN A BLOCK OF ITS OWN, OR A HEADING EATS THE MESSAGE.
+  //
+  // THE BUG THIS FIXES. `blockAncestor` walks up from the caret looking for a
+  // direct child of the root. A contentEditable that has been cleared and typed
+  // into fresh holds its text as a BARE TEXT NODE on the root - there is no
+  // block to find - so the walk ran off the top of the editor, returned null,
+  // and applyBlock fell through to `document.execCommand('formatBlock')`, which
+  // formats the WHOLE editable. That is the reported "highlighting a word and
+  // pressing heading turns the entire message into a heading": the selection
+  // was never consulted, because there was nothing to consult it about.
+  //
+  // So before formatting anything, loose content at the root is wrapped: each
+  // run of inline nodes becomes its own block, and a bare <br> - which is how
+  // browsers write a line break at the root - ENDS a run rather than joining
+  // two lines into one, or Shift+Enter would quietly merge two lines into one
+  // heading.
+  //
+  // The text nodes themselves are MOVED, not replaced, so a Range captured
+  // before the wrap still points at the same characters afterwards.
+  const ROOT_BLOCK = /^(P|DIV|H1|H2|H3|H4|H5|H6|BLOCKQUOTE|UL|OL|OL|HR|PRE)$/
+  const normalizeBlocks = () => {
+    const root = elRef.current
+    if (!root) return
+    const tag = inlineOnly ? 'div' : 'p'
+    let run = []
+    const flush = () => {
+      if (!run.length) return
+      const wrapper = document.createElement(tag)
+      run[0].before(wrapper)
+      run.forEach((n) => wrapper.appendChild(n))
+      run = []
+    }
+    for (const n of [...root.childNodes]) {
+      if (n.nodeType === 1 && ROOT_BLOCK.test(n.tagName)) { flush(); continue }
+      if (n.nodeType === 1 && n.tagName === 'BR') {
+        if (run.length) { flush(); n.remove() } else {
+          const wrapper = document.createElement(tag)
+          n.replaceWith(wrapper)
+          wrapper.appendChild(n)
+        }
+        continue
+      }
+      // A whitespace-only text node between two blocks is layout noise, not a
+      // line; wrapping it would add an empty paragraph to the markdown.
+      if (n.nodeType === 3 && !n.nodeValue.trim() && !run.length) continue
+      run.push(n)
+    }
+    flush()
+  }
+
   // Re-tag a block, keeping its inline children. Used for headings / quote / p.
   const retag = (block, tag) => {
     if (block.tagName.toLowerCase() === tag) return block
@@ -68,10 +118,31 @@ const RichEditable = forwardRef(function RichEditable(
     const root = elRef.current
     const sel = window.getSelection()
     if (!root || !sel || !sel.rangeCount) return fireChange()
-    const range = sel.getRangeAt(0)
-    const startBlk = blockAncestor(range.startContainer)
+    let range = sel.getRangeAt(0)
+    if (!root.contains(range.startContainer)) return fireChange()
+    let startBlk = blockAncestor(range.startContainer)
+    if (!startBlk) {
+      // Loose text at the root. Wrap it, restore the caret/selection onto the
+      // same nodes, and look again - NEVER fall through to a whole-editor
+      // execCommand, which is what used to make one word into a heading and
+      // take the rest of the message with it.
+      const sC = range.startContainer, sO = range.startOffset
+      const eC = range.endContainer, eO = range.endOffset
+      normalizeBlocks()
+      try {
+        const r = document.createRange()
+        r.setStart(sC, sO)
+        r.setEnd(eC, eO)
+        sel.removeAllRanges()
+        sel.addRange(r)
+        range = r
+      } catch { /* the node did not survive; fall back to whatever is selected */ }
+      startBlk = blockAncestor(range.startContainer)
+    }
+    // Still nothing to format? Do nothing at all. Formatting the whole surface
+    // is never the right answer to "I could not find the line you meant".
+    if (!startBlk) return fireChange()
     let endBlk = blockAncestor(range.endContainer)
-    if (!startBlk) { document.execCommand('formatBlock', false, tag); return fireChange() }
     // A selection that stops at the very START of the next block (offset 0)
     // shouldn't drag that block in - otherwise highlighting to the end of a line
     // silently reformats the line below it too.
@@ -191,7 +262,12 @@ const RichEditable = forwardRef(function RichEditable(
     },
     clear: () => {
       const el = elRef.current
-      if (el) { el.innerHTML = inlineOnly ? '<br>' : '<p><br></p>'; syncEmpty('') }
+      // A BLOCK, not a bare <br>. An empty surface whose only child is a <br>
+      // gives the first typed character no block to live in, which is exactly
+      // the state that made the heading button reformat everything (see
+      // normalizeBlocks). Starting from a block means the common case never
+      // needs rescuing.
+      if (el) { el.innerHTML = inlineOnly ? '<div><br></div>' : '<p><br></p>'; syncEmpty('') }
       onChangeMd?.('')
     },
   }))

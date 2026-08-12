@@ -14,6 +14,7 @@ import ProfileProgress from '../components/network/ProfileProgress'
 import Reorderable from '../components/network/Reorderable'
 import FlagStack from '../components/network/FlagStack'
 import CreatorMap from '../components/CreatorMap'
+import WhenVisible from '../components/WhenVisible'
 import CreatorSpotlight from '../components/CreatorSpotlight'
 import Icon from '../components/Icon'
 import { Avatar, EmptyState, Skeleton } from '../components/ui'
@@ -303,7 +304,9 @@ export default function GlobalHome() {
         // the roster twice on one page is how a fast page becomes a slow one.
         // Here there is no grid, so this is the only reader.
         supabase.from('profiles')
-          .select('id, name, photo_url, city, country, country_code, city_lat, city_lng, show_on_map')
+          // countries_visited is what lets a tap on a country answer "who here
+          // has been", so it travels with the map's own roster.
+          .select('id, name, photo_url, city, country, country_code, city_lat, city_lng, show_on_map, countries_visited')
           .eq('status', 'active').eq('is_test', false).is('deletion_requested_at', null),
         supabase.from('collab_posts').select('creator_id, city, country, start_date, end_date')
           .gte('end_date', today).order('start_date'),
@@ -527,7 +530,16 @@ export default function GlobalHome() {
             it, dropping down into place, while the rail slides in from the
             right (NetworkLayout). The grids inside stagger their cards the same
             way the creator directory does, because that is the motion Ethan
-            picked and there should only be one. */}
+            picked and there should only be one.
+
+            THE LADDER OF `delay` VALUES IS DELIBERATELY SHALLOW NOW. It used to
+            run 0.10, 0.16, 0.22, 0.28, 0.36, 0.44 - so the sixth card on the
+            left did not begin to move until nearly half a second after the
+            page arrived, by which time the whole right-hand rail had finished.
+            That is the reported "the cards on the right appear nicely but the
+            bigger ones on the left are delayed". A head start exists to stop
+            everything above the fold firing on one frame; 50ms per section does
+            that, and 440ms is not a head start, it is a wait. */}
         <div className="space-y-9">
 
           {/* ---------- Greeting ----------
@@ -576,7 +588,7 @@ export default function GlobalHome() {
               brief that is running and closing - was six screens below the fold
               and under a map. It leads on mobile instead. */}
           {myLive.length > 0 && (
-            <Reveal from="down" delay={0.1} className="lg:hidden">
+            <Reveal from="down" delay={0.05} className="lg:hidden">
               <section>
                 <div className="space-y-2">
                   {myLive.map(({ market, challenge, global: isGlobal }) => (
@@ -610,7 +622,7 @@ export default function GlobalHome() {
               eight of a fixed list, so Roles and Refer existed on desktop and
               simply did not on a phone, and reordering the rail changed nothing
               for the people who only ever see this grid. */}
-          <Reveal from="down" delay={0.16} className="lg:hidden">
+          <Reveal from="down" delay={0.1} className="lg:hidden">
             <section>
             <div className="grid grid-cols-4 gap-2">
               {links.map((l) => {
@@ -650,7 +662,7 @@ export default function GlobalHome() {
           {/* ---------- Finish your profile ---------- */}
           {/* Removes itself at 100%. A checklist that survives completion is
               nagging, and this is a nudge. */}
-          <Reveal from="down" delay={0.22}><ProfileProgress /></Reveal>
+          <Reveal from="down" delay={0.15}><ProfileProgress /></Reveal>
 
           {/* ---------- Welcome ---------- */}
           {/* No `initial/animate` of its own any more. It had a mount tween
@@ -658,7 +670,7 @@ export default function GlobalHome() {
               that is always above the fold was also the one card that animated
               on a different clock. The Reveal owns it now, like every other
               section. */}
-          <Reveal from="down" delay={0.28}>
+          <Reveal from="down" delay={0.2}>
           <section
             className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-6 text-white shadow-lift sm:p-10"
           >
@@ -711,7 +723,7 @@ export default function GlobalHome() {
               on this page that everybody reading it can act on right now, and
               burying it under a list of places would be exactly backwards. */}
           {globalLive && (
-            <Reveal from="down" delay={0.36}>
+            <Reveal from="down" delay={0.25}>
               <section>
                 <SectionHead icon="globe" title="Open to everyone"
                   hint="A global brief. Enter from any market, anywhere in the world." />
@@ -727,7 +739,7 @@ export default function GlobalHome() {
           )}
 
           {/* ---------- Markets ---------- */}
-          <Reveal from="down" delay={0.44}>
+          <Reveal from="down" delay={0.3}>
             <section>
               <SectionHead
                 icon="flag"
@@ -818,11 +830,19 @@ export default function GlobalHome() {
           <Reveal from="down">
             <section>
               <SectionHead icon="globe" title="Everyone, right now"
-                hint="Every creator in the network on one map, wherever they are based. Tap a pin to see who is there."
+                hint="Tap a pin for who is there, or tap a country to find who has been."
                 to="/creators" toLabel="Creator directory" />
-              {d
-                ? <CreatorMap creators={d.mapPeople} trips={d.mapTrips} myId={session?.user?.id} />
-                : <Skeleton className="h-72" />}
+              {/* The map is the most expensive thing on this page - a megabyte
+                  of TopoJSON, parsed, then a few hundred SVG paths - and doing
+                  that work while the cards above are still sliding is what made
+                  the page hitch a second after it appeared. It waits until it
+                  is nearly on screen; the skeleton holds its height so nothing
+                  jumps when it arrives. */}
+              <WhenVisible fallback={<Skeleton className="h-72" />}>
+                {d
+                  ? <CreatorMap creators={d.mapPeople} trips={d.mapTrips} myId={session?.user?.id} />
+                  : <Skeleton className="h-72" />}
+              </WhenVisible>
             </section>
           </Reveal>
 

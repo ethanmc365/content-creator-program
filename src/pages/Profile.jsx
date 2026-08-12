@@ -388,7 +388,9 @@ export default function Profile() {
           </h2>
           {isMe && <Link to="/profile/edit" className="text-sm font-medium text-brand hover:underline">Update map</Link>}
         </div>
-        <WorldMap selected={creator.countries_visited || []} />
+        {/* `owner` makes the countries tappable: what the place is known for,
+            and a way to ask the one person whose map this is about it. */}
+        <WorldMap selected={creator.countries_visited || []} owner={creator} />
         {creator.countries_visited?.length > 0 && (
           <div className="mt-4 flex flex-wrap gap-2">
             {[...creator.countries_visited].sort().map((c) => (

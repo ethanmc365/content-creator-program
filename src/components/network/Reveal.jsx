@@ -124,6 +124,27 @@ export default function Reveal({
     return () => clearTimeout(t)
   }, [shown, node])
 
+  // WHEN THE STAGGER IS ACTUALLY OVER.
+  //
+  // `will-change: opacity, transform` promises the browser a compositor layer,
+  // and the stylesheet used to withdraw that promise on `is-in` - the same
+  // class that starts the transition - so every card lost its layer on the
+  // frame it began moving. Big cards (a map, a chart, a live challenge) then
+  // had to be re-rasterised mid-slide, which is the judder. The hint is only
+  // spent once the LAST child has landed, so that is when `is-done` goes on:
+  // base delay + the last child's stagger step + the transition itself, with a
+  // small margin. Keeping it forever would be the opposite mistake - a page of
+  // permanently promoted layers is a page that eats memory for nothing.
+  const [done, setDone] = useState(false)
+  const childCount = Children.count(children)
+  useEffect(() => {
+    if (!shown || done) return undefined
+    const last = Math.min(childCount - 1, maxStagger)
+    const ms = delay * 1000 + Math.max(0, last) * stagger * 1000 + 720 + 120
+    const t = setTimeout(() => setDone(true), ms)
+    return () => clearTimeout(t)
+  }, [shown, done, childCount, delay, stagger, maxStagger])
+
   // LOOK THROUGH A FRAGMENT.
   //
   // Callers pass a list of cards, and a list of cards is very often wrapped in
@@ -141,7 +162,7 @@ export default function Reveal({
     <Tag
       ref={setNode}
       data-from={from}
-      className={`reveal${shown ? ' is-in' : ''}${className ? ` ${className}` : ''}`}
+      className={`reveal${shown ? ' is-in' : ''}${done ? ' is-done' : ''}${className ? ` ${className}` : ''}`}
       style={{
         '--reveal-stagger': `${Math.round(stagger * 1000)}ms`,
         '--reveal-base': `${Math.round(delay * 1000)}ms`,

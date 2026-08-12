@@ -218,37 +218,50 @@
      `h-full` on the wrapper matters: a wrapper between a grid cell and
      a card that fills its row height stops the card filling it.
      ------------------------------------------------------------------ */
+  /* `translate3d`, not `translateY`. A 2D transform is composited on most
+     engines but is not GUARANTEED to be, and a card carrying a map or a chart
+     that falls back to repainting every frame is exactly the stutter this is
+     supposed to avoid. The z component costs nothing and settles the question.
+     `backface-visibility` stops Safari re-rasterising at the halfway point. */
   .reveal-item {
     height: 100%;
     opacity: 0;
-    transform: translateY(28px);
+    transform: translate3d(0, 24px, 0);
     will-change: opacity, transform;
+    backface-visibility: hidden;
   }
   /* Direction, set by <Reveal from="...">. A two-column page reads better when
      the columns do not arrive the same way: the article rises, the rail slides
      in from the edge it lives against. */
-  .reveal[data-from='right'] > .reveal-item { transform: translateX(48px); }
-  .reveal[data-from='left']  > .reveal-item { transform: translateX(-48px); }
-  .reveal[data-from='down']  > .reveal-item { transform: translateY(-34px); }
+  .reveal[data-from='right'] > .reveal-item { transform: translate3d(40px, 0, 0); }
+  .reveal[data-from='left']  > .reveal-item { transform: translate3d(-40px, 0, 0); }
+  .reveal[data-from='down']  > .reveal-item { transform: translate3d(0, -28px, 0); }
   /* THE DURATION AND THE DISTANCE TOGETHER ARE THE WHOLE POINT.
      460ms was over before the eye had found the card; 760ms was still reading
      as a flash, because a long duration over twelve pixels of travel is a card
-     that barely moves for most of it. 980ms over 28 is a card you can watch
-     arrive. The curve is unchanged - one house easing everywhere - but the tail
-     is where most of the time now goes, which is what makes it feel like it is
-     settling rather than stopping.
+     that barely moves for most of it. 980ms was watchable but it is also nearly
+     a second of a big card sliding, and on the heavy cards (the map, the live
+     challenge) a second is long enough to notice every frame it drops. 720ms
+     over 24px is the compromise that still reads as arriving.
      `--reveal-base` is the container's head start, so a page can arrive top to
      bottom instead of all at once. See the `delay` prop in Reveal.jsx. */
   .reveal.is-in > .reveal-item {
     opacity: 1;
-    transform: none;
+    transform: translate3d(0, 0, 0);
     transition:
-      opacity 980ms cubic-bezier(0.22, 1, 0.36, 1),
-      transform 980ms cubic-bezier(0.22, 1, 0.36, 1);
+      opacity 720ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 720ms cubic-bezier(0.22, 1, 0.36, 1);
     transition-delay: calc(var(--reveal-base, 0ms) + var(--reveal-i, 0) * var(--reveal-stagger, 45ms));
   }
-  /* Once it has landed, stop claiming a compositor layer for every card. */
-  .reveal.is-in > .reveal-item { will-change: auto; }
+  /* WHY THIS IS `.reveal.is-done` AND NOT `.reveal.is-in`.
+     It used to drop `will-change` on `is-in` - the very class that STARTS the
+     transition - so every card lost its promised compositor layer on the frame
+     it began animating, and the browser had to re-rasterise a large card while
+     translating it. That is the judder: worst on the big left-hand cards
+     because they are the most expensive to paint, and visible on the right as a
+     hitch right after the first card lands. `is-done` is added by Reveal once
+     the whole stagger has finished, which is when the hint is genuinely spent. */
+  .reveal.is-done > .reveal-item { will-change: auto; }
 
   @media (prefers-reduced-motion: reduce) {
     .reveal-item,

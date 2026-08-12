@@ -5,7 +5,7 @@ import { uploadChatImage, uploadChatVideo } from '../lib/chatMedia'
 import { Link, NavLink, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { Avatar, Badge, Modal, Skeleton, Spinner } from '../components/ui'
+import { Avatar, Badge, Skeleton } from '../components/ui'
 import Icon from '../components/Icon'
 import PollCard from '../components/PollCard'
 import GameEventCard from '../components/GameEventCard'
@@ -17,10 +17,12 @@ import ReactionPill from '../components/ReactionPill'
 import ReactionPicker from '../components/ReactionPicker'
 import { RoomSearch } from '../components/ChatSearch'
 import ChatMedia from '../components/ChatMedia'
-import { CONTINENTS } from '../lib/countries'
 import { formatMessageTime, messageTimeTitle, cx } from '../lib/utils'
 import { renderMessageBody } from '../lib/richText'
 import RichEditable from '../components/RichEditable'
+import { ComposerToolbar } from '../components/ComposerTools'
+import SeenBy from '../components/SeenBy'
+import ChatAdminTools from '../components/ChatAdminTools'
 import { textBeforeCaret } from '../lib/richEditor'
 import { firstUrl } from '../lib/linkPreview'
 import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
@@ -46,36 +48,6 @@ function messageKind(m) {
 }
 
 const newTempId = () => `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`
-
-// Admin-only read receipt: a small "Seen by N" chip; hovering (desktop) or
-// tapping (mobile) reveals a popup listing the individual creators' names.
-function SeenByChip({ names, align = 'left' }) {
-  const [open, setOpen] = useState(false)
-  const label = names.length <= 12 ? names.join(', ') : `${names.slice(0, 12).join(', ')} +${names.length - 12} more`
-  return (
-    <span className="group/seen relative inline-flex">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        onBlur={() => setOpen(false)}
-        aria-label={`Seen by ${names.length}: ${label}`}
-        className="text-[10px] text-gray-400 transition-colors hover:text-smoke"
-      >
-        Seen by {names.length}
-      </button>
-      <span
-        role="tooltip"
-        className={cx(
-          'pointer-events-none absolute bottom-full z-30 mb-1.5 w-max max-w-[220px] whitespace-normal rounded-lg bg-ink px-2.5 py-1.5 text-left text-[11px] font-medium leading-snug text-white shadow-lift',
-          open ? 'block' : 'hidden group-hover/seen:block',
-          align === 'right' ? 'right-0' : 'left-0'
-        )}
-      >
-        {label}
-      </span>
-    </span>
-  )
-}
 
 function typingLabel(names) {
   if (names.length === 1) return `${names[0]} is typing…`
@@ -217,21 +189,10 @@ export default function Chat() {
       })()
     : []
 
-  // Poll composer (admins, announcements only).
-  const [showPoll, setShowPoll] = useState(false)
-  const [pollQuestion, setPollQuestion] = useState('')
-  const [pollOptions, setPollOptions] = useState(['', ''])
-  const [creatingPoll, setCreatingPoll] = useState(false)
-
-  // Game-event composer (admins).
-  const [showGame, setShowGame] = useState(false)
-  const [gameForm, setGameForm] = useState({ title: '', mode: 'flags', region: 'World' })
-  const [creatingGame, setCreatingGame] = useState(false)
-
-  // Resource-card composer (admins): pick a library resource to drop in.
-  const [showResource, setShowResource] = useState(false)
-  const [resourceList, setResourceList] = useState(null)
-  const [postingResource, setPostingResource] = useState(false)
+  // Poll / game / resource composers (admins, EVERY channel). One piece of
+  // state: which of the three is open, if any. The forms themselves live in
+  // ChatAdminTools so the market rooms get exactly the same three.
+  const [adminTool, setAdminTool] = useState(null) // null | 'poll' | 'game' | 'resource'
 
   const meta = CHANNELS.find((c) => c.key === channel) ?? CHANNELS[0]
   const canPost = channel !== 'announcements' || isAdmin
@@ -684,10 +645,15 @@ export default function Chat() {
   function richFormat(kind) {
     const ed = richRef.current
     if (!ed) return
-    if (kind === 'heading') {
-      const cur = (document.queryCommandValue('formatBlock') || '').toLowerCase()
-      ed.exec('formatBlock', cur === 'h1' ? 'p' : 'h1')
-    } else ed.exec(kind) // bold | italic
+    // ASK THE EDITOR, NOT THE BROWSER. This used to read
+    // `document.queryCommandValue('formatBlock')` to decide whether to apply or
+    // remove the heading, which answers for whatever the DOCUMENT thinks is
+    // focused and returns '' often enough that the button read as one-way.
+    // applyBlock already toggles a block that is already a heading back to a
+    // paragraph, on the selection's own blocks, so it only ever needs telling
+    // which heading we mean.
+    if (kind === 'heading') ed.exec('formatBlock', 'h1')
+    else ed.exec(kind) // bold | italic
   }
   // Insert a mention: the composer swaps the typed "@query" for a chip. No
   // longer gated on isAdmin - there is only one composer now, and gating it
@@ -715,74 +681,11 @@ export default function Chat() {
     await supabase.from('profiles').update({ status: 'muted' }).eq('id', senderId)
   }
 
-  // Create a poll: makes the poll + its options, then posts an announcement
-  // message that carries it (so it renders inline in the channel).
-  async function createPoll(e) {
-    e.preventDefault()
-    const opts = pollOptions.map((o) => o.trim()).filter(Boolean)
-    if (!pollQuestion.trim() || opts.length < 2) return
-    setCreatingPoll(true)
-    const { data: poll, error } = await supabase
-      .from('polls')
-      .insert({ question: pollQuestion.trim(), created_by: user.id })
-      .select('id')
-      .single()
-    if (!error && poll) {
-      await supabase.from('poll_options').insert(opts.map((label, i) => ({ poll_id: poll.id, label, sort_order: i })))
-      // Post the poll card on its own - no preceding text message.
-      await supabase.from('messages').insert({
-        channel: 'announcements',
-        sender_id: user.id,
-        body: '',
-        poll_id: poll.id,
-      })
-    }
-    setCreatingPoll(false)
-    setShowPoll(false)
-    setPollQuestion('')
-    setPollOptions(['', ''])
-  }
-
-  // Create a game event: makes the event, then posts a message carrying its
-  // card so creators can launch it from the chat.
-  async function createGameEvent(e) {
-    e.preventDefault()
-    if (!gameForm.title.trim()) return
-    setCreatingGame(true)
-    const { data: ev, error } = await supabase
-      .from('game_events')
-      .insert({ title: gameForm.title.trim(), mode: gameForm.mode, region: gameForm.region, created_by: user.id })
-      .select('id')
-      .single()
-    if (!error && ev) {
-      // Post the card on its own - no accompanying text message.
-      await supabase.from('messages').insert({
-        channel,
-        sender_id: user.id,
-        body: '',
-        game_event_id: ev.id,
-      })
-    }
-    setCreatingGame(false)
-    setShowGame(false)
-    setGameForm({ title: '', mode: 'flags', region: 'World' })
-  }
-
-  // Resource cards: open the picker (loading the library on first open), then
-  // post the chosen resource as a card-only message into this channel.
-  function openResourcePicker() {
-    setShowResource(true)
-    if (resourceList === null) {
-      supabase.from('resources').select('id, title, category').order('created_at', { ascending: false })
-        .then(({ data }) => setResourceList(data ?? []))
-    }
-  }
-
-  async function postResourceCard(resourceId) {
-    setPostingResource(true)
-    await supabase.from('messages').insert({ channel, sender_id: user.id, body: '', resource_id: resourceId })
-    setPostingResource(false)
-    setShowResource(false)
+  // Post a card-only message (poll / game / resource) into THIS channel.
+  // Handed to ChatAdminTools, which owns the three forms; all this side knows
+  // is what "a message in this room" means here.
+  async function postCard(fields) {
+    await supabase.from('messages').insert({ channel, sender_id: user.id, body: '', ...fields })
   }
 
   // Resolve a reactor's display name for the "who reacted" popup ("You" for me).
@@ -935,7 +838,9 @@ export default function Chat() {
                 <div
                   // min-w-0 matters: a flex item defaults to min-width:auto, so
                   // without it a wide child can push the column past max-w.
-                  className={cx('flex min-w-0 max-w-[78%] flex-col sm:max-w-[65%]', mine ? 'items-end text-right' : 'items-start')}
+                  // `relative` because the action toolbar is now absolutely
+                  // positioned against this column - see the note on it below.
+                  className={cx('relative flex min-w-0 max-w-[78%] flex-col sm:max-w-[65%]', mine ? 'items-end text-right' : 'items-start')}
                   // Tap a message on mobile to reveal its reply / react actions.
                   onClick={(e) => { if (isMobile && !e.target.closest('a,button,video,input')) setActionsFor(showActions ? null : m.id) }}
                 >
@@ -983,7 +888,14 @@ export default function Chat() {
 
                       {m.image_url && <ChatMedia url={m.image_url} kind="image" alt={m.body || 'Shared image'} />}
                       {m.video_url && <ChatMedia url={m.video_url} kind="video" maxW={240} maxH={360} />}
-                      {m.body && <span className={cx('block', (m.image_url || m.video_url) && 'px-2.5 py-1.5')}>{renderMessageBody(m.body, { rich: m.profiles?.is_admin, members, onDark })}</span>}
+                      {/* `rich` is UNCONDITIONAL. It was gated on the sender being
+                          an admin, from when formatting was an admin tool - but the
+                          formatting row has been open to every creator for a while
+                          now, so a creator who pressed B watched their own message
+                          arrive as **like this**, and so did everybody else. Gating
+                          the renderer on who wrote it can only ever make somebody's
+                          own text look broken to them. */}
+                      {m.body && <span className={cx('block', (m.image_url || m.video_url) && 'px-2.5 py-1.5')}>{renderMessageBody(m.body, { rich: true, members, onDark })}</span>}
                       {linkUrl && <LinkPreview url={linkUrl} onDark={onDark} />}
                     </div>
                   )}
@@ -1002,23 +914,46 @@ export default function Chat() {
                     </p>
                   )}
 
-                  {/* Reactions + action row (reply / react / moderate / pin). On
-                      desktop the actions appear on hover; on mobile, tapping the
-                      message reveals them (showActions). */}
-                  <div className={cx('mt-1 flex flex-wrap items-center gap-1', mine && 'justify-end')}>
-                    {Object.entries(summary).map(([emoji, info]) => (
-                      <ReactionPill
-                        key={emoji}
-                        emoji={emoji}
-                        count={info.count}
-                        mine={info.mine}
-                        names={info.ids.map(memberName)}
-                        onToggle={() => toggleReaction(m.id, emoji)}
-                        align={mine ? 'right' : 'left'}
-                      />
-                    ))}
+                  {/* Reactions stay IN FLOW - they are content, they belong to
+                      the message and they should push what is under them down. */}
+                  {Object.keys(summary).length > 0 && (
+                    <div className={cx('mt-1 flex flex-wrap items-center gap-1', mine && 'justify-end')}>
+                      {Object.entries(summary).map(([emoji, info]) => (
+                        <ReactionPill
+                          key={emoji}
+                          emoji={emoji}
+                          count={info.count}
+                          mine={info.mine}
+                          names={info.ids.map(memberName)}
+                          onToggle={() => toggleReaction(m.id, emoji)}
+                          align={mine ? 'right' : 'left'}
+                        />
+                      ))}
+                    </div>
+                  )}
 
-                    <div className={cx('relative flex items-center gap-1 transition-opacity focus-within:opacity-100 group-hover:opacity-100', showActions ? 'opacity-100' : 'opacity-0')}>
+                  {/* THE ACTION ROW FLOATS. IT USED TO RESERVE ITS OWN HEIGHT.
+                      Reply / react / pin / delete were an `opacity-0` row sitting
+                      in the flow, and opacity does not remove a box - so every
+                      message carried an invisible 26px strip under it whether or
+                      not anybody ever hovered. On desktop that is a suspicious
+                      gap; on a phone, where the row only appears when you TAP a
+                      message, it meant "Seen by 4" hovered somewhere below the
+                      bubble with nothing between them. That is the reported
+                      floating "seen by".
+                      Now it is absolutely positioned into the free half of the
+                      meta line - the side the name is NOT on - so it costs no
+                      layout at all, and the seen-by row sits directly under the
+                      bubble where it belongs. */}
+                  <div
+                    className={cx(
+                      'absolute top-0 z-10 flex items-center gap-1 rounded-full border border-gray-100 bg-white/95 px-1 py-0.5 shadow-card backdrop-blur transition-opacity',
+                      mine ? 'left-0' : 'right-0',
+                      showActions
+                        ? 'opacity-100'
+                        : 'pointer-events-none opacity-0 focus-within:pointer-events-auto focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100',
+                    )}
+                  >
                       {!m.pending && (
                         <button
                           onClick={() => { setReplyTo(m); setActionsFor(null); textareaRef.current?.focus() }}
@@ -1057,7 +992,6 @@ export default function Chat() {
                           />
                         </>
                       )}
-                    </div>
                   </div>
 
                   {/* Read receipts, for EVERYONE now, not just admins.
@@ -1075,7 +1009,7 @@ export default function Chat() {
                     if (!seen.length) return null
                     return (
                       <div className={cx('mt-0.5 flex', mine ? 'justify-end' : 'justify-start')}>
-                        <SeenByChip names={seen.map((s) => s.name)} align={mine ? 'right' : 'left'} />
+                        <SeenBy readers={seen} align={mine ? 'right' : 'left'} />
                       </div>
                     )
                   })() : null}
@@ -1128,40 +1062,24 @@ export default function Chat() {
                 Posting a game card, a resource card or a poll IS an admin
                 action - those write to shared library rows - so those stay
                 behind the check. One row, two audiences. */}
-            {(isAdmin || canPost) && (
-              /* COLLAPSED ON A PHONE. This row sits directly above the
-                 composer, and on a 375px screen every pixel it takes is a
-                 pixel of conversation. Formatting is a thing you reach for
-                 occasionally and the keyboard is a thing you need constantly,
-                 so on mobile it hides behind the Aa button beside the composer
-                 and only the row's admin tools survive. On desktop, where the
-                 space is free, it stays open. */
-              <div className={cx(
-                'mb-2 flex-wrap items-center gap-2',
-                showFormatting ? 'flex' : 'hidden sm:flex',
-              )}>
-                <div className="flex items-center gap-0.5 rounded-lg border border-gray-200 p-0.5" role="group" aria-label="Text formatting">
-                  <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => richFormat('heading')} title="Heading" aria-label="Heading" className="rounded px-2.5 py-1 text-xs font-bold text-smoke hover:bg-cloud hover:text-ink">H</button>
-                  <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => richFormat('bold')} title="Bold" aria-label="Bold" className="rounded px-2.5 py-1 text-sm font-bold text-smoke hover:bg-cloud hover:text-ink">B</button>
-                  <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => richFormat('italic')} title="Italic" aria-label="Italic" className="rounded px-2.5 py-1 text-sm italic text-smoke hover:bg-cloud hover:text-ink">I</button>
-                </div>
-                {isAdmin && (<>
-                {/* Drop a game challenge card into this channel. */}
-                <button type="button" onClick={() => setShowGame(true)} title="Post a game challenge" aria-label="Post a game challenge" className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-smoke hover:bg-cloud hover:text-ink">
-                  <Icon name="joystick" className="h-4 w-4" /> <span className="hidden sm:inline">Game</span>
-                </button>
-                {/* Drop a resource-library card into this channel. */}
-                <button type="button" onClick={openResourcePicker} title="Share a resource" aria-label="Share a resource" className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-smoke hover:bg-cloud hover:text-ink">
-                  <Icon name="book" className="h-4 w-4" /> <span className="hidden sm:inline">Resource</span>
-                </button>
-                {channel === 'announcements' && (
-                  <button type="button" onClick={() => setShowPoll(true)} className="btn-secondary !py-2 text-xs">
-                    <Icon name="poll" className="h-4 w-4" /> Create a poll
-                  </button>
-                )}
-                </>)}
-              </div>
-            )}
+            {/* COLLAPSED ON A PHONE. This row sits directly above the composer,
+                and on a 375px screen every pixel it takes is a pixel of
+                conversation. Formatting is a thing you reach for occasionally
+                and the keyboard is a thing you need constantly, so on mobile it
+                hides behind the Aa button beside the composer. On desktop,
+                where the space is free, it stays open.
+                POLLS ARE NO LONGER LOCKED TO #ANNOUNCEMENTS. There was never a
+                reason a question worth asking in the announcements channel is
+                the only question worth asking; asking #content-tips which
+                editing app they use is exactly what a poll is for. */}
+            <ComposerToolbar
+              onFormat={richFormat}
+              isAdmin={isAdmin}
+              onGame={() => setAdminTool('game')}
+              onResource={() => setAdminTool('resource')}
+              onPoll={() => setAdminTool('poll')}
+              open={showFormatting}
+            />
             {/* @mention autocomplete (admins also get @everyone) */}
             {mention && mentionResults.length > 0 && (
               <div className="mb-2 overflow-hidden rounded-card border border-gray-100 bg-white shadow-lift">
@@ -1270,100 +1188,13 @@ export default function Chat() {
         </div>
       </div>
 
-      {/* ---------- Create-poll modal ---------- */}
-      <Modal open={showPoll} onClose={() => setShowPoll(false)} title="Create a poll">
-        <form onSubmit={createPoll} className="space-y-5">
-          <div>
-            <label htmlFor="poll-q" className="label">Question</label>
-            <input id="poll-q" type="text" required className="input" value={pollQuestion} onChange={(e) => setPollQuestion(e.target.value)} placeholder="e.g. Where should our next challenge be?" />
-          </div>
-          <div>
-            <p className="label">Options</p>
-            <div className="space-y-2">
-              {pollOptions.map((opt, i) => (
-                <div key={i} className="flex gap-2">
-                  <input
-                    type="text" className="input" placeholder={`Option ${i + 1}`}
-                    value={opt}
-                    onChange={(e) => setPollOptions(pollOptions.map((o, j) => (j === i ? e.target.value : o)))}
-                  />
-                  {pollOptions.length > 2 && (
-                    <button type="button" aria-label="Remove option" className="btn-ghost !px-3" onClick={() => setPollOptions(pollOptions.filter((_, j) => j !== i))}>✕</button>
-                  )}
-                </div>
-              ))}
-            </div>
-            {pollOptions.length < 6 && (
-              <button type="button" className="btn-secondary mt-2 !py-2 text-xs" onClick={() => setPollOptions([...pollOptions, ''])}>+ Add option</button>
-            )}
-          </div>
-          <button type="submit" disabled={creatingPoll} className="btn-primary w-full">
-            {creatingPoll ? <Spinner /> : 'Post poll to announcements'}
-          </button>
-        </form>
-      </Modal>
-
-      {/* ---------- Create-game-event modal ---------- */}
-      <Modal open={showGame} onClose={() => setShowGame(false)} title="Post a game challenge">
-        <form onSubmit={createGameEvent} className="space-y-5">
-          <div>
-            <label htmlFor="game-title" className="label">Challenge title</label>
-            <input id="game-title" type="text" required className="input" value={gameForm.title} onChange={(e) => setGameForm({ ...gameForm, title: e.target.value })} placeholder="e.g. Friday Flag Frenzy" />
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label htmlFor="game-mode" className="label">Mode</label>
-              <select id="game-mode" className="input" value={gameForm.mode} onChange={(e) => setGameForm({ ...gameForm, mode: e.target.value })}>
-                <option value="flags">Guess the flag</option>
-                <option value="map">Find on the map</option>
-                <option value="airports">Airport codes</option>
-                <option value="currencies">Currencies</option>
-              </select>
-            </div>
-            <div>
-              <label htmlFor="game-region" className="label">Region</label>
-              <select id="game-region" className="input" value={gameForm.region} onChange={(e) => setGameForm({ ...gameForm, region: e.target.value })}>
-                <option value="World">World</option>
-                {CONTINENTS.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-          </div>
-          <button type="submit" disabled={creatingGame} className="btn-primary w-full">
-            {creatingGame ? <Spinner /> : `Post to #${meta.label.toLowerCase()}`}
-          </button>
-        </form>
-      </Modal>
-
-      {/* ---------- Share-a-resource modal ---------- */}
-      <Modal open={showResource} onClose={() => setShowResource(false)} title="Share a resource">
-        <p className="mb-4 text-sm text-smoke">Pick a library resource to post as a card in #{meta.label.toLowerCase()}.</p>
-        {resourceList === null ? (
-          <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}</div>
-        ) : resourceList.length === 0 ? (
-          <p className="rounded-xl bg-cloud px-4 py-6 text-center text-sm text-smoke">
-            No resources yet. Add some in <Link to="/admin/resources" className="font-medium text-brand hover:underline">Manage resources</Link> first.
-          </p>
-        ) : (
-          <div className="max-h-[60vh] space-y-2 overflow-y-auto">
-            {resourceList.map((r) => (
-              <button
-                key={r.id}
-                type="button"
-                disabled={postingResource}
-                onClick={() => postResourceCard(r.id)}
-                className="flex w-full items-center gap-3 rounded-xl border border-gray-100 px-4 py-3 text-left transition-colors hover:border-brand hover:bg-brand-tint/40 disabled:opacity-50"
-              >
-                <Icon name="book" className="h-5 w-5 shrink-0 text-brand" />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold">{r.title}</span>
-                  {r.category && <span className="block truncate text-xs text-smoke">{r.category}</span>}
-                </span>
-                <span className="shrink-0 text-xs font-medium text-brand">Post →</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </Modal>
+      {/* Poll / game / resource, for admins, in every channel. */}
+      <ChatAdminTools
+        tool={adminTool}
+        onClose={() => setAdminTool(null)}
+        postCard={postCard}
+        roomLabel={`#${meta.label.toLowerCase()}`}
+      />
     </div>
   )
 }

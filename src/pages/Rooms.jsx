@@ -175,13 +175,18 @@ export default function Rooms() {
     <NetworkMotion>
       <NetworkLayout width="narrow" switcher={false}>
         <motion.div {...pageFade}>
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Rooms</h1>
-            <p className="mt-1.5 text-sm text-smoke">
-              {network?.name || 'Worldwide'} is shared by everybody. Each market has its own rooms, and
-              nothing posted in one reaches another.
-            </p>
-          </div>
+          {/* The heading arrives with the page rather than sitting there while
+              the cards under it animate in - a title that is already still
+              while everything below it moves reads as two pages, not one. */}
+          <Reveal from="down" className="mb-6">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Rooms</h1>
+              <p className="mt-1.5 text-sm text-smoke">
+                {network?.name || 'Worldwide'} is shared by everybody. Each market has its own rooms, and
+                nothing posted in one reaches another.
+              </p>
+            </div>
+          </Reveal>
 
           {ctxLoading && !rooms ? (
             <div className="space-y-4"><Skeleton className="h-44" /><Skeleton className="h-32" /></div>
@@ -193,7 +198,7 @@ export default function Rooms() {
               action={<Link to="/global/markets" className="btn-primary">Explore markets</Link>}
             />
           ) : (
-            <Reveal className="space-y-4" stagger={0.06}>
+            <Reveal className="space-y-4" stagger={0.06} delay={0.06}>
               {places.map(({ place, rooms: rs }) => (
                 <PlaceCard
                   key={place.id}

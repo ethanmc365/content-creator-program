@@ -190,18 +190,27 @@ export default function Challenges() {
 
   return (
     <div className="page">
-      <PageHeader
-        title="Challenges"
-        subtitle="One brief, one deadline, real prizes. Enter with your best video."
-        action={isAdmin && <Link to="/admin/challenges/new" className="btn-primary">+ New challenge</Link>}
-      />
+      {/* THE PAGE ARRIVES, IT DOES NOT APPEAR. Everything else in the network
+          shell rises into view; this board - the page most creators open first
+          - was the one that simply blinked into existence. Header, prize pill
+          and the live card each carry their own place in the queue, so the eye
+          is led down the page in the order the page wants to be read. */}
+      <Reveal from="down">
+        <PageHeader
+          title="Challenges"
+          subtitle="One brief, one deadline, real prizes. Enter with your best video."
+          action={isAdmin && <Link to="/admin/challenges/new" className="btn-primary">+ New challenge</Link>}
+        />
+      </Reveal>
 
       {prizesAwarded != null && (
-        <div className="mb-8 inline-flex items-center gap-2.5 rounded-full border border-brand/20 bg-brand-tint/40 px-4 py-2 text-sm">
-          <Icon name="trophy" className="h-4 w-4 shrink-0 text-brand" />
-          <span className="font-semibold text-brand">{formatMoney(prizesAwarded)}</span>
-          <span className="text-smoke">awarded in prizes so far</span>
-        </div>
+        <Reveal from="down" delay={0.06} className="mb-8">
+          <div className="inline-flex items-center gap-2.5 rounded-full border border-brand/20 bg-brand-tint/40 px-4 py-2 text-sm">
+            <Icon name="trophy" className="h-4 w-4 shrink-0 text-brand" />
+            <span className="font-semibold text-brand">{formatMoney(prizesAwarded)}</span>
+            <span className="text-smoke">awarded in prizes so far</span>
+          </div>
+        </Reveal>
       )}
 
       {loading || scopesLoading ? (
@@ -212,7 +221,7 @@ export default function Challenges() {
         <div className="space-y-12">
           {/* ---------- Live ---------- */}
           {live.map((c) => (
-            <div key={c.id}>
+            <Reveal key={c.id} from="down" delay={0.12} as="div">
               <div className="relative block overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-6 text-white shadow-lift sm:p-10">
                 {/* Soft light bloom for depth, matching the home hero. */}
                 <div className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-white/10 blur-2xl" />
@@ -276,7 +285,7 @@ export default function Challenges() {
                   className="mt-4"
                 />
               )}
-            </div>
+            </Reveal>
           ))}
 
           {/* ---------- Past ---------- */}

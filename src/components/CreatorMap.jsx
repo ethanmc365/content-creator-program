@@ -7,6 +7,8 @@ import { GEO_URL, loadMapCentroids } from '../lib/mapCountries'
 import { geocodeCity } from '../lib/geocode'
 import { formatDate } from '../lib/utils'
 import { useIsDark } from '../lib/theme'
+import { countryKey, sameCountry } from '../lib/countryFacts'
+import CountryPanel from './CountryPanel'
 import Icon from './Icon'
 
 // The creator map directory: every creator pinned on a world map at their home
@@ -49,32 +51,46 @@ function quadLength(ax, ay, cx, cy, bx, by, steps = 24) {
 const MIN_PLANE_LEN = 90 // projection units; shorter hops get line but no plane
 const MAX_PLANES = 7
 
-// SHOWING A SHARED TOWN'S PEOPLE AS YOU ZOOM IN.
+// A TOWN THAT HOLDS SEVERAL CREATORS: WHAT ITS PIN LOOKS LIKE.
 //
 // Creators who typed the same town share one coordinate exactly, so no amount
-// of zooming separates them: eight people in London stay one pin with an 8 on
-// it forever, and the only way to see who they are is the tap card.
+// of zooming separates them. London is one point with eight people on it, and
+// the pin has to say so.
 //
-// THE FIRST ATTEMPT MOVED THE PINS, AND THAT WAS A LIE ABOUT THE MAP.
+// TWO ANSWERS HAVE ALREADY BEEN TRIED AND REJECTED HERE.
 //
-// It fanned them into a ring whose radius was measured in PROJECTION units and
-// counter-scaled like the pins (zoom^-0.7), so the ring grew on screen as you
-// zoomed - which means it grew on the GROUND much faster. At zoom 10 the offset
-// was about 9 projection units, roughly three degrees of longitude: three
-// hundred kilometres. Creators appeared in the North Sea, in the wrong country,
-// and snapped back when you zoomed out. It also needed a leader line per pin to
-// explain itself, and eight hairlines through eight faces looked like a mess.
+// 1. FAN THEM OUT INTO A RING (the "spiderfy" every mapping library ships).
+//    The radius was in PROJECTION units and counter-scaled like the pins, so at
+//    zoom 10 the offset was about three degrees of longitude - three hundred
+//    kilometres. Creators appeared in the North Sea and in the wrong country,
+//    and snapped back when you zoomed out. Even done correctly, in screen
+//    units, it needs a leader line per pin to explain itself, and eight
+//    hairlines through eight faces is a cat's cradle, not a map.
 //
-// So nothing moves. Past this zoom the town's pin becomes a WIDER pin - one
-// capsule of faces sitting above the exact same point, on the same pointer tip,
-// counter-scaled like every other pin. A pin has always been drawn above its
-// coordinate and nobody reads a pin's body as being where its body is, so a
-// pin with room for four faces is exactly as honest as a pin with room for one.
-// No offsets, no leader lines, nothing in the sea.
+// 2. A HORIZONTAL CAPSULE OF FACES. Honest - nothing moved off the coordinate,
+//    it was one pin on one tip - but it grew SIDEWAYS with the population. Four
+//    faces made a bar wider than Belgium sitting over southern England, the
+//    reading order was accidental (who earns the leftmost face?), and it capped
+//    out at four anyway, so a town of thirty told you almost nothing more than a
+//    town of five. That is the bar this replaces.
+//
+// WHAT IT IS NOW: A STACK.
+//
+// The faces overlap, the way a handful of photographs overlaps when you drop
+// them on a table, with the lead face in front and the rest peeking out behind
+// it. It is the presence-stack every collaborative product uses (Figma, Linear,
+// Slack) for exactly this reason: OVERLAP MEANS THE WIDTH BARELY MOVES. One
+// creator and thirty creators differ by about twelve pixels on screen, so the
+// pin never becomes a banner across three countries and never needs a cap.
+// A count badge carries the actual number, which is the part a stack cannot
+// show and does not try to.
+//
+// Nothing moves off the coordinate: one pin, one pointer tip, on the town.
 const SPREAD_ZOOM = 4.5
-// How many faces fit before it becomes "+N". Four is what fits at a readable
-// size without the capsule growing wider than a small country at this zoom.
-const CLUSTER_FACES = 4
+// How many faces are drawn in the stack before the badge carries the rest.
+// Three is the point where a stack still reads as "several people" rather than
+// as a smudge, and where the fourth face would be almost entirely hidden.
+const CLUSTER_FACES = 3
 
 // The Tryp plane silhouette, drawn nose-up.
 const PLANE_D = 'M0 -11 C1.1 -11 1.8 -9 1.8 -6.2 L1.8 -4.4 L10 1 L10 3.1 L1.8 -0.2 L1.8 5 L4.4 7.6 L4.4 9.2 L0 7.7 L-4.4 9.2 L-4.4 7.6 L-1.8 5 L-1.8 -0.2 L-10 3.1 L-10 1 L-1.8 -4.4 L-1.8 -6.2 C-1.8 -9 -1.1 -11 0 -11 Z'
@@ -99,19 +115,15 @@ function initials(name = '') {
 // (geoContains) misses coastal / island towns whose coords land just offshore,
 // so we also tint by the country the creator explicitly stated. Normalised +
 // a small alias table for the names world-atlas spells differently.
-const norm = (s) => (s || '').toLowerCase().replace(/[^a-z]/g, '')
-const COUNTRY_ALIASES = {
-  usa: 'unitedstatesofamerica', us: 'unitedstatesofamerica', unitedstates: 'unitedstatesofamerica', america: 'unitedstatesofamerica',
-  uk: 'unitedkingdom', england: 'unitedkingdom', scotland: 'unitedkingdom', wales: 'unitedkingdom',
-  northernireland: 'unitedkingdom', britain: 'unitedkingdom', greatbritain: 'unitedkingdom',
-  uae: 'unitedarabemirates', southkorea: 'southkorea', czechia: 'czechrepublic', czech: 'czechrepublic',
-  russia: 'russia', ireland: 'ireland', republicofireland: 'ireland',
-}
-const canonCountry = (s) => { const n = norm(s); return COUNTRY_ALIASES[n] || n }
-function countryNameMatches(typed, geoName) {
-  if (!typed) return false
-  return canonCountry(typed) === canonCountry(geoName)
-}
+// ONE ALIAS TABLE FOR THE WHOLE APP, IN lib/countryFacts.
+//
+// There used to be a second one right here, and the two had already drifted:
+// this one knew "England" meant the United Kingdom, the other knew "Sudan"
+// existed, and neither knew both. `sameCountry` is now the single answer to "is
+// what this person typed the same place the map is calling this?" - used for
+// tinting a home country, for the "lives here" list and for "been there", so
+// all three agree by construction.
+const countryNameMatches = sameCountry
 
 // One map pin: a round photo sitting in a classic teardrop, with a small pointer
 // tip on the exact coordinate. The avatar is CONCENTRIC with the white disc so
@@ -169,81 +181,101 @@ function Pin({ group, zoom, active, dim, onSelect }) {
 
 // A town several creators share, once you are close enough to want their faces.
 //
-// It is the SAME pin as above with a wider body: one white capsule on one
-// pointer tip, sitting on the town's exact coordinate. Up to CLUSTER_FACES
-// faces, then a "+N" chip. Tapping a face picks that creator; tapping the
-// capsule itself opens the whole town.
+// A STACK of overlapping faces on one pointer tip - see the note by SPREAD_ZOOM
+// for the two shapes this replaced and why. The lead face is drawn LAST so it
+// sits in front; the ones behind are inset and drop back, which is what makes
+// the stack read as depth rather than as a row that has run out of room.
 //
-// Everything is counter-scaled by the same zoom^-0.7 as a normal pin, so the
-// capsule keeps a steady on-screen size and never turns into a banner across
-// three countries.
+// Geometry, all in the same counter-scaled units as a normal pin:
+//   * the front face sits exactly where a single pin's face would, so a town of
+//     one and a town of ten put their lead photo in the same place,
+//   * each face behind steps LEFT by STEP and up by a hair, and shrinks,
+//   * the badge carries the true count and never grows past three digits.
+// Total width for three faces is r*2 + STEP*2 ≈ 30 units against 20 for a
+// single pin. A capsule of four was 92.
+const STACK_STEP = 5.5      // how far each face behind peeks out
+const STACK_SHRINK = 0.88   // each face behind is this much of the one in front
+
 function ClusterPin({ group, zoom, dim, activeId, highlightIds, onSelectCreator, onSelectTown }) {
   const s = Math.pow(1 / Math.max(zoom, 1), 0.7)
+  const count = group.creators.length
+  // Front-most last. `shown` is drawn back-to-front so the array is reversed
+  // relative to the roster: creators[0] is the lead and must end up on top.
   const shown = group.creators.slice(0, CLUSTER_FACES)
-  const extra = group.creators.length - shown.length
-  const slots = shown.length + (extra > 0 ? 1 : 0)
+  const backToFront = [...shown].reverse()
 
-  const r = 10            // face radius
-  const gap = 3
-  const padX = 6
-  const w = slots * (r * 2) + (slots - 1) * gap + padX * 2
-  const h = r * 2 + 10
-  const cy = -(h / 2) - 12          // capsule centre, clear of the tip
-  const top = cy - h / 2
-  const firstX = -w / 2 + padX + r  // centre of the first face
+  const r = 12                       // front face radius, same as a single pin
+  const disc = r + 3
+  const cy = -26                     // face centre above the tip, same as a pin
+  const anyHighlighted = highlightIds && shown.some((c) => highlightIds.has(c.id))
 
   return (
     <Marker coordinates={group.coords}>
       <g transform={`scale(${s})`} style={{ opacity: dim ? 0.25 : 1, transition: 'opacity 0.2s' }}>
+        {/* Pointer tail + the front disc share one shadow, exactly as a single
+            pin does, so a stacked town and a lone creator are visibly the same
+            kind of object. */}
         <g style={{ filter: 'drop-shadow(0 2px 3px rgba(20,20,30,0.30))' }}>
-          {/* the tip, on the coordinate itself */}
-          <path d={`M-6 ${top + h - 1} L0 0 L6 ${top + h - 1} Z`} fill="#ffffff" />
-          <rect x={-w / 2} y={top} width={w} height={h} rx={h / 2} fill="#ffffff" />
+          <path d={`M${-r * 0.62} ${cy + disc * 0.5} L0 0 L${r * 0.62} ${cy + disc * 0.5} Z`} fill="#ffffff" />
+          {backToFront.map((c, i) => {
+            // i counts from the BACK of the stack, so the deepest face is the
+            // most inset. depth 0 is the front.
+            const depth = backToFront.length - 1 - i
+            const rr = disc * Math.pow(STACK_SHRINK, depth)
+            return <circle key={`d${c.id}`} cx={-depth * STACK_STEP} cy={cy - depth * 1.5} r={rr} fill="#ffffff" />
+          })}
         </g>
-        {/* the capsule is the town: tapping the background opens all of them */}
-        <rect
-          x={-w / 2} y={top} width={w} height={h} rx={h / 2} fill="transparent"
-          style={{ cursor: 'pointer' }} onClick={onSelectTown}
-        />
-        {shown.map((c, i) => {
-          const x = firstX + i * (r * 2 + gap)
-          const faded = highlightIds && !highlightIds.has(c.id)
+
+        {/* The whole stack is the town. Tapping any part of it that is not a
+            face opens the roster. */}
+        <circle cx={0} cy={cy} r={disc + STACK_STEP * (backToFront.length - 1)} fill="transparent"
+          style={{ cursor: 'pointer' }} onClick={onSelectTown} />
+
+        {backToFront.map((c, i) => {
+          const depth = backToFront.length - 1 - i
+          const rr = r * Math.pow(STACK_SHRINK, depth)
+          const x = -depth * STACK_STEP
+          const y = cy - depth * 1.5
+          const faded = highlightIds && !highlightIds.has(c.id) && anyHighlighted
+          const isActive = activeId === c.id
           return (
             <g
               key={c.id}
-              transform={`translate(${x} ${cy})`}
               style={{ cursor: 'pointer', opacity: faded ? 0.3 : 1 }}
               onClick={(e) => { e.stopPropagation(); onSelectCreator(c) }}
             >
               {c.photo_url ? (
                 <image
                   href={c.photo_url}
-                  x={-r} y={-r} width={r * 2} height={r * 2}
+                  x={x - rr} y={y - rr} width={rr * 2} height={rr * 2}
                   clipPath="url(#creator-pin-clip)"
                   preserveAspectRatio="xMidYMid slice"
                 />
               ) : (
                 <>
-                  <circle r={r} fill="#fbe6da" />
-                  <text x={0} y={0} textAnchor="middle" dominantBaseline="central"
-                    fontSize={r * 0.8} fontWeight="600" fill={BRAND}>{initials(c.name)}</text>
+                  <circle cx={x} cy={y} r={rr} fill="#fbe6da" />
+                  <text x={x} y={y} textAnchor="middle" dominantBaseline="central"
+                    fontSize={rr * 0.8} fontWeight="600" fill={BRAND}>{initials(c.name)}</text>
                 </>
               )}
-              <circle r={r} fill="none" stroke={activeId === c.id ? BRAND : '#ffffff'} strokeWidth={activeId === c.id ? 2.5 : 1.5} />
+              <circle cx={x} cy={y} r={rr} fill="none"
+                stroke={isActive ? BRAND : '#ffffff'} strokeWidth={isActive ? 3 : 2} />
+              {/* The faces behind are dimmed a touch so the front one is
+                  unambiguously the one you are looking at. */}
+              {depth > 0 && <circle cx={x} cy={y} r={rr} fill="#ffffff" opacity={0.18 * depth} />}
             </g>
           )
         })}
-        {extra > 0 && (
-          <g
-            transform={`translate(${firstX + shown.length * (r * 2 + gap)} ${cy})`}
-            style={{ cursor: 'pointer' }}
-            onClick={(e) => { e.stopPropagation(); onSelectTown() }}
-          >
-            <circle r={r} fill={BRAND} />
-            <text x={0} y={0.5} textAnchor="middle" dominantBaseline="central"
-              fontSize={r * 0.75} fontWeight="700" fill="#ffffff">+{extra}</text>
-          </g>
-        )}
+
+        {/* The count. It sits where a single pin's count badge sits, carries the
+            TOTAL rather than a leftover "+N", and is the second tap target for
+            the roster. */}
+        <g transform={`translate(${r - 3}, ${cy - r + 3})`} style={{ cursor: 'pointer' }}
+          onClick={(e) => { e.stopPropagation(); onSelectTown() }}>
+          <circle r={count > 99 ? 11.5 : 9.5} fill={BRAND} stroke="#ffffff" strokeWidth={2} />
+          <text x={0} y={0.5} textAnchor="middle" dominantBaseline="central"
+            fontSize={count > 99 ? 9 : 11} fontWeight="700" fill="#ffffff">{count}</text>
+        </g>
       </g>
     </Marker>
   )
@@ -292,12 +324,19 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   // hue and lets the darkness come from the background rather than from the
   // colour, so a tinted country still looks orange.
   const HOME_FILL = dark ? 'rgba(217, 68, 7, 0.55)' : HOME
+  // Hovering a country now means something (it is tappable), so it needs a
+  // hover state - a step towards the tint rather than the tint itself, so a
+  // country somebody LIVES in still reads as different from one under the
+  // cursor.
+  const HOVER_FILL = dark ? '#3a3d44' : '#dcdce0'
   const SEPARATOR = dark ? '#0c0d10' : '#ffffff'
   const highlighting = highlightIds && highlightIds.size > 0
   const [extraCoords, setExtraCoords] = useState({}) // legacy rows: id -> {lat,lng}
   const [homeNames, setHomeNames] = useState(() => new Set()) // countries to tint
   const [tooltip, setTooltip] = useState('')
   const [selected, setSelected] = useState(null)
+  // The country a reader has tapped, if any: { name, lives, visited }.
+  const [country, setCountry] = useState(null)
   const [position, setPosition] = useState({ coordinates: [10, 30], zoom: 1.3 })
   // Tracks the zoom DURING a gesture so pin/plane counter-scaling keeps up.
   const [liveZoom, setLiveZoom] = useState(1.3)
@@ -341,6 +380,40 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
     }
     return [...map.values()]
   }, [located])
+
+  // TAPPING A COUNTRY: WHO IN THE COMMUNITY CAN TELL YOU ABOUT IT.
+  //
+  // Two different questions, answered from two different columns, and the
+  // difference matters enough to keep them apart in the panel:
+  //
+  //   lives here - their home town falls inside this country's own geometry
+  //     (point-in-polygon, so it is the map's answer, not a spelling contest),
+  //     or the country they typed IS this one. Both, because a coastal or
+  //     island town's coordinates can land just offshore and a creator who
+  //     typed "England" should still count as living in the United Kingdom.
+  //   been there - the country is in their countries_visited, which is stored
+  //     using these same world-atlas names, so it is a direct match.
+  //
+  // Somebody who lives there is never also listed as a visitor: the stronger
+  // claim wins and the list stays honest about its own ordering.
+  // Opening a town closes the country panel and vice versa: one answer in that
+  // corner at a time.
+  const selectTown = useCallback((t) => { setCountry(null); setSelected(t) }, [])
+
+  const openCountry = useCallback((geo) => {
+    const name = geo.properties?.name
+    if (!name) return
+    const lives = located.filter(
+      (c) => geoContains(geo, [c._lng, c._lat]) || countryNameMatches(c.country, name),
+    )
+    const liveIds = new Set(lives.map((c) => c.id))
+    const visited = creators.filter(
+      (c) => !liveIds.has(c.id) && (c.countries_visited || []).some((n) => sameCountry(n, name)),
+    )
+    const byName = (a, b) => (a.name || '').localeCompare(b.name || '')
+    setSelected(null)
+    setCountry({ name, lives: [...lives].sort(byName), visited: [...visited].sort(byName) })
+  }, [located, creators])
 
   // Thread all the towns into one flowing path (nearest-neighbour from the
   // westmost), so the dashed connection line visits everyone once.
@@ -425,7 +498,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   const journeys = useMemo(() => {
     if (!centroids) return []
     const canonToCentroid = new Map()
-    for (const [name, c] of centroids) canonToCentroid.set(canonCountry(name), c)
+    for (const [name, c] of centroids) canonToCentroid.set(countryKey(name), c)
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const out = []
@@ -437,7 +510,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
       const list = Array.isArray(trips[c.id]) ? trips[c.id] : trips[c.id] ? [trips[c.id]] : []
       for (const trip of list) {
         if (!trip?.country) continue
-        const dest = canonToCentroid.get(canonCountry(trip.country))
+        const dest = canonToCentroid.get(countryKey(trip.country))
         if (!dest) continue
 
         // CURRENT VERSUS UPCOMING, and how far ahead is worth drawing.
@@ -683,10 +756,16 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   //
   // Programmatic zoom does not fire the group's onMoveEnd either, so nothing
   // downstream was ever going to correct it.
+  // AND THE FACTOR IS APPLIED TO THE PREVIOUS STATE, NOT TO THE RENDER'S COPY.
+  //
+  // It read `position.zoom` from the closure, so three quick presses of + all
+  // computed from the SAME starting zoom and two of them were thrown away: the
+  // map went one step and stopped, and pressing harder did nothing. The
+  // functional updater sees each previous value in turn, and the effect below
+  // (liveZoom follows position.zoom) carries the counter-scaling with it, so
+  // there is nothing left to keep in sync by hand.
   const zoomBy = (factor) => {
-    const zoom = Math.min(40, Math.max(1, position.zoom * factor))
-    setPosition((p) => ({ ...p, zoom }))
-    setLiveZoom(zoom)
+    setPosition((p) => ({ ...p, zoom: Math.min(40, Math.max(1, p.zoom * factor)) }))
   }
   const resetView = () => { setPosition(fitView); setLiveZoom(fitView.zoom) }
 
@@ -752,6 +831,17 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
     </>
   )
 
+  const countryPanel = country ? (
+    <CountryPanel
+      className="max-w-sm"
+      country={country.name}
+      lives={country.lives}
+      visited={country.visited}
+      onClose={() => setCountry(null)}
+      onCreatorClick={onCreatorClick}
+    />
+  ) : null
+
   const mapBox = (
     <div className="relative w-full overflow-hidden rounded-card border border-gray-100 bg-cloud/60">
       {tooltip && (
@@ -803,15 +893,24 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
               geographies
                 .filter((geo) => geo.properties.name !== 'Antarctica')
                 .map((geo) => {
-                  const isHome = homeNames.has(geo.properties.name)
+                  const name = geo.properties.name
+                  const isHome = homeNames.has(name)
+                  const isOpen = country?.name === name
+                  const base = isOpen ? BRAND_LIGHT : isHome ? HOME_FILL : LAND_FILL
                   return (
                     <Geography
                       key={geo.rsmKey}
                       geography={geo}
+                      // THE LAND IS A BUTTON NOW. Tapping a country asks the
+                      // community who has been there; see openCountry.
+                      onClick={() => openCountry(geo)}
+                      onMouseEnter={() => setTooltip(name)}
+                      onMouseLeave={() => setTooltip('')}
+                      tabIndex={-1}
                       style={{
-                        default: { fill: isHome ? HOME_FILL : LAND_FILL, stroke: SEPARATOR, strokeWidth: 0.4, outline: 'none' },
-                        hover: { fill: isHome ? HOME_FILL : LAND_FILL, stroke: SEPARATOR, strokeWidth: 0.4, outline: 'none' },
-                        pressed: { fill: isHome ? HOME_FILL : LAND_FILL, outline: 'none' },
+                        default: { fill: base, stroke: SEPARATOR, strokeWidth: 0.4, outline: 'none', transition: 'fill 0.18s ease' },
+                        hover: { fill: isOpen ? BRAND_LIGHT : isHome ? HOME_FILL : HOVER_FILL, stroke: SEPARATOR, strokeWidth: 0.4, outline: 'none', cursor: 'pointer' },
+                        pressed: { fill: BRAND_LIGHT, outline: 'none', cursor: 'pointer' },
                       }}
                     />
                   )
@@ -957,17 +1056,35 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
                     dim={dimTown}
                     activeId={selected?.creators?.length === 1 ? selected.creators[0].id : null}
                     highlightIds={highlighting ? highlightIds : null}
-                    onSelectCreator={(c) => setSelected({ key: `${town.key}:${c.id}`, coords: town.coords, creators: [c] })}
-                    onSelectTown={() => setSelected(town)}
+                    onSelectCreator={(c) => selectTown({ key: `${town.key}:${c.id}`, coords: town.coords, creators: [c] })}
+                    onSelectTown={() => selectTown(town)}
                   />
                 ) : (
-                  <Pin group={town} zoom={z} active={selected?.key === town.key} dim={dimTown} onSelect={setSelected} />
+                  <Pin group={town} zoom={z} active={selected?.key === town.key} dim={dimTown} onSelect={selectTown} />
                 )}
               </g>
             )
           })}
         </ZoomableGroup>
       </ComposableMap>
+
+      {/* The country a reader tapped. Same corner as the town card and mutually
+          exclusive with it - two overlapping answers to two different questions
+          in one corner is how a map stops being readable. */}
+      {/* DESKTOP ONLY. A flex column pinned to all four insets gives the panel a
+          DEFINITE height to shrink inside, which is what stops a country with
+          thirty visitors drawing a card taller than the map. `pointer-events-
+          none` on the frame so only the card itself catches taps.
+          On a phone this same overlay was the wrong shape entirely: the map box
+          is about 180px tall there, so the panel covered the map it was
+          describing and left roughly two rows of creators visible inside a
+          scroll box. Phones get the panel UNDER the map instead - see the end
+          of the component. */}
+      {country && (
+        <div className="pointer-events-none absolute inset-3 z-20 hidden flex-col items-start justify-end sm:flex">
+          {countryPanel}
+        </div>
+      )}
 
       {selectedTown && (
         <div className="absolute bottom-3 left-3 right-3 z-20 mx-auto max-w-sm rounded-card border border-gray-100 bg-white p-4 shadow-lift sm:right-auto">
@@ -1094,7 +1211,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
       {/* Hint moved to the top-right (clears the zoom buttons), out of the way
           of the filter toggles and town card. */}
       <p className="pointer-events-none absolute right-14 top-2 z-10 hidden max-w-[15rem] rounded-full bg-white/85 px-3 py-1 text-right text-[11px] text-smoke backdrop-blur-sm sm:block">
-        Tap a pin to see who's there · use + / − to zoom
+        Tap a pin for who's there, a country for who's been · + / − to zoom
       </p>
     </div>
   )
@@ -1102,6 +1219,15 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   return (
     <div className="w-full">
       {mapBox}
+      {/* PHONES GET THE COUNTRY UNDER THE MAP, NOT OVER IT.
+          The map box is about 180px tall at 375px wide. An overlay inside it is
+          a card covering the thing it describes, with the creator list squeezed
+          into a scroll box two rows deep - so the one screen where this feature
+          matters most (somebody planning a trip on their phone) was the one
+          where it was unusable. Below the map it gets the full width of the
+          page and as much height as it needs, and the country stays highlighted
+          in orange above it so you can see what you tapped. */}
+      {countryPanel && <div className="mt-3 sm:hidden">{countryPanel}</div>}
       {/* Mobile: the same filters in a wrapping row below the map. */}
       {!travelOnlyView && (
         <div className="mt-3 flex flex-wrap gap-2 sm:hidden">

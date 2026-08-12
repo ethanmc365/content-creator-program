@@ -13,11 +13,13 @@ import { isOnline, countOnline, byRecency, fillRows } from '../lib/presence'
 import { MarketOverviewSkeleton, LiveChallengeSkeleton, CardGridSkeleton, RailCardSkeleton } from '../components/network/Skeletons'
 import LiveChallengeCard, { NoLiveChallenge } from '../components/network/LiveChallengeCard'
 import Icon from '../components/Icon'
-import { Avatar, EmptyState } from '../components/ui'
+import { Avatar, EmptyState, Skeleton } from '../components/ui'
+import Reveal from '../components/network/Reveal'
+import WhenVisible from '../components/WhenVisible'
 import { cx, timeAgo, challengeDeadline } from '../lib/utils'
 import { stripMarkup } from '../lib/richText'
 import { roleTitle } from '../lib/roles'
-import { listContainer, listItem, cardHover, pageFade } from '../lib/motion'
+import { cardHover, pageFade } from '../lib/motion'
 
 // A single market's overview, seen by the people IN it.
 //
@@ -294,11 +296,18 @@ export default function ChapterHome() {
   return (
     <NetworkMotion>
       <NetworkLayout rail={rail}>
+        {/* EVERY SECTION WATCHES ITSELF INTO VIEW.
+            The room tiles and the recent-challenge rows used to run
+            `listContainer`/`listItem` with `initial="hidden" animate="show"`,
+            which fires on MOUNT - so the four rows at the bottom of a country
+            page had finished their stagger before anybody had scrolled far
+            enough to see one of them. Same trap the Worldwide hub had. Reveal
+            is in-view, so a country page now assembles as you read down it. */}
         <motion.div {...pageFade} className="space-y-10">
-          <MarketHeader market={chapter} memberCount={loading ? null : data?.members} canManage={canManage} tab="Overview" />
+          <Reveal from="down"><MarketHeader market={chapter} memberCount={loading ? null : data?.members} canManage={canManage} tab="Overview" /></Reveal>
 
           {/* ---------- Live challenge ---------- */}
-          <section>
+          <Reveal from="down" delay={0.06} as="section">
             {loading ? (
               <LiveChallengeSkeleton />
             ) : data.live ? (
@@ -312,11 +321,11 @@ export default function ChapterHome() {
             ) : (
               <NoLiveChallenge market={chapter.name} canCreate={canManage} slug={chapter.slug} />
             )}
-          </section>
+          </Reveal>
 
           {/* ---------- This market's latest announcement ---------- */}
           {data?.ann && (
-            <section>
+            <Reveal from="down" delay={0.12} as="section">
               <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
                 <Icon name="megaphone" className="h-5 w-5 text-brand" /> Latest from {chapter.name}
               </h2>
@@ -331,11 +340,11 @@ export default function ChapterHome() {
                 </div>
                 <p className="mt-3 line-clamp-3 text-sm">{stripMarkup(data.ann.body)}</p>
               </MotionLink>
-            </section>
+            </Reveal>
           )}
 
           {/* ---------- Rooms ---------- */}
-          <section>
+          <Reveal from="down" delay={0.18} as="section">
             <div className="mb-4">
               <h2 className="flex items-center gap-2 text-lg font-semibold">
                 <Icon name="chat" className="h-5 w-5 text-brand" /> Rooms
@@ -347,10 +356,10 @@ export default function ChapterHome() {
             {loading ? (
               <CardGridSkeleton count={3} height="h-20" />
             ) : (
-              <motion.div variants={listContainer} initial="hidden" animate="show" className="grid gap-3 sm:grid-cols-2">
+              <Reveal className="grid gap-3 sm:grid-cols-2" stagger={0.06}>
                 {data.channels.map((ch) => (
                   <MotionLink key={ch.id} to={`/c/${chapter.slug}/chat/${ch.key}`}
-                    variants={listItem} {...cardHover}
+                    {...cardHover}
                     className={cx(
                       'card flex flex-col gap-1 !p-5 hover:shadow-lift',
                       // General is the room a market is FOR. It gets the brand
@@ -372,15 +381,15 @@ export default function ChapterHome() {
                     {ch.hint && <p className="text-xs text-smoke">{ch.hint}</p>}
                   </MotionLink>
                 ))}
-              </motion.div>
+              </Reveal>
             )}
-          </section>
+          </Reveal>
 
           {/* ---------- Where this market is ---------- */}
           {/* Zoomed to the market, not the world. It also does real layout
               work: a market with no challenge and no announcement used to end
               after two room tiles, leaving the page visibly unfinished. */}
-          <section>
+          <Reveal from="down" as="section">
             <div className="mb-4">
               <h2 className="flex items-center gap-2 text-lg font-semibold">
                 <Icon name="pin" className="h-5 w-5 text-brand" /> Where we are in {chapter.name}
@@ -389,13 +398,18 @@ export default function ChapterHome() {
                 Every creator here, in the town they filmed this morning.
               </p>
             </div>
-            <MarketMap marketId={chapter.id} marketName={chapter.name} />
-          </section>
+            {/* Deferred until it is nearly on screen: parsing a megabyte of
+                TopoJSON while the sections above are still sliding is what makes
+                a page hitch. */}
+            <WhenVisible fallback={<Skeleton className="h-64" />}>
+              <MarketMap marketId={chapter.id} marketName={chapter.name} />
+            </WhenVisible>
+          </Reveal>
 
           {/* ---------- Recent activity ---------- */}
           {/* A market can be entirely correct and still read as abandoned. This
               is the cheapest possible proof that it is not. */}
-          <section>
+          <Reveal from="down" as="section">
             <div className="mb-4">
               <h2 className="flex items-center gap-2 text-lg font-semibold">
                 <Icon name="clock" className="h-5 w-5 text-brand" /> Lately in {chapter.name}
@@ -403,11 +417,11 @@ export default function ChapterHome() {
               <p className="mt-1 text-sm text-smoke">Who joined, who posted, who entered.</p>
             </div>
             <MarketActivity market={chapter} />
-          </section>
+          </Reveal>
 
           {/* ---------- Recent challenges ---------- */}
           {past.length > 0 && (
-            <section>
+            <Reveal from="down" as="section">
               <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="flex items-center gap-2 text-lg font-semibold">
                   <Icon name="flag" className="h-5 w-5 text-brand" /> Recent challenges
@@ -416,9 +430,9 @@ export default function ChapterHome() {
                   All challenges →
                 </Link>
               </div>
-              <motion.div variants={listContainer} initial="hidden" animate="show" className="space-y-2">
+              <Reveal className="space-y-2" stagger={0.05}>
                 {past.slice(0, 4).map((c) => (
-                  <MotionLink key={c.id} to={`/challenges/${c.id}`} variants={listItem} {...cardHover}
+                  <MotionLink key={c.id} to={`/challenges/${c.id}`} {...cardHover}
                     className="flex items-center gap-3 rounded-card border border-gray-100 bg-white px-5 py-4">
                     <span className="min-w-0 flex-1 truncate font-medium">{c.title}</span>
                     <span className="shrink-0 text-xs text-smoke">
@@ -427,8 +441,8 @@ export default function ChapterHome() {
                     <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
                   </MotionLink>
                 ))}
-              </motion.div>
-            </section>
+              </Reveal>
+            </Reveal>
           )}
         </motion.div>
       </NetworkLayout>

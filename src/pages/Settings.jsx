@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { confirm, notice } from '../lib/confirm'
 import { PageHeader, Toggle, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
+import Reveal from '../components/network/Reveal'
 import PaymentDetailsFields from '../components/PaymentDetails'
 import Turnstile from '../components/Turnstile'
 import { EMPTY_PAYEE, payeeFromPrivate, payeeToPrivate, payeeStarted, validatePayee } from '../lib/invoice'
@@ -424,14 +425,14 @@ export default function Settings() {
             </button>
             <h1 className="min-w-0 truncate text-2xl font-bold tracking-tight">{open.label}</h1>
           </div>
-          {BODIES[open.key]}
+          <Reveal from="down">{BODIES[open.key]}</Reveal>
         </div>
       )
     }
     return (
       <div className="page max-w-3xl">
-        <PageHeader title="Settings" subtitle="Manage how the community looks, what you share, how you get paid, and what you hear about." />
-        <div className="space-y-3">
+        <Reveal from="down"><PageHeader title="Settings" subtitle="Manage how the community looks, what you share, how you get paid, and what you hear about." /></Reveal>
+        <Reveal className="space-y-3" stagger={0.05} delay={0.06}>
           {SECTIONS.map((s) => (
             <button
               key={s.key}
@@ -463,7 +464,7 @@ export default function Settings() {
               <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-smoke" />
             </button>
           )}
-        </div>
+        </Reveal>
         <p className="mt-6 text-xs text-smoke">
           Have an idea for another setting? Let us know via{' '}
           <Link to="/feedback" className="font-medium text-brand hover:underline">Help us improve</Link>.
@@ -475,27 +476,32 @@ export default function Settings() {
   // ---------------- Desktop: wide, three columns, minimal scrolling --------
   return (
     <div className="page max-w-7xl">
-      <PageHeader title="Settings" subtitle="Manage how the community looks, what you share, how you get paid, and what you hear about. Changes save automatically." />
+      <Reveal from="down"><PageHeader title="Settings" subtitle="Manage how the community looks, what you share, how you get paid, and what you hear about. Changes save automatically." /></Reveal>
 
+      {/* THREE COLUMNS THAT ARRIVE AS THREE COLUMNS.
+          One Reveal per column, each with its own small head start, so the page
+          assembles left to right rather than blinking on as a wall of six
+          cards. The cards inside a column stagger against each other, which is
+          what makes a column read as a column. */}
       <div className="grid items-start gap-6 xl:grid-cols-3">
         {/* Column 1: display + payment */}
-        <div className="space-y-6">
+        <Reveal className="space-y-6" from="down" stagger={0.06}>
           {DisplaySection}
           {PaymentSection}
-        </div>
+        </Reveal>
 
         {/* Column 2: account + privacy */}
-        <div className="space-y-6">
+        <Reveal className="space-y-6" from="down" stagger={0.06} delay={0.07}>
           {AccountSection}
-        </div>
+        </Reveal>
 
         {/* Column 3: notifications, with the reminder cards directly beneath */}
-        <div className="space-y-6">
+        <Reveal className="space-y-6" from="down" stagger={0.06} delay={0.14}>
           {NotificationsSection}
-        </div>
+        </Reveal>
       </div>
 
-      {isAdmin && <div className="mt-6">{AdminSection}</div>}
+      {isAdmin && <Reveal from="down" className="mt-6">{AdminSection}</Reveal>}
 
       <p className="mt-6 text-xs text-smoke">
         More settings will appear here over time. Have an idea for one? Let us know via{' '}

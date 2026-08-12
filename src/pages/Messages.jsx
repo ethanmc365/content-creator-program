@@ -16,6 +16,11 @@ import { formatChatTime, formatMessageTime, messageTimeTitle, otherParticipant, 
 import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
 import ReactionPicker from '../components/ReactionPicker'
 import { RoomSearch } from '../components/ChatSearch'
+import Reveal from '../components/network/Reveal'
+import { ComposerToolbar } from '../components/ComposerTools'
+import SeenBy from '../components/SeenBy'
+import { formatTextarea } from '../lib/composerFormat'
+import { renderMessageBody } from '../lib/richText'
 import { GroupAvatar, NewGroupModal, GroupSettingsModal } from '../components/GroupPanels'
 import {
   groupName, acceptInvite, declineInvite, leaveGroup,
@@ -53,7 +58,12 @@ export default function Messages() {
   const [groupInvites, setGroupInvites] = useState([]) // pending invites for the OPEN group
   const [thread, setThread] = useState([])
   const [reactions, setReactions] = useState([]) // dm_reactions for the open thread
-  const [pickerFor, setPickerFor] = useState(null) // message id with emoji picker open
+  const [pickerFor, setPickerFor] = useState(null)
+  // Toolbar formatting, shared with the market rooms via lib/composerFormat.
+  const formatBody = (kind) => formatTextarea(taRef.current, body, kind, (v) => {
+    setBody(v)
+    saveDraft('dm-' + conversationId, v)
+  }) // message id with emoji picker open
   // Searching THIS conversation. The inbox search above finds a person; this
   // finds a message, and they are different questions - "where is Jacob" and
   // "what did Jacob say about the Lisbon shoot" - so they are two controls.
@@ -66,6 +76,7 @@ export default function Messages() {
     return thread.filter((m) => (m.body || '').toLowerCase().includes(q))
   }, [thread, threadSearch])
   const [actionsFor, setActionsFor] = useState(null) // message id with actions revealed (mobile tap)
+  const [showFormatting, setShowFormatting] = useState(false) // mobile: formatting row revealed
   const [replyTo, setReplyTo] = useState(null)     // message being replied to
   const [loadingList, setLoadingList] = useState(true)
   const [loadingThread, setLoadingThread] = useState(false)
@@ -308,6 +319,45 @@ export default function Messages() {
     loadThread()
     return () => { cancelled = true }
   }, [conversationId, user.id, loadConversations])
+
+  // READ RECEIPTS IN A GROUP DM.
+  //
+  // A 1:1 has had them forever - `direct_messages.read` is one boolean because
+  // there is exactly one other reader - but a group has many, so the answer
+  // lives on each member's own `last_read_at` watermark. Loaded when the thread
+  // opens and kept live, because "seen by 4" that only updates on a page
+  // refresh is worse than no receipt at all: it is a wrong one.
+  const [groupReads, setGroupReads] = useState(new Map())
+  useEffect(() => {
+    if (!isGroup || !conversationId) { setGroupReads(new Map()); return undefined }
+    let alive = true
+    const pull = () => supabase.from('conversation_members')
+      .select('profile_id, last_read_at')
+      .eq('conversation_id', conversationId)
+      .then(({ data }) => {
+        if (alive) setGroupReads(new Map((data || []).map((r) => [r.profile_id, r.last_read_at])))
+      })
+    pull()
+    const ch = supabase.channel(`grp-reads-${conversationId}`)
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'conversation_members', filter: `conversation_id=eq.${conversationId}` },
+        (payload) => {
+          const row = payload.new
+          if (row?.profile_id) setGroupReads((prev) => new Map(prev).set(row.profile_id, row.last_read_at))
+        })
+      .subscribe()
+    return () => { alive = false; supabase.removeChannel(ch) }
+  }, [isGroup, conversationId])
+
+  const seenBy = useCallback((msg) => {
+    if (!isGroup || !msg) return []
+    const t = new Date(msg.created_at).getTime()
+    return activeMembers.filter((mem) => {
+      if (mem.id === user.id || mem.id === msg.sender_id) return false
+      const r = groupReads.get(mem.id)
+      return !!r && new Date(r).getTime() >= t
+    })
+  }, [isGroup, activeMembers, groupReads, user.id])
 
   // The invites still waiting on other people for the group that is open, so
   // the settings panel can say "3 invites not answered yet" rather than
@@ -896,6 +946,12 @@ export default function Messages() {
               </div>
             )}
 
+            {/* THE INBOX ARRIVES. Every other list in the app rises into view
+                one row after another; the DM inbox was a wall of rows that
+                simply existed. Tight stagger (35ms) because these are dense
+                rows, not cards - past about 45ms a list stops reading as
+                arriving and starts reading as slow. */}
+            <Reveal className="flex flex-col" stagger={0.035}>
             {shownConversations.map((c) => (
               <button
                 key={c.id}
@@ -929,6 +985,7 @@ export default function Messages() {
                 )}
               </button>
             ))}
+            </Reveal>
 
             {/* People matching the search that you haven't messaged before:
                 tapping one opens a brand new thread with them. */}
@@ -1058,7 +1115,9 @@ export default function Messages() {
                         </span>
                       )}
                       <div
-                        className="min-w-0 max-w-[80%] sm:max-w-[65%]"
+                        // `relative`: the action toolbar is absolutely
+                        // positioned against this column so it costs no layout.
+                        className="relative min-w-0 max-w-[80%] sm:max-w-[65%]"
                         // Tap a message on mobile to reveal its reply / react actions.
                         onClick={(e) => { if (isMobile && !e.target.closest('a,button,video,input')) setActionsFor(showActions ? null : m.id) }}
                       >
@@ -1100,27 +1159,61 @@ export default function Messages() {
                               <div className="flex h-40 w-56 items-center justify-center rounded-xl bg-cloud"><Spinner /></div>
                             )
                           )}
-                          {m.body && <span className={cx('block', m.image_url && 'px-2.5 py-1.5')}>{m.body}</span>}
+                          {/* MARKDOWN, LIKE EVERY OTHER SURFACE. The DMs printed
+                              the raw body, so a message written with the
+                              formatting buttons - which the DMs now have -
+                              arrived as literal asterisks and hashes. */}
+                          {m.body && (
+                            <span className={cx('block', m.image_url && 'px-2.5 py-1.5')}>
+                              {renderMessageBody(m.body, { rich: true, members: activeMembers, onDark: mine })}
+                            </span>
+                          )}
                         </div>
                         <p className={cx('mt-1 text-[10px] text-gray-400', mine && 'text-right')}>
-                          <span title={messageTimeTitle(m.created_at)}>{formatMessageTime(m.created_at)}</span>{mine && m.read && ' · Read'}
+                          <span title={messageTimeTitle(m.created_at)}>{formatMessageTime(m.created_at)}</span>
+                          {mine && !isGroup && m.read && ' · Read'}
                         </p>
 
-                        {/* Reactions + action row (reply / react). Desktop: on hover;
-                            mobile: tap the message to reveal (showActions). */}
-                        <div className={cx('mt-0.5 flex flex-wrap items-center gap-1', mine && 'justify-end')}>
-                          {Object.entries(summary).map(([emoji, info]) => (
-                            <ReactionPill
-                              key={emoji}
-                              emoji={emoji}
-                              count={info.count}
-                              mine={info.mine}
-                              names={info.ids.map(reactorName)}
-                              onToggle={() => toggleReaction(m.id, emoji)}
-                              align={mine ? 'right' : 'left'}
-                            />
-                          ))}
-                          <div className={cx('relative flex items-center gap-1 transition-opacity focus-within:opacity-100 group-hover:opacity-100', showActions ? 'opacity-100' : 'opacity-0')}>
+                        {/* Seen by, in groups. A 1:1 says "Read" on the line
+                            above; a group needs names, and eight of them will
+                            not fit on a timestamp. */}
+                        {mine && isGroup && (() => {
+                          const seen = seenBy(m)
+                          return seen.length ? (
+                            <div className="mt-0.5 flex justify-end">
+                              <SeenBy readers={seen} align="right" />
+                            </div>
+                          ) : null
+                        })()}
+
+                        {/* Reactions stay in the flow. */}
+                        {Object.keys(summary).length > 0 && (
+                          <div className={cx('mt-0.5 flex flex-wrap items-center gap-1', mine && 'justify-end')}>
+                            {Object.entries(summary).map(([emoji, info]) => (
+                              <ReactionPill
+                                key={emoji}
+                                emoji={emoji}
+                                count={info.count}
+                                mine={info.mine}
+                                names={info.ids.map(reactorName)}
+                                onToggle={() => toggleReaction(m.id, emoji)}
+                                align={mine ? 'right' : 'left'}
+                              />
+                            ))}
+                          </div>
+                        )}
+
+                        {/* THE ACTIONS FLOAT. As an `opacity-0` row in the flow
+                            they reserved their height under every message even
+                            though nobody could see them, which on a phone left a
+                            visible gap between a bubble and its timestamp. */}
+                          <div className={cx(
+                            'absolute top-0 z-10 flex items-center gap-1 rounded-full border border-gray-100 bg-white/95 px-1 py-0.5 shadow-card backdrop-blur transition-opacity',
+                            mine ? 'left-0' : 'right-0',
+                            showActions
+                              ? 'opacity-100'
+                              : 'pointer-events-none opacity-0 focus-within:pointer-events-auto focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100',
+                          )}>
                             <button
                               onClick={() => { setReplyTo(m); setActionsFor(null); taRef.current?.focus() }}
                               aria-label="Reply"
@@ -1157,7 +1250,6 @@ export default function Messages() {
                               </>
                             )}
                           </div>
-                        </div>
                       </div>
                     </div>
                   )
@@ -1219,6 +1311,12 @@ export default function Messages() {
                     </button>
                   </div>
                 )}
+                {/* FORMATTING IN THE DMS TOO. Every other chat surface has had
+                    heading / bold / italic for a while; the DMs were the one
+                    place where the same message you could format in a room
+                    could not be formatted to the person you were asking about
+                    it. Collapsed behind Aa on a phone, like everywhere else. */}
+                <ComposerToolbar onFormat={formatBody} open={showFormatting} />
                 <form onSubmit={send} className="flex items-end gap-2 sm:gap-3">
                   <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden" onChange={sendImage} />
                   <button
@@ -1245,6 +1343,16 @@ export default function Messages() {
                     onKeyDown={(e) => { if (!isMobile && e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(e) } }}
                     aria-label="Message"
                   />
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => setShowFormatting((v) => !v)}
+                    aria-pressed={showFormatting}
+                    aria-label="Formatting"
+                    className={cx('btn-ghost shrink-0 !px-2.5 !py-3 sm:hidden', showFormatting && '!text-brand')}
+                  >
+                    <span className="text-sm font-bold">Aa</span>
+                  </button>
                   <button type="submit" disabled={sending || !body.trim()} className="btn-primary !px-5" aria-label="Send">
                     {sending ? <Spinner /> : (
                       <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3 21l18-9L3 3l3 9zm0 0h6" /></svg>

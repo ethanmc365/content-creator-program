@@ -2,6 +2,8 @@ import { memo, useEffect, useMemo, useState } from 'react'
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from 'react-simple-maps'
 import { GEO_URL, loadMapCountryNames, loadMapCentroids } from '../lib/mapCountries'
 import { useIsDark } from '../lib/theme'
+import { sameCountry } from '../lib/countryFacts'
+import CountryPanel from './CountryPanel'
 
 // Interactive world map for "countries visited".
 //  * Free & open source: react-simple-maps + the world-atlas TopoJSON from
@@ -19,8 +21,15 @@ const BRAND = '#d94407'
 const BRAND_LIGHT = '#f5853f'
 const UNSELECTED = '#ECECEE'
 
-function WorldMap({ selected = [], onToggle, selectable = false, focusCountry = null, fitSelected = false }) {
+// `owner` turns the read-only profile map into something you can ask questions
+// of. Tapping a country opens what we know about the place (flag, continent,
+// currency, what it is known for) plus the one person this map is about, with a
+// DM button - because on somebody's profile the useful question is not "who has
+// been here" (the community map answers that) but "you have been here, tell me
+// about it". Without `owner` the map stays exactly as read-only as it was.
+function WorldMap({ selected = [], onToggle, selectable = false, focusCountry = null, fitSelected = false, owner = null }) {
   const dark = useIsDark()
+  const [country, setCountry] = useState(null)
   // Unvisited land + the hairline between countries darken in dark mode so the
   // map reads as land-on-deep-sea instead of a glaring light-grey block.
   const UNSELECTED_FILL = dark ? '#2a2c31' : UNSELECTED
@@ -83,6 +92,23 @@ function WorldMap({ selected = [], onToggle, selectable = false, focusCountry = 
   const zoomBy = (factor) =>
     setPosition((p) => ({ ...p, zoom: Math.min(8, Math.max(1, p.zoom * factor)) }))
   const resetView = () => setPosition({ coordinates: [12, 8], zoom: 1 })
+
+  const countryPanel = owner && country ? (
+    <CountryPanel
+      className="max-w-sm"
+      country={country}
+      variant="personal"
+      owner={owner}
+      ownerState={
+        sameCountry(owner.country, country)
+          ? 'lives'
+          : selectedSet.has(country) || (owner.countries_visited || []).some((n) => sameCountry(n, country))
+            ? 'visited'
+            : 'none'
+      }
+      onClose={() => setCountry(null)}
+    />
+  ) : null
 
   return (
     <div>
@@ -197,7 +223,13 @@ function WorldMap({ selected = [], onToggle, selectable = false, focusCountry = 
                     <Geography
                       key={geo.rsmKey}
                       geography={geo}
-                      onClick={selectable && onToggle ? () => onToggle(name) : undefined}
+                      onClick={
+                        selectable && onToggle
+                          ? () => onToggle(name)
+                          : owner
+                            ? () => setCountry(name)
+                            : undefined
+                      }
                       onMouseEnter={() => setTooltip(name)}
                       onMouseLeave={() => setTooltip('')}
                       tabIndex={selectable ? 0 : -1}
@@ -215,11 +247,11 @@ function WorldMap({ selected = [], onToggle, selectable = false, focusCountry = 
                           transition: 'fill 0.2s ease',
                         },
                         hover: {
-                          fill: isSelected ? BRAND : selectable ? BRAND_LIGHT : UNSELECTED_FILL,
+                          fill: isSelected ? BRAND : selectable || owner ? BRAND_LIGHT : UNSELECTED_FILL,
                           stroke: SEPARATOR,
                           strokeWidth: 0.4,
                           outline: 'none',
-                          cursor: selectable ? 'pointer' : 'default',
+                          cursor: selectable || owner ? 'pointer' : 'default',
                         },
                         pressed: { fill: BRAND, outline: 'none' },
                       }}
@@ -236,7 +268,24 @@ function WorldMap({ selected = [], onToggle, selectable = false, focusCountry = 
             Search above, or tap the map · use + / − to zoom
           </p>
         )}
+
+        {owner && !selectable && !country && (
+          <p className="pointer-events-none absolute bottom-2 left-3 rounded-full bg-white/85 px-3 py-1 text-[11px] text-smoke backdrop-blur-sm">
+            Tap a country to see what it is known for
+          </p>
+        )}
+
+        {/* Desktop: over the map. Phones get it UNDER the map instead - see
+            below - because the map box is only about 180px tall at 375px and an
+            overlay there covers the thing it is describing. */}
+        {countryPanel && (
+          <div className="pointer-events-none absolute inset-3 z-20 hidden flex-col items-start justify-end sm:flex">
+            {countryPanel}
+          </div>
+        )}
       </div>
+
+      {countryPanel && <div className="mt-3 sm:hidden">{countryPanel}</div>}
     </div>
   )
 }

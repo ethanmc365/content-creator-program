@@ -13,6 +13,10 @@ import ChatMedia from '../components/ChatMedia'
 import { uploadChatImage, uploadChatVideo } from '../lib/chatMedia'
 import { renderMessageBody } from '../lib/richText'
 import Reorderable from '../components/network/Reorderable'
+import { ComposerToolbar } from '../components/ComposerTools'
+import ChatAdminTools from '../components/ChatAdminTools'
+import SeenBy from '../components/SeenBy'
+import { formatTextarea } from '../lib/composerFormat'
 import { Avatar, EmptyState } from '../components/ui'
 import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
 import { cx, formatMessageTime, messageTimeTitle } from '../lib/utils'
@@ -107,7 +111,7 @@ function AttachedCard({ message, titles }) {
 export default function NetworkChat() {
   const { slug, channelKey } = useParams()
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
   const { bySlug, network, manages, myCommunities, loading: ctxLoading } = useCommunity()
 
   const community = slug ? bySlug(slug) : network
@@ -129,6 +133,13 @@ export default function NetworkChat() {
   // hover, so `group-hover` alone meant the reaction button was permanently
   // invisible and market rooms simply had no reactions on mobile.
   const [actionsFor, setActionsFor] = useState(null)
+  // Who has read how far in this room: profile id -> last_read_at. Same
+  // `channel_reads` table the legacy chat uses, keyed by the same namespaced
+  // channel string these messages are written with, so a market room's receipts
+  // can no more mix with another market's than its messages can.
+  const [reads, setReads] = useState(new Map())
+  // Which admin tool (poll / game / resource) is open, if any.
+  const [adminTool, setAdminTool] = useState(null)
   const fileRef = useRef(null)
   const scrollerRef = useRef(null)
   const inputRef = useRef(null)
@@ -326,6 +337,55 @@ export default function NetworkChat() {
   const messageIds = useMemo(() => messages.map((m) => m.id), [messages])
   const { byMessage: reactionsByMessage, toggle: toggleReaction } = useReactions(messageIds, user?.id)
 
+  // ---- Read receipts ----------------------------------------------------
+  //
+  // Load the room's existing watermarks, keep them live, and write our own the
+  // moment the room is on screen. The write is throttled: a room you scroll
+  // through for a minute should not be a minute of upserts.
+  const roomKey = community && active ? scopedKey(community, active.key) : null
+
+  useEffect(() => {
+    if (!roomKey) return undefined
+    let alive = true
+    supabase.from('channel_reads').select('user_id, last_read_at').eq('channel', roomKey)
+      .then(({ data }) => { if (alive) setReads(new Map((data || []).map((r) => [r.user_id, r.last_read_at]))) })
+    const ch = supabase.channel(`net-reads-${roomKey}`)
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'channel_reads', filter: `channel=eq.${roomKey}` },
+        (payload) => {
+          const row = payload.new
+          if (row?.user_id) setReads((prev) => new Map(prev).set(row.user_id, row.last_read_at))
+        })
+      .subscribe()
+    return () => { alive = false; supabase.removeChannel(ch) }
+  }, [roomKey])
+
+  const lastReadRef = useRef(0)
+  useEffect(() => {
+    if (!roomKey || !user?.id || loading || messages.length === 0) return
+    const now = Date.now()
+    if (now - lastReadRef.current < 2500) return
+    lastReadRef.current = now
+    const iso = new Date(now).toISOString()
+    setReads((prev) => new Map(prev).set(user.id, iso))
+    supabase.from('channel_reads')
+      .upsert({ channel: roomKey, user_id: user.id, last_read_at: iso }, { onConflict: 'channel,user_id' })
+      .then(() => {}, () => {})
+  }, [roomKey, user?.id, loading, messages.length])
+
+  // Everyone whose watermark is at or past this message, minus me and the
+  // sender. `members` is the room's own roster, so a reader who left the market
+  // does not linger in the count.
+  const seenBy = useCallback((msg) => {
+    if (!msg) return []
+    const t = new Date(msg.created_at).getTime()
+    return members.filter((mem) => {
+      if (mem.id === user?.id || mem.id === msg.sender_id) return false
+      const r = reads.get(mem.id)
+      return !!r && new Date(r).getTime() >= t
+    })
+  }, [members, reads, user?.id])
+
   // Search filters what is already in memory. A room holds 200 messages; a
   // server round trip for this would be slower and would not work offline.
   const visible = useMemo(() => {
@@ -409,37 +469,12 @@ export default function NetworkChat() {
     setSending(false)
   }
 
-  // Wrap the selection in markdown markers, or toggle them off again. The
-  // legacy chat does this with a contentEditable surface; a textarea and four
-  // characters gets the same `body` out the other end, and the body is what
-  // both renderers read.
+  // Wrap the selection in markdown markers, or toggle them off again. Shared
+  // with the DMs via lib/composerFormat: the legacy chat does this on a
+  // contentEditable, everything else is a textarea and four characters, and
+  // both end up with the same `body`, which is what the renderer reads.
   function format(kind) {
-    const el = inputRef.current
-    if (!el) return
-    const start = el.selectionStart ?? body.length
-    const end = el.selectionEnd ?? body.length
-    const sel = body.slice(start, end)
-    if (kind === 'heading') {
-      const lineStart = body.lastIndexOf('\n', Math.max(0, start - 1)) + 1
-      const has = body.slice(lineStart).startsWith('# ')
-      const next = has
-        ? body.slice(0, lineStart) + body.slice(lineStart + 2)
-        : body.slice(0, lineStart) + '# ' + body.slice(lineStart)
-      setBody(next)
-      requestAnimationFrame(() => { el.focus(); const d = has ? -2 : 2; el.setSelectionRange(start + d, end + d) })
-      return
-    }
-    const mark = kind === 'bold' ? '**' : '*'
-    const wrapped = sel.startsWith(mark) && sel.endsWith(mark) && sel.length > mark.length * 2
-    const next = wrapped
-      ? body.slice(0, start) + sel.slice(mark.length, -mark.length) + body.slice(end)
-      : body.slice(0, start) + mark + (sel || (kind === 'bold' ? 'bold text' : 'italic text')) + mark + body.slice(end)
-    setBody(next)
-    requestAnimationFrame(() => {
-      el.focus()
-      const len = (sel || (kind === 'bold' ? 'bold text' : 'italic text')).length
-      el.setSelectionRange(start + (wrapped ? 0 : mark.length), start + (wrapped ? len - mark.length * 2 : mark.length + len))
-    })
+    formatTextarea(inputRef.current, body, kind, setBody)
   }
 
   if (ctxLoading && !community) {
@@ -602,7 +637,10 @@ export default function NetworkChat() {
                 <div className="w-9 shrink-0">
                   {!grouped && <Avatar src={m.profiles?.photo_url} name={m.profiles?.name} size="sm" />}
                 </div>
-                <div className="min-w-0 flex-1">
+                {/* `relative`: the add-reaction affordance floats over this
+                    column's top-right corner rather than reserving a row of
+                    empty space under every message. */}
+                <div className="relative min-w-0 flex-1">
                   {!grouped && (
                     <p className="mb-0.5 flex flex-wrap items-baseline gap-x-2">
                       <span className="text-sm font-semibold">{m.profiles?.name || 'Someone'}</span>
@@ -639,6 +677,19 @@ export default function NetworkChat() {
                     onToggle={toggleReaction}
                     revealed={actionsFor === m.id}
                   />
+                  {/* Read receipts, in the market rooms too. Own messages only
+                      (plus the team's full view), exactly as the legacy chat
+                      does it: knowing your question landed is the value, and a
+                      room where everyone can audit everyone's reading is a room
+                      people stop opening. */}
+                  {(isAdmin || m.sender_id === user?.id) && (() => {
+                    const seen = seenBy(m)
+                    return seen.length ? (
+                      <div className="mt-0.5 flex">
+                        <SeenBy readers={seen} />
+                      </div>
+                    ) : null
+                  })()}
                 </div>
               </motion.div>
             )
@@ -666,19 +717,19 @@ export default function NetworkChat() {
                 the legacy chat collapses it: this row sits directly above the
                 composer and the keyboard needs the pixels more. Open on
                 desktop, where the space is free. */}
-            <div className={cx('mb-2 items-center gap-2', showFormatting ? 'flex' : 'hidden sm:flex')}>
-              <div className="flex items-center gap-0.5 rounded-lg border border-gray-200 p-0.5" role="group" aria-label="Text formatting">
-                <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => format('heading')}
-                  title="Heading" aria-label="Heading"
-                  className="rounded px-2.5 py-1 text-xs font-bold text-smoke transition-colors hover:bg-cloud hover:text-ink">H</button>
-                <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => format('bold')}
-                  title="Bold" aria-label="Bold"
-                  className="rounded px-2.5 py-1 text-xs font-bold text-smoke transition-colors hover:bg-cloud hover:text-ink">B</button>
-                <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => format('italic')}
-                  title="Italic" aria-label="Italic"
-                  className="rounded px-2.5 py-1 text-xs italic text-smoke transition-colors hover:bg-cloud hover:text-ink">I</button>
-              </div>
-            </div>
+            {/* THE SAME ROW EVERY OTHER CHAT HAS, including the admin tools.
+                A market room could not post a poll, share a resource or set a
+                game challenge - all three lived only in the legacy chat - which
+                made a market feel like a lesser room rather than a different
+                one. */}
+            <ComposerToolbar
+              onFormat={format}
+              isAdmin={isAdmin}
+              onGame={() => setAdminTool('game')}
+              onResource={() => setAdminTool('resource')}
+              onPoll={() => setAdminTool('poll')}
+              open={showFormatting}
+            />
           <form onSubmit={send} className="relative flex items-end gap-2">
             {/* @-autocomplete, anchored to the composer. */}
             <AnimatePresence>
@@ -894,6 +945,14 @@ export default function NetworkChat() {
           {room}
         </div>
       </div>
+
+      {/* Poll / game / resource, for admins, in this room like any other. */}
+      <ChatAdminTools
+        tool={adminTool}
+        onClose={() => setAdminTool(null)}
+        postCard={(fields) => postMessage({ body: '', ...fields })}
+        roomLabel={active?.label ? `#${active.label.toLowerCase()}` : 'this room'}
+      />
     </NetworkMotion>
   )
 }

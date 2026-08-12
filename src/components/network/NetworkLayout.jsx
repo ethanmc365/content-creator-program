@@ -63,7 +63,13 @@ export default function NetworkLayout({ children, switcher = true, rail = null, 
                 article. Two columns that enter identically read as one block
                 fading in; two columns that enter from where they sit read as a
                 layout assembling itself. */}
-            <Reveal className="space-y-4" from="right" stagger={0.07}>{rail}</Reveal>
+            {/* A BEAT BEHIND, NOT A DIFFERENT CLOCK. The rail used to start on
+                the same frame as the article while the article's own sections
+                each carried a growing head start, so the two columns visibly
+                raced: the right finished before the left had begun its third
+                card. One small base delay here, a matching one there, and they
+                read as one page assembling. */}
+            <Reveal className="space-y-4" from="right" stagger={0.06} delay={0.08}>{rail}</Reveal>
           </aside>
         </div>
       ) : (

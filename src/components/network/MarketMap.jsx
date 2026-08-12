@@ -24,7 +24,7 @@ export default function MarketMap({ marketId, marketName, showOnMapOnly = true }
     let alive = true
     supabase
       .from('community_members')
-      .select('profiles!inner(id, name, photo_url, city, country, city_lat, city_lng, is_admin, is_test, status, show_on_map)')
+      .select('profiles!inner(id, name, photo_url, city, country, city_lat, city_lng, is_admin, is_test, status, show_on_map, countries_visited)')
       .eq('community_id', marketId)
       .eq('status', 'active')
       .eq('profiles.status', 'active')
@@ -66,7 +66,9 @@ export default function MarketMap({ marketId, marketName, showOnMapOnly = true }
 
   return (
     <CreatorMap
-      creators={located}
+      // Everybody, not just the ones with a pin. A creator with no town still
+      // has a travel list, and tapping Japan should find them.
+      creators={creators}
       // Much closer than the world map's ceiling: a single-country market wants
       // city separation, not continent shape.
       maxFitZoom={22}

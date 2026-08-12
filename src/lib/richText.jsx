@@ -59,9 +59,15 @@ export function renderMessageBody(body, { rich = false, members = [], onDark = f
 
   // Rich: heading lines get their own styled block; everything else is inline.
   return body.split('\n').map((line, i) => {
-    const h = line.match(/^(#{1,2})\s+(.*)$/)
+    // THREE LEVELS, NOT TWO. The composer emits <h1>, <h2> and <h3>, which
+    // serialize to #, ## and ### - so a message written with the third level
+    // arrived at the reader as a line beginning with three literal hashes.
+    // That is half of the reported "it shows hashtags and stars".
+    const h = line.match(/^(#{1,3})\s+(.*)$/)
     if (h) {
-      return <span key={`h${i}`} className={h[1].length === 1 ? 'block text-base font-bold' : 'block text-sm font-semibold'}>{renderInline(h[2], opts, `h${i}`)}</span>
+      const level = h[1].length
+      const cls = level === 1 ? 'block text-base font-bold' : level === 2 ? 'block text-sm font-bold' : 'block text-sm font-semibold'
+      return <span key={`h${i}`} className={cls}>{renderInline(h[2], opts, `h${i}`)}</span>
     }
     return <span key={`l${i}`} className="block">{renderInline(line, opts, `l${i}`) ?? ' '}</span>
   })

@@ -32,8 +32,18 @@ export function ReactionRow({ messageId, reactions, myId, onToggle, revealed = f
 
   const [picking, setPicking] = useState(false)
 
+  // THE PILLS SIT IN THE FLOW; THE ADD BUTTON FLOATS.
+  //
+  // They used to share one row, and because the button is only `opacity-0` when
+  // hidden it still claimed its 28px under EVERY message - a permanent empty
+  // strip between a message and whatever came after it. Opacity does not remove
+  // a box. Reactions are content and belong in the flow; the affordance for
+  // adding one is chrome and belongs over the corner of the message, which is
+  // also where every other chat product puts it.
+  //
+  // The parent must be `relative`; NetworkChat's message column is.
   return (
-    <div className="mt-1 flex flex-wrap items-center gap-1">
+    <div className={cx('flex flex-wrap items-center gap-1', counts.length > 0 && 'mt-1')}>
       <AnimatePresence initial={false}>
         {counts.map(([emoji, n]) => (
           <motion.button
@@ -57,7 +67,7 @@ export function ReactionRow({ messageId, reactions, myId, onToggle, revealed = f
         ))}
       </AnimatePresence>
 
-      <div className="relative">
+      <div className="absolute right-0 top-0 z-10">
         <button
           onClick={() => setPicking((p) => !p)}
           aria-label="Add a reaction"
@@ -66,9 +76,9 @@ export function ReactionRow({ messageId, reactions, myId, onToggle, revealed = f
             // way to open this picker was `group-hover/msg`, which never fires
             // on a touch screen - so market rooms had reactions that a phone
             // could see and could not add.
-            'flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-smoke transition-all',
-            'opacity-0 hover:border-brand hover:text-brand focus-visible:opacity-100 group-hover/msg:opacity-100',
-            (picking || revealed) && 'opacity-100',
+            'flex h-7 w-7 items-center justify-center rounded-full border border-gray-100 bg-white/95 text-smoke shadow-card backdrop-blur transition-all',
+            'pointer-events-none opacity-0 hover:border-brand hover:text-brand focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover/msg:pointer-events-auto group-hover/msg:opacity-100',
+            (picking || revealed) && 'pointer-events-auto opacity-100',
           )}
         >
           <Icon name="smile" className="h-3.5 w-3.5" />
