@@ -136,14 +136,6 @@ export default function Reveal({
   // small margin. Keeping it forever would be the opposite mistake - a page of
   // permanently promoted layers is a page that eats memory for nothing.
   const [done, setDone] = useState(false)
-  const childCount = Children.count(children)
-  useEffect(() => {
-    if (!shown || done) return undefined
-    const last = Math.min(childCount - 1, maxStagger)
-    const ms = delay * 1000 + Math.max(0, last) * stagger * 1000 + 720 + 120
-    const t = setTimeout(() => setDone(true), ms)
-    return () => clearTimeout(t)
-  }, [shown, done, childCount, delay, stagger, maxStagger])
 
   // LOOK THROUGH A FRAGMENT.
   //
@@ -158,6 +150,31 @@ export default function Reveal({
     ? Children.toArray(raw[0].props.children)
     : raw
   const kids = unwrapped
+
+  // WHEN THE STAGGER IS ACTUALLY OVER.
+  //
+  // `will-change: opacity, transform` promises the browser a compositor layer,
+  // and the stylesheet used to withdraw that promise on `is-in` - the same
+  // class that STARTS the transition - so every card lost its layer on the
+  // frame it began moving. Big cards (a map, a chart, a live challenge) then
+  // had to be re-rasterised mid-slide, which is the judder. The hint is only
+  // spent once the LAST child has landed, so that is when `is-done` goes on:
+  // base delay + the last child's stagger step + the transition itself, plus a
+  // small margin. Keeping it forever would be the opposite mistake - a page of
+  // permanently promoted layers is a page that eats memory for nothing.
+  //
+  // Counted off `kids`, AFTER the fragment has been unwrapped. Counting the
+  // raw children instead reports 1 for a fragment-wrapped rail, which would
+  // withdraw the hint a beat before the last card in it had finished moving -
+  // the same bug in miniature.
+  const lastIndex = Math.max(0, Math.min(kids.filter(Boolean).length - 1, maxStagger))
+  useEffect(() => {
+    if (!shown || done) return undefined
+    const ms = delay * 1000 + lastIndex * stagger * 1000 + 720 + 120
+    const t = setTimeout(() => setDone(true), ms)
+    return () => clearTimeout(t)
+  }, [shown, done, lastIndex, delay, stagger])
+
   return (
     <Tag
       ref={setNode}
