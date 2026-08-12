@@ -79,13 +79,16 @@ function CreatorRow({ creator, onMessage, onCreatorClick, busy, subtitle }) {
   )
 }
 
-function Group({ title, hint, creators, subtitleFor, onMessage, onCreatorClick, busyId }) {
+function Group({ title, hint, creators, subtitleFor, onMessage, onCreatorClick, busyId, showCount = true }) {
   if (!creators.length) return null
   return (
     <div>
       <p className="mb-1 flex items-baseline gap-2 px-1.5">
         <span className="text-[11px] font-semibold uppercase tracking-widest text-smoke">{title}</span>
-        <span className="text-[11px] font-semibold text-brand">{creators.length}</span>
+        {/* A count next to "Lives here" is the answer to a question. A count
+            next to a heading that can only ever describe one person is a "1"
+            sitting there looking like it means something. */}
+        {showCount && <span className="text-[11px] font-semibold text-brand">{creators.length}</span>}
       </p>
       {hint && <p className="mb-1.5 px-1.5 text-[11px] text-smoke">{hint}</p>}
       <div className="flex flex-col gap-0.5">
@@ -206,6 +209,7 @@ export default function CountryPanel({
               onCreatorClick={onCreatorClick}
               subtitleFor={(c) => [(c.city || '').trim(), (c.country || '').trim()].filter(Boolean).join(', ') || undefined}
               busyId={busyId}
+              showCount={false}
             />
           )
         ) : (
