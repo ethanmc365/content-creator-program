@@ -112,7 +112,7 @@ export default function Reveal({
   // waiting IS the correct behaviour and we keep waiting.
   useEffect(() => {
     if (shown || !node) return undefined
-    const t = setTimeout(() => {
+    const check = () => {
       const vh = window.innerHeight || 0
       // A viewport of zero height means we are somewhere that cannot answer the
       // question - a headless pane, a hidden iframe - and "I cannot tell" must
@@ -120,8 +120,23 @@ export default function Reveal({
       if (vh === 0) { setShown(true); return }
       const r = node.getBoundingClientRect()
       if (r.top < vh) setShown(true)
-    }, 1200)
-    return () => clearTimeout(t)
+    }
+    const t = setTimeout(check, 1200)
+    // AND AGAIN WHENEVER THE VIEWPORT CHANGES.
+    //
+    // The one-shot check answers "was this on screen 1.2 seconds after it
+    // mounted". Rotate a phone, open a laptop lid, or simply have the observer
+    // be inert (some embedded panes never deliver entries), and a section that
+    // is now plainly on screen stays at opacity 0 forever with nothing left to
+    // wake it. Re-checking on resize and orientation change costs a bounding
+    // rect and removes the only way this component can lose content.
+    window.addEventListener('resize', check)
+    window.addEventListener('orientationchange', check)
+    return () => {
+      clearTimeout(t)
+      window.removeEventListener('resize', check)
+      window.removeEventListener('orientationchange', check)
+    }
   }, [shown, node])
 
   // WHEN THE STAGGER IS ACTUALLY OVER.

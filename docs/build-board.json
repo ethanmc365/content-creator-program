@@ -1,0 +1,221 @@
+{
+  "themes": [
+    {
+      "key": "know",
+      "name": "Getting creators to know each other",
+      "note": "The whole product rests on this. Forty-five people who have never spoken are a mailing list, not a community.",
+      "ideas": [
+        ["Weekly intro pairing", "An opt-in that DMs two creators who have not spoken, with one shared thing to talk about: same market, same platform, overlapping travel. Runs every Monday.", "M", true],
+        ["Ask the community board", "A question with a title, tags and answers, separate from chat. Chat answers are lost in a week; this is searchable forever and is what somebody planning a trip actually wants.", "L", true],
+        ["Answer credit on profiles", "\"Answered 14 questions\", visible, so being generous is a status you can see.", "S", false],
+        ["Country expert badge", "Automatic: lived there, or two or more answered questions about it. Surfaces on the country panel the maps now open.", "S", false],
+        ["Who to meet this week", "Three faces on the home page, chosen by shared destination, overlapping trip dates or the same platform, with the reason written on the card. Not \"suggested\": explained.", "M", false],
+        ["Introduce two people", "A button on a profile that opens a group DM with both and a one-line reason. Warm intros beat cold ones every time.", "S", false],
+        ["Voice notes in DMs and rooms", "Sixty seconds, waveform, no transcription. The fastest way to sound like a person instead of a username.", "M", false],
+        ["Reply threads in rooms", "A message with twelve replies currently swamps a room. Threads keep the main room readable.", "M", false],
+        ["Room-level unread counts", "The rooms know what you have read and never say so. A catch-up jump to the first unread.", "S", false],
+        ["@here as well as @everyone", "@everyone notifies the whole network. A room-scoped @here would get used ten times as often and annoy nobody.", "S", false],
+        ["Local time on a profile", "\"3:41pm for them\" next to the DM button. Stops half the messages that never get answered.", "S", false],
+        ["Shared languages surfaced first", "The directory filters on language but never says \"you both speak Portuguese\" where it would matter.", "S", false],
+        ["Creator office hours", "A creator marks two hours a week as open for questions; it appears on their profile and the calendar.", "M", false],
+        ["Alumni status", "A creator who leaves keeps a read-only profile and their entries. People come back, and deleting them says they were staff.", "S", false],
+        ["Icebreaker prompts in a quiet room", "When a room has been silent for a week, the app offers the team one question worth asking, drawn from what is actually happening that month.", "S", false],
+        ["Second-degree introductions", "\"Three of your connections know Ilaria.\" The single strongest reason anybody accepts a request from a stranger.", "M", false],
+        ["Small-group rooms by interest", "Not markets: hiking, food, van life, editing. Cuts across countries, which is the point.", "L", false],
+        ["A directory of who will answer", "Opt in to being asked about a topic. The difference between a directory of people and a directory of help.", "M", false]
+      ]
+    },
+    {
+      "key": "maps",
+      "name": "The maps, now that countries open",
+      "note": "Tapping a country answers a question. These are the next questions it could answer.",
+      "ideas": [
+        ["Country pages", "A real page per country: who lives there, who has been, the questions asked about it, the videos filmed there, the deals. The panel is the teaser; this is the destination.", "L", true],
+        ["\"I am going here\" from the panel", "One tap from \"nobody has been to Sudan yet\" to a collab-board trip.", "S", false],
+        ["Heat by content, not by people", "Tint a country by how many challenge entries were filmed there. A different and more useful map.", "M", false],
+        ["Trip overlap alerts on the map", "Two planes converging on the same country in the same fortnight should say so, not just both be drawn.", "M", false],
+        ["Filter the map by language or market", "The directory filters the grid; the map ignores them.", "S", false],
+        ["Draw the route, not just the arc", "A trip with three stops is three hops. The collab board already stores them.", "M", false],
+        ["Past-travel replay", "A creator's own map animating their year, as a shareable video. The most shareable thing this platform could make.", "L", false],
+        ["The unexplored list", "The twenty countries with no creator, as an invitation. Turns a gap into a challenge.", "S", false],
+        ["Cache the map offline", "The TopoJSON is a megabyte from a CDN. Put it in the service worker; the map is the slowest thing on the hub.", "S", false],
+        ["City pages under country pages", "Lisbon has more in common with Lisbon than Portugal does with itself. Needs country pages first.", "L", false],
+        ["Visa and entry notes per country", "Community-maintained, dated, with who last checked. The single most-asked question before a trip.", "M", false],
+        ["Cost-of-a-week estimates", "Crowdsourced from creators who went, not from a travel blog. Range, not average.", "M", false]
+      ]
+    },
+    {
+      "key": "challenges",
+      "name": "Challenges, which is where the money is",
+      "note": "",
+      "ideas": [
+        ["Draft submissions", "Paste a link, come back later. Right now a submission is all-or-nothing at the moment of pasting.", "S", false],
+        ["Feedback on losing entries", "One line from the team on every entry that did not win. The cheapest retention lever there is.", "M", true],
+        ["Entry-to-entry comments", "Creators critiquing each other's videos, opt in per challenge.", "M", false],
+        ["A brief that is a checklist", "\"Show the deal screen\", \"say the name\", \"under 30 seconds\", ticked as you submit. Fewer disqualifications, less admin.", "M", false],
+        ["Team challenges", "Two creators, one entry, prize split automatically. Forces collaboration, which forces connection.", "L", false],
+        ["Rolling monthly theme", "With a weekly micro-brief inside it, so there is always something live.", "M", false],
+        ["Auto-pull view counts", "Where each platform's terms allow it, so the leaderboard is not a self-reported number.", "L", false],
+        ["\"Why this won\"", "Three sentences on every results page. Teaches the standard better than any brief.", "S", true],
+        ["Second-chance pot", "A small prize drawn from everyone who entered but did not place. Keeps the quiet majority entering.", "S", false],
+        ["Challenge templates for admins", "So a new brief is a fill-in rather than a blank page.", "M", false],
+        ["Submission preview", "Show the creator exactly what the card will look like on the leaderboard before they submit.", "S", false],
+        ["Deadline reminders in local time", "The deadline is local midnight; the reminder should be local evening, not 4am.", "S", false],
+        ["Per-market prize pots", "Funded by that market's performance, so a Romanian creator is not competing against the UK's budget.", "L", false],
+        ["A public winners page", "On tryp.com, indexed, with creator credit and a link out. Free distribution for them, free SEO for us.", "M", false],
+        ["Brief clarification thread", "One place per challenge for \"does a story count\", answered once, visible to everyone.", "S", false],
+        ["Entry streaks", "Enter three in a row and it is worth saying so. Consistency is what actually compounds.", "S", false]
+      ]
+    },
+    {
+      "key": "visible",
+      "name": "Making a creator's work visible",
+      "note": "",
+      "ideas": [
+        ["Media kit export", "One PDF: reach, best entries, countries, languages, testimonials. Creators ask brands for this constantly.", "M", true],
+        ["Public profile page", "At a real URL, opt-in, indexable.", "M", false],
+        ["Portfolio picks", "Let a creator pin three entries as their best work rather than the platform deciding by views.", "S", false],
+        ["Before and after reach", "What their following did over their time in the programme. The strongest recruitment asset we could have.", "M", false],
+        ["Testimonials from the team", "Requestable, shown on the profile.", "S", false],
+        ["Year in review", "A personal, shareable recap in December.", "M", false],
+        ["Milestone certificates", "As an image sized for a story.", "S", false],
+        ["A hire-me toggle", "Surfaces a creator to brands browsing the directory. Needs a brand-side view.", "L", false],
+        ["Rate card, private to admins", "So briefing a paid piece stops being a negotiation from zero.", "M", false],
+        ["Content calendar per creator", "What they plan to post and when, visible to the team, so campaigns can be timed around it.", "L", false],
+        ["Cross-promotion pairs", "Two creators agree to feature each other; the platform tracks it and reports the lift.", "M", false],
+        ["Best-performing hooks library", "Drawn from real entries that did well here, not from generic advice.", "M", false]
+      ]
+    },
+    {
+      "key": "learn",
+      "name": "Learning and getting better",
+      "note": "",
+      "ideas": [
+        ["Structured paths in the library", "\"Your first travel video\", six resources in order, with progress. Resources today are a flat list.", "M", false],
+        ["Weekly teardown", "The team picks one entry and explains its first three seconds. Ships as a room post and a library entry.", "S", false],
+        ["Peer review requests", "\"Look at this before I post it\", 24-hour window, two reviewers.", "M", false],
+        ["Gear and app list per creator", "Because \"what do you edit on\" is asked weekly.", "S", false],
+        ["Guest sessions", "A monthly call with somebody outside the programme, recorded into the library.", "M", false],
+        ["Subtitle and caption templates", "In the brand's type, downloadable.", "S", false],
+        ["Platform rules per country", "Disclosure and ad-labelling law changes by market and nobody currently tracks it.", "M", false],
+        ["Music licensing guidance", "The single most common way an entry becomes unusable.", "S", false],
+        ["Analytics literacy explainer", "What a three-second view actually counts as on each platform.", "S", false],
+        ["Searchable AMA archive", "From past sessions. Needs the questions board.", "S", false],
+        ["A shot list generator", "Give it a destination and a deal, get twelve shots worth filming. Built from what has already won.", "M", false],
+        ["Editing style presets", "LUTs and templates the team actually uses, so a new creator's first video looks like it belongs.", "M", false]
+      ]
+    },
+    {
+      "key": "rhythm",
+      "name": "Rhythm: reasons to open the app on a Tuesday",
+      "note": "",
+      "ideas": [
+        ["A daily thread that changes", "Monday plans, Wednesday wins, Friday questions. Automated, one room post.", "S", false],
+        ["Streaks for posting, not just games", "The games have streak freezes; the community does not.", "M", false],
+        ["Anniversary cards", "Birthdays already exist. \"One year in the programme\" does not.", "S", false],
+        ["A weekly digest email", "What happened, what is live, who joined. The email tooling exists; the digest does not.", "M", true],
+        ["Push for the things that matter", "Challenge closing, DM, invite, and nothing else. Prefs exist; the taxonomy is too coarse.", "M", false],
+        ["A \"happening now\" strip", "On the home page: who is online, what was just posted.", "S", false],
+        ["Local meetups", "A market proposes one, people RSVP, it lands on the calendar. The Meetups rooms are empty because there is no object to put in them.", "L", true],
+        ["Countdown to the NEXT challenge", "Not just the current one.", "S", false],
+        ["Room of the week", "Surface a quiet room to the whole network once a week.", "S", false],
+        ["Time-boxed sprints", "Forty-eight-hour mini-challenges, no prize, just a leaderboard. Cheap and habit-forming.", "M", false],
+        ["A daily language puzzle", "Say hello exists as a full game now. Make it the third daily.", "S", false],
+        ["Seasonal takeovers", "The whole app dressed for a month-long theme. Christmas markets, shoulder season, summer.", "M", false]
+      ]
+    },
+    {
+      "key": "trust",
+      "name": "Trust, safety and moderation",
+      "note": "",
+      "ideas": [
+        ["Report a message", "There is delete and mute for admins and nothing at all for creators.", "M", false],
+        ["Block a creator", "DMs are open by request; blocking is not possible.", "M", false],
+        ["Moderation queue", "For reported content, with an audit trail.", "M", false],
+        ["Slow mode on a room", "During a busy launch.", "S", false],
+        ["Edit window on messages", "Two minutes, with an \"edited\" marker.", "M", false],
+        ["Message retention policy per room", "Stated in the room.", "S", false],
+        ["Two-factor for admins", "The admin surface can move money now.", "M", true],
+        ["A public moderation changelog", "Anonymised. Trust is built by showing the work.", "S", false],
+        ["Session list and remote sign-out", "\"Sign out everywhere\" exists; seeing WHERE you are signed in does not.", "M", false]
+      ]
+    },
+    {
+      "key": "money",
+      "name": "Money, and making it obvious",
+      "note": "",
+      "ideas": [
+        ["A creator earnings page", "Everything earned, paid, pending, in one place. The invoice queue is admin-side only.", "M", true],
+        ["Payment status notifications", "Approved, sent, paid. Currently silence between the two ends.", "S", false],
+        ["Multi-currency clarity", "Show a Romanian creator their prize in lei with the rate and the date used.", "M", false],
+        ["Automatic referral rewards", "Paid at the counted stage rather than by hand.", "M", false],
+        ["Tiered rewards", "Consistent entrants earn a higher baseline. Rewards effort, not luck.", "L", false],
+        ["Affiliate links per creator", "With real attribution, so posting a Tryp deal earns. Probably the biggest commercial idea here.", "XL", true],
+        ["Expense claims", "For a briefed shoot, into the same invoice pipeline.", "M", false],
+        ["Tax guidance per market", "Written once, linked from the payment page.", "M", false],
+        ["Payment method choice", "Bank, PayPal, or credit against a future trip. The third one costs us less and is worth more to them.", "L", false]
+      ]
+    },
+    {
+      "key": "growth",
+      "name": "Growth and recruiting",
+      "note": "",
+      "ideas": [
+        ["Referral leaderboard", "Public, with the reward shown.", "S", false],
+        ["Application via a video", "Rather than a form. Faster to judge, and it is the actual skill.", "M", false],
+        ["Waiting list per closed market", "So opening Poland starts with fifty people rather than zero.", "S", false],
+        ["A public join page per market", "In that market's language, even though the community stays English.", "M", false],
+        ["Creator of the month", "Chosen by the community rather than the team.", "S", false],
+        ["Alumni referrals", "The people who left are the warmest source there is.", "S", false],
+        ["Scouting shortlist", "A place to park creators we have spotted but not approached, with who found them.", "M", false],
+        ["Application status page", "So an applicant knows where they are without emailing to ask.", "S", false]
+      ]
+    },
+    {
+      "key": "platform",
+      "name": "The platform itself",
+      "note": "",
+      "ideas": [
+        ["Search across everything", "Messages, resources, creators, countries. Cmd+K searches commands, not content.", "L", true],
+        ["Offline-first message queue", "A message written in a tunnel should send when the signal returns.", "L", false],
+        ["Real-time presence in a room", "\"Three people here\", not just online dots.", "M", false],
+        ["A proper notification centre", "With grouping and read state.", "M", false],
+        ["Accessibility pass", "Keyboard paths through chat and the maps, focus order, contrast on the orange-on-orange states.", "M", true],
+        ["Performance budget in CI", "The initial bundle has crept back up; make a regression fail the build rather than be noticed six weeks later.", "S", false],
+        ["A staging environment with seeded data", "Every UI bug in the last two sessions was found by hand on production data.", "M", true],
+        ["\"Explain this number\" mode", "Click any admin statistic and see the query behind it. Analytics people trust get used.", "M", false],
+        ["Component gallery", "One page showing every card, badge and button in both themes. Drift is invisible until you see them together.", "M", false],
+        ["Feature flags with an audience", "The network preview is a localStorage flag. Rolling anything out to ten people needs a real switch.", "M", false],
+        ["Automated visual regression", "Three redesigns of the same map pin in two sessions says the eye is the only test we have.", "L", false],
+        ["Rate limiting on the write paths", "Nothing stops a script posting a thousand messages today.", "M", false]
+      ]
+    },
+    {
+      "key": "games",
+      "name": "Games, now there are five",
+      "note": "",
+      "ideas": [
+        ["Head-to-head", "Challenge a specific creator to the same ten questions. The reason to open a game twice.", "M", false],
+        ["Say hello as a daily", "Built as a rounds game so it could be tested. Promote it.", "S", false],
+        ["Guess the city from a photo", "From creators' own travel galleries, with their permission. The content already exists.", "M", false],
+        ["Team leagues by market", "The UK against the Nordics, monthly. Markets need something to be about besides work.", "L", false],
+        ["Difficulty tiers", "The current bank is too easy for the well-travelled, which is everyone here.", "S", false],
+        ["A game a creator can set", "Pick ten countries, name it, share the link. Admin-built games do not scale; creator-built ones do.", "L", false],
+        ["Sound on the language game", "Hearing \"kiitos\" is the half of learning a phrase that reading it cannot do.", "M", false]
+      ]
+    },
+    {
+      "key": "brand",
+      "name": "Tryp.com itself",
+      "note": "The community only pays for itself if it feeds the business.",
+      "ideas": [
+        ["Deal-of-the-week for creators", "One route, one price, briefed. Gives the whole community something concrete to post about on the same day.", "M", false],
+        ["Creator content back on tryp.com", "The best entries embedded on the destination pages they are about.", "L", false],
+        ["A UGC request board", "Marketing asks for a specific shot; creators claim it. Turns the community into a production line when it needs to be.", "L", false],
+        ["Booking data into the collab board", "\"Three creators are already flying to Lisbon that week\" is more useful when it comes from real bookings.", "L", false],
+        ["Attribution dashboard", "What the programme actually returned, per market, per challenge. The number that decides next year's budget.", "L", true],
+        ["Creator-led destination guides", "Written by the people who filmed there, published under tryp.com. SEO that only this community can produce.", "L", false]
+      ]
+    }
+  ]
+}

@@ -807,7 +807,14 @@ export default function Messages() {
         'lg:static lg:inset-auto lg:bottom-auto lg:z-auto lg:h-[calc(100vh-4rem)] lg:translate-y-0 lg:py-6'
       )}
     >
-      <div className="flex min-h-0 flex-1 overflow-hidden bg-white sm:rounded-card sm:border sm:border-gray-100 sm:shadow-card">
+      {/* THE PANEL ARRIVES RATHER THAN SNAPPING IN.
+          `animate-page-in` is opacity-only, deliberately: this is a fixed
+          overlay, and a persisted transform on it (or on any ancestor) becomes
+          the containing block for the position:fixed children inside, which is
+          what breaks the mobile keyboard geometry. The inbox rows carry their
+          own stagger, so the effect is a panel fading up with its list filling
+          in behind it. */}
+      <div className="flex min-h-0 flex-1 animate-page-in overflow-hidden bg-white sm:rounded-card sm:border sm:border-gray-100 sm:shadow-card">
         {/* ---------- Conversation list ---------- */}
         <aside
           className={cx(
@@ -1081,6 +1088,11 @@ export default function Messages() {
               >
                 {loadingThread && <div className="space-y-3"><Skeleton className="h-10 w-2/3" /><Skeleton className="ml-auto h-10 w-1/2" /><Skeleton className="h-10 w-3/5" /></div>}
                 {!loadingThread && visibleThread.map((m, i) => {
+                  // Only the first screenful animates. A thread of two hundred
+                  // messages animating every row on open is a page that shudders
+                  // for a second and a half; the ones above the fold carry the
+                  // arrival and the rest are simply there.
+                  const entering = i >= visibleThread.length - 12
                   const mine = m.sender_id === user.id
                   // WHO SAID IT. A 1:1 never needed this - there are two people
                   // and one of them is you - but eight anonymous grey bubbles
@@ -1098,7 +1110,12 @@ export default function Messages() {
                   const orig = m.reply_to ? thread.find((x) => x.id === m.reply_to) : null
                   const showActions = actionsFor === m.id
                   return (
-                    <div key={m.id} id={`dm-${m.id}`} className={cx('group flex gap-2', mine && 'justify-end')}>
+                    <div
+                      key={m.id}
+                      id={`dm-${m.id}`}
+                      className={cx('group flex gap-2', mine && 'justify-end', entering && 'animate-fade-up')}
+                      style={entering ? { animationDelay: `${Math.min(i, 12) * 24}ms` } : undefined}
+                    >
                       {/* The face column. Reserved even on the rows that do not
                           draw one, so a run of messages from one person stays
                           aligned under the first. */}
