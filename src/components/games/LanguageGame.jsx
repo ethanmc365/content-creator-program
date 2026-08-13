@@ -2,8 +2,17 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { buildQuestion, languagesForRegion } from '../../lib/languages'
 import { cx } from '../../lib/utils'
 import Icon from '../Icon'
+import GameChrome, { AnswerFlash } from './GameChrome'
+import { playCorrect, playWrong } from '../../lib/gameSounds'
 
-// SAY HELLO: read a phrase, name the language.
+// GUESS THE LANGUAGE: read a phrase, name the language.
+//
+// Renamed from "Say hello" at Ethan's request, and the new name is the better
+// one: the old one described the phrases (they are greetings) rather than the
+// task, so a creator scanning the menu could not tell what they were being asked
+// to do. It also lost its continent split in the same pass - the bank is 34
+// languages and the pleasure of it is meeting one you have never seen, which
+// filtering to Europe removes.
 //
 // The shape is deliberately the opposite way round from the rest of the games
 // here. Flags, airports and currencies all start from a COUNTRY and ask you to
@@ -39,8 +48,9 @@ const SCRIPT_SIZE = {
 // merely look wrong, it renders punctuation on the wrong end of the line.
 const RTL = new Set(['Arabic', 'Hebrew'])
 
-export default function LanguageGame({ region = 'World', onFinish }) {
-  const pool = useMemo(() => languagesForRegion(region), [region])
+export default function LanguageGame({ onFinish, onQuit }) {
+  // WORLD, ALWAYS. See the note at the top of the file.
+  const pool = useMemo(() => languagesForRegion('World'), [])
   // Questions are built once, up front. Building them per round would call
   // Math.random during a render, which is both a lint error in this repo and a
   // real bug: any re-render would silently reshuffle the answers under you.
@@ -71,8 +81,13 @@ export default function LanguageGame({ region = 'World', onFinish }) {
 
   const choose = (lang) => {
     if (picked) return
-    if (lang.code === q.answer.code) setCorrect((c) => c + 1)
+    const isRight = lang.code === q.answer.code
+    if (isRight) setCorrect((c) => c + 1)
     setPicked(lang)
+    // Fired here rather than in an effect: this is a direct response to a tap,
+    // which is exactly the gesture the browser's autoplay policy wants to see.
+    if (isRight) playCorrect()
+    else playWrong()
   }
 
   const next = useCallback(() => {
@@ -103,21 +118,24 @@ export default function LanguageGame({ region = 'World', onFinish }) {
 
   return (
     <div className="space-y-5">
-      {/* Progress. A row of pips rather than "3 of 10": you can see at a glance
-          how far in you are and how you have done, without reading. */}
-      <div className="flex items-center justify-center gap-1.5">
-        {questions.map((_, n) => (
-          <span
-            key={n}
-            className={cx(
-              'h-1.5 rounded-full transition-all duration-300',
-              n < i ? 'w-4 bg-brand' : n === i ? 'w-8 bg-brand' : 'w-4 bg-gray-200',
-            )}
-          />
-        ))}
-      </div>
+      {/* The same header every other mode now has. This game's own progress bar
+          was the one Ethan liked, so it became the shared one rather than
+          staying the exception. */}
+      <GameChrome
+        icon="chat"
+        title="Guess the language"
+        done={picked ? i + 1 : i}
+        total={questions.length}
+        correct={correct}
+        time={null}
+        onQuit={onQuit}
+      />
 
-      <div className="card flex flex-col items-center gap-7 !py-10 text-center">
+      <AnswerFlash
+        key={`l${i}`}
+        state={picked ? (right ? 'right' : 'wrong') : null}
+        className="card flex flex-col items-center gap-7 !py-10 text-center"
+      >
         <div className="w-full">
           <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-smoke">
             What language is this?
@@ -188,11 +206,7 @@ export default function LanguageGame({ region = 'World', onFinish }) {
             </button>
           </div>
         )}
-      </div>
-
-      <p className="text-center text-sm text-smoke">
-        {correct} right out of {picked ? i + 1 : i}
-      </p>
+      </AnswerFlash>
     </div>
   )
 }

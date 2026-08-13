@@ -7,6 +7,7 @@ import { flagEmoji } from '../../lib/countries'
 import { pinpointForDay, pinpointMatches } from '../../lib/pinpoint'
 import { ukDayIndex, ukDayStartIso, untilNextUkMidnight, dailyStreak } from '../../lib/daily'
 import { cx } from '../../lib/utils'
+import { playCelebrate, playCommiserate, playWrong } from '../../lib/gameSounds'
 
 // Guess the Country: five travel clues revealed one at a time; you get one
 // guess per clue, so guessing early scores more. A new puzzle lands at
@@ -97,6 +98,10 @@ export default function PinpointGame({ onExit }) {
   const streak = dailyStreak(outcome ? [...streakDays, day] : streakDays, day)
 
   function finish(result, guessed, wrongGuesses, time_ms) {
+    // The same two end-of-round sounds every other game uses, so a daily puzzle
+    // does not end in silence while a practice round gets a fanfare.
+    if (result === 'won') playCelebrate()
+    else playCommiserate()
     setOutcome(result)
     setWonOnClue(guessed)
     localStorage.setItem(STORE_KEY, JSON.stringify({ day, outcome: result, wonOnClue: guessed, guesses: wrongGuesses }))
@@ -117,6 +122,7 @@ export default function PinpointGame({ onExit }) {
     if (pinpointMatches(country, guess)) {
       finish('won', clues, guesses, time_ms)
     } else {
+      playWrong()
       const next = [...guesses, guess]
       setGuesses(next)
       setTyped('')

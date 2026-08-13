@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { BROADCASTS, isBroadcastName } from './broadcastMentions'
 
 // Rendering for chat message bodies:
 //  * @mentions of known members become links to their profile,
@@ -26,10 +27,27 @@ function renderInline(text, { rich, mentionRe, nameToId, onDark }, keyPrefix) {
     if (m.index > last) nodes.push(text.slice(last, m.index))
     const g = m.groups
     if (g.mention) {
-      const id = nameToId.get(g.mention.slice(1))
-      nodes.push(id
-        ? <Link key={`${keyPrefix}m${k}`} to={`/profile/${id}`} className={mentionCls}>{g.mention}</Link>
-        : g.mention)
+      const handle = g.mention.slice(1)
+      const id = nameToId.get(handle)
+      // @everyone / @here are not people, so they get no profile link. They are
+      // drawn as a badge instead: a room-wide ping should look different from
+      // "Anna", because it means something different.
+      if (isBroadcastName(handle)) {
+        nodes.push(
+          <span
+            key={`${keyPrefix}m${k}`}
+            className={onDark
+              ? 'rounded-md bg-white/25 px-1 py-0.5 font-semibold text-white'
+              : 'rounded-md bg-brand/10 px-1 py-0.5 font-semibold text-brand'}
+          >
+            {g.mention}
+          </span>,
+        )
+      } else {
+        nodes.push(id
+          ? <Link key={`${keyPrefix}m${k}`} to={`/profile/${id}`} className={mentionCls}>{g.mention}</Link>
+          : g.mention)
+      }
     } else if (g.url) {
       nodes.push(<a key={`${keyPrefix}u${k}`} href={g.url} target="_blank" rel="noopener noreferrer" className={urlCls}>{g.url}</a>)
     } else if (g.bold) {
@@ -51,6 +69,11 @@ export function renderMessageBody(body, { rich = false, members = [], onDark = f
   for (const mem of members) {
     if (mem?.name && mem.name.length > 1) { nameToId.set(mem.name, mem.id); names.push(mem.name) }
   }
+  // The two broadcast handles are always recognised. Not gated on the READER
+  // being an admin: whether @here is drawn as a badge is a fact about the
+  // message, and a creator seeing a plain "@here" where their team-mate sees a
+  // badge would just look like it had not worked.
+  for (const b of BROADCASTS) names.push(b.name)
   names.sort((a, b) => b.length - a.length) // longest first so "@Anna" beats "@Ann"
   const mentionRe = names.length ? names.map((n) => '@' + escapeRe(n)).join('|') : null
   const opts = { rich, mentionRe, nameToId, onDark }
@@ -77,7 +100,7 @@ export function renderMessageBody(body, { rich = false, members = [], onDark = f
 export function stripMarkup(body) {
   if (!body) return ''
   return body
-    .replace(/^#{1,2}\s+/gm, '')
+    .replace(/^#{1,3}\s+/gm, '')
     .replace(/\*\*([^*\n]+)\*\*/g, '$1')
     .replace(/\*([^*\n]+)\*/g, '$1')
     .replace(/_([^_\n]+)_/g, '$1')

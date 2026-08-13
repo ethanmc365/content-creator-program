@@ -6,6 +6,7 @@ import Icon from '../Icon'
 import { generateZip, zipIndexForDay, wallKey } from '../../lib/zip'
 import { ukDayIndex, ukDayStartIso, untilNextUkMidnight, dailyStreak } from '../../lib/daily'
 import { cx } from '../../lib/utils'
+import { playCelebrate } from '../../lib/gameSounds'
 
 // Flight Path: drag the plane through the numbered stops in order, leaving a
 // contrail behind you, until every cell of the sky is covered. One layout per
@@ -175,6 +176,7 @@ export default function ZipGame({ onExit }) {
   }
 
   function win() {
+    playCelebrate()
     const time_ms = Date.now() - startRef.current
     setSolved(true)
     setSolveMs(time_ms)

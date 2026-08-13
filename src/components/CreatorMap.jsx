@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { ComposableMap, Geographies, Geography, ZoomableGroup, Marker } from 'react-simple-maps'
 import { geoEqualEarth, geoDistance, geoContains } from 'd3-geo'
 import { feature } from 'topojson-client'
@@ -116,6 +117,44 @@ function initials(name = '') {
 // all three agree by construction.
 const countryNameMatches = sameCountry
 
+// WHO REPRESENTS A CITY ON THE MAP.
+//
+// The pin can show one face and the badge carries the true count, so the choice
+// of face matters: it is the only thing about that city a reader sees before
+// deciding whether to tap. Ranked, in this order and for these reasons:
+//
+//   1. A PHOTO. A pin of grey initials standing for five creators with photos
+//      makes the community look emptier than it is. This outranks recency on
+//      purpose - the point of the pin is a face.
+//   2. HOW RECENTLY THEY WERE HERE. `last_seen_at` where the caller has it (the
+//      directory does; the public landing map deliberately does not, because
+//      presence is not something to hand an anonymous visitor).
+//   3. HOW MUCH THEY HAVE FILLED IN - countries travelled, a bio. A profile
+//      worth opening is a better advert for the city than an empty one.
+//   4. THEIR NAME, so the order is stable between renders and page loads
+//      rather than reshuffling every time the roster comes back.
+const seenScore = (c) => {
+  const t = c.last_seen_at ? new Date(c.last_seen_at).getTime() : 0
+  if (!t) return 0
+  const days = (Date.now() - t) / 86400000
+  if (days < 1) return 5
+  if (days < 7) return 4
+  if (days < 30) return 3
+  if (days < 90) return 2
+  return 1
+}
+
+function byPinPriority(a, b) {
+  const photo = (!!b.photo_url) - (!!a.photo_url)
+  if (photo) return photo
+  const seen = seenScore(b) - seenScore(a)
+  if (seen) return seen
+  const filled = ((b.countries_visited?.length || b.countries || 0) + (b.bio ? 2 : 0))
+    - ((a.countries_visited?.length || a.countries || 0) + (a.bio ? 2 : 0))
+  if (filled) return filled
+  return (a.name || '').localeCompare(b.name || '')
+}
+
 // One map pin: a round photo sitting in a classic teardrop, with a small pointer
 // tip on the exact coordinate. The avatar is CONCENTRIC with the white disc so
 // it's dead-centre in the pin. Counter-scaled against the zoom so it stays a
@@ -224,6 +263,23 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   const [homeNames, setHomeNames] = useState(() => new Set()) // countries to tint
   const [tooltip, setTooltip] = useState('')
   const [selected, setSelected] = useState(null)
+  // FULL SCREEN.
+  //
+  // A world map inside a card on a page is a map you navigate by squinting: at
+  // the default zoom the whole planet is about 400px tall, and finding one
+  // creator in northern Spain means four presses of + and a lot of dragging in
+  // a letterbox. Full screen is the same map with the page taken away.
+  //
+  // On a phone it also asks for LANDSCAPE, because a portrait phone is the
+  // worst possible frame for an object that is twice as wide as it is tall.
+  // `screen.orientation.lock` only works from inside a real Fullscreen API
+  // session and only on Chrome/Android - iOS Safari has neither - so the lock
+  // is attempted and its failure is expected, not handled. When it fails the
+  // reader is simply asked to turn the phone, which is a thing people do
+  // without being told anyway.
+  const [fullscreen, setFullscreen] = useState(false)
+  const rootRef = useRef(null)
+  const fsRef = useRef(null)
   // The country a reader has tapped, if any: { name, lives, visited }.
   const [country, setCountry] = useState(null)
 
@@ -287,6 +343,17 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   }, [creators, extraCoords])
 
   // Cluster into towns (creators who typed the same town share a pin).
+  //
+  // AND THE FACE ON THE PIN IS THE PERSON MOST WORTH SEEING. A pin over a city
+  // with six creators shows one of them, and until now that was whoever the
+  // query happened to return first - which regularly meant a grey circle of
+  // initials belonging to somebody who last opened the app in March, standing in
+  // for five active creators with photos. The pin is the community's face in
+  // that city; it should be somebody who is actually in the room.
+  //
+  // The creators are SORTED, not just peeked at, so the roster in TownPanel
+  // opens in the same order. Reading a list whose first row is not the face you
+  // tapped is a small confusion that costs nothing to avoid.
   const towns = useMemo(() => {
     const map = new Map()
     for (const c of located) {
@@ -294,6 +361,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
       if (!map.has(key)) map.set(key, { key, coords: [c._lng, c._lat], creators: [] })
       map.get(key).creators.push(c)
     }
+    for (const t of map.values()) t.creators.sort(byPinPriority)
     return [...map.values()]
   }, [located])
 
@@ -783,6 +851,77 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
     </>
   )
 
+  // TAPPING NOWHERE CLOSES WHAT IS OPEN.
+  //
+  // Ethan's report: "tapping elsewhere, blank space on the map or outside the
+  // card, should close that popup so it's not stuck open". Both halves are here:
+  // the sea inside the map (a transparent rect painted UNDER the land, so the
+  // countries still get their own clicks) and anywhere outside the whole
+  // component (a pointerdown on the document). Escape too - a panel that can
+  // only be dismissed by finding its X is a panel people leave open.
+  const closePanels = useCallback(() => {
+    if (!selected && !country) return
+    setSelected(null)
+    setCountry(null)
+    writeUrl({ town: null, country: null })
+  }, [selected, country, writeUrl])
+
+  useEffect(() => {
+    if (!selected && !country) return undefined
+    const onDown = (e) => { if (!rootRef.current?.contains(e.target)) closePanels() }
+    const onKey = (e) => { if (e.key === 'Escape') closePanels() }
+    document.addEventListener('pointerdown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [selected, country, closePanels])
+
+  // Entering and leaving full screen. The real Fullscreen API is used where it
+  // exists (it is what makes the orientation lock possible and what takes the
+  // browser chrome away); where it does not, the fixed overlay alone is still a
+  // full-window map, which is the point.
+  const enterFullscreen = useCallback(async () => {
+    setFullscreen(true)
+    const el = fsRef.current
+    try {
+      if (el?.requestFullscreen) await el.requestFullscreen({ navigationUI: 'hide' })
+      else if (el?.webkitRequestFullscreen) el.webkitRequestFullscreen()
+    } catch { /* denied or unsupported: the overlay still fills the window */ }
+    try { await window.screen?.orientation?.lock?.('landscape') } catch { /* iOS, and most desktops */ }
+  }, [])
+
+  const exitFullscreen = useCallback(() => {
+    setFullscreen(false)
+    try { window.screen?.orientation?.unlock?.() } catch { /* see above */ }
+    try { if (document.fullscreenElement) document.exitFullscreen() } catch { /* already out */ }
+  }, [])
+
+  // Leaving by the browser's own route (Escape, the system gesture, the back
+  // swipe) has to put the component back too, or the overlay stays up with no
+  // browser chrome around it and no way out.
+  useEffect(() => {
+    if (!fullscreen) return undefined
+    const onChange = () => { if (!document.fullscreenElement) setFullscreen(false) }
+    const onKey = (e) => { if (e.key === 'Escape') exitFullscreen() }
+    document.addEventListener('fullscreenchange', onChange)
+    document.addEventListener('keydown', onKey)
+    // The page behind must not scroll while a full-window overlay is up.
+    document.documentElement.classList.add('overlay-lock')
+    return () => {
+      document.removeEventListener('fullscreenchange', onChange)
+      document.removeEventListener('keydown', onKey)
+      document.documentElement.classList.remove('overlay-lock')
+    }
+  }, [fullscreen, exitFullscreen])
+
+  // In full screen the panels and filters go OVER the map at every width,
+  // because there is no "under the map" any more - the map is the whole screen.
+  // Outside it the phone keeps them below, for the reasons in the notes further
+  // down.
+  const overlayCls = fullscreen ? 'flex' : 'hidden sm:flex'
+
   const townPanel = selected ? (
     <TownPanel
       className="max-w-sm"
@@ -804,7 +943,13 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   ) : null
 
   const mapBox = (
-    <div className="relative w-full overflow-hidden rounded-card border border-gray-100 bg-cloud/60">
+    <div
+      className={
+        fullscreen
+          ? 'relative flex h-full w-full flex-1 items-center justify-center overflow-hidden bg-cloud/60'
+          : 'relative w-full overflow-hidden rounded-card border border-gray-100 bg-cloud/60'
+      }
+    >
       {tooltip && (
         <div className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-full bg-ink px-3 py-1 text-xs font-medium text-white">
           {tooltip}
@@ -820,13 +965,37 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-smoke shadow-card transition-transform hover:scale-105 active:scale-95">
           <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.7 3M3 4v4h4"/></svg>
         </button>
+        {/* Under the zoom stack, because it belongs to the same "how am I
+            looking at this" group. Not offered on the embedded market maps
+            (`controls={false}`), which are a fixed illustration of one place. */}
+        {controls && (
+          <button
+            type="button"
+            onClick={fullscreen ? exitFullscreen : enterFullscreen}
+            aria-label={fullscreen ? 'Exit full screen' : 'Open the map full screen'}
+            title={fullscreen ? 'Exit full screen' : 'Full screen'}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-smoke shadow-card transition-transform hover:scale-105 active:scale-95"
+          >
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              {fullscreen
+                ? <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />
+                : <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />}
+            </svg>
+          </button>
+        )}
       </div>
 
       <ComposableMap
         width={WIDTH}
         height={HEIGHT}
         projectionConfig={{ scale: 160, center: [12, 8] }}
-        style={{ width: '100%', height: 'auto', display: 'block' }}
+        // In full screen the svg takes the window rather than the card's
+        // aspect ratio. `xMidYMid meet` (the default) letterboxes it inside
+        // whatever shape the screen is, which on a landscape phone is very
+        // nearly the map's own shape and on a desktop is a much bigger map.
+        style={fullscreen
+          ? { width: '100%', height: '100%', display: 'block' }
+          : { width: '100%', height: 'auto', display: 'block' }}
         aria-label="Map of where every creator is based"
       >
         <defs>
@@ -835,6 +1004,12 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
             <circle cx="0.5" cy="0.5" r="0.5" />
           </clipPath>
         </defs>
+        {/* THE SEA IS A DISMISS TARGET. Painted first, so every country, pin
+            and plane drawn after it sits on top and keeps its own click; what
+            is left is the water, and tapping the water closes the card. It has
+            to be inside the svg rather than behind it, because the svg's own
+            background does not receive pointer events where nothing is drawn. */}
+        <rect x={0} y={0} width={WIDTH} height={HEIGHT} fill="transparent" onClick={closePanels} />
         <ZoomableGroup
           zoom={position.zoom}
           center={position.coordinates}
@@ -1025,7 +1200,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           scroll box. Phones get the panel UNDER the map instead - see the end
           of the component. */}
       {country && (
-        <div className="pointer-events-none absolute inset-3 z-20 hidden flex-col items-start justify-end sm:flex">
+        <div className={`pointer-events-none absolute inset-3 z-20 flex-col items-start justify-end ${overlayCls}`}>
           {countryPanel}
         </div>
       )}
@@ -1036,7 +1211,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           corner is how a map stops being readable. Desktop only; phones get it
           under the map, at the end of the component. */}
       {selectedTown && (
-        <div className="pointer-events-none absolute inset-3 z-20 hidden flex-col items-start justify-end sm:flex">
+        <div className={`pointer-events-none absolute inset-3 z-20 flex-col items-start justify-end ${overlayCls}`}>
           {townPanel}
         </div>
       )}
@@ -1106,7 +1281,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
 
       {/* Filter toggles overlay the map on desktop only - on phones they'd cover
           most of it, so there they render in a row UNDER the map instead. */}
-      <div className={`absolute bottom-3 left-3 z-10 hidden flex-col items-start gap-2 sm:flex ${travelOnlyView ? '!hidden' : ''}`}>
+      <div className={`absolute bottom-3 left-3 z-10 flex-col items-start gap-2 ${overlayCls} ${travelOnlyView ? '!hidden' : ''}`}>
         {filterButtons}
       </div>
 
@@ -1118,8 +1293,49 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
     </div>
   )
 
+  // FULL SCREEN IS A PAGE, NOT A BIGGER CARD.
+  //
+  // Portalled to the body for the same reason ui/Modal is: `position: fixed`
+  // resolves against the nearest TRANSFORMED ancestor, and this component is
+  // rendered inside pages that carry transforms (the hub's reveal animation,
+  // the mobile chat overlay's translateY). A fixed inset-0 inside one of those
+  // is not the screen, it is that box.
+  if (fullscreen) {
+    return createPortal(
+      <div
+        ref={fsRef}
+        className="fixed inset-0 z-[70] flex flex-col bg-white"
+        style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
+        <div ref={rootRef} className="relative flex min-h-0 flex-1 flex-col">
+          {/* The way out, top-left, away from the zoom stack. A full-screen view
+              whose only exit is a browser gesture is a trap on a phone. */}
+          <button
+            type="button"
+            onClick={exitFullscreen}
+            className="absolute left-3 top-3 z-30 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3.5 py-2 text-xs font-semibold text-ink shadow-card ring-1 ring-black/5 backdrop-blur transition-transform hover:scale-105 active:scale-95"
+          >
+            <Icon name="chevronLeft" className="h-3.5 w-3.5" />
+            Exit full screen
+          </button>
+
+          {/* TURN THE PHONE. Shown only in portrait, and only on a screen small
+              enough for it to matter. Where the orientation lock worked this is
+              never seen; where it did not (every iPhone) it is the whole
+              instruction, and it goes away by itself the moment it is followed. */}
+          <p className="pointer-events-none absolute inset-x-0 top-16 z-30 mx-auto w-max rounded-full bg-ink/85 px-4 py-2 text-xs font-medium text-white landscape:hidden sm:hidden">
+            Turn your phone sideways for the full map
+          </p>
+
+          {mapBox}
+        </div>
+      </div>,
+      document.body,
+    )
+  }
+
   return (
-    <div className="w-full">
+    <div ref={rootRef} className="w-full">
       {mapBox}
       {/* PHONES GET THE COUNTRY UNDER THE MAP, NOT OVER IT.
           The map box is about 180px tall at 375px wide. An overlay inside it is

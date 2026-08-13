@@ -112,6 +112,23 @@
      admin never sees # ** * markers - headings look like headings, etc. */
   .rt-editor { @apply relative text-ink; }
   .rt-editor:focus { @apply outline-none; }
+  /* A COMPOSER THAT HAS GROWN PAST ITS CAP HAS TO SCROLL BY ITSELF.
+     Ethan: "if I type in multiple lines I'm unable to scroll on this box, if I
+     try to scroll it just immediately closes". Every chat on a phone is a fixed
+     overlay inside `html.overlay-lock` (overflow hidden, height 100%), and a
+     drag inside a scrollable child CHAINS to that document the moment the child
+     reaches an edge - which scrolls the page behind the overlay, moves
+     visualViewport.offsetTop under the overlay's translateY, and on iOS
+     dismisses the keyboard. So the box appears to shut the instant you touch it
+     and the lines above the caret are unreachable.
+     `overscroll-behavior: contain` stops the chain at this element; `pan-y`
+     tells the browser the vertical drag is this box's scroll and not a page
+     gesture, so it never has to guess. */
+  .rt-editor.rt-scroll {
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
   /* Absolutely positioned so the placeholder never occupies its own line box -
      otherwise the (block) first line was pushed down and the caret started on
      the second line. */

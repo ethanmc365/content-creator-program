@@ -10,12 +10,15 @@ import NetworkMotion from '../components/NetworkMotion'
 import TrypPlane from '../components/network/TrypPlane'
 import LiveChallengeCard from '../components/network/LiveChallengeCard'
 import { CountUp } from '../components/network/Motion'
-import ProfileProgress from '../components/network/ProfileProgress'
+import ProfileProgress, { profileNeedsWork } from '../components/network/ProfileProgress'
 import Reorderable from '../components/network/Reorderable'
 import FlagStack from '../components/network/FlagStack'
 import CreatorMap from '../components/CreatorMap'
 import WhenVisible from '../components/WhenVisible'
 import CreatorSpotlight from '../components/CreatorSpotlight'
+import WhoToMeet from '../components/WhoToMeet'
+import DailyPuzzleCallout from '../components/games/DailyPuzzleCallout'
+import BoardCard from '../components/network/BoardCard'
 import Icon from '../components/Icon'
 import { Avatar, EmptyState, Skeleton } from '../components/ui'
 import { flagForCountry } from '../lib/flags'
@@ -274,7 +277,10 @@ export default function GlobalHome() {
         supabase.from('profiles')
           // countries_visited is what lets a tap on a country answer "who here
           // has been", so it travels with the map's own roster.
-          .select('id, name, photo_url, city, country, country_code, city_lat, city_lng, show_on_map, countries_visited')
+          // last_seen_at and bio are what let a city's pin show the creator most
+          // worth seeing rather than whichever row came back first (see
+          // `byPinPriority` in CreatorMap).
+          .select('id, name, photo_url, bio, city, country, country_code, city_lat, city_lng, show_on_map, countries_visited, last_seen_at')
           .eq('status', 'active').eq('is_test', false).is('deletion_requested_at', null),
         supabase.from('collab_posts').select('creator_id, city, country, start_date, end_date')
           .gte('end_date', today).order('start_date'),
@@ -357,25 +363,34 @@ export default function GlobalHome() {
     ...myMarkets.map((m) => (d?.live?.[m.id] ? { market: m, challenge: d.live[m.id] } : null)).filter(Boolean),
   ]
 
-  // THE ARRIVAL LADDER, COUNTED OVER THE SECTIONS THAT ARE ACTUALLY THERE.
+  // THE ARRIVAL LADDER, COUNTED WHERE IT IS SPENT.
   //
-  // THE BUG THIS FIXES. Every section carried a hard-coded `delay`, assigned in
-  // source order: 0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30. But two of those
-  // sections are `lg:hidden` - the mobile live card and the mobile quick-action
-  // grid - so on a desktop the sequence that actually ran was 0, then nothing
-  // at 0.05, nothing at 0.10, and the next VISIBLE card at 0.15. The gaps were
-  // real time with nothing happening in them, which is why the ladder read as
-  // uneven and why the announcement, at the end of it, felt "really delayed".
+  // TWO GENERATIONS OF THIS WERE WRONG, IN THE SAME WAY TWICE.
   //
-  // So the ladder is counted over the sections this breakpoint renders. One
-  // step, 50ms, every time, whichever device you are on.
-  const sectionOrder = isMobile
-    ? ['greeting', 'live', 'quick', 'progress', 'markets', 'announcement', 'trips']
-    : ['greeting', 'progress', 'markets', 'announcement', 'trips']
-  const stepDelay = (key) => {
-    const i = sectionOrder.indexOf(key)
-    return i < 0 ? 0 : i * 0.05
-  }
+  // First it was hard-coded numbers in source order, which broke because two
+  // sections are `lg:hidden` and a desktop therefore ran 0, gap, gap, 0.15 -
+  // real time with nothing happening in it.
+  //
+  // Then it was a NAMED ladder, and the names drifted from the sections within
+  // days: the "markets" step was on the welcome card, the "announcement" step
+  // was on the global challenge, and the actual Latest-announcement section had
+  // no delay at all - which is precisely why it arrived before the two cards
+  // above it, Ethan's third report. Both bugs are the same bug: a
+  // hand-maintained mapping between a list of names and a tree of JSX, with
+  // nothing checking that the two agree.
+  //
+  // So the ladder does not have names. `stepDelay()` is a counter read in JSX
+  // order, and JSX evaluates its children top to bottom - so the nth section
+  // that ACTUALLY RENDERS gets the nth step, on any device, whatever is
+  // conditional. `cond && <Reveal delay={stepDelay()}>` short-circuits, so a
+  // section that is not there does not consume a step. Reset every render, so
+  // it is a pure function of this pass.
+  //
+  // Capped: past a handful of steps a head start stops being a head start and
+  // becomes a wait, and everything below the fold is separated in time by the
+  // act of scrolling to it anyway.
+  let step = 0
+  const stepDelay = () => Math.min(step++, 5) * 0.05
 
   const rail = (
     <>
@@ -496,7 +511,12 @@ export default function GlobalHome() {
 
   return (
     <NetworkMotion>
-      <NetworkLayout rail={rail}>
+      {/* `ready` gates the RAIL on the same data the article waits for, so the
+          two columns run their entrance on the same frame. Without it the rail
+          animated on the first paint and the left-hand column only once the
+          query landed - the reported "the bigger cards on the left are
+          delayed". */}
+      <NetworkLayout rail={rail} ready={!!d}>
         {/* EVERY SECTION WATCHES ITSELF INTO VIEW.
             This was ONE <Reveal> wrapped round the whole article, and that is
             why the page "just appeared": a single IntersectionObserver on a
@@ -529,7 +549,7 @@ export default function GlobalHome() {
               happening across the network right now" already wraps to two lines
               under a 3xl name, and the pair was eating 140px of an 812px screen
               before a single piece of content. */}
-          <Reveal from="down" className="-mb-3">
+          <Reveal from="down" delay={stepDelay()} className="-mb-3">
             <section>
               <h1 className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">
                 Hey {profile?.name?.split(' ')[0]}
@@ -565,8 +585,12 @@ export default function GlobalHome() {
               the one thing on the whole hub a creator can act on today - the
               brief that is running and closing - was six screens below the fold
               and under a map. It leads on mobile instead. */}
-          {myLive.length > 0 && (
-            <Reveal from="down" delay={stepDelay('live')} className="lg:hidden">
+          {/* `isMobile` and not `lg:hidden`: a section hidden by CSS still
+              renders, and a section that renders still takes its step off the
+              ladder - which is how the desktop sequence grew the gaps it had
+              before. Ask the breakpoint, do not paint over it. */}
+          {isMobile && myLive.length > 0 && (
+            <Reveal from="down" delay={stepDelay()}>
               <section>
                 <div className="space-y-2">
                   {myLive.map(({ market, challenge, global: isGlobal }) => (
@@ -598,7 +622,11 @@ export default function GlobalHome() {
               only. The same ten links now live behind your own avatar, one
               thumb-reach from EVERY page. See AppLayout. */}
 
-          <Reveal from="down" delay={stepDelay('progress')}><ProfileProgress /></Reveal>
+          {/* Asked here rather than left to the card, so a complete profile does
+              not leave a silent step in the ladder above. */}
+          {profileNeedsWork(profile) && (
+            <Reveal from="down" delay={stepDelay()}><ProfileProgress /></Reveal>
+          )}
 
           {/* ---------- Welcome ---------- */}
           {/* No `initial/animate` of its own any more. It had a mount tween
@@ -606,7 +634,7 @@ export default function GlobalHome() {
               that is always above the fold was also the one card that animated
               on a different clock. The Reveal owns it now, like every other
               section. */}
-          <Reveal from="down" delay={stepDelay('markets')}>
+          <Reveal from="down" delay={stepDelay()}>
           <section
             className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-6 text-white shadow-lift sm:p-10"
           >
@@ -659,7 +687,7 @@ export default function GlobalHome() {
               on this page that everybody reading it can act on right now, and
               burying it under a list of places would be exactly backwards. */}
           {globalLive && (
-            <Reveal from="down" delay={stepDelay('announcement')}>
+            <Reveal from="down" delay={stepDelay()}>
               <section>
                 <SectionHead icon="globe" title="Open to everyone"
                   hint="A global brief. Enter from any market, anywhere in the world." />
@@ -675,7 +703,7 @@ export default function GlobalHome() {
           )}
 
           {/* ---------- Markets ---------- */}
-          <Reveal from="down" delay={stepDelay('trips')}>
+          <Reveal from="down" delay={stepDelay()}>
             <section>
               <SectionHead
                 icon="flag"
@@ -704,7 +732,7 @@ export default function GlobalHome() {
               level. A creator who moves from Spain to the UK keeps their
               standing here. */}
           {d?.network?.length > 0 && (
-            <Reveal from="down">
+            <Reveal from="down" delay={stepDelay()}>
               <section>
                 <SectionHead icon="trophy" title="Across the network"
                   hint="Points earned in any market, added up. Your standing follows you if you move." />
@@ -733,7 +761,7 @@ export default function GlobalHome() {
 
           {/* ---------- Latest announcement ---------- */}
           {d?.ann && (
-            <Reveal from="down">
+            <Reveal from="down" delay={stepDelay()}>
               <section>
                 <SectionHead icon="megaphone" title="Latest announcement" to="/global/chat/announcements" toLabel="All announcements" />
                 <Link to="/global/chat/announcements"
@@ -751,6 +779,15 @@ export default function GlobalHome() {
             </Reveal>
           )}
 
+          {/* ---------- Today's puzzle ----------
+              Between the announcement and the map, exactly where Ethan asked
+              for it: after the thing the team wants you to read, before the
+              thing you came to browse. One line, and it is the only habit loop
+              on the whole hub. */}
+          <Reveal from="down" delay={stepDelay()}>
+            <DailyPuzzleCallout />
+          </Reveal>
+
           {/* ---------- The map ----------
               THE PEOPLE MAP, NOT THE COUNTRY MAP.
               This slot used to hold "Where we have been, together": every
@@ -763,7 +800,7 @@ export default function GlobalHome() {
               The countries-visited map moved to the creator directory, where a
               page already about the community is the right place for a picture
               of where that community has been. */}
-          <Reveal from="down">
+          <Reveal from="down" delay={stepDelay()}>
             <section>
               <SectionHead icon="globe" title="Everyone, right now"
                 hint="Tap a pin for who is there, or tap a country to find who has been."
@@ -784,7 +821,7 @@ export default function GlobalHome() {
 
           {/* ---------- Creators on the move ---------- */}
           {d?.trips?.length > 0 && (
-            <Reveal from="down">
+            <Reveal from="down" delay={stepDelay()}>
               <section>
                 <SectionHead icon="pin" title="Creators on the move" to="/collab" toLabel="Collab board" />
                 <Reveal className="trim-4 grid grid-cols-1 gap-3 sm:grid-cols-2" stagger={0.07}>
@@ -807,12 +844,26 @@ export default function GlobalHome() {
             </Reveal>
           )}
 
+          {/* ---------- Community board ----------
+              Directly under "Creators on the move", which is the last place on
+              the hub where the reader is still thinking about other people -
+              and the board is entirely a thing other people do for you. */}
+          <Reveal from="down" delay={stepDelay()}>
+            <BoardCard />
+          </Reveal>
+
+          {/* ---------- Who to meet this week ----------
+              Above the spotlight: one is three people picked for you, the other
+              is one person the whole community sees today, and the personal one
+              has to lead. */}
+          <Reveal from="down" delay={stepDelay()}><WhoToMeet /></Reveal>
+
           {/* ---------- Spotlight ---------- */}
-          <Reveal from="down"><CreatorSpotlight /></Reveal>
+          <Reveal from="down" delay={stepDelay()}><CreatorSpotlight /></Reveal>
 
           {/* ---------- New creators ---------- */}
           {d?.fresh?.length > 0 && (
-            <Reveal from="down">
+            <Reveal from="down" delay={stepDelay()}>
               <section>
                 <SectionHead icon="users" title="New in the community" to="/creators" toLabel="All creators" />
                 <Reveal className="trim-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3" stagger={0.07}>

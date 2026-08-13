@@ -38,7 +38,23 @@ import Reveal from './Reveal'
 // Capping it at the viewport and letting it scroll makes the wheel land where
 // the pointer is. `overscroll-contain` stops the page from taking over the
 // moment the rail hits its end, which is the other half of the same complaint.
-export default function NetworkLayout({ children, switcher = true, rail = null, width = 'default' }) {
+// `ready` IS WHAT MAKES THE TWO COLUMNS ARRIVE TOGETHER.
+//
+// THE BUG THIS FIXES. Everything in the article is behind `if (!data)`, because
+// a page that draws sections and then inserts four more into the middle of them
+// is a page that jumps. The rail was not - it rendered immediately with a
+// skeleton inside its top card - so the right-hand column ran its whole entrance
+// on the first frame, the data landed a few hundred milliseconds later, and only
+// then did the left column begin to move. That is exactly Ethan's report: "the
+// bigger cards on the left side are delayed, the cards on the right and the left
+// should appear in smoothly at the same time." It was never the delay ladder;
+// the two columns were waiting for different things.
+//
+// So the rail waits for the same thing the article waits for. Until then the
+// aside holds a plain skeleton with NO Reveal on it - mounting the Reveal early
+// and swapping its children later would burn the entrance on the skeleton and
+// the real cards would simply appear.
+export default function NetworkLayout({ children, switcher = true, rail = null, width = 'default', ready = true }) {
   const max = width === 'narrow' ? 'max-w-4xl' : width === 'full' ? 'max-w-[1600px]' : 'max-w-7xl'
   return (
     <div className={cx('mx-auto w-full px-4 py-6 sm:px-6 lg:px-8 lg:py-8', max)}>
@@ -72,7 +88,18 @@ export default function NetworkLayout({ children, switcher = true, rail = null, 
                 Zero delay here and zero on the first section there means the top
                 of both columns arrives on the same frame, and only the sections
                 BELOW the fold ladder down. */}
-            <Reveal className="space-y-4" from="right" stagger={0.06}>{rail}</Reveal>
+            {ready ? (
+              <Reveal className="space-y-4" from="right" stagger={0.06}>{rail}</Reveal>
+            ) : (
+              // Three cards' worth of height, so the column does not resize when
+              // the real rail replaces it. `aria-hidden` because a skeleton is
+              // furniture, not content.
+              <div className="space-y-4" aria-hidden>
+                <div className="h-40 rounded-card bg-cloud" />
+                <div className="h-48 rounded-card bg-cloud" />
+                <div className="h-32 rounded-card bg-cloud" />
+              </div>
+            )}
           </aside>
         </div>
       ) : (

@@ -9,8 +9,8 @@ import Icon from '../Icon'
 import NotificationBell from './NotificationBell'
 import PullToRefresh from '../PullToRefresh'
 import { EventRatingPrompt } from '../EventFeedback'
-import IntroGate from '../network/IntroPrompt'
 import { showLocalNotification } from '../../lib/push'
+import { startHeartbeat } from '../../lib/presence'
 import { stripMarkup } from '../../lib/richText'
 import { cx } from '../../lib/utils'
 import { useVisualViewport } from '../../lib/useKeyboardInset'
@@ -107,20 +107,17 @@ export default function AppLayout() {
   // viewport resize until a scroll).
   const keyboardOpen = useVisualViewport().keyboardOpen
 
-  // Presence heartbeat: while the app is open, ping the server every minute (and
-  // whenever the tab becomes visible) so admins can see who's online / when a
-  // creator was last active. Cheap: one tiny RPC that stamps our own row.
+  // Presence heartbeat: while the app is open, stamp our own row so admins can
+  // see who is online and when a creator was last active.
+  // The beat itself lives in lib/presence now (`startHeartbeat`), because it
+  // grew three things this effect had no business owning: a throttle, an
+  // interaction fallback for when the browser stops honouring the timer, and a
+  // `keepalive` beat on the way out so "last active" is accurate to the moment
+  // somebody closed the tab rather than up to a minute before it. The notes on
+  // each are in that file.
   useEffect(() => {
-    if (!user) return
-    let stopped = false
-    // NOTE: supabase query builders are lazy - the request only fires when the
-    // promise is consumed, so the .then() is load-bearing (without it the
-    // heartbeat silently never sent, and "last active" stayed stale forever).
-    const beat = () => { if (!stopped && document.visibilityState === 'visible') supabase.rpc('touch_last_seen').then(() => {}) }
-    beat()
-    const iv = setInterval(beat, 60000)
-    document.addEventListener('visibilitychange', beat)
-    return () => { stopped = true; clearInterval(iv); document.removeEventListener('visibilitychange', beat) }
+    if (!user) return undefined
+    return startHeartbeat(supabase)
   }, [user])
 
   // Community dark mode. Applied only while this shell (a logged-in page) is
@@ -490,11 +487,11 @@ export default function AppLayout() {
       {/* One-off "rate the event" popup after an attended event finishes */}
       <EventRatingPrompt />
 
-      {/* "Introduce yourself", for anybody who has not. Lives at the shell
-          rather than inside the introductions room, because the creator it is
-          for has not found that room yet. Takes an X, and stays gone for the
-          rest of the visit if you use it. */}
-      <IntroGate />
+      {/* "Introduce yourself" used to live here, as an app-wide popup on any
+          chat path - which is why it opened every time you touched /rooms. It
+          belongs to the room its answer gets posted in, so it is rendered by
+          NetworkChat now (`IntroInvite`) and only over the worldwide
+          introductions room. */}
 
       {networkPreview && paletteOpen && (
         <Suspense fallback={null}>

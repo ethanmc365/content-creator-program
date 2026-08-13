@@ -8,8 +8,9 @@ import { useAuth } from '../context/AuthContext'
 import { Avatar, Badge, PageHeader, Confetti } from '../components/ui'
 import StreakCard from '../components/games/StreakCard'
 import LanguageGame from '../components/games/LanguageGame'
-import { LANGUAGE_REGIONS } from '../lib/languages'
 import Reveal from '../components/network/Reveal'
+import GameChrome, { AnswerFlash, useAnswerSound } from '../components/games/GameChrome'
+import { playCorrect, playWrong, playCelebrate, playCommiserate } from '../lib/gameSounds'
 import Icon from '../components/Icon'
 import {
   CONTINENTS, countriesForRegion, airportsForRegion, flagEmoji,
@@ -28,20 +29,34 @@ const RED = '#dc2626'
 const UNSELECTED = '#ECECEE'
 const QUESTIONS = 10
 const REGIONS = ['World', ...CONTINENTS]
+// THE COPY IS THE GAME'S FIRST MOVE.
+//
+// Every one of these used to describe its own mechanics - "See a flag, type the
+// country" - which tells you what will happen and gives you no reason to want
+// it. A one-line description on a card you are choosing between should say what
+// is fun or hard about this one, because that is the question you are actually
+// asking. Ten flags is not a challenge; ten flags nobody can tell apart is.
+//
+// `regions: false` means the mode is the whole world and has no continent
+// split. Guess the language is the first of those: the phrase bank is 34
+// languages and the point of it is hearing something you have never seen, which
+// a continent filter takes away. Ethan's call, and it also removes a filter that
+// only ever had three of the six continents behind it.
 const MODES = [
-  { key: 'flags', icon: 'flag', title: 'Guess the flag', text: 'See a flag, type the country.' },
-  { key: 'map', icon: 'pin', title: 'Find on the map', text: 'See a country, click it on the map.' },
-  { key: 'airports', icon: 'plane', title: 'Airport codes', text: 'See an IATA code, name the city.' },
-  { key: 'currencies', icon: 'cash', title: 'Currencies', text: 'See a country, pick the currency it uses.' },
-  { key: 'languages', icon: 'chat', title: 'Say hello', text: 'Read a phrase, guess the language. Learn what it means.' },
+  { key: 'flags', icon: 'flag', title: 'Guess the flag', text: 'Some you will know instantly. Some are three stripes and a prayer.', regions: true },
+  { key: 'map', icon: 'pin', title: 'Find it on the map', text: 'You know where it is. Now put your finger on it.', regions: true },
+  { key: 'airports', icon: 'plane', title: 'Airport codes', text: 'Three letters on a boarding pass. Which city?', regions: true },
+  { key: 'currencies', icon: 'cash', title: 'What do they spend?', text: 'Match the country to the money in its tills.', regions: true },
+  { key: 'languages', icon: 'chat', title: 'Guess the language', text: 'A phrase in its own script, from anywhere on earth. Name the language.', regions: false },
 ]
-const MODE_LABEL = { flags: 'Flags', map: 'Find on map', airports: 'Airports', currencies: 'Currencies', languages: 'Say hello', pinpoint: 'Guess the Country', zip: 'Flight Path' }
+const MODE_LABEL = { flags: 'Guess the flag', map: 'Find it on the map', airports: 'Airport codes', currencies: 'What do they spend?', languages: 'Guess the language', pinpoint: 'Guess the Country', zip: 'Flight Path' }
+const MODE_BY_KEY = Object.fromEntries(MODES.map((m) => [m.key, m]))
 
 // The two daily puzzles that sit above "choose a mode". Same puzzle for
 // everyone each day, refreshing at midnight UK time.
 const DAILIES = [
-  { key: 'pinpoint', icon: 'magnifier', title: 'Guess the Country', text: 'Five clue words, guess the country. Fewer clues, more points.', store: 'tryp_pinpoint' },
-  { key: 'zip', icon: 'plane-tryp', title: 'Flight Path', text: 'Drag your plane through every stop in order, filling the whole sky.', store: 'tryp_zip' },
+  { key: 'pinpoint', icon: 'magnifier', title: 'Guess the Country', text: 'Five clues, one country. Ask for fewer and score more.', store: 'tryp_pinpoint' },
+  { key: 'zip', icon: 'plane-tryp', title: 'Flight Path', text: 'Fly through every stop in order and fill the whole sky.', store: 'tryp_zip' },
 ]
 
 const fmtTime = (ms) => {
@@ -74,6 +89,9 @@ export default function Game() {
 
   const [event, setEvent] = useState(null)
   const [screen, setScreen] = useState('menu')
+  // The viewer's own daily-puzzle history, for the streak card's week strip and
+  // the streak badge on the daily cards. One query, read by both.
+  const [myDays, setMyDays] = useState([])
   const [mode, setMode] = useState('flags')
   const [region, setRegion] = useState('World')
   const [questions, setQuestions] = useState([])
@@ -85,6 +103,16 @@ export default function Game() {
       if (data) { setEvent(data); setMode(data.mode); setRegion(data.region) }
     })
   }, [eventId])
+
+  // Which UK days this creator has played a daily puzzle on. `day_key` is only
+  // set by the two daily modes, so this is exactly the streak's own history.
+  useEffect(() => {
+    if (!user?.id) return
+    let alive = true
+    supabase.from('game_scores').select('day_key').eq('player_id', user.id).not('day_key', 'is', null)
+      .then(({ data }) => { if (alive) setMyDays([...new Set((data || []).map((r) => r.day_key))]) })
+    return () => { alive = false }
+  }, [user?.id])
 
   // Deep link straight into a daily puzzle (/game?daily=zip) from the Home teaser.
   useEffect(() => {
@@ -117,22 +145,34 @@ export default function Game() {
   return (
     <div className="page">
       <PageHeader
-        title={<span className="flex items-center gap-2"><Icon name="joystick" className="h-7 w-7 text-brand" /> Travel Games</span>}
-        subtitle={event ? `Event: ${event.title}` : 'Daily puzzles, plus flags, find-on-the-map, airport codes, currencies and languages, by continent or the whole world.'}
+        title={<span className="flex items-center gap-2"><Icon name="joystick" className="h-7 w-7 text-brand" /> Games</span>}
+        subtitle={event ? `Event: ${event.title}` : 'Two puzzles a day for everyone, and five more you can play as often as you like.'}
       />
 
-      {/* Above the menu, because it is the reason to come back. */}
-      {!event && <StreakCard className="mb-8" />}
+      {/* THE STREAK LEADS. It is the reason somebody opens this page on a day
+          they were not planning to, so it sits above the games rather than
+          beside them. */}
+      {!event && screen === 'menu' && (
+        <StreakCard className="mb-8" days={myDays} today={ukDayIndex()} />
+      )}
 
       {/* The menu drives the shared mode/region state, so the all-time
           leaderboard below always reflects the mode you currently have selected. */}
-      {screen === 'menu' && <Menu mode={mode} setMode={setMode} region={region} setRegion={setRegion} onStart={() => start(mode, region)} onDaily={setScreen} eventTitle={event?.title} />}
+      {screen === 'menu' && (
+        <Menu
+          mode={mode} setMode={setMode} region={region} setRegion={setRegion}
+          onStart={() => start(mode, region)} onDaily={setScreen} eventTitle={event?.title}
+          streak={dailyStreak(myDays)}
+        />
+      )}
       {screen === 'play' && mode === 'languages' && (
         <div className="space-y-5">
-          <button onClick={() => setScreen('menu')} className="text-sm font-medium text-smoke transition-colors hover:text-brand">← Back to games</button>
+          {/* No region prop any more: Guess the language is the whole world.
+              A continent filter on a bank of 34 languages removes the whole
+              point of it, which is hearing something you have never seen. */}
           <LanguageGame
-            region={region}
             onFinish={(r) => { setSavedScore({ ...r, timeMs: 0 }); setScreen('results') }}
+            onQuit={() => setScreen('menu')}
           />
         </div>
       )}
@@ -165,101 +205,177 @@ export default function Game() {
 }
 
 // ---------------------------------------------------------------- Menu
-function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle }) {
-  // Say hello only has phrase banks for three regions; offering South America
-  // and then running a World round would be a lie about what you picked.
-  const regions = mode === 'languages' ? LANGUAGE_REGIONS : REGIONS
+//
+// THE HUB, REBUILT.
+//
+// The old one was three headings and a stack of near-identical white cards -
+// two daily puzzles, five modes, seven region pills and a Start button - all the
+// same weight, so nothing on the page said what to do first. Ethan: "it doesn't
+// look good and doesn't look fun".
+//
+// The order is now the order of the decision. Your streak is what brings you
+// back, so it leads. TODAY is the thing that expires, so the two daily puzzles
+// come next and are big, coloured and obviously today's - with a tick when you
+// have played and a nudge when you have not. Everything else is "and if you want
+// more", so the five modes are a tighter grid underneath, and the region choice
+// belongs to the mode you picked rather than floating as its own section.
+//
+// The Start button moved to sit WITH the mode you selected. A primary action
+// two sections away from the choice it acts on is a button people press before
+// they have chosen.
+
+function DailyCard({ daily, done, onPlay, streak }) {
+  return (
+    <button
+      onClick={onPlay}
+      className="group relative overflow-hidden rounded-card border border-brand/25 bg-white p-5 text-left shadow-card transition-all duration-200 hover:-translate-y-1 hover:border-brand/50 hover:shadow-lift"
+    >
+      {/* A wash that leans in on hover. Colour is what stops these two reading
+          as the same white card as everything below them. */}
+      <span className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-brand-tint/70 blur-2xl transition-opacity duration-300 group-hover:opacity-80" />
+      <span className="relative flex items-start gap-4">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand text-white shadow-card transition-transform duration-200 group-hover:scale-110">
+          <Icon name={daily.icon} className="h-6 w-6" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold">{daily.title}</span>
+            <span className="rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">Today</span>
+            {streak > 0 && (
+              <span className="rounded-full bg-brand-tint px-2 py-0.5 text-[10px] font-bold text-brand">{streak} day streak</span>
+            )}
+          </span>
+          <span className="mt-1 block text-sm text-smoke">{daily.text}</span>
+          <span className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-brand">
+            {done ? 'See how you did' : 'Play today\u2019s puzzle'}
+            <Icon name="chevronRight" className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
+          </span>
+        </span>
+        {done && (
+          <span className="absolute right-0 top-0 flex h-7 w-7 items-center justify-center rounded-full bg-green-100 text-green-600" title="Played today">
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12l5 5L20 6"/></svg>
+          </span>
+        )}
+      </span>
+    </button>
+  )
+}
+
+function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle, streak }) {
+  const chosen = MODE_BY_KEY[mode]
   // Ticks on the daily cards when today's puzzle is already done.
   const [today] = useState(() => ukDayIndex())
   const playedToday = (storeKey) => {
     try { return JSON.parse(localStorage.getItem(storeKey) || 'null')?.day === today } catch { return false }
   }
+  const bothDone = DAILIES.every((d) => playedToday(d.store))
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       {eventTitle && (
         <div className="rounded-card bg-brand-tint/60 px-5 py-4 text-sm font-medium text-brand">
-          You're joining the "{eventTitle}" challenge. Beat the leaderboard!
+          You are joining the &ldquo;{eventTitle}&rdquo; challenge. Beat the leaderboard.
         </div>
       )}
 
       <section>
-        <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="text-lg font-semibold">Daily puzzles</h2>
-          <span className="text-xs text-smoke">New every day, same for everyone</span>
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-lg font-semibold">Today&rsquo;s puzzles</h2>
+          <span className="text-xs text-smoke">
+            {/* The line that says WHY to come back today rather than tomorrow. */}
+            {bothDone ? 'Both done. New ones at midnight.' : 'Everyone gets the same two, until midnight.'}
+          </span>
         </div>
-        <Reveal className="grid gap-4 sm:grid-cols-2" stagger={0.06}>
-          {DAILIES.map((d) => {
-            const done = playedToday(d.store)
+        <Reveal className="grid gap-4 sm:grid-cols-2" stagger={0.07}>
+          {DAILIES.map((d) => (
+            <DailyCard key={d.key} daily={d} done={playedToday(d.store)} streak={streak} onPlay={() => onDaily(d.key)} />
+          ))}
+        </Reveal>
+      </section>
+
+      <section>
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-lg font-semibold">Play as many as you like</h2>
+          <span className="text-xs text-smoke">Ten questions, any time</span>
+        </div>
+        <Reveal className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" stagger={0.05}>
+          {MODES.map((m) => {
+            const on = mode === m.key
             return (
               <button
-                key={d.key}
-                onClick={() => onDaily(d.key)}
-                className="card relative flex items-start gap-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-lift"
+                key={m.key}
+                onClick={() => {
+                  setMode(m.key)
+                  // A mode with no continent split must not carry a stale region
+                  // into a round that is going to ignore it.
+                  if (!m.regions) setRegion('World')
+                }}
+                aria-pressed={on}
+                className={cx(
+                  'group flex h-full items-start gap-3.5 rounded-card border bg-white p-4 text-left transition-all duration-200 hover:-translate-y-1 hover:shadow-lift',
+                  on ? 'border-brand ring-2 ring-brand/25' : 'border-gray-100 shadow-card hover:border-brand/40',
+                )}
               >
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand text-white">
-                  <Icon name={d.icon} className="h-6 w-6" />
+                <span className={cx(
+                  'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all duration-200 group-hover:scale-110',
+                  on ? 'bg-brand text-white' : 'bg-brand-tint text-brand',
+                )}>
+                  <Icon name={m.icon} className="h-5 w-5" />
                 </span>
                 <span className="min-w-0">
-                  <span className="flex items-center gap-2 font-semibold">
-                    {d.title}
-                    <Badge tone="brand" className="!px-2 !py-0.5 text-[10px]">Daily</Badge>
-                  </span>
-                  <span className="mt-1 block text-sm text-smoke">{d.text}</span>
+                  <span className="block font-semibold leading-snug">{m.title}</span>
+                  <span className="mt-1 block text-[13px] leading-snug text-smoke">{m.text}</span>
                 </span>
-                {done && (
-                  <span className="absolute right-4 top-4 flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-600" title="Played today">
-                    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12l5 5L20 6"/></svg>
-                  </span>
-                )}
               </button>
             )
           })}
         </Reveal>
       </section>
 
-      <section>
-        <h2 className="mb-3 text-lg font-semibold">Choose a mode</h2>
-        <Reveal className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" stagger={0.05}>
-          {MODES.map((m) => (
-            <button
-              key={m.key}
-              onClick={() => {
-                setMode(m.key)
-                // Switching to Say hello from, say, South America must not leave
-                // a region selected that this mode has no phrases for.
-                if (m.key === 'languages' && !LANGUAGE_REGIONS.includes(region)) setRegion('World')
-              }}
-              className={cx('card flex items-start gap-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-lift', mode === m.key && 'ring-2 ring-brand')}
-            >
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand">
-                <Icon name={m.icon} className="h-6 w-6" />
-              </span>
-              <span>
-                <span className="block font-semibold">{m.title}</span>
-                <span className="mt-1 block text-sm text-smoke">{m.text}</span>
-              </span>
-            </button>
-          ))}
-        </Reveal>
-      </section>
-
-      <section>
-        <h2 className="mb-3 text-lg font-semibold">Choose a region</h2>
-        <div className="flex flex-wrap gap-2">
-          {regions.map((r) => (
-            <button
-              key={r}
-              onClick={() => setRegion(r)}
-              className={cx('flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-colors',
-                region === r ? 'bg-brand text-white' : 'border border-gray-200 text-smoke hover:border-brand hover:text-brand')}
-            >
-              {r === 'World' && <Icon name="globe" className="h-4 w-4" />}{r}
-            </button>
-          ))}
+      {/* THE REGION BELONGS TO THE MODE, AND SO DOES THE START BUTTON.
+          Both used to be their own sections below a grid, which meant choosing
+          a mode and starting it were three scroll-lengths apart and the region
+          pills were offered for modes that have no regions. */}
+      <section className="rounded-card border border-gray-100 bg-cloud/50 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-smoke">Ready to play</p>
+            <p className="mt-0.5 flex items-center gap-2 text-lg font-semibold">
+              <Icon name={chosen.icon} className="h-5 w-5 shrink-0 text-brand" />
+              {chosen.title}
+            </p>
+          </div>
+          <button
+            onClick={() => onStart(mode, region)}
+            className="btn-primary !px-8 !py-3.5 !text-base transition-transform duration-200 hover:scale-105"
+          >
+            Start
+          </button>
         </div>
-      </section>
 
-      <button onClick={() => onStart(mode, region)} className="btn-primary !px-10 !py-4 !text-base">Start game →</button>
+        {chosen.regions && (
+          <div className="mt-4 border-t border-gray-200/70 pt-4">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-smoke">Where in the world</p>
+            <div className="flex flex-wrap gap-2">
+              {REGIONS.map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setRegion(r)}
+                  aria-pressed={region === r}
+                  className={cx(
+                    'flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-all duration-200',
+                    region === r
+                      ? 'bg-brand text-white'
+                      : 'border border-gray-200 bg-white text-smoke hover:-translate-y-0.5 hover:border-brand hover:text-brand',
+                  )}
+                >
+                  {r === 'World' && <Icon name="globe" className="h-4 w-4" />}{r}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   )
 }
@@ -343,54 +459,46 @@ function Round({ mode, region, questions, onQuit, onFinish }) {
     return () => window.removeEventListener('keydown', onKey)
   }) // re-bind every render so `next` has fresh state
 
+  // The sound and the colour, once per answer, for every mode below.
+  useAnswerSound(answered, playCorrect, playWrong)
+  const flash = answered ? (answered.right ? 'right' : 'wrong') : null
+
   return (
-    <div className="space-y-6">
-      {/* Header. On mobile each stat stacks its label above its value so
-          nothing is crammed onto one line; it wraps to a second row if needed. */}
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
-        <Badge tone="light"><Icon name={MODES.find((m) => m.key === mode).icon} className="h-3.5 w-3.5" /> {MODE_LABEL[mode]} · {region}</Badge>
-        <div className="flex items-center gap-5 sm:gap-7">
-          <div className="text-center leading-tight">
-            <span className="block text-[10px] font-medium uppercase tracking-wide text-smoke">Question</span>
-            <span className="block text-sm font-semibold tabular-nums text-ink">{i + 1} / {questions.length}</span>
-          </div>
-          <div className="text-center leading-tight">
-            <span className="block text-[10px] font-medium uppercase tracking-wide text-smoke">Time</span>
-            <span className="block font-mono text-sm font-semibold tabular-nums text-ink">{fmtTime(elapsed)}</span>
-          </div>
-          <div className="text-center leading-tight">
-            <span className="block text-[10px] font-medium uppercase tracking-wide text-smoke">Correct</span>
-            <span className="block text-sm font-semibold tabular-nums text-brand">{correct}</span>
-          </div>
-          <button onClick={onQuit} className="self-center text-xs font-medium text-smoke hover:text-brand">Quit</button>
-        </div>
-      </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-cloud">
-        <div className="h-full rounded-full bg-brand transition-all duration-300" style={{ width: `${(i / questions.length) * 100}%` }} />
-      </div>
+    <div className="space-y-5">
+      {/* ONE HEADER FOR EVERY MODE. See GameChrome - the bar Ethan liked on
+          Say hello is now the bar on all five. */}
+      <GameChrome
+        icon={MODE_BY_KEY[mode].icon}
+        title={MODE_BY_KEY[mode].regions ? `${MODE_LABEL[mode]} · ${region}` : MODE_LABEL[mode]}
+        done={answered ? i + 1 : i}
+        total={questions.length}
+        correct={correct}
+        time={fmtTime(elapsed)}
+        onQuit={onQuit}
+      />
 
       {/* ---- Flags ---- */}
       {mode === 'flags' && (
-        <div className="card flex flex-col items-center gap-6 !py-10 text-center">
+        <AnswerFlash key={`f${i}`} state={flash} className="card flex flex-col items-center gap-6 !py-10 text-center">
           <div className="text-[7rem] leading-none sm:text-[9rem]" aria-label="flag">{flagEmoji(current.iso2)}</div>
           <TypeForm typed={typed} setTyped={setTyped} answered={answered} onSubmit={submitType} inputRef={inputRef} placeholder="Type the country…" />
           {answered && <Feedback answered={answered} answer={current.name} reveal last={last} onNext={next} />}
-        </div>
+        </AnswerFlash>
       )}
 
       {/* ---- Airports ---- */}
       {mode === 'airports' && (
-        <div className="card flex flex-col items-center gap-5 !py-10 text-center">
+        <AnswerFlash key={`a${i}`} state={flash} className="card flex flex-col items-center gap-5 !py-10 text-center">
           <p className="text-xs font-semibold uppercase tracking-widest text-smoke">Which city?</p>
           <div className="rounded-2xl bg-brand px-8 py-5 font-mono text-5xl font-extrabold tracking-widest text-white shadow-lift sm:text-6xl">{current.code}</div>
           <TypeForm typed={typed} setTyped={setTyped} answered={answered} onSubmit={submitType} inputRef={inputRef} placeholder="Type the city…" />
           {answered && <Feedback answered={answered} answer={current.city} reveal last={last} onNext={next} />}
-        </div>
+        </AnswerFlash>
       )}
 
       {/* ---- Currencies: show the country, pick the currency ---- */}
       {mode === 'currencies' && (
-        <div className="card flex flex-col items-center gap-6 !py-10 text-center">
+        <AnswerFlash key={`c${i}`} state={flash} className="card flex flex-col items-center gap-6 !py-10 text-center">
           <div>
             <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-smoke">Which currency does this country use?</p>
             <div className="inline-flex items-center gap-3 rounded-2xl bg-brand px-8 py-5 text-white shadow-lift">
@@ -422,16 +530,16 @@ function Round({ mode, region, questions, onQuit, onFinish }) {
             })}
           </div>
           {answered && <Feedback answered={answered} answer={`${current.currency} (${current.symbol})`} reveal last={last} onNext={next} />}
-        </div>
+        </AnswerFlash>
       )}
 
       {/* ---- Map ---- */}
       {mode === 'map' && (
-        <div className="card !p-4 sm:!p-6">
+        <AnswerFlash key={`m${i}`} state={flash} className="card !p-4 sm:!p-6">
           <p className="mb-3 text-center text-lg font-semibold">Find: <span className="text-brand">{current.name}</span> {flagEmoji(current.iso2)}</p>
           <GameMap placed={placed} revealed={revealed} flashWrong={flashWrong} answered={answered} onPick={pickOnMap} />
           {answered && <div className="mt-4"><Feedback answered={answered} reveal={false} last={last} onNext={next} /></div>}
-        </div>
+        </AnswerFlash>
       )}
     </div>
   )
@@ -521,10 +629,26 @@ function GameMap({ placed, revealed, flashWrong, answered, onPick }) {
 }
 
 // ---------------------------------------------------------------- Results
+// A LINE THAT REACTS TO WHAT ACTUALLY HAPPENED.
+//
+// "Keep exploring, give it another go!" was the only thing this screen ever
+// said, and it said it whether you got 1 or 9 out of 10. A result screen that
+// cannot tell the difference between a near-miss and a disaster is a result
+// screen nobody reads twice.
+function verdict(pct) {
+  if (pct === 100) return { title: 'Perfect round', line: 'Every single one. Go and put that on the leaderboard.' }
+  if (pct >= 90) return { title: 'Very close to perfect', line: 'One away. You know this.' }
+  if (pct >= 70) return { title: 'Strong round', line: 'Comfortably above the middle. Another go and you have it.' }
+  if (pct >= 50) return { title: 'Halfway there', line: 'You got more right than wrong. That is where it starts.' }
+  if (pct >= 25) return { title: 'A tricky one', line: 'This set was not kind. The next one is a different set.' }
+  return { title: 'Rough round', line: 'Everybody has these. Go again, it is ten questions.' }
+}
+
 function Results({ result, mode, region, eventId, userId, onPlayAgain, onMenu }) {
   const [saving, setSaving] = useState(true)
   const pct = Math.round((result.correct / result.total) * 100)
   const great = pct >= 80
+  const v = verdict(pct)
 
   useEffect(() => {
     supabase.from('game_scores').insert({
@@ -533,30 +657,53 @@ function Results({ result, mode, region, eventId, userId, onPlayAgain, onMenu })
     }).then(() => setSaving(false))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // THE END-OF-ROUND SOUND, ONCE. A fanfare for a good round and something
+  // sympathetic for a bad one - never a buzzer, which is a punishment for
+  // having played. 60% is the line: below it you got most of them wrong, and
+  // celebrating that would be the app not paying attention.
+  useEffect(() => {
+    const t = setTimeout(() => { if (pct >= 60) playCelebrate(); else playCommiserate() }, 180)
+    return () => clearTimeout(t)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div className="card flex flex-col items-center gap-4 !py-10 text-center animate-pop-in">
       {great && <Confetti count={50} />}
-      {pct >= 50 ? (
-        <span className="flex h-16 w-16 items-center justify-center rounded-full bg-brand text-white shadow-lift">
-          <Icon name="trophy" className="h-8 w-8" />
+      <span className={cx(
+        'flex h-16 w-16 items-center justify-center rounded-full shadow-lift',
+        pct >= 50 ? 'bg-brand text-white' : 'bg-brand-tint text-brand shadow-none',
+      )}>
+        <Icon name={pct >= 50 ? 'trophy' : 'globe'} className="h-8 w-8" />
+      </span>
+
+      {/* THE SCORE AS A RING, not as a line of text. A round result is a
+          proportion, and a proportion drawn is read in one glance. */}
+      <div className="relative">
+        <svg viewBox="0 0 120 120" className="h-28 w-28 -rotate-90" aria-hidden>
+          <circle cx="60" cy="60" r="52" fill="none" stroke="#ECECEE" strokeWidth="10" />
+          <circle
+            cx="60" cy="60" r="52" fill="none" stroke={BRAND} strokeWidth="10" strokeLinecap="round"
+            strokeDasharray={2 * Math.PI * 52}
+            strokeDashoffset={2 * Math.PI * 52 * (1 - pct / 100)}
+            style={{ transition: 'stroke-dashoffset 900ms cubic-bezier(0.22,1,0.36,1)' }}
+          />
+        </svg>
+        <span className="absolute inset-0 flex flex-col items-center justify-center leading-none">
+          <span className="text-2xl font-bold tabular-nums">{result.correct}<span className="text-smoke">/{result.total}</span></span>
+          <span className="mt-1 text-[11px] font-semibold uppercase tracking-widest text-brand">{pct}%</span>
         </span>
-      ) : (
-        <div className="flex flex-col items-center gap-2">
-          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-tint text-brand">
-            <Icon name="globe" className="h-8 w-8" />
-          </span>
-          <p className="text-xs font-medium text-smoke">Keep exploring, give it another go!</p>
-        </div>
-      )}
-      <h2 className="text-2xl font-bold">{result.correct} / {result.total} correct</h2>
-      <div className="flex gap-3">
-        <Badge tone="brand">{pct}%</Badge>
-        <Badge tone="light"><Icon name="clock" className="h-3.5 w-3.5" /> {fmtTime(result.time_ms)}</Badge>
       </div>
-      <p className="text-sm text-smoke">{saving ? 'Saving your score…' : 'Score saved to the leaderboard!'}</p>
+
+      <div>
+        <h2 className="text-2xl font-bold">{v.title}</h2>
+        <p className="mt-1 max-w-sm text-sm text-smoke">{v.line}</p>
+      </div>
+
+      <Badge tone="light"><Icon name="clock" className="h-3.5 w-3.5" /> {fmtTime(result.time_ms)}</Badge>
+      <p className="text-xs text-smoke">{saving ? 'Saving your score…' : 'Saved to the leaderboard'}</p>
       <div className="mt-2 flex flex-wrap justify-center gap-3">
-        <button onClick={onPlayAgain} className="btn-primary">Play again</button>
-        <button onClick={onMenu} className="btn-secondary">Change mode</button>
+        <button onClick={onPlayAgain} className="btn-primary transition-transform duration-200 hover:scale-105">Play again</button>
+        <button onClick={onMenu} className="btn-secondary">Pick another game</button>
       </div>
     </div>
   )

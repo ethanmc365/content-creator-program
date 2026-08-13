@@ -18,6 +18,20 @@ import { listContainer, listItem } from '../../lib/motion'
 // It disappears at 100%. A checklist that stays after you have finished it is
 // nagging, and this is meant to be a nudge.
 
+/**
+ * Is there anything left for this creator to fill in?
+ *
+ * Exported because the hub needs the answer BEFORE it renders the card. Its
+ * entrance ladder counts sections in JSX order, and a section that renders
+ * nothing still consumes a step - which leaves a 50ms hole in the sequence for
+ * every creator whose profile is already complete. Asking first means the
+ * ladder only ever counts things that appear.
+ */
+export function profileNeedsWork(profile) {
+  if (!profile) return false
+  return steps(profile).some((s) => !s.done)
+}
+
 function steps(profile) {
   return [
     { done: !!profile?.photo_url, label: 'Add a profile photo', to: '/settings', icon: 'smile' },

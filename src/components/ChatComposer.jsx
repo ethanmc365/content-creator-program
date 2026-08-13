@@ -187,7 +187,11 @@ const ChatComposer = forwardRef(function ChatComposer({
           // it scrolls rather than eating the conversation above it. text-base
           // on mobile is deliberate: anything smaller and iOS zooms the page on
           // focus, and the overlay geometry never recovers.
-          className="input max-h-40 min-h-[2.75rem] flex-1 self-stretch overflow-y-auto py-2.5 text-base sm:text-sm"
+          //
+          // `rt-scroll` is what makes that scroll actually work on a phone -
+          // see the note in index.css. Without it the drag chains out to the
+          // locked document behind the overlay and takes the keyboard with it.
+          className="input rt-scroll max-h-40 min-h-[2.75rem] flex-1 self-stretch overflow-y-auto py-2.5 text-base sm:text-sm"
         />
 
         <button

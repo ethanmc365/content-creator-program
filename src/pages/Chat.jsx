@@ -19,6 +19,7 @@ import { RoomSearch } from '../components/ChatSearch'
 import ChatMedia from '../components/ChatMedia'
 import { formatMessageTime, messageTimeTitle, cx } from '../lib/utils'
 import { renderMessageBody } from '../lib/richText'
+import { broadcastNames, matchBroadcasts } from '../lib/broadcastMentions'
 import ChatComposer from '../components/ChatComposer'
 import SeenBy from '../components/SeenBy'
 import ChatAdminTools from '../components/ChatAdminTools'
@@ -152,7 +153,7 @@ export default function Chat() {
   // so "@Anna Smith" wins over "@Anna"). Includes @everyone for admins.
   const memberNames = useMemo(() => {
     const names = members.map((m) => m.name).filter((n) => n && n.length > 1)
-    if (isAdmin) names.push('everyone')
+    names.push(...broadcastNames(isAdmin))
     return names.sort((a, b) => b.length - a.length)
   }, [members, isAdmin])
   // Reactor names can belong to profiles outside the members list (test
@@ -178,11 +179,11 @@ export default function Chat() {
     ? (() => {
         const q = mention.query.toLowerCase()
         const people = members.filter((m) => m.id !== user.id && m.name?.toLowerCase().includes(q)).slice(0, 6)
-        // Admins can @everyone to notify the whole community.
-        if (isAdmin && 'everyone'.startsWith(q)) {
-          return [{ id: 'everyone', name: 'everyone', everyone: true }, ...people].slice(0, 6)
-        }
-        return people
+        // Admins get the two broadcast handles first: they are the ones you go
+        // looking for deliberately, and burying them under six near-matching
+        // names is how a feature nobody can find gets built.
+        const casts = matchBroadcasts(q, isAdmin)
+        return [...casts, ...people].slice(0, 6)
       })()
     : []
 
@@ -1072,15 +1073,15 @@ export default function Chat() {
               className="!border-t-0 !px-0 !py-0"
             >
               {attachError && <p className="mb-2 text-xs text-red-600">{attachError}</p>}
-              {/* @mention autocomplete (admins also get @everyone) */}
+              {/* @mention autocomplete (admins also get @everyone and @here) */}
               {mention && mentionResults.length > 0 && (
                 <div className="mb-2 overflow-hidden rounded-card border border-gray-100 bg-white shadow-lift">
                   {mentionResults.map((mem) => (
                     <button key={mem.id} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => chooseMention(mem)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-cloud">
-                      {mem.everyone ? (
+                      {mem.broadcast ? (
                         <>
                           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-tint text-brand"><Icon name="megaphone" className="h-4 w-4" /></span>
-                          <span className="min-w-0"><span className="block font-medium">@everyone</span><span className="block text-xs text-smoke">Notify the whole community</span></span>
+                          <span className="min-w-0"><span className="block font-medium">{mem.label}</span><span className="block text-xs text-smoke">{mem.hint}</span></span>
                         </>
                       ) : (
                         <>

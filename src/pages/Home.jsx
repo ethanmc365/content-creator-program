@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import CountdownTimer from '../components/CountdownTimer'
 import WorldMap from '../components/WorldMap'
 import CreatorSpotlight from '../components/CreatorSpotlight'
+import WhoToMeet from '../components/WhoToMeet'
 import DailyGamesCard from '../components/DailyGamesCard'
 import Icon from '../components/Icon'
 import { Avatar, Badge, Skeleton } from '../components/ui'
@@ -267,6 +268,13 @@ export default function Home() {
           </Reveal>
         </section>
       )}
+
+      {/* ---------- Who to meet this week ----------
+          Above the spotlight on purpose: the spotlight is one creator the whole
+          community sees today, this is three picked for you, and the personal
+          one has to come first or the reader has already filed the whole area
+          as generic. */}
+      <WhoToMeet />
 
       {/* ---------- Creator spotlight (rotates daily) ---------- */}
       <CreatorSpotlight />

@@ -11,13 +11,20 @@ import { isOnlineAt } from '../../lib/presence'
 
 // Creator management: the full list with emails (admin-only RPC), plus all
 // account actions - password reset, mute, suspend, promote to admin, DM.
-// One element that answers "have we heard from this person lately", in the
-// words a human would use, colour-coded by how worried to be.
 //
-// Green is now, plain grey is recent, amber is a month of silence. There is
-// deliberately no separate "Inactive" badge: a badge saying inactive beside a
-// line saying "active 2 months ago" beside a status badge saying "active" is
-// three controls arguing about two different meanings of one word.
+// Green is now, plain grey is recent, amber is a month of silence, and there is
+// exactly one element saying so - see below.
+//
+// ONE SENTENCE, AND IT SAYS THE SAME KIND OF THING EVERY TIME.
+//
+// Ethan's report: "rather than saying quiet for a month or two, just say last
+// active, two months ago". He is right, and the reason is that "Quiet for 2
+// months" and "Active 3 hours ago" are two different sentences about the same
+// measurement - one phrased as a duration of absence, the other as a moment in
+// the past - so a column of them cannot be scanned. Every row now reads "Last
+// active <when>", and the only thing the 30-day judgement changes is the
+// colour. Online is the one exception, because "last active 4 seconds ago" is a
+// clumsy way of saying somebody is here.
 function PresenceChip({ when, online, quiet, detail = false }) {
   if (online) {
     return (
@@ -29,20 +36,17 @@ function PresenceChip({ when, online, quiet, detail = false }) {
   if (!when) {
     return <span className="text-xs text-gray-400">Never opened the app</span>
   }
-  const ago = timeAgo(when)
-  if (quiet) {
-    return (
-      <span
-        title={`Last active ${formatDate(when)}`}
-        className="flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700"
-      >
-        <span className="h-2 w-2 rounded-full bg-amber-400" /> Quiet for {ago.replace(/^about /, '').replace(/\s*ago$/, '')}
-      </span>
-    )
-  }
+  // date-fns writes "about 2 months ago"; the hedge is noise in a table.
+  const ago = timeAgo(when).replace(/^about /, '').replace(/^almost /, '').replace(/^over /, '')
   return (
-    <span className="text-xs text-smoke" title={`Last active ${formatDate(when)}`}>
-      Active {ago}{detail ? ` (${formatDate(when)})` : ''}
+    <span
+      title={`Last active ${formatDate(when)}`}
+      className={quiet
+        ? 'flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700'
+        : 'text-xs text-smoke'}
+    >
+      {quiet && <span className="h-2 w-2 rounded-full bg-amber-400" />}
+      Last active {ago}{detail ? ` (${formatDate(when)})` : ''}
     </span>
   )
 }
@@ -59,6 +63,7 @@ export default function AdminCreators() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [sort, setSort] = useState('active')
   const [selected, setSelected] = useState(null) // creator detail modal
   const [detail, setDetail] = useState(null) // their submissions / activity
   const [note, setNote] = useState('') // private admin note for the selected creator
@@ -228,30 +233,6 @@ export default function AdminCreators() {
     )
   }
 
-  const filtered = useMemo(() => {
-    // Most recently active first (heartbeat or last login, whichever is newer),
-    // so who's engaged and who's gone quiet reads top to bottom. Never-seen
-    // accounts fall to the bottom, newest sign-up first.
-    const activityTs = (c) => {
-      const s = lastSeen[c.id]
-      if (!s) return 0
-      return Math.max(...[s.seen, s.signIn].filter(Boolean).map((x) => new Date(x).getTime()), 0)
-    }
-    return creators
-      .filter((c) => {
-        const email = emails[c.id] ?? ''
-        if (search && !(c.name + email).toLowerCase().includes(search.toLowerCase())) return false
-        if (statusFilter === 'admin') return c.is_admin
-        if (statusFilter === 'pending') return c.status === 'pending' && c.onboarded
-        if (statusFilter === 'incomplete') return c.status === 'pending' && !c.onboarded
-        if (statusFilter && c.status !== statusFilter) return false
-        return true
-      })
-      .sort((a, b) =>
-        activityTs(b) - activityTs(a) || new Date(b.created_at) - new Date(a.created_at)
-      )
-  }, [creators, emails, search, statusFilter, lastSeen])
-
   const STATUS_TONE = { active: 'green', muted: 'amber', suspended: 'red' }
 
   // A pending creator who never submitted their profile (did page 1 only) shows
@@ -262,6 +243,18 @@ export default function AdminCreators() {
       : c.status === 'pending'
         ? (c.onboarded ? { label: 'pending', tone: 'amber' } : { label: 'not completed profile', tone: 'grey' })
         : { label: c.status, tone: STATUS_TONE[c.status] || 'grey' }
+
+  // A BADGE EVERY ROW CARRIES IS NOT A BADGE.
+  //
+  // Ethan: "the active indicator seems to show up for absolutely everyone in the
+  // community so we should get rid of it". Nearly every account in the programme
+  // is `active`, so a green "active" pill on nearly every row was pure ink: it
+  // could not distinguish anybody from anybody, and sitting beside "Quiet for 2
+  // months" it read as a contradiction. The badge is now drawn only when the
+  // status is something a person would want to know - pending, incomplete,
+  // muted, suspended, being deleted. A row with no badge is a normal member,
+  // which is what the absence of a flag has always meant everywhere else.
+  const badgeWorthShowing = (c) => c.status !== 'active' || !!c.deletion_requested_at
   const isIncomplete = (c) => c.status === 'pending' && !c.onboarded && !c.deletion_requested_at
   const isPendingReview = (c) => c.status === 'pending' && c.onboarded && !c.deletion_requested_at
   const isDeleting = (c) => !!c.deletion_requested_at
@@ -294,6 +287,77 @@ export default function AdminCreators() {
     return c.status === 'active' && !c.deletion_requested_at && !!la && new Date(la).getTime() < inactiveBefore
   }
 
+  // WHAT THIS PAGE IS FOR, MADE INTO CONTROLS.
+  //
+  // It was a search box, a status dropdown and 44 rows. But nobody opens this
+  // page to browse: they open it because somebody needs approving, somebody has
+  // gone quiet and should be nudged, or they want to know who is around right
+  // now. Those are the three jobs, and each of them was several seconds of
+  // reading a list to find out whether there was anything to do at all.
+  //
+  // The segments answer that before you read a single row, and pressing one is
+  // the filter. Counts are the point - a zero tells you to leave, which is a
+  // useful thing for a page to be able to say.
+  const activeMs = (c) => {
+    const a = lastSeen[c.id]?.active
+    return a ? new Date(a).getTime() : 0
+  }
+
+  // `nowTick` and not Date.now(): a render must be a pure function of state, and
+  // this repo's lint enforces it. The tick is set in an effect on mount and
+  // every 30s after, so it is never stale by more than half a minute.
+  const weekAgo = nowTick ? nowTick - 7 * 86400000 : Infinity
+
+  const segments = useMemo(() => {
+    const week = weekAgo
+    return [
+      { key: '', label: 'Everyone', count: creators.length },
+      { key: 'online', label: 'Online now', count: creators.filter((c) => isOnline(c)).length, tone: 'green' },
+      { key: 'week', label: 'Here this week', count: creators.filter((c) => activeMs(c) > week).length },
+      { key: 'quiet', label: 'Gone quiet', count: creators.filter((c) => isInactive(c)).length, tone: 'amber' },
+      { key: 'pending', label: 'Awaiting review', count: creators.filter((c) => isPendingReview(c)).length, tone: 'amber' },
+      { key: 'incomplete', label: 'Never finished', count: creators.filter((c) => isIncomplete(c)).length },
+      { key: 'admin', label: 'Team', count: creators.filter((c) => c.is_admin).length },
+    ]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [creators, lastSeen, nowTick, inactiveBefore])
+
+  const filtered = useMemo(() => {
+    const week = weekAgo
+    const matchesSegment = (c) => {
+      switch (statusFilter) {
+        case 'online': return isOnline(c)
+        case 'week': return activeMs(c) > week
+        case 'quiet': return isInactive(c)
+        case 'admin': return c.is_admin
+        case 'pending': return isPendingReview(c)
+        case 'incomplete': return isIncomplete(c)
+        case 'muted': case 'suspended': case 'active': return c.status === statusFilter
+        default: return true
+      }
+    }
+    const sorters = {
+      // Most recently active first, so who is engaged and who has gone quiet
+      // reads top to bottom. Never-seen accounts fall to the bottom, newest
+      // sign-up first. This is the same one number the daily alert uses.
+      active: (a, b) => activeMs(b) - activeMs(a) || new Date(b.created_at) - new Date(a.created_at),
+      joined: (a, b) => new Date(b.accepted_at || b.created_at) - new Date(a.accepted_at || a.created_at),
+      name: (a, b) => (a.name || '').localeCompare(b.name || ''),
+      // Quietest first: the working order for "who needs a nudge". Never-seen
+      // accounts are a different problem (they belong in "Never finished") and
+      // would otherwise fill the top of this list forever.
+      quiet: (a, b) => (activeMs(a) || Infinity) - (activeMs(b) || Infinity),
+    }
+    return creators
+      .filter((c) => {
+        const email = emails[c.id] ?? ''
+        if (search && !(c.name + email).toLowerCase().includes(search.toLowerCase())) return false
+        return matchesSegment(c)
+      })
+      .sort(sorters[sort] || sorters.active)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [creators, emails, search, statusFilter, sort, lastSeen, nowTick, inactiveBefore])
+
   return (
     <div className="page">
       <PageHeader
@@ -304,20 +368,47 @@ export default function AdminCreators() {
 
       {toast && <p className="mb-6 rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-700 animate-fade-up">{toast}</p>}
 
+      {/* THE THREE JOBS, WITH THEIR COUNTS ON THEM. Press one to filter to it.
+          A zero here is as useful as a number: it means there is nothing to do
+          in that column and you can stop reading. */}
+      <div className="mb-4 flex flex-wrap gap-2">
+        {segments.map((seg) => {
+          const on = statusFilter === seg.key
+          return (
+            <button
+              key={seg.key || 'all'}
+              type="button"
+              onClick={() => setStatusFilter(seg.key)}
+              aria-pressed={on}
+              className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                on
+                  ? 'border-brand bg-brand text-white'
+                  : 'border-gray-200 bg-white text-smoke hover:-translate-y-0.5 hover:border-brand hover:text-brand'
+              }`}
+            >
+              {seg.tone === 'green' && !on && <span className="h-2 w-2 rounded-full bg-green-500" />}
+              {seg.tone === 'amber' && !on && seg.count > 0 && <span className="h-2 w-2 rounded-full bg-amber-400" />}
+              {seg.label}
+              <span className={on ? 'text-white/80' : 'text-gray-400'}>{seg.count}</span>
+            </button>
+          )
+        })}
+      </div>
+
       <div className="mb-8 flex flex-col gap-3 sm:flex-row">
         <input
           type="search" className="input sm:max-w-xs" placeholder="Search name or email…"
           value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search creators"
         />
-        <select className="input sm:max-w-[180px]" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label="Filter by status">
-          <option value="">All statuses</option>
-          <option value="active">Active</option>
-          <option value="pending">Pending review</option>
-          <option value="incomplete">Not completed profile</option>
-          <option value="muted">Muted</option>
-          <option value="suspended">Suspended</option>
-          <option value="admin">Admins</option>
+        <select className="input sm:max-w-[220px]" value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort creators">
+          <option value="active">Most recently active</option>
+          <option value="quiet">Quietest first</option>
+          <option value="joined">Newest members</option>
+          <option value="name">Name A to Z</option>
         </select>
+        <span className="self-center text-xs text-smoke">
+          {filtered.length} shown
+        </span>
       </div>
 
       {loading ? (
@@ -389,7 +480,7 @@ export default function AdminCreators() {
                       <Icon name="check" className="h-4 w-4" /> Restore
                     </button>
                   )}
-                  <Badge tone={s.tone}>{s.label}</Badge>
+                  {badgeWorthShowing(c) && <Badge tone={s.tone}>{s.label}</Badge>}
                 </div>
               </div>
             )
@@ -414,7 +505,7 @@ export default function AdminCreators() {
                   <PresenceChip when={lastActive(selected)} online={isOnline(selected)} quiet={isInactive(selected)} detail />
                 </p>
                 <div className="mt-2 flex gap-2">
-                  <Badge tone={statusInfo(selected).tone}>{statusInfo(selected).label}</Badge>
+                  {badgeWorthShowing(selected) && <Badge tone={statusInfo(selected).tone}>{statusInfo(selected).label}</Badge>}
                   {selected.is_admin && <Badge tone="light">Admin</Badge>}
                 </div>
               </div>

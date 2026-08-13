@@ -141,7 +141,14 @@ export function StatCard({ label, value, hint, accent = false, onClick }) {
 }
 
 /** Accessible modal dialog. Closes on Escape and backdrop click. */
-export function Modal({ open, onClose, title, children, wide = false }) {
+/**
+ * `sheet` (the default) is the bottom-sheet-on-mobile dialog every form here
+ * uses. `sheet={false}` is the CARD variant: a floating panel with air round it
+ * on a phone as well as on a desktop, for an invitation rather than a task. A
+ * bottom sheet running edge to edge and 90vh tall reads as a full screen you
+ * have been sent to, which is exactly the complaint about the intro prompt.
+ */
+export function Modal({ open, onClose, title, children, wide = false, sheet = true }) {
   useEffect(() => {
     if (!open) return
     const onKey = (e) => e.key === 'Escape' && onClose()
@@ -165,13 +172,23 @@ export function Modal({ open, onClose, title, children, wide = false }) {
   // was clipped off the top by an ancestor it never knew it had. Anything
   // claiming the whole screen has to be a child of the body to get it.
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label={title}>
+    <div
+      className={cx('fixed inset-0 z-50 flex justify-center', sheet ? 'items-end sm:items-center' : 'items-center p-4')}
+      role="dialog" aria-modal="true" aria-label={title}
+    >
       <button aria-label="Close" className="absolute inset-0 bg-ink/40" onClick={onClose} />
-      {/* On mobile this is a bottom sheet running to the edge of the screen,
-          where the tab bar sits over it - so the last control inside gets the
-          tab bar's height (plus the home-indicator safe area) as padding, or a
-          tall modal's submit button ends up unreachable underneath it. */}
-      <div className={cx('relative max-h-[90vh] w-full overflow-y-auto rounded-t-card bg-white p-6 pb-[calc(6rem+env(safe-area-inset-bottom))] shadow-lift animate-fade-up sm:rounded-card sm:p-8 sm:pb-8', wide ? 'sm:max-w-3xl' : 'sm:max-w-lg')}>
+      {/* On mobile the sheet variant runs to the edge of the screen, where the
+          tab bar sits over it - so the last control inside gets the tab bar's
+          height (plus the home-indicator safe area) as padding, or a tall
+          modal's submit button ends up unreachable underneath it. The card
+          variant floats clear of both and needs neither. */}
+      <div className={cx(
+        'relative overflow-y-auto bg-white shadow-lift animate-fade-up',
+        sheet
+          ? 'max-h-[90vh] w-full rounded-t-card p-6 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:rounded-card sm:p-8 sm:pb-8'
+          : 'max-h-[min(85vh,44rem)] w-full rounded-card p-5 sm:p-7',
+        wide ? 'sm:max-w-3xl' : 'sm:max-w-lg',
+      )}>
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-xl font-semibold">{title}</h2>
           <button onClick={onClose} className="rounded-full p-2 text-smoke hover:bg-cloud hover:text-ink" aria-label="Close dialog">

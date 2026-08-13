@@ -12,9 +12,11 @@ import Icon from '../components/Icon'
 import ChatMedia from '../components/ChatMedia'
 import { uploadChatImage, uploadChatVideo } from '../lib/chatMedia'
 import { renderMessageBody } from '../lib/richText'
+import { broadcastNames } from '../lib/broadcastMentions'
 import Reorderable from '../components/network/Reorderable'
 import ChatAdminTools from '../components/ChatAdminTools'
 import ChatComposer from '../components/ChatComposer'
+import IntroInvite from '../components/network/IntroPrompt'
 import { textBeforeCaret } from '../lib/richEditor'
 import { loadDraft, saveDraft, clearDraft } from '../lib/drafts'
 import SeenBy from '../components/SeenBy'
@@ -347,10 +349,11 @@ export default function NetworkChat() {
   // Per-room draft, so a half-written message in Spain's General is still there
   // when you come back from the UK's.
   const draftKey = `net-chat-${roomKey || 'none'}`
-  // Names the composer turns into @chips as you type. Admins also get @everyone.
+  // Names the composer turns into @chips as you type. Admins also get the two
+  // broadcast handles, @everyone and @here.
   const mentionNames = useMemo(() => {
     const names = members.map((m) => m.name).filter((n) => n && n.length > 1)
-    if (isAdmin) names.push('everyone')
+    names.push(...broadcastNames(isAdmin))
     return names.sort((a, b) => b.length - a.length)
   }, [members, isAdmin])
 
@@ -573,12 +576,6 @@ export default function NetworkChat() {
         )}
       </div>
 
-      {/* THE INTRO PROMPT IS NOT HERE ANY MORE.
-          It was a bar pinned to the top of this room, which reached only the
-          people who had already found a room that exists so you can meet people
-          you have not met. It is an app-wide popup now (`IntroGate` in
-          AppLayout), so the creator it is actually for - the one who has not
-          been anywhere yet - gets asked. */}
       {/* The hint bar doubles as the room's identity on mobile, where the page
           heading is scrolled away.
 
@@ -742,6 +739,12 @@ export default function NetworkChat() {
           isMobile={isMobile}
           kbOpen={kbOpen}
         >
+          {/* THE INTRO INVITATION, IN THE ROOM ITS ANSWER GOES TO.
+              It renders nothing anywhere else and nothing once the creator has
+              posted an introduction. It opens itself once a session as a card
+              over the room; dismiss it and this stays as the way back in. */}
+          <IntroInvite community={community} channel={active} canPost={canPost} />
+
           {attachError && (
             <p role="alert" className="mb-2 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">{attachError}</p>
           )}
@@ -751,6 +754,7 @@ export default function NetworkChat() {
               <MentionMenu
                 query={mention.query}
                 members={members}
+                isAdmin={isAdmin}
                 onPick={pickMention}
                 onClose={() => setMention(null)}
               />

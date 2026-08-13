@@ -271,3 +271,100 @@ export function formatArea(km2) {
   if (km2 < 10) return `${km2} km²`
   return `${Math.round(km2).toLocaleString('en-GB')} km²`
 }
+
+// ------------------------------------------------------------------ languages
+// What people actually speak, per ISO-2. Official languages first, then the one
+// or two widely spoken languages that are not official but that a visitor will
+// hear - "what will I hear on the street" is the question this answers, not
+// "what does the constitution say".
+//
+// Kept short on purpose: three entries at most. India has 22 official languages
+// and Indonesia over 700 spoken, and listing them would be a paragraph where a
+// reader wanted a glance. The long tail is the interesting fact, so where a
+// country has one it lives in the fact bank instead.
+export const COUNTRY_LANGUAGES = {
+  // Europe
+  AL: ['Albanian'], AD: ['Catalan', 'Spanish', 'French'], AT: ['German'],
+  BY: ['Belarusian', 'Russian'], BE: ['Dutch', 'French', 'German'],
+  BA: ['Bosnian', 'Croatian', 'Serbian'], BG: ['Bulgarian'], HR: ['Croatian'],
+  CY: ['Greek', 'Turkish'], CZ: ['Czech'], DK: ['Danish'], EE: ['Estonian'],
+  FI: ['Finnish', 'Swedish'], FR: ['French'], DE: ['German'], GR: ['Greek'],
+  HU: ['Hungarian'], IS: ['Icelandic'], IE: ['English', 'Irish'], IT: ['Italian'],
+  XK: ['Albanian', 'Serbian'], LV: ['Latvian'], LI: ['German'], LT: ['Lithuanian'],
+  LU: ['Luxembourgish', 'French', 'German'], MT: ['Maltese', 'English'],
+  MD: ['Romanian'], MC: ['French'], ME: ['Montenegrin'], NL: ['Dutch'],
+  MK: ['Macedonian', 'Albanian'], NO: ['Norwegian'], PL: ['Polish'],
+  PT: ['Portuguese'], RO: ['Romanian'], RU: ['Russian'], SM: ['Italian'],
+  RS: ['Serbian'], SK: ['Slovak'], SI: ['Slovene'],
+  ES: ['Spanish', 'Catalan', 'Basque'], SE: ['Swedish'],
+  CH: ['German', 'French', 'Italian'], UA: ['Ukrainian'], GB: ['English'],
+  VA: ['Italian', 'Latin'],
+  // Asia
+  AF: ['Dari', 'Pashto'], AM: ['Armenian'], AZ: ['Azerbaijani'], BH: ['Arabic'],
+  BD: ['Bengali'], BT: ['Dzongkha'], BN: ['Malay'], KH: ['Khmer'],
+  CN: ['Mandarin Chinese'], GE: ['Georgian'], IN: ['Hindi', 'English'],
+  ID: ['Indonesian', 'Javanese'], IR: ['Persian'], IQ: ['Arabic', 'Kurdish'],
+  IL: ['Hebrew', 'Arabic'], JP: ['Japanese'], JO: ['Arabic'],
+  KZ: ['Kazakh', 'Russian'], KW: ['Arabic'], KG: ['Kyrgyz', 'Russian'],
+  LA: ['Lao'], LB: ['Arabic', 'French'], MY: ['Malay', 'English'],
+  MV: ['Dhivehi'], MN: ['Mongolian'], MM: ['Burmese'], NP: ['Nepali'],
+  KP: ['Korean'], OM: ['Arabic'], PK: ['Urdu', 'English'], PS: ['Arabic'],
+  PH: ['Filipino', 'English'], QA: ['Arabic'], SA: ['Arabic'],
+  SG: ['English', 'Mandarin Chinese', 'Malay'], KR: ['Korean'],
+  LK: ['Sinhala', 'Tamil'], SY: ['Arabic'], TW: ['Mandarin Chinese'],
+  TJ: ['Tajik'], TH: ['Thai'], TL: ['Tetum', 'Portuguese'], TR: ['Turkish'],
+  TM: ['Turkmen'], AE: ['Arabic', 'English'], UZ: ['Uzbek'], VN: ['Vietnamese'],
+  YE: ['Arabic'],
+  // Africa
+  DZ: ['Arabic', 'Berber', 'French'], AO: ['Portuguese'], BJ: ['French'],
+  BW: ['English', 'Setswana'], BF: ['French'], BI: ['Kirundi', 'French'],
+  CV: ['Portuguese'], CM: ['French', 'English'], CF: ['French', 'Sango'],
+  TD: ['French', 'Arabic'], KM: ['Comorian', 'French', 'Arabic'],
+  CG: ['French'], CD: ['French', 'Lingala', 'Swahili'], CI: ['French'],
+  DJ: ['French', 'Arabic'], EG: ['Arabic'], GQ: ['Spanish', 'French', 'Portuguese'],
+  ER: ['Tigrinya', 'Arabic', 'English'], SZ: ['siSwati', 'English'],
+  ET: ['Amharic', 'Oromo'], GA: ['French'], GM: ['English'], GH: ['English'],
+  GN: ['French'], GW: ['Portuguese'], KE: ['Swahili', 'English'],
+  LS: ['Sesotho', 'English'], LR: ['English'], LY: ['Arabic'],
+  MG: ['Malagasy', 'French'], MW: ['English', 'Chichewa'], ML: ['French', 'Bambara'],
+  MR: ['Arabic'], MU: ['English', 'French', 'Mauritian Creole'],
+  MA: ['Arabic', 'Berber', 'French'], MZ: ['Portuguese'], NA: ['English'],
+  NE: ['French', 'Hausa'], NG: ['English', 'Hausa', 'Yoruba'],
+  RW: ['Kinyarwanda', 'English', 'French'], ST: ['Portuguese'],
+  SN: ['French', 'Wolof'], SC: ['Seychellois Creole', 'English', 'French'],
+  SL: ['English'], SO: ['Somali', 'Arabic'],
+  ZA: ['English', 'Zulu', 'Afrikaans'], SS: ['English'], SD: ['Arabic', 'English'],
+  TZ: ['Swahili', 'English'], TG: ['French'], TN: ['Arabic', 'French'],
+  UG: ['English', 'Swahili'], ZM: ['English'], ZW: ['English', 'Shona', 'Ndebele'],
+  EH: ['Arabic', 'Spanish'],
+  // Americas
+  AG: ['English'], BS: ['English'], BB: ['English'], BZ: ['English'],
+  CA: ['English', 'French'], CR: ['Spanish'], CU: ['Spanish'], DM: ['English'],
+  DO: ['Spanish'], SV: ['Spanish'], GD: ['English'], GT: ['Spanish'],
+  HT: ['Haitian Creole', 'French'], HN: ['Spanish'], JM: ['English', 'Jamaican Patois'],
+  MX: ['Spanish'], NI: ['Spanish'], PA: ['Spanish'], KN: ['English'],
+  LC: ['English'], VC: ['English'], TT: ['English'], US: ['English', 'Spanish'],
+  AR: ['Spanish'], BO: ['Spanish', 'Quechua', 'Aymara'], BR: ['Portuguese'],
+  CL: ['Spanish'], CO: ['Spanish'], EC: ['Spanish', 'Quechua'], GY: ['English'],
+  PY: ['Spanish', 'Guaraní'], PE: ['Spanish', 'Quechua'], SR: ['Dutch'],
+  UY: ['Spanish'], VE: ['Spanish'], PR: ['Spanish', 'English'],
+  GL: ['Greenlandic', 'Danish'], AW: ['Papiamento', 'Dutch'],
+  CW: ['Papiamento', 'Dutch', 'English'],
+  // Oceania and the rest
+  AU: ['English'], FJ: ['Fijian', 'English', 'Hindi'], KI: ['Gilbertese', 'English'],
+  MH: ['Marshallese', 'English'], FM: ['English'], NR: ['Nauruan', 'English'],
+  NZ: ['English', 'Māori'], PW: ['Palauan', 'English'], PG: ['Tok Pisin', 'English'],
+  WS: ['Samoan', 'English'], SB: ['English'], TO: ['Tongan', 'English'],
+  TV: ['Tuvaluan', 'English'], VU: ['Bislama', 'English', 'French'],
+  NC: ['French'], PF: ['French', 'Tahitian'],
+  HK: ['Cantonese', 'English'], MO: ['Cantonese', 'Portuguese'],
+  FO: ['Faroese', 'Danish'], IM: ['English'], JE: ['English'], GG: ['English'],
+}
+
+/** "English and Irish", "German, French and Italian" - a list a person reads. */
+export function languageList(iso2) {
+  const langs = COUNTRY_LANGUAGES[iso2]
+  if (!langs?.length) return null
+  if (langs.length === 1) return langs[0]
+  return `${langs.slice(0, -1).join(', ')} and ${langs[langs.length - 1]}`
+}

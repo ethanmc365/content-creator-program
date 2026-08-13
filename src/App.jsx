@@ -53,6 +53,10 @@ const ExploreMarkets = lazy(() => import('./pages/ExploreMarkets'))
 const ManageChapter = lazy(() => import('./pages/ManageChapter'))
 const NetworkChat = lazy(() => import('./pages/NetworkChat'))
 const Rooms = lazy(() => import('./pages/Rooms'))
+// The community board. Lazy like every other network page: it is behind the
+// preview flag, so a UK creator must not download it.
+const Board = lazy(() => import('./pages/Board'))
+const BoardThread = lazy(() => import('./pages/Board').then((m) => ({ default: m.BoardThread })))
 const Milestones = lazy(() => import('./pages/Milestones'))
 const GlobalSettings = lazy(() => import('./pages/GlobalSettings'))
 
@@ -155,6 +159,8 @@ export default function App() {
             {/* Worldwide rooms and each market's rooms share one component;
                 the presence of :slug is what scopes it. */}
             <Route path="/rooms" element={<Rooms />} />
+            <Route path="/board" element={<Board />} />
+            <Route path="/board/:id" element={<BoardThread />} />
             <Route path="/global/chat" element={<Navigate to="/global/chat/general" replace />} />
             <Route path="/global/chat/:channelKey" element={<NetworkChat />} />
             <Route path="/c/:slug" element={<ChapterHome />} />

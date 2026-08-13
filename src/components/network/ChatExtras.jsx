@@ -5,6 +5,7 @@ import Icon from '../Icon'
 import ReactionPicker from '../ReactionPicker'
 import { Avatar } from '../ui'
 import { cx } from '../../lib/utils'
+import { matchBroadcasts } from '../../lib/broadcastMentions'
 import { SNAPPY, overlay } from '../../lib/motion'
 
 // The three things a room needs before it is a room rather than a log:
@@ -173,11 +174,15 @@ export { RoomSearch, Highlight } from '../ChatSearch'
 // every profile on the platform: @-ing somebody who cannot read the room is a
 // mention that goes nowhere.
 
-export function MentionMenu({ query, members, onPick, onClose }) {
+export function MentionMenu({ query, members, onPick, onClose, isAdmin = false }) {
   const hits = useMemo(() => {
     const q = query.toLowerCase()
-    return members.filter((m) => m.name?.toLowerCase().includes(q)).slice(0, 6)
-  }, [members, query])
+    const people = members.filter((m) => m.name?.toLowerCase().includes(q))
+    // @everyone / @here lead the list for the team. They are what you go
+    // looking for on purpose, and six near-matching names above them is how a
+    // control ends up believed not to exist.
+    return [...matchBroadcasts(q, isAdmin), ...people].slice(0, 6)
+  }, [members, query, isAdmin])
 
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose()
@@ -198,8 +203,22 @@ export function MentionMenu({ query, members, onPick, onClose }) {
           onClick={() => onPick(m)}
           className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-cloud"
         >
-          <Avatar src={m.photo_url} name={m.name} size="xs" />
-          <span className="min-w-0 flex-1 truncate text-sm font-medium">{m.name}</span>
+          {m.broadcast ? (
+            <>
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-tint text-brand">
+                <Icon name="megaphone" className="h-3.5 w-3.5" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">{m.label}</span>
+                <span className="block truncate text-[11px] text-smoke">{m.hint}</span>
+              </span>
+            </>
+          ) : (
+            <>
+              <Avatar src={m.photo_url} name={m.name} size="xs" />
+              <span className="min-w-0 flex-1 truncate text-sm font-medium">{m.name}</span>
+            </>
+          )}
         </button>
       ))}
     </motion.div>

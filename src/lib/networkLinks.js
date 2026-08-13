@@ -17,6 +17,7 @@ export const NETWORK_LINKS = [
   { to: '/creators', icon: 'users', label: 'Creator directory', short: 'Creators', hint: 'Everyone, on a map' },
   { to: '/messages', icon: 'envelope', label: 'Direct messages', short: 'DMs', hint: 'Anyone, any market' },
   { to: '/connections', icon: 'heart', label: 'Connections', short: 'Connect', hint: 'Requests and mutuals', badge: 'connections' },
+  { to: '/board', icon: 'chat', label: 'Community board', short: 'Board', hint: 'Ask anything, anyone answers' },
   { to: '/collab', icon: 'pin', label: 'Travel collab board', short: 'Collab', hint: 'Who is going where' },
   { to: '/events', icon: 'calendar', label: 'Calendar', short: 'Calendar', hint: 'Events and meetups' },
   { to: '/leaderboard', icon: 'chart', label: 'Leaderboard', short: 'Ranks', hint: 'Across every market' },

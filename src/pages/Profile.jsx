@@ -7,6 +7,7 @@ import TravelGallery from '../components/TravelGallery'
 import VideoThumb from '../components/VideoThumb'
 import MilestoneSnippet from '../components/network/MilestoneSnippet'
 import ConnectButton from '../components/ConnectButton'
+import LocalTime from '../components/LocalTime'
 import { loadRelationship, mutualConnections } from '../lib/connections'
 import { openConversation } from '../lib/dm'
 import { confirm, notice } from '../lib/confirm'
@@ -185,7 +186,7 @@ export default function Profile() {
             {(ageFromDob(creator.dob) ?? creator.age) && <span className="text-smoke">{ageFromDob(creator.dob) ?? creator.age}</span>}
           </div>
           {(creator.city || creator.country || currentTrip) && (
-            <p className="mt-1 flex flex-wrap items-center justify-center gap-2 text-sm text-smoke sm:justify-start">
+            <p className="mt-1 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-sm text-smoke sm:justify-start">
               {(creator.city || creator.country) && (
                 <span className="flex items-center gap-1">
                   <svg className="h-4 w-4 text-brand" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /></svg>
@@ -201,6 +202,10 @@ export default function Profile() {
                   Currently in {currentTrip.city || currentTrip.country}
                 </span>
               )}
+              {/* What time it is where they are. Renders nothing when the
+                  profile cannot be placed confidently - a wrong clock here
+                  would be read as a fact and messaged on. */}
+              {!isMe && <LocalTime profile={creator} />}
             </p>
           )}
           {creator.bio && <p className="mt-2 text-lg text-smoke">{creator.bio}</p>}

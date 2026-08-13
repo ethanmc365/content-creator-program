@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useLocation } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { useCommunity } from '../../context/CommunityContext'
+import Icon from '../Icon'
 import { Modal } from '../ui'
 import { notice } from '../../lib/confirm'
 import { cx } from '../../lib/utils'
@@ -193,7 +192,11 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
 
   return (
     <>
-      <Modal open={open} onClose={onClose} title="Introduce yourself">
+      {/* A CARD, NOT A FULL SCREEN. `sheet={false}` keeps it a floating panel
+          with the room visible round the edges on a phone as well as on a
+          desktop. A bottom sheet 90vh tall reads as having been sent somewhere
+          else, and this is an invitation you should be able to see past. */}
+      <Modal open={open} onClose={onClose} title="Introduce yourself" sheet={false}>
         <p className="-mt-3 mb-5 text-sm text-smoke">
           Skip anything you would rather not say. Only the last box gets posted.
         </p>
@@ -285,112 +288,105 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
   )
 }
 
-// ---------------------------------------------------------------- the gate
+// ---------------------------------------------------------------- the invite
 //
-// WHO SEES IT, AND WHEN.
+// WHERE IT APPEARS, AND HOW OFTEN.
 //
-// This used to be a bar pinned to the top of the introductions room, which
-// means it only ever reached people who had already found a room that exists
-// for the express purpose of meeting people they have not met. The person it is
-// for is the one who has not been anywhere yet.
+// This was an app-wide popup that opened on any chat path, which meant it fired
+// on every visit to /rooms - Ethan's report - and it fired as a full-height
+// bottom sheet, so answering it felt like being sent to a form rather than being
+// invited to post in a room.
 //
-// So it is a popup over the app, for anybody who has not introduced themselves,
-// every time they come back - and it takes an X, because being unable to read
-// the community until you have performed for it is a worse first impression
-// than an empty introductions room.
+// It belongs to ONE ROOM: the worldwide introductions room. That is the room
+// whose entire purpose is this message, it is the only place the resulting post
+// will appear, and a prompt that opens where its answer goes needs no
+// explaining. Opening it there means the room itself is the trigger, so there is
+// no path-matching to get wrong.
 //
-// THREE PIECES OF STATE, THREE DIFFERENT LIFETIMES, deliberately:
-//   - posted        -> localStorage, forever. You did it; never ask again.
-//   - dismissed     -> sessionStorage. Gone for this visit, back on the next
-//                      one. That is what "should always come for creators that
-//                      haven't yet done it" means without it becoming a modal
-//                      that reopens on every navigation.
-//   - the DB check  -> the source of truth, run once per session, because
-//                      localStorage is per device and somebody who introduced
-//                      themselves on their phone must not be asked again on a
-//                      laptop.
+// AND THE X IS NOT THE END OF IT. Dismissing the card leaves a slim button
+// directly above the composer, which is the only affordance that survives every
+// way a person can decline: it is not a modal, it costs one line, and it is
+// where you are already looking when you think "actually, I should say hello".
+// It goes when the intro is posted, and never comes back.
+//
+// THREE PIECES OF STATE, THREE LIFETIMES:
+//   - posted     -> the DB is the truth (localStorage is a per-device cache, and
+//                   somebody who introduced themselves on their phone must not
+//                   be asked again on a laptop).
+//   - dismissed  -> sessionStorage. The card stays shut for this visit; the
+//                   button above the composer stays for as long as it takes.
+//   - the button -> shown whenever the room is open and the intro is not posted.
 const DONE_KEY = 'intro-posted'
 const SNOOZE_KEY = 'intro-snoozed'
 
-export default function IntroGate() {
-  const { user, isAdmin } = useAuth()
-  const { preview } = useCommunity()
-  const { pathname } = useLocation()
+/**
+ * The invitation, scoped to the worldwide introductions room.
+ *
+ * @param {object} community  the community whose room is open
+ * @param {object} channel    the open channel ({ id, key })
+ * @param {boolean} canPost   false in a read-only room; no point inviting then
+ */
+export default function IntroInvite({ community, channel, canPost = true }) {
+  const { user } = useAuth()
   const [open, setOpen] = useState(false)
-  const [target, setTarget] = useState(null) // { community, channel }
+  const [posted, setPosted] = useState(true) // assume done until we know better
 
-  // NOT YET, AND NOT EVERYWHERE.
-  //
-  // TWO GATES, both required, both added after this shipped once too widely.
-  //
-  // 1. THE PREVIEW FLAG. The introductions room lives in the network shell, and
-  //    the legacy chat that 44 creators actually use has a HARD-CODED channel
-  //    list that does not include it. So a creator answering this popup would
-  //    write an introduction and then have nowhere to see it. Same gate as
-  //    NetworkRoute - device-local flag AND admin - so this is invisible to
-  //    every creator until the network itself is launched.
-  //
-  // 2. THE CHAT PAGES. Even for the team, a modal that opens over the admin
-  //    panel or the rewards queue is an interruption in the middle of somebody
-  //    else's task. An introduction belongs where the conversations are, so it
-  //    only ever appears on a chat surface.
-  const onChat = pathname.startsWith('/chat') || pathname.startsWith('/rooms')
-    || pathname.includes('/chat/')
-  const allowed = !!preview && !!isAdmin && onChat
+  const isIntroRoom = community?.kind === 'network' && channel?.key === 'introductions'
 
   useEffect(() => {
-    if (!user?.id || !allowed) return undefined
-    let done = false
-    let snoozed = false
-    try {
-      done = localStorage.getItem(DONE_KEY) === '1'
-      snoozed = sessionStorage.getItem(SNOOZE_KEY) === '1'
-    } catch { /* private mode: ask, it is not the end of the world */ }
-    if (done || snoozed) return undefined
-
+    if (!user?.id || !isIntroRoom || !canPost) { setPosted(true); return undefined }
     let alive = true
-    async function check() {
-      // The worldwide introductions room. A market's introductions room is a
-      // different conversation and does not count for this.
-      const { data: network } = await supabase
-        .from('communities').select('id, kind, slug, name').eq('kind', 'network').maybeSingle()
-      if (!alive || !network) return
-      const { data: channel } = await supabase
-        .from('channels').select('id, key, label')
-        .eq('community_id', network.id).eq('key', 'introductions').maybeSingle()
-      if (!alive || !channel) return
-      const { data: mine } = await supabase
-        .from('messages').select('id')
-        .eq('channel', 'introductions').eq('sender_id', user.id).limit(1)
-      if (!alive) return
-      if (mine?.length) {
-        try { localStorage.setItem(DONE_KEY, '1') } catch { /* private mode */ }
-        return
-      }
-      setTarget({ community: network, channel })
-      // A beat, so it lands on a page that has finished arriving rather than
-      // on top of a loading skeleton.
-      setTimeout(() => { if (alive) setOpen(true) }, 1400)
-    }
-    check()
+    supabase
+      .from('messages').select('id')
+      .eq('channel', 'introductions').eq('sender_id', user.id).limit(1)
+      .then(({ data }) => {
+        if (!alive) return
+        const done = !!data?.length
+        setPosted(done)
+        if (done) { try { localStorage.setItem(DONE_KEY, '1') } catch { /* private mode */ } return }
+        let snoozed = false
+        try { snoozed = sessionStorage.getItem(SNOOZE_KEY) === '1' } catch { /* private mode */ }
+        // A beat, so the card lands on a room that has finished arriving rather
+        // than on top of its loading skeleton.
+        if (!snoozed) setTimeout(() => { if (alive) setOpen(true) }, 900)
+      })
     return () => { alive = false }
-  }, [user?.id, allowed])
+  }, [user?.id, isIntroRoom, canPost])
 
-  if (!target || !allowed) return null
+  if (!isIntroRoom || posted) return null
 
   return (
-    <IntroModal
-      open={open}
-      community={target.community}
-      channel={target.channel}
-      onClose={() => {
-        setOpen(false)
-        try { sessionStorage.setItem(SNOOZE_KEY, '1') } catch { /* private mode */ }
-      }}
-      onPosted={() => {
-        setOpen(false)
-        try { localStorage.setItem(DONE_KEY, '1') } catch { /* private mode */ }
-      }}
-    />
+    <>
+      {/* The line above the composer. It is the whole reason the X is safe. */}
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mb-2 flex w-full items-center gap-2.5 rounded-xl border border-brand/25 bg-brand-tint/40 px-3 py-2 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/50"
+      >
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-brand text-white">
+          <Icon name="sparkles" className="h-3.5 w-3.5" />
+        </span>
+        <span className="min-w-0 flex-1 text-xs font-medium text-brand">
+          Introduce yourself
+          <span className="hidden font-normal text-smoke sm:inline"> · answer a few questions and we will write it</span>
+        </span>
+        <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-brand/60" />
+      </button>
+
+      <IntroModal
+        open={open}
+        community={community}
+        channel={channel}
+        onClose={() => {
+          setOpen(false)
+          try { sessionStorage.setItem(SNOOZE_KEY, '1') } catch { /* private mode */ }
+        }}
+        onPosted={() => {
+          setOpen(false)
+          setPosted(true)
+          try { localStorage.setItem(DONE_KEY, '1') } catch { /* private mode */ }
+        }}
+      />
+    </>
   )
 }

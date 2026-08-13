@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { openConversation } from '../lib/dm'
@@ -243,9 +243,24 @@ export default function CountryPanel({
   // big it is, and one thing that is genuinely surprising.
   const rows = [
     facts.capital && ['Capital', facts.capital],
+    // WHAT THEY SPEAK. On a platform whose whole point is people meeting people,
+    // this is the row that decides whether you say hello - and it is the one
+    // thing a creator can act on before they have read anything else.
+    facts.languageLabel && ['Language', facts.languageLabel],
     facts.populationLabel && ['Population', `${facts.populationLabel} (approx)`],
     facts.areaLabel && ['Size', facts.areaLabel],
   ].filter(Boolean)
+
+  // WHICH "Did you know" IS SHOWING.
+  //
+  // Reset whenever the country changes, or tapping Spain after Japan would open
+  // on fact seven of a country you have not read fact one of. Wraps rather than
+  // stopping: a button that goes dead after the last fact needs a disabled state
+  // nobody asked for, and coming back round is what people expect anyway.
+  const bank = facts.facts || []
+  const [factIndex, setFactIndex] = useState(0)
+  useEffect(() => { setFactIndex(0) }, [country])
+  const shownFact = bank.length ? bank[factIndex % bank.length] : facts.fact
 
   return (
     <MapPanel
@@ -266,16 +281,39 @@ export default function CountryPanel({
           </dl>
         )}
 
-        {facts.fact && (
-          <p className="mx-1.5 rounded-xl bg-brand-tint/40 px-3 py-2 text-xs leading-relaxed text-ink">
-            <span className="font-semibold text-brand">Did you know </span>
-            {facts.fact}
-          </p>
+        {shownFact && (
+          <div className="mx-1.5 rounded-xl bg-brand-tint/40 px-3 py-2.5">
+            {/* The key is the fact, so React swaps the node and the fade
+                actually plays. Keyed on the index alone, the text would change
+                inside a node that never re-entered and nothing would animate. */}
+            <p key={shownFact} className="animate-fade-up text-xs leading-relaxed text-ink">
+              <span className="font-semibold text-brand">Did you know: </span>
+              {shownFact}
+            </p>
+            {/* BOTTOM LEFT, and only when there is a second thing to say. A
+                button that re-shows the fact you are already reading is a button
+                that looks broken. */}
+            {bank.length > 1 && (
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFactIndex((i) => (i + 1) % bank.length)}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-brand shadow-sm transition-transform hover:scale-105 active:scale-95"
+                >
+                  <Icon name="sparkles" className="h-3 w-3" />
+                  New fact
+                </button>
+                <span className="text-[10px] font-medium text-smoke">
+                  {(factIndex % bank.length) + 1} of {bank.length}
+                </span>
+              </div>
+            )}
+          </div>
         )}
 
         {/* No written row for this place: fall back to the landmarks the
             geography game knows, rather than an empty card. */}
-        {rows.length === 0 && !facts.fact && facts.knownFor.length > 0 && (
+        {rows.length === 0 && !shownFact && facts.knownFor.length > 0 && (
           <div className="flex flex-wrap gap-1.5 px-1.5">
             {facts.knownFor.map((k) => (
               <span key={k} className="rounded-full bg-cloud px-2.5 py-1 text-[11px] font-medium text-smoke">{k}</span>

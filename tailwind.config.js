@@ -55,6 +55,28 @@ export default {
           from: { opacity: '0', transform: 'scale(0.95) translateY(-4px)' },
           to: { opacity: '1', transform: 'scale(1) translateY(0)' },
         },
+        // THE ANSWER FLASH. A green or red wash over the whole question card
+        // the instant an answer lands - it reads faster than any word can, and
+        // unlike the sound it works with the volume down. It fades back to
+        // nothing rather than holding, so the card is neutral again before the
+        // next question arrives and two answers never blur together.
+        'flash-right': {
+          '0%': { backgroundColor: 'rgba(22, 163, 74, 0)' },
+          '18%': { backgroundColor: 'rgba(22, 163, 74, 0.18)' },
+          '100%': { backgroundColor: 'rgba(22, 163, 74, 0)' },
+        },
+        'flash-wrong': {
+          '0%': { backgroundColor: 'rgba(220, 38, 38, 0)' },
+          '18%': { backgroundColor: 'rgba(220, 38, 38, 0.18)' },
+          '100%': { backgroundColor: 'rgba(220, 38, 38, 0)' },
+        },
+        // A streak flame that is actually alight. Tiny - a big wobble on a
+        // number somebody is proud of reads as unstable, not as fire.
+        flicker: {
+          '0%, 100%': { transform: 'scale(1) rotate(0deg)', opacity: '1' },
+          '35%': { transform: 'scale(1.06) rotate(-2deg)', opacity: '0.92' },
+          '70%': { transform: 'scale(0.97) rotate(1.5deg)', opacity: '1' },
+        },
         // Wrong guess / blocked move: a quick horizontal shake.
         shake: {
           '0%, 100%': { transform: 'translateX(0)' },
@@ -110,6 +132,9 @@ export default {
         'menu-in': 'menu-in 0.16s ease-out both',
         confetti: 'confetti 3s linear forwards',
         shake: 'shake 0.4s ease-in-out both',
+        flicker: 'flicker 2.6s ease-in-out infinite',
+        'flash-right': 'flash-right 0.9s ease-out both',
+        'flash-wrong': 'flash-wrong 0.9s ease-out both',
         fly: 'fly 1.7s ease-in-out infinite',
         'toast-in': 'toast-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both',
         cruise: 'cruise 7s ease-in-out infinite',

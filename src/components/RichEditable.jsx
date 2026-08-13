@@ -101,6 +101,41 @@ const RichEditable = forwardRef(function RichEditable(
     flush()
   }
 
+  // A HEADING FOLLOWS THE SELECTION, NOT THE LINE.
+  //
+  // Bold and italic touch exactly what is highlighted, and Ethan's report was
+  // that H did not: highlight one word in a sentence, press H, and the whole
+  // sentence became the heading. "It should be the exact same function."
+  //
+  // It cannot literally be the same function - a heading is a block element in
+  // both HTML and markdown, there is no such thing as half a line of <h1> - so
+  // the selection is made into a block of its own first. "say hello world" with
+  // "hello" highlighted becomes three blocks (say / hello / world) and only the
+  // middle one is re-tagged. The leftovers keep the tag they had, so un-heading
+  // one word out of a heading leaves the rest a heading.
+  //
+  // A COLLAPSED CARET still means the line: there is no selection to follow, and
+  // "make this line a heading" is the only sensible reading of a bare press.
+  const blockLike = (block) => document.createElement(block.tagName.toLowerCase())
+
+  // Move everything in `block` before (start=true) / after (start=false) the
+  // given boundary into a new sibling block. Returns true if anything moved.
+  const splitOff = (block, container, offset, start) => {
+    const r = document.createRange()
+    try {
+      r.selectNodeContents(block)
+      if (start) r.setEnd(container, offset)
+      else r.setStart(container, offset)
+    } catch { return false }
+    if (!r.toString().length) return false
+    const el = blockLike(block)
+    el.appendChild(r.extractContents())
+    if (!el.firstChild) el.appendChild(document.createElement('br'))
+    if (start) block.before(el)
+    else block.after(el)
+    return true
+  }
+
   // Re-tag a block, keeping its inline children. Used for headings / quote / p.
   const retag = (block, tag) => {
     if (block.tagName.toLowerCase() === tag) return block
@@ -154,7 +189,24 @@ const RichEditable = forwardRef(function RichEditable(
         endBlk = endBlk.previousElementSibling || startBlk
       }
     }
+    // Cut the selection out into blocks of its own, so the format lands on the
+    // highlighted words and not on the line that happens to contain them. The
+    // END is split first: extracting the tail cannot disturb a boundary that
+    // sits before it, whereas extracting the head re-writes the very text node
+    // and offset the tail boundary is expressed in.
+    let didSplit = false
+    if (!range.collapsed) {
+      const skip = /^(UL|OL|HR)$/
+      if (endBlk && !skip.test(endBlk.tagName)) {
+        didSplit = splitOff(endBlk, range.endContainer, range.endOffset, false) || didSplit
+      }
+      if (startBlk && !skip.test(startBlk.tagName)) {
+        didSplit = splitOff(startBlk, range.startContainer, range.startOffset, true) || didSplit
+      }
+    }
+
     // Walk the sibling blocks the selection covers (skip lists / dividers).
+    // Computed AFTER the split, so the leftovers are not in the list.
     const blocks = []
     let cur = startBlk
     while (cur) {
@@ -175,8 +227,17 @@ const RichEditable = forwardRef(function RichEditable(
     const newBlocks = blocks.map((b) => retag(b, finalTag))
     try {
       const r = document.createRange()
-      r.setStart(sC, sO)
-      r.setEnd(eC, eO)
+      if (didSplit) {
+        // The split re-wrote the very text nodes and offsets those endpoints
+        // were expressed in. The converted blocks now hold exactly what was
+        // highlighted, so selecting them IS restoring the user's selection.
+        const last = newBlocks[newBlocks.length - 1]
+        r.selectNodeContents(newBlocks[0])
+        r.setEnd(last, last.childNodes.length)
+      } else {
+        r.setStart(sC, sO)
+        r.setEnd(eC, eO)
+      }
       sel.removeAllRanges()
       sel.addRange(r)
     } catch {
@@ -231,7 +292,15 @@ const RichEditable = forwardRef(function RichEditable(
     focus: () => elRef.current?.focus(),
     getMd: () => (elRef.current ? htmlToMd(elRef.current, { inlineOnly }) : ''),
     exec: (cmd, value = null) => {
-      elRef.current?.focus()
+      // Only take focus if the caret is not already in here. Re-focusing an
+      // element the selection is already inside is a no-op in a browser but a
+      // selection-destroying one in jsdom, and the formatting handlers below
+      // read the selection - so the guard is what makes them testable, and it
+      // is one less way for a stray focus() to lose what the user highlighted.
+      const sel0 = window.getSelection()
+      const inside = elRef.current && sel0?.rangeCount
+        && elRef.current.contains(sel0.getRangeAt(0).commonAncestorContainer)
+      if (!inside) elRef.current?.focus()
       // Route block + inline formatting through our own DOM-based handlers so
       // they behave predictably (only the selected block, reliable toggles).
       if (cmd === 'formatBlock') return applyBlock((value || 'p').toLowerCase())
