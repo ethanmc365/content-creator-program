@@ -19,8 +19,7 @@ import { RoomSearch } from '../components/ChatSearch'
 import ChatMedia from '../components/ChatMedia'
 import { formatMessageTime, messageTimeTitle, cx } from '../lib/utils'
 import { renderMessageBody } from '../lib/richText'
-import RichEditable from '../components/RichEditable'
-import { ComposerToolbar } from '../components/ComposerTools'
+import ChatComposer from '../components/ChatComposer'
 import SeenBy from '../components/SeenBy'
 import ChatAdminTools from '../components/ChatAdminTools'
 import { textBeforeCaret } from '../lib/richEditor'
@@ -85,7 +84,6 @@ export default function Chat() {
   // and worse. Same component the network rooms use.
   const [search, setSearch] = useState('')
   const [pickerFor, setPickerFor] = useState(null)
-  const [showFormatting, setShowFormatting] = useState(false) // mobile: formatting row revealed
   const [actionsFor, setActionsFor] = useState(null) // message id with its action row open (mobile tap)
   const [unread, setUnread] = useState({}) // channel -> bool
   const [attachError, setAttachError] = useState('')
@@ -94,11 +92,10 @@ export default function Chat() {
   const [atBottom, setAtBottom] = useState(true)    // is the view scrolled to newest
   const [newBelow, setNewBelow] = useState(0)       // unseen messages while scrolled up
   const bottomRef = useRef(null)
-  const fileRef = useRef(null)
   const textareaRef = useRef(null)
   // Admins compose on a WYSIWYG contentEditable (RichEditable); creators keep the
   // plain textarea. `body` stays the markdown source of truth for both paths.
-  const richRef = useRef(null)
+  const composerEditorRef = useRef(null)
   const mentionQueryLenRef = useRef(0)
   const composerRef = useRef(null)
   const scrollerRef = useRef(null)
@@ -544,9 +541,9 @@ export default function Chat() {
     // Clear the composer immediately; keep focus so the mobile keyboard stays up
     // (it only closes when the user taps the chat or swipes the composer down).
     setBody(''); clearDraft('chat-' + channel); setMention(null); setReplyTo(null); stopTyping()
-    richRef.current?.clear()
+    composerEditorRef.current?.clear()
     setAtBottom(true)
-    ;(richRef.current ? richRef.current.focus() : textareaRef.current?.focus())
+    ;(composerEditorRef.current ? composerEditorRef.current.focus() : composerEditorRef.current?.focus())
     const { data, error } = await supabase
       .from('messages')
       .insert({ channel, sender_id: user.id, body: text, reply_to: replyId })
@@ -573,9 +570,8 @@ export default function Chat() {
   // URL, uploads in the background (image → compressed via the upload proxy;
   // video → straight to storage), then sends it as a message with any typed text
   // as the caption.
-  async function sendAttachment(e) {
-    const file = e.target.files?.[0]
-    e.target.value = '' // allow re-selecting the same file
+  // The composer owns the file input and hands us the File itself.
+  async function sendAttachment(file) {
     if (!file) return
     setAttachError('')
     const isVideo = file.type.startsWith('video/') || /\.(mp4|webm|mov|m4v|ogv)$/i.test(file.name)
@@ -588,7 +584,7 @@ export default function Chat() {
         : { body: caption, image_url: localUrl, reply_to: replyId }
     )
     setMessages((prev) => [...prev, temp])
-    if (!isVideo) { setBody(''); clearDraft('chat-' + channel); richRef.current?.clear() }
+    if (!isVideo) { setBody(''); clearDraft('chat-' + channel); composerEditorRef.current?.clear() }
     setReplyTo(null); setAtBottom(true)
     try {
       const url = isVideo ? await uploadChatVideo(file, user.id) : await uploadChatImage(file, user.id)
@@ -641,26 +637,12 @@ export default function Chat() {
     if (m) { mentionQueryLenRef.current = m[1].length; setMention({ query: m[1], start: -1 }) }
     else setMention(null)
   }
-  // Toolbar for the rich composer (bold / italic / heading), driven via the handle.
-  function richFormat(kind) {
-    const ed = richRef.current
-    if (!ed) return
-    // ASK THE EDITOR, NOT THE BROWSER. This used to read
-    // `document.queryCommandValue('formatBlock')` to decide whether to apply or
-    // remove the heading, which answers for whatever the DOCUMENT thinks is
-    // focused and returns '' often enough that the button read as one-way.
-    // applyBlock already toggles a block that is already a heading back to a
-    // paragraph, on the selection's own blocks, so it only ever needs telling
-    // which heading we mean.
-    if (kind === 'heading') ed.exec('formatBlock', 'h1')
-    else ed.exec(kind) // bold | italic
-  }
   // Insert a mention: the composer swaps the typed "@query" for a chip. No
   // longer gated on isAdmin - there is only one composer now, and gating it
   // meant a creator picking a name from the menu silently did nothing.
   function chooseMention(member) {
-    if (!richRef.current) return
-    richRef.current.insertMention(member.name, mentionQueryLenRef.current + 1)
+    if (!composerEditorRef.current) return
+    composerEditorRef.current.insertMention(member.name, mentionQueryLenRef.current + 1)
     setMention(null)
   }
 
@@ -793,7 +775,7 @@ export default function Chat() {
           onScroll={onScrollMessages}
           // Tapping the chat dismisses the keyboard (WhatsApp-style). A scroll
           // drag doesn't fire click, so scrolling the history leaves it up.
-          onClick={() => { if (isMobile && kbOpen) textareaRef.current?.blur() }}
+          onClick={() => { if (isMobile && kbOpen) document.activeElement?.blur?.() }}
           className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:space-y-5 sm:px-8 sm:py-6"
         >
           {loading && (
@@ -956,7 +938,7 @@ export default function Chat() {
                   >
                       {!m.pending && (
                         <button
-                          onClick={() => { setReplyTo(m); setActionsFor(null); textareaRef.current?.focus() }}
+                          onClick={() => { setReplyTo(m); setActionsFor(null); composerEditorRef.current?.focus() }}
                           aria-label="Reply"
                           title="Reply"
                           className="rounded-full border border-gray-200 p-1 text-smoke hover:border-brand hover:text-brand"
@@ -1062,123 +1044,69 @@ export default function Chat() {
                 Posting a game card, a resource card or a poll IS an admin
                 action - those write to shared library rows - so those stay
                 behind the check. One row, two audiences. */}
-            {/* COLLAPSED ON A PHONE. This row sits directly above the composer,
-                and on a 375px screen every pixel it takes is a pixel of
-                conversation. Formatting is a thing you reach for occasionally
-                and the keyboard is a thing you need constantly, so on mobile it
-                hides behind the Aa button beside the composer. On desktop,
-                where the space is free, it stays open.
-                POLLS ARE NO LONGER LOCKED TO #ANNOUNCEMENTS. There was never a
-                reason a question worth asking in the announcements channel is
-                the only question worth asking; asking #content-tips which
-                editing app they use is exactly what a poll is for. */}
-            <ComposerToolbar
-              onFormat={richFormat}
+            <ChatComposer
+              ref={composerEditorRef}
+              docId={channel}
+              initialMd={loadDraft('chat-' + channel)}
+              placeholder="Message…"
+              ariaLabel={`Message ${meta.label}`}
+              mentionNames={memberNames}
+              onChangeMd={onRichChange}
+              onInput={onRichInput}
+              onBlur={stopTyping}
+              onKeyDown={(e) => {
+                if (mention && mentionResults.length) {
+                  if (e.key === 'Enter') { e.preventDefault(); chooseMention(mentionResults[0]); return }
+                  if (e.key === 'Escape') { e.preventDefault(); setMention(null) }
+                }
+              }}
+              onSend={send}
+              canSend={!!body.trim()}
+              onAttach={sendAttachment}
               isAdmin={isAdmin}
               onGame={() => setAdminTool('game')}
               onResource={() => setAdminTool('resource')}
               onPoll={() => setAdminTool('poll')}
-              open={showFormatting}
-            />
-            {/* @mention autocomplete (admins also get @everyone) */}
-            {mention && mentionResults.length > 0 && (
-              <div className="mb-2 overflow-hidden rounded-card border border-gray-100 bg-white shadow-lift">
-                {mentionResults.map((mem) => (
-                  <button key={mem.id} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => chooseMention(mem)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-cloud">
-                    {mem.everyone ? (
-                      <>
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-tint text-brand"><Icon name="megaphone" className="h-4 w-4" /></span>
-                        <span className="min-w-0"><span className="block font-medium">@everyone</span><span className="block text-xs text-smoke">Notify the whole community</span></span>
-                      </>
-                    ) : (
-                      <>
-                        <Avatar src={mem.photo_url} name={mem.name} size="sm" />
-                        <span className="font-medium">{mem.name}</span>
-                      </>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-            {/* Reply preview: what you're replying to, with a cancel button. */}
-            {replyTo && (
-              <div className="mb-2 flex items-center gap-2 rounded-xl border-l-2 border-brand bg-cloud/70 px-3 py-2">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-semibold text-brand">
-                    Replying to {replyTo.sender_id === user.id ? 'yourself' : replyTo.profiles?.name}
-                  </p>
-                  <p className="truncate text-xs text-smoke">{messagePreview(replyTo)}</p>
+              isMobile={isMobile}
+              kbOpen={kbOpen}
+              className="!border-t-0 !px-0 !py-0"
+            >
+              {attachError && <p className="mb-2 text-xs text-red-600">{attachError}</p>}
+              {/* @mention autocomplete (admins also get @everyone) */}
+              {mention && mentionResults.length > 0 && (
+                <div className="mb-2 overflow-hidden rounded-card border border-gray-100 bg-white shadow-lift">
+                  {mentionResults.map((mem) => (
+                    <button key={mem.id} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => chooseMention(mem)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-cloud">
+                      {mem.everyone ? (
+                        <>
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-tint text-brand"><Icon name="megaphone" className="h-4 w-4" /></span>
+                          <span className="min-w-0"><span className="block font-medium">@everyone</span><span className="block text-xs text-smoke">Notify the whole community</span></span>
+                        </>
+                      ) : (
+                        <>
+                          <Avatar src={mem.photo_url} name={mem.name} size="sm" />
+                          <span className="font-medium">{mem.name}</span>
+                        </>
+                      )}
+                    </button>
+                  ))}
                 </div>
-                <button type="button" onClick={() => setReplyTo(null)} aria-label="Cancel reply" className="rounded-full p-1 text-smoke hover:bg-white hover:text-ink">
-                  <Icon name="ban" className="h-4 w-4" />
-                </button>
-              </div>
-            )}
-
-            {/* One attach button handles images AND videos. */}
-            <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden" onChange={sendAttachment} />
-
-            <form onSubmit={send} className="flex items-end gap-2">
-              {/* blur() so the global focus-visible ring doesn't stick to the
-                  button after the file dialog closes and re-focuses it */}
-              <button type="button" onClick={(e) => { e.currentTarget.blur(); fileRef.current?.click() }} className="btn-ghost !px-2.5 !py-3" aria-label="Attach a photo or video" title="Attach a photo or video">
-                <Icon name="image" className="h-5 w-5" />
-              </button>
-              {/* Mobile-only: reveals the formatting row above. 44px target. */}
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setShowFormatting((v) => !v)}
-                aria-pressed={showFormatting}
-                aria-label="Formatting"
-                className={cx('btn-ghost !px-2.5 !py-3 sm:hidden', showFormatting && '!text-brand')}
-              >
-                <span className="text-sm font-bold leading-none">Aa</span>
-              </button>
-              {/* THE RICH COMPOSER IS NOT AN ADMIN FEATURE.
-                  Bold, headings and @-mentions were limited to the team on the
-                  theory that creators would not need them. They ask questions,
-                  post briefs of their own and share links all day; making them
-                  type `**like this**` and see the asterisks was a worse
-                  experience for the larger half of the room. `body` is still
-                  markdown underneath, so drafts, mentions, notifications and
-                  the mobile keyboard path are all unchanged. */}
-                <RichEditable
-                  ref={richRef}
-                  docId={channel}
-                  initialMd={loadDraft('chat-' + channel)}
-                  inlineOnly
-                  mentionNames={memberNames}
-                  placeholder="Message…"
-                  onChangeMd={onRichChange}
-                  onInput={onRichInput}
-                  onBlur={stopTyping}
-                  className="input max-h-32 flex-1 self-stretch overflow-y-auto"
-                  aria-label={`Message ${meta.label}`}
-                  onKeyDown={(e) => {
-                    if (mention && mentionResults.length) {
-                      if (e.key === 'Enter') { e.preventDefault(); chooseMention(mentionResults[0]); return }
-                      if (e.key === 'Escape') { e.preventDefault(); setMention(null); return }
-                    }
-                    if (!isMobile && e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault()
-                      if (body.trim()) send(e)
-                    }
-                  }}
-                />
-              <button
-                type="submit"
-                // Prevent the tap from moving focus off the textarea — that blur
-                // is what collapsed the keyboard on send. The click/submit still
-                // fires; focus (and the keyboard) stay put.
-                onMouseDown={(e) => e.preventDefault()}
-                disabled={!body.trim()}
-                className="btn-primary !px-5"
-                aria-label="Send"
-              >
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3 21l18-9L3 3l3 9zm0 0h6" /></svg>
-              </button>
-            </form>
+              )}
+              {/* Reply preview: what you're replying to, with a cancel button. */}
+              {replyTo && (
+                <div className="mb-2 flex items-center gap-2 rounded-xl border-l-2 border-brand bg-cloud/70 px-3 py-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-semibold text-brand">
+                      Replying to {replyTo.sender_id === user.id ? 'yourself' : replyTo.profiles?.name}
+                    </p>
+                    <p className="truncate text-xs text-smoke">{messagePreview(replyTo)}</p>
+                  </div>
+                  <button type="button" onClick={() => setReplyTo(null)} aria-label="Cancel reply" className="rounded-full p-1 text-smoke hover:bg-white hover:text-ink">
+                    <Icon name="ban" className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+            </ChatComposer>
             </>
           ) : (
             <p className="rounded-xl bg-cloud px-4 py-3 text-center text-sm text-smoke">

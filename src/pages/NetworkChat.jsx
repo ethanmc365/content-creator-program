@@ -13,10 +13,11 @@ import ChatMedia from '../components/ChatMedia'
 import { uploadChatImage, uploadChatVideo } from '../lib/chatMedia'
 import { renderMessageBody } from '../lib/richText'
 import Reorderable from '../components/network/Reorderable'
-import { ComposerToolbar } from '../components/ComposerTools'
 import ChatAdminTools from '../components/ChatAdminTools'
+import ChatComposer from '../components/ChatComposer'
+import { textBeforeCaret } from '../lib/richEditor'
+import { loadDraft, saveDraft, clearDraft } from '../lib/drafts'
 import SeenBy from '../components/SeenBy'
-import { formatTextarea } from '../lib/composerFormat'
 import { Avatar, EmptyState } from '../components/ui'
 import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
 import { cx, formatMessageTime, messageTimeTitle } from '../lib/utils'
@@ -125,7 +126,6 @@ export default function NetworkChat() {
   const [members, setMembers] = useState([])
   const [mention, setMention] = useState(null) // { query, start } while typing @…
   const [roomOrder, setRoomOrder] = useState(loadRoomOrder)
-  const [showFormatting, setShowFormatting] = useState(false)
   const [attachError, setAttachError] = useState('')
   // Titles for poll / game / resource cards, keyed `table:id`.
   const [cardTitles, setCardTitles] = useState(new Map())
@@ -140,9 +140,10 @@ export default function NetworkChat() {
   const [reads, setReads] = useState(new Map())
   // Which admin tool (poll / game / resource) is open, if any.
   const [adminTool, setAdminTool] = useState(null)
-  const fileRef = useRef(null)
   const scrollerRef = useRef(null)
-  const inputRef = useRef(null)
+  const composerRef = useRef(null)
+  // How many characters of the in-progress "@query" to replace with the chip.
+  const mentionLenRef = useRef(0)
   const atBottomRef = useRef(true)
 
   const { height: vpHeight, offsetTop: vpOffset, keyboardOpen: kbOpen } = useVisualViewport()
@@ -343,6 +344,15 @@ export default function NetworkChat() {
   // moment the room is on screen. The write is throttled: a room you scroll
   // through for a minute should not be a minute of upserts.
   const roomKey = community && active ? scopedKey(community, active.key) : null
+  // Per-room draft, so a half-written message in Spain's General is still there
+  // when you come back from the UK's.
+  const draftKey = `net-chat-${roomKey || 'none'}`
+  // Names the composer turns into @chips as you type. Admins also get @everyone.
+  const mentionNames = useMemo(() => {
+    const names = members.map((m) => m.name).filter((n) => n && n.length > 1)
+    if (isAdmin) names.push('everyone')
+    return names.sort((a, b) => b.length - a.length)
+  }, [members, isAdmin])
 
   useEffect(() => {
     if (!roomKey) return undefined
@@ -399,21 +409,25 @@ export default function NetworkChat() {
   }, [messages, search])
 
   // Typing "@" opens the picker; a space or a match closes it.
-  function onBodyChange(e) {
-    const value = e.target.value
-    setBody(value)
-    const upto = value.slice(0, e.target.selectionStart ?? value.length)
-    const m = /(?:^|\s)@([\w' -]{0,20})$/.exec(upto)
-    setMention(m ? { query: m[1], start: upto.length - m[1].length - 1 } : null)
+  // The composer serialises to markdown on every keystroke, so `body` stays
+  // exactly what it always was and send/drafts/search are untouched.
+  function onComposerChange(md) {
+    setBody(md)
+    saveDraft(draftKey, md)
+  }
+
+  // An in-progress @mention, read from the caret's own text node rather than
+  // from a selectionStart a contentEditable does not have.
+  function onComposerInput() {
+    const before = textBeforeCaret()
+    const m = /(?:^|\s)@([^\s@]{0,30})$/.exec(before)
+    if (m) { mentionLenRef.current = m[1].length; setMention({ query: m[1] }) }
+    else setMention(null)
   }
 
   function pickMention(person) {
-    if (!mention) return
-    const before = body.slice(0, mention.start)
-    const after = body.slice(mention.start + mention.query.length + 1)
-    setBody(`${before}@${person.name} ${after}`)
+    composerRef.current?.insertMention(person.name, mentionLenRef.current + 1)
     setMention(null)
-    inputRef.current?.focus()
   }
 
   function onScroll(e) {
@@ -439,6 +453,8 @@ export default function NetworkChat() {
     if (!text || !canPost || sending) return
     setSending(true)
     setBody('')
+    composerRef.current?.clear()
+    clearDraft(draftKey)
     atBottomRef.current = true
     await postMessage({ body: text })
     setSending(false)
@@ -467,14 +483,6 @@ export default function NetworkChat() {
       setAttachError(err?.message || 'That file could not be sent.')
     }
     setSending(false)
-  }
-
-  // Wrap the selection in markdown markers, or toggle them off again. Shared
-  // with the DMs via lib/composerFormat: the legacy chat does this on a
-  // contentEditable, everything else is a textarea and four characters, and
-  // both end up with the same `body`, which is what the renderer reads.
-  function format(kind) {
-    formatTextarea(inputRef.current, body, kind, setBody)
   }
 
   if (ctxLoading && !community) {
@@ -697,109 +705,59 @@ export default function NetworkChat() {
         )}
       </div>
 
-      <div className="shrink-0 border-t border-gray-100 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:pb-3">
-        {isLiveWorldwide ? (
+      {isLiveWorldwide ? (
+        <div className="shrink-0 border-t border-gray-100 p-3">
           <p className="rounded-xl bg-cloud px-4 py-3 text-center text-xs text-smoke">
             {active?.label} is a room every creator is already in today. It is read only here so a test
             message cannot reach all of them by accident. The other rooms are open.
           </p>
-        ) : !canPost ? (
+        </div>
+      ) : !canPost ? (
+        <div className="shrink-0 border-t border-gray-100 p-3">
           <p className="rounded-xl bg-cloud px-4 py-3 text-center text-xs text-smoke">
             Only the team posts in {active?.label}.
           </p>
-        ) : (
-          <>
-            {attachError && (
-              <p role="alert" className="mb-2 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">{attachError}</p>
+        </div>
+      ) : (
+        <ChatComposer
+          ref={composerRef}
+          docId={`${community.id}:${active?.key}`}
+          initialMd={loadDraft(draftKey)}
+          // A one-row composer cannot show a placeholder that wraps, and at
+          // 375px "Message Introductions" wrapped and had its second line sliced
+          // off - which reads as broken before you have typed anything.
+          placeholder={isMobile ? 'Message' : `Message ${active?.label}`}
+          ariaLabel={`Message ${active?.label}`}
+          mentionNames={mentionNames}
+          onChangeMd={onComposerChange}
+          onInput={onComposerInput}
+          onSend={send}
+          canSend={!!body.trim()}
+          sending={sending}
+          onAttach={attach}
+          isAdmin={isAdmin}
+          onGame={() => setAdminTool('game')}
+          onResource={() => setAdminTool('resource')}
+          onPoll={() => setAdminTool('poll')}
+          isMobile={isMobile}
+          kbOpen={kbOpen}
+        >
+          {attachError && (
+            <p role="alert" className="mb-2 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">{attachError}</p>
+          )}
+          {/* @-autocomplete, anchored above the composer. */}
+          <AnimatePresence>
+            {mention && (
+              <MentionMenu
+                query={mention.query}
+                members={members}
+                onPick={pickMention}
+                onClose={() => setMention(null)}
+              />
             )}
-            {/* FORMATTING, FOR EVERY CREATOR, IN EVERY ROOM.
-                Collapsed behind the Aa button on a phone for the same reason
-                the legacy chat collapses it: this row sits directly above the
-                composer and the keyboard needs the pixels more. Open on
-                desktop, where the space is free. */}
-            {/* THE SAME ROW EVERY OTHER CHAT HAS, including the admin tools.
-                A market room could not post a poll, share a resource or set a
-                game challenge - all three lived only in the legacy chat - which
-                made a market feel like a lesser room rather than a different
-                one. */}
-            <ComposerToolbar
-              onFormat={format}
-              isAdmin={isAdmin}
-              onGame={() => setAdminTool('game')}
-              onResource={() => setAdminTool('resource')}
-              onPoll={() => setAdminTool('poll')}
-              open={showFormatting}
-            />
-          <form onSubmit={send} className="relative flex items-end gap-2">
-            {/* @-autocomplete, anchored to the composer. */}
-            <AnimatePresence>
-              {mention && (
-                <MentionMenu
-                  query={mention.query}
-                  members={members}
-                  onPick={pickMention}
-                  onClose={() => setMention(null)}
-                />
-              )}
-            </AnimatePresence>
-            {/* Attach. Same control, same limits and the same compression as
-                the legacy chat - see `attach` above. */}
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*,video/*"
-              className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; attach(f) }}
-            />
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              disabled={sending}
-              aria-label="Attach a photo or video"
-              title="Attach a photo or video"
-              className="btn-ghost shrink-0 !px-2.5 !py-3 disabled:opacity-50"
-            >
-              <Icon name="image" className="h-5 w-5" />
-            </button>
-            {/* text-base on mobile, deliberately: anything smaller makes iOS
-                zoom the page on focus and the overlay geometry never recovers. */}
-            <textarea
-              ref={inputRef}
-              rows={1}
-              className="input max-h-32 min-h-0 resize-none py-2.5 text-base sm:text-sm"
-              // A one-row textarea cannot show a placeholder that wraps, and at
-              // 375px "Message Introductions" wrapped and had its second line
-              // sliced off by the box - which reads as a broken composer before
-              // you have typed anything. The room's name is in the tab strip
-              // and the hint bar directly above; the placeholder does not need
-              // to repeat it on a phone.
-              placeholder={isMobile ? 'Message' : `Message ${active?.label}`}
-              value={body}
-              onChange={onBodyChange}
-              onKeyDown={(e) => {
-                // Enter sends, Shift+Enter is a new line. The same bargain the
-                // legacy chat makes, so muscle memory carries between rooms.
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(e) }
-              }}
-              aria-label={`Message ${active?.label}`}
-            />
-            <button
-              type="button"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => setShowFormatting((v) => !v)}
-              aria-pressed={showFormatting}
-              aria-label="Formatting"
-              className={cx('btn-ghost shrink-0 !px-2.5 !py-3 sm:hidden', showFormatting && '!text-brand')}
-            >
-              <span className="text-sm font-bold">Aa</span>
-            </button>
-            <button type="submit" disabled={!body.trim() || sending} className="btn-primary shrink-0 !px-5 !py-2.5">
-              {sending ? '…' : 'Send'}
-            </button>
-          </form>
-          </>
-        )}
-      </div>
+          </AnimatePresence>
+        </ChatComposer>
+      )}
     </div>
   )
 

@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { openConversation } from '../lib/dm'
 import { countryFacts } from '../lib/countryFacts'
+import { flagForCountry } from '../lib/flags'
 import { Avatar } from './ui'
 import Icon from './Icon'
 import { cx } from '../lib/utils'
@@ -32,7 +33,7 @@ import { cx } from '../lib/utils'
 
 const firstName = (n = '') => (n.trim().split(' ')[0] || 'They')
 
-function CreatorRow({ creator, onMessage, onCreatorClick, busy, subtitle }) {
+export function CreatorRow({ creator, onMessage, onCreatorClick, busy, subtitle }) {
   const { user } = useAuth()
   const isMe = creator.id === user?.id
   const inner = (
@@ -107,6 +108,105 @@ function Group({ title, hint, creators, subtitleFor, onMessage, onCreatorClick, 
   )
 }
 
+// Opening a DM from a map panel. Shared by both panels so "Message" behaves
+// identically wherever it appears, and so the public map - where there is no
+// "you" to send from - degrades to the join prompt the page already owns.
+export function useMessageCreator(onCreatorClick) {
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const [busyId, setBusyId] = useState(null)
+
+  async function message(creator) {
+    if (!user?.id) return
+    setBusyId(creator.id)
+    const id = await openConversation(user.id, creator.id)
+    setBusyId(null)
+    if (id) navigate(`/messages/${id}`)
+  }
+
+  return { onMessage: user?.id && !onCreatorClick ? message : null, busyId }
+}
+
+// The card both map panels are made of.
+//
+// NO max-height HERE, DELIBERATELY. It had `max-h-[min(26rem,70%)]` once, and
+// the 70% never applied: a percentage height resolves against the containing
+// block, that block was an absolutely positioned div with no height of its own,
+// and a percentage against an auto height is indeterminate - so the whole min()
+// fell back to no limit and a city with thirty creators drew a card off the top
+// of the map. The CALLER gives us a definite box and this shrinks inside it;
+// `overflow-hidden` makes min-height 0 so flex is allowed to squeeze it.
+export function MapPanel({ badge, title, subtitle, onClose, className, children }) {
+  return (
+    <div
+      className={cx(
+        'pointer-events-auto flex max-h-[26rem] min-h-0 w-full flex-col overflow-hidden rounded-card border border-gray-100 bg-white shadow-lift',
+        className,
+      )}
+    >
+      <div className="flex shrink-0 items-start gap-3 border-b border-gray-100 px-4 py-3">
+        {badge}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-ink">{title}</p>
+          {subtitle && <p className="truncate text-xs text-smoke">{subtitle}</p>}
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="-mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-smoke transition-colors hover:bg-cloud hover:text-ink"
+        >
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 py-3">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+// EVERYBODY IN ONE CITY.
+//
+// This is what the map pin's orange number is a promise about. The pin shows one
+// face because eight faces stacked on one coordinate cannot be read; the roster
+// is where you actually see who is there, and - the part the old town card was
+// missing - message them without going via their profile first.
+export function TownPanel({ town, onClose, onCreatorClick = null, className }) {
+  const { onMessage, busyId } = useMessageCreator(onCreatorClick)
+  const people = town?.creators ?? []
+  const city = (people[0]?.city || '').trim() || 'Here'
+  const country = (people[0]?.country || '').trim()
+  const flag = flagForCountry(country)
+
+  return (
+    <MapPanel
+      className={className}
+      badge={<span className="text-2xl leading-none" aria-hidden>{flag || '\ud83d\udccd'}</span>}
+      title={city}
+      subtitle={[country, `${people.length} creator${people.length === 1 ? '' : 's'}`].filter(Boolean).join(' \u00b7 ')}
+      onClose={onClose}
+    >
+      <div className="flex flex-col gap-0.5">
+        {people.map((c) => (
+          <CreatorRow
+            key={c.id}
+            creator={c}
+            onMessage={onMessage}
+            onCreatorClick={onCreatorClick}
+            busy={busyId === c.id}
+            subtitle={
+              (c.countries_visited?.length || c.countries)
+                ? `${c.countries_visited?.length || c.countries} countries visited`
+                : undefined
+            }
+          />
+        ))}
+      </div>
+    </MapPanel>
+  )
+}
+
 export default function CountryPanel({
   country,
   lives = [],
@@ -125,67 +225,57 @@ export default function CountryPanel({
   className,
 }) {
   const { user } = useAuth()
-  const navigate = useNavigate()
-  const [busyId, setBusyId] = useState(null)
+  const { onMessage, busyId } = useMessageCreator(onCreatorClick)
   const facts = useMemo(() => countryFacts(country), [country])
   const total = lives.length + visited.length
-
-  async function message(creator) {
-    if (!user?.id) return
-    setBusyId(creator.id)
-    const id = await openConversation(user.id, creator.id)
-    setBusyId(null)
-    if (id) navigate(`/messages/${id}`)
-  }
-  // On the public map there is no "you" to send a message from, so the whole
-  // row becomes the join prompt the page already owns.
-  const onMessage = user?.id && !onCreatorClick ? message : null
 
   const meta = [facts.continent, facts.currency && `${facts.currency}${facts.symbol ? ` (${facts.symbol})` : ''}`]
     .filter(Boolean)
     .join(' · ')
 
-  return (
-    <div
-      // NO max-height HERE, DELIBERATELY.
-      //
-      // It had `max-h-[min(26rem,70%)]`, and the 70% never applied: a percentage
-      // height resolves against the containing block, the containing block was
-      // an absolutely positioned div with `bottom/left/right` and no height, and
-      // a percentage against an auto height is indeterminate - so the whole
-      // min() fell back to no limit and a country with thirty visitors rendered
-      // a 1400px card that ran off the top of the map.
-      //
-      // Instead the CALLER gives us a definite box (a flex column pinned to all
-      // four insets of the map) and this shrinks inside it: `overflow-hidden`
-      // makes min-height compute to 0, so flex is free to squeeze it, and the
-      // list below scrolls. One rule, correct at every map size.
-      className={cx(
-        // The 26rem ceiling is kept (a panel that fills a whole desktop map
-        // hides the thing it is describing) - it is only the percentage that
-        // was broken. Flex shrink still takes it below this on a small map.
-        'pointer-events-auto flex max-h-[26rem] min-h-0 w-full flex-col overflow-hidden rounded-card border border-gray-100 bg-white shadow-lift',
-        className,
-      )}
-    >
-      <div className="flex shrink-0 items-start gap-3 border-b border-gray-100 px-4 py-3">
-        <span className="text-2xl leading-none" aria-hidden>{facts.flag || '🌍'}</span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-ink">{country}</p>
-          {meta && <p className="truncate text-xs text-smoke">{meta}</p>}
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="-mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-smoke transition-colors hover:bg-cloud hover:text-ink"
-        >
-          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
-        </button>
-      </div>
+  // WHAT THE PANEL SAYS ABOUT THE PLACE.
+  //
+  // This used to be six chips - "New York", "Statue of Liberty", "Hollywood" -
+  // lifted from the geography game's clue lists. They are clues, written to be
+  // guessed at, and as a description of a country they say almost nothing: a
+  // reader already knows the Statue of Liberty is in America. Facts you can
+  // actually use, and repeat, are the capital, how many people live there, how
+  // big it is, and one thing that is genuinely surprising.
+  const rows = [
+    facts.capital && ['Capital', facts.capital],
+    facts.populationLabel && ['Population', `${facts.populationLabel} (approx)`],
+    facts.areaLabel && ['Size', facts.areaLabel],
+  ].filter(Boolean)
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 py-3">
-        {facts.knownFor.length > 0 && (
+  return (
+    <MapPanel
+      className={className}
+      badge={<span className="text-2xl leading-none" aria-hidden>{facts.flag || '🌍'}</span>}
+      title={country}
+      subtitle={meta || undefined}
+      onClose={onClose}
+    >
+        {rows.length > 0 && (
+          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 px-1.5">
+            {rows.map(([label, value]) => (
+              <Fragment key={label}>
+                <dt className="text-[11px] font-semibold uppercase tracking-widest text-smoke">{label}</dt>
+                <dd className="min-w-0 text-xs font-medium text-ink">{value}</dd>
+              </Fragment>
+            ))}
+          </dl>
+        )}
+
+        {facts.fact && (
+          <p className="mx-1.5 rounded-xl bg-brand-tint/40 px-3 py-2 text-xs leading-relaxed text-ink">
+            <span className="font-semibold text-brand">Did you know </span>
+            {facts.fact}
+          </p>
+        )}
+
+        {/* No written row for this place: fall back to the landmarks the
+            geography game knows, rather than an empty card. */}
+        {rows.length === 0 && !facts.fact && facts.knownFor.length > 0 && (
           <div className="flex flex-wrap gap-1.5 px-1.5">
             {facts.knownFor.map((k) => (
               <span key={k} className="rounded-full bg-cloud px-2.5 py-1 text-[11px] font-medium text-smoke">{k}</span>
@@ -253,9 +343,8 @@ export default function CountryPanel({
             )}
           </div>
         )}
-      </div>
 
       <span className="sr-only" role="status">{busyId ? 'Opening the conversation' : ''}</span>
-    </div>
+    </MapPanel>
   )
 }

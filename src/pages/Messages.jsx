@@ -17,9 +17,8 @@ import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
 import ReactionPicker from '../components/ReactionPicker'
 import { RoomSearch } from '../components/ChatSearch'
 import Reveal from '../components/network/Reveal'
-import { ComposerToolbar } from '../components/ComposerTools'
 import SeenBy from '../components/SeenBy'
-import { formatTextarea } from '../lib/composerFormat'
+import ChatComposer from '../components/ChatComposer'
 import { renderMessageBody } from '../lib/richText'
 import { GroupAvatar, NewGroupModal, GroupSettingsModal } from '../components/GroupPanels'
 import {
@@ -59,11 +58,13 @@ export default function Messages() {
   const [thread, setThread] = useState([])
   const [reactions, setReactions] = useState([]) // dm_reactions for the open thread
   const [pickerFor, setPickerFor] = useState(null)
-  // Toolbar formatting, shared with the market rooms via lib/composerFormat.
-  const formatBody = (kind) => formatTextarea(taRef.current, body, kind, (v) => {
-    setBody(v)
-    saveDraft('dm-' + conversationId, v)
-  }) // message id with emoji picker open
+  // The composer serialises to markdown on every keystroke, so `body` is still
+  // exactly what send/drafts/previews have always read.
+  const onComposerChange = (md) => {
+    setBody(md)
+    saveDraft('dm-' + conversationId, md)
+    if (md.trim()) pingTyping()
+  } // message id with emoji picker open
   // Searching THIS conversation. The inbox search above finds a person; this
   // finds a message, and they are different questions - "where is Jacob" and
   // "what did Jacob say about the Lisbon shoot" - so they are two controls.
@@ -76,7 +77,6 @@ export default function Messages() {
     return thread.filter((m) => (m.body || '').toLowerCase().includes(q))
   }, [thread, threadSearch])
   const [actionsFor, setActionsFor] = useState(null) // message id with actions revealed (mobile tap)
-  const [showFormatting, setShowFormatting] = useState(false) // mobile: formatting row revealed
   const [replyTo, setReplyTo] = useState(null)     // message being replied to
   const [loadingList, setLoadingList] = useState(true)
   const [loadingThread, setLoadingThread] = useState(false)
@@ -99,8 +99,7 @@ export default function Messages() {
   const scrollerRef = useRef(null)
   const prevLenRef = useRef(0)
   const atBottomRef = useRef(true)
-  const fileRef = useRef(null)
-  const taRef = useRef(null)
+  const dmComposerRef = useRef(null)
   const composerRef = useRef(null)
 
   // Visual-viewport tracking drives the WhatsApp-style mobile layout: the whole
@@ -146,6 +145,14 @@ export default function Messages() {
     [activeMembers],
   )
   const activeTitle = isGroup ? groupName(active, activeMembers, user.id) : (active?.other?.name ?? 'Creator')
+  // @-chips in a DM mean the people actually in it. Mentioning somebody who
+  // cannot read the thread is a mention that goes nowhere.
+  const dmMentionNames = useMemo(
+    () => (isGroup ? activeMembers : [active?.other].filter(Boolean))
+      .map((m) => m?.name).filter((n) => n && n.length > 1)
+      .sort((a, b) => b.length - a.length),
+    [isGroup, activeMembers, active?.other],
+  )
   // A group has no "other" and therefore no DM gate: the gate exists to stop a
   // stranger sending twelve messages to one person, and a room you were invited
   // into is not that.
@@ -627,14 +634,6 @@ export default function Messages() {
     if (atBottom) scrollToBottom('smooth')
   }, [kbOpen, vpHeight, atBottom, scrollToBottom])
 
-  // Auto-grow the composer like WhatsApp, capped before it scrolls internally.
-  useEffect(() => {
-    const ta = taRef.current
-    if (!ta) return
-    ta.style.height = 'auto'
-    ta.style.height = `${Math.min(ta.scrollHeight, 128)}px`
-  }, [body])
-
   // Track whether the reader is pinned to the bottom of the thread.
   const onScrollMessages = useCallback(() => {
     const el = scrollerRef.current
@@ -672,7 +671,7 @@ export default function Messages() {
     const onMove = (e) => {
       if (letScroll || startY == null) return
       const dy = (e.touches[0]?.clientY ?? startY) - startY
-      if (dy > 20) { taRef.current?.blur(); startY = null }
+      if (dy > 20) { document.activeElement?.blur?.(); startY = null }
       if (e.cancelable) e.preventDefault()
     }
     el.addEventListener('touchstart', onStart, { passive: true })
@@ -715,16 +714,14 @@ export default function Messages() {
       ...(replyId ? { reply_to: replyId } : {}),
     })
     setSending(false)
-    if (!error) { setBody(''); clearDraft('dm-' + conversationId); setReplyTo(null); stopTyping() }
+    if (!error) { setBody(''); dmComposerRef.current?.clear(); clearDraft('dm-' + conversationId); setReplyTo(null); stopTyping() }
   }
 
   // Attach a photo or video to the DM (uploads, then sends with any typed
   // caption). Both land in the private dm-media bucket; the storage PATH is
   // stored in image_url and rendered back through a signed URL (video paths end
   // in .mp4 etc, so the renderer picks the right player from the extension).
-  async function sendImage(e) {
-    const file = e.target.files?.[0]
-    e.target.value = ''
+  async function sendAttachment(file) {
     if (!file || !active || dmLocked) return
     const isVideo = file.type.startsWith('video/') || /\.(mp4|webm|mov|m4v|ogv)$/i.test(file.name)
     setAttachError('')
@@ -745,7 +742,7 @@ export default function Messages() {
         ...(replyId ? { reply_to: replyId } : {}),
       })
       if (error) throw new Error(error.message)
-      setBody(''); clearDraft('dm-' + conversationId); setReplyTo(null)
+      setBody(''); dmComposerRef.current?.clear(); clearDraft('dm-' + conversationId); setReplyTo(null)
     } catch (err) {
       setAttachError(err.message)
     }
@@ -1079,7 +1076,7 @@ export default function Messages() {
                 onScroll={onScrollMessages}
                 // Tapping the thread dismisses the keyboard (WhatsApp-style); a
                 // scroll drag doesn't fire click, so scrolling history leaves it up.
-                onClick={() => { if (isMobile && kbOpen) taRef.current?.blur() }}
+                onClick={() => { if (isMobile && kbOpen) document.activeElement?.blur?.() }}
                 className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-5 py-6"
               >
                 {loadingThread && <div className="space-y-3"><Skeleton className="h-10 w-2/3" /><Skeleton className="ml-auto h-10 w-1/2" /><Skeleton className="h-10 w-3/5" /></div>}
@@ -1215,7 +1212,7 @@ export default function Messages() {
                               : 'pointer-events-none opacity-0 focus-within:pointer-events-auto focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100',
                           )}>
                             <button
-                              onClick={() => { setReplyTo(m); setActionsFor(null); taRef.current?.focus() }}
+                              onClick={() => { setReplyTo(m); setActionsFor(null); dmComposerRef.current?.focus() }}
                               aria-label="Reply"
                               title="Reply"
                               className="rounded-full border border-gray-200 bg-white p-1 text-smoke hover:border-brand hover:text-brand"
@@ -1311,54 +1308,25 @@ export default function Messages() {
                     </button>
                   </div>
                 )}
-                {/* FORMATTING IN THE DMS TOO. Every other chat surface has had
-                    heading / bold / italic for a while; the DMs were the one
-                    place where the same message you could format in a room
-                    could not be formatted to the person you were asking about
-                    it. Collapsed behind Aa on a phone, like everywhere else. */}
-                <ComposerToolbar onFormat={formatBody} open={showFormatting} />
-                <form onSubmit={send} className="flex items-end gap-2 sm:gap-3">
-                  <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden" onChange={sendImage} />
-                  <button
-                    type="button" onClick={() => fileRef.current?.click()} disabled={sending}
-                    className="btn-ghost !px-3.5 !py-3" aria-label="Attach a photo or video" title="Attach a photo or video"
-                  >
-                    <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 19.5h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25z" />
-                    </svg>
-                  </button>
-                  <textarea
-                    ref={taRef}
-                    rows={1}
-                    className="input max-h-32 flex-1 resize-none overflow-y-auto"
-                    // Short on a phone: this textarea auto-grows, so a wrapping
-                    // placeholder makes an empty composer two rows tall for no
-                    // reason, and a group's name can be sixty characters.
-                    placeholder={isMobile
-                      ? 'Message…'
-                      : `Message ${isGroup ? activeTitle : (active?.other?.name?.split(' ')[0] ?? '')}…`}
-                    value={body}
-                    onChange={(e) => { setBody(e.target.value); saveDraft('dm-' + conversationId, e.target.value); if (e.target.value.trim()) pingTyping() }}
-                    onBlur={stopTyping}
-                    onKeyDown={(e) => { if (!isMobile && e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(e) } }}
-                    aria-label="Message"
-                  />
-                  <button
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => setShowFormatting((v) => !v)}
-                    aria-pressed={showFormatting}
-                    aria-label="Formatting"
-                    className={cx('btn-ghost shrink-0 !px-2.5 !py-3 sm:hidden', showFormatting && '!text-brand')}
-                  >
-                    <span className="text-sm font-bold">Aa</span>
-                  </button>
-                  <button type="submit" disabled={sending || !body.trim()} className="btn-primary !px-5" aria-label="Send">
-                    {sending ? <Spinner /> : (
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3 21l18-9L3 3l3 9zm0 0h6" /></svg>
-                    )}
-                  </button>
-                </form>
+                <ChatComposer
+                  ref={dmComposerRef}
+                  docId={conversationId}
+                  initialMd={loadDraft('dm-' + conversationId)}
+                  placeholder={isMobile
+                    ? 'Message…'
+                    : `Message ${isGroup ? activeTitle : (active?.other?.name?.split(' ')[0] ?? '')}…`}
+                  ariaLabel="Message"
+                  mentionNames={dmMentionNames}
+                  onChangeMd={onComposerChange}
+                  onBlur={stopTyping}
+                  onSend={send}
+                  canSend={!!body.trim()}
+                  sending={sending}
+                  onAttach={sendAttachment}
+                  isMobile={isMobile}
+                  kbOpen={kbOpen}
+                  className="!border-t-0 !px-0 !py-0"
+                />
                 </>
                 )}
               </div>

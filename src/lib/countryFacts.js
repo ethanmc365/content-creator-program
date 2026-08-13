@@ -1,6 +1,7 @@
 import { COUNTRIES, normalize } from './countries'
 import { PINPOINT_COUNTRIES } from './pinpoint'
 import { flagForCountry, flagFromIso } from './flags'
+import { COUNTRY_DATA, formatArea, formatPopulation } from './countryData'
 
 // EVERY COUNTRY ON THE MAP GETS ITS FLAG.
 //
@@ -183,6 +184,7 @@ export function countryFacts(mapName) {
   const c = byName.get(key) || null
   const clues = cluesByName.get(key) || null
   const iso2 = isoFor(key)
+  const [capital, population, areaKm2, fact] = COUNTRY_DATA[iso2] || []
   return {
     name: mapName,
     iso2,
@@ -190,6 +192,14 @@ export function countryFacts(mapName) {
     continent: c?.continent || null,
     currency: c?.currency || null,
     symbol: c?.symbol || null,
+    capital: capital || null,
+    population: population || null,
+    populationLabel: formatPopulation(population),
+    areaKm2: areaKm2 || null,
+    areaLabel: formatArea(areaKm2),
+    fact: fact || null,
+    // The geography game's clue lists, kept as a fallback for a country we have
+    // no written row for: better a handful of landmarks than an empty card.
     knownFor: knownFor(clues),
   }
 }

@@ -2,13 +2,13 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ComposableMap, Geographies, Geography, ZoomableGroup, Marker } from 'react-simple-maps'
 import { geoEqualEarth, geoDistance, geoContains } from 'd3-geo'
 import { feature } from 'topojson-client'
-import { Link } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { GEO_URL, loadMapCentroids } from '../lib/mapCountries'
 import { geocodeCity } from '../lib/geocode'
 import { formatDate } from '../lib/utils'
 import { useIsDark } from '../lib/theme'
 import { countryKey, sameCountry } from '../lib/countryFacts'
-import CountryPanel from './CountryPanel'
+import CountryPanel, { TownPanel } from './CountryPanel'
 import Icon from './Icon'
 
 // The creator map directory: every creator pinned on a world map at their home
@@ -53,44 +53,35 @@ const MAX_PLANES = 7
 
 // A TOWN THAT HOLDS SEVERAL CREATORS: WHAT ITS PIN LOOKS LIKE.
 //
+// ONE FACE AND A NUMBER. That is the whole design, and it is the design after
+// three attempts at something cleverer.
+//
 // Creators who typed the same town share one coordinate exactly, so no amount
-// of zooming separates them. London is one point with eight people on it, and
-// the pin has to say so.
+// of zooming separates them: London is one point with eight people on it. Three
+// ways of drawing that have now been tried and rejected, and the reasons are
+// worth keeping because each one looked good in the abstract:
 //
-// TWO ANSWERS HAVE ALREADY BEEN TRIED AND REJECTED HERE.
+// 1. FAN THEM INTO A RING (the "spiderfy" every mapping library ships). The
+//    radius was in PROJECTION units, so at zoom 10 the offset was about three
+//    degrees of longitude - three hundred kilometres. Creators appeared in the
+//    North Sea. Even done correctly in screen units it needs a leader line per
+//    pin, and eight hairlines through eight faces is a cat's cradle.
 //
-// 1. FAN THEM OUT INTO A RING (the "spiderfy" every mapping library ships).
-//    The radius was in PROJECTION units and counter-scaled like the pins, so at
-//    zoom 10 the offset was about three degrees of longitude - three hundred
-//    kilometres. Creators appeared in the North Sea and in the wrong country,
-//    and snapped back when you zoomed out. Even done correctly, in screen
-//    units, it needs a leader line per pin to explain itself, and eight
-//    hairlines through eight faces is a cat's cradle, not a map.
+// 2. A HORIZONTAL CAPSULE OF FACES. Grew sideways with the population: four
+//    faces made a bar wider than Belgium over southern England, and it capped at
+//    four anyway, so a town of thirty said no more than a town of five.
 //
-// 2. A HORIZONTAL CAPSULE OF FACES. Honest - nothing moved off the coordinate,
-//    it was one pin on one tip - but it grew SIDEWAYS with the population. Four
-//    faces made a bar wider than Belgium sitting over southern England, the
-//    reading order was accidental (who earns the leftmost face?), and it capped
-//    out at four anyway, so a town of thirty told you almost nothing more than a
-//    town of five. That is the bar this replaces.
+// 3. A STACK OF OVERLAPPING FACES. Compact - the width barely moved with the
+//    count - but Ethan's verdict was the one that matters: the faces sit on top
+//    of each other, so you cannot actually SEE anybody, and a map whose pins are
+//    hard to read is a worse map than one that admits it is showing a summary.
 //
-// WHAT IT IS NOW: A STACK.
-//
-// The faces overlap, the way a handful of photographs overlaps when you drop
-// them on a table, with the lead face in front and the rest peeking out behind
-// it. It is the presence-stack every collaborative product uses (Figma, Linear,
-// Slack) for exactly this reason: OVERLAP MEANS THE WIDTH BARELY MOVES. One
-// creator and thirty creators differ by about twelve pixels on screen, so the
-// pin never becomes a banner across three countries and never needs a cap.
-// A count badge carries the actual number, which is the part a stack cannot
-// show and does not try to.
-//
-// Nothing moves off the coordinate: one pin, one pointer tip, on the town.
-const SPREAD_ZOOM = 4.5
-// How many faces are drawn in the stack before the badge carries the rest.
-// Three is the point where a stack still reads as "several people" rather than
-// as a smudge, and where the fourth face would be almost entirely hidden.
-const CLUSTER_FACES = 3
+// So a town is one pin: the lead creator's photo, at exactly the size a solo
+// creator's pin is, with the orange count badge in the corner. The badge is a
+// promise, not a summary - tapping the pin opens the roster with every creator
+// in that city, their town, and a way to message them. The map stays legible at
+// any zoom and at any community size, and the place where you actually read
+// names is a list, which is what lists are for.
 
 // The Tryp plane silhouette, drawn nose-up.
 const PLANE_D = 'M0 -11 C1.1 -11 1.8 -9 1.8 -6.2 L1.8 -4.4 L10 1 L10 3.1 L1.8 -0.2 L1.8 5 L4.4 7.6 L4.4 9.2 L0 7.7 L-4.4 9.2 L-4.4 7.6 L-1.8 5 L-1.8 -0.2 L-10 3.1 L-10 1 L-1.8 -4.4 L-1.8 -6.2 C-1.8 -9 -1.1 -11 0 -11 Z'
@@ -179,108 +170,6 @@ function Pin({ group, zoom, active, dim, onSelect }) {
   )
 }
 
-// A town several creators share, once you are close enough to want their faces.
-//
-// A STACK of overlapping faces on one pointer tip - see the note by SPREAD_ZOOM
-// for the two shapes this replaced and why. The lead face is drawn LAST so it
-// sits in front; the ones behind are inset and drop back, which is what makes
-// the stack read as depth rather than as a row that has run out of room.
-//
-// Geometry, all in the same counter-scaled units as a normal pin:
-//   * the front face sits exactly where a single pin's face would, so a town of
-//     one and a town of ten put their lead photo in the same place,
-//   * each face behind steps LEFT by STEP and up by a hair, and shrinks,
-//   * the badge carries the true count and never grows past three digits.
-// Total width for three faces is r*2 + STEP*2 ≈ 30 units against 20 for a
-// single pin. A capsule of four was 92.
-const STACK_STEP = 5.5      // how far each face behind peeks out
-const STACK_SHRINK = 0.88   // each face behind is this much of the one in front
-
-function ClusterPin({ group, zoom, dim, activeId, highlightIds, onSelectCreator, onSelectTown }) {
-  const s = Math.pow(1 / Math.max(zoom, 1), 0.7)
-  const count = group.creators.length
-  // Front-most last. `shown` is drawn back-to-front so the array is reversed
-  // relative to the roster: creators[0] is the lead and must end up on top.
-  const shown = group.creators.slice(0, CLUSTER_FACES)
-  const backToFront = [...shown].reverse()
-
-  const r = 12                       // front face radius, same as a single pin
-  const disc = r + 3
-  const cy = -26                     // face centre above the tip, same as a pin
-  const anyHighlighted = highlightIds && shown.some((c) => highlightIds.has(c.id))
-
-  return (
-    <Marker coordinates={group.coords}>
-      <g transform={`scale(${s})`} style={{ opacity: dim ? 0.25 : 1, transition: 'opacity 0.2s' }}>
-        {/* Pointer tail + the front disc share one shadow, exactly as a single
-            pin does, so a stacked town and a lone creator are visibly the same
-            kind of object. */}
-        <g style={{ filter: 'drop-shadow(0 2px 3px rgba(20,20,30,0.30))' }}>
-          <path d={`M${-r * 0.62} ${cy + disc * 0.5} L0 0 L${r * 0.62} ${cy + disc * 0.5} Z`} fill="#ffffff" />
-          {backToFront.map((c, i) => {
-            // i counts from the BACK of the stack, so the deepest face is the
-            // most inset. depth 0 is the front.
-            const depth = backToFront.length - 1 - i
-            const rr = disc * Math.pow(STACK_SHRINK, depth)
-            return <circle key={`d${c.id}`} cx={-depth * STACK_STEP} cy={cy - depth * 1.5} r={rr} fill="#ffffff" />
-          })}
-        </g>
-
-        {/* The whole stack is the town. Tapping any part of it that is not a
-            face opens the roster. */}
-        <circle cx={0} cy={cy} r={disc + STACK_STEP * (backToFront.length - 1)} fill="transparent"
-          style={{ cursor: 'pointer' }} onClick={onSelectTown} />
-
-        {backToFront.map((c, i) => {
-          const depth = backToFront.length - 1 - i
-          const rr = r * Math.pow(STACK_SHRINK, depth)
-          const x = -depth * STACK_STEP
-          const y = cy - depth * 1.5
-          const faded = highlightIds && !highlightIds.has(c.id) && anyHighlighted
-          const isActive = activeId === c.id
-          return (
-            <g
-              key={c.id}
-              style={{ cursor: 'pointer', opacity: faded ? 0.3 : 1 }}
-              onClick={(e) => { e.stopPropagation(); onSelectCreator(c) }}
-            >
-              {c.photo_url ? (
-                <image
-                  href={c.photo_url}
-                  x={x - rr} y={y - rr} width={rr * 2} height={rr * 2}
-                  clipPath="url(#creator-pin-clip)"
-                  preserveAspectRatio="xMidYMid slice"
-                />
-              ) : (
-                <>
-                  <circle cx={x} cy={y} r={rr} fill="#fbe6da" />
-                  <text x={x} y={y} textAnchor="middle" dominantBaseline="central"
-                    fontSize={rr * 0.8} fontWeight="600" fill={BRAND}>{initials(c.name)}</text>
-                </>
-              )}
-              <circle cx={x} cy={y} r={rr} fill="none"
-                stroke={isActive ? BRAND : '#ffffff'} strokeWidth={isActive ? 3 : 2} />
-              {/* The faces behind are dimmed a touch so the front one is
-                  unambiguously the one you are looking at. */}
-              {depth > 0 && <circle cx={x} cy={y} r={rr} fill="#ffffff" opacity={0.18 * depth} />}
-            </g>
-          )
-        })}
-
-        {/* The count. It sits where a single pin's count badge sits, carries the
-            TOTAL rather than a leftover "+N", and is the second tap target for
-            the roster. */}
-        <g transform={`translate(${r - 3}, ${cy - r + 3})`} style={{ cursor: 'pointer' }}
-          onClick={(e) => { e.stopPropagation(); onSelectTown() }}>
-          <circle r={count > 99 ? 11.5 : 9.5} fill={BRAND} stroke="#ffffff" strokeWidth={2} />
-          <text x={0} y={0.5} textAnchor="middle" dominantBaseline="central"
-            fontSize={count > 99 ? 9 : 11} fontWeight="700" fill="#ffffff">{count}</text>
-        </g>
-      </g>
-    </Marker>
-  )
-}
-
 // An airplane that FLIES along a path (animateMotion), nose pointed the way it
 // travels. Used both for the "we're all connected" threads and the travelling-
 // now journeys, so every plane on the map moves. `dur` (seconds) is set by the
@@ -337,6 +226,33 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   const [selected, setSelected] = useState(null)
   // The country a reader has tapped, if any: { name, lives, visited }.
   const [country, setCountry] = useState(null)
+
+  // WHICH PANEL IS OPEN LIVES IN THE URL, SO BACK BRINGS IT BACK.
+  //
+  // THE BUG THIS FIXES. Tap the United States, see who has been, open Aliah's
+  // profile, decide she is not who you were after, press back - and you landed
+  // on a map with nothing open, having lost the list you were reading. The
+  // browser had faithfully returned you to /creators; /creators just had no
+  // memory of what you had been looking at.
+  //
+  // `replace: true` on every open and close, deliberately: a panel is not a
+  // page, and pressing back eleven times to undo eleven pin taps would be its
+  // own bug. It rewrites the CURRENT entry, so the entry you leave behind when
+  // you click through to a profile already carries the panel, and coming back
+  // restores it.
+  const [params, setParams] = useSearchParams()
+  const urlCountry = params.get('country')
+  const urlTown = params.get('town')
+  const writeUrl = useCallback((next) => {
+    setParams((prev) => {
+      const p = new URLSearchParams(prev)
+      for (const [k, v] of Object.entries(next)) {
+        if (v) p.set(k, v)
+        else p.delete(k)
+      }
+      return p
+    }, { replace: true })
+  }, [setParams])
   const [position, setPosition] = useState({ coordinates: [10, 30], zoom: 1.3 })
   // Tracks the zoom DURING a gesture so pin/plane counter-scaling keeps up.
   const [liveZoom, setLiveZoom] = useState(1.3)
@@ -398,7 +314,11 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   // claim wins and the list stays honest about its own ordering.
   // Opening a town closes the country panel and vice versa: one answer in that
   // corner at a time.
-  const selectTown = useCallback((t) => { setCountry(null); setSelected(t) }, [])
+  const selectTown = useCallback((t) => {
+    setCountry(null)
+    setSelected(t)
+    writeUrl({ town: t?.key || null, country: null })
+  }, [writeUrl])
 
   const openCountry = useCallback((geo) => {
     const name = geo.properties?.name
@@ -413,7 +333,39 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
     const byName = (a, b) => (a.name || '').localeCompare(b.name || '')
     setSelected(null)
     setCountry({ name, lives: [...lives].sort(byName), visited: [...visited].sort(byName) })
-  }, [located, creators])
+    writeUrl({ country: name, town: null })
+  }, [located, creators, writeUrl])
+
+  // Re-open whatever the URL says, once there is data to build it from.
+  //
+  // Guarded by a ref rather than by "is it already open", because a reader who
+  // deliberately CLOSES a panel must not have it reinstated on the next render.
+  // It runs once per URL value: arrive with ?country=Japan and Japan opens;
+  // close it and it stays closed.
+  const restoredRef = useRef('')
+  useEffect(() => {
+    const key = `${urlCountry || ''}|${urlTown || ''}`
+    if (restoredRef.current === key) return
+    if (!urlCountry && !urlTown) { restoredRef.current = key; return }
+    // Both panels need `located`, which needs the creators prop to have landed.
+    if (located.length === 0) return
+    restoredRef.current = key
+    if (urlTown) {
+      const town = towns.find((t) => t.key === urlTown)
+      if (town) { setCountry(null); setSelected(town) }
+      return
+    }
+    // A country panel needs the map's geometry to work out who lives inside it.
+    fetch(GEO_URL)
+      .then((r) => r.json())
+      .then((topo) => {
+        const fc = feature(topo, topo.objects.countries)
+        const geo = fc.features.find((f) => f.properties?.name === urlCountry)
+        if (geo) openCountry(geo)
+      })
+      .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlCountry, urlTown, located.length, towns])
 
   // Thread all the towns into one flowing path (nearest-neighbour from the
   // westmost), so the dashed connection line visits everyone once.
@@ -831,13 +783,22 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
     </>
   )
 
+  const townPanel = selected ? (
+    <TownPanel
+      className="max-w-sm"
+      town={selected}
+      onClose={() => selectTown(null)}
+      onCreatorClick={onCreatorClick}
+    />
+  ) : null
+
   const countryPanel = country ? (
     <CountryPanel
       className="max-w-sm"
       country={country.name}
       lives={country.lives}
       visited={country.visited}
-      onClose={() => setCountry(null)}
+      onClose={() => { setCountry(null); writeUrl({ country: null }) }}
       onCreatorClick={onCreatorClick}
     />
   ) : null
@@ -1035,11 +996,6 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
 
           {paintOrder.map((town) => {
             const dimTown = highlighting && !town.creators.some((c) => highlightIds.has(c.id))
-            // Zoomed in far enough that a shared town should show its people
-            // individually rather than as one pin with a number on it. Nothing
-            // moves off the coordinate - the pin just gets wider. See the note
-            // by SPREAD_ZOOM for what the first attempt got wrong.
-            const clustered = z >= SPREAD_ZOOM && town.creators.length > 1
             const label = town.creators.length === 1
               ? `${town.creators[0].name} · ${(town.creators[0].city || '').trim()}`.trim()
               : `${(town.creators[0].city || 'This town').trim()} · ${town.creators.length} creators`
@@ -1049,19 +1005,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
                 onMouseEnter={() => setTooltip(label)}
                 onMouseLeave={() => setTooltip('')}
               >
-                {clustered ? (
-                  <ClusterPin
-                    group={town}
-                    zoom={z}
-                    dim={dimTown}
-                    activeId={selected?.creators?.length === 1 ? selected.creators[0].id : null}
-                    highlightIds={highlighting ? highlightIds : null}
-                    onSelectCreator={(c) => selectTown({ key: `${town.key}:${c.id}`, coords: town.coords, creators: [c] })}
-                    onSelectTown={() => selectTown(town)}
-                  />
-                ) : (
-                  <Pin group={town} zoom={z} active={selected?.key === town.key} dim={dimTown} onSelect={selectTown} />
-                )}
+                <Pin group={town} zoom={z} active={selected?.key === town.key} dim={dimTown} onSelect={selectTown} />
               </g>
             )
           })}
@@ -1086,56 +1030,14 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
         </div>
       )}
 
+      {/* The city roster: everybody the pin's orange number is counting. Same
+          corner and the same card as the country panel, and mutually exclusive
+          with it - two overlapping answers to two different questions in one
+          corner is how a map stops being readable. Desktop only; phones get it
+          under the map, at the end of the component. */}
       {selectedTown && (
-        <div className="absolute bottom-3 left-3 right-3 z-20 mx-auto max-w-sm rounded-card border border-gray-100 bg-white p-4 shadow-lift sm:right-auto">
-          <div className="mb-3 flex items-start justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-ink">{(selectedTown.creators[0].city || 'Here').trim()}</p>
-              <p className="text-xs text-smoke">
-                {selectedTown.creators[0].country
-                  ? selectedTown.creators[0].country.trim()
-                  : `${selectedTown.creators.length} creator${selectedTown.creators.length > 1 ? 's' : ''}`}
-              </p>
-            </div>
-            <button type="button" onClick={() => setSelected(null)} aria-label="Close"
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-smoke transition-colors hover:bg-cloud">
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
-            </button>
-          </div>
-          <div className="flex max-h-56 flex-col gap-1 overflow-y-auto">
-            {selectedTown.creators.map((c) => {
-              const inner = (
-                <>
-                  {c.photo_url ? (
-                    <img src={c.photo_url} alt={c.name} className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-white" />
-                  ) : (
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-tint text-sm font-semibold text-brand ring-2 ring-white">
-                      {initials(c.name)}
-                    </span>
-                  )}
-                  <span className="min-w-0 text-left">
-                    <span className="block truncate text-sm font-medium text-ink">{c.name}</span>
-                    {(c.countries_visited?.length || c.countries) > 0 && (
-                      <span className="flex items-center gap-1 text-xs text-smoke"><Icon name="globe" className="h-3 w-3" /> {c.countries_visited?.length || c.countries} countries</span>
-                    )}
-                  </span>
-                </>
-              )
-              // On the public landing page we intercept the click to show a
-              // mini-profile + join prompt instead of navigating into the app.
-              return onCreatorClick ? (
-                <button key={c.id} type="button" onClick={() => onCreatorClick(c)}
-                  className="flex w-full items-center gap-3 rounded-xl p-1.5 text-left transition-colors hover:bg-cloud">
-                  {inner}
-                </button>
-              ) : (
-                <Link key={c.id} to={`/profile/${c.id}`}
-                  className="flex items-center gap-3 rounded-xl p-1.5 transition-colors hover:bg-cloud">
-                  {inner}
-                </Link>
-              )
-            })}
-          </div>
+        <div className="pointer-events-none absolute inset-3 z-20 hidden flex-col items-start justify-end sm:flex">
+          {townPanel}
         </div>
       )}
 
@@ -1228,6 +1130,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           page and as much height as it needs, and the country stays highlighted
           in orange above it so you can see what you tapped. */}
       {countryPanel && <div className="mt-3 sm:hidden">{countryPanel}</div>}
+      {townPanel && <div className="mt-3 sm:hidden">{townPanel}</div>}
       {/* Mobile: the same filters in a wrapping row below the map. */}
       {!travelOnlyView && (
         <div className="mt-3 flex flex-wrap gap-2 sm:hidden">
