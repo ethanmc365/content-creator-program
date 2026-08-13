@@ -7,9 +7,46 @@ import { Avatar, Badge, CopyButton, Modal, PageHeader, Skeleton } from '../../co
 import Icon from '../../components/Icon'
 import Turnstile from '../../components/Turnstile'
 import { formatDate, timeAgo, downloadCsv } from '../../lib/utils'
+import { isOnlineAt } from '../../lib/presence'
 
 // Creator management: the full list with emails (admin-only RPC), plus all
 // account actions - password reset, mute, suspend, promote to admin, DM.
+// One element that answers "have we heard from this person lately", in the
+// words a human would use, colour-coded by how worried to be.
+//
+// Green is now, plain grey is recent, amber is a month of silence. There is
+// deliberately no separate "Inactive" badge: a badge saying inactive beside a
+// line saying "active 2 months ago" beside a status badge saying "active" is
+// three controls arguing about two different meanings of one word.
+function PresenceChip({ when, online, quiet, detail = false }) {
+  if (online) {
+    return (
+      <span className="flex items-center gap-1.5 text-xs font-medium text-green-600">
+        <span className="h-2 w-2 rounded-full bg-green-500" /> Online now
+      </span>
+    )
+  }
+  if (!when) {
+    return <span className="text-xs text-gray-400">Never opened the app</span>
+  }
+  const ago = timeAgo(when)
+  if (quiet) {
+    return (
+      <span
+        title={`Last active ${formatDate(when)}`}
+        className="flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700"
+      >
+        <span className="h-2 w-2 rounded-full bg-amber-400" /> Quiet for {ago.replace(/^about /, '').replace(/\s*ago$/, '')}
+      </span>
+    )
+  }
+  return (
+    <span className="text-xs text-smoke" title={`Last active ${formatDate(when)}`}>
+      Active {ago}{detail ? ` (${formatDate(when)})` : ''}
+    </span>
+  )
+}
+
 export default function AdminCreators() {
   const { user, sendPasswordReset } = useAuth()
   const navigate = useNavigate()
@@ -36,12 +73,12 @@ export default function AdminCreators() {
     const [{ data: profiles }, { data: emailRows }, { data: seenRows }] = await Promise.all([
       supabase.from('profiles').select('*').order('created_at', { ascending: false }),
       supabase.rpc('admin_list_emails'),
-      supabase.rpc('admin_list_last_seen'),
+      supabase.rpc('admin_list_activity'),
     ])
     // Hidden QA/test accounts never show in the roster.
     setCreators((profiles ?? []).filter((p) => !p.is_test))
     setEmails(Object.fromEntries((emailRows ?? []).map((r) => [r.id, r.email])))
-    setLastSeen(Object.fromEntries((seenRows ?? []).map((r) => [r.id, { signIn: r.last_sign_in_at, seen: r.last_seen_at }])))
+    setLastSeen(Object.fromEntries((seenRows ?? []).map((r) => [r.id, { signIn: r.last_sign_in_at, seen: r.last_seen_at, posted: r.last_posted_at, active: r.last_active_at }])))
     setInactiveBefore(Date.now() - 30 * 86400000)
     setLoading(false)
   }
@@ -54,8 +91,8 @@ export default function AdminCreators() {
     setNowTick(Date.now())
     const tick = setInterval(() => setNowTick(Date.now()), 30000)
     const refresh = setInterval(async () => {
-      const { data } = await supabase.rpc('admin_list_last_seen')
-      if (data) setLastSeen(Object.fromEntries(data.map((r) => [r.id, { signIn: r.last_sign_in_at, seen: r.last_seen_at }])))
+      const { data } = await supabase.rpc('admin_list_activity')
+      if (data) setLastSeen(Object.fromEntries(data.map((r) => [r.id, { signIn: r.last_sign_in_at, seen: r.last_seen_at, posted: r.last_posted_at, active: r.last_active_at }])))
     }, 60000)
     return () => { clearInterval(tick); clearInterval(refresh) }
   }, [])
@@ -229,24 +266,32 @@ export default function AdminCreators() {
   const isPendingReview = (c) => c.status === 'pending' && c.onboarded && !c.deletion_requested_at
   const isDeleting = (c) => !!c.deletion_requested_at
 
-  // Last activity = the more recent of their heartbeat (last_seen_at, updated
-  // while the app is open) and their last login. Returns an ISO string or null.
-  const lastActive = (c) => {
-    const s = lastSeen[c.id]
-    if (!s) return null
-    const t = [s.seen, s.signIn].filter(Boolean).sort()
-    return t.length ? t[t.length - 1] : null
-  }
-  // "Online now" = active within the last 3 minutes (heartbeat is every minute).
-  // Uses nowTick (refreshed by a timer) so this stays pure across re-renders.
-  const isOnline = (c) => {
-    const s = lastSeen[c.id]?.seen
-    return !!s && nowTick > 0 && nowTick - new Date(s).getTime() < 3 * 60000
-  }
-  // Active members with no activity for 30+ days — admins should follow up.
+  // LAST ACTIVE IS COMPUTED SERVER-SIDE NOW, AND IT MEANS SOMETHING.
+  //
+  // This used to be `[seen, signIn].sort()` and take the last - a LEXICOGRAPHIC
+  // sort of two ISO strings that arrive in different formats (`...Z` from auth,
+  // `...+00:00` from the profiles table), which compare in the wrong order at
+  // the same instant. And it only ever considered the session anyway: a creator
+  // who posts every day but has not re-authenticated in six weeks read as
+  // dormant. `creator_activity()` takes the greatest of signing in, the
+  // heartbeat, messages, DMs, entries and reactions, and everything - this page
+  // and the daily alert - now reads that one number. See migration 093.
+  const lastActive = (c) => lastSeen[c.id]?.active ?? null
+  // ONE DEFINITION OF ONLINE, SHARED WITH THE REST OF THE APP.
+  //
+  // This page said three minutes while lib/presence said five, so the same
+  // person could be a green dot on the creators page and a grey one in the
+  // admin roster. Five is the right number: the heartbeat is every 60s and only
+  // fires while the tab is VISIBLE, so a three-minute window flickers somebody
+  // offline every time they glance at another tab. `nowTick` (a 30s timer)
+  // keeps this pure across re-renders.
+  const isOnline = (c) => nowTick > 0 && isOnlineAt(lastSeen[c.id]?.seen, nowTick)
+  // Gone quiet: a member in good standing we have not heard from in 30 days.
+  // Same definition and the same source as the daily alert (migration 093), so
+  // the roster and the notification can no longer disagree about who is quiet.
   const isInactive = (c) => {
     const la = lastActive(c)
-    return c.status === 'active' && !c.deletion_requested_at && la && new Date(la).getTime() < inactiveBefore
+    return c.status === 'active' && !c.deletion_requested_at && !!la && new Date(la).getTime() < inactiveBefore
   }
 
   return (
@@ -307,13 +352,15 @@ export default function AdminCreators() {
                 {/* On mobile these sit on their own row under the name (indented past
                     the avatar) so nothing can overlap; on desktop they're inline. */}
                 <div className="flex flex-wrap items-center gap-2 pl-[52px] sm:gap-3 sm:pl-0">
-                  {isOnline(c) ? (
-                    <span className="flex items-center gap-1.5 text-xs font-medium text-green-600"><span className="h-2 w-2 rounded-full bg-green-500" /> Online now</span>
-                  ) : lastActive(c) ? (
-                    <span className="text-xs text-smoke" title={`Last active ${formatDate(lastActive(c))}`}>Active {timeAgo(lastActive(c))}</span>
-                  ) : (
-                    <span className="hidden text-xs text-gray-300 sm:block">Never signed in</span>
-                  )}
+                  {/* ONE CHIP, NOT THREE SIGNALS THAT ARGUE.
+                      This row used to carry "Active 2 months ago" next to an
+                      amber "Inactive" badge next to a green "active" status
+                      badge - three things, two of which use the same word for
+                      different ideas (has this person been here lately? is this
+                      account in good standing?). Recency and the judgement about
+                      it are ONE fact, so they are one element, and the account
+                      status keeps the badge to itself. */}
+                  <PresenceChip when={lastActive(c)} online={isOnline(c)} quiet={isInactive(c)} />
                   <span className="hidden text-xs text-smoke sm:block">· Joined {formatDate(c.accepted_at || c.created_at)}</span>
                   {isIncomplete(c) && (
                     <button
@@ -342,7 +389,6 @@ export default function AdminCreators() {
                       <Icon name="check" className="h-4 w-4" /> Restore
                     </button>
                   )}
-                  {isInactive(c) && <Badge tone="amber">Inactive</Badge>}
                   <Badge tone={s.tone}>{s.label}</Badge>
                 </div>
               </div>
@@ -365,13 +411,7 @@ export default function AdminCreators() {
                 </p>
                 <p className="text-xs text-smoke">Joined {formatDate(selected.accepted_at || selected.created_at)} · {selected.age ? `${selected.age} yrs · ` : ''}{(selected.countries_visited ?? []).length} countries</p>
                 <p className="mt-0.5 text-xs">
-                  {isOnline(selected) ? (
-                    <span className="flex items-center gap-1.5 font-medium text-green-600"><span className="h-2 w-2 rounded-full bg-green-500" /> Online now</span>
-                  ) : lastActive(selected) ? (
-                    <span className="text-smoke">Last active {timeAgo(lastActive(selected))} ({formatDate(lastActive(selected))})</span>
-                  ) : (
-                    <span className="text-gray-400">Never signed in</span>
-                  )}
+                  <PresenceChip when={lastActive(selected)} online={isOnline(selected)} quiet={isInactive(selected)} detail />
                 </p>
                 <div className="mt-2 flex gap-2">
                   <Badge tone={statusInfo(selected).tone}>{statusInfo(selected).label}</Badge>

@@ -16,6 +16,19 @@ export function isOnline(lastSeenAt) {
   return Date.now() - new Date(lastSeenAt).getTime() < ONLINE_MS
 }
 
+/**
+ * The same question, asked against a clock the caller controls.
+ *
+ * A component that re-renders on its own timer needs a pure function of that
+ * timer, not one that reads `Date.now()` mid-render - which is both a lint
+ * error here and a real source of "the dot changed when something unrelated
+ * re-rendered". The admin roster passes its 30s tick.
+ */
+export function isOnlineAt(lastSeenAt, now) {
+  if (!lastSeenAt || !now) return false
+  return now - new Date(lastSeenAt).getTime() < ONLINE_MS
+}
+
 export function countOnline(people = []) {
   return people.filter((p) => isOnline(p?.last_seen_at)).length
 }

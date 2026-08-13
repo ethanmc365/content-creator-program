@@ -151,21 +151,48 @@ export default function AppLayout() {
     return () => { alive = false }
   }, [user, profile])
 
+  // READING THE THING CLEARS ITS NOTIFICATION.
+  //
+  // THE BUG THIS FIXES. A notification was only ever marked read by clicking it
+  // in the bell. So you could open a DM, read it, reply to it, and the badge
+  // would still be sitting there insisting you had not - because the app was
+  // tracking "have you read this message" and "have you read this notification"
+  // in two places and only one of them was being updated by reading. 370 unread
+  // chat notifications and 34 unread DM notifications had piled up that way.
+  //
+  // Every notification already stores the route it points at, so arriving on
+  // that route IS reading it. Matched exactly, server side: being on /messages
+  // must not clear a thread you never opened.
+  useEffect(() => {
+    if (!user) return undefined
+    // A beat after arrival, so a bounce through a route does not clear it and
+    // so this never races the page's own first paint.
+    const t = setTimeout(() => {
+      supabase.rpc('mark_notifications_read_for_path', { p: pathname }).then(() => {}, () => {})
+    }, 700)
+    return () => clearTimeout(t)
+  }, [user, pathname])
+
   // Unread DM badge, kept live via realtime.
   useEffect(() => {
     if (!user) return
+    // GROUPS COUNT TOO. This used to filter `recipient_id = me`, and a group
+    // message has no recipient - the column is null by construction - so a
+    // creator who was only ever messaged in groups had a permanently silent DM
+    // tab. `my_dm_unread` adds the group side, measured against each member's
+    // own last_read_at watermark.
     async function count() {
-      const { count } = await supabase
-        .from('direct_messages')
-        .select('id', { count: 'exact', head: true })
-        .eq('recipient_id', user.id)
-        .eq('read', false)
-      setDmUnread(count ?? 0)
+      const { data } = await supabase.rpc('my_dm_unread')
+      setDmUnread(data ?? 0)
     }
     count()
     const channel = supabase
       .channel(`dm-badge-${user.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'direct_messages', filter: `recipient_id=eq.${user.id}` }, count)
+      // No `recipient_id` filter: a group message would never match it. The
+      // count is one cheap RPC, so recounting on any DM movement is fine.
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'direct_messages' }, count)
+      // Moving your own watermark in a group is what clears a group's unread.
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversation_members', filter: `profile_id=eq.${user.id}` }, count)
       .subscribe()
     return () => supabase.removeChannel(channel)
   }, [user])
