@@ -127,6 +127,23 @@ export default function Directory() {
     [creators]
   )
 
+  // THE TRYP.COM TEAM, IN THE DIRECTORY RATHER THAN ON A PAGE OF THEIR OWN.
+  //
+  // There was a /team page. It should not have existed: the team are people in
+  // this community with a job title, and a creator looking for somebody to ask
+  // should find them in the same place they find everyone else - with a Connect
+  // and a Message button, like everyone else. A separate page is a page you have
+  // to be told about, and it made the team feel like staff rather than members.
+  //
+  // They lead the grid because "who runs this" is a question new creators ask on
+  // day one, and they are labelled so nobody has to guess.
+  const team = useMemo(
+    () => creators
+      .filter((c) => c.is_admin && c.id !== user.id)
+      .sort((a, b) => (a.name || '').localeCompare(b.name || '')),
+    [creators, user.id],
+  )
+
   const filtered = creators.filter((c) => {
     // YOU ARE NOT IN YOUR OWN DIRECTORY.
     //
@@ -143,6 +160,10 @@ export default function Directory() {
     // count pill, the near-me distances and the filter dropdowns all still see
     // the whole roster - only the card grid drops you.
     if (c.id === user.id) return false
+    // Admins appear in the team row above the grid. They come BACK into the
+    // grid the moment a filter is on, because a search that hides a match is a
+    // search that is lying.
+    if (c.is_admin && !search && !country && !language && !platform && !connectionsOnly && !travelOnly && !nearMe) return false
     if (connectionsOnly && !myConnectionIds.has(c.id)) return false
     if (travelOnly && !travellerIds.has(c.id)) return false
     if (nearMe && !nearIds.has(c.id)) return false
@@ -238,6 +259,33 @@ export default function Directory() {
             : "You haven't connected with anyone yet - browse creators and send a request."}
           <button onClick={() => setConnectionsOnly(false)} className="font-medium text-brand hover:underline">Show everyone</button>
         </div>
+      )}
+
+      {!loading && team.length > 0 && !search && !country && !language && !platform && !connectionsOnly && !travelOnly && !nearMe && (
+        <section className="mb-10">
+          <div className="mb-3">
+            <h2 className="text-lg font-semibold">The Tryp.com team</h2>
+            <p className="mt-0.5 text-sm text-smoke">
+              We are in the community too. Connect or message any of us.
+            </p>
+          </div>
+          <Reveal className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3" stagger={0.05}>
+            {team.map((c) => (
+              <CreatorCard
+                key={c.id}
+                creator={c}
+                relation={relationships.get(c.id) || null}
+                onRelationChange={(id, next) =>
+                  setRelationships((prev) => {
+                    const map = new Map(prev)
+                    next ? map.set(id, next) : map.delete(id)
+                    return map
+                  })
+                }
+              />
+            ))}
+          </Reveal>
+        </section>
       )}
 
       {loading ? (

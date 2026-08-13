@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useCommunity } from '../../context/CommunityContext'
+import { loadLinkOrder, orderedLinks } from '../../lib/networkLinks'
 import { supabase } from '../../lib/supabase'
 import { Avatar } from '../ui'
 import Icon from '../Icon'
@@ -72,6 +73,8 @@ export default function AppLayout() {
   const tabs = networkPreview ? NETWORK_TABS : TABS
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
+  // Same ten links, and the same order the reader dragged them into on the hub.
+  const menuLinks = orderedLinks(loadLinkOrder())
   const [dmUnread, setDmUnread] = useState(0)
   const [connReqs, setConnReqs] = useState(0)
   const [newResources, setNewResources] = useState(false)
@@ -392,11 +395,49 @@ export default function AppLayout() {
                       how far along the route you are, and who to ask when
                       something goes wrong. Both belong in the menu that already
                       holds your profile and your money. */}
+                  {/* The Tryp.com team link is gone: the team are creators in
+                      the directory with a role on their card, not a separate
+                      page you have to know about. See Directory. */}
                   {networkPreview && (
-                    <>
-                      <Link to="/milestones" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">My route</Link>
-                      <Link to="/team" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">The Tryp.com team</Link>
-                    </>
+                    <Link to="/milestones" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">My route</Link>
+                  )}
+
+                  {/* EVERYWHERE ELSE, ON A PHONE.
+                      These ten used to be a grid near the top of the Worldwide
+                      hub. That grid was a good answer to a real problem - the
+                      rail is at the BOTTOM of a long page on mobile, so the ten
+                      most useful destinations in the product were a full scroll
+                      away - but it solved it by putting a navigation block in
+                      the middle of a content page. The menu behind your own
+                      avatar is where navigation belongs, it is one thumb-reach
+                      from anywhere, and it works on every page rather than only
+                      on the hub.
+                      Desktop keeps the rail and never renders this: two lists of
+                      the same ten links on one screen is the duplication we just
+                      took out of the rail. */}
+                  {networkPreview && (
+                    <div className="lg:hidden">
+                      <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Across the network</p>
+                      {menuLinks.map((l) => (
+                        <Link
+                          key={l.to}
+                          to={l.to}
+                          onClick={() => setMenuOpen(false)}
+                          className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm hover:bg-cloud"
+                        >
+                          <Icon name={l.icon} className="h-4 w-4 shrink-0 text-smoke" />
+                          <span className="min-w-0 flex-1 truncate">{l.label}</span>
+                          {l.badge === 'connections' && connReqs > 0 && (
+                            <span className="inline-flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-semibold text-white">
+                              {connReqs > 9 ? '9+' : connReqs}
+                            </span>
+                          )}
+                          {l.badge === 'resources' && newResources && (
+                            <span className="h-2 w-2 shrink-0 rounded-full bg-brand" aria-label="New" />
+                          )}
+                        </Link>
+                      ))}
+                    </div>
                   )}
 
                   {/* Secondary destinations.

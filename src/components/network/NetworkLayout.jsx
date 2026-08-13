@@ -63,13 +63,16 @@ export default function NetworkLayout({ children, switcher = true, rail = null, 
                 article. Two columns that enter identically read as one block
                 fading in; two columns that enter from where they sit read as a
                 layout assembling itself. */}
-            {/* A BEAT BEHIND, NOT A DIFFERENT CLOCK. The rail used to start on
-                the same frame as the article while the article's own sections
-                each carried a growing head start, so the two columns visibly
-                raced: the right finished before the left had begun its third
-                card. One small base delay here, a matching one there, and they
-                read as one page assembling. */}
-            <Reveal className="space-y-4" from="right" stagger={0.06} delay={0.08}>{rail}</Reveal>
+            {/* THE TWO COLUMNS START TOGETHER.
+                The rail was given a small head start so it would not race the
+                article, but the article's own ladder was uneven (see stepDelay
+                in GlobalHome) so the rail still finished first and the effect
+                was the opposite of intended: thin cards on the right snapping in
+                while the big cards on the left were still waiting their turn.
+                Zero delay here and zero on the first section there means the top
+                of both columns arrives on the same frame, and only the sections
+                BELOW the fold ladder down. */}
+            <Reveal className="space-y-4" from="right" stagger={0.06}>{rail}</Reveal>
           </aside>
         </div>
       ) : (

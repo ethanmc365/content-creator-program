@@ -1,9 +1,10 @@
 import { lazy, Suspense } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { ProtectedRoute, AdminRoute } from './components/ProtectedRoute'
 import NetworkRoute from './components/NetworkRoute'
 import AppLayout from './components/layout/AppLayout'
 import OfflineScreen from './components/OfflineScreen'
+import ErrorBoundary from './components/ErrorScreen'
 import ConfirmHost from './components/ConfirmHost'
 import ToastHost from './components/ToastHost'
 import { PlaneLoader } from './components/ui'
@@ -75,7 +76,6 @@ const AdminApplications = lazy(() => import('./pages/admin/AdminApplications'))
 const AdminAuditLog = lazy(() => import('./pages/admin/AdminAuditLog'))
 const AdminTeam = lazy(() => import('./pages/admin/AdminTeam'))
 const AdminMilestones = lazy(() => import('./pages/admin/AdminMilestones'))
-const Team = lazy(() => import('./pages/Team'))
 const AdminScheduledAnnouncements = lazy(() => import('./pages/admin/AdminScheduledAnnouncements'))
 const AdminWhatsNew = lazy(() => import('./pages/admin/AdminWhatsNew'))
 const AdminFeedback = lazy(() => import('./pages/admin/AdminFeedback'))
@@ -90,11 +90,16 @@ function LazyFallback() {
 }
 
 export default function App() {
+  // The route is the boundary's reset key: without it one broken page poisons
+  // the session, because the boundary stays in its error state and shows the
+  // error screen for pages that are perfectly fine. See ErrorScreen.
+  const { pathname } = useLocation()
   return (
     <>
       <OfflineScreen />
       <ConfirmHost />
       <ToastHost />
+      <ErrorBoundary resetKey={pathname}>
       <Suspense fallback={<LazyFallback />}>
       <Routes>
       {/* ---------- Public ---------- */}
@@ -129,7 +134,6 @@ export default function App() {
           <Route path="/refer" element={<Refer />} />
           <Route path="/collab" element={<Collab />} />
           <Route path="/connections" element={<Connections />} />
-          <Route path="/team" element={<Team />} />
           <Route path="/milestones" element={<Milestones />} />
           <Route path="/game" element={<Game />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
@@ -196,6 +200,7 @@ export default function App() {
       <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       </Suspense>
+      </ErrorBoundary>
     </>
   )
 }

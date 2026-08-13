@@ -7,6 +7,9 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Avatar, Badge, PageHeader, Confetti } from '../components/ui'
 import StreakCard from '../components/games/StreakCard'
+import LanguageGame from '../components/games/LanguageGame'
+import { LANGUAGE_REGIONS } from '../lib/languages'
+import Reveal from '../components/network/Reveal'
 import Icon from '../components/Icon'
 import {
   CONTINENTS, countriesForRegion, airportsForRegion, flagEmoji,
@@ -30,8 +33,9 @@ const MODES = [
   { key: 'map', icon: 'pin', title: 'Find on the map', text: 'See a country, click it on the map.' },
   { key: 'airports', icon: 'plane', title: 'Airport codes', text: 'See an IATA code, name the city.' },
   { key: 'currencies', icon: 'cash', title: 'Currencies', text: 'See a country, pick the currency it uses.' },
+  { key: 'languages', icon: 'chat', title: 'Say hello', text: 'Read a phrase, guess the language. Learn what it means.' },
 ]
-const MODE_LABEL = { flags: 'Flags', map: 'Find on map', airports: 'Airports', currencies: 'Currencies', pinpoint: 'Guess the Country', zip: 'Flight Path' }
+const MODE_LABEL = { flags: 'Flags', map: 'Find on map', airports: 'Airports', currencies: 'Currencies', languages: 'Say hello', pinpoint: 'Guess the Country', zip: 'Flight Path' }
 
 // The two daily puzzles that sit above "choose a mode". Same puzzle for
 // everyone each day, refreshing at midnight UK time.
@@ -90,6 +94,12 @@ export default function Game() {
 
   function start(m, r) {
     const mm = m || mode, rr = r || region
+    // "Say hello" owns its own question building - the phrase bank is not a
+    // list of countries, so none of the pools below apply to it.
+    if (mm === 'languages') {
+      setMode(mm); setRegion(rr); setQuestions([]); setSavedScore(null); setScreen('play')
+      return
+    }
     const pool = mm === 'airports' ? airportsForRegion(rr)
       : mm === 'currencies' ? currencyCountriesForRegion(rr)
       : countriesForRegion(rr)
@@ -108,7 +118,7 @@ export default function Game() {
     <div className="page">
       <PageHeader
         title={<span className="flex items-center gap-2"><Icon name="joystick" className="h-7 w-7 text-brand" /> Travel Games</span>}
-        subtitle={event ? `Event: ${event.title}` : 'Daily puzzles, plus flags, find-on-the-map, airport codes and currencies, by continent or the whole world.'}
+        subtitle={event ? `Event: ${event.title}` : 'Daily puzzles, plus flags, find-on-the-map, airport codes, currencies and languages, by continent or the whole world.'}
       />
 
       {/* Above the menu, because it is the reason to come back. */}
@@ -117,7 +127,16 @@ export default function Game() {
       {/* The menu drives the shared mode/region state, so the all-time
           leaderboard below always reflects the mode you currently have selected. */}
       {screen === 'menu' && <Menu mode={mode} setMode={setMode} region={region} setRegion={setRegion} onStart={() => start(mode, region)} onDaily={setScreen} eventTitle={event?.title} />}
-      {screen === 'play' && <Round mode={mode} region={region} questions={questions} onQuit={() => setScreen('menu')} onFinish={(r) => { setSavedScore(r); setScreen('results') }} />}
+      {screen === 'play' && mode === 'languages' && (
+        <div className="space-y-5">
+          <button onClick={() => setScreen('menu')} className="text-sm font-medium text-smoke transition-colors hover:text-brand">← Back to games</button>
+          <LanguageGame
+            region={region}
+            onFinish={(r) => { setSavedScore({ ...r, timeMs: 0 }); setScreen('results') }}
+          />
+        </div>
+      )}
+      {screen === 'play' && mode !== 'languages' && <Round mode={mode} region={region} questions={questions} onQuit={() => setScreen('menu')} onFinish={(r) => { setSavedScore(r); setScreen('results') }} />}
       {screen === 'results' && (
         <Results result={savedScore} mode={mode} region={region} eventId={eventId} userId={user.id}
           onPlayAgain={() => start(mode, region)} onMenu={() => setScreen('menu')} />
@@ -147,6 +166,9 @@ export default function Game() {
 
 // ---------------------------------------------------------------- Menu
 function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle }) {
+  // Say hello only has phrase banks for three regions; offering South America
+  // and then running a World round would be a lie about what you picked.
+  const regions = mode === 'languages' ? LANGUAGE_REGIONS : REGIONS
   // Ticks on the daily cards when today's puzzle is already done.
   const [today] = useState(() => ukDayIndex())
   const playedToday = (storeKey) => {
@@ -165,7 +187,7 @@ function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle }
           <h2 className="text-lg font-semibold">Daily puzzles</h2>
           <span className="text-xs text-smoke">New every day, same for everyone</span>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <Reveal className="grid gap-4 sm:grid-cols-2" stagger={0.06}>
           {DAILIES.map((d) => {
             const done = playedToday(d.store)
             return (
@@ -192,16 +214,21 @@ function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle }
               </button>
             )
           })}
-        </div>
+        </Reveal>
       </section>
 
       <section>
         <h2 className="mb-3 text-lg font-semibold">Choose a mode</h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Reveal className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" stagger={0.05}>
           {MODES.map((m) => (
             <button
               key={m.key}
-              onClick={() => setMode(m.key)}
+              onClick={() => {
+                setMode(m.key)
+                // Switching to Say hello from, say, South America must not leave
+                // a region selected that this mode has no phrases for.
+                if (m.key === 'languages' && !LANGUAGE_REGIONS.includes(region)) setRegion('World')
+              }}
               className={cx('card flex items-start gap-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-lift', mode === m.key && 'ring-2 ring-brand')}
             >
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand">
@@ -213,13 +240,13 @@ function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle }
               </span>
             </button>
           ))}
-        </div>
+        </Reveal>
       </section>
 
       <section>
         <h2 className="mb-3 text-lg font-semibold">Choose a region</h2>
         <div className="flex flex-wrap gap-2">
-          {REGIONS.map((r) => (
+          {regions.map((r) => (
             <button
               key={r}
               onClick={() => setRegion(r)}

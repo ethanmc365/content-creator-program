@@ -21,7 +21,9 @@ import { Avatar, EmptyState, Skeleton } from '../components/ui'
 import { flagForCountry } from '../lib/flags'
 import { stripMarkup } from '../lib/richText'
 import { cx, timeAgo } from '../lib/utils'
+import { useIsMobile } from '../lib/useKeyboardInset'
 import { cardHover } from '../lib/motion'
+import { NETWORK_LINKS, loadLinkOrder as loadOrder, ORDER_KEY } from '../lib/networkLinks'
 import Reveal from '../components/network/Reveal'
 
 // The Worldwide hub. Reads as a HOME PAGE, not a directory of markets: a
@@ -99,46 +101,11 @@ function MarketCard({ chapter, mine, isHome, memberCount, hasLive }) {
   )
 }
 
-// The people layer, as one block.
-//
-// This IS the old avatar dropdown, moved somewhere it can be read. Fourteen
-// unlabelled links in a 240px menu is a list you scan by hunting; the same links
-// grouped, described and always in the same place on the hub is navigation. The
-// menu now keeps only what is about you.
-// `short` is what the mobile quick-action grid shows: four across at 375px is
-// about nine characters, and "Travel collab board" truncated to "Travel c…"
-// helps nobody.
-const NETWORK_LINKS = [
-  { to: '/creators', icon: 'users', label: 'Creator directory', short: 'Creators', hint: 'Everyone, on a map' },
-  { to: '/messages', icon: 'envelope', label: 'Direct messages', short: 'DMs', hint: 'Anyone, any market' },
-  { to: '/connections', icon: 'heart', label: 'Connections', short: 'Connect', hint: 'Requests and mutuals', badge: 'connections' },
-  { to: '/collab', icon: 'pin', label: 'Travel collab board', short: 'Collab', hint: 'Who is going where' },
-  { to: '/events', icon: 'calendar', label: 'Calendar', short: 'Calendar', hint: 'Events and meetups' },
-  { to: '/leaderboard', icon: 'chart', label: 'Leaderboard', short: 'Ranks', hint: 'Across every market' },
-  { to: '/game', icon: 'joystick', label: 'Travel games', short: 'Games', hint: 'Puzzles, quizzes and streaks' },
-  { to: '/resources', icon: 'book', label: 'Resource library', short: 'Library', hint: 'Guides and templates', badge: 'resources' },
-  { to: '/jobs', icon: 'briefcase', label: 'Roles', short: 'Roles', hint: 'Paid work with Tryp.com' },
-  { to: '/refer', icon: 'share', label: 'Refer a creator', short: 'Refer', hint: 'Bring someone in' },
-]
-
-// Everyone gets to put these in their own order.
-//
-// Ten links in a fixed order is somebody else's guess at what matters to you.
-// A creator who lives in the DMs and never opens the game should not scroll past
-// the game to reach the DMs, and the cost of letting them fix that is one array
-// in localStorage. Per device on purpose: it is a layout preference, not an
-// account setting, and it should not need a round trip to take effect.
-//
-// Links added to the product later fall in at the end rather than vanishing,
-// because the saved value is an order, not a whitelist.
-const ORDER_KEY = 'network-links-order'
+// The people layer, as one block: the rail's own list, shared with the avatar
+// menu via lib/networkLinks so the two can never drift apart.
 // Your places gets the same treatment, keyed separately. Somebody in four
 // markets has a favourite, and it is not always the one they call home.
 const MARKET_ORDER_KEY = 'network-market-order'
-
-function loadOrder() {
-  try { return JSON.parse(localStorage.getItem(ORDER_KEY)) || [] } catch { return [] }
-}
 
 function loadMarketOrder() {
   try { return JSON.parse(localStorage.getItem(MARKET_ORDER_KEY)) || [] } catch { return [] }
@@ -241,6 +208,7 @@ export default function GlobalHome() {
   const [d, setD] = useState(null)
   const [order, setOrder] = useState(loadOrder)
   const [marketOrder, setMarketOrder] = useState(loadMarketOrder)
+  const isMobile = useIsMobile()
   const links = useMemo(() => orderLinks(order), [order])
   const networkId = network?.id ?? null
 
@@ -389,6 +357,26 @@ export default function GlobalHome() {
     ...myMarkets.map((m) => (d?.live?.[m.id] ? { market: m, challenge: d.live[m.id] } : null)).filter(Boolean),
   ]
 
+  // THE ARRIVAL LADDER, COUNTED OVER THE SECTIONS THAT ARE ACTUALLY THERE.
+  //
+  // THE BUG THIS FIXES. Every section carried a hard-coded `delay`, assigned in
+  // source order: 0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30. But two of those
+  // sections are `lg:hidden` - the mobile live card and the mobile quick-action
+  // grid - so on a desktop the sequence that actually ran was 0, then nothing
+  // at 0.05, nothing at 0.10, and the next VISIBLE card at 0.15. The gaps were
+  // real time with nothing happening in them, which is why the ladder read as
+  // uneven and why the announcement, at the end of it, felt "really delayed".
+  //
+  // So the ladder is counted over the sections this breakpoint renders. One
+  // step, 50ms, every time, whichever device you are on.
+  const sectionOrder = isMobile
+    ? ['greeting', 'live', 'quick', 'progress', 'markets', 'announcement', 'trips']
+    : ['greeting', 'progress', 'markets', 'announcement', 'trips']
+  const stepDelay = (key) => {
+    const i = sectionOrder.indexOf(key)
+    return i < 0 ? 0 : i * 0.05
+  }
+
   const rail = (
     <>
       {/* ---------- Live now ---------- */}
@@ -401,7 +389,17 @@ export default function GlobalHome() {
           duplicate navigation to the bottom of an already long page - which is
           most of what "there is too much scrolling" was. */}
       <RailCard className="hidden lg:block" icon={<Icon name="flag" className="h-3.5 w-3.5 text-brand" />} title="Live now">
-        {myLive.length === 0 ? (
+        {/* A SKELETON WHILE WE DO NOT KNOW, NOT AN ANSWER.
+            THE BUG THIS FIXES: `myLive` is derived from data that arrives after
+            the first paint, so this card confidently drew "nothing running in
+            your markets right now" - plane and all - and then, mid-animation,
+            replaced it with two live challenges. Everything below it moved. That
+            is the jitter Ethan saw after the page had settled, and it was not
+            the animation at all: it was the page changing its mind in public.
+            An empty state is a claim, and a claim needs the data first. */}
+        {!d ? (
+          <div className="space-y-2"><Skeleton className="h-16 w-full" /></div>
+        ) : myLive.length === 0 ? (
           <div className="flex items-center gap-3 rounded-xl bg-brand-tint/30 px-3 py-3">
             <TrypPlane variant="badge" />
             <p className="text-xs text-smoke">
@@ -486,33 +484,13 @@ export default function GlobalHome() {
         />
       </RailCard>
 
-      {isGlobalAdmin && (
-        <RailCard icon={<Icon name="shield" className="h-3.5 w-3.5 text-brand" />} title="Running the platform">
-          <div className="space-y-0.5">
-            <Link to="/global/settings" className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors hover:bg-cloud">
-              <Icon name="globe" className="h-4 w-4 shrink-0 text-smoke" /> Network settings
-            </Link>
-            <Link to="/global/markets" className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors hover:bg-cloud">
-              <Icon name="flag" className="h-4 w-4 shrink-0 text-smoke" /> All markets
-            </Link>
-            <Link to="/admin" className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors hover:bg-cloud">
-              <Icon name="shield" className="h-4 w-4 shrink-0 text-smoke" /> Admin panel
-            </Link>
-          </div>
-        </RailCard>
-      )}
-
-      {/* ---------- Worldwide rooms ---------- */}
-      <RailCard className="hidden lg:block" icon={<Icon name="chat" className="h-3.5 w-3.5 text-brand" />} title="Worldwide rooms">
-        <div className="space-y-0.5">
-          <Link to="/global/chat/general" className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors hover:bg-cloud">
-            <Icon name="chat" className="h-4 w-4 shrink-0 text-smoke" /> General
-          </Link>
-          <Link to="/global/chat/announcements" className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors hover:bg-cloud">
-            <Icon name="megaphone" className="h-4 w-4 shrink-0 text-smoke" /> Announcements
-          </Link>
-        </div>
-      </RailCard>
+      {/* WHAT IS NOT IN THIS RAIL ANY MORE, AND WHY.
+          "Running the platform" and "Worldwide rooms" both lived here, and both
+          were a second door to a place that already has one in the top nav:
+          Admin is a button in the header, Rooms is a tab. A rail card that
+          duplicates a tab is not a shortcut, it is a longer column with the same
+          destinations in it twice - and the rail is the thing that has to stay
+          short enough to read at a glance. */}
     </>
   )
 
@@ -588,7 +566,7 @@ export default function GlobalHome() {
               brief that is running and closing - was six screens below the fold
               and under a map. It leads on mobile instead. */}
           {myLive.length > 0 && (
-            <Reveal from="down" delay={0.05} className="lg:hidden">
+            <Reveal from="down" delay={stepDelay('live')} className="lg:hidden">
               <section>
                 <div className="space-y-2">
                   {myLive.map(({ market, challenge, global: isGlobal }) => (
@@ -612,57 +590,15 @@ export default function GlobalHome() {
             </Reveal>
           )}
 
-          {/* ---------- Quick actions (phones and tablets only) ----------
-              On desktop these live in the rail, which is always in view. On a
-              phone the rail is at the BOTTOM of a long page, so the ten most
-              useful destinations in the product were a full scroll away from
-              the page that is supposed to be the way in. A grid up here is one
-              thumb-reach instead.
-              ALL TEN, in the creator's own order. It used to show the first
-              eight of a fixed list, so Roles and Refer existed on desktop and
-              simply did not on a phone, and reordering the rail changed nothing
-              for the people who only ever see this grid. */}
-          <Reveal from="down" delay={0.1} className="lg:hidden">
-            <section>
-            <div className="grid grid-cols-4 gap-2">
-              {links.map((l) => {
-                const count = l.badge === 'connections' ? d?.connReqs : 0
-                const isNew = l.badge === 'resources' && d?.newResources
-                return (
-                  <Link
-                    key={l.to}
-                    to={l.to}
-                    className="relative flex flex-col items-center gap-1.5 rounded-2xl border border-gray-100 bg-white px-1 py-3 text-center transition-transform duration-200 active:scale-95"
-                  >
-                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-tint">
-                      <Icon name={l.icon} className="h-4 w-4 text-brand" />
-                    </span>
-                    <span className="w-full truncate px-0.5 text-[11px] font-medium leading-tight">
-                      {l.short || l.label}
-                    </span>
-                    {count > 0 && (
-                      <span className="absolute right-1.5 top-1.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-brand px-1 text-[9px] font-semibold text-white">
-                        {count > 9 ? '9+' : count}
-                      </span>
-                    )}
-                    {isNew && <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-brand" />}
-                  </Link>
-                )
-              })}
-            </div>
-            <Link
-              to="/global/markets"
-              className="mt-2 flex items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-200 py-2.5 text-sm font-medium text-smoke transition-colors active:border-brand active:text-brand"
-            >
-              <Icon name="magnifier" className="h-4 w-4" /> Explore markets
-            </Link>
-            </section>
-          </Reveal>
+          {/* THE QUICK-ACTION GRID MOVED INTO THE AVATAR MENU.
+              It existed because the rail is at the bottom of a long page on a
+              phone, so the ten network destinations were a full scroll away. A
+              grid here fixed that and created a smaller problem: a block of
+              navigation sitting in the middle of a content page, on the hub
+              only. The same ten links now live behind your own avatar, one
+              thumb-reach from EVERY page. See AppLayout. */}
 
-          {/* ---------- Finish your profile ---------- */}
-          {/* Removes itself at 100%. A checklist that survives completion is
-              nagging, and this is a nudge. */}
-          <Reveal from="down" delay={0.15}><ProfileProgress /></Reveal>
+          <Reveal from="down" delay={stepDelay('progress')}><ProfileProgress /></Reveal>
 
           {/* ---------- Welcome ---------- */}
           {/* No `initial/animate` of its own any more. It had a mount tween
@@ -670,7 +606,7 @@ export default function GlobalHome() {
               that is always above the fold was also the one card that animated
               on a different clock. The Reveal owns it now, like every other
               section. */}
-          <Reveal from="down" delay={0.2}>
+          <Reveal from="down" delay={stepDelay('markets')}>
           <section
             className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-6 text-white shadow-lift sm:p-10"
           >
@@ -723,7 +659,7 @@ export default function GlobalHome() {
               on this page that everybody reading it can act on right now, and
               burying it under a list of places would be exactly backwards. */}
           {globalLive && (
-            <Reveal from="down" delay={0.25}>
+            <Reveal from="down" delay={stepDelay('announcement')}>
               <section>
                 <SectionHead icon="globe" title="Open to everyone"
                   hint="A global brief. Enter from any market, anywhere in the world." />
@@ -739,7 +675,7 @@ export default function GlobalHome() {
           )}
 
           {/* ---------- Markets ---------- */}
-          <Reveal from="down" delay={0.3}>
+          <Reveal from="down" delay={stepDelay('trips')}>
             <section>
               <SectionHead
                 icon="flag"

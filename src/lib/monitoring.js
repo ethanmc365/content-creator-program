@@ -15,3 +15,22 @@ export function initMonitoring() {
     sendDefaultPii: false,
   })
 }
+
+/**
+ * Report an error we caught ourselves.
+ *
+ * The error boundary is the only place a render crash is visible: the creator
+ * gets a friendly screen and walks away, so without this the bug is known to
+ * exactly one person and they are not us. A no-op when there is no DSN, same as
+ * `initMonitoring` - but it still logs to the console, because a developer
+ * running locally is precisely who needs to see it.
+ */
+export function captureError(error, context) {
+  if (import.meta.env.DEV) console.error('[captured]', error, context)
+  if (!import.meta.env.VITE_SENTRY_DSN) return
+  try {
+    Sentry.captureException(error, context ? { extra: context } : undefined)
+  } catch {
+    /* never let reporting an error throw a second one */
+  }
+}
