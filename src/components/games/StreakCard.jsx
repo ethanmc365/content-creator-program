@@ -64,12 +64,6 @@ function WeekDots({ days = [], today }) {
   )
 }
 
-/** "1 September" - when the freezes come back. */
-function nextResetLabel(now = new Date()) {
-  const next = new Date(now.getFullYear(), now.getMonth() + 1, 1)
-  return next.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
-}
-
 export default function StreakCard({ className, days = [], today = null }) {
   const [s, setS] = useState(null)
 
@@ -85,7 +79,6 @@ export default function StreakCard({ className, days = [], today = null }) {
   const current = s.current_streak || 0
   const best = s.best_streak || 0
   const left = s.freezes_left ?? 3
-  const used = 3 - left
 
   return (
     <section
@@ -144,12 +137,14 @@ export default function StreakCard({ className, days = [], today = null }) {
             ))}
           </div>
           <p className="mt-1.5 max-w-[16rem] text-[11px] leading-snug text-white/80">
-            {/* THE RESET IS THE PART THAT WAS MISSING. Somebody who has used all
-                three needs to know they are getting three more, or the safety
-                net reads as gone for good. */}
-            {left === 3
-              ? `Three streak freezes. If you miss a day, one is spent for you. They reset on ${nextResetLabel()}.`
-              : `${left} of 3 freezes left this month${used ? `, ${used} already spent for you` : ''}. All three come back on ${nextResetLabel()}.`}
+            {/* TWO SHORT SENTENCES, AND THAT IS THE WHOLE STORY.
+                It said "2 of 3 freezes left this month, 1 already spent for you.
+                All three come back on 1 September." Ethan kept the first half
+                and cut the rest, and he is right: the snowflakes above already
+                draw which ones are spent, so the clause repeats them in words,
+                and a specific date is more precision than "monthly" earns on a
+                line nobody came here to read. */}
+            {left} of 3 freezes left this month. Streak freezes reset monthly.
           </p>
         </div>
       </div>

@@ -75,6 +75,29 @@ export async function askQuestion({ authorId, title, body, tag, country }) {
   }).select('id').single()
 }
 
+/**
+ * Edit a question you asked.
+ *
+ * WHY THIS EXISTS. Ethan asked for it, and a board without it is a board where
+ * the only fix for a typo in a question forty people have read is to delete it
+ * and lose the answers with it. The RLS policy already allowed the author (and
+ * admins) to update the row, so this needed no migration - only the fact that
+ * nothing in the app ever called it.
+ *
+ * `country` is nulled whenever the tag moves off `country`, exactly as the
+ * insert does, so a question re-filed under Travelling does not keep a stray
+ * "Japan" chip from its first draft.
+ */
+export async function editQuestion({ id, title, body, tag, country }) {
+  return supabase.from('board_questions').update({
+    title: title.trim(),
+    body: (body || '').trim(),
+    tag,
+    country: tag === 'country' ? (country || '').trim() || null : null,
+    updated_at: new Date().toISOString(),
+  }).eq('id', id).select('id').single()
+}
+
 export async function postAnswer({ questionId, authorId, body }) {
   return supabase.from('board_answers').insert({
     question_id: questionId,

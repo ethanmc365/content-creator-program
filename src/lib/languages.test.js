@@ -69,6 +69,31 @@ describe('buildQuestion', () => {
     }
   })
 
+  // THE REPORTED BUG. "Sometimes it only shows up two options." Answer a phrase
+  // from a thin region and the old loop stopped after one distractor, because
+  // it tested the size of the region rather than what was left in it. Four is
+  // not a preference here, it is what a multiple-choice question is.
+  it('always offers four options from the full bank', () => {
+    for (let n = 0; n < 500; n++) {
+      const q = buildQuestion(LANGUAGES, seeded(n + 1))
+      expect(q.choices).toHaveLength(4)
+    }
+  })
+
+  it('fills the fourth option from another region when the answer has few neighbours', () => {
+    // A pool of three from one region plus one from another: the same-region
+    // well runs dry after two and the loop has to cross over to finish the grid.
+    const thin = [
+      { code: 'a', name: 'A', region: 'Africa', script: 'Latin', where: 'x', phrases: [{ text: 'p', meaning: 'm' }] },
+      { code: 'b', name: 'B', region: 'Africa', script: 'Latin', where: 'x', phrases: [{ text: 'p', meaning: 'm' }] },
+      { code: 'c', name: 'C', region: 'Africa', script: 'Latin', where: 'x', phrases: [{ text: 'p', meaning: 'm' }] },
+      { code: 'd', name: 'D', region: 'Europe', script: 'Latin', where: 'x', phrases: [{ text: 'p', meaning: 'm' }] },
+    ]
+    for (let n = 0; n < 50; n++) {
+      expect(buildQuestion(thin, seeded(n + 1)).choices).toHaveLength(4)
+    }
+  })
+
   it('still builds a question from a small regional pool', () => {
     // Africa has the fewest languages; the choice-filling loop must terminate
     // rather than spin looking for a fourth option that does not exist.

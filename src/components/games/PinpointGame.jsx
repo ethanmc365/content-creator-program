@@ -184,7 +184,14 @@ export default function PinpointGame({ onExit }) {
           <form onSubmit={submit} className={cx('flex w-full max-w-sm flex-col items-center gap-3', shake && 'animate-shake')}>
             <input
               type="search" inputMode="text" enterKeyHint="go" value={typed} onChange={(e) => setTyped(e.target.value)}
-              placeholder="Type a country…" className="input text-center text-lg"
+              // NO BLINKING CARET. Ethan: "I don't want it to show the flashing
+              // text bar, I just want the ability to write there without it,
+              // because it ruins the aesthetic." `caret-transparent` hides only
+              // the insertion bar - focus, typing, selection, autofocus and the
+              // mobile keyboard are all untouched, and the centred text still
+              // grows visibly as you type, which is what tells you it is taking
+              // the letters.
+              placeholder="Type a country…" className="input caret-transparent text-center text-lg"
               name="country-guess" autoComplete="off" autoCorrect="off" autoCapitalize="words" spellCheck="false"
               aria-label="Your country guess"
             />

@@ -77,4 +77,26 @@ describe('richEditor markdown <-> html', () => {
     div.innerHTML = '<div><ul><li>one</li><li>two</li></ul></div>'
     expect(htmlToMd(div)).toBe('- one\n- two')
   })
+
+  // Keep typing with bold on and press Enter: the browser carries the <strong>
+  // across the break. Written naively that is `**line one\n**`, which no
+  // per-line renderer can match, so the message shows its asterisks and loses
+  // its bold. The marker closes and reopens per line instead.
+  it('closes a bold run at the end of each line it covers', () => {
+    const div = document.createElement('div')
+    div.innerHTML = '<div><strong>line one<br>line two</strong></div>'
+    expect(htmlToMd(div, { inlineOnly: true })).toBe('**line one**\n**line two**')
+  })
+
+  it('does not leave an empty marker pair on the trailing line', () => {
+    const div = document.createElement('div')
+    div.innerHTML = '<div><strong>Seven days left!<br></strong></div>'
+    expect(htmlToMd(div, { inlineOnly: true })).toBe('**Seven days left!**')
+  })
+
+  it('pushes trailing space outside the markers', () => {
+    const div = document.createElement('div')
+    div.innerHTML = '<div>a <strong>bold </strong>b</div>'
+    expect(htmlToMd(div, { inlineOnly: true })).toBe('a **bold** b')
+  })
 })

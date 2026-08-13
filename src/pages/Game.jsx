@@ -18,6 +18,7 @@ import {
   currencyCountriesForRegion, currencyOptions,
 } from '../lib/countries'
 import { ukDayIndex, ukDayStartIso, dailyStreak } from '../lib/daily'
+import { DAILY_PUZZLES, DAILY_KEYS, useDailyPuzzles } from '../lib/dailyPuzzles'
 import PinpointGame from '../components/games/PinpointGame'
 import ZipGame from '../components/games/ZipGame'
 import { cx } from '../lib/utils'
@@ -37,27 +38,38 @@ const REGIONS = ['World', ...CONTINENTS]
 // is fun or hard about this one, because that is the question you are actually
 // asking. Ten flags is not a challenge; ten flags nobody can tell apart is.
 //
-// `regions: false` means the mode is the whole world and has no continent
-// split. Guess the language is the first of those: the phrase bank is 34
-// languages and the point of it is hearing something you have never seen, which
-// a continent filter takes away. Ethan's call, and it also removes a filter that
-// only ever had three of the six continents behind it.
+// FOUR PRACTICE MODES, AND GUESS THE LANGUAGE IS NOT ONE OF THEM ANY MORE.
+// It moved up to the daily shelf (see DAILIES) at Ethan's request, which is
+// also what makes this row a clean four.
 const MODES = [
   { key: 'flags', icon: 'flag', title: 'Guess the flag', text: 'Some you will know instantly. Some are three stripes and a prayer.', regions: true },
   { key: 'map', icon: 'pin', title: 'Find it on the map', text: 'You know where it is. Now put your finger on it.', regions: true },
   { key: 'airports', icon: 'plane', title: 'Airport codes', text: 'Three letters on a boarding pass. Which city?', regions: true },
   { key: 'currencies', icon: 'cash', title: 'What do they spend?', text: 'Match the country to the money in its tills.', regions: true },
-  { key: 'languages', icon: 'chat', title: 'Guess the language', text: 'A phrase in its own script, from anywhere on earth. Name the language.', regions: false },
 ]
 const MODE_LABEL = { flags: 'Guess the flag', map: 'Find it on the map', airports: 'Airport codes', currencies: 'What do they spend?', languages: 'Guess the language', pinpoint: 'Guess the Country', zip: 'Flight Path' }
 const MODE_BY_KEY = Object.fromEntries(MODES.map((m) => [m.key, m]))
 
-// The two daily puzzles that sit above "choose a mode". Same puzzle for
-// everyone each day, refreshing at midnight UK time.
-const DAILIES = [
-  { key: 'pinpoint', icon: 'magnifier', title: 'Guess the Country', text: 'Five clues, one country. Ask for fewer and score more.', store: 'tryp_pinpoint' },
-  { key: 'zip', icon: 'plane-tryp', title: 'Flight Path', text: 'Fly through every stop in order and fill the whole sky.', store: 'tryp_zip' },
-]
+// The three daily puzzles live in lib/dailyPuzzles so the worldwide hub can
+// read the same list without importing this page (and the world atlas with it).
+const DAILIES = DAILY_PUZZLES
+
+// What each daily board is ranking, said in the terms of that puzzle. A shared
+// "ranked by score then speed" line is true of all three and useful about none.
+const DAILY_BLURB = {
+  pinpoint: {
+    today: 'Everyone plays the same puzzle today. Ranked by fewest words, then speed.',
+    all: "Each creator's best-ever daily result. Ranked by fewest words, then speed.",
+  },
+  zip: {
+    today: 'Everyone flies the same route today. Ranked by fastest landing.',
+    all: "Each creator's best-ever daily flight. Ranked by fastest landing.",
+  },
+  languages: {
+    today: 'Everyone gets the same ten phrases today. Ranked by score, then speed.',
+    all: "Each creator's best-ever daily round. Ranked by score, then speed.",
+  },
+}
 
 const fmtTime = (ms) => {
   const s = Math.floor(ms / 1000)
@@ -89,9 +101,11 @@ export default function Game() {
 
   const [event, setEvent] = useState(null)
   const [screen, setScreen] = useState('menu')
-  // The viewer's own daily-puzzle history, for the streak card's week strip and
-  // the streak badge on the daily cards. One query, read by both.
-  const [myDays, setMyDays] = useState([])
+  // The viewer's own daily-puzzle history (the streak card's week strip and the
+  // streak badge), plus which of today's three are already done. Shared with the
+  // hub's Daily puzzles section, so a tick here and a tick there mean the same
+  // query rather than two answers that can disagree.
+  const { played: playedToday, streakDays: myDays } = useDailyPuzzles(user?.id)
   const [mode, setMode] = useState('flags')
   const [region, setRegion] = useState('World')
   const [questions, setQuestions] = useState([])
@@ -104,30 +118,14 @@ export default function Game() {
     })
   }, [eventId])
 
-  // Which UK days this creator has played a daily puzzle on. `day_key` is only
-  // set by the two daily modes, so this is exactly the streak's own history.
-  useEffect(() => {
-    if (!user?.id) return
-    let alive = true
-    supabase.from('game_scores').select('day_key').eq('player_id', user.id).not('day_key', 'is', null)
-      .then(({ data }) => { if (alive) setMyDays([...new Set((data || []).map((r) => r.day_key))]) })
-    return () => { alive = false }
-  }, [user?.id])
-
-  // Deep link straight into a daily puzzle (/game?daily=zip) from the Home teaser.
+  // Deep link straight into a daily puzzle (/game?daily=zip) from the hub.
   useEffect(() => {
     const d = params.get('daily')
-    if (d === 'pinpoint' || d === 'zip') setScreen(d)
+    if (DAILY_KEYS.includes(d)) setScreen(d)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   function start(m, r) {
     const mm = m || mode, rr = r || region
-    // "Say hello" owns its own question building - the phrase bank is not a
-    // list of countries, so none of the pools below apply to it.
-    if (mm === 'languages') {
-      setMode(mm); setRegion(rr); setQuestions([]); setSavedScore(null); setScreen('play')
-      return
-    }
     const pool = mm === 'airports' ? airportsForRegion(rr)
       : mm === 'currencies' ? currencyCountriesForRegion(rr)
       : countriesForRegion(rr)
@@ -146,7 +144,7 @@ export default function Game() {
     <div className="page">
       <PageHeader
         title={<span className="flex items-center gap-2"><Icon name="joystick" className="h-7 w-7 text-brand" /> Games</span>}
-        subtitle={event ? `Event: ${event.title}` : 'Two puzzles a day for everyone, and five more you can play as often as you like.'}
+        subtitle={event ? `Event: ${event.title}` : 'Three puzzles a day for everyone, and four more you can play as often as you like.'}
       />
 
       {/* THE STREAK LEADS. It is the reason somebody opens this page on a day
@@ -162,39 +160,29 @@ export default function Game() {
         <Menu
           mode={mode} setMode={setMode} region={region} setRegion={setRegion}
           onStart={() => start(mode, region)} onDaily={setScreen} eventTitle={event?.title}
-          streak={dailyStreak(myDays)}
+          streak={dailyStreak(myDays)} playedToday={playedToday}
         />
       )}
-      {screen === 'play' && mode === 'languages' && (
-        <div className="space-y-5">
-          {/* No region prop any more: Guess the language is the whole world.
-              A continent filter on a bank of 34 languages removes the whole
-              point of it, which is hearing something you have never seen. */}
-          <LanguageGame
-            onFinish={(r) => { setSavedScore({ ...r, timeMs: 0 }); setScreen('results') }}
-            onQuit={() => setScreen('menu')}
-          />
-        </div>
-      )}
-      {screen === 'play' && mode !== 'languages' && <Round mode={mode} region={region} questions={questions} onQuit={() => setScreen('menu')} onFinish={(r) => { setSavedScore(r); setScreen('results') }} />}
+      {screen === 'play' && <Round mode={mode} region={region} questions={questions} onQuit={() => setScreen('menu')} onFinish={(r) => { setSavedScore(r); setScreen('results') }} />}
       {screen === 'results' && (
         <Results result={savedScore} mode={mode} region={region} eventId={eventId} userId={user.id}
           onPlayAgain={() => start(mode, region)} onMenu={() => setScreen('menu')} />
       )}
       {screen === 'pinpoint' && <PinpointGame onExit={() => setScreen('menu')} />}
       {screen === 'zip' && <ZipGame onExit={() => setScreen('menu')} />}
+      {screen === 'languages' && <LanguageGame onExit={() => setScreen('menu')} />}
 
       <div className="mt-12">
-        {screen === 'pinpoint' || screen === 'zip' ? (
+        {DAILY_KEYS.includes(screen) ? (
           // Daily puzzles get two boards: today's race on the left, the
           // all-time best scores on the right.
           <div className="grid gap-10 lg:grid-cols-2">
             <Leaderboard mode={screen} region="Daily" daily highlightUser={user.id}
               heading="Today's leaderboard"
-              blurb={screen === 'zip' ? 'Everyone flies the same route today. Ranked by fastest landing.' : 'Everyone plays the same puzzle today. Ranked by fewest words, then speed.'} />
+              blurb={DAILY_BLURB[screen].today} />
             <Leaderboard mode={screen} region="Daily" highlightUser={user.id}
               heading="All-time leaderboard"
-              blurb={screen === 'zip' ? "Each creator's best-ever daily flight. Ranked by fastest landing." : "Each creator's best-ever daily result. Ranked by fewest words, then speed."} />
+              blurb={DAILY_BLURB[screen].all} />
           </div>
         ) : (
           <Leaderboard mode={mode} region={region} eventId={eventId} highlightUser={user.id} />
@@ -261,14 +249,10 @@ function DailyCard({ daily, done, onPlay, streak }) {
   )
 }
 
-function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle, streak }) {
+function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle, streak, playedToday }) {
   const chosen = MODE_BY_KEY[mode]
-  // Ticks on the daily cards when today's puzzle is already done.
-  const [today] = useState(() => ukDayIndex())
-  const playedToday = (storeKey) => {
-    try { return JSON.parse(localStorage.getItem(storeKey) || 'null')?.day === today } catch { return false }
-  }
-  const bothDone = DAILIES.every((d) => playedToday(d.store))
+  const allDone = DAILIES.every((d) => playedToday.has(d.key))
+  const doneCount = DAILIES.filter((d) => playedToday.has(d.key)).length
 
   return (
     <div className="space-y-10">
@@ -283,12 +267,19 @@ function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle, 
           <h2 className="text-lg font-semibold">Today&rsquo;s puzzles</h2>
           <span className="text-xs text-smoke">
             {/* The line that says WHY to come back today rather than tomorrow. */}
-            {bothDone ? 'Both done. New ones at midnight.' : 'Everyone gets the same two, until midnight.'}
+            {allDone
+              ? 'All three done. New ones at midnight.'
+              : doneCount
+                ? `${doneCount} of 3 done. The rest expire at midnight.`
+                : 'Everyone gets the same three, until midnight.'}
           </span>
         </div>
-        <Reveal className="grid gap-4 sm:grid-cols-2" stagger={0.07}>
+        {/* THREE ACROSS ON A WIDE SCREEN, ONE ABOVE THE OTHER ON A PHONE. Two
+            columns would leave the third puzzle alone on its own row looking
+            like an afterthought, which is precisely what it is not. */}
+        <Reveal className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" stagger={0.07}>
           {DAILIES.map((d) => (
-            <DailyCard key={d.key} daily={d} done={playedToday(d.store)} streak={streak} onPlay={() => onDaily(d.key)} />
+            <DailyCard key={d.key} daily={d} done={playedToday.has(d.key)} streak={streak} onPlay={() => onDaily(d.key)} />
           ))}
         </Reveal>
       </section>
@@ -298,7 +289,9 @@ function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle, 
           <h2 className="text-lg font-semibold">Play as many as you like</h2>
           <span className="text-xs text-smoke">Ten questions, any time</span>
         </div>
-        <Reveal className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" stagger={0.05}>
+        {/* Four modes, so two rows of two on a phone and a clean row of four on
+            a desktop. A three-column grid left one card orphaned. */}
+        <Reveal className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" stagger={0.05}>
           {MODES.map((m) => {
             const on = mode === m.key
             return (
@@ -669,12 +662,12 @@ function Results({ result, mode, region, eventId, userId, onPlayAgain, onMenu })
   return (
     <div className="card flex flex-col items-center gap-4 !py-10 text-center animate-pop-in">
       {great && <Confetti count={50} />}
-      <span className={cx(
-        'flex h-16 w-16 items-center justify-center rounded-full shadow-lift',
-        pct >= 50 ? 'bg-brand text-white' : 'bg-brand-tint text-brand shadow-none',
-      )}>
-        <Icon name={pct >= 50 ? 'trophy' : 'globe'} className="h-8 w-8" />
-      </span>
+      {/* NO BADGE ABOVE THE RING. There was a trophy for a good round and a
+          globe for a poor one, sitting directly over a score ring that already
+          says the same thing more precisely - and the globe in particular read
+          as a consolation sticker. Ethan: "get rid of that logo above with the
+          globe, it's not necessary for any of them even if you do good". The
+          ring is the result; the verdict underneath is the reaction. */}
 
       {/* THE SCORE AS A RING, not as a line of text. A round result is a
           proportion, and a proportion drawn is read in one glance. */}

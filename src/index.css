@@ -35,6 +35,32 @@
     height: 100%;
   }
 
+  /* ---- NO SCROLLBAR, ANYWHERE ----------------------------------------
+     Ethan: "the scrollable bar doesn't need to appear anywhere, it just takes
+     up space and ruins the aesthetic - not even on the chats, we scroll without
+     it fine". Six surfaces had already opted out one at a time (the rail, the
+     room tabs, the market header strip...) which is how you end up with a
+     panel that grew a bar the week after. The default is now off and there is
+     nothing left to remember.
+
+     Scrolling itself is untouched: this hides the bar's paint, not the
+     overflow, and every scroller keeps its wheel, drag, keyboard and
+     `scrollTop`. Nothing here is a hit target, so nothing becomes unreachable
+     - the one thing a hidden scrollbar could cost you is a drag handle, and no
+     surface in this app asks you to drag one.
+
+     `scrollbar-gutter: stable` is deliberately NOT set: reserving the space we
+     just stopped painting is the gap that made it worth removing. */
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  *::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
   /* Strong, visible keyboard focus everywhere (accessibility). */
   *:focus-visible {
     @apply outline-none ring-2 ring-brand ring-offset-2 ring-offset-white;
@@ -150,6 +176,38 @@
   .rt-editor li { @apply my-1 pl-1; }
   .rt-editor blockquote { @apply my-2 border-l-2 border-brand pl-3 italic text-smoke; }
   .rt-editor hr { @apply my-5 border-gray-200; }
+  /* WHAT YOU TYPE IS THE SIZE OF WHAT YOU SEND. The sizes above belong to a
+     note, which is a page; a chat composer is four lines tall and a 24px
+     heading with 20px of margin above it eats most of that, then the sent
+     message arrives at 16px bold and looks like a different thing altogether.
+     `renderMessageBody` draws h1/h2/h3 as text-base bold / text-sm bold /
+     text-sm semibold, so the composer does too. `.rt-scroll` is only ever on a
+     chat composer, which is what makes it the right hook. */
+  .rt-editor.rt-scroll h1 { @apply my-0 text-base font-bold tracking-normal; }
+  .rt-editor.rt-scroll h2 { @apply my-0 text-sm font-bold tracking-normal; }
+  .rt-editor.rt-scroll h3 { @apply my-0 text-sm font-semibold; }
+  .rt-editor.rt-scroll p { @apply my-0; }
+  /* ---- The community board's surface -----------------------------------
+     A warm, very light board for the question notes to be pinned to, with a
+     faint diagonal grain and an inset edge. Two repeating gradients rather than
+     an image: nothing to load, nothing in the CSP, and it scales.
+
+     DELIBERATELY NOT A CORK PHOTOGRAPH. This app is white-dominant with one
+     orange, and a brown wood-effect panel would be the loudest thing on any
+     page it appeared on.
+
+     It is a CLASS and not an inline style because it has to have a dark-mode
+     answer, and an inline background is the one thing the dark layer at the end
+     of this file cannot reach - which is exactly how the board came out as a
+     sheet of cream floating on a near-black page. */
+  .board-surface {
+    background-color: #faf7f3;
+    background-image:
+      repeating-linear-gradient(45deg, rgba(160, 130, 100, 0.045) 0 2px, transparent 2px 5px),
+      repeating-linear-gradient(-45deg, rgba(160, 130, 100, 0.035) 0 2px, transparent 2px 6px);
+    box-shadow: inset 0 1px 3px rgba(90, 70, 50, 0.09);
+  }
+
   /* Checklists: a tappable box drawn before each item; JS toggles data-checked. */
   .rt-editor ul[data-check] { @apply list-none pl-0; }
   .rt-editor ul[data-check] > li {
@@ -456,6 +514,10 @@ html[data-theme='dark'] .bg-red-50 { background-color: rgba(220, 38, 38, 0.12); 
 html[data-theme='dark'] .bg-red-50\/50 { background-color: rgba(220, 38, 38, 0.08); }
 html[data-theme='dark'] .bg-green-50 { background-color: rgba(22, 163, 74, 0.12); }
 html[data-theme='dark'] .bg-amber-50 { background-color: rgba(217, 119, 6, 0.12); }
+/* The 100 steps were missing, and the board's state chips are drawn on them:
+   left alone they paint a near-white pill with dark text on a dark note. */
+html[data-theme='dark'] .bg-green-100 { background-color: rgba(22, 163, 74, 0.22); }
+html[data-theme='dark'] .bg-amber-100 { background-color: rgba(217, 119, 6, 0.22); }
 html[data-theme='dark'] .bg-yellow-50 { background-color: rgba(202, 138, 4, 0.12); }
 html[data-theme='dark'] .border-red-100,
 html[data-theme='dark'] .border-red-200 { border-color: rgba(220, 38, 38, 0.32); }
@@ -470,6 +532,20 @@ html[data-theme='dark'] .text-green-600,
 html[data-theme='dark'] .text-green-700 { color: #4ade80; }
 html[data-theme='dark'] .text-amber-600,
 html[data-theme='dark'] .text-amber-700 { color: #fbbf24; }
+html[data-theme='dark'] .text-green-800 { color: #4ade80; }
+html[data-theme='dark'] .text-amber-800 { color: #fbbf24; }
+
+/* The board itself. The grain and the inset stay - they are what make it read
+   as a surface rather than as a panel - but at dark-canvas weights, and the
+   base is a warm near-black rather than the same grey as every card, so the
+   notes still look like they are ON something. */
+html[data-theme='dark'] .board-surface {
+  background-color: #131211;
+  background-image:
+    repeating-linear-gradient(45deg, rgba(245, 133, 63, 0.05) 0 2px, transparent 2px 5px),
+    repeating-linear-gradient(-45deg, rgba(245, 133, 63, 0.035) 0 2px, transparent 2px 6px);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+}
 /* btn-danger inlines its properties via @apply, so the utility remaps above
    never reach it - restyle the recipe directly. */
 html[data-theme='dark'] .btn-danger {

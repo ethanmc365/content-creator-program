@@ -6,7 +6,7 @@ import Icon from '../Icon'
 import { generateZip, zipIndexForDay, wallKey } from '../../lib/zip'
 import { ukDayIndex, ukDayStartIso, untilNextUkMidnight, dailyStreak } from '../../lib/daily'
 import { cx } from '../../lib/utils'
-import { playCelebrate } from '../../lib/gameSounds'
+import { playCelebrate, playCoin, playWrong, engineThrust, engineStop } from '../../lib/gameSounds'
 
 // Flight Path: drag the plane through the numbered stops in order, leaving a
 // contrail behind you, until every cell of the sky is covered. One layout per
@@ -119,6 +119,11 @@ export default function ZipGame({ onExit }) {
   const [streakDays, setStreakDays] = useState([]) // my past day_keys for this game
   const [checking, setChecking] = useState(!stored)
   const [shake, setShake] = useState(false)
+  // Which wall was just hit, and which stop was just collected. Both are brief
+  // and both clear themselves; they exist so the board can say what happened
+  // where, rather than shaking the whole thing and leaving you to work it out.
+  const [hitWall, setHitWall] = useState(null)
+  const [popStop, setPopStop] = useState(null)
   const [elapsed, setElapsed] = useState(0)
   const startRef = useRef(0)
   const draggingRef = useRef(false)
@@ -154,6 +159,12 @@ export default function ZipGame({ onExit }) {
     return () => clearInterval(t)
   }, [solved, checking])
 
+  // THE ENGINE MUST NOT OUTLIVE THE GAME. It is a looping WebAudio graph, not a
+  // one-shot, so leaving the page while it is fading would leave a propeller
+  // running under the leaderboard - and under every page after that.
+  useEffect(() => engineStop, [])
+  useEffect(() => { if (solved) engineStop() }, [solved])
+
   // My daily streak for this game (consecutive UK days played).
   useEffect(() => {
     supabase.from('game_scores')
@@ -170,9 +181,26 @@ export default function ZipGame({ onExit }) {
     return n + 1
   }, [path, numberAt])
 
-  function blocked() {
+  // A REFUSED MOVE IS A NUDGE, NOT AN EARTHQUAKE.
+  //
+  // Ethan: "when you crash into a wall it shakes a lot, it shouldn't shake so
+  // much." It used `animate-shake`, the same ±6px over 400ms that a wrong quiz
+  // answer gets - but that is a whole board, you are mid-drag on it, and a
+  // wrong quiz answer happens once every ten seconds while a wall happens
+  // several times a second while you feel your way round one. `fp-nudge` is
+  // ±2px over 220ms: enough to feel the refusal, not enough to lose your place.
+  //
+  // The wall you hit lights up as well, which is the more useful half of the
+  // feedback - the shake says "no", the flash says which no.
+  function blocked(a, b) {
     setShake(true)
-    setTimeout(() => setShake(false), 450)
+    setTimeout(() => setShake(false), 240)
+    if (a != null && b != null) {
+      const k = wallKey(a, b)
+      setHitWall(k)
+      setTimeout(() => setHitWall((cur) => (cur === k ? null : cur)), 420)
+    }
+    playWrong()
   }
 
   function win() {
@@ -195,6 +223,8 @@ export default function ZipGame({ onExit }) {
     if (solved || checking) return
     const cur = [...pathRef.current]
     let guard = size * 2
+    let moved = false
+    let reached = null
     while (guard-- > 0) {
       const head = cur[cur.length - 1]
       if (target === head) break
@@ -205,15 +235,26 @@ export default function ZipGame({ onExit }) {
       else if (ch === ct && rh !== rt) next = head + Math.sign(rt - rh) * size
       else break
       // Backtrack: stepping onto the previous cell retracts the contrail.
-      if (cur.length > 1 && next === cur[cur.length - 2]) { cur.pop(); continue }
+      if (cur.length > 1 && next === cur[cur.length - 2]) { cur.pop(); moved = true; continue }
       if (cur.includes(next)) break // can't cross your own contrail
-      if (wallSet.has(wallKey(head, next))) { blocked(); break } // no-fly wall
+      if (wallSet.has(wallKey(head, next))) { blocked(head, next); break } // no-fly wall
       const num = numberAt.get(next)
       let exp = 1
       for (const c of cur) if (numberAt.has(c)) exp++
       if (num != null && num !== exp) { blocked(); break } // stops must be in order
       if (num === lastN && cur.length + 1 !== N) { blocked(); break } // land last
       cur.push(next)
+      moved = true
+      // THE COIN. A numbered stop is the only thing in this puzzle that is an
+      // achievement rather than a move, so it is the only thing that gets a
+      // sound of its own. Not on the final stop: that one lands on the win
+      // fanfare a fraction of a second later and the two would collide.
+      if (num != null && num !== lastN) { playCoin(); reached = next }
+    }
+    if (moved) engineThrust()
+    if (reached != null) {
+      setPopStop(reached)
+      setTimeout(() => setPopStop((c) => (c === reached ? null : c)), 420)
     }
     setPathLive(cur)
     if (cur.length === N && numberAt.get(cur[cur.length - 1]) === lastN) win()
@@ -327,8 +368,39 @@ export default function ZipGame({ onExit }) {
            head), like a contrail streaming behind the aircraft. */
         .fp-trail-dash { animation: fp-dash 0.8s linear infinite; }
         @keyframes fp-dash { to { stroke-dashoffset: 19; } }
+        /* A REFUSED MOVE: 2px, 220ms. See the note on blocked() - the old
+           ±6px/400ms shake was borrowed from a wrong quiz answer, which happens
+           once a round; a wall happens repeatedly while you feel your way past
+           one, and at that rate it read as the board falling over. */
+        .fp-nudge { animation: fp-nudge 0.22s ease-in-out both; }
+        @keyframes fp-nudge {
+          0%, 100% { transform: translateX(0); }
+          30% { transform: translateX(-2px); }
+          70% { transform: translateX(2px); }
+        }
+        /* The wall you actually hit, so the refusal points at something. */
+        .fp-wall-hit { animation: fp-wall-hit 0.42s ease-out both; }
+        @keyframes fp-wall-hit {
+          0% { stroke: #dc2626; stroke-width: 15; }
+          60% { stroke: #dc2626; stroke-width: 12; }
+          100% { stroke: #d94407; stroke-width: 10; }
+        }
+        /* A stop being collected. The coin sound lands on the same frame. */
+        .fp-stop-pop { animation: fp-stop-pop 0.42s cubic-bezier(0.22,1,0.36,1) both; transform-box: fill-box; transform-origin: center; }
+        @keyframes fp-stop-pop {
+          0% { transform: scale(1); }
+          40% { transform: scale(1.34); }
+          100% { transform: scale(1); }
+        }
+        /* The board arriving. The whole grid used to appear in one frame, which
+           on the bigger layouts is 169 panes materialising at once. */
+        .fp-board { animation: fp-board-in 0.45s cubic-bezier(0.22,1,0.36,1) both; }
+        @keyframes fp-board-in {
+          from { opacity: 0; transform: scale(0.985); }
+          to { opacity: 1; transform: scale(1); }
+        }
         @media (prefers-reduced-motion: reduce) {
-          .fp-plane-bob, .fp-trail-dash { animation: none; }
+          .fp-plane-bob, .fp-trail-dash, .fp-nudge, .fp-wall-hit, .fp-stop-pop, .fp-board { animation: none; }
         }
       `}</style>
 
@@ -357,7 +429,7 @@ export default function ZipGame({ onExit }) {
           {walls.length > 0 && <> Solid orange bars are <span className="font-semibold text-ink">no-fly walls</span>.</>} Drag the plane, drag backwards to undo.
         </p>
 
-        <div className={cx('relative mx-auto w-full', size >= 11 ? 'max-w-[660px]' : size >= 8 ? 'max-w-[600px]' : 'max-w-[520px]', shake && 'animate-shake')}>
+        <div className={cx('fp-board relative mx-auto w-full', size >= 11 ? 'max-w-[660px]' : size >= 8 ? 'max-w-[600px]' : 'max-w-[520px]', shake && 'fp-nudge')}>
           <svg
             ref={svgRef}
             viewBox={`0 0 ${W} ${W}`}
@@ -425,9 +497,16 @@ export default function ZipGame({ onExit }) {
             {/* no-fly walls: solid Tryp orange bars */}
             {walls.map((wpair, i) => {
               const s = wallSegment(wpair)
+              const hit = hitWall === wallKey(wpair[0], wpair[1])
               return (
                 <line
-                  key={i} {...s} stroke={BRAND} strokeWidth={10} strokeLinecap="round"
+                  // Keyed on the hit so the class change remounts the node -
+                  // an animation already applied does not restart itself, so
+                  // hitting the same wall twice would flash once.
+                  key={`${i}${hit ? '-hit' : ''}`}
+                  {...s}
+                  className={hit ? 'fp-wall-hit' : undefined}
+                  stroke={BRAND} strokeWidth={10} strokeLinecap="round"
                   style={{ pointerEvents: 'none', filter: 'drop-shadow(0 1px 1.5px rgba(20,20,30,0.2))' }}
                 />
               )
@@ -439,9 +518,14 @@ export default function ZipGame({ onExit }) {
               if (d.cell === head && !solved && !checking) return null
               const [x, y] = centre(d.cell)
               const visited = covered.has(d.cell)
+              const popping = popStop === d.cell
               return (
-                <g key={d.n} style={{ pointerEvents: 'none' }}>
-                  <circle cx={x} cy={y} r={27} fill={visited ? BRAND : '#ffffff'} stroke={visited ? '#ffffff' : BRAND} strokeWidth={4} />
+                <g
+                  key={popping ? `${d.n}-pop` : d.n}
+                  className={popping ? 'fp-stop-pop' : undefined}
+                  style={{ pointerEvents: 'none' }}
+                >
+                  <circle cx={x} cy={y} r={27} fill={visited ? BRAND : '#ffffff'} stroke={visited ? '#ffffff' : BRAND} strokeWidth={4} style={{ transition: 'fill 180ms ease-out, stroke 180ms ease-out' }} />
                   <text x={x} y={y + 1} textAnchor="middle" dominantBaseline="central" fontSize={26} fontWeight="700" fill={visited ? '#ffffff' : BRAND}>
                     {d.n}
                   </text>

@@ -111,3 +111,142 @@ export const playCommiserate = () => play((a) => {
 export const playTick = () => play((a) => {
   tone(a, 880, 0, 0.06, 0.05)
 })
+
+/**
+ * PASSING A NUMBERED STOP. Ethan asked for "a little ding like a coin in Mario
+ * Kart", and the reason that sound works is that it is TWO notes a fifth apart
+ * played almost on top of each other - the second lands before the first has
+ * finished, so it reads as one bright event rather than as a little tune. Square
+ * waves, because a sine is too round to cut through and a saw is harsh.
+ */
+export const playCoin = () => play((a) => {
+  tone(a, 987.77, 0, 0.07, 0.10, 'square')   // B5
+  tone(a, 1567.98, 0.055, 0.22, 0.09, 'square') // G6
+})
+
+// ---------------------------------------------------------------- the engine
+//
+// A PROPELLER, NOT A JET, AND NOT A LOOPED FILE.
+//
+// Ethan asked for "an airplane flying sound" while you fly the route. A sampled
+// engine loop would be another file, another licence and another CSP entry (see
+// the note at the top), and a looped sample is also the version that becomes
+// unbearable after ninety seconds because the loop point is audible.
+//
+// So it is synthesised from three parts, which is roughly what a propeller
+// actually is:
+//
+//   noise      a filtered white-noise buffer, looping. This is the air.
+//   drone      a low sawtooth under it. This is the engine block.
+//   throb      an LFO on the noise gain at ~11Hz. This is the blade passing,
+//              and it is the part that makes it read as a propeller rather
+//              than as static.
+//
+// IT ONLY MAKES A NOISE WHILE THE PLANE IS MOVING. A drone that runs from the
+// moment the puzzle opens is a drone somebody turns the sound off to escape, and
+// they do not turn it back on. `engineThrust()` is called on every step and
+// opens the gain; it closes itself half a second after the last one, so
+// thinking in silence is possible and flying is not.
+//
+// Everything hangs off ONE gain node that is faded rather than stopped, because
+// starting and stopping oscillators for this would click on every move.
+
+let engine = null
+
+function buildEngine(a) {
+  // Two seconds of noise is long enough that the loop is not audible as a loop.
+  const frames = a.sampleRate * 2
+  const buffer = a.createBuffer(1, frames, a.sampleRate)
+  const data = buffer.getChannelData(0)
+  // Deterministic, cheap, and one less reason for a lint rule to care: a
+  // hand-rolled LCG rather than Math.random.
+  let seed = 22222
+  for (let i = 0; i < frames; i++) {
+    seed = (seed * 1664525 + 1013904223) >>> 0
+    data[i] = (seed / 2147483648) - 1
+  }
+
+  const out = a.createGain()
+  out.gain.setValueAtTime(0.0001, a.currentTime)
+  out.connect(a.destination)
+
+  const noise = a.createBufferSource()
+  noise.buffer = buffer
+  noise.loop = true
+  const band = a.createBiquadFilter()
+  band.type = 'bandpass'
+  band.frequency.value = 420
+  band.Q.value = 0.7
+  const noiseGain = a.createGain()
+  noiseGain.gain.value = 0.5
+  noise.connect(band).connect(noiseGain).connect(out)
+
+  // The blade. A slow sine on the noise gain, which is the whole difference
+  // between "a propeller" and "a hiss".
+  const throb = a.createOscillator()
+  throb.type = 'sine'
+  throb.frequency.value = 11
+  const throbDepth = a.createGain()
+  throbDepth.gain.value = 0.32
+  throb.connect(throbDepth).connect(noiseGain.gain)
+
+  const drone = a.createOscillator()
+  drone.type = 'sawtooth'
+  drone.frequency.value = 62
+  const droneLp = a.createBiquadFilter()
+  droneLp.type = 'lowpass'
+  droneLp.frequency.value = 220
+  const droneGain = a.createGain()
+  droneGain.gain.value = 0.16
+  drone.connect(droneLp).connect(droneGain).connect(out)
+
+  noise.start()
+  throb.start()
+  drone.start()
+  return { out, nodes: [noise, throb, drone], timer: null }
+}
+
+/**
+ * The plane moved. Open the engine up, and arrange for it to settle again if
+ * nothing else happens.
+ */
+export function engineThrust() {
+  if (!soundOn()) return
+  const a = audio()
+  if (!a) return
+  try {
+    if (!engine) engine = buildEngine(a)
+    const g = engine.out.gain
+    g.cancelScheduledValues(a.currentTime)
+    g.setValueAtTime(Math.max(g.value, 0.0001), a.currentTime)
+    // Quiet. This runs UNDER everything else in the game and has to stay there;
+    // an engine you notice is an engine you switch off.
+    g.exponentialRampToValueAtTime(0.055, a.currentTime + 0.08)
+    clearTimeout(engine.timer)
+    engine.timer = setTimeout(() => {
+      if (!engine) return
+      const t = a.currentTime
+      engine.out.gain.cancelScheduledValues(t)
+      engine.out.gain.setValueAtTime(Math.max(engine.out.gain.value, 0.0001), t)
+      engine.out.gain.exponentialRampToValueAtTime(0.0001, t + 0.45)
+    }, 420)
+  } catch { /* context torn down mid-navigation */ }
+}
+
+/** Cut the engine and release its nodes. Call it when the game unmounts. */
+export function engineStop() {
+  if (!engine) return
+  const e = engine
+  engine = null
+  clearTimeout(e.timer)
+  try {
+    const a = audio()
+    if (a) {
+      e.out.gain.cancelScheduledValues(a.currentTime)
+      e.out.gain.setValueAtTime(Math.max(e.out.gain.value, 0.0001), a.currentTime)
+      e.out.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + 0.2)
+    }
+    // Stopped a beat after the fade, or the release is a click.
+    setTimeout(() => { for (const n of e.nodes) { try { n.stop() } catch { /* already stopped */ } } }, 300)
+  } catch { /* nothing to do */ }
+}

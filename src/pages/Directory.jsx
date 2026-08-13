@@ -144,6 +144,37 @@ export default function Directory() {
     [creators, user.id],
   )
 
+  // A FILTER FILTERS THE MAP TOO.
+  //
+  // Ethan: "any filters you add should filter not just the creators below but
+  // also the map above." The four fields used to apply to the card grid only,
+  // so choosing "Filter by language: Portuguese" left a map of all 43 pins
+  // sitting above six cards - and the map is the half of this page that answers
+  // "where are the Portuguese speakers", which is the question you were asking
+  // when you picked the filter.
+  //
+  // Only the FIELD filters go through here. Who is travelling, near me and my
+  // connections are already the map's own controls (it takes them as props and
+  // draws their journeys), so applying them a second time to its input would
+  // filter a filtered list.
+  //
+  // YOU STAY ON THE MAP. The grid-only rules below - drop your own card, drop
+  // the team into their own row - deliberately are not applied here: a map of
+  // where everyone is with you missing from it is a map that is wrong.
+  const fieldFilterOn = !!(search || country || language || platform)
+  const matchesFields = (c) => {
+    if (search && !c.name?.toLowerCase().includes(search.toLowerCase())) return false
+    if (country && !(c.countries_visited || []).includes(country)) return false
+    if (language && !(c.languages || []).includes(language)) return false
+    if (platform && !platformsForProfile(c).includes(platform)) return false
+    return true
+  }
+  const mapCreators = useMemo(
+    () => (fieldFilterOn ? creators.filter(matchesFields) : creators),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [creators, fieldFilterOn, search, country, language, platform],
+  )
+
   const filtered = creators.filter((c) => {
     // YOU ARE NOT IN YOUR OWN DIRECTORY.
     //
@@ -167,11 +198,7 @@ export default function Directory() {
     if (connectionsOnly && !myConnectionIds.has(c.id)) return false
     if (travelOnly && !travellerIds.has(c.id)) return false
     if (nearMe && !nearIds.has(c.id)) return false
-    if (search && !c.name.toLowerCase().includes(search.toLowerCase())) return false
-    if (country && !(c.countries_visited || []).includes(country)) return false
-    if (language && !(c.languages || []).includes(language)) return false
-    if (platform && !platformsForProfile(c).includes(platform)) return false
-    return true
+    return matchesFields(c)
   })
   // While "near me" is on, the closest creators come first.
   if (nearMe) filtered.sort((a, b) => (nearDist.get(a.id) ?? Infinity) - (nearDist.get(b.id) ?? Infinity))
@@ -190,10 +217,17 @@ export default function Directory() {
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-xl font-semibold text-ink sm:text-2xl">Creator map</h2>
           {!loading && (
+            // The pill counts WHAT IS ON THE MAP. It read "43 creators from
+            // around the world" over a map showing six of them, which is a
+            // caption contradicting the picture it is under.
             <div className="inline-flex items-center gap-2.5 rounded-full border border-brand/20 bg-brand-tint/40 px-4 py-2 text-sm">
               <Icon name="users" className="h-4 w-4 shrink-0 text-brand" />
-              <span className="font-semibold text-brand">{creators.length}</span>
-              <span className="text-smoke">creator{creators.length === 1 ? '' : 's'} from around the world</span>
+              <span className="font-semibold text-brand">{mapCreators.length}</span>
+              <span className="text-smoke">
+                {fieldFilterOn
+                  ? `creator${mapCreators.length === 1 ? '' : 's'} match${mapCreators.length === 1 ? 'es' : ''} your filters`
+                  : `creator${mapCreators.length === 1 ? '' : 's'} from around the world`}
+              </span>
             </div>
           )}
         </div>
@@ -201,7 +235,7 @@ export default function Directory() {
           <div className="h-[340px] w-full animate-pulse rounded-card bg-cloud/70 sm:h-[420px]" />
         ) : (
           <CreatorMap
-            creators={creators}
+            creators={mapCreators}
             trips={trips}
             highlightIds={nearMe ? nearIds : null}
             nearMe={nearMe}

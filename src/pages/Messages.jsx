@@ -20,6 +20,7 @@ import Reveal from '../components/network/Reveal'
 import SeenBy from '../components/SeenBy'
 import ChatComposer from '../components/ChatComposer'
 import { renderMessageBody } from '../lib/richText'
+import { EntryReferenceCard, loadEntryRefs } from '../components/EntryFeedback'
 import { GroupAvatar, NewGroupModal, GroupSettingsModal } from '../components/GroupPanels'
 import {
   groupName, acceptInvite, declineInvite, leaveGroup,
@@ -57,6 +58,7 @@ export default function Messages() {
   const [groupInvites, setGroupInvites] = useState([]) // pending invites for the OPEN group
   const [thread, setThread] = useState([])
   const [reactions, setReactions] = useState([]) // dm_reactions for the open thread
+  const [entryRefs, setEntryRefs] = useState({}) // submission id -> the entry a feedback DM is about
   const [pickerFor, setPickerFor] = useState(null)
   // The composer serialises to markdown on every keystroke, so `body` is still
   // exactly what send/drafts/previews have always read.
@@ -308,6 +310,10 @@ export default function Messages() {
       } else if (!cancelled) {
         setReactions([])
       }
+      // A feedback DM carries the entry it is about, so the bubble can show the
+      // entry card rather than a paragraph about a video you then have to find.
+      const refs = await loadEntryRefs((data ?? []).map((m) => m.submission_id))
+      if (!cancelled) setEntryRefs(refs)
       setLoadingThread(false)
       // Mark everything they sent me as read. In a group there is no per-reader
       // flag on the message - one row, many readers - so the watermark on my
@@ -1172,6 +1178,13 @@ export default function Messages() {
                             ) : (
                               <div className="flex h-40 w-56 items-center justify-center rounded-xl bg-cloud"><Spinner /></div>
                             )
+                          )}
+                          {/* Feedback from the team arrives with the entry it
+                              is about attached. */}
+                          {m.submission_id && (
+                            <span className={cx('block', m.image_url && 'px-2.5 pt-1.5')}>
+                              <EntryReferenceCard entry={entryRefs[m.submission_id]} onDark={mine} />
+                            </span>
                           )}
                           {/* MARKDOWN, LIKE EVERY OTHER SURFACE. The DMs printed
                               the raw body, so a message written with the

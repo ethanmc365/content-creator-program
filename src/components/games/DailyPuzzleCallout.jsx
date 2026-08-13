@@ -1,117 +1,103 @@
-import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import Icon from '../Icon'
-import { dailyStreak, ukDayIndex, ukDayStartIso } from '../../lib/daily'
+import { dailyStreak } from '../../lib/daily'
+import { DAILY_PUZZLES, useDailyPuzzles } from '../../lib/dailyPuzzles'
 import { cx } from '../../lib/utils'
 
-// TODAY'S PUZZLE, ON THE PAGE PEOPLE ACTUALLY OPEN.
+// TODAY'S PUZZLES, ON THE PAGE PEOPLE ACTUALLY OPEN.
 //
-// The games live behind a link in a menu, which means the daily puzzle - the one
-// piece of this product designed to be a habit - is only ever found by somebody
-// who already has the habit. A slim strip on the hub, between the announcement
-// and the map, is the whole intervention: it costs one line of the page and it
-// is the difference between a daily game and a page with games on it.
+// The games live behind a link in a menu, which means the daily puzzles - the
+// one piece of this product designed to be a habit - are only ever found by
+// somebody who already has the habit. A section on the hub, between the
+// announcement and the map, is the whole intervention.
 //
-// THREE FACTS, AND NO MORE.
+// WHY THREE CARDS AND NOT ONE STRIP. It used to offer the single puzzle you had
+// not played, which sounds tidier and is worse: it hid the fact that there are
+// three, so nobody knew what they were missing, and "done for today" appeared
+// the moment you finished the last one rather than showing the three ticks you
+// had earned. Ethan asked for all three, each highlighting green on its own,
+// and that is also the version that makes the set legible.
 //
-//   what it is        the puzzle's name, so it is a specific thing and not "a game"
-//   who else played   the count today. This is the social proof, and it is the
-//                     reason the strip works: 11 people played this morning is a
-//                     different invitation from "play a game".
-//   your streak       only if you have one. A "0 day streak" is a scolding.
+// WHAT EACH CARD SAYS, AND WHY THAT AND NOTHING ELSE
 //
-// It is a Link and not a card with a button in it, because the whole strip
-// should be the target on a phone.
+//   what it is        the puzzle's name, so it is a specific thing, not "a game"
+//   played or not     green and ticked, INDEPENDENTLY of the other two
+//   who else played   the count today. This is the social proof and it is the
+//                     reason the section works: 11 creators played this morning
+//                     is a different invitation from "play a game".
 //
-// WHICH PUZZLE IT OFFERS. The one you have NOT played today, so somebody who has
-// done Guess the Country is invited to Flight Path rather than told to go and do
-// the thing they have done. If both are done it says so and stops selling.
+// Your streak rides on the heading rather than on each card: it is one streak
+// across the three, and printing it three times would read as three.
+//
+// NO MOTION IMPORT. The hub is eagerly routed; entrance animation is the page's
+// own `Reveal`, which is CSS-only for exactly this reason.
 
-const PUZZLES = [
-  { key: 'pinpoint', store: 'tryp_pinpoint', title: 'Guess the Country', icon: 'magnifier', line: 'Five clues, one country.' },
-  { key: 'zip', store: 'tryp_zip', title: 'Flight Path', icon: 'plane-tryp', line: 'Fly through every stop in order.' },
-]
-
-export default function DailyPuzzleCallout({ className }) {
-  const { user } = useAuth()
-  const [today] = useState(() => ukDayIndex())
-  const [playedToday, setPlayedToday] = useState(() => new Set())
-  const [counts, setCounts] = useState(null) // key -> how many played today
-  const [streak, setStreak] = useState(0)
-
-  // localStorage first, because it answers "have I played" without a round trip
-  // and the answer decides which puzzle this card offers.
-  useEffect(() => {
-    const done = new Set()
-    for (const p of PUZZLES) {
-      try {
-        if (JSON.parse(localStorage.getItem(p.store) || 'null')?.day === today) done.add(p.key)
-      } catch { /* private mode */ }
-    }
-    setPlayedToday(done)
-  }, [today])
-
-  useEffect(() => {
-    let alive = true
-    const since = ukDayStartIso()
-    Promise.all([
-      // Everyone's plays today, per puzzle. `is_test` accounts are filtered the
-      // same way the leaderboards filter them, so the number on the card and the
-      // number of rows on the board can never disagree.
-      supabase.from('game_scores')
-        .select('mode, player_id, profiles:player_id(is_test)')
-        .in('mode', ['pinpoint', 'zip']).gte('created_at', since),
-      user?.id
-        ? supabase.from('game_scores').select('day_key').eq('player_id', user.id).not('day_key', 'is', null)
-        : Promise.resolve({ data: [] }),
-    ]).then(([{ data: rows }, { data: mine }]) => {
-      if (!alive) return
-      const tally = {}
-      const seen = new Set()
-      for (const r of rows || []) {
-        if (r.profiles?.is_test) continue
-        // One person is one play, however many times they opened it.
-        const k = `${r.mode}:${r.player_id}`
-        if (seen.has(k)) continue
-        seen.add(k)
-        tally[r.mode] = (tally[r.mode] || 0) + 1
-      }
-      setCounts(tally)
-      setStreak(dailyStreak([...new Set((mine || []).map((m) => m.day_key))]))
-      // The server is the truth about whether you have played: localStorage is
-      // per device, and a creator who solved it on their phone must not be
-      // invited to solve it again on a laptop.
-      const done = new Set()
-      for (const r of rows || []) if (r.player_id === user?.id) done.add(r.mode)
-      if (done.size) setPlayedToday((cur) => new Set([...cur, ...done]))
-    })
-    return () => { alive = false }
-  }, [user?.id, today])
-
-  const next = PUZZLES.find((p) => !playedToday.has(p.key))
-  const allDone = !next
-  const shown = next || PUZZLES[0]
-  const count = counts?.[shown.key] ?? null
-
+function PuzzleCard({ puzzle, done, count }) {
   return (
     <Link
-      to={allDone ? '/game' : `/game?daily=${shown.key}`}
+      to={`/game?daily=${puzzle.key}`}
       className={cx(
-        'group flex items-center gap-4 rounded-card border border-brand/25 bg-gradient-to-r from-brand-tint/50 to-brand-tint/20 px-4 py-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/50 hover:shadow-lift sm:px-5',
-        className,
+        'group flex items-center gap-3.5 rounded-card border px-4 py-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift',
+        done
+          // PLAYED IS GREEN, AND ONLY PLAYED IS GREEN. The whole card carries it
+          // so the state is readable at a glance down a column of three, rather
+          // than living in a tick somebody has to hunt for.
+          ? 'border-green-500/40 bg-green-50/70 hover:border-green-500/70'
+          : 'border-brand/25 bg-gradient-to-r from-brand-tint/50 to-brand-tint/20 hover:border-brand/50',
       )}
     >
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand text-white shadow-card transition-transform duration-200 group-hover:scale-110">
-        <Icon name={allDone ? 'check' : shown.icon} className="h-5 w-5" />
+      <span
+        className={cx(
+          'flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-white shadow-card transition-transform duration-200 group-hover:scale-110',
+          done ? 'bg-green-600' : 'bg-brand',
+        )}
+      >
+        <Icon name={done ? 'check' : puzzle.icon} className="h-5 w-5" />
       </span>
 
       <span className="min-w-0 flex-1">
-        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-brand">
-            {allDone ? 'Done for today' : "Today's puzzle"}
-          </span>
+        <span className="flex items-center gap-2">
+          <span className="truncate text-sm font-semibold text-ink">{puzzle.title}</span>
+          {done && (
+            <span className="shrink-0 rounded-full bg-green-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+              Played
+            </span>
+          )}
+        </span>
+        <span className="mt-0.5 block truncate text-xs text-smoke">
+          {/* The count is the point, so it wins the line whenever there is one.
+              "Nobody yet" is not a discouragement here, it is an opening. */}
+          {count == null
+            ? puzzle.short
+            : count === 0
+              ? `${puzzle.short} Nobody has played it yet today.`
+              : `${count} ${count === 1 ? 'creator has' : 'creators have'} played it today`}
+        </span>
+      </span>
+
+      <Icon
+        name="chevronRight"
+        className={cx('h-5 w-5 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5', done ? 'text-green-600' : 'text-brand')}
+      />
+    </Link>
+  )
+}
+
+export default function DailyPuzzleCallout({ className }) {
+  const { user } = useAuth()
+  const { played, counts, streakDays } = useDailyPuzzles(user?.id)
+  const streak = dailyStreak(streakDays)
+  const doneCount = DAILY_PUZZLES.filter((p) => played.has(p.key)).length
+
+  return (
+    <section className={className}>
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="flex items-center gap-2 text-lg font-semibold">
+          <Icon name="joystick" className="h-5 w-5 text-brand" />
+          Daily puzzles
+        </h2>
+        <span className="flex items-center gap-2">
           {streak > 0 && (
             <span className="inline-flex items-center gap-1 rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold text-white">
               <svg viewBox="0 0 24 24" className="h-2.5 w-2.5" fill="currentColor" aria-hidden>
@@ -120,26 +106,24 @@ export default function DailyPuzzleCallout({ className }) {
               {streak} day{streak === 1 ? '' : 's'}
             </span>
           )}
+          <span className="text-xs text-smoke">
+            {doneCount === DAILY_PUZZLES.length
+              ? 'All three done. New ones at midnight.'
+              : `${doneCount} of ${DAILY_PUZZLES.length} done today`}
+          </span>
         </span>
-        <span className="mt-0.5 block truncate text-sm font-semibold text-ink">
-          {allDone ? 'Both puzzles played. New ones at midnight.' : shown.title}
-        </span>
-        <span className="block truncate text-xs text-smoke">
-          {allDone
-            ? 'Five more games are open any time'
-            : count == null
-              ? shown.line
-              : count === 0
-                ? `${shown.line} Nobody has played it yet today.`
-                : `${count} ${count === 1 ? 'creator has' : 'creators have'} played it today`}
-        </span>
-      </span>
+      </div>
 
-      <span className="hidden shrink-0 items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-xs font-semibold text-white transition-transform duration-200 group-hover:scale-105 sm:inline-flex">
-        {allDone ? 'Open games' : 'Play'}
-        <Icon name="chevronRight" className="h-3.5 w-3.5" />
-      </span>
-      <Icon name="chevronRight" className="h-5 w-5 shrink-0 text-brand sm:hidden" />
-    </Link>
+      {/* `counts` is null until the query lands and an OBJECT afterwards. A
+          puzzle nobody has played is absent from the tally, not zero in it, so
+          reading it as `counts?.[key] ?? null` made "nobody yet"
+          indistinguishable from "still loading" and the card would keep showing
+          its tagline for ever. */}
+      <div className="grid gap-2.5">
+        {DAILY_PUZZLES.map((p) => (
+          <PuzzleCard key={p.key} puzzle={p} done={played.has(p.key)} count={counts ? (counts[p.key] ?? 0) : null} />
+        ))}
+      </div>
+    </section>
   )
 }

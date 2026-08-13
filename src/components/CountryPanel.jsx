@@ -140,7 +140,12 @@ export function MapPanel({ badge, title, subtitle, onClose, className, children 
   return (
     <div
       className={cx(
-        'pointer-events-auto flex max-h-[26rem] min-h-0 w-full flex-col overflow-hidden rounded-card border border-gray-100 bg-white shadow-lift',
+        'pointer-events-auto flex min-h-0 w-full flex-col overflow-hidden rounded-card border border-gray-100 bg-white shadow-lift',
+        // The cap lives in a CSS variable so the caller can raise it for full
+        // screen without two `max-h-*` classes racing each other in the
+        // stylesheet - equal specificity means source order decides, and source
+        // order in a generated utility sheet is not something a caller controls.
+        'max-h-[var(--map-panel-max-h,26rem)]',
         className,
       )}
     >
@@ -292,20 +297,23 @@ export default function CountryPanel({
             </p>
             {/* BOTTOM LEFT, and only when there is a second thing to say. A
                 button that re-shows the fact you are already reading is a button
-                that looks broken. */}
+                that looks broken.
+
+                NO "4 of 11". Ethan asked for it gone and he is right: a counter
+                turns reading into a chore with a length, and the moment you can
+                see there are seven left you are no longer reading, you are
+                getting through them. Press the button, get another fact. Past
+                the end it comes round again and says so to nobody. */}
             {bank.length > 1 && (
-              <div className="mt-2 flex items-center justify-between gap-2">
+              <div className="mt-2 flex">
                 <button
                   type="button"
-                  onClick={() => setFactIndex((i) => (i + 1) % bank.length)}
+                  onClick={() => setFactIndex((i) => i + 1)}
                   className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-brand shadow-sm transition-transform hover:scale-105 active:scale-95"
                 >
                   <Icon name="sparkles" className="h-3 w-3" />
                   New fact
                 </button>
-                <span className="text-[10px] font-medium text-smoke">
-                  {(factIndex % bank.length) + 1} of {bank.length}
-                </span>
               </div>
             )}
           </div>

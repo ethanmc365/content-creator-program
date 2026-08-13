@@ -11,6 +11,7 @@ import VideoEmbedModal from '../components/VideoEmbedModal'
 import SubmissionSuccess from '../components/SubmissionSuccess'
 import ScoringPanel from '../components/network/ScoringPanel'
 import ParticipationBar from '../components/network/ParticipationBar'
+import { EntryFeedbackNote, EntryFeedbackEditor, loadFeedback } from '../components/EntryFeedback'
 import { Avatar, Badge, Modal, PageHeader, Skeleton, EmptyState, Spinner } from '../components/ui'
 import { formatDate, timeAgo, formatViews, detectPlatform, cx, challengeDeadline } from '../lib/utils'
 
@@ -87,6 +88,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('brief') // brief | entries | leaderboard
   const [playing, setPlaying] = useState(null) // submission being watched inline
+  const [feedback, setFeedback] = useState({}) // submission id -> the team's note
   // Captured once so it stays pure during render; a fresh page load re-reads it.
   const [nowMs] = useState(() => Date.now())
 
@@ -134,6 +136,11 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     setSubmissions(subs ?? [])
     setResults(res ?? [])
     setLoading(false)
+
+    // The team's notes on these entries. The policy decides what comes back -
+    // an admin gets every row, a creator gets only their own - so there is one
+    // query here and no branch on who is asking.
+    setFeedback(await loadFeedback((subs ?? []).map((s) => s.id)))
 
     // The size of the roster this challenge is running in front of.
     if (ch?.community_id) {
@@ -464,6 +471,19 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                   {s.logged_views != null && (
                     <p className="text-sm font-semibold text-brand">{formatViews(s.logged_views)} logged views</p>
                   )}
+                  {/* THE TEAM'S NOTE. The creator sees it on their own entry;
+                      an admin sees the editor on every entry. Nobody else sees
+                      anything, because nobody else's query returns a row. */}
+                  {s.creator_id === user.id && <EntryFeedbackNote feedback={feedback[s.id]} />}
+                  {isAdmin && (
+                    <EntryFeedbackEditor
+                      submissionId={s.id}
+                      creatorName={s.profiles?.name?.split(' ')[0]}
+                      feedback={feedback[s.id]}
+                      onSaved={(row) => setFeedback((f) => ({ ...f, [s.id]: row }))}
+                    />
+                  )}
+
                   <div className="mt-auto flex gap-2">
                     <a
                       href={s.video_url}

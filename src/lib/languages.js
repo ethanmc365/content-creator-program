@@ -602,14 +602,32 @@ export function buildQuestion(pool, rand = Math.random) {
   const sameRegion = pool.filter((l) => l.code !== answer.code && l.region === answer.region)
   const elsewhere = pool.filter((l) => l.code !== answer.code && l.region !== answer.region)
   const distractors = []
-  const take = (from) => {
+
+  // ALWAYS FOUR OPTIONS, AND THE OLD LOOP COULD NOT PROMISE THAT.
+  //
+  // Ethan: "sometimes it only shows up two options". The previous version asked
+  // for a language from `sameRegion` while `sameRegion.length` was non-zero -
+  // but the length it tested was of the WHOLE region list, not of what was left
+  // after removing the ones already chosen. Answer a phrase from a region
+  // holding two languages and the second pass found nothing new, hit the
+  // no-progress guard, and broke out with one distractor and a two-button
+  // question. It was not rare either: it happened every time the answer came
+  // from a thin region, which is most of Africa in this bank.
+  //
+  // Each source is now tried until it is genuinely exhausted, and the loop only
+  // gives up when BOTH are. With 34 languages in the bank it never does.
+  const takeFrom = (from) => {
     const remaining = from.filter((l) => !distractors.some((d) => d.code === l.code))
-    if (remaining.length) distractors.push(pick(remaining))
+    if (!remaining.length) return false
+    distractors.push(pick(remaining))
+    return true
   }
-  while (distractors.length < 3 && (sameRegion.length || elsewhere.length)) {
-    const before = distractors.length
-    take(distractors.length < 2 && sameRegion.length ? sameRegion : elsewhere.length ? elsewhere : sameRegion)
-    if (distractors.length === before) break
+  while (distractors.length < 3) {
+    // Two from next door where they exist, because a near-miss is the question;
+    // after that anywhere will do rather than leave a gap in the grid.
+    const wantSame = distractors.length < 2
+    const got = (wantSame && takeFrom(sameRegion)) || takeFrom(elsewhere) || takeFrom(sameRegion)
+    if (!got) break
   }
 
   const choices = [answer, ...distractors]
@@ -620,4 +638,52 @@ export function buildQuestion(pool, rand = Math.random) {
   }
 
   return { phrase, answer, choices }
+}
+
+// ---------------------------------------------------------------- daily round
+//
+// THE SAME TEN PHRASES FOR EVERYBODY, ALL DAY.
+//
+// Guess the language is a daily puzzle now, which means the round has to be a
+// pure function of the date and nothing else: two creators comparing scores at
+// lunchtime must have answered the same questions, and a leaderboard ranking
+// people who played different rounds is not a leaderboard.
+//
+// mulberry32 seeded from the UK day index, which is the generator the other two
+// dailies already use. `rand` was designed to be injected for exactly this (see
+// buildQuestion above), so there is no second code path for the questions
+// themselves - the daily round is the ordinary round with a different clock.
+
+/** A small, fast, seedable PRNG. Same seed, same sequence, on every device. */
+function mulberry32(seed) {
+  let a = seed >>> 0
+  return function next() {
+    a = (a + 0x6d2b79f5) >>> 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+export const DAILY_LANGUAGE_ROUNDS = 10
+
+/**
+ * The ten questions for one UK day. Never asks the same language twice in a
+ * round: with ten questions out of a bank of 34, a repeat is both likely and
+ * reads as the puzzle having run out of ideas.
+ */
+export function dailyLanguageRound(day, count = DAILY_LANGUAGE_ROUNDS) {
+  // A large odd multiplier keeps consecutive days far apart in the sequence, so
+  // Tuesday's round is not Monday's with one phrase swapped.
+  const rand = mulberry32(day * 2654435761)
+  const out = []
+  const usedLanguages = new Set()
+  let guard = 0
+  while (out.length < count && guard++ < count * 60) {
+    const q = buildQuestion(LANGUAGES, rand)
+    if (usedLanguages.has(q.answer.code)) continue
+    usedLanguages.add(q.answer.code)
+    out.push(q)
+  }
+  return out
 }

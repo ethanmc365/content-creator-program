@@ -1,18 +1,28 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { buildQuestion, languagesForRegion } from '../../lib/languages'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../context/AuthContext'
+import { dailyLanguageRound, DAILY_LANGUAGE_ROUNDS } from '../../lib/languages'
+import { ukDayIndex, ukDayStartIso, untilNextUkMidnight, dailyStreak } from '../../lib/daily'
 import { cx } from '../../lib/utils'
 import Icon from '../Icon'
+import { Badge, Confetti, StreakChip } from '../ui'
 import GameChrome, { AnswerFlash } from './GameChrome'
-import { playCorrect, playWrong } from '../../lib/gameSounds'
+import { playCorrect, playWrong, playCelebrate, playCommiserate } from '../../lib/gameSounds'
 
-// GUESS THE LANGUAGE: read a phrase, name the language.
+// GUESS THE LANGUAGE: read a phrase, name the language. NOW A DAILY PUZZLE.
 //
 // Renamed from "Say hello" at Ethan's request, and the new name is the better
 // one: the old one described the phrases (they are greetings) rather than the
-// task, so a creator scanning the menu could not tell what they were being asked
-// to do. It also lost its continent split in the same pass - the bank is 34
-// languages and the pleasure of it is meeting one you have never seen, which
-// filtering to Europe removes.
+// task, so a creator scanning the menu could not tell what they were being
+// asked to do.
+//
+// WHY IT MOVED TO THE DAILY SHELF. It was a practice mode you could replay all
+// evening, which is the format that makes a bank of 34 languages feel finite
+// fast. As one of three puzzles a day it is the opposite: ten phrases, once,
+// the same ten everybody else got, and a leaderboard that means something
+// because everyone answered the same questions. That is Ethan's call and it is
+// the right one - this game was always more of a shared thing to talk about
+// than a score to grind.
 //
 // The shape is deliberately the opposite way round from the rest of the games
 // here. Flags, airports and currencies all start from a COUNTRY and ask you to
@@ -27,7 +37,7 @@ import { playCorrect, playWrong } from '../../lib/gameSounds'
 // travel community, and "what does that say" is a more useful thing to learn
 // than "which flag was that".
 
-const ROUNDS = 10
+const STORE_KEY = 'tryp_languages'
 
 // A phrase in a script most readers cannot size by eye needs a bigger type size
 // to be legible, and Latin text at that size looks like shouting. Set per
@@ -48,39 +58,115 @@ const SCRIPT_SIZE = {
 // merely look wrong, it renders punctuation on the wrong end of the line.
 const RTL = new Set(['Arabic', 'Hebrew'])
 
-export default function LanguageGame({ onFinish, onQuit }) {
-  // WORLD, ALWAYS. See the note at the top of the file.
-  const pool = useMemo(() => languagesForRegion('World'), [])
-  // Questions are built once, up front. Building them per round would call
-  // Math.random during a render, which is both a lint error in this repo and a
-  // real bug: any re-render would silently reshuffle the answers under you.
-  const [questions] = useState(() => {
-    const out = []
-    const seen = new Set()
-    let guard = 0
-    while (out.length < ROUNDS && guard++ < ROUNDS * 40) {
-      const q = buildQuestion(pool)
-      const key = `${q.answer.code}:${q.phrase.text}`
-      if (seen.has(key)) continue
-      seen.add(key)
-      out.push(q)
-    }
-    return out
-  })
+const fmtTime = (ms) => {
+  const s = Math.floor(ms / 1000)
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+}
 
+function loadStored(day) {
+  try {
+    const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null')
+    return s && s.day === day ? s : null
+  } catch { return null }
+}
+
+// A LINE THAT REACTS TO WHAT ACTUALLY HAPPENED, the same ladder the quiz modes
+// use, so ten out of ten reads the same way whichever game you got it in.
+function verdict(pct) {
+  if (pct === 100) return { title: 'Every single one', line: 'Ten scripts, ten languages, no mistakes.' }
+  if (pct >= 90) return { title: 'One away', line: 'That is a very good ear.' }
+  if (pct >= 70) return { title: 'Strong round', line: 'Comfortably above the middle on a hard set.' }
+  if (pct >= 50) return { title: 'Halfway there', line: 'More right than wrong, on ten alphabets.' }
+  if (pct >= 25) return { title: 'A tricky set', line: 'Some of these look nothing like they sound.' }
+  return { title: 'A rough one', line: 'Everybody has these. Tomorrow is ten new phrases.' }
+}
+
+export default function LanguageGame({ onExit }) {
+  const { user } = useAuth()
+  const [day] = useState(() => ukDayIndex())
+  const [nextIn] = useState(() => untilNextUkMidnight(Date.now()))
+  // THE SAME TEN FOR EVERYBODY. Built once, from the date, so a re-render
+  // cannot reshuffle the answers under a player mid-round.
+  const [questions] = useState(() => dailyLanguageRound(day))
+
+  const stored = useState(() => loadStored(day))[0]
   const [i, setI] = useState(0)
   const [picked, setPicked] = useState(null)
   const [correct, setCorrect] = useState(0)
-  // The leaderboard ranks by score then speed, so a round has to be timed like
-  // every other mode. Stamped in an effect rather than during render: reading
-  // the clock in render is impure and this repo's lint rule catches it.
-  const [startedAt, setStartedAt] = useState(0)
-  useEffect(() => { setStartedAt(Date.now()) }, [])
+  const [done, setDone] = useState(stored ? { correct: stored.correct, total: stored.total, timeMs: stored.timeMs } : null)
+  const [checking, setChecking] = useState(!stored)
+  const [streakDays, setStreakDays] = useState([])
+  const [elapsed, setElapsed] = useState(0)
+  const startRef = useRef(0)
+  const elapsedRef = useRef(0)
+  const savedRef = useRef(!!stored)
+
+  // ONE ROUND A DAY, AND THE SERVER IS THE ONE THAT KNOWS. localStorage answers
+  // instantly but is per device; somebody who played on their phone at
+  // breakfast must not be handed a fresh round on their laptop at lunch. The
+  // partial unique index on (player, mode, day_key) is the real lock.
+  useEffect(() => {
+    if (stored) return undefined
+    let alive = true
+    supabase.from('game_scores')
+      .select('correct, total, time_ms')
+      .eq('player_id', user.id).eq('mode', 'languages').eq('day_key', day)
+      .gte('created_at', ukDayStartIso())
+      .limit(1)
+      .then(({ data }) => {
+        if (!alive) return
+        const row = data?.[0]
+        if (row) {
+          savedRef.current = true
+          setDone({ correct: row.correct, total: row.total, timeMs: row.time_ms })
+        }
+        setChecking(false)
+      })
+    return () => { alive = false }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (done || checking) return undefined
+    startRef.current = Date.now()
+    const t = setInterval(() => {
+      elapsedRef.current = Date.now() - startRef.current
+      setElapsed(elapsedRef.current)
+    }, 250)
+    return () => clearInterval(t)
+  }, [done, checking])
+
+  useEffect(() => {
+    supabase.from('game_scores')
+      .select('day_key')
+      .eq('player_id', user.id).eq('mode', 'languages').not('day_key', 'is', null)
+      .then(({ data }) => setStreakDays((data ?? []).map((r) => r.day_key)))
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const streak = dailyStreak(done ? [...streakDays, day] : streakDays, day)
+
   const q = questions[i]
   const last = i === questions.length - 1
 
+  const finish = useCallback((finalCorrect) => {
+    const timeMs = elapsedRef.current
+    const result = { correct: finalCorrect, total: questions.length, timeMs }
+    setDone(result)
+    // 60% is the line: below it you got most of them wrong, and celebrating
+    // that would be the app not paying attention.
+    if ((finalCorrect / questions.length) * 100 >= 60) playCelebrate()
+    else playCommiserate()
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify({ day, ...result }))
+    } catch { /* private mode */ }
+    if (savedRef.current) return
+    savedRef.current = true
+    supabase.from('game_scores').insert({
+      player_id: user.id, mode: 'languages', region: 'Daily', day_key: day,
+      correct: finalCorrect, total: questions.length, time_ms: timeMs,
+    }).then(() => {})
+  }, [day, questions.length, user.id])
+
   const choose = (lang) => {
-    if (picked) return
+    if (picked || done) return
     const isRight = lang.code === q.answer.code
     if (isRight) setCorrect((c) => c + 1)
     setPicked(lang)
@@ -92,25 +178,68 @@ export default function LanguageGame({ onFinish, onQuit }) {
 
   const next = useCallback(() => {
     if (last) {
-      onFinish?.({
-        correct,
-        total: questions.length,
-        time_ms: startedAt ? Date.now() - startedAt : 0,
-      })
+      // `correct` already counts the answer just given: setCorrect ran on the
+      // tap, and this button only exists once an answer is in.
+      finish(correct)
       return
     }
     setI((n) => n + 1)
     setPicked(null)
-  }, [last, onFinish, correct, questions.length, startedAt])
+  }, [last, correct, finish])
 
   // Enter moves on once you have answered, so a fast player never has to reach
   // for the mouse between rounds.
   useEffect(() => {
-    if (!picked) return undefined
+    if (!picked || done) return undefined
     const onKey = (e) => { if (e.key === 'Enter') { e.preventDefault(); next() } }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [picked, next])
+  }, [picked, next, done])
+
+  if (checking) {
+    return (
+      <div className="card !py-16 text-center text-sm text-smoke">Checking today&rsquo;s puzzle…</div>
+    )
+  }
+
+  if (done) {
+    const pct = Math.round((done.correct / done.total) * 100)
+    const v = verdict(pct)
+    return (
+      <div className="card flex flex-col items-center gap-4 !py-10 text-center animate-pop-in">
+        {pct >= 80 && <Confetti count={50} />}
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <Badge tone="light"><Icon name="chat" className="h-3.5 w-3.5" /> Guess the language</Badge>
+          {streak > 0 && <StreakChip n={streak} />}
+        </div>
+
+        <div className="relative">
+          <svg viewBox="0 0 120 120" className="h-28 w-28 -rotate-90" aria-hidden>
+            <circle cx="60" cy="60" r="52" fill="none" stroke="#ECECEE" strokeWidth="10" />
+            <circle
+              cx="60" cy="60" r="52" fill="none" stroke="#d94407" strokeWidth="10" strokeLinecap="round"
+              strokeDasharray={2 * Math.PI * 52}
+              strokeDashoffset={2 * Math.PI * 52 * (1 - pct / 100)}
+              style={{ transition: 'stroke-dashoffset 900ms cubic-bezier(0.22,1,0.36,1)' }}
+            />
+          </svg>
+          <span className="absolute inset-0 flex flex-col items-center justify-center leading-none">
+            <span className="text-2xl font-bold tabular-nums">{done.correct}<span className="text-smoke">/{done.total}</span></span>
+            <span className="mt-1 text-[11px] font-semibold uppercase tracking-widest text-brand">{pct}%</span>
+          </span>
+        </div>
+
+        <div>
+          <h2 className="text-2xl font-bold">{v.title}</h2>
+          <p className="mt-1 max-w-sm text-sm text-smoke">{v.line}</p>
+        </div>
+
+        {done.timeMs > 0 && <Badge tone="light"><Icon name="clock" className="h-3.5 w-3.5" /> {fmtTime(done.timeMs)}</Badge>}
+        <p className="text-xs text-smoke">Ten new phrases in {nextIn}</p>
+        <button onClick={onExit} className="btn-secondary mt-2">Back to games</button>
+      </div>
+    )
+  }
 
   if (!q) return null
 
@@ -118,17 +247,17 @@ export default function LanguageGame({ onFinish, onQuit }) {
 
   return (
     <div className="space-y-5">
-      {/* The same header every other mode now has. This game's own progress bar
-          was the one Ethan liked, so it became the shared one rather than
-          staying the exception. */}
+      {/* The same header every other mode has. This game's own progress bar was
+          the one Ethan liked, so it became the shared one rather than staying
+          the exception. */}
       <GameChrome
         icon="chat"
-        title="Guess the language"
+        title="Guess the language · today"
         done={picked ? i + 1 : i}
         total={questions.length}
         correct={correct}
-        time={null}
-        onQuit={onQuit}
+        time={fmtTime(elapsed)}
+        onQuit={onExit}
       />
 
       <AnswerFlash
@@ -156,6 +285,9 @@ export default function LanguageGame({ onFinish, onQuit }) {
           </div>
         </div>
 
+        {/* ALWAYS FOUR, IN A 2x2. `buildQuestion` guarantees the four; the grid
+            is fixed at two columns so the block is the same shape on every
+            question and nothing below it moves as you play. */}
         <div className="grid w-full max-w-lg grid-cols-1 gap-2.5 sm:grid-cols-2">
           {q.choices.map((c) => {
             const isAnswer = c.code === q.answer.code
@@ -210,3 +342,5 @@ export default function LanguageGame({ onFinish, onQuit }) {
     </div>
   )
 }
+
+export { DAILY_LANGUAGE_ROUNDS }

@@ -28,10 +28,49 @@ describe('renderMessageBody', () => {
     const rich = wrap(renderMessageBody('**hi**', { rich: true }))
     expect(rich.container.querySelector('strong')).not.toBeNull()
   })
+
+  // The two real messages sitting in #general were written by holding bold
+  // across a line break, so the run closed on a line of its own. They must read
+  // as bold text, not as a row of asterisks.
+  it('heals a bold run that spans a line break', () => {
+    const { container } = wrap(
+      renderMessageBody('**Hey guys, just 7 days left!\n**\nThe leaderboard is open', { rich: true }),
+    )
+    expect(container.textContent).not.toContain('*')
+    const strong = container.querySelector('strong')
+    expect(strong.textContent).toBe('Hey guys, just 7 days left!')
+  })
+
+  it('heals the doubled marker left in the middle of a message', () => {
+    const { container } = wrap(
+      renderMessageBody('Hey, just **7 days left!\n****\n**The leaderboard is open', { rich: true }),
+    )
+    expect(container.textContent).not.toContain('*')
+    expect(container.querySelector('strong').textContent).toBe('7 days left!')
+    expect(container.textContent).toContain('The leaderboard is open')
+  })
+
+  it('leaves an asterisk that is only ever an asterisk alone', () => {
+    const { container } = wrap(renderMessageBody('2 * 3 = 6\nand 4 * 5 = 20', { rich: true }))
+    expect(container.textContent).toContain('2 * 3 = 6')
+    expect(container.textContent).toContain('4 * 5 = 20')
+  })
+
+  it('renders all three heading levels as headings, not hashes', () => {
+    for (const [md, expected] of [['# One', 'One'], ['## Two', 'Two'], ['### Three', 'Three']]) {
+      const { container } = wrap(renderMessageBody(md, { rich: true }))
+      expect(container.textContent).toBe(expected)
+      expect(container.querySelector('.font-bold, .font-semibold')).not.toBeNull()
+    }
+  })
 })
 
 describe('stripMarkup', () => {
   it('removes markdown markers for previews', () => {
     expect(stripMarkup('# Heading **bold** *italic*')).toBe('Heading bold italic')
+  })
+
+  it('leaves no asterisks behind when a run spanned a line break', () => {
+    expect(stripMarkup('**Seven days left!\n**\nGet posting')).not.toContain('*')
   })
 })

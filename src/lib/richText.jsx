@@ -62,8 +62,38 @@ function renderInline(text, { rich, mentionRe, nameToId, onDark }, keyPrefix) {
   return nodes
 }
 
+// AN INLINE RUN THAT SPANS A LINE BREAK, HEALED AT READ TIME.
+//
+// The composer no longer writes these (see `wrapInline` in richEditor.js), but
+// messages already sent carry them, and a message is forever. `**a\nb**` is
+// re-cut into `**a**\n**b**`, which is the same claim in a form the per-line
+// patterns below can actually see, and a leftover `****` on a line of its own
+// disappears entirely.
+//
+// DOUBLE ASTERISKS ONLY, AND THAT RESTRICTION IS THE WHOLE SAFETY ARGUMENT.
+// Nobody types `**` meaning two asterisks, so pairing them across a newline is
+// safe. A single `*` is a different animal: "2 * 3 = 6\nand 4 * 5 = 20" pairs
+// into italics under exactly the same rule and turns arithmetic into emphasis.
+// Underscores are out for the same reason - they travel inside URLs
+// (`.../my_trip\n.../your_photo`) and pairing those invents emphasis out of two
+// unrelated links.
+//
+// A run with no newline inside it is returned untouched, so ordinary bold is
+// never rewritten and the common path costs one `indexOf`.
+function healInlineRuns(body) {
+  if (!body.includes('**')) return body
+  return body.replace(/\*\*([\s\S]*?)\*\*/g, (full, inner) => {
+    if (!inner.includes('\n')) return full
+    return inner
+      .split('\n')
+      .map((line) => (line.trim() ? `**${line.trim()}**` : ''))
+      .join('\n')
+  })
+}
+
 export function renderMessageBody(body, { rich = false, members = [], onDark = false } = {}) {
   if (!body) return null
+  if (rich) body = healInlineRuns(body)
   const nameToId = new Map()
   const names = []
   for (const mem of members) {
@@ -99,7 +129,7 @@ export function renderMessageBody(body, { rich = false, members = [], onDark = f
 // Plain text for previews and notifications: drop markdown markers, keep @names.
 export function stripMarkup(body) {
   if (!body) return ''
-  return body
+  return healInlineRuns(body)
     .replace(/^#{1,3}\s+/gm, '')
     .replace(/\*\*([^*\n]+)\*\*/g, '$1')
     .replace(/\*([^*\n]+)\*/g, '$1')

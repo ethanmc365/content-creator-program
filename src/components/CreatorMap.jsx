@@ -922,9 +922,24 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   // down.
   const overlayCls = fullscreen ? 'flex' : 'hidden sm:flex'
 
+  // HOW BIG THE CARD IS DEPENDS ON HOW MUCH SCREEN THERE IS.
+  //
+  //  * In a card on a page it is a 24rem panel in the corner, unchanged.
+  //  * Full screen on a desktop it gets to be a real panel: Ethan's "too
+  //    crammed into the corner, it could be a bit bigger on full screen". A
+  //    24rem card floating in 1400px of map reads as an accident.
+  //  * Full screen on a phone it goes the OTHER way and gets smaller. Full
+  //    screen there is landscape, so the screen is about 390px TALL, and the
+  //    same card that looks lost on a desktop covers half the map. The height
+  //    query is the honest test for "this is a phone lying on its side";
+  //    `sm:` would call an 844px-wide landscape iPhone a desktop.
+  const panelCls = fullscreen
+    ? 'max-w-md [--map-panel-max-h:32rem] lg:max-w-lg [@media(max-height:540px)]:max-w-[15.5rem] [@media(max-height:540px)]:[--map-panel-max-h:100%]'
+    : 'max-w-sm'
+
   const townPanel = selected ? (
     <TownPanel
-      className="max-w-sm"
+      className={panelCls}
       town={selected}
       onClose={() => selectTown(null)}
       onCreatorClick={onCreatorClick}
@@ -933,7 +948,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
 
   const countryPanel = country ? (
     <CountryPanel
-      className="max-w-sm"
+      className={panelCls}
       country={country.name}
       lives={country.lives}
       visited={country.visited}
@@ -941,6 +956,21 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
       onCreatorClick={onCreatorClick}
     />
   ) : null
+
+  // THE PANEL MUST NOT REACH THE ROW THE COUNTRY NAME SITS IN.
+  //
+  // Ethan: "the countries that show up in black at the top are slightly hidden
+  // behind the pop-up box". The name pill is centred at top-3; the panel was
+  // `inset-3`, so on a narrower map (the hub's left column, or any phone in
+  // full screen) a tall card grew up past the halfway point and swallowed the
+  // label naming the very country it was describing.
+  //
+  // Raising the pill's z-index would only trade one problem for another: it
+  // would sit ON the card. Giving the panel a floor of `top-14` means it can
+  // never get there, and `bottom-3 + top-14` is still the DEFINITE box the card
+  // needs to be allowed to shrink inside (a percentage max-height against an
+  // auto-height parent silently applies no limit at all).
+  const panelFrame = `pointer-events-none absolute inset-x-3 bottom-3 top-14 z-20 flex-col items-start justify-end ${overlayCls}`
 
   const mapBox = (
     <div
@@ -951,12 +981,19 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
       }
     >
       {tooltip && (
-        <div className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-full bg-ink px-3 py-1 text-xs font-medium text-white">
+        <div className="pointer-events-none absolute left-1/2 top-3 z-30 -translate-x-1/2 rounded-full bg-ink px-3 py-1 text-xs font-medium text-white">
           {tooltip}
         </div>
       )}
 
-      <div className="absolute right-2 top-2 z-20 flex flex-col gap-1">
+      {/* THE CORNER OF A PHONE IS NOT WHERE THE SCREEN ENDS. In full screen the
+          map is edge to edge, and a landscape phone puts its rounded corners
+          and its notch on the SHORT sides - which is exactly where these
+          buttons are. The parent already pads for the top and bottom insets;
+          the left/right ones are the landscape pair and they were missing, so
+          + and the exit button sat under the bezel. A little more inset on top
+          of that keeps them clear of the corner radius itself. */}
+      <div className={`absolute z-20 flex flex-col gap-1 ${fullscreen ? 'right-4 top-4' : 'right-2 top-2'}`}>
         <button type="button" onClick={() => zoomBy(1.6)} aria-label="Zoom in"
           className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg font-semibold text-ink shadow-card transition-transform hover:scale-105 active:scale-95">+</button>
         <button type="button" onClick={() => zoomBy(1 / 1.6)} aria-label="Zoom out"
@@ -1199,22 +1236,14 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           describing and left roughly two rows of creators visible inside a
           scroll box. Phones get the panel UNDER the map instead - see the end
           of the component. */}
-      {country && (
-        <div className={`pointer-events-none absolute inset-3 z-20 flex-col items-start justify-end ${overlayCls}`}>
-          {countryPanel}
-        </div>
-      )}
+      {country && <div className={panelFrame}>{countryPanel}</div>}
 
       {/* The city roster: everybody the pin's orange number is counting. Same
           corner and the same card as the country panel, and mutually exclusive
           with it - two overlapping answers to two different questions in one
           corner is how a map stops being readable. Desktop only; phones get it
           under the map, at the end of the component. */}
-      {selectedTown && (
-        <div className={`pointer-events-none absolute inset-3 z-20 flex-col items-start justify-end ${overlayCls}`}>
-          {townPanel}
-        </div>
-      )}
+      {selectedTown && <div className={panelFrame}>{townPanel}</div>}
 
       {/* WHAT THE TWO PLANES MEAN. A solid plane and a hollow one is a
           distinction nobody can be expected to guess, and an unexplained
@@ -1226,7 +1255,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           the only free corner: the tooltip is top-centre, the zoom stack and
           hint are top-right, and the town card owns the bottom. */}
       {travelView && !focusJourney && journeys.some((j) => j.current) && journeys.some((j) => !j.current) && (
-        <div className="absolute left-3 top-3 z-20 flex flex-col gap-1.5 rounded-xl bg-white/95 px-3 py-2 text-[11px] shadow-card ring-1 ring-black/5 backdrop-blur">
+        <div className={`absolute left-3 z-20 flex flex-col gap-1.5 rounded-xl bg-white/95 px-3 py-2 text-[11px] shadow-card ring-1 ring-black/5 backdrop-blur ${fullscreen ? 'top-16' : 'top-3'}`}>
           <span className="flex items-center gap-2">
             <svg viewBox="0 0 24 24" className="h-3 w-3 shrink-0" fill={BRAND} aria-hidden><path d={PLANE_D} transform="translate(12 12) scale(0.9)" /></svg>
             <span className="font-medium text-ink">There now</span>
@@ -1286,10 +1315,17 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
       </div>
 
       {/* Hint moved to the top-right (clears the zoom buttons), out of the way
-          of the filter toggles and town card. */}
-      <p className="pointer-events-none absolute right-14 top-2 z-10 hidden max-w-[15rem] rounded-full bg-white/85 px-3 py-1 text-right text-[11px] text-smoke backdrop-blur-sm sm:block">
-        Tap a pin for who's there, a country for who's been · + / − to zoom
-      </p>
+          of the filter toggles and town card.
+
+          IT GOES AWAY ONCE IT HAS BEEN FOLLOWED. An instruction telling you to
+          tap a country, still sitting there while you read the country you
+          tapped, is the noise Ethan meant by "cleaning up that interface" - and
+          on a narrow map it is one more thing crowding the name pill. */}
+      {!country && !selectedTown && (
+        <p className={`pointer-events-none absolute z-10 hidden max-w-[15rem] rounded-full bg-white/85 px-3 py-1 text-right text-[11px] text-smoke backdrop-blur-sm sm:block ${fullscreen ? 'right-16 top-4' : 'right-14 top-2'}`}>
+          Tap a pin for who's there, a country for who's been · + / − to zoom
+        </p>
+      )}
     </div>
   )
 
@@ -1305,7 +1341,18 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
       <div
         ref={fsRef}
         className="fixed inset-0 z-[70] flex flex-col bg-white"
-        style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+        // ALL FOUR INSETS, NOT TWO. Full screen on a phone means landscape, and
+        // in landscape the dynamic island and the home indicator are on the
+        // LEFT and RIGHT edges, not the top and bottom. Padding only the
+        // vertical pair is why the + and the exit button came out clipped by
+        // the notch and the corner radius: the two controls that get you back
+        // were the two under the bezel.
+        style={{
+          paddingTop: 'env(safe-area-inset-top)',
+          paddingBottom: 'env(safe-area-inset-bottom)',
+          paddingLeft: 'env(safe-area-inset-left)',
+          paddingRight: 'env(safe-area-inset-right)',
+        }}
       >
         <div ref={rootRef} className="relative flex min-h-0 flex-1 flex-col">
           {/* The way out, top-left, away from the zoom stack. A full-screen view
@@ -1313,7 +1360,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           <button
             type="button"
             onClick={exitFullscreen}
-            className="absolute left-3 top-3 z-30 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3.5 py-2 text-xs font-semibold text-ink shadow-card ring-1 ring-black/5 backdrop-blur transition-transform hover:scale-105 active:scale-95"
+            className="absolute left-4 top-4 z-40 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3.5 py-2 text-xs font-semibold text-ink shadow-card ring-1 ring-black/5 backdrop-blur transition-transform hover:scale-105 active:scale-95"
           >
             <Icon name="chevronLeft" className="h-3.5 w-3.5" />
             Exit full screen

@@ -779,11 +779,12 @@ export default function GlobalHome() {
             </Reveal>
           )}
 
-          {/* ---------- Today's puzzle ----------
+          {/* ---------- Daily puzzles ----------
               Between the announcement and the map, exactly where Ethan asked
               for it: after the thing the team wants you to read, before the
-              thing you came to browse. One line, and it is the only habit loop
-              on the whole hub. */}
+              thing you came to browse. All three, each ticking green on its
+              own, each saying how many creators have played it today. It is the
+              only habit loop on the whole hub. */}
           <Reveal from="down" delay={stepDelay()}>
             <DailyPuzzleCallout />
           </Reveal>

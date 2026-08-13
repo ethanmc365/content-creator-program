@@ -90,6 +90,35 @@ const BLOCK = new Set(['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquo
 // toggling bold/italic off (they must never reach the stored markdown).
 const clean = (s = '') => s.replace(/\u00A0/g, ' ').replace(/[\u200B\u200C\uFEFF]/g, '')
 
+// AN INLINE MARKER MUST NEVER SPAN A LINE BREAK.
+//
+// THE BUG THIS FIXES, and it is the reported "the formatting disappears and
+// comes back as stars". Keep typing with bold on and press Enter and the
+// browser carries the <strong> across the break, so the whole thing is ONE
+// inline run holding a <br>. The naive serialization of that is
+//
+//     **Hey guys, just 7 days left!\n**
+//
+// and no per-line renderer can match it: `renderMessageBody`'s bold pattern is
+// deliberately `[^*\n]+`, because a marker that may swallow newlines would eat
+// half a conversation the first time somebody typed a lone asterisk. So the
+// message arrived with its asterisks showing and its bold gone. Two real
+// messages in #general are in exactly this state.
+//
+// The fix is to close and reopen the marker on each line instead, which is what
+// the same text means and what every markdown reader understands. Whitespace at
+// the ends of a line is pushed OUTSIDE the markers - `** text **` is not bold
+// either, in this renderer or in any other.
+function wrapInline(md, marker) {
+  return md
+    .split('\n')
+    .map((line) => {
+      const [, lead, core, tail] = line.match(/^(\s*)([\s\S]*?)(\s*)$/)
+      return core ? lead + marker + core + marker + tail : line
+    })
+    .join('\n')
+}
+
 // Serialize a SINGLE node (with its own inline wrapper) to markdown. Defensive:
 // a block element nested inside inline content (execCommand can do this) drops a
 // newline rather than concatenating two logical lines together.
@@ -99,9 +128,9 @@ function inlineNode(n) {
   const tag = n.tagName.toLowerCase()
   if (n.dataset?.mention) return '@' + n.dataset.mention
   if (tag === 'br') return '\n'
-  if (tag === 'strong' || tag === 'b') return `**${inlineToMd(n)}**`
-  if (tag === 'em' || tag === 'i') return `*${inlineToMd(n)}*`
-  if (tag === 'code') return `\`${inlineToMd(n)}\``
+  if (tag === 'strong' || tag === 'b') return wrapInline(inlineToMd(n), '**')
+  if (tag === 'em' || tag === 'i') return wrapInline(inlineToMd(n), '*')
+  if (tag === 'code') return wrapInline(inlineToMd(n), '`')
   if (tag === 'a') {
     const href = n.getAttribute('href') || ''
     const txt = inlineToMd(n)
