@@ -96,19 +96,33 @@ export function useKeyboardInset() {
   return useVisualViewport().keyboard
 }
 
-// True below the `lg` breakpoint (Tailwind default 1024px), kept in sync on
-// resize/orientation change. Used to apply the mobile chat overlay geometry
-// only on phones/tablets and leave the desktop card layout untouched.
-export function useIsMobile() {
-  const [mobile, setMobile] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 1023.98px)').matches
+// One media query, kept in sync on resize/orientation change. The two hooks
+// below are the two breakpoints this app actually reasons about in JS; anything
+// else belongs in a Tailwind class.
+export function useMediaQuery(query) {
+  const [matches, setMatches] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(query).matches
   )
   useEffect(() => {
-    const mq = window.matchMedia('(max-width: 1023.98px)')
-    const onChange = () => setMobile(mq.matches)
+    const mq = window.matchMedia(query)
+    const onChange = () => setMatches(mq.matches)
     mq.addEventListener('change', onChange)
     onChange()
     return () => mq.removeEventListener('change', onChange)
-  }, [])
-  return mobile
+  }, [query])
+  return matches
+}
+
+// True below the `lg` breakpoint (Tailwind default 1024px). Used to apply the
+// mobile chat overlay geometry only on phones/tablets and leave the desktop card
+// layout untouched.
+export function useIsMobile() {
+  return useMediaQuery('(max-width: 1023.98px)')
+}
+
+// True below `sm` (640px): an actual phone, held in one hand. Where a tablet is
+// happy with a two-column grid of described cards, this is the width at which a
+// description under every tile turns a hub into a scroll.
+export function useIsPhone() {
+  return useMediaQuery('(max-width: 639.98px)')
 }

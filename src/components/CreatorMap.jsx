@@ -2,9 +2,8 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ComposableMap, Geographies, Geography, ZoomableGroup, Marker } from 'react-simple-maps'
 import { geoEqualEarth, geoDistance, geoContains } from 'd3-geo'
-import { feature } from 'topojson-client'
 import { useSearchParams } from 'react-router-dom'
-import { GEO_URL, loadMapCentroids } from '../lib/mapCountries'
+import { loadMapFeatures, loadMapCentroids } from '../lib/mapCountries'
 import { geocodeCity } from '../lib/geocode'
 import { formatDate } from '../lib/utils'
 import { useIsDark } from '../lib/theme'
@@ -241,6 +240,10 @@ function FlyingPlane({ path, dur, zoom, opacity = 1 }) {
 // collab board, which is a list and can afford to be exhaustive.
 const TRIP_HORIZON_DAYS = 90
 
+// A stable empty collection for the frame before the shared atlas resolves. It
+// has to be the SAME object every render or `<Geographies>` sees a new source.
+const EMPTY_GEO = { type: 'FeatureCollection', features: [] }
+
 function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = false, nearCount = 0, nearMeDisabled = false, onToggleNearMe = null, travelActive = null, onToggleTravel = null, onTravellersChange = null, onCreatorClick = null, connectionsActive = null, onToggleConnections = null, connectionIds = null, travelOnlyView = false, myId = null, maxFitZoom = 6, controls = true }) {
   const dark = useIsDark()
   // Dark-mode map palette: deep land on near-black sea, so the light-grey map
@@ -261,6 +264,16 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   const highlighting = highlightIds && highlightIds.size > 0
   const [extraCoords, setExtraCoords] = useState({}) // legacy rows: id -> {lat,lng}
   const [homeNames, setHomeNames] = useState(() => new Set()) // countries to tint
+  // The atlas, from the one shared parse. See lib/mapCountries: handing
+  // `<Geographies>` the parsed object rather than a URL is what keeps a page
+  // with several maps on it from decoding a megabyte of TopoJSON per map.
+  const [features, setFeatures] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    loadMapFeatures().then((fc) => { if (!cancelled) setFeatures(fc) })
+    return () => { cancelled = true }
+  }, [])
   const [tooltip, setTooltip] = useState('')
   const [selected, setSelected] = useState(null)
   // FULL SCREEN.
@@ -424,10 +437,8 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
       return
     }
     // A country panel needs the map's geometry to work out who lives inside it.
-    fetch(GEO_URL)
-      .then((r) => r.json())
-      .then((topo) => {
-        const fc = feature(topo, topo.objects.countries)
+    loadMapFeatures()
+      .then((fc) => {
         const geo = fc.features.find((f) => f.properties?.name === urlCountry)
         if (geo) openCountry(geo)
       })
@@ -483,11 +494,9 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   useEffect(() => {
     let cancelled = false
     if (located.length === 0) { setHomeNames(new Set()); return }
-    fetch(GEO_URL)
-      .then((r) => r.json())
-      .then((topo) => {
+    loadMapFeatures()
+      .then((fc) => {
         if (cancelled) return
-        const fc = feature(topo, topo.objects.countries)
         const names = new Set()
         for (const f of fc.features) {
           const gname = f.properties.name
@@ -1061,7 +1070,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           onMove={handleMove}
           onMoveEnd={handleMoveEnd}
         >
-          <Geographies geography={GEO_URL}>
+          <Geographies geography={features || EMPTY_GEO}>
             {({ geographies }) =>
               geographies
                 .filter((geo) => geo.properties.name !== 'Antarctica')

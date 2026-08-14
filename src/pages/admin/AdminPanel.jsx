@@ -6,6 +6,7 @@ import { useCommunity } from '../../context/CommunityContext'
 import { PageHeader, StatCard, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import Reveal from '../../components/network/Reveal'
+import { useIsPhone } from '../../lib/useKeyboardInset'
 import { cx, formatMoney, PRIZE_BASELINE } from '../../lib/utils'
 
 // The admin hub.
@@ -42,8 +43,9 @@ const GROUPS = [
       { to: '/admin/creators', icon: 'users', title: 'Creators', text: 'The full roster: emails, activity, password resets, mute, suspend, promote.' },
       { to: '/admin/applications', icon: 'shield', title: 'Applications', text: 'Approve or decline the people asking to join.' },
       { to: '/admin/referrals', icon: 'share', title: 'Referrals', text: 'Who brought whom in, and which leads to follow up.' },
-      { to: '/admin/network', icon: 'heart', title: 'Community network', text: 'Who is connecting with whom, and the best-connected creators.' },
-      { to: '/admin/team', icon: 'shield', title: 'Tryp.com team', text: 'Who runs the programme, what they can do, and their titles.', globalOnly: true },
+      { to: '/admin/reports', icon: 'flag', title: 'Reported messages', short: 'Reports', text: 'What creators have flagged in the rooms and their DMs, and what was done.' },
+      { to: '/admin/network', icon: 'heart', title: 'Community network', short: 'Network', text: 'Who is connecting with whom, and the best-connected creators.' },
+      { to: '/admin/team', icon: 'shield', title: 'Tryp.com team', short: 'Team', text: 'Who runs the programme, what they can do, and their titles.', globalOnly: true },
     ],
   },
   {
@@ -61,7 +63,7 @@ const GROUPS = [
     name: 'Money',
     hint: 'Nothing is paid without a second pair of eyes.',
     tools: [
-      { to: '/admin/rewards', icon: 'money', title: 'Rewards & invoices', text: 'The approval queue, payouts, invoices and payment details.' },
+      { to: '/admin/rewards', icon: 'money', title: 'Rewards & invoices', short: 'Rewards', text: 'The approval queue, payouts, invoices and payment details.' },
       { to: '/admin/analytics', icon: 'chart', title: 'Analytics', text: 'Growth, submissions, views and spend, with CSV export.' },
     ],
   },
@@ -70,7 +72,7 @@ const GROUPS = [
     hint: 'Anything that lands in a creator’s inbox or notifications.',
     tools: [
       { to: '/admin/email', icon: 'envelope', title: 'Email', text: 'Approve welcome emails, copy the address list, see what went out.' },
-      { to: '/admin/scheduled', icon: 'clock', title: 'Scheduled announcements', text: 'Write now, post later.' },
+      { to: '/admin/scheduled', icon: 'clock', title: 'Scheduled announcements', short: 'Scheduled', text: 'Write now, post later.' },
       { to: '/admin/whats-new', icon: 'bell', title: "What's new", text: 'Announce a feature. It lands in every notification bell.' },
       { to: '/admin/feedback', icon: 'chat', title: 'Bugs & ideas', text: 'What creators have flagged, waiting to be triaged.' },
       { to: '/admin/notes', icon: 'pencil', title: 'Notes', text: 'The team’s private space for plans, playbooks and question banks.' },
@@ -81,7 +83,7 @@ const GROUPS = [
     hint: 'Settings and records that apply to everything.',
     globalOnly: true,
     tools: [
-      { to: '/global/settings', icon: 'globe', title: 'Network settings', text: 'The worldwide network itself.' },
+      { to: '/global/settings', icon: 'globe', title: 'Network settings', short: 'Network', text: 'The worldwide network itself.' },
       { to: '/global/markets', icon: 'flag', title: 'All markets', text: 'Every market, open and closed, and how to open another.' },
       { to: '/admin/audit', icon: 'eye', title: 'Audit log', text: 'A record of account actions taken by the team.' },
     ],
@@ -121,6 +123,38 @@ function ToolCard({ tool, onNetworkOpen }) {
   return <Link to={tool.to} className={className}>{inner}</Link>
 }
 
+// THE SAME TOOL, ON A PHONE.
+//
+// Ethan: two side by side, the title is enough, drop the descriptions, and put
+// them all under one heading. He is right about all four. At 375px a described
+// card is a full-width block about 96px tall, so seventeen of them plus five
+// group headings is roughly two thousand pixels of scrolling to reach a button
+// you already knew the name of. The description is orientation, and orientation
+// is what you need the FIRST time; every time after that it is furniture.
+//
+// The icon does the work the group heading used to: a wallet, a flag and a
+// megaphone are read at a glance where "Money" had to be read, matched to a
+// tile and then read again.
+function ToolTile({ tool, onNetworkOpen }) {
+  const inner = (
+    <>
+      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-tint text-brand transition-transform duration-200 group-hover:scale-105">
+        <Icon name={tool.icon} className="h-5 w-5" />
+      </span>
+      {/* Two lines of room, centred, so "Scheduled announcements" and "Email"
+          both sit in a tile of the same height and the grid stays a grid. */}
+      <span className="flex min-h-[2.25rem] items-center text-center text-[13px] font-semibold leading-tight transition-colors group-hover:text-brand">
+        {tool.short || tool.title}
+      </span>
+    </>
+  )
+  const className = 'card group flex h-full w-full flex-col items-center justify-start gap-2.5 !p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift active:scale-[0.98]'
+  if (NETWORK_PATH(tool.to)) {
+    return <button type="button" onClick={() => onNetworkOpen(tool.to)} className={className}>{inner}</button>
+  }
+  return <Link to={tool.to} className={className}>{inner}</Link>
+}
+
 // ON YOUR DESK.
 //
 // One row per thing that is genuinely waiting for a person. This replaces three
@@ -155,6 +189,12 @@ export default function AdminPanel() {
   const [enterError, setEnterError] = useState('')
 
   const isGlobal = profile?.platform_role === 'global_admin' || profile?.platform_role === 'owner'
+  const isPhone = useIsPhone()
+
+  // The same tools in the same order, flattened out of their groups.
+  const phoneTools = GROUPS
+    .filter((g) => !g.globalOnly || isGlobal)
+    .flatMap((g) => g.tools.filter((t) => !t.globalOnly || isGlobal))
 
   // Turn the network shell on, then go. See NETWORK_PATH above.
   function openInNetwork(path) {
@@ -176,6 +216,7 @@ export default function AdminPanel() {
       const [
         { count: creators }, { count: pendingRewards }, { data: active }, { data: paid },
         { count: submissions }, { count: pendingApps }, { count: newFeedback }, { count: toApprove },
+        { count: openReports },
       ] = await Promise.all([
         supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'active').eq('is_admin', false).eq('is_test', false).is('deletion_requested_at', null),
         supabase.from('rewards').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
@@ -187,6 +228,9 @@ export default function AdminPanel() {
         // The queue built in migration 091. This is the number that decides
         // whether anybody gets paid this week.
         supabase.from('invoices').select('id', { count: 'exact', head: true }).eq('stage', 'awaiting_approval'),
+        // A reported message is somebody waiting on a person, which is the only
+        // thing the desk is for.
+        supabase.from('message_reports').select('id', { count: 'exact', head: true }).in('status', ['new', 'reviewing']),
       ])
       const cashPaid = (paid ?? []).filter((r) => r.reward_type !== 'voucher').reduce((s, r) => s + Number(r.amount), 0)
       const voucherPaid = (paid ?? []).filter((r) => r.reward_type === 'voucher').reduce((s, r) => s + Number(r.amount), 0)
@@ -201,6 +245,7 @@ export default function AdminPanel() {
         pendingApps: pendingApps ?? 0,
         newFeedback: newFeedback ?? 0,
         toApprove: toApprove ?? 0,
+        openReports: openReports ?? 0,
       })
     }
     load()
@@ -241,6 +286,7 @@ export default function AdminPanel() {
   const desk = stats ? [
     stats.pendingApps > 0 && { to: '/admin/applications', icon: 'shield', count: stats.pendingApps, label: `application${stats.pendingApps === 1 ? '' : 's'} to review`, hint: 'Nobody can post until they are approved.' },
     stats.toApprove > 0 && { to: '/admin/rewards?tab=queue', icon: 'money', count: stats.toApprove, label: `invoice${stats.toApprove === 1 ? '' : 's'} to approve`, hint: 'Money does not go out until somebody signs these off.' },
+    stats.openReports > 0 && { to: '/admin/reports', icon: 'flag', count: stats.openReports, label: `reported message${stats.openReports === 1 ? '' : 's'}`, hint: 'Somebody flagged something in a room or a DM.' },
     stats.newFeedback > 0 && { to: '/admin/feedback', icon: 'chat', count: stats.newFeedback, label: `bug report${stats.newFeedback === 1 ? '' : 's'} and ideas`, hint: 'Creators have flagged something.' },
     stats.pendingRewards > 0 && { to: '/admin/rewards?tab=payouts', icon: 'wallet', count: stats.pendingRewards, label: `reward${stats.pendingRewards === 1 ? '' : 's'} still to pay`, hint: 'Awarded but not yet distributed.' },
   ].filter(Boolean) : []
@@ -365,22 +411,38 @@ export default function AdminPanel() {
           </Reveal>
         )}
 
-        {/* ---------- The tools, grouped ---------- */}
-        {GROUPS.filter((g) => !g.globalOnly || isGlobal).map((group) => {
-          const tools = group.tools.filter((t) => !t.globalOnly || isGlobal)
-          if (!tools.length) return null
-          return (
-            <Reveal from="down" key={group.name}>
-              <section>
-                <h2 className="text-lg font-semibold">{group.name}</h2>
-                <p className="mb-3 mt-0.5 text-sm text-smoke">{group.hint}</p>
-                <Reveal className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" stagger={0.05}>
-                  {tools.map((t) => <ToolCard key={t.to} tool={t} onNetworkOpen={openInNetwork} />)}
-                </Reveal>
-              </section>
-            </Reveal>
-          )
-        })}
+        {/* ---------- The tools ----------
+            ONE LIST ON A PHONE, FIVE NAMED GROUPS ON A DESKTOP. The grouping is
+            genuinely useful information when there is room to lay it out; on a
+            phone it is five headings and five hints costing about a screen and a
+            half between them, in front of the tools they describe. The order is
+            preserved, so a tool is in the same relative place either way. */}
+        {isPhone ? (
+          <Reveal from="down">
+            <section>
+              <h2 className="text-lg font-semibold">Admin tools</h2>
+              <Reveal className="mt-3 grid grid-cols-2 gap-3" stagger={0.03}>
+                {phoneTools.map((t) => <ToolTile key={t.to} tool={t} onNetworkOpen={openInNetwork} />)}
+              </Reveal>
+            </section>
+          </Reveal>
+        ) : (
+          GROUPS.filter((g) => !g.globalOnly || isGlobal).map((group) => {
+            const tools = group.tools.filter((t) => !t.globalOnly || isGlobal)
+            if (!tools.length) return null
+            return (
+              <Reveal from="down" key={group.name}>
+                <section>
+                  <h2 className="text-lg font-semibold">{group.name}</h2>
+                  <p className="mb-3 mt-0.5 text-sm text-smoke">{group.hint}</p>
+                  <Reveal className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" stagger={0.05}>
+                    {tools.map((t) => <ToolCard key={t.to} tool={t} onNetworkOpen={openInNetwork} />)}
+                  </Reveal>
+                </section>
+              </Reveal>
+            )
+          })
+        )}
 
         {/* ---------- Seeing it as somebody else ----------
             Both of these change what YOU see and nothing about the platform, so

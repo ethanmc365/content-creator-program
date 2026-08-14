@@ -16,9 +16,35 @@ function isHeic(file) {
   return file.type === 'image/heic' || file.type === 'image/heif' || /\.(heic|heif)$/i.test(file.name || '')
 }
 
-export async function compressImage(file, { maxDim = 1280, quality = 0.82 } = {}) {
+// Can this browser actually ENCODE WebP? Safari could display WebP long before
+// its canvas could write one, and a `toBlob` that cannot honour the type
+// silently hands back a PNG - which is BIGGER than the JPEG we were trying to
+// beat. So we ask the canvas to produce one pixel and check what came out.
+// Computed once and cached; it cannot change mid-session.
+let webpOk = null
+function canEncodeWebp() {
+  if (webpOk !== null) return webpOk
+  try {
+    const c = document.createElement('canvas')
+    c.width = 1
+    c.height = 1
+    webpOk = c.toDataURL('image/webp').startsWith('data:image/webp')
+  } catch {
+    webpOk = false
+  }
+  return webpOk
+}
+
+// `format: 'webp'` re-encodes to WebP where the browser can, falling back to
+// JPEG where it cannot. WebP at 0.78 is visually cleaner than JPEG at 0.82 and
+// lands roughly a third smaller, which is the whole point: this is a free 1GB
+// storage tier and travel galleries are ten photos per creator.
+export async function compressImage(file, { maxDim = 1280, quality = 0.82, format = 'jpeg' } = {}) {
   // Keep GIFs as-is (animation would be lost by canvas re-encoding).
   if (file.type === 'image/gif') return file
+  const useWebp = format === 'webp' && canEncodeWebp()
+  const outType = useWebp ? 'image/webp' : 'image/jpeg'
+  const outExt = useWebp ? 'webp' : 'jpg'
 
   let source = file
   if (isHeic(file)) {
@@ -41,12 +67,12 @@ export async function compressImage(file, { maxDim = 1280, quality = 0.82 } = {}
     canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height)
     bitmap.close?.()
 
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality))
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, outType, quality))
     if (!blob) throw new Error('encode-failed')
     // If compression made it bigger (tiny images), keep the (web-safe) source.
     if (blob.size >= source.size && WEB_SAFE.includes(source.type)) return source
-    const newName = (source.name || 'photo').replace(/\.(png|webp|heic|heif|jpe?g)$/i, '') + '.jpg'
-    return new File([blob], newName, { type: 'image/jpeg' })
+    const newName = (source.name || 'photo').replace(/\.(png|webp|heic|heif|jpe?g)$/i, '') + '.' + outExt
+    return new File([blob], newName, { type: outType })
   } catch {
     // Couldn't process it. A web-safe original still uploads/displays fine;
     // anything else can't, so tell the user rather than store a broken file.

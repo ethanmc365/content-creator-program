@@ -14,46 +14,68 @@ import { geoCentroid } from 'd3-geo'
 // selections still highlight.
 export const GEO_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json'
 
+// ONE FETCH, ONE PARSE, FOR THE WHOLE SESSION.
+//
+// THE BUG THIS FIXES. Three different things wanted this file - the name list,
+// the centroids, and every `<Geographies geography={GEO_URL}>` on the page -
+// and each of them fetched and parsed it for itself. react-simple-maps takes a
+// URL, fetches it and runs `feature()` PER INSTANCE, so the collab board, which
+// draws a small world map on every trip card, was decoding a megabyte of
+// TopoJSON and rebuilding 241 GeoJSON features six times over on open. The
+// browser's HTTP cache spares the download; it does nothing about the parse,
+// and the parse is what blocks the main thread while the cards above are
+// mid-animation. That is the whole "the maps are slow to load and the animation
+// isn't smooth" report.
+//
+// Now there is one promise. `loadMapFeatures()` resolves to the parsed
+// FeatureCollection and everything else is derived from it - including the maps
+// themselves, which pass the OBJECT to `<Geographies geography={...}>` and so
+// never fetch or parse anything.
+let topoInflight = null
+let featureCache = null
 let cache = null
-let inflight = null
 let centroidCache = null
-let centroidInflight = null
+
+const EMPTY_FC = { type: 'FeatureCollection', features: [] }
+
+export function loadMapFeatures() {
+  if (featureCache) return Promise.resolve(featureCache)
+  if (topoInflight) return topoInflight
+  topoInflight = fetch(GEO_URL)
+    .then((r) => r.json())
+    .then((topo) => {
+      featureCache = feature(topo, topo.objects.countries)
+      return featureCache
+    })
+    .catch(() => (featureCache = EMPTY_FC))
+  return topoInflight
+}
 
 // Map of country name -> [lng, lat] centroid, used to zoom a map onto a country.
 export function loadMapCentroids() {
   if (centroidCache) return Promise.resolve(centroidCache)
-  if (centroidInflight) return centroidInflight
-  centroidInflight = fetch(GEO_URL)
-    .then((r) => r.json())
-    .then((topo) => {
-      const fc = feature(topo, topo.objects.countries)
-      const m = new Map()
-      for (const f of fc.features) {
-        const name = f.properties?.name
-        if (name) m.set(name, geoCentroid(f))
-      }
-      centroidCache = m
-      return m
-    })
-    .catch(() => (centroidCache = new Map()))
-  return centroidInflight
+  return loadMapFeatures().then((fc) => {
+    if (centroidCache) return centroidCache
+    const m = new Map()
+    for (const f of fc.features) {
+      const name = f.properties?.name
+      if (name) m.set(name, geoCentroid(f))
+    }
+    centroidCache = m
+    return m
+  })
 }
 
 export function loadMapCountryNames() {
   if (cache) return Promise.resolve(cache)
-  if (inflight) return inflight
-  inflight = fetch(GEO_URL)
-    .then((r) => r.json())
-    .then((topo) => {
-      const geoms = topo?.objects?.countries?.geometries || []
-      cache = geoms
-        .map((g) => g.properties?.name)
-        .filter((n) => n && n !== 'Antarctica')
-        .sort((a, b) => a.localeCompare(b))
-      return cache
-    })
-    .catch(() => (cache = []))
-  return inflight
+  return loadMapFeatures().then((fc) => {
+    if (cache) return cache
+    cache = fc.features
+      .map((f) => f.properties?.name)
+      .filter((n) => n && n !== 'Antarctica')
+      .sort((a, b) => a.localeCompare(b))
+    return cache
+  })
 }
 
 // Resolve free-text (e.g. "portugal") to the canonical map name ("Portugal"),

@@ -54,7 +54,13 @@ export default function TravelGallery({ creatorId, editable = false }) {
       }
       let compressed
       try {
-        compressed = await compressImage(file, { maxDim: 1280, quality: 0.82 })
+        // A LITTLE SMALLER, NOT A LOT ROUGHER. A travel gallery tile is at most
+        // ~600 CSS px wide, so 1280 was already twice what any screen asks for;
+        // 1200 keeps the retina headroom and WebP at 0.78 is visually cleaner
+        // than the JPEG at 0.82 it replaces while landing about a third smaller.
+        // Ten photos a creator on a free 1GB tier is why this matters: the same
+        // storage now takes roughly half again as many creators.
+        compressed = await compressImage(file, { maxDim: 1200, quality: 0.78, format: 'webp' })
       } catch (err) { setError(err.message); continue }
       const ext = (compressed.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg')
       const path = `${user.id}/${Date.now()}-${order}.${ext}`

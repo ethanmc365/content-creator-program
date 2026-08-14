@@ -58,6 +58,10 @@ const Rooms = lazy(() => import('./pages/Rooms'))
 const Board = lazy(() => import('./pages/Board'))
 const BoardThread = lazy(() => import('./pages/Board').then((m) => ({ default: m.BoardThread })))
 const Milestones = lazy(() => import('./pages/Milestones'))
+// The flight log. Behind the preview gate with the rest of the network build,
+// and lazy for the same reason: a UK creator must not download the airport
+// table, the map component or the page.
+const Flights = lazy(() => import('./pages/Flights'))
 const GlobalSettings = lazy(() => import('./pages/GlobalSettings'))
 
 const Game = lazy(() => import('./pages/Game'))
@@ -83,6 +87,7 @@ const AdminMilestones = lazy(() => import('./pages/admin/AdminMilestones'))
 const AdminScheduledAnnouncements = lazy(() => import('./pages/admin/AdminScheduledAnnouncements'))
 const AdminWhatsNew = lazy(() => import('./pages/admin/AdminWhatsNew'))
 const AdminFeedback = lazy(() => import('./pages/admin/AdminFeedback'))
+const AdminReports = lazy(() => import('./pages/admin/AdminReports'))
 const AdminNotes = lazy(() => import('./pages/admin/AdminNotes'))
 
 function LazyFallback() {
@@ -138,7 +143,6 @@ export default function App() {
           <Route path="/refer" element={<Refer />} />
           <Route path="/collab" element={<Collab />} />
           <Route path="/connections" element={<Connections />} />
-          <Route path="/milestones" element={<Milestones />} />
           <Route path="/game" element={<Game />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/notifications" element={<Notifications />} />
@@ -161,6 +165,15 @@ export default function App() {
             <Route path="/rooms" element={<Rooms />} />
             <Route path="/board" element={<Board />} />
             <Route path="/board/:id" element={<BoardThread />} />
+            {/* MOVED IN HERE, IT WAS NEVER MEANT TO BE OUT THERE. The milestone
+                route is part of the network build: the milestones are defined
+                per market, the page is the network's flight path, and the only
+                link to it has always been gated on the preview flag. Sitting in
+                the open list it was still reachable by URL, and a UK creator who
+                landed on it got a page of the unreleased build - the reported
+                "UK creators have been able to view My route". */}
+            <Route path="/milestones" element={<Milestones />} />
+            <Route path="/flights" element={<Flights />} />
             <Route path="/global/chat" element={<Navigate to="/global/chat/general" replace />} />
             <Route path="/global/chat/:channelKey" element={<NetworkChat />} />
             <Route path="/c/:slug" element={<ChapterHome />} />
@@ -195,6 +208,7 @@ export default function App() {
             <Route path="/admin/scheduled" element={<AdminScheduledAnnouncements />} />
             <Route path="/admin/whats-new" element={<AdminWhatsNew />} />
             <Route path="/admin/feedback" element={<AdminFeedback />} />
+            <Route path="/admin/reports" element={<AdminReports />} />
             <Route path="/admin/notes" element={<AdminNotes />} />
             {/* Invoices now live inside the Rewards dashboard */}
             <Route path="/admin/invoices" element={<Navigate to="/admin/rewards?tab=invoices" replace />} />

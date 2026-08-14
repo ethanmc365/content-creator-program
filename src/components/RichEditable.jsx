@@ -12,6 +12,35 @@ import { cx } from '../lib/utils'
 // clear / getMd) so the surrounding toolbar and chat logic can drive it.
 const ZWSP = String.fromCharCode(0x200b) // caret anchor when toggling bold/italic off
 
+// KEEP THE LINE YOU ARE TYPING ON IN VIEW.
+//
+// A composer that has grown past its cap scrolls, and once it scrolls a browser
+// will happily let the caret walk out of the visible box - you carry on typing
+// into a line you cannot see. `scrollIntoView` is the wrong tool here: it walks
+// up and scrolls every ancestor, which on a phone means moving the whole fixed
+// chat overlay. This nudges ONE element by the minimum needed, and does nothing
+// at all when the box is not scrolling.
+function keepCaretVisible(el) {
+  if (!el || el.scrollHeight - el.clientHeight <= 1) return
+  const sel = window.getSelection?.()
+  if (!sel?.rangeCount) return
+  const range = sel.getRangeAt(0)
+  if (!el.contains(range.commonAncestorContainer)) return
+  let rect = range.getBoundingClientRect()
+  // A collapsed range between nodes can report an empty rect; the nearest
+  // element ancestor is a good enough stand-in.
+  if (!rect || (!rect.height && !rect.width)) {
+    const node = range.startContainer
+    const holder = node.nodeType === 1 ? node : node.parentElement
+    rect = holder?.getBoundingClientRect()
+  }
+  if (!rect) return
+  const box = el.getBoundingClientRect()
+  const PAD = 4
+  if (rect.bottom > box.bottom - PAD) el.scrollTop += rect.bottom - box.bottom + PAD
+  else if (rect.top < box.top + PAD) el.scrollTop -= box.top - rect.top + PAD
+}
+
 const RichEditable = forwardRef(function RichEditable(
   { docId, initialMd = '', mentionNames, inlineOnly = false, placeholder = '', className, onChangeMd, onKeyDown, onInput, ...rest },
   ref
@@ -287,6 +316,68 @@ const RichEditable = forwardRef(function RichEditable(
     try { document.execCommand('defaultParagraphSeparator', false, 'p') } catch { /* not supported */ }
   }, [])
 
+  // DRAGGING INSIDE A GROWN COMPOSER SCROLLS IT. WE DO IT OURSELVES.
+  //
+  // Ethan, again, about the DMs and the groups: "unable to scroll inside the
+  // text box". `overflow-y: auto` + `overscroll-behavior: contain` + `pan-y` is
+  // the correct CSS and it is already there - but none of it wins the argument
+  // on a phone, because a touch-drag that STARTS inside a FOCUSED
+  // contenteditable is claimed by the platform's text-selection and
+  // caret-dragging gesture before scrolling is ever considered. In a DM the box
+  // is focused almost all the time (you tapped it to type), which is exactly
+  // why this reads as a DM and group bug rather than a chat one.
+  //
+  // So the drag is handled here: move the content by hand, and preventDefault
+  // so the platform does not also start selecting. Only while the box actually
+  // overflows - a composer with one line in it must keep the normal caret and
+  // selection behaviour, which people do use.
+  //
+  // The listener has to be registered manually with `{ passive: false }`.
+  // React attaches `touchmove` at the root as PASSIVE, so `preventDefault()`
+  // inside an `onTouchMove` prop is ignored with a console warning and this
+  // would look like it worked and do nothing.
+  useEffect(() => {
+    const el = elRef.current
+    if (!el) return undefined
+    let startY = 0
+    let startTop = 0
+    let active = false
+
+    const canScroll = () => el.scrollHeight - el.clientHeight > 1
+
+    const onStart = (e) => {
+      if (e.touches.length !== 1 || !canScroll()) { active = false; return }
+      active = true
+      startY = e.touches[0].clientY
+      startTop = el.scrollTop
+    }
+    const onMove = (e) => {
+      if (!active || e.touches.length !== 1) return
+      const dy = startY - e.touches[0].clientY
+      const max = el.scrollHeight - el.clientHeight
+      const next = Math.max(0, Math.min(max, startTop + dy))
+      // Only take the gesture while it is genuinely ours. At the very top
+      // pulling further down, or at the very bottom pushing further up, there
+      // is nothing to scroll - and swallowing that would break the pull the
+      // reader is making at the edge.
+      if ((dy < 0 && el.scrollTop <= 0) || (dy > 0 && el.scrollTop >= max)) return
+      el.scrollTop = next
+      if (e.cancelable) e.preventDefault()
+    }
+    const onEnd = () => { active = false }
+
+    el.addEventListener('touchstart', onStart, { passive: true })
+    el.addEventListener('touchmove', onMove, { passive: false })
+    el.addEventListener('touchend', onEnd)
+    el.addEventListener('touchcancel', onEnd)
+    return () => {
+      el.removeEventListener('touchstart', onStart)
+      el.removeEventListener('touchmove', onMove)
+      el.removeEventListener('touchend', onEnd)
+      el.removeEventListener('touchcancel', onEnd)
+    }
+  }, [])
+
   useImperativeHandle(ref, () => ({
     el: () => elRef.current,
     focus: () => elRef.current?.focus(),
@@ -409,7 +500,7 @@ const RichEditable = forwardRef(function RichEditable(
       spellCheck
       data-placeholder={placeholder}
       dangerouslySetInnerHTML={seed}
-      onInput={(e) => { fireChange(); onInput?.(e) }}
+      onInput={(e) => { fireChange(); keepCaretVisible(elRef.current); onInput?.(e) }}
       onPaste={onPaste}
       onMouseDown={onMouseDown}
       onKeyDown={onKeyDownInternal}

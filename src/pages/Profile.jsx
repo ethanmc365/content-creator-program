@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { useCommunity } from '../context/CommunityContext'
 import WorldMap from '../components/WorldMap'
 import TravelGallery from '../components/TravelGallery'
 import VideoThumb from '../components/VideoThumb'
@@ -23,6 +24,7 @@ import { formatDate, timeAgo, ageFromDob, cx } from '../lib/utils'
 export default function Profile() {
   const { id } = useParams()
   const { user, profile } = useAuth()
+  const { preview: networkPreview } = useCommunity()
   const navigate = useNavigate()
   const isMe = id === user?.id
   const viewerIsAdmin = !!profile?.is_admin
@@ -323,7 +325,12 @@ export default function Profile() {
           milestone is the same idea with the two missing halves attached - a
           threshold you can see coming and a real reward behind it - so one line
           here does more than nine icons did. */}
-      {!creator.is_admin && (
+      {/* BEHIND THE PREVIEW FLAG, like the page it links to. This snippet was
+          the one part of the milestone build with no gate on it, so it drew on
+          every UK creator's profile and its "See the whole route" link took
+          them into the unreleased network. Milestones ship with the network,
+          not before it. */}
+      {networkPreview && !creator.is_admin && (
         <section>
           <MilestoneSnippet profileId={creator.id} own={isMe} />
         </section>

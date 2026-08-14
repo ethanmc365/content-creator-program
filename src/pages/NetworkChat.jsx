@@ -16,6 +16,9 @@ import { broadcastNames } from '../lib/broadcastMentions'
 import Reorderable from '../components/network/Reorderable'
 import ChatAdminTools from '../components/ChatAdminTools'
 import ChatComposer from '../components/ChatComposer'
+import MessageEditor from '../components/MessageEditor'
+import ReportMessage from '../components/ReportMessage'
+import { useNowTick, withinEditWindow } from '../lib/messageActions'
 import IntroInvite from '../components/network/IntroPrompt'
 import { textBeforeCaret } from '../lib/richEditor'
 import { loadDraft, saveDraft, clearDraft } from '../lib/drafts'
@@ -135,6 +138,9 @@ export default function NetworkChat() {
   // hover, so `group-hover` alone meant the reaction button was permanently
   // invisible and market rooms simply had no reactions on mobile.
   const [actionsFor, setActionsFor] = useState(null)
+  const [editingId, setEditingId] = useState(null)
+  const [reporting, setReporting] = useState(null)
+  const nowTick = useNowTick()
   // Who has read how far in this room: profile id -> last_read_at. Same
   // `channel_reads` table the legacy chat uses, keyed by the same namespaced
   // channel string these messages are written with, so a market room's receipts
@@ -600,7 +606,7 @@ export default function NetworkChat() {
         </div>
       )}
 
-      <div ref={scrollerRef} onScroll={onScroll} className="flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
+      <div ref={scrollerRef} onScroll={onScroll} className="flex-1 space-y-4 overflow-y-auto overflow-x-hidden overscroll-contain px-4 py-4 touch-pan-y touch-pinch-zoom sm:px-5">
         {loading ? (
           <ChatSkeleton />
         ) : messages.length === 0 ? (
@@ -637,7 +643,15 @@ export default function NetworkChat() {
                   if (e.target.closest?.('a,button,video,input')) return
                   setActionsFor((cur) => (cur === m.id ? null : m.id))
                 }}
-                className={cx('group/msg flex gap-3', grouped && '!mt-1')}
+                // `relative z-20` when this row has its actions open. Every row
+                // here is a motion.div carrying a transform, so each is its own
+                // stacking context and a later message paints over an earlier
+                // one's popover whatever z-index the popover has.
+                className={cx(
+                  'group/msg relative flex gap-3 hover:z-20 focus-within:z-20',
+                  grouped && '!mt-1',
+                  actionsFor === m.id && 'z-20',
+                )}
               >
                 <div className="w-9 shrink-0">
                   {!grouped && <Avatar src={m.profiles?.photo_url} name={m.profiles?.name} size="sm" />}
@@ -653,6 +667,9 @@ export default function NetworkChat() {
                         <span className="rounded-full bg-brand-tint px-1.5 py-0.5 text-[10px] font-semibold text-brand">Team</span>
                       )}
                       <span className="text-[11px] text-smoke" title={messageTimeTitle(m.created_at)}>{formatMessageTime(m.created_at)}</span>
+                      {m.edited_at && (
+                        <span className="text-[11px] text-smoke" title={`Edited ${messageTimeTitle(m.edited_at)}`}>· edited</span>
+                      )}
                     </p>
                   )}
                   {/* MARKDOWN, LIKE EVERY OTHER ROOM.
@@ -667,12 +684,24 @@ export default function NetworkChat() {
                       looked broken to everyone including themselves. */}
                   {m.image_url && <ChatMedia url={m.image_url} kind="image" alt={m.body || 'Shared image'} />}
                   {m.video_url && <ChatMedia url={m.video_url} kind="video" />}
-                  {m.body && (
-                    <p className="whitespace-pre-wrap break-words text-sm text-ink">
-                      {search
-                        ? <Highlight text={m.body} term={search} />
-                        : renderMessageBody(m.body, { rich: true, members })}
-                    </p>
+                  {editingId === m.id ? (
+                    <MessageEditor
+                      kind="channel"
+                      message={m}
+                      onCancel={() => setEditingId(null)}
+                      onSaved={(next) => {
+                        setMessages((cur) => cur.map((x) => (x.id === next.id ? { ...x, body: next.body, edited_at: next.edited_at } : x)))
+                        setEditingId(null)
+                      }}
+                    />
+                  ) : (
+                    m.body && (
+                      <p className="whitespace-pre-wrap break-words text-sm text-ink">
+                        {search
+                          ? <Highlight text={m.body} term={search} />
+                          : renderMessageBody(m.body, { rich: true, members })}
+                      </p>
+                    )
                   )}
                   <AttachedCard message={m} titles={cardTitles} />
                   <ReactionRow
@@ -681,6 +710,16 @@ export default function NetworkChat() {
                     myId={user?.id}
                     onToggle={toggleReaction}
                     revealed={actionsFor === m.id}
+                    // Edit yours for five minutes, report anybody else's. Same
+                    // rules and the same window as every other chat here.
+                    actions={[
+                      ...(m.sender_id === user?.id && withinEditWindow(m.created_at, nowTick)
+                        ? [{ icon: 'pencil', label: 'Edit message', title: 'Edit (5 minutes)', onClick: () => { setEditingId(m.id); setActionsFor(null) } }]
+                        : []),
+                      ...(m.sender_id !== user?.id
+                        ? [{ icon: 'flag', label: 'Report message', title: 'Report to the team', danger: true, onClick: () => { setReporting(m); setActionsFor(null) } }]
+                        : []),
+                    ]}
                   />
                   {/* Read receipts, in the market rooms too. Own messages only
                       (plus the team's full view), exactly as the legacy chat
@@ -914,6 +953,15 @@ export default function NetworkChat() {
         onClose={() => setAdminTool(null)}
         postCard={(fields) => postMessage({ body: '', ...fields })}
         roomLabel={active?.label ? `#${active.label.toLowerCase()}` : 'this room'}
+      />
+
+      <ReportMessage
+        open={!!reporting}
+        kind="channel"
+        messageId={reporting?.id}
+        authorName={reporting?.profiles?.name}
+        preview={reporting?.body || (reporting?.image_url ? 'Photo' : reporting?.video_url ? 'Video' : '')}
+        onClose={() => setReporting(null)}
       />
     </NetworkMotion>
   )

@@ -26,6 +26,9 @@ import ChatAdminTools from '../components/ChatAdminTools'
 import { textBeforeCaret } from '../lib/richEditor'
 import { firstUrl } from '../lib/linkPreview'
 import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
+import MessageEditor from '../components/MessageEditor'
+import ReportMessage from '../components/ReportMessage'
+import { useNowTick, withinEditWindow } from '../lib/messageActions'
 
 // A short label for a message when it's quoted in a reply.
 function messagePreview(m) {
@@ -86,6 +89,11 @@ export default function Chat() {
   const [search, setSearch] = useState('')
   const [pickerFor, setPickerFor] = useState(null)
   const [actionsFor, setActionsFor] = useState(null) // message id with its action row open (mobile tap)
+  const [editingId, setEditingId] = useState(null)  // message being edited in place
+  const [reporting, setReporting] = useState(null)  // message being reported, or null
+  // A slow clock, so the Edit button leaves on its own when the five minutes
+  // are up. See lib/messageActions for why this is state and not Date.now().
+  const nowTick = useNowTick()
   const [unread, setUnread] = useState({}) // channel -> bool
   const [attachError, setAttachError] = useState('')
   const [replyTo, setReplyTo] = useState(null)      // message being replied to
@@ -777,7 +785,7 @@ export default function Chat() {
           // Tapping the chat dismisses the keyboard (WhatsApp-style). A scroll
           // drag doesn't fire click, so scrolling the history leaves it up.
           onClick={() => { if (isMobile && kbOpen) document.activeElement?.blur?.() }}
-          className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:space-y-5 sm:px-8 sm:py-6"
+          className="min-h-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden overscroll-contain touch-pan-y touch-pinch-zoom px-4 py-4 sm:space-y-5 sm:px-8 sm:py-6"
         >
           {loading && (
             <div className="space-y-5">
@@ -813,7 +821,19 @@ export default function Chat() {
             const linkUrl = m.body && !m.image_url && !m.video_url ? firstUrl(m.body) : null
             const showActions = actionsFor === m.id
             return (
-              <div key={m.id} id={`msg-${m.id}`} className={cx('group flex gap-3', mine && 'flex-row-reverse', m.pending && 'opacity-60')}>
+              <div
+                key={m.id}
+                id={`msg-${m.id}`}
+                className={cx(
+                  'group flex gap-3',
+                  mine && 'flex-row-reverse',
+                  m.pending && 'opacity-60',
+                  // Bring the row with an open popover forward. See the note in
+                  // Messages.jsx: any row carrying a filled transform is its own
+                  // stacking context, so the next message wins on paint order.
+                  (showActions || pickerFor === m.id) && 'relative z-20',
+                )}
+              >
                 <Link to={`/profile/${m.sender_id}`} className="shrink-0 self-end">
                   <Avatar src={m.profiles?.photo_url} name={m.profiles?.name} size="sm" />
                 </Link>
@@ -829,6 +849,12 @@ export default function Chat() {
                 >
                   <div className={cx('mb-1 flex items-center gap-2 text-xs', mine && 'flex-row-reverse')}>
                     <span className="text-gray-400" title={messageTimeTitle(m.created_at)}>{formatMessageTime(m.created_at)}</span>
+                    {/* AN EDITED MESSAGE SAYS SO. This is the whole reason
+                        editing is safe to ship: without the marker, a record of
+                        a conversation stops being a record. */}
+                    {m.edited_at && (
+                      <span className="text-gray-400" title={`Edited ${messageTimeTitle(m.edited_at)}`}>· edited</span>
+                    )}
                     <span className="font-semibold text-ink">{mine ? 'You' : m.profiles?.name}</span>
                     {m.profiles?.is_admin && <Badge tone="light" className="shrink-0 whitespace-nowrap !px-2 !py-0.5">Tryp.com Team</Badge>}
                     {m.pinned && <Icon name="pin" className="h-3.5 w-3.5 shrink-0 text-brand" title="Pinned" />}
@@ -878,7 +904,22 @@ export default function Chat() {
                           arrive as **like this**, and so did everybody else. Gating
                           the renderer on who wrote it can only ever make somebody's
                           own text look broken to them. */}
-                      {m.body && <span className={cx('block', (m.image_url || m.video_url) && 'px-2.5 py-1.5')}>{renderMessageBody(m.body, { rich: true, members, onDark })}</span>}
+                      {editingId === m.id ? (
+                        <span className={cx('block', (m.image_url || m.video_url) && 'px-2.5 py-1.5')}>
+                          <MessageEditor
+                            kind="channel"
+                            message={m}
+                            onDark={onDark}
+                            onCancel={() => setEditingId(null)}
+                            onSaved={(next) => {
+                              setMessages((cur) => cur.map((x) => (x.id === next.id ? { ...x, body: next.body, edited_at: next.edited_at } : x)))
+                              setEditingId(null)
+                            }}
+                          />
+                        </span>
+                      ) : (
+                        m.body && <span className={cx('block', (m.image_url || m.video_url) && 'px-2.5 py-1.5')}>{renderMessageBody(m.body, { rich: true, members, onDark })}</span>
+                      )}
                       {linkUrl && <LinkPreview url={linkUrl} onDark={onDark} />}
                     </div>
                   )}
@@ -930,7 +971,17 @@ export default function Chat() {
                       bubble where it belongs. */}
                   <div
                     className={cx(
-                      'absolute top-0 z-10 flex items-center gap-1 rounded-full border border-gray-100 bg-white/95 px-1 py-0.5 shadow-card backdrop-blur transition-opacity',
+                      // IT SITS ON THE EDGE OF THE MESSAGE, NOT ON TOP OF IT.
+                      // `top-0` alone put a ~30px pill inside the top corner of
+                      // a bubble, which is Ethan's "the reaction and reply
+                      // buttons cover the top right half of the message" - and
+                      // in the DMs, where there is no meta line above the
+                      // bubble, it landed squarely on the first line of text.
+                      // Centred on the top edge it straddles the gap between
+                      // messages instead, so it covers nothing you are reading
+                      // and still points unambiguously at the message it acts
+                      // on. It costs no layout either way: this is absolute.
+                      'absolute top-0 z-10 flex -translate-y-1/2 items-center gap-1 rounded-full border border-gray-100 bg-white/95 px-1 py-0.5 shadow-card backdrop-blur transition-opacity',
                       mine ? 'left-0' : 'right-0',
                       showActions
                         ? 'opacity-100'
@@ -954,6 +1005,32 @@ export default function Chat() {
                       >
                         <Icon name="smile" className="h-4 w-4" />
                       </button>
+                      {/* EDIT YOUR OWN, FOR FIVE MINUTES. Only drawn while the
+                          window is genuinely open, so the button is never a
+                          promise the server then refuses. */}
+                      {mine && !m.pending && !m.deleted && withinEditWindow(m.created_at, nowTick) && (
+                        <button
+                          onClick={() => { setEditingId(m.id); setActionsFor(null) }}
+                          aria-label="Edit message"
+                          title="Edit (5 minutes)"
+                          className="rounded-full border border-gray-200 p-1 text-smoke hover:border-brand hover:text-brand"
+                        >
+                          <Icon name="pencil" className="h-4 w-4" />
+                        </button>
+                      )}
+                      {/* REPORT SOMEBODY ELSE'S. Not on your own message and not
+                          on the team's - an admin who wants a colleague's
+                          message gone can simply delete it. */}
+                      {!mine && !m.pending && (
+                        <button
+                          onClick={() => { setReporting(m); setActionsFor(null) }}
+                          aria-label="Report message"
+                          title="Report to the team"
+                          className="rounded-full border border-gray-200 p-1 text-smoke hover:border-red-300 hover:text-red-500"
+                        >
+                          <Icon name="flag" className="h-4 w-4" />
+                        </button>
+                      )}
                       {isAdmin && !m.pending && (
                         <>
                           <button onClick={() => togglePin(m)} aria-label={m.pinned ? 'Unpin message' : 'Pin message'} title={m.pinned ? 'Unpin' : 'Pin'} className={cx('rounded-full border p-1', m.pinned ? 'border-brand bg-brand-tint text-brand' : 'border-gray-200 text-smoke hover:border-brand hover:text-brand')}><Icon name="pin" className="h-4 w-4" /></button>
@@ -969,7 +1046,10 @@ export default function Chat() {
                               picker is to react with something. */}
                           <div className="fixed inset-0 z-20" onClick={() => setPickerFor(null)} />
                           <ReactionPicker
-                            align={mine ? 'right' : 'left'}
+                            // The ROW's side, not the message's. For somebody
+                            // else's message the row is at the right edge, so a
+                            // panel anchored left grew straight off the screen.
+                            align={mine ? 'left' : 'right'}
                             onPick={(e) => toggleReaction(m.id, e)}
                             onClose={() => setPickerFor(null)}
                           />
@@ -1123,6 +1203,15 @@ export default function Chat() {
         onClose={() => setAdminTool(null)}
         postCard={postCard}
         roomLabel={`#${meta.label.toLowerCase()}`}
+      />
+
+      <ReportMessage
+        open={!!reporting}
+        kind="channel"
+        messageId={reporting?.id}
+        authorName={reporting?.profiles?.name}
+        preview={reporting ? messagePreview(reporting) : ''}
+        onClose={() => setReporting(null)}
       />
     </div>
   )

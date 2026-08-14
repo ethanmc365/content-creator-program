@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import { supabase } from '../lib/supabase'
@@ -9,6 +9,7 @@ import WorldMap from '../components/WorldMap'
 import CreatorMap from '../components/CreatorMap'
 import { loadMapCountryNames, canonicalCountry } from '../lib/mapCountries'
 import Reveal from '../components/network/Reveal'
+import WhenVisible from '../components/WhenVisible'
 
 // How many upcoming trips to show before the "View more" button.
 const TRIPS_PREVIEW = 6
@@ -43,6 +44,91 @@ function tripInMonth(p, ym) {
   const monthEnd = new Date(y, m, 0)
   return localDate(p.start_date) <= monthEnd && localDate(p.end_date) >= monthStart
 }
+
+// A TRIP CARD IS A MODULE-SCOPE COMPONENT, NOT A CLOSURE INSIDE THE PAGE.
+//
+// THE BUG THIS FIXES. It used to be `function TripCard()` declared inside
+// `Collab`, which makes a BRAND NEW component type on every render of the page.
+// React compares types by identity, so every single re-render unmounted all six
+// cards and mounted six replacements - and each replacement's `<WorldMap>`
+// started again from nothing: new SVG, new projection, new fetch, new entry
+// animation. Pressing "I'm interested" sets one piece of state, so pressing it
+// re-mounted every map on the board. That is the reported "clicking I'm
+// Interested causes all the maps to reload again".
+//
+// Hoisted here it is one stable type, and `memo` means a card whose own props
+// have not changed does not re-render at all. `selected` is memoised inside so
+// the WorldMap's own `memo` is not defeated by a fresh `[country]` array every
+// time. Everything the card needs that used to come from the closure now
+// arrives as a prop.
+const TripCard = memo(function TripCard({
+  p, past = false, mine, canEdit, mapCountry, interestCount, iAmInterested,
+  onEdit, onRemove, onToggleInterest, onMessage,
+}) {
+  const person = p.profiles || {}
+  const selectedCountries = useMemo(() => (mapCountry ? [mapCountry] : []), [mapCountry])
+  return (
+    <div className={`card flex flex-col gap-4 !p-6 ${past ? 'opacity-75' : ''}`}>
+      <div className="flex items-start justify-between gap-3">
+        <Link to={`/profile/${person.id}`} className="flex items-center gap-3 group">
+          <Avatar src={person.photo_url} name={person.name} size="md" />
+          <div className="min-w-0">
+            <p className="truncate font-semibold group-hover:text-brand">{person.name}</p>
+            <p className="flex items-center gap-1 text-xs text-smoke">
+              <Icon name="pin" className="h-3.5 w-3.5" />
+              {p.city}{p.country ? `, ${p.country}` : ''}
+            </p>
+          </div>
+        </Link>
+        {canEdit && (
+          <div className="flex shrink-0 items-center gap-1">
+            <button onClick={() => onEdit(p)} aria-label="Edit trip" title="Edit trip" className="rounded-lg p-1.5 text-smoke transition-colors hover:bg-brand-tint hover:text-brand">
+              <Icon name="pencil" className="h-4 w-4" />
+            </button>
+            <button onClick={() => onRemove(p.id)} aria-label="Delete trip" title="Delete trip" className="rounded-lg p-1.5 text-smoke transition-colors hover:bg-red-50 hover:text-red-600">
+              <Icon name="trash" className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      <Badge tone={past ? 'grey' : 'brand'}><Icon name="calendar" className="mr-1 inline h-3.5 w-3.5" />{fmtRange(p.start_date, p.end_date)}</Badge>
+
+      {/* The map mounts when the card is nearly on screen, not when the board
+          renders. Six atlases laid out at once is what made the board hitch on
+          open even after the parse was shared; the placeholder reserves the
+          height so deferring the mount cannot become a jump. */}
+      {!past && mapCountry && (
+        <WhenVisible fallback={<div className="aspect-[2/1] w-full animate-pulse rounded-card bg-cloud/70" />}>
+          <div className="overflow-hidden rounded-card">
+            <WorldMap selected={selectedCountries} focusCountry={mapCountry} />
+          </div>
+        </WhenVisible>
+      )}
+
+      {p.note && <p className="text-sm leading-relaxed text-ink/90">{p.note}</p>}
+
+      {!mine && !past && (
+        <div className="mt-auto flex flex-col gap-2">
+          <button onClick={() => onToggleInterest(p.id)} className={iAmInterested ? 'btn-primary flex w-full items-center justify-center gap-1.5 !py-2 text-sm' : 'btn-secondary w-full !py-2 text-sm'}>
+            {iAmInterested && <Icon name="check" className="h-4 w-4" />}
+            {iAmInterested ? 'Interested' : "I'm interested"}
+            {interestCount > 0 && <span className="ml-1 opacity-80">· {interestCount}</span>}
+          </button>
+          <button onClick={() => onMessage(p.creator_id)} className="btn-secondary w-full !py-2 text-sm">
+            Message {person.name?.split(' ')[0]}
+          </button>
+        </div>
+      )}
+      {mine && !past && (
+        <p className="mt-auto text-xs text-smoke">
+          Your trip · visible to the community{interestCount > 0 ? ` · ${interestCount} interested` : ''}
+        </p>
+      )}
+      {past && <p className="mt-auto text-xs text-smoke">Trip ended</p>}
+    </div>
+  )
+})
 
 export default function Collab() {
   const { user, isAdmin, profile } = useAuth()
@@ -191,13 +277,16 @@ export default function Collab() {
     load()
   }
 
-  async function remove(id) {
+  // STABLE CALLBACKS, OR `memo` ON THE CARD BUYS NOTHING. A fresh arrow on
+  // every render is a changed prop, and a changed prop re-renders the card the
+  // memo was there to spare.
+  const remove = useCallback(async (id) => {
     setPosts((p) => p.filter((x) => x.id !== id))
     await supabase.from('collab_posts').delete().eq('id', id)
-  }
+  }, [])
 
   // Open the edit modal, prefilled with the post's current values.
-  function startEdit(p) {
+  const startEdit = useCallback(function startEdit(p) {
     setEditError('')
     setEditForm({
       city: p.city || '',
@@ -207,7 +296,7 @@ export default function Collab() {
       note: p.note || '',
     })
     setEditing(p)
-  }
+  }, [])
 
   async function saveEdit(e) {
     e.preventDefault()
@@ -229,7 +318,11 @@ export default function Collab() {
     load()
   }
 
-  async function toggleInterest(postId) {
+  // Not a `useCallback`: it genuinely depends on the current interest set, and
+  // a card re-rendering when its own interest count changes is correct. What
+  // must not happen is the MAP re-rendering, and that is held by the memoised
+  // `selected` array inside the card plus WorldMap's own memo.
+  const toggleInterest = async (postId) => {
     const has = interests.mine.has(postId)
     setInterests((prev) => {
       const mine = new Set(prev.mine)
@@ -243,7 +336,7 @@ export default function Collab() {
   }
 
   // Open (or create) the 1:1 conversation with a poster, then jump into it.
-  async function message(creatorId) {
+  const message = useCallback(async (creatorId) => {
     if (creatorId === user.id) return
     const { data: existing } = await supabase
       .from('conversations')
@@ -254,70 +347,23 @@ export default function Collab() {
     const { data: created } = await supabase
       .from('conversations').insert({ participant_a: user.id, participant_b: creatorId }).select('id').single()
     if (created) navigate(`/messages/${created.id}`)
-  }
+  }, [navigate, user.id])
 
-  function TripCard({ p, past = false }) {
-    const person = p.profiles || {}
-    const mine = p.creator_id === user.id
-    const mapCountry = canonicalCountry(p.country, countryNames)
-    const interestCount = interests.count.get(p.id) || 0
-    const iAmInterested = interests.mine.has(p.id)
-    return (
-      <div className={`card flex flex-col gap-4 !p-6 ${past ? 'opacity-75' : ''}`}>
-        <div className="flex items-start justify-between gap-3">
-          <Link to={`/profile/${person.id}`} className="flex items-center gap-3 group">
-            <Avatar src={person.photo_url} name={person.name} size="md" />
-            <div className="min-w-0">
-              <p className="truncate font-semibold group-hover:text-brand">{person.name}</p>
-              <p className="flex items-center gap-1 text-xs text-smoke">
-                <Icon name="pin" className="h-3.5 w-3.5" />
-                {p.city}{p.country ? `, ${p.country}` : ''}
-              </p>
-            </div>
-          </Link>
-          {(mine || isAdmin) && (
-            <div className="flex shrink-0 items-center gap-1">
-              <button onClick={() => startEdit(p)} aria-label="Edit trip" title="Edit trip" className="rounded-lg p-1.5 text-smoke transition-colors hover:bg-brand-tint hover:text-brand">
-                <Icon name="pencil" className="h-4 w-4" />
-              </button>
-              <button onClick={() => remove(p.id)} aria-label="Delete trip" title="Delete trip" className="rounded-lg p-1.5 text-smoke transition-colors hover:bg-red-50 hover:text-red-600">
-                <Icon name="trash" className="h-4 w-4" />
-              </button>
-            </div>
-          )}
-        </div>
+  // Everything a card needs, worked out here so the card itself stays a plain
+  // function of its props and can be memoised.
+  const cardProps = (p) => ({
+    p,
+    mine: p.creator_id === user.id,
+    canEdit: p.creator_id === user.id || isAdmin,
+    mapCountry: canonicalCountry(p.country, countryNames),
+    interestCount: interests.count.get(p.id) || 0,
+    iAmInterested: interests.mine.has(p.id),
+    onEdit: startEdit,
+    onRemove: remove,
+    onToggleInterest: toggleInterest,
+    onMessage: message,
+  })
 
-        <Badge tone={past ? 'grey' : 'brand'}><Icon name="calendar" className="mr-1 inline h-3.5 w-3.5" />{fmtRange(p.start_date, p.end_date)}</Badge>
-
-        {!past && mapCountry && (
-          <div className="overflow-hidden rounded-card">
-            <WorldMap selected={[mapCountry]} focusCountry={mapCountry} />
-          </div>
-        )}
-
-        {p.note && <p className="text-sm leading-relaxed text-ink/90">{p.note}</p>}
-
-        {!mine && !past && (
-          <div className="mt-auto flex flex-col gap-2">
-            <button onClick={() => toggleInterest(p.id)} className={iAmInterested ? 'btn-primary flex w-full items-center justify-center gap-1.5 !py-2 text-sm' : 'btn-secondary w-full !py-2 text-sm'}>
-              {iAmInterested && <Icon name="check" className="h-4 w-4" />}
-              {iAmInterested ? 'Interested' : "I'm interested"}
-              {interestCount > 0 && <span className="ml-1 opacity-80">· {interestCount}</span>}
-            </button>
-            <button onClick={() => message(p.creator_id)} className="btn-secondary w-full !py-2 text-sm">
-              Message {person.name?.split(' ')[0]}
-            </button>
-          </div>
-        )}
-        {mine && !past && (
-          <p className="mt-auto text-xs text-smoke">
-            Your trip · visible to the community{interestCount > 0 ? ` · ${interestCount} interested` : ''}
-          </p>
-        )}
-        {past && <p className="mt-auto text-xs text-smoke">Trip ended</p>}
-      </div>
-    )
-  }
 
   return (
     <div className="page">
@@ -429,14 +475,22 @@ export default function Collab() {
           {travellers.creators.length > 0 ? (
             <>
               <p className="mb-5 text-sm text-smoke">Everyone on the move: a filled plane for creators who are there now, a hollow one for trips in the next three months.</p>
-              <CreatorMap creators={travellers.creators} trips={travellers.trips} travelOnlyView />
+              {/* Deferred like the card maps. This one is the heaviest thing on
+                  the page - the atlas plus a pin and a flight path per traveller
+                  - and laying it out on the same frames as the cards above are
+                  arriving is what made the whole board judder on open. */}
+              <WhenVisible fallback={<div className="aspect-[2/1] w-full animate-pulse rounded-card bg-cloud/70" />}>
+                <CreatorMap creators={travellers.creators} trips={travellers.trips} travelOnlyView />
+              </WhenVisible>
             </>
           ) : (
             <>
               <p className="mb-5 text-sm text-smoke">No one's mid-trip right now. Here's every country with an upcoming trip, highlighted.</p>
-              <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
-                <WorldMap selected={boardCountries} />
-              </div>
+              <WhenVisible fallback={<div className="aspect-[2/1] w-full animate-pulse rounded-card bg-cloud/70" />}>
+                <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
+                  <WorldMap selected={boardCountries} />
+                </div>
+              </WhenVisible>
             </>
           )}
           {boardCountries.length > 0 && (
@@ -483,7 +537,9 @@ export default function Collab() {
       ) : (
         <>
           <Reveal className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {(expanded ? filteredUpcoming : filteredUpcoming.slice(0, TRIPS_PREVIEW)).map((p) => <TripCard key={p.id} p={p} />)}
+            {(expanded ? filteredUpcoming : filteredUpcoming.slice(0, TRIPS_PREVIEW)).map((p) => (
+              <TripCard key={p.id} {...cardProps(p)} />
+            ))}
           </Reveal>
           {filteredUpcoming.length > TRIPS_PREVIEW && (
             <button
@@ -510,7 +566,7 @@ export default function Collab() {
           <h2 className="mb-1 text-lg font-semibold">Past trips</h2>
           <p className="mb-5 text-sm text-smoke">Trips that have already happened.</p>
           <Reveal className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {archived.map((p) => <TripCard key={p.id} p={p} past />)}
+            {archived.map((p) => <TripCard key={p.id} {...cardProps(p)} past />)}
           </Reveal>
         </section>
       )}

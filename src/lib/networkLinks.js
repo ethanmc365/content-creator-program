@@ -19,6 +19,7 @@ export const NETWORK_LINKS = [
   { to: '/connections', icon: 'heart', label: 'Connections', short: 'Connect', hint: 'Requests and mutuals', badge: 'connections' },
   { to: '/board', icon: 'chat', label: 'Community board', short: 'Board', hint: 'Ask anything, anyone answers' },
   { to: '/collab', icon: 'pin', label: 'Travel collab board', short: 'Collab', hint: 'Who is going where' },
+  { to: '/flights', icon: 'plane', label: 'Flight log', short: 'Flights', hint: 'Every flight, and what it adds up to' },
   { to: '/events', icon: 'calendar', label: 'Calendar', short: 'Calendar', hint: 'Events and meetups' },
   { to: '/leaderboard', icon: 'chart', label: 'Leaderboard', short: 'Ranks', hint: 'Across every market' },
   { to: '/game', icon: 'joystick', label: 'Travel games', short: 'Games', hint: 'Puzzles, quizzes and streaks' },

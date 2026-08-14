@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { confirm } from '../lib/confirm'
 import { useSearchParams, Link } from 'react-router-dom'
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from 'react-simple-maps'
-import { GEO_URL } from '../lib/mapCountries'
+import { loadMapFeatures } from '../lib/mapCountries'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Avatar, Badge, PageHeader, Confetti } from '../components/ui'
@@ -567,17 +567,27 @@ function Feedback({ answered, answer, reveal, last, onNext }) {
 
 // ---------------------------------------------------------------- Game map
 const MAP_HOME = { coordinates: [12, 8], zoom: 1 }
+// Same object every render, or `<Geographies>` treats it as a new source.
+const EMPTY_GEO = { type: 'FeatureCollection', features: [] }
 function GameMap({ placed, revealed, flashWrong, answered, onPick }) {
   // Controlled zoom so we can offer on-screen +/- buttons (much friendlier than
   // pinch on a phone) and zoom deep enough to click small countries.
   const [pos, setPos] = useState(MAP_HOME)
+  // The atlas comes from the one shared parse (lib/mapCountries) rather than a
+  // URL, so the board never decodes the TopoJSON for itself.
+  const [features, setFeatures] = useState(null)
+  useEffect(() => {
+    let cancelled = false
+    loadMapFeatures().then((fc) => { if (!cancelled) setFeatures(fc) })
+    return () => { cancelled = true }
+  }, [])
   const clampZoom = (z) => Math.max(1, Math.min(16, z))
   const zoomBy = (factor) => setPos((p) => ({ ...p, zoom: clampZoom(p.zoom * factor) }))
   return (
     <div className="relative overflow-hidden rounded-card bg-cloud/60">
       <ComposableMap width={880} height={440} projectionConfig={{ scale: 160, center: [12, 8] }} style={{ width: '100%', height: 'auto', display: 'block' }}>
         <ZoomableGroup minZoom={1} maxZoom={16} zoom={pos.zoom} center={pos.coordinates} onMoveEnd={setPos}>
-          <Geographies geography={GEO_URL}>
+          <Geographies geography={features || EMPTY_GEO}>
             {({ geographies }) =>
               geographies
                 .filter((geo) => geo.properties.name !== 'Antarctica')

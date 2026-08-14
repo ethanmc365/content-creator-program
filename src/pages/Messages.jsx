@@ -19,6 +19,9 @@ import { RoomSearch } from '../components/ChatSearch'
 import Reveal from '../components/network/Reveal'
 import SeenBy from '../components/SeenBy'
 import ChatComposer from '../components/ChatComposer'
+import MessageEditor from '../components/MessageEditor'
+import ReportMessage from '../components/ReportMessage'
+import { useNowTick, withinEditWindow } from '../lib/messageActions'
 import { renderMessageBody } from '../lib/richText'
 import { EntryReferenceCard, loadEntryRefs } from '../components/EntryFeedback'
 import { GroupAvatar, NewGroupModal, GroupSettingsModal } from '../components/GroupPanels'
@@ -79,6 +82,10 @@ export default function Messages() {
     return thread.filter((m) => (m.body || '').toLowerCase().includes(q))
   }, [thread, threadSearch])
   const [actionsFor, setActionsFor] = useState(null) // message id with actions revealed (mobile tap)
+  const [editingId, setEditingId] = useState(null)   // message being edited in place
+  const [reporting, setReporting] = useState(null)   // message being reported, or null
+  // Slow clock so the Edit button retires itself. See lib/messageActions.
+  const nowTick = useNowTick()
   const [replyTo, setReplyTo] = useState(null)     // message being replied to
   const [loadingList, setLoadingList] = useState(true)
   const [loadingThread, setLoadingThread] = useState(false)
@@ -1090,7 +1097,7 @@ export default function Messages() {
                 // Tapping the thread dismisses the keyboard (WhatsApp-style); a
                 // scroll drag doesn't fire click, so scrolling history leaves it up.
                 onClick={() => { if (isMobile && kbOpen) document.activeElement?.blur?.() }}
-                className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-5 py-6"
+                className="min-h-0 flex-1 space-y-3 overflow-y-auto overflow-x-hidden overscroll-contain touch-pan-y touch-pinch-zoom px-5 py-6"
               >
                 {loadingThread && <div className="space-y-3"><Skeleton className="h-10 w-2/3" /><Skeleton className="ml-auto h-10 w-1/2" /><Skeleton className="h-10 w-3/5" /></div>}
                 {!loadingThread && visibleThread.map((m, i) => {
@@ -1119,7 +1126,19 @@ export default function Messages() {
                     <div
                       key={m.id}
                       id={`dm-${m.id}`}
-                      className={cx('group flex gap-2', mine && 'justify-end', entering && 'animate-fade-up')}
+                      className={cx(
+                        'group flex gap-2',
+                        mine && 'justify-end',
+                        entering && 'animate-fade-up',
+                        // THE ROW THAT HAS SOMETHING OPEN HAS TO COME FORWARD.
+                        // `animate-fade-up` is `both`-filled, so the transform
+                        // stays applied after it ends and every animated row is
+                        // its own stacking context for good. A later row
+                        // therefore paints over an earlier row's popover
+                        // whatever z-index the popover carries - which is why
+                        // the emoji panel opened underneath the next message.
+                        (showActions || pickerFor === m.id) && 'relative z-20',
+                      )}
                       style={entering ? { animationDelay: `${Math.min(i, 12) * 24}ms` } : undefined}
                     >
                       {/* The face column. Reserved even on the rows that do not
@@ -1190,14 +1209,31 @@ export default function Messages() {
                               the raw body, so a message written with the
                               formatting buttons - which the DMs now have -
                               arrived as literal asterisks and hashes. */}
-                          {m.body && (
+                          {editingId === m.id ? (
                             <span className={cx('block', m.image_url && 'px-2.5 py-1.5')}>
-                              {renderMessageBody(m.body, { rich: true, members: activeMembers, onDark: mine })}
+                              <MessageEditor
+                                kind="dm"
+                                message={m}
+                                onDark={mine}
+                                onCancel={() => setEditingId(null)}
+                                onSaved={(next) => {
+                                  setThread((cur) => cur.map((x) => (x.id === next.id ? { ...x, body: next.body, edited_at: next.edited_at } : x)))
+                                  setEditingId(null)
+                                }}
+                              />
                             </span>
+                          ) : (
+                            m.body && (
+                              <span className={cx('block', m.image_url && 'px-2.5 py-1.5')}>
+                                {renderMessageBody(m.body, { rich: true, members: activeMembers, onDark: mine })}
+                              </span>
+                            )
                           )}
                         </div>
                         <p className={cx('mt-1 text-[10px] text-gray-400', mine && 'text-right')}>
                           <span title={messageTimeTitle(m.created_at)}>{formatMessageTime(m.created_at)}</span>
+                          {/* An edited message says so, here as everywhere. */}
+                          {m.edited_at && <span title={`Edited ${messageTimeTitle(m.edited_at)}`}> · edited</span>}
                           {mine && !isGroup && m.read && ' · Read'}
                         </p>
 
@@ -1235,7 +1271,14 @@ export default function Messages() {
                             though nobody could see them, which on a phone left a
                             visible gap between a bubble and its timestamp. */}
                           <div className={cx(
-                            'absolute top-0 z-10 flex items-center gap-1 rounded-full border border-gray-100 bg-white/95 px-1 py-0.5 shadow-card backdrop-blur transition-opacity',
+                            // CENTRED ON THE TOP EDGE, NOT INSIDE THE BUBBLE.
+                            // A DM has no meta line above it - the timestamp is
+                            // underneath - so `top-0` put this pill straight on
+                            // top of the first line of the message. That is the
+                            // reported "covering the top right half of the
+                            // message". Straddling the edge, it sits in the gap
+                            // between messages and hides nothing.
+                            'absolute top-0 z-10 flex -translate-y-1/2 items-center gap-1 rounded-full border border-gray-100 bg-white/95 px-1 py-0.5 shadow-card backdrop-blur transition-opacity',
                             mine ? 'left-0' : 'right-0',
                             showActions
                               ? 'opacity-100'
@@ -1256,6 +1299,30 @@ export default function Messages() {
                             >
                               <Icon name="smile" className="h-4 w-4" />
                             </button>
+                            {mine && withinEditWindow(m.created_at, nowTick) && (
+                              <button
+                                onClick={() => { setEditingId(m.id); setActionsFor(null) }}
+                                aria-label="Edit message"
+                                title="Edit (5 minutes)"
+                                className="rounded-full border border-gray-200 bg-white p-1 text-smoke hover:border-brand hover:text-brand"
+                              >
+                                <Icon name="pencil" className="h-4 w-4" />
+                              </button>
+                            )}
+                            {/* A DM is the one place a creator was most exposed
+                                and had the least recourse: a stranger gets one
+                                message through before you have agreed to talk
+                                at all. */}
+                            {!mine && (
+                              <button
+                                onClick={() => { setReporting(m); setActionsFor(null) }}
+                                aria-label="Report message"
+                                title="Report to the team"
+                                className="rounded-full border border-gray-200 bg-white p-1 text-smoke hover:border-red-300 hover:text-red-500"
+                              >
+                                <Icon name="flag" className="h-4 w-4" />
+                              </button>
+                            )}
                             {isAdmin && (
                               <button
                                 onClick={() => deleteDm(m)}
@@ -1270,7 +1337,9 @@ export default function Messages() {
                               <>
                                 <div className="fixed inset-0 z-20" onClick={() => setPickerFor(null)} />
                                 <ReactionPicker
-                                  align={mine ? 'right' : 'left'}
+                                  // The ROW's side, not the message's - see the
+                                  // note on the row above.
+                                  align={mine ? 'left' : 'right'}
                                   onPick={(e) => toggleReaction(m.id, e)}
                                   onClose={() => setPickerFor(null)}
                                 />
@@ -1313,7 +1382,12 @@ export default function Messages() {
               </div>
 
               {/* Composer */}
-              <div ref={composerRef} className="border-t border-gray-100 px-5 py-4">
+              {/* `shrink-0`, matching the legacy chat. Without it the composer
+                  is the only flexible item in the column once the message list
+                  has taken its `flex-1 basis-0`, so a composer grown to six
+                  lines is the thing the browser squeezes when the keyboard
+                  takes half the screen. */}
+              <div ref={composerRef} className="shrink-0 border-t border-gray-100 px-5 py-4">
                 {dmLocked ? (
                   <div className="rounded-card bg-cloud px-4 py-3 text-center text-sm text-smoke">
                     Message sent. You can send one message until {active?.other?.name?.split(' ')[0]} replies, which connects you.
@@ -1376,6 +1450,15 @@ export default function Messages() {
           await loadConversations()
           navigate(`/messages/${id}`)
         }}
+      />
+
+      <ReportMessage
+        open={!!reporting}
+        kind="dm"
+        messageId={reporting?.id}
+        authorName={reporting ? reactorName(reporting.sender_id) : ''}
+        preview={reporting ? dmPreview(reporting) : ''}
+        onClose={() => setReporting(null)}
       />
 
       {isGroup && (

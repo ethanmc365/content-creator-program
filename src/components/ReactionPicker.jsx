@@ -21,14 +21,16 @@ import Icon from './Icon'
 function clipBounds(node) {
   let el = node?.parentElement
   while (el && el !== document.body) {
-    const oy = getComputedStyle(el).overflowY
-    if (oy === 'auto' || oy === 'scroll' || oy === 'hidden') {
+    const cs = getComputedStyle(el)
+    const scrolls = (v) => v === 'auto' || v === 'scroll' || v === 'hidden' || v === 'clip'
+    if (scrolls(cs.overflowY) || scrolls(cs.overflowX)) {
       const r = el.getBoundingClientRect()
-      return { top: r.top, bottom: r.bottom }
+      return { top: r.top, bottom: r.bottom, left: r.left, right: r.right }
     }
     el = el.parentElement
   }
-  return { top: 0, bottom: window.innerHeight || 0 }
+  const w = window.innerWidth || 0
+  return { top: 0, bottom: window.innerHeight || 0, left: 0, right: w }
 }
 
 export default function ReactionPicker({ onPick, onClose, align = 'left' }) {
@@ -47,6 +49,22 @@ export default function ReactionPicker({ onPick, onClose, align = 'left' }) {
   // because the scroller is what does the clipping.
   const [node, setNode] = useState(null)
   const [placement, setPlacement] = useState('above')
+  // AND HOW FAR SIDEWAYS IT HAS TO MOVE TO STAY ON SCREEN.
+  //
+  // THE BUG THIS FIXES. The panel anchored to one edge of the message's action
+  // row and grew from there, and the action row sits on the FREE side of the
+  // message - the right, for anybody else's message. Expanded, the panel is
+  // 17rem wide, so on a 375px phone it started near the right edge and ran a
+  // couple of hundred pixels off the side of the screen: Ethan's "the emoji box
+  // is a bit off the screen on the right". Worse, an element sticking out of a
+  // scroller makes that scroller horizontally scrollable, which is what let a
+  // sideways drag shove the whole conversation to the left.
+  //
+  // Vertical placement was already measured; this is the same idea for the
+  // other axis, and it is a NUDGE rather than a flip because there is no second
+  // side to try - it just has to fit. Applied as a transform so it composites
+  // and needs no layout pass.
+  const [shiftX, setShiftX] = useState(0)
 
   // useLayoutEffect, NOT useEffect, and that is the whole fix for the flicker.
   //
@@ -73,9 +91,21 @@ export default function ReactionPicker({ onPick, onClose, align = 'left' }) {
       const roomBelow = limit.bottom - r.bottom
       if (roomAbove > roomBelow) setPlacement('above')
     }
+
+    // Measure the box at its UNSHIFTED position, so the correction is absolute
+    // and cannot accumulate across re-measures.
+    const natural = { left: r.left - shiftX, right: r.right - shiftX }
+    let dx = 0
+    if (natural.left < limit.left + PAD) dx = limit.left + PAD - natural.left
+    else if (natural.right > limit.right - PAD) dx = limit.right - PAD - natural.right
+    // Never push it so far that it leaves the other side: on a container
+    // narrower than the panel, hugging the left edge is the best available
+    // answer and the panel scrolls internally from there.
+    if (natural.left + dx < limit.left) dx = limit.left - natural.left
+    if (Math.round(dx) !== Math.round(shiftX)) setShiftX(dx)
     // Re-measured when it grows: the six-emoji strip fits almost anywhere and
     // the full panel is ten times taller.
-  }, [node, expanded, placement])
+  }, [node, expanded, placement, shiftX])
 
   // Escape closes it. A popover you can only dismiss by clicking exactly the
   // right patch of backdrop is a popover people close by navigating away.
@@ -93,12 +123,15 @@ export default function ReactionPicker({ onPick, onClose, align = 'left' }) {
       ref={setNode}
       role="dialog"
       aria-label="Pick a reaction"
+      style={shiftX ? { transform: `translateX(${Math.round(shiftX)}px)` } : undefined}
       className={cx(
         'absolute z-30 rounded-2xl border border-gray-100 bg-white shadow-lift',
         below ? 'top-full mt-1 origin-top' : 'bottom-full mb-1 origin-bottom',
         'animate-[reaction-pop_140ms_cubic-bezier(0.22,1,0.36,1)]',
         align === 'right' ? 'right-0' : 'left-0',
-        expanded ? 'w-[17rem] p-2' : 'flex items-center gap-0.5 p-1',
+        // Never wider than the space it has. `max-w` plus the shift means the
+        // panel is always fully reachable, even on a 320px phone.
+        expanded ? 'w-[17rem] max-w-[calc(100vw-1.5rem)] p-2' : 'flex max-w-[calc(100vw-1.5rem)] items-center gap-0.5 p-1',
       )}
     >
       {!expanded ? (

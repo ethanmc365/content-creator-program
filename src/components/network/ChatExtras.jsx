@@ -20,7 +20,12 @@ import { SNAPPY, overlay } from '../../lib/motion'
 // room and one reacted to in #general are the same shape of data, and there is
 // one place to change if reactions ever grow up.
 
-export function ReactionRow({ messageId, reactions, myId, onToggle, revealed = false }) {
+// `actions` are the OTHER things you can do to a message - edit yours, report
+// somebody else's - drawn in the same floating cluster as the reaction button.
+// They live here rather than in a second floating row because two overlapping
+// hover clusters over one message corner is how you end up pressing the wrong
+// one; the legacy chat and the DMs already put all of them in one pill.
+export function ReactionRow({ messageId, reactions, myId, onToggle, revealed = false, actions = [] }) {
   const mine = useMemo(
     () => new Set(reactions.filter((r) => r.creator_id === myId).map((r) => r.emoji)),
     [reactions, myId],
@@ -68,7 +73,29 @@ export function ReactionRow({ messageId, reactions, myId, onToggle, revealed = f
         ))}
       </AnimatePresence>
 
-      <div className="absolute right-0 top-0 z-10">
+      {/* -translate-y-1/2 for the same reason as the legacy chat and the DMs:
+          a control that sits INSIDE the corner of a bubble hides the words it
+          is offering to react to. Centred on the top edge it lives in the gap
+          between messages. */}
+      <div className="absolute right-0 top-0 z-10 flex -translate-y-1/2 items-center gap-1">
+        {actions.map((a) => (
+          <button
+            key={a.label}
+            onClick={a.onClick}
+            aria-label={a.label}
+            title={a.title || a.label}
+            className={cx(
+              'flex h-7 w-7 items-center justify-center rounded-full border border-gray-100 bg-white/95 text-smoke shadow-card backdrop-blur transition-all',
+              a.danger ? 'hover:border-red-300 hover:text-red-500' : 'hover:border-brand hover:text-brand',
+              'pointer-events-none opacity-0 focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover/msg:pointer-events-auto group-hover/msg:opacity-100',
+              (picking || revealed) && 'pointer-events-auto opacity-100',
+            )}
+          >
+            <Icon name={a.icon} className="h-3.5 w-3.5" />
+          </button>
+        ))}
+        {/* The picker is anchored to THIS button, so it stays the last child. */}
+        <div className="relative">
         <button
           onClick={() => setPicking((p) => !p)}
           aria-label="Add a reaction"
@@ -88,11 +115,15 @@ export function ReactionRow({ messageId, reactions, myId, onToggle, revealed = f
           <>
             <div className="fixed inset-0 z-20" onClick={() => setPicking(false)} />
             <ReactionPicker
+              // The button is pinned to the RIGHT edge of the message column,
+              // so a panel anchored left ran off the side of the screen.
+              align="right"
               onPick={(e) => onToggle(messageId, e)}
               onClose={() => setPicking(false)}
             />
           </>
         )}
+        </div>
       </div>
     </div>
   )

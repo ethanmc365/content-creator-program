@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useState } from 'react'
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from 'react-simple-maps'
-import { GEO_URL, loadMapCountryNames, loadMapCentroids } from '../lib/mapCountries'
+import { loadMapFeatures, loadMapCountryNames, loadMapCentroids } from '../lib/mapCountries'
 import { useIsDark } from '../lib/theme'
 import { sameCountry } from '../lib/countryFacts'
 import CountryPanel from './CountryPanel'
@@ -21,6 +21,11 @@ const BRAND = '#d94407'
 const BRAND_LIGHT = '#f5853f'
 const UNSELECTED = '#ECECEE'
 
+// A stable empty collection for the frame before the shared atlas resolves.
+// It must be the SAME object every render, or `<Geographies>` treats each render
+// as a new source and re-runs its own loading path.
+const EMPTY_GEO = { type: 'FeatureCollection', features: [] }
+
 // `owner` turns the read-only profile map into something you can ask questions
 // of. Tapping a country opens what we know about the place (flag, continent,
 // currency, what it is known for) plus the one person this map is about, with a
@@ -40,7 +45,17 @@ function WorldMap({ selected = [], onToggle, selectable = false, focusCountry = 
   const [fitPos, setFitPos] = useState(null)
   const [query, setQuery] = useState('')
   const [allNames, setAllNames] = useState([])
+  // The map's geometry, from the ONE shared parse (see lib/mapCountries). Handing
+  // `<Geographies>` an object rather than a URL is what stops every instance on
+  // the page fetching and decoding the atlas for itself.
+  const [features, setFeatures] = useState(null)
   const selectedSet = new Set(selected)
+
+  useEffect(() => {
+    let cancelled = false
+    loadMapFeatures().then((fc) => { if (!cancelled) setFeatures(fc) })
+    return () => { cancelled = true }
+  }, [])
 
   // The full country-name list for the search box, shared with the collab board.
   useEffect(() => {
@@ -211,7 +226,7 @@ function WorldMap({ selected = [], onToggle, selectable = false, focusCountry = 
             translateExtent={[[-60, -50], [940, 490]]}
             onMoveEnd={(pos) => { if (!focusCountry) setPosition(pos) }}
           >
-            <Geographies geography={GEO_URL}>
+            <Geographies geography={features || EMPTY_GEO}>
               {({ geographies }) =>
                 geographies
                   // Antarctica is huge, never visited, and wrecks the framing.

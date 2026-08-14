@@ -647,7 +647,12 @@ export default function GlobalHome() {
                 {network?.name || 'Worldwide'}
               </span>
               <h2 className="mt-5 max-w-2xl text-xl font-bold leading-tight sm:text-3xl lg:text-4xl">
-                Welcome to the Tryp.com content creator community
+                {/* NOT "Welcome to…". This card is on the hub you land on every
+                    day, and being welcomed to a place you have been a member of
+                    for six months reads as the app not knowing who you are.
+                    A title states what the place is; a greeting has to earn its
+                    place, and this one could not. */}
+                Tryp.com Content Creator Community
               </h2>
               {/* The explanation is for somebody's first week. On a phone it is
                   three lines of text a returning creator scrolls past every
