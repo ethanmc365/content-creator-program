@@ -412,3 +412,54 @@ export function estimateMinutes(km) {
   if (!km) return 0
   return Math.round(35 + (km / 820) * 60)
 }
+
+// ------------------------------------------------- everything else a route
+//                                                    already knows about itself
+//
+// WHY THESE LIVE HERE. Every one of them is a pure function of two airports and
+// a distance, which means the flight log can fill them in the moment somebody
+// picks the two ends - no typing, no lookup, no round trip. That is the whole
+// point of the rebuilt form: a person supplies where they went, and the app
+// supplies everything that follows from it.
+
+/** Initial great-circle bearing from a to b, in degrees clockwise from north. */
+export function bearing(a, b) {
+  if (!a || !b) return 0
+  const φ1 = rad(a.lat), φ2 = rad(b.lat), Δλ = rad(b.lng - a.lng)
+  const y = Math.sin(Δλ) * Math.cos(φ2)
+  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ)
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360
+}
+
+const POINTS = ['north', 'north east', 'east', 'south east', 'south', 'south west', 'west', 'north west']
+/** "north east" - the compass point a bearing falls in. */
+export const compass = (deg) => POINTS[Math.round(((deg % 360) + 360) % 360 / 45) % 8]
+
+/**
+ * Short, medium or long haul, on the thresholds the industry actually uses
+ * (roughly 1,500km and 4,000km). This is worth saying because it is the single
+ * word that tells somebody what kind of flight a row was.
+ */
+export function haul(km) {
+  if (km < 1500) return 'Short haul'
+  if (km < 4000) return 'Medium haul'
+  if (km < 11000) return 'Long haul'
+  return 'Ultra long haul'
+}
+
+/**
+ * Kilograms of CO2 for one passenger, estimated.
+ *
+ * A fixed ~11kg for the take-off and landing cycle (which is the same however
+ * far you then fly, and is why short flights are so much worse per kilometre),
+ * plus a per-km rate that falls as the aircraft spends proportionally more of
+ * its trip at efficient cruise. The rates are the DEFRA/BEIS order of magnitude
+ * for economy seating and this is presented as an estimate, never as a figure
+ * anybody should offset against - a real number needs the actual aircraft, the
+ * actual load factor and the actual cabin.
+ */
+export function co2Kg(km) {
+  if (!km) return 0
+  const perKm = km < 1500 ? 0.156 : km < 4000 ? 0.13 : 0.11
+  return Math.round(11 + km * perKm)
+}

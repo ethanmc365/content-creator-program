@@ -59,13 +59,31 @@ export const DAILY_KEYS = DAILY_PUZZLES.map((p) => p.key)
  * The two are unioned rather than one overriding the other: a play recorded
  * either place is a play.
  *
- * @returns {{ today: number, played: Set<string>, counts: Record<string, number>|null, streakDays: number[] }}
+ * TWO KINDS OF STREAK, AND BOTH ARE REAL.
+ *
+ * Ethan: "streak should be counted separate for each daily puzzle but
+ * accumulated, as in if I play just 1 game from the games every day, the streak
+ * on the card at the top will be counted."
+ *
+ *   `streakDays`      every day you played ANYTHING. This is the accumulated
+ *                     one, the number on the big card, and one puzzle a day
+ *                     keeps it - which is the promise the card has to make or
+ *                     nobody would start.
+ *   `daysByPuzzle`    the same thing per puzzle, so Flight Path can say "9 days
+ *                     in a row" about itself. A per-puzzle run is a different
+ *                     and harder thing than the overall one, which is exactly
+ *                     why it is worth showing separately rather than folding
+ *                     into a single number that hides it.
+ *
+ * @returns {{ today: number, played: Set<string>, counts: Record<string, number>|null,
+ *             streakDays: number[], daysByPuzzle: Record<string, number[]> }}
  */
 export function useDailyPuzzles(userId) {
   const [today] = useState(() => ukDayIndex())
   const [played, setPlayed] = useState(() => new Set())
   const [counts, setCounts] = useState(null)
   const [streakDays, setStreakDays] = useState([])
+  const [daysByPuzzle, setDaysByPuzzle] = useState({})
 
   useEffect(() => {
     const done = new Set()
@@ -93,8 +111,11 @@ export function useDailyPuzzles(userId) {
         .in('mode', DAILY_KEYS)
         .eq('day_key', ukDayIndex())
         .gte('created_at', ukDayStartIso()),
+      // `mode` travels with the day now, so the same one query answers both the
+      // accumulated streak and the per-puzzle ones. It was `select('day_key')`,
+      // which threw away the only thing that distinguishes them.
       userId
-        ? supabase.from('game_scores').select('day_key').eq('player_id', userId).not('day_key', 'is', null)
+        ? supabase.from('game_scores').select('mode, day_key').eq('player_id', userId).not('day_key', 'is', null)
         : Promise.resolve({ data: [] }),
     ]).then(([{ data: rows }, { data: mine }]) => {
       if (!alive) return
@@ -113,9 +134,13 @@ export function useDailyPuzzles(userId) {
       setCounts(tally)
       if (done.size) setPlayed((cur) => new Set([...cur, ...done]))
       setStreakDays([...new Set((mine || []).map((m) => m.day_key))])
+      const perPuzzle = {}
+      for (const k of DAILY_KEYS) perPuzzle[k] = new Set()
+      for (const m of mine || []) if (perPuzzle[m.mode]) perPuzzle[m.mode].add(m.day_key)
+      setDaysByPuzzle(Object.fromEntries(DAILY_KEYS.map((k) => [k, [...perPuzzle[k]]])))
     })
     return () => { alive = false }
   }, [userId, today])
 
-  return { today, played, counts, streakDays }
+  return { today, played, counts, streakDays, daysByPuzzle }
 }

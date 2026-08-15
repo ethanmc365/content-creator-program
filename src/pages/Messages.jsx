@@ -1193,7 +1193,7 @@ export default function Messages() {
                           )}
                           {m.image_url && (
                             imageSrc ? (
-                              <ChatMedia url={imageSrc} kind={isVid ? 'video' : 'image'} alt={m.body || 'Shared image'} maxW={240} maxH={360} />
+                              <ChatMedia url={imageSrc} kind={isVid ? 'video' : 'image'} alt={m.body || 'Shared image'} />
                             ) : (
                               <div className="flex h-40 w-56 items-center justify-center rounded-xl bg-cloud"><Spinner /></div>
                             )
@@ -1457,7 +1457,21 @@ export default function Messages() {
         kind="dm"
         messageId={reporting?.id}
         authorName={reporting ? reactorName(reporting.sender_id) : ''}
-        preview={reporting ? dmPreview(reporting) : ''}
+        authorPhoto={reporting
+          ? (reporting.sender_id === active?.other?.id ? active?.other?.photo_url : memberById.get(reporting.sender_id)?.photo_url)
+          : null}
+        sentAt={reporting?.created_at}
+        preview={reporting?.body || ''}
+        // DM media lives in the PRIVATE dm-media bucket, so the stored value is
+        // a path and only a short-lived signed URL will render. Hand the
+        // snapshot whatever we have already signed for the thread; if it has
+        // expired or was never signed, the card falls back to "this was a
+        // photo" rather than a broken image. Both photos and videos are stored
+        // in `image_url` here; `mediaType` is what tells them apart.
+        imageUrl={reporting?.image_url && mediaType(reporting.image_url) !== 'video'
+          ? (isSignedDmPath(reporting.image_url) ? signedUrls.get(reporting.image_url) : reporting.image_url)
+          : null}
+        videoUrl={reporting?.image_url && mediaType(reporting.image_url) === 'video' ? reporting.image_url : null}
         onClose={() => setReporting(null)}
       />
 

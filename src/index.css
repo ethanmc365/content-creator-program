@@ -200,12 +200,43 @@
      answer, and an inline background is the one thing the dark layer at the end
      of this file cannot reach - which is exactly how the board came out as a
      sheet of cream floating on a near-black page. */
+  /* ---- The community board's surface ---------------------------------
+     THE BOARD IS ORANGE-TINTED NOW, NOT BROWN.
+     It was `#faf7f3` grained with `rgba(160,130,100,…)`, which is a cork
+     board rendered politely - a warm BROWN, the one hue this product does
+     not have. On a page that is white with one orange on it, a brown panel
+     is the loudest thing on screen and it belongs to a different app.
+     Ethan: "the current design doesn't match the platform colours and
+     aesthetics."
+     So the paper is a barely-there brand tint and the grain is the brand
+     orange at very low alpha - the same trick, in the palette the rest of
+     the product is built from. The weave is finer (2px/5px was visible as
+     stripes at close range; 1px/4px reads as texture). */
   .board-surface {
-    background-color: #faf7f3;
+    background-color: #fdfaf8;
     background-image:
-      repeating-linear-gradient(45deg, rgba(160, 130, 100, 0.045) 0 2px, transparent 2px 5px),
-      repeating-linear-gradient(-45deg, rgba(160, 130, 100, 0.035) 0 2px, transparent 2px 6px);
-    box-shadow: inset 0 1px 3px rgba(90, 70, 50, 0.09);
+      repeating-linear-gradient(45deg, rgba(217, 68, 7, 0.035) 0 1px, transparent 1px 4px),
+      repeating-linear-gradient(-45deg, rgba(217, 68, 7, 0.028) 0 1px, transparent 1px 5px),
+      radial-gradient(120% 80% at 50% 0%, rgba(245, 133, 63, 0.10), transparent 60%);
+    box-shadow: inset 0 1px 3px rgba(120, 60, 20, 0.07);
+  }
+  /* Full bleed on a phone. A board is a WALL, and a wall inside a rounded
+     card with page gutters either side is a poster of a wall. Ethan: "the
+     entire screen should be the pinboard, not a separate big card." The
+     negative margins cancel the page's own horizontal padding, and the
+     corner radius only comes back when there is room for the page to have
+     margins worth respecting.
+     NetworkLayout pads the page `px-4` below `sm`, so -1rem is exactly that
+     back off again. Hard-coded rather than a variable because there is one
+     layout this page renders inside and inventing a token for a single call
+     site is a token that will drift from the layout it describes. */
+  .board-bleed {
+    margin-left: -1rem;
+    margin-right: -1rem;
+    border-radius: 0;
+  }
+  @media (min-width: 640px) {
+    .board-bleed { margin-left: 0; margin-right: 0; border-radius: 1rem; }
   }
 
   /* Checklists: a tappable box drawn before each item; JS toggles data-checked. */
@@ -575,11 +606,15 @@ html[data-theme='dark'] .text-amber-800 { color: #fbbf24; }
    as a surface rather than as a panel - but at dark-canvas weights, and the
    base is a warm near-black rather than the same grey as every card, so the
    notes still look like they are ON something. */
+/* The dark twin of the redesigned board. Same fine weave, same top-lit wash -
+   an INLINE background is the one thing the utility remaps above cannot reach,
+   so any change to `.board-surface` has to be made twice or the two drift. */
 html[data-theme='dark'] .board-surface {
   background-color: #131211;
   background-image:
-    repeating-linear-gradient(45deg, rgba(245, 133, 63, 0.05) 0 2px, transparent 2px 5px),
-    repeating-linear-gradient(-45deg, rgba(245, 133, 63, 0.035) 0 2px, transparent 2px 6px);
+    repeating-linear-gradient(45deg, rgba(245, 133, 63, 0.05) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(-45deg, rgba(245, 133, 63, 0.035) 0 1px, transparent 1px 5px),
+    radial-gradient(120% 80% at 50% 0%, rgba(245, 133, 63, 0.07), transparent 60%);
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 /* btn-danger inlines its properties via @apply, so the utility remaps above

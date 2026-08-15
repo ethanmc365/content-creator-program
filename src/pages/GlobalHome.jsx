@@ -205,6 +205,40 @@ function NetworkLinkRow({ link, count, isNew, handleProps, dragging }) {
   )
 }
 
+// ONE OF YOUR OWN NUMBERS, ON THE WELCOME CARD, AS A DOOR.
+//
+// Module scope, not nested inside the page: a component declared during render
+// is a new type every render, which unmounts and remounts every chip on any
+// state change (the trap that made the collab board's maps reload - see
+// Collab.jsx).
+//
+// Two shapes, one component. `value` + `label` is a figure ("7 videos posted");
+// `text` alone is a prompt for somebody who has no figure yet ("Play today's
+// puzzles"). Both are links, because a statistic you cannot act on is a
+// decoration, and on this card there is room for exactly one kind of thing.
+//
+// A null value renders a dash rather than a zero. Nothing has loaded yet is not
+// the same claim as you have done none of these, and the second one is a
+// discouraging thing to say to somebody by accident.
+function MineChip({ to, icon, value = undefined, label, text }) {
+  return (
+    <Link
+      to={to}
+      className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-xs font-medium text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/25"
+    >
+      <Icon name={icon} className="h-3.5 w-3.5 shrink-0 text-white/80" />
+      {text ? (
+        <span>{text}</span>
+      ) : (
+        <span>
+          <span className="font-bold tabular-nums">{value == null ? '—' : value.toLocaleString('en-GB')}</span>
+          {' '}<span className="text-white/80">{label}</span>
+        </span>
+      )}
+    </Link>
+  )
+}
+
 export default function GlobalHome() {
   const { profile, session } = useAuth()
   const { network, chapters, myChapters, myCommunities, isGlobalAdmin, error } = useCommunity()
@@ -285,6 +319,7 @@ export default function GlobalHome() {
         supabase.from('collab_posts').select('creator_id, city, country, start_date, end_date')
           .gte('end_date', today).order('start_date'),
       ])
+
       if (cancelled) return
       const tally = {}
       for (const m of mems || []) tally[m.community_id] = (tally[m.community_id] || 0) + 1
@@ -336,6 +371,54 @@ export default function GlobalHome() {
     return () => { cancelled = true }
   }, [session?.user?.id, profile?.resources_seen_at, networkId])
 
+  // ---- The numbers on the welcome card ------------------------------------
+  //
+  // The card used to carry a paragraph explaining that the network is one
+  // community, which is a thing you need told once and then scroll past every
+  // day for six months. Ethan asked for it gone and for the space to hold
+  // something a creator can actually use instead. So the card now answers two
+  // questions: what has this community done, and where am I in it.
+  //
+  // ITS OWN EFFECT, NOT THE PAGE'S LOAD. Everything below the greeting is gated
+  // on `d`, so folding four more counts into that Promise.all would hold the
+  // whole article back for numbers that are decoration on one card. This runs
+  // beside it and the card renders its em-dashes until it lands - which is safe
+  // here, unlike the "Live now" empty state, because a dash becoming a number
+  // changes nothing about the layout and makes no claim in the meantime.
+  const [me, setMe] = useState(null)
+  useEffect(() => {
+    const uid = session?.user?.id
+    if (!uid) return undefined
+    let cancelled = false
+    Promise.all([
+      supabase.from('submissions').select('id', { count: 'exact', head: true }),
+      supabase.from('submissions').select('id', { count: 'exact', head: true }).eq('creator_id', uid),
+      // The whole board, which is one row per creator who has ever scored - a
+      // few dozen. Asking the server for "my rank" would be a window function
+      // in a new RPC to save downloading two kilobytes.
+      supabase.from('network_standings').select('creator_id, points').order('points', { ascending: false }),
+      // Connections are DIRECTIONAL rows, so being connected to somebody is a
+      // row in one direction or the other. Counting only `creator_id = me`
+      // would show roughly half of anybody's real network.
+      supabase.from('connections').select('id', { count: 'exact', head: true })
+        .eq('status', 'accepted').or(`creator_id.eq.${uid},connected_creator_id.eq.${uid}`),
+    ]).then(([{ count: videos }, { count: myVideos }, { data: standings }, { count: myConns }]) => {
+      if (cancelled) return
+      const idx = (standings || []).findIndex((s) => s.creator_id === uid)
+      setMe({
+        videos: videos ?? 0,
+        myVideos: myVideos ?? 0,
+        connections: myConns ?? 0,
+        points: idx >= 0 ? Math.round(Number(standings[idx].points) || 0) : 0,
+        // Rank is only honest once you are ON the board. Somebody with no
+        // points is not last, they have not started - so they get no rank.
+        rank: idx >= 0 ? idx + 1 : null,
+        ranked: (standings || []).length,
+      })
+    })
+    return () => { cancelled = true }
+  }, [session?.user?.id])
+
   if (error) {
     return (
       <NetworkLayout>
@@ -386,11 +469,24 @@ export default function GlobalHome() {
   // section that is not there does not consume a step. Reset every render, so
   // it is a pure function of this pass.
   //
-  // Capped: past a handful of steps a head start stops being a head start and
-  // becomes a wait, and everything below the fold is separated in time by the
-  // act of scrolling to it anyway.
+  // AND IT STOPS, RATHER THAN FLATTENING OUT.
+  //
+  // It was `Math.min(step++, 5) * 0.05`, which does not cap the ladder so much
+  // as make every section past the fifth carry a permanent 250ms delay. That is
+  // exactly backwards from what the comment above it promised ("sections
+  // further down pass 0"): the sections a reader SCROLLS to are the ones that
+  // must start the instant they are asked to, because scrolling has already
+  // separated them in time and a quarter of a second of nothing on top of a
+  // 720ms transition is the pause Ethan saw before Daily puzzles and the map.
+  //
+  // So the head start applies to the handful of sections that share the first
+  // frame, and everything after it is zero.
+  const LADDER_STEPS = 4
   let step = 0
-  const stepDelay = () => Math.min(step++, 5) * 0.05
+  const stepDelay = () => {
+    const i = step++
+    return i < LADDER_STEPS ? i * 0.05 : 0
+  }
 
   const rail = (
     <>
@@ -646,42 +742,93 @@ export default function GlobalHome() {
                 <Icon name="globe" className="h-3.5 w-3.5" />
                 {network?.name || 'Worldwide'}
               </span>
-              <h2 className="mt-5 max-w-2xl text-xl font-bold leading-tight sm:text-3xl lg:text-4xl">
-                {/* NOT "Welcome to…". This card is on the hub you land on every
-                    day, and being welcomed to a place you have been a member of
-                    for six months reads as the app not knowing who you are.
-                    A title states what the place is; a greeting has to earn its
-                    place, and this one could not. */}
+              {/* ONE LINE, AND THEN STRAIGHT TO THE NUMBERS.
+                  NOT "Welcome to…". This card is on the hub you land on every
+                  day, and being welcomed to a place you have been a member of
+                  for six months reads as the app not knowing who you are.
+                  A title states what the place is.
+
+                  The paragraph that used to sit under it - "One community
+                  across every market. Your connections, messages, the map and
+                  the daily game live here and are never split by country" - was
+                  an explanation for somebody's first week, occupying prime
+                  space on a page a returning creator opens daily. Ethan cut it,
+                  and the type stepped down a size so the title itself holds one
+                  line instead of two. What it bought is the row below. */}
+              {/* `sm:whitespace-nowrap`, not `whitespace-nowrap`. Thirty-four
+                  characters cannot hold one line inside a 375px card at any
+                  size a heading is allowed to be, and forcing it there would
+                  push the text out of the card rather than wrap it. From `sm`
+                  up there is room, so that is where the promise is made. */}
+              <h2 className="mt-4 text-lg font-bold leading-tight sm:whitespace-nowrap sm:text-2xl lg:text-3xl">
                 Tryp.com Content Creator Community
               </h2>
-              {/* The explanation is for somebody's first week. On a phone it is
-                  three lines of text a returning creator scrolls past every
-                  single day, so it earns its place only where the space is
-                  free. */}
-              <p className="mt-3 hidden max-w-xl text-white/85 sm:block">
-                One community across every market. Your connections, messages, the map and the daily game live here and are never split by country.
-              </p>
-              {/* Counting up, once, when the card is first seen. A number that
+
+              {/* WHAT THE COMMUNITY HAS DONE.
+                  Counting up, once, when the card is first seen. A number that
                   moves reads as a quantity that grows, which is the one thing
-                  this card is trying to say. */}
-              <div className="mt-6 flex flex-wrap items-center gap-x-8 gap-y-4 sm:mt-8 sm:gap-x-10">
-                {/* TWO NUMBERS, NOT THREE. "Nations" was a count of distinct
-                    `country_code` values on active profiles, and that column is
-                    only ever filled in by onboarding - so for most of the
-                    roster it is null and the card said "0 Nations" underneath
-                    two real numbers. A stat that is wrong is worse than a stat
-                    that is missing, and the card reads cleaner with two. */}
+                  this row is trying to say.
+
+                  "Nations" used to be here and was removed: it counted distinct
+                  `country_code` values on active profiles, a column only
+                  onboarding ever fills, so for most of the roster it was null
+                  and the card said "0 Nations" beside two real numbers. The
+                  countries figure here is a different thing and an honest one -
+                  every country anybody in the community has actually BEEN to,
+                  off `countries_visited`, which is the same set the creator map
+                  colours in. */}
+              <div className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 sm:mt-7 sm:flex sm:flex-wrap sm:items-start sm:gap-x-10">
                 {[
-                  { n: d?.creators, label: 'Creators worldwide' },
-                  { n: openMarkets.length, label: 'Markets open' },
+                  { n: d?.creators, label: 'Creators worldwide', hint: 'across every market' },
+                  { n: openMarkets.length, label: 'Markets open', hint: 'and more on the way' },
+                  { n: me?.videos, label: 'Videos posted', hint: 'to challenges so far' },
+                  { n: d ? d.visited.length : null, label: 'Countries reached', hint: 'between all of us' },
                 ].map((s) => (
                   <div key={s.label}>
                     <p className="text-2xl font-bold sm:text-3xl">
                       {s.n == null ? '—' : <CountUp value={s.n} />}
                     </p>
-                    <p className="text-xs font-medium uppercase tracking-widest text-white/70">{s.label}</p>
+                    <p className="text-[11px] font-medium uppercase tracking-widest text-white/70 sm:text-xs">{s.label}</p>
+                    <p className="mt-0.5 hidden text-[11px] text-white/55 lg:block">{s.hint}</p>
                   </div>
                 ))}
+              </div>
+
+              {/* AND THEN THE SAME QUESTION ABOUT YOU.
+                  A number about the community is social proof; a number about
+                  your own week is the one that decides whether you open the app
+                  tomorrow. Each is a LINK to the place you would go to change
+                  it, because a statistic you cannot act on is a decoration.
+
+                  Points only appear once you are on the board. "0 points, rank
+                  —" tells a new creator they are losing a game they have not
+                  been told the rules of; "Earn your first points" is the same
+                  fact as an invitation. */}
+              {/* THE CHIPS RESERVE THE PLANE'S CORNER.
+                  `TrypPlane variant="hero"` is absolutely positioned in the
+                  bottom-right of this card, so a wrapping row of chips runs
+                  underneath it - the same trap LiveChallengeCard hit, where the
+                  fix was to reserve the space on the ONE element that needs it
+                  rather than padding the whole column. The divider still spans
+                  the full width; only the chips stop short. */}
+              <div className="mt-6 border-t border-white/20 pt-4 sm:mt-7">
+                <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-widest text-white/60">Your year so far</p>
+                <div className="flex flex-wrap gap-2 lg:max-w-[calc(100%-17rem)]">
+                  <MineChip to="/challenges" icon="video"
+                    value={me ? me.myVideos : null}
+                    label={me?.myVideos === 1 ? 'video posted' : 'videos posted'} />
+                  <MineChip to="/connections" icon="users"
+                    value={me ? me.connections : null}
+                    label={me?.connections === 1 ? 'connection' : 'connections'} />
+                  {me?.rank ? (
+                    <MineChip to="/leaderboard" icon="trophy" value={me.points}
+                      label={`points · #${me.rank} of ${me.ranked}`} />
+                  ) : (
+                    <MineChip to="/challenges" icon="trophy" text="Earn your first points" />
+                  )}
+                  <MineChip to="/game" icon="joystick" text="Play today's puzzles" />
+                  <MineChip to="/collab" icon="pin" text="Post where you are headed" />
+                </div>
               </div>
             </div>
           </section>
@@ -817,7 +964,14 @@ export default function GlobalHome() {
                   the page hitch a second after it appeared. It waits until it
                   is nearly on screen; the skeleton holds its height so nothing
                   jumps when it arrives. */}
-              <WhenVisible fallback={<Skeleton className="h-72" />}>
+              {/* A FULL SCREEN OF LEAD TIME, not 400px.
+                  The default margin was close enough to Reveal's own trigger
+                  that the atlas was being parsed on the same frames as this
+                  section's entrance transition - so the section arrived, and
+                  then stuttered. A thousand pixels puts the parse a whole
+                  screen ahead of the reader, which is far enough that the work
+                  is finished before the motion starts. */}
+              <WhenVisible rootMargin="1000px" fallback={<Skeleton className="h-72" />}>
                 {d
                   ? <CreatorMap creators={d.mapPeople} trips={d.mapTrips} myId={session?.user?.id} />
                   : <Skeleton className="h-72" />}

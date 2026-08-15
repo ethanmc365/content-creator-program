@@ -4,6 +4,9 @@ import { format } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Avatar, Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../components/ui'
+import { notice } from '../lib/confirm'
+import { toast } from '../lib/toast'
+import { cx } from '../lib/utils'
 import Icon from '../components/Icon'
 import WorldMap from '../components/WorldMap'
 import CreatorMap from '../components/CreatorMap'
@@ -134,7 +137,11 @@ export default function Collab() {
   const { user, isAdmin, profile } = useAuth()
   const navigate = useNavigate()
   const [posts, setPosts] = useState(null)
-  const [interests, setInterests] = useState({ count: new Map(), mine: new Set() })
+  const [interests, setInterests] = useState({ count: new Map(), mine: new Set(), rows: [] })
+  // The "why" dialog. Holds the post being expressed interest in, or null.
+  const [interestFor, setInterestFor] = useState(null)
+  const [interestNote, setInterestNote] = useState('')
+  const [sendingInterest, setSendingInterest] = useState(false)
   const [posting, setPosting] = useState(false)
   const [expanded, setExpanded] = useState(false) // show all upcoming trips vs the first 6
   // "Who's travelling now" map data: creators currently mid-trip, with their
@@ -157,18 +164,25 @@ export default function Collab() {
 
   async function load() {
     const today = todayYmd()
-    const [{ data }, { data: ints }] = await Promise.all([
+    const [{ data }, { data: ints }, { data: tallies }] = await Promise.all([
       supabase.from('collab_posts').select('*, profiles:creator_id(id, name, photo_url)').order('start_date', { ascending: true }).limit(300),
-      supabase.from('collab_interests').select('post_id, creator_id'),
+      // ONLY THE ROWS THAT ARE ABOUT ME NOW. Migration 099 made an interest
+      // private to the person who sent it and the person whose trip it is,
+      // because it carries a note somebody wrote to one reader. So this returns
+      // the ones I sent and the ones sent to me, and nothing else.
+      supabase.from('collab_interests')
+        .select('id, post_id, creator_id, message, acknowledged_at, created_at, profiles:creator_id(id, name, photo_url)')
+        .order('created_at', { ascending: false }),
+      // …and the public count comes from a definer function that returns post
+      // ids and numbers, which is all a card needs to say "3 interested".
+      supabase.rpc('collab_interest_counts'),
     ])
     setPosts((data ?? []).map((p) => ({ ...p, isPast: p.end_date < today })))
     const count = new Map()
+    for (const t of tallies ?? []) count.set(t.post_id, Number(t.n) || 0)
     const mine = new Set()
-    for (const i of ints ?? []) {
-      count.set(i.post_id, (count.get(i.post_id) || 0) + 1)
-      if (i.creator_id === user.id) mine.add(i.post_id)
-    }
-    setInterests({ count, mine })
+    for (const i of ints ?? []) if (i.creator_id === user.id) mine.add(i.post_id)
+    setInterests({ count, mine, rows: ints ?? [] })
 
     // Who is on the move: mid-trip today, OR leaving within the next three
     // months. It used to be only the first, which on a normal Tuesday is two
@@ -248,6 +262,32 @@ export default function Collab() {
     return out.sort((a, b) => b.days - a.days)
   }, [upcoming, user.id, countryNames])
 
+  // The two-sided list under the map: every interest that is about ME, on a
+  // trip that has not already happened, with the OTHER person resolved so the
+  // card can say who it is without asking which side of it you are on.
+  //
+  // Sorted so the ones needing something from you come first: an unacknowledged
+  // message somebody sent you is the only row on this page with an action still
+  // owed on it.
+  const meetups = useMemo(() => {
+    const byId = new Map((posts ?? []).map((p) => [p.id, p]))
+    return (interests.rows ?? [])
+      .map((row) => {
+        const post = byId.get(row.post_id)
+        if (!post || post.isPast) return null
+        const incoming = post.creator_id === user.id
+        // Outgoing rows carry no `profiles` join for the trip owner, and
+        // incoming ones carry the sender's - so the other person is whichever
+        // of the two this row is not about.
+        const person = incoming ? row.profiles : post.profiles
+        return { row, post, incoming, person }
+      })
+      .filter(Boolean)
+      .sort((a, b) =>
+        (b.incoming && !b.row.acknowledged_at) - (a.incoming && !a.row.acknowledged_at)
+        || String(b.row.created_at).localeCompare(String(a.row.created_at)))
+  }, [interests.rows, posts, user.id])
+
   const boardCountries = useMemo(() => {
     const set = new Set()
     for (const p of filteredUpcoming) { const c = canonicalCountry(p.country, countryNames); if (c) set.add(c) }
@@ -318,21 +358,68 @@ export default function Collab() {
     load()
   }
 
-  // Not a `useCallback`: it genuinely depends on the current interest set, and
-  // a card re-rendering when its own interest count changes is correct. What
-  // must not happen is the MAP re-rendering, and that is held by the memoised
-  // `selected` array inside the card plus WorldMap's own memo.
+  // PRESSING "I'M INTERESTED" ASKS WHY, RATHER THAN JUST COUNTING YOU.
+  //
+  // It used to be a toggle that inserted a row and fired a notification saying
+  // somebody was interested, which left the trip owner with a bell and no way
+  // to do anything about it, and the sender with no way to say the one thing
+  // that would have made it useful ("I am in Lisbon those exact dates"). Ethan:
+  // "the I'm interested button does seemingly nothing, just sends a
+  // notification. I think when you press I'm interested you should fill in a
+  // little popup to say why."
+  //
+  // Pressing it when you have ALREADY said so still withdraws it, with no
+  // dialog: taking something back should be one press.
   const toggleInterest = async (postId) => {
-    const has = interests.mine.has(postId)
+    if (interests.mine.has(postId)) {
+      setInterests((prev) => {
+        const mine = new Set(prev.mine)
+        const count = new Map(prev.count)
+        mine.delete(postId)
+        count.set(postId, Math.max(0, (count.get(postId) || 1) - 1))
+        return { ...prev, count, mine, rows: prev.rows.filter((r) => !(r.post_id === postId && r.creator_id === user.id)) }
+      })
+      await supabase.from('collab_interests').delete().eq('post_id', postId).eq('creator_id', user.id)
+      return
+    }
+    setInterestNote('')
+    setInterestFor((posts ?? []).find((p) => p.id === postId) || null)
+  }
+
+  async function sendInterest(e) {
+    e.preventDefault()
+    if (!interestFor || sendingInterest) return
+    setSendingInterest(true)
+    const postId = interestFor.id
+    const { data, error: insErr } = await supabase
+      .from('collab_interests')
+      .insert({ post_id: postId, creator_id: user.id, message: interestNote.trim() || null })
+      .select('id, post_id, creator_id, message, acknowledged_at, created_at')
+      .single()
+    setSendingInterest(false)
+    if (insErr) { notice('Could not send that. Please try again.'); return }
     setInterests((prev) => {
       const mine = new Set(prev.mine)
       const count = new Map(prev.count)
-      if (has) { mine.delete(postId); count.set(postId, Math.max(0, (count.get(postId) || 1) - 1)) }
-      else { mine.add(postId); count.set(postId, (count.get(postId) || 0) + 1) }
-      return { count, mine }
+      mine.add(postId)
+      count.set(postId, (count.get(postId) || 0) + 1)
+      return {
+        count,
+        mine,
+        rows: [{ ...data, profiles: { id: user.id, name: profile?.name, photo_url: profile?.photo_url } }, ...prev.rows],
+      }
     })
-    if (has) await supabase.from('collab_interests').delete().eq('post_id', postId).eq('creator_id', user.id)
-    else await supabase.from('collab_interests').insert({ post_id: postId, creator_id: user.id })
+    setInterestFor(null)
+    toast('Sent. They will see it on their board and in their notifications.')
+  }
+
+  async function acknowledge(interestId) {
+    setInterests((prev) => ({
+      ...prev,
+      rows: prev.rows.map((r) => (r.id === interestId ? { ...r, acknowledged_at: new Date().toISOString() } : r)),
+    }))
+    const { error: ackErr } = await supabase.rpc('acknowledge_collab_interest', { p_interest: interestId })
+    if (ackErr) { notice('Could not mark that as seen.'); load() }
   }
 
   // Open (or create) the 1:1 conversation with a poster, then jump into it.
@@ -506,6 +593,87 @@ export default function Collab() {
       )}
 
 
+      {/* ---- Meet-ups in the making ----
+          DIRECTLY UNDER THE MAP, FOR BOTH SIDES, which is where Ethan asked for
+          it: "it will appear on the top of the collab board page under the map
+          for both you that sent it and the creator."
+
+          This is the half of "I'm interested" that was missing. The button used
+          to insert a row and send a notification, and a notification is a thing
+          that scrolls away - so the sender had no record of having asked and the
+          trip owner had nothing to act on. Here both people see the same
+          exchange from their own side: what was said, whether it has been
+          acknowledged, and a DM button, which is where an actual meet-up gets
+          arranged. Acknowledging is deliberately a light touch ("seen") rather
+          than a yes or a no: the answer is the conversation, not a status. */}
+      {meetups.length > 0 && (
+        <section className="mb-10">
+          <h2 className="flex items-center gap-2 text-lg font-semibold">
+            <Icon name="users" className="h-5 w-5 text-brand" />
+            Meet-ups in the making
+          </h2>
+          <p className="mb-4 mt-1 text-sm text-smoke">
+            Interest you have sent and interest people have sent you. Only the two of you can see the note.
+          </p>
+          <div className="grid gap-3 lg:grid-cols-2">
+            {meetups.map(({ row, post, incoming, person }) => (
+              <div
+                key={row.id}
+                className={cx(
+                  'rounded-card border bg-white p-4 shadow-card',
+                  incoming && !row.acknowledged_at ? 'border-brand/40' : 'border-gray-100',
+                )}
+              >
+                <div className="flex items-start gap-3">
+                  <Avatar src={person?.photo_url} name={person?.name} size="sm" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold leading-snug">
+                      {incoming
+                        ? <>{person?.name || 'Someone'} wants to meet you in {post?.city}</>
+                        : <>You asked to meet {person?.name || 'them'} in {post?.city}</>}
+                    </p>
+                    <p className="mt-0.5 text-xs text-smoke">
+                      {post ? fmtRange(post.start_date, post.end_date) : ''}
+                      {post?.country ? ` · ${post.country}` : ''}
+                    </p>
+                  </div>
+                  <span
+                    className={cx(
+                      'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
+                      row.acknowledged_at ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-800',
+                    )}
+                  >
+                    {row.acknowledged_at ? 'Seen' : incoming ? 'New' : 'Waiting'}
+                  </span>
+                </div>
+
+                {row.message && (
+                  <p className="mt-3 whitespace-pre-wrap rounded-xl border-l-2 border-brand/40 bg-brand-tint/20 px-3 py-2 text-sm leading-relaxed text-ink [overflow-wrap:anywhere]">
+                    {row.message}
+                  </p>
+                )}
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {incoming && !row.acknowledged_at && (
+                    <button onClick={() => acknowledge(row.id)} className="btn-secondary !py-2 !px-4 text-xs">
+                      <Icon name="check" className="h-4 w-4" /> Mark as seen
+                    </button>
+                  )}
+                  <button onClick={() => message(person?.id)} className="btn-primary !py-2 !px-4 text-xs">
+                    Message {person?.name?.split(' ')[0] || 'them'}
+                  </button>
+                  {!incoming && (
+                    <button onClick={() => toggleInterest(row.post_id)} className="btn-ghost !py-2 !px-4 text-xs">
+                      Withdraw
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* ---- Filters ---- */}
       {upcoming.length > 0 && (
         <div className="mb-6 flex flex-wrap items-center gap-3">
@@ -570,6 +738,49 @@ export default function Collab() {
           </Reveal>
         </section>
       )}
+
+      {/* ---- Why you are interested ----
+          A NOTE, NOT A FORM. One field, optional, with a placeholder that says
+          what a useful one contains. Making it required would turn a one-tap
+          gesture into a task and fewer people would do it at all; leaving it
+          out entirely is what the button used to do and the reason it read as
+          doing nothing. */}
+      <Modal open={!!interestFor} onClose={() => setInterestFor(null)} title="Say why" sheet={false}>
+        <form onSubmit={sendInterest} className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">
+              Meeting {interestFor?.profiles?.name?.split(' ')[0] || 'them'} in {interestFor?.city}
+            </h2>
+            <p className="mt-1 text-sm text-smoke">
+              {interestFor ? fmtRange(interestFor.start_date, interestFor.end_date) : ''}
+              {' · '}They will see this on their board and in their notifications. Nobody else can read it.
+            </p>
+          </div>
+          <div>
+            <label htmlFor="interest-note" className="label">
+              What have you got in mind? <span className="font-normal text-smoke">(optional)</span>
+            </label>
+            <textarea
+              id="interest-note"
+              className="input min-h-[110px]"
+              maxLength={400}
+              autoFocus
+              value={interestNote}
+              onChange={(e) => setInterestNote(e.target.value)}
+              placeholder="I'm in Lisbon the same week. Fancy shooting a couple of reels around Alfama, or just a coffee?"
+            />
+            <p className="mt-1 text-xs text-smoke">
+              The dates and where you are both going are already on the card. This is for the part they cannot guess.
+            </p>
+          </div>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button type="button" onClick={() => setInterestFor(null)} className="btn-ghost w-full justify-center sm:w-auto">Cancel</button>
+            <button type="submit" disabled={sendingInterest} className="btn-primary w-full justify-center sm:w-auto">
+              {sendingInterest ? <Spinner /> : 'Send it'}
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       {/* ---- Edit trip modal (own post, or any post for admins) ---- */}
       <Modal open={!!editing} onClose={() => setEditing(null)} title="Edit trip">

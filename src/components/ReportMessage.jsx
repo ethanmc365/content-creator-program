@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Modal, Spinner } from './ui'
+import { Avatar, Modal, Spinner } from './ui'
 import Icon from './Icon'
 import { REPORT_REASONS, reportMessage } from '../lib/messageActions'
-import { cx } from '../lib/utils'
+import { cx, formatMessageTime } from '../lib/utils'
 
 // "Report this message", for every chat.
 //
@@ -21,7 +21,70 @@ import { cx } from '../lib/utils'
 // sent once and never again, so the card is explicit: a person reads it, the
 // author is not told who reported them, and nothing about the message changes
 // in the meantime.
-export default function ReportMessage({ open, onClose, kind, messageId, authorName, preview, onDone }) {
+// WHAT IS BEING REPORTED HAS TO BE LEGIBLE.
+//
+// The snapshot used to be `line-clamp-3` on 12px grey text with no attribution:
+// a three-line grey stub of the thing you are about to accuse somebody of.
+// Ethan: "when it shows the snapshot of the message it doesn't show it all
+// clearly and it's kind of cut off." Two things were wrong with it and both
+// matter for the same reason - a report is only useful if the reporter is sure
+// they picked the right message.
+//
+//   * IT WAS CUT OFF WITH NO WAY TO SEE THE REST. A clamp hides text and says
+//     nothing about hiding it. It is a SCROLLING box now, capped at a sensible
+//     height, so a long message is all there and visibly all there.
+//   * IT DID NOT SAY WHOSE IT WAS. The name was in the paragraph above and the
+//     quote was anonymous, which on a fast-moving room is exactly how you
+//     report the reply instead of the thing it replied to. The snapshot is a
+//     real message card now: face, name, time, then the words, at readable
+//     size, with a thumbnail when the message was a photo or a video.
+function MessageSnapshot({ authorName, authorPhoto, sentAt, body, imageUrl, videoUrl }) {
+  const hasMedia = !!(imageUrl || videoUrl)
+  if (!body && !hasMedia) return null
+  return (
+    <figure className="mt-4 overflow-hidden rounded-xl border border-gray-200 bg-cloud/50">
+      <figcaption className="flex items-center gap-2 border-b border-gray-200/70 px-3 py-2">
+        <Avatar src={authorPhoto} name={authorName} size="xs" />
+        <span className="min-w-0 truncate text-xs font-semibold text-ink">{authorName || 'This message'}</span>
+        {sentAt && <span className="ml-auto shrink-0 text-[11px] text-smoke">{formatMessageTime(sentAt)}</span>}
+      </figcaption>
+      <div className="px-3 py-2.5">
+        {body && (
+          // SCROLLS, NEVER CLAMPS. `max-h` plus `overflow-y-auto` shows as much
+          // as fits and lets the reporter read the rest; `whitespace-pre-wrap`
+          // keeps the line breaks the author actually typed, because a message
+          // reflowed into one paragraph can read very differently from the one
+          // that was sent.
+          <p className="max-h-40 overflow-y-auto overscroll-contain whitespace-pre-wrap break-words text-[13px] leading-relaxed text-ink [overflow-wrap:anywhere]">
+            {body}
+          </p>
+        )}
+        {hasMedia && (
+          <div className={cx('flex items-center gap-2.5', body && 'mt-2.5 border-t border-gray-200/70 pt-2.5')}>
+            {imageUrl ? (
+              // Contained, not cropped, for the same reason the chat bubble
+              // stopped cropping: a report about a photo needs the photo.
+              <img src={imageUrl} alt="" className="h-20 w-20 shrink-0 rounded-lg bg-white object-contain ring-1 ring-black/5" />
+            ) : (
+              <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-white text-smoke ring-1 ring-black/5">
+                <Icon name="video" className="h-6 w-6" />
+              </span>
+            )}
+            <span className="text-xs text-smoke">
+              {imageUrl ? 'This message was a photo.' : 'This message was a video.'}
+              {' '}The team can open the original.
+            </span>
+          </div>
+        )}
+      </div>
+    </figure>
+  )
+}
+
+export default function ReportMessage({
+  open, onClose, kind, messageId, authorName, authorPhoto, sentAt,
+  preview, imageUrl, videoUrl, onDone,
+}) {
   const [reason, setReason] = useState('')
   const [details, setDetails] = useState('')
   const [busy, setBusy] = useState(false)
@@ -56,7 +119,7 @@ export default function ReportMessage({ open, onClose, kind, messageId, authorNa
           <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-green-50 text-green-700">
             <Icon name="check" className="h-6 w-6" />
           </span>
-          <h2 className="text-lg font-semibold">Thanks, that is with the team</h2>
+          <p className="text-base font-semibold">Thanks, that is with the team</p>
           <p className="mx-auto mt-2 max-w-sm text-sm text-smoke">
             A member of the Tryp.com team will look at it. {authorName ? authorName.split(' ')[0] : 'They'} will not be told who reported it.
           </p>
@@ -64,17 +127,25 @@ export default function ReportMessage({ open, onClose, kind, messageId, authorNa
         </div>
       ) : (
         <form onSubmit={submit}>
-          <h2 className="text-lg font-semibold">Report this message</h2>
-          <p className="mt-1 text-sm text-smoke">
+          {/* No heading of its own: `ui/Modal` already draws "Report this
+              message" in its own title bar, and the dialog was saying it twice
+              in two different sizes, one above the other. */}
+          <p className="text-sm text-smoke">
             It goes to the Tryp.com team for review. {authorName ? authorName.split(' ')[0] : 'The sender'} is not told who reported it.
           </p>
 
           {/* What was actually said, so nobody reports the wrong message. */}
-          {preview && (
-            <p className="mt-4 line-clamp-3 rounded-xl border-l-2 border-gray-200 bg-cloud/70 px-3 py-2 text-xs text-smoke [overflow-wrap:anywhere]">
-              {preview}
-            </p>
-          )}
+          <MessageSnapshot
+            authorName={authorName}
+            authorPhoto={authorPhoto}
+            sentAt={sentAt}
+            body={preview}
+            imageUrl={imageUrl}
+            videoUrl={videoUrl}
+          />
+          <p className="mt-1.5 text-[11px] text-gray-400">
+            This exact wording is stored with the report, so editing or deleting the message afterwards does not change it.
+          </p>
 
           <fieldset className="mt-5">
             <legend className="label mb-2">What is wrong with it?</legend>

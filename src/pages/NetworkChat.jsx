@@ -122,7 +122,7 @@ export default function NetworkChat() {
 
   const community = slug ? bySlug(slug) : network
   const [channels, setChannels] = useState([])
-  const [otherRooms, setOtherRooms] = useState([])
+  const [sidebarRooms, setSidebarRooms] = useState([])
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(true)
   const [body, setBody] = useState('')
@@ -213,7 +213,23 @@ export default function NetworkChat() {
     return () => { cancelled = true }
   }, [community])
 
-  // Every room in every OTHER place the viewer belongs to.
+  // Every room in EVERY place the viewer belongs to, including the one they are
+  // standing in.
+  //
+  // IT INCLUDES THE CURRENT PLACE ON PURPOSE, AND THAT IS THE WHOLE FIX.
+  //
+  // THE BUG THIS FIXES. The sidebar used to be two things: a card for where you
+  // ARE, pinned at the top, and a reorderable list of everywhere else under it.
+  // So opening Portugal's General re-sorted the entire column - Portugal leapt
+  // to the top and whatever you had been reading dropped into the list below.
+  // Ethan: "when I click on for example General in Portugal, it then jumps to
+  // the top, I want the rooms sidebar to always remain as it is set."
+  //
+  // A navigation whose order depends on where the navigation has taken you is
+  // not a navigation, it is a moving target: the muscle memory you build on
+  // Monday is wrong the moment you use it. So there is ONE list, in the
+  // reader's own saved order, and opening a room only ever changes which row is
+  // highlighted.
   //
   // One query for all of them rather than one per market: the sidebar needs the
   // whole set before it can draw anything, and five sequential round trips to
@@ -223,20 +239,28 @@ export default function NetworkChat() {
   // RLS already scopes `channels` to communities you can see, so this cannot
   // leak a market's room list to somebody outside it; the `in` filter is about
   // asking for less, not about permission.
-  const otherIds = useMemo(
-    () => myCommunities.map((c) => c.id).filter((id) => id !== community?.id),
+  const sidebarIds = useMemo(
+    () => {
+      const ids = myCommunities.map((c) => c.id)
+      // The place you are in may be one you can READ without belonging to (a
+      // global admin looking at a market they never joined), and the sidebar
+      // still has to draw it or the room you are reading is not in the list.
+      if (community?.id && !ids.includes(community.id)) ids.push(community.id)
+      return ids
+    },
     [myCommunities, community],
   )
 
   useEffect(() => {
-    if (!otherIds.length) { setOtherRooms([]); return undefined }
+    if (!sidebarIds.length) { setSidebarRooms([]); return undefined }
     let cancelled = false
     supabase.from('channels')
       .select('id, key, label, icon, visibility, position, community_id')
-      .in('community_id', otherIds).order('position')
-      .then(({ data }) => { if (!cancelled) setOtherRooms(data || []) })
+      .in('community_id', sidebarIds).order('position')
+      .then(({ data }) => { if (!cancelled) setSidebarRooms(data || []) })
     return () => { cancelled = true }
-  }, [otherIds])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sidebarIds.join(',')])
 
   const load = useCallback(async () => {
     if (!community || !active) return
@@ -510,15 +534,19 @@ export default function NetworkChat() {
   const base = slug ? `/c/${slug}/chat` : '/global/chat'
   const flags = (community.country_codes || []).map(flagFromIso).join('')
 
-  // The other places, each with its rooms, Worldwide first and then markets
-  // alphabetically. A place with no rooms is dropped rather than rendered as an
-  // empty heading.
-  const elsewhere = myCommunities
-    .filter((c) => c.id !== community.id)
+  // EVERY place you belong to, each with its rooms, in ONE list - the place you
+  // are standing in included, sitting wherever the reader put it. Worldwide
+  // first and then markets alphabetically is only the DEFAULT, used until
+  // somebody drags something. A place with no rooms is dropped rather than
+  // rendered as an empty heading.
+  const places = [
+    ...myCommunities,
+    ...(community && !myCommunities.some((c) => c.id === community.id) ? [community] : []),
+  ]
     .map((c) => ({
       ...c,
       flags: (c.country_codes || []).map(flagFromIso).join(''),
-      rooms: otherRooms.filter((r) => r.community_id === c.id),
+      rooms: sidebarRooms.filter((r) => r.community_id === c.id),
     }))
     .filter((c) => c.rooms.length > 0)
     .sort((a, b) => (b.kind === 'network') - (a.kind === 'network') || a.name.localeCompare(b.name))
@@ -533,7 +561,7 @@ export default function NetworkChat() {
   }
 
   const rank = new Map(roomOrder.map((id, i) => [id, i]))
-  const orderedElsewhere = [...elsewhere].sort(
+  const orderedPlaces = [...places].sort(
     (a, b) => (rank.has(a.id) ? rank.get(a.id) : 1e9) - (rank.has(b.id) ? rank.get(b.id) : 1e9),
   )
 
@@ -571,7 +599,7 @@ export default function NetworkChat() {
             names - and the room you were IN scrolled off the left. The other
             markets live on /rooms, which is a page built to group them. One
             tap, and the tab strip stays about the place you are standing in. */}
-        {elsewhere.length > 0 && (
+        {orderedPlaces.length > 1 && (
           <Link
             to="/rooms"
             className="ml-auto flex shrink-0 items-center gap-1.5 self-center rounded-full border border-gray-200 px-3 py-1.5 text-xs font-medium text-smoke transition-colors active:bg-cloud"
@@ -843,14 +871,19 @@ export default function NetworkChat() {
               switcher on this page: a strip of other markets above a
               conversation makes the room feel like a tab in a directory rather
               than somewhere you are. Leaving is the back link, one target. */}
-          {/* TWO CARDS, NOT ONE LIST.
-              The top card is where you ARE: this place's rooms, General first.
-              The card under it is every other room you belong to, grouped by
-              market, so a creator in Worldwide and Spain reaches the Spanish
-              General without going back to Spain first, and somebody in every
-              market reaches all of them from wherever they happen to be
-              standing. It is still not a market switcher: these are rooms you
-              are already in, not places to browse. */}
+          {/* ONE LIST, AND IT DOES NOT MOVE.
+              Every place you belong to, grouped by market, so a creator in
+              Worldwide and Spain reaches the Spanish General without going back
+              to Spain first. It is still not a market switcher: these are rooms
+              you are already in, not places to browse.
+
+              IT USED TO BE TWO CARDS - where you ARE pinned at the top, and
+              everywhere else beneath - and that made the column reshuffle every
+              time you opened a room: press General in Portugal and Portugal
+              leapt to the top while the place you had just left dropped down
+              into the list. A sidebar whose order is a function of where you
+              last clicked cannot be learned. Now the order is only ever the
+              reader's, and opening a room moves the highlight, nothing else. */}
           {/* `focus:outline-none` because Chrome makes any element with
               `overflow-y: auto` keyboard focusable and paints its own grey
               focus ring round the whole region the moment you click inside it -
@@ -858,31 +891,6 @@ export default function NetworkChat() {
               sidebar. The region stays wheel and keyboard scrollable; only the
               ring goes. */}
           <nav aria-label="Rooms" className="hidden focus:outline-none lg:flex lg:w-60 lg:shrink-0 lg:flex-col lg:gap-3 lg:overflow-y-auto lg:overscroll-contain lg:[scrollbar-width:none] lg:[&::-webkit-scrollbar]:hidden">
-            <div className="rounded-card border border-gray-100 bg-white p-2 shadow-card">
-              <p className="px-3 pb-1.5 pt-1 text-[10px] font-semibold uppercase tracking-widest text-smoke">
-                {community.name}
-              </p>
-              <div className="flex flex-col gap-0.5">
-                {channels.map((c) => (
-                  <button key={c.id} onClick={() => navigate(`${base}/${c.key}`)}
-                    className={cx(
-                      'flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-colors duration-200',
-                      active?.key === c.key ? 'bg-brand-tint text-brand' : 'text-ink hover:bg-cloud',
-                    )}>
-                    <Icon name={c.icon || 'chat'}
-                      className={cx('h-4 w-4 shrink-0', active?.key === c.key ? 'text-brand' : 'text-smoke')} />
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium">{c.label}</span>
-                    {c.key === 'general' && (
-                      <span className="shrink-0 rounded-full bg-brand/10 px-1.5 py-0.5 text-[10px] font-semibold text-brand">Main</span>
-                    )}
-                    {c.visibility === 'staff' && (
-                      <span className="shrink-0 rounded-full bg-cloud px-1.5 py-0.5 text-[10px] font-medium text-smoke">Staff</span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* ONE CARD PER MARKET, IN YOUR ORDER.
                 These were sub-headings inside a single "Your other rooms" box,
                 which made six markets read as one long undifferentiated list -
@@ -894,17 +902,19 @@ export default function NetworkChat() {
                 Nordics to reach it every time, and there is no ordering we
                 could pick centrally that would be right for everybody. Drag
                 the grip; it is remembered on this device. */}
-            {orderedElsewhere.length > 0 && (
-              <Reorderable
-                items={orderedElsewhere}
-                onReorder={saveRoomOrder}
-                handleLabel="Reorder this market"
-                className="flex flex-col gap-3"
-                // The lift lives on the CARD, not on Reorderable's wrapper. A
-                // shadow on the wrapper is a shadow at the wrong corner radius,
-                // and its four grey arcs poking past the card are what read as
-                // an outline down this column.
-                renderItem={(place, { handleProps, dragging }) => (
+            <Reorderable
+              items={orderedPlaces}
+              onReorder={saveRoomOrder}
+              handleLabel="Reorder this market"
+              className="flex flex-col gap-3"
+              // The lift lives on the CARD, not on Reorderable's wrapper. A
+              // shadow on the wrapper is a shadow at the wrong corner radius,
+              // and its four grey arcs poking past the card are what read as
+              // an outline down this column.
+              renderItem={(place, { handleProps, dragging }) => {
+                const here = place.id === community.id
+                const roomBase = place.kind === 'network' ? '/global/chat' : `/c/${place.slug}/chat`
+                return (
                   <div className={cx(
                     'group rounded-card border bg-white p-2 transition-shadow',
                     dragging ? 'border-brand/40 shadow-lift' : 'border-gray-100 shadow-card',
@@ -912,7 +922,10 @@ export default function NetworkChat() {
                     <div className="flex items-center gap-1 px-1 pb-1.5 pt-1">
                       <Link
                         to={place.kind === 'network' ? '/global' : `/c/${place.slug}`}
-                        className="flex min-w-0 flex-1 items-center gap-2 text-[11px] font-semibold text-smoke transition-colors hover:text-brand"
+                        className={cx(
+                          'flex min-w-0 flex-1 items-center gap-2 text-[11px] font-semibold transition-colors hover:text-brand',
+                          here ? 'text-brand' : 'text-smoke',
+                        )}
                       >
                         <span aria-hidden>{place.flags || '🌍'}</span>
                         <span className="min-w-0 truncate">{place.name}</span>
@@ -926,21 +939,33 @@ export default function NetworkChat() {
                       </span>
                     </div>
                     <div className="flex flex-col gap-0.5">
-                      {place.rooms.map((c) => (
-                        <Link
-                          key={c.id}
-                          to={`${place.kind === 'network' ? '/global/chat' : `/c/${place.slug}/chat`}/${c.key}`}
-                          className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-ink transition-colors hover:bg-cloud"
-                        >
-                          <Icon name={c.icon || 'chat'} className="h-3.5 w-3.5 shrink-0 text-smoke" />
-                          <span className="min-w-0 flex-1 truncate text-[13px]">{c.label}</span>
-                        </Link>
-                      ))}
+                      {place.rooms.map((c) => {
+                        // The row you are reading. Only ever a highlight - the
+                        // row does not move, and neither does its card.
+                        const on = here && active?.key === c.key
+                        return (
+                          <Link
+                            key={c.id}
+                            to={`${roomBase}/${c.key}`}
+                            aria-current={on ? 'page' : undefined}
+                            className={cx(
+                              'flex items-center gap-2.5 rounded-xl px-3 py-2 transition-colors duration-200',
+                              on ? 'bg-brand-tint font-medium text-brand' : 'text-ink hover:bg-cloud',
+                            )}
+                          >
+                            <Icon name={c.icon || 'chat'} className={cx('h-3.5 w-3.5 shrink-0', on ? 'text-brand' : 'text-smoke')} />
+                            <span className="min-w-0 flex-1 truncate text-[13px]">{c.label}</span>
+                            {c.visibility === 'staff' && (
+                              <span className="shrink-0 rounded-full bg-cloud px-1.5 py-0.5 text-[9px] font-medium text-smoke">Staff</span>
+                            )}
+                          </Link>
+                        )
+                      })}
                     </div>
                   </div>
-                )}
-              />
-            )}
+                )
+              }}
+            />
           </nav>
 
           {room}
@@ -960,7 +985,11 @@ export default function NetworkChat() {
         kind="channel"
         messageId={reporting?.id}
         authorName={reporting?.profiles?.name}
-        preview={reporting?.body || (reporting?.image_url ? 'Photo' : reporting?.video_url ? 'Video' : '')}
+        authorPhoto={reporting?.profiles?.photo_url}
+        sentAt={reporting?.created_at}
+        preview={reporting?.body || ''}
+        imageUrl={reporting?.image_url}
+        videoUrl={reporting?.video_url}
         onClose={() => setReporting(null)}
       />
     </NetworkMotion>

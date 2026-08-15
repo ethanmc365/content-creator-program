@@ -241,6 +241,31 @@ function Pin({ hue }) {
   )
 }
 
+// WHAT THE REDESIGN CHANGED, AND WHY
+//
+// Ethan: "the current design doesn't match the platform colours and aesthetics,
+// please redesign it, make it more aesthetic while still keeping that kind of
+// style and function." The shape was right - notes, pins, tilt, hover
+// straightens - and the palette was from somewhere else entirely.
+//
+//   * THE PAPER IS WHITE NOW, AND THE STATE IS A BAND ACROSS THE TOP. Amber
+//     paper and green paper are two hues this product does not own, tiling a
+//     whole page. On a white-dominant product with one orange, a wall of amber
+//     rectangles IS the design, and it is not this one. White notes on a
+//     faintly orange board read as paper on a board; the coloured strip at the
+//     head of each note still carries the state at a glance, which was the one
+//     thing the coloured paper was doing well.
+//   * WAITING IS BRAND ORANGE, ANSWERED IS GREEN. Orange because a question
+//     nobody has answered is the thing this page wants you to act on, and
+//     orange is what this product uses for "here". Green stays for answered:
+//     it is the only other colour in the system and it means done everywhere
+//     else in the app.
+//   * THE TAG IS A REAL CHIP. It was grey uppercase micro-type doing the job of
+//     a label; it is a brand-tint chip now, which is how every other tag in
+//     this product looks.
+//   * THE FOOT IS SEPARATED BY A RULE. The author line used to float against
+//     the paper under the question with nothing between them, so a two-line
+//     question and a name ran together. A hairline is enough.
 function QuestionNote({ q }) {
   const t = tagInfo(q.tag)
   const answers = Number(q.answer_count || 0)
@@ -249,68 +274,91 @@ function QuestionNote({ q }) {
   // -1.6, -0.8, 0.8 or 1.6 degrees. Small on purpose: past about two degrees a
   // wall of notes stops looking casual and starts looking broken.
   const tilt = [-1.6, -0.8, 0.8, 1.6][h % 4]
+  const open = answers === 0
 
   return (
     <Link
       to={`/board/${q.id}`}
       style={{ transform: `rotate(${tilt}deg)` }}
       className={cx(
-        'group relative flex aspect-square flex-col rounded-sm border p-4 shadow-card transition-all duration-300 ease-out',
+        // NO `overflow-hidden` HERE. The pin is `-top-2.5` and deliberately
+        // sticks out over the top edge - that overhang plus its drop shadow is
+        // the entire trick that makes the note look attached to the board. A
+        // clip on the note clips the pin's head off and leaves the needle. The
+        // state band gets rounded top corners of its own instead.
+        'group relative flex aspect-square flex-col rounded-lg border bg-white shadow-card transition-all duration-300 ease-out',
         // `hover:!rotate-0` beats the inline transform: reaching for a note
         // squares it up and lifts it off the board.
         'hover:z-10 hover:-translate-y-1.5 hover:!rotate-0 hover:shadow-lift',
-        // THE STATE IS THE COLOUR OF THE PAPER. Readable across a whole wall at
-        // a glance, where the old state chips had to be read one at a time.
-        // Border/background utilities rather than arbitrary values or ring
-        // colours, because those are the ones the dark layer remaps.
-        answers === 0
-          ? 'border-amber-200 bg-amber-50'
-          : 'border-green-200 bg-green-50',
+        open ? 'border-brand/25 hover:border-brand/50' : 'border-green-200 hover:border-green-400',
       )}
     >
-      <Pin hue={answers === 0 ? '#f5853f' : '#16a34a'} />
+      <Pin hue={open ? '#d94407' : '#16a34a'} />
 
-      <span className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-smoke">
-        <Icon name={t.icon} className="h-3 w-3 shrink-0" />
-        <span className="truncate">{q.tag === 'country' && q.country ? q.country : t.short}</span>
-      </span>
+      {/* THE STATE, AS A BAND. Two pixels of colour across the top of a white
+          note is legible across a whole wall without tinting the paper - and it
+          leaves the paper white, which is what makes the wall read as this
+          product rather than as a different one. */}
+      <span className={cx('h-1.5 w-full shrink-0 rounded-t-lg', open ? 'bg-brand' : 'bg-green-500')} aria-hidden />
 
-      {/* The question is the note. Clamped rather than shrunk: a smaller type
-          size for a longer question would make the hardest one to read the one
-          set in the smallest type. */}
-      <h3 className="line-clamp-4 text-[15px] font-semibold leading-snug text-ink transition-colors group-hover:text-brand">
-        {q.title}
-      </h3>
-      {q.body && <p className="mt-1.5 line-clamp-2 text-[13px] leading-snug text-smoke">{q.body}</p>}
-
-      <span className="mt-auto block">
-        <span
-          className={cx(
-            'mb-2.5 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold',
-            answers === 0 ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800',
-          )}
-        >
-          {answers === 0
-            ? <>Waiting for an answer</>
-            : <><Icon name="check" className="h-3 w-3" />{answers} {answers === 1 ? 'answer' : 'answers'}</>}
-        </span>
-
-        <span className="flex items-center gap-2">
-          <Avatar src={q.author_photo} name={q.author_name} size="xs" />
-          <span className="min-w-0 flex-1 truncate text-[11px] text-smoke">
-            {q.author_name} · {formatMessageTime(q.created_at)}
+      {/* TWO NOTES ACROSS A 375px PHONE IS A 163px SQUARE, and 16px of padding
+          plus 15px type plus a body line plus an author row does not fit in one
+          - the note would clip its own foot. Everything steps down a notch
+          below `sm` and the body preview drops out entirely: on a note that
+          small the title IS the note. */}
+      <span className="flex min-h-0 flex-1 flex-col p-3 pt-2.5 sm:p-4 sm:pt-3.5">
+        <span className="mb-1.5 flex items-center gap-1.5 sm:mb-2">
+          <span className={cx(
+            'inline-flex min-w-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold',
+            open ? 'bg-brand-tint text-brand' : 'bg-green-50 text-green-700',
+          )}>
+            <Icon name={t.icon} className="h-3 w-3 shrink-0" />
+            <span className="truncate">{q.tag === 'country' && q.country ? q.country : t.short}</span>
           </span>
-          {/* FACES, NOT A NUMBER. Whether anybody who would know has been near
-              this thread is the actual question, and a count cannot answer it. */}
-          {faces.length > 0 && (
-            <span className="flex shrink-0 -space-x-2">
-              {faces.map((a) => (
-                <span key={a.id} className="rounded-full ring-2 ring-white">
-                  <Avatar src={a.photo_url} name={a.name} size="xs" />
-                </span>
-              ))}
+          {!open && (
+            <span className="ml-auto shrink-0 text-[10px] font-bold text-green-700">
+              {answers} {answers === 1 ? 'answer' : 'answers'}
             </span>
           )}
+        </span>
+
+        {/* The question is the note. Clamped rather than shrunk: a smaller type
+            size for a longer question would make the hardest one to read the one
+            set in the smallest type. */}
+        <h3 className="line-clamp-4 text-[13px] font-semibold leading-snug text-ink transition-colors group-hover:text-brand sm:text-[15px]">
+          {q.title}
+        </h3>
+        {q.body && <p className="mt-1.5 hidden line-clamp-2 text-[13px] leading-snug text-smoke sm:block">{q.body}</p>}
+
+        <span className="mt-auto block border-t border-gray-100 pt-2 sm:pt-2.5">
+          {open && (
+            <span className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold text-brand sm:mb-2 sm:text-[11px]">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/60" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand" />
+              </span>
+              Waiting for an answer
+            </span>
+          )}
+          <span className="flex items-center gap-2">
+            <Avatar src={q.author_photo} name={q.author_name} size="xs" />
+            <span className="min-w-0 flex-1 truncate text-[11px] text-smoke">
+              {q.author_name} · {formatMessageTime(q.created_at)}
+            </span>
+            {/* FACES, NOT A NUMBER. Whether anybody who would know has been near
+                this thread is the actual question, and a count cannot answer it.
+                Hidden on a phone note: three overlapping avatars beside a name
+                on a 163px row leaves room for about four letters of the name. */}
+            {faces.length > 0 && (
+              <span className="hidden shrink-0 -space-x-2 sm:flex">
+                {faces.map((a) => (
+                  <span key={a.id} className="rounded-full ring-2 ring-white">
+                    <Avatar src={a.photo_url} name={a.name} size="xs" />
+                  </span>
+                ))}
+              </span>
+            )}
+          </span>
         </span>
       </span>
     </Link>
@@ -392,14 +440,18 @@ export default function Board() {
             />
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          {/* ONE ROW THAT SCROLLS ON A PHONE, wrapping from `sm` up. Seven
+              pills wrapping at 375px is three rows of controls above the thing
+              they filter, which pushed the board itself below the fold on the
+              page whose whole point is the board. */}
+          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 [&::-webkit-scrollbar]:hidden">
             {STATES.map((s) => (
               <button
                 key={s.label}
                 onClick={() => setState(s.key)}
                 aria-pressed={state === s.key}
                 className={cx(
-                  'inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200',
+                  'inline-flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200',
                   state === s.key
                     ? 'border-brand bg-brand text-white'
                     : 'border-gray-200 bg-white text-smoke hover:-translate-y-0.5 hover:border-brand hover:text-brand',
@@ -431,15 +483,22 @@ export default function Board() {
           </div>
 
           {/* THE BOARD ITSELF.
-              A warm, very light surface with a faint grain and an inset edge,
-              so the notes have something to be pinned TO. Deliberately not a
-              photographic cork texture: this app is white-dominant with one
-              orange, and a brown wood-effect panel would be the loudest thing
-              on any page it appeared on. The grain is two repeating gradients,
-              which costs nothing and does not need an image. */}
-          <div className="board-surface rounded-card p-4 ring-1 ring-black/5 sm:p-6 lg:p-8">
+              A very light, faintly orange surface with a fine grain and an
+              inset edge, so the notes have something to be pinned TO.
+              Deliberately not a photographic cork texture: this app is
+              white-dominant with one orange, and a brown wood-effect panel
+              would be the loudest thing on any page it appeared on. The grain
+              is repeating gradients, which costs nothing and needs no image.
+
+              FULL BLEED ON A PHONE. Ethan: "the entire screen should be the
+              pinboard, not a separate big card." A wall inside a rounded card
+              with page gutters either side is a picture of a wall, and on a
+              375px screen those gutters were 32 of the 375 pixels the notes had
+              to live in. `.board-bleed` cancels the layout's own padding below
+              `sm` and gives the radius back above it. */}
+          <div className="board-surface board-bleed p-4 ring-1 ring-black/5 sm:p-6 lg:p-8">
             {rows === null ? (
-              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
                 {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="aspect-square" />)}
               </div>
             ) : rows.length === 0 ? (
@@ -454,7 +513,12 @@ export default function Board() {
             ) : (
               // The gap is generous on purpose: notes that nearly touch read as
               // a grid, and the tilt needs room or the corners overlap.
-              <Reveal className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" stagger={0.045}>
+              //
+              // TWO ACROSS ON A PHONE, NOT ONE. A single column of square notes
+              // is a list of squares - the wall is the whole idea, and one note
+              // per row is not a wall. Two fit at 375px once the page gutters
+              // are gone, which is the other half of what the full bleed bought.
+              <Reveal className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4" stagger={0.045}>
                 {rows.map((q) => <QuestionNote key={q.id} q={q} />)}
               </Reveal>
             )}

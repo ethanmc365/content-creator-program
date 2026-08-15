@@ -88,9 +88,25 @@ export default function Reveal({
       setShown(true)
       return undefined
     }
+    // THE ROOT MARGIN HAS TO GROW THE VIEWPORT, NOT SHRINK IT.
+    //
+    // THE BUG THIS FIXES. This said `-10%`, and a NEGATIVE bottom margin pulls
+    // the observer's bottom edge UP - so a section did not begin arriving until
+    // its top had already travelled a tenth of a screen INTO view, and then
+    // took its delay and its 720ms transition on top of that. Scrolling down
+    // the hub therefore meant looking at an empty space where Daily puzzles or
+    // the map should be for the better part of a second: Ethan's "there's a big
+    // delay before daily puzzles and everyone right now appear". The comment
+    // above has always said the intent was to start it "slightly before the
+    // element is on screen", which is a POSITIVE margin; the code did the exact
+    // opposite of what it was documented to do.
+    //
+    // 15% of the viewport below the fold is roughly one flick of a thumb ahead
+    // of the reader, so the motion is FINISHING as the section arrives rather
+    // than starting once it is already being looked at.
     const io = new IntersectionObserver(
       (entries) => { if (entries.some((e) => e.isIntersecting)) setShown(true) },
-      { rootMargin: '0px 0px -10% 0px' },
+      { rootMargin: '0px 0px 15% 0px' },
     )
     io.observe(node)
     return () => io.disconnect()

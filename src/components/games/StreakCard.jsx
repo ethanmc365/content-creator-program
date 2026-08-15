@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import Icon from '../Icon'
+import { dailyStreak, weekOf } from '../../lib/daily'
+import { DAILY_PUZZLES } from '../../lib/dailyPuzzles'
 import { cx } from '../../lib/utils'
 
 // YOUR RUN, YOUR RECORD, AND WHAT IS PROTECTING IT.
@@ -31,40 +33,65 @@ import { cx } from '../../lib/utils'
 // can read at a glance, and the record and the freezes as supporting detail
 // rather than as equals.
 
-/** The last seven UK days, filled where the creator played. */
-function WeekDots({ days = [], today }) {
+const LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+
+// THIS WEEK, MONDAY TO SUNDAY, AND IT RESETS ON MONDAY.
+//
+// TWO THINGS WERE WRONG WITH THE OLD STRIP, and between them they made it
+// impossible to answer the question a streak strip exists to answer.
+//
+//   1. IT WAS A ROLLING WINDOW, NOT A WEEK. It drew `today-6 … today` and
+//      labelled the tiles with weekday letters, so on a Thursday the row began
+//      on Friday and read F S S M T W T. Ethan asked whether it resets weekly -
+//      it did not, and a strip headed "This week" that is not a week is worse
+//      than no strip.
+//   2. A PLAYED DAY WAS `bg-brand` ON A BRAND-ORANGE CARD. Orange on orange. The
+//      filled tiles were very nearly invisible against the gradient, which is
+//      most of why it was not clear whether anything had been counted at all.
+//      A played day is a solid WHITE tile with the brand tick in it now: the
+//      highest contrast available on this card, and unmistakably a "done".
+//
+// A day still to come is drawn faint and empty. Marking Saturday as "missed" on
+// a Wednesday is a scolding for something nobody has had the chance to do yet.
+function WeekDots({ days = [], today, week }) {
   const played = new Set(days)
-  const cells = []
-  for (let i = 6; i >= 0; i--) {
-    const day = today - i
-    cells.push({ day, on: played.has(day), isToday: i === 0 })
-  }
-  const LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
-  // The UK day index is days since the epoch; the epoch was a Thursday, so
-  // `(day + 3) % 7` puts Monday at 0. Written out because getting it wrong is
-  // silent - the dots still draw, they are just labelled with the wrong days.
   return (
     <div className="flex items-end gap-1.5">
-      {cells.map(({ day, on, isToday }) => (
-        <div key={day} className="flex flex-col items-center gap-1">
-          <span
-            title={on ? 'Played' : 'Missed'}
-            className={cx(
-              'h-6 w-6 rounded-lg transition-colors',
-              on ? 'bg-brand' : 'bg-white/70 ring-1 ring-inset ring-black/5',
-              isToday && !on && 'ring-2 ring-brand/40',
-            )}
-          />
-          <span className={cx('text-[9px] font-semibold', isToday ? 'text-brand' : 'text-smoke')}>
-            {LETTERS[((day % 7) + 3 + 7) % 7]}
-          </span>
-        </div>
-      ))}
+      {week.map((day) => {
+        const on = played.has(day)
+        const isToday = day === today
+        const future = day > today
+        return (
+          <div key={day} className="flex flex-col items-center gap-1">
+            <span
+              title={on ? 'Played' : future ? 'Still to come' : isToday ? 'Not played yet today' : 'Missed'}
+              className={cx(
+                'flex h-6 w-6 items-center justify-center rounded-lg transition-colors',
+                on
+                  ? 'bg-white text-brand shadow-sm'
+                  : future
+                    ? 'bg-white/10 ring-1 ring-inset ring-white/20'
+                    : 'bg-white/15 ring-1 ring-inset ring-white/25',
+                isToday && !on && 'ring-2 ring-white/80',
+              )}
+            >
+              {on && (
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M4 12l5 5L20 6" />
+                </svg>
+              )}
+            </span>
+            <span className={cx('text-[9px] font-semibold', isToday ? 'text-white' : 'text-white/55')}>
+              {LETTERS[(((day % 7) + 3 + 7) % 7)]}
+            </span>
+          </div>
+        )
+      })}
     </div>
   )
 }
 
-export default function StreakCard({ className, days = [], today = null }) {
+export default function StreakCard({ className, days = [], today = null, byPuzzle = null }) {
   const [s, setS] = useState(null)
 
   useEffect(() => {
@@ -79,6 +106,18 @@ export default function StreakCard({ className, days = [], today = null }) {
   const current = s.current_streak || 0
   const best = s.best_streak || 0
   const left = s.freezes_left ?? 3
+  const week = today != null ? weekOf(today) : []
+  // HAS TODAY BEEN COUNTED YET, OR NOT.
+  //
+  // This is the single most important fact on the card and it was not on it.
+  // The streak carries a one-day grace - today being unplayed does not end a
+  // run until tomorrow does - which is kind, and which also means the number
+  // says 30 whether you played this morning or not. Ethan: "it's not clear for
+  // me if I have a 30 day streak or not, it appears I do but do I or not."
+  // He was reading an ambiguous number correctly. The line under it now says
+  // which of the two situations he is in, in words.
+  const playedToday = today != null && days.includes(today)
+  const frozenToday = today != null && (s.frozen_days || []).includes(today)
 
   return (
     <section
@@ -106,13 +145,31 @@ export default function StreakCard({ className, days = [], today = null }) {
             <p className="mt-1 text-[11px] font-semibold uppercase tracking-widest text-white/75">
               {current === 1 ? 'day in a row' : 'days in a row'}
             </p>
+            {/* THE NUMBER, DISAMBIGUATED. */}
+            {today != null && current > 0 && (
+              <p className="mt-1.5 flex items-center gap-1.5 text-[11px] font-medium text-white/85">
+                <span className={cx('h-1.5 w-1.5 shrink-0 rounded-full', playedToday || frozenToday ? 'bg-white' : 'bg-white/40')} />
+                {playedToday
+                  ? 'Counted today. Safe until midnight tomorrow.'
+                  : frozenToday
+                    ? 'A freeze is holding today for you.'
+                    : 'Not counted today yet. One puzzle keeps it.'}
+              </p>
+            )}
+            {today != null && current === 0 && (
+              <p className="mt-1.5 text-[11px] font-medium text-white/85">
+                Play any one of today&rsquo;s three puzzles to start one.
+              </p>
+            )}
           </div>
         </div>
 
         {today != null && (
           <div>
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/75">This week</p>
-            <WeekDots days={days} today={today} />
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/75">
+              This week
+            </p>
+            <WeekDots days={days} today={today} week={week} />
           </div>
         )}
 
@@ -148,6 +205,40 @@ export default function StreakCard({ className, days = [], today = null }) {
           </p>
         </div>
       </div>
+
+      {/* ---- A RUN PER PUZZLE, UNDER THE RUN ACROSS ALL OF THEM ----
+          Ethan: "streak should be counted separate for each daily puzzle but
+          accumulated". Both are true at once and they are different facts. The
+          big number above is the accumulated one and one puzzle a day keeps it,
+          which is the promise that makes the habit startable. These three are
+          the harder thing: turning up for the SAME puzzle every day. Somebody
+          on a 40-day overall run who has never done Flight Path twice in a row
+          should be able to see that, and until now the card averaged the two
+          into one number that told them neither. */}
+      {byPuzzle && (
+        <div className="relative mt-5 border-t border-white/20 pt-4">
+          <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-widest text-white/75">
+            Each puzzle on its own
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {DAILY_PUZZLES.map((p) => {
+              const run = dailyStreak(byPuzzle[p.key] || [], today ?? undefined)
+              return (
+                <span
+                  key={p.key}
+                  className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-xs"
+                >
+                  <Icon name={p.icon} className="h-3.5 w-3.5 shrink-0 text-white/80" />
+                  <span className="font-medium text-white/90">{p.title}</span>
+                  <span className={cx('font-bold tabular-nums', run > 0 ? 'text-white' : 'text-white/50')}>
+                    {run > 0 ? `${run}d` : '—'}
+                  </span>
+                </span>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </section>
   )
 }

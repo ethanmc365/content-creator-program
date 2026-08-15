@@ -105,7 +105,7 @@ export default function Game() {
   // streak badge), plus which of today's three are already done. Shared with the
   // hub's Daily puzzles section, so a tick here and a tick there mean the same
   // query rather than two answers that can disagree.
-  const { played: playedToday, streakDays: myDays } = useDailyPuzzles(user?.id)
+  const { played: playedToday, streakDays: myDays, daysByPuzzle } = useDailyPuzzles(user?.id)
   const [mode, setMode] = useState('flags')
   const [region, setRegion] = useState('World')
   const [questions, setQuestions] = useState([])
@@ -151,7 +151,7 @@ export default function Game() {
           they were not planning to, so it sits above the games rather than
           beside them. */}
       {!event && screen === 'menu' && (
-        <StreakCard className="mb-8" days={myDays} today={ukDayIndex()} />
+        <StreakCard className="mb-8" days={myDays} today={ukDayIndex()} byPuzzle={daysByPuzzle} />
       )}
 
       {/* The menu drives the shared mode/region state, so the all-time
@@ -160,7 +160,12 @@ export default function Game() {
         <Menu
           mode={mode} setMode={setMode} region={region} setRegion={setRegion}
           onStart={() => start(mode, region)} onDaily={setScreen} eventTitle={event?.title}
-          streak={dailyStreak(myDays)} playedToday={playedToday}
+          // PER PUZZLE, not the overall run. The badge on the Flight Path card
+          // used to read the accumulated streak, so all three cards said the
+          // same number - which quietly claimed a 30-day Flight Path run to
+          // somebody who had played it twice. A badge on a card is a statement
+          // about that card.
+          daysByPuzzle={daysByPuzzle} playedToday={playedToday}
         />
       )}
       {screen === 'play' && <Round mode={mode} region={region} questions={questions} onQuit={() => setScreen('menu')} onFinish={(r) => { setSavedScore(r); setScreen('results') }} />}
@@ -212,29 +217,46 @@ export default function Game() {
 // two sections away from the choice it acts on is a button people press before
 // they have chosen.
 
+// THE THREE CARDS ARE THE SAME SIZE, WHATEVER IS WRITTEN ON THEM.
+//
+// THE BUG THIS FIXES. The button had no `h-full`, so each card was as tall as
+// its own contents - and the contents differ: "Guess the Country" is long
+// enough to push its three pills onto a second line where "Flight Path" is not.
+// So Flight Path came out visibly shorter than the two beside it, which reads
+// as the odd one out rather than as one of a set. Ethan: "the daily puzzle cards
+// are different sizes, the flight path should be the same size as the other
+// two." Reveal's wrapper is already `height: 100%` (index.css), so the card
+// only has to agree to fill it.
+//
+// The pills row is also fixed height now, for the same reason from the other
+// direction: a card whose height comes from a badge appearing is a card that
+// changes size the day somebody starts a streak.
 function DailyCard({ daily, done, onPlay, streak }) {
   return (
     <button
       onClick={onPlay}
-      className="group relative overflow-hidden rounded-card border border-brand/25 bg-white p-5 text-left shadow-card transition-all duration-200 hover:-translate-y-1 hover:border-brand/50 hover:shadow-lift"
+      className="group relative flex h-full flex-col overflow-hidden rounded-card border border-brand/25 bg-white p-5 text-left shadow-card transition-all duration-200 hover:-translate-y-1 hover:border-brand/50 hover:shadow-lift"
     >
       {/* A wash that leans in on hover. Colour is what stops these two reading
           as the same white card as everything below them. */}
       <span className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-brand-tint/70 blur-2xl transition-opacity duration-300 group-hover:opacity-80" />
-      <span className="relative flex items-start gap-4">
+      <span className="relative flex flex-1 items-start gap-4">
         <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand text-white shadow-card transition-transform duration-200 group-hover:scale-110">
           <Icon name={daily.icon} className="h-6 w-6" />
         </span>
-        <span className="min-w-0 flex-1">
-          <span className="flex flex-wrap items-center gap-2">
-            <span className="font-semibold">{daily.title}</span>
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="block font-semibold leading-snug">{daily.title}</span>
+          {/* The badges sit on their OWN line at a fixed height. Beside the
+              title they wrapped or did not depending on how long the title was,
+              which is where the difference in card heights came from. */}
+          <span className="mt-1.5 flex h-5 flex-wrap items-center gap-2 overflow-hidden">
             <span className="rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">Today</span>
             {streak > 0 && (
               <span className="rounded-full bg-brand-tint px-2 py-0.5 text-[10px] font-bold text-brand">{streak} day streak</span>
             )}
           </span>
-          <span className="mt-1 block text-sm text-smoke">{daily.text}</span>
-          <span className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-brand">
+          <span className="mt-1.5 block text-sm text-smoke">{daily.text}</span>
+          <span className="mt-auto inline-flex items-center gap-1.5 pt-3 text-sm font-semibold text-brand">
             {done ? 'See how you did' : 'Play today\u2019s puzzle'}
             <Icon name="chevronRight" className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
           </span>
@@ -249,7 +271,7 @@ function DailyCard({ daily, done, onPlay, streak }) {
   )
 }
 
-function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle, streak, playedToday }) {
+function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle, daysByPuzzle, playedToday }) {
   const chosen = MODE_BY_KEY[mode]
   const allDone = DAILIES.every((d) => playedToday.has(d.key))
   const doneCount = DAILIES.filter((d) => playedToday.has(d.key)).length
@@ -279,7 +301,8 @@ function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle, 
             like an afterthought, which is precisely what it is not. */}
         <Reveal className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" stagger={0.07}>
           {DAILIES.map((d) => (
-            <DailyCard key={d.key} daily={d} done={playedToday.has(d.key)} streak={streak} onPlay={() => onDaily(d.key)} />
+            <DailyCard key={d.key} daily={d} done={playedToday.has(d.key)}
+              streak={dailyStreak(daysByPuzzle?.[d.key] || [])} onPlay={() => onDaily(d.key)} />
           ))}
         </Reveal>
       </section>

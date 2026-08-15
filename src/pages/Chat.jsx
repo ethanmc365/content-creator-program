@@ -896,7 +896,7 @@ export default function Chat() {
                       )}
 
                       {m.image_url && <ChatMedia url={m.image_url} kind="image" alt={m.body || 'Shared image'} />}
-                      {m.video_url && <ChatMedia url={m.video_url} kind="video" maxW={240} maxH={360} />}
+                      {m.video_url && <ChatMedia url={m.video_url} kind="video" />}
                       {/* `rich` is UNCONDITIONAL. It was gated on the sender being
                           an admin, from when formatting was an admin tool - but the
                           formatting row has been open to every creator for a while
@@ -1210,7 +1210,14 @@ export default function Chat() {
         kind="channel"
         messageId={reporting?.id}
         authorName={reporting?.profiles?.name}
-        preview={reporting ? messagePreview(reporting) : ''}
+        authorPhoto={reporting?.profiles?.photo_url}
+        sentAt={reporting?.created_at}
+        // The BODY, not `messagePreview`: the snapshot draws its own "this was
+        // a photo" row off the urls, so passing the string "Photo" as the body
+        // would put the word Photo in the message and the thumbnail beneath it.
+        preview={reporting?.body || ''}
+        imageUrl={reporting?.image_url}
+        videoUrl={reporting?.video_url}
         onClose={() => setReporting(null)}
       />
     </div>

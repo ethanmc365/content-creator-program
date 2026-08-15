@@ -9,6 +9,7 @@ import { formatDate } from '../lib/utils'
 import { useIsDark } from '../lib/theme'
 import { countryKey, sameCountry } from '../lib/countryFacts'
 import CountryPanel, { TownPanel } from './CountryPanel'
+import DraggablePanel from './DraggablePanel'
 import Icon from './Icon'
 
 // The creator map directory: every creator pinned on a world map at their home
@@ -946,9 +947,21 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
     ? 'max-w-md [--map-panel-max-h:32rem] lg:max-w-lg [@media(max-height:540px)]:max-w-[15.5rem] [@media(max-height:540px)]:[--map-panel-max-h:100%]'
     : 'max-w-sm'
 
+  // THE WIDTH LIVES ON THE DRAGGABLE WRAPPER, NOT ON THE CARD.
+  //
+  // THE BUG THIS FIXES: the wrapper was `w-full` and the card inside it carried
+  // `max-w-md`, so the wrapper spanned the whole frame while the card occupied
+  // its left third. The drag clamp measures the WRAPPER against its frame,
+  // found zero room either side, and pinned the card horizontally - it would
+  // take the grab cursor and then refuse to move. Constraining the wrapper
+  // instead makes the box being dragged the same box you can see.
+  //
+  // `--map-panel-max-h` still reaches the card: it is a custom property and
+  // inherits straight through the wrapper.
+  const panelBox = `pointer-events-auto flex min-h-0 w-full flex-col ${panelCls}`
+
   const townPanel = selected ? (
     <TownPanel
-      className={panelCls}
       town={selected}
       onClose={() => selectTown(null)}
       onCreatorClick={onCreatorClick}
@@ -957,7 +970,6 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
 
   const countryPanel = country ? (
     <CountryPanel
-      className={panelCls}
       country={country.name}
       lives={country.lives}
       visited={country.visited}
@@ -1245,14 +1257,19 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           describing and left roughly two rows of creators visible inside a
           scroll box. Phones get the panel UNDER the map instead - see the end
           of the component. */}
-      {country && <div className={panelFrame}>{countryPanel}</div>}
+      {country && <div className={panelFrame}><DraggablePanel enabled={fullscreen} resetKey={fullscreen} className={panelBox}>{countryPanel}</DraggablePanel></div>}
 
       {/* The city roster: everybody the pin's orange number is counting. Same
           corner and the same card as the country panel, and mutually exclusive
           with it - two overlapping answers to two different questions in one
           corner is how a map stops being readable. Desktop only; phones get it
           under the map, at the end of the component. */}
-      {selectedTown && <div className={panelFrame}>{townPanel}</div>}
+      {/* WRAPPED, NOT REPLACED. The frame stays exactly what it was - a
+          definite box the card is allowed to shrink inside - and the drag is a
+          transform on a wrapper within it, so nothing about the sizing that
+          took three attempts to get right is touched. Full screen only: in a
+          card on a page there is nowhere useful to drag it to. */}
+      {selectedTown && <div className={panelFrame}><DraggablePanel enabled={fullscreen} resetKey={fullscreen} className={panelBox}>{townPanel}</DraggablePanel></div>}
 
       {/* WHAT THE TWO PLANES MEAN. A solid plane and a hollow one is a
           distinction nobody can be expected to guess, and an unexplained
