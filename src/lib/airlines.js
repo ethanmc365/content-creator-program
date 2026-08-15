@@ -64,6 +64,40 @@ export const AIRCRAFT = {
   a380:     { name: 'Airbus A380',       maker: 'Airbus',   range: 15200, seats: 525, cruise: 900, body: 'widebody' },
   b747:     { name: 'Boeing 747-8',       maker: 'Boeing',   range: 14320, seats: 364, cruise: 900, body: 'widebody' },
   e175:     { name: 'Embraer E175',       maker: 'Embraer',  range: 3300,  seats: 76,  cruise: 830, body: 'regional' },
+
+  // ---- THE REST OF WHAT PEOPLE ACTUALLY FLY ----
+  //
+  // Ethan: "I want to ensure you have the most common aircrafts here." The list
+  // above was assembled to answer a different question - "what would this
+  // airline send on this route" - so it holds one representative of each family
+  // and skips the variants. A COLLECTION is the opposite: the variant IS the
+  // entry, because somebody who has been on a 787-8 and a 787-9 has been on two
+  // aircraft and wants two cards.
+  //
+  // Everything added here is a type a normal person can plausibly have been on
+  // in the last fifteen years, which is the only test that matters for a
+  // collection: an entry nobody can ever fill is not a gap, it is a decoration.
+  // (No MD-80s, no Concorde, no 737-200.) The rare ones are still handled - see
+  // the "Other" escape on the aircraft picker in the log form, and the "Also
+  // flown" section on the collection page.
+  //
+  // These are additions to the COLLECTION. `aircraftFor` and `anyAircraftFor`
+  // read the same table for the log form's suggestions, so a variant here also
+  // becomes a suggestion where an airline's fleet lists it - which is right.
+  b73g:     { name: 'Boeing 737-700',    maker: 'Boeing',   range: 6230,  seats: 149, cruise: 840, body: 'narrowbody' },
+  b739:     { name: 'Boeing 737-900ER',  maker: 'Boeing',   range: 5925,  seats: 215, cruise: 840, body: 'narrowbody' },
+  b772:     { name: 'Boeing 777-200ER',  maker: 'Boeing',   range: 13080, seats: 314, cruise: 890, body: 'widebody' },
+  b788:     { name: 'Boeing 787-8',      maker: 'Boeing',   range: 13530, seats: 248, cruise: 900, body: 'widebody' },
+  b78x:     { name: 'Boeing 787-10',     maker: 'Boeing',   range: 11730, seats: 336, cruise: 900, body: 'widebody' },
+  b744:     { name: 'Boeing 747-400',    maker: 'Boeing',   range: 13450, seats: 416, cruise: 900, body: 'widebody' },
+  a35k:     { name: 'Airbus A350-1000',  maker: 'Airbus',   range: 16100, seats: 350, cruise: 900, body: 'widebody' },
+  a340:     { name: 'Airbus A340-300',   maker: 'Airbus',   range: 13500, seats: 295, cruise: 870, body: 'widebody' },
+  crj200:   { name: 'CRJ200',            maker: 'Bombardier', range: 3045, seats: 50, cruise: 800, body: 'regional' },
+  e145:     { name: 'Embraer ERJ-145',   maker: 'Embraer',  range: 2870,  seats: 50,  cruise: 800, body: 'regional' },
+  atr42:    { name: 'ATR 42',            maker: 'ATR',      range: 1330,  seats: 48,  cruise: 490, body: 'turboprop' },
+  // The two that get a travel creator to the places nothing else reaches.
+  c208:     { name: 'Cessna 208 Caravan', maker: 'Cessna',  range: 1980,  seats: 12,  cruise: 340, body: 'turboprop' },
+  dhc6:     { name: 'DHC-6 Twin Otter',  maker: 'De Havilland', range: 1480, seats: 19, cruise: 340, body: 'turboprop' },
 }
 
 export const aircraft = (key) => (AIRCRAFT[key] ? { key, ...AIRCRAFT[key] } : null)

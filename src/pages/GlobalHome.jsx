@@ -15,6 +15,7 @@ import Reorderable from '../components/network/Reorderable'
 import FlagStack from '../components/network/FlagStack'
 import CreatorMap from '../components/CreatorMap'
 import WhenVisible from '../components/WhenVisible'
+import MapSkeleton from '../components/network/MapSkeleton'
 import CreatorSpotlight from '../components/CreatorSpotlight'
 import WhoToMeet from '../components/WhoToMeet'
 import DailyPuzzleCallout from '../components/games/DailyPuzzleCallout'
@@ -212,29 +213,25 @@ function NetworkLinkRow({ link, count, isNew, handleProps, dragging }) {
 // state change (the trap that made the collab board's maps reload - see
 // Collab.jsx).
 //
-// Two shapes, one component. `value` + `label` is a figure ("7 videos posted");
-// `text` alone is a prompt for somebody who has no figure yet ("Play today's
-// puzzles"). Both are links, because a statistic you cannot act on is a
-// decoration, and on this card there is room for exactly one kind of thing.
+// ONE SHAPE ONLY: a figure and what it counts. There used to be a second shape
+// - `text` alone, for a prompt like "Play today's puzzles" - and it is gone
+// with the chip that used it. A row that mixes facts about you with things you
+// have not done yet reads as a to-do list, and the numbers stop being the point.
 //
 // A null value renders a dash rather than a zero. Nothing has loaded yet is not
 // the same claim as you have done none of these, and the second one is a
 // discouraging thing to say to somebody by accident.
-function MineChip({ to, icon, value = undefined, label, text }) {
+function MineChip({ to, icon, value, label }) {
   return (
     <Link
       to={to}
       className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-medium text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/25"
     >
       <Icon name={icon} className="h-3 w-3 shrink-0 text-white/80" />
-      {text ? (
-        <span>{text}</span>
-      ) : (
-        <span>
-          <span className="font-bold tabular-nums">{value == null ? '—' : value.toLocaleString('en-GB')}</span>
-          {' '}<span className="text-white/80">{label}</span>
-        </span>
-      )}
+      <span>
+        <span className="font-bold tabular-nums">{value == null ? '—' : value.toLocaleString('en-GB')}</span>
+        {' '}<span className="text-white/80">{label}</span>
+      </span>
     </Link>
   )
 }
@@ -791,6 +788,25 @@ export default function GlobalHome() {
                   every country anybody in the community has actually BEEN to,
                   off `countries_visited`, which is the same set the creator map
                   colours in. */}
+              {/* THE FOUR COUNTERS START ON ONE FRAME AND FINISH ON ONE FRAME.
+                  Two halves to that, and the row needs both.
+
+                  CountUp now runs on a fixed clock rather than one derived from
+                  the magnitude (see Motion.jsx), so the rate varies and the
+                  duration does not: kilometres blur, creators tick, markets
+                  climb one at a time, and all four land together.
+
+                  But a shared duration only lands together if the counters also
+                  BEGIN together, and these four numbers arrive from four
+                  different places - `creators` with the page's own load,
+                  `videos` with the "me" query, kilometres with
+                  `community_flight_totals()`, and the market count from props
+                  that are there immediately. Whichever landed first started
+                  counting first and finished first, which is the same staggered
+                  row by another route. So the row waits for all four and then
+                  mounts every counter on the same frame. Until then it draws
+                  em-dashes, which is what it drew before for each figure
+                  individually and makes no claim in the meantime. */}
               <div className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 sm:mt-7 sm:flex sm:flex-wrap sm:items-start sm:gap-x-10">
                 {[
                   { n: d?.creators, label: 'Creators worldwide', hint: 'across every market' },
@@ -812,10 +828,10 @@ export default function GlobalHome() {
                   // for why an aggregate over private rows is safe and how anon
                   // is kept off it.
                   { n: flights?.km ?? null, label: 'Kilometres flown', hint: 'logged by all of us' },
-                ].map((s) => (
+                ].map((s, _i, all) => (
                   <div key={s.label}>
                     <p className="text-2xl font-bold sm:text-3xl">
-                      {s.n == null
+                      {all.some((x) => x.n == null)
                         ? '—'
                         : <CountUp value={s.n} format={(v) => Math.round(v).toLocaleString('en-GB')} />}
                     </p>
@@ -842,17 +858,18 @@ export default function GlobalHome() {
                   fix was to reserve the space on the ONE element that needs it
                   rather than padding the whole column. The divider still spans
                   the full width; only the chips stop short. */}
-              {/* THREE CHIPS, AND NO HEADING OVER THEM.
-                  There were five, under "Your year so far". Ethan cut it to
-                  three - today's puzzles, your connections, your videos - and
-                  cut the heading with them, and both are right for the same
-                  reason: this row is a set of doors, and five doors with a
-                  label over them is a menu. "Earn your first points" and "Post
-                  where you are headed" were the two that were prompts rather
-                  than facts about you, which is what made the row read as a
-                  to-do list rather than as a summary you can act on.
-                  The heading also claimed a period ("your year") that none of
-                  the numbers under it were actually scoped to. */}
+              {/* TWO CHIPS, AND NO HEADING OVER THEM.
+                  There were five, under "Your year so far", then three, and now
+                  two: your connections and your videos. Every cut has removed
+                  the same kind of thing. "Earn your first points", "Post where
+                  you are headed" and now "Play today's puzzles" were PROMPTS,
+                  not facts about you, and a prompt sitting in a row of your own
+                  numbers turns a summary into a to-do list. The puzzles have
+                  their own section further down this very page, with all three
+                  of them and today's counts on it, so the chip was also a
+                  second door to something already on screen.
+                  What is left is two figures about you, both of which are also
+                  doors to the place you would go to change them. */}
               {/* NO RULE ACROSS THIS CARD.
                   There was a `border-t` here, spanning the full width of the
                   card - and the plane is parked in the bottom-right corner, so
@@ -871,7 +888,6 @@ export default function GlobalHome() {
                   is what they are: doors, not statistics. */}
               <div className="mt-6 sm:mt-7">
                 <div className="flex flex-wrap gap-2 lg:max-w-[calc(100%-21.5rem)] xl:max-w-[calc(100%-23.5rem)]">
-                  <MineChip to="/game" icon="joystick" text="Play today's puzzles" />
                   <MineChip to="/connections" icon="users"
                     value={me ? me.connections : null}
                     label={me?.connections === 1 ? 'connection' : 'connections'} />
@@ -1021,10 +1037,10 @@ export default function GlobalHome() {
                   then stuttered. A thousand pixels puts the parse a whole
                   screen ahead of the reader, which is far enough that the work
                   is finished before the motion starts. */}
-              <WhenVisible rootMargin="1000px" fallback={<Skeleton className="h-72" />}>
+              <WhenVisible rootMargin="1000px" fallback={<MapSkeleton />}>
                 {d
                   ? <CreatorMap creators={d.mapPeople} trips={d.mapTrips} myId={session?.user?.id} />
-                  : <Skeleton className="h-72" />}
+                  : <MapSkeleton />}
               </WhenVisible>
             </section>
           </Reveal>

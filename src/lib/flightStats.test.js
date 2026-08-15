@@ -238,3 +238,42 @@ describe('humanHours', () => {
     expect(humanHours(60 * 50)).toBe('2d 2h')
   })
 })
+
+// ---------------------------------------------------------------- upcoming
+//
+// A LOG THAT COUNTS INTENTIONS IS NOT A LOG. The log holds flights that have
+// not happened yet (see migration 104 for why there is no `is_upcoming`
+// column), so the one thing that must never regress is that a future row is
+// invisible to every total, record and average on the page.
+describe('buildFlightStats and flights that have not happened yet', () => {
+  const flown = {
+    id: 'a', from_iata: 'LIS', to_iata: 'LHR', flown_on: '2026-01-10', distance_km: 1600,
+  }
+  const later = {
+    id: 'b', from_iata: 'LHR', to_iata: 'NRT', flown_on: '2027-03-04', distance_km: 9500,
+  }
+
+  it('leaves an upcoming flight out of every total', () => {
+    const s = buildFlightStats([flown, later], '2026-08-16')
+    expect(s.flights).toBe(1)
+    expect(Math.round(s.distance)).toBe(1600)
+    expect(s.list).toHaveLength(1)
+  })
+
+  it('returns the upcoming ones separately, soonest first', () => {
+    const sooner = { ...later, id: 'c', flown_on: '2026-09-01' }
+    const s = buildFlightStats([flown, later, sooner], '2026-08-16')
+    expect(s.upcoming.map((f) => f.id)).toEqual(['c', 'b'])
+  })
+
+  it('keeps an upcoming flight off the map and out of the records', () => {
+    const s = buildFlightStats([flown, later], '2026-08-16')
+    expect(s.routes).toHaveLength(1)
+    // The Tokyo leg is by far the longest; it must not be the record.
+    expect(s.records.longest.id).toBe('a')
+  })
+
+  it('says nothing is coming up when nothing is', () => {
+    expect(buildFlightStats([flown], '2026-08-16').upcoming).toEqual([])
+  })
+})

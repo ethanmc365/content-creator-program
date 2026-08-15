@@ -98,12 +98,30 @@ export default function CreatorCard({ creator, relation, onRelationChange, curre
           nowrap row is what stops a creator with four platforms and a live trip
           adding a second line to their card and nobody else's. `h-6` rather than
           a minimum, for the same reason the bio box is a fixed height. */}
-      <div className="flex h-6 items-center gap-x-2.5 overflow-hidden whitespace-nowrap text-[11px] text-smoke">
+      <div className="flex h-6 items-center gap-x-2 overflow-hidden whitespace-nowrap text-[11px] text-smoke">
         <PlatformBadges platforms={platformsForProfile(creator)} />
-        <span className="inline-flex shrink-0 items-center gap-1" title={`${creator.countries_visited?.length || 0} countries visited`}>
-          <Icon24Globe />
-          {creator.countries_visited?.length || 0}
-        </span>
+        {/* THE ONE PIECE OF COLOUR ON THE CARD.
+            This was a grey globe and a bare number sitting in a row of grey
+            platform glyphs, so the single most interesting fact about a travel
+            creator - how much of the world they have actually been to - read as
+            a piece of metadata. Ethan: "they're missing something in tryp.com
+            orange beside the social media icons saying like 25 countries or
+            whatever they've been to, just to bring some colour and make it look
+            good."
+            It is a brand-tint chip now, the same object as the live-trip chip
+            beside it, and it says the unit out loud. Nothing at all when the
+            count is zero: "0 countries" is a worse thing to print about
+            somebody than silence, and the row is a fixed height so the card
+            does not change shape either way. */}
+        {creator.countries_visited?.length > 0 && (
+          <span
+            className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand-tint px-2 py-0.5 font-semibold text-brand"
+            title={`${creator.countries_visited.length} countries visited`}
+          >
+            <Icon24Globe />
+            {creator.countries_visited.length} {creator.countries_visited.length === 1 ? 'country' : 'countries'}
+          </span>
+        )}
         {currentTrip && (
           <span className="inline-flex min-w-0 items-center gap-1 rounded-full bg-brand-tint px-2 py-0.5 font-semibold text-brand">
             <svg viewBox="0 0 24 24" className="h-2.5 w-2.5 shrink-0" fill="currentColor" aria-hidden>
@@ -150,7 +168,7 @@ export default function CreatorCard({ creator, relation, onRelationChange, curre
 // every platform - which on a row this tight is enough to shift the baseline.
 function Icon24Globe() {
   return (
-    <svg viewBox="0 0 24 24" className="h-3 w-3 shrink-0 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+    <svg viewBox="0 0 24 24" className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
       <circle cx="12" cy="12" r="9" />
       <path d="M3 12h18M12 3c2.5 2.7 2.5 15.3 0 18M12 3c-2.5 2.7-2.5 15.3 0 18" />
     </svg>

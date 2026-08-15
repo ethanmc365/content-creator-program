@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import NetworkLayout from '../components/network/NetworkLayout'
 import NetworkMotion from '../components/NetworkMotion'
 import Reveal from '../components/network/Reveal'
+import Thumbtack, { ThumbtackDefs } from '../components/network/Thumbtack'
 import Icon from '../components/Icon'
 import LocalTime from '../components/LocalTime'
 import { Avatar, EmptyState, Modal, Skeleton } from '../components/ui'
@@ -87,10 +88,14 @@ function AskModal({ open, onClose, onAsked, existing = null }) {
   return (
     <Modal open={open} onClose={onClose} title={editing ? 'Edit your question' : 'Ask the community'} wide>
       <form onSubmit={submit} className="space-y-5">
-        {/* THE TAG FIRST, because it changes what the rest of the form asks. */}
+        {/* THE TAG FIRST, because it changes what the rest of the form asks.
+            One line each, not a label over a line of examples. See BOARD_TAGS
+            for why the examples went; what it buys here is four short chips
+            instead of four paragraphs, which is most of the white space Ethan
+            was looking at. */}
         <div>
           <p className="mb-2 text-sm font-semibold">What is it about?</p>
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-2">
             {BOARD_TAGS.map((t) => {
               const on = tag === t.key
               return (
@@ -100,61 +105,75 @@ function AskModal({ open, onClose, onAsked, existing = null }) {
                   onClick={() => setTag(t.key)}
                   aria-pressed={on}
                   className={cx(
-                    'flex items-start gap-3 rounded-xl border p-3 text-left transition-all duration-200',
+                    'flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-all duration-200',
                     on ? 'border-brand bg-brand-tint/30 ring-1 ring-brand/30' : 'border-gray-200 hover:-translate-y-0.5 hover:border-brand/50',
                   )}
                 >
                   <span className={cx(
-                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+                    'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors',
                     on ? 'bg-brand text-white' : 'bg-cloud text-smoke',
                   )}>
-                    <Icon name={t.icon} className="h-4 w-4" />
+                    <Icon name={t.icon} className="h-3.5 w-3.5" />
                   </span>
-                  <span className="min-w-0">
-                    <span className="block text-sm font-semibold">{t.label}</span>
-                    <span className="mt-0.5 block text-[11px] leading-snug text-smoke">{t.hint}</span>
-                  </span>
+                  <span className="min-w-0 truncate text-sm font-semibold">{t.label}</span>
                 </button>
               )
             })}
           </div>
         </div>
 
-        {/* A SLOT THAT IS ALWAYS THE SAME HEIGHT.
-            "Which country?" only makes sense for one of the four tags - a
-            country field on a question about editing software is a field
-            somebody has to work out they are allowed to skip - but mounting and
-            unmounting it made the whole dialog grow and shrink as you moved
-            between the tags, which is Ethan's "the size of the popup visually
-            jumps and changes, it looks bad". A modal that resizes under the
-            cursor also moves the button you were about to press.
-            So the slot is always there and always 4.5rem; only its contents
-            change, and the alternative content is the chosen tag's own hint,
-            which is worth reading rather than being spacing pretending to be
-            copy. */}
-        <div className="flex h-[4.5rem] flex-col justify-end">
-          {tag === 'country' ? (
-            <>
-              <label htmlFor="board-country" className="mb-1.5 block text-sm font-semibold">Which country?</label>
-              <input
-                id="board-country" className="input" value={country} placeholder="Japan"
-                onChange={(e) => setCountry(e.target.value)}
-              />
-            </>
-          ) : (
-            <p key={tag} className="animate-fade-up pb-3 text-sm leading-snug text-smoke">
-              {tagInfo(tag).hint}
-            </p>
+        {/* THE COUNTRY FIELD GROWS AND SHRINKS. IT DOES NOT APPEAR AND
+            DISAPPEAR, AND IT NO LONGER RESERVES A HOLE.
+
+            "Which country?" only makes sense for one of the four tags, so there
+            have now been three versions of this slot and the first two were both
+            wrong in the obvious ways. Mounting and unmounting the field made the
+            whole dialog jump a row taller and shorter as you moved between tags,
+            which also moves the button you were about to press. Reserving a
+            fixed 4.5rem slot and filling it with the tag's hint text fixed the
+            jump by making the dialog permanently taller and putting filler in
+            the gap - which is exactly the white space Ethan is now looking at,
+            and the filler was the hint copy he has asked to be rid of.
+
+            So the slot is a real height transition. `grid-template-rows: 0fr ->
+            1fr` animates to the content's OWN height without anybody measuring
+            anything or hard-coding a number, and `overflow-hidden` on the inner
+            row is what makes the clip follow it. The field fades as it goes so
+            it does not look like it is being squeezed through a letterbox, and
+            `aria-hidden` plus `inert`-by-tabindex keeps a collapsed input out of
+            the tab order.
+
+            The whole thing is `motion-safe:` - with reduced motion it simply is
+            or is not there, which is the correct reading of that preference. */}
+        <div
+          className={cx(
+            'grid transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none',
+            tag === 'country' ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
           )}
+        >
+          <div className="overflow-hidden">
+            <label htmlFor="board-country" className="mb-1.5 block text-sm font-semibold">Which country?</label>
+            <input
+              id="board-country" className="input" value={country}
+              tabIndex={tag === 'country' ? undefined : -1}
+              aria-hidden={tag !== 'country'}
+              onChange={(e) => setCountry(e.target.value)}
+            />
+          </div>
         </div>
 
         <div>
           <label htmlFor="board-title" className="mb-1.5 block text-sm font-semibold">
             Your question
           </label>
+          {/* NO PLACEHOLDER. It used to read "Is the JR Pass still worth it for
+              two weeks?", which is a good example question and a bad thing to
+              put in the box: a fully-formed sentence sitting in the field is
+              read as content by half the people who see it, it anchors what
+              everybody asks about, and the line under the box already says what
+              makes a good question. Ethan: "remove these." */}
           <input
             id="board-title" className="input" value={title} maxLength={160}
-            placeholder="Is the JR Pass still worth it for two weeks?"
             onChange={(e) => setTitle(e.target.value)}
           />
           {/* A LENGTH HINT, NOT A LENGTH ERROR. The counter only speaks up near
@@ -172,8 +191,7 @@ function AskModal({ open, onClose, onAsked, existing = null }) {
             Anything that would help somebody answer <span className="font-normal text-smoke">(optional)</span>
           </label>
           <textarea
-            id="board-body" rows={5} className="input" value={body} maxLength={4000}
-            placeholder="When you are going, what you have already tried, what you actually need to decide."
+            id="board-body" rows={4} className="input" value={body} maxLength={4000}
             onChange={(e) => setBody(e.target.value)}
           />
         </div>
@@ -225,78 +243,13 @@ function noteHash(id = '') {
   return Math.abs(h)
 }
 
-// THE THUMBTACK.
+// THE THUMBTACK LIVES IN ITS OWN FILE.
 //
-// WHAT WAS WRONG WITH THE OLD ONE. It was a flat disc with a dot of white on it
-// and a straight grey line under it - a lollipop, not a pin. Ethan: "improve
-// the icon, make it look like an actual thumbtack that's tryp.com orange." A
-// real push pin has four parts and it needs all four to read as one: a DOMED
-// head (so it has a lit side and a shaded side), a COLLAR where the plastic is
-// moulded round the shaft, a TAPERED needle, and a shadow on the paper it is
-// pushed into.
-//
-// The dome is a radial gradient rather than a lighter circle offset on top of a
-// darker one, which is what the first attempt at this looked like and which
-// reads as a bullseye. The gradients are declared ONCE per page - see
-// ThumbtackDefs - because a definition per note is a definition per note.
-//
-// AND IT SITS IN THE SAME PLACE ON EVERY NOTE. Ethan: "some are inside the
-// cards and others are nicely at the top, please ensure they all sit nicely."
-// It was `-top-2.5` on a note inside a CSS multi-column container, and a column
-// box clips what overflows its top edge - so the pin on whichever note happened
-// to start a column lost its head and what was left looked like a pin sunk into
-// the paper. The overhang is smaller now and, more importantly, the container
-// reserves room for it (`pt-3` on the columns, `mt-1.5` on each note), so there
-// is no edge for it to be clipped against on any note in any column.
-const TACK_HEAD = 'url(#tack-dome)'
-
-export function ThumbtackDefs() {
-  return (
-    <svg width="0" height="0" aria-hidden className="absolute">
-      <defs>
-        {/* Lit from the top left, like everything else in this product. */}
-        <radialGradient id="tack-dome" cx="34%" cy="30%" r="72%">
-          <stop offset="0%" stopColor="#ffb184" />
-          <stop offset="42%" stopColor="#f5853f" />
-          <stop offset="100%" stopColor="#c23c05" />
-        </radialGradient>
-        <radialGradient id="tack-dome-green" cx="34%" cy="30%" r="72%">
-          <stop offset="0%" stopColor="#86efac" />
-          <stop offset="42%" stopColor="#34d399" />
-          <stop offset="100%" stopColor="#12813f" />
-        </radialGradient>
-        <linearGradient id="tack-needle" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#6b7280" />
-          <stop offset="45%" stopColor="#d1d5db" />
-          <stop offset="100%" stopColor="#6b7280" />
-        </linearGradient>
-      </defs>
-    </svg>
-  )
-}
-
-function Pin({ green = false }) {
-  return (
-    <span className="pointer-events-none absolute -top-2.5 left-1/2 z-10 -translate-x-1/2" aria-hidden>
-      <svg viewBox="0 0 28 30" className="h-8 w-8">
-        {/* The shadow the head casts on the paper below it. An ellipse rather
-            than a filter: this is drawn on up to forty notes at once. */}
-        <ellipse cx="15.4" cy="20.4" rx="6.2" ry="2.2" fill="rgba(20,20,30,0.20)" />
-        {/* Needle: tapered, and it goes INTO the note rather than stopping on
-            top of it - the point is hidden by the paper, which is what a pin
-            pushed through something actually looks like. */}
-        <path d="M12.9 15.5 L15.1 15.5 L14.4 26.5 L13.6 26.5 Z" fill="url(#tack-needle)" />
-        {/* Collar. */}
-        <rect x="9.6" y="13.2" width="8.8" height="3.6" rx="1.8" fill={green ? '#0f7a3d' : '#a83506'} />
-        {/* The head. */}
-        <circle cx="14" cy="9" r="8" fill={green ? 'url(#tack-dome-green)' : TACK_HEAD} />
-        {/* One specular highlight, small and off-centre, which is the whole
-            difference between a dome and a disc. */}
-        <ellipse cx="10.9" cy="6.2" rx="2.5" ry="1.8" fill="#ffffff" fillOpacity="0.55" transform="rotate(-28 10.9 6.2)" />
-      </svg>
-    </span>
-  )
-}
+// It was defined here and copied, in an older form, into the hub's BoardCard -
+// so the two drifted and the same note was pinned up by two different objects
+// depending on which page you were looking at. See components/network/Thumbtack
+// for what it is and why it is shaped the way it is. `ThumbtackDefs` is
+// re-exported because BoardThread below renders one too.
 
 // WHAT THE REDESIGN CHANGED, AND WHY
 //
@@ -348,6 +301,53 @@ function noteScale(q) {
   return 'text-[14px] sm:text-[15px]'
 }
 
+// A NOTE HAS A SHAPE OF ITS OWN, AND THE WALL IS A MIXTURE OF SHAPES.
+//
+// Letting the height fall out of the text alone got the notes off the grid, and
+// it left a second problem: a board of short questions is a board of identical
+// short strips, because almost every question IS short. Ethan: "I want the
+// visual post notes to be different sizes depending on the question and just
+// have a mixture anyway. On average they should be square, but also have some
+// smaller ones like the current ones, and even longer ones that are like two
+// squares on top of each other."
+//
+// So each note is given a MINIMUM shape, as a ratio of its own width, and the
+// text can still push past it. The mixture is weighted the way he described it -
+// square is the common case, small and tall are the variation, and one in ten is
+// the double - and it is drawn from the id hash, so a note keeps its shape
+// between visits rather than reshuffling the whole wall on every refresh.
+//
+// HOW A MINIMUM ASPECT RATIO IS ACTUALLY DONE HERE, because the two obvious
+// ways are both wrong and the third nearly worked.
+//
+// A PIXEL HEIGHT cannot work: the column width changes at three breakpoints and
+// again whenever the rail is there.
+//
+// `aspect-ratio` ALONE sets the height rather than flooring it, so a note whose
+// question runs long has its own text hanging out of the bottom of the paper.
+//
+// `aspect-ratio` PLUS `min-height: fit-content` is what this was first written
+// as, on the reasoning that `fit-content` in the block axis resolves to the
+// content's own height. It does not, in practice: on a box that already has a
+// resolved aspect-ratio height Chrome leaves the minimum at the ratio, and the
+// long note overflowed exactly as before - which is what shipped for about ten
+// minutes and is visible in the third note on the board.
+//
+// SO IT IS THE PERCENTAGE-PADDING SPACER, which is old and completely reliable.
+// A percentage `padding-top` resolves against the CONTAINING BLOCK'S WIDTH, so a
+// zero-width floated span with `padding-top: 150%` is exactly one and a half
+// note-widths tall and occupies no room across. A parent with `display:
+// flow-root` grows to contain a float, so the note is AT LEAST that tall and
+// taller when the writing needs it, at any column width, with no measuring.
+//
+// `flow-root` and not `overflow: hidden` - the other way to contain a float -
+// because the pin deliberately hangs over the top edge and a clip would cut its
+// head off. And the note stops being a flex column, so the author line follows
+// the writing down the page instead of being pushed to the bottom edge: on a
+// tall note that leaves blank paper under it, which is what a real note with
+// three words on it looks like.
+const NOTE_SHAPES = [0.62, 1, 1, 1.5, 1, 0.62, 2.06, 1, 1, 1.5]
+
 function QuestionNote({ q }) {
   const t = tagInfo(q.tag)
   const answers = Number(q.answer_count || 0)
@@ -356,6 +356,7 @@ function QuestionNote({ q }) {
   // -1.6, -0.8, 0.8 or 1.6 degrees. Small on purpose: past about two degrees a
   // wall of notes stops looking casual and starts looking broken.
   const tilt = [-1.6, -0.8, 0.8, 1.6][h % 4]
+  const shape = NOTE_SHAPES[h % NOTE_SHAPES.length]
   const open = answers === 0
 
   return (
@@ -368,7 +369,7 @@ function QuestionNote({ q }) {
         // next, which is a genuinely alarming thing to see happen to a piece of
         // paper. `mb-*` rather than a grid gap, because columns have no gap
         // along their own axis.
-        'group relative mb-4 flex break-inside-avoid flex-col rounded-lg border bg-white shadow-card transition-all duration-300 ease-out sm:mb-5',
+        'group relative mb-4 flow-root break-inside-avoid rounded-lg border bg-white shadow-card transition-all duration-300 ease-out sm:mb-5',
         // NO `overflow-hidden` HERE. The pin is `-top-2.5` and deliberately
         // sticks out over the top edge - that overhang plus its drop shadow is
         // the entire trick that makes the note look attached to the board. A
@@ -381,15 +382,19 @@ function QuestionNote({ q }) {
         open ? 'border-brand/25 hover:border-brand/50' : 'border-green-200 hover:border-green-400',
       )}
     >
-      <Pin green={!open} />
+      <Thumbtack />
+
+      {/* THE SHAPE. Zero width so it takes no room across, percentage padding so
+          its height is a fraction of the note's own width. See NOTE_SHAPES. */}
+      <span className="float-left w-0" style={{ paddingTop: `${shape * 100}%` }} aria-hidden />
 
       {/* THE STATE, AS A BAND. Two pixels of colour across the top of a white
           note is legible across a whole wall without tinting the paper - and it
           leaves the paper white, which is what makes the wall read as this
           product rather than as a different one. */}
-      <span className={cx('h-1 w-full shrink-0 rounded-t-lg', open ? 'bg-brand' : 'bg-green-500')} aria-hidden />
+      <span className={cx('block h-1 w-full rounded-t-lg', open ? 'bg-brand' : 'bg-green-500')} aria-hidden />
 
-      <span className="flex min-h-0 flex-1 flex-col p-3.5 pt-2.5 sm:p-4 sm:pt-3.5">
+      <span className="block p-3.5 pt-2.5 sm:p-4 sm:pt-3.5">
         <span className="mb-2 flex items-center gap-1.5">
           <span className={cx(
             'inline-flex min-w-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold',
@@ -446,7 +451,8 @@ function QuestionNote({ q }) {
           </span>
         )}
 
-        <span className="mt-3 block border-t border-gray-100 pt-2.5">
+        <span className="block pt-3">
+        <span className="block border-t border-gray-100 pt-2.5">
           {open && (
             <span className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold text-brand">
               <span className="relative flex h-1.5 w-1.5">
@@ -462,6 +468,7 @@ function QuestionNote({ q }) {
               {q.author_name} · {formatMessageTime(q.created_at)}
             </span>
           </span>
+        </span>
         </span>
       </span>
     </Link>
@@ -517,10 +524,12 @@ export default function Board() {
                 <Icon name="chat" className="h-7 w-7 shrink-0 text-brand" />
                 Community board
               </h1>
-              <p className="mt-1.5 text-sm text-smoke">
-                Ask the whole network something. Anyone can answer, and the answers stay here for whoever
-                asks next.
-              </p>
+              {/* NO STRAPLINE. It read "Ask the whole network something. Anyone
+                  can answer, and the answers stay here for whoever asks next",
+                  which is a good description of the feature and a thing you need
+                  told once. The wall of pinned notes under it says all of it
+                  without a sentence, and the space is better spent on the notes.
+                  Ethan: "remove this description below the title." */}
             </div>
             <button onClick={() => setAsking(true)} className="btn-primary transition-transform duration-200 hover:scale-105">
               <Icon name="pencil" className="h-4 w-4" />
@@ -602,13 +611,29 @@ export default function Board() {
               WALL looking like a strip of cork; with no wall there is nothing to
               look empty, and a screen and a half of enforced whitespace under
               four notes would be the new version of the same problem. */}
-          <div className="pt-3">
+          {/* HALF A SCREEN OF ROOM UNDER THE LAST NOTE, ALWAYS.
+              A board with six notes on it stops dead a third of the way down
+              the window, and on a phone the last note ends up jammed against
+              the tab bar with nowhere to go - the page simply refuses to
+              scroll, which reads as the app having locked up rather than as
+              there being nothing more. Ethan: "I want to be able to always
+              scroll at least half a page down below nothing." So the wall
+              carries half a viewport of empty board under it, plus the phone's
+              tab bar and safe area, and a short board scrolls exactly like a
+              long one. `50vh` and not `50dvh`: on iOS a dvh unit changes as the
+              address bar collapses, so the page would grow while you scrolled
+              it. */}
+          <div className="pt-3 pb-[calc(50vh+6rem+env(safe-area-inset-bottom))] sm:pb-[50vh]">
             {/* The thumbtack's gradients, declared once for every pin on the
                 page rather than once per note. */}
             <ThumbtackDefs />
             {rows === null ? (
+              // The skeleton mirrors NOTE_SHAPES rather than a ladder of
+              // arbitrary heights: what loads in has to be the shape of what
+              // arrives, or the wall visibly re-lays itself the moment the
+              // query lands.
               <div className="columns-2 gap-4 sm:gap-5 lg:columns-3 xl:columns-4">
-                {[190, 260, 150, 300, 210, 170, 250, 200].map((h, i) => (
+                {[170, 260, 260, 380, 260, 170, 520, 260].map((h, i) => (
                   <Skeleton key={i} className="mb-4 block sm:mb-5" style={{ height: h }} />
                 ))}
               </div>
@@ -796,7 +821,7 @@ export function BoardThread() {
             'relative rounded-lg border bg-white shadow-lift',
             openQ ? 'border-brand/25' : 'border-green-200',
           )}>
-            <Pin green={!openQ} />
+            <Thumbtack />
             <span className={cx('block h-1 w-full rounded-t-lg', openQ ? 'bg-brand' : 'bg-green-500')} aria-hidden />
             <div className="p-5 sm:p-7">
             <div className="mb-3 flex flex-wrap items-center gap-2">

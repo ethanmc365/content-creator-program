@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Icon from '../Icon'
+import Thumbtack, { ThumbtackDefs } from './Thumbtack'
 import { Skeleton } from '../ui'
 import { loadFeed, tagInfo } from '../../lib/board'
 import { cx, formatMessageTime } from '../../lib/utils'
@@ -39,17 +40,15 @@ function noteHash(id = '') {
   return Math.abs(h)
 }
 
-function MiniPin({ hue }) {
-  return (
-    <span className="pointer-events-none absolute -top-2 left-1/2 z-10 -translate-x-1/2" aria-hidden>
-      <svg viewBox="0 0 24 24" className="h-5 w-5" style={{ filter: 'drop-shadow(0 2px 2px rgba(20,20,30,0.28))' }}>
-        <circle cx="12" cy="9" r="6" fill={hue} />
-        <circle cx="10" cy="7" r="2" fill="#ffffff" fillOpacity="0.55" />
-        <path d="M12 15v6" stroke="#8a8a94" strokeWidth="1.6" strokeLinecap="round" />
-      </svg>
-    </span>
-  )
-}
+// THE PIN IS THE BOARD'S PIN, NOT A SMALLER DIFFERENT ONE.
+//
+// There was a `MiniPin` here: a flat coloured circle, a white dot and a grey
+// line. That was the board's own pin at the time this card was written, and the
+// board has had two redesigns of it since - so the hub was pinning notes up with
+// an object the board itself stopped using months ago, and a note visibly
+// changed what was holding it when you tapped through. It draws the shared
+// component now, one size down, and it can never drift again.
+// See components/network/Thumbtack.
 
 export default function BoardCard({ className }) {
   const [rows, setRows] = useState(null)
@@ -123,27 +122,36 @@ export default function BoardCard({ className }) {
         </Link>
       </div>
 
-      {/* `pt-3` reserves the pin's overhang. The notes are `-top-2` pins on an
-          otherwise flush row, and without the padding the top of each pin is
-          clipped by whatever sits above this section. */}
-      <div className="grid gap-4 pt-3 sm:grid-cols-3">
-        {rows.map((q) => {
+      {/* `pt-3` reserves the pin's overhang. The notes carry a pin that hangs
+          over their top edge, and without the padding the head of each one is
+          clipped by whatever sits above this section.
+
+          THE THREE NOTES ARRIVE ONE AFTER ANOTHER, and the stagger is on a
+          WRAPPER rather than on the note. `.reveal-item` animates `transform`,
+          and the note carries an inline `rotate` for its tilt - an inline style
+          beats a stylesheet rule, so putting both on one element means the note
+          arrives with no motion at all and simply appears. The wrapper does the
+          travelling and the note does the tilting. CSS and not Motion because
+          the hub is eagerly routed. */}
+      <div className="reveal is-in grid gap-4 pt-3 sm:grid-cols-3">
+        <ThumbtackDefs />
+        {rows.map((q, i) => {
           const t = tagInfo(q.tag)
           const answers = Number(q.answer_count || 0)
           const open = answers === 0
           const tilt = [-1.6, -0.8, 0.8, 1.6][noteHash(q.id) % 4]
           return (
+            <div key={q.id} className="reveal-item" style={{ '--reveal-i': i }}>
             <Link
-              key={q.id}
               to={`/board/${q.id}`}
               style={{ transform: `rotate(${tilt}deg)` }}
               className={cx(
-                'group relative flex min-h-[8rem] flex-col rounded-lg border bg-white shadow-card transition-all duration-300 ease-out',
+                'group relative flex h-full min-h-[9rem] flex-col rounded-lg border bg-white shadow-card transition-all duration-300 ease-out',
                 'hover:z-10 hover:-translate-y-1.5 hover:!rotate-0 hover:shadow-lift',
                 open ? 'border-brand/25 hover:border-brand/50' : 'border-green-200 hover:border-green-400',
               )}
             >
-              <MiniPin hue={open ? '#d94407' : '#16a34a'} />
+              <Thumbtack className="h-7 w-7" />
               <span className={cx('h-1.5 w-full shrink-0 rounded-t-lg', open ? 'bg-brand' : 'bg-green-500')} aria-hidden />
               <span className="flex flex-1 flex-col p-3.5 pt-3">
                 <span className="mb-2 flex items-center gap-1.5">
@@ -167,6 +175,7 @@ export default function BoardCard({ className }) {
                 </span>
               </span>
             </Link>
+            </div>
           )
         })}
       </div>

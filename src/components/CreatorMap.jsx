@@ -159,7 +159,7 @@ function byPinPriority(a, b) {
 // tip on the exact coordinate. The avatar is CONCENTRIC with the white disc so
 // it's dead-centre in the pin. Counter-scaled against the zoom so it stays a
 // calm, readable size (a hair of growth when you zoom in, never a balloon).
-function Pin({ group, zoom, active, dim, onSelect, landIndex = null }) {
+function Pin({ group, zoom, active, dim, onSelect, landing = false }) {
   const lead = group.creators[0]
   const count = group.creators.length
   // Counter-scale so pins are small at the default zoom (you can see the
@@ -178,10 +178,11 @@ function Pin({ group, zoom, active, dim, onSelect, landIndex = null }) {
           below would silently throw the counter-scale away for the length of
           the animation and every pin would balloon on arrival. This g carries
           only the animation; the one inside it carries only the scale. */}
-      <g
-        className={landIndex == null ? undefined : 'map-pin-land'}
-        style={landIndex == null ? undefined : { '--pin-i': landIndex }}
-      >
+      {/* `landing` is a plain flag, not a queue position. It used to carry a
+          `--pin-i` the stylesheet turned into a per-pin delay; every pin drops
+          on the same frame now, so all this decides is whether the arrival
+          plays at all. See `.map-pin-land`. */}
+      <g className={landing ? 'map-pin-land' : undefined}>
       <g
         transform={`scale(${s})`}
         style={{ cursor: 'pointer', opacity: dim ? 0.25 : 1, transition: 'opacity 0.2s' }}
@@ -415,12 +416,13 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   //
   // The component itself does NOT unmount (only its rendered subtree moves), so
   // a flag here survives the transition and the second mount draws the map in
-  // its settled state. The timer is longer than the whole sequence (900ms delay
-  // plus 460ms on the aircraft) so nothing is ever cut off part-way.
+  // its settled state. The timer is a little longer than the whole sequence,
+  // which now finishes at 620ms (the pins' 200ms delay plus their 420ms fall),
+  // so nothing is ever cut off part-way.
   const [arrived, setArrived] = useState(false)
   useEffect(() => {
     if (!features || arrived) return undefined
-    const t = setTimeout(() => setArrived(true), 1600)
+    const t = setTimeout(() => setArrived(true), 800)
     return () => clearTimeout(t)
   }, [features, arrived])
 
@@ -946,22 +948,37 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   const selectedTown = selected // a town snapshot ({ key, coords, creators })
 
   // Counter-scaling reads the LIVE zoom, not the settled one. Reading only the
-  // post-gesture value made every pin and plane balloon for a frame mid-zoom.
-  // The rAF throttle keeps the re-renders to one per frame so it stays smooth.
+  // post-gesture value made every pin and plane balloon mid-zoom.
+  //
+  // THE BUG THIS FIXES, AND WHY THE rAF THROTTLE HAD TO GO.
+  //
+  // `setLiveZoom` used to be deferred into a requestAnimationFrame, on the
+  // reasoning that a wheel can fire more often than the screen refreshes and one
+  // re-render per frame is enough. It is enough, and it is also the bug: Ethan,
+  // "when zooming in the planes temporarily appear way too big and then go to
+  // normal size."
+  //
+  // react-simple-maps' own zoom handler does two things in one synchronous d3
+  // event - it sets ITS state (which is what actually scales the group) and then
+  // calls this `onMove`. React 18 batches every setState made inside one event
+  // into a SINGLE render, so setting the counter-scale here, synchronously, puts
+  // the map's new scale and the pins' new counter-scale in the same commit and
+  // therefore on the same painted frame. Deferring ours by a frame took it out
+  // of that batch: the group scaled up on frame N and everything drawn on it
+  // stayed sized for the old zoom until frame N+1. On a fast wheel, several
+  // ticks land inside one frame, so the aircraft were briefly drawn at a scale
+  // several steps out of date - which is exactly "way too big, then normal".
+  //
+  // It costs nothing to be synchronous. The land is a memo'd component that does
+  // not re-render on zoom at all (see `Countries`), a pan reports the SAME zoom
+  // so React bails out of the render entirely, and what is left is the markers,
+  // which have to be re-rendered on a zoom change or they are wrong.
   const z = liveZoom
-  const rafRef = useRef(0)
-  const handleMove = useCallback((pos) => {
-    if (rafRef.current) return
-    rafRef.current = requestAnimationFrame(() => {
-      rafRef.current = 0
-      setLiveZoom(pos.zoom)
-    })
-  }, [])
+  const handleMove = useCallback((pos) => { setLiveZoom(pos.zoom) }, [])
   const handleMoveEnd = useCallback((pos) => {
     setPosition(pos)
     setLiveZoom(pos.zoom)
   }, [])
-  useEffect(() => () => cancelAnimationFrame(rafRef.current), [])
 
   // liveZoom FOLLOWS position.zoom, always.
   //
@@ -1479,7 +1496,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
             ))}
           </g>
 
-          {paintOrder.map((town, i) => {
+          {paintOrder.map((town) => {
             const dimTown = highlighting && !town.creators.some((c) => highlightIds.has(c.id))
             const label = town.creators.length === 1
               ? `${town.creators[0].name} · ${(town.creators[0].city || '').trim()}`.trim()
@@ -1490,13 +1507,8 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
                 onMouseEnter={() => setTooltip(label)}
                 onMouseLeave={() => setTooltip('')}
               >
-                {/* THE LADDER IS CAPPED AT TWENTY-FIVE. Paint order is north to
-                    south, so the pins land down the map, which is a direction a
-                    reader can follow. Past twenty-five steps the last pin would
-                    arrive a second and a half after the first and the map would
-                    read as still loading rather than as arriving. */}
                 <Pin group={town} zoom={z} active={selected?.key === town.key} dim={dimTown}
-                  onSelect={selectTown} landIndex={arrived ? null : Math.min(i, 25)} />
+                  onSelect={selectTown} landing={!arrived} />
               </g>
             )
           })}

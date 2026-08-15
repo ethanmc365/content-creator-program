@@ -18,15 +18,20 @@ import { supabase } from './supabase'
 // `other` is deliberately last and deliberately vague. A tag list with no escape
 // hatch does not produce better tagging, it produces questions filed under
 // whichever of the three was least wrong.
+//
+// NO `hint` ON A TAG ANY MORE. Each of these carried a line of examples -
+// "Filming, editing, hooks, brands, rates, growing an account" and three more
+// like it - printed under the label in the composer. Four labels with four
+// subtitles is sixteen lines of type in front of somebody who has already
+// decided what they want to ask, and the labels ("About a country", "About
+// making content") say the whole thing on their own. Ethan: "remove that
+// description from them as its not needed." Removing them is also most of what
+// made the ask dialog too tall.
 export const BOARD_TAGS = [
-  { key: 'country', label: 'About a country', short: 'Country', icon: 'globe',
-    hint: 'Somewhere specific: getting around, where to stay, what it actually costs.' },
-  { key: 'travelling', label: 'About travelling', short: 'Travelling', icon: 'plane',
-    hint: 'Flights, visas, kit, insurance, working on the road.' },
-  { key: 'other_things', label: 'About making content', short: 'Content', icon: 'video',
-    hint: 'Filming, editing, hooks, brands, rates, growing an account.' },
-  { key: 'other', label: 'Something else', short: 'Other', icon: 'chat',
-    hint: 'Anything that does not fit the other three.' },
+  { key: 'country', label: 'About a country', short: 'Country', icon: 'globe' },
+  { key: 'travelling', label: 'About travelling', short: 'Travelling', icon: 'plane' },
+  { key: 'other_things', label: 'About making content', short: 'Content', icon: 'video' },
+  { key: 'other', label: 'Something else', short: 'Other', icon: 'chat' },
 ]
 
 export const tagInfo = (key) => BOARD_TAGS.find((t) => t.key === key) || BOARD_TAGS[3]

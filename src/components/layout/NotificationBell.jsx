@@ -135,8 +135,13 @@ export default function NotificationBell() {
         )}
       </button>
 
+      {/* THE SAME OPENING AS THE AVATAR MENU. It was `animate-fade-up`, which
+          rises from BELOW - so a panel hanging off a bell in the top bar
+          arrived by travelling upwards, away from the button that opened it.
+          `menu-in` unfolds it from its own top-right corner, which is where the
+          bell is. Two menus in one row of chrome have to open the same way. */}
       {open && (
-        <div className="absolute right-0 z-40 mt-2 w-80 rounded-card border border-gray-100 bg-white p-2 shadow-lift animate-fade-up">
+        <div className="absolute right-0 z-40 mt-2 w-80 origin-top-right rounded-card border border-gray-100 bg-white p-2 shadow-lift animate-menu-in">
           <div className="flex items-center justify-between px-3 py-2">
             <p className="text-sm font-semibold">Notifications</p>
             {unread > 0 && (

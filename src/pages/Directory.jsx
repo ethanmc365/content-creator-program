@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import CreatorCard from '../components/CreatorCard'
 import CreatorMap from '../components/CreatorMap'
+import MapSkeleton from '../components/network/MapSkeleton'
 import BackLink from '../components/BackLink'
 import Reveal from '../components/network/Reveal'
 import Combobox from '../components/Combobox'
@@ -247,7 +248,7 @@ export default function Directory() {
           contradicting its own picture. */}
       <section className="mb-10">
         {loading ? (
-          <div className="h-[340px] w-full animate-pulse rounded-card bg-cloud/70 sm:h-[420px]" />
+          <MapSkeleton header />
         ) : (
           <CreatorMap
             header={

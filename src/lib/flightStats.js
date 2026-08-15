@@ -293,9 +293,29 @@ export function records(list) {
   }
 }
 
-/** Everything the page needs, from the rows and today's date. */
+/** Everything the page needs, from the rows and today's date.
+ *
+ * A FLIGHT YOU HAVE NOT TAKEN YET IS NOT PART OF ANY TOTAL.
+ *
+ * The log now holds upcoming flights as well as flown ones - the same table,
+ * the same row, and no `is_upcoming` column, because whether a flight is
+ * upcoming is a fact about TODAY and the date already in the row (a boolean
+ * saying the same thing is wrong the morning after the flight and stays wrong).
+ * See migration 104.
+ *
+ * That makes exactly one thing important here: every figure on the page is
+ * computed over the FLOWN rows only. Distance, hours, countries, records, the
+ * streak, the year-by-year bars, the map, the aircraft collection - all of them
+ * would otherwise credit somebody with a trip to Tokyo they have not made, and
+ * a log that counts intentions is not a log. The upcoming rows come back
+ * separately, soonest first, for the one section that is about them.
+ */
 export function buildFlightStats(rows, todayStr) {
-  const list = decorate(rows)
+  const all = decorate(rows)
+  const list = all.filter((f) => f.flown_on <= todayStr)
+  const upcoming = all
+    .filter((f) => f.flown_on > todayStr)
+    .sort((a, b) => a.flown_on.localeCompare(b.flown_on))
   const t = totals(list)
   const years = byYear(list)
 
@@ -330,6 +350,7 @@ export function buildFlightStats(rows, todayStr) {
 
   return {
     list,
+    upcoming,
     ...t,
     routes,
     years,

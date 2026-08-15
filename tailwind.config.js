@@ -49,11 +49,30 @@ export default {
           from: { opacity: '0' },
           to: { opacity: '1' },
         },
-        // Menus anchored to the top (avatar dropdown) scale in from their
-        // origin like native menus, instead of rising from below.
+        // A MENU UNFOLDING FROM THE THING THAT OPENED IT.
+        //
+        // Menus anchored to the top (the avatar dropdown, the notification
+        // panel) grow out of their own origin corner like a native menu rather
+        // than rising from below.
+        //
+        // WHAT CHANGED, AND WHY IT NEEDED TO. It was a 160ms linear-ish fade
+        // from `scale(0.95)`, which at that duration is not a movement anybody
+        // perceives - the menu simply appeared, slightly blurred on the way.
+        // Ethan asked for the profile dropdown and the notification bell to
+        // open better, and there is nothing to improve about a transition too
+        // short to see. This one starts from a genuinely smaller, slightly
+        // raised box, overshoots by a whisker on the way out and settles, on a
+        // spring-ish curve over 220ms - the same easing the toast and the map
+        // overlay already use, so all three read as one product.
+        //
+        // 220ms is the ceiling for a control that opens under a cursor that is
+        // already moving towards what it wants to press. The origin corner is
+        // set per menu (`origin-top-right`), which is what makes it unfold from
+        // the avatar rather than from the middle of itself.
         'menu-in': {
-          from: { opacity: '0', transform: 'scale(0.95) translateY(-4px)' },
-          to: { opacity: '1', transform: 'scale(1) translateY(0)' },
+          '0%': { opacity: '0', transform: 'scale(0.9) translateY(-8px)' },
+          '55%': { opacity: '1' },
+          '100%': { opacity: '1', transform: 'scale(1) translateY(0)' },
         },
         // THE ANSWER FLASH. A green or red wash over the whole question card
         // the instant an answer lands - it reads faster than any word can, and
@@ -76,6 +95,47 @@ export default {
           '0%, 100%': { transform: 'scale(1) rotate(0deg)', opacity: '1' },
           '35%': { transform: 'scale(1.06) rotate(-2deg)', opacity: '0.92' },
           '70%': { transform: 'scale(0.97) rotate(1.5deg)', opacity: '1' },
+        },
+        // A FLAME THAT ACTUALLY BURNS, IN THREE LAYERS.
+        //
+        // `flicker` above moved the WHOLE flame as one rigid shape, which is
+        // what a candle in a draught does, not what a fire does. Ethan: "for the
+        // streak icon, can you make it a constant animation that's like an
+        // actual fiery, flowy, flamy flame."
+        //
+        // A real flame reads as flowing for one reason: its parts move at
+        // DIFFERENT SPEEDS. The outer body is heavy and sways slowly, the inner
+        // tongue licks up through it about half again as fast, and the white
+        // core at the base jitters faster than either. Three layers on three
+        // periods that do not divide into each other never repeat visibly, so a
+        // two-second loop reads as an endless one - and it is three CSS
+        // animations on three composited paths rather than anything per-frame.
+        //
+        // Every one of them is anchored at the BASE (`transform-origin: 50% 92%`
+        // is set on the elements). A flame pinned at its middle grows downwards
+        // as well as up, which reads as a balloon inflating.
+        'flame-body': {
+          '0%, 100%': { transform: 'scaleY(1) scaleX(1) rotate(0deg)' },
+          '22%': { transform: 'scaleY(1.09) scaleX(0.94) rotate(-2.5deg)' },
+          '48%': { transform: 'scaleY(0.95) scaleX(1.05) rotate(1.8deg)' },
+          '74%': { transform: 'scaleY(1.06) scaleX(0.97) rotate(-1deg)' },
+        },
+        'flame-inner': {
+          '0%, 100%': { transform: 'scaleY(0.96) scaleX(1.03) rotate(1.5deg)', opacity: '0.85' },
+          '30%': { transform: 'scaleY(1.12) scaleX(0.9) rotate(-2deg)', opacity: '1' },
+          '65%': { transform: 'scaleY(0.92) scaleX(1.06) rotate(2.5deg)', opacity: '0.8' },
+        },
+        'flame-core': {
+          '0%, 100%': { transform: 'scaleY(1) scaleX(1)', opacity: '0.95' },
+          '40%': { transform: 'scaleY(1.18) scaleX(0.86)', opacity: '0.7' },
+          '70%': { transform: 'scaleY(0.9) scaleX(1.1)', opacity: '1' },
+        },
+        // One spark leaving the top and going out. Two of them on offset delays
+        // is the difference between a drawing of a fire and a fire.
+        'flame-spark': {
+          '0%': { opacity: '0', transform: 'translateY(2px) scale(0.5)' },
+          '18%': { opacity: '0.95' },
+          '100%': { opacity: '0', transform: 'translateY(-9px) scale(0.15)' },
         },
         // A STREAK THAT IS ALIGHT, AND ONE THAT IS ONLY WARM.
         //
@@ -166,10 +226,16 @@ export default {
         'fade-up': 'fade-up 0.4s ease-out both',
         'pop-in': 'pop-in 0.35s ease-out both',
         'page-in': 'page-in 0.35s ease-out both',
-        'menu-in': 'menu-in 0.16s ease-out both',
+        'menu-in': 'menu-in 220ms cubic-bezier(0.22, 1.12, 0.36, 1) both',
         confetti: 'confetti 3s linear forwards',
         shake: 'shake 0.4s ease-in-out both',
         flicker: 'flicker 2.6s ease-in-out infinite',
+        // Three periods that do not divide into one another, so the loop never
+        // visibly repeats. See the keyframes.
+        'flame-body': 'flame-body 1.9s ease-in-out infinite',
+        'flame-inner': 'flame-inner 1.25s ease-in-out infinite',
+        'flame-core': 'flame-core 0.8s ease-in-out infinite',
+        'flame-spark': 'flame-spark 2.1s ease-out infinite',
         'map-in': 'map-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both',
         'map-out': 'map-out 180ms cubic-bezier(0.4, 0, 1, 1) both',
         'flame-glow': 'flame-glow 2.6s ease-in-out infinite',

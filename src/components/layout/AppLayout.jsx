@@ -409,11 +409,23 @@ export default function AppLayout() {
                       avatar is where navigation belongs, it is one thumb-reach
                       from anywhere, and it works on every page rather than only
                       on the hub.
-                      Desktop keeps the rail and never renders this: two lists of
-                      the same ten links on one screen is the duplication we just
-                      took out of the rail. */}
+                      AND ON A DESKTOP TOO, NOW. This used to be `lg:hidden`, on
+                      the reasoning that a desktop has the rail on the Worldwide
+                      hub and two lists of the same ten links on one screen is
+                      duplication. That is true on the hub and false everywhere
+                      else, which is most of the app: from a challenge, a chat,
+                      the flight log or the admin panel there was no way to reach
+                      the collab board or the community board at all without
+                      going back to Worldwide first. Ethan: "as well as
+                      everything showing up under explore the community on the
+                      worldwide page, they should still show up on the profile
+                      dropdown menu when clicked, this is for desktop as I think
+                      they already do on mobile."
+                      The rail and the menu read the same list from
+                      lib/networkLinks, in the reader's own saved order, so the
+                      two can never drift apart. */}
                   {networkPreview && (
-                    <div className="lg:hidden">
+                    <div>
                       <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Explore the community</p>
                       {menuLinks.map((l) => (
                         <Link

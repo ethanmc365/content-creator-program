@@ -372,17 +372,23 @@
     40%  { opacity: 0.75; }
     to   { stroke-dashoffset: 0; opacity: 0.75; }
   }
+  /* THE ROUTES DRAW IN TOGETHER AND THEY DRAW IN FAST.
+     This was 1100ms with a per-route delay ladder on top of it, which on a log
+     of forty routes meant the map was still assembling itself well over two
+     seconds after the card appeared - the same complaint as the pin ladder on
+     the creator map, and the same fix. 520ms, no ladder, and the whole map is
+     settled before a reader has finished looking at it. */
   .flight-arc {
     stroke-dasharray: var(--arc-len, 200);
     stroke-dashoffset: var(--arc-len, 200);
-    animation: flight-arc-draw 1100ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation: flight-arc-draw 520ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
   }
   @keyframes flight-pin-pop {
     from { opacity: 0; transform: scale(0.2); }
     to   { opacity: 1; transform: scale(1); }
   }
   .flight-pin {
-    animation: flight-pin-pop 420ms cubic-bezier(0.22, 1, 0.36, 1) 700ms backwards;
+    animation: flight-pin-pop 300ms cubic-bezier(0.22, 1, 0.36, 1) 280ms backwards;
   }
   @media (prefers-reduced-motion: reduce) {
     .flight-arc {
@@ -395,85 +401,82 @@
   }
 
   /* THE MAP ARRIVING.
-     THE BUG THIS FIXES. Every map on this platform painted its OVERLAY first
-     and its GEOGRAPHY second: `<Geographies>` is handed `EMPTY_GEO` until the
-     atlas promise resolves, while the pins and arcs are computed from props
-     that are already in memory. So the sequence a reader actually saw was a
-     blank card, then a constellation of pins and curves floating on nothing,
-     then a world map appearing underneath them. Ethan: "currently it starts by
-     flashing up all the pins and lines and then loads the map."
+     THE FIRST BUG, AND IT IS STILL FIXED. Every map on this platform painted
+     its OVERLAY first and its GEOGRAPHY second: `<Geographies>` is handed
+     `EMPTY_GEO` until the atlas promise resolves, while the pins and arcs are
+     computed from props that are already in memory. So the sequence a reader
+     actually saw was a blank card, then a constellation of pins and curves
+     floating on nothing, then a world map appearing underneath them. Ethan:
+     "currently it starts by flashing up all the pins and lines and then loads
+     the map." Nothing draws until the atlas is in; then the land arrives, and
+     the pins follow it.
 
-     The order is inverted now. Nothing draws until the atlas is in; then the
-     land arrives as one movement, and the pins and routes follow it.
+     THE SECOND BUG: THE ARRIVAL ITSELF WAS TOO CLEVER AND FAR TOO LONG.
+     What replaced the flash was a four-step sequence pretending to pull back
+     from a globe - the land scaled in from 1.16, the threads faded up behind
+     it at 300ms, the pins dropped one after another on a 26ms-per-pin ladder
+     from 420ms, and the aircraft appeared at 900ms. With forty-odd pins the
+     last one landed a second and a half in, and the whole thing was still
+     moving nearly two seconds after the card appeared. Ethan: "the animation
+     takes a long time to load, I do not want the globe animation any more, I
+     just want the map to smoothly appear and the pins to all smoothly drop in
+     and appear together."
 
-     `map-globe-in` is the arrival, and it is doing an impression of pulling
-     back from a globe rather than actually being one: a real orthographic to
-     equal-earth morph means re-projecting every polygon on every frame, which
-     is a megabyte of geometry re-tessellated sixty times a second for one
-     second of decoration. Scaling in from slightly enlarged, from the centre,
-     with the edges fading up last, reads as the same gesture and costs one
-     composited layer.
+     He is right about the globe and right about the ladder, and they are the
+     same mistake twice: both spend TIME to say something the reader already
+     knows. A map does not need to explain that it is a map, and forty pins
+     landing in sequence is forty pins the eye cannot follow anyway - it reads
+     as the map still loading, which is the exact opposite of what an entrance
+     is for.
 
-     `transform-origin: center` and `transform-box: fill-box` together are what
-     make it scale about the middle of the map rather than about the SVG
-     viewBox origin - the same trap the Flight Path aircraft hit.
+     So it is three overlapping fades and one drop, and it is over in 620ms:
 
-     THE SEQUENCE, AND WHY IT IS FOUR STEPS RATHER THAN TWO.
-     It used to be the land, then everything drawn on the land as one block that
-     faded up together. Ethan: "the animation isn't very good or clear, I want
-     the immediate animation like the world map coming in from the world globe
-     and the pins and planes landing cleanly on it." A single fade cannot say
-     that, because a pin that fades in has not landed anywhere - it was simply
-     always there and you could not see it. Landing is a MOVEMENT, and it has to
-     happen after the thing it lands on has stopped moving.
+       the land      fades up, no scale, no transform at all (0-320ms)
+       the threads   fade in behind the pins as the land settles (140-400ms)
+       the pins      ALL DROP TOGETHER, one short fall with a little squash
+                     at the end (200-620ms)
+       the aircraft  fade in on the routes once the pins are down (420-620ms)
 
-     So: the land pulls back (0ms), the threads between the towns draw
-     themselves up behind it (300ms), the pins drop onto it one after another
-     (420ms, laddered), and only once the pins are down do the aircraft appear
-     on the routes (900ms). Each step starts as the one before it is finishing,
-     so it reads as one continuous arrival rather than as four animations. */
-  @keyframes map-globe-in {
-    from { opacity: 0; transform: scale(1.16); }
-    55%  { opacity: 1; }
-    to   { opacity: 1; transform: scale(1); }
+     Every step starts before the one above it has finished, so it still reads
+     as one continuous arrival rather than as four - it is simply an arrival
+     that is finished by the time you have focused on it. */
+  @keyframes map-land-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
   }
   .map-arrive {
-    transform-box: fill-box;
-    transform-origin: center;
-    animation: map-globe-in 760ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: map-land-in 320ms ease-out both;
   }
-  /* The overlay waits for the land. By 300ms the geography is most of the way
-     home and anything arriving on it lands ON something. Opacity only: a
-     translate here would slide the whole constellation of pins across the map
-     relative to the countries they belong to, which is the one thing a map may
-     never do. */
+  /* The threads wait for the land. Opacity only: a translate here would slide
+     the whole constellation of pins across the map relative to the countries
+     they belong to, which is the one thing a map may never do. */
   @keyframes map-overlay-in {
     from { opacity: 0; }
     to   { opacity: 1; }
   }
   .map-arrive-overlay {
-    animation: map-overlay-in 420ms ease-out 300ms both;
+    animation: map-overlay-in 260ms ease-out 140ms both;
   }
 
-  /* A PIN DROPS ONTO THE MAP AND SETTLES.
+  /* THE PINS DROP ONTO THE MAP TOGETHER AND SETTLE.
      Down from above with a little squash at the end, which is what makes it
      read as landing rather than as appearing. `transform-box: fill-box` with
-     the origin at the bottom centre puts the pivot on the pin's own point - the
-     coordinate it is marking - so the settle happens around the place rather
-     than around the middle of the world.
-     The ladder is per pin (`--pin-i`, set in CreatorMap) and capped in the
-     component, because past about twenty-five the last pin lands a second and a
-     half after the first and a reader has stopped watching. */
+     the origin at the bottom centre puts the pivot on the pin's own point -
+     the coordinate it is marking - so the settle happens around the place
+     rather than around the middle of the world.
+
+     NO LADDER. There was a 26ms-per-pin stagger here, capped at 25 pins, and
+     it is gone: see the note above. One delay for all of them, so a map of
+     three pins and a map of fifty take exactly the same time to arrive. */
   @keyframes map-pin-land {
-    0%   { opacity: 0; transform: translateY(-22px) scale(0.72); }
-    62%  { opacity: 1; transform: translateY(0) scale(1.06); }
+    0%   { opacity: 0; transform: translateY(-16px) scale(0.8); }
+    68%  { opacity: 1; transform: translateY(0) scale(1.05); }
     100% { opacity: 1; transform: translateY(0) scale(1); }
   }
   .map-pin-land {
     transform-box: fill-box;
     transform-origin: 50% 100%;
-    animation: map-pin-land 520ms cubic-bezier(0.34, 1.3, 0.64, 1) both;
-    animation-delay: calc(420ms + var(--pin-i, 0) * 26ms);
+    animation: map-pin-land 420ms cubic-bezier(0.34, 1.3, 0.64, 1) 200ms both;
   }
 
   /* The aircraft take off once the pins are down. They fly on their own SMIL
@@ -482,7 +485,7 @@
     from { opacity: 0; }
     to   { opacity: 1; }
   }
-  .map-plane-in { animation: map-plane-in 460ms ease-out 900ms both; }
+  .map-plane-in { animation: map-plane-in 200ms ease-out 420ms both; }
 
   @media (prefers-reduced-motion: reduce) {
     .map-arrive, .map-arrive-overlay, .map-pin-land, .map-plane-in {
@@ -542,6 +545,7 @@ html[data-theme='dark'] .bg-white { background-color: var(--d-surface); }
 /* Translucent white variants (sticky header, mobile tab bar, countdown tiles,
    the "challenge closed" pill) - keep them translucent so backdrop-blur still
    reads, just over the dark surface instead of white. */
+html[data-theme='dark'] .bg-white\/97 { background-color: rgba(22, 22, 24, 0.97); }
 html[data-theme='dark'] .bg-white\/95 { background-color: rgba(22, 22, 24, 0.95); }
 html[data-theme='dark'] .bg-white\/90 { background-color: rgba(22, 22, 24, 0.9); }
 html[data-theme='dark'] .bg-white\/85 { background-color: rgba(22, 22, 24, 0.88); }
@@ -576,6 +580,37 @@ html[data-theme='dark'] .bg-brand-tint\/40 { background-color: rgba(245, 133, 63
 html[data-theme='dark'] .bg-brand-tint\/50 { background-color: rgba(245, 133, 63, 0.13); }
 html[data-theme='dark'] .bg-brand-tint\/60 { background-color: rgba(245, 133, 63, 0.15); }
 html[data-theme='dark'] .bg-brand-tint\/70 { background-color: rgba(245, 133, 63, 0.17); }
+
+/* ---- A CAPTION LAID OVER A MAP ------------------------------------------
+   THE BUG THIS FIXES. The creator spotlight draws its subject's travel map and
+   floats the caption over the top of it on a white-to-transparent gradient, so
+   the name reads against the land. In dark mode that gradient stayed WHITE:
+   a bright bar across the top third of a dark map, which is Ethan's "on top of
+   their map there is always this weird white box that looks bad and makes it
+   hard to see".
+   It could not be fixed by remapping a utility the way everything else here is,
+   because a Tailwind gradient stop is not a background-color - `from-white/95`
+   sets a custom property that a second utility then composes, and overriding
+   half of that pair from a stylesheet is the kind of fix that breaks the next
+   time Tailwind renames an internal variable. So the scrim is its own class
+   with both halves written out, and the component asks for a scrim rather than
+   for a colour. */
+.map-scrim-top {
+  background-image: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.95) 0%,
+    rgba(255, 255, 255, 0.7) 45%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+html[data-theme='dark'] .map-scrim-top {
+  background-image: linear-gradient(
+    to bottom,
+    rgba(16, 16, 18, 0.95) 0%,
+    rgba(16, 16, 18, 0.72) 45%,
+    rgba(16, 16, 18, 0) 100%
+  );
+}
 
 /* ---- Hover / focus surfaces --------------------------------------------
    CRITICAL: `hover:bg-cloud`, `hover:bg-red-50` etc. are their OWN utility

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { countDuration, countEase } from './Motion'
+import { countDuration, countEase, COUNT_MS } from './Motion'
 
 // THE COUNTER CANNOT BE WATCHED IN THE PREVIEW BROWSER.
 // `document.hidden` is true there and requestAnimationFrame never ticks, so a
@@ -7,27 +7,22 @@ import { countDuration, countEase } from './Motion'
 // what gets checked, and it is the arithmetic that was wrong.
 
 describe('countDuration', () => {
-  it('gives a small number long enough to be seen', () => {
-    // The reported bug: "44 creators animates up instantly" while the six
-    // figure kilometre total looked fine. Both must run for the best part of a
-    // second.
-    expect(countDuration(6)).toBeGreaterThan(750)
-    expect(countDuration(44)).toBeGreaterThan(950)
+  it('gives every number the same clock, so a row of figures lands together', () => {
+    // THE REGRESSION THIS GUARDS. The duration used to follow the magnitude
+    // logarithmically, so "6 markets open" finished a full half second before
+    // the kilometre total sitting beside it in the same row and read as having
+    // given up. A row of statistics is one sentence; it has to finish at once.
+    const together = [0, 6, 44, 1_200, 1_200_000, 9e15].map((n) => countDuration(n))
+    expect(new Set(together).size).toBe(1)
   })
 
-  it('gives a bigger number longer, but not much longer', () => {
-    expect(countDuration(1_200_000)).toBeGreaterThan(countDuration(44))
-    // A count nobody is going to sit through is its own bug.
-    expect(countDuration(1_200_000)).toBeLessThanOrEqual(1500)
+  it('is long enough to be watched and short enough not to be waited on', () => {
+    expect(countDuration(6)).toBeGreaterThan(1200)
+    expect(countDuration(6)).toBeLessThanOrEqual(2000)
   })
 
-  it('never runs away, however large the number', () => {
-    expect(countDuration(9e15)).toBeLessThanOrEqual(1500)
-  })
-
-  it('handles zero and negatives without producing nonsense', () => {
-    expect(countDuration(0)).toBe(600)
-    expect(countDuration(-40)).toBe(countDuration(40))
+  it('matches the exported constant, which is what the row shares', () => {
+    expect(countDuration(44)).toBe(COUNT_MS)
   })
 })
 

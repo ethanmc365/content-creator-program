@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import CreatorMap from '../CreatorMap'
 import Icon from '../Icon'
-import { Skeleton } from '../ui'
+import MapSkeleton from './MapSkeleton'
 
 // Where this market's creators actually are.
 //
@@ -48,7 +48,7 @@ export default function MarketMap({ marketId, marketName, showOnMapOnly = true }
     return () => { alive = false }
   }, [marketId, showOnMapOnly])
 
-  if (creators === null) return <Skeleton className="h-64" />
+  if (creators === null) return <MapSkeleton />
 
   const located = creators.filter((c) => c.city_lat != null || c.city || c.country)
 

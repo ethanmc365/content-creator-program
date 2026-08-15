@@ -54,6 +54,10 @@ const LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 //
 // The animation is CONSTANT in the first two states. A flame that only moves on
 // hover is a flame that is not burning.
+// THE BASE OF EVERY LAYER IS ITS PIVOT. A flame anchored at its middle grows
+// downwards as well as up, which reads as inflating rather than burning.
+const FROM_BASE = { transformBox: 'fill-box', transformOrigin: '50% 92%' }
+
 function Flame({ state }) {
   const lit = state === 'lit'
   const ember = state === 'ember'
@@ -75,35 +79,67 @@ function Flame({ state }) {
           lit ? 'bg-white/25 ring-white/40' : 'bg-white/10 ring-white/20',
         )}
       >
-        <svg viewBox="0 0 24 24" className={cx('h-10 w-10', lit && 'animate-flicker', ember && 'animate-ember')} aria-hidden>
+        <svg viewBox="0 0 24 24" className="h-10 w-10 overflow-visible" aria-hidden>
           <defs>
-            {/* A real fire is hottest at the base and coolest at the tip, so the
-                gradient runs bottom to top rather than top to bottom. Drawn
-                white->amber rather than in the brand orange for one reason: the
-                card IS brand orange, and an orange flame on an orange card is
-                the same mistake the week strip made when a played day was
-                `bg-brand`. */}
+            {/* A real fire is hottest at the base and coolest at the tip, so
+                every gradient here runs bottom to top rather than top to
+                bottom. Drawn white->amber rather than in the brand orange for
+                one reason: the card IS brand orange, and an orange flame on an
+                orange card is the same mistake the week strip made when a
+                played day was `bg-brand`. */}
             <linearGradient id="streak-flame-lit" x1="0" y1="1" x2="0" y2="0">
               <stop offset="0%" stopColor="#ffffff" />
-              <stop offset="45%" stopColor="#fde68a" />
+              <stop offset="40%" stopColor="#fde68a" />
+              <stop offset="100%" stopColor="#f59e0b" />
+            </linearGradient>
+            <linearGradient id="streak-flame-inner" x1="0" y1="1" x2="0" y2="0">
+              <stop offset="0%" stopColor="#ffffff" />
+              <stop offset="55%" stopColor="#fef3c7" />
               <stop offset="100%" stopColor="#fbbf24" />
             </linearGradient>
           </defs>
+
+          {/* ---- THE BODY. The whole outline, swaying slowly. ---- */}
           <path
             d="M12 2.5c.5 2.6-.8 4-2 5.2-1.4 1.4-2.6 2.6-2.6 5A6.6 6.6 0 0 0 12 21.5a6.6 6.6 0 0 0 6.6-6.6c0-4-2.6-6-4-8.4-.5 1.3-1.3 2.1-2.2 2.6.4-2.3-.2-4.6-.4-6.6Z"
             fill={lit ? 'url(#streak-flame-lit)' : 'none'}
             stroke={lit ? 'none' : 'currentColor'}
             strokeWidth="1.6"
             strokeLinejoin="round"
-            className={lit ? undefined : 'text-white/55'}
+            className={cx(!lit && 'text-white/55', (lit || ember) && 'animate-flame-body')}
+            style={FROM_BASE}
           />
-          {/* The inner core, only when it is actually alight. */}
+
+          {/* ---- THE INNER TONGUE. Licks up through the body half again as
+                  fast, on its own phase. Only when it is actually alight - an
+                  unlit flame is an outline, and an outline with something
+                  moving inside it is a lantern. ---- */}
+          {lit && (
+            <path
+              d="M12.1 7.4c.4 1.9-.7 2.9-1.5 3.8-1 1-1.9 1.9-1.9 3.6A5 5 0 0 0 12 19.4a5 5 0 0 0 4.4-4.6c0-2.7-1.8-4.1-2.8-5.8-.4.9-.9 1.5-1.6 1.9.3-1.6-.1-2.9 0-3.5Z"
+              fill="url(#streak-flame-inner)"
+              className="animate-flame-inner"
+              style={FROM_BASE}
+            />
+          )}
+
+          {/* ---- THE CORE. The white heart at the base, jittering fastest. ---- */}
           {lit && (
             <path
               d="M12.4 12.6c.3.9-.4 1.5-.9 2.2-.3.5-.5 1-.5 1.6a2.1 2.1 0 0 0 4.2.1c0-1.1-.6-1.8-1.3-2.5-.5.6-1.1.3-1-.4.1-.4-.1-.7-.5-1Z"
-              fill="#fff7ed"
-              opacity="0.95"
+              fill="#ffffff"
+              className="animate-flame-core"
+              style={FROM_BASE}
             />
+          )}
+
+          {/* ---- TWO SPARKS, on offset delays. Cheap, and the whole difference
+                  between a drawing of a fire and a fire. ---- */}
+          {lit && (
+            <>
+              <circle cx="10.6" cy="4.6" r="0.75" fill="#fff7ed" className="animate-flame-spark" />
+              <circle cx="13.7" cy="3.4" r="0.55" fill="#fde68a" className="animate-flame-spark" style={{ animationDelay: '0.9s' }} />
+            </>
           )}
         </svg>
       </span>
@@ -166,7 +202,7 @@ function WeekDots({ days = [], frozen = [], today, week }) {
                   // below use, not in the white a played day gets: it kept the
                   // run alive, and it is not the same thing as having turned up.
                   : froze
-                    ? 'bg-sky-100 text-sky-600 shadow-sm'
+                    ? 'bg-white text-sky-500 shadow-sm ring-1 ring-inset ring-sky-300'
                     : future
                       ? 'bg-white/10 ring-1 ring-inset ring-white/20'
                       : 'bg-white/15 ring-1 ring-inset ring-white/25',
@@ -305,11 +341,22 @@ export default function StreakCard({ className, days = [], today = null }) {
                 key={i}
                 title={i < left ? 'Freeze available' : 'Freeze used this month'}
                 className={cx(
-                  'flex h-7 w-7 items-center justify-center rounded-lg transition-colors',
-                  i < left ? 'bg-white text-brand' : 'bg-white/15 text-white/40',
+                  'flex h-8 w-8 items-center justify-center rounded-lg transition-colors',
+                  // BLUE, PROPERLY. Ethan: "the streak freeze icons should be a
+                  // bit more prominently blue."
+                  // An available freeze used to be a BRAND ORANGE snowflake on
+                  // a white tile, which is the one colour on this card that
+                  // does not mean cold - and on an orange card the tile read as
+                  // a hole rather than as an object. A saturated sky-blue
+                  // snowflake on white is the only genuinely cool thing on the
+                  // whole card, which is exactly what a freeze should look
+                  // like, and the ring stops it floating.
+                  i < left
+                    ? 'bg-white text-sky-500 shadow-sm ring-1 ring-inset ring-sky-300'
+                    : 'bg-white/15 text-white/35',
                 )}
               >
-                <Icon name="snowflake" className="h-4 w-4" />
+                <Icon name="snowflake" className="h-[1.1rem] w-[1.1rem]" strokeWidth={2} />
               </span>
             ))}
           </div>

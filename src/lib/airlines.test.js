@@ -29,7 +29,14 @@ describe('the tables themselves', () => {
     for (const [key, f] of Object.entries(AIRCRAFT)) {
       expect(f.range, key).toBeGreaterThan(500)
       expect(f.cruise, key).toBeGreaterThan(300)
-      expect(f.seats, key).toBeGreaterThan(30)
+      // TEN, NOT THIRTY. The floor used to be thirty seats, which was fine when
+      // the table only held aircraft an airline would put on a scheduled route
+      // between two cities. The collection needs the ones that actually get a
+      // travel creator to an island - a Twin Otter is nineteen seats and a
+      // Caravan is twelve, and both are real aircraft real people have really
+      // been on. What the floor is guarding against is a typo, and a
+      // single-figure cabin would still be one.
+      expect(f.seats, key).toBeGreaterThan(10)
     }
   })
 })

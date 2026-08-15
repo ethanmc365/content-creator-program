@@ -67,6 +67,7 @@ const Flights = lazy(() => import('./pages/Flights'))
 // it is a page you go to look at rather than a section you scroll past - and
 // because a wall of two dozen drawings has no business loading with the log.
 const AircraftCollection = lazy(() => import('./pages/AircraftCollection'))
+const FlightCommunity = lazy(() => import('./pages/FlightCommunity'))
 const GlobalSettings = lazy(() => import('./pages/GlobalSettings'))
 
 const Game = lazy(() => import('./pages/Game'))
@@ -186,6 +187,7 @@ export default function App() {
             <Route path="/milestones" element={<Milestones />} />
             <Route path="/flights" element={<Flights />} />
             <Route path="/flights/aircraft" element={<AircraftCollection />} />
+            <Route path="/flights/community" element={<FlightCommunity />} />
             <Route path="/global/chat" element={<Navigate to="/global/chat/general" replace />} />
             <Route path="/global/chat/:channelKey" element={<NetworkChat />} />
             <Route path="/c/:slug" element={<ChapterHome />} />

@@ -49,21 +49,31 @@ import { cx } from '../../lib/utils'
 // stacked up were the loudest thing on the hub, and the coloured icon tile plus
 // the coloured button already carry the state twice over. White cards with a
 // brand-tinted left edge is the same language as everything else on the page.
+// GREEN IS THE STATE. ORANGE IS THE PLACE.
+//
+// Every element on a finished card used to turn green at once - border, icon
+// tile and button - so three completed puzzles made a green block on a hub that
+// is otherwise entirely white and Tryp orange, and the section read as
+// belonging to some other product. Ethan: "it appears slightly too green, still
+// need some tryp.com orange, perhaps for the card borders and just the buttons
+// appear green."
+//
+// So green is now spent in exactly one place, the button, where it is doing
+// real work: it is the only thing on the card that means "you have done this
+// one". The border and the icon tile stay brand, which is what tells you at a
+// glance that this is Tryp, and the finished card gets a STRONGER orange border
+// rather than a different colour, so completion still reads from across the
+// page without a second hue.
 function PuzzleCard({ puzzle, done, count }) {
   return (
     <Link
       to={`/game?daily=${puzzle.key}`}
       className={cx(
         'group flex items-center gap-3.5 rounded-card border bg-white px-4 py-3.5 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift',
-        done ? 'border-green-500/30 hover:border-green-500/60' : 'border-gray-100 hover:border-brand/50',
+        done ? 'border-brand/35 hover:border-brand/70' : 'border-gray-100 hover:border-brand/50',
       )}
     >
-      <span
-        className={cx(
-          'flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-white shadow-card transition-transform duration-200 group-hover:scale-110',
-          done ? 'bg-green-600' : 'bg-brand',
-        )}
-      >
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand text-white shadow-card transition-transform duration-200 group-hover:scale-110">
         <Icon name={done ? 'check' : puzzle.icon} className="h-5 w-5" />
       </span>
 

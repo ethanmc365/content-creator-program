@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from 'react-simple-maps'
 import { geoEqualEarth } from 'd3-geo'
 import { loadMapFeatures } from '../../lib/mapCountries'
+import { countryKey } from '../../lib/countryFacts'
 import { useIsDark } from '../../lib/theme'
 import { cx } from '../../lib/utils'
 import Icon from '../Icon'
@@ -122,23 +123,49 @@ function ArcPlane({ path, chord, size, faint = false, delay = 0 }) {
 // takes a render prop, so 240 country paths were rebuilt on every render of
 // this component - and with an aeroplane on a rAF that was sixty times a
 // second. Nothing about the land depends on the zoom or the selection.
-const Countries = memo(function Countries({ features, land, separator }) {
+//
+// AND THE COUNTRIES YOU HAVE BEEN TO ARE COLOURED IN.
+//
+// Ethan: "on the everywhere you've been map, the countries you've been to should
+// also be highlighted, and you can then click on the route or the country."
+//
+// The map already knew this and was not saying it. Every airport in the log
+// carries an ISO-2 country code, so the set of countries you have landed in is
+// free - and it is the single most satisfying thing a flight log can draw,
+// because it is the picture people actually want to screenshot. The arcs say
+// where you went; the fill says how much of the world that adds up to.
+//
+// JOINING THE TWO DATASETS. The atlas gives a country NAME and nothing else;
+// the airports table gives ISO-2. `countryKey` is the one alias table in this
+// codebase that turns either into the same key, which is why it exists (see
+// lib/countryFacts) and why nothing here tries to match on names.
+//
+// A VISITED COUNTRY IS ALSO A TARGET. Unvisited land is inert - clicking the
+// Pacific or a country you have never landed in should do nothing rather than
+// open an empty card - so only the filled ones take a pointer.
+const Countries = memo(function Countries({ features, land, separator, visited, fill, fillHover, onPick }) {
   return (
     <Geographies geography={features || EMPTY_GEO}>
       {({ geographies }) =>
         geographies
           .filter((geo) => geo.properties.name !== 'Antarctica')
-          .map((geo) => (
-            <Geography
-              key={geo.rsmKey}
-              geography={geo}
-              style={{
-                default: { fill: land, stroke: separator, strokeWidth: 0.4, outline: 'none' },
-                hover: { fill: land, stroke: separator, strokeWidth: 0.4, outline: 'none' },
-                pressed: { fill: land, outline: 'none' },
-              }}
-            />
-          ))
+          .map((geo) => {
+            const iso = countryKey(geo.properties.name)
+            const on = visited.has(iso)
+            const base = { fill: on ? fill : land, stroke: separator, strokeWidth: 0.4, outline: 'none' }
+            return (
+              <Geography
+                key={geo.rsmKey}
+                geography={geo}
+                onClick={on ? () => onPick(geo.properties.name, iso) : undefined}
+                style={{
+                  default: { ...base, cursor: on ? 'pointer' : 'default' },
+                  hover: { ...base, fill: on ? fillHover : land, cursor: on ? 'pointer' : 'default' },
+                  pressed: { ...base, fill: on ? fillHover : land, outline: 'none' },
+                }}
+              />
+            )
+          })
       }
     </Geographies>
   )
@@ -148,6 +175,32 @@ function FlightMap({ routes = [], airports = [] }) {
   const dark = useIsDark()
   const [features, setFeatures] = useState(null)
   const [position, setPosition] = useState({ coordinates: [12, 8], zoom: 1 })
+  // THE COUNTER-SCALE READS THE LIVE ZOOM, NOT THE SETTLED ONE.
+  //
+  // THE BUG THIS FIXES. Everything drawn on this map is divided by the zoom to
+  // hold it at a constant size on screen - the aircraft, the pins, the route
+  // strokes, the city labels - and the divisor came from `position`, which was
+  // only ever written by `onMoveEnd`. So for the WHOLE of a pinch or a wheel
+  // gesture the group was scaling up and nothing on it was compensating: at the
+  // end of a zoom from 1 to 6 the aeroplanes were briefly drawn six times too
+  // big, and then snapped back the instant the gesture finished. Ethan: "on the
+  // main map, when zooming in the planes temporarily appear way too big and then
+  // go to normal size."
+  //
+  // `onMove` fires inside react-simple-maps' own d3 handler, in the same
+  // synchronous event as the setState that actually scales the group, so React
+  // 18 batches the two into one render and the map and its contents change size
+  // on the same painted frame. Deferring this into a rAF would put it in a
+  // later batch and reintroduce the same bug one frame wide - which is exactly
+  // what had to be undone on CreatorMap.
+  const [liveZoom, setLiveZoom] = useState(1)
+  const z = liveZoom
+  const handleMove = useCallback((pos) => { setLiveZoom(pos.zoom) }, [])
+  const handleMoveEnd = useCallback((pos) => { setPosition(pos); setLiveZoom(pos.zoom) }, [])
+  // The +/- buttons and the reset write `position` directly and never fire
+  // `onMoveEnd`, so the live value is derived from it as well as pushed to it.
+  // Setting it in every caller by hand is the version of this that goes wrong
+  // the first time somebody adds a fourth way to move the map.
   const [selected, setSelected] = useState(null)   // route key
   const [fullscreen, setFullscreen] = useState(false)
   const [closing, setClosing] = useState(false)
@@ -163,15 +216,49 @@ function FlightMap({ routes = [], airports = [] }) {
   // remounts this subtree into a portal and every entrance would otherwise run
   // again over the top of a map that was already settled. See the long note in
   // CreatorMap, which hit this first.
+  useEffect(() => { setLiveZoom(position.zoom) }, [position.zoom])
+
   const [arrived, setArrived] = useState(false)
   useEffect(() => {
     if (!features || arrived) return undefined
-    const t = setTimeout(() => setArrived(true), 1900)
+    // A little past the end of the arrival: the arcs draw for 520ms and the
+    // pins pop at 280ms for 300ms, so everything has settled by 600.
+    const t = setTimeout(() => setArrived(true), 750)
     return () => clearTimeout(t)
   }, [features, arrived])
 
   const LAND = dark ? '#2a2c31' : '#ECECEE'
   const SEPARATOR = dark ? '#0c0d10' : '#ffffff'
+  // The fill for a country you have landed in. A TINT, not the brand itself:
+  // on a well-travelled log this covers a third of the map, and a third of the
+  // map in #d94407 is a poster rather than a chart. Hover takes it one step
+  // warmer, which is the whole affordance that it can be pressed.
+  const VISITED = dark ? '#4a2a17' : '#fbe6da'
+  const VISITED_HOVER = dark ? '#61361b' : '#f7d3bd'
+
+  // Every country the log has ever landed in, as ISO-2. Cheap - one pass over
+  // the airports already computed for the pins.
+  const visited = useMemo(
+    () => new Set(airports.map((a) => a.country).filter(Boolean)),
+    [airports],
+  )
+
+  // WHAT YOU FLEW IN AND OUT OF, IN ONE COUNTRY.
+  //
+  // The route card answers "when did I fly this line". This answers the other
+  // question the map now invites by colouring a country in: what does this
+  // place amount to in my log. Airports, busiest first, with the number of
+  // flights through each - which is the same shape of answer, so the two cards
+  // can be the same object.
+  const [country, setCountry] = useState(null)
+  const pickCountry = useCallback((name, iso) => setCountry({ name, iso }), [])
+  const countryDetail = useMemo(() => {
+    if (!country) return null
+    const here = airports
+      .filter((a) => a.country === country.iso)
+      .sort((a, b) => b.weight - a.weight)
+    return { ...country, airports: here, flights: here.reduce((n, a) => n + a.weight, 0) }
+  }, [country, airports])
 
   const arcs = useMemo(
     () => routes.map((r) => ({ ...r, ...arcFor(r.from, r.to) })),
@@ -187,6 +274,13 @@ function FlightMap({ routes = [], airports = [] }) {
   )
 
   const active = useMemo(() => arcs.find((r) => r.key === selected) || null, [arcs, selected])
+
+  // ONE CARD AT A TIME. Two overlapping popovers at the bottom of a map is a
+  // stack of paper, and the second one hides the first.
+  const pickRoute = useCallback((key) => {
+    setCountry(null)
+    setSelected((cur) => (cur === key ? null : key))
+  }, [])
 
   // WHICH ROUTES CARRY TRAFFIC.
   //
@@ -206,7 +300,7 @@ function FlightMap({ routes = [], airports = [] }) {
   )
 
   const zoomBy = (f) => setPosition((p) => ({ ...p, zoom: Math.min(MAX_ZOOM, Math.max(1, p.zoom * f)) }))
-  const reset = () => { setPosition({ coordinates: [12, 8], zoom: 1 }); setSelected(null) }
+  const reset = () => { setPosition({ coordinates: [12, 8], zoom: 1 }); setSelected(null); setCountry(null) }
 
   // See the note in CreatorMap: the exit has to outlive the decision or there
   // is nothing left on screen to animate.
@@ -238,7 +332,7 @@ function FlightMap({ routes = [], airports = [] }) {
     }
   }, [fullscreen, exitFullscreen])
 
-  const showLabels = position.zoom >= LABEL_ZOOM
+  const showLabels = z >= LABEL_ZOOM
 
   const controls = (
     <div className="absolute right-2 top-2 z-10 flex flex-col gap-1">
@@ -280,13 +374,22 @@ function FlightMap({ routes = [], airports = [] }) {
         minZoom={1}
         maxZoom={MAX_ZOOM}
         translateExtent={[[-60, -50], [WIDTH + 60, HEIGHT + 50]]}
-        onMoveEnd={setPosition}
+        onMove={handleMove}
+        onMoveEnd={handleMoveEnd}
       >
         {/* NOTHING DRAWS UNTIL THE ATLAS IS IN, and the routes follow the land
             rather than arriving before it. See `.map-arrive` in index.css. */}
         {features && (
         <g className={arrived ? undefined : 'map-arrive'}>
-        <Countries features={features} land={LAND} separator={SEPARATOR} />
+        <Countries
+          features={features}
+          land={LAND}
+          separator={SEPARATOR}
+          visited={visited}
+          fill={VISITED}
+          fillHover={VISITED_HOVER}
+          onPick={pickCountry}
+        />
 
         <g className={arrived ? undefined : 'map-arrive-overlay'}>
 
@@ -297,7 +400,7 @@ function FlightMap({ routes = [], airports = [] }) {
             costs the compositor and not the main thread. The delay ladder is
             capped: past about twenty routes an increasing delay stops reading
             as "one after another" and starts reading as "still loading". */}
-        {arcs.map((r, i) => {
+        {arcs.map((r) => {
           const on = r.key === selected
           return (
             <g key={r.key}>
@@ -309,22 +412,21 @@ function FlightMap({ routes = [], airports = [] }) {
                 d={r.d}
                 fill="none"
                 stroke="transparent"
-                strokeWidth={Math.max(6, 14 / position.zoom)}
+                strokeWidth={Math.max(6, 14 / z)}
                 strokeLinecap="round"
                 style={{ cursor: 'pointer' }}
-                onClick={() => setSelected(on ? null : r.key)}
+                onClick={() => pickRoute(r.key)}
               />
               <path
                 d={r.d}
                 fill="none"
                 stroke={on ? BRAND : BRAND}
-                strokeWidth={Math.max(0.6, (on ? 2.2 : 1.1) / position.zoom)}
+                strokeWidth={Math.max(0.6, (on ? 2.2 : 1.1) / z)}
                 strokeLinecap="round"
                 opacity={selected && !on ? 0.22 : 0.75}
                 className={arrived ? undefined : 'flight-arc'}
                 style={{
                   '--arc-len': Math.round(r.chord * 1.15),
-                  animationDelay: `${Math.min(i, 20) * 55}ms`,
                   pointerEvents: 'none',
                   transition: 'opacity 200ms ease-out',
                 }}
@@ -343,7 +445,7 @@ function FlightMap({ routes = [], airports = [] }) {
               key={`fly-${r.key}`}
               path={r.d}
               chord={r.chord}
-              size={Math.max(0.28, 0.85 / position.zoom)}
+              size={Math.max(0.28, 0.85 / z)}
               faint={!!selected && r.key !== selected}
               delay={(i % 5) * 0.9}
             />
@@ -353,7 +455,7 @@ function FlightMap({ routes = [], airports = [] }) {
               key={`fly-${active.key}`}
               path={active.d}
               chord={active.chord}
-              size={Math.max(0.28, 0.85 / position.zoom)}
+              size={Math.max(0.28, 0.85 / z)}
             />
           )}
         </g>
@@ -362,7 +464,7 @@ function FlightMap({ routes = [], airports = [] }) {
           // A pin belonging to the open route is drawn up; everything else
           // steps back, which is what makes one route readable on a busy map.
           const on = active && (a.iata === active.from.iata || a.iata === active.to.iata)
-          const r = Math.max(1.4, (a.weight > 4 ? 3.4 : a.weight > 1 ? 2.8 : 2.2) / position.zoom)
+          const r = Math.max(1.4, (a.weight > 4 ? 3.4 : a.weight > 1 ? 2.8 : 2.2) / z)
           return (
             <g key={a.iata} className={arrived ? undefined : 'flight-pin'} style={{ transformOrigin: `${a.x}px ${a.y}px` }}>
               <circle
@@ -371,7 +473,7 @@ function FlightMap({ routes = [], airports = [] }) {
                 r={on ? r * 1.5 : r}
                 fill={on ? BRAND : a.weight > 1 ? BRAND : BRAND_LIGHT}
                 stroke="#fff"
-                strokeWidth={Math.max(0.3, 0.7 / position.zoom)}
+                strokeWidth={Math.max(0.3, 0.7 / z)}
                 opacity={selected && !on ? 0.35 : 1}
               >
                 <title>{`${a.iata} · ${a.city} · ${a.weight} ${a.weight === 1 ? 'flight' : 'flights'}`}</title>
@@ -392,7 +494,7 @@ function FlightMap({ routes = [], airports = [] }) {
                   constant size on screen, which is the only size a label can
                   usefully be. */}
               {(showLabels || on) && (
-                <g transform={`translate(${a.x} ${a.y - r - 2}) scale(${1 / position.zoom})`} style={{ pointerEvents: 'none' }}>
+                <g transform={`translate(${a.x} ${a.y - r - 2}) scale(${1 / z})`} style={{ pointerEvents: 'none' }}>
                   <text
                     textAnchor="middle"
                     fontSize="9"
@@ -423,51 +525,101 @@ function FlightMap({ routes = [], airports = [] }) {
   // the flight you took and when." A route on this map is one line per PAIR of
   // airports, so it can stand for eight flights - the card names all of them,
   // newest first, rather than picking one and calling it the answer.
+  // A BIGGER CARD. Ethan: "when you click on a flight on the map it shows up the
+  // little card with info, can you make this card a bit bigger."
+  // It was `max-w-sm` with 11px type and a 44-unit scroller, which on a route
+  // flown eight times showed two and a half rows and then a scrollbar - a card
+  // small enough that reading it was work. `max-w-md`, a size up on every line
+  // and room for four rows before it scrolls; still a popover, but one you can
+  // read at arm's length.
   const card = active && (
-    <div className="pointer-events-auto absolute inset-x-3 bottom-3 z-20 mx-auto max-w-sm overflow-hidden rounded-card border border-gray-100 bg-white/97 shadow-lift backdrop-blur animate-map-in">
-      <div className="flex items-start gap-3 border-b border-gray-100 px-4 py-3">
-        <span className="flex shrink-0 items-center gap-1.5 text-sm font-bold tracking-wider text-brand">
+    <div className="pointer-events-auto absolute inset-x-3 bottom-3 z-20 mx-auto max-w-md overflow-hidden rounded-card border border-gray-100 bg-white/97 shadow-lift backdrop-blur animate-map-in">
+      <div className="flex items-start gap-3 border-b border-gray-100 px-5 py-4">
+        <span className="flex shrink-0 items-center gap-2 text-base font-bold tracking-wider text-brand">
           {active.from.iata}
-          <Icon name="plane" className="h-3.5 w-3.5 text-gray-300" />
+          {/* THE AEROPLANE BETWEEN THE TWO CODES IS ORANGE.
+              It was `text-gray-300` - a pale grey glyph between two orange
+              words, which at 14px on a white card is very nearly invisible.
+              Ethan: "the plane icon is grey and hard to see, can you make it
+              orange, maybe the lighter orange to differentiate."
+              BRAND_LIGHT rather than BRAND is the whole point: it reads as
+              part of the same phrase as the airport codes without competing
+              with them for it. */}
+          <Icon name="plane" className="h-4 w-4 text-brand-light" />
           {active.to.iata}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-semibold">{active.from.city} to {active.to.city}</span>
-          <span className="block text-[11px] text-smoke">
+          <span className="block text-xs text-smoke">
             {active.flights.length} {active.flights.length === 1 ? 'flight' : 'flights'}
             {active.flights[0]?.dist ? ` · ${fmtKm(active.flights[0].dist)} km each way` : ''}
           </span>
         </span>
         <button type="button" onClick={() => setSelected(null)} aria-label="Close"
-          className="-mr-1 -mt-1 shrink-0 rounded-full p-1.5 text-smoke transition-colors hover:bg-cloud hover:text-ink">
+          className="-mr-1.5 -mt-1.5 shrink-0 rounded-full p-1.5 text-smoke transition-colors hover:bg-cloud hover:text-ink">
           <Icon name="close" className="h-4 w-4" />
         </button>
       </div>
       {/* Five, then a count. A route somebody commutes could be forty rows and
           this is a popover on a map, not the log. */}
-      <ul className="max-h-44 divide-y divide-gray-50 overflow-y-auto overscroll-contain">
+      <ul className="max-h-56 divide-y divide-gray-50 overflow-y-auto overscroll-contain">
         {active.flights.slice(0, 5).map((f) => (
-          <li key={f.id} className="flex items-baseline gap-2 px-4 py-2 text-xs">
+          <li key={f.id} className="flex items-baseline gap-2.5 px-5 py-2.5 text-xs">
             <span className="shrink-0 font-semibold tabular-nums text-ink">{f.flown_on}</span>
             <span className="min-w-0 flex-1 truncate text-smoke">
               {f.from.iata === active.from.iata ? '' : 'return · '}
               {[f.airline, f.flight_number, f.aircraft].filter(Boolean).join(' · ') || 'No airline logged'}
             </span>
-            {f.rating > 0 && <span className="shrink-0 text-brand">{'★'.repeat(f.rating)}</span>}
           </li>
         ))}
       </ul>
       {active.flights.length > 5 && (
-        <p className="border-t border-gray-50 px-4 py-2 text-[11px] text-smoke">
+        <p className="border-t border-gray-50 px-5 py-2.5 text-[11px] text-smoke">
           and {active.flights.length - 5} more on this route
         </p>
       )}
     </div>
   )
 
-  const hint = routes.length > 0 && !active && (
+  // The same object as the route card, because it answers the same kind of
+  // question about a different shape of thing. Only one of the two is ever on
+  // screen; see `pickRoute`.
+  const countryCard = countryDetail && (
+    <div className="pointer-events-auto absolute inset-x-3 bottom-3 z-20 mx-auto max-w-md overflow-hidden rounded-card border border-gray-100 bg-white/97 shadow-lift backdrop-blur animate-map-in">
+      <div className="flex items-start gap-3 border-b border-gray-100 px-5 py-4">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-tint text-brand">
+          <Icon name="globe" className="h-4 w-4" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-base font-bold">{countryDetail.name}</span>
+          <span className="block text-xs text-smoke">
+            {countryDetail.airports.length} {countryDetail.airports.length === 1 ? 'airport' : 'airports'}
+            {' · '}
+            {countryDetail.flights} {countryDetail.flights === 1 ? 'flight' : 'flights'} through it
+          </span>
+        </span>
+        <button type="button" onClick={() => setCountry(null)} aria-label="Close"
+          className="-mr-1.5 -mt-1.5 shrink-0 rounded-full p-1.5 text-smoke transition-colors hover:bg-cloud hover:text-ink">
+          <Icon name="close" className="h-4 w-4" />
+        </button>
+      </div>
+      <ul className="max-h-56 divide-y divide-gray-50 overflow-y-auto overscroll-contain">
+        {countryDetail.airports.map((a) => (
+          <li key={a.iata} className="flex items-baseline gap-2.5 px-5 py-2.5 text-xs">
+            <span className="shrink-0 font-bold tracking-wider text-brand">{a.iata}</span>
+            <span className="min-w-0 flex-1 truncate text-smoke">{a.city}</span>
+            <span className="shrink-0 tabular-nums text-smoke">
+              {a.weight} {a.weight === 1 ? 'flight' : 'flights'}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+
+  const hint = routes.length > 0 && !active && !countryDetail && (
     <p className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-[11px] text-smoke">
-      Tap a route to see when you flew it
+      Tap a route, or a country you have landed in
     </p>
   )
 
@@ -497,6 +649,7 @@ function FlightMap({ routes = [], airports = [] }) {
           {controls}
           <div className="h-full w-full [&>svg]:h-full">{map}</div>
           {card}
+          {countryCard}
           {hint}
         </div>
       </div>,
@@ -509,6 +662,7 @@ function FlightMap({ routes = [], airports = [] }) {
       {controls}
       {map}
       {card}
+      {countryCard}
       {hint}
       {routes.length === 0 && (
         <p className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-[11px] text-smoke">

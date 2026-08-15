@@ -304,27 +304,24 @@ export default function Settings() {
         <Icon name="megaphone" className="h-5 w-5 text-brand" />
         <h2 className="text-lg font-semibold">Sound</h2>
       </div>
-      <p className="text-sm text-smoke">Small sounds for things that happen while you are looking somewhere else. Saved on this device only.</p>
-
+      {/* NO DESCRIPTIONS ON THIS CARD AT ALL.
+          There were three: one under the heading and one under each switch,
+          the longest of them forty words listing every individual sound the
+          games make. Ethan asked for all of them gone, and a toggle is the one
+          control that genuinely does not need explaining - you turn it on, and
+          within about four seconds you either like what you hear or you turn it
+          off again. Explaining a sound in prose is slower than playing it, and
+          turning one ON plays its own sound, which is the demonstration.
+          Both switches are still per DEVICE rather than per account (phone in a
+          pocket and laptop in an office are not the same room); that is worth
+          knowing and is not worth a paragraph on the page you set it from. */}
       <div className="mt-5 flex items-center gap-4 border-t border-gray-100 pt-5">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold">Chat and messages</p>
-          <p className="text-xs text-smoke">
-            A soft whoosh when you send, a quiet tick when a message lands in the room you are reading, a warmer two-note
-            chime for a DM, a pop when somebody reacts to something you wrote, and a short tone if a message fails to send.
-          </p>
-        </div>
-        <Toggle on={appSound} onChange={toggleAppSound} label="Chat and message sounds" />
+        <p className="min-w-0 flex-1 text-sm font-semibold">Chats and Connections</p>
+        <Toggle on={appSound} onChange={toggleAppSound} label="Chat and connection sounds" />
       </div>
 
       <div className="mt-5 flex items-center gap-4 border-t border-gray-100 pt-5">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold">Travel games</p>
-          <p className="text-xs text-smoke">
-            Right and wrong answers, the coin on a Flight Path stop, the engine while you fly and the flame when your streak
-            catches. There is a speaker button inside every game too.
-          </p>
-        </div>
+        <p className="min-w-0 flex-1 text-sm font-semibold">Travel games</p>
         <Toggle on={gameSound} onChange={toggleGameSound} label="Game sounds" />
       </div>
     </section>

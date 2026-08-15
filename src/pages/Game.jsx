@@ -88,9 +88,24 @@ function FlameStreak({ n }) {
       title={`${n}-day streak`}
       aria-label={`${n} day streak`}
     >
-      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden>
-        <path d="M13.5 2C14 5 11.5 6 10 8.2 8.9 9.8 8 11.4 8 13.3a6 6 0 0 0 12 .2c0-2.6-1.4-4.6-2.9-6.3-.9 1.2-2.2 1.3-2-.2.15-1.6-.4-3.6-1.6-5Z" fill="#d94407" />
-        <path d="M13 12c.4 1-.4 1.7-1 2.5-.4.5-.7 1.1-.7 1.8a2.4 2.4 0 0 0 4.8.1c0-1.2-.7-2-1.5-2.8-.6.7-1.3.4-1.1-.5.1-.5-.1-.8-.5-1.1Z" fill="#fbbf24" />
+      {/* IT BURNS HERE TOO, and on the same clock as the big one on the streak
+          card. A flame that flows on one surface and is a static glyph on the
+          next reads as two different marks. Two layers rather than the big
+          one's three: at fourteen pixels a third would be a pixel of noise.
+          Anchored at the base (`transformOrigin`), or it inflates. */}
+      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 overflow-visible" aria-hidden>
+        <path
+          d="M13.5 2C14 5 11.5 6 10 8.2 8.9 9.8 8 11.4 8 13.3a6 6 0 0 0 12 .2c0-2.6-1.4-4.6-2.9-6.3-.9 1.2-2.2 1.3-2-.2.15-1.6-.4-3.6-1.6-5Z"
+          fill="#d94407"
+          className="animate-flame-body"
+          style={{ transformBox: 'fill-box', transformOrigin: '50% 92%' }}
+        />
+        <path
+          d="M13 12c.4 1-.4 1.7-1 2.5-.4.5-.7 1.1-.7 1.8a2.4 2.4 0 0 0 4.8.1c0-1.2-.7-2-1.5-2.8-.6.7-1.3.4-1.1-.5.1-.5-.1-.8-.5-1.1Z"
+          fill="#fbbf24"
+          className="animate-flame-core"
+          style={{ transformBox: 'fill-box', transformOrigin: '50% 92%' }}
+        />
       </svg>
       {n}
     </span>
@@ -281,6 +296,19 @@ export default function Game() {
 // The pills row is also fixed height now, for the same reason from the other
 // direction: a card whose height comes from a badge appearing is a card that
 // changes size the day somebody starts a streak.
+//
+// AND `h-full` IS NOT ENOUGH ON A PHONE, which is what was still wrong. It
+// makes a card fill its GRID ROW, and a grid row is as tall as its tallest cell
+// - so on a desktop, where three cards share one row, they equalise for free.
+// At `grid-cols-1` every card is alone in its own row, there is nothing to
+// equalise against, and each one is exactly as tall as its own description:
+// "Guess the Country" runs to two lines at 375px where "Flight Path" runs to
+// one, so the stack came out uneven. Ethan: "on mobile on the travel games page
+// the cards are not all the same size."
+// The description is an exact two-line box, so the card is the same height at
+// every width whatever is written on it. `leading-5` is 20px and `h-10` is
+// 40px exactly - an inexact pair leaves a sliver of a third line showing under
+// the clamp, which is the trap CreatorCard's bio fell into.
 function DailyCard({ daily, done, onPlay, streak }) {
   return (
     <button
@@ -305,7 +333,7 @@ function DailyCard({ daily, done, onPlay, streak }) {
               <span className="rounded-full bg-brand-tint px-2 py-0.5 text-[10px] font-bold text-brand">{streak} day streak</span>
             )}
           </span>
-          <span className="mt-1.5 block text-sm text-smoke">{daily.text}</span>
+          <span className="mt-1.5 line-clamp-2 block h-10 overflow-hidden text-sm leading-5 text-smoke">{daily.text}</span>
           <span className="mt-auto inline-flex items-center gap-1.5 pt-3 text-sm font-semibold text-brand">
             {done ? 'See how you did' : 'Play today\u2019s puzzle'}
             <Icon name="chevronRight" className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
@@ -382,7 +410,7 @@ function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle, 
                 }}
                 aria-pressed={on}
                 className={cx(
-                  'group flex h-full items-start gap-3.5 rounded-card border bg-white p-4 text-left transition-all duration-200 hover:-translate-y-1 hover:shadow-lift',
+                  'group flex h-full items-start gap-3.5 rounded-card border bg-white p-4 text-left transition-all duration-200 active:scale-[0.99] hover:-translate-y-1 hover:shadow-lift',
                   on ? 'border-brand ring-2 ring-brand/25' : 'border-gray-100 shadow-card hover:border-brand/40',
                 )}
               >
@@ -392,9 +420,15 @@ function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle, 
                 )}>
                   <Icon name={m.icon} className="h-5 w-5" />
                 </span>
+                {/* Two exact lines, for the reason spelled out on DailyCard:
+                    at `grid-cols-2` on a phone the taller card sets the row and
+                    the shorter one floats inside it, and a mode whose blurb
+                    runs to three lines pushed its whole row taller than the
+                    one under it. `leading-[1.15rem]` is 18.4px and the box is
+                    two of them exactly. */}
                 <span className="min-w-0">
                   <span className="block font-semibold leading-snug">{m.title}</span>
-                  <span className="mt-1 block text-[13px] leading-snug text-smoke">{m.text}</span>
+                  <span className="mt-1 line-clamp-2 block h-[2.3rem] overflow-hidden text-[13px] leading-[1.15rem] text-smoke">{m.text}</span>
                 </span>
               </button>
             )

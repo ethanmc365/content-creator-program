@@ -45,38 +45,42 @@ export function RiseIn({ children, delay = 0, className, as = 'div' }) {
  * than a spring because a count is a discrete readout: it should land exactly
  * on the value, not overshoot to 44 and settle back to 43.
  *
- * HOW LONG IT TAKES IS A FUNCTION OF THE NUMBER, and the curve is not the one
- * the rest of the app uses.
+ * EVERY COUNTER TAKES THE SAME TIME, WHATEVER IT IS COUNTING TO, and the curve
+ * is not the one the rest of the app uses.
  *
- * THE BUG THIS FIXES. Every counter ran for a flat 900ms on a cubic ease-out,
- * and a cubic ease-out is violently front-loaded: a fifth of the way through
- * the time it is already halfway through the distance. On a six-figure
- * kilometre total that is invisible, because the digits keep moving for the
- * whole second regardless. On "44 creators" it means the counter reads 24 on
- * the second frame and 41 a moment later - so the big number animates and the
- * small ones next to it appear to snap straight to their answer. Ethan: "the
- * numbers for the kilometres flown animate up nicely but the other like 44
- * creators animate up instantly."
+ * THE FIRST BUG. Every counter ran for a flat 900ms on a cubic ease-out, and a
+ * cubic ease-out is violently front-loaded: a fifth of the way through the time
+ * it is already halfway through the distance. On a six-figure kilometre total
+ * that is invisible, because the digits keep moving for the whole second
+ * regardless. On "44 creators" it means the counter reads 24 on the second
+ * frame and 41 a moment later, so the big number animated and the small ones
+ * next to it appeared to snap. SMOOTHSTEP fixed that: `t*t*(3-2t)` is
+ * symmetric, so a count to 44 passes through roughly every number on the way.
  *
- * Two changes, and both are needed:
+ * THE SECOND BUG, AND WHY THE DURATION IS NOW A CONSTANT. The fix for the first
+ * one made the duration follow the magnitude logarithmically, which is
+ * defensible on its own and wrong in the place these counters actually live: a
+ * ROW of four figures, read as one thing. A count to 6 finished in 800ms while
+ * the kilometre total beside it ran for 1.5s, so the row landed in four
+ * instalments and the small numbers looked like they had given up early -
+ * Ethan: "it just shows a number like 6 and then suddenly jumps to the total".
  *
- *   * SMOOTHSTEP, NOT EASE-OUT. `t*t*(3-2t)` is symmetric - it eases in and out
- *     and spends the middle of its time in the middle of its range - so a count
- *     to 44 passes through roughly every number on the way rather than jumping
- *     to the last handful.
- *   * THE DURATION FOLLOWS THE MAGNITUDE, logarithmically. A count to 6 does
- *     not need the second a count to a million does, but it does need long
- *     enough to be seen: this gives about 850ms to single digits and about
- *     1.5s to seven, which is long enough to watch and short enough that
- *     nobody is waiting for a card to finish.
+ * So the time is fixed and the RATE is what varies: everything starts at zero
+ * on the same frame and everything arrives on the same frame, which makes the
+ * kilometres blur, the creator count tick briskly and the six markets climb one
+ * at a time. That is the reading the row wants, and it is only available if the
+ * clock is shared.
  */
-// Exported so they can be tested without a component. The preview browser
-// freezes requestAnimationFrame (document.hidden is true), so a counter cannot
-// be watched there at all - which means the only honest way to check the two
-// things that were wrong with it is to check the arithmetic directly.
-export function countDuration(target) {
-  const magnitude = Math.log10(Math.abs(target) + 1)
-  return 600 + Math.min(900, magnitude * 240)
+// 1.6s: long enough that a count to six is unmistakably a count and not a
+// flicker, short enough that nobody is waiting on the card.
+export const COUNT_MS = 1600
+
+// Exported so it can be tested without a component. The preview browser freezes
+// requestAnimationFrame (document.hidden is true), so a counter cannot be
+// watched there at all - which means the only honest way to check what was
+// wrong with it is to check the arithmetic directly.
+export function countDuration() {
+  return COUNT_MS
 }
 
 /** Smoothstep. Eases in and out, and is at the halfway VALUE at the halfway
@@ -123,7 +127,7 @@ export function CountUp({ value, duration, className, format = (n) => n }) {
     let raf = 0
     // The caller can still name a duration; nothing does, and the derived one
     // is the point - see countDuration above.
-    const ms = duration ?? countDuration(target - from)
+    const ms = duration ?? countDuration()
     const start = performance.now()
     const tick = (now) => {
       const t = Math.min(1, (now - start) / ms)

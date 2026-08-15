@@ -3,14 +3,16 @@ import { Link, useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { useCommunity } from '../context/CommunityContext'
 import { Avatar, Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../components/ui'
-import { notice } from '../lib/confirm'
+import { confirm, notice } from '../lib/confirm'
 import { toast } from '../lib/toast'
 import { cx } from '../lib/utils'
 import Icon from '../components/Icon'
 import Combobox from '../components/Combobox'
 import WorldMap from '../components/WorldMap'
 import CreatorMap from '../components/CreatorMap'
+import MapSkeleton from '../components/network/MapSkeleton'
 import { loadMapCountryNames, canonicalCountry } from '../lib/mapCountries'
 import Reveal from '../components/network/Reveal'
 import WhenVisible from '../components/WhenVisible'
@@ -65,14 +67,37 @@ function tripInMonth(p, ym) {
 // the WorldMap's own `memo` is not defeated by a fresh `[country]` array every
 // time. Everything the card needs that used to come from the closure now
 // arrives as a prop.
+// EVERY CARD ON THE BOARD IS THE SAME SIZE.
+//
+// Ethan: "ensure every creator/trip card on the collab board is the same size,
+// as currently they are different sizes depending on text etc."
+//
+// Three separate things were making them differ, and the fix for each is the
+// same one the creator directory's cards needed: give the variable part a FIXED
+// number of lines rather than hoping the content behaves.
+//
+//   * THE NOTE HAD NO CEILING AND NO FLOOR. A trip with two words and a trip
+//     with a paragraph produced cards a hundred pixels apart. It is an exact
+//     three-line box now - `leading-5` is 20px and `h-[3.75rem]` is 60px, so
+//     there is no room for a sliver of a fourth line to show under the clamp
+//     (see CreatorCard for the version of this bug that shipped).
+//   * THE MAP CAME AND WENT. It is drawn only when the country resolves to
+//     something the atlas knows, so a trip to "Bali" (an island, not a country)
+//     had no map and its card was two hundred pixels shorter than the one
+//     beside it. The slot is always there on a live trip now; without a country
+//     it holds a plain tinted panel, which is the honest version of "we cannot
+//     draw this one" and costs the same height.
+//   * THE CARD DID NOT FILL ITS GRID CELL. A grid row is as tall as its tallest
+//     card either way - but without `h-full` the shorter CARD stops inside the
+//     cell and the row looks ragged even when the geometry is right.
 const TripCard = memo(function TripCard({
-  p, past = false, mine, canEdit, mapCountry, interestCount, iAmInterested,
-  onEdit, onRemove, onToggleInterest, onMessage,
+  p, past = false, mine, canEdit, canDelete, mapCountry, interestCount, iAmInterested,
+  reserveNote = true, onEdit, onRemove, onToggleInterest, onMessage,
 }) {
   const person = p.profiles || {}
   const selectedCountries = useMemo(() => (mapCountry ? [mapCountry] : []), [mapCountry])
   return (
-    <div className={`card flex flex-col gap-4 !p-6 ${past ? 'opacity-75' : ''}`}>
+    <div className={`card flex h-full flex-col gap-4 !p-6 ${past ? 'opacity-75' : ''}`}>
       <div className="flex items-start justify-between gap-3">
         <Link to={`/profile/${person.id}`} className="flex items-center gap-3 group">
           <Avatar src={person.photo_url} name={person.name} size="md" />
@@ -84,14 +109,27 @@ const TripCard = memo(function TripCard({
             </p>
           </div>
         </Link>
-        {canEdit && (
+        {/* AN ADMIN CAN REMOVE A TRIP AND CAN NO LONGER REWRITE ONE.
+            Ethan: "admins should no longer be able to edit other creators' trip
+            cards, but still be able to delete them."
+            The two are genuinely different powers and it was a mistake to give
+            them out together. Removing somebody's post is moderation - it is
+            visible, it is final, and everybody understands what happened.
+            EDITING it is putting words in their mouth: the card still carries
+            their face and their name, and nothing anywhere says the text under
+            it is not theirs. Nobody needs that, so nobody has it. */}
+        {(canEdit || canDelete) && (
           <div className="flex shrink-0 items-center gap-1">
-            <button onClick={() => onEdit(p)} aria-label="Edit trip" title="Edit trip" className="rounded-lg p-1.5 text-smoke transition-colors hover:bg-brand-tint hover:text-brand">
-              <Icon name="pencil" className="h-4 w-4" />
-            </button>
-            <button onClick={() => onRemove(p.id)} aria-label="Delete trip" title="Delete trip" className="rounded-lg p-1.5 text-smoke transition-colors hover:bg-red-50 hover:text-red-600">
-              <Icon name="trash" className="h-4 w-4" />
-            </button>
+            {canEdit && (
+              <button onClick={() => onEdit(p)} aria-label="Edit trip" title="Edit trip" className="rounded-lg p-1.5 text-smoke transition-colors hover:bg-brand-tint hover:text-brand">
+                <Icon name="pencil" className="h-4 w-4" />
+              </button>
+            )}
+            {canDelete && (
+              <button onClick={() => onRemove(p)} aria-label="Delete trip" title="Delete trip" className="rounded-lg p-1.5 text-smoke transition-colors hover:bg-red-50 hover:text-red-600">
+                <Icon name="trash" className="h-4 w-4" />
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -102,15 +140,41 @@ const TripCard = memo(function TripCard({
           renders. Six atlases laid out at once is what made the board hitch on
           open even after the parse was shared; the placeholder reserves the
           height so deferring the mount cannot become a jump. */}
-      {!past && mapCountry && (
-        <WhenVisible fallback={<div className="aspect-[2/1] w-full animate-pulse rounded-card bg-cloud/70" />}>
-          <div className="overflow-hidden rounded-card">
-            <WorldMap selected={selectedCountries} focusCountry={mapCountry} />
+      {!past && (
+        mapCountry ? (
+          <WhenVisible fallback={<div className="aspect-[2/1] w-full animate-pulse rounded-card bg-cloud/70" />}>
+            <div className="overflow-hidden rounded-card">
+              <WorldMap selected={selectedCountries} focusCountry={mapCountry} />
+            </div>
+          </WhenVisible>
+        ) : (
+          // The same height, with nothing drawn on it. A city we cannot place
+          // on the atlas is a fact about our country table, not a reason for
+          // this card to be shorter than the one beside it.
+          <div className="flex aspect-[2/1] w-full items-center justify-center rounded-card bg-cloud/60">
+            <Icon name="globe" className="h-7 w-7 text-gray-300" />
           </div>
-        </WhenVisible>
+        )
       )}
 
-      {p.note && <p className="text-sm leading-relaxed text-ink/90">{p.note}</p>}
+      {/* Exactly three lines, whenever there is a note ANYWHERE on the board.
+          Whitespace is collapsed first: a note written as four short lines
+          would otherwise lay out as four lines and clamp at three with no
+          ellipsis, which reads as the card having eaten the rest.
+
+          `reserveNote` is a property of the WHOLE SET, not of this card. The
+          box exists to stop one creator's paragraph making their card taller
+          than everybody else's, so it has to be there on every card or none -
+          reserving it per card would put it back exactly where it started. But
+          on a board where nobody has written a note at all (the early trips
+          predate the note being required) it is sixty pixels of empty paper on
+          every single card for no reason, so the whole set drops it together
+          and stays uniform either way. */}
+      {reserveNote && (
+        <p className="line-clamp-3 h-[3.75rem] overflow-hidden text-sm leading-5 text-ink/90">
+          {(p.note || '').replace(/\s+/g, ' ').trim()}
+        </p>
+      )}
 
       {!mine && !past && (
         <div className="mt-auto flex flex-col gap-2">
@@ -136,6 +200,14 @@ const TripCard = memo(function TripCard({
 
 export default function Collab() {
   const { user, isAdmin, profile } = useAuth()
+  // THE FLIGHT LOG IS BEHIND THE NETWORK PREVIEW GATE AND THE COLLAB BOARD IS
+  // NOT. `/collab` is an open route a UK creator reaches from their own nav;
+  // `/flights` sits inside NetworkRoute, so a link to it from here would send
+  // somebody without the flag to a page that bounces them straight to /home.
+  // Every door to the flight log on this page is gated on the same flag the
+  // route is. This is the check that was missed for `/milestones` and for
+  // MilestoneSnippet, and both times a UK creator saw the unreleased build.
+  const { preview: networkPreview } = useCommunity()
   const navigate = useNavigate()
   const [posts, setPosts] = useState(null)
   const [interests, setInterests] = useState({ count: new Map(), mine: new Set(), rows: [] })
@@ -147,7 +219,19 @@ export default function Collab() {
   const [expanded, setExpanded] = useState(false) // show all upcoming trips vs the first 6
   // "Who's travelling now" map data: creators currently mid-trip, with their
   // home location + current destination, mirroring the creators-map feature.
-  const [travellers, setTravellers] = useState({ creators: [], trips: {} })
+  //
+  // NULL UNTIL IT HAS LOADED, AND THAT IS THE FIX FOR "IT SHOWS A DIFFERENT MAP
+  // FIRST". This used to start as `{ creators: [], trips: {} }`, which is
+  // exactly the shape of a LOADED board on which nobody happens to be
+  // travelling - so on the first frame the section took the "no one's mid-trip
+  // right now" branch and drew the countries WorldMap, and a moment later the
+  // query landed and replaced it with the creator map. Ethan: "on the travel
+  // collab board the first time it loads it shows up a different map and then
+  // the correct one."
+  // An empty state is a CLAIM and a claim needs the data first; the same rule
+  // that governs "Live now" on the hub. Null is "we do not know yet" and the
+  // section draws a placeholder the size of the map instead of guessing.
+  const [travellers, setTravellers] = useState(null)
   const [form, setForm] = useState({ city: '', country: '', start_date: '', end_date: '', note: '' })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -323,9 +407,29 @@ export default function Collab() {
   // STABLE CALLBACKS, OR `memo` ON THE CARD BUYS NOTHING. A fresh arrow on
   // every render is a changed prop, and a changed prop re-renders the card the
   // memo was there to spare.
-  const remove = useCallback(async (id) => {
-    setPosts((p) => p.filter((x) => x.id !== id))
-    await supabase.from('collab_posts').delete().eq('id', id)
+  // DELETING A TRIP ASKS FIRST, and it asks with the trip in the question.
+  //
+  // Ethan: "when pressing delete it should show a popup to confirm first so no
+  // accidental deletion." It removed the card the instant the bin was pressed,
+  // with no undo and no dialog - and the bin sits two pixels from the pencil in
+  // the corner of a card an admin is scrolling past on a touchscreen.
+  //
+  // `confirm()` from lib/confirm, never the native one: Chrome's "don't show
+  // again" makes `window.confirm` return false silently and for ever, which
+  // turns a destructive action into one that quietly stops working.
+  //
+  // AND THE CARD GOES WHEN THE ROW GOES, not before. This used to remove it
+  // optimistically, which is the right trade for a one-tap action and the wrong
+  // one here: there is already a dialog in front of it, so the round trip costs
+  // nothing anybody can feel - and an admin told a post is gone who finds it
+  // back on reload has been lied to by an RLS refusal.
+  const remove = useCallback(async (post) => {
+    const who = post.profiles?.name ? `${post.profiles.name}'s trip to ` : 'the trip to '
+    if (!await confirm(`Delete ${who}${post.city}? It disappears from the board for everybody.`)) return
+    const { error: delErr } = await supabase.from('collab_posts').delete().eq('id', post.id)
+    if (delErr) { await notice('Could not delete that trip.'); return }
+    setPosts((p) => p.filter((x) => x.id !== post.id))
+    toast('Trip deleted')
   }, [])
 
   // Open the edit modal, prefilled with the post's current values.
@@ -442,10 +546,16 @@ export default function Collab() {
 
   // Everything a card needs, worked out here so the card itself stays a plain
   // function of its props and can be memoised.
+  // See TripCard: the note box is reserved for the whole set or for none of it.
+  const anyNote = useMemo(() => (posts ?? []).some((p) => (p.note || '').trim()), [posts])
+
   const cardProps = (p) => ({
     p,
+    reserveNote: anyNote,
     mine: p.creator_id === user.id,
-    canEdit: p.creator_id === user.id || isAdmin,
+    // EDIT IS YOURS ALONE. DELETE IS YOURS OR AN ADMIN'S. See TripCard.
+    canEdit: p.creator_id === user.id,
+    canDelete: p.creator_id === user.id || isAdmin,
     mapCountry: canonicalCountry(p.country, countryNames),
     interestCount: interests.count.get(p.id) || 0,
     iAmInterested: interests.mine.has(p.id),
@@ -462,10 +572,39 @@ export default function Collab() {
         title="Travel collab board"
         subtitle="Heading somewhere? Post your trip so nearby creators can meet up, grab a coffee, film together or plan a trip."
         action={canPost && (
-          <button onClick={() => setPosting((v) => !v)} className="btn-primary !py-2.5">
-            <Icon name={posting ? 'close' : 'plus'} className="h-4 w-4" />
-            {posting ? 'Close' : 'Post a trip'}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            {/* THE OTHER WAY IN, AND IT IS THE BETTER ONE WHEN IT APPLIES.
+                Ethan: "as we're building the functionality into the flight log,
+                the post a trip button should be linked to that or something. I
+                want you to figure out the best way to do this."
+
+                A trip you are going on is almost always a flight you have
+                booked, and the two were separate things to type in two places
+                with no connection at all - the same city, the same dates,
+                entered twice. The flight log is the one that knows the airports,
+                the distance and the aircraft, and it now holds flights that have
+                not happened yet (migration 104), so it can carry the whole
+                thing: log the flight, and it offers to post the trip with the
+                city and both dates already filled in from the return leg.
+
+                IT IS A SECOND DOOR, NOT A REPLACEMENT. Not every trip is a
+                flight - a train to Porto, a drive down the coast - and the
+                quick form is still the fastest possible way to say "I will be
+                in Lisbon in March" to somebody who has not booked yet. Making
+                the flight log the ONLY route would be making people log a
+                flight in order to say they are going somewhere. So the quick
+                form leads and this stands beside it. */}
+            {networkPreview && (
+              <Link to="/flights?log=upcoming" className="btn-secondary !py-2.5 text-sm">
+                <Icon name="plane-tryp" className="h-4 w-4" />
+                From a flight
+              </Link>
+            )}
+            <button onClick={() => setPosting((v) => !v)} className="btn-primary !py-2.5">
+              <Icon name={posting ? 'close' : 'plus'} className="h-4 w-4" />
+              {posting ? 'Close' : 'Post a trip'}
+            </button>
+          </div>
         )}
       />
 
@@ -482,7 +621,14 @@ export default function Collab() {
           reveals belong next to each other. */}
       {canPost && posting && (
         <form onSubmit={submit} className="card mb-10 !p-6">
-          <h2 className="mb-4 font-semibold">Post a trip</h2>
+          <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="font-semibold">Post a trip</h2>
+            {networkPreview && (
+              <Link to="/flights?log=upcoming" className="text-xs font-medium text-brand transition-transform duration-200 hover:scale-105">
+                Already booked the flight? Log it instead →
+              </Link>
+            )}
+          </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="city" className="label">City / place</label>
@@ -581,24 +727,36 @@ export default function Collab() {
         </section>
       )}
 
-      {(travellers.creators.length > 0 || boardCountries.length > 0) && (
+      {(travellers === null || travellers.creators.length > 0 || boardCountries.length > 0) && (
         <section className="mb-10">
           <h2 className="mb-1 text-lg font-semibold">Where everyone's headed</h2>
-          {travellers.creators.length > 0 ? (
+          {travellers === null ? (
+            // WHICH MAP THIS IS, IS A FACT WE DO NOT HAVE YET. Drawing either
+            // one and correcting it is the bug described on the `travellers`
+            // state above. A placeholder the size of the map makes no claim and
+            // does not move anything when the real one lands.
+            <MapSkeleton className="mt-5" />
+          ) : travellers.creators.length > 0 ? (
             <>
-              <p className="mb-5 text-sm text-smoke">Everyone on the move: a filled plane for creators who are there now, a hollow one for trips in the next three months.</p>
+              {/* NO STRAPLINE. It read "Everyone on the move: a filled plane for
+                  creators who are there now, a hollow one for trips in the next
+                  three months", which is a legend for a map that does not need
+                  one - a plane on a place means somebody is going there, and
+                  every pin is tappable for the rest. Ethan asked for it gone. */}
               {/* Deferred like the card maps. This one is the heaviest thing on
                   the page - the atlas plus a pin and a flight path per traveller
                   - and laying it out on the same frames as the cards above are
                   arriving is what made the whole board judder on open. */}
-              <WhenVisible fallback={<div className="aspect-[2/1] w-full animate-pulse rounded-card bg-cloud/70" />}>
-                <CreatorMap creators={travellers.creators} trips={travellers.trips} travelOnlyView />
+              <WhenVisible fallback={<MapSkeleton className="mt-5" />}>
+                <div className="mt-5">
+                  <CreatorMap creators={travellers.creators} trips={travellers.trips} travelOnlyView />
+                </div>
               </WhenVisible>
             </>
           ) : (
             <>
               <p className="mb-5 text-sm text-smoke">No one's mid-trip right now. Here's every country with an upcoming trip, highlighted.</p>
-              <WhenVisible fallback={<div className="aspect-[2/1] w-full animate-pulse rounded-card bg-cloud/70" />}>
+              <WhenVisible fallback={<MapSkeleton ratio="world" />}>
                 <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
                   <WorldMap selected={boardCountries} />
                 </div>

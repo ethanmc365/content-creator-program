@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { Avatar, Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../components/ui'
+import { Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
 import Reveal from '../components/network/Reveal'
-import Segmented from '../components/network/Segmented'
 import { CountUp } from '../components/network/Motion'
 import WhenVisible from '../components/WhenVisible'
 import FlightMap from '../components/network/FlightMap'
+import MapSkeleton from '../components/network/MapSkeleton'
 import AircraftArt from '../components/network/AircraftArt'
 import { confirm, notice } from '../lib/confirm'
 import { toast } from '../lib/toast'
@@ -71,11 +71,24 @@ const PURPOSE_LABEL = Object.fromEntries(PURPOSES.map((p) => [p.key, p.label]))
 
 // One shape, declared once. `save` resets to it and the modal's Cancel does
 // too, so there is no list of fields to keep in step in three places.
+// THERE IS NO `share` FIELD ANY MORE.
+//
+// It was a tick-box at the foot of the form - "Count this towards the
+// community" - defaulting to on. Ethan: "don't have a separate button saying
+// count this to the community, everything will show up in the community, don't
+// need to say anything." Every flight is written with
+// `share_with_community: true` now and the control is gone.
+// What that does and does not mean is unchanged and worth restating, because
+// removing a consent control is not a small thing: the community pages read
+// ONLY who flew, how many times, how far and between which airports. Never a
+// date, a seat, a flight number, a note or a photograph, and never a flight
+// that has not happened yet. See migrations 103 and 104 for the policy that
+// enforces it rather than promising it.
 const BLANK_FORM = {
   from_iata: '', to_iata: '', flown_on: '', airline: '', flight_number: '',
-  aircraft: '', note: '', seat: '', purpose: '',
+  aircraft: '', note: '', seat: '', purpose: '', purpose_note: '',
   round_trip: false, return_on: '',
-  photo_url: '', share: true,
+  photo_url: '',
 }
 
 const km = (n) => Math.round(n).toLocaleString('en-GB')
@@ -213,6 +226,23 @@ function DatePart({ id, label, value, onChange, onOverflow, onBack, width, max, 
       placeholder={focused ? '0'.repeat(max) : label}
       className={cx(
         'bg-transparent text-center text-sm tabular-nums text-ink outline-none placeholder:text-gray-300',
+        // NO RING ON THE SEGMENT. THIS IS THE ORANGE BOX.
+        //
+        // index.css has a base rule `input:focus-visible { ring-1 ring-brand }`,
+        // which exists so a search box lights up when you tab to it. A text
+        // input is `:focus-visible` on a MOUSE CLICK too (correct per spec - the
+        // browser cannot know you are not about to type), and this field is
+        // three inputs sitting inside one bordered box pretending to be one
+        // control. So clicking into DD drew a small orange rectangle around the
+        // two characters of the day, inside the field's own border, and it
+        // hopped along to MM and YYYY as the caret advanced. Ethan: "when
+        // filling in the dates it shows a weird orange box around dd, mm etc
+        // that looks strange."
+        // The segment is not a control a person perceives, so it must not have
+        // a focus indicator of its own. The WRAPPER carries it instead (see
+        // `focus-within` below), which is what makes the whole field light up as
+        // one thing - which is what it looks like.
+        'focus-visible:ring-0 focus-visible:ring-offset-0',
         width,
       )}
     />
@@ -252,6 +282,10 @@ function DateField({ id, label, value, onChange, max, hint }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [d, m, y])
 
+  // `max` is only supplied when a future date would be wrong. Logging a flight
+  // you have not taken yet is now a supported thing to do, so the modal simply
+  // stops passing one in that mode rather than this field having a second
+  // opinion about it.
   const future = value && max && value > max
 
   return (
@@ -259,7 +293,10 @@ function DateField({ id, label, value, onChange, max, hint }) {
       <label htmlFor={`${id}-d`} className="label">{label}</label>
       <div
         className={cx(
-          'flex w-full items-center gap-0.5 rounded-xl border bg-white px-3.5 py-2.5 transition-colors focus-within:border-brand',
+          // The focus indicator for all three segments, on the one element a
+          // person actually sees. See the note in DatePart.
+          'flex w-full items-center gap-0.5 rounded-xl border bg-white px-3.5 py-2.5 transition-colors',
+          'focus-within:border-brand focus-within:ring-1 focus-within:ring-brand',
           future ? 'border-red-300' : 'border-gray-200',
         )}
       >
@@ -548,22 +585,32 @@ export default function Flights() {
   const { user } = useAuth()
   const [rows, setRows] = useState(null)
   const [adding, setAdding] = useState(false)
+  // THE SAME FORM OPENS THREE WAYS, and which one it is decides three things:
+  // the title, whether the date may be in the future, and whether saving is an
+  // insert or an update.
+  //
+  //   editing === null && !upcoming   a flight you have taken
+  //   editing === null && upcoming    a flight you are going to take
+  //   editing === <row>               a flight already in the log
+  //
+  // One form and not three, for the reason the board's ask/edit dialog is one
+  // form: the fields are the same fields and the validation is the same
+  // validation, so writing it twice only guarantees that the two drift.
+  const [editing, setEditing] = useState(null)
+  const [upcoming, setUpcoming] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [showAll, setShowAll] = useState(false)
   const [form, setForm] = useState(BLANK_FORM)
   const [allAirlines, setAllAirlines] = useState(false)
   const [customAirline, setCustomAirline] = useState(false)
+  const [customPlane, setCustomPlane] = useState(false)
   const [uploading, setUploading] = useState(false)
   // `today` in state, not computed in render: this repo's eslint bans clock
   // reads during render and it is right to.
   const [today] = useState(() => ymd(new Date()))
   // The year-on-year panel, off until asked for. See YearColumn.
   const [compare, setCompare] = useState(false)
-  // The community board, which is three RPCs nobody needs until they scroll.
-  const [board, setBoard] = useState(null)
-  const [boardWindow, setBoardWindow] = useState('year')
-  const [flyers, setFlyers] = useState({})
   // What to offer after a flight is saved: the collab board post.
   const [offer, setOffer] = useState(null)
 
@@ -585,63 +632,11 @@ export default function Flights() {
   const lastYear = String(Number(thisYear) - 1)
   const yearRow = (y) => stats.years.find((x) => x.year === y) || null
 
-  // ---- WHO ELSE FLIES YOUR ROUTES -----------------------------------------
-  //
-  // Asked for the six routes you fly most, not for all of them: this is one
-  // round trip per route and a well-travelled log has sixty. The six busiest
-  // are the ones where an introduction is worth making anyway - a route you
-  // have flown once is a holiday, and a route you have flown nine times is
-  // somewhere you keep going back to.
-  const topRoutes = useMemo(
-    () => [...stats.routes].sort((a, b) => b.flights.length - a.flights.length).slice(0, 6),
-    [stats.routes],
-  )
-  useEffect(() => {
-    if (topRoutes.length === 0) return undefined
-    let cancelled = false
-    ;(async () => {
-      const out = {}
-      for (const r of topRoutes) {
-        const { data } = await supabase.rpc('route_flyers', { p_a: r.from.iata, p_b: r.to.iata })
-        if (cancelled) return
-        if (data?.length) out[r.key] = data
-      }
-      if (!cancelled) setFlyers(out)
-    })()
-    return () => { cancelled = true }
-  }, [topRoutes])
-
-  // ---- THE COMMUNITY BOARD -------------------------------------------------
-  //
-  // The window is a parameter of the RPC rather than two functions, so "this
-  // year" and "all time" are the same query twice. Only flights their owner has
-  // ticked to share are in it - see migration 103 for why that is the only
-  // honest way to aggregate a private table.
-  useEffect(() => {
-    let cancelled = false
-    const from = boardWindow === 'year' ? `${thisYear}-01-01` : '1970-01-01'
-    supabase.rpc('flight_leaderboard', { p_from: from, p_to: today }).then(({ data }) => {
-      if (!cancelled) setBoard(data ?? [])
-    })
-    return () => { cancelled = true }
-  }, [boardWindow, thisYear, today])
-
-  const boards = useMemo(() => {
-    if (!board) return null
-    const withCountries = board.map((b) => {
-      const countries = new Set()
-      for (const code of b.airports || []) {
-        const a = airport(code)
-        if (a?.country) countries.add(a.country)
-      }
-      return { ...b, km: Number(b.km) || 0, flights: Number(b.flights) || 0, countries: countries.size }
-    })
-    return {
-      distance: [...withCountries].sort((a, b) => b.km - a.km).slice(0, 5),
-      countries: [...withCountries].sort((a, b) => b.countries - a.countries || b.km - a.km).slice(0, 5),
-      flights: [...withCountries].sort((a, b) => b.flights - a.flights || b.km - a.km).slice(0, 5),
-    }
-  }, [board])
+  // WHO ELSE FLIES YOUR ROUTES AND THE COMMUNITY LEADERBOARDS ARE NOT READ
+  // HERE ANY MORE. They were four RPCs (one per busy route, plus the board)
+  // fired from a page that had already run three queries of its own, for two
+  // sections at the very bottom that most people never scrolled to. They live
+  // on /flights/community now and are loaded by the page that shows them.
 
   // ---- the form ------------------------------------------------------------
   const fromA = airport(form.from_iata)
@@ -671,6 +666,110 @@ export default function Flights() {
     return hit ? { key: hit[0], ...hit[1] } : null
   }, [form.aircraft])
 
+  // THE THREE WAYS IN. Each one seeds the form and says which mode it is, so
+  // nothing downstream has to guess - and every one of them resets the two
+  // airline-picker flags, which used to survive from the previous open and left
+  // somebody editing a flight staring at a text box they had not asked for.
+  function openNew() {
+    setForm(BLANK_FORM)
+    setEditing(null)
+    setUpcoming(false)
+    setError('')
+    setCustomAirline(false)
+    setCustomPlane(false)
+    setAllAirlines(false)
+    setAdding(true)
+  }
+
+  function openUpcoming() {
+    setForm(BLANK_FORM)
+    setEditing(null)
+    setUpcoming(true)
+    setError('')
+    setCustomAirline(false)
+    setCustomPlane(false)
+    setAllAirlines(false)
+    setAdding(true)
+  }
+
+  // `/flights?log=upcoming` OPENS THE FORM ON THE FLIGHT YOU HAVE NOT TAKEN.
+  //
+  // This is what the collab board's "Post a trip" button now does: a trip you
+  // are going on is a flight you are going to take, and the two were separate
+  // things to type in two places. The flight log is the one that knows the
+  // airports, the distance and the dates, and it already offers to post to the
+  // board when you save - so the board sends you here and the loop closes.
+  //
+  // CONSUMED ONCE. A deep-link effect that keeps firing reopens the dialog
+  // every time the page re-renders, and reopens it on a reload after you have
+  // saved - the trap the challenge page's `?submit=1` hit first.
+  const [params, setParams] = useSearchParams()
+  const deepLinkedRef = useRef(false)
+  useEffect(() => {
+    if (deepLinkedRef.current) return
+    const want = params.get('log')
+    if (want !== 'upcoming' && want !== 'new') return
+    deepLinkedRef.current = true
+    if (want === 'upcoming') openUpcoming(); else openNew()
+    const next = new URLSearchParams(params)
+    next.delete('log')
+    setParams(next, { replace: true })
+    // openUpcoming is stable enough for this: it only ever calls setters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params])
+
+  // EDITING A FLIGHT YOU HAVE ALREADY LOGGED.
+  //
+  // Ethan: "on the actual log at the bottom where it says every flight, as well
+  // as being able to delete it, I should be able to re-edit and make changes."
+  // Until now the only way to fix a typo in a date was to delete the row and
+  // type the whole thing again - which is exactly the trade the community board
+  // was given an edit dialog to avoid.
+  //
+  // A ROUND TRIP IS NOT EDITABLE AS A PAIR, and that is deliberate rather than
+  // unfinished: the return is its OWN row with its own date and its own
+  // distance (see `save`), so it appears in the log on its own line and is
+  // edited there. Offering to edit "the trip" would mean deciding what happens
+  // when somebody changes the outbound's airports out from under a return that
+  // still points at them.
+  function openEdit(f) {
+    setForm({
+      from_iata: f.from_iata || '',
+      to_iata: f.to_iata || '',
+      flown_on: f.flown_on || '',
+      airline: f.airline || '',
+      flight_number: f.flight_number || '',
+      aircraft: f.aircraft || '',
+      note: f.note || '',
+      seat: f.seat || '',
+      purpose: f.purpose || '',
+      purpose_note: f.purpose_note || '',
+      round_trip: false,
+      return_on: '',
+      photo_url: f.photo_url || '',
+    })
+    setEditing(f)
+    // A flight already in the log is upcoming if its date says so, which is the
+    // only definition there is (migration 104).
+    setUpcoming(f.flown_on > today)
+    setError('')
+    // An airline that is not in the fleet table can only have been typed, so
+    // the picker opens on the text box rather than losing what is there.
+    setCustomAirline(!!f.airline && !airlineByName(f.airline))
+    // Same rule for the aircraft: a type that is not in the book can only have
+    // been typed, so the picker opens on the text box rather than losing it.
+    setCustomPlane(!!f.aircraft && !Object.values(AIRCRAFT).some((a) => a.name.toLowerCase() === f.aircraft.toLowerCase()))
+    setAllAirlines(false)
+    setAdding(true)
+  }
+
+  function closeForm() {
+    setAdding(false)
+    setEditing(null)
+    setUpcoming(false)
+    setError('')
+  }
+
   async function pickPhoto(e) {
     const file = e.target.files?.[0]
     e.target.value = ''
@@ -692,11 +791,16 @@ export default function Flights() {
     setError('')
     if (!form.from_iata || !form.to_iata) { setError('Pick where you flew from and to.'); return }
     if (form.from_iata === form.to_iata) { setError('Those are the same airport.'); return }
-    if (!form.flown_on) { setError('Add the date you flew.'); return }
-    if (form.flown_on > today) { setError('That date is in the future.'); return }
+    if (!form.flown_on) { setError(upcoming ? 'Add the date you fly.' : 'Add the date you flew.'); return }
+    // WHICH DIRECTION THE DATE IS ALLOWED TO POINT IS THE MODE, and it is the
+    // only thing the mode changes about validation. A logged flight in the
+    // future is somebody who has picked the wrong year; an upcoming flight in
+    // the past is a flight they have already taken and should simply log.
+    if (!upcoming && form.flown_on > today) { setError('That date is in the future. Use "Coming up" for a flight you have not taken yet.'); return }
+    if (upcoming && form.flown_on <= today) { setError('That date has already passed. Log it as a flight you have taken.'); return }
     if (form.round_trip) {
-      if (!form.return_on) { setError('Add the date you flew back, or untick round trip.'); return }
-      if (form.return_on > today) { setError('The return date is in the future.'); return }
+      if (!form.return_on) { setError('Add the date you fly back, or untick round trip.'); return }
+      if (!upcoming && form.return_on > today) { setError('The return date is in the future.'); return }
       if (form.return_on < form.flown_on) { setError('The return is before the outbound. Check the dates.'); return }
     }
     setSaving(true)
@@ -714,7 +818,35 @@ export default function Flights() {
       // a full download. See migration 098.
       distance_km: Math.round(previewKm * 100) / 100,
       purpose: form.purpose || null,
-      share_with_community: !!form.share,
+      // Only ever written beside `other`. Picking a real reason and then
+      // changing your mind would otherwise leave the old free text attached to
+      // "Holiday", which is a row that contradicts itself.
+      purpose_note: form.purpose === 'other' ? (form.purpose_note.trim() || null) : null,
+      // Always true. See BLANK_FORM for what this does and does not expose.
+      share_with_community: true,
+    }
+
+    // ---- EDITING AN EXISTING ROW -------------------------------------------
+    // One update and nothing else: no round trip (the return is its own row and
+    // is edited on its own line) and no offer to post to the collab board,
+    // because correcting a typo is not news.
+    if (editing) {
+      const { error: upErr } = await supabase.from('flights').update({
+        ...common,
+        from_iata: form.from_iata,
+        to_iata: form.to_iata,
+        flown_on: form.flown_on,
+        seat: form.seat.trim() || null,
+        note: form.note.trim() || null,
+        photo_url: form.photo_url || null,
+      }).eq('id', editing.id)
+      setSaving(false)
+      if (upErr) { setError('Could not save those changes. Please try again.'); return }
+      closeForm()
+      setForm(BLANK_FORM)
+      toast('Flight updated')
+      load()
+      return
     }
 
     const { data: out, error: insErr } = await supabase.from('flights').insert({
@@ -766,17 +898,27 @@ export default function Flights() {
     // details." It is an OFFER and not a side effect, and it appears after the
     // save rather than as a tick inside the form, because the two are different
     // decisions: one is a record you keep and the other is a message to forty
-    // other people. Only for a flight that is going somewhere in the future or
-    // that has just happened - offering to tell the community about a trip you
-    // took in 2019 is offering to post something nobody can act on.
+    // other people.
+    //
+    // AN UPCOMING FLIGHT IS THE CASE THIS WAS ALWAYS REACHING FOR. The rule
+    // used to be "the flight is in the last three weeks", which is the best
+    // approximation available when the log could only hold flights that had
+    // already happened - it caught somebody logging a trip on the way home and
+    // nothing else, and a trip you can still be met on is by definition one
+    // that has not finished. Now that the log holds flights you have not taken
+    // yet, a future one is offered every time and the recency rule only has to
+    // cover the trip you have just got back from. Offering to tell forty people
+    // about a flight from 2019 is offering to post something nobody can act on.
     const arrived = airport(form.to_iata)
     const recent = form.flown_on >= ymd(new Date(Date.now() - 21 * 86400000))
+    const worthPosting = upcoming || recent
     setForm(BLANK_FORM)
     setCustomAirline(false)
+    setCustomPlane(false)
     setAllAirlines(false)
-    setAdding(false)
+    closeForm()
     load()
-    if (arrived && recent) {
+    if (arrived && worthPosting) {
       setOffer({
         city: arrived.city,
         country: arrived.countryName || arrived.country || '',
@@ -785,6 +927,24 @@ export default function Flights() {
         note: '',
       })
     }
+  }
+
+  // ONE PLACE THAT TURNS A FLIGHT INTO A COLLAB BOARD POST, used by the offer
+  // that appears after saving and by the button on an upcoming card. The end
+  // date is the return leg's date where there is one and a week later where
+  // there is not, because a trip with no end date on a board is a trip nobody
+  // can plan around.
+  function offerTrip(f) {
+    const arrived = airport(f.to_iata)
+    if (!arrived) return
+    const back = (rows || []).find((x) => x.return_of === f.id)
+    setOffer({
+      city: arrived.city,
+      country: arrived.countryName || arrived.country || '',
+      start: f.flown_on,
+      end: back?.flown_on || ymd(new Date(new Date(`${f.flown_on}T12:00:00Z`).getTime() + 6 * 86400000)),
+      note: '',
+    })
   }
 
   async function postToCollab() {
@@ -817,16 +977,39 @@ export default function Flights() {
 
   return (
     <div className="page">
+      {/* NO STRAPLINE. It read "Every flight you have taken, and what it adds
+          up to. Add them as you go, or work backwards through your inbox on a
+          rainy afternoon", which is a nice sentence explaining a feature to
+          somebody opening it for the first time and dead weight on the page
+          they open every week. The card underneath says the same thing with a
+          number in it. */}
       <PageHeader
         title="Your flight log"
-        subtitle="Every flight you have taken, and what it adds up to. Add them as you go, or work backwards through your inbox on a rainy afternoon."
         action={
           <div className="flex flex-wrap gap-2">
-            <Link to="/flights/aircraft" className="btn-secondary !py-2.5 text-sm">
-              <Icon name="plane" className="h-4 w-4" />
-              Aircraft
+            {/* THE COMMUNITY, AS A DOOR AT THE TOP.
+                All of this used to be two sections buried at the bottom of this
+                page. It is a different question with a different owner - this
+                page is your own record, that one is everybody else's - so it is
+                its own page now, reached from here. See FlightCommunity. */}
+            <Link to="/flights/community" className="btn-secondary !px-4 !py-2.5 text-sm">
+              <Icon name="users" className="h-4 w-4" />
+              Across the community
             </Link>
-            <button onClick={() => setAdding(true)} className="btn-primary !py-2.5">
+            {/* BIGGER, NAMED IN FULL, AND WITH AN ACTUAL AEROPLANE ON IT.
+                Ethan: "make the aircraft button slightly bigger and rename it to
+                aircraft collection, also change the icon to an actual plane
+                icon, like the one used for maps."
+                `plane` is Heroicons' paper aeroplane, which is a SEND glyph -
+                the same one that sits on the button that posts a message. The
+                maps draw a real aircraft silhouette, and it is already in the
+                icon set as `plane-tryp`, so the button that opens a collection
+                of aircraft now has one on it. */}
+            <Link to="/flights/aircraft" className="btn-secondary !px-5 !py-3 text-sm">
+              <Icon name="plane-tryp" className="h-4 w-4" />
+              Aircraft collection
+            </Link>
+            <button onClick={openNew} className="btn-primary !py-2.5">
               <Icon name="plus" className="h-4 w-4" /> Log a flight
             </button>
           </div>
@@ -845,7 +1028,7 @@ export default function Flights() {
           icon={<Icon name="plane" className="h-7 w-7" />}
           title="No flights logged yet"
           hint="Add your last trip and the map fills in. Distance, hours in the air, airports and countries all count themselves."
-          action={<button onClick={() => setAdding(true)} className="btn-primary">Log your first flight</button>}
+          action={<button onClick={openNew} className="btn-primary">Log your first flight</button>}
         />
       ) : (
         <div className="space-y-10">
@@ -917,6 +1100,81 @@ export default function Flights() {
             </section>
           </Reveal>
 
+          {/* ---- COMING UP ----
+              THE FLIGHTS THAT HAVE NOT HAPPENED YET, kept visibly apart from
+              everything else on the page.
+
+              Every other section here is a fact about what you have done, and
+              this one is a plan - so it is above the map (where you would look
+              for "what is next") and it is drawn as an outlined card rather
+              than a solid one, which is the same language the rest of the app
+              uses for something provisional. Nothing in it is counted: not the
+              distance, not the map, not the records, not the streak. See
+              buildFlightStats, which does the splitting, and migration 104 for
+              why there is no `is_upcoming` column to get out of step.
+
+              THE COLLAB BOARD IS THE POINT OF IT. A trip you are going on is
+              only worth typing once, and the place everybody else looks for it
+              is the board. Logging an upcoming flight offers to post it there
+              with the dates already filled in; this card offers it again for
+              the ones somebody said "not this time" to. */}
+          {stats.upcoming.length > 0 && (
+            <Reveal from="down">
+              <section>
+                <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                  <h2 className="text-lg font-semibold">Coming up</h2>
+                  <p className="text-xs text-smoke">
+                    {stats.upcoming.length} {stats.upcoming.length === 1 ? 'flight' : 'flights'} booked in
+                  </p>
+                </div>
+                <Reveal className="grid items-stretch gap-3 sm:grid-cols-2" stagger={0.05}>
+                  {stats.upcoming.map((f) => (
+                    <div key={f.id} className="flex h-full flex-col rounded-card border border-dashed border-brand/40 bg-brand-tint/15 p-4">
+                      <div className="flex items-center gap-3">
+                        <span className="flex shrink-0 items-center gap-1.5 text-sm font-bold tracking-wider text-brand">
+                          {f.from.iata}
+                          <Icon name="plane" className="h-3.5 w-3.5 text-brand-light" />
+                          {f.to.iata}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium">{f.from.city} to {f.to.city}</span>
+                          <span className="block truncate text-xs text-smoke">
+                            {formatDate(f.flown_on)}
+                            {f.airline ? ` · ${f.airline}` : ''}
+                          </span>
+                        </span>
+                      </div>
+                      <div className="mt-3 flex items-center gap-2 border-t border-brand/20 pt-3">
+                        <button
+                          type="button"
+                          onClick={() => offerTrip(f)}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-white transition-transform duration-200 hover:scale-105 active:scale-95"
+                        >
+                          <Icon name="pin" className="h-3.5 w-3.5" />
+                          Post to the collab board
+                        </button>
+                        <button
+                          onClick={() => openEdit(f)}
+                          aria-label="Edit this flight"
+                          className="ml-auto rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-white hover:text-brand"
+                        >
+                          <Icon name="pencil" className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => remove(f)}
+                          aria-label="Remove this flight"
+                          className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                        >
+                          <Icon name="trash" className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </Reveal>
+              </section>
+            </Reveal>
+          )}
+
           {/* ---- The map ----
               Deferred like every other map in this app: the atlas is parsed once
               per session but the LAYOUT of a few hundred arcs is not free, and
@@ -930,7 +1188,7 @@ export default function Flights() {
                   {stats.routes.length} {stats.routes.length === 1 ? 'route' : 'routes'} · {stats.airports} airports
                 </p>
               </div>
-              <WhenVisible rootMargin="1000px" fallback={<div className="aspect-[11/6] w-full animate-pulse rounded-card bg-cloud/70" />}>
+              <WhenVisible rootMargin="1000px" fallback={<MapSkeleton />}>
                 <FlightMap routes={stats.routes} airports={stats.pins} />
               </WhenVisible>
             </section>
@@ -968,11 +1226,15 @@ export default function Flights() {
           {/* ---- THE RECORDS WALL ---- */}
           <Reveal from="down">
             <section>
-              <h2 className="mb-1 text-lg font-semibold">Your records</h2>
-              <p className="mb-3 text-sm text-smoke">
-                Every one of these is already in your log. Nothing here was typed in.
-              </p>
-              <Reveal className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" stagger={0.05}>
+              {/* NO STRAPLINE, AND THE GRID IS EVEN.
+                  "Every one of these is already in your log. Nothing here was
+                  typed in" was a reassurance nobody had asked for a second time.
+                  And the cards are `items-stretch` with a fixed foot, so a
+                  record whose detail line wraps no longer makes its whole row
+                  taller than the next - Ethan: "fix the ui/design of cards so
+                  they fit evenly." */}
+              <h2 className="mb-3 text-lg font-semibold">Your records</h2>
+              <Reveal className="grid items-stretch gap-3 sm:grid-cols-2 lg:grid-cols-3" stagger={0.05}>
                 {r.longest && (
                   <RecordCard icon="plane" tone="brand" label="Longest flight"
                     value={`${km(r.longest.dist)} km`}
@@ -1009,11 +1271,14 @@ export default function Flights() {
                     value={`${r.busiestDay.flights} flights`}
                     detail={formatDate(r.busiestDay.date)} />
                 )}
-                {r.biggestShift && r.biggestShift.shift !== 0 && (
-                  <RecordCard icon="globe" label="Biggest clock change"
-                    value={`${r.biggestShift.shift > 0 ? '+' : ''}${r.biggestShift.shift} hours`}
-                    detail={`${r.biggestShift.from.iata} to ${r.biggestShift.to.iata}`} />
-                )}
+                {/* BIGGEST CLOCK CHANGE IS GONE. It is only ever computable on
+                    the flights where both ends name a single time zone (see
+                    lib/localTime), so on most logs it was a card that sometimes
+                    existed and sometimes did not - and "+8 hours" is a fact
+                    about a time zone table rather than about a journey. The
+                    lifetime figure still rides on the headline card, where it is
+                    an accumulation and means something. Ethan asked for the card
+                    to go. */}
                 {r.biggestYear && (
                   <RecordCard icon="trophy" label="Biggest year"
                     value={r.biggestYear.year}
@@ -1042,11 +1307,11 @@ export default function Flights() {
                 <RecordCard icon="globe" label="Carbon, roughly"
                   value={stats.co2 >= 1000 ? `${(stats.co2 / 1000).toFixed(1)} t` : `${km(stats.co2)} kg`}
                   detail="per seat, estimated" />
-                {r.first && (
-                  <RecordCard icon="flag" label="First in the log"
-                    value={formatDate(r.first.flown_on)}
-                    detail={`${r.first.from.iata} to ${r.first.to.iata}`} />
-                )}
+                {/* FIRST IN THE LOG IS GONE TOO, and for a better reason: it
+                    is not a record, it is a note about when somebody started
+                    typing. It says nothing about the flying. The date is still
+                    under "Years in the log" on the streak card, where it is
+                    doing real work. */}
               </Reveal>
             </section>
           </Reveal>
@@ -1099,10 +1364,7 @@ export default function Flights() {
           {stats.loyalty.length > 0 && (
             <Reveal from="down">
               <section>
-                <h2 className="mb-1 text-lg font-semibold">Airline loyalty</h2>
-                <p className="mb-3 text-sm text-smoke">
-                  Ranked by how often you actually fly them, which is not always the one you have the card for.
-                </p>
+                <h2 className="mb-3 text-lg font-semibold">Airline loyalty</h2>
                 <Reveal className="space-y-2.5" stagger={0.04}>
                   {stats.loyalty.slice(0, 8).map((a, i) => (
                     <LoyaltyRow key={a.name} a={a} rank={i} max={stats.loyalty[0].flights} />
@@ -1133,8 +1395,8 @@ export default function Flights() {
                   <p className="text-base font-semibold group-hover:text-brand">Aircraft collection</p>
                   <p className="mt-0.5 text-sm text-smoke">
                     {stats.aircraft > 0
-                      ? `${stats.aircraft} ${stats.aircraft === 1 ? 'type' : 'types'} flown out of ${Object.keys(AIRCRAFT).length} in the book.`
-                      : 'Every type in the book, and the ones you have been on. Add an aircraft to a flight to start it.'}
+                      ? `You have been on ${stats.aircraft} different ${stats.aircraft === 1 ? 'aircraft' : 'aircraft'}.`
+                      : 'Add an aircraft to a flight and it starts filling in.'}
                   </p>
                 </div>
                 <Icon name="chevronRight" className="h-5 w-5 shrink-0 text-gray-300 transition-transform group-hover:translate-x-0.5" />
@@ -1142,103 +1404,12 @@ export default function Flights() {
             </section>
           </Reveal>
 
-          {/* ---- WHO ELSE FLIES YOUR ROUTES ---- */}
-          {Object.keys(flyers).length > 0 && (
-            <Reveal from="down">
-              <section>
-                <h2 className="mb-1 text-lg font-semibold">Others on your routes</h2>
-                <p className="mb-3 text-sm text-smoke">
-                  Creators who have flown the same pair of airports and chosen to show it. Their dates and notes stay private.
-                </p>
-                <Reveal className="grid gap-3 sm:grid-cols-2" stagger={0.05}>
-                  {topRoutes.filter((rt) => flyers[rt.key]).map((rt) => (
-                    <div key={rt.key} className="rounded-card border border-gray-100 bg-white p-4 shadow-card">
-                      <p className="flex items-center gap-2 text-sm font-bold tracking-wider text-brand">
-                        {rt.from.iata}
-                        <Icon name="plane" className="h-3.5 w-3.5 text-gray-300" />
-                        {rt.to.iata}
-                        <span className="ml-auto text-[11px] font-medium normal-case tracking-normal text-smoke">
-                          {flyers[rt.key].length} other {flyers[rt.key].length === 1 ? 'creator' : 'creators'}
-                        </span>
-                      </p>
-                      <p className="mt-0.5 truncate text-xs text-smoke">{rt.from.city} to {rt.to.city}</p>
-                      <div className="mt-3 flex flex-wrap gap-2 border-t border-gray-100 pt-3">
-                        {flyers[rt.key].slice(0, 6).map((p) => (
-                          <Link
-                            key={p.creator_id}
-                            to={`/profile/${p.creator_id}`}
-                            className="flex items-center gap-2 rounded-full bg-cloud py-1 pl-1 pr-3 text-xs font-medium transition-all duration-200 hover:-translate-y-0.5 hover:bg-brand-tint hover:text-brand"
-                          >
-                            <Avatar src={p.photo_url} name={p.name} size="xs" />
-                            <span className="max-w-[8rem] truncate">{p.name.split(' ')[0]}</span>
-                            {Number(p.flights) > 1 && <span className="text-smoke">{p.flights}×</span>}
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </Reveal>
-              </section>
-            </Reveal>
-          )}
-
-          {/* ---- COMMUNITY LEADERBOARDS ---- */}
-          <Reveal from="down">
-            <section>
-              <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-semibold">Across the community</h2>
-                  <p className="mt-0.5 text-sm text-smoke">
-                    Only flights their owner has chosen to share. Yours are in here if you ticked the box.
-                  </p>
-                </div>
-                <Segmented
-                  value={boardWindow}
-                  onChange={setBoardWindow}
-                  options={[{ value: 'year', label: thisYear }, { value: 'all', label: 'All time' }]}
-                />
-              </div>
-              {!boards ? (
-                <div className="grid gap-4 sm:grid-cols-3">
-                  {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-56" />)}
-                </div>
-              ) : boards.distance.length === 0 ? (
-                <div className="rounded-card border border-dashed border-gray-200 px-5 py-8 text-center text-sm text-smoke">
-                  Nobody is sharing flights yet. Tick the box when you log one and you will be the first.
-                </div>
-              ) : (
-                <div className="grid gap-4 sm:grid-cols-3">
-                  {[
-                    { key: 'distance', title: 'Furthest', icon: 'globe', rows: boards.distance, value: (b) => `${km(b.km)} km` },
-                    { key: 'countries', title: 'Most countries', icon: 'flag', rows: boards.countries, value: (b) => `${b.countries}` },
-                    { key: 'flights', title: 'Most flights', icon: 'plane', rows: boards.flights, value: (b) => `${b.flights}` },
-                  ].map((col) => (
-                    <div key={col.key} className="rounded-card border border-gray-100 bg-white p-4 shadow-card">
-                      <p className="mb-3 flex items-center gap-2 text-sm font-semibold">
-                        <Icon name={col.icon} className="h-4 w-4 text-brand" />
-                        {col.title}
-                      </p>
-                      <ol className="space-y-2">
-                        {col.rows.map((b, i) => (
-                          <li key={b.creator_id} className="flex items-center gap-2.5">
-                            <span className={cx(
-                              'w-4 shrink-0 text-xs font-bold tabular-nums',
-                              i === 0 ? 'text-brand' : 'text-gray-300',
-                            )}>{i + 1}</span>
-                            <Avatar src={b.photo_url} name={b.name} size="xs" />
-                            <Link to={`/profile/${b.creator_id}`} className="min-w-0 flex-1 truncate text-xs font-medium hover:text-brand">
-                              {b.name}
-                            </Link>
-                            <span className="shrink-0 text-xs font-semibold tabular-nums text-smoke">{col.value(b)}</span>
-                          </li>
-                        ))}
-                      </ol>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-          </Reveal>
+          {/* WHO ELSE FLIES YOUR ROUTES, AND THE LEADERBOARDS, HAVE MOVED.
+              Both lived here, nine screens down a page about one person, which
+              is where you put something nobody is going to read. They are the
+              whole of `/flights/community` now, behind the button at the top of
+              this page. See FlightCommunity for why they belong together and
+              why they do not belong here. */}
 
           {/* ---- Why you were flying ---- */}
           {stats.list.some((f) => f.purpose) && (
@@ -1325,7 +1496,9 @@ export default function Flights() {
                           {f.flight_number ? ` ${f.flight_number}` : ''}
                           {f.aircraft ? ` · ${f.aircraft}` : ''}
                           {f.seat ? ` · seat ${f.seat}` : ''}
-                          {f.purpose ? ` · ${PURPOSE_LABEL[f.purpose] || f.purpose}` : ''}
+                          {/* "Other" says what it was, where there is
+                              something to say. See the form. */}
+                          {f.purpose ? ` · ${f.purpose === 'other' && f.purpose_note ? f.purpose_note : (PURPOSE_LABEL[f.purpose] || f.purpose)}` : ''}
                         </span>
                       </span>
                     </div>
@@ -1333,16 +1506,25 @@ export default function Flights() {
                       {/* A return leg says so. It is the only way to tell, on a
                           list sorted by date, that two rows were one trip. */}
                       {f.return_of && <Badge tone="light" className="!px-2 !py-0.5">Return</Badge>}
-                      {f.share_with_community && (
-                        <span title="Shared with the community" className="text-smoke">
-                          <Icon name="users" className="h-3.5 w-3.5" />
-                        </span>
-                      )}
+                      {/* THE "SHARED" GLYPH IS GONE with the tick box that set
+                          it: a marker that is on every single row is not a
+                          marker, it is decoration. */}
                       <Badge tone="grey" className="!px-2 !py-0.5">{haul(f.dist)}</Badge>
                       <span className="text-right text-xs tabular-nums text-smoke">
                         <span className="block font-semibold text-ink">{km(f.dist)} km</span>
                         <span className="block">{humanHours(f.mins)}</span>
                       </span>
+                      {/* EDIT BEFORE REMOVE, and nearer to hand. Deleting is
+                          the irreversible one, so the gentler option comes
+                          first - the same order the community board's thread
+                          settled on. */}
+                      <button
+                        onClick={() => openEdit(f)}
+                        aria-label="Edit this flight"
+                        className="rounded-lg p-1.5 text-gray-300 transition-colors hover:bg-brand-tint hover:text-brand"
+                      >
+                        <Icon name="pencil" className="h-4 w-4" />
+                      </button>
                       <button
                         onClick={() => remove(f)}
                         aria-label="Remove this flight"
@@ -1369,8 +1551,51 @@ export default function Flights() {
       )}
 
       {/* ---- Log a flight ---- */}
-      <Modal open={adding} onClose={() => setAdding(false)} title="Log a flight" wide sheet={false}>
+      <Modal
+        open={adding}
+        onClose={closeForm}
+        title={editing ? 'Edit this flight' : upcoming ? 'A flight coming up' : 'Log a flight'}
+        wide
+        sheet={false}
+      >
         <form onSubmit={save} className="space-y-5">
+          {/* WHICH KIND OF FLIGHT THIS IS, ASKED FIRST, because it changes what
+              the date field will accept and what happens after you save.
+              Only when ADDING one. On an existing flight the answer is already
+              in the row - a date in the future is an upcoming flight and a date
+              in the past is a flown one (migration 104) - so offering the choice
+              would be offering to move a flight through time, which is not what
+              anybody means when they press Edit. */}
+          {!editing && (
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { on: !upcoming, label: 'I have flown this', hint: 'Counts towards your totals', icon: 'check', go: () => setUpcoming(false) },
+                { on: upcoming, label: 'Coming up', hint: 'Not counted until you fly', icon: 'calendar', go: () => setUpcoming(true) },
+              ].map((o) => (
+                <button
+                  key={o.label}
+                  type="button"
+                  onClick={o.go}
+                  aria-pressed={o.on}
+                  className={cx(
+                    'flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-all duration-200',
+                    o.on ? 'border-brand bg-brand-tint/30 ring-1 ring-brand/30' : 'border-gray-200 hover:-translate-y-0.5 hover:border-brand/50',
+                  )}
+                >
+                  <span className={cx(
+                    'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors',
+                    o.on ? 'bg-brand text-white' : 'bg-cloud text-smoke',
+                  )}>
+                    <Icon name={o.icon} className="h-3.5 w-3.5" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold">{o.label}</span>
+                    <span className="block truncate text-[11px] text-smoke">{o.hint}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
           {/* THE BOARDING PASS IS THE FORM'S ANSWER, AND IT IS AT THE TOP.
               It used to be a tinted panel of facts under the two airport
               fields. Putting it first, and building it as you type, is what
@@ -1400,8 +1625,18 @@ export default function Flights() {
               distance and folding it into one row would halve everybody's
               totals. */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <DateField id="flight-date" label="Date flown" value={form.flown_on} max={today}
-              onChange={(v) => setForm((f) => ({ ...f, flown_on: v }))} />
+            {/* `max` only when a future date would be wrong. In "Coming up"
+                mode a future date is the entire point of the field. */}
+            <DateField
+              id="flight-date"
+              label={upcoming ? 'Date you fly' : 'Date flown'}
+              value={form.flown_on}
+              max={upcoming ? undefined : today}
+              onChange={(v) => setForm((f) => ({ ...f, flown_on: v }))}
+            />
+            {/* A round trip writes TWO rows, so it is an adding-only idea. See
+                openEdit for why a return is edited on its own line. */}
+            {!editing && (
             <div className="flex flex-col justify-end">
               <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 px-3.5 py-2.5 transition-colors hover:border-brand/40">
                 <input
@@ -1418,13 +1653,19 @@ export default function Flights() {
                 </span>
               </label>
             </div>
+            )}
           </div>
 
-          {form.round_trip && (
+          {!editing && form.round_trip && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <DateField id="flight-return" label="Date you flew back" value={form.return_on} max={today}
+              <DateField
+                id="flight-return"
+                label={upcoming ? 'Date you fly back' : 'Date you flew back'}
+                value={form.return_on}
+                max={upcoming ? undefined : today}
                 hint="Saved as its own flight, so the distance counts twice."
-                onChange={(v) => setForm((f) => ({ ...f, return_on: v }))} />
+                onChange={(v) => setForm((f) => ({ ...f, return_on: v }))}
+              />
               {form.flown_on && form.return_on && form.return_on < form.flown_on && (
                 <p className="self-end pb-2.5 text-[11px] text-red-500">
                   The return is before the outbound. Check the dates.
@@ -1498,9 +1739,44 @@ export default function Flights() {
               the drawing is the same component the collection page is built
               from - and it turns a row of model numbers, which only a spotter
               can tell apart, into a row of shapes anybody can. */}
-          {previewKm > 0 && planes.length > 0 && (
+          {/* `planes.length > 0` is NOT part of this condition. It used to be,
+              which meant the whole aircraft field vanished on any route no
+              airline in the table can reach - and that is precisely the route
+              somebody was flown down on something rare. The escape below has to
+              be reachable whenever there is a route at all. */}
+          {previewKm > 0 && (
             <div>
               <p className="label">Aircraft <span className="font-normal text-smoke">(optional)</span></p>
+              {/* AND A WAY TO NAME ONE THAT IS NOT ON THE LIST.
+                  Ethan: "a button to add other aircraft in case there's a rare
+                  one someone goes on." The chips are what the airline you picked
+                  could plausibly have sent on a route this length, which is a
+                  good shortlist and a closed one - and a closed list is exactly
+                  wrong for the person who has just been on a Twin Otter to an
+                  island. The same escape the airline picker has had all along.
+                  What gets typed here appears under "Also flown" on the
+                  collection page and counts towards the number of different
+                  aircraft you have been on. */}
+              {customPlane ? (
+                <div className="flex gap-2">
+                  <input
+                    id="flight-aircraft"
+                    value={form.aircraft}
+                    maxLength={60}
+                    autoFocus
+                    placeholder="The aircraft you were on"
+                    onChange={(e) => setForm((f) => ({ ...f, aircraft: e.target.value }))}
+                    className="input w-full"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => { setCustomPlane(false); setForm((f) => ({ ...f, aircraft: '' })) }}
+                    className="btn-ghost shrink-0 !px-3 !py-2 text-xs"
+                  >
+                    Back to the list
+                  </button>
+                </div>
+              ) : (
               <div className="flex flex-wrap gap-1.5">
                 {planes.slice(0, picked ? planes.length : 10).map((p) => {
                   const on = form.aircraft === p.name
@@ -1522,7 +1798,15 @@ export default function Flights() {
                     </button>
                   )
                 })}
+                <button
+                  type="button"
+                  onClick={() => { setCustomPlane(true); setForm((f) => ({ ...f, aircraft: '' })) }}
+                  className="inline-flex items-center rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-brand ring-1 ring-brand/30 transition-all hover:-translate-y-0.5 hover:ring-brand"
+                >
+                  Other
+                </button>
               </div>
+              )}
             </div>
           )}
 
@@ -1558,7 +1842,14 @@ export default function Flights() {
                 const on = form.purpose === p.key
                 return (
                   <button key={p.key} type="button"
-                    onClick={() => setForm((f) => ({ ...f, purpose: on ? '' : p.key }))}
+                    onClick={() => setForm((f) => ({
+                      ...f,
+                      purpose: on ? '' : p.key,
+                      // Moving off Other drops what was typed under it, so a
+                      // row can never say "Holiday" and carry a note explaining
+                      // that it was a funeral.
+                      purpose_note: on || p.key !== 'other' ? '' : f.purpose_note,
+                    }))}
                     className={cx(
                       'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-200 active:scale-95',
                       on ? 'bg-brand text-white' : 'bg-cloud text-smoke hover:-translate-y-0.5 hover:text-ink',
@@ -1569,6 +1860,40 @@ export default function Flights() {
                   </button>
                 )
               })}
+            </div>
+
+            {/* AND "OTHER" GETS TO SAY WHAT IT WAS.
+                Ethan: "whenever you're pressing what for, and click other, you
+                should be able to type something in, not just it appears as
+                other." A row filed under Other is the app recording that it did
+                not ask.
+                The six keys are unchanged and the chart still counts THEM - the
+                whole value of the field is that it can be counted, and a free
+                text reason column is four hundred distinct values and no chart.
+                The note rides beside the key (migration 104) and appears on the
+                row it belongs to, nowhere else.
+                It grows and shrinks rather than appearing, the same height
+                transition the board's country field uses, so the dialog does
+                not jump a row taller under the cursor. */}
+            <div
+              className={cx(
+                'grid transition-[grid-template-rows,opacity,margin] duration-300 ease-out motion-reduce:transition-none',
+                form.purpose === 'other' ? 'mt-2.5 grid-rows-[1fr] opacity-100' : 'mt-0 grid-rows-[0fr] opacity-0',
+              )}
+            >
+              <div className="overflow-hidden">
+                <input
+                  id="flight-purpose-note"
+                  aria-label="What was it for?"
+                  className="input w-full"
+                  maxLength={80}
+                  value={form.purpose_note}
+                  tabIndex={form.purpose === 'other' ? undefined : -1}
+                  aria-hidden={form.purpose !== 'other'}
+                  placeholder="A wedding, a move, a layover you turned into a trip"
+                  onChange={(e) => setForm((f) => ({ ...f, purpose_note: e.target.value }))}
+                />
+              </div>
             </div>
           </div>
 
@@ -1607,35 +1932,18 @@ export default function Flights() {
             )}
           </div>
 
-          {/* ---- SHARING ----
-              WHAT THIS DOES AND DOES NOT SHARE, said in the words of the thing
-              it does. The community pages built on this (who else flies your
-              routes, the leaderboards) read ONLY the airports, the count and the
-              distance of rows this is ticked on - never a date, a seat, a note
-              or a photograph. See migration 103 for the policy that enforces
-              that rather than merely promising it. */}
-          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 p-4 transition-colors hover:border-brand/40">
-            <input
-              type="checkbox"
-              checked={form.share}
-              onChange={(e) => setForm((f) => ({ ...f, share: e.target.checked }))}
-              className="mt-0.5 h-4 w-4 shrink-0 accent-[#d94407]"
-            />
-            <span className="min-w-0">
-              <span className="block text-sm font-medium">Count this towards the community</span>
-              <span className="block text-[11px] leading-snug text-smoke">
-                Other creators can see that you have flown this route, and it counts on the leaderboards.
-                Your dates, seat, note and photo stay private either way.
-              </span>
-            </span>
-          </label>
+          {/* THE SHARING TICK BOX HAS GONE. See BLANK_FORM: every flight
+              counts towards the community now and there is nothing to decide,
+              so there is nothing to ask. What reaches other people is unchanged
+              - the airports, the count and the distance, never a date, a seat,
+              a note or a photograph. */}
 
           {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
 
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button type="button" onClick={() => setAdding(false)} className="btn-ghost w-full justify-center sm:w-auto">Cancel</button>
+            <button type="button" onClick={closeForm} className="btn-ghost w-full justify-center sm:w-auto">Cancel</button>
             <button type="submit" disabled={saving} className="btn-primary w-full justify-center sm:w-auto">
-              {saving ? <Spinner /> : 'Add to my log'}
+              {saving ? <Spinner /> : editing ? 'Save changes' : upcoming ? 'Add to what is coming up' : 'Add to my log'}
             </button>
           </div>
         </form>

@@ -8,12 +8,13 @@ import NetworkLayout, { RailCard, flagFromIso } from '../components/network/Netw
 import NetworkMotion from '../components/NetworkMotion'
 import MarketHeader from '../components/network/MarketHeader'
 import MarketMap from '../components/network/MarketMap'
+import MapSkeleton from '../components/network/MapSkeleton'
 import MarketActivity from '../components/network/MarketActivity'
 import { isOnline, countOnline, byRecency, fillRows } from '../lib/presence'
 import { MarketOverviewSkeleton, LiveChallengeSkeleton, CardGridSkeleton, RailCardSkeleton } from '../components/network/Skeletons'
 import LiveChallengeCard, { NoLiveChallenge } from '../components/network/LiveChallengeCard'
 import Icon from '../components/Icon'
-import { Avatar, EmptyState, Skeleton } from '../components/ui'
+import { Avatar, EmptyState } from '../components/ui'
 import Reveal from '../components/network/Reveal'
 import WhenVisible from '../components/WhenVisible'
 import { cx, timeAgo, challengeDeadline } from '../lib/utils'
@@ -401,7 +402,7 @@ export default function ChapterHome() {
             {/* Deferred until it is nearly on screen: parsing a megabyte of
                 TopoJSON while the sections above are still sliding is what makes
                 a page hitch. */}
-            <WhenVisible fallback={<Skeleton className="h-64" />}>
+            <WhenVisible fallback={<MapSkeleton />}>
               <MarketMap marketId={chapter.id} marketName={chapter.name} />
             </WhenVisible>
           </Reveal>
