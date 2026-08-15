@@ -66,6 +66,28 @@
     @apply outline-none ring-2 ring-brand ring-offset-2 ring-offset-white;
   }
 
+  /* EXCEPT ON A FIELD, WHICH ALREADY DRAWS ITS OWN.
+     THE BUG THIS FIXES. A TEXT FIELD IS ALWAYS `:focus-visible`, INCLUDING ON A
+     MOUSE CLICK. That is correct per spec - the browser cannot know you are not
+     about to type - but it means the rule above fires on every click into a
+     search box, and it paints a 2px brand ring held 2px OFF the element. On a
+     control that already has `focus:border-brand focus:ring-1` from `.input`,
+     that is a second, detached orange rectangle floating around the first:
+     Ethan's "sometimes when clicking a search box it will show up this orange
+     rectangle around it, this looks bad".
+
+     Fields keep a focus indicator - they get a tight, FLUSH ring instead of an
+     offset one, so it reads as the field lighting up rather than as a box drawn
+     round it. Buttons and links keep the strong offset ring, which is where it
+     was always meant to be: those have no focus styling of their own, and they
+     are the controls a keyboard user is actually tabbing between. */
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible,
+  [contenteditable]:focus-visible {
+    @apply ring-1 ring-brand ring-offset-0;
+  }
+
   /* Respect users who prefer reduced motion. */
   @media (prefers-reduced-motion: reduce) {
     *,
@@ -412,6 +434,48 @@
       opacity: 0.75;
     }
     .flight-pin { animation: none; }
+  }
+
+  /* THE MAP ARRIVING.
+     THE BUG THIS FIXES. Every map on this platform painted its OVERLAY first
+     and its GEOGRAPHY second: `<Geographies>` is handed `EMPTY_GEO` until the
+     atlas promise resolves, while the pins and arcs are computed from props
+     that are already in memory. So the sequence a reader actually saw was a
+     blank card, then a constellation of pins and curves floating on nothing,
+     then a world map appearing underneath them. Ethan: "currently it starts by
+     flashing up all the pins and lines and then loads the map."
+
+     The order is inverted now. Nothing draws until the atlas is in; then the
+     land arrives as one movement, and the pins and routes follow it.
+
+     `map-globe-in` is the arrival, and it is doing an impression of pulling
+     back from a globe rather than actually being one: a real orthographic to
+     equal-earth morph means re-projecting every polygon on every frame, which
+     is a megabyte of geometry re-tessellated sixty times a second for one
+     second of decoration. Scaling in from slightly enlarged, from the centre,
+     with the edges fading up last, reads as the same gesture and costs one
+     composited layer.
+
+     `transform-origin: center` and `transform-box: fill-box` together are what
+     make it scale about the middle of the map rather than about the SVG
+     viewBox origin - the same trap the Flight Path aircraft hit. */
+  @keyframes map-globe-in {
+    from { opacity: 0; transform: scale(1.14); }
+    60%  { opacity: 1; }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  .map-arrive {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: map-globe-in 720ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  /* The overlay waits for the land. 260ms in, the geography is most of the way
+     home and a pin arriving on it lands ON something. */
+  .map-arrive-overlay {
+    animation: fade-up 520ms cubic-bezier(0.22, 1, 0.36, 1) 260ms both;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .map-arrive, .map-arrive-overlay { animation: none; opacity: 1; transform: none; }
   }
 
   /* The reaction popover growing out of the button that opened it. CSS so the

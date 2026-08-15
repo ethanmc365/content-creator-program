@@ -245,7 +245,12 @@ const TRIP_HORIZON_DAYS = 90
 // has to be the SAME object every render or `<Geographies>` sees a new source.
 const EMPTY_GEO = { type: 'FeatureCollection', features: [] }
 
-function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = false, nearCount = 0, nearMeDisabled = false, onToggleNearMe = null, travelActive = null, onToggleTravel = null, onTravellersChange = null, onCreatorClick = null, connectionsActive = null, onToggleConnections = null, connectionIds = null, travelOnlyView = false, myId = null, maxFitZoom = 6, controls = true }) {
+function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = false, nearCount = 0, nearMeDisabled = false, onToggleNearMe = null, travelActive = null, onToggleTravel = null, onTravellersChange = null, onCreatorClick = null, connectionsActive = null, onToggleConnections = null, connectionIds = null, travelOnlyView = false, myId = null, maxFitZoom = 6, controls = true,
+  // "Where we have been, together": the set of country names anybody in the
+  // network has filmed in, and a toggle to paint them. It replaces the second
+  // WorldMap that used to sit at the foot of the directory - see the note on
+  // the button in `filterButtons`.
+  exploredCountries = null, exploredActive = null, onToggleExplored = null }) {
   const dark = useIsDark()
   // Dark-mode map palette: deep land on near-black sea, so the light-grey map
   // doesn't glare. Home countries keep a muted warm tint.
@@ -256,6 +261,10 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   // hue and lets the darkness come from the background rather than from the
   // colour, so a tinted country still looks orange.
   const HOME_FILL = dark ? 'rgba(217, 68, 7, 0.55)' : HOME
+  // A step lighter than HOME, for the same reason HOME is a step lighter than
+  // the brand: a whole continent painted at full strength stops being a
+  // highlight and becomes the background.
+  const EXPLORED_FILL = dark ? 'rgba(217, 68, 7, 0.3)' : '#fbd9c8'
   // Hovering a country now means something (it is tappable), so it needs a
   // hover state - a step towards the tint rather than the tint itself, so a
   // country somebody LIVES in still reads as different from one under the
@@ -346,6 +355,45 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
     })()
     return () => { cancelled = true }
   }, [creators, extraCoords])
+
+  // THE PLANE LANDS ON THE CITY, NOT IN THE MIDDLE OF THE COUNTRY.
+  //
+  // Ethan: "as well as the country showing on the map, the actual city they
+  // enter should show up on the map as the location the plane is going to."
+  //
+  // Journeys used to end at the country's CENTROID, which for a trip to Lisbon
+  // put the aircraft somewhere in the hills north of Castelo Branco, and for
+  // anywhere large (a trip to "United States") put it in Kansas. The centroid
+  // is still the fallback - a trip with no city, or a city nothing can resolve,
+  // has to land somewhere - but a named city now wins.
+  //
+  // Geocoded through the same helper and the same cache the creator pins use,
+  // so a city that has already been looked up for somebody's home costs
+  // nothing here. Keyed by "city|country" rather than by trip id: three
+  // creators going to Lisbon is one lookup.
+  const [tripCoords, setTripCoords] = useState({})
+  useEffect(() => {
+    let cancelled = false
+    const wanted = new Map()
+    for (const list of Object.values(trips || {})) {
+      for (const t of (Array.isArray(list) ? list : [list])) {
+        if (!t?.city || !t?.country) continue
+        const key = `${t.city.trim().toLowerCase()}|${t.country.trim().toLowerCase()}`
+        if (!tripCoords[key]) wanted.set(key, t)
+      }
+    }
+    if (wanted.size === 0) return undefined
+    ;(async () => {
+      for (const [key, t] of wanted) {
+        const coords = await geocodeCity(t.city, t.country)
+        if (cancelled) return
+        // A miss is cached as `null` so a city nothing can resolve is not looked
+        // up again on every render for the rest of the session.
+        setTripCoords((prev) => ({ ...prev, [key]: coords || null }))
+      }
+    })()
+    return () => { cancelled = true }
+  }, [trips, tripCoords])
 
   // Every creator that has a location, with resolved coords attached.
   const located = useMemo(() => {
@@ -542,7 +590,13 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
       const list = Array.isArray(trips[c.id]) ? trips[c.id] : trips[c.id] ? [trips[c.id]] : []
       for (const trip of list) {
         if (!trip?.country) continue
-        const dest = canonToCentroid.get(countryKey(trip.country))
+        // The city if we could resolve it, the country's centroid if not. See
+        // the note on `tripCoords`.
+        const cityKey = trip.city && trip.country
+          ? `${trip.city.trim().toLowerCase()}|${trip.country.trim().toLowerCase()}`
+          : null
+        const city = cityKey ? tripCoords[cityKey] : null
+        const dest = city ? [city.lng, city.lat] : canonToCentroid.get(countryKey(trip.country))
         if (!dest) continue
 
         // CURRENT VERSUS UPCOMING, and how far ahead is worth drawing.
@@ -583,7 +637,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
     // In the air first, then soonest to leave. A list sorted by "who is
     // actually gone" reads as news; sorted by creator id it reads as a dump.
     return out.sort((a, b) => (b.current ? 1 : 0) - (a.current ? 1 : 0) || a.daysUntil - b.daysUntil)
-  }, [centroids, trips, located])
+  }, [centroids, trips, located, tripCoords])
 
   // "Who's travelling" view + single-traveller focus (tap a plane). The view can
   // be driven by the parent (controlled: it also filters the creator cards
@@ -601,6 +655,15 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   // connections live. Controlled by the parent (which also filters the grid).
   const connectionsView = !!connectionsActive
   const connSet = useMemo(() => (connectionIds instanceof Set ? connectionIds : new Set(connectionIds || [])), [connectionIds])
+  const exploredView = !!exploredActive
+  // Normalised through `countryKey`, the same alias table every other country
+  // comparison in this app uses: the atlas says "United States of America" and
+  // a profile says "USA", and a map that paints one and not the other is worse
+  // than one that paints neither.
+  const exploredSet = useMemo(
+    () => new Set((exploredCountries || []).map((c) => countryKey(c)).filter(Boolean)),
+    [exploredCountries],
+  )
   // Do any of the viewer's connections actually appear on the map?
   const hasMappedConnections = useMemo(
     () => connectionsView && located.some((c) => connSet.has(c.id)),
@@ -813,8 +876,22 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   // difference between them is whether they are on. Mixing a dark pill, a white
   // pill and an orange pill in one corner made three equal choices look like a
   // hierarchy that does not exist.
+  // ALL FOUR ARE THE SAME SIZE, and that is a fixed width rather than an
+  // accident of the label.
+  //
+  // THE BUG THIS FIXES. They were `px-4` around whatever the label happened to
+  // be, so "My connections" was noticeably wider than "Near me", and turning a
+  // filter ON appended a count to its label and made that one grow again -
+  // a column of buttons that reflowed every time you pressed one. Ethan: "with
+  // these buttons, currently they are different sizes, it would look better if
+  // they are all the same size."
+  //
+  // `w-44` fits the longest of them with the count on, so nothing moves when a
+  // filter is switched on, and `justify-start` keeps every icon on the same
+  // vertical line - which is what actually makes a stack of buttons read as a
+  // set rather than as four unrelated pills.
   const pill = (on) =>
-    `inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold shadow-card backdrop-blur transition-all hover:scale-[1.03] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 ${
+    `inline-flex w-44 items-center justify-start gap-2 rounded-full px-4 py-2 text-xs font-semibold shadow-card backdrop-blur transition-all hover:scale-[1.03] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 ${
       on ? 'bg-brand text-white ring-1 ring-brand' : 'bg-white/95 text-ink ring-1 ring-black/5'
     }`
 
@@ -826,8 +903,27 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           onClick={onToggleConnections}
           className={pill(connectionsView)}
         >
-          <Icon name="users" className="h-3.5 w-3.5" />
-          My connections{connectionsView ? ` · ${connSet.size}` : ''}
+          <Icon name="users" className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">My connections{connectionsView ? ` · ${connSet.size}` : ''}</span>
+        </button>
+      )}
+      {/* WHERE WE HAVE BEEN, TOGETHER - AS A FILTER, NOT A SECOND MAP.
+          There used to be an entire extra WorldMap at the bottom of the
+          directory showing every country anybody had filmed in. Ethan: "the
+          'where we've been together' map at the very bottom should be removed
+          from here and instead just be a button on the other map." He is right:
+          it was a second world map on a page that already had one, three
+          screens below it, answering a question about the same set of people.
+          As a toggle it is the same information in the place you are already
+          looking, and it costs no extra atlas parse. */}
+      {onToggleExplored && (
+        <button
+          type="button"
+          onClick={onToggleExplored}
+          className={pill(exploredView)}
+        >
+          <Icon name="globe" className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">Been together{exploredView ? ` · ${exploredSet.size}` : ''}</span>
         </button>
       )}
       {journeys.length > 0 && (
@@ -836,14 +932,14 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           onClick={toggleTravel}
           className={pill(travelView)}
         >
-          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor" aria-hidden>
+          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0" fill="currentColor" aria-hidden>
             <path d="M12 1.55 C13.05 1.55 13.71 3.45 13.71 6.11 L13.71 7.82 L21.5 12.95 L21.5 14.95 L13.71 11.81 L13.71 16.75 L16.18 19.22 L16.18 20.74 L12 19.32 L7.82 20.74 L7.82 19.22 L10.29 16.75 L10.29 11.81 L2.5 14.95 L2.5 12.95 L10.29 7.82 L10.29 6.11 C10.29 3.45 10.95 1.55 12 1.55 Z" />
           </svg>
           {/* The label names both halves. "Who's travelling" on a map that also
               carries next month's flights is a label that undersells its own
               content, and a creator scanning for somebody to meet in Lisbon in
               three weeks had no reason to press it. */}
-          On the move{travelView ? ` · ${journeys.length}` : ''}
+          <span className="truncate">On the move{travelView ? ` · ${journeys.length}` : ''}</span>
         </button>
       )}
       {onToggleNearMe && (
@@ -854,10 +950,10 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           title={nearMeDisabled ? 'Add your city in your profile to use this' : undefined}
           className={pill(nearMe)}
         >
-          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11Z" /><circle cx="12" cy="10" r="2.6" />
           </svg>
-          Creators near me{nearMe ? ` · ${nearCount}` : ''}
+          <span className="truncate">Creators near me{nearMe ? ` · ${nearCount}` : ''}</span>
         </button>
       )}
     </>
@@ -1096,6 +1192,14 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           onMove={handleMove}
           onMoveEnd={handleMoveEnd}
         >
+          {/* NOTHING DRAWS UNTIL THE ATLAS IS IN. See `.map-arrive` in
+              index.css: the overlay used to render on the first frame and the
+              land a beat later, so the map assembled back to front. Holding
+              everything behind `features` costs nothing (the card already draws
+              a skeleton in its place) and buys an arrival that happens once, in
+              the right order. */}
+          {features && (
+          <g className="map-arrive">
           <Geographies geography={features || EMPTY_GEO}>
             {({ geographies }) =>
               geographies
@@ -1104,7 +1208,18 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
                   const name = geo.properties.name
                   const isHome = homeNames.has(name)
                   const isOpen = country?.name === name
-                  const base = isOpen ? BRAND_LIGHT : isHome ? HOME_FILL : LAND_FILL
+                  // BEEN TOGETHER, painted only while the filter is on. It sits
+                  // BELOW "home" in the order because somewhere a creator lives
+                  // is a stronger fact about that country than somewhere the
+                  // network has filmed, and above plain land for the obvious
+                  // reason. Its own lighter tint, so the two are still
+                  // distinguishable when both are showing.
+                  const isExplored = exploredView && exploredSet.has(countryKey(name))
+                  const base = isOpen
+                    ? BRAND_LIGHT
+                    : isHome ? HOME_FILL
+                      : isExplored ? EXPLORED_FILL
+                        : LAND_FILL
                   return (
                     <Geography
                       key={geo.rsmKey}
@@ -1117,7 +1232,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
                       tabIndex={-1}
                       style={{
                         default: { fill: base, stroke: SEPARATOR, strokeWidth: 0.4, outline: 'none', transition: 'fill 0.18s ease' },
-                        hover: { fill: isOpen ? BRAND_LIGHT : isHome ? HOME_FILL : HOVER_FILL, stroke: SEPARATOR, strokeWidth: 0.4, outline: 'none', cursor: 'pointer' },
+                        hover: { fill: isOpen ? BRAND_LIGHT : isHome ? HOME_FILL : isExplored ? EXPLORED_FILL : HOVER_FILL, stroke: SEPARATOR, strokeWidth: 0.4, outline: 'none', cursor: 'pointer' },
                         pressed: { fill: BRAND_LIGHT, outline: 'none', cursor: 'pointer' },
                       }}
                     />
@@ -1125,6 +1240,9 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
                 })
             }
           </Geographies>
+
+          {/* Everything that sits ON the land waits for the land. */}
+          <g className="map-arrive-overlay">
 
           {/* Connection lines (behind the pins). Hidden while focusing on a
               traveller or in the who's-travelling view, to keep it clean. */}
@@ -1256,6 +1374,9 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
               </g>
             )
           })}
+          </g>
+          </g>
+          )}
         </ZoomableGroup>
       </ComposableMap>
 
@@ -1354,18 +1475,14 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
         {filterButtons}
       </div>
 
-      {/* Hint moved to the top-right (clears the zoom buttons), out of the way
-          of the filter toggles and town card.
-
-          IT GOES AWAY ONCE IT HAS BEEN FOLLOWED. An instruction telling you to
-          tap a country, still sitting there while you read the country you
-          tapped, is the noise Ethan meant by "cleaning up that interface" - and
-          on a narrow map it is one more thing crowding the name pill. */}
-      {!country && !selectedTown && (
-        <p className={`pointer-events-none absolute z-10 hidden max-w-[15rem] rounded-full bg-white/85 px-3 py-1 text-right text-[11px] text-smoke backdrop-blur-sm sm:block ${fullscreen ? 'right-16 top-4' : 'right-14 top-2'}`}>
-          Tap a pin for who's there, a country for who's been · + / − to zoom
-        </p>
-      )}
+      {/* THE "TAP A PIN FOR WHO'S THERE" HINT IS GONE.
+          It was a white pill in the top-right corner of every map explaining
+          that pins and countries are tappable and that + and − zoom. Ethan:
+          "on the top right of all the maps it says tap a pin for who's... you
+          can remove this box as it's not needed and it takes away from the
+          aesthetic." He is right on both counts: a pin on a map is a tappable
+          pin, and the instruction was competing with the map for the one corner
+          that is always visible. */}
     </div>
   )
 

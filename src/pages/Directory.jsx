@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import CreatorCard from '../components/CreatorCard'
 import CreatorMap from '../components/CreatorMap'
 import BackLink from '../components/BackLink'
 import Reveal from '../components/network/Reveal'
-import WorldMap from '../components/WorldMap'
 import Combobox from '../components/Combobox'
 import Icon from '../components/Icon'
 import { PageHeader, SkeletonCards, EmptyState } from '../components/ui'
@@ -40,6 +40,9 @@ export default function Directory() {
   // "My connections" filter: when on, the map + grid show only the viewer's
   // accepted connections. Mutually exclusive with the travel view for clarity.
   const [connectionsOnly, setConnectionsOnly] = useState(false)
+  // "Where we have been, together", as a paint layer on the one map rather
+  // than as a second map at the foot of the page. See the note at the bottom.
+  const [exploredOn, setExploredOn] = useState(false)
 
   const [trips, setTrips] = useState({}) // creator_id -> upcoming collab trips, soonest first
 
@@ -206,50 +209,79 @@ export default function Directory() {
   return (
     <div className="page">
       <BackLink />
+      {/* MY CONNECTIONS IS A DOOR IN THE HEADER, NOT A PAGE YOU HAVE TO KNOW
+          ABOUT. Ethan: "I don't see why anyone would click on it over the
+          Creator Network." Part of that is that nothing on this page pointed at
+          it. The map's "My connections" filter narrows THIS page to the people
+          you know; this goes to the page that manages them - requests, mutuals,
+          suggestions, and which of them is about to be somewhere. */}
       <PageHeader
-        title="Creators"
-        subtitle="Meet the community. Connect, message, and find your next collab partner."
+        title="Creator Network"
+        subtitle="Discover the community. Connect with creators, start conversations, make friends, plan trips together and collab."
+        action={
+          <Link to="/connections" className="btn-secondary !py-2.5 text-sm">
+            <Icon name="users" className="h-4 w-4" />
+            My connections
+          </Link>
+        }
       />
 
-      {/* Creator map: where everyone in the community is based. The creator
-          count sits on the right, directly above the map. */}
+      {/* THE MAP HAS NO HEADING OF ITS OWN.
+          It had "Creator map" over it in 24px type, which is a label on the one
+          object on the page that needs no label. Ethan: "we don't need a
+          separate title saying creator map, you can remove it. Instead the 45
+          creators from around the world could be a small but long horizontal
+          card above the map, same width."
+
+          So the count is now a full-width bar sitting ON the map's top edge -
+          same width, flat bottom corners, so it reads as part of the map rather
+          than as a pill floating in the corner above it. It still counts WHAT
+          IS ON THE MAP: it used to say "43 creators from around the world" over
+          a map showing six of them, which is a caption contradicting its own
+          picture. */}
       <section className="mb-10">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-xl font-semibold text-ink sm:text-2xl">Creator map</h2>
-          {!loading && (
-            // The pill counts WHAT IS ON THE MAP. It read "43 creators from
-            // around the world" over a map showing six of them, which is a
-            // caption contradicting the picture it is under.
-            <div className="inline-flex items-center gap-2.5 rounded-full border border-brand/20 bg-brand-tint/40 px-4 py-2 text-sm">
-              <Icon name="users" className="h-4 w-4 shrink-0 text-brand" />
-              <span className="font-semibold text-brand">{mapCreators.length}</span>
-              <span className="text-smoke">
-                {fieldFilterOn
-                  ? `creator${mapCreators.length === 1 ? '' : 's'} match${mapCreators.length === 1 ? 'es' : ''} your filters`
-                  : `creator${mapCreators.length === 1 ? '' : 's'} from around the world`}
-              </span>
-            </div>
-          )}
-        </div>
         {loading ? (
           <div className="h-[340px] w-full animate-pulse rounded-card bg-cloud/70 sm:h-[420px]" />
         ) : (
-          <CreatorMap
-            creators={mapCreators}
-            trips={trips}
-            highlightIds={nearMe ? nearIds : null}
-            nearMe={nearMe}
-            nearCount={nearIds.size}
-            nearMeDisabled={!hasMyLocation}
-            onToggleNearMe={toggleNearMe}
-            travelActive={travelOnly}
-            onToggleTravel={toggleTravel}
-            onTravellersChange={setTravellerIds}
-            connectionsActive={connectionsOnly}
-            onToggleConnections={toggleConnections}
-            connectionIds={myConnectionIds}
-            myId={user.id}
-          />
+          <>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-t-card border border-b-0 border-brand/20 bg-brand-tint/40 px-5 py-3">
+              <Icon name="users" className="h-4 w-4 shrink-0 text-brand" />
+              <span className="text-sm">
+                <span className="font-semibold text-brand">{mapCreators.length}</span>
+                <span className="text-smoke">
+                  {fieldFilterOn
+                    ? ` creator${mapCreators.length === 1 ? '' : 's'} match${mapCreators.length === 1 ? 'es' : ''} your filters`
+                    : ` creator${mapCreators.length === 1 ? '' : 's'} from around the world`}
+                </span>
+              </span>
+              {exploredOn && (
+                <span className="ml-auto text-xs font-medium text-brand">
+                  {allCountries.length} countries filmed in between us
+                </span>
+              )}
+            </div>
+            <div className="overflow-hidden rounded-b-card">
+              <CreatorMap
+                creators={mapCreators}
+                trips={trips}
+                highlightIds={nearMe ? nearIds : null}
+                nearMe={nearMe}
+                nearCount={nearIds.size}
+                nearMeDisabled={!hasMyLocation}
+                onToggleNearMe={toggleNearMe}
+                travelActive={travelOnly}
+                onToggleTravel={toggleTravel}
+                onTravellersChange={setTravellerIds}
+                connectionsActive={connectionsOnly}
+                onToggleConnections={toggleConnections}
+                connectionIds={myConnectionIds}
+                exploredCountries={allCountries}
+                exploredActive={exploredOn}
+                onToggleExplored={() => setExploredOn((v) => !v)}
+                myId={user.id}
+              />
+            </div>
+          </>
         )}
       </section>
 
@@ -303,7 +335,7 @@ export default function Directory() {
               We are in the community too. Connect or message any of us.
             </p>
           </div>
-          <Reveal className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3" stagger={0.05}>
+          <Reveal className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" stagger={0.05}>
             {team.map((c) => (
               <CreatorCard
                 key={c.id}
@@ -336,7 +368,7 @@ export default function Directory() {
           }
         />
       ) : (
-        <Reveal className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <Reveal className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((c) => (
             <CreatorCard
               key={c.id}
@@ -355,22 +387,13 @@ export default function Directory() {
         </Reveal>
       )}
 
-      {/* ---------- Where we have been, together ----------
-          Moved here from the Worldwide hub, which now carries the creator map
-          instead. A hub is for finding people; a directory is already about the
-          community, so a picture of everywhere that community has been belongs
-          at the end of it rather than in place of the people. */}
-      {allCountries.length > 0 && (
-        <section className="mt-14">
-          <h2 className="flex items-center gap-2 text-lg font-semibold">
-            <Icon name="globe" className="h-5 w-5 text-brand" /> Where we have been, together
-          </h2>
-          <p className="mb-4 mt-1 text-sm text-smoke">
-            Every country somebody in the network has filmed in. {allCountries.length} so far.
-          </p>
-          <WorldMap selected={allCountries} />
-        </section>
-      )}
+      {/* "WHERE WE HAVE BEEN, TOGETHER" IS NOT A SECOND MAP ANY MORE.
+          There was a whole extra WorldMap here, three screens below the creator
+          map, painting every country anybody in the network has filmed in.
+          Ethan asked for it to become a button on the map that is already on
+          the page, and that is what `exploredOn` drives - see the "Been
+          together" toggle in CreatorMap's filter stack. One atlas, one map, and
+          the answer appears where you are already looking. */}
     </div>
   )
 }

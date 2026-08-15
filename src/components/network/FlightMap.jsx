@@ -242,6 +242,10 @@ function FlightMap({ routes = [], airports = [] }) {
         translateExtent={[[-60, -50], [WIDTH + 60, HEIGHT + 50]]}
         onMoveEnd={setPosition}
       >
+        {/* NOTHING DRAWS UNTIL THE ATLAS IS IN, and the routes follow the land
+            rather than arriving before it. See `.map-arrive` in index.css. */}
+        {features && (
+        <g className="map-arrive">
         <Geographies geography={features || EMPTY_GEO}>
           {({ geographies }) =>
             geographies
@@ -259,6 +263,8 @@ function FlightMap({ routes = [], airports = [] }) {
               ))
           }
         </Geographies>
+
+        <g className="map-arrive-overlay">
 
         {/* THE ROUTES DRAW THEMSELVES IN.
             `stroke-dasharray` set to the path's own length with the offset
@@ -361,6 +367,9 @@ function FlightMap({ routes = [], airports = [] }) {
             </g>
           )
         })}
+        </g>
+        </g>
+        )}
       </ZoomableGroup>
     </ComposableMap>
   )

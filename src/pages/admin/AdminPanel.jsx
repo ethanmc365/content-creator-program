@@ -291,6 +291,11 @@ export default function AdminPanel() {
     stats.pendingRewards > 0 && { to: '/admin/rewards?tab=payouts', icon: 'wallet', count: stats.pendingRewards, label: `reward${stats.pendingRewards === 1 ? '' : 's'} still to pay`, hint: 'Awarded but not yet distributed.' },
   ].filter(Boolean) : []
 
+  // Both queries in. Until then the article draws its shape in skeletons rather
+  // than drawing a SHORTER article that is about to grow two sections at the
+  // top - see the note in the markup.
+  const ready = !!stats && !!markets
+
   return (
     <div className="page">
       <PageHeader
@@ -299,8 +304,30 @@ export default function AdminPanel() {
       />
 
       <div className="space-y-10">
+        {/* THE PAGE ARRIVES IN THE ORDER IT WILL STAY IN.
+            THE BUG THIS FIXES. "On your desk" and "Your markets" were gated on
+            `desk.length > 0` and `markets?.length > 0` - both of which are
+            false until their queries land - while the stats skeleton and the
+            whole tool grid rendered on the first frame. So the first paint was
+            a page with two sections MISSING FROM THE TOP, and a moment later
+            they appeared and shoved everything below them down the screen,
+            each running its own entrance on the way. Ethan: "when the admin
+            page first loads it shows up something else or the cards in a
+            different order and then it plays the animation and looks correct."
+
+            The rule this page was breaking is one the rest of the app already
+            follows: an empty state is a CLAIM, and a claim needs the data
+            first. A section that might exist reserves its space with a
+            skeleton, so nothing below it ever moves and every entrance plays
+            once, in place.
+
+            `ready` is the whole condition: both queries in, nothing left that
+            can change the shape of the article. */}
+
         {/* ---------- On your desk ---------- */}
-        {desk.length > 0 && (
+        {!ready ? (
+          <Skeleton className="h-36" />
+        ) : desk.length > 0 ? (
           <Reveal from="down">
             <section className="rounded-card border border-brand/25 bg-brand-tint/25 p-4">
               <h2 className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-widest text-brand">On your desk</h2>
@@ -309,10 +336,10 @@ export default function AdminPanel() {
               </div>
             </section>
           </Reveal>
-        )}
+        ) : null}
 
         {/* ---------- The numbers ---------- */}
-        {!stats ? (
+        {!ready ? (
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" />
           </div>
@@ -352,7 +379,14 @@ export default function AdminPanel() {
             meant knowing the URL. A market is the unit of work for everybody
             except the owner; it belongs above the platform-wide tools, not
             hidden behind them. */}
-        {markets?.length > 0 && (
+        {!ready ? (
+          <div>
+            <Skeleton className="mb-3 h-6 w-40" />
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <Skeleton className="h-[4.5rem]" /><Skeleton className="h-[4.5rem]" /><Skeleton className="h-[4.5rem]" />
+            </div>
+          </div>
+        ) : markets?.length > 0 ? (
           <Reveal from="down">
             <section>
               <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
@@ -409,7 +443,7 @@ export default function AdminPanel() {
               </Reveal>
             </section>
           </Reveal>
-        )}
+        ) : null}
 
         {/* ---------- The tools ----------
             ONE LIST ON A PHONE, FIVE NAMED GROUPS ON A DESKTOP. The grouping is

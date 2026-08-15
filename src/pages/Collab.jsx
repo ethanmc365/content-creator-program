@@ -8,6 +8,7 @@ import { notice } from '../lib/confirm'
 import { toast } from '../lib/toast'
 import { cx } from '../lib/utils'
 import Icon from '../components/Icon'
+import Combobox from '../components/Combobox'
 import WorldMap from '../components/WorldMap'
 import CreatorMap from '../components/CreatorMap'
 import { loadMapCountryNames, canonicalCountry } from '../lib/mapCountries'
@@ -299,6 +300,8 @@ export default function Collab() {
     setError('')
     if (!form.city.trim() || !form.start_date || !form.end_date) { setError('Add a city and both dates.'); return }
     if (form.end_date < form.start_date) { setError('The end date can’t be before the start date.'); return }
+    // See the note on the field: a trip nobody can act on is not worth posting.
+    if (!form.note.trim()) { setError('Add a line about what you are up for - it is what people reply to.'); return }
     setBusy(true)
     const { error: insErr } = await supabase.from('collab_posts').insert({
       creator_id: user.id,
@@ -343,6 +346,7 @@ export default function Collab() {
     setEditError('')
     if (!editForm.city.trim() || !editForm.start_date || !editForm.end_date) { setEditError('Add a city and both dates.'); return }
     if (editForm.end_date < editForm.start_date) { setEditError('The end date can’t be before the start date.'); return }
+    if (!editForm.note.trim()) { setEditError('Add a line about what you are up for - it is what people reply to.'); return }
     setSavingEdit(true)
     const patch = {
       city: editForm.city.trim(),
@@ -485,14 +489,29 @@ export default function Collab() {
               <input id="city" className="input" placeholder="Lisbon" value={form.city}
                 onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} maxLength={60} />
             </div>
+            {/* A COMPACT SEARCHABLE PICKER, NOT THE BROWSER'S OWN LIST.
+                This was an `<input list=...>` with a `<datalist>` of every
+                country, and a datalist is rendered by the BROWSER: Chrome draws
+                it as a bare column that runs from the top of the viewport to
+                the bottom, unstyled and unscrollable-looking. Ethan: "the super
+                long list shows up on the side and reaches the top and bottom of
+                the page. Instead open up a cleaner better designed list in a
+                smaller card that has a search bar at the top."
+                `Combobox` is that, and it already exists - it is what the
+                directory's filters use. `allowClear` is off because a trip has
+                a country and "any" is not an answer here.
+                "(shows on the map)" went with it: the map is right there, and
+                the trip shows on it whether or not the label says so. */}
             <div>
-              <label htmlFor="country" className="label">Country <span className="text-smoke">(shows on the map)</span></label>
-              <input id="country" className="input" placeholder="Start typing…" value={form.country}
-                list="collab-country-list" autoComplete="off"
-                onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))} maxLength={60} />
-              <datalist id="collab-country-list">
-                {countryNames.map((n) => <option key={n} value={n} />)}
-              </datalist>
+              <label htmlFor="country" className="label">Country</label>
+              <Combobox
+                value={form.country}
+                onChange={(v) => setForm((f) => ({ ...f, country: v }))}
+                options={countryNames}
+                placeholder="Pick a country"
+                ariaLabel="Country"
+                allowClear={false}
+              />
             </div>
             <div>
               <label htmlFor="start" className="label">From</label>
@@ -505,8 +524,14 @@ export default function Collab() {
                 onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value }))} />
             </div>
           </div>
+          {/* THE NOTE IS REQUIRED NOW.
+              Ethan: "when posting a trip on the collab board, the note should
+              be required not optional." A trip with no note is a row on a map
+              saying somebody will be in Lisbon, which nobody can act on - the
+              whole board runs on somebody reading what you are up for and
+              saying "me too". Optional was quietly making the feature worse. */}
           <div className="mt-4">
-            <label htmlFor="note" className="label">Note <span className="text-smoke">(optional)</span></label>
+            <label htmlFor="note" className="label">What are you up for?</label>
             <textarea id="note" className="input min-h-[80px]" maxLength={300}
               placeholder="Anyone around for a coffee and a collab? Keen to shoot some content around the city."
               value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} />
@@ -709,6 +734,9 @@ export default function Collab() {
               <TripCard key={p.id} {...cardProps(p)} />
             ))}
           </Reveal>
+          {/* "View more upcoming trips (15 more)" said the number twice, once
+              in words and once in a bracket. Ethan: "I want it to say View 15
+              more upcoming trips, I think it looks cleaner." */}
           {filteredUpcoming.length > TRIPS_PREVIEW && (
             <button
               type="button"
@@ -717,7 +745,7 @@ export default function Collab() {
             >
               {expanded
                 ? <>Show fewer <Icon name="chevronLeft" className="h-4 w-4 rotate-90" /></>
-                : <>View more upcoming trips ({filteredUpcoming.length - TRIPS_PREVIEW} more) <Icon name="chevronRight" className="h-4 w-4 rotate-90" /></>}
+                : <>View {filteredUpcoming.length - TRIPS_PREVIEW} more upcoming {filteredUpcoming.length - TRIPS_PREVIEW === 1 ? 'trip' : 'trips'} <Icon name="chevronRight" className="h-4 w-4 rotate-90" /></>}
             </button>
           )}
         </>
@@ -788,14 +816,17 @@ export default function Collab() {
               <input id="edit-city" className="input" placeholder="Lisbon" value={editForm.city}
                 onChange={(e) => setEditForm((f) => ({ ...f, city: e.target.value }))} maxLength={60} />
             </div>
+            {/* The same picker as the post form - see the note there. */}
             <div>
-              <label htmlFor="edit-country" className="label">Country <span className="text-smoke">(shows on the map)</span></label>
-              <input id="edit-country" className="input" placeholder="Start typing…" value={editForm.country}
-                list="collab-edit-country-list" autoComplete="off"
-                onChange={(e) => setEditForm((f) => ({ ...f, country: e.target.value }))} maxLength={60} />
-              <datalist id="collab-edit-country-list">
-                {countryNames.map((n) => <option key={n} value={n} />)}
-              </datalist>
+              <label htmlFor="edit-country" className="label">Country</label>
+              <Combobox
+                value={editForm.country}
+                onChange={(v) => setEditForm((f) => ({ ...f, country: v }))}
+                options={countryNames}
+                placeholder="Pick a country"
+                ariaLabel="Country"
+                allowClear={false}
+              />
             </div>
             <div>
               <label htmlFor="edit-start" className="label">From</label>
@@ -809,7 +840,7 @@ export default function Collab() {
             </div>
           </div>
           <div>
-            <label htmlFor="edit-note" className="label">Note <span className="text-smoke">(optional)</span></label>
+            <label htmlFor="edit-note" className="label">What are you up for?</label>
             <textarea id="edit-note" className="input min-h-[80px]" maxLength={300}
               value={editForm.note} onChange={(e) => setEditForm((f) => ({ ...f, note: e.target.value }))} />
           </div>

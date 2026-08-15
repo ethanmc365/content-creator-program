@@ -50,6 +50,19 @@ const TABS = [
 
 const DISMISSED_KEY = 'connection-suggestions-dismissed'
 
+// "12 - 19 Sep", or "12 Sep - 3 Oct" when it crosses a month. Written out
+// rather than as two ISO dates because this line is read at a glance beside a
+// face, and 2026-09-12 is a value, not a date.
+function fmtTripRange(start, end) {
+  const d = (s) => new Date(`${s}T12:00:00`)
+  const a = d(start), b = d(end)
+  const day = (x) => x.getDate()
+  const mon = (x) => x.toLocaleDateString('en-GB', { month: 'short' })
+  return a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear()
+    ? `${day(a)} - ${day(b)} ${mon(b)}`
+    : `${day(a)} ${mon(a)} - ${day(b)} ${mon(b)}`
+}
+
 function loadDismissed() {
   try { return new Set(JSON.parse(localStorage.getItem(DISMISSED_KEY)) || []) } catch { return new Set() }
 }
@@ -114,6 +127,24 @@ export default function Connections() {
       supabase.from('submissions').select('challenge_id, creator_id'),
       loadRelationships(user.id),
     ])
+
+    // WHERE YOUR PEOPLE ARE GOING NEXT.
+    //
+    // The one thing this page could tell you that the Creator Network cannot,
+    // and the reason to open it: the directory answers "who is out there", and
+    // it answers it about forty-five strangers. This answers "which of the
+    // people I already know is about to be somewhere", which is the question
+    // that turns a connection into a trip. Ethan: "I don't see why anyone would
+    // click on it over the Creator Network."
+    //
+    // Same rows the collab board and the map use, so a trip somebody posts
+    // shows up here without a second source of truth.
+    const today = new Date().toISOString().slice(0, 10)
+    const { data: tripRows } = await supabase
+      .from('collab_posts')
+      .select('creator_id, city, country, start_date, end_date, note')
+      .gte('end_date', today)
+      .order('start_date')
 
     const byId = new Map((profs || []).map((p) => [p.id, p]))
 
@@ -202,7 +233,16 @@ export default function Connections() {
       .filter((p) => p.reason)
       .sort((a, b) => b.weight - a.weight || (a.name || '').localeCompare(b.name || ''))
 
-    setD({ requests, connections, suggestions, mutualsWith, marketsOf })
+    // Only YOUR connections, soonest first, one trip each. The whole point is
+    // that these are people you have already agreed to know - the same list for
+    // strangers is the collab board, and it lives there.
+    const seenTrip = new Set()
+    const travelling = (tripRows || [])
+      .filter((t) => mine.has(t.creator_id) && byId.has(t.creator_id))
+      .filter((t) => (seenTrip.has(t.creator_id) ? false : seenTrip.add(t.creator_id)))
+      .map((t) => ({ ...t, person: byId.get(t.creator_id), current: t.start_date <= today }))
+
+    setD({ requests, connections, suggestions, travelling, mutualsWith, marketsOf })
   }, [user.id, showMarkets])
 
   useEffect(() => { load() }, [load])
@@ -267,7 +307,9 @@ export default function Connections() {
   return (
     <div className="page max-w-4xl">
       <BackLink />
-      <PageHeader title="Connections" subtitle="Who you know, who wants to know you, and who you should meet." />
+      {/* No subtitle. "Who you know, who wants to know you, and who you should
+          meet" was a description of the three tabs directly underneath it. */}
+      <PageHeader title="Connections" />
 
       {/* Three numbers, not three sentences. The count of people waiting on you
           is the one thing on this page that is time sensitive, so it is a number
@@ -316,6 +358,41 @@ export default function Connections() {
               />
             ))}
           </div>
+        </section>
+      )}
+
+      {/* ---- Your people, on the move ----
+          See the note in `load`: this is the section that gives the page a
+          reason to exist next to the Creator Network. The directory tells you
+          who is out there; this tells you which of the people you already know
+          is about to be somewhere, which is the one that turns a connection
+          into a coffee. Above the tabs because it EXPIRES - a trip you find out
+          about after it has happened is not information. */}
+      {d.travelling?.length > 0 && (
+        <section className="mb-10">
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
+            <Icon name="plane" className="h-5 w-5 text-brand" />
+            Your connections on the move
+            <span className="text-brand">({d.travelling.length})</span>
+          </h2>
+          <Reveal className="space-y-3" stagger={0.05}>
+            {d.travelling.slice(0, 6).map((t) => (
+              <PersonCard
+                key={t.creator_id}
+                person={t.person}
+                mutuals={d.mutualsWith(t.creator_id)}
+                subtitle={`${t.current ? 'In' : 'Going to'} ${[t.city, t.country].filter(Boolean).join(', ')} · ${fmtTripRange(t.start_date, t.end_date)}`}
+                right={
+                  <Link to="/collab" className="btn-ghost !px-3 !py-2 text-xs">See the trip</Link>
+                }
+              />
+            ))}
+          </Reveal>
+          {d.travelling.length > 6 && (
+            <Link to="/collab" className="mt-3 inline-block text-sm font-medium text-brand hover:underline">
+              All {d.travelling.length} on the collab board →
+            </Link>
+          )}
         </section>
       )}
 

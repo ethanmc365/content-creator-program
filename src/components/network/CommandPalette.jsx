@@ -28,7 +28,7 @@ import { overlay } from '../../lib/motion'
 const PAGES = [
   { id: 'p-global', label: 'Worldwide', hint: 'The network hub', icon: 'globe', to: '/global' },
   { id: 'p-markets', label: 'Explore markets', hint: 'Every market', icon: 'magnifier', to: '/global/markets' },
-  { id: 'p-creators', label: 'Creator directory', hint: 'Everyone, on a map', icon: 'users', to: '/creators' },
+  { id: 'p-creators', label: 'Creator Network', hint: 'Everyone, on a map', icon: 'users', to: '/creators' },
   { id: 'p-messages', label: 'Direct messages', hint: 'Your inbox', icon: 'envelope', to: '/messages' },
   { id: 'p-connections', label: 'Connections', hint: 'Requests and mutuals', icon: 'heart', to: '/connections' },
   { id: 'p-collab', label: 'Travel collab board', hint: 'Who is going where', icon: 'pin', to: '/collab' },

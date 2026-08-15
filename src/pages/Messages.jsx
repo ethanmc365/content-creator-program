@@ -32,6 +32,24 @@ import {
 } from '../lib/groups'
 
 
+// PINNED CHATS. Three, per device, in localStorage - see the note on the
+// `pinned` state for why it is not a column.
+const MAX_PINNED_CONVERSATIONS = 3
+const PINNED_KEY = 'dm-pinned'
+
+function loadPinnedConversations() {
+  try {
+    const v = JSON.parse(localStorage.getItem(PINNED_KEY))
+    // Trimmed on read as well as on write. The cap could have changed between
+    // releases, and a stored array of six would otherwise pin six for ever.
+    return Array.isArray(v) ? v.filter((x) => typeof x === 'string').slice(0, MAX_PINNED_CONVERSATIONS) : []
+  } catch { return [] }
+}
+
+function savePinnedConversations(ids) {
+  try { localStorage.setItem(PINNED_KEY, JSON.stringify(ids.slice(0, MAX_PINNED_CONVERSATIONS))) } catch { /* private mode */ }
+}
+
 // A short label for a DM when it's quoted in a reply.
 function dmPreview(m) {
   if (!m) return 'Message unavailable'
@@ -89,6 +107,18 @@ export default function Messages() {
   const nowTick = useNowTick()
   const [replyTo, setReplyTo] = useState(null)     // message being replied to
   const [loadingList, setLoadingList] = useState(true)
+  // PINNED CONVERSATIONS, PER DEVICE.
+  //
+  // localStorage rather than a column, deliberately. Pinning is a view
+  // preference about how YOU want your own inbox arranged - it changes nothing
+  // for the other person and nothing about the data - and the same rule already
+  // governs the rooms sidebar's order and the two sound switches. It also means
+  // no migration and no round trip on a press.
+  //
+  // THREE IS THE LIMIT, and it is a real limit rather than a suggestion. The
+  // whole value of a pin is that the pinned set is small enough to be the first
+  // thing you look at; a fourth pin is the beginning of a second inbox.
+  const [pinned, setPinned] = useState(loadPinnedConversations)
   const [loadingThread, setLoadingThread] = useState(false)
   const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)
@@ -569,6 +599,24 @@ export default function Messages() {
   // ---------- Anyone: long-press a conversation to delete it entirely ----------
   const convTimer = useRef(null)
   const convLongPressed = useRef(false)
+
+  // Pin or unpin. Unpinning is always allowed; pinning a fourth is refused with
+  // a sentence rather than by the button quietly doing nothing, which is the
+  // failure mode of every silent cap.
+  async function togglePin(e, c) {
+    e.preventDefault()
+    e.stopPropagation()
+    const isPinned = pinned.includes(c.id)
+    if (!isPinned && pinned.length >= MAX_PINNED_CONVERSATIONS) {
+      await notice(`You can pin ${MAX_PINNED_CONVERSATIONS} chats. Please remove a current pin before adding a new one.`)
+      return
+    }
+    // Newly pinned goes to the END of the pinned block, not the top: pinning a
+    // second chat should not push the first one down.
+    const next = isPinned ? pinned.filter((id) => id !== c.id) : [...pinned, c.id]
+    setPinned(next)
+    savePinnedConversations(next)
+  }
   async function deleteConversation(c) {
     // LEAVING A GROUP IS NOT DELETING IT. A long-press that ended everybody
     // else's conversation because one member wanted it out of their inbox would
@@ -583,7 +631,7 @@ export default function Messages() {
       await leaveGroup(c.id, user.id)
       return
     }
-    if (!await confirm(`Delete your conversation with ${c.other?.name ?? 'this creator'}? This removes the whole thread.`)) return
+    if (!await confirm(`Delete your conversation with ${c.other?.name ?? 'this creator'}? This deletes the entire conversation and removes the chat.`)) return
     setConversations((prev) => prev.filter((x) => x.id !== c.id))
     if (c.id === conversationId) navigate('/messages')
     await supabase.from('conversations').delete().eq('id', c.id)
@@ -791,7 +839,7 @@ export default function Messages() {
   // ---------- Inbox search + suggestions ----------
   const q = search.trim().toLowerCase()
   // Existing threads that match what you typed.
-  const shownConversations = q
+  const matching = q
     ? conversations.filter((c) => (c.kind === 'group'
         ? groupName(c, c.members, user.id).toLowerCase().includes(q)
           // A group is also findable by who is in it, which is how you find the
@@ -799,6 +847,29 @@ export default function Messages() {
           || (c.members || []).some((m) => (m.name ?? '').toLowerCase().includes(q))
         : (c.other?.name ?? '').toLowerCase().includes(q)))
     : conversations
+
+  // PINNED THREADS RIDE ON TOP, IN THE ORDER YOU PINNED THEM.
+  //
+  // Everything else keeps the order the query gave it (most recent first), so a
+  // new message in an unpinned thread still climbs to just under the pins -
+  // which is the behaviour Ethan described: "pins the chat to the top and
+  // always remains there, new messages will come in below it".
+  //
+  // A stable sort is what makes that true: `Array.prototype.sort` has been
+  // required to be stable since ES2019, so returning 0 for two unpinned threads
+  // genuinely leaves them where they were rather than shuffling them.
+  const shownConversations = useMemo(() => {
+    if (!pinned.length) return matching
+    const rank = new Map(pinned.map((id, i) => [id, i]))
+    return [...matching].sort((a, b) => {
+      const ra = rank.has(a.id) ? rank.get(a.id) : Infinity
+      const rb = rank.has(b.id) ? rank.get(b.id) : Infinity
+      return ra - rb
+    })
+    // `matching` is rebuilt every render by design (it is a filter over state),
+    // so depending on it here is depending on the thing that changes - which is
+    // correct: the sort has to re-run when the inbox or the search does.
+  }, [matching, pinned])
   // Creators you match but haven't messaged yet: "start a new chat with…".
   const talkingTo = new Set(conversations.map((c) => c.other?.id).filter(Boolean))
   const searchMatches = q
@@ -989,21 +1060,47 @@ export default function Messages() {
               </div>
             )}
 
-            {/* THE INBOX ARRIVES. Every other list in the app rises into view
-                one row after another; the DM inbox was a wall of rows that
-                simply existed. Tight stagger (35ms) because these are dense
-                rows, not cards - past about 45ms a list stops reading as
-                arriving and starts reading as slow. */}
-            <Reveal className="flex flex-col" stagger={0.035}>
+            {/* THE INBOX ARRIVES, AND THIS TIME IT ACTUALLY DOES.
+                Every other list in the app rises into view one row after
+                another. There was already a `Reveal` here and it did nothing,
+                which is Ethan's "all the open messages and people you've
+                messaged just flash up on the left hand side rather than
+                smoothly load and animate in from top to bottom".
+
+                WHY IT DID NOTHING. `Reveal` marks itself `is-in` the moment its
+                container is on screen - and the sidebar is at the top of the
+                page, so that happened on the FIRST frame, while the list was
+                still empty and waiting on the query. The rows arrived into a
+                container that was already `is-in`, so they were rendered with
+                the finished state applied and never had a starting frame to
+                transition FROM. An entrance animation needs the element to
+                exist before it arrives.
+
+                The `key` fixes it by remounting the container the moment the
+                list stops loading: a fresh Reveal, children present from its
+                first frame, observer fires, everything staggers in.
+
+                Tight stagger (35ms) because these are dense rows, not cards -
+                past about 45ms a list stops reading as arriving and starts
+                reading as slow. */}
+            <Reveal key={loadingList ? 'inbox-loading' : 'inbox-ready'} className="flex flex-col" stagger={0.035}>
             {shownConversations.map((c) => (
-              <button
+              // A ROW IS A BUTTON, SO THE PIN CANNOT BE ONE INSIDE IT.
+              // Nesting a <button> in a <button> is invalid HTML and React will
+              // say so; browsers resolve it by dropping the inner one, which
+              // means the pin would render and never fire. The row is a div
+              // with a click handler and the pin is a real button on top of it.
+              <div
                 key={c.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => { if (convLongPressed.current) { convLongPressed.current = false; return } navigate(`/messages/${c.id}`) }}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/messages/${c.id}`) } }}
                 onTouchStart={() => startConvPress(c)} onTouchEnd={cancelConvPress} onTouchMove={cancelConvPress}
                 onMouseDown={() => startConvPress(c)} onMouseUp={cancelConvPress} onMouseLeave={cancelConvPress}
                 onContextMenu={(e) => { e.preventDefault(); deleteConversation(c) }}
                 className={cx(
-                  'flex w-full select-none items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-cloud',
+                  'group/conv relative flex w-full cursor-pointer select-none items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-cloud',
                   c.id === conversationId && 'bg-brand-tint/50'
                 )}
               >
@@ -1026,7 +1123,27 @@ export default function Messages() {
                     {c.unread}
                   </span>
                 )}
-              </button>
+
+                {/* THE PIN. Top-right, on hover - and PERMANENTLY VISIBLE once
+                    the chat is pinned, because a state you can only see by
+                    hovering is a state that does not exist on a phone. It is
+                    also the only affordance that says pinning is possible at
+                    all, so it appears on focus as well as hover. */}
+                <button
+                  type="button"
+                  onClick={(e) => togglePin(e, c)}
+                  aria-label={pinned.includes(c.id) ? 'Unpin this chat' : 'Pin this chat to the top'}
+                  title={pinned.includes(c.id) ? 'Unpin' : 'Pin to the top'}
+                  className={cx(
+                    'absolute right-2 top-2 rounded-full p-1.5 transition-all',
+                    pinned.includes(c.id)
+                      ? 'text-brand opacity-100'
+                      : 'text-gray-300 opacity-0 hover:bg-white hover:text-brand focus-visible:opacity-100 group-hover/conv:opacity-100',
+                  )}
+                >
+                  <Icon name="pin" className="h-3.5 w-3.5" />
+                </button>
+              </div>
             ))}
             </Reveal>
 

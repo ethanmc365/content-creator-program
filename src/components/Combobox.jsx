@@ -5,7 +5,7 @@ import Icon from './Icon'
 // A clean, searchable dropdown that replaces the native <select>. Type to
 // filter the options; click or press Enter to choose. An empty string value
 // means the placeholder / "any" option is selected.
-export default function Combobox({ value, onChange, options, placeholder = 'Select…', ariaLabel }) {
+export default function Combobox({ value, onChange, options, placeholder = 'Select…', ariaLabel, allowClear = true }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
@@ -66,16 +66,23 @@ export default function Combobox({ value, onChange, options, placeholder = 'Sele
             />
           </div>
           <ul role="listbox" className="max-h-60 overflow-y-auto py-1">
-            <li>
-              <button
-                type="button"
-                onClick={() => pick('')}
-                className={cx('flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-cloud', active === 0 && 'bg-cloud', !value && 'font-semibold text-brand')}
-              >
-                {placeholder}
-                {!value && <Icon name="check" className="h-4 w-4 shrink-0" />}
-              </button>
-            </li>
+            {/* THE "ANY" ROW IS A FILTER'S ROW, NOT A FORM FIELD'S.
+                On the directory's filters, picking nothing is a real answer
+                ("any country"). On the collab form it is not - the trip has a
+                country - and offering it there put a row at the top of the list
+                whose meaning was "undo", disguised as an option. */}
+            {allowClear && (
+              <li>
+                <button
+                  type="button"
+                  onClick={() => pick('')}
+                  className={cx('flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-cloud', active === 0 && 'bg-cloud', !value && 'font-semibold text-brand')}
+                >
+                  {placeholder}
+                  {!value && <Icon name="check" className="h-4 w-4 shrink-0" />}
+                </button>
+              </li>
+            )}
             {filtered.map((o, i) => (
               <li key={o}>
                 <button

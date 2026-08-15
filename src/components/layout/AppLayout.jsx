@@ -414,7 +414,7 @@ export default function AppLayout() {
                       took out of the rail. */}
                   {networkPreview && (
                     <div className="lg:hidden">
-                      <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Across the network</p>
+                      <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Explore the community</p>
                       {menuLinks.map((l) => (
                         <Link
                           key={l.to}

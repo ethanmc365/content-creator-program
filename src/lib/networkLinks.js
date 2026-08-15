@@ -14,7 +14,7 @@
 // `short` is what a narrow surface shows. Four across at 375px is about nine
 // characters, and "Travel collab board" truncated to "Travel c…" helps nobody.
 export const NETWORK_LINKS = [
-  { to: '/creators', icon: 'users', label: 'Creator directory', short: 'Creators', hint: 'Everyone, on a map' },
+  { to: '/creators', icon: 'users', label: 'Creator Network', short: 'Creators', hint: 'Everyone, on a map' },
   { to: '/messages', icon: 'envelope', label: 'Direct messages', short: 'DMs', hint: 'Anyone, any market' },
   { to: '/connections', icon: 'heart', label: 'Connections', short: 'Connect', hint: 'Requests and mutuals', badge: 'connections' },
   { to: '/board', icon: 'chat', label: 'Community board', short: 'Board', hint: 'Ask anything, anyone answers' },

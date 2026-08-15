@@ -590,7 +590,7 @@ export default function GlobalHome() {
       <RailCard
         className="hidden lg:block"
         icon={<Icon name="users" className="h-3.5 w-3.5 text-brand" />}
-        title="Across the network"
+        title="Explore the community"
       >
         <Reorderable
           items={links}
@@ -920,7 +920,7 @@ export default function GlobalHome() {
           {d?.network?.length > 0 && (
             <Reveal from="down" delay={stepDelay()}>
               <section>
-                <SectionHead icon="trophy" title="Across the network"
+                <SectionHead icon="trophy" title="Explore the community"
                   hint="Points earned in any market, added up. Your standing follows you if you move." />
                 <Reveal className="space-y-2" stagger={0.05}>
                   {d.network.map((s, i) => (
@@ -991,7 +991,7 @@ export default function GlobalHome() {
             <section>
               <SectionHead icon="globe" title="Everyone, right now"
                 hint="Tap a pin for who is there, or tap a country to find who has been."
-                to="/creators" toLabel="Creator directory" />
+                to="/creators" toLabel="Creator Network" />
               {/* The map is the most expensive thing on this page - a megabyte
                   of TopoJSON, parsed, then a few hundred SVG paths - and doing
                   that work while the cards above are still sliding is what made
