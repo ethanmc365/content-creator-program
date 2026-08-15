@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import Icon from '../Icon'
-import { dailyStreak, weekOf } from '../../lib/daily'
-import { DAILY_PUZZLES } from '../../lib/dailyPuzzles'
+import { weekOf } from '../../lib/daily'
+import { playFireWhoosh } from '../../lib/gameSounds'
 import { cx } from '../../lib/utils'
 
 // YOUR RUN, YOUR RECORD, AND WHAT IS PROTECTING IT.
@@ -35,6 +35,82 @@ import { cx } from '../../lib/utils'
 
 const LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
+// THE FLAME SAYS WHETHER TODAY IS IN THE BAG, AND IT SAYS IT IN COLOUR.
+//
+// It used to be one flame in one colour, with the actual answer written
+// underneath it in eleven-pixel text ("Counted today. Safe until midnight
+// tomorrow."). Ethan cut that line and asked for the flame to carry the state
+// instead, which is the right way round: this is a badge you glance at, and a
+// glance reads colour long before it reads a sentence.
+//
+//   LIT     today is counted (played, or a freeze is holding it). A real flame:
+//           white-hot core, amber body, a bright halo pulsing behind it. It is
+//           the brightest thing on the card, which is the point.
+//   EMBER   the run is alive but today is not counted yet. The same flame drawn
+//           hollow and cool, breathing slowly. It is unmistakably the SAME
+//           object, not lit - which is what makes the difference legible
+//           without a key.
+//   COLD    no run at all. Flat, still, an invitation rather than a rebuke.
+//
+// The animation is CONSTANT in the first two states. A flame that only moves on
+// hover is a flame that is not burning.
+function Flame({ state }) {
+  const lit = state === 'lit'
+  const ember = state === 'ember'
+  return (
+    <span className="relative flex h-20 w-20 shrink-0 items-center justify-center">
+      {/* The halo. Behind the glass, so the flame keeps its edges. */}
+      <span
+        aria-hidden
+        className={cx(
+          'absolute inset-0 rounded-full blur-xl',
+          lit && 'animate-flame-glow bg-amber-300/70',
+          ember && 'animate-ember bg-white/20',
+          !lit && !ember && 'bg-white/10',
+        )}
+      />
+      <span
+        className={cx(
+          'relative flex h-16 w-16 items-center justify-center rounded-2xl ring-1 ring-inset transition-colors',
+          lit ? 'bg-white/25 ring-white/40' : 'bg-white/10 ring-white/20',
+        )}
+      >
+        <svg viewBox="0 0 24 24" className={cx('h-10 w-10', lit && 'animate-flicker', ember && 'animate-ember')} aria-hidden>
+          <defs>
+            {/* A real fire is hottest at the base and coolest at the tip, so the
+                gradient runs bottom to top rather than top to bottom. Drawn
+                white->amber rather than in the brand orange for one reason: the
+                card IS brand orange, and an orange flame on an orange card is
+                the same mistake the week strip made when a played day was
+                `bg-brand`. */}
+            <linearGradient id="streak-flame-lit" x1="0" y1="1" x2="0" y2="0">
+              <stop offset="0%" stopColor="#ffffff" />
+              <stop offset="45%" stopColor="#fde68a" />
+              <stop offset="100%" stopColor="#fbbf24" />
+            </linearGradient>
+          </defs>
+          <path
+            d="M12 2.5c.5 2.6-.8 4-2 5.2-1.4 1.4-2.6 2.6-2.6 5A6.6 6.6 0 0 0 12 21.5a6.6 6.6 0 0 0 6.6-6.6c0-4-2.6-6-4-8.4-.5 1.3-1.3 2.1-2.2 2.6.4-2.3-.2-4.6-.4-6.6Z"
+            fill={lit ? 'url(#streak-flame-lit)' : 'none'}
+            stroke={lit ? 'none' : 'currentColor'}
+            strokeWidth="1.6"
+            strokeLinejoin="round"
+            className={lit ? undefined : 'text-white/55'}
+          />
+          {/* The inner core, only when it is actually alight. */}
+          {lit && (
+            <path
+              d="M12.4 12.6c.3.9-.4 1.5-.9 2.2-.3.5-.5 1-.5 1.6a2.1 2.1 0 0 0 4.2.1c0-1.1-.6-1.8-1.3-2.5-.5.6-1.1.3-1-.4.1-.4-.1-.7-.5-1Z"
+              fill="#fff7ed"
+              opacity="0.95"
+            />
+          )}
+        </svg>
+      </span>
+    </span>
+  )
+}
+
 // THIS WEEK, MONDAY TO SUNDAY, AND IT RESETS ON MONDAY.
 //
 // TWO THINGS WERE WRONG WITH THE OLD STRIP, and between them they made it
@@ -53,26 +129,48 @@ const LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 //
 // A day still to come is drawn faint and empty. Marking Saturday as "missed" on
 // a Wednesday is a scolding for something nobody has had the chance to do yet.
-function WeekDots({ days = [], today, week }) {
+// A FROZEN DAY IS NOT A BLANK DAY, AND THE STRIP NOW SHOWS THE DIFFERENCE.
+//
+// THE BUG THIS FIXES. The strip drew exactly two things: a white tick for a day
+// you played, and an empty tile for everything else. A day that a freeze had
+// silently rescued therefore looked identical to a day you simply missed - so a
+// creator whose 30-day run was intact could look at a hole in their own week
+// and reasonably conclude the run was broken and the number above was wrong.
+// Ethan: "on the day I didn't, it should show that the freeze was used by
+// showing the icon on that day."
+//
+// The freezes are spent automatically, so this is the ONLY place a creator ever
+// finds out one was used at all. A snowflake on the day it covered is the whole
+// explanation, in the place the question gets asked.
+function WeekDots({ days = [], frozen = [], today, week }) {
   const played = new Set(days)
+  const iced = new Set(frozen)
   return (
     <div className="flex items-end gap-1.5">
       {week.map((day) => {
         const on = played.has(day)
+        // Played wins over frozen. A day you both played and (somehow) have a
+        // freeze row for is a day you played.
+        const froze = !on && iced.has(day)
         const isToday = day === today
         const future = day > today
         return (
           <div key={day} className="flex flex-col items-center gap-1">
             <span
-              title={on ? 'Played' : future ? 'Still to come' : isToday ? 'Not played yet today' : 'Missed'}
+              title={on ? 'Played' : froze ? 'A freeze covered this day' : future ? 'Still to come' : isToday ? 'Not played yet today' : 'Missed'}
               className={cx(
                 'flex h-6 w-6 items-center justify-center rounded-lg transition-colors',
                 on
                   ? 'bg-white text-brand shadow-sm'
-                  : future
-                    ? 'bg-white/10 ring-1 ring-inset ring-white/20'
-                    : 'bg-white/15 ring-1 ring-inset ring-white/25',
-                isToday && !on && 'ring-2 ring-white/80',
+                  // Frozen is drawn in the same COOL blue the freeze snowflakes
+                  // below use, not in the white a played day gets: it kept the
+                  // run alive, and it is not the same thing as having turned up.
+                  : froze
+                    ? 'bg-sky-100 text-sky-600 shadow-sm'
+                    : future
+                      ? 'bg-white/10 ring-1 ring-inset ring-white/20'
+                      : 'bg-white/15 ring-1 ring-inset ring-white/25',
+                isToday && !on && !froze && 'ring-2 ring-white/80',
               )}
             >
               {on && (
@@ -80,6 +178,7 @@ function WeekDots({ days = [], today, week }) {
                   <path d="M4 12l5 5L20 6" />
                 </svg>
               )}
+              {froze && <Icon name="snowflake" className="h-3.5 w-3.5" />}
             </span>
             <span className={cx('text-[9px] font-semibold', isToday ? 'text-white' : 'text-white/55')}>
               {LETTERS[(((day % 7) + 3 + 7) % 7)]}
@@ -91,7 +190,20 @@ function WeekDots({ days = [], today, week }) {
   )
 }
 
-export default function StreakCard({ className, days = [], today = null, byPuzzle = null }) {
+// THE FLAME MAKES A NOISE WHEN IT CATCHES.
+//
+// Ethan asked for "a fire flame whoosh sound when you play and gain a streak
+// for the day, or if you already have a streak and just reopen travel games
+// page later". So it fires on ARRIVAL with a live run, not only on the moment
+// the run extends - reopening the page and hearing your streak is the point.
+//
+// The throttle is what keeps that from being a nuisance. Flicking between the
+// games menu and a puzzle remounts this card repeatedly, and a fire noise on
+// every remount is how sound gets switched off for good. Module scope, so it
+// survives the remount that is the problem in the first place.
+let lastFlareAt = -Infinity
+
+export default function StreakCard({ className, days = [], today = null }) {
   const [s, setS] = useState(null)
 
   useEffect(() => {
@@ -101,6 +213,18 @@ export default function StreakCard({ className, days = [], today = null, byPuzzl
     })
     return () => { alive = false }
   }, [])
+
+  // Only once the streak has actually loaded, and only when it is alight: a
+  // flare for a run of zero would be celebrating nothing.
+  const lit = !!s && (s.current_streak || 0) > 0
+    && today != null && (days.includes(today) || (s.frozen_days || []).includes(today))
+  useEffect(() => {
+    if (!lit) return
+    const now = typeof performance !== 'undefined' ? performance.now() : 0
+    if (now - lastFlareAt < 90_000) return
+    lastFlareAt = now
+    playFireWhoosh()
+  }, [lit])
 
   if (!s) return null
   const current = s.current_streak || 0
@@ -128,32 +252,28 @@ export default function StreakCard({ className, days = [], today = null, byPuzzl
     >
       <div className="pointer-events-none absolute -right-14 -top-16 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
       <div className="relative flex flex-wrap items-center gap-x-8 gap-y-5">
-        {/* THE FLAME. It only burns when there is something burning - a lit
-            flame beside a zero is a lie, and a grey one is a reminder that you
-            failed at something. At zero it is an invitation instead. */}
+        {/* THE FLAME LEADS, AND IT IS THE STATE. See the note on <Flame>: lit
+            when today is counted, embers when the run is alive but today is
+            still to be earned, cold at zero. */}
         <div className="flex items-center gap-4">
-          <span className={cx(
-            'flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl',
-            current > 0 ? 'bg-white/20 text-white' : 'bg-white/10 text-white/50',
-          )}>
-            <svg viewBox="0 0 24 24" className={cx('h-8 w-8', current > 0 && 'animate-flicker')} fill="currentColor" aria-hidden>
-              <path d="M12 2.5c.5 2.6-.8 4-2 5.2-1.4 1.4-2.6 2.6-2.6 5A6.6 6.6 0 0 0 12 21.5a6.6 6.6 0 0 0 6.6-6.6c0-4-2.6-6-4-8.4-.5 1.3-1.3 2.1-2.2 2.6.4-2.3-.2-4.6-.4-6.6Z" />
-            </svg>
-          </span>
+          <Flame state={current === 0 ? 'cold' : (playedToday || frozenToday) ? 'lit' : 'ember'} />
           <div>
-            <p className="text-4xl font-bold leading-none tabular-nums">{current}</p>
+            <p className="text-4xl font-bold leading-none tabular-nums sm:text-5xl">{current}</p>
             <p className="mt-1 text-[11px] font-semibold uppercase tracking-widest text-white/75">
               {current === 1 ? 'day in a row' : 'days in a row'}
             </p>
-            {/* THE NUMBER, DISAMBIGUATED. */}
-            {today != null && current > 0 && (
+            {/* ONLY THE LINE THAT ASKS FOR SOMETHING.
+                "Counted today. Safe until midnight tomorrow." was cut at
+                Ethan's request, and the flame above replaced it: a lit flame IS
+                "counted today", and it says so without spending a line of the
+                card confirming that nothing needs doing. The nudge stays,
+                because that one is asking for a puzzle. */}
+            {today != null && current > 0 && !playedToday && (
               <p className="mt-1.5 flex items-center gap-1.5 text-[11px] font-medium text-white/85">
-                <span className={cx('h-1.5 w-1.5 shrink-0 rounded-full', playedToday || frozenToday ? 'bg-white' : 'bg-white/40')} />
-                {playedToday
-                  ? 'Counted today. Safe until midnight tomorrow.'
-                  : frozenToday
-                    ? 'A freeze is holding today for you.'
-                    : 'Not counted today yet. One puzzle keeps it.'}
+                <span className={cx('h-1.5 w-1.5 shrink-0 rounded-full', frozenToday ? 'bg-sky-200' : 'bg-white/40')} />
+                {frozenToday
+                  ? 'A freeze is holding today for you.'
+                  : 'Not counted today yet. One puzzle keeps it.'}
               </p>
             )}
             {today != null && current === 0 && (
@@ -169,7 +289,7 @@ export default function StreakCard({ className, days = [], today = null, byPuzzl
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/75">
               This week
             </p>
-            <WeekDots days={days} today={today} week={week} />
+            <WeekDots days={days} frozen={s.frozen_days || []} today={today} week={week} />
           </div>
         )}
 
@@ -206,39 +326,13 @@ export default function StreakCard({ className, days = [], today = null, byPuzzl
         </div>
       </div>
 
-      {/* ---- A RUN PER PUZZLE, UNDER THE RUN ACROSS ALL OF THEM ----
-          Ethan: "streak should be counted separate for each daily puzzle but
-          accumulated". Both are true at once and they are different facts. The
-          big number above is the accumulated one and one puzzle a day keeps it,
-          which is the promise that makes the habit startable. These three are
-          the harder thing: turning up for the SAME puzzle every day. Somebody
-          on a 40-day overall run who has never done Flight Path twice in a row
-          should be able to see that, and until now the card averaged the two
-          into one number that told them neither. */}
-      {byPuzzle && (
-        <div className="relative mt-5 border-t border-white/20 pt-4">
-          <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-widest text-white/75">
-            Each puzzle on its own
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {DAILY_PUZZLES.map((p) => {
-              const run = dailyStreak(byPuzzle[p.key] || [], today ?? undefined)
-              return (
-                <span
-                  key={p.key}
-                  className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-xs"
-                >
-                  <Icon name={p.icon} className="h-3.5 w-3.5 shrink-0 text-white/80" />
-                  <span className="font-medium text-white/90">{p.title}</span>
-                  <span className={cx('font-bold tabular-nums', run > 0 ? 'text-white' : 'text-white/50')}>
-                    {run > 0 ? `${run}d` : '—'}
-                  </span>
-                </span>
-              )
-            })}
-          </div>
-        </div>
-      )}
+      {/* THE PER-PUZZLE CHIPS ARE GONE.
+          There was a row here reading "Guess the Country 3d · Flight Path 3d ·
+          Guess the language 2d". Ethan removed it, and the reason is that the
+          same three runs are already on the three daily cards directly below
+          this one, as a badge on the card each run belongs to - which is both
+          nearer to the thing it describes and one less row of small text on the
+          card somebody actually opened this page to look at. */}
     </section>
   )
 }

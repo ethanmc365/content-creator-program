@@ -266,10 +266,35 @@ function Pin({ hue }) {
 //   * THE FOOT IS SEPARATED BY A RULE. The author line used to float against
 //     the paper under the question with nothing between them, so a two-line
 //     question and a name ran together. A hairline is enough.
+// A NOTE IS THE SIZE OF WHAT IS WRITTEN ON IT.
+//
+// Every note used to be `aspect-square`, which is a grid of identical tiles - a
+// spreadsheet with rounded corners. Ethan: "the post it notes shouldn't all be
+// the same size, it should depend on the text and it would look more aesthetic
+// if they were different sizes and arranged in a cool way."
+//
+// So the note has NO fixed height at all now. It is as tall as its question,
+// its answers and its foot, and the arrangement comes from CSS columns rather
+// than a grid: notes flow down a column and the next one starts where the last
+// one ended, which is exactly how things end up on a real board. A grid cannot
+// do this - grid rows are as tall as their tallest cell, so one long note would
+// leave a gap beside every short one on its row.
+//
+// The TYPE SIZE steps with the length too. A six-word question set in the same
+// 15px as a forty-word one is a small note with a lot of air in it; giving the
+// short one bigger type makes it read as a note somebody scrawled, and it is
+// what stops a wall of variable-height cards looking merely uneven.
+function noteScale(q) {
+  const n = (q.title || '').length + (q.body || '').length / 3
+  if (n < 40) return 'text-[17px] sm:text-[19px]'
+  if (n < 80) return 'text-[15px] sm:text-[16px]'
+  return 'text-[14px] sm:text-[15px]'
+}
+
 function QuestionNote({ q }) {
   const t = tagInfo(q.tag)
   const answers = Number(q.answer_count || 0)
-  const faces = (q.answerers || []).slice(0, 3)
+  const shown = q.answers || []
   const h = noteHash(q.id)
   // -1.6, -0.8, 0.8 or 1.6 degrees. Small on purpose: past about two degrees a
   // wall of notes stops looking casual and starts looking broken.
@@ -281,12 +306,18 @@ function QuestionNote({ q }) {
       to={`/board/${q.id}`}
       style={{ transform: `rotate(${tilt}deg)` }}
       className={cx(
+        // `break-inside-avoid` is what makes the columns work: without it a
+        // note is split across the bottom of one column and the top of the
+        // next, which is a genuinely alarming thing to see happen to a piece of
+        // paper. `mb-*` rather than a grid gap, because columns have no gap
+        // along their own axis.
+        'group relative mb-4 flex break-inside-avoid flex-col rounded-lg border bg-white shadow-card transition-all duration-300 ease-out sm:mb-5',
         // NO `overflow-hidden` HERE. The pin is `-top-2.5` and deliberately
         // sticks out over the top edge - that overhang plus its drop shadow is
         // the entire trick that makes the note look attached to the board. A
         // clip on the note clips the pin's head off and leaves the needle. The
         // state band gets rounded top corners of its own instead.
-        'group relative flex aspect-square flex-col rounded-lg border bg-white shadow-card transition-all duration-300 ease-out',
+        //
         // `hover:!rotate-0` beats the inline transform: reaching for a note
         // squares it up and lifts it off the board.
         'hover:z-10 hover:-translate-y-1.5 hover:!rotate-0 hover:shadow-lift',
@@ -301,13 +332,8 @@ function QuestionNote({ q }) {
           product rather than as a different one. */}
       <span className={cx('h-1.5 w-full shrink-0 rounded-t-lg', open ? 'bg-brand' : 'bg-green-500')} aria-hidden />
 
-      {/* TWO NOTES ACROSS A 375px PHONE IS A 163px SQUARE, and 16px of padding
-          plus 15px type plus a body line plus an author row does not fit in one
-          - the note would clip its own foot. Everything steps down a notch
-          below `sm` and the body preview drops out entirely: on a note that
-          small the title IS the note. */}
-      <span className="flex min-h-0 flex-1 flex-col p-3 pt-2.5 sm:p-4 sm:pt-3.5">
-        <span className="mb-1.5 flex items-center gap-1.5 sm:mb-2">
+      <span className="flex min-h-0 flex-1 flex-col p-3.5 pt-2.5 sm:p-4 sm:pt-3.5">
+        <span className="mb-2 flex items-center gap-1.5">
           <span className={cx(
             'inline-flex min-w-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold',
             open ? 'bg-brand-tint text-brand' : 'bg-green-50 text-green-700',
@@ -322,17 +348,50 @@ function QuestionNote({ q }) {
           )}
         </span>
 
-        {/* The question is the note. Clamped rather than shrunk: a smaller type
-            size for a longer question would make the hardest one to read the one
-            set in the smallest type. */}
-        <h3 className="line-clamp-4 text-[13px] font-semibold leading-snug text-ink transition-colors group-hover:text-brand sm:text-[15px]">
+        {/* The question is the note. Still clamped, but at eight lines rather
+            than four: the clamp is now a safety net against somebody pasting an
+            essay into the title, not the thing deciding the note's height. */}
+        <h3 className={cx('line-clamp-[8] font-semibold leading-snug text-ink transition-colors group-hover:text-brand', noteScale(q))}>
           {q.title}
         </h3>
-        {q.body && <p className="mt-1.5 hidden line-clamp-2 text-[13px] leading-snug text-smoke sm:block">{q.body}</p>}
+        {q.body && <p className="mt-1.5 line-clamp-3 text-[13px] leading-snug text-smoke">{q.body}</p>}
 
-        <span className="mt-auto block border-t border-gray-100 pt-2 sm:pt-2.5">
+        {/* ---- WHAT PEOPLE SAID, ON THE NOTE ----
+            Ethan: "the answers show below them, but if there's tons of answers
+            or a message is too long you can make it so that you have to click
+            to see it all."
+            Two answers, two lines each, and then a line that says how much is
+            left. Both caps matter and they are different caps: clamping the
+            TEXT stops one long answer swallowing the note, and capping the
+            COUNT stops a popular question becoming a column of its own. The
+            whole note is already a link to the thread, so "click to see it all"
+            costs no extra control - the line just has to say so. */}
+        {shown.length > 0 && (
+          <span className="mt-3 block space-y-2 border-t border-gray-100 pt-2.5">
+            {shown.slice(0, 2).map((a) => (
+              <span key={a.id} className="flex gap-2">
+                <span className="mt-0.5 shrink-0">
+                  <Avatar src={a.author_photo} name={a.author_name} size="xs" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[11px] font-semibold text-ink">{a.author_name}</span>
+                  <span className="line-clamp-2 block text-[12px] leading-snug text-smoke">{a.body}</span>
+                </span>
+              </span>
+            ))}
+            {(answers > 2 || shown.some((a) => a.truncated)) && (
+              <span className="block pt-0.5 text-[11px] font-semibold text-brand">
+                {answers > 2
+                  ? `Read all ${answers} answers`
+                  : 'Read the full answer'}
+              </span>
+            )}
+          </span>
+        )}
+
+        <span className="mt-3 block border-t border-gray-100 pt-2.5">
           {open && (
-            <span className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold text-brand sm:mb-2 sm:text-[11px]">
+            <span className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold text-brand">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/60" />
                 <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand" />
@@ -345,19 +404,6 @@ function QuestionNote({ q }) {
             <span className="min-w-0 flex-1 truncate text-[11px] text-smoke">
               {q.author_name} · {formatMessageTime(q.created_at)}
             </span>
-            {/* FACES, NOT A NUMBER. Whether anybody who would know has been near
-                this thread is the actual question, and a count cannot answer it.
-                Hidden on a phone note: three overlapping avatars beside a name
-                on a 163px row leaves room for about four letters of the name. */}
-            {faces.length > 0 && (
-              <span className="hidden shrink-0 -space-x-2 sm:flex">
-                {faces.map((a) => (
-                  <span key={a.id} className="rounded-full ring-2 ring-white">
-                    <Avatar src={a.photo_url} name={a.name} size="xs" />
-                  </span>
-                ))}
-              </span>
-            )}
           </span>
         </span>
       </span>
@@ -496,10 +542,18 @@ export default function Board() {
               375px screen those gutters were 32 of the 375 pixels the notes had
               to live in. `.board-bleed` cancels the layout's own padding below
               `sm` and gives the radius back above it. */}
-          <div className="board-surface board-bleed p-4 ring-1 ring-black/5 sm:p-6 lg:p-8">
+          {/* A MINIMUM HEIGHT, SO IT IS A BOARD BEFORE IT IS FULL.
+              Ethan: "I want the board to be much bigger and longer." With four
+              notes on it the surface was four notes tall - a strip, not a wall -
+              and the whole illusion depends on there being visibly more board
+              than there is paper. 70vh is about a screen and a half of cork on
+              a laptop and it grows from there as the notes fill it. */}
+          <div className="board-surface board-bleed min-h-[70vh] p-4 ring-1 ring-black/5 sm:p-6 lg:p-10">
             {rows === null ? (
-              <div className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
-                {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="aspect-square" />)}
+              <div className="columns-2 gap-4 sm:gap-5 lg:columns-3 xl:columns-4">
+                {[190, 260, 150, 300, 210, 170, 250, 200].map((h, i) => (
+                  <Skeleton key={i} className="mb-4 block sm:mb-5" style={{ height: h }} />
+                ))}
               </div>
             ) : rows.length === 0 ? (
               <EmptyState
@@ -511,16 +565,30 @@ export default function Board() {
                 action={<button onClick={() => setAsking(true)} className="btn-primary">Ask a question</button>}
               />
             ) : (
-              // The gap is generous on purpose: notes that nearly touch read as
-              // a grid, and the tilt needs room or the corners overlap.
+              // COLUMNS, NOT A GRID, and that is what makes the notes different
+              // sizes. A grid row is as tall as its tallest cell, so one long
+              // note leaves a hole beside every short one on its row and the
+              // only way out is to make them all the same height - which is
+              // where `aspect-square` came from in the first place. Columns
+              // have no rows: a note ends and the next one starts, so the wall
+              // packs itself and the heights can be whatever the text needs.
               //
-              // TWO ACROSS ON A PHONE, NOT ONE. A single column of square notes
-              // is a list of squares - the wall is the whole idea, and one note
-              // per row is not a wall. Two fit at 375px once the page gutters
-              // are gone, which is the other half of what the full bleed bought.
-              <Reveal className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4" stagger={0.045}>
-                {rows.map((q) => <QuestionNote key={q.id} q={q} />)}
-              </Reveal>
+              // TWO ACROSS ON A PHONE, NOT ONE. A single column of notes is a
+              // list - the wall is the whole idea. Two fit at 375px once the
+              // page gutters are gone, which is what the full bleed bought.
+              //
+              // `Reveal` cannot wrap this: it puts every child in its own div,
+              // and a wrapper between the column container and the note is
+              // exactly what `break-inside-avoid` needs to be ON. The stagger
+              // is done here instead, with the same variable the stylesheet
+              // reads, so the notes still arrive one after another.
+              <div className="reveal is-in columns-2 gap-4 sm:gap-5 lg:columns-3 xl:columns-4">
+                {rows.map((q, i) => (
+                  <div key={q.id} className="reveal-item break-inside-avoid" style={{ '--reveal-i': Math.min(i, 12) }}>
+                    <QuestionNote q={q} />
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>
@@ -576,16 +644,33 @@ export function BoardThread() {
     load()
   }
 
+  // BOTH OF THESE NOW SAY WHEN THEY FAIL.
+  //
+  // They used to `await` a builder and throw the result away, so the RLS
+  // refusal that made Remove a no-op (see migration 101) reached nobody: the
+  // dialog closed, the page navigated, and the note was still there when you
+  // got back. A destructive action that cannot report failure is worse than one
+  // that does not exist, because you believe it worked.
   async function dropAnswer(a) {
     if (!await confirm('Remove your answer? It will disappear from the thread.')) return
-    await removeAnswer(a.id)
-    load()
+    try {
+      await removeAnswer(a.id)
+      toast('Answer removed')
+      load()
+    } catch (e) {
+      notice(`That did not remove: ${e.message}`)
+    }
   }
 
   async function dropQuestion() {
     if (!await confirm('Remove this question and its answers from the board?')) return
-    await removeQuestion(id)
-    navigate('/board')
+    try {
+      await removeQuestion(id)
+      toast('Removed from the board')
+      navigate('/board')
+    } catch (e) {
+      notice(`That did not remove: ${e.message}`)
+    }
   }
 
   if (data === null) {
@@ -617,24 +702,49 @@ export function BoardThread() {
   const t = tagInfo(q.tag)
   const mine = q.author_id === user?.id
 
+  const openQ = answers.length === 0
+
   return (
     <NetworkMotion>
       <NetworkLayout width="narrow" switcher={false}>
-        <div className="space-y-6">
+        {/* OPENING A NOTE KEEPS THE BOARD.
+            Ethan: "when clicking, I think it should open big but still keep the
+            same look and aesthetic, not just back to a random card."
+            It used to be a plain white card on the plain page background, which
+            is the shape of every other detail page in the app - so tapping a
+            pinned note took you somewhere that had nothing to do with a board.
+            The thread now sits ON the same surface, and the question is the
+            same note it was on the wall: the pin, the state band, the paper.
+            Just much bigger, which is what "open big" means.
+
+            The tilt is deliberately NOT carried over. A tilted note is a note
+            on a wall among others; a tilted page of body text you are trying to
+            read is a gimmick. Reaching for a note already straightens it, so
+            arriving straightened is the same gesture finishing. */}
+        <div className="board-surface board-bleed min-h-[70vh] space-y-6 p-4 ring-1 ring-black/5 sm:p-6 lg:p-8">
           <Link to="/board" className="inline-flex items-center gap-2 text-sm font-medium text-smoke transition-colors hover:text-brand">
             <Icon name="chevronLeft" className="h-4 w-4" />
             Community board
           </Link>
 
-          <article className="rounded-card border border-gray-100 bg-white p-5 shadow-card sm:p-6">
+          <article className={cx(
+            'relative rounded-lg border bg-white shadow-lift',
+            openQ ? 'border-brand/25' : 'border-green-200',
+          )}>
+            <Pin hue={openQ ? '#d94407' : '#16a34a'} />
+            <span className={cx('block h-1.5 w-full rounded-t-lg', openQ ? 'bg-brand' : 'bg-green-500')} aria-hidden />
+            <div className="p-5 sm:p-7">
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-tint px-2.5 py-1 text-[11px] font-semibold text-brand">
                 <Icon name={t.icon} className="h-3 w-3" />
                 {q.tag === 'country' && q.country ? q.country : t.short}
               </span>
-              {answers.length === 0 && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
-                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+              {/* Brand orange, not amber. It is the same state the note on the
+                  wall draws in orange, and the two surfaces have to agree or
+                  the colour stops meaning anything. */}
+              {openQ && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-tint px-2.5 py-1 text-[11px] font-semibold text-brand">
+                  <span className="h-1.5 w-1.5 rounded-full bg-brand" />
                   Waiting for an answer
                 </span>
               )}
@@ -671,24 +781,28 @@ export function BoardThread() {
               </div>
               {!mine && <LocalTime profile={q.profiles} className="ml-auto text-xs text-smoke" />}
             </div>
+            </div>
           </article>
 
           <section>
-            <h2 className="mb-3 text-sm font-semibold">
+            <h2 className="mb-3 text-sm font-semibold text-ink">
               {answers.length === 0
                 ? 'No answers yet'
                 : `${answers.length} ${answers.length === 1 ? 'answer' : 'answers'}`}
             </h2>
 
             {answers.length === 0 ? (
-              <p className="rounded-card border border-dashed border-gray-200 px-5 py-8 text-center text-sm text-smoke">
+              <p className="rounded-lg border border-dashed border-brand/30 bg-white/70 px-5 py-8 text-center text-sm text-smoke">
                 Nobody has answered this yet. If you know even part of it, say so - a partial answer beats
                 silence and somebody else will fill in the rest.
               </p>
             ) : (
+              // The answers are smaller notes under the big one, so the whole
+              // thread reads as one thing pinned up rather than as a card
+              // followed by a list of unrelated cards.
               <Reveal className="space-y-3" stagger={0.05}>
                 {answers.map((a) => (
-                  <div key={a.id} className="rounded-card border border-gray-100 bg-white p-4 shadow-card">
+                  <div key={a.id} className="rounded-lg border border-gray-100 bg-white p-4 shadow-card">
                     <div className="mb-2.5 flex items-center gap-2.5">
                       <Avatar src={a.profiles?.photo_url} name={a.profiles?.name} size="xs" />
                       <Link to={`/profile/${a.author_id}`} className="truncate text-sm font-semibold hover:text-brand">
@@ -716,7 +830,7 @@ export function BoardThread() {
           {/* THE COMPOSER IS ALWAYS THERE, and it is never a modal. A question
               you have to click a button to answer is a question fewer people
               answer, and the reason to be on this page at all is to answer it. */}
-          <form onSubmit={answer} className="rounded-card border border-brand/25 bg-brand-tint/15 p-4 sm:p-5">
+          <form onSubmit={answer} className="rounded-lg border border-brand/25 bg-white p-4 shadow-card sm:p-5">
             <label htmlFor="board-answer" className="mb-2 block text-sm font-semibold">
               {mine ? 'Add something to your own question' : 'Answer this'}
             </label>

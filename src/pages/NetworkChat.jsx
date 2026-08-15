@@ -19,6 +19,7 @@ import ChatComposer from '../components/ChatComposer'
 import MessageEditor from '../components/MessageEditor'
 import ReportMessage from '../components/ReportMessage'
 import { useNowTick, withinEditWindow } from '../lib/messageActions'
+import { playSend, playSendFail, playInbound } from '../lib/appSounds'
 import IntroInvite from '../components/network/IntroPrompt'
 import { textBeforeCaret } from '../lib/richEditor'
 import { loadDraft, saveDraft, clearDraft } from '../lib/drafts'
@@ -303,6 +304,10 @@ export default function NetworkChat() {
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `channel=eq.${key}` },
         async (payload) => {
+          // Somebody else's message, in the room you have open, with the tab in
+          // front. Your own already made the send whoosh, and a background tab
+          // is a notification's job.
+          if (payload.new.sender_id !== user?.id && !document.hidden) playInbound()
           const { data } = await supabase
             .from('messages')
             .select('*, profiles:sender_id(id, name, photo_url, is_admin)')
@@ -311,7 +316,7 @@ export default function NetworkChat() {
         })
       .subscribe()
     return () => supabase.removeChannel(ch)
-  }, [community, active])
+  }, [community, active, user?.id])
 
   // Landing on the newest message, reliably.
   //
@@ -469,6 +474,7 @@ export default function NetworkChat() {
   }
 
   async function postMessage(fields) {
+    playSend()
     const { data, error } = await supabase.from('messages').insert({
       channel: scopedKey(community, active.key),
       channel_id: active.id,
@@ -476,6 +482,7 @@ export default function NetworkChat() {
       sender_id: user.id,
       ...fields,
     }).select('*, profiles:sender_id(id, name, photo_url, is_admin)').single()
+    if (error) playSendFail()
     if (!error && data) setMessages((prev) => (prev.some((m) => m.id === data.id) ? prev : [...prev, data]))
     return { data, error }
   }
@@ -503,15 +510,29 @@ export default function NetworkChat() {
   // 1280px at quality 0.82 before they leave the device, and video is capped
   // rather than transcoded (there is no reliable in-browser transcoder, so a
   // clear limit beats a silent 200MB upload).
+  // WHATEVER IS IN THE BOX GOES WITH IT.
+  //
+  // THE BUG THIS FIXES. This posted `{ image_url }` and nothing else, so
+  // anything you had typed was left sitting in the composer and then thrown
+  // away by the next draft write - a photo with a caption arrived in the room
+  // as a bare photo. Nobody noticed for a while because it looks like you
+  // simply forgot to press send. It surfaced from the other end: reporting one
+  // of these showed the picture with no words, because there genuinely were
+  // none on the row. The legacy chat has always sent the caption; the market
+  // rooms were the odd one out.
   async function attach(file) {
     if (!file || !canPost || sending) return
     setAttachError('')
     const isVideo = file.type.startsWith('video/')
+    const caption = body.trim()
     setSending(true)
     atBottomRef.current = true
+    // Clear the composer up front, the same as `send` does: the caption is
+    // spoken for now, and leaving it there invites sending it twice.
+    if (caption) { setBody(''); composerRef.current?.clear(); clearDraft(draftKey) }
     try {
       const url = isVideo ? await uploadChatVideo(file, user.id) : await uploadChatImage(file, user.id)
-      await postMessage(isVideo ? { video_url: url } : { image_url: url })
+      await postMessage({ body: caption, ...(isVideo ? { video_url: url } : { image_url: url }) })
     } catch (err) {
       setAttachError(err?.message || 'That file could not be sent.')
     }

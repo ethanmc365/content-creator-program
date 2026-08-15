@@ -100,6 +100,8 @@ export default function LanguageGame({ onExit }) {
   const startRef = useRef(0)
   const elapsedRef = useRef(0)
   const savedRef = useRef(!!stored)
+  // How many right in a row, for the rising answer tone. See `choose`.
+  const runRef = useRef(0)
 
   // ONE ROUND A DAY, AND THE SERVER IS THE ONE THAT KNOWS. localStorage answers
   // instantly but is per device; somebody who played on their phone at
@@ -172,8 +174,16 @@ export default function LanguageGame({ onExit }) {
     setPicked(lang)
     // Fired here rather than in an effect: this is a direct response to a tap,
     // which is exactly the gesture the browser's autoplay policy wants to see.
-    if (isRight) playCorrect()
-    else playWrong()
+    //
+    // THE RUN IS AUDIBLE. `playCorrect` transposes itself up a semitone per
+    // consecutive hit, so a streak is something you hear climbing rather than
+    // six identical beeps. A miss resets it, and the drop back to the root is
+    // the "you lost it". Counted in a ref because it is not rendered and must
+    // not restart on a re-render. This mode does not use `useAnswerSound` (it
+    // answers on the tap rather than off an `answered` object), so it keeps its
+    // own counter - same rule, two lines.
+    if (isRight) { runRef.current += 1; playCorrect(runRef.current) }
+    else { runRef.current = 0; playWrong() }
   }
 
   const next = useCallback(() => {

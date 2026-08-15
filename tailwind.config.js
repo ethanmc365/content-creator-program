@@ -77,6 +77,43 @@ export default {
           '35%': { transform: 'scale(1.06) rotate(-2deg)', opacity: '0.92' },
           '70%': { transform: 'scale(0.97) rotate(1.5deg)', opacity: '1' },
         },
+        // A STREAK THAT IS ALIGHT, AND ONE THAT IS ONLY WARM.
+        //
+        // `flicker` above is the movement of the flame itself. These two are
+        // the HALO behind it, and they are what makes the state readable from
+        // across the card: a counted day pulses brightly and quickly, a day
+        // still to be earned glows slowly and faintly. Same shape, different
+        // temperature - which is exactly the distinction the card is making.
+        'flame-glow': {
+          '0%, 100%': { transform: 'scale(1)', opacity: '0.55' },
+          '50%': { transform: 'scale(1.18)', opacity: '0.9' },
+        },
+        // Embers. Slower and much shallower: this must read as waiting, not as
+        // something trying to get your attention.
+        ember: {
+          '0%, 100%': { opacity: '0.5', transform: 'scale(1)' },
+          '50%': { opacity: '0.72', transform: 'scale(1.03)' },
+        },
+        // FULL SCREEN ARRIVING AND LEAVING.
+        //
+        // A map that goes full screen by simply EXISTING at inset-0 is a hard
+        // cut: one frame it is a card in the page, the next it is the whole
+        // window. Ethan: "when entering and exiting the full screen map there
+        // should be clean animation, not just flashy appear."
+        //
+        // It grows from slightly under full size while fading in, which reads
+        // as the card expanding into the window rather than as a new screen
+        // being pasted over the old one. The exit is the same movement
+        // backwards, and it is why the overlay stays mounted for 180ms after
+        // you press the button - see `closing` in the components.
+        'map-in': {
+          from: { opacity: '0', transform: 'scale(0.965)' },
+          to: { opacity: '1', transform: 'scale(1)' },
+        },
+        'map-out': {
+          from: { opacity: '1', transform: 'scale(1)' },
+          to: { opacity: '0', transform: 'scale(0.965)' },
+        },
         // Wrong guess / blocked move: a quick horizontal shake.
         shake: {
           '0%, 100%': { transform: 'translateX(0)' },
@@ -133,6 +170,10 @@ export default {
         confetti: 'confetti 3s linear forwards',
         shake: 'shake 0.4s ease-in-out both',
         flicker: 'flicker 2.6s ease-in-out infinite',
+        'map-in': 'map-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both',
+        'map-out': 'map-out 180ms cubic-bezier(0.4, 0, 1, 1) both',
+        'flame-glow': 'flame-glow 2.6s ease-in-out infinite',
+        ember: 'ember 4.2s ease-in-out infinite',
         'flash-right': 'flash-right 0.9s ease-out both',
         'flash-wrong': 'flash-wrong 0.9s ease-out both',
         fly: 'fly 1.7s ease-in-out infinite',

@@ -70,8 +70,14 @@ function MessageSnapshot({ authorName, authorPhoto, sentAt, body, imageUrl, vide
                 <Icon name="video" className="h-6 w-6" />
               </span>
             )}
+            {/* "This message WAS a photo" was only ever true when there was no
+                text with it. A caption and a picture is one message and the
+                report has to read as one message, not as a picture that has
+                mysteriously grown a paragraph above it. */}
             <span className="text-xs text-smoke">
-              {imageUrl ? 'This message was a photo.' : 'This message was a video.'}
+              {body
+                ? (imageUrl ? 'Sent with this photo.' : 'Sent with this video.')
+                : (imageUrl ? 'This message was a photo.' : 'This message was a video.')}
               {' '}The team can open the original.
             </span>
           </div>

@@ -6,7 +6,7 @@ import Icon from '../Icon'
 import { generateZip, zipIndexForDay, wallKey } from '../../lib/zip'
 import { ukDayIndex, ukDayStartIso, untilNextUkMidnight, dailyStreak } from '../../lib/daily'
 import { cx } from '../../lib/utils'
-import { playCelebrate, playCoin, playWrong, engineThrust, engineStop } from '../../lib/gameSounds'
+import { playCelebrate, playCoin, playWrong, playGearThud, engineThrust, engineStop } from '../../lib/gameSounds'
 
 // Flight Path: drag the plane through the numbered stops in order, leaving a
 // contrail behind you, until every cell of the sky is covered. One layout per
@@ -204,7 +204,15 @@ export default function ZipGame({ onExit }) {
   }
 
   function win() {
-    playCelebrate()
+    // LANDED, THEN WELL DONE - IN THAT ORDER.
+    //
+    // The thud is the event (the route is complete, the aircraft is down) and
+    // the arpeggio is the reaction to it. Played together they are mush; played
+    // in sequence, with the celebration a beat behind, the ear reads them as
+    // cause and effect. 260ms is roughly the length of the gear thump itself,
+    // so the fanfare starts as it finishes rather than over the top of it.
+    playGearThud()
+    setTimeout(playCelebrate, 260)
     const time_ms = Date.now() - startRef.current
     setSolved(true)
     setSolveMs(time_ms)

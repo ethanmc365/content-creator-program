@@ -769,9 +769,6 @@ export default function Collab() {
               onChange={(e) => setInterestNote(e.target.value)}
               placeholder="I'm in Lisbon the same week. Fancy shooting a couple of reels around Alfama, or just a coffee?"
             />
-            <p className="mt-1 text-xs text-smoke">
-              The dates and where you are both going are already on the card. This is for the part they cannot guess.
-            </p>
           </div>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button type="button" onClick={() => setInterestFor(null)} className="btn-ghost w-full justify-center sm:w-auto">Cancel</button>

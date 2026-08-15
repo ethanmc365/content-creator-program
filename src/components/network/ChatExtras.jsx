@@ -73,11 +73,16 @@ export function ReactionRow({ messageId, reactions, myId, onToggle, revealed = f
         ))}
       </AnimatePresence>
 
-      {/* -translate-y-1/2 for the same reason as the legacy chat and the DMs:
-          a control that sits INSIDE the corner of a bubble hides the words it
-          is offering to react to. Centred on the top edge it lives in the gap
-          between messages. */}
-      <div className="absolute right-0 top-0 z-10 flex -translate-y-1/2 items-center gap-1">
+      {/* IT SITS ON THE BOTTOM EDGE, NOT THE TOP ONE.
+          It used to straddle the TOP of the message column, which put it beside
+          the author's name - the furthest point from where your eye actually
+          finishes reading, and on a grouped run of messages it landed on the
+          previous message's last line. Ethan: the reaction buttons should be at
+          the bottom of the message. Centred on the BOTTOM edge it is where the
+          message ends, which is where you decide to react to it, and it still
+          costs no layout at all: this is absolute, so there is no invisible
+          strip under every message the way an `opacity-0` flow row leaves. */}
+      <div className="absolute bottom-0 right-0 z-10 flex translate-y-1/2 items-center gap-1">
         {actions.map((a) => (
           <button
             key={a.label}
@@ -118,6 +123,10 @@ export function ReactionRow({ messageId, reactions, myId, onToggle, revealed = f
               // The button is pinned to the RIGHT edge of the message column,
               // so a panel anchored left ran off the side of the screen.
               align="right"
+              // The button lives on the message's bottom edge now, so the
+              // panel's natural home is above it. ReactionPicker still measures
+              // and flips when the message is near the top of the scroller.
+              prefer="above"
               onPick={(e) => onToggle(messageId, e)}
               onClose={() => setPicking(false)}
             />

@@ -51,35 +51,51 @@ export function CountUp({ value, duration = 900, className, format = (n) => n })
   const reduced = useReducedMotion()
   const target = Number(value) || 0
   const [shown, setShown] = useState(0)
-  // State, not a ref: whether the run-once animation has happened is something
-  // render depends on, and reading a ref during render is exactly the bug the
-  // lint rule exists to catch.
-  const [ran, setRan] = useState(false)
+  // The last value painted, for the effect to animate FROM. A ref because the
+  // effect must not restart every time the number ticks, which is what putting
+  // it in the dependency array would do.
+  const shownRef = useRef(0)
 
+  // THE BUG THIS FIXES: THE COUNTER CANCELLED ITS OWN ANIMATION AND STUCK ON
+  // ZERO.
+  //
+  // There used to be a `ran` state flag, set inside this effect and also listed
+  // in its dependency array. Setting it re-rendered, the changed dependency
+  // re-ran the effect, and React runs the PREVIOUS run's cleanup first - so
+  // `cancelAnimationFrame` fired on the frame after the animation started,
+  // every time. `shown` was left at whatever the first tick produced, which is
+  // zero, and a second effect only pushed the real number through when `target`
+  // itself changed afterwards.
+  //
+  // On a page where the data is already loaded before the counter mounts -
+  // which is every stats page, because they render a skeleton until the rows
+  // land - `target` never changes again, so the number simply never arrived.
+  // That is Ethan's "the km wasn't updating on the cards at the top": the
+  // figures were not stale, they had never been drawn.
+  //
+  // No flag now. The effect animates from wherever the number currently is to
+  // wherever it should be, and re-runs when the target moves - which also makes
+  // an update after adding a flight animate to the new total instead of
+  // snapping to it.
   useEffect(() => {
-    if (!inView || ran) return
-    setRan(true)
-    if (reduced || target === 0) { setShown(target); return }
+    if (!inView) return undefined
+    if (reduced) { shownRef.current = target; setShown(target); return undefined }
+    const from = shownRef.current
+    if (from === target) return undefined
     let raf = 0
     const start = performance.now()
     const tick = (now) => {
       const t = Math.min(1, (now - start) / duration)
       // Same easing as everything else, so a counter and a card that arrive
       // together feel like one movement.
-      setShown(Math.round(target * (1 - Math.pow(1 - t, 3))))
+      const v = Math.round(from + (target - from) * (1 - Math.pow(1 - t, 3)))
+      shownRef.current = v
+      setShown(v)
       if (t < 1) raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [inView, target, duration, reduced, ran])
-
-  // Once the run-once animation is done, later data wins: a refresh that moves
-  // 43 to 44 must show 44, not stay on whatever we last animated to.
-  useEffect(() => {
-    if (ran) setShown(target)
-    // Deliberately only when the target changes, not when `shown` does.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target])
+  }, [inView, target, duration, reduced])
 
   return (
     <span ref={ref} className={cx('tabular-nums', className)}>

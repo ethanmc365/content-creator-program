@@ -1,91 +1,70 @@
-// The games make a noise now.
+// The games make a noise.
 //
 // WHY THEY ARE SYNTHESISED AND NOT FILES.
 //
-// Four sound files is four network requests, four things to host, four entries
-// in the CSP, and a licence question for each one. These are a handful of sine
-// and triangle tones scheduled on a WebAudio graph - a few hundred bytes of
-// code, nothing to load, nothing to attribute, and they can be tuned by reading
-// the numbers rather than by opening an audio editor.
+// Every sound file is a network request, a thing to host, an entry in the CSP
+// and a licence question. These are sine and triangle tones and filtered noise
+// scheduled on a WebAudio graph - a few hundred bytes of code, nothing to load,
+// nothing to attribute, and they can be tuned by reading the numbers rather
+// than by opening an audio editor. The plumbing lives in `soundCore.js`, which
+// the chat sounds share.
 //
 // WHAT THEY SOUND LIKE, AND WHY
 //
-//   right      a two-note rise (E5 -> A5). Short, bright, over in 180ms.
-//   wrong      a two-note fall (F#4 -> C4) on a triangle wave, softer than the
-//              right answer. A harsh buzzer punishes; this just says no.
-//   celebrate  a four-note major arpeggio. Plays with the confetti.
+//   right       a two-note rise (E5 -> A5). Short, bright, over in 180ms, and
+//               it CLIMBS with a streak - see playCorrect.
+//   wrong       a two-note fall (F#4 -> C4) on a triangle wave, softer than the
+//               right answer. A harsh buzzer punishes; this just says no.
+//   celebrate   a four-note major arpeggio. Plays with the confetti.
 //   commiserate a slow minor third down. Sympathetic, not a game-over sting.
+//   coin        two notes a fifth apart, almost on top of each other.
+//   fire        a flare of noise under a rising tone: the streak is alight.
+//   gear        a low broadband thump: Flight Path has landed.
 //
-// Nothing here is louder than 0.16 gain, and every tone has a real attack and
-// release envelope - a raw oscillator start/stop clicks audibly, which sounds
-// like a bug rather than a sound.
-//
-// THE AUTOPLAY RULE. A browser will not let audio start before the person has
-// interacted with the page, and creating an AudioContext on module load leaves a
-// suspended context that never resumes on some engines. So the context is built
-// lazily, on the first sound - which by definition happens after a tap on an
-// answer - and resumed if the browser suspended it in the meantime.
+// Nothing here is louder than 0.18 gain, and every tone has a real attack and
+// release envelope - a raw oscillator start/stop clicks audibly.
+
+import { audio, tone, noiseBuffer, whoosh, thud, player } from './soundCore'
 
 const PREF_KEY = 'tryp-game-sound'
 
-let ctx = null
-
-function audio() {
-  if (typeof window === 'undefined') return null
-  const AC = window.AudioContext || window.webkitAudioContext
-  if (!AC) return null
-  if (!ctx) {
-    try { ctx = new AC() } catch { return null }
-  }
-  if (ctx.state === 'suspended') ctx.resume().catch(() => {})
-  return ctx
-}
-
-/** Is sound on? Defaults to ON; a game with no sound is the thing being fixed. */
+/** Is game sound on? Defaults to ON; a game with no sound is the thing fixed. */
 export function soundOn() {
   try { return localStorage.getItem(PREF_KEY) !== 'off' } catch { return true }
 }
 
 export function setSoundOn(on) {
   try { localStorage.setItem(PREF_KEY, on ? 'on' : 'off') } catch { /* private mode */ }
+  // The speaker button inside a game and the switch in Settings are the same
+  // preference and can be on screen at the same time. `storage` only fires in
+  // OTHER tabs, so this event is what keeps the two honest in THIS one.
+  try { window.dispatchEvent(new CustomEvent('tryp-sound-pref')) } catch { /* SSR */ }
 }
+
+const play = player(soundOn)
 
 /**
- * One tone.
- * @param {number} freq   Hz
- * @param {number} at     seconds from now
- * @param {number} dur    seconds
- * @param {number} peak   gain at the top of the envelope
- * @param {OscillatorType} type
+ * Got it. A short rise - and the rise gets HIGHER the longer you keep getting
+ * them right.
+ *
+ * WHY THE STREAK IS AUDIBLE. A run of correct answers was six identical beeps,
+ * so the only place the run existed was the counter in the header, which you
+ * are not looking at while you answer. Transposing the same two notes up a
+ * semitone per consecutive hit turns the run into something you can hear
+ * building, and dropping straight back to the root on a miss is a more honest
+ * "you lost it" than any separate sound would be.
+ *
+ * Capped at eight semitones. Past that it stops reading as the same sound going
+ * up and starts reading as a different, shriller sound - and a quiz that gets
+ * more piercing the better you do has the incentive backwards.
+ *
+ * @param {number} [streak] how many in a row INCLUDING this one. 1 is the root.
  */
-function tone(a, freq, at, dur, peak, type = 'sine') {
-  const t0 = a.currentTime + at
-  const osc = a.createOscillator()
-  const gain = a.createGain()
-  osc.type = type
-  osc.frequency.setValueAtTime(freq, t0)
-  // Attack, hold, release. `setValueAtTime(0)` first so the ramp has somewhere
-  // to start from - without it the value is whatever the last note left behind
-  // and the envelope does not apply.
-  gain.gain.setValueAtTime(0.0001, t0)
-  gain.gain.exponentialRampToValueAtTime(peak, t0 + 0.012)
-  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur)
-  osc.connect(gain).connect(a.destination)
-  osc.start(t0)
-  osc.stop(t0 + dur + 0.02)
-}
-
-const play = (notes) => {
-  if (!soundOn()) return
-  const a = audio()
-  if (!a) return
-  try { notes(a) } catch { /* a context torn down mid-navigation */ }
-}
-
-/** Got it. A short rise. */
-export const playCorrect = () => play((a) => {
-  tone(a, 659.25, 0, 0.10, 0.13)   // E5
-  tone(a, 880.00, 0.075, 0.16, 0.12) // A5
+export const playCorrect = (streak = 1) => play((a) => {
+  const steps = Math.min(Math.max(streak - 1, 0), 8)
+  const k = Math.pow(2, steps / 12)
+  tone(a, 659.25 * k, 0, 0.10, 0.13)      // E5, transposed
+  tone(a, 880.00 * k, 0.075, 0.16, 0.12)  // A5, transposed
 })
 
 /** Missed it. A soft fall, quieter than the right answer on purpose. */
@@ -124,27 +103,73 @@ export const playCoin = () => play((a) => {
   tone(a, 1567.98, 0.055, 0.22, 0.09, 'square') // G6
 })
 
+/**
+ * THE STREAK CATCHING. A flare of low noise sweeping upward with a rising tone
+ * riding on it - the acoustic shape of something igniting rather than a chime
+ * that happens to play near a flame icon.
+ *
+ * It fires when you first open the travel games with a live streak, and when a
+ * puzzle you have just finished extends one. Once per page, never per render:
+ * a fire noise on every re-render is the fastest way to get sound switched off
+ * permanently. The guard for that lives with the flame, not here.
+ */
+export const playFireWhoosh = () => play((a) => {
+  whoosh(a, { at: 0, dur: 0.5, from: 240, to: 1500, peak: 0.075, q: 0.8, attack: 0.28, seed: 9137 })
+  // The body of the flare. Low, and it rises with the noise so the two read as
+  // one event rather than as a hiss with a beep on top.
+  tone(a, 174.61, 0.02, 0.42, 0.07, 'triangle', 392.00) // F3 -> G4
+  tone(a, 349.23, 0.08, 0.34, 0.045, 'sine', 659.25)    // F4 -> E5, the shimmer
+})
+
+/**
+ * FLIGHT PATH HAS LANDED. A landing-gear thud: a broadband impact with a low
+ * body under it that drops in pitch, then a short tyre scuff.
+ *
+ * It plays on COMPLETION, before the celebrate arpeggio, so the sequence reads
+ * as "landed, well done" rather than as two celebrations at once.
+ */
+export const playGearThud = () => play((a) => {
+  thud(a, { at: 0, peak: 0.17, freq: 84, dur: 0.34, seed: 3390 })
+  // The scuff. Quieter, higher, and slightly late: rubber after metal.
+  whoosh(a, { at: 0.06, dur: 0.28, from: 1600, to: 380, peak: 0.045, q: 0.6, attack: 0.2, seed: 6021 })
+})
+
+/**
+ * THE PLANE CLIMBING A MILESTONE PATH. A short ascending pass: engine noise
+ * sweeping up under a rising two-note figure.
+ *
+ * Deliberately not the Flight Path propeller. That one is a loop that runs for
+ * as long as you are flying; this is a single gesture that plays once as the
+ * plane sets off along the milestone track, and it has to be over before the
+ * first milestone coin lands or the two sounds fight.
+ */
+export const playPlaneRise = () => play((a) => {
+  whoosh(a, { at: 0, dur: 0.66, from: 300, to: 1250, peak: 0.05, q: 1.4, attack: 0.5, seed: 4813 })
+  tone(a, 392.00, 0.04, 0.30, 0.065, 'triangle', 523.25) // G4 -> C5
+  tone(a, 523.25, 0.30, 0.36, 0.055, 'triangle', 659.25) // C5 -> E5
+})
+
 // ---------------------------------------------------------------- the engine
 //
 // A PROPELLER, NOT A JET, AND NOT A LOOPED FILE.
 //
-// Ethan asked for "an airplane flying sound" while you fly the route. A sampled
-// engine loop would be another file, another licence and another CSP entry (see
-// the note at the top), and a looped sample is also the version that becomes
-// unbearable after ninety seconds because the loop point is audible.
+// A sampled engine loop would be another file, another licence and another CSP
+// entry, and a looped sample is also the version that becomes unbearable after
+// ninety seconds because the loop point is audible.
 //
-// So it is synthesised from three parts, which is roughly what a propeller
-// actually is:
+// So it is synthesised from parts, which is roughly what an aircraft actually
+// is from the cabin:
 //
-//   noise      a filtered white-noise buffer, looping. This is the air.
-//   drone      a low sawtooth under it. This is the engine block.
-//   throb      an LFO on the noise gain at ~11Hz. This is the blade passing,
-//              and it is the part that makes it read as a propeller rather
-//              than as static.
+//   noise      filtered white noise, looping. This is the airflow.
+//   blades     a narrow resonant band on the same noise, modulated. This is the
+//              part your ear identifies as an engine rather than as wind.
+//   drone      two detuned sawtooths under it. This is the engine block, and
+//              the detune is what stops it sounding like a test tone.
+//   throb      an LFO on the blade gain. The blade passing frequency.
 //
 // IT ONLY MAKES A NOISE WHILE THE PLANE IS MOVING. A drone that runs from the
-// moment the puzzle opens is a drone somebody turns the sound off to escape, and
-// they do not turn it back on. `engineThrust()` is called on every step and
+// moment the puzzle opens is a drone somebody turns the sound off to escape,
+// and they do not turn it back on. `engineThrust()` is called on every step and
 // opens the gain; it closes itself half a second after the last one, so
 // thinking in silence is possible and flying is not.
 //
@@ -155,16 +180,7 @@ let engine = null
 
 function buildEngine(a) {
   // Two seconds of noise is long enough that the loop is not audible as a loop.
-  const frames = a.sampleRate * 2
-  const buffer = a.createBuffer(1, frames, a.sampleRate)
-  const data = buffer.getChannelData(0)
-  // Deterministic, cheap, and one less reason for a lint rule to care: a
-  // hand-rolled LCG rather than Math.random.
-  let seed = 22222
-  for (let i = 0; i < frames; i++) {
-    seed = (seed * 1664525 + 1013904223) >>> 0
-    data[i] = (seed / 2147483648) - 1
-  }
+  const buffer = noiseBuffer(a, 2, 22222)
 
   const out = a.createGain()
   out.gain.setValueAtTime(0.0001, a.currentTime)
@@ -173,37 +189,77 @@ function buildEngine(a) {
   const noise = a.createBufferSource()
   noise.buffer = buffer
   noise.loop = true
-  const band = a.createBiquadFilter()
-  band.type = 'bandpass'
-  band.frequency.value = 420
-  band.Q.value = 0.7
-  const noiseGain = a.createGain()
-  noiseGain.gain.value = 0.5
-  noise.connect(band).connect(noiseGain).connect(out)
 
-  // The blade. A slow sine on the noise gain, which is the whole difference
-  // between "a propeller" and "a hiss".
+  // THE AIRFLOW. Wide and low: this is the bed the rest sits on.
+  //
+  // It used to be the ONLY noise path, a single bandpass at 420Hz with Q 0.7,
+  // and Ethan's note was that it did not sound like a plane. That is exactly
+  // what one wide band of noise sounds like: a hiss. A real engine has a
+  // strong resonant peak - the blade passing tone - which is what the ear
+  // actually latches onto, and a broad rush of air around it.
+  const air = a.createBiquadFilter()
+  air.type = 'bandpass'
+  air.frequency.value = 320
+  air.Q.value = 0.5
+  const airGain = a.createGain()
+  airGain.gain.value = 0.34
+  noise.connect(air).connect(airGain).connect(out)
+
+  // THE BLADES. A narrow, high-Q peak on the same noise source. Q 9 is tight
+  // enough to ring, which is the whistle you hear from a turbofan; wider than
+  // that and it goes back to being a hiss, narrower and it becomes a whistle
+  // with no engine attached to it.
+  const blades = a.createBiquadFilter()
+  blades.type = 'bandpass'
+  blades.frequency.value = 1180
+  blades.Q.value = 9
+  const bladeGain = a.createGain()
+  bladeGain.gain.value = 0.22
+  noise.connect(blades).connect(bladeGain).connect(out)
+
+  // A second, higher partial of the same whistle. Two of them an octave and a
+  // bit apart is the difference between "a tone" and "machinery".
+  const blades2 = a.createBiquadFilter()
+  blades2.type = 'bandpass'
+  blades2.frequency.value = 2600
+  blades2.Q.value = 12
+  const blade2Gain = a.createGain()
+  blade2Gain.gain.value = 0.1
+  noise.connect(blades2).connect(blade2Gain).connect(out)
+
+  // The blade passing frequency, modulating the whistle rather than the air.
+  // On the air it read as a wobble; on the whistle it reads as rotation.
   const throb = a.createOscillator()
   throb.type = 'sine'
-  throb.frequency.value = 11
+  throb.frequency.value = 15
   const throbDepth = a.createGain()
-  throbDepth.gain.value = 0.32
-  throb.connect(throbDepth).connect(noiseGain.gain)
+  throbDepth.gain.value = 0.12
+  throb.connect(throbDepth).connect(bladeGain.gain)
 
-  const drone = a.createOscillator()
-  drone.type = 'sawtooth'
-  drone.frequency.value = 62
+  // THE ENGINE BLOCK. Two sawtooths a few cents apart through a lowpass. The
+  // beating between them is slow and irregular, which is why it sounds like
+  // something running rather than like a held note.
+  const droneGain = a.createGain()
+  droneGain.gain.value = 0.13
   const droneLp = a.createBiquadFilter()
   droneLp.type = 'lowpass'
-  droneLp.frequency.value = 220
-  const droneGain = a.createGain()
-  droneGain.gain.value = 0.16
-  drone.connect(droneLp).connect(droneGain).connect(out)
+  droneLp.frequency.value = 260
+  droneLp.connect(droneGain).connect(out)
+
+  const droneA = a.createOscillator()
+  droneA.type = 'sawtooth'
+  droneA.frequency.value = 58
+  droneA.connect(droneLp)
+  const droneB = a.createOscillator()
+  droneB.type = 'sawtooth'
+  droneB.frequency.value = 58.9
+  droneB.connect(droneLp)
 
   noise.start()
   throb.start()
-  drone.start()
-  return { out, nodes: [noise, throb, drone], timer: null }
+  droneA.start()
+  droneB.start()
+  return { out, nodes: [noise, throb, droneA, droneB], timer: null }
 }
 
 /**

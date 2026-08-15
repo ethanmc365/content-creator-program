@@ -73,8 +73,12 @@ export function PlaneLoader({ label = 'Loading…', className = '' }) {
 }
 
 /** Grey shimmer block - compose these into loading skeletons, never blank screens. */
-export function Skeleton({ className = '' }) {
-  return <div className={cx('skeleton', className)} />
+export function Skeleton({ className = '', style }) {
+  // `style` is here for the one case a class cannot cover: the community
+  // board's placeholders are deliberately DIFFERENT heights, because the notes
+  // they stand in for are, and a column of identical grey rectangles promises a
+  // grid that is about to arrive and then does not.
+  return <div className={cx('skeleton', className)} style={style} />
 }
 
 /** A standard card-shaped loading skeleton used by list pages. */

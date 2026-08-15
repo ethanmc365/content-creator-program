@@ -33,23 +33,34 @@ import { cx } from '../../lib/utils'
 // NO MOTION IMPORT. The hub is eagerly routed; entrance animation is the page's
 // own `Reveal`, which is CSS-only for exactly this reason.
 
+// THE ACTION LIVES ON THE RIGHT, AND IT LOOKS LIKE A BUTTON.
+//
+// Ethan: "I think move the play and played button to the right side of each
+// card, just make the design better."
+//
+// What was there was a bare chevron in the right margin plus a "Played" pill
+// wedged in beside the title, so the state was on the left, the affordance was
+// on the right, and neither read as something to press. Now the right-hand end
+// of every card is one control that says exactly what pressing it does: Play,
+// or Played with a tick. The whole card is still the link - the button is a
+// target, not the only one - which is why it is a span and not a nested button.
+//
+// The row also lost its tinted background. Three full-width gradient panels
+// stacked up were the loudest thing on the hub, and the coloured icon tile plus
+// the coloured button already carry the state twice over. White cards with a
+// brand-tinted left edge is the same language as everything else on the page.
 function PuzzleCard({ puzzle, done, count }) {
   return (
     <Link
       to={`/game?daily=${puzzle.key}`}
       className={cx(
-        'group flex items-center gap-3.5 rounded-card border px-4 py-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift',
-        done
-          // PLAYED IS GREEN, AND ONLY PLAYED IS GREEN. The whole card carries it
-          // so the state is readable at a glance down a column of three, rather
-          // than living in a tick somebody has to hunt for.
-          ? 'border-green-500/40 bg-green-50/70 hover:border-green-500/70'
-          : 'border-brand/25 bg-gradient-to-r from-brand-tint/50 to-brand-tint/20 hover:border-brand/50',
+        'group flex items-center gap-3.5 rounded-card border bg-white px-4 py-3.5 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift',
+        done ? 'border-green-500/30 hover:border-green-500/60' : 'border-gray-100 hover:border-brand/50',
       )}
     >
       <span
         className={cx(
-          'flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-white shadow-card transition-transform duration-200 group-hover:scale-110',
+          'flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-white shadow-card transition-transform duration-200 group-hover:scale-110',
           done ? 'bg-green-600' : 'bg-brand',
         )}
       >
@@ -57,14 +68,7 @@ function PuzzleCard({ puzzle, done, count }) {
       </span>
 
       <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-2">
-          <span className="truncate text-sm font-semibold text-ink">{puzzle.title}</span>
-          {done && (
-            <span className="shrink-0 rounded-full bg-green-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
-              Played
-            </span>
-          )}
-        </span>
+        <span className="block truncate text-sm font-semibold text-ink">{puzzle.title}</span>
         <span className="mt-0.5 block truncate text-xs text-smoke">
           {/* The count is the point, so it wins the line whenever there is one.
               "Nobody yet" is not a discouragement here, it is an opening. */}
@@ -76,10 +80,29 @@ function PuzzleCard({ puzzle, done, count }) {
         </span>
       </span>
 
-      <Icon
-        name="chevronRight"
-        className={cx('h-5 w-5 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5', done ? 'text-green-600' : 'text-brand')}
-      />
+      {/* Fixed width, so three cards have their buttons on the same vertical
+          line. "Played" and "Play" are different lengths and a right-aligned
+          pair of them would stagger down the column. */}
+      <span
+        className={cx(
+          'flex w-[5.5rem] shrink-0 items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-bold transition-all duration-200',
+          done
+            ? 'bg-green-50 text-green-700 ring-1 ring-inset ring-green-500/30'
+            : 'bg-brand text-white shadow-card group-hover:scale-105',
+        )}
+      >
+        {done ? (
+          <>
+            <Icon name="check" className="h-3.5 w-3.5" />
+            Played
+          </>
+        ) : (
+          <>
+            Play
+            <Icon name="chevronRight" className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+          </>
+        )}
+      </span>
     </Link>
   )
 }
@@ -106,11 +129,14 @@ export default function DailyPuzzleCallout({ className }) {
               {streak} day{streak === 1 ? '' : 's'}
             </span>
           )}
-          <span className="text-xs text-smoke">
-            {doneCount === DAILY_PUZZLES.length
-              ? 'All three done. New ones at midnight.'
-              : `${doneCount} of ${DAILY_PUZZLES.length} done today`}
-          </span>
+          {/* Nothing once they are all done, for the same reason the games
+              page dropped its version of this line: three green Played buttons
+              directly underneath already say so, and "New ones at midnight" is
+              the app telling somebody who just finished to come back tomorrow,
+              in the place the reason to stay should be. */}
+          {doneCount < DAILY_PUZZLES.length && (
+            <span className="text-xs text-smoke">{doneCount} of {DAILY_PUZZLES.length} done today</span>
+          )}
         </span>
       </div>
 

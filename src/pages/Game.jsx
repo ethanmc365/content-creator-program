@@ -42,7 +42,10 @@ const REGIONS = ['World', ...CONTINENTS]
 // It moved up to the daily shelf (see DAILIES) at Ethan's request, which is
 // also what makes this row a clean four.
 const MODES = [
-  { key: 'flags', icon: 'flag', title: 'Guess the flag', text: 'Some you will know instantly. Some are three stripes and a prayer.', regions: true },
+  // Plain and factual. The old line ("Some you will know instantly. Some are
+  // three stripes and a prayer.") was trying too hard next to three sentences
+  // that simply say what the game is, and it read as the odd one out.
+  { key: 'flags', icon: 'flag', title: 'Guess the flag', text: 'See the flag, name the country.', regions: true },
   { key: 'map', icon: 'pin', title: 'Find it on the map', text: 'You know where it is. Now put your finger on it.', regions: true },
   { key: 'airports', icon: 'plane', title: 'Airport codes', text: 'Three letters on a boarding pass. Which city?', regions: true },
   { key: 'currencies', icon: 'cash', title: 'What do they spend?', text: 'Match the country to the money in its tills.', regions: true },
@@ -124,6 +127,36 @@ export default function Game() {
     if (DAILY_KEYS.includes(d)) setScreen(d)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // STARTING A GAME PUTS THE GAME ON SCREEN.
+  //
+  // THE BUG THIS FIXES. Screens swap in place, and the browser keeps your
+  // scroll offset when they do. The menu is tall on a phone - the streak card
+  // alone is most of a screen - so by the time you have scrolled down to the
+  // daily cards and tapped one, you are several hundred pixels down a page that
+  // has just become much shorter. That offset now lands squarely on the
+  // leaderboard, and the board you actually asked for is off the top. Ethan:
+  // "on mobile when you click to play a daily game it doesn't immediately show
+  // up, it's scrolled further down the screen showing leaderboard".
+  //
+  // Every game renders at the top of this container, so scrolling the container
+  // to the top of the viewport is the correct answer for all of them.
+  const boardRef = useRef(null)
+  const [screenSeq, setScreenSeq] = useState(0)
+  useEffect(() => {
+    if (screen === 'menu') return
+    // After paint, or we measure the element the old screen left behind.
+    const raf = requestAnimationFrame(() => {
+      const el = boardRef.current
+      if (!el) return
+      const y = el.getBoundingClientRect().top + window.scrollY - 12
+      // `instant` on purpose. A smooth scroll here races the game's own
+      // entrance animation and you watch the page slide while the board fades
+      // in, which reads as two things going wrong at once.
+      window.scrollTo({ top: Math.max(0, y), behavior: 'auto' })
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [screen, screenSeq])
+
   function start(m, r) {
     const mm = m || mode, rr = r || region
     const pool = mm === 'airports' ? airportsForRegion(rr)
@@ -138,20 +171,33 @@ export default function Game() {
     setQuestions(qs)
     setSavedScore(null)
     setScreen('play')
+    // "Play again" goes results -> play -> play, so `screen` alone would not
+    // change on the second press and the page would stay where it was.
+    setScreenSeq((n) => n + 1)
   }
 
   return (
     <div className="page">
+      {/* No standing subtitle. It said "Three puzzles a day for everyone, and
+          four more you can play as often as you like", which is a description
+          of the two section headings directly underneath it. */}
       <PageHeader
         title={<span className="flex items-center gap-2"><Icon name="joystick" className="h-7 w-7 text-brand" /> Games</span>}
-        subtitle={event ? `Event: ${event.title}` : 'Three puzzles a day for everyone, and four more you can play as often as you like.'}
+        subtitle={event ? `Event: ${event.title}` : undefined}
       />
 
       {/* THE STREAK LEADS. It is the reason somebody opens this page on a day
           they were not planning to, so it sits above the games rather than
-          beside them. */}
+          beside them.
+          Its own Reveal so it RISES IN rather than simply being there: this is
+          the first thing on the page and it was the one big element with no
+          entrance at all. Every section below carries its own, with a small
+          ladder of head starts, so the page assembles top to bottom instead of
+          flashing in as one block. */}
       {!event && screen === 'menu' && (
-        <StreakCard className="mb-8" days={myDays} today={ukDayIndex()} byPuzzle={daysByPuzzle} />
+        <Reveal className="mb-8" from="down">
+          <StreakCard days={myDays} today={ukDayIndex()} />
+        </Reveal>
       )}
 
       {/* The menu drives the shared mode/region state, so the all-time
@@ -168,14 +214,18 @@ export default function Game() {
           daysByPuzzle={daysByPuzzle} playedToday={playedToday}
         />
       )}
-      {screen === 'play' && <Round mode={mode} region={region} questions={questions} onQuit={() => setScreen('menu')} onFinish={(r) => { setSavedScore(r); setScreen('results') }} />}
-      {screen === 'results' && (
-        <Results result={savedScore} mode={mode} region={region} eventId={eventId} userId={user.id}
-          onPlayAgain={() => start(mode, region)} onMenu={() => setScreen('menu')} />
-      )}
-      {screen === 'pinpoint' && <PinpointGame onExit={() => setScreen('menu')} />}
-      {screen === 'zip' && <ZipGame onExit={() => setScreen('menu')} />}
-      {screen === 'languages' && <LanguageGame onExit={() => setScreen('menu')} />}
+      {/* Every game board hangs off this one anchor, which is what the
+          scroll-into-view effect above measures. */}
+      <div ref={boardRef}>
+        {screen === 'play' && <Round mode={mode} region={region} questions={questions} onQuit={() => setScreen('menu')} onFinish={(r) => { setSavedScore(r); setScreen('results') }} />}
+        {screen === 'results' && (
+          <Results result={savedScore} mode={mode} region={region} eventId={eventId} userId={user.id}
+            onPlayAgain={() => start(mode, region)} onMenu={() => setScreen('menu')} />
+        )}
+        {screen === 'pinpoint' && <PinpointGame onExit={() => setScreen('menu')} />}
+        {screen === 'zip' && <ZipGame onExit={() => setScreen('menu')} />}
+        {screen === 'languages' && <LanguageGame onExit={() => setScreen('menu')} />}
+      </div>
 
       <div className="mt-12">
         {DAILY_KEYS.includes(screen) ? (
@@ -284,17 +334,22 @@ function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle, 
         </div>
       )}
 
-      <section>
+      <Reveal as="section" from="down" delay={0.06}>
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-lg font-semibold">Today&rsquo;s puzzles</h2>
-          <span className="text-xs text-smoke">
-            {/* The line that says WHY to come back today rather than tomorrow. */}
-            {allDone
-              ? 'All three done. New ones at midnight.'
-              : doneCount
+          {/* The line that says WHY to come back today rather than tomorrow -
+              and NOTHING at all once there is nothing left to come back for.
+              "All three done. New ones at midnight." was telling somebody who
+              had finished to go away, in the place where the reason to stay
+              should be. The three green ticks on the cards below already say
+              they are done. */}
+          {!allDone && (
+            <span className="text-xs text-smoke">
+              {doneCount
                 ? `${doneCount} of 3 done. The rest expire at midnight.`
                 : 'Everyone gets the same three, until midnight.'}
-          </span>
+            </span>
+          )}
         </div>
         {/* THREE ACROSS ON A WIDE SCREEN, ONE ABOVE THE OTHER ON A PHONE. Two
             columns would leave the third puzzle alone on its own row looking
@@ -305,12 +360,11 @@ function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle, 
               streak={dailyStreak(daysByPuzzle?.[d.key] || [])} onPlay={() => onDaily(d.key)} />
           ))}
         </Reveal>
-      </section>
+      </Reveal>
 
-      <section>
+      <Reveal as="section" from="down" delay={0.12}>
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-lg font-semibold">Play as many as you like</h2>
-          <span className="text-xs text-smoke">Ten questions, any time</span>
+          <h2 className="text-lg font-semibold">Other Travel Games</h2>
         </div>
         {/* Four modes, so two rows of two on a phone and a clean row of four on
             a desktop. A three-column grid left one card orphaned. */}
@@ -346,13 +400,13 @@ function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle, 
             )
           })}
         </Reveal>
-      </section>
+      </Reveal>
 
       {/* THE REGION BELONGS TO THE MODE, AND SO DOES THE START BUTTON.
           Both used to be their own sections below a grid, which meant choosing
           a mode and starting it were three scroll-lengths apart and the region
           pills were offered for modes that have no regions. */}
-      <section className="rounded-card border border-gray-100 bg-cloud/50 p-5">
+      <Reveal as="section" from="down" delay={0.18} className="rounded-card border border-gray-100 bg-cloud/50 p-5">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-widest text-smoke">Ready to play</p>
@@ -391,7 +445,7 @@ function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle, 
             </div>
           </div>
         )}
-      </section>
+      </Reveal>
     </div>
   )
 }

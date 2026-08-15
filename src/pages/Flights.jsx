@@ -45,6 +45,29 @@ const MOON_KM = 384400
 // dropping a column to remove a control would throw away whatever anybody has
 // already logged, for no gain.
 
+// Why the trip happened. Six options and no more: the value of this field is
+// that it can be counted, and a taxonomy nobody can hold in their head is a
+// taxonomy that gets filled in inconsistently and then cannot be counted.
+// `creator` is the one that justifies the field existing on THIS platform.
+const PURPOSES = [
+  { key: 'creator', label: 'Creator trip' },
+  { key: 'leisure', label: 'Holiday' },
+  { key: 'work', label: 'Work' },
+  { key: 'family', label: 'Family' },
+  { key: 'commute', label: 'Commute' },
+  { key: 'other', label: 'Other' },
+]
+const PURPOSE_LABEL = Object.fromEntries(PURPOSES.map((p) => [p.key, p.label]))
+
+// One shape, declared once. `save` resets to it and the modal's Cancel does
+// too, so there is no list of fields to keep in step in three places - which is
+// how `seat` would have ended up surviving between two flights.
+const BLANK_FORM = {
+  from_iata: '', to_iata: '', flown_on: '', airline: '', flight_number: '',
+  aircraft: '', note: '', seat: '', purpose: '', rating: 0,
+  round_trip: false, return_on: '',
+}
+
 const km = (n) => Math.round(n).toLocaleString('en-GB')
 const miles = (n) => Math.round(n * 0.621371).toLocaleString('en-GB')
 
@@ -150,6 +173,123 @@ function AirportField({ id, label, value, onChange, autoFocus = false }) {
   )
 }
 
+// ------------------------------------------------------------- the date field
+//
+// A TYPED DATE, WITHOUT THE NATIVE CONTROL.
+//
+// `<input type="date">` is three segments the browser owns. Typing into it
+// works, but every segment you land on is painted with the OS selection
+// highlight - a blue block that flashes across the field as you type, which is
+// what Ethan is describing: "entering the dates by typing is what I want but it
+// shouldn't have to show up the blue highlight". You cannot style that. It is
+// UA shadow DOM and `::selection` does not reach it.
+//
+// So this is three ordinary numeric inputs that behave the way the native one
+// behaves and nothing more: type two digits and the caret moves on by itself,
+// backspace at the start of a box moves back, and paste of a whole date fills
+// all three. The rest of the app's `.input` styling wraps the group so it still
+// looks like one field.
+//
+// "dd should change to 00 when I'm typing there": the placeholder is the
+// LETTERS when the box is at rest and ZEROS while it has focus. Resting on
+// letters says what the box is for; switching to zeros the moment you land on
+// it says how many digits it wants, which is the thing you need at exactly the
+// moment you are about to type.
+function DatePart({ id, label, value, onChange, onOverflow, onBack, width, max, inputRef }) {
+  const [focused, setFocused] = useState(false)
+  return (
+    <input
+      id={id}
+      ref={inputRef}
+      aria-label={label}
+      inputMode="numeric"
+      autoComplete="off"
+      value={value}
+      onFocus={(e) => { setFocused(true); e.target.select() }}
+      onBlur={() => setFocused(false)}
+      onChange={(e) => {
+        const digits = e.target.value.replace(/\D/g, '').slice(0, max)
+        onChange(digits)
+        if (digits.length === max) onOverflow?.()
+      }}
+      onKeyDown={(e) => {
+        // Backspace on an empty box steps back to the previous one, which is
+        // the one behaviour people expect from a segmented field and the one
+        // that is annoying to be without.
+        if (e.key === 'Backspace' && !value) { e.preventDefault(); onBack?.() }
+      }}
+      placeholder={focused ? '0'.repeat(max) : label}
+      className={cx(
+        'bg-transparent text-center text-sm tabular-nums text-ink outline-none placeholder:text-gray-300',
+        width,
+      )}
+    />
+  )
+}
+
+function DateField({ id, label, value, onChange, max, hint }) {
+  // The three parts are LOCAL state, not derived from `value` on every render.
+  // A controlled field that reformats mid-typing is a field you cannot type "1"
+  // into, because the moment you do it becomes "01" and the caret jumps.
+  const [d, setD] = useState(() => (value ? value.slice(8, 10) : ''))
+  const [m, setM] = useState(() => (value ? value.slice(5, 7) : ''))
+  const [y, setY] = useState(() => (value ? value.slice(0, 4) : ''))
+  const mRef = useRef(null)
+  const yRef = useRef(null)
+  const dRef = useRef(null)
+
+  // The parent can clear the field (saving resets the form). Only ever pull
+  // FROM the parent when it has genuinely gone somewhere this component did not
+  // put it, or every keystroke fights the round trip.
+  useEffect(() => {
+    if (value) return
+    if (d || m || y) { setD(''); setM(''); setY('') }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value])
+
+  // Push up only when all three are complete and the result is a real date.
+  // 31/02 is three complete boxes and not a day, and a form that accepts it
+  // and fails on save is worse than one that simply waits.
+  useEffect(() => {
+    if (d.length === 2 && m.length === 2 && y.length === 4) {
+      const iso = `${y}-${m}-${d}`
+      const dt = new Date(`${iso}T12:00:00Z`)
+      const ok = !Number.isNaN(dt.getTime())
+        && dt.getUTCDate() === Number(d) && dt.getUTCMonth() + 1 === Number(m)
+      onChange(ok ? iso : '')
+    } else {
+      onChange('')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [d, m, y])
+
+  const future = value && max && value > max
+
+  return (
+    <div>
+      <label htmlFor={`${id}-d`} className="label">{label}</label>
+      <div
+        className={cx(
+          'flex w-full items-center gap-0.5 rounded-xl border bg-white px-3.5 py-2.5 transition-colors focus-within:border-brand',
+          future ? 'border-red-300' : 'border-gray-200',
+        )}
+      >
+        <DatePart id={`${id}-d`} inputRef={dRef} label="DD" max={2} width="w-7" value={d}
+          onChange={setD} onOverflow={() => mRef.current?.focus()} />
+        <span className="text-gray-300">/</span>
+        <DatePart id={`${id}-m`} inputRef={mRef} label="MM" max={2} width="w-8" value={m}
+          onChange={setM} onOverflow={() => yRef.current?.focus()} onBack={() => dRef.current?.focus()} />
+        <span className="text-gray-300">/</span>
+        <DatePart id={`${id}-y`} inputRef={yRef} label="YYYY" max={4} width="w-12" value={y}
+          onChange={setY} onBack={() => mRef.current?.focus()} />
+      </div>
+      {future
+        ? <p className="mt-1 text-[11px] text-red-500">That is in the future. Log it after you fly.</p>
+        : hint && <p className="mt-1 text-[11px] text-gray-400">{hint}</p>}
+    </div>
+  )
+}
+
 // ------------------------------------------------- what the route already knows
 //
 // EVERYTHING HERE IS DERIVED FROM TWO AIRPORT CODES AND A DATE. Nothing is
@@ -230,10 +370,7 @@ export default function Flights() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [showAll, setShowAll] = useState(false)
-  const [form, setForm] = useState({
-    from_iata: '', to_iata: '', flown_on: '', airline: '', flight_number: '',
-    aircraft: '', duration_min: '', note: '',
-  })
+  const [form, setForm] = useState(BLANK_FORM)
   // "Show me every airline, not just the likely ones" / "every aircraft that
   // could do this". The shortlist is right most of the time and the escape
   // hatch has to be one press away, not a different form.
@@ -263,13 +400,32 @@ export default function Flights() {
   // "which airport most" are the same question asked twice and should be
   // counted once.
   const stats = useMemo(() => {
+    // AN AIRPORT WE CANNOT RESOLVE MUST NOT DELETE THE FLIGHT.
+    //
+    // This used to end `.filter((r) => r.from && r.to)`, which silently dropped
+    // any row whose IATA code is not in lib/airports - out of the distance, out
+    // of the hours, out of the year bars, out of everything. That is a flight
+    // somebody logged vanishing from their own totals with no explanation,
+    // which is exactly the shape of "the km wasn't updating".
+    //
+    // The stored `distance_km` is the row's own answer and does not need the
+    // table, so a row with an unknown code still counts towards everything
+    // measured in kilometres. It is only left out of the things that genuinely
+    // need coordinates - the map, the airport tally, the country set - and
+    // `placeable` is what says which is which.
     const list = (rows ?? []).map((r) => {
       const from = airport(r.from_iata)
       const to = airport(r.to_iata)
       const dist = Number(r.distance_km) || (from && to ? distanceKm(from, to) : 0)
-      const mins = r.duration_min || estimateMinutes(dist)
-      return { ...r, from, to, dist, mins, estimated: !r.duration_min }
-    }).filter((r) => r.from && r.to)
+      return {
+        ...r,
+        from: from || { iata: r.from_iata, city: r.from_iata, country: null },
+        to: to || { iata: r.to_iata, city: r.to_iata, country: null },
+        placeable: !!(from && to),
+        dist,
+        mins: estimateMinutes(dist),
+      }
+    })
 
     const airportCount = new Map()
     const countries = new Set()
@@ -277,19 +433,21 @@ export default function Flights() {
     const aircraft = new Set()
     const routeCount = new Map()
     const byYear = new Map()
+    const byPurpose = new Map()
+    const airlineRating = new Map()
     let distance = 0
     let minutes = 0
     let carbon = 0
-    let anyEstimated = false
+    let rated = 0
+    let ratingTotal = 0
 
     for (const f of list) {
       distance += f.dist
       minutes += f.mins
       carbon += co2Kg(f.dist)
-      if (f.estimated) anyEstimated = true
       for (const a of [f.from, f.to]) {
         airportCount.set(a.iata, (airportCount.get(a.iata) || 0) + 1)
-        countries.add(a.country)
+        if (a.country) countries.add(a.country)
       }
       if (f.airline?.trim()) airlines.add(f.airline.trim().toLowerCase())
       if (f.aircraft?.trim()) aircraft.add(f.aircraft.trim().toLowerCase())
@@ -302,25 +460,50 @@ export default function Flights() {
       cur.flights += 1
       cur.distance += f.dist
       byYear.set(y, cur)
+      if (f.purpose) byPurpose.set(f.purpose, (byPurpose.get(f.purpose) || 0) + 1)
+      if (f.rating) {
+        rated += 1
+        ratingTotal += f.rating
+        // AN AVERAGE NEEDS MORE THAN ONE FLIGHT TO MEAN ANYTHING, so the count
+        // travels with the sum and the display refuses to name a best airline
+        // off a single rating.
+        if (f.airline?.trim()) {
+          const key = f.airline.trim()
+          const a = airlineRating.get(key) || { name: key, n: 0, total: 0 }
+          a.n += 1
+          a.total += f.rating
+          airlineRating.set(key, a)
+        }
+      }
     }
 
     const topAirport = [...airportCount.entries()].sort((a, b) => b[1] - a[1])[0]
     const topRoute = [...routeCount.entries()].sort((a, b) => b[1] - a[1])[0]
     const longest = list.reduce((best, f) => (!best || f.dist > best.dist ? f : best), null)
-    // Not the same flight as the longest DISTANCE: a headwind-heavy sector or a
-    // logged gate-to-gate time can put a shorter route at the top.
     const longestTime = list.reduce((best, f) => (!best || f.mins > best.mins ? f : best), null)
+    const bestFlight = list.reduce((best, f) => (f.rating && (!best || f.rating > best.rating) ? f : best), null)
+    // Two ratings minimum. "Your best airline, based on one flight" is not a
+    // fact about an airline, it is a fact about a Tuesday.
+    const bestAirline = [...airlineRating.values()]
+      .filter((a) => a.n >= 2)
+      .sort((a, b) => b.total / b.n - a.total / a.n || b.n - a.n)[0]
 
     // The map wants one line per DISTINCT pair, not one per flight: eighty
-    // London-Lisbon hops are one arc drawn eighty times otherwise.
-    const seen = new Set()
-    const routes = []
+    // London-Lisbon hops are one arc drawn eighty times otherwise. It carries
+    // the flights themselves now, so tapping a line can say when you flew it.
+    const byPair = new Map()
     for (const f of list) {
+      if (!f.placeable) continue
       const pair = [f.from.iata, f.to.iata].sort().join('-')
-      if (seen.has(pair)) continue
-      seen.add(pair)
-      routes.push({ key: pair, from: f.from, to: f.to })
+      const cur = byPair.get(pair)
+      if (cur) { cur.flights.push(f); continue }
+      byPair.set(pair, { key: pair, from: f.from, to: f.to, flights: [f] })
     }
+    const routes = [...byPair.values()].map((r) => ({
+      ...r,
+      // Newest first: tapping a line should open with the trip you remember.
+      flights: r.flights.slice().sort((a, b) => b.flown_on.localeCompare(a.flown_on)),
+    }))
 
     return {
       list,
@@ -328,14 +511,18 @@ export default function Flights() {
       minutes,
       co2: carbon,
       longestTime,
-      anyEstimated,
       airports: airportCount.size,
       countries: countries.size,
       airlines: airlines.size,
       aircraft: aircraft.size,
-      topAirport: topAirport ? { ...airport(topAirport[0]), n: topAirport[1] } : null,
+      topAirport: topAirport ? { ...(airport(topAirport[0]) || { iata: topAirport[0], city: topAirport[0] }), n: topAirport[1] } : null,
       topRoute: topRoute ? { pair: topRoute[0].replace('-', ' ↔ '), n: topRoute[1] } : null,
       longest,
+      bestFlight,
+      bestAirline,
+      avgRating: rated ? ratingTotal / rated : null,
+      ratedCount: rated,
+      purposes: PURPOSES.map((p) => ({ ...p, n: byPurpose.get(p.key) || 0 })).filter((p) => p.n > 0),
       routes,
       pins: [...airportCount.entries()].map(([iata, weight]) => ({ ...airport(iata), weight })).filter((a) => a.iata),
       years: [...byYear.values()].sort((a, b) => b.year.localeCompare(a.year)),
@@ -372,24 +559,69 @@ export default function Flights() {
     if (!form.from_iata || !form.to_iata) { setError('Pick where you flew from and to.'); return }
     if (form.from_iata === form.to_iata) { setError('Those are the same airport.'); return }
     if (!form.flown_on) { setError('Add the date you flew.'); return }
+    if (form.flown_on > today) { setError('That date is in the future.'); return }
+    if (form.round_trip) {
+      if (!form.return_on) { setError('Add the date you flew back, or untick round trip.'); return }
+      if (form.return_on > today) { setError('The return date is in the future.'); return }
+      if (form.return_on < form.flown_on) { setError('The return is before the outbound. Check the dates.'); return }
+    }
     setSaving(true)
-    const { error: insErr } = await supabase.from('flights').insert({
+
+    // Everything both legs share. The return is the SAME flight backwards - same
+    // airline, same aircraft, same distance - so it inherits all of it and only
+    // the ends, the date and the seat differ. A seat number is per boarding
+    // pass and guessing it would be inventing data.
+    const common = {
       creator_id: user.id,
-      from_iata: form.from_iata,
-      to_iata: form.to_iata,
-      flown_on: form.flown_on,
       airline: form.airline.trim() || null,
       flight_number: form.flight_number.trim().toUpperCase() || null,
       aircraft: form.aircraft.trim() || null,
-      duration_min: form.duration_min ? Number(form.duration_min) : null,
       // Stored so a future leaderboard or market total is a `sum()` rather than
       // a full download. See migration 098.
       distance_km: Math.round(previewKm * 100) / 100,
+      purpose: form.purpose || null,
+      rating: form.rating || null,
+    }
+
+    const { data: out, error: insErr } = await supabase.from('flights').insert({
+      ...common,
+      from_iata: form.from_iata,
+      to_iata: form.to_iata,
+      flown_on: form.flown_on,
+      seat: form.seat.trim() || null,
       note: form.note.trim() || null,
-    })
+    }).select('id').single()
+
+    if (insErr || !out) {
+      setSaving(false)
+      setError('Could not save that flight. Please try again.')
+      return
+    }
+
+    // THE RETURN IS A SECOND ROW, and it is saved SECOND on purpose: `return_of`
+    // needs the outbound's id, and if this insert fails the outbound is still
+    // safely logged. A half-saved round trip that loses the leg you actually
+    // took would be worse than one that loses the leg you can re-add in ten
+    // seconds, so the error says exactly which one is missing.
+    let returnFailed = false
+    if (form.round_trip) {
+      const { error: retErr } = await supabase.from('flights').insert({
+        ...common,
+        from_iata: form.to_iata,
+        to_iata: form.from_iata,
+        flown_on: form.return_on,
+        return_of: out.id,
+      })
+      returnFailed = !!retErr
+    }
+
     setSaving(false)
-    if (insErr) { setError('Could not save that flight. Please try again.'); return }
-    setForm({ from_iata: '', to_iata: '', flown_on: '', airline: '', flight_number: '', aircraft: '', duration_min: '', note: '' })
+    if (returnFailed) {
+      setError('The outbound is saved but the return did not go through. Add it on its own.')
+      load()
+      return
+    }
+    setForm(BLANK_FORM)
     setCustomAirline(false)
     setAllAirlines(false)
     setAdding(false)
@@ -496,11 +728,14 @@ export default function Flights() {
                     </div>
                   ))}
                 </div>
-                {stats.anyEstimated && (
-                  <p className="mt-3 text-[11px] text-white/55">
-                    Time in the air is estimated where you did not log one.
-                  </p>
-                )}
+                {/* One caveat, always, instead of an asterisk on some rows.
+                    Nothing asks for a gate-to-gate time any more, so every
+                    duration on this page is worked out from the distance and
+                    the aircraft's cruise speed. Saying so once here is more
+                    honest than a footnote that only appeared sometimes. */}
+                <p className="mt-3 text-[11px] text-white/55">
+                  Time in the air is worked out from the distance flown.
+                </p>
               </div>
             </section>
           </Reveal>
@@ -572,9 +807,74 @@ export default function Flights() {
                   value={stats.co2 >= 1000 ? `${(stats.co2 / 1000).toFixed(1)} t` : `${km(stats.co2)} kg`}
                   hint="per seat, estimated"
                 />
+                {/* THE THREE THAT ONLY EXIST BECAUSE OF THE NEW FIELDS. Each is
+                    drawn only when there is something to say: an empty "Best
+                    flight" tile is an advert for a field, and a stats grid
+                    should never contain a prompt. */}
+                {stats.bestFlight && (
+                  <StatTile
+                    label="Best flight"
+                    value={`${stats.bestFlight.from.iata} → ${stats.bestFlight.to.iata}`}
+                    hint={`${'★'.repeat(stats.bestFlight.rating)}${stats.bestFlight.airline ? ` · ${stats.bestFlight.airline}` : ''}`}
+                  />
+                )}
+                {stats.bestAirline && (
+                  <StatTile
+                    label="Airline you rate"
+                    value={stats.bestAirline.name}
+                    hint={`${(stats.bestAirline.total / stats.bestAirline.n).toFixed(1)} out of 5 over ${stats.bestAirline.n} flights`}
+                  />
+                )}
+                {stats.avgRating != null && (
+                  <StatTile
+                    label="Average flight rating"
+                    value={`${stats.avgRating.toFixed(1)} / 5`}
+                    hint={`${stats.ratedCount} of ${stats.list.length} rated`}
+                  />
+                )}
               </div>
             </section>
           </Reveal>
+
+          {/* ---- WHY YOU WENT ----
+              The one question a creator programme's flight log should be able
+              to answer and no other page can: how much of your flying is work.
+              Drawn as a proportion bar rather than a list of counts, because
+              "eleven creator trips" means nothing without the denominator. */}
+          {stats.purposes.length > 0 && (
+            <Reveal from="down">
+              <section>
+                <h2 className="mb-3 text-lg font-semibold">Why you were flying</h2>
+                <div className="card !p-5 sm:!p-6">
+                  <div className="flex h-3 overflow-hidden rounded-full bg-cloud">
+                    {stats.purposes.map((p, i) => (
+                      <span
+                        key={p.key}
+                        title={`${p.label}: ${p.n}`}
+                        style={{
+                          width: `${(p.n / stats.purposes.reduce((s, x) => s + x.n, 0)) * 100}%`,
+                          // A single hue stepped in opacity rather than six
+                          // colours: the palette here is one orange, and six
+                          // arbitrary colours would be six things to learn.
+                          opacity: 1 - i * 0.14,
+                        }}
+                        className="block bg-brand transition-[width] duration-700 ease-out"
+                      />
+                    ))}
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2">
+                    {stats.purposes.map((p, i) => (
+                      <span key={p.key} className="flex items-center gap-2 text-xs">
+                        <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-brand" style={{ opacity: 1 - i * 0.14 }} />
+                        <span className="font-medium text-ink">{p.label}</span>
+                        <span className="tabular-nums text-smoke">{p.n}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            </Reveal>
+          )}
 
           {/* ---- By year ----
               A bar per year, widths as a share of the biggest. A chart library
@@ -635,17 +935,27 @@ export default function Flights() {
                           {f.airline ? ` · ${f.airline}` : ''}
                           {f.flight_number ? ` ${f.flight_number}` : ''}
                           {f.aircraft ? ` · ${f.aircraft}` : ''}
+                          {f.seat ? ` · seat ${f.seat}` : ''}
+                          {f.purpose ? ` · ${PURPOSE_LABEL[f.purpose] || f.purpose}` : ''}
                         </span>
                       </span>
                     </div>
                     <div className="flex shrink-0 items-center gap-3">
+                      {/* A return leg says so. It is the only way to tell, on a
+                          list sorted by date, that two rows were one trip. */}
+                      {f.return_of && <Badge tone="light" className="!px-2 !py-0.5">Return</Badge>}
+                      {f.rating > 0 && (
+                        <span className="text-xs font-semibold text-brand" title={`${f.rating} out of 5`} aria-label={`Rated ${f.rating} out of 5`}>
+                          {'★'.repeat(f.rating)}
+                        </span>
+                      )}
                       {/* HAUL, NOT CABIN. The cabin badge was removed with the
                           picker; what belongs on a row at a glance is what KIND
                           of flight it was, which the distance already knows. */}
                       <Badge tone="grey" className="!px-2 !py-0.5">{haul(f.dist)}</Badge>
                       <span className="text-right text-xs tabular-nums text-smoke">
                         <span className="block font-semibold text-ink">{km(f.dist)} km</span>
-                        <span className="block">{humanHours(f.mins)}{f.estimated ? '*' : ''}</span>
+                        <span className="block">{humanHours(f.mins)}</span>
                       </span>
                       <button
                         onClick={() => remove(f)}
@@ -667,11 +977,6 @@ export default function Flights() {
                   {showAll ? 'Show fewer' : `Show all ${stats.list.length} flights`}
                 </button>
               )}
-              {stats.anyEstimated && (
-                <p className="mt-3 text-[11px] text-gray-400">
-                  * Time estimated from the distance. Add the real gate-to-gate time when you log a flight and it will use that instead.
-                </p>
-              )}
             </section>
           </Reveal>
         </div>
@@ -679,9 +984,10 @@ export default function Flights() {
 
       {/* ---- Log a flight ---- */}
       <Modal open={adding} onClose={() => setAdding(false)} title="Log a flight" sheet={false}>
+        {/* No heading of its own: `ui/Modal` already draws "Log a flight" in
+            its title bar, and the dialog was saying it twice, one line apart,
+            in two different sizes. */}
         <form onSubmit={save} className="space-y-4">
-          <h2 className="text-lg font-semibold">Log a flight</h2>
-
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <AirportField id="flight-from" label="From" value={form.from_iata} autoFocus
               onChange={(v) => setForm((f) => ({ ...f, from_iata: v }))} />
@@ -727,22 +1033,54 @@ export default function Flights() {
             </div>
           )}
 
+          {/* ---- WHEN, AND WHETHER YOU CAME BACK ----
+              THE TIME-IN-THE-AIR BOX IS GONE. It sat beside the date asking for
+              a number in minutes, and the panel above has already worked that
+              number out from the distance. Ethan: "the time in error shouldn't
+              be asked for, it should just be taken from the info you have."
+              Every duration on this page is now the estimate, which is what it
+              was for almost every row anyway - and the page no longer has to
+              carry an asterisk explaining which rows are which.
+
+              A ROUND TRIP IS TWO FLIGHTS, and logging it is one tick. See the
+              note in migration 100: it saves as two rows, because a return has
+              its own date and its own distance and folding it into one row
+              would halve everybody's totals. */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label htmlFor="flight-date" className="label">Date flown</label>
-              <input id="flight-date" type="date" max={today} value={form.flown_on}
-                onChange={(e) => setForm((f) => ({ ...f, flown_on: e.target.value }))} className="input w-full" />
-            </div>
-            <div>
-              <label htmlFor="flight-duration" className="label">
-                Time in the air <span className="font-normal text-smoke">(minutes, optional)</span>
+            <DateField id="flight-date" label="Date flown" value={form.flown_on} max={today}
+              onChange={(v) => setForm((f) => ({ ...f, flown_on: v }))} />
+            <div className="flex flex-col justify-end">
+              <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 px-3.5 py-2.5 transition-colors hover:border-brand/40">
+                <input
+                  type="checkbox"
+                  checked={form.round_trip}
+                  onChange={(e) => setForm((f) => ({ ...f, round_trip: e.target.checked, return_on: e.target.checked ? f.return_on : '' }))}
+                  className="h-4 w-4 shrink-0 accent-[#d94407]"
+                />
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium">Round trip</span>
+                  <span className="block text-[11px] text-smoke">
+                    {toA && fromA ? `Adds ${toA.iata} back to ${fromA.iata}` : 'Logs the flight home too'}
+                  </span>
+                </span>
               </label>
-              <input id="flight-duration" type="number" min="1" max="1199" inputMode="numeric"
-                placeholder={previewKm ? `${estimateMinutes(previewKm)} (our estimate)` : 'e.g. 155'}
-                value={form.duration_min}
-                onChange={(e) => setForm((f) => ({ ...f, duration_min: e.target.value }))} className="input w-full" />
             </div>
           </div>
+
+          {form.round_trip && (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <DateField id="flight-return" label="Date you flew back" value={form.return_on} max={today}
+                hint={form.flown_on && form.return_on && form.return_on < form.flown_on
+                  ? undefined
+                  : 'Saved as its own flight, so the distance counts twice.'}
+                onChange={(v) => setForm((f) => ({ ...f, return_on: v }))} />
+              {form.flown_on && form.return_on && form.return_on < form.flown_on && (
+                <p className="self-end pb-2.5 text-[11px] text-red-500">
+                  The return is before the outbound. Check the dates.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* ---- WHO FLIES IT ----
               A SHORTLIST OF REAL CANDIDATES INSTEAD OF AN EMPTY BOX. This was
@@ -756,73 +1094,83 @@ export default function Flights() {
               plane from that". */}
           {previewKm > 0 && (
             <div>
-              <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-                <p className="label !mb-0">Who flies {fromA.iata} to {toA.iata}?</p>
-                <button type="button" onClick={() => setCustomAirline((v) => !v)}
-                  className="text-xs font-semibold text-brand transition-transform hover:scale-105">
-                  {customAirline ? 'Pick from the list' : 'Type it myself'}
-                </button>
-              </div>
+              <p className="label">Airline <span className="font-normal text-smoke">(optional)</span></p>
 
+              {/* THE EXPLANATION IS GONE FROM UNDER THE CHIPS.
+                  It used to close with a paragraph about how the shortlist is
+                  derived from bases and aircraft range and is not a timetable.
+                  That is true, it is in the comment above and at the top of
+                  lib/airlines, and it is not something a person filling in a
+                  form needs to be told: the chips are obviously a shortlist
+                  because there is an Other beside them. Ethan cut the same kind
+                  of copy from the aircraft row for the same reason. */}
               {customAirline ? (
-                <input id="flight-airline" value={form.airline} maxLength={60} placeholder="The airline you flew"
-                  onChange={(e) => setForm((f) => ({ ...f, airline: e.target.value }))} className="input w-full" />
-              ) : carriers.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-gray-200 px-3.5 py-3 text-xs text-smoke">
-                  Nothing in our table reaches that far without a stop. If you flew it direct, type the airline in.
-                </p>
+                <div className="flex gap-2">
+                  <input id="flight-airline" value={form.airline} maxLength={60} autoFocus
+                    placeholder="The airline you flew"
+                    onChange={(e) => setForm((f) => ({ ...f, airline: e.target.value }))} className="input w-full" />
+                  <button type="button" onClick={() => { setCustomAirline(false); setForm((f) => ({ ...f, airline: '' })) }}
+                    className="btn-ghost shrink-0 !px-3 !py-2 text-xs">Back to the list</button>
+                </div>
               ) : (
-                <>
-                  <div className="flex flex-wrap gap-1.5">
-                    {shownCarriers.map(({ airline: a, why }) => {
-                      const on = form.airline === a.name
-                      return (
-                        <button
-                          key={a.iata}
-                          type="button"
-                          title={why}
-                          onClick={() => setForm((f) => ({
-                            ...f,
-                            airline: on ? '' : a.name,
-                            // Changing airline invalidates an aircraft chosen
-                            // from the previous one's fleet. Silently keeping a
-                            // 787 beside "Ryanair" would be the form telling a
-                            // lie it was built to prevent.
-                            aircraft: on ? f.aircraft : '',
-                          }))}
-                          className={cx(
-                            'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-200 active:scale-95',
-                            on ? 'bg-brand text-white' : 'bg-cloud text-smoke hover:-translate-y-0.5 hover:text-ink',
-                          )}
-                        >
-                          <span className={cx('font-mono text-[10px]', on ? 'text-white/70' : 'text-gray-400')}>{a.iata}</span>
-                          {a.name}
-                        </button>
-                      )
-                    })}
-                  </div>
-                  {carriers.length > 8 && (
-                    <button type="button" onClick={() => setAllAirlines((v) => !v)}
-                      className="mt-2 text-xs font-medium text-smoke transition-colors hover:text-brand">
-                      {allAirlines ? 'Show fewer' : `Show all ${carriers.length}`}
+                <div className="flex flex-wrap gap-1.5">
+                  {shownCarriers.map(({ airline: a, why }) => {
+                    const on = form.airline === a.name
+                    return (
+                      <button
+                        key={a.iata}
+                        type="button"
+                        title={why}
+                        onClick={() => setForm((f) => ({
+                          ...f,
+                          airline: on ? '' : a.name,
+                          // Changing airline invalidates an aircraft chosen from
+                          // the previous one's fleet. Silently keeping a 787
+                          // beside "Ryanair" would be the form telling a lie it
+                          // was built to prevent.
+                          aircraft: on ? f.aircraft : '',
+                        }))}
+                        className={cx(
+                          'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-200 active:scale-95',
+                          on ? 'bg-brand text-white' : 'bg-cloud text-smoke hover:-translate-y-0.5 hover:text-ink',
+                        )}
+                      >
+                        <span className={cx('font-mono text-[10px]', on ? 'text-white/70' : 'text-gray-400')}>{a.iata}</span>
+                        {a.name}
+                      </button>
+                    )
+                  })}
+                  {/* OTHER IS ALWAYS THERE, INCLUDING WHEN THE LIST IS EMPTY.
+                      It used to be a "Type it myself" link in the corner of the
+                      heading, which is a different control in a different place
+                      doing the same job as the chips. As a chip at the end of
+                      the row it is simply the last option, which is what it is. */}
+                  {carriers.length > 8 && !allAirlines && (
+                    <button type="button" onClick={() => setAllAirlines(true)}
+                      className="inline-flex items-center rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-smoke ring-1 ring-gray-200 transition-all hover:-translate-y-0.5 hover:text-ink">
+                      {carriers.length - 8} more
                     </button>
                   )}
-                  <p className="mt-2 text-[11px] text-gray-400">
-                    Worked out from where each airline is based and how far its aircraft can fly, so it is a shortlist
-                    rather than a timetable. Not there? Type it yourself.
-                  </p>
-                </>
+                  <button type="button" onClick={() => { setCustomAirline(true); setForm((f) => ({ ...f, airline: '' })) }}
+                    className="inline-flex items-center rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-brand ring-1 ring-brand/30 transition-all hover:-translate-y-0.5 hover:ring-brand">
+                    Other
+                  </button>
+                </div>
               )}
             </div>
           )}
 
-          {/* ---- AND WHAT THEY WOULD HAVE SENT ---- */}
+          {/* ---- AIRCRAFT ----
+              JUST THE NAME. The heading was "Japan Airlines would send
+              (optional)" and underneath sat a sentence explaining that the
+              A330-300 is the likeliest because it is the smallest thing in the
+              fleet that covers 9,707 km. Both went, at Ethan's request: the
+              chips are already in likeliest-first order, the label should say
+              what the field IS, and a paragraph of reasoning under an optional
+              field is reasoning nobody asked for. */}
           {previewKm > 0 && planes.length > 0 && (
             <div>
-              <p className="label">
-                {picked ? `${picked.name} would send` : 'Aircraft that can fly it'}
-                <span className="font-normal text-smoke"> (optional)</span>
-              </p>
+              <p className="label">Aircraft <span className="font-normal text-smoke">(optional)</span></p>
               <div className="flex flex-wrap gap-1.5">
                 {planes.slice(0, picked ? planes.length : 10).map((p) => {
                   const on = form.aircraft === p.name
@@ -842,30 +1190,86 @@ export default function Flights() {
                   )
                 })}
               </div>
-              {/* THE FIRST ONE IS THE LIKELIEST, and saying so is worth more
-                  than making somebody guess which of six to press. Airlines
-                  send the smallest aircraft that can do the job. */}
-              {picked && planes[0] && (
-                <p className="mt-2 text-[11px] text-gray-400">
-                  {planes[0].name} is the likeliest: it is the smallest thing in the {picked.name} fleet
-                  that covers {km(previewKm)} km, which is how the aircraft actually gets assigned.
-                </p>
-              )}
             </div>
           )}
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div>
-              <label htmlFor="flight-number" className="label">Flight number <span className="font-normal text-smoke">(optional)</span></label>
+              {/* The "(optional)" moved off these two labels. At a quarter of
+                  the dialog's width both wrapped onto a second line, so the two
+                  fields beside them started at different heights - which is the
+                  "cards are sometimes changing sizes" report in miniature. The
+                  row below says it once for all of them. */}
+              <label htmlFor="flight-number" className="label">Flight no.</label>
               <input id="flight-number" maxLength={10}
                 value={form.flight_number}
-                placeholder={picked ? `${picked.iata} 1363` : 'TP1363'}
+                placeholder={picked ? `${picked.iata}1363` : 'TP1363'}
                 onChange={(e) => setForm((f) => ({ ...f, flight_number: e.target.value }))} className="input w-full" />
             </div>
+            {/* SEAT. The one detail people actually remember, and the one that
+                makes a row read like a memory rather than a database entry. */}
             <div>
+              <label htmlFor="flight-seat" className="label">Seat <span className="font-normal text-smoke">(optional)</span></label>
+              <input id="flight-seat" maxLength={8} value={form.seat} placeholder="14A"
+                onChange={(e) => setForm((f) => ({ ...f, seat: e.target.value.toUpperCase() }))} className="input w-full" />
+            </div>
+            <div className="col-span-2">
               <label htmlFor="flight-note" className="label">Note <span className="font-normal text-smoke">(optional)</span></label>
               <input id="flight-note" value={form.note} maxLength={140} placeholder="Sunrise over the Alps"
                 onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} className="input w-full" />
+            </div>
+          </div>
+
+          {/* ---- WHY YOU WENT, AND HOW IT WAS ----
+              Both are new, and both exist because something on the page counts
+              them. "Purpose" is the question a creator programme in particular
+              has and could not answer: how much of last year's flying was for
+              content. "How was it" gives the log a best flight and an opinion
+              about an airline, neither of which is derivable from anything
+              already stored. */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <p className="label">What for? <span className="font-normal text-smoke">(optional)</span></p>
+              <div className="flex flex-wrap gap-1.5">
+                {PURPOSES.map((p) => {
+                  const on = form.purpose === p.key
+                  return (
+                    <button key={p.key} type="button"
+                      onClick={() => setForm((f) => ({ ...f, purpose: on ? '' : p.key }))}
+                      className={cx(
+                        'rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-200 active:scale-95',
+                        on ? 'bg-brand text-white' : 'bg-cloud text-smoke hover:-translate-y-0.5 hover:text-ink',
+                      )}
+                    >
+                      {p.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            <div>
+              <p className="label">How was it? <span className="font-normal text-smoke">(optional)</span></p>
+              <div className="flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    aria-label={`${n} out of 5`}
+                    aria-pressed={form.rating === n}
+                    onClick={() => setForm((f) => ({ ...f, rating: f.rating === n ? 0 : n }))}
+                    className="p-0.5 transition-transform duration-150 hover:scale-125 active:scale-110"
+                  >
+                    <Icon
+                      name="star"
+                      className={cx('h-6 w-6', n <= form.rating ? 'fill-brand text-brand' : 'text-gray-300')}
+                    />
+                  </button>
+                ))}
+                {form.rating > 0 && (
+                  <button type="button" onClick={() => setForm((f) => ({ ...f, rating: 0 }))}
+                    className="ml-1.5 text-[11px] font-medium text-smoke hover:text-brand">Clear</button>
+                )}
+              </div>
             </div>
           </div>
 

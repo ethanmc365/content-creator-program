@@ -14,6 +14,8 @@ import {
   applyMotion, storeMotion, getStoredMotion,
 } from '../lib/theme'
 import { useNotificationPrefs, CreatorNotifications, AdminNotifications } from '../components/NotificationPreferences'
+import { appSoundOn, setAppSoundOn, playDmArrival } from '../lib/appSounds'
+import { soundOn, setSoundOn, playCoin } from '../lib/gameSounds'
 
 // Light or dark, explicitly. A "match system" option was tried and removed:
 // following the OS colour scheme was unreliable across real devices.
@@ -27,6 +29,7 @@ const THEME_MODES = [
 // everything at once across three columns.
 const SECTIONS = [
   { key: 'display', label: 'Display', icon: 'bulb', hint: 'Theme and motion' },
+  { key: 'sound', label: 'Sound', icon: 'megaphone', hint: 'Chat and game sounds' },
   { key: 'notifications', label: 'Notifications', icon: 'bell', hint: 'Alerts and reminders' },
   { key: 'account', label: 'Account', icon: 'users', hint: 'Profile, privacy, password, your data' },
   { key: 'payment', label: 'Payment details', icon: 'wallet', hint: 'Where your prizes get paid' },
@@ -63,6 +66,11 @@ export default function Settings() {
   // reconciles them with the saved truth.
   const [themeMode, setThemeMode] = useState(() => effectiveMode(!!profile?.dark_mode))
   const [reduceMotion, setReduceMotion] = useState(getStoredMotion())
+  // Read once on mount. Both live in localStorage, and the games' own speaker
+  // button can change the second one while this page is open in another tab -
+  // which is what the `tryp-sound-pref` / `storage` listener below is for.
+  const [appSound, setAppSound] = useState(() => appSoundOn())
+  const [gameSound, setGameSound] = useState(() => soundOn())
   const [showOnMap, setShowOnMap] = useState(profile?.show_on_map !== false)
   const [savingMap, setSavingMap] = useState(false)
   const [pwMsg, setPwMsg] = useState('')
@@ -109,6 +117,34 @@ export default function Settings() {
     applyMotion(next)
     storeMotion(next)
   }
+
+  // SO ARE THE TWO SOUND SWITCHES, and turning one ON plays its own sound as
+  // the confirmation. A switch for something you cannot hear from the settings
+  // page is a switch you flick twice to check it did anything.
+  function toggleAppSound(next) {
+    setAppSound(next)
+    setAppSoundOn(next)
+    if (next) playDmArrival()
+  }
+
+  function toggleGameSound(next) {
+    setGameSound(next)
+    setSoundOn(next)
+    if (next) playCoin()
+  }
+
+  // The games carry their own speaker button, so this page can be looking at a
+  // stale answer within seconds of somebody using it. `storage` covers other
+  // tabs; the custom event covers this one.
+  useEffect(() => {
+    const sync = () => { setAppSound(appSoundOn()); setGameSound(soundOn()) }
+    window.addEventListener('storage', sync)
+    window.addEventListener('tryp-sound-pref', sync)
+    return () => {
+      window.removeEventListener('storage', sync)
+      window.removeEventListener('tryp-sound-pref', sync)
+    }
+  }, [])
 
   async function toggleMap(next) {
     setShowOnMap(next)
@@ -248,6 +284,48 @@ export default function Settings() {
           <p className="text-xs text-smoke">Dial down animations and transitions across the app. Great if motion makes you queasy or you just want it calmer.</p>
         </div>
         <Toggle on={reduceMotion} onChange={toggleMotion} label="Reduce motion" />
+      </div>
+    </section>
+  )
+
+  // SOUND. Two switches, not one.
+  //
+  // They are genuinely different decisions and bundling them would force the
+  // wrong answer on somebody: a quiz is something you opened on purpose and it
+  // is duller silent, while chat is a tab that is already open next to other
+  // people. So the games default ON, the app defaults OFF, and each can be
+  // turned off without taking the other with it.
+  //
+  // Both are per DEVICE, not per account, and the card says so. Phone in a
+  // pocket and laptop in an office are not the same room.
+  const SoundSection = (
+    <section className="card">
+      <div className="mb-1 flex items-center gap-2">
+        <Icon name="megaphone" className="h-5 w-5 text-brand" />
+        <h2 className="text-lg font-semibold">Sound</h2>
+      </div>
+      <p className="text-sm text-smoke">Small sounds for things that happen while you are looking somewhere else. Saved on this device only.</p>
+
+      <div className="mt-5 flex items-center gap-4 border-t border-gray-100 pt-5">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold">Chat and messages</p>
+          <p className="text-xs text-smoke">
+            A soft whoosh when you send, a quiet tick when a message lands in the room you are reading, a warmer two-note
+            chime for a DM, a pop when somebody reacts to something you wrote, and a short tone if a message fails to send.
+          </p>
+        </div>
+        <Toggle on={appSound} onChange={toggleAppSound} label="Chat and message sounds" />
+      </div>
+
+      <div className="mt-5 flex items-center gap-4 border-t border-gray-100 pt-5">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold">Travel games</p>
+          <p className="text-xs text-smoke">
+            Right and wrong answers, the coin on a Flight Path stop, the engine while you fly and the flame when your streak
+            catches. There is a speaker button inside every game too.
+          </p>
+        </div>
+        <Toggle on={gameSound} onChange={toggleGameSound} label="Game sounds" />
       </div>
     </section>
   )
@@ -396,6 +474,7 @@ export default function Settings() {
 
   const BODIES = {
     display: DisplaySection,
+    sound: SoundSection,
     notifications: NotificationsSection,
     account: AccountSection,
     payment: PaymentSection,
@@ -487,6 +566,7 @@ export default function Settings() {
         {/* Column 1: display + payment */}
         <Reveal className="space-y-6" from="down" stagger={0.06}>
           {DisplaySection}
+          {SoundSection}
           {PaymentSection}
         </Reveal>
 

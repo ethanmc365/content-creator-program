@@ -7,6 +7,7 @@ import { confirm, notice } from '../../lib/confirm'
 import { formatDate, formatMoney, cx } from '../../lib/utils'
 import { invoiceRef } from '../../lib/invoice'
 import { downloadInvoicePdf } from '../../lib/invoicePdf'
+import { playPaid } from '../../lib/appSounds'
 
 // THE APPROVAL QUEUE.
 //
@@ -238,7 +239,11 @@ export default function InvoiceQueue({ onEdit }) {
 
   async function onPaid(inv) {
     if (!await confirm(`Mark ${invoiceRef(inv.number)} as paid? This also settles the reward it came from.`)) return
-    call('mark_invoice_paid', { p_id: inv.id, p_paid: true }, inv)
+    // MONEY LANDING GETS THE COIN. It is the last step of a chain that started
+    // when somebody won something, and the only one with no visible celebration
+    // attached to it - the row simply changes colour. Sound is free here and
+    // this is the one moment in the admin panel that deserves it.
+    if (await call('mark_invoice_paid', { p_id: inv.id, p_paid: true }, inv)) playPaid()
   }
 
   async function onDownload(inv) {

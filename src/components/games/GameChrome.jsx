@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Icon from '../Icon'
 import { soundOn, setSoundOn } from '../../lib/gameSounds'
 import { cx } from '../../lib/utils'
@@ -24,6 +24,17 @@ import { cx } from '../../lib/utils'
 export function SoundToggle({ className }) {
   const [on, setOn] = useState(() => soundOn())
   const flip = () => { const next = !on; setOn(next); setSoundOn(next) }
+  // Settings has the same switch now, and both can be open at once. `storage`
+  // covers other tabs; the custom event covers this one.
+  useEffect(() => {
+    const sync = () => setOn(soundOn())
+    window.addEventListener('storage', sync)
+    window.addEventListener('tryp-sound-pref', sync)
+    return () => {
+      window.removeEventListener('storage', sync)
+      window.removeEventListener('tryp-sound-pref', sync)
+    }
+  }, [])
   return (
     <button
       type="button"
@@ -127,12 +138,25 @@ export function AnswerFlash({ state, children, className }) {
   )
 }
 
-/** Fire a sound once per answer, without the caller remembering to. */
+/**
+ * Fire a sound once per answer, without the caller remembering to.
+ *
+ * IT ALSO COUNTS THE RUN. `onRight` is handed how many you have got right in a
+ * row INCLUDING this one, and `playCorrect` transposes itself up by that much -
+ * so a streak is something you hear building rather than something you would
+ * have to be watching the Correct counter to notice. A wrong answer resets it
+ * to zero, which is the whole point: the drop back to the root note is the
+ * feedback, and it costs no extra sound to say it.
+ *
+ * The counter is a REF. It is not rendered, it must survive a re-render without
+ * restarting, and putting it in state would re-run the effect that reads it.
+ */
 export function useAnswerSound(answered, onRight, onWrong) {
+  const runRef = useRef(0)
   useEffect(() => {
     if (!answered) return
-    if (answered.right) onRight?.()
-    else onWrong?.()
+    if (answered.right) { runRef.current += 1; onRight?.(runRef.current) }
+    else { runRef.current = 0; onWrong?.() }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answered])
 }

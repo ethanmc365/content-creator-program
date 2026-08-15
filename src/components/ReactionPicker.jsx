@@ -33,7 +33,7 @@ function clipBounds(node) {
   return { top: 0, bottom: window.innerHeight || 0, left: 0, right: w }
 }
 
-export default function ReactionPicker({ onPick, onClose, align = 'left' }) {
+export default function ReactionPicker({ onPick, onClose, align = 'left', prefer = 'above' }) {
   const [expanded, setExpanded] = useState(false)
   // WHICH WAY IT OPENS.
   //
@@ -47,8 +47,12 @@ export default function ReactionPicker({ onPick, onClose, align = 'left' }) {
   // So it measures itself once it is on screen and flips below the message when
   // there is not room above. Measured against the SCROLLER, not the window,
   // because the scroller is what does the clipping.
+  // `prefer` is where it OPENS; the measurement below still overrules it when
+  // that side does not fit. The trigger moved to the bottom edge of a message,
+  // so "above" is the right first guess almost everywhere - but a message at
+  // the very top of a short scroller still has to flip.
   const [node, setNode] = useState(null)
-  const [placement, setPlacement] = useState('above')
+  const [placement, setPlacement] = useState(prefer)
   // AND HOW FAR SIDEWAYS IT HAS TO MOVE TO STAY ON SCREEN.
   //
   // THE BUG THIS FIXES. The panel anchored to one edge of the message's action

@@ -22,6 +22,7 @@ import ChatComposer from '../components/ChatComposer'
 import MessageEditor from '../components/MessageEditor'
 import ReportMessage from '../components/ReportMessage'
 import { useNowTick, withinEditWindow } from '../lib/messageActions'
+import { playSend, playSendFail, playDmArrival, playReactionPop } from '../lib/appSounds'
 import { renderMessageBody } from '../lib/richText'
 import { EntryReferenceCard, loadEntryRefs } from '../components/EntryFeedback'
 import { GroupAvatar, NewGroupModal, GroupSettingsModal } from '../components/GroupPanels'
@@ -110,6 +111,11 @@ export default function Messages() {
   const atBottomRef = useRef(true)
   const dmComposerRef = useRef(null)
   const composerRef = useRef(null)
+  // WHICH MESSAGES IN THE OPEN THREAD ARE YOURS. The dm_reactions subscription
+  // has to answer "is this about me?" from inside a realtime callback, where
+  // `thread` is a stale closure and a setState updater is the wrong place for
+  // a side effect.
+  const myMessageIdsRef = useRef(new Set())
 
   // Visual-viewport tracking drives the WhatsApp-style mobile layout: the whole
   // thread becomes a fixed overlay pinned to the visible area so the composer
@@ -392,6 +398,10 @@ export default function Messages() {
     return () => { cancelled = true }
   }, [isGroup, conversationId, showGroupSettings])
 
+  useEffect(() => {
+    myMessageIdsRef.current = new Set(thread.filter((m) => m.sender_id === user.id).map((m) => m.id))
+  }, [thread, user.id])
+
   // ---------- Realtime: new DMs in any of my conversations ----------
   useEffect(() => {
     const sub = supabase
@@ -407,6 +417,13 @@ export default function Messages() {
         // thread it belongs to.
         const mine = msg.sender_id === user.id || msg.recipient_id === user.id
         if (!mine && msg.conversation_id !== conversationId) return
+        // A DM IS A PERSON. Its own two-note arrival, distinct from the single
+        // tick a room makes, because "somebody is talking TO you" and "the
+        // room is busy" should not be the same event to your ear. It plays for
+        // any of your conversations, not just the open one - that is the
+        // difference between a crowd and a person - but never for your own
+        // message and never with the tab in the background.
+        if (msg.sender_id !== user.id && !document.hidden) playDmArrival()
         if (msg.conversation_id === conversationId) {
           setThread((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]))
           // I'm looking at this thread - mark it read immediately.
@@ -427,6 +444,11 @@ export default function Messages() {
       })
       // Reactions on messages in the open thread appear instantly for both people.
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dm_reactions' }, (payload) => {
+        // A pop, but only when somebody else reacted to something YOU wrote.
+        // Read from a ref: a setState updater has to be pure and React may run
+        // it twice, which would double the sound.
+        if (myMessageIdsRef.current.has(payload.new.message_id)
+          && payload.new.creator_id !== user.id && !document.hidden) playReactionPop()
         setThread((cur) => {
           if (cur.some((m) => m.id === payload.new.message_id)) {
             setReactions((prev) => (prev.some((r) => r.id === payload.new.id) ? prev : [...prev, payload.new]))
@@ -715,6 +737,7 @@ export default function Messages() {
     if (!body.trim() || !active || dmLocked) return
     setAtBottom(true)
     setSending(true)
+    playSend()
     const replyId = replyTo?.id ?? null
     const { error } = await supabase.from('direct_messages').insert({
       conversation_id: conversationId,
@@ -727,7 +750,8 @@ export default function Messages() {
       ...(replyId ? { reply_to: replyId } : {}),
     })
     setSending(false)
-    if (!error) { setBody(''); dmComposerRef.current?.clear(); clearDraft('dm-' + conversationId); setReplyTo(null); stopTyping() }
+    if (error) playSendFail()
+    else { setBody(''); dmComposerRef.current?.clear(); clearDraft('dm-' + conversationId); setReplyTo(null); stopTyping() }
   }
 
   // Attach a photo or video to the DM (uploads, then sends with any typed
@@ -755,8 +779,10 @@ export default function Messages() {
         ...(replyId ? { reply_to: replyId } : {}),
       })
       if (error) throw new Error(error.message)
+      playSend()
       setBody(''); dmComposerRef.current?.clear(); clearDraft('dm-' + conversationId); setReplyTo(null)
     } catch (err) {
+      playSendFail()
       setAttachError(err.message)
     }
     setSending(false)
@@ -1271,14 +1297,17 @@ export default function Messages() {
                             though nobody could see them, which on a phone left a
                             visible gap between a bubble and its timestamp. */}
                           <div className={cx(
-                            // CENTRED ON THE TOP EDGE, NOT INSIDE THE BUBBLE.
+                            // CENTRED ON THE BOTTOM EDGE, NOT THE TOP ONE.
                             // A DM has no meta line above it - the timestamp is
                             // underneath - so `top-0` put this pill straight on
-                            // top of the first line of the message. That is the
-                            // reported "covering the top right half of the
-                            // message". Straddling the edge, it sits in the gap
-                            // between messages and hides nothing.
-                            'absolute top-0 z-10 flex -translate-y-1/2 items-center gap-1 rounded-full border border-gray-100 bg-white/95 px-1 py-0.5 shadow-card backdrop-blur transition-opacity',
+                            // top of the first line of the message, and even
+                            // straddling the top edge it sat above the words
+                            // you had not read yet. On the bottom edge it lands
+                            // where the message finishes, which is the moment
+                            // you decide to reply or react, and on a phone it
+                            // is the nearer half of the screen. Absolute either
+                            // way, so it reserves no empty strip.
+                            'absolute bottom-0 z-10 flex translate-y-1/2 items-center gap-1 rounded-full border border-gray-100 bg-white/95 px-1 py-0.5 shadow-card backdrop-blur transition-opacity',
                             mine ? 'left-0' : 'right-0',
                             showActions
                               ? 'opacity-100'

@@ -106,9 +106,34 @@ export async function postAnswer({ questionId, authorId, body }) {
   }).select('*, profiles:author_id(id, name, photo_url, city, country, is_admin)').single()
 }
 
-/** Soft delete, so an answer's author can retract it without leaving a hole. */
-export const removeQuestion = (id) =>
-  supabase.from('board_questions').update({ deleted: true }).eq('id', id)
+/**
+ * Soft delete, so an author can retract without leaving a hole.
+ *
+ * THROUGH AN RPC, AND THAT IS THE WHOLE FIX FOR "REMOVE DOES NOTHING".
+ *
+ * These were plain `update({ deleted: true })` calls and RLS refused every one
+ * of them: the read policy is `not deleted`, so the row that the update
+ * produces is a row you are no longer allowed to see, and Postgres will not let
+ * a statement leave you a row you cannot read. Setting any OTHER column on the
+ * same row in the same session works, which is what makes it so easy to miss.
+ * See migration 101 - it is reproduced there against production.
+ *
+ * They also returned the builder without inspecting `error`, so the failure
+ * never reached a person. Both now THROW, and both callers show what happened.
+ */
+export async function removeQuestion(id) {
+  const { error } = await supabase.rpc('board_remove_question', { p_id: id })
+  if (error) throw new Error(friendlyBoardError(error.message))
+}
 
-export const removeAnswer = (id) =>
-  supabase.from('board_answers').update({ deleted: true }).eq('id', id)
+export async function removeAnswer(id) {
+  const { error } = await supabase.rpc('board_remove_answer', { p_id: id })
+  if (error) throw new Error(friendlyBoardError(error.message))
+}
+
+// Postgres prefixes a raised exception on the way out through PostgREST. The
+// messages above are already written for a person, so this only takes the
+// plumbing off the front.
+function friendlyBoardError(message = '') {
+  return message.replace(/^.*?:\s*/, '').trim() || 'That did not work. Please try again.'
+}

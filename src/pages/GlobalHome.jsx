@@ -385,6 +385,20 @@ export default function GlobalHome() {
   // beside it and the card renders its em-dashes until it lands - which is safe
   // here, unlike the "Live now" empty state, because a dash becoming a number
   // changes nothing about the layout and makes no claim in the meantime.
+  // THE COMMUNITY'S DISTANCE FLOWN. Its own tiny query for the same reason as
+  // `me` below: it is one figure on one card and holding the whole article back
+  // for it would be the wrong trade. The card draws an em-dash until it lands.
+  const [flights, setFlights] = useState(null)
+  useEffect(() => {
+    let cancelled = false
+    supabase.rpc('community_flight_totals').then(({ data }) => {
+      if (cancelled) return
+      const row = Array.isArray(data) ? data[0] : data
+      if (row) setFlights({ km: Number(row.total_km) || 0, n: Number(row.total_flights) || 0 })
+    })
+    return () => { cancelled = true }
+  }, [])
+
   const [me, setMe] = useState(null)
   useEffect(() => {
     const uid = session?.user?.id
@@ -782,11 +796,28 @@ export default function GlobalHome() {
                   { n: d?.creators, label: 'Creators worldwide', hint: 'across every market' },
                   { n: openMarkets.length, label: 'Markets open', hint: 'and more on the way' },
                   { n: me?.videos, label: 'Videos posted', hint: 'to challenges so far' },
-                  { n: d ? d.visited.length : null, label: 'Countries reached', hint: 'between all of us' },
+                  // KILOMETRES FLOWN, NOT COUNTRIES REACHED.
+                  //
+                  // "Countries reached" counted distinct entries in
+                  // `countries_visited` across every profile, which made it a
+                  // number that barely moves: it is capped at about 195, most of
+                  // the interesting ones were reached years ago, and a creator
+                  // coming back from Peru changed it by nothing. A statistic
+                  // nobody's own effort can move is decoration.
+                  //
+                  // Distance flown is the opposite. It only goes up, everybody
+                  // adds to it every time they log a trip, and it is the single
+                  // most on-brand figure a travel creator community has. It
+                  // comes from `community_flight_totals()` - see migration 100
+                  // for why an aggregate over private rows is safe and how anon
+                  // is kept off it.
+                  { n: flights?.km ?? null, label: 'Kilometres flown', hint: 'logged by all of us' },
                 ].map((s) => (
                   <div key={s.label}>
                     <p className="text-2xl font-bold sm:text-3xl">
-                      {s.n == null ? '—' : <CountUp value={s.n} />}
+                      {s.n == null
+                        ? '—'
+                        : <CountUp value={s.n} format={(v) => Math.round(v).toLocaleString('en-GB')} />}
                     </p>
                     <p className="text-[11px] font-medium uppercase tracking-widest text-white/70 sm:text-xs">{s.label}</p>
                     <p className="mt-0.5 hidden text-[11px] text-white/55 lg:block">{s.hint}</p>
@@ -811,23 +842,26 @@ export default function GlobalHome() {
                   fix was to reserve the space on the ONE element that needs it
                   rather than padding the whole column. The divider still spans
                   the full width; only the chips stop short. */}
+              {/* THREE CHIPS, AND NO HEADING OVER THEM.
+                  There were five, under "Your year so far". Ethan cut it to
+                  three - today's puzzles, your connections, your videos - and
+                  cut the heading with them, and both are right for the same
+                  reason: this row is a set of doors, and five doors with a
+                  label over them is a menu. "Earn your first points" and "Post
+                  where you are headed" were the two that were prompts rather
+                  than facts about you, which is what made the row read as a
+                  to-do list rather than as a summary you can act on.
+                  The heading also claimed a period ("your year") that none of
+                  the numbers under it were actually scoped to. */}
               <div className="mt-6 border-t border-white/20 pt-4 sm:mt-7">
-                <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-widest text-white/60">Your year so far</p>
                 <div className="flex flex-wrap gap-2 lg:max-w-[calc(100%-17rem)]">
-                  <MineChip to="/challenges" icon="video"
-                    value={me ? me.myVideos : null}
-                    label={me?.myVideos === 1 ? 'video posted' : 'videos posted'} />
+                  <MineChip to="/game" icon="joystick" text="Play today's puzzles" />
                   <MineChip to="/connections" icon="users"
                     value={me ? me.connections : null}
                     label={me?.connections === 1 ? 'connection' : 'connections'} />
-                  {me?.rank ? (
-                    <MineChip to="/leaderboard" icon="trophy" value={me.points}
-                      label={`points · #${me.rank} of ${me.ranked}`} />
-                  ) : (
-                    <MineChip to="/challenges" icon="trophy" text="Earn your first points" />
-                  )}
-                  <MineChip to="/game" icon="joystick" text="Play today's puzzles" />
-                  <MineChip to="/collab" icon="pin" text="Post where you are headed" />
+                  <MineChip to="/challenges" icon="video"
+                    value={me ? me.myVideos : null}
+                    label={me?.myVideos === 1 ? 'video posted' : 'videos posted'} />
                 </div>
               </div>
             </div>

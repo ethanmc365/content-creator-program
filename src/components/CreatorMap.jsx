@@ -5,7 +5,7 @@ import { geoEqualEarth, geoDistance, geoContains } from 'd3-geo'
 import { useSearchParams } from 'react-router-dom'
 import { loadMapFeatures, loadMapCentroids } from '../lib/mapCountries'
 import { geocodeCity } from '../lib/geocode'
-import { formatDate } from '../lib/utils'
+import { cx, formatDate } from '../lib/utils'
 import { useIsDark } from '../lib/theme'
 import { countryKey, sameCountry } from '../lib/countryFacts'
 import CountryPanel, { TownPanel } from './CountryPanel'
@@ -292,6 +292,8 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   // reader is simply asked to turn the phone, which is a thing people do
   // without being told anyway.
   const [fullscreen, setFullscreen] = useState(false)
+  // Kept up for the length of the exit animation. See `exitFullscreen`.
+  const [closing, setClosing] = useState(false)
   const rootRef = useRef(null)
   const fsRef = useRef(null)
   // The country a reader has tapped, if any: { name, lives, visited }.
@@ -902,10 +904,22 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
     try { await window.screen?.orientation?.lock?.('landscape') } catch { /* iOS, and most desktops */ }
   }, [])
 
+  // LEAVING IS AN ANIMATION, SO THE OVERLAY OUTLIVES THE DECISION BY 180ms.
+  //
+  // Entering can animate on its own - the element mounts and its keyframes run.
+  // Leaving cannot: `setFullscreen(false)` unmounts the portal on the next
+  // commit and there is nothing left to animate, which is the hard cut Ethan
+  // saw. So the button sets `closing`, which swaps the entrance keyframes for
+  // the exit ones, and only then does the unmount happen.
+  //
+  // The browser's own fullscreen is released IMMEDIATELY rather than after the
+  // fade: the system transition out of real fullscreen is the browser's to run
+  // and waiting for ours would play the two one after the other.
   const exitFullscreen = useCallback(() => {
-    setFullscreen(false)
     try { window.screen?.orientation?.unlock?.() } catch { /* see above */ }
     try { if (document.fullscreenElement) document.exitFullscreen() } catch { /* already out */ }
+    setClosing(true)
+    setTimeout(() => { setFullscreen(false); setClosing(false) }, 180)
   }, [])
 
   // Leaving by the browser's own route (Escape, the system gesture, the back
@@ -1366,7 +1380,10 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
     return createPortal(
       <div
         ref={fsRef}
-        className="fixed inset-0 z-[70] flex flex-col bg-white"
+        className={cx(
+          'fixed inset-0 z-[70] flex flex-col bg-white',
+          closing ? 'animate-map-out' : 'animate-map-in',
+        )}
         // ALL FOUR INSETS, NOT TWO. Full screen on a phone means landscape, and
         // in landscape the dynamic island and the home indicator are on the
         // LEFT and RIGHT edges, not the top and bottom. Padding only the

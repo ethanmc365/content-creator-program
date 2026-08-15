@@ -194,6 +194,118 @@ const RAW_AIRLINES = [
   { iata: 'JQ', name: 'Jetstar', country: 'AU', bases: ['MEL', 'SYD', 'BNE', 'OOL'], fleet: ['a320neo', 'a321neo', 'b787'], reach: 'global' },
   { iata: 'VA', name: 'Virgin Australia', country: 'AU', bases: ['BNE', 'SYD', 'MEL'], fleet: ['b737', 'b737max8'], reach: 'regional' },
   { iata: 'NZ', name: 'Air New Zealand', country: 'NZ', bases: ['AKL', 'CHC', 'WLG'], fleet: ['a320neo', 'a321neo', 'b787'], reach: 'global' },
+
+  // ==================================================================
+  // THE SECOND PASS: THE CARRIERS THAT SERVE THE SMALL FIELDS.
+  //
+  // The airport table doubled (see the note in lib/airports) and a regional
+  // airport with nothing based at it produces an empty shortlist, which is the
+  // one outcome this whole file exists to avoid. These are the operators that
+  // actually fly to Stornoway, Bergerac, Lampedusa and Vagar - almost all of
+  // them small, almost all of them the ONLY answer for their airports, which
+  // is what makes them worth more per row than another global flag carrier.
+  //
+  // Also here: the low-cost carriers that were already in the table but whose
+  // base lists stopped at the majors. A base list is the whole of a low-cost
+  // airline's route network in this model, so a missing base is a missing
+  // country.
+  // ==================================================================
+
+  // ---- UK, Ireland and the islands
+  { iata: 'LM', name: 'Loganair', country: 'GB', bases: ['GLA', 'EDI', 'ABZ', 'INV', 'KOI', 'LSI', 'SYY', 'NCL', 'MAN'], fleet: ['atr72', 'e175'], reach: 'regional' },
+  { iata: 'GR', name: 'Aurigny', country: 'GG', bases: ['GCI'], fleet: ['atr72', 'e195e2'], reach: 'regional' },
+  { iata: 'SI', name: 'Blue Islands', country: 'JE', bases: ['JER', 'GCI'], fleet: ['atr72'], reach: 'regional' },
+  { iata: 'WX', name: 'Emerald Airlines', country: 'IE', bases: ['DUB', 'BHD'], fleet: ['atr72'], reach: 'regional' },
+  { iata: 'LS', name: 'Jet2 Leeds', country: 'GB', bases: ['LBA', 'BFS', 'LTN', 'BOH', 'LGW'], fleet: ['b737', 'a321neo'], reach: 'regional' },
+
+  // ---- Continental Europe, regional and leisure
+  { iata: 'V7', name: 'Volotea', country: 'ES', bases: ['NTE', 'BOD', 'LYS', 'MRS', 'TLS', 'STR', 'VCE', 'NAP', 'PMO', 'CAG', 'OLB', 'OVD', 'BIO', 'VRN'], fleet: ['a319', 'a320'], reach: 'regional' },
+  { iata: 'YW', name: 'Air Nostrum', country: 'ES', bases: ['MAD', 'VLC', 'BCN', 'LEI', 'MLN', 'PNA', 'BJZ'], fleet: ['crj900', 'atr72'], reach: 'regional' },
+  { iata: 'XQ', name: 'SunExpress', country: 'TR', bases: ['AYT', 'ADB', 'IST', 'ESB'], fleet: ['b737max8'], reach: 'regional' },
+  { iata: 'VF', name: 'AJet', country: 'TR', bases: ['ESB', 'SAW', 'AYT'], fleet: ['a320neo', 'a321neo'], reach: 'regional' },
+  { iata: 'XC', name: 'Corendon Airlines', country: 'TR', bases: ['AYT', 'AMS', 'DUS'], fleet: ['b737max8'], reach: 'regional' },
+  { iata: 'GQ', name: 'Sky Express', country: 'GR', bases: ['ATH', 'HER', 'SKG'], fleet: ['atr72', 'a320neo'], reach: 'regional' },
+  { iata: 'XR', name: 'Marabu', country: 'EE', bases: ['MUC', 'DUS', 'HAJ'], fleet: ['a320neo', 'a321neo'], reach: 'regional' },
+  { iata: 'OB', name: 'Play', country: 'IS', bases: ['KEF'], fleet: ['a320neo', 'a321neo'], reach: 'regional' },
+  { iata: 'N0', name: 'Norse Atlantic', country: 'NO', bases: ['OSL', 'LGW'], fleet: ['b787'], reach: 'global' },
+  { iata: 'E9', name: 'Iberojet', country: 'ES', bases: ['MAD', 'PMI'], fleet: ['a330neo'], reach: 'global' },
+  { iata: 'WB', name: 'World2Fly', country: 'ES', bases: ['MAD', 'PMI'], fleet: ['a350'], reach: 'global' },
+  { iata: 'WK', name: 'Edelweiss Air', country: 'CH', bases: ['ZRH'], fleet: ['a320neo', 'a350'], reach: 'global' },
+  { iata: '2L', name: 'Helvetic Airways', country: 'CH', bases: ['ZRH', 'BRN'], fleet: ['e190', 'e195e2'], reach: 'regional' },
+  { iata: 'EN', name: 'Air Dolomiti', country: 'IT', bases: ['VRN', 'MUC', 'FCO'], fleet: ['e195e2'], reach: 'regional' },
+  { iata: 'XZ', name: 'Aeroitalia', country: 'IT', bases: ['FCO', 'MXP', 'CTA', 'AHO', 'OLB'], fleet: ['b737', 'atr72'], reach: 'regional' },
+  { iata: 'XO', name: 'SkyAlps', country: 'IT', bases: ['VRN', 'TRS'], fleet: ['q400'], reach: 'regional' },
+  { iata: 'XK', name: 'Air Corsica', country: 'FR', bases: ['AJA', 'BIA', 'FSC'], fleet: ['atr72', 'a320neo'], reach: 'regional' },
+  { iata: 'A5', name: 'HOP', country: 'FR', bases: ['ORY', 'LYS', 'CDG'], fleet: ['crj900', 'e190'], reach: 'regional' },
+  { iata: 'SS', name: 'Corsair', country: 'FR', bases: ['ORY'], fleet: ['a330neo'], reach: 'global' },
+  { iata: 'BF', name: 'French Bee', country: 'FR', bases: ['ORY'], fleet: ['a350'], reach: 'global' },
+  { iata: 'TX', name: 'Air Caraibes', country: 'FR', bases: ['ORY'], fleet: ['a350'], reach: 'global' },
+  { iata: 'UU', name: 'Air Austral', country: 'RE', bases: ['RUN'], fleet: ['b787', 'atr72'], reach: 'global' },
+  { iata: 'QS', name: 'Smartwings', country: 'CZ', bases: ['PRG', 'BRQ', 'OSR', 'KSC', 'BTS'], fleet: ['b737', 'b737max8'], reach: 'regional' },
+  { iata: 'E4', name: 'Enter Air', country: 'PL', bases: ['WAW', 'KTW', 'POZ', 'WRO', 'GDN'], fleet: ['b737', 'b737max8'], reach: 'regional' },
+  { iata: '6Y', name: 'Air Montenegro', country: 'ME', bases: ['TGD', 'TIV'], fleet: ['e195e2', 'atr72'], reach: 'regional' },
+  { iata: 'ZB', name: 'Air Albania', country: 'AL', bases: ['TIA'], fleet: ['a320'], reach: 'regional' },
+  { iata: 'FB', name: 'Bulgaria Air', country: 'BG', bases: ['SOF', 'VAR', 'BOJ'], fleet: ['e190', 'a320neo'], reach: 'regional' },
+  { iata: '0B', name: 'Blue Air', country: 'RO', bases: ['OTP', 'CLJ', 'BCM'], fleet: ['b737'], reach: 'regional' },
+  { iata: 'RC', name: 'Atlantic Airways', country: 'FO', bases: ['FAE'], fleet: ['a320neo'], reach: 'regional' },
+  { iata: 'DX', name: 'DAT', country: 'DK', bases: ['AAL', 'AAR', 'BLL', 'CPH'], fleet: ['atr72'], reach: 'regional' },
+  { iata: 'N7', name: 'Nordica', country: 'EE', bases: ['TLL', 'TAY'], fleet: ['crj900'], reach: 'regional' },
+  { iata: '8S', name: 'Turkish Regional', country: 'TR', bases: ['IST', 'TZX', 'ASR', 'ADA'], fleet: ['a320neo'], reach: 'regional' },
+
+  // ---- Africa and the Indian Ocean
+  { iata: 'MK', name: 'Air Mauritius', country: 'MU', bases: ['MRU'], fleet: ['a330neo', 'a350', 'atr72'], reach: 'global' },
+  { iata: 'HM', name: 'Air Seychelles', country: 'SC', bases: ['SEZ'], fleet: ['a320neo'], reach: 'regional' },
+  { iata: 'TC', name: 'Air Tanzania', country: 'TZ', bases: ['DAR', 'JRO', 'ZNZ'], fleet: ['q400', 'b787'], reach: 'global' },
+  { iata: '4Z', name: 'Airlink', country: 'ZA', bases: ['JNB', 'CPT', 'DUR'], fleet: ['e190', 'e175'], reach: 'regional' },
+  { iata: 'FA', name: 'FlySafair', country: 'ZA', bases: ['JNB', 'CPT', 'DUR'], fleet: ['b737'], reach: 'domestic' },
+  { iata: 'VR', name: 'TACV Cabo Verde', country: 'CV', bases: ['SID', 'RAI'], fleet: ['b737', 'atr72'], reach: 'regional' },
+  { iata: 'MD', name: 'Madagascar Airlines', country: 'MG', bases: ['TNR'], fleet: ['atr72', 'a350'], reach: 'regional' },
+
+  // ---- Asia and the Pacific
+  { iata: 'AK', name: 'AirAsia', country: 'MY', bases: ['KUL', 'PEN', 'BKI', 'DMK', 'CGK', 'DPS', 'CEB'], fleet: ['a320neo', 'a321neo'], reach: 'regional' },
+  { iata: 'D7', name: 'AirAsia X', country: 'MY', bases: ['KUL'], fleet: ['a330'], reach: 'global' },
+  { iata: 'TR', name: 'Scoot', country: 'SG', bases: ['SIN'], fleet: ['a320neo', 'b787'], reach: 'global' },
+  { iata: '5J', name: 'Cebu Pacific', country: 'PH', bases: ['MNL', 'CEB', 'DVO'], fleet: ['a320neo', 'a321neo', 'atr72', 'a330'], reach: 'regional' },
+  { iata: 'VJ', name: 'VietJet Air', country: 'VN', bases: ['SGN', 'HAN', 'DAD'], fleet: ['a320neo', 'a321neo', 'a330'], reach: 'regional' },
+  { iata: 'FD', name: 'Thai AirAsia', country: 'TH', bases: ['DMK', 'CNX', 'HKT'], fleet: ['a320neo'], reach: 'regional' },
+  { iata: 'SL', name: 'Thai Lion Air', country: 'TH', bases: ['DMK'], fleet: ['b737', 'a330'], reach: 'regional' },
+  { iata: 'JX', name: 'STARLUX Airlines', country: 'TW', bases: ['TPE'], fleet: ['a321neo', 'a330neo', 'a350'], reach: 'global' },
+  { iata: 'IT', name: 'Tigerair Taiwan', country: 'TW', bases: ['TPE', 'KHH'], fleet: ['a320neo'], reach: 'regional' },
+  { iata: 'MM', name: 'Peach Aviation', country: 'JP', bases: ['KIX', 'NRT', 'OKA'], fleet: ['a320neo'], reach: 'regional' },
+  { iata: '7C', name: 'Jeju Air', country: 'KR', bases: ['ICN', 'CJU', 'PUS'], fleet: ['b737', 'b737max8'], reach: 'regional' },
+  { iata: 'TW', name: "T'way Air", country: 'KR', bases: ['ICN', 'GMP', 'CJU'], fleet: ['b737', 'a330'], reach: 'regional' },
+  { iata: 'HU', name: 'Hainan Airlines', country: 'CN', bases: ['PEK', 'CAN', 'SZX'], fleet: ['b737max8', 'a330', 'b787'], reach: 'global' },
+  { iata: 'MF', name: 'Xiamen Airlines', country: 'CN', bases: ['XMN', 'PEK', 'CAN'], fleet: ['b737max8', 'b787'], reach: 'global' },
+  { iata: 'UL', name: 'SriLankan Airlines', country: 'LK', bases: ['CMB'], fleet: ['a320neo', 'a330'], reach: 'global' },
+  { iata: 'Q2', name: 'Maldivian', country: 'MV', bases: ['MLE'], fleet: ['atr72', 'a320'], reach: 'regional' },
+  { iata: 'KB', name: 'Drukair', country: 'BT', bases: ['PBH'], fleet: ['a320neo', 'atr72'], reach: 'regional' },
+  { iata: 'SG', name: 'SpiceJet', country: 'IN', bases: ['DEL', 'BOM', 'HYD', 'CCU'], fleet: ['b737max8', 'q400'], reach: 'regional' },
+  { iata: 'QP', name: 'Akasa Air', country: 'IN', bases: ['BOM', 'DEL', 'BLR'], fleet: ['b737max8'], reach: 'regional' },
+  { iata: 'FZ', name: 'flydubai', country: 'AE', bases: ['DXB'], fleet: ['b737max8'], reach: 'regional' },
+  { iata: 'G9', name: 'Air Arabia', country: 'AE', bases: ['SHJ', 'RKT', 'CMN'], fleet: ['a320neo', 'a321neo'], reach: 'regional' },
+  { iata: 'WY', name: 'Oman Air', country: 'OM', bases: ['MCT', 'SLL'], fleet: ['b737max8', 'b787'], reach: 'global' },
+  { iata: 'XY', name: 'flynas', country: 'SA', bases: ['RUH', 'JED', 'DMM'], fleet: ['a320neo'], reach: 'regional' },
+  { iata: 'SV', name: 'Saudia', country: 'SA', bases: ['JED', 'RUH', 'DMM', 'MED'], fleet: ['a320neo', 'a330', 'b787', 'b777'], reach: 'global' },
+  { iata: 'GF', name: 'Gulf Air', country: 'BH', bases: ['BAH'], fleet: ['a320neo', 'a321neo', 'b787'], reach: 'global' },
+  { iata: 'KU', name: 'Kuwait Airways', country: 'KW', bases: ['KWI'], fleet: ['a320neo', 'a330neo', 'b777'], reach: 'global' },
+  { iata: 'FJ', name: 'Fiji Airways', country: 'FJ', bases: ['NAN'], fleet: ['a350', 'b737max8', 'atr72'], reach: 'global' },
+  { iata: 'SB', name: 'Aircalin', country: 'NC', bases: ['NOU'], fleet: ['a320neo', 'a330neo'], reach: 'regional' },
+  { iata: 'TN', name: 'Air Tahiti Nui', country: 'PF', bases: ['PPT'], fleet: ['b787'], reach: 'global' },
+  { iata: 'QH', name: 'Air Vanuatu', country: 'VU', bases: ['VLI'], fleet: ['atr72', 'b737'], reach: 'regional' },
+  { iata: 'RX', name: 'Regional Express', country: 'AU', bases: ['SYD', 'MEL', 'ADL', 'CBR'], fleet: ['b737', 'atr72'], reach: 'domestic' },
+
+  // ---- The Americas
+  { iata: 'NK', name: 'Spirit Airlines', country: 'US', bases: ['FLL', 'MCO', 'DTW', 'LAS', 'DFW'], fleet: ['a320neo', 'a321neo'], reach: 'regional' },
+  { iata: 'F9', name: 'Frontier Airlines', country: 'US', bases: ['DEN', 'MCO', 'LAS', 'PHX'], fleet: ['a320neo', 'a321neo'], reach: 'regional' },
+  { iata: 'HA', name: 'Hawaiian Airlines', country: 'US', bases: ['HNL', 'OGG', 'KOA'], fleet: ['a321neo', 'a330'], reach: 'global' },
+  { iata: 'Y4', name: 'Volaris', country: 'MX', bases: ['MEX', 'GDL', 'TIJ'], fleet: ['a320neo', 'a321neo'], reach: 'regional' },
+  { iata: 'VB', name: 'Viva', country: 'MX', bases: ['MTY', 'MEX', 'GDL'], fleet: ['a320neo'], reach: 'regional' },
+  { iata: 'CM', name: 'Copa Airlines', country: 'PA', bases: ['PTY'], fleet: ['b737max8'], reach: 'global' },
+  { iata: 'H2', name: 'SKY Airline', country: 'CL', bases: ['SCL', 'LIM'], fleet: ['a320neo', 'a321neo'], reach: 'regional' },
+  { iata: 'JA', name: 'JetSMART', country: 'CL', bases: ['SCL', 'EZE', 'LIM'], fleet: ['a320neo', 'a321neo'], reach: 'regional' },
+  { iata: 'BW', name: 'Caribbean Airlines', country: 'TT', bases: ['POS', 'BGI', 'KIN'], fleet: ['b737max8', 'atr72'], reach: 'regional' },
+  { iata: 'PD', name: 'Porter Airlines', country: 'CA', bases: ['YTZ', 'YOW', 'YHZ', 'YYZ'], fleet: ['e195e2', 'q400'], reach: 'regional' },
+  { iata: 'TS', name: 'Air Transat', country: 'CA', bases: ['YUL', 'YYZ'], fleet: ['a321neo', 'a330'], reach: 'global' },
 ]
 
 // Fill in the derived bits once, at module load: a Set for O(1) base lookups

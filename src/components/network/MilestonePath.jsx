@@ -5,6 +5,7 @@ import Icon from '../Icon'
 import { Avatar } from '../ui'
 import { cx, formatViews } from '../../lib/utils'
 import { EASE } from '../../lib/motion'
+import { playPlaneRise, playCoin } from '../../lib/gameSounds'
 
 // The milestone ladder, drawn as a flight path.
 //
@@ -280,6 +281,34 @@ export default function MilestonePath({ milestones = [], standings = [], preview
     if (f >= progress) return flightSeconds + Math.min((f - progress) * legs * 0.12, 0.6)
     return (f / progress) * flightSeconds
   }
+
+  // THE FLIGHT IS AUDIBLE.
+  //
+  // A short ascending pass as the aircraft leaves the first dot, then the games'
+  // coin as it crosses each milestone it has actually reached. The coin already
+  // means "you passed a marked point" everywhere else in the product (it is the
+  // Flight Path stop sound), so borrowing it here costs nothing to learn.
+  //
+  // It rides on `arrivalDelay`, which is the same function that lights each
+  // node up, so the sound and the light are the same event by construction
+  // rather than by two sets of numbers that will drift apart.
+  //
+  // Only for milestones already REACHED: a coin for a stop you have not earned
+  // would be the product congratulating you for nothing.
+  useEffect(() => {
+    if (!started) return undefined
+    playPlaneRise()
+    const timers = []
+    for (let i = 1; i <= reached; i++) {
+      timers.push(setTimeout(playCoin, Math.round(arrivalDelay(i) * 1000)))
+    }
+    return () => timers.forEach(clearTimeout)
+    // `arrivalDelay` closes over flightSeconds/progress/legs, all derived from
+    // props, and is rebuilt every render - depending on it would reschedule the
+    // whole run on any unrelated re-render, which is how you get a route that
+    // chimes twice. The flight only ever starts once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [started, reached])
 
   // WHERE EVERYBODY ELSE IS.
   //

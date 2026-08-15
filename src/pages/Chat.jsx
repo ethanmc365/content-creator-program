@@ -29,6 +29,7 @@ import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
 import MessageEditor from '../components/MessageEditor'
 import ReportMessage from '../components/ReportMessage'
 import { useNowTick, withinEditWindow } from '../lib/messageActions'
+import { playSend, playSendFail, playInbound, playReactionPop } from '../lib/appSounds'
 
 // A short label for a message when it's quoted in a reply.
 function messagePreview(m) {
@@ -113,6 +114,11 @@ export default function Chat() {
   const typingChanRef = useRef(null)
   const typingSentRef = useRef(0)
   const typerTimersRef = useRef({})
+  // WHICH MESSAGES IN THIS ROOM ARE YOURS. The reaction subscription is global
+  // (see the note on it), so it needs to answer "is this about me?" from inside
+  // a realtime callback, where `messages` would be a stale closure and a
+  // setState updater would be the wrong place to make a noise.
+  const myMessageIdsRef = useRef(new Set())
 
   // Visual-viewport tracking drives the WhatsApp-style mobile layout: the whole
   // chat is a fixed overlay pinned to the visible area so the composer hugs the
@@ -260,12 +266,24 @@ export default function Chat() {
     })
   }, [])
 
+  useEffect(() => {
+    myMessageIdsRef.current = new Set(messages.filter((m) => m.sender_id === user.id).map((m) => m.id))
+  }, [messages, user.id])
+
   // ---------- Realtime: messages + reactions ----------
   useEffect(() => {
     const sub = supabase
       .channel(`chat-${channel}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `channel=eq.${channel}` },
         async (payload) => {
+          // A TICK, BUT ONLY FOR SOMEBODY ELSE'S, AND ONLY IF YOU ARE HERE.
+          //
+          // Three conditions, and each one exists because breaking it is
+          // annoying rather than merely wrong: your own message already made
+          // the send whoosh, a tab in the background is a notification's job
+          // and not a sound's, and this subscription is per channel so a
+          // message in a room you are not reading never reaches it anyway.
+          if (payload.new.sender_id !== user.id && !document.hidden) playInbound()
           // Fetch the sender's profile for the incoming message.
           const { data: sender } = await supabase
             .from('profiles').select('id, name, photo_url, is_admin').eq('id', payload.new.sender_id).single()
@@ -277,7 +295,19 @@ export default function Chat() {
           setMessages((prev) => prev.map((m) => (m.id === payload.new.id ? { ...m, ...payload.new } : m)))
         })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reactions' },
-        (payload) => setReactions((prev) => prev.some((r) => r.id === payload.new.id) ? prev : [...prev, payload.new]))
+        (payload) => {
+          // A POP, BUT ONLY WHEN IT IS YOUR MESSAGE AND NOT YOUR REACTION.
+          // Somebody reacting to somebody else's post is not an event about
+          // you, and this table is subscribed globally rather than per channel,
+          // so without both checks every reaction anywhere on the platform
+          // would make a noise in every open tab.
+          //
+          // Read from a REF, never from inside a setState updater: an updater
+          // has to be pure, and React is free to run it twice.
+          if (myMessageIdsRef.current.has(payload.new.message_id)
+            && payload.new.creator_id !== user.id && !document.hidden) playReactionPop()
+          setReactions((prev) => prev.some((r) => r.id === payload.new.id) ? prev : [...prev, payload.new])
+        })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'reactions' },
         (payload) => setReactions((prev) => prev.filter((r) => r.id !== payload.old.id)))
       // Read receipts: someone's last-read time advanced in this channel.
@@ -288,7 +318,7 @@ export default function Chat() {
         })
       .subscribe()
     return () => supabase.removeChannel(sub)
-  }, [channel, mergeIncoming])
+  }, [channel, mergeIncoming, user.id])
 
   // Reset scroll bookkeeping whenever the channel changes (we always land at the
   // newest message in a freshly opened channel), and restore any saved draft for
@@ -537,8 +567,13 @@ export default function Chat() {
     ...fields,
   })
 
-  const markFailed = (tempId) =>
+  // A FAILED SEND MAKES A NOISE. This is the one sound in the app worth
+  // interrupting somebody for: the bubble goes grey and stays there, and if you
+  // have already looked away you will believe you sent it.
+  const markFailed = (tempId) => {
+    playSendFail()
     setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, pending: false, failed: true } : m)))
+  }
 
   async function send(e) {
     e?.preventDefault?.()
@@ -546,6 +581,10 @@ export default function Chat() {
     if (!text) return
     const replyId = replyTo?.id ?? null
     const temp = makeOptimistic({ body: text, reply_to: replyId })
+    // On the OPTIMISTIC bubble, not on the server's answer: the whoosh is the
+    // feedback for the press, and a whoosh that arrives 400ms later is a
+    // different sound about a different thing.
+    playSend()
     setMessages((prev) => [...prev, temp])
     // Clear the composer immediately; keep focus so the mobile keyboard stays up
     // (it only closes when the user taps the chat or swipes the composer down).
@@ -587,18 +626,23 @@ export default function Chat() {
     const caption = body.trim()
     const replyId = replyTo?.id ?? null
     const localUrl = URL.createObjectURL(file)
+    // A VIDEO TAKES ITS CAPTION TOO. It used to send `body: ''` and leave what
+    // you had typed in the composer, so a clip posted with a line of context
+    // arrived without the context. Photos have always carried it; there was
+    // never a reason for video to be the exception.
     const temp = makeOptimistic(
       isVideo
-        ? { video_url: localUrl, reply_to: replyId }
+        ? { body: caption, video_url: localUrl, reply_to: replyId }
         : { body: caption, image_url: localUrl, reply_to: replyId }
     )
+    playSend()
     setMessages((prev) => [...prev, temp])
-    if (!isVideo) { setBody(''); clearDraft('chat-' + channel); composerEditorRef.current?.clear() }
+    setBody(''); clearDraft('chat-' + channel); composerEditorRef.current?.clear()
     setReplyTo(null); setAtBottom(true)
     try {
       const url = isVideo ? await uploadChatVideo(file, user.id) : await uploadChatImage(file, user.id)
       const row = isVideo
-        ? { channel, sender_id: user.id, body: '', video_url: url, reply_to: replyId }
+        ? { channel, sender_id: user.id, body: caption, video_url: url, reply_to: replyId }
         : { channel, sender_id: user.id, body: caption, image_url: url, reply_to: replyId }
       const { data, error } = await supabase
         .from('messages')
@@ -971,17 +1015,24 @@ export default function Chat() {
                       bubble where it belongs. */}
                   <div
                     className={cx(
-                      // IT SITS ON THE EDGE OF THE MESSAGE, NOT ON TOP OF IT.
-                      // `top-0` alone put a ~30px pill inside the top corner of
-                      // a bubble, which is Ethan's "the reaction and reply
-                      // buttons cover the top right half of the message" - and
-                      // in the DMs, where there is no meta line above the
-                      // bubble, it landed squarely on the first line of text.
-                      // Centred on the top edge it straddles the gap between
-                      // messages instead, so it covers nothing you are reading
-                      // and still points unambiguously at the message it acts
-                      // on. It costs no layout either way: this is absolute.
-                      'absolute top-0 z-10 flex -translate-y-1/2 items-center gap-1 rounded-full border border-gray-100 bg-white/95 px-1 py-0.5 shadow-card backdrop-blur transition-opacity',
+                      // IT SITS ON THE BOTTOM EDGE OF THE MESSAGE.
+                      //
+                      // It has been three places now and each move fixed the
+                      // last one. Inside the top corner it covered the words
+                      // ("the reaction and reply buttons cover the top right
+                      // half of the message"). Straddling the TOP edge it sat
+                      // level with the timestamp and the author's name, which
+                      // is the point your eye STARTS at, not the point you
+                      // finish at and decide to react. On the bottom edge it is
+                      // where the message ends, which is where the decision
+                      // happens, and it is the nearest control to your thumb on
+                      // a phone rather than the furthest.
+                      //
+                      // Still absolute, so it costs no layout: an `opacity-0`
+                      // row in the flow would put an invisible strip under
+                      // every single message, which is the gap this design has
+                      // been avoiding from the start.
+                      'absolute bottom-0 z-10 flex translate-y-1/2 items-center gap-1 rounded-full border border-gray-100 bg-white/95 px-1 py-0.5 shadow-card backdrop-blur transition-opacity',
                       mine ? 'left-0' : 'right-0',
                       showActions
                         ? 'opacity-100'
