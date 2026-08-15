@@ -225,17 +225,74 @@ function noteHash(id = '') {
   return Math.abs(h)
 }
 
-// THE PIN. Drawn rather than an emoji or an icon-font glyph, because it has to
-// sit half over the top edge of the note and cast a small shadow onto it, which
-// is the whole trick that makes the note look attached to something.
-function Pin({ hue }) {
+// THE THUMBTACK.
+//
+// WHAT WAS WRONG WITH THE OLD ONE. It was a flat disc with a dot of white on it
+// and a straight grey line under it - a lollipop, not a pin. Ethan: "improve
+// the icon, make it look like an actual thumbtack that's tryp.com orange." A
+// real push pin has four parts and it needs all four to read as one: a DOMED
+// head (so it has a lit side and a shaded side), a COLLAR where the plastic is
+// moulded round the shaft, a TAPERED needle, and a shadow on the paper it is
+// pushed into.
+//
+// The dome is a radial gradient rather than a lighter circle offset on top of a
+// darker one, which is what the first attempt at this looked like and which
+// reads as a bullseye. The gradients are declared ONCE per page - see
+// ThumbtackDefs - because a definition per note is a definition per note.
+//
+// AND IT SITS IN THE SAME PLACE ON EVERY NOTE. Ethan: "some are inside the
+// cards and others are nicely at the top, please ensure they all sit nicely."
+// It was `-top-2.5` on a note inside a CSS multi-column container, and a column
+// box clips what overflows its top edge - so the pin on whichever note happened
+// to start a column lost its head and what was left looked like a pin sunk into
+// the paper. The overhang is smaller now and, more importantly, the container
+// reserves room for it (`pt-3` on the columns, `mt-1.5` on each note), so there
+// is no edge for it to be clipped against on any note in any column.
+const TACK_HEAD = 'url(#tack-dome)'
+
+export function ThumbtackDefs() {
+  return (
+    <svg width="0" height="0" aria-hidden className="absolute">
+      <defs>
+        {/* Lit from the top left, like everything else in this product. */}
+        <radialGradient id="tack-dome" cx="34%" cy="30%" r="72%">
+          <stop offset="0%" stopColor="#ffb184" />
+          <stop offset="42%" stopColor="#f5853f" />
+          <stop offset="100%" stopColor="#c23c05" />
+        </radialGradient>
+        <radialGradient id="tack-dome-green" cx="34%" cy="30%" r="72%">
+          <stop offset="0%" stopColor="#86efac" />
+          <stop offset="42%" stopColor="#34d399" />
+          <stop offset="100%" stopColor="#12813f" />
+        </radialGradient>
+        <linearGradient id="tack-needle" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#6b7280" />
+          <stop offset="45%" stopColor="#d1d5db" />
+          <stop offset="100%" stopColor="#6b7280" />
+        </linearGradient>
+      </defs>
+    </svg>
+  )
+}
+
+function Pin({ green = false }) {
   return (
     <span className="pointer-events-none absolute -top-2.5 left-1/2 z-10 -translate-x-1/2" aria-hidden>
-      <svg viewBox="0 0 24 24" className="h-6 w-6" style={{ filter: 'drop-shadow(0 2px 2px rgba(20,20,30,0.28))' }}>
-        <circle cx="12" cy="9" r="6" fill={hue} />
-        {/* The highlight is what stops the head reading as a flat dot. */}
-        <circle cx="10" cy="7" r="2" fill="#ffffff" fillOpacity="0.55" />
-        <path d="M12 15v6" stroke="#8a8a94" strokeWidth="1.6" strokeLinecap="round" />
+      <svg viewBox="0 0 28 30" className="h-8 w-8">
+        {/* The shadow the head casts on the paper below it. An ellipse rather
+            than a filter: this is drawn on up to forty notes at once. */}
+        <ellipse cx="15.4" cy="20.4" rx="6.2" ry="2.2" fill="rgba(20,20,30,0.20)" />
+        {/* Needle: tapered, and it goes INTO the note rather than stopping on
+            top of it - the point is hidden by the paper, which is what a pin
+            pushed through something actually looks like. */}
+        <path d="M12.9 15.5 L15.1 15.5 L14.4 26.5 L13.6 26.5 Z" fill="url(#tack-needle)" />
+        {/* Collar. */}
+        <rect x="9.6" y="13.2" width="8.8" height="3.6" rx="1.8" fill={green ? '#0f7a3d' : '#a83506'} />
+        {/* The head. */}
+        <circle cx="14" cy="9" r="8" fill={green ? 'url(#tack-dome-green)' : TACK_HEAD} />
+        {/* One specular highlight, small and off-centre, which is the whole
+            difference between a dome and a disc. */}
+        <ellipse cx="10.9" cy="6.2" rx="2.5" ry="1.8" fill="#ffffff" fillOpacity="0.55" transform="rotate(-28 10.9 6.2)" />
       </svg>
     </span>
   )
@@ -324,13 +381,13 @@ function QuestionNote({ q }) {
         open ? 'border-brand/25 hover:border-brand/50' : 'border-green-200 hover:border-green-400',
       )}
     >
-      <Pin hue={open ? '#d94407' : '#16a34a'} />
+      <Pin green={!open} />
 
       {/* THE STATE, AS A BAND. Two pixels of colour across the top of a white
           note is legible across a whole wall without tinting the paper - and it
           leaves the paper white, which is what makes the wall read as this
           product rather than as a different one. */}
-      <span className={cx('h-1.5 w-full shrink-0 rounded-t-lg', open ? 'bg-brand' : 'bg-green-500')} aria-hidden />
+      <span className={cx('h-1 w-full shrink-0 rounded-t-lg', open ? 'bg-brand' : 'bg-green-500')} aria-hidden />
 
       <span className="flex min-h-0 flex-1 flex-col p-3.5 pt-2.5 sm:p-4 sm:pt-3.5">
         <span className="mb-2 flex items-center gap-1.5">
@@ -528,27 +585,27 @@ export default function Board() {
             ))}
           </div>
 
-          {/* THE BOARD ITSELF.
-              A very light, faintly orange surface with a fine grain and an
-              inset edge, so the notes have something to be pinned TO.
-              Deliberately not a photographic cork texture: this app is
-              white-dominant with one orange, and a brown wood-effect panel
-              would be the loudest thing on any page it appeared on. The grain
-              is repeating gradients, which costs nothing and needs no image.
-
-              FULL BLEED ON A PHONE. Ethan: "the entire screen should be the
-              pinboard, not a separate big card." A wall inside a rounded card
-              with page gutters either side is a picture of a wall, and on a
-              375px screen those gutters were 32 of the 375 pixels the notes had
-              to live in. `.board-bleed` cancels the layout's own padding below
-              `sm` and gives the radius back above it. */}
-          {/* A MINIMUM HEIGHT, SO IT IS A BOARD BEFORE IT IS FULL.
-              Ethan: "I want the board to be much bigger and longer." With four
-              notes on it the surface was four notes tall - a strip, not a wall -
-              and the whole illusion depends on there being visibly more board
-              than there is paper. 70vh is about a screen and a half of cork on
-              a laptop and it grows from there as the notes fill it. */}
-          <div className="board-surface board-bleed min-h-[70vh] p-4 ring-1 ring-black/5 sm:p-6 lg:p-10">
+          {/* THERE IS NO BOARD BEHIND THE NOTES ANY MORE.
+              It was a tinted, faintly grained panel with an inset edge - a
+              drawn cork wall for the notes to be pinned to. Ethan: "remove the
+              backing wall and just have the cards pinned on the entire white
+              screen."
+              He is right, and the reason is the same one that took the amber
+              and green paper away before it: this product is white with one
+              orange in it, and a full-width textured panel is a second surface
+              competing with the notes for the reader's attention on a page
+              whose entire content is the notes. Pinned straight onto the page,
+              the paper is the only thing with a shadow, so the paper is the only
+              thing that looks raised - which is what "pinned up" actually looks
+              like.
+              The minimum height went with it. It existed to stop a half-empty
+              WALL looking like a strip of cork; with no wall there is nothing to
+              look empty, and a screen and a half of enforced whitespace under
+              four notes would be the new version of the same problem. */}
+          <div className="pt-3">
+            {/* The thumbtack's gradients, declared once for every pin on the
+                page rather than once per note. */}
+            <ThumbtackDefs />
             {rows === null ? (
               <div className="columns-2 gap-4 sm:gap-5 lg:columns-3 xl:columns-4">
                 {[190, 260, 150, 300, 210, 170, 250, 200].map((h, i) => (
@@ -582,9 +639,12 @@ export default function Board() {
               // exactly what `break-inside-avoid` needs to be ON. The stagger
               // is done here instead, with the same variable the stylesheet
               // reads, so the notes still arrive one after another.
+              // `mt-1.5` on every item is what stops a column box clipping the
+              // head off the pin of whichever note happens to start a column.
+              // See the note on Pin.
               <div className="reveal is-in columns-2 gap-4 sm:gap-5 lg:columns-3 xl:columns-4">
                 {rows.map((q, i) => (
-                  <div key={q.id} className="reveal-item break-inside-avoid" style={{ '--reveal-i': Math.min(i, 12) }}>
+                  <div key={q.id} className="reveal-item mt-1.5 break-inside-avoid" style={{ '--reveal-i': Math.min(i, 12) }}>
                     <QuestionNote q={q} />
                   </div>
                 ))}
@@ -721,7 +781,12 @@ export function BoardThread() {
             on a wall among others; a tilted page of body text you are trying to
             read is a gimmick. Reaching for a note already straightens it, so
             arriving straightened is the same gesture finishing. */}
-        <div className="board-surface board-bleed min-h-[70vh] space-y-6 p-4 ring-1 ring-black/5 sm:p-6 lg:p-8">
+        {/* No surface here either - see the note on the board itself. The
+            question is still the same note it was on the wall (the pin, the
+            state band, the paper), just much bigger, which is what makes
+            opening one feel like taking it down rather than navigating. */}
+        <div className="space-y-6 pt-3">
+          <ThumbtackDefs />
           <Link to="/board" className="inline-flex items-center gap-2 text-sm font-medium text-smoke transition-colors hover:text-brand">
             <Icon name="chevronLeft" className="h-4 w-4" />
             Community board
@@ -731,8 +796,8 @@ export function BoardThread() {
             'relative rounded-lg border bg-white shadow-lift',
             openQ ? 'border-brand/25' : 'border-green-200',
           )}>
-            <Pin hue={openQ ? '#d94407' : '#16a34a'} />
-            <span className={cx('block h-1.5 w-full rounded-t-lg', openQ ? 'bg-brand' : 'bg-green-500')} aria-hidden />
+            <Pin green={!openQ} />
+            <span className={cx('block h-1 w-full rounded-t-lg', openQ ? 'bg-brand' : 'bg-green-500')} aria-hidden />
             <div className="p-5 sm:p-7">
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-tint px-2.5 py-1 text-[11px] font-semibold text-brand">

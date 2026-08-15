@@ -68,43 +68,81 @@ function arcFor(a, b) {
   return { d: `M${ax} ${ay} Q ${cx} ${cy} ${bx} ${by}`, ax, ay, bx, by, cx, cy, chord }
 }
 
-// A point and a heading along the quadratic, for putting an aeroplane on it.
-// The derivative of a quadratic bezier is a straight line between its two
-// control legs, which is why this is four multiplications rather than a
-// sampled tangent.
-function alongArc(r, t) {
-  const u = 1 - t
-  const x = u * u * r.ax + 2 * u * t * r.cx + t * t * r.bx
-  const y = u * u * r.ay + 2 * u * t * r.cy + t * t * r.by
-  const dx = 2 * u * (r.cx - r.ax) + 2 * t * (r.bx - r.cx)
-  const dy = 2 * u * (r.cy - r.ay) + 2 * t * (r.by - r.cy)
-  return { x, y, angle: (Math.atan2(dy, dx) * 180) / Math.PI }
-}
-
 const fmtKm = (n) => Math.round(n).toLocaleString('en-GB')
 
-// The aeroplane that rides the selected route. THE PLANE FACES LEFT in the
-// brand artwork, so a silhouette drawn nose-right has to be its own shape - and
-// at this size a path is cheaper and sharper than the cutout PNG the hero
-// scenes use. `rotate` is applied on a wrapper <g> and the scale on the inner
-// one: a CSS transform on an element OVERRIDES its SVG transform attribute, and
-// combining them is the bug that silently flattened the Flight Path aircraft to
-// scale 1 for weeks.
-function ArcPlane({ x, y, angle, size }) {
+// THE PLANE, AND IT IS THE SAME PLANE AS EVERY OTHER MAP.
+//
+// THE BUG THIS FIXES. This map drew its own aircraft: a two-part path of
+// rectangles meant to read as a jet from above, which at any size under about
+// twenty pixels is a smudge with a notch in it. Ethan: "the animation when you
+// click it shows a weird icon, it should be the proper plane icon like the
+// other maps." CreatorMap's silhouette is the one the rest of the product uses
+// and it is drawn NOSE-UP, so it is rotated 90 degrees onto the direction of
+// travel, exactly as it is there.
+const PLANE_D = 'M0 -11 C1.1 -11 1.8 -9 1.8 -6.2 L1.8 -4.4 L10 1 L10 3.1 L1.8 -0.2 L1.8 5 L4.4 7.6 L4.4 9.2 L0 7.7 L-4.4 9.2 L-4.4 7.6 L-1.8 5 L-1.8 -0.2 L-10 3.1 L-10 1 L-1.8 -4.4 L-1.8 -6.2 C-1.8 -9 -1.1 -11 0 -11 Z'
+
+// EVERY ROUTE CARRIES A PLANE, ALL THE TIME.
+//
+// It used to be one aeroplane on the SELECTED route only, moved by a
+// requestAnimationFrame that set React state sixty times a second. Two things
+// were wrong with that and this fixes both:
+//
+//   * IT ONLY MOVED WHEN YOU CLICKED. Ethan: "with the line, [I want] a
+//     constant animated airplane animation, not just when you click it." A map
+//     of flights whose aircraft are parked is a diagram.
+//   * SETTING STATE EVERY FRAME RE-RENDERED THE WHOLE MAP every frame -
+//     240 country paths, every arc, every pin - to move one aeroplane twelve
+//     pixels. `animateMotion` is the browser doing this on its own timeline
+//     with no React involved at all, which is why it can now be running on ten
+//     routes at once and cost less than one did.
+//
+// `dur` comes from the chord so every plane flies at the same speed rather than
+// every route taking the same time regardless of length - the rule CreatorMap
+// already uses. The nose follows the path (`rotate="auto"`).
+const PLANE_SPEED = 26 // projection units per second
+function ArcPlane({ path, chord, size, faint = false, delay = 0 }) {
+  const dur = Math.max(2.4, chord / PLANE_SPEED)
   return (
-    <g transform={`translate(${x} ${y}) rotate(${angle})`} style={{ pointerEvents: 'none' }}>
-      <g transform={`scale(${size})`}>
-        <path
-          d="M9 0 L-2 -4 L-5 -4 L-3 0 L-5 4 L-2 4 Z M-1 0 L-7 -6 L-9 -6 L-6 0 L-9 6 L-7 6 Z"
-          fill={BRAND}
-          stroke="#fff"
-          strokeWidth="0.7"
-          strokeLinejoin="round"
-        />
+    <g style={{ pointerEvents: 'none' }} opacity={faint ? 0.55 : 1}>
+      <g transform={`scale(${size}) rotate(90)`}>
+        <path d={PLANE_D} fill={BRAND} stroke="#fff" strokeWidth="1.3" strokeLinejoin="round" />
       </g>
+      <animateMotion
+        dur={`${dur}s`}
+        begin={`${delay}s`}
+        repeatCount="indefinite"
+        rotate="auto"
+        path={path}
+      />
     </g>
   )
 }
+
+// THE LAND, MEMOISED, for the same reason CreatorMap's is: `<Geographies>`
+// takes a render prop, so 240 country paths were rebuilt on every render of
+// this component - and with an aeroplane on a rAF that was sixty times a
+// second. Nothing about the land depends on the zoom or the selection.
+const Countries = memo(function Countries({ features, land, separator }) {
+  return (
+    <Geographies geography={features || EMPTY_GEO}>
+      {({ geographies }) =>
+        geographies
+          .filter((geo) => geo.properties.name !== 'Antarctica')
+          .map((geo) => (
+            <Geography
+              key={geo.rsmKey}
+              geography={geo}
+              style={{
+                default: { fill: land, stroke: separator, strokeWidth: 0.4, outline: 'none' },
+                hover: { fill: land, stroke: separator, strokeWidth: 0.4, outline: 'none' },
+                pressed: { fill: land, outline: 'none' },
+              }}
+            />
+          ))
+      }
+    </Geographies>
+  )
+})
 
 function FlightMap({ routes = [], airports = [] }) {
   const dark = useIsDark()
@@ -113,11 +151,6 @@ function FlightMap({ routes = [], airports = [] }) {
   const [selected, setSelected] = useState(null)   // route key
   const [fullscreen, setFullscreen] = useState(false)
   const [closing, setClosing] = useState(false)
-  // Drives the aeroplane along whichever arc is selected. rAF rather than a CSS
-  // animation because the position has to be computed on the bezier, and rather
-  // than SMIL because an `animateMotion` on a path that changes when you zoom
-  // restarts from the beginning every time.
-  const [t, setT] = useState(0)
   const fsRef = useRef(null)
 
   useEffect(() => {
@@ -125,6 +158,17 @@ function FlightMap({ routes = [], airports = [] }) {
     loadMapFeatures().then((fc) => { if (!cancelled) setFeatures(fc) })
     return () => { cancelled = true }
   }, [])
+
+  // The arrival plays once per map, not once per mount - going full screen
+  // remounts this subtree into a portal and every entrance would otherwise run
+  // again over the top of a map that was already settled. See the long note in
+  // CreatorMap, which hit this first.
+  const [arrived, setArrived] = useState(false)
+  useEffect(() => {
+    if (!features || arrived) return undefined
+    const t = setTimeout(() => setArrived(true), 1900)
+    return () => clearTimeout(t)
+  }, [features, arrived])
 
   const LAND = dark ? '#2a2c31' : '#ECECEE'
   const SEPARATOR = dark ? '#0c0d10' : '#ffffff'
@@ -144,26 +188,22 @@ function FlightMap({ routes = [], airports = [] }) {
 
   const active = useMemo(() => arcs.find((r) => r.key === selected) || null, [arcs, selected])
 
-  // THE AEROPLANE ONLY FLIES WHILE A ROUTE IS OPEN.
+  // WHICH ROUTES CARRY TRAFFIC.
   //
-  // One plane on the selected arc, not one per route. Twelve aircraft crawling
-  // across a world map at once is a screensaver; one on the line you just
-  // tapped is the map answering "this one".
-  useEffect(() => {
-    if (!active) { setT(0); return undefined }
-    let raf = 0
-    let start = 0
-    // Long routes take longer, but not proportionally - a Sydney arc at the
-    // same speed as a Gatwick hop would take half a minute to cross.
-    const dur = Math.min(6000, 1600 + active.chord * 6)
-    const tick = (now) => {
-      if (!start) start = now
-      setT(((now - start) % dur) / dur)
-      raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [active])
+  // All of them would be a swarm on a log with sixty routes in it, and a swarm
+  // is not "alive", it is busy. The ten longest get an aeroplane, which is the
+  // same rule CreatorMap uses for its threads and it picks the right ones for
+  // the same reason: a long arc has room for a plane to be seen travelling
+  // along it, and a forty-pixel hop does not.
+  //
+  // The staggered `begin` matters more than it looks. Ten aircraft that all
+  // start at t=0 leave every airport at the same instant and arrive together,
+  // which reads as a mechanism; offset, they read as traffic. The offset is
+  // derived from the route's own index so it is stable across renders.
+  const flying = useMemo(
+    () => [...arcs].sort((a, b) => b.chord - a.chord).slice(0, 10),
+    [arcs],
+  )
 
   const zoomBy = (f) => setPosition((p) => ({ ...p, zoom: Math.min(MAX_ZOOM, Math.max(1, p.zoom * f)) }))
   const reset = () => { setPosition({ coordinates: [12, 8], zoom: 1 }); setSelected(null) }
@@ -245,26 +285,10 @@ function FlightMap({ routes = [], airports = [] }) {
         {/* NOTHING DRAWS UNTIL THE ATLAS IS IN, and the routes follow the land
             rather than arriving before it. See `.map-arrive` in index.css. */}
         {features && (
-        <g className="map-arrive">
-        <Geographies geography={features || EMPTY_GEO}>
-          {({ geographies }) =>
-            geographies
-              .filter((geo) => geo.properties.name !== 'Antarctica')
-              .map((geo) => (
-                <Geography
-                  key={geo.rsmKey}
-                  geography={geo}
-                  style={{
-                    default: { fill: LAND, stroke: SEPARATOR, strokeWidth: 0.4, outline: 'none' },
-                    hover: { fill: LAND, stroke: SEPARATOR, strokeWidth: 0.4, outline: 'none' },
-                    pressed: { fill: LAND, outline: 'none' },
-                  }}
-                />
-              ))
-          }
-        </Geographies>
+        <g className={arrived ? undefined : 'map-arrive'}>
+        <Countries features={features} land={LAND} separator={SEPARATOR} />
 
-        <g className="map-arrive-overlay">
+        <g className={arrived ? undefined : 'map-arrive-overlay'}>
 
         {/* THE ROUTES DRAW THEMSELVES IN.
             `stroke-dasharray` set to the path's own length with the offset
@@ -297,7 +321,7 @@ function FlightMap({ routes = [], airports = [] }) {
                 strokeWidth={Math.max(0.6, (on ? 2.2 : 1.1) / position.zoom)}
                 strokeLinecap="round"
                 opacity={selected && !on ? 0.22 : 0.75}
-                className="flight-arc"
+                className={arrived ? undefined : 'flight-arc'}
                 style={{
                   '--arc-len': Math.round(r.chord * 1.15),
                   animationDelay: `${Math.min(i, 20) * 55}ms`,
@@ -309,11 +333,30 @@ function FlightMap({ routes = [], airports = [] }) {
           )
         })}
 
-        {/* The aeroplane, on the open route only. */}
-        {active && (() => {
-          const p = alongArc(active, t)
-          return <ArcPlane x={p.x} y={p.y} angle={p.angle} size={Math.max(0.35, 1.1 / position.zoom)} />
-        })()}
+        {/* THE TRAFFIC. Always moving, one aircraft per long route, plus one on
+            whatever route is open even if it was not long enough to make the
+            cut - tapping a line and getting no plane on it would be the map
+            answering the wrong question. */}
+        <g className={arrived ? undefined : 'map-plane-in'}>
+          {flying.map((r, i) => (
+            <ArcPlane
+              key={`fly-${r.key}`}
+              path={r.d}
+              chord={r.chord}
+              size={Math.max(0.28, 0.85 / position.zoom)}
+              faint={!!selected && r.key !== selected}
+              delay={(i % 5) * 0.9}
+            />
+          ))}
+          {active && !flying.some((r) => r.key === active.key) && (
+            <ArcPlane
+              key={`fly-${active.key}`}
+              path={active.d}
+              chord={active.chord}
+              size={Math.max(0.28, 0.85 / position.zoom)}
+            />
+          )}
+        </g>
 
         {pins.map((a) => {
           // A pin belonging to the open route is drawn up; everything else
@@ -321,7 +364,7 @@ function FlightMap({ routes = [], airports = [] }) {
           const on = active && (a.iata === active.from.iata || a.iata === active.to.iata)
           const r = Math.max(1.4, (a.weight > 4 ? 3.4 : a.weight > 1 ? 2.8 : 2.2) / position.zoom)
           return (
-            <g key={a.iata} className="flight-pin" style={{ transformOrigin: `${a.x}px ${a.y}px` }}>
+            <g key={a.iata} className={arrived ? undefined : 'flight-pin'} style={{ transformOrigin: `${a.x}px ${a.y}px` }}>
               <circle
                 cx={a.x}
                 cy={a.y}

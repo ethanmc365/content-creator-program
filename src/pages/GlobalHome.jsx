@@ -224,9 +224,9 @@ function MineChip({ to, icon, value = undefined, label, text }) {
   return (
     <Link
       to={to}
-      className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-xs font-medium text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/25"
+      className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-medium text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/25"
     >
-      <Icon name={icon} className="h-3.5 w-3.5 shrink-0 text-white/80" />
+      <Icon name={icon} className="h-3 w-3 shrink-0 text-white/80" />
       {text ? (
         <span>{text}</span>
       ) : (
@@ -853,8 +853,24 @@ export default function GlobalHome() {
                   to-do list rather than as a summary you can act on.
                   The heading also claimed a period ("your year") that none of
                   the numbers under it were actually scoped to. */}
-              <div className="mt-6 border-t border-white/20 pt-4 sm:mt-7">
-                <div className="flex flex-wrap gap-2 lg:max-w-[calc(100%-17rem)]">
+              {/* NO RULE ACROSS THIS CARD.
+                  There was a `border-t` here, spanning the full width of the
+                  card - and the plane is parked in the bottom-right corner, so
+                  the line ran straight through the aircraft and out the other
+                  side. Ethan: "you added a line that is appearing over the
+                  tryp.com plane, get rid of the line." Shortening the rule to
+                  the width of the chips would only have made it a line that
+                  stops for no visible reason. The chips are a row of pills on a
+                  coloured card; they do not need a rule to be separated from
+                  the figures above, only air. */}
+              {/* AND THE CHIPS KEEP WELL CLEAR OF THE PLANE. The hero plane's
+                  box is 23rem (25rem at xl) and its nose reaches about a tenth
+                  of the way in from the left of that box, so the row stops
+                  ~21.5rem short of the right edge and nothing can wrap under a
+                  wing. They are a size down from the figures above too, which
+                  is what they are: doors, not statistics. */}
+              <div className="mt-6 sm:mt-7">
+                <div className="flex flex-wrap gap-2 lg:max-w-[calc(100%-21.5rem)] xl:max-w-[calc(100%-23.5rem)]">
                   <MineChip to="/game" icon="joystick" text="Play today's puzzles" />
                   <MineChip to="/connections" icon="users"
                     value={me ? me.connections : null}

@@ -36,6 +36,22 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Tryp.com" />
 
+    <!-- THE WORLD MAP, FETCHED BEFORE ANYTHING ASKS FOR IT.
+         Six pages carry a map and all of them defer the map's mount until it is
+         nearly on screen, which is right for the render and wrong for the
+         download - the file only started moving once a reader was already
+         looking at where it should be. `prefetch` is the low-priority hint:
+         the browser takes it when the network is otherwise idle, so it never
+         competes with the bundle or the first queries, and by the time anybody
+         scrolls to a map it is a cache hit. See lib/mapCountries.
+
+         NO `crossorigin` ATTRIBUTE. It is same-origin, and adding it would make
+         the prefetch a CORS request while `loadMapFeatures` does a plain
+         same-origin `fetch` - two different cache keys for the same URL, so the
+         prefetched copy would never be used and the file would be downloaded
+         twice. -->
+    <link rel="prefetch" href="/geo/countries-50m.json" as="fetch" />
+
     <title>Tryp.com Creator Program</title>
   </head>
   <body>

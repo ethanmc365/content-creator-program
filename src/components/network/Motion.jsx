@@ -44,8 +44,46 @@ export function RiseIn({ children, delay = 0, className, as = 'div' }) {
  * animates once per mount and then simply shows the number. Uses rAF rather
  * than a spring because a count is a discrete readout: it should land exactly
  * on the value, not overshoot to 44 and settle back to 43.
+ *
+ * HOW LONG IT TAKES IS A FUNCTION OF THE NUMBER, and the curve is not the one
+ * the rest of the app uses.
+ *
+ * THE BUG THIS FIXES. Every counter ran for a flat 900ms on a cubic ease-out,
+ * and a cubic ease-out is violently front-loaded: a fifth of the way through
+ * the time it is already halfway through the distance. On a six-figure
+ * kilometre total that is invisible, because the digits keep moving for the
+ * whole second regardless. On "44 creators" it means the counter reads 24 on
+ * the second frame and 41 a moment later - so the big number animates and the
+ * small ones next to it appear to snap straight to their answer. Ethan: "the
+ * numbers for the kilometres flown animate up nicely but the other like 44
+ * creators animate up instantly."
+ *
+ * Two changes, and both are needed:
+ *
+ *   * SMOOTHSTEP, NOT EASE-OUT. `t*t*(3-2t)` is symmetric - it eases in and out
+ *     and spends the middle of its time in the middle of its range - so a count
+ *     to 44 passes through roughly every number on the way rather than jumping
+ *     to the last handful.
+ *   * THE DURATION FOLLOWS THE MAGNITUDE, logarithmically. A count to 6 does
+ *     not need the second a count to a million does, but it does need long
+ *     enough to be seen: this gives about 850ms to single digits and about
+ *     1.5s to seven, which is long enough to watch and short enough that
+ *     nobody is waiting for a card to finish.
  */
-export function CountUp({ value, duration = 900, className, format = (n) => n }) {
+// Exported so they can be tested without a component. The preview browser
+// freezes requestAnimationFrame (document.hidden is true), so a counter cannot
+// be watched there at all - which means the only honest way to check the two
+// things that were wrong with it is to check the arithmetic directly.
+export function countDuration(target) {
+  const magnitude = Math.log10(Math.abs(target) + 1)
+  return 600 + Math.min(900, magnitude * 240)
+}
+
+/** Smoothstep. Eases in and out, and is at the halfway VALUE at the halfway
+ *  TIME - which the cubic ease-out this replaced was nowhere near. */
+export const countEase = (t) => t * t * (3 - 2 * t)
+
+export function CountUp({ value, duration, className, format = (n) => n }) {
   const ref = useRef(null)
   const inView = useInView(ref, { once: true, margin: '0px 0px -10% 0px' })
   const reduced = useReducedMotion()
@@ -83,12 +121,15 @@ export function CountUp({ value, duration = 900, className, format = (n) => n })
     const from = shownRef.current
     if (from === target) return undefined
     let raf = 0
+    // The caller can still name a duration; nothing does, and the derived one
+    // is the point - see countDuration above.
+    const ms = duration ?? countDuration(target - from)
     const start = performance.now()
     const tick = (now) => {
-      const t = Math.min(1, (now - start) / duration)
-      // Same easing as everything else, so a counter and a card that arrive
-      // together feel like one movement.
-      const v = Math.round(from + (target - from) * (1 - Math.pow(1 - t, 3)))
+      const t = Math.min(1, (now - start) / ms)
+      // Smoothstep, not the app's ease-out: a count has to pass THROUGH its
+      // range, and an ease-out skips most of a small one on the first frame.
+      const v = Math.round(from + (target - from) * countEase(t))
       shownRef.current = v
       setShown(v)
       if (t < 1) raf = requestAnimationFrame(tick)

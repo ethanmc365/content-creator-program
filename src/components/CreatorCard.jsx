@@ -68,17 +68,39 @@ export default function CreatorCard({ creator, relation, onRelationChange, curre
         {creator.is_admin && <Badge tone="light" className="shrink-0 !px-2 !py-0.5 !text-[10px]">Team</Badge>}
       </div>
 
-      {/* A FIXED TWO-LINE BOX. `min-h` and `line-clamp-2` together: it can never
-          be taller than two lines and never shorter, whatever is in it. */}
-      <p className="line-clamp-2 min-h-[2.5rem] text-[13px] leading-snug text-smoke">
-        {creator.bio || 'New to the programme.'}
+      {/* A BOX THAT IS EXACTLY TWO LINES TALL, AND THAT IS THE WHOLE FIX.
+          THE BUG THIS FIXES: it was `line-clamp-2 min-h-[2.5rem] leading-snug`,
+          and those two numbers do not agree. `leading-snug` on 13px type is
+          17.9px a line, so two lines is 35.8px - but the minimum height is 40px,
+          which leaves four pixels of a THIRD line showing under the clamp.
+          `-webkit-line-clamp` stops the ellipsis, it does not stop the paint, so
+          what a reader sees is the top sliver of the next row of glyphs: the
+          flat-topped ones vanish and the tall ones (emoji, capitals, accents)
+          leave a row of chopped-off heads. Ethan: "on some creator cards like
+          kiera's you say some text or emojis cut off, obviously can't fit all
+          the text but don't cut just bottom half off."
+          `leading-5` is 20px exactly and `h-10` is 40px exactly, so the box is
+          two whole lines and there is no room for a third to peek. The height is
+          fixed rather than a minimum for the same reason it was there at all:
+          every card in the grid has to be the same height.
+          A bio with a hard line break in it would still lay out as three lines
+          and clamp at two, which is the correct outcome - the clamp is now the
+          only thing deciding what is visible. */}
+      {/* The bio is COLLAPSED to flowing text first. A creator who wrote their
+          bio as four short lines would otherwise lay out as four lines and the
+          clamp would show the first two with no ellipsis, which reads as the
+          card having eaten the rest rather than as a summary. */}
+      <p className="line-clamp-2 h-10 overflow-hidden text-[13px] leading-5 text-smoke">
+        {(creator.bio || 'New to the programme.').replace(/\s+/g, ' ').trim()}
       </p>
 
-      {/* The meta row, also one line. The trip chip lives here now rather than
-          beside the name, so it can never make the heading wrap. */}
-      <div className="flex min-h-[1.5rem] flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-smoke">
+      {/* The meta row, also one line, and it never wraps: `overflow-hidden` on a
+          nowrap row is what stops a creator with four platforms and a live trip
+          adding a second line to their card and nobody else's. `h-6` rather than
+          a minimum, for the same reason the bio box is a fixed height. */}
+      <div className="flex h-6 items-center gap-x-2.5 overflow-hidden whitespace-nowrap text-[11px] text-smoke">
         <PlatformBadges platforms={platformsForProfile(creator)} />
-        <span className="inline-flex items-center gap-1">
+        <span className="inline-flex shrink-0 items-center gap-1" title={`${creator.countries_visited?.length || 0} countries visited`}>
           <Icon24Globe />
           {creator.countries_visited?.length || 0}
         </span>

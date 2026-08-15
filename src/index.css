@@ -209,57 +209,15 @@
   .rt-editor.rt-scroll h2 { @apply my-0 text-sm font-bold tracking-normal; }
   .rt-editor.rt-scroll h3 { @apply my-0 text-sm font-semibold; }
   .rt-editor.rt-scroll p { @apply my-0; }
-  /* ---- The community board's surface -----------------------------------
-     A warm, very light board for the question notes to be pinned to, with a
-     faint diagonal grain and an inset edge. Two repeating gradients rather than
-     an image: nothing to load, nothing in the CSP, and it scales.
-
-     DELIBERATELY NOT A CORK PHOTOGRAPH. This app is white-dominant with one
-     orange, and a brown wood-effect panel would be the loudest thing on any
-     page it appeared on.
-
-     It is a CLASS and not an inline style because it has to have a dark-mode
-     answer, and an inline background is the one thing the dark layer at the end
-     of this file cannot reach - which is exactly how the board came out as a
-     sheet of cream floating on a near-black page. */
-  /* ---- The community board's surface ---------------------------------
-     THE BOARD IS ORANGE-TINTED NOW, NOT BROWN.
-     It was `#faf7f3` grained with `rgba(160,130,100,…)`, which is a cork
-     board rendered politely - a warm BROWN, the one hue this product does
-     not have. On a page that is white with one orange on it, a brown panel
-     is the loudest thing on screen and it belongs to a different app.
-     Ethan: "the current design doesn't match the platform colours and
-     aesthetics."
-     So the paper is a barely-there brand tint and the grain is the brand
-     orange at very low alpha - the same trick, in the palette the rest of
-     the product is built from. The weave is finer (2px/5px was visible as
-     stripes at close range; 1px/4px reads as texture). */
-  .board-surface {
-    background-color: #fdfaf8;
-    background-image:
-      repeating-linear-gradient(45deg, rgba(217, 68, 7, 0.035) 0 1px, transparent 1px 4px),
-      repeating-linear-gradient(-45deg, rgba(217, 68, 7, 0.028) 0 1px, transparent 1px 5px),
-      radial-gradient(120% 80% at 50% 0%, rgba(245, 133, 63, 0.10), transparent 60%);
-    box-shadow: inset 0 1px 3px rgba(120, 60, 20, 0.07);
-  }
-  /* Full bleed on a phone. A board is a WALL, and a wall inside a rounded
-     card with page gutters either side is a poster of a wall. Ethan: "the
-     entire screen should be the pinboard, not a separate big card." The
-     negative margins cancel the page's own horizontal padding, and the
-     corner radius only comes back when there is room for the page to have
-     margins worth respecting.
-     NetworkLayout pads the page `px-4` below `sm`, so -1rem is exactly that
-     back off again. Hard-coded rather than a variable because there is one
-     layout this page renders inside and inventing a token for a single call
-     site is a token that will drift from the layout it describes. */
-  .board-bleed {
-    margin-left: -1rem;
-    margin-right: -1rem;
-    border-radius: 0;
-  }
-  @media (min-width: 640px) {
-    .board-bleed { margin-left: 0; margin-right: 0; border-radius: 1rem; }
-  }
+  /* THE COMMUNITY BOARD HAS NO SURFACE ANY MORE.
+     There was a `.board-surface` here - a brand-tinted panel with a fine
+     diagonal grain and an inset edge, plus a `.board-bleed` that ran it to the
+     edges of a phone - so the question notes had a wall to be pinned to. Ethan:
+     "remove the backing wall and just have the cards pinned on the entire white
+     screen." The notes are the content and they are the only thing on that page
+     that should be carrying a shadow; a second textured surface behind them was
+     competing with them for exactly the attention they need. The dark-mode twin
+     of it went with it - see the end of this file. */
 
   /* Checklists: a tappable box drawn before each item; JS toggles data-checked. */
   .rt-editor ul[data-check] { @apply list-none pl-0; }
@@ -458,24 +416,80 @@
 
      `transform-origin: center` and `transform-box: fill-box` together are what
      make it scale about the middle of the map rather than about the SVG
-     viewBox origin - the same trap the Flight Path aircraft hit. */
+     viewBox origin - the same trap the Flight Path aircraft hit.
+
+     THE SEQUENCE, AND WHY IT IS FOUR STEPS RATHER THAN TWO.
+     It used to be the land, then everything drawn on the land as one block that
+     faded up together. Ethan: "the animation isn't very good or clear, I want
+     the immediate animation like the world map coming in from the world globe
+     and the pins and planes landing cleanly on it." A single fade cannot say
+     that, because a pin that fades in has not landed anywhere - it was simply
+     always there and you could not see it. Landing is a MOVEMENT, and it has to
+     happen after the thing it lands on has stopped moving.
+
+     So: the land pulls back (0ms), the threads between the towns draw
+     themselves up behind it (300ms), the pins drop onto it one after another
+     (420ms, laddered), and only once the pins are down do the aircraft appear
+     on the routes (900ms). Each step starts as the one before it is finishing,
+     so it reads as one continuous arrival rather than as four animations. */
   @keyframes map-globe-in {
-    from { opacity: 0; transform: scale(1.14); }
-    60%  { opacity: 1; }
+    from { opacity: 0; transform: scale(1.16); }
+    55%  { opacity: 1; }
     to   { opacity: 1; transform: scale(1); }
   }
   .map-arrive {
     transform-box: fill-box;
     transform-origin: center;
-    animation: map-globe-in 720ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: map-globe-in 760ms cubic-bezier(0.16, 1, 0.3, 1) both;
   }
-  /* The overlay waits for the land. 260ms in, the geography is most of the way
-     home and a pin arriving on it lands ON something. */
+  /* The overlay waits for the land. By 300ms the geography is most of the way
+     home and anything arriving on it lands ON something. Opacity only: a
+     translate here would slide the whole constellation of pins across the map
+     relative to the countries they belong to, which is the one thing a map may
+     never do. */
+  @keyframes map-overlay-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
   .map-arrive-overlay {
-    animation: fade-up 520ms cubic-bezier(0.22, 1, 0.36, 1) 260ms both;
+    animation: map-overlay-in 420ms ease-out 300ms both;
   }
+
+  /* A PIN DROPS ONTO THE MAP AND SETTLES.
+     Down from above with a little squash at the end, which is what makes it
+     read as landing rather than as appearing. `transform-box: fill-box` with
+     the origin at the bottom centre puts the pivot on the pin's own point - the
+     coordinate it is marking - so the settle happens around the place rather
+     than around the middle of the world.
+     The ladder is per pin (`--pin-i`, set in CreatorMap) and capped in the
+     component, because past about twenty-five the last pin lands a second and a
+     half after the first and a reader has stopped watching. */
+  @keyframes map-pin-land {
+    0%   { opacity: 0; transform: translateY(-22px) scale(0.72); }
+    62%  { opacity: 1; transform: translateY(0) scale(1.06); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .map-pin-land {
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+    animation: map-pin-land 520ms cubic-bezier(0.34, 1.3, 0.64, 1) both;
+    animation-delay: calc(420ms + var(--pin-i, 0) * 26ms);
+  }
+
+  /* The aircraft take off once the pins are down. They fly on their own SMIL
+     timeline, so this only decides when they become visible. */
+  @keyframes map-plane-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  .map-plane-in { animation: map-plane-in 460ms ease-out 900ms both; }
+
   @media (prefers-reduced-motion: reduce) {
-    .map-arrive, .map-arrive-overlay { animation: none; opacity: 1; transform: none; }
+    .map-arrive, .map-arrive-overlay, .map-pin-land, .map-plane-in {
+      animation: none;
+      opacity: 1;
+      transform: none;
+    }
   }
 
   /* The reaction popover growing out of the button that opened it. CSS so the
@@ -666,21 +680,6 @@ html[data-theme='dark'] .text-amber-700 { color: #fbbf24; }
 html[data-theme='dark'] .text-green-800 { color: #4ade80; }
 html[data-theme='dark'] .text-amber-800 { color: #fbbf24; }
 
-/* The board itself. The grain and the inset stay - they are what make it read
-   as a surface rather than as a panel - but at dark-canvas weights, and the
-   base is a warm near-black rather than the same grey as every card, so the
-   notes still look like they are ON something. */
-/* The dark twin of the redesigned board. Same fine weave, same top-lit wash -
-   an INLINE background is the one thing the utility remaps above cannot reach,
-   so any change to `.board-surface` has to be made twice or the two drift. */
-html[data-theme='dark'] .board-surface {
-  background-color: #131211;
-  background-image:
-    repeating-linear-gradient(45deg, rgba(245, 133, 63, 0.05) 0 1px, transparent 1px 4px),
-    repeating-linear-gradient(-45deg, rgba(245, 133, 63, 0.035) 0 1px, transparent 1px 5px),
-    radial-gradient(120% 80% at 50% 0%, rgba(245, 133, 63, 0.07), transparent 60%);
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
-}
 /* btn-danger inlines its properties via @apply, so the utility remaps above
    never reach it - restyle the recipe directly. */
 html[data-theme='dark'] .btn-danger {

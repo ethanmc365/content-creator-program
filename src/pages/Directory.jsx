@@ -233,55 +233,61 @@ export default function Directory() {
           creators from around the world could be a small but long horizontal
           card above the map, same width."
 
-          So the count is now a full-width bar sitting ON the map's top edge -
-          same width, flat bottom corners, so it reads as part of the map rather
-          than as a pill floating in the corner above it. It still counts WHAT
-          IS ON THE MAP: it used to say "43 creators from around the world" over
-          a map showing six of them, which is a caption contradicting its own
-          picture. */}
+          THE COUNT IS PART OF THE MAP CARD, NOT A STRIP ABOVE IT. It used to be
+          this page's own brand-tinted bar with `rounded-t-card border-b-0`,
+          stacked on a map that draws its own white card with its own grey
+          border - two borders, two colours, two corner radii meeting in the
+          middle. Ethan: "the card above the map where it shows 45 creators
+          around the world does not look right, it's a different colour and it
+          doesn't sit cleanly integrated with the map card." It is passed INTO
+          the map now and drawn inside its frame, so there is one card.
+
+          It still counts WHAT IS ON THE MAP: it used to say "43 creators from
+          around the world" over a map showing six of them, which is a caption
+          contradicting its own picture. */}
       <section className="mb-10">
         {loading ? (
           <div className="h-[340px] w-full animate-pulse rounded-card bg-cloud/70 sm:h-[420px]" />
         ) : (
-          <>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-t-card border border-b-0 border-brand/20 bg-brand-tint/40 px-5 py-3">
-              <Icon name="users" className="h-4 w-4 shrink-0 text-brand" />
-              <span className="text-sm">
-                <span className="font-semibold text-brand">{mapCreators.length}</span>
-                <span className="text-smoke">
-                  {fieldFilterOn
-                    ? ` creator${mapCreators.length === 1 ? '' : 's'} match${mapCreators.length === 1 ? 'es' : ''} your filters`
-                    : ` creator${mapCreators.length === 1 ? '' : 's'} from around the world`}
+          <CreatorMap
+            header={
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-tint text-brand">
+                  <Icon name="users" className="h-4 w-4" />
                 </span>
-              </span>
-              {exploredOn && (
-                <span className="ml-auto text-xs font-medium text-brand">
-                  {allCountries.length} countries filmed in between us
+                <span className="text-sm">
+                  <span className="font-semibold text-ink">{mapCreators.length}</span>
+                  <span className="text-smoke">
+                    {fieldFilterOn
+                      ? ` creator${mapCreators.length === 1 ? '' : 's'} match${mapCreators.length === 1 ? 'es' : ''} your filters`
+                      : ` creator${mapCreators.length === 1 ? '' : 's'} from around the world`}
+                  </span>
                 </span>
-              )}
-            </div>
-            <div className="overflow-hidden rounded-b-card">
-              <CreatorMap
-                creators={mapCreators}
-                trips={trips}
-                highlightIds={nearMe ? nearIds : null}
-                nearMe={nearMe}
-                nearCount={nearIds.size}
-                nearMeDisabled={!hasMyLocation}
-                onToggleNearMe={toggleNearMe}
-                travelActive={travelOnly}
-                onToggleTravel={toggleTravel}
-                onTravellersChange={setTravellerIds}
-                connectionsActive={connectionsOnly}
-                onToggleConnections={toggleConnections}
-                connectionIds={myConnectionIds}
-                exploredCountries={allCountries}
-                exploredActive={exploredOn}
-                onToggleExplored={() => setExploredOn((v) => !v)}
-                myId={user.id}
-              />
-            </div>
-          </>
+                {exploredOn && (
+                  <span className="ml-auto text-xs font-medium text-brand">
+                    {allCountries.length} countries filmed in between us
+                  </span>
+                )}
+              </div>
+            }
+            creators={mapCreators}
+            trips={trips}
+            highlightIds={nearMe ? nearIds : null}
+            nearMe={nearMe}
+            nearCount={nearIds.size}
+            nearMeDisabled={!hasMyLocation}
+            onToggleNearMe={toggleNearMe}
+            travelActive={travelOnly}
+            onToggleTravel={toggleTravel}
+            onTravellersChange={setTravellerIds}
+            connectionsActive={connectionsOnly}
+            onToggleConnections={toggleConnections}
+            connectionIds={myConnectionIds}
+            exploredCountries={allCountries}
+            exploredActive={exploredOn}
+            onToggleExplored={() => setExploredOn((v) => !v)}
+            myId={user.id}
+          />
         )}
       </section>
 

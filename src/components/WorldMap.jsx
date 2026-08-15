@@ -226,6 +226,14 @@ function WorldMap({ selected = [], onToggle, selectable = false, focusCountry = 
             translateExtent={[[-60, -50], [940, 490]]}
             onMoveEnd={(pos) => { if (!focusCountry) setPosition(pos) }}
           >
+            {/* THE SAME ARRIVAL AS EVERY OTHER MAP. This one had none at all:
+                the countries simply existed the moment the atlas resolved,
+                which on a page where every other element rises into view read
+                as the map having been there all along and everything else being
+                late. Nothing draws until the atlas is in, then the land pulls
+                back into place. See `.map-arrive` in index.css. */}
+            {features && (
+            <g className="map-arrive">
             <Geographies geography={features || EMPTY_GEO}>
               {({ geographies }) =>
                 geographies
@@ -275,6 +283,8 @@ function WorldMap({ selected = [], onToggle, selectable = false, focusCountry = 
                 })
               }
             </Geographies>
+            </g>
+            )}
           </ZoomableGroup>
         </ComposableMap>
 

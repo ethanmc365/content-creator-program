@@ -1,5 +1,6 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { warmMapAtlas } from './lib/mapCountries'
 import { ProtectedRoute, AdminRoute } from './components/ProtectedRoute'
 import NetworkRoute from './components/NetworkRoute'
 import AppLayout from './components/layout/AppLayout'
@@ -62,6 +63,10 @@ const Milestones = lazy(() => import('./pages/Milestones'))
 // and lazy for the same reason: a UK creator must not download the airport
 // table, the map component or the page.
 const Flights = lazy(() => import('./pages/Flights'))
+// The aircraft collection. Its own route rather than a tab on the log, because
+// it is a page you go to look at rather than a section you scroll past - and
+// because a wall of two dozen drawings has no business loading with the log.
+const AircraftCollection = lazy(() => import('./pages/AircraftCollection'))
 const GlobalSettings = lazy(() => import('./pages/GlobalSettings'))
 
 const Game = lazy(() => import('./pages/Game'))
@@ -103,6 +108,12 @@ export default function App() {
   // the session, because the boundary stays in its error state and shows the
   // error screen for pages that are perfectly fine. See ErrorScreen.
   const { pathname } = useLocation()
+  // The atlas, downloaded and parsed while the shell settles rather than on the
+  // frame a map mounts. The <link rel="prefetch"> in index.html usually has the
+  // bytes already; this is what turns them into the parsed FeatureCollection
+  // every map holds, so the map that appears when you scroll to it has nothing
+  // left to do. See lib/mapCountries.
+  useEffect(() => { warmMapAtlas() }, [])
   return (
     <>
       <OfflineScreen />
@@ -174,6 +185,7 @@ export default function App() {
                 "UK creators have been able to view My route". */}
             <Route path="/milestones" element={<Milestones />} />
             <Route path="/flights" element={<Flights />} />
+            <Route path="/flights/aircraft" element={<AircraftCollection />} />
             <Route path="/global/chat" element={<Navigate to="/global/chat/general" replace />} />
             <Route path="/global/chat/:channelKey" element={<NetworkChat />} />
             <Route path="/c/:slug" element={<ChapterHome />} />

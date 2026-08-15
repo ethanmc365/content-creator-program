@@ -159,7 +159,7 @@ function byPinPriority(a, b) {
 // tip on the exact coordinate. The avatar is CONCENTRIC with the white disc so
 // it's dead-centre in the pin. Counter-scaled against the zoom so it stays a
 // calm, readable size (a hair of growth when you zoom in, never a balloon).
-function Pin({ group, zoom, active, dim, onSelect }) {
+function Pin({ group, zoom, active, dim, onSelect, landIndex = null }) {
   const lead = group.creators[0]
   const count = group.creators.length
   // Counter-scale so pins are small at the default zoom (you can see the
@@ -169,16 +169,41 @@ function Pin({ group, zoom, active, dim, onSelect }) {
   const r = 12 // avatar radius (smaller base than before)
   const cy = -26 // avatar centre above the tip
   const disc = r + 3 // white ring around the photo
+  const body = `M${-r * 0.62} ${cy + disc * 0.5} L0 0 L${r * 0.62} ${cy + disc * 0.5} Z`
   return (
     <Marker coordinates={group.coords} onClick={() => onSelect(group)}>
+      {/* THE LANDING WRAPPER IS ITS OWN ELEMENT, AND IT HAS TO BE.
+          A CSS `transform` OVERRIDES an SVG `transform` attribute on the same
+          element, so putting the drop animation on the counter-scaled group
+          below would silently throw the counter-scale away for the length of
+          the animation and every pin would balloon on arrival. This g carries
+          only the animation; the one inside it carries only the scale. */}
+      <g
+        className={landIndex == null ? undefined : 'map-pin-land'}
+        style={landIndex == null ? undefined : { '--pin-i': landIndex }}
+      >
       <g
         transform={`scale(${s})`}
         style={{ cursor: 'pointer', opacity: dim ? 0.25 : 1, transition: 'opacity 0.2s' }}
       >
-        {/* pointer tail + white disc, concentric with the avatar, share one shadow */}
-        <g style={{ filter: 'drop-shadow(0 2px 3px rgba(20,20,30,0.30))' }}>
-          <path d={`M${-r * 0.62} ${cy + disc * 0.5} L0 0 L${r * 0.62} ${cy + disc * 0.5} Z`} fill="#ffffff" />
-          <circle cx={0} cy={cy} r={disc} fill="#ffffff" />
+        {/* THE SHADOW IS PAINTED, NOT FILTERED.
+            THE BUG THIS FIXES: this was `filter: drop-shadow(...)` on every
+            pin, which is a separate offscreen render pass per pin per frame.
+            With forty-five pins on a map that is survivable inside a 700px
+            card and it is not survivable full screen, where the same forty-five
+            passes are run at twice the linear size - four times the pixels -
+            on every frame of a drag. That is most of Ethan's "when I click on
+            full screen now it's really laggy, a lot of glitching".
+            The same shape drawn twice, once offset and translucent, is two
+            ordinary fills. It reads identically at this size and it composites
+            like anything else on the map. */}
+        <g fill="rgba(20,20,30,0.22)" transform="translate(0 1.8)">
+          <path d={body} />
+          <circle cx={0} cy={cy} r={disc} />
+        </g>
+        <g fill="#ffffff">
+          <path d={body} />
+          <circle cx={0} cy={cy} r={disc} />
         </g>
         {/* avatar photo (perfect circle via objectBoundingBox) or initials, centred on (0,cy) */}
         {lead.photo_url ? (
@@ -205,6 +230,7 @@ function Pin({ group, zoom, active, dim, onSelect }) {
           </g>
         )}
       </g>
+      </g>
     </Marker>
   )
 }
@@ -213,24 +239,98 @@ function Pin({ group, zoom, active, dim, onSelect }) {
 // travels. Used both for the "we're all connected" threads and the travelling-
 // now journeys, so every plane on the map moves. `dur` (seconds) is set by the
 // caller from path length so all planes share one speed.
-function FlyingPlane({ path, dur, zoom, opacity = 1 }) {
+function FlyingPlane({ path, dur, zoom, opacity = 1, arriving = false }) {
   const s = 0.85 / Math.max(zoom, 1)
   return (
-    <g style={{ pointerEvents: 'none', opacity }}>
+    // `arriving` holds the aircraft off until the pins have landed, so the
+    // arrival reads as land, then places, then traffic. Once the map has
+    // settled the class comes off and a plane added later simply appears.
+    <g className={arriving ? 'map-plane-in' : undefined} style={{ pointerEvents: 'none', opacity }}>
       <g transform={`scale(${s}) rotate(90)`}>
+        {/* No drop-shadow filter. It is one offscreen pass per plane per frame
+            on an element that MOVES every frame, which is the most expensive
+            thing a filter can be attached to. The white outline already lifts
+            it off the land, which is what the shadow was for. */}
         <path
           d={PLANE_D}
           fill={BRAND}
           stroke="#ffffff"
           strokeWidth={1.3}
           strokeLinejoin="round"
-          style={{ filter: 'drop-shadow(0 1px 1.5px rgba(20,20,30,0.35))' }}
         />
       </g>
       <animateMotion dur={`${dur}s`} repeatCount="indefinite" rotate="auto" path={path} />
     </g>
   )
 }
+
+// THE LAND IS ITS OWN MEMOISED COMPONENT, AND THAT IS A PERFORMANCE FIX.
+//
+// THE BUG THIS FIXES. `<Geographies>` takes a render prop, so its 240 country
+// paths were rebuilt on EVERY render of CreatorMap - and CreatorMap re-renders
+// a lot: `liveZoom` is set from a rAF on every frame of a pinch or a wheel, and
+// `tooltip` is set every time the pointer crosses a border. So dragging the map
+// meant reconciling 240 <Geography> elements sixty times a second, and simply
+// moving the mouse across Europe meant a full pass per country. Inside a 700px
+// card that is a warm laptop; full screen, where the same work is being done at
+// four times the pixel count, it is Ethan's "really laggy, a lot of glitching".
+//
+// Nothing about the land depends on the zoom or on the tooltip. Pulled out here
+// and wrapped in `memo`, it re-renders only when the atlas, the tinting or the
+// open country actually change - so a drag now touches the pins (which do have
+// to counter-scale) and nothing else.
+//
+// Every prop is a primitive, a stable Set or a stable callback, because `memo`
+// is a shallow compare and one fresh object literal a render would undo all of
+// this silently.
+const Countries = memo(function Countries({
+  features, homeNames, exploredView, exploredSet, openName,
+  landFill, homeFill, exploredFill, hoverFill, separator,
+  onSelect, onHover,
+}) {
+  return (
+    <Geographies geography={features || EMPTY_GEO}>
+      {({ geographies }) =>
+        geographies
+          .filter((geo) => geo.properties.name !== 'Antarctica')
+          .map((geo) => {
+            const name = geo.properties.name
+            const isHome = homeNames.has(name)
+            const isOpen = openName === name
+            // BEEN TOGETHER, painted only while the filter is on. It sits
+            // BELOW "home" in the order because somewhere a creator lives is a
+            // stronger fact about that country than somewhere the network has
+            // filmed, and above plain land for the obvious reason. Its own
+            // lighter tint, so the two are still distinguishable when both are
+            // showing.
+            const isExplored = exploredView && exploredSet.has(countryKey(name))
+            const base = isOpen
+              ? BRAND_LIGHT
+              : isHome ? homeFill
+                : isExplored ? exploredFill
+                  : landFill
+            return (
+              <Geography
+                key={geo.rsmKey}
+                geography={geo}
+                // THE LAND IS A BUTTON NOW. Tapping a country asks the
+                // community who has been there; see openCountry.
+                onClick={() => onSelect(geo)}
+                onMouseEnter={() => onHover(name)}
+                onMouseLeave={() => onHover('')}
+                tabIndex={-1}
+                style={{
+                  default: { fill: base, stroke: separator, strokeWidth: 0.4, outline: 'none', transition: 'fill 0.18s ease' },
+                  hover: { fill: isOpen ? BRAND_LIGHT : isHome ? homeFill : isExplored ? exploredFill : hoverFill, stroke: separator, strokeWidth: 0.4, outline: 'none', cursor: 'pointer' },
+                  pressed: { fill: BRAND_LIGHT, outline: 'none', cursor: 'pointer' },
+                }}
+              />
+            )
+          })
+      }
+    </Geographies>
+  )
+})
 
 // How far ahead a planned trip is worth putting on the map.
 //
@@ -246,6 +346,22 @@ const TRIP_HORIZON_DAYS = 90
 const EMPTY_GEO = { type: 'FeatureCollection', features: [] }
 
 function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = false, nearCount = 0, nearMeDisabled = false, onToggleNearMe = null, travelActive = null, onToggleTravel = null, onTravellersChange = null, onCreatorClick = null, connectionsActive = null, onToggleConnections = null, connectionIds = null, travelOnlyView = false, myId = null, maxFitZoom = 6, controls = true,
+  // A CAPTION THAT BELONGS TO THE MAP, DRAWN BY THE MAP.
+  //
+  // The creator directory wants a "45 creators from around the world" bar
+  // across the top of its map, and it used to build that itself: its own
+  // bordered, brand-tinted strip with `rounded-t-card border-b-0`, sitting on
+  // top of a map that draws its OWN full rounded card with its own grey
+  // border. Two borders in two colours meeting at two different corner radii,
+  // which is precisely the "different colour and it doesn't sit cleanly
+  // integrated with the map card" report - the strip was a separate object
+  // pretending to be attached to this one.
+  //
+  // Passing the content in instead means there is one card, one border and one
+  // radius, and the hairline between the caption and the map is drawn on the
+  // inside where it reads as a divider rather than as a seam. Full screen drops
+  // it: the map is the whole window there and a caption bar would be chrome.
+  header = null,
   // "Where we have been, together": the set of country names anybody in the
   // network has filmed in, and a toggle to paint them. It replaces the second
   // WorldMap that used to sit at the foot of the directory - see the note on
@@ -284,6 +400,30 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
     loadMapFeatures().then((fc) => { if (!cancelled) setFeatures(fc) })
     return () => { cancelled = true }
   }, [])
+
+  // THE ARRIVAL PLAYS ONCE PER MAP, NOT ONCE PER MOUNT.
+  //
+  // THE BUG THIS FIXES. Going full screen moves the map into a portal, and a
+  // portal is a different place in the tree - so React tears the whole SVG down
+  // and builds it again. Every arrival animation on it therefore ran a second
+  // time: the land scaled in from 1.16 while the container it sits in was
+  // itself scaling in from 0.965, the pins dropped again from somewhere above
+  // wherever they had just been drawn, and the aircraft restarted their SMIL
+  // paths from the beginning. Two nested scales and forty-five pins in flight
+  // is exactly Ethan's "everything is jumbled about, it's not smooth at all"
+  // and "the pins are not where they should be" - they were mid-drop.
+  //
+  // The component itself does NOT unmount (only its rendered subtree moves), so
+  // a flag here survives the transition and the second mount draws the map in
+  // its settled state. The timer is longer than the whole sequence (900ms delay
+  // plus 460ms on the aircraft) so nothing is ever cut off part-way.
+  const [arrived, setArrived] = useState(false)
+  useEffect(() => {
+    if (!features || arrived) return undefined
+    const t = setTimeout(() => setArrived(true), 1600)
+    return () => clearTimeout(t)
+  }, [features, arrived])
+
   const [tooltip, setTooltip] = useState('')
   const [selected, setSelected] = useState(null)
   // FULL SCREEN.
@@ -1105,11 +1245,15 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
 
   const mapBox = (
     <div
-      className={
+      className={cx(
         fullscreen
           ? 'relative flex h-full w-full flex-1 items-center justify-center overflow-hidden bg-cloud/60'
-          : 'relative w-full overflow-hidden rounded-card border border-gray-100 bg-cloud/60'
-      }
+          : 'relative w-full overflow-hidden bg-cloud/60',
+        // The frame belongs to whichever element is the OUTSIDE of the card. With
+        // a caption bar that is the wrapper below, and drawing a second border
+        // here would put a hairline between the caption and the map it names.
+        !fullscreen && !header && 'rounded-card border border-gray-100',
+      )}
     >
       {tooltip && (
         <div className="pointer-events-none absolute left-1/2 top-3 z-30 -translate-x-1/2 rounded-full bg-ink px-3 py-1 text-xs font-medium text-white">
@@ -1199,50 +1343,24 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
               a skeleton in its place) and buys an arrival that happens once, in
               the right order. */}
           {features && (
-          <g className="map-arrive">
-          <Geographies geography={features || EMPTY_GEO}>
-            {({ geographies }) =>
-              geographies
-                .filter((geo) => geo.properties.name !== 'Antarctica')
-                .map((geo) => {
-                  const name = geo.properties.name
-                  const isHome = homeNames.has(name)
-                  const isOpen = country?.name === name
-                  // BEEN TOGETHER, painted only while the filter is on. It sits
-                  // BELOW "home" in the order because somewhere a creator lives
-                  // is a stronger fact about that country than somewhere the
-                  // network has filmed, and above plain land for the obvious
-                  // reason. Its own lighter tint, so the two are still
-                  // distinguishable when both are showing.
-                  const isExplored = exploredView && exploredSet.has(countryKey(name))
-                  const base = isOpen
-                    ? BRAND_LIGHT
-                    : isHome ? HOME_FILL
-                      : isExplored ? EXPLORED_FILL
-                        : LAND_FILL
-                  return (
-                    <Geography
-                      key={geo.rsmKey}
-                      geography={geo}
-                      // THE LAND IS A BUTTON NOW. Tapping a country asks the
-                      // community who has been there; see openCountry.
-                      onClick={() => openCountry(geo)}
-                      onMouseEnter={() => setTooltip(name)}
-                      onMouseLeave={() => setTooltip('')}
-                      tabIndex={-1}
-                      style={{
-                        default: { fill: base, stroke: SEPARATOR, strokeWidth: 0.4, outline: 'none', transition: 'fill 0.18s ease' },
-                        hover: { fill: isOpen ? BRAND_LIGHT : isHome ? HOME_FILL : isExplored ? EXPLORED_FILL : HOVER_FILL, stroke: SEPARATOR, strokeWidth: 0.4, outline: 'none', cursor: 'pointer' },
-                        pressed: { fill: BRAND_LIGHT, outline: 'none', cursor: 'pointer' },
-                      }}
-                    />
-                  )
-                })
-            }
-          </Geographies>
+          <g className={arrived ? undefined : 'map-arrive'}>
+          <Countries
+            features={features}
+            homeNames={homeNames}
+            exploredView={exploredView}
+            exploredSet={exploredSet}
+            openName={country?.name ?? null}
+            landFill={LAND_FILL}
+            homeFill={HOME_FILL}
+            exploredFill={EXPLORED_FILL}
+            hoverFill={HOVER_FILL}
+            separator={SEPARATOR}
+            onSelect={openCountry}
+            onHover={setTooltip}
+          />
 
           {/* Everything that sits ON the land waits for the land. */}
-          <g className="map-arrive-overlay">
+          <g className={arrived ? undefined : 'map-arrive-overlay'}>
 
           {/* Connection lines (behind the pins). Hidden while focusing on a
               traveller or in the who's-travelling view, to keep it clean. */}
@@ -1264,7 +1382,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
                   tidy. All planes share one speed. No destination pulse, so they
                   read differently from the "travelling now" journeys below. */}
               {planeSegments.map((seg) => (
-                <FlyingPlane key={`p${seg.key}`} path={seg.d} dur={seg.dur} zoom={z} opacity={0.9} />
+                <FlyingPlane key={`p${seg.key}`} path={seg.d} dur={seg.dur} zoom={z} opacity={0.9} arriving={!arrived} />
               ))}
             </g>
           )}
@@ -1286,7 +1404,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
                 />
               ))}
               {linkSegments.map((seg) => (
-                <FlyingPlane key={`lp${seg.key}`} path={seg.d} dur={seg.dur} zoom={z} opacity={0.95} />
+                <FlyingPlane key={`lp${seg.key}`} path={seg.d} dur={seg.dur} zoom={z} opacity={0.95} arriving={!arrived} />
               ))}
             </g>
           )}
@@ -1332,7 +1450,9 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
                     pictures rather than the same one with a different opacity. */}
                 {j.current && (
                   <g transform={`translate(${j.dest[0]} ${j.dest[1]}) scale(${Math.pow(1 / Math.max(z, 1), 0.7)})`}>
-                    <circle r="13" fill="#ffffff" style={{ filter: 'drop-shadow(0 2px 3px rgba(20,20,30,0.30))' }} />
+                    {/* Painted shadow, not a filter - see the note in Pin. */}
+                    <circle cy="1.8" r="13" fill="rgba(20,20,30,0.22)" />
+                    <circle r="13" fill="#ffffff" />
                     {j.photo_url ? (
                       <image href={j.photo_url} x="-10" y="-10" width="20" height="20"
                         clipPath="url(#creator-pin-clip)" preserveAspectRatio="xMidYMid slice" />
@@ -1359,7 +1479,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
             ))}
           </g>
 
-          {paintOrder.map((town) => {
+          {paintOrder.map((town, i) => {
             const dimTown = highlighting && !town.creators.some((c) => highlightIds.has(c.id))
             const label = town.creators.length === 1
               ? `${town.creators[0].name} · ${(town.creators[0].city || '').trim()}`.trim()
@@ -1370,7 +1490,13 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
                 onMouseEnter={() => setTooltip(label)}
                 onMouseLeave={() => setTooltip('')}
               >
-                <Pin group={town} zoom={z} active={selected?.key === town.key} dim={dimTown} onSelect={selectTown} />
+                {/* THE LADDER IS CAPPED AT TWENTY-FIVE. Paint order is north to
+                    south, so the pins land down the map, which is a direction a
+                    reader can follow. Past twenty-five steps the last pin would
+                    arrive a second and a half after the first and the map would
+                    read as still loading rather than as arriving. */}
+                <Pin group={town} zoom={z} active={selected?.key === town.key} dim={dimTown}
+                  onSelect={selectTown} landIndex={arrived ? null : Math.min(i, 25)} />
               </g>
             )
           })}
@@ -1541,9 +1667,18 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
     )
   }
 
+  // One card: the caption, a hairline, the map. See the note on the `header`
+  // prop for what this replaces.
+  const mapCard = header ? (
+    <div className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
+      <div className="border-b border-gray-100 px-4 py-3 sm:px-5">{header}</div>
+      {mapBox}
+    </div>
+  ) : mapBox
+
   return (
     <div ref={rootRef} className="w-full">
-      {mapBox}
+      {mapCard}
       {/* PHONES GET THE COUNTRY UNDER THE MAP, NOT OVER IT.
           The map box is about 180px tall at 375px wide. An overlay inside it is
           a card covering the thing it describes, with the creator list squeezed
