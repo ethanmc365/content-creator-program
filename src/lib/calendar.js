@@ -57,6 +57,63 @@ export function buildIcs(ev) {
   return lines.join('\r\n')
 }
 
+/**
+ * THE WHOLE CALENDAR IN ONE FILE.
+ *
+ * `buildIcs` writes one VEVENT wrapped in its own VCALENDAR, which is right for
+ * "add this Q&A to my diary" and useless for the thing people actually want,
+ * which is not to have to do that fourteen times. An .ics file may hold as many
+ * VEVENTs as you like; concatenating fourteen single-event files does NOT work,
+ * because each one carries its own BEGIN:VCALENDAR and every calendar app stops
+ * reading at the first END:VCALENDAR.
+ *
+ * So the envelope is written once and the events go inside it.
+ *
+ * This is a SNAPSHOT, not a subscription. A subscription needs a stable URL the
+ * calendar app can re-fetch, which needs an endpoint and a per-creator token;
+ * a file you download today does not know about the Q&A added tomorrow. The
+ * button says "Download" for that reason and the difference is worth keeping
+ * honest - a "Subscribe" that quietly went stale would be worse than nothing.
+ */
+export function buildIcsFeed(events, name = 'Tryp.com Creator Program') {
+  const body = events.flatMap((ev) => {
+    const { title, start, end, description, location } = resolve(ev)
+    return [
+      'BEGIN:VEVENT',
+      `UID:${stamp(start)}-${(ev.uid || title).replace(/[^a-z0-9]+/gi, '')}@trypcreators`,
+      `DTSTAMP:${stamp(new Date())}`,
+      `DTSTART:${stamp(start)}`,
+      `DTEND:${stamp(end)}`,
+      `SUMMARY:${esc(title)}`,
+      description && `DESCRIPTION:${esc(description)}`,
+      location && `LOCATION:${esc(location)}`,
+      'END:VEVENT',
+    ].filter(Boolean)
+  })
+  return [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Tryp.com Creator Program//EN',
+    'CALSCALE:GREGORIAN',
+    `X-WR-CALNAME:${esc(name)}`,
+    ...body,
+    'END:VCALENDAR',
+  ].join('\r\n')
+}
+
+/** Download many events as one file. See buildIcsFeed. */
+export function downloadIcsFeed(events, filename = 'tryp-calendar') {
+  const blob = new Blob([buildIcsFeed(events)], { type: 'text/calendar;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${filename}.ics`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
 // Trigger a download of the .ics file. On mobile, tapping the downloaded file
 // opens the default calendar app (Apple Calendar on iOS, etc.).
 export function downloadIcs(ev) {

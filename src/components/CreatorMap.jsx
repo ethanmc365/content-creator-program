@@ -459,7 +459,17 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
     const outer = requestAnimationFrame(() => {
       inner = requestAnimationFrame(() => setPainted(true))
     })
-    return () => { cancelAnimationFrame(outer); cancelAnimationFrame(inner) }
+    // AND A TIMER, BECAUSE THE MAP IS HELD AT OPACITY 0 UNTIL THIS FLIPS.
+    // requestAnimationFrame does not run in a background tab, so a creator who
+    // opens /creators in a new tab and reads something else first would come
+    // back to a blank card if this were the only path to `painted`. The frames
+    // are the fast path; the timer is the promise that it happens at all.
+    const safety = setTimeout(() => setPainted(true), 400)
+    return () => {
+      cancelAnimationFrame(outer)
+      cancelAnimationFrame(inner)
+      clearTimeout(safety)
+    }
   }, [features, painted])
 
   // THE ARRIVAL PLAYS ONCE PER MAP, NOT ONCE PER MOUNT.
