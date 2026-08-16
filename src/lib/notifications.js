@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from './supabase'
 import { showLocalNotification, closeNotificationsForPath } from './push'
+import { toast } from './toast'
 
 // THE NOTIFICATION CENTRE, IN ONE PLACE.
 //
@@ -190,9 +191,21 @@ export function useNotifications({ userId, pathname, pushPrefs, limit = 40, live
   // otherwise the row is unmounted on the frame you press and the exit plays to
   // nobody. The delete goes to the server immediately; the wait is cosmetic and
   // the row must not come back if the reader is quick.
+  // AND IF THE SERVER SAYS NO, THE ROW COMES BACK.
+  //
+  // THE BUG THIS FIXES. The delete was fired and its result thrown away
+  // (`.then(() => {})`), so a rejected delete looked exactly like a successful
+  // one: the row slid out, the count dropped, and the whole list was back on
+  // the next reload. Optimistic UI without a rollback is not optimistic, it is
+  // wrong on a delay - and the delay is what makes it hard to notice.
   const dismiss = useCallback(async (id) => {
     setLeaving((s) => new Set(s).add(id))
-    supabase.from('notifications').delete().eq('id', id).then(() => {})
+    const { error } = await supabase.from('notifications').delete().eq('id', id)
+    if (error) {
+      setLeaving((s) => { const n = new Set(s); n.delete(id); return n })
+      toast('That one would not clear. Try again in a moment.')
+      return
+    }
     setTimeout(() => {
       setItems((prev) => prev?.filter((x) => x.id !== id) ?? prev)
       setLeaving((s) => { const n = new Set(s); n.delete(id); return n })
@@ -203,9 +216,13 @@ export function useNotifications({ userId, pathname, pushPrefs, limit = 40, live
   // on a list where the unread ones are the entire point is a button whose most
   // likely use is a mistake. Unread rows survive it and the label says so.
   const clearRead = useCallback(async () => {
-    setItems((prev) => prev?.filter((x) => !x.read) ?? prev)
-    await supabase.from('notifications').delete().eq('recipient_id', userId).eq('read', true)
-  }, [userId])
+    const kept = items || []
+    setItems(kept.filter((x) => !x.read))
+    const { error } = await supabase.from('notifications').delete().eq('recipient_id', userId).eq('read', true)
+    // Same rollback as `dismiss`, for the same reason: a batch delete that
+    // fails must not leave the page claiming it worked.
+    if (error) { setItems(kept); toast('Those would not clear. Try again in a moment.') }
+  }, [userId, items])
 
   const unread = useMemo(() => (items || []).filter((n) => !n.read).length, [items])
   const readCount = useMemo(() => (items || []).filter((n) => n.read).length, [items])
