@@ -429,33 +429,78 @@
      as the map still loading, which is the exact opposite of what an entrance
      is for.
 
-     So it is three overlapping fades and one drop, and it is over in 620ms:
+     THE THIRD BUG: HALF THE MAP WAS NOT IN THE ANIMATION AT ALL.
+     The fix above collapsed the sequence to 620ms, which is right, but it did
+     it by starting the threads at 140ms - BEFORE the pins begin to fall, on a
+     260ms fade so short it is over while the land is still arriving. So the
+     one thing on the map that is genuinely worth watching arrive read as
+     furniture that had always been there, and the aircraft did too. Ethan:
+     "although the creator pins animate in smoothly (although the animation
+     should be slightly longer as it currently happens too quick) the lines,
+     dotted lines and airplanes appear to be there straight away, they should
+     also be included in the nice animation so that everything is smooth."
 
-       the land      fades up, no scale, no transform at all (0-320ms)
-       the threads   fade in behind the pins as the land settles (140-400ms)
-       the pins      ALL DROP TOGETHER, one short fall with a little squash
-                     at the end (200-620ms)
-       the aircraft  fade in on the routes once the pins are down (420-620ms)
+     So the sequence has an ORDER again - land, threads, pins, aircraft - and
+     each step is long enough to be seen. What it does NOT get back is the
+     globe, or a per-pin ladder: the pins still land together, so a map of
+     fifty takes exactly as long as a map of three.
 
-     Every step starts before the one above it has finished, so it still reads
-     as one continuous arrival rather than as four - it is simply an arrival
-     that is finished by the time you have focused on it. */
+       the land      fades up, no scale, no transform at all (0-420ms)
+       the threads   DRAW THEMSELVES from each pin outwards, in a short
+                     ladder so they read as reaching across the map rather
+                     than switching on (240-940ms)
+       the pins      ALL DROP TOGETHER, a longer fall with a little squash at
+                     the end (360-1060ms)
+       the aircraft  lift in on the routes once the pins are down (960-1260ms)
+
+     Every step still starts before the one above it has finished, so it reads
+     as one continuous arrival - it is simply an arrival you can follow. */
   @keyframes map-land-in {
     from { opacity: 0; }
     to   { opacity: 1; }
   }
   .map-arrive {
-    animation: map-land-in 320ms ease-out both;
+    animation: map-land-in 420ms ease-out both;
   }
-  /* The threads wait for the land. Opacity only: a translate here would slide
-     the whole constellation of pins across the map relative to the countries
-     they belong to, which is the one thing a map may never do. */
-  @keyframes map-overlay-in {
-    from { opacity: 0; }
-    to   { opacity: 1; }
+  /* The overlay group itself no longer fades - the things inside it do, each
+     on its own timing. A fade on the parent would flatten all of them back
+     into one switch, which is the bug above. It stays as a class hook so the
+     component can keep saying "this map has not settled yet" in one place. */
+  .map-arrive-overlay { pointer-events: none; }
+  .map-arrive-overlay > * { pointer-events: auto; }
+
+  /* THE THREADS DRAW THEMSELVES ACROSS THE MAP.
+     A connection line is a claim that two places are joined, so the honest
+     motion for it is a line being drawn, not a line being switched on.
+
+     WHY IT IS A SCALE AND NOT A DASH REVEAL, which is the obvious way to draw
+     a line. `stroke-dasharray` is already spoken for here - it is what makes
+     these threads dotted in the first place - so the dashes cannot also carry
+     the reveal, and animating `stroke-dashoffset` instead is a repaint of every
+     path on every frame, which is the class of thing this map has had to be
+     rescued from twice.
+
+     So each thread GROWS from its own start instead: `transform-box: fill-box`
+     with the origin on the left of its own bounding box, which at these curve
+     lengths reads as a line reaching outwards, and which composites rather
+     than repaints. The geometry is briefly short of its endpoint on the way in,
+     and that is fine here in a way it would not be for the pins: the pins are
+     still falling at the same moment, so nothing is claiming to join two places
+     that are not on the map yet.
+
+     The `--thread-i` ladder is capped by the component at eight steps, so a
+     map with three threads and a map with three hundred both finish inside the
+     same window. */
+  @keyframes map-thread-draw {
+    from { opacity: 0; transform: scale(0.55); }
+    60%  { opacity: 1; }
+    to   { opacity: 1; transform: scale(1); }
   }
-  .map-arrive-overlay {
-    animation: map-overlay-in 260ms ease-out 140ms both;
+  .map-thread-in {
+    transform-box: fill-box;
+    transform-origin: 0% 50%;
+    animation: map-thread-draw 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(240ms + var(--thread-i, 0) * 55ms);
   }
 
   /* THE PINS DROP ONTO THE MAP TOGETHER AND SETTLE.
@@ -465,30 +510,42 @@
      the coordinate it is marking - so the settle happens around the place
      rather than around the middle of the world.
 
+     700ms, up from 420ms. Ethan asked for it to be slightly longer, and 420ms
+     with a 200ms head start was over before the threads underneath had
+     finished arriving, which is most of why they read as static.
+
      NO LADDER. There was a 26ms-per-pin stagger here, capped at 25 pins, and
-     it is gone: see the note above. One delay for all of them, so a map of
-     three pins and a map of fifty take exactly the same time to arrive. */
+     it is gone. One delay for all of them, so a map of three pins and a map of
+     fifty take exactly the same time to arrive. */
   @keyframes map-pin-land {
-    0%   { opacity: 0; transform: translateY(-16px) scale(0.8); }
-    68%  { opacity: 1; transform: translateY(0) scale(1.05); }
+    0%   { opacity: 0; transform: translateY(-22px) scale(0.72); }
+    62%  { opacity: 1; transform: translateY(0) scale(1.08); }
+    82%  { transform: translateY(0) scale(0.97); }
     100% { opacity: 1; transform: translateY(0) scale(1); }
   }
   .map-pin-land {
     transform-box: fill-box;
     transform-origin: 50% 100%;
-    animation: map-pin-land 420ms cubic-bezier(0.34, 1.3, 0.64, 1) 200ms both;
+    animation: map-pin-land 700ms cubic-bezier(0.34, 1.24, 0.64, 1) 360ms both;
   }
 
-  /* The aircraft take off once the pins are down. They fly on their own SMIL
-     timeline, so this only decides when they become visible. */
+  /* The aircraft lift in once the pins are down. They fly on their own SMIL
+     timeline, so this only decides when they become visible - but a bare fade
+     put them at full size on a map that had just finished moving, and they
+     read as having been parked there. A small grow about the aircraft's own
+     centre is enough to say "this one is flying". */
   @keyframes map-plane-in {
-    from { opacity: 0; }
-    to   { opacity: 1; }
+    from { opacity: 0; transform: scale(0.4); }
+    to   { opacity: 1; transform: scale(1); }
   }
-  .map-plane-in { animation: map-plane-in 200ms ease-out 420ms both; }
+  .map-plane-in {
+    transform-box: fill-box;
+    transform-origin: 50% 50%;
+    animation: map-plane-in 300ms cubic-bezier(0.34, 1.3, 0.64, 1) 960ms both;
+  }
 
   @media (prefers-reduced-motion: reduce) {
-    .map-arrive, .map-arrive-overlay, .map-pin-land, .map-plane-in {
+    .map-arrive, .map-thread-in, .map-pin-land, .map-plane-in {
       animation: none;
       opacity: 1;
       transform: none;
@@ -503,6 +560,84 @@
   }
   @media (prefers-reduced-motion: reduce) {
     @keyframes reaction-pop { from { opacity: 0 } to { opacity: 1 } }
+  }
+
+  /* =====================================================================
+     THE NOTIFICATION CENTRE.
+     All CSS, no Motion: the bell is in the app shell, which every creator
+     downloads on every page, and pulling the animation runtime in there would
+     put it back in the bundle the network build works hard to keep it out of.
+
+     Four pieces, and each one is saying something specific:
+       notif-ring    something arrived (and only when the count went UP)
+       notif-badge   the number itself changed
+       notif-enter   the rows landing, top to bottom, when the panel opens
+       notif-leave   a row you dismissed getting out of the way
+     ===================================================================== */
+
+  /* THE BELL SWINGS ONCE. Twice was tried and reads as an alarm; the amplitude
+     is small and decaying, because a bell is a thing that was struck and is
+     coming to rest, not a thing being shaken. The origin is set on the element
+     (`50% 15%`, the yoke at the top) - a bell that pivots about its middle
+     looks like it is being waved. */
+  @keyframes notif-ring {
+    0%   { transform: rotate(0deg); }
+    15%  { transform: rotate(13deg); }
+    32%  { transform: rotate(-11deg); }
+    49%  { transform: rotate(7deg); }
+    66%  { transform: rotate(-4deg); }
+    83%  { transform: rotate(2deg); }
+    100% { transform: rotate(0deg); }
+  }
+  .notif-ring { animation: notif-ring 900ms cubic-bezier(0.36, 0.07, 0.19, 0.97) both; }
+
+  /* The count popping when it changes. Overshoots and settles, so a 2 becoming
+     a 3 is a visible event rather than a silently swapped glyph. */
+  @keyframes notif-badge {
+    0%   { transform: scale(0.4); opacity: 0; }
+    55%  { transform: scale(1.22); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .notif-badge { animation: notif-badge 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+
+  /* The rows landing as the panel opens: in from the right, one after another,
+     which reads as a list being dealt. The ladder is capped by the component at
+     nine steps so a full panel still finishes inside a third of a second. */
+  @keyframes notif-enter {
+    from { opacity: 0; transform: translate3d(14px, 0, 0); }
+    to   { opacity: 1; transform: none; }
+  }
+  .notif-enter {
+    animation: notif-enter 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(60ms + var(--notif-i, 0) * 32ms);
+  }
+
+  /* A DISMISSED ROW LEAVES THE WAY IT WAS PUSHED, and then stops taking up
+     room. The height and padding go to zero in the same animation as the slide,
+     which is what makes the rows below close the gap smoothly instead of
+     jumping up the instant the row unmounts. `max-height` rather than `height`
+     because the rows are content-sized and there is no number to animate from -
+     14rem is comfortably taller than the tallest two-line row. */
+  @keyframes notif-leave {
+    0%   { opacity: 1; transform: none; max-height: 14rem; }
+    45%  { opacity: 0; transform: translate3d(40px, 0, 0); max-height: 14rem; }
+    100% { opacity: 0; transform: translate3d(40px, 0, 0); max-height: 0; }
+  }
+  .notif-leave {
+    overflow: hidden;
+    pointer-events: none;
+    animation: notif-leave 260ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .notif-ring, .notif-badge { animation: none; }
+    .notif-enter { animation: none; opacity: 1; transform: none; }
+    /* The leave still has to collapse the row, or the list does not close up.
+       It just does it without the slide. */
+    @keyframes notif-leave {
+      0%   { opacity: 1; max-height: 14rem; }
+      100% { opacity: 0; max-height: 0; }
+    }
   }
 }
 

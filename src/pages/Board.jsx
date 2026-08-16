@@ -362,27 +362,39 @@ function QuestionNote({ q }) {
   return (
     <Link
       to={`/board/${q.id}`}
-      style={{ transform: `rotate(${tilt}deg)` }}
+      // THE NOTE TURNS ABOUT ITS PIN, because that is the only thing holding
+      // it. This is one line and it does more for "this is pinned up" than the
+      // drawing of the pin does: the tilt is now a sheet hanging off a fixed
+      // point rather than a rectangle rotated about its own middle, and
+      // straightening on hover swings it back around the same point instead of
+      // sliding the pin sideways across the paper. `2.1rem` is where the
+      // flange sits - see Thumbtack.
+      style={{ transform: `rotate(${tilt}deg)`, transformOrigin: '50% 2.1rem' }}
       className={cx(
         // `break-inside-avoid` is what makes the columns work: without it a
         // note is split across the bottom of one column and the top of the
         // next, which is a genuinely alarming thing to see happen to a piece of
         // paper. `mb-*` rather than a grid gap, because columns have no gap
         // along their own axis.
-        'group relative mb-4 flow-root break-inside-avoid rounded-lg border bg-white shadow-card transition-all duration-300 ease-out sm:mb-5',
-        // NO `overflow-hidden` HERE. The pin is `-top-2.5` and deliberately
-        // sticks out over the top edge - that overhang plus its drop shadow is
-        // the entire trick that makes the note look attached to the board. A
-        // clip on the note clips the pin's head off and leaves the needle. The
-        // state band gets rounded top corners of its own instead.
+        'group relative mb-4 flow-root break-inside-avoid rounded-lg border bg-white transition-all duration-300 ease-out sm:mb-5',
+        // PAPER, NOT A CARD. `shadow-card` is the flat even shadow every other
+        // surface in this app uses and it is the wrong one here: a sheet held
+        // at one point hangs, so it is closest to the page at the pin and
+        // furthest from it at the bottom edge. The shadow is offset downwards
+        // and gets a second, wider, softer pass under it, which is what reads
+        // as a curl rather than a decal.
+        'shadow-[0_2px_3px_-1px_rgba(20,20,30,0.07),0_10px_16px_-8px_rgba(20,20,30,0.16)]',
+        // NO `overflow-hidden` HERE. The state band gets rounded top corners of
+        // its own instead, so the note can keep a square clip-free box.
         //
         // `hover:!rotate-0` beats the inline transform: reaching for a note
-        // squares it up and lifts it off the board.
-        'hover:z-10 hover:-translate-y-1.5 hover:!rotate-0 hover:shadow-lift',
+        // squares it up and lifts it off the page.
+        'hover:z-10 hover:-translate-y-1.5 hover:!rotate-0',
+        'hover:shadow-[0_4px_6px_-2px_rgba(20,20,30,0.08),0_20px_30px_-12px_rgba(20,20,30,0.24)]',
         open ? 'border-brand/25 hover:border-brand/50' : 'border-green-200 hover:border-green-400',
       )}
     >
-      <Thumbtack />
+      <Thumbtack className="h-14 w-14" top="top-0.5" />
 
       {/* THE SHAPE. Zero width so it takes no room across, percentage padding so
           its height is a fraction of the note's own width. See NOTE_SHAPES. */}
@@ -394,7 +406,12 @@ function QuestionNote({ q }) {
           product rather than as a different one. */}
       <span className={cx('block h-1 w-full rounded-t-lg', open ? 'bg-brand' : 'bg-green-500')} aria-hidden />
 
-      <span className="block p-3.5 pt-2.5 sm:p-4 sm:pt-3.5">
+      {/* THE PIN NEEDS PAPER TO SIT ON. `pt-14` is the head plus a little air
+          under it, and it is not wasted space - a real note has a margin above
+          the writing precisely because that is where the pin goes. Content
+          that started at the top edge is what forced the old pin off the top
+          of the card in the first place. */}
+      <span className="block p-3.5 pt-14 sm:p-4 sm:pt-14">
         <span className="mb-2 flex items-center gap-1.5">
           <span className={cx(
             'inline-flex min-w-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold',
@@ -664,9 +681,11 @@ export default function Board() {
               // exactly what `break-inside-avoid` needs to be ON. The stagger
               // is done here instead, with the same variable the stylesheet
               // reads, so the notes still arrive one after another.
-              // `mt-1.5` on every item is what stops a column box clipping the
-              // head off the pin of whichever note happens to start a column.
-              // See the note on Pin.
+              // `mt-1.5` used to be here to stop a column box clipping the head
+              // off the pin of whichever note started a column. The pin sits
+              // wholly ON the paper now, so nothing overhangs and nothing can
+              // be clipped; the margin stays purely as breathing room between
+              // the heading and the first row of notes.
               <div className="reveal is-in columns-2 gap-4 sm:gap-5 lg:columns-3 xl:columns-4">
                 {rows.map((q, i) => (
                   <div key={q.id} className="reveal-item mt-1.5 break-inside-avoid" style={{ '--reveal-i': Math.min(i, 12) }}>

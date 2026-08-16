@@ -70,6 +70,31 @@ export function RiseIn({ children, delay = 0, className, as = 'div' }) {
  * kilometres blur, the creator count tick briskly and the six markets climb one
  * at a time. That is the reading the row wants, and it is only available if the
  * clock is shared.
+ *
+ * THE THIRD BUG, AND WHY THE CURVE IS GONE ENTIRELY. Smoothstep is symmetric,
+ * which fixed the front-loading, but it is still a CURVE: its slope is zero at
+ * both ends. On a count to six that is plainly visible, because the readout is
+ * an INTEGER - the number of frames each integer is on screen is inversely
+ * proportional to the slope, so 0 and 1 sit there for a quarter of a second
+ * each while 3 and 4 flick past in two frames. The row does not read as six
+ * counters running; it reads as numbers stopping and starting at different
+ * moments. Ethan: "they should all start at 0 and never pause, just increase up
+ * until the actual number, currently they seem to pause on certain numbers for
+ * different amounts of time and it looks bad."
+ *
+ * A count is not a physical object arriving, it is a TALLY, and a tally has one
+ * honest curve: a straight line. Linear means every integer between zero and
+ * the total is on screen for exactly the same number of frames, which is the
+ * definition of not pausing. It also keeps everything the fixed clock bought -
+ * all four still start on one frame and land on one frame.
+ *
+ * AND IT NO LONGER RE-RENDERS REACT SIXTY TIMES A SECOND. This wrote the value
+ * into state on every frame, so four counters in a row meant four component
+ * renders per frame, on the same frames the hero card's Reveal is running its
+ * own transition. That is the other half of "it looks bad": genuine dropped
+ * frames, clustered exactly where the numbers change fastest. The animation
+ * writes `textContent` straight onto its own span instead - the DOM is the only
+ * thing that has to change, so it is the only thing that does.
  */
 // 1.6s: long enough that a count to six is unmistakably a count and not a
 // flicker, short enough that nobody is waiting on the card.
@@ -83,20 +108,35 @@ export function countDuration() {
   return COUNT_MS
 }
 
-/** Smoothstep. Eases in and out, and is at the halfway VALUE at the halfway
- *  TIME - which the cubic ease-out this replaced was nowhere near. */
-export const countEase = (t) => t * t * (3 - 2 * t)
+/** LINEAR, and that is the whole point - see the note above. A constant rate is
+ *  the only curve under which every integer on the way is on screen for the
+ *  same length of time, and "no number pauses" is the requirement.
+ *
+ *  It is still a named, exported, tested function rather than an inlined `t`,
+ *  because the preview pane freezes rAF and this is the only place the
+ *  behaviour can actually be asserted. */
+export const countEase = (t) => t
 
 export function CountUp({ value, duration, className, format = (n) => n }) {
   const ref = useRef(null)
   const inView = useInView(ref, { once: true, margin: '0px 0px -10% 0px' })
   const reduced = useReducedMotion()
   const target = Number(value) || 0
+  // `shown` exists for the FIRST PAINT and for reduced motion only. Every frame
+  // after that is written straight to the node (see below), so this state is
+  // deliberately not updated during the animation.
   const [shown, setShown] = useState(0)
   // The last value painted, for the effect to animate FROM. A ref because the
   // effect must not restart every time the number ticks, which is what putting
   // it in the dependency array would do.
   const shownRef = useRef(0)
+  // `format` is a fresh arrow on every render at almost every call site, so it
+  // cannot be a dependency of the animation effect without restarting it on
+  // every parent render. The ref is read inside the frame instead - and it is
+  // written in an effect rather than during render, because `react-hooks/refs`
+  // (correctly) refuses a ref write in the render body.
+  const formatRef = useRef(format)
+  useEffect(() => { formatRef.current = format })
 
   // THE BUG THIS FIXES: THE COUNTER CANCELLED ITS OWN ANIMATION AND STUCK ON
   // ZERO.
@@ -124,19 +164,28 @@ export function CountUp({ value, duration, className, format = (n) => n }) {
     if (reduced) { shownRef.current = target; setShown(target); return undefined }
     const from = shownRef.current
     if (from === target) return undefined
+    const node = ref.current
     let raf = 0
     // The caller can still name a duration; nothing does, and the derived one
     // is the point - see countDuration above.
     const ms = duration ?? countDuration()
     const start = performance.now()
+    const paint = (v) => {
+      shownRef.current = v
+      // STRAIGHT TO THE DOM. Not setState: this runs sixty times a second on up
+      // to four counters at once, and a React render per counter per frame is
+      // work nobody can see the result of, on exactly the frames that have to
+      // be smooth. `textContent` is one string assignment.
+      if (node) node.textContent = String(formatRef.current(v))
+    }
     const tick = (now) => {
       const t = Math.min(1, (now - start) / ms)
-      // Smoothstep, not the app's ease-out: a count has to pass THROUGH its
-      // range, and an ease-out skips most of a small one on the first frame.
-      const v = Math.round(from + (target - from) * countEase(t))
-      shownRef.current = v
-      setShown(v)
+      paint(Math.round(from + (target - from) * countEase(t)))
       if (t < 1) raf = requestAnimationFrame(tick)
+      // The last frame is committed to state as well, so the number survives
+      // the next React render. Without it the node's text would be thrown away
+      // the moment the parent re-rendered for any other reason.
+      else setShown(target)
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)

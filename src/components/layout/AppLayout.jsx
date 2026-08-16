@@ -83,6 +83,30 @@ export default function AppLayout() {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const menuRef = useRef(null)
 
+  // EVERY PAGE OPENS AT ITS TOP.
+  //
+  // THE BUG THIS FIXES. React Router keeps the window's scroll offset across a
+  // navigation, and this shell had no scroll restoration of its own - only
+  // NetworkRoute reset it, and only for the routes underneath it. So every
+  // legacy route inherited wherever the previous page happened to be scrolled
+  // to. Two of Ethan's reports are the same fault seen from different pages:
+  // tapping a daily puzzle in the hub's Daily puzzles section (which sits well
+  // down the page) opened /game at that same offset, which lands squarely on
+  // the leaderboard with the puzzle off the top; and /creators opened part-way
+  // down its own grid instead of at the map.
+  //
+  // It is the shell's job rather than each page's, because it is true of every
+  // page: arriving somewhere new means arriving at the top of it.
+  //
+  // `pathname` ONLY, not the whole location. A search-param change is a filter,
+  // a tab or a deep link applied to the page you are already reading, and
+  // yanking that page back to the top mid-read is its own bug.
+  useEffect(() => {
+    // `instant`. A smooth scroll here would animate the OLD page out from under
+    // the reader while the new one is already rendered on top of it.
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  }, [pathname])
+
   // Cmd/Ctrl+K opens the palette from anywhere, and `/` does too when you are
   // not already typing. The typing check matters: without it, `/` in a chat
   // composer would open a search box instead of a slash.

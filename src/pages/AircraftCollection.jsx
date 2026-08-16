@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import Icon from '../components/Icon'
 import Reveal from '../components/network/Reveal'
-import AircraftArt from '../components/network/AircraftArt'
+import AircraftPhoto, { photoCredits } from '../components/network/AircraftPhoto'
 import { CountUp } from '../components/network/Motion'
 import { EmptyState, PageHeader, Skeleton } from '../components/ui'
 import { AIRCRAFT } from '../lib/airlines'
@@ -26,10 +26,11 @@ import { cx, formatDate } from '../lib/utils'
 // ghosted is a type in the fleet table (lib/airlines) that no flight in your
 // log names.
 //
-// See components/network/AircraftArt for why these are drawings and not
-// photographs - short version: airliner photography is somebody's copyright,
-// the CSP forbids a remote image, and at collection-card size the shape class
-// is the only thing that distinguishes one from another anyway.
+// THEY ARE PHOTOGRAPHS NOW. Every one is a freely licensed shot from Wikimedia
+// Commons, picked off a contact sheet for being side-on and filling its frame,
+// downloaded into `public/aircraft` and credited at the foot of this page. See
+// components/network/AircraftPhoto for how each of the three objections that
+// made them drawings in the first place was actually answered.
 
 // NO HINT LINE ANY MORE. Each of these carried one - "Propellers. Islands and
 // short runways", and three more like it. Ethan: "remove these descriptions, I
@@ -52,7 +53,7 @@ function TypeCard({ type, seen, most = false }) {
         // detail line says. A grid row is as tall as its tallest cell either
         // way; without this the CARD stops short inside it and the wall looks
         // ragged.
-        'group relative flex h-full flex-col overflow-hidden rounded-card border p-4 transition-all duration-300',
+        'group relative flex h-full flex-col overflow-hidden rounded-card border p-2.5 transition-all duration-300',
         most
           ? 'border-brand bg-brand-tint/25 shadow-card ring-1 ring-brand/30 hover:-translate-y-1 hover:shadow-lift'
           : owned
@@ -60,9 +61,11 @@ function TypeCard({ type, seen, most = false }) {
             : 'border-dashed border-gray-200 bg-cloud/40',
       )}
     >
-      {/* The drawing leads. It is the reason to be on this page. */}
-      <div className="relative h-24 w-full">
-        <AircraftArt type={type} owned={owned} />
+      {/* The photograph leads. It is the reason to be on this page, and it
+          gets a real 16:9 frame rather than a 96px strip - at that height a
+          side-on airliner was about eleven pixels of fuselage. */}
+      <div className="relative aspect-[16/9] w-full">
+        <AircraftPhoto typeKey={type.key} type={type} owned={owned} />
         {/* THE ONE YOU HAVE FLOWN MOST WINS THE BADGE.
             Ethan: "highlighting the aircraft you travelled on most." A wall
             where every flown card looks identical has a fact in it that it is
@@ -70,12 +73,12 @@ function TypeCard({ type, seen, most = false }) {
             rather than about the aeroplane. "Flown" is implicit on it - a card
             cannot be your most-flown type without being one you have flown. */}
         {most ? (
-          <span className="absolute right-0 top-0 inline-flex items-center gap-1 rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+          <span className="absolute right-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-card">
             <Icon name="trophy" className="h-3 w-3" />
             Most flown
           </span>
         ) : owned && (
-          <span className="absolute right-0 top-0 inline-flex items-center gap-1 rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+          <span className="absolute right-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-card">
             <Icon name="check" className="h-3 w-3" />
             Flown
           </span>
@@ -221,15 +224,21 @@ export default function AircraftCollection() {
                   ghosted cards below are the invitation. */}
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-widest text-white/70">You have been on</p>
+                {/* "AIRCRAFTS", AND NOT "different aircraft". Ethan: "it
+                    shouldn't be 'different aircraft' it should be 'aircrafts'
+                    just right". The old line also had a bug hiding in it - a
+                    ternary whose two branches were the same word - which is
+                    what happens when you try to make an irregular plural agree
+                    and give up halfway. */}
                 <p className="mt-1 flex items-baseline gap-3 text-5xl font-bold tabular-nums sm:text-6xl">
                   <CountUp value={flownCount} />
                   <span className="text-lg font-semibold text-white/75 sm:text-xl">
-                    different {flownCount === 1 ? 'aircraft' : 'aircraft'}
+                    {flownCount === 1 ? 'aircraft' : 'aircrafts'}
                   </span>
                 </p>
                 {offTable.length > 0 && (
                   <p className="mt-1.5 text-xs text-white/70">
-                    {offTable.length} of {flownCount === 1 ? 'it is' : 'them are'} not in our book, and {offTable.length === 1 ? 'it still counts' : 'they still count'}
+                    {offTable.length} of {flownCount === 1 ? 'it is' : 'them are'} not on our list, and {offTable.length === 1 ? 'it still counts' : 'they still count'}
                   </p>
                 )}
               </div>
@@ -239,8 +248,8 @@ export default function AircraftCollection() {
                   two. */}
               {top && (
                 <div className="flex items-center gap-4 rounded-2xl bg-white/15 px-4 py-3">
-                  <span className="h-12 w-20 shrink-0 text-white">
-                    <AircraftArt type={top.type} className="[&>g]:!text-white" />
+                  <span className="h-14 w-24 shrink-0 overflow-hidden rounded-xl ring-1 ring-white/30">
+                    <AircraftPhoto typeKey={top.type?.key} type={top.type} />
                   </span>
                   <span className="min-w-0">
                     <span className="block text-[11px] font-semibold uppercase tracking-widest text-white/70">Most flown</span>
@@ -259,8 +268,12 @@ export default function AircraftCollection() {
               only mine" is never "only my widebodies". */}
           <div className="flex flex-wrap items-center gap-2">
             {[
-              { on: !onlyMine, label: `The whole book (${total})`, go: () => setOnlyMine(false) },
-              { on: onlyMine, label: `Only what I have flown (${collected})`, go: () => setOnlyMine(true) },
+              // NOT "The whole book". Ethan asked for it gone, and he is right
+              // that it was the page being pleased with itself: nobody calls a
+              // list of aeroplanes a book, and the pair of labels has to be two
+              // plain descriptions of two sets.
+              { on: !onlyMine, label: `Every aircraft (${total})`, go: () => setOnlyMine(false), icon: 'globe' },
+              { on: onlyMine, label: `Flown by me (${collected})`, go: () => setOnlyMine(true), icon: 'check' },
             ].map((o) => (
               <button
                 key={o.label}
@@ -274,6 +287,7 @@ export default function AircraftCollection() {
                     : 'border-gray-200 bg-white text-smoke hover:-translate-y-0.5 hover:border-brand hover:text-brand',
                 )}
               >
+                <Icon name={o.icon} className="h-3.5 w-3.5" />
                 {o.label}
               </button>
             ))}
@@ -337,6 +351,41 @@ export default function AircraftCollection() {
               action={<Link to="/flights" className="btn-primary">Go to your flight log</Link>}
             />
           )}
+
+          {/* WHOSE PHOTOGRAPHS THESE ARE.
+              Every one is freely licensed - CC BY, CC BY-SA, GFDL or public
+              domain - and every one of those licences asks for the same three
+              things: the author, the licence, and a way back to the original.
+              That is not a formality we are humouring, it is the condition on
+              which the pictures on this page may be here at all.
+
+              It is a `<details>` rather than a list of thirty-seven lines,
+              because the credit has to be PRESENT and it does not have to be
+              the last thing anybody reads about their collection. */}
+          <details className="group/credits rounded-card border border-gray-100 bg-cloud/40 px-5 py-4">
+            <summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-medium text-smoke transition-colors hover:text-ink">
+              <Icon name="image" className="h-4 w-4" />
+              Photographs by the Wikimedia Commons community
+              <Icon name="chevronRight" className="h-3.5 w-3.5 transition-transform duration-200 group-open/credits:rotate-90" />
+            </summary>
+            <div className="mt-3 grid gap-x-6 gap-y-1 sm:grid-cols-2">
+              {Object.entries(photoCredits).map(([key, c]) => (
+                <a
+                  key={key}
+                  href={c.page}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="truncate text-[11px] text-smoke transition-colors hover:text-brand"
+                >
+                  <span className="font-semibold">{AIRCRAFT[key]?.name || key}</span>
+                  {' · '}
+                  {c.author || 'Unknown'}
+                  {' · '}
+                  {c.licence}
+                </a>
+              ))}
+            </div>
+          </details>
         </div>
       )}
     </div>

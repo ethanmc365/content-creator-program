@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import Icon from '../Icon'
+import Flame from './Flame'
 import { dailyStreak } from '../../lib/daily'
 import { DAILY_PUZZLES, useDailyPuzzles } from '../../lib/dailyPuzzles'
 import { cx } from '../../lib/utils'
@@ -49,32 +50,36 @@ import { cx } from '../../lib/utils'
 // stacked up were the loudest thing on the hub, and the coloured icon tile plus
 // the coloured button already carry the state twice over. White cards with a
 // brand-tinted left edge is the same language as everything else on the page.
-// GREEN IS THE STATE. ORANGE IS THE PLACE.
+// THE CARD IS ORANGE. THE BUTTON IS THE ONLY THING THAT TURNS GREEN.
 //
-// Every element on a finished card used to turn green at once - border, icon
-// tile and button - so three completed puzzles made a green block on a hub that
-// is otherwise entirely white and Tryp orange, and the section read as
-// belonging to some other product. Ethan: "it appears slightly too green, still
-// need some tryp.com orange, perhaps for the card borders and just the buttons
-// appear green."
+// This is the third pass at it and the rule is now absolute, because every
+// softer version of it has been read as a colour change to the card. First the
+// border, icon tile and button all went green together, which made three
+// finished puzzles a green block on a hub that is otherwise white and Tryp
+// orange. Then green was confined to the button but the border strengthened and
+// the icon became a tick - so a played card still LOOKED like a different card,
+// and with one played and two not the odd one out read as green. Ethan: "if I
+// play one game, the entire game card turns to the green colour... the card
+// should always be orange and after I play it just the play button should turn
+// green."
 //
-// So green is now spent in exactly one place, the button, where it is doing
-// real work: it is the only thing on the card that means "you have done this
-// one". The border and the icon tile stay brand, which is what tells you at a
-// glance that this is Tryp, and the finished card gets a STRONGER orange border
-// rather than a different colour, so completion still reads from across the
-// page without a second hue.
+// So nothing outside the button may vary with `done`. Same border, same hover,
+// same brand tile, same puzzle icon, whether you have played it or not - which
+// also means a row of three is one consistent set of cards at every stage of
+// the day rather than three that drift apart as you work through them.
+const CARD_CLS =
+  'group flex items-center gap-3.5 rounded-card border border-brand/25 bg-white px-4 py-3.5 shadow-card ' +
+  'transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/60 hover:shadow-lift'
+
 function PuzzleCard({ puzzle, done, count }) {
   return (
-    <Link
-      to={`/game?daily=${puzzle.key}`}
-      className={cx(
-        'group flex items-center gap-3.5 rounded-card border bg-white px-4 py-3.5 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift',
-        done ? 'border-brand/35 hover:border-brand/70' : 'border-gray-100 hover:border-brand/50',
-      )}
-    >
+    <Link to={`/game?daily=${puzzle.key}`} className={CARD_CLS}>
+      {/* The puzzle's OWN icon, always. Swapping it for a tick was the other
+          half of "the whole card changed": the tile is the card's identity, and
+          an identity that changes when you finish is a different card. The tick
+          lives on the button, next to the word that explains it. */}
       <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand text-white shadow-card transition-transform duration-200 group-hover:scale-110">
-        <Icon name={done ? 'check' : puzzle.icon} className="h-5 w-5" />
+        <Icon name={puzzle.icon} className="h-5 w-5" />
       </span>
 
       <span className="min-w-0 flex-1">
@@ -132,10 +137,13 @@ export default function DailyPuzzleCallout({ className }) {
         </h2>
         <span className="flex items-center gap-2">
           {streak > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold text-white">
-              <svg viewBox="0 0 24 24" className="h-2.5 w-2.5" fill="currentColor" aria-hidden>
-                <path d="M12 2.5c.5 2.6-.8 4-2 5.2-1.4 1.4-2.6 2.6-2.6 5A6.6 6.6 0 0 0 12 21.5a6.6 6.6 0 0 0 6.6-6.6c0-4-2.6-6-4-8.4-.5 1.3-1.3 2.1-2.2 2.6.4-2.3-.2-4.6-.4-6.6Z" />
-              </svg>
+            // A LIT FLAME ON A WHITE PILL, not a flat white glyph on a brand
+            // one. The pill was solid orange with the flame knocked out of it
+            // in white, which is the one background a fire cannot be drawn on:
+            // every colour that says "burning" is a shade of the thing behind
+            // it. See components/games/Flame.
+            <span className="inline-flex items-center gap-1 rounded-full bg-brand-tint px-2 py-0.5 text-[10px] font-bold text-brand">
+              <Flame className="h-3.5 w-3.5" />
               {streak} day{streak === 1 ? '' : 's'}
             </span>
           )}

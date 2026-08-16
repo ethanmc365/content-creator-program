@@ -122,11 +122,7 @@ export default function BoardCard({ className }) {
         </Link>
       </div>
 
-      {/* `pt-3` reserves the pin's overhang. The notes carry a pin that hangs
-          over their top edge, and without the padding the head of each one is
-          clipped by whatever sits above this section.
-
-          THE THREE NOTES ARRIVE ONE AFTER ANOTHER, and the stagger is on a
+      {/* THE THREE NOTES ARRIVE ONE AFTER ANOTHER, and the stagger is on a
           WRAPPER rather than on the note. `.reveal-item` animates `transform`,
           and the note carries an inline `rotate` for its tilt - an inline style
           beats a stylesheet rule, so putting both on one element means the note
@@ -144,16 +140,21 @@ export default function BoardCard({ className }) {
             <div key={q.id} className="reveal-item" style={{ '--reveal-i': i }}>
             <Link
               to={`/board/${q.id}`}
-              style={{ transform: `rotate(${tilt}deg)` }}
+              // Turns about its pin, and hangs from it - see the long note on
+              // QuestionNote in pages/Board. The pin is a size down here
+              // because these notes are, so the pivot is higher to match.
+              style={{ transform: `rotate(${tilt}deg)`, transformOrigin: '50% 1.75rem' }}
               className={cx(
-                'group relative flex h-full min-h-[9rem] flex-col rounded-lg border bg-white shadow-card transition-all duration-300 ease-out',
-                'hover:z-10 hover:-translate-y-1.5 hover:!rotate-0 hover:shadow-lift',
+                'group relative flex h-full min-h-[10.5rem] flex-col rounded-lg border bg-white transition-all duration-300 ease-out',
+                'shadow-[0_2px_3px_-1px_rgba(20,20,30,0.07),0_10px_16px_-8px_rgba(20,20,30,0.16)]',
+                'hover:z-10 hover:-translate-y-1.5 hover:!rotate-0',
+                'hover:shadow-[0_4px_6px_-2px_rgba(20,20,30,0.08),0_20px_30px_-12px_rgba(20,20,30,0.24)]',
                 open ? 'border-brand/25 hover:border-brand/50' : 'border-green-200 hover:border-green-400',
               )}
             >
-              <Thumbtack className="h-7 w-7" />
+              <Thumbtack className="h-12 w-12" top="top-0.5" />
               <span className={cx('h-1.5 w-full shrink-0 rounded-t-lg', open ? 'bg-brand' : 'bg-green-500')} aria-hidden />
-              <span className="flex flex-1 flex-col p-3.5 pt-3">
+              <span className="flex flex-1 flex-col p-3.5 pt-11">
                 <span className="mb-2 flex items-center gap-1.5">
                   <span className={cx(
                     'inline-flex min-w-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold',

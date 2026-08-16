@@ -1,178 +1,302 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { showLocalNotification, closeNotificationsForPath } from '../../lib/push'
 import Icon from '../Icon'
 import { timeAgo, cx } from '../../lib/utils'
+import { FILTERS, groupByAge, matchesFilter, metaFor, useNotifications } from '../../lib/notifications'
 
-// Pathname a notification's link points at (dropping any query/hash), so we can
-// tell when the user is looking at the exact page an alert was for.
-const linkPathname = (link) => (link || '').split(/[?#]/)[0]
+// THE NOTIFICATION CENTRE.
+//
+// What was here was a LIST OF THE LAST TWELVE THINGS with a "mark all read"
+// link over it. Everything wrong with it came from the same place: it was a
+// read-only log, so the only thing you could do to a notification was look at
+// it, and the only way it ever left was by falling off the bottom.
+//
+//   NOTHING COULD BE CLEARED. Not one row, not the whole list. So the panel a
+//   regular here opens is a dozen things that already happened, with the two
+//   that matter somewhere among them.
+//   NOTHING COULD BE FILTERED. A message somebody is waiting on a reply to and
+//   an announcement from three weeks ago were the same kind of row.
+//   NOTHING WAS DATED except by "3 days ago" on each row, which is twenty
+//   separate small sums for the reader to do.
+//   IT OPENED AND CLOSED WITH ONE CANNED CLASS and its rows did not move at
+//   all - so dismissing, had it existed, would have had nowhere to go.
+//
+// So: rows can be dismissed one at a time and read ones cleared in a batch,
+// there is a filter row over them, they are grouped under headings that say
+// when, and every one of those operations has motion that says what happened -
+// the panel unfolds from the bell, the rows land one after another, a dismissed
+// row slides out to the right and the ones under it close the gap.
+//
+// The data and every operation live in lib/notifications, shared with the
+// /notifications page, which is now the same centre with room to breathe.
+//
+// NO MOTION IMPORT. This is in the app shell, which every creator downloads on
+// every page, so all of it is CSS - see the `notif-*` keyframes in index.css.
 
-const TYPE_ICON = {
-  challenge: 'flag', announcement: 'megaphone', results: 'trophy',
-  reward: 'money', deadline: 'clock', connection: 'users', dm: 'chat',
-  event: 'calendar', application: 'shield', chat: 'chat', feedback: 'chat',
-  collab: 'pin', mention: 'chat',
+/** One row. Whole row opens it; the cross on the right takes it away. */
+function NotificationRow({ n, leaving, onOpen, onDismiss, i }) {
+  const meta = metaFor(n.type)
+  return (
+    <div
+      className={cx(
+        'group/row relative flex items-stretch',
+        leaving ? 'notif-leave' : 'notif-enter',
+      )}
+      style={leaving ? undefined : { '--notif-i': Math.min(i, 8) }}
+    >
+      <button
+        onClick={() => onOpen(n)}
+        className={cx(
+          'flex min-w-0 flex-1 items-start gap-3 rounded-xl py-2.5 pl-2.5 pr-9 text-left transition-colors duration-150',
+          n.read ? 'hover:bg-cloud' : 'bg-brand-tint/45 hover:bg-brand-tint/70',
+        )}
+      >
+        <span
+          className={cx(
+            'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover/row:scale-110',
+            n.read ? 'bg-cloud text-smoke' : 'bg-brand text-white',
+          )}
+          aria-hidden
+        >
+          <Icon name={meta.icon} className="h-4 w-4" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className={cx('block text-sm leading-snug', n.read ? 'font-medium text-ink' : 'font-semibold text-ink')}>
+            {n.title}
+          </span>
+          {n.body && <span className="mt-0.5 line-clamp-2 block text-xs leading-snug text-smoke">{n.body}</span>}
+          <span className="mt-1 flex items-center gap-1.5 text-[11px] text-gray-400">
+            {/* The kind of thing it is, then when. The label is the one piece
+                of context a title cannot always carry: "Sam Rivera" tells you
+                nothing until you know it is a connection request. */}
+            <span className="font-medium uppercase tracking-wide text-gray-400">{meta.label}</span>
+            <span aria-hidden>·</span>
+            {timeAgo(n.created_at)}
+          </span>
+        </span>
+      </button>
+
+      {/* THE UNREAD DOT AND THE DISMISS BUTTON SHARE ONE CORNER, because they
+          are never both the thing you want: while you are reading the list the
+          dot is the information, and the moment you reach for the row you are
+          about to act on it. So the dot fades out and the cross fades in under
+          the pointer, in the same place, and neither one ever moves the layout.
+          On touch, where there is no hover, the cross is simply always there -
+          `group-hover` never latches, so a phone gets the affordance and a
+          desktop gets the clean list. */}
+      {!n.read && (
+        <span
+          className="pointer-events-none absolute right-3 top-4 h-2 w-2 rounded-full bg-brand transition-opacity duration-150 group-hover/row:opacity-0"
+          aria-label="Unread"
+        />
+      )}
+      <button
+        onClick={(e) => { e.stopPropagation(); onDismiss(n.id) }}
+        aria-label="Dismiss this notification"
+        className={cx(
+          'absolute right-1.5 top-2 flex h-7 w-7 items-center justify-center rounded-full text-gray-400',
+          'transition-all duration-150 hover:bg-white hover:text-ink hover:shadow-card active:scale-90',
+          'opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100',
+          '[@media(hover:none)]:opacity-100',
+        )}
+      >
+        <Icon name="close" className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  )
 }
 
-// Bell in the navbar: live unread count + dropdown of recent notifications.
-// Subscribes to Supabase realtime so new notifications appear instantly.
 export default function NotificationBell() {
   const { user, profile } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const [items, setItems] = useState([])
   const [open, setOpen] = useState(false)
+  const [filter, setFilter] = useState('all')
   const panelRef = useRef(null)
-  const prefsRef = useRef(profile?.notif_prefs)
-  useEffect(() => { prefsRef.current = profile?.notif_prefs }, [profile?.notif_prefs])
-  // Current pathname, mirrored for the realtime handler (a live notification for
-  // the page you're already on should never badge or ping).
-  const pathRef = useRef(location.pathname)
-  useEffect(() => { pathRef.current = location.pathname }, [location.pathname])
 
-  const unread = items.filter((n) => !n.read).length
+  const {
+    items, loading, leaving, unread, readCount,
+    markRead, markAllRead, dismiss, clearRead,
+  } = useNotifications({
+    userId: user?.id,
+    pathname: location.pathname,
+    pushPrefs: profile?.notif_prefs,
+    limit: 30,
+  })
 
-  const load = useCallback(async () => {
-    const { data } = await supabase
-      .from('notifications')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(12)
-    setItems(data ?? [])
-  }, [])
-
+  // THE BELL RINGS WHEN SOMETHING ARRIVES. One shake, only when the count goes
+  // UP, and never on the first paint - a bell that swings because a page
+  // finished loading its own history is a bell nobody trusts the second time.
+  const [ringing, setRinging] = useState(false)
+  const seenRef = useRef(null)
   useEffect(() => {
-    if (!user) return
-    load()
-    // Realtime: prepend new notifications for me the moment they're created.
-    const channel = supabase
-      .channel(`notifications-${user.id}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `recipient_id=eq.${user.id}` },
-        (payload) => {
-          const n = payload.new
-          // If it's for the page they're already looking at, mark it read on the
-          // spot instead of badging - they're seeing the content right now.
-          if (linkPathname(n.link) === pathRef.current && document.visibilityState === 'visible') {
-            setItems((prev) => [{ ...n, read: true }, ...prev].slice(0, 12))
-            supabase.from('notifications').update({ read: true }).eq('id', n.id).then(() => {})
-            return
-          }
-          setItems((prev) => [n, ...prev].slice(0, 12))
-          // Pop an OS notification when the app isn't in the foreground, unless
-          // the creator has turned push off for this category.
-          const pushOn = prefsRef.current?.[n.type] !== false
-          if (pushOn && document.visibilityState !== 'visible') {
-            showLocalNotification({
-              title: n.title, body: n.body,
-              link: n.link || '/notifications', tag: n.id,
-            })
-          }
-        }
-      )
-      .subscribe()
-    return () => supabase.removeChannel(channel)
-  }, [user, load])
+    if (loading) return undefined
+    const prev = seenRef.current
+    seenRef.current = unread
+    if (prev === null || unread <= prev) return undefined
+    setRinging(true)
+    const t = setTimeout(() => setRinging(false), 900)
+    return () => clearTimeout(t)
+  }, [unread, loading])
 
-  // When the user lands on the page a notification was for (however they got
-  // there - tapping the alert, a link, or straight navigation), clear it: mark
-  // the in-app record read and dismiss the matching OS push notification.
+  // Close on a click outside, and on Escape - a panel you can only shut by
+  // finding the button again is a panel that traps a keyboard.
   useEffect(() => {
-    if (!user) return
-    const here = location.pathname
-    // Don't touch the notifications list itself - being on /notifications isn't
-    // the target of any alert.
-    if (here === '/notifications') return
-    setItems((prev) => prev.map((n) => (!n.read && linkPathname(n.link) === here ? { ...n, read: true } : n)))
-    supabase.from('notifications').update({ read: true })
-      .eq('recipient_id', user.id).eq('read', false).eq('link', here)
-      .then(() => {})
-    closeNotificationsForPath(here)
-  }, [location.pathname, user])
-
-  // Close the dropdown when clicking anywhere else.
-  useEffect(() => {
-    if (!open) return
-    const onClick = (e) => {
-      if (panelRef.current && !panelRef.current.contains(e.target)) setOpen(false)
-    }
+    if (!open) return undefined
+    const onClick = (e) => { if (panelRef.current && !panelRef.current.contains(e.target)) setOpen(false) }
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false) }
     document.addEventListener('mousedown', onClick)
-    return () => document.removeEventListener('mousedown', onClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onClick)
+      document.removeEventListener('keydown', onKey)
+    }
   }, [open])
 
-  async function openNotification(n) {
+  // The filter resets when the panel closes. A filter that survives being shut
+  // is a panel that opens tomorrow showing you a subset for reasons you have
+  // long forgotten, with an empty state that looks like a bug.
+  useEffect(() => { if (!open) setFilter('all') }, [open])
+
+  function openNotification(n) {
     setOpen(false)
-    if (!n.read) {
-      setItems((prev) => prev.map((x) => (x.id === n.id ? { ...x, read: true } : x)))
-      await supabase.from('notifications').update({ read: true }).eq('id', n.id)
-    }
+    if (!n.read) markRead(n.id)
     if (n.link) navigate(n.link)
   }
 
-  async function markAllRead() {
-    setItems((prev) => prev.map((x) => ({ ...x, read: true })))
-    await supabase.from('notifications').update({ read: true }).eq('recipient_id', user.id).eq('read', false)
-  }
+  const rows = (items || []).filter((n) => matchesFilter(n, filter))
+  const groups = groupByAge(rows)
+  // The index a row is at across the whole list, so the entrance ladder runs
+  // down the panel rather than restarting inside every heading.
+  const order = new Map(rows.map((n, i) => [n.id, i]))
 
   return (
     <div className="relative" ref={panelRef}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="relative rounded-full p-2.5 text-smoke transition-colors hover:bg-cloud hover:text-ink"
+        aria-expanded={open}
+        className={cx(
+          'relative rounded-full p-2.5 transition-all duration-200 hover:bg-cloud active:scale-95',
+          open ? 'bg-cloud text-ink' : 'text-smoke hover:text-ink',
+        )}
         aria-label={`Notifications${unread ? ` (${unread} unread)` : ''}`}
       >
-        <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+        <svg
+          className={cx('h-5 w-5', ringing && 'notif-ring')}
+          style={{ transformOrigin: '50% 15%' }}
+          fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
+        >
           <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
         </svg>
         {unread > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-brand px-1 text-[10px] font-semibold text-white">
+          // `key` on the count, so the badge re-mounts and re-plays its pop
+          // every time the number changes rather than silently swapping digits.
+          <span
+            key={unread}
+            className="notif-badge absolute -right-0.5 -top-0.5 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-brand px-1 text-[10px] font-semibold text-white"
+          >
             {unread > 9 ? '9+' : unread}
           </span>
         )}
       </button>
 
-      {/* THE SAME OPENING AS THE AVATAR MENU. It was `animate-fade-up`, which
-          rises from BELOW - so a panel hanging off a bell in the top bar
-          arrived by travelling upwards, away from the button that opened it.
-          `menu-in` unfolds it from its own top-right corner, which is where the
-          bell is. Two menus in one row of chrome have to open the same way. */}
+      {/* The panel unfolds from its own top-right corner, which is where the
+          bell is. It used to be `animate-fade-up`, which rises from BELOW - so
+          a panel hanging off a bell in the top bar arrived by travelling
+          upwards, away from the button that opened it. */}
       {open && (
-        <div className="absolute right-0 z-40 mt-2 w-80 origin-top-right rounded-card border border-gray-100 bg-white p-2 shadow-lift animate-menu-in">
-          <div className="flex items-center justify-between px-3 py-2">
-            <p className="text-sm font-semibold">Notifications</p>
+        <div className="absolute right-0 z-40 mt-2 w-[21rem] origin-top-right overflow-hidden rounded-card border border-gray-100 bg-white shadow-lift animate-menu-in sm:w-[23rem]">
+          <div className="flex items-center justify-between gap-2 px-4 pb-2.5 pt-3.5">
+            <p className="text-sm font-semibold">
+              Notifications
+              {unread > 0 && <span className="ml-1.5 text-xs font-medium text-brand">{unread} new</span>}
+            </p>
             {unread > 0 && (
-              <button onClick={markAllRead} className="text-xs font-medium text-brand hover:underline">Mark all read</button>
+              <button onClick={markAllRead} className="shrink-0 text-xs font-medium text-brand transition-transform duration-150 hover:scale-105">
+                Mark all read
+              </button>
             )}
           </div>
 
-          <div className="max-h-96 overflow-y-auto">
-            {items.length === 0 && <p className="px-3 py-8 text-center text-sm text-smoke">You're all caught up.</p>}
-            {items.map((n) => (
-              <button
-                key={n.id}
-                onClick={() => openNotification(n)}
-                className={cx('flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-cloud', !n.read && 'bg-brand-tint/50')}
-              >
-                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-tint text-brand" aria-hidden>
-                  <Icon name={TYPE_ICON[n.type] || 'bell'} className="h-4 w-4" />
+          {/* THE FILTER ROW IS ONLY WORTH ITS SPACE ONCE THERE IS SOMETHING TO
+              FILTER. Four pills over three notifications is chrome. */}
+          {(items || []).length > 4 && (
+            <div className="flex gap-1.5 px-4 pb-2.5">
+              {FILTERS.map((f) => {
+                const on = filter === f.key
+                const n = (items || []).filter((x) => matchesFilter(x, f.key)).length
+                if (!n && f.key !== 'all') return null
+                return (
+                  <button
+                    key={f.key}
+                    onClick={() => setFilter(f.key)}
+                    aria-pressed={on}
+                    className={cx(
+                      'rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all duration-150',
+                      on ? 'bg-brand text-white' : 'bg-cloud text-smoke hover:text-ink',
+                    )}
+                  >
+                    {f.label}
+                    {f.key !== 'all' && <span className={cx('ml-1', on ? 'text-white/70' : 'text-gray-400')}>{n}</span>}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          <div className="max-h-[26rem] overflow-y-auto px-2 pb-1">
+            {loading ? (
+              <div className="space-y-2 p-2">
+                {[0, 1, 2].map((i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-cloud" />)}
+              </div>
+            ) : rows.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
+                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-tint text-brand">
+                  <Icon name="check" className="h-5 w-5" />
                 </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-medium">{n.title}</span>
-                  {n.body && <span className="mt-0.5 line-clamp-2 block text-xs text-smoke">{n.body}</span>}
-                  <span className="mt-1 block text-[11px] text-gray-400">{timeAgo(n.created_at)}</span>
-                </span>
-                {!n.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand" aria-label="Unread" />}
-              </button>
-            ))}
+                <p className="text-sm font-medium text-ink">
+                  {filter === 'all' ? "You're all caught up." : 'Nothing here.'}
+                </p>
+                {filter !== 'all' && (
+                  <button onClick={() => setFilter('all')} className="text-xs font-medium text-brand hover:underline">
+                    Show everything
+                  </button>
+                )}
+              </div>
+            ) : (
+              groups.map(([heading, group]) => (
+                <div key={heading}>
+                  <p className="px-2.5 pb-1 pt-2.5 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                    {heading}
+                  </p>
+                  {group.map((n) => (
+                    <NotificationRow
+                      key={n.id} n={n} i={order.get(n.id)}
+                      leaving={leaving.has(n.id)}
+                      onOpen={openNotification}
+                      onDismiss={dismiss}
+                    />
+                  ))}
+                </div>
+              ))
+            )}
           </div>
 
-          <Link to="/notifications" onClick={() => setOpen(false)} className="block rounded-xl px-3 py-2.5 text-center text-sm font-medium text-brand hover:bg-cloud">
-            View all
-          </Link>
+          <div className="flex items-center justify-between gap-2 border-t border-gray-100 px-3 py-2">
+            <Link to="/notifications" onClick={() => setOpen(false)} className="rounded-lg px-2 py-1.5 text-sm font-medium text-brand transition-colors hover:bg-cloud">
+              View all
+            </Link>
+            {/* CLEARING WHAT YOU HAVE READ, NOT CLEARING EVERYTHING - the unread
+                ones are the entire point of the panel, and a button whose most
+                likely use is a mistake does not belong next to them. */}
+            {readCount > 0 && (
+              <button onClick={clearRead} className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-smoke transition-colors hover:bg-cloud hover:text-ink">
+                <Icon name="trash" className="h-3.5 w-3.5" />
+                Clear {readCount} read
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

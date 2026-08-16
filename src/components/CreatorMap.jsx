@@ -243,27 +243,58 @@ function Pin({ group, zoom, active, dim, onSelect, landing = false }) {
 function FlyingPlane({ path, dur, zoom, opacity = 1, arriving = false }) {
   const s = 0.85 / Math.max(zoom, 1)
   return (
-    // `arriving` holds the aircraft off until the pins have landed, so the
-    // arrival reads as land, then places, then traffic. Once the map has
-    // settled the class comes off and a plane added later simply appears.
-    <g className={arriving ? 'map-plane-in' : undefined} style={{ pointerEvents: 'none', opacity }}>
-      <g transform={`scale(${s}) rotate(90)`}>
-        {/* No drop-shadow filter. It is one offscreen pass per plane per frame
-            on an element that MOVES every frame, which is the most expensive
-            thing a filter can be attached to. The white outline already lifts
-            it off the land, which is what the shadow was for. */}
-        <path
-          d={PLANE_D}
-          fill={BRAND}
-          stroke="#ffffff"
-          strokeWidth={1.3}
-          strokeLinejoin="round"
-        />
+    // THREE NESTED GROUPS, AND EACH ONE OWNS EXACTLY ONE TRANSFORM.
+    //
+    // THE TRAP. `<animateMotion>` drives its PARENT element's transform, and a
+    // CSS transform on an element overrides the SVG transform on that same
+    // element. So putting the arrival animation on this outer g - which is what
+    // it used to be, back when the arrival was a bare fade and there was no
+    // transform in it to collide - would park every plane at the top-left
+    // corner of the map for the length of its entrance. This is the same trap
+    // that silently flattened the Flight Path aircraft to scale 1 for weeks.
+    //
+    //   outer   the flight path (animateMotion)
+    //   middle  the arrival (CSS)
+    //   inner   the counter-scale and the nose-up rotation (SVG attribute)
+    <g style={{ pointerEvents: 'none', opacity }}>
+      {/* `arriving` holds the aircraft off until the pins have landed, so the
+          arrival reads as land, then threads, then places, then traffic. Once
+          the map has settled the class comes off and a plane added later
+          simply appears. */}
+      <g className={arriving ? 'map-plane-in' : undefined}>
+        <g transform={`scale(${s}) rotate(90)`}>
+          {/* No drop-shadow filter. It is one offscreen pass per plane per frame
+              on an element that MOVES every frame, which is the most expensive
+              thing a filter can be attached to. The white outline already lifts
+              it off the land, which is what the shadow was for. */}
+          <path
+            d={PLANE_D}
+            fill={BRAND}
+            stroke="#ffffff"
+            strokeWidth={1.3}
+            strokeLinejoin="round"
+          />
+        </g>
       </g>
       <animateMotion dur={`${dur}s`} repeatCount="indefinite" rotate="auto" path={path} />
     </g>
   )
 }
+
+// THE LADDER IS CAPPED, AND THE CAP IS THE POINT.
+//
+// The threads arrive one after another so the connections read as reaching
+// across the map rather than switching on together. Uncapped that is a bug
+// waiting for a busy day: forty threads at 55ms each is a two-second entrance,
+// which is the exact fault the per-pin ladder was removed for. Eight steps is
+// under half a second whether there are nine threads or nine hundred.
+const THREAD_STEPS = 8
+const threadStep = (i) => ({ '--thread-i': i % THREAD_STEPS })
+
+// The map, drawn but not yet shown, for the two frames between the commit that
+// builds it and the frame the entrance starts on. Module scope: a fresh object
+// per render would be a new style prop on the biggest group on the page.
+const HELD = { opacity: 0 }
 
 // THE LAND IS ITS OWN MEMOISED COMPONENT, AND THAT IS A PERFORMANCE FIX.
 //
@@ -402,6 +433,35 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
     return () => { cancelled = true }
   }, [])
 
+  // THE ENTRANCE DOES NOT START ON THE FRAME THAT DRAWS THE WORLD.
+  //
+  // THE BUG THIS FIXES. `setFeatures` and the arrival animation used to be the
+  // same commit: React inserts two hundred and forty country paths, forty-odd
+  // pins and every thread, the browser lays all of that out and paints it, and
+  // the CSS animation on the group is running for the whole of that frame. A
+  // frame that does that much work is not 16ms, it is well over a hundred - so
+  // the first quarter of the entrance is a single held frame and the rest
+  // catches up in a jump. Ethan: "when the map loads the page jutters a bit,
+  // the animation is not smooth."
+  //
+  // No amount of tuning the curve fixes a dropped frame. The fix is to let the
+  // expensive commit paint first, on its own, and start the animation on the
+  // NEXT frame - which is cheap, because everything it animates is already
+  // laid out by then. Two nested rAFs: the first is scheduled before the heavy
+  // paint, the second after it.
+  //
+  // The map is held at opacity 0 in between rather than left visible, or the
+  // land would flash on at full strength and then fade in from nothing.
+  const [painted, setPainted] = useState(false)
+  useEffect(() => {
+    if (!features || painted) return undefined
+    let inner = 0
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(() => setPainted(true))
+    })
+    return () => { cancelAnimationFrame(outer); cancelAnimationFrame(inner) }
+  }, [features, painted])
+
   // THE ARRIVAL PLAYS ONCE PER MAP, NOT ONCE PER MOUNT.
   //
   // THE BUG THIS FIXES. Going full screen moves the map into a portal, and a
@@ -416,15 +476,26 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   //
   // The component itself does NOT unmount (only its rendered subtree moves), so
   // a flag here survives the transition and the second mount draws the map in
-  // its settled state. The timer is a little longer than the whole sequence,
-  // which now finishes at 620ms (the pins' 200ms delay plus their 420ms fall),
-  // so nothing is ever cut off part-way.
+  // its settled state. The timer has to outlast the WHOLE sequence or the class
+  // comes off mid-animation and whatever was still moving snaps to its end
+  // state. The last step is the aircraft, at 960ms + 300ms, so 1400ms.
   const [arrived, setArrived] = useState(false)
   useEffect(() => {
-    if (!features || arrived) return undefined
-    const t = setTimeout(() => setArrived(true), 800)
+    // Off `painted`, not `features`: the clock has to start when the animation
+    // does, or the two frames it waits come out of the end of the sequence.
+    if (!painted || arrived) return undefined
+    const t = setTimeout(() => setArrived(true), 1400)
     return () => clearTimeout(t)
-  }, [features, arrived])
+  }, [painted, arrived])
+
+  // THE ONE FLAG EVERY ARRIVAL CLASS IS OFF, and it has to be one flag rather
+  // than `!arrived` per element. A CSS animation's clock starts the moment its
+  // class lands, so if the pins were classed on the commit that draws the world
+  // and the land were classed two frames later, the pins would be two frames
+  // (or, on the slow commit this is guarding against, a hundred and fifty
+  // milliseconds) further through their sequence than the land beneath them.
+  // Everything is classed together or nothing is.
+  const entering = painted && !arrived
 
   const [tooltip, setTooltip] = useState('')
   const [selected, setSelected] = useState(null)
@@ -1360,7 +1431,10 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
               a skeleton in its place) and buys an arrival that happens once, in
               the right order. */}
           {features && (
-          <g className={arrived ? undefined : 'map-arrive'}>
+          <g
+            className={entering ? 'map-arrive' : undefined}
+            style={painted || arrived ? undefined : HELD}
+          >
           <Countries
             features={features}
             homeNames={homeNames}
@@ -1377,7 +1451,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           />
 
           {/* Everything that sits ON the land waits for the land. */}
-          <g className={arrived ? undefined : 'map-arrive-overlay'}>
+          <g className={entering ? 'map-arrive-overlay' : undefined}>
 
           {/* Connection lines (behind the pins). Hidden while focusing on a
               traveller or in the who's-travelling view, to keep it clean. */}
@@ -1386,6 +1460,8 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
               {segments.map((seg, i) => (
                 <path
                   key={i}
+                  className={entering ? 'map-thread-in' : undefined}
+                  style={entering ? threadStep(i) : undefined}
                   d={seg.d}
                   fill="none"
                   stroke={BRAND_LIGHT}
@@ -1399,7 +1475,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
                   tidy. All planes share one speed. No destination pulse, so they
                   read differently from the "travelling now" journeys below. */}
               {planeSegments.map((seg) => (
-                <FlyingPlane key={`p${seg.key}`} path={seg.d} dur={seg.dur} zoom={z} opacity={0.9} arriving={!arrived} />
+                <FlyingPlane key={`p${seg.key}`} path={seg.d} dur={seg.dur} zoom={z} opacity={0.9} arriving={entering} />
               ))}
             </g>
           )}
@@ -1408,9 +1484,11 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
               flights from your town out to them, so the map still feels alive. */}
           {(connectionsView || nearMe) && linkSegments.length > 0 && (
             <g style={{ pointerEvents: 'none' }}>
-              {linkSegments.map((seg) => (
+              {linkSegments.map((seg, i) => (
                 <path
                   key={`ls${seg.key}`}
+                  className={entering ? 'map-thread-in' : undefined}
+                  style={entering ? threadStep(i) : undefined}
                   d={seg.d}
                   fill="none"
                   stroke={BRAND_LIGHT}
@@ -1421,7 +1499,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
                 />
               ))}
               {linkSegments.map((seg) => (
-                <FlyingPlane key={`lp${seg.key}`} path={seg.d} dur={seg.dur} zoom={z} opacity={0.95} arriving={!arrived} />
+                <FlyingPlane key={`lp${seg.key}`} path={seg.d} dur={seg.dur} zoom={z} opacity={0.95} arriving={entering} />
               ))}
             </g>
           )}
@@ -1430,7 +1508,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
               home pin to their next collab-trip country, on repeat. Tap a
               plane (or its destination pulse) to focus that trip. */}
           <g>
-            {visibleJourneys.map((j) => (
+            {visibleJourneys.map((j, ji) => (
               <g
                 key={j.id}
                 onClick={() => setFocusId((cur) => (cur === j.id ? null : j.id))}
@@ -1445,12 +1523,15 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
                     "leaving in five weeks" are different facts and a map that
                     draws them identically is lying about one of them. */}
                 <path
+                  className={entering ? 'map-thread-in' : undefined}
                   d={j.d} fill="none" stroke={BRAND}
                   strokeWidth={(j.current ? 1.1 : 0.8) / z}
                   strokeDasharray={`${2.5 / z} ${5 / z}`}
                   strokeLinecap="round"
                   opacity={focusJourney ? 0.85 : j.current ? 0.5 : 0.3}
-                  style={{ pointerEvents: 'none' }}
+                  style={entering
+                    ? { pointerEvents: 'none', ...threadStep(ji) }
+                    : { pointerEvents: 'none' }}
                 />
                 {j.current ? (
                   <circle cx={j.dest[0]} cy={j.dest[1]} fill={BRAND} opacity="0.8">
@@ -1483,12 +1564,17 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
                 <g>
                   {/* generous invisible hit-target so the moving plane is easy to tap */}
                   <circle r={14 / Math.max(z, 1)} fill="transparent" />
-                  {/* nose-up plane rotated to face along the motion path */}
-                  <g transform={`scale(${0.85 / Math.max(z, 1)}) rotate(90)`} style={{ pointerEvents: 'none' }} opacity={j.current ? 1 : 0.55}>
-                    <path
-                      d="M0 -11 C1.1 -11 1.8 -9 1.8 -6.2 L1.8 -4.4 L10 1 L10 3.1 L1.8 -0.2 L1.8 5 L4.4 7.6 L4.4 9.2 L0 7.7 L-4.4 9.2 L-4.4 7.6 L-1.8 5 L-1.8 -0.2 L-10 3.1 L-10 1 L-1.8 -4.4 L-1.8 -6.2 C-1.8 -9 -1.1 -11 0 -11 Z"
-                      fill={j.current ? BRAND : '#ffffff'} stroke={j.current ? '#ffffff' : BRAND} strokeWidth={1.2} strokeLinejoin="round"
-                    />
+                  {/* The arrival on its OWN group, between the motion path and
+                      the counter-scale. See FlyingPlane for why all three
+                      transforms have to live on three different elements. */}
+                  <g className={entering ? 'map-plane-in' : undefined}>
+                    {/* nose-up plane rotated to face along the motion path */}
+                    <g transform={`scale(${0.85 / Math.max(z, 1)}) rotate(90)`} style={{ pointerEvents: 'none' }} opacity={j.current ? 1 : 0.55}>
+                      <path
+                        d="M0 -11 C1.1 -11 1.8 -9 1.8 -6.2 L1.8 -4.4 L10 1 L10 3.1 L1.8 -0.2 L1.8 5 L4.4 7.6 L4.4 9.2 L0 7.7 L-4.4 9.2 L-4.4 7.6 L-1.8 5 L-1.8 -0.2 L-10 3.1 L-10 1 L-1.8 -4.4 L-1.8 -6.2 C-1.8 -9 -1.1 -11 0 -11 Z"
+                        fill={j.current ? BRAND : '#ffffff'} stroke={j.current ? '#ffffff' : BRAND} strokeWidth={1.2} strokeLinejoin="round"
+                      />
+                    </g>
                   </g>
                   <animateMotion dur={`${j.dur}s`} repeatCount="indefinite" rotate="auto" path={j.d} />
                 </g>
@@ -1508,7 +1594,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
                 onMouseLeave={() => setTooltip('')}
               >
                 <Pin group={town} zoom={z} active={selected?.key === town.key} dim={dimTown}
-                  onSelect={selectTown} landing={!arrived} />
+                  onSelect={selectTown} landing={entering} />
               </g>
             )
           })}

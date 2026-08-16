@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Avatar, Badge, PageHeader, Confetti } from '../components/ui'
 import StreakCard from '../components/games/StreakCard'
+import Flame from '../components/games/Flame'
 import LanguageGame from '../components/games/LanguageGame'
 import Reveal from '../components/network/Reveal'
 import GameChrome, { AnswerFlash, useAnswerSound } from '../components/games/GameChrome'
@@ -79,34 +80,21 @@ const fmtTime = (ms) => {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
-// A custom flame chip (replaces the native 🔥 emoji) with the streak count.
-// Shows a creator's DAILY play streak (consecutive UK days) for this game.
+// A real fire, at the size of a word, with the streak count beside it. Shows a
+// creator's DAILY play streak (consecutive UK days) for this game.
+//
+// THE DRAWING LIVES IN components/games/Flame. It used to be two flat paths
+// inlined here - an orange leaf with a yellow dot - and there were two more
+// copies of roughly the same idea on two other surfaces. See that file for what
+// makes it read as fire rather than as a flame-shaped sticker.
 function FlameStreak({ n }) {
   return (
     <span
-      className="inline-flex items-center gap-0.5 rounded-full bg-brand-tint px-1.5 py-0.5 text-[11px] font-bold leading-none text-brand"
+      className="inline-flex items-center gap-1 rounded-full bg-brand-tint px-1.5 py-0.5 text-[11px] font-bold leading-none text-brand"
       title={`${n}-day streak`}
       aria-label={`${n} day streak`}
     >
-      {/* IT BURNS HERE TOO, and on the same clock as the big one on the streak
-          card. A flame that flows on one surface and is a static glyph on the
-          next reads as two different marks. Two layers rather than the big
-          one's three: at fourteen pixels a third would be a pixel of noise.
-          Anchored at the base (`transformOrigin`), or it inflates. */}
-      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 overflow-visible" aria-hidden>
-        <path
-          d="M13.5 2C14 5 11.5 6 10 8.2 8.9 9.8 8 11.4 8 13.3a6 6 0 0 0 12 .2c0-2.6-1.4-4.6-2.9-6.3-.9 1.2-2.2 1.3-2-.2.15-1.6-.4-3.6-1.6-5Z"
-          fill="#d94407"
-          className="animate-flame-body"
-          style={{ transformBox: 'fill-box', transformOrigin: '50% 92%' }}
-        />
-        <path
-          d="M13 12c.4 1-.4 1.7-1 2.5-.4.5-.7 1.1-.7 1.8a2.4 2.4 0 0 0 4.8.1c0-1.2-.7-2-1.5-2.8-.6.7-1.3.4-1.1-.5.1-.5-.1-.8-.5-1.1Z"
-          fill="#fbbf24"
-          className="animate-flame-core"
-          style={{ transformBox: 'fill-box', transformOrigin: '50% 92%' }}
-        />
-      </svg>
+      <Flame className="h-4 w-4" />
       {n}
     </span>
   )
@@ -123,7 +111,7 @@ export default function Game() {
   // streak badge), plus which of today's three are already done. Shared with the
   // hub's Daily puzzles section, so a tick here and a tick there mean the same
   // query rather than two answers that can disagree.
-  const { played: playedToday, streakDays: myDays, daysByPuzzle } = useDailyPuzzles(user?.id)
+  const { played: playedToday, streakDays: myDays, daysByPuzzle, markPlayed } = useDailyPuzzles(user?.id)
   const [mode, setMode] = useState('flags')
   const [region, setRegion] = useState('World')
   const [questions, setQuestions] = useState([])
@@ -142,35 +130,46 @@ export default function Game() {
     if (DAILY_KEYS.includes(d)) setScreen(d)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // STARTING A GAME PUTS THE GAME ON SCREEN.
+  // OPENING A GAME PUTS YOU AT THE TOP OF THE PAGE. ALL OF IT.
   //
-  // THE BUG THIS FIXES. Screens swap in place, and the browser keeps your
-  // scroll offset when they do. The menu is tall on a phone - the streak card
-  // alone is most of a screen - so by the time you have scrolled down to the
-  // daily cards and tapped one, you are several hundred pixels down a page that
-  // has just become much shorter. That offset now lands squarely on the
-  // leaderboard, and the board you actually asked for is off the top. Ethan:
-  // "on mobile when you click to play a daily game it doesn't immediately show
-  // up, it's scrolled further down the screen showing leaderboard".
+  // THE BUG THIS FIXES, TWICE OVER. Screens swap in place and the browser keeps
+  // your scroll offset when they do, so tapping a daily card several hundred
+  // pixels down a tall menu left you several hundred pixels down a page that
+  // had just become much shorter - which is the leaderboard, with the puzzle
+  // off the top. Ethan, twice: "on mobile when you click to play a daily game
+  // it doesn't immediately show up, it's scrolled further down the screen
+  // showing leaderboard", and then "it starts with the page half scrolled down
+  // the leaderboard, this is wrong. The page should always open at the top
+  // where the actual game is, none of it should be cut off."
   //
-  // Every game renders at the top of this container, so scrolling the container
-  // to the top of the viewport is the correct answer for all of them.
-  const boardRef = useRef(null)
+  // The first fix scrolled the BOARD to the top of the viewport, which is a
+  // different thing and is why it did not hold: it measures an element whose
+  // height is still zero on the frame a game mounts (the boards build their
+  // layout in an effect), so the offset it computed was too small, and when the
+  // board then grew, the leaderboard underneath was what had been scrolled to.
+  //
+  // Zero needs no measurement and cannot be wrong. When a game is on screen the
+  // menu is unmounted, so the game IS the top of the page - directly under the
+  // page heading, with nothing above it to cut off.
+  //
+  // It is re-asserted on the next frame as well as immediately, because the
+  // boards settle their own height a frame later and Chrome's scroll anchoring
+  // will happily push the document down to "keep" content that was never in
+  // view. Two cheap calls beat one that a layout pass can undo.
   const [screenSeq, setScreenSeq] = useState(0)
   useEffect(() => {
-    if (screen === 'menu') return
-    // After paint, or we measure the element the old screen left behind.
-    const raf = requestAnimationFrame(() => {
-      const el = boardRef.current
-      if (!el) return
-      const y = el.getBoundingClientRect().top + window.scrollY - 12
-      // `instant` on purpose. A smooth scroll here races the game's own
-      // entrance animation and you watch the page slide while the board fades
-      // in, which reads as two things going wrong at once.
-      window.scrollTo({ top: Math.max(0, y), behavior: 'auto' })
-    })
+    const top = () => window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+    top()
+    const raf = requestAnimationFrame(top)
     return () => cancelAnimationFrame(raf)
   }, [screen, screenSeq])
+
+  // Closing a daily board: back to the menu, with that puzzle's tick, streak
+  // chip and "N of 3 done" line all brought up to date before the menu paints.
+  const leaveDaily = useCallback((key) => {
+    markPlayed(key)
+    setScreen('menu')
+  }, [markPlayed])
 
   function start(m, r) {
     const mm = m || mode, rr = r || region
@@ -229,17 +228,23 @@ export default function Game() {
           daysByPuzzle={daysByPuzzle} playedToday={playedToday}
         />
       )}
-      {/* Every game board hangs off this one anchor, which is what the
-          scroll-into-view effect above measures. */}
-      <div ref={boardRef}>
+      {/* LEAVING A DAILY PUZZLE TICKS IT OFF, ON THE SPOT.
+          Every daily board writes its result to localStorage the moment it
+          finishes, so by the time `onExit` runs the answer is already on this
+          device - `markPlayed` just tells the hook to look, and re-checks the
+          server behind it. Without this the menu kept whatever set it built on
+          mount, so you could play Flight Path, come straight back, and be
+          invited to play it again. Ethan: "after I played for example flight
+          path, it didn't immediately update and show that I played it." */}
+      <div>
         {screen === 'play' && <Round mode={mode} region={region} questions={questions} onQuit={() => setScreen('menu')} onFinish={(r) => { setSavedScore(r); setScreen('results') }} />}
         {screen === 'results' && (
           <Results result={savedScore} mode={mode} region={region} eventId={eventId} userId={user.id}
             onPlayAgain={() => start(mode, region)} onMenu={() => setScreen('menu')} />
         )}
-        {screen === 'pinpoint' && <PinpointGame onExit={() => setScreen('menu')} />}
-        {screen === 'zip' && <ZipGame onExit={() => setScreen('menu')} />}
-        {screen === 'languages' && <LanguageGame onExit={() => setScreen('menu')} />}
+        {screen === 'pinpoint' && <PinpointGame onExit={() => leaveDaily('pinpoint')} />}
+        {screen === 'zip' && <ZipGame onExit={() => leaveDaily('zip')} />}
+        {screen === 'languages' && <LanguageGame onExit={() => leaveDaily('languages')} />}
       </div>
 
       <div className="mt-12">

@@ -6,6 +6,9 @@ import { Avatar, EmptyState, PageHeader, Skeleton } from '../components/ui'
 import Icon from '../components/Icon'
 import Reveal from '../components/network/Reveal'
 import Segmented from '../components/network/Segmented'
+import WhenVisible from '../components/WhenVisible'
+import FlightMap from '../components/network/FlightMap'
+import MapSkeleton from '../components/network/MapSkeleton'
 import { CountUp } from '../components/network/Motion'
 import { airport } from '../lib/airports'
 import { buildFlightStats } from '../lib/flightStats'
@@ -84,6 +87,12 @@ export default function FlightCommunity() {
   const [mine, setMine] = useState(null)
   const [flyers, setFlyers] = useState({})
   const [totals, setTotals] = useState(null)
+  // THE THREE AGGREGATES BEHIND THE MAP AND THE TWO SECTIONS UNDER IT.
+  // All definer functions returning counts and airport codes and NOTHING that
+  // identifies a person - see migration 106 for the whole argument.
+  const [routes, setRoutes] = useState(null)
+  const [fleet, setFleet] = useState(null)
+  const [records, setRecords] = useState(null)
 
   const thisYear = today.slice(0, 4)
 
@@ -104,6 +113,24 @@ export default function FlightCommunity() {
       if (cancelled) return
       const row = Array.isArray(data) ? data[0] : data
       if (row) setTotals({ km: Number(row.total_km) || 0, n: Number(row.total_flights) || 0 })
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  // Everything the map and the two sections under it draw. One effect, because
+  // they arrive together or the page assembles in three instalments.
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([
+      supabase.rpc('community_routes'),
+      supabase.rpc('community_aircraft'),
+      supabase.rpc('community_flight_records'),
+    ]).then(([r, a, rec]) => {
+      if (cancelled) return
+      setRoutes(r.data ?? [])
+      setFleet(a.data ?? [])
+      const row = Array.isArray(rec.data) ? rec.data[0] : rec.data
+      setRecords(row ?? null)
     })
     return () => { cancelled = true }
   }, [])
@@ -163,6 +190,37 @@ export default function FlightCommunity() {
 
   const sharing = board?.length ?? 0
 
+  // THE MAP'S DATA, IN THE SHAPE `FlightMap` ALREADY TAKES.
+  //
+  // It wants `routes` of `{ key, from, to, flights[] }` and `airports` of
+  // `{ ...airport, weight }` - exactly what `buildFlightStats` hands it on your
+  // own log. Building the community's version into the same shape means the two
+  // maps are THE SAME MAP with different data in it, rather than a second map
+  // that has to be kept looking like the first one.
+  //
+  // A route whose two codes are not both in our airport table is dropped rather
+  // than drawn at (0,0), which is the Gulf of Guinea and is where every map bug
+  // of this kind ends up.
+  const mapData = useMemo(() => {
+    if (!routes) return null
+    const arcs = []
+    const weight = new Map()
+    for (const r of routes) {
+      const from = airport(r.a)
+      const to = airport(r.b)
+      if (!from || !to) continue
+      const n = Number(r.flights) || 1
+      arcs.push({ key: `${r.a}-${r.b}`, from, to, flights: new Array(n).fill(null) })
+      weight.set(r.a, (weight.get(r.a) || 0) + n)
+      weight.set(r.b, (weight.get(r.b) || 0) + n)
+    }
+    const pins = [...weight.entries()]
+      .map(([code, w]) => ({ ...airport(code), weight: w }))
+      .filter((a) => a.iata)
+    const countries = new Set(pins.map((a) => a.country).filter(Boolean))
+    return { arcs, pins, countries: countries.size }
+  }, [routes])
+
   return (
     <div className="page">
       <PageHeader
@@ -187,6 +245,11 @@ export default function FlightCommunity() {
                 { n: totals?.km ?? null, label: 'Kilometres flown', fmt: (v) => Math.round(v).toLocaleString('en-GB') },
                 { n: totals?.n ?? null, label: 'Flights logged' },
                 { n: sharing, label: 'Creators sharing' },
+                // TWO FIGURES ABOUT THE SHAPE OF THE MAP UNDERNEATH, not about
+                // who is winning. "Between us we have touched 84 airports in 39
+                // countries" is the sentence this page exists to be able to say.
+                { n: mapData?.pins.length ?? null, label: 'Airports touched' },
+                { n: mapData?.countries ?? null, label: 'Countries reached' },
               ].map((s) => (
                 <div key={s.label}>
                   <p className="text-3xl font-bold tabular-nums sm:text-4xl">
@@ -196,6 +259,58 @@ export default function FlightCommunity() {
                 </div>
               ))}
             </div>
+          </section>
+        </Reveal>
+
+        {/* ---- WHERE WE ALL GO ----
+            THE PICTURE, AND IT LEADS.
+            Ethan: "improve the across the community tab, build in more features
+            there that would be interesting, maybe a visual image or map."
+            A page of three rankings and a bar chart is a page of numbers about
+            travel, which is the one subject that should never be only numbers.
+            Every shared route in the community drawn at once is the only thing
+            on here that anybody would screenshot.
+
+            It is the SAME COMPONENT as your own log's map (see `mapData`), so
+            there is one map to maintain and moving between the two pages reads
+            as zooming out rather than as arriving somewhere else.
+
+            `WhenVisible` with a big rootMargin so the atlas is parsed before you
+            scroll to it, never on the frames the section above is animating. */}
+        <Reveal from="down">
+          <section>
+            <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold">Where we all go</h2>
+                <p className="mt-1 text-sm text-smoke">
+                  {mapData
+                    ? `${mapData.arcs.length} ${mapData.arcs.length === 1 ? 'route' : 'routes'} shared by the community. Tap a country or an airport.`
+                    : 'Every route the community has shared.'}
+                </p>
+              </div>
+              {records?.longest_km > 0 && airport(records.longest_a) && airport(records.longest_b) && (
+                // THE LONGEST HOP ANYBODY HAS SHARED, as a caption on the map
+                // rather than a card of its own. It is one fact and it belongs
+                // next to the picture it is a fact about.
+                <span className="flex items-center gap-2 rounded-full bg-brand-tint px-3.5 py-1.5 text-xs font-semibold text-brand">
+                  <Icon name="plane" className="h-3.5 w-3.5" />
+                  Longest hop {records.longest_a} to {records.longest_b}
+                  <span className="font-bold tabular-nums">{Math.round(records.longest_km).toLocaleString('en-GB')} km</span>
+                </span>
+              )}
+            </div>
+            {!mapData ? (
+              <MapSkeleton />
+            ) : mapData.arcs.length === 0 ? (
+              <div className="rounded-card border border-dashed border-gray-200 px-6 py-14 text-center">
+                <p className="text-sm font-medium text-ink">No shared routes yet.</p>
+                <p className="mt-1 text-sm text-smoke">Tick &ldquo;share with the community&rdquo; on a flight and it lands on this map.</p>
+              </div>
+            ) : (
+              <WhenVisible rootMargin="1000px" fallback={<MapSkeleton />}>
+                <FlightMap routes={mapData.arcs} airports={mapData.pins} />
+              </WhenVisible>
+            )}
           </section>
         </Reveal>
 
@@ -271,6 +386,44 @@ export default function FlightCommunity() {
                       ))}
                     </div>
                   </div>
+                ))}
+              </Reveal>
+            </section>
+          </Reveal>
+        )}
+
+        {/* ---- WHAT THE COMMUNITY FLIES ----
+            The other half of the aircraft collection, seen from outside: your
+            own page tells you which types you have been on, and this tells you
+            which ones everybody else has - which is what turns a gap on your
+            wall from a fact into a dare. Every row is a door to the collection. */}
+        {fleet && fleet.length > 0 && (
+          <Reveal from="down">
+            <section>
+              <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+                <h2 className="text-lg font-semibold">What we fly</h2>
+                <Link to="/flights/aircraft" className="text-sm font-medium text-brand transition-transform duration-200 hover:scale-105">
+                  Your aircraft collection &rarr;
+                </Link>
+              </div>
+              <Reveal className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3" stagger={0.04}>
+                {fleet.slice(0, 12).map((a) => (
+                  <Link
+                    key={a.aircraft}
+                    to="/flights/aircraft"
+                    className="group flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-lift"
+                  >
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand transition-transform duration-200 group-hover:scale-110">
+                      <Icon name="plane" className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold">{a.aircraft}</span>
+                      <span className="block text-xs text-smoke">
+                        {a.creators} {Number(a.creators) === 1 ? 'creator has' : 'creators have'} flown it
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-sm font-bold tabular-nums text-brand">{a.flights}</span>
+                  </Link>
                 ))}
               </Reveal>
             </section>

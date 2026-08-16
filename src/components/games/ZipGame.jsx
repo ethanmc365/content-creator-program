@@ -412,32 +412,75 @@ export default function ZipGame({ onExit }) {
         }
       `}</style>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="flex flex-wrap items-center gap-2">
-          <Badge tone="light"><Icon name="plane-tryp" className="h-3.5 w-3.5" /> Flight Path · Daily puzzle</Badge>
-          <Badge tone={HARD_DIFFS.includes(difficulty) ? 'brand' : 'grey'} className="!px-2 !py-0.5 text-[10px]">{DIFF_LABEL[difficulty]}</Badge>
-          <StreakChip n={streak} title={`${streak}-day daily streak`} />
-        </span>
-        <div className="flex items-center gap-5">
-          <div className="text-center leading-tight">
-            <span className="block text-[10px] font-medium uppercase tracking-wide text-smoke">Sky filled</span>
-            <span className="block text-sm font-semibold tabular-nums text-ink">{progress}%</span>
+      {/* THE HEADER IS ONE PANEL, AND THE PROGRESS IS A BAR.
+          What was here was a `flex-wrap` row of three badges on the left and
+          three things on the right, which is six items competing for 375px: on
+          a phone it wrapped into two or three ragged lines and "Back to games"
+          ended up wherever there was room. And "Sky filled 42%" was a NUMBER for
+          a quantity that is a proportion - the one thing every other mode on
+          this page draws as the gradient bar Ethan picked out (see GameChrome).
+
+          So: a rounded panel with the puzzle on one line and the two figures on
+          another, the bar across the foot of it filling as the sky does, and the
+          way out as a real button in a fixed corner rather than a link that
+          moves. It stacks at `sm` instead of wrapping, so there is no width at
+          which it comes out ragged. */}
+      <div className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
+        <div className="flex flex-col gap-3 p-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-4">
+          <span className="flex min-w-0 flex-wrap items-center gap-2">
+            <Badge tone="light"><Icon name="plane-tryp" className="h-3.5 w-3.5" /> Flight Path</Badge>
+            <Badge tone={HARD_DIFFS.includes(difficulty) ? 'brand' : 'grey'} className="!px-2 !py-0.5 text-[10px]">{DIFF_LABEL[difficulty]}</Badge>
+            <StreakChip n={streak} title={`${streak}-day daily streak`} />
+          </span>
+          <div className="flex shrink-0 items-center gap-4 sm:gap-5">
+            <div className="leading-tight">
+              <span className="block text-[10px] font-medium uppercase tracking-widest text-smoke">Sky filled</span>
+              <span className="block text-base font-bold tabular-nums text-ink sm:text-lg">{progress}%</span>
+            </div>
+            <div className="leading-tight">
+              <span className="block text-[10px] font-medium uppercase tracking-widest text-smoke">Time</span>
+              <span className="block font-mono text-base font-bold tabular-nums text-ink sm:text-lg">{solved ? fmtTime(solveMs ?? 0) : fmtTime(elapsed)}</span>
+            </div>
+            <button
+              onClick={onExit}
+              className="ml-auto flex items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold text-smoke transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand sm:ml-0"
+            >
+              <Icon name="chevronLeft" className="h-3.5 w-3.5" />
+              Games
+            </button>
           </div>
-          <div className="text-center leading-tight">
-            <span className="block text-[10px] font-medium uppercase tracking-wide text-smoke">Time</span>
-            <span className="block font-mono text-sm font-semibold tabular-nums text-ink">{solved ? fmtTime(solveMs ?? 0) : fmtTime(elapsed)}</span>
-          </div>
-          <button onClick={onExit} className="text-xs font-medium text-smoke hover:text-brand">Back to games</button>
+        </div>
+        {/* Zero-width fills still paint their padding, so at 0% there is no bar
+            at all - just the track. */}
+        <div className="h-1.5 w-full bg-cloud">
+          {progress > 0 && (
+            <div
+              className="h-full rounded-r-full bg-gradient-to-r from-brand to-brand-light transition-[width] duration-300 ease-out"
+              style={{ width: `${progress}%` }}
+            />
+          )}
         </div>
       </div>
 
-      <div className="card !p-4 sm:!p-6">
-        <p className="mb-4 text-center text-sm text-smoke">
+      <div className="card !p-3 sm:!p-6">
+        {/* The rules, split so the phone gets the short version. The full
+            sentence ran to four lines at 375px above a board that then had to
+            share the screen with it. */}
+        <p className="mb-3 text-center text-[13px] leading-snug text-smoke sm:mb-4 sm:text-sm">
           Fly through every stop <span className="font-semibold text-ink">in order</span>, filling the whole sky.
-          {walls.length > 0 && <> Solid orange bars are <span className="font-semibold text-ink">no-fly walls</span>.</>} Drag the plane, drag backwards to undo.
+          {walls.length > 0 && <> Orange bars are <span className="font-semibold text-ink">no-fly walls</span>.</>}
+          <span className="hidden sm:inline"> Drag the plane, drag backwards to undo.</span>
         </p>
 
-        <div className={cx('fp-board relative mx-auto w-full', size >= 11 ? 'max-w-[660px]' : size >= 8 ? 'max-w-[600px]' : 'max-w-[520px]', shake && 'fp-nudge')}>
+        {/* WIDER ON A BIG SCREEN. The cap was 660px whatever the display, so an
+            eleven-by-eleven board on a desktop was a postage stamp in the middle
+            of a very wide card while the same board on a tablet filled it. The
+            `lg:` step only applies where there is room for it. */}
+        <div className={cx(
+          'fp-board relative mx-auto w-full',
+          size >= 11 ? 'max-w-[660px] lg:max-w-[760px]' : size >= 8 ? 'max-w-[600px] lg:max-w-[680px]' : 'max-w-[520px] lg:max-w-[580px]',
+          shake && 'fp-nudge',
+        )}>
           <svg
             ref={svgRef}
             viewBox={`0 0 ${W} ${W}`}
@@ -582,11 +625,33 @@ export default function ZipGame({ onExit }) {
           )}
         </div>
 
+        {/* THE CONTROLS ARE THUMB-SIZED, AND "NEXT STOP" IS THE BIGGEST THING
+            IN THE ROW. It was two small secondary buttons and a line of grey
+            11px text, in that order - so the thing you look at between every
+            move was the smallest and faintest item on the page, and the two
+            buttons you press by accident were the loudest. The number now sits
+            in a brand chip on the right and the buttons are 44px tall, which is
+            the minimum a finger can be asked to hit. */}
         {!solved && !checking && (
-          <div className="mt-4 flex items-center justify-center gap-3">
-            <button onClick={undo} className="btn-secondary !py-2 text-sm">Undo</button>
-            <button onClick={restart} className="btn-secondary !py-2 text-sm">Restart</button>
-            <span className="text-xs text-smoke">Next stop: <span className="font-semibold text-brand">{Math.min(expected, lastN)}</span></span>
+          <div className="mt-4 flex items-center justify-center gap-2.5 sm:gap-3">
+            <button
+              onClick={undo}
+              className="flex h-11 items-center gap-1.5 rounded-full border border-gray-200 px-4 text-sm font-semibold text-smoke transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand active:scale-95"
+            >
+              <Icon name="reply" className="h-4 w-4" />
+              Undo
+            </button>
+            <button
+              onClick={restart}
+              className="flex h-11 items-center gap-1.5 rounded-full border border-gray-200 px-4 text-sm font-semibold text-smoke transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand active:scale-95"
+            >
+              <Icon name="reorder" className="h-4 w-4" />
+              Restart
+            </button>
+            <span className="flex h-11 items-center gap-2 rounded-full bg-brand-tint px-4 text-brand">
+              <span className="text-[10px] font-semibold uppercase tracking-widest">Next stop</span>
+              <span className="text-lg font-extrabold tabular-nums leading-none">{Math.min(expected, lastN)}</span>
+            </span>
           </div>
         )}
       </div>

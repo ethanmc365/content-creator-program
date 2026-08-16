@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { ukDayIndex, ukDayStartIso } from './daily'
 
@@ -84,16 +84,52 @@ export function useDailyPuzzles(userId) {
   const [counts, setCounts] = useState(null)
   const [streakDays, setStreakDays] = useState([])
   const [daysByPuzzle, setDaysByPuzzle] = useState({})
+  // Bumped by `markPlayed`. It is what re-runs the server query below, so a
+  // puzzle finished in this session updates the counts other people can see
+  // ("11 creators played it today") as well as your own tick.
+  const [nudge, setNudge] = useState(0)
 
-  useEffect(() => {
+  // Read this device's record of today, whatever is in it right now.
+  const readLocal = useCallback(() => {
     const done = new Set()
     for (const p of DAILY_PUZZLES) {
       try {
         if (JSON.parse(localStorage.getItem(p.store) || 'null')?.day === today) done.add(p.key)
       } catch { /* private mode */ }
     }
-    if (done.size) setPlayed((cur) => new Set([...cur, ...done]))
+    return done
   }, [today])
+
+  useEffect(() => {
+    const done = readLocal()
+    if (done.size) setPlayed((cur) => new Set([...cur, ...done]))
+  }, [readLocal])
+
+  /**
+   * A PUZZLE JUST FINISHED. TICK IT NOW.
+   *
+   * THE BUG THIS FIXES. Both effects here run on mount and never again, which
+   * is correct for a page you arrive at and wrong for the games menu, where the
+   * puzzle is played WITHOUT leaving the page: the board is a screen swap, not
+   * a navigation, so the hook kept the set it built when the menu first opened.
+   * Play Flight Path, come back, and the card still says "Play today's puzzle".
+   * Ethan: "after I played for example flight path, it didn't immediately
+   * update and show that I played it."
+   *
+   * Optimistic and then verified, in that order and for the usual reason: the
+   * tick has to be on the card in the frame the menu comes back, and the truth
+   * still has to come from the server (the counts, and a play made on another
+   * device). The local read is folded in too, so calling this with no key at
+   * all - on a window regaining focus, say - is a full refresh.
+   */
+  const markPlayed = useCallback((key) => {
+    setPlayed((cur) => {
+      const next = new Set([...cur, ...readLocal()])
+      if (key) next.add(key)
+      return next
+    })
+    setNudge((n) => n + 1)
+  }, [readLocal])
 
   useEffect(() => {
     let alive = true
@@ -140,7 +176,16 @@ export function useDailyPuzzles(userId) {
       setDaysByPuzzle(Object.fromEntries(DAILY_KEYS.map((k) => [k, [...perPuzzle[k]]])))
     })
     return () => { alive = false }
-  }, [userId, today])
+  }, [userId, today, nudge])
 
-  return { today, played, counts, streakDays, daysByPuzzle }
+  // COMING BACK TO THE TAB IS ALSO A REASON TO LOOK AGAIN. Somebody who solved
+  // this morning's puzzle on their phone and then switched back to the laptop
+  // tab they left open should not be invited to solve it a second time.
+  useEffect(() => {
+    const onWake = () => { if (document.visibilityState === 'visible') markPlayed() }
+    document.addEventListener('visibilitychange', onWake)
+    return () => document.removeEventListener('visibilitychange', onWake)
+  }, [markPlayed])
+
+  return { today, played, counts, streakDays, daysByPuzzle, markPlayed }
 }

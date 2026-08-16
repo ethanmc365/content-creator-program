@@ -704,6 +704,126 @@ const RAW = [
   ['DAR', 'Julius Nyerere', 'Dar es Salaam', 'TZ', -6.8781, 39.2026],
   ['XMN', 'Gaoqi', 'Xiamen', 'CN', 24.544, 118.1274],
   ['KMG', 'Changshui', 'Kunming', 'CN', 25.1019, 102.9292],
+
+  // ---- EVERY COUNTRY THAT HAS A COMMERCIAL AIRPORT NOW HAS ONE HERE.
+  //
+  // Ethan: "ensure every possible airport and flight combination is on."
+  //
+  // The table above is the three hundred fields this community actually flies
+  // through, which is the right basis for a type-ahead and the wrong basis for
+  // a LOG: the whole promise of the boarding-pass builder is that you type two
+  // codes and it fills itself in, and a code it has never heard of does not
+  // half-work, it dead-ends. Fifty-four countries had nothing at all in here,
+  // and one of them was RUSSIA - so SVO, DME and LED, three of the busiest
+  // airports on the continent this programme is run from, resolved to nothing.
+  //
+  // What is added is one primary international airport for every country that
+  // was missing, plus the second or third field where a country genuinely has
+  // more than one door (Libya, Honduras, Botswana, Malawi, St Lucia) and the
+  // Russian majors. That is the honest reading of "every combination": any two
+  // countries in the world can now be joined by a route this log will price,
+  // time and draw.
+  //
+  // It is still NOT the nine-thousand-row OpenFlights dump, for the reason at
+  // the top of this file - that is a megabyte to make "LHR" work - and it never
+  // needs to be: the log's aircraft picker already has an "Other" escape, and
+  // a field small enough to be missing from this list is a field somebody
+  // reaches by a connection that is itself in it.
+
+  // ---- Russia
+  ['SVO', 'Sheremetyevo', 'Moscow', 'RU', 55.9726, 37.4146],
+  ['DME', 'Domodedovo', 'Moscow', 'RU', 55.4088, 37.9063],
+  ['VKO', 'Vnukovo', 'Moscow', 'RU', 55.5915, 37.2615],
+  ['LED', 'Pulkovo', 'St Petersburg', 'RU', 59.8003, 30.2625],
+  ['AER', 'Sochi', 'Sochi', 'RU', 43.4499, 39.9566],
+  ['SVX', 'Koltsovo', 'Yekaterinburg', 'RU', 56.7431, 60.8027],
+  ['KZN', 'Kazan', 'Kazan', 'RU', 55.6062, 49.2787],
+  ['OVB', 'Tolmachevo', 'Novosibirsk', 'RU', 55.0126, 82.6507],
+  ['VVO', 'Knevichi', 'Vladivostok', 'RU', 43.399, 132.148],
+
+  // ---- Asia & the Middle East
+  ['KBL', 'Hamid Karzai', 'Kabul', 'AF', 34.5658, 69.2125],
+  ['BWN', 'Brunei', 'Bandar Seri Begawan', 'BN', 4.9442, 114.9283],
+  ['IKA', 'Imam Khomeini', 'Tehran', 'IR', 35.4161, 51.1522],
+  ['BGW', 'Baghdad', 'Baghdad', 'IQ', 33.2625, 44.2346],
+  ['EBL', 'Erbil', 'Erbil', 'IQ', 36.2376, 43.9632],
+  ['FRU', 'Manas', 'Bishkek', 'KG', 43.0613, 74.4776],
+  ['FNJ', 'Pyongyang', 'Pyongyang', 'KP', 39.2241, 125.67],
+  ['DAM', 'Damascus', 'Damascus', 'SY', 33.4114, 36.5156],
+  ['DYU', 'Dushanbe', 'Dushanbe', 'TJ', 38.5433, 68.825],
+  ['DIL', 'Presidente Nicolau Lobato', 'Dili', 'TL', -8.5464, 125.526],
+  ['ASB', 'Ashgabat', 'Ashgabat', 'TM', 37.9868, 58.361],
+  ['ADE', 'Aden', 'Aden', 'YE', 12.8295, 45.0288],
+
+  // ---- Africa
+  ['LAD', 'Quatro de Fevereiro', 'Luanda', 'AO', -8.8584, 13.2312],
+  ['COO', 'Cadjehoun', 'Cotonou', 'BJ', 6.3573, 2.3844],
+  ['GBE', 'Sir Seretse Khama', 'Gaborone', 'BW', -24.5552, 25.9182],
+  ['MUB', 'Maun', 'Maun', 'BW', -19.9726, 23.4311],
+  ['OUA', 'Thomas Sankara', 'Ouagadougou', 'BF', 12.3532, -1.5124],
+  ['BJM', 'Melchior Ndadaye', 'Bujumbura', 'BI', -3.324, 29.3185],
+  ['DLA', 'Douala', 'Douala', 'CM', 4.0061, 9.7195],
+  ['NSI', 'Nsimalen', 'Yaounde', 'CM', 3.7226, 11.5533],
+  ['BGF', 'Bangui M Poko', 'Bangui', 'CF', 4.3985, 18.5188],
+  ['NDJ', 'Hassan Djamous', 'N Djamena', 'TD', 12.1337, 15.034],
+  ['HAH', 'Prince Said Ibrahim', 'Moroni', 'KM', -11.5337, 43.2719],
+  ['BZV', 'Maya-Maya', 'Brazzaville', 'CG', -4.2517, 15.253],
+  ['FIH', 'N djili', 'Kinshasa', 'CD', -4.3858, 15.4446],
+  ['ABJ', 'Felix Houphouet-Boigny', 'Abidjan', 'CI', 5.2614, -3.9263],
+  ['JIB', 'Ambouli', 'Djibouti', 'DJ', 11.5473, 43.1595],
+  ['SSG', 'Malabo', 'Malabo', 'GQ', 3.7553, 8.7087],
+  ['ASM', 'Asmara', 'Asmara', 'ER', 15.2919, 38.9107],
+  ['SHO', 'King Mswati III', 'Manzini', 'SZ', -26.3585, 31.7167],
+  ['LBV', 'Leon-Mba', 'Libreville', 'GA', 0.4586, 9.4123],
+  ['CKY', 'Ahmed Sekou Toure', 'Conakry', 'GN', 9.5769, -13.612],
+  ['OXB', 'Osvaldo Vieira', 'Bissau', 'GW', 11.8948, -15.6537],
+  ['MSU', 'Moshoeshoe I', 'Maseru', 'LS', -29.4623, 27.5525],
+  ['ROB', 'Roberts', 'Monrovia', 'LR', 6.2337, -10.3623],
+  ['TIP', 'Mitiga', 'Tripoli', 'LY', 32.8940, 13.2760],
+  ['BEN', 'Benina', 'Benghazi', 'LY', 32.0968, 20.2695],
+  ['LLW', 'Kamuzu', 'Lilongwe', 'MW', -13.7894, 33.781],
+  ['BLZ', 'Chileka', 'Blantyre', 'MW', -15.6791, 34.974],
+  ['NKC', 'Oumtounsy', 'Nouakchott', 'MR', 18.31, -15.9697],
+  ['MPM', 'Maputo', 'Maputo', 'MZ', -25.9208, 32.5726],
+  ['NIM', 'Diori Hamani', 'Niamey', 'NE', 13.4815, 2.1836],
+  ['KGL', 'Kigali', 'Kigali', 'RW', -1.9686, 30.1395],
+  ['TMS', 'Sao Tome', 'Sao Tome', 'ST', 0.3781, 6.7122],
+  ['MGQ', 'Aden Adde', 'Mogadishu', 'SO', 2.0144, 45.3047],
+  ['JUB', 'Juba', 'Juba', 'SS', 4.872, 31.6011],
+  ['KRT', 'Khartoum', 'Khartoum', 'SD', 15.5895, 32.5532],
+  ['LFW', 'Gnassingbe Eyadema', 'Lome', 'TG', 6.1656, 1.2544],
+  ['EBB', 'Entebbe', 'Entebbe', 'UG', 0.0424, 32.4435],
+  ['LUN', 'Kenneth Kaunda', 'Lusaka', 'ZM', -15.3308, 28.4526],
+  ['EUN', 'Hassan I', 'Laayoune', 'EH', 27.1517, -13.2192],
+
+  // ---- The Americas & the Caribbean
+  ['DOM', 'Douglas-Charles', 'Dominica', 'DM', 15.547, -61.3],
+  ['GND', 'Maurice Bishop', 'St George s', 'GD', 11.9902, -61.7862],
+  ['GUA', 'La Aurora', 'Guatemala City', 'GT', 14.5833, -90.5275],
+  ['PAP', 'Toussaint Louverture', 'Port-au-Prince', 'HT', 18.58, -72.2925],
+  ['TGU', 'Toncontin', 'Tegucigalpa', 'HN', 14.0608, -87.2172],
+  ['SAP', 'Ramon Villeda Morales', 'San Pedro Sula', 'HN', 15.4526, -87.9236],
+  ['RTB', 'Juan Manuel Galvez', 'Roatan', 'HN', 16.3168, -86.523],
+  ['MGA', 'Augusto C Sandino', 'Managua', 'NI', 12.1415, -86.1682],
+  ['SKB', 'Robert L Bradshaw', 'Basseterre', 'KN', 17.3111, -62.7187],
+  ['UVF', 'Hewanorra', 'St Lucia', 'LC', 13.7332, -60.9526],
+  ['SLU', 'George F L Charles', 'Castries', 'LC', 14.0202, -60.9929],
+  ['SVD', 'Argyle', 'Kingstown', 'VC', 13.1567, -61.1497],
+  ['GEO', 'Cheddi Jagan', 'Georgetown', 'GY', 6.4986, -58.2541],
+  ['PBM', 'Johan Adolf Pengel', 'Paramaribo', 'SR', 5.4528, -55.1878],
+
+  // ---- The Pacific
+  ['TRW', 'Bonriki', 'Tarawa', 'KI', 1.3816, 173.147],
+  ['MAJ', 'Marshall Islands', 'Majuro', 'MH', 7.0648, 171.272],
+  ['PNI', 'Pohnpei', 'Pohnpei', 'FM', 6.9851, 158.209],
+  ['INU', 'Nauru', 'Yaren', 'NR', -0.5472, 166.919],
+  ['ROR', 'Roman Tmetuchl', 'Koror', 'PW', 7.3673, 134.544],
+  ['POM', 'Jacksons', 'Port Moresby', 'PG', -9.4433, 147.22],
+  ['HIR', 'Honiara', 'Honiara', 'SB', -9.428, 160.055],
+  ['TBU', 'Fua amotu', 'Nuku alofa', 'TO', -21.2412, -175.15],
+  ['FUN', 'Funafuti', 'Funafuti', 'TV', -8.525, 179.196],
+
+  // ---- The far north, which had nothing either
 ]
 
 export const AIRPORTS = RAW.map(([iata, name, city, country, lat, lng]) => ({

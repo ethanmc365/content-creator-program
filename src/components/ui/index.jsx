@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { cx } from '../../lib/utils'
 import Icon from '../Icon'
+import Flame from '../games/Flame'
 
 /** Circular profile photo with an initials fallback. */
 export function Avatar({ src, name = '', size = 'md', className = '' }) {
@@ -236,10 +237,11 @@ export function StreakChip({ n, title }) {
       title={title || `${n}-day streak`}
       aria-label={`${n} day streak`}
     >
-      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden>
-        <path d="M13.5 2C14 5 11.5 6 10 8.2 8.9 9.8 8 11.4 8 13.3a6 6 0 0 0 12 .2c0-2.6-1.4-4.6-2.9-6.3-.9 1.2-2.2 1.3-2-.2.15-1.6-.4-3.6-1.6-5Z" fill="#d94407" />
-        <path d="M13 12c.4 1-.4 1.7-1 2.5-.4.5-.7 1.1-.7 1.8a2.4 2.4 0 0 0 4.8.1c0-1.2-.7-2-1.5-2.8-.6.7-1.3.4-1.1-.5.1-.5-.1-.8-.5-1.1Z" fill="#fbbf24" />
-      </svg>
+      {/* THE SAME FIRE AS EVERY OTHER SURFACE. This was a third inline copy -
+          a flat orange path with a yellow blob on it, and STATIC, so the one
+          flame a creator sees most often was the only one not alight. See
+          components/games/Flame. */}
+      <Flame className="h-4 w-4" />
       {n} day{n === 1 ? '' : 's'}
     </span>
   )
