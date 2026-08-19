@@ -5,6 +5,26 @@
 @tailwind components;
 @tailwind utilities;
 
+
+/* THE BOARDING PASS PLANE ARRIVES AND DEPARTS.
+   `animateMotion` runs the plane along the dashed route for ever, which without
+   this is a hard cut every 3.6s: the plane vanishes at the destination and
+   reappears at the origin on the same frame. Fading the first and last tenth of
+   the run turns the loop into a flight. The class is on a NESTED group because
+   animateMotion writes its parent's transform and a CSS transform would win. */
+.pass-plane {
+  animation: pass-plane-fade 3.6s linear infinite;
+}
+@keyframes pass-plane-fade {
+  0%   { opacity: 0; }
+  10%  { opacity: 1; }
+  88%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pass-plane { animation: none; opacity: 1; }
+}
+
 @layer base {
   html {
     -webkit-font-smoothing: antialiased;

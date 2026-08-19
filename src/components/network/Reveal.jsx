@@ -40,6 +40,16 @@ import { Children, Fragment, useEffect, useState } from 'react'
 export default function Reveal({
   children,
   className,
+  // CLASSES FOR THE PER-CHILD WRAPPER, not for the container.
+  //
+  // `Reveal` puts every child inside its own `.reveal-item` div, and that div -
+  // not the card - is the grid cell or the flex item. So a caller that wants to
+  // lay the children out with anything other than the container's own grid
+  // (a `flex-wrap` whose items need explicit widths, say) has nowhere to put
+  // the width: putting it on the card sizes the card against a wrapper that has
+  // no width of its own, and the row collapses to one card per line. This is
+  // that missing hook.
+  itemClassName = '',
   as: Tag = 'div',
   // `stagger` lets a dense list run tighter than a sparse grid. Past about 60ms
   // per child a grid stops reading as "arriving" and starts reading as "slow",
@@ -222,7 +232,7 @@ export default function Reveal({
           // The child's own key is what React needs; this wrapper is positional
           // and never reorders independently of it.
           key={child?.key ?? i}
-          className="reveal-item"
+          className={itemClassName ? `reveal-item ${itemClassName}` : 'reveal-item'}
           // Grid cells have to stretch or a card that fills its row height
           // stops filling it the moment a wrapper appears between the two.
           style={{ '--reveal-i': Math.min(i, maxStagger) }}

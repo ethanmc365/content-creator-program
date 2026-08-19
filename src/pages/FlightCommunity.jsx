@@ -42,6 +42,21 @@ import { cx } from '../lib/utils'
 // during render is a new type every render, so every row would unmount and
 // remount whenever the window switch is pressed.
 function Board({ icon, title, rows, value, unit, myId }) {
+  // THREE, THEN THE REST ON A TAP.
+  //
+  // Ethan: "we only show maybe the top five, or when clicking on it, it expands
+  // down and shows the top ten for all the leaderboards... and obviously it
+  // doesn't show for all of them, like if I click on most countries it'll show
+  // the drop down leaderboard for most countries... I will just bring it back
+  // to only showing the top three."
+  //
+  // Eight rows x three boards is twenty-four names, which on a phone is the
+  // whole page and on a desktop is three columns of ties. Three is the shape
+  // everybody already reads a ranking in, and the expansion is PER BOARD
+  // because "who has flown furthest" and "who has been to most countries" are
+  // two different questions and nobody wants both answered at length at once.
+  const [open, setOpen] = useState(false)
+  const shown = open ? rows : rows.slice(0, 3)
   return (
     <div className="flex h-full flex-col rounded-card border border-gray-100 bg-white p-5 shadow-card">
       <p className="mb-4 flex items-center gap-2 text-sm font-semibold">
@@ -51,7 +66,7 @@ function Board({ icon, title, rows, value, unit, myId }) {
         {title}
       </p>
       <ol className="space-y-2.5">
-        {rows.map((b, i) => (
+        {shown.map((b, i) => (
           <li
             key={b.creator_id}
             className={cx(
@@ -75,6 +90,16 @@ function Board({ icon, title, rows, value, unit, myId }) {
           </li>
         ))}
       </ol>
+      {rows.length > 3 && (
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="mt-auto flex w-full items-center justify-center gap-1 pt-3 text-[11px] font-semibold text-smoke transition-colors hover:text-brand"
+        >
+          {open ? 'Show fewer' : `Show top ${rows.length}`}
+          <Icon name="chevronRight" className={cx('h-3 w-3 transition-transform duration-200', open ? '-rotate-90' : 'rotate-90')} />
+        </button>
+      )}
     </div>
   )
 }
@@ -182,9 +207,11 @@ export default function FlightCommunity() {
       return { ...b, km: Number(b.km) || 0, flights: Number(b.flights) || 0, countries: countries.size }
     })
     return {
-      distance: [...withCountries].sort((a, b) => b.km - a.km).slice(0, 8),
-      countries: [...withCountries].sort((a, b) => b.countries - a.countries || b.km - a.km).slice(0, 8),
-      flights: [...withCountries].sort((a, b) => b.flights - a.flights || b.km - a.km).slice(0, 8),
+      // TWENTY, NOT EIGHT. Only three are on screen until somebody asks, so
+      // the depth costs nothing now and the expansion is worth opening.
+      distance: [...withCountries].sort((a, b) => b.km - a.km).slice(0, 20),
+      countries: [...withCountries].sort((a, b) => b.countries - a.countries || b.km - a.km).slice(0, 20),
+      flights: [...withCountries].sort((a, b) => b.flights - a.flights || b.km - a.km).slice(0, 20),
     }
   }, [board])
 
@@ -401,7 +428,7 @@ export default function FlightCommunity() {
           <Reveal from="down">
             <section>
               <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-                <h2 className="text-lg font-semibold">What we fly</h2>
+                <h2 className="text-lg font-semibold">Aircrafts</h2>
                 <Link to="/flights/aircraft" className="text-sm font-medium text-brand transition-transform duration-200 hover:scale-105">
                   Your aircraft collection &rarr;
                 </Link>
@@ -466,7 +493,7 @@ function CommunityAirports({ rows }) {
         by.set(code, cur)
       }
     }
-    return [...by.values()].sort((a, b) => b.creators - a.creators || a.city.localeCompare(b.city)).slice(0, 12)
+    return [...by.values()].sort((a, b) => b.creators - a.creators || a.city.localeCompare(b.city)).slice(0, 10)
   }, [rows])
 
   if (top.length === 0) return null

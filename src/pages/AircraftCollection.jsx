@@ -9,7 +9,7 @@ import { CountUp } from '../components/network/Motion'
 import { EmptyState, PageHeader, Skeleton } from '../components/ui'
 import { AIRCRAFT } from '../lib/airlines'
 import { aircraftSeen } from '../lib/flightStats'
-import { cx, formatDate } from '../lib/utils'
+import { cx } from '../lib/utils'
 
 // THE AIRCRAFT COLLECTION.
 //
@@ -54,62 +54,87 @@ function TypeCard({ type, seen, most = false }) {
         // way; without this the CARD stops short inside it and the wall looks
         // ragged.
         'group relative flex h-full flex-col overflow-hidden rounded-card border p-2.5 transition-all duration-300',
+        'hover:-translate-y-1 hover:shadow-lift',
+        // THE CARD CARRIES THE STATE, NOT THE PHOTOGRAPH.
+        //
+        // Ethan: "the card should normally be white if it's not collected, and
+        // it should be the bright tryp.com orange if you have collected that
+        // plane." The photographs used to be greyscaled instead, which reads as
+        // a broken image before it reads as a gap - see AircraftPhoto.
+        //
+        // Three states and not two, because "most flown" was already on this
+        // wall and deserves to stay: a solid brand card for the favourite, a
+        // brand-tinted one for anything flown, and plain white for a gap. The
+        // gap is the DEFAULT-looking card, which is the right way round - it is
+        // the aeroplane you have not got, so it should look untouched, not
+        // damaged.
         most
-          ? 'border-brand bg-brand-tint/25 shadow-card ring-1 ring-brand/30 hover:-translate-y-1 hover:shadow-lift'
+          ? 'border-brand bg-brand text-white shadow-lift ring-1 ring-brand'
           : owned
-            ? 'border-brand/25 bg-white shadow-card hover:-translate-y-1 hover:shadow-lift'
-            : 'border-dashed border-gray-200 bg-cloud/40',
+            ? 'border-brand/40 bg-brand-tint/60 shadow-card'
+            : 'border-gray-100 bg-white shadow-card',
       )}
     >
-      {/* The photograph leads. It is the reason to be on this page, and it
-          gets a real 16:9 frame rather than a 96px strip - at that height a
-          side-on airliner was about eleven pixels of fuselage. */}
+      {/* The photograph leads. It is the reason to be on this page, and it gets
+          a real 16:9 frame rather than a 96px strip - at that height a side-on
+          airliner was about eleven pixels of fuselage. */}
       <div className="relative aspect-[16/9] w-full">
         <AircraftPhoto typeKey={type.key} type={type} owned={owned} />
         {/* THE ONE YOU HAVE FLOWN MOST WINS THE BADGE.
             Ethan: "highlighting the aircraft you travelled on most." A wall
             where every flown card looks identical has a fact in it that it is
             not saying, and this is the only one on the page that is about YOU
-            rather than about the aeroplane. "Flown" is implicit on it - a card
-            cannot be your most-flown type without being one you have flown. */}
-        {most ? (
-          <span className="absolute right-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-card">
+            rather than about the aeroplane.
+            NO "FLOWN" TICK ANY MORE - the card being orange says it, and a
+            badge repeating the card's own colour is a label on a label. */}
+        {most && (
+          <span className="absolute right-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-brand shadow-card">
             <Icon name="trophy" className="h-3 w-3" />
             Most flown
-          </span>
-        ) : owned && (
-          <span className="absolute right-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-card">
-            <Icon name="check" className="h-3 w-3" />
-            Flown
           </span>
         )}
       </div>
 
-      <p className={cx('mt-3 text-sm font-semibold leading-snug', owned ? 'text-ink' : 'text-gray-400')}>
-        {type.name}
-      </p>
-      <p className="text-[11px] text-smoke">{type.maker}</p>
+      <div className="mt-3 flex items-baseline justify-between gap-2">
+        <p className={cx('min-w-0 truncate text-sm font-semibold leading-snug', most ? 'text-white' : 'text-ink')}>
+          {type.name}
+        </p>
+        {/* THE YEAR IT ENTERED SERVICE. Ethan: "one piece of good information
+            for each plane would be the year it was manufactured or the year it
+            was released." Entry into service rather than first flight, because
+            it is the date that answers "could I have been on this" - see the
+            note on `year` in lib/airlines. It sits on the title line, where a
+            number reads as an attribute of the name rather than as another
+            statistic in the footer. */}
+        {type.year && (
+          <span className={cx('shrink-0 text-[11px] font-semibold tabular-nums', most ? 'text-white/70' : 'text-smoke')}>
+            {type.year}
+          </span>
+        )}
+      </div>
+      <p className={cx('text-[11px]', most ? 'text-white/70' : 'text-smoke')}>{type.maker}</p>
 
       {/* WHAT THE CARD SAYS DEPENDS ENTIRELY ON WHETHER YOU HAVE IT.
           A card you own answers "when, how often, with whom". A card you do not
           own must not answer anything about you - it says what the aircraft is,
           which is the only honest thing it can say and also the thing that
           makes somebody want it. */}
-      <div className="mt-auto border-t border-gray-100 pt-2 text-[11px]">
+      <div className={cx('mt-auto border-t pt-2 text-[11px]', most ? 'border-white/25' : 'border-gray-100')}>
         {owned ? (
           <>
-            <p className="font-semibold text-brand">
+            <p className={cx('font-semibold', most ? 'text-white' : 'text-brand')}>
               {seen.flights} {seen.flights === 1 ? 'flight' : 'flights'}
-              <span className="font-normal text-smoke"> · {Math.round(seen.distance).toLocaleString('en-GB')} km</span>
+              <span className={cx('font-normal', most ? 'text-white/70' : 'text-smoke')}>
+                {' · '}{Math.round(seen.distance).toLocaleString('en-GB')} km
+              </span>
             </p>
-            <p className="truncate text-smoke">
+            <p className={cx('truncate', most ? 'text-white/70' : 'text-smoke')}>
               {seen.airlines.length > 0 ? seen.airlines.slice(0, 2).join(', ') : 'Airline not logged'}
               {seen.airlines.length > 2 ? ` +${seen.airlines.length - 2}` : ''}
             </p>
-            <p className="text-gray-400">Last flown {formatDate(seen.last)}</p>
           </>
         ) : (
-          <p className="text-gray-400">
+          <p className="text-smoke">
             {type.seats} seats · {Math.round(type.range).toLocaleString('en-GB')} km range
           </p>
         )}
@@ -171,33 +196,35 @@ export default function AircraftCollection() {
 
   return (
     <div className="page">
-      <Link to="/flights" className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-smoke transition-colors hover:text-brand">
-        <Icon name="chevronLeft" className="h-4 w-4" />
-        Your flight log
-      </Link>
+      {/* TWO DOORS, NOT ONE ARROW. Ethan: "from the aircraft collection, there
+          should be buttons to go back to the flight log and across to the
+          community rather than just having to press the arrow back." The three
+          flight pages are one feature and this was the only one of them that
+          was a dead end. */}
+      <div className="mb-4 flex flex-wrap gap-2">
+        <Link to="/flights" className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-smoke transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand">
+          <Icon name="chevronLeft" className="h-3.5 w-3.5" />
+          Your flight log
+        </Link>
+        <Link to="/flights/community" className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-smoke transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand">
+          <Icon name="globe" className="h-3.5 w-3.5" />
+          Across the community
+        </Link>
+      </div>
 
       {/* NO STRAPLINE. It read "Every type in the book, and the ones you have
           actually been on. It fills in by itself as you log flights with an
           aircraft on them", which explains a mechanism nobody needs explained -
           the ghosted cards and the counter say all of it. Ethan asked for it
           gone. */}
-      <PageHeader
-        title="Aircraft collection"
-        action={
-          // ADDING A RARE ONE. Ethan: "a button to add other aircraft in case
-          // there's a rare one someone goes on."
-          // An aircraft type is not a thing you own on its own - it is
-          // something you were ON, which means it belongs to a flight. So the
-          // button goes where the fact actually lives: the log form, whose
-          // aircraft picker now has an "Other" escape for anything the book
-          // does not hold. What you type there appears under "Also flown"
-          // below, and counts.
-          <Link to="/flights?log=new" className="btn-secondary !py-2.5 text-sm">
-            <Icon name="plus" className="h-4 w-4" />
-            Add an aircraft
-          </Link>
-        }
-      />
+      {/* NO ACTION BUTTON. It said "Add an aircraft" and it went to
+          `/flights?log=new` - which is the flight log, so the button on the
+          collection page was a link back to the page you just came from. Ethan:
+          "there shouldn't be an add aircraft button because that just takes you
+          back to the flight log, so if we can remove that button." An aircraft
+          is not a thing you add here; it arrives because you logged a flight
+          with one on it, and the two doors above are the way back. */}
+      <PageHeader title="Aircraft collection" />
 
       {rows === null ? (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
@@ -272,8 +299,15 @@ export default function AircraftCollection() {
               // that it was the page being pleased with itself: nobody calls a
               // list of aeroplanes a book, and the pair of labels has to be two
               // plain descriptions of two sets.
+              //
+              // AND NOT "FLOWN BY ME" EITHER. Ethan: "I wouldn't call that flown
+              // by me because that could make it seem like you're the pilot.
+              // When actually it's you've been on the plane." He is right, and
+              // it is the same slip the whole feature has to watch for - a
+              // "flight log" is a pilot's document and this one belongs to a
+              // passenger. "Been on board" cannot be read the other way.
               { on: !onlyMine, label: `Every aircraft (${total})`, go: () => setOnlyMine(false), icon: 'globe' },
-              { on: onlyMine, label: `Flown by me (${collected})`, go: () => setOnlyMine(true), icon: 'check' },
+              { on: onlyMine, label: `Been on board (${collected})`, go: () => setOnlyMine(true), icon: 'check' },
             ].map((o) => (
               <button
                 key={o.label}
@@ -298,7 +332,6 @@ export default function AircraftCollection() {
               .filter(([, a]) => a.body === cls.key)
               .map(([key, a]) => ({ key, ...a }))
               .sort((a, b) => b.range - a.range)
-            const got = all.filter((t) => byName.has(t.name.toLowerCase())).length
             const types = onlyMine ? all.filter((t) => byName.has(t.name.toLowerCase())) : all
             // A class you have nothing in disappears entirely under the filter,
             // rather than leaving a heading over a hole.
@@ -308,11 +341,43 @@ export default function AircraftCollection() {
                 <section>
                   <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                     <h2 className="text-lg font-semibold">{cls.label}</h2>
-                    <p className="text-xs font-semibold tabular-nums text-brand">
-                      {onlyMine ? `${got} flown` : `${got} of ${all.length}`}
-                    </p>
+                    {/* NO "3 of 7". Ethan: "I wouldn't have the one out of
+                        fourteen, I don't think it's necessary." Same reasoning
+                        as the headline, which stopped being a score out of
+                        something for the same reason: the denominator is the
+                        size of OUR table, it grew by thirteen in one commit,
+                        and a fraction invites a completion nobody is being
+                        offered. The orange cards on the wall say how many you
+                        have, and they say it by being orange. */}
                   </div>
-                  <Reveal className="grid grid-cols-2 items-stretch gap-4 sm:grid-cols-3 lg:grid-cols-4" stagger={0.05}>
+                  {/* A CENTRED WRAP, NOT A GRID.
+                      Ethan: "currently it looks like there's weird spaces. If
+                      you scroll down there's like two blank spaces in the bottom
+                      right, it looks odd. I know there's not an even number of
+                      everything, but perhaps you could design it in a way that
+                      looks better."
+                      A four-column grid leaves the remainder of every class
+                      hanging on the left of a half-empty final row - so each of
+                      the four sections ends in a hole, and the holes are all in
+                      the same place, which is what makes it read as a layout
+                      fault rather than as "there are eleven of these". Flex-wrap
+                      with `justify-center` centres whatever is left over, so a
+                      short final row reads as the end of a set. The widths are
+                      the same 2/3/4 columns; only the leftovers move. */}
+                  {/* The widths go on `itemClassName`, because Reveal wraps
+                      every child in its own div and THAT is the flex item. */}
+                  <Reveal
+                    className="flex flex-wrap justify-center gap-4"
+                    // `!h-auto self-stretch` and not the default `height:100%`.
+                    // A flex item only stretches to its line's height when its
+                    // cross size is `auto`; `.reveal-item` sets `height: 100%`,
+                    // which against an indefinite container resolves to the
+                    // content height AND disables stretch - so a card with a
+                    // three-line footer stood taller than the one beside it and
+                    // the row came out ragged.
+                    itemClassName="flex !h-auto self-stretch w-[calc(50%-0.5rem)] sm:w-[calc(33.333%-0.667rem)] lg:w-[calc(25%-0.75rem)]"
+                    stagger={0.05}
+                  >
                     {types.map((t) => (
                       <TypeCard
                         key={t.key}
@@ -352,30 +417,34 @@ export default function AircraftCollection() {
             />
           )}
 
-          {/* WHOSE PHOTOGRAPHS THESE ARE.
-              Every one is freely licensed - CC BY, CC BY-SA, GFDL or public
-              domain - and every one of those licences asks for the same three
-              things: the author, the licence, and a way back to the original.
-              That is not a formality we are humouring, it is the condition on
-              which the pictures on this page may be here at all.
-
-              It is a `<details>` rather than a list of thirty-seven lines,
-              because the credit has to be PRESENT and it does not have to be
-              the last thing anybody reads about their collection. */}
-          <details className="group/credits rounded-card border border-gray-100 bg-cloud/40 px-5 py-4">
-            <summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-medium text-smoke transition-colors hover:text-ink">
-              <Icon name="image" className="h-4 w-4" />
-              Photographs by the Wikimedia Commons community
-              <Icon name="chevronRight" className="h-3.5 w-3.5 transition-transform duration-200 group-open/credits:rotate-90" />
+          {/* THE CREDIT LINE IS A LINE NOW, NOT A CARD.
+              Ethan: "please remove at the bottom where it says photographs by
+              the Wikimedia Commons community. We don't need that."
+              IT CANNOT BE DELETED, and this is the one note on this page that
+              is not a design opinion. Every photograph here is CC BY, CC BY-SA,
+              GFDL or public domain, and the first three of those licences grant
+              the right to use the image ON THE CONDITION that the author,
+              the licence and a link back are given. Take the credit away and we
+              are not using them under a licence any more; we are just using
+              them. The pictures would have to come off the page instead.
+              What CAN change is how much room it takes, because the licences
+              ask for attribution "reasonable to the medium", not for a panel.
+              So: one line of small grey text, no border, no fill, no heading
+              about the Commons community, with the thirty-seven names folded
+              behind it. */}
+          <details className="group/credits pt-2">
+            <summary className="flex cursor-pointer list-none items-center gap-1 text-[11px] text-gray-400 transition-colors hover:text-smoke">
+              Photo credits
+              <Icon name="chevronRight" className="h-3 w-3 transition-transform duration-200 group-open/credits:rotate-90" />
             </summary>
-            <div className="mt-3 grid gap-x-6 gap-y-1 sm:grid-cols-2">
+            <div className="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-2">
               {Object.entries(photoCredits).map(([key, c]) => (
                 <a
                   key={key}
                   href={c.page}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="truncate text-[11px] text-smoke transition-colors hover:text-brand"
+                  className="truncate text-[11px] text-gray-400 transition-colors hover:text-brand"
                 >
                   <span className="font-semibold">{AIRCRAFT[key]?.name || key}</span>
                   {' · '}

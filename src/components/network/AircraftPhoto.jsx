@@ -45,6 +45,26 @@ import { cx } from '../../lib/utils'
 export const PHOTO_KEYS = new Set(Object.keys(credits))
 export const photoCredits = credits
 
+// THE PHOTOGRAPH IS NEVER DRAINED ANY MORE.
+//
+// An unflown type used to be `opacity-45 grayscale`, recolouring on hover. The
+// argument was that it keeps the shape and takes the colour, so a gap reads as
+// not-yet-yours. Ethan: "I don't like how all the planes are grayed out. I
+// think it looks bad. All the plane photos should be normal. The way to
+// identify them is I think the card should normally be white if it's not
+// collected, and it should be the bright tryp.com orange if you have collected
+// that plane."
+//
+// He is right about where the signal belongs. A washed-out photograph reads as
+// a broken image before it reads as a state, and on a wall that is mostly
+// unflown it made the whole page look faulty. The state moved to the CARD -
+// white for a gap, brand orange for one you have - which is louder, cannot be
+// mistaken for a rendering fault, and leaves every photograph looking like the
+// aeroplane it is.
+//
+// `owned` is kept in the signature because `AircraftArt` (the fallback for a
+// type with no photograph) still draws itself differently, and because callers
+// pass it.
 export default function AircraftPhoto({ typeKey, type, owned = true, className }) {
   // `broken` covers the one case the key check cannot: a file that is in the
   // credits but missing from the build. Falling back to the drawing is silent
@@ -69,15 +89,7 @@ export default function AircraftPhoto({ typeKey, type, owned = true, className }
         decoding="async"
         onError={() => setBroken(true)}
         className={cx(
-          'h-full w-full object-cover transition-all duration-500 ease-out',
-          // AN UNFLOWN TYPE IS THE SAME PHOTOGRAPH, DRAINED. Greyscale plus a
-          // little transparency is the whole treatment - it keeps the shape,
-          // which is what makes the gap legible ("I have never been on a 380"),
-          // and takes the colour, which is what makes it read as not-yet-yours.
-          // Colour returns on hover, so reaching for a gap shows you the prize.
-          owned
-            ? 'group-hover:scale-[1.06]'
-            : 'opacity-45 grayscale group-hover:opacity-90 group-hover:grayscale-0 group-hover:scale-[1.06]',
+          'h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.06]',
         )}
       />
       {/* A whisper of a gradient along the bottom edge. The cards carry a name

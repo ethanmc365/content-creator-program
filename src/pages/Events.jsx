@@ -710,7 +710,7 @@ function MonthGrid({ days, month, eventsOn, travelDays, selectedDay, onSelect, l
 
   const onTouchStart = (e) => {
     const t = e.touches[0]
-    startRef.current = { x: t.clientX, y: t.clientY, decided: null }
+    startRef.current = { x: t.clientX, y: t.clientY, dx: 0, decided: null }
   }
   const onTouchMove = (e) => {
     const s = startRef.current
@@ -725,13 +725,24 @@ function MonthGrid({ days, month, eventsOn, travelDays, selectedDay, onSelect, l
     if (s.decided === null && Math.abs(dx) + Math.abs(dy) > 12) {
       s.decided = Math.abs(dx) > Math.abs(dy) * 1.3 ? 'x' : 'y'
     }
-    if (s.decided === 'x') setDrag(Math.max(-60, Math.min(60, dx)))
+    if (s.decided === 'x') {
+      s.dx = dx
+      setDrag(Math.max(-60, Math.min(60, dx)))
+    }
   }
   const onTouchEnd = () => {
     const s = startRef.current
     startRef.current = null
     setDrag(0)
-    if (s?.decided === 'x' && Math.abs(drag) > 45) onSwipe(drag < 0 ? 1 : -1)
+    // THE DISTANCE IS READ OFF THE REF, NOT OFF `drag`.
+    // `drag` is state, and state does not have to have committed by the time
+    // touchend runs - React batches, and a fast flick can deliver its last
+    // touchmove and its touchend inside one task, so the handler would see the
+    // offset from two moves ago (or zero, on the first flick). The ref is
+    // written synchronously in touchmove and is always current. `drag` stays as
+    // state because it only drives the transform, where a frame late is
+    // invisible.
+    if (s?.decided === 'x' && Math.abs(s.dx) > 45) onSwipe(s.dx < 0 ? 1 : -1)
   }
 
   return (

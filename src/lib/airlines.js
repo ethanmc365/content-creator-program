@@ -39,31 +39,43 @@
 // estimate; `seats` is a typical single-operator configuration and is here
 // because "180 seats" tells somebody what kind of aeroplane it was in a way
 // "A320neo" does not.
+// `year` IS ENTRY INTO SERVICE, NOT FIRST FLIGHT AND NOT THE END OF PRODUCTION.
+//
+// Ethan, on the collection cards: "I would also like to add some more
+// information on the card. I think one piece of good information for each plane
+// would be the year it was manufactured or the year it was released."
+//
+// Of the three dates an aircraft type has - rolled out, first flew, entered
+// passenger service - the last is the only one that answers the question a
+// collection asks, which is "could I have been on this". A 787 first flew in
+// 2009 and nobody could buy a seat on one until 2011. It is also the date that
+// makes the wall readable in a way a spec never does: a 1966 Twin Otter next to
+// a 2024 A321XLR is fifty-eight years of aviation on one screen.
 export const AIRCRAFT = {
-  atr72:    { name: 'ATR 72',            maker: 'ATR',      range: 1500,  seats: 70,  cruise: 510, body: 'turboprop' },
-  q400:     { name: 'Dash 8 Q400',       maker: 'De Havilland', range: 2040, seats: 78, cruise: 560, body: 'turboprop' },
-  crj900:   { name: 'CRJ900',            maker: 'Bombardier', range: 2960, seats: 90, cruise: 830, body: 'regional' },
-  e190:     { name: 'Embraer E190',      maker: 'Embraer',  range: 4500,  seats: 100, cruise: 830, body: 'regional' },
-  e195e2:   { name: 'Embraer E195-E2',   maker: 'Embraer',  range: 4800,  seats: 132, cruise: 830, body: 'regional' },
-  a220:     { name: 'Airbus A220-300',   maker: 'Airbus',   range: 6300,  seats: 145, cruise: 830, body: 'narrowbody' },
-  a319:     { name: 'Airbus A319',       maker: 'Airbus',   range: 6900,  seats: 140, cruise: 830, body: 'narrowbody' },
-  a320:     { name: 'Airbus A320',       maker: 'Airbus',   range: 6100,  seats: 180, cruise: 830, body: 'narrowbody' },
-  a320neo:  { name: 'Airbus A320neo',    maker: 'Airbus',   range: 6500,  seats: 186, cruise: 830, body: 'narrowbody' },
-  a321:     { name: 'Airbus A321',       maker: 'Airbus',   range: 5900,  seats: 220, cruise: 830, body: 'narrowbody' },
-  a321neo:  { name: 'Airbus A321neo',    maker: 'Airbus',   range: 7400,  seats: 240, cruise: 830, body: 'narrowbody' },
-  a321xlr:  { name: 'Airbus A321XLR',    maker: 'Airbus',   range: 8700,  seats: 200, cruise: 830, body: 'narrowbody' },
-  b737:     { name: 'Boeing 737-800',    maker: 'Boeing',   range: 5765,  seats: 189, cruise: 840, body: 'narrowbody' },
-  b737max8: { name: 'Boeing 737 MAX 8',  maker: 'Boeing',   range: 6570,  seats: 197, cruise: 840, body: 'narrowbody' },
-  b757:     { name: 'Boeing 757-200',    maker: 'Boeing',   range: 7250,  seats: 200, cruise: 850, body: 'narrowbody' },
-  b767:     { name: 'Boeing 767-300ER',  maker: 'Boeing',   range: 11070, seats: 261, cruise: 850, body: 'widebody' },
-  a330:     { name: 'Airbus A330-300',   maker: 'Airbus',   range: 11750, seats: 290, cruise: 870, body: 'widebody' },
-  a330neo:  { name: 'Airbus A330-900neo', maker: 'Airbus',  range: 13300, seats: 287, cruise: 870, body: 'widebody' },
-  b787:     { name: 'Boeing 787-9',      maker: 'Boeing',   range: 14140, seats: 290, cruise: 900, body: 'widebody' },
-  b777:     { name: 'Boeing 777-300ER',  maker: 'Boeing',   range: 13650, seats: 396, cruise: 890, body: 'widebody' },
-  a350:     { name: 'Airbus A350-900',   maker: 'Airbus',   range: 15000, seats: 315, cruise: 900, body: 'widebody' },
-  a380:     { name: 'Airbus A380',       maker: 'Airbus',   range: 15200, seats: 525, cruise: 900, body: 'widebody' },
-  b747:     { name: 'Boeing 747-8',       maker: 'Boeing',   range: 14320, seats: 364, cruise: 900, body: 'widebody' },
-  e175:     { name: 'Embraer E175',       maker: 'Embraer',  range: 3300,  seats: 76,  cruise: 830, body: 'regional' },
+  atr72:    { name: 'ATR 72',            maker: 'ATR',      range: 1500,  seats: 70,  cruise: 510, body: 'turboprop', year: 1989 },
+  q400:     { name: 'Dash 8 Q400',       maker: 'De Havilland', range: 2040, seats: 78, cruise: 560, body: 'turboprop', year: 2000 },
+  crj900:   { name: 'CRJ900',            maker: 'Bombardier', range: 2960, seats: 90, cruise: 830, body: 'regional', year: 2003 },
+  e190:     { name: 'Embraer E190',      maker: 'Embraer',  range: 4500,  seats: 100, cruise: 830, body: 'regional', year: 2005 },
+  e195e2:   { name: 'Embraer E195-E2',   maker: 'Embraer',  range: 4800,  seats: 132, cruise: 830, body: 'regional', year: 2019 },
+  a220:     { name: 'Airbus A220-300',   maker: 'Airbus',   range: 6300,  seats: 145, cruise: 830, body: 'narrowbody', year: 2016 },
+  a319:     { name: 'Airbus A319',       maker: 'Airbus',   range: 6900,  seats: 140, cruise: 830, body: 'narrowbody', year: 1996 },
+  a320:     { name: 'Airbus A320',       maker: 'Airbus',   range: 6100,  seats: 180, cruise: 830, body: 'narrowbody', year: 1988 },
+  a320neo:  { name: 'Airbus A320neo',    maker: 'Airbus',   range: 6500,  seats: 186, cruise: 830, body: 'narrowbody', year: 2016 },
+  a321:     { name: 'Airbus A321',       maker: 'Airbus',   range: 5900,  seats: 220, cruise: 830, body: 'narrowbody', year: 1994 },
+  a321neo:  { name: 'Airbus A321neo',    maker: 'Airbus',   range: 7400,  seats: 240, cruise: 830, body: 'narrowbody', year: 2017 },
+  a321xlr:  { name: 'Airbus A321XLR',    maker: 'Airbus',   range: 8700,  seats: 200, cruise: 830, body: 'narrowbody', year: 2024 },
+  b737:     { name: 'Boeing 737-800',    maker: 'Boeing',   range: 5765,  seats: 189, cruise: 840, body: 'narrowbody', year: 1998 },
+  b737max8: { name: 'Boeing 737 MAX 8',  maker: 'Boeing',   range: 6570,  seats: 197, cruise: 840, body: 'narrowbody', year: 2017 },
+  b757:     { name: 'Boeing 757-200',    maker: 'Boeing',   range: 7250,  seats: 200, cruise: 850, body: 'narrowbody', year: 1983 },
+  b767:     { name: 'Boeing 767-300ER',  maker: 'Boeing',   range: 11070, seats: 261, cruise: 850, body: 'widebody', year: 1988 },
+  a330:     { name: 'Airbus A330-300',   maker: 'Airbus',   range: 11750, seats: 290, cruise: 870, body: 'widebody', year: 1994 },
+  a330neo:  { name: 'Airbus A330-900neo', maker: 'Airbus',  range: 13300, seats: 287, cruise: 870, body: 'widebody', year: 2018 },
+  b787:     { name: 'Boeing 787-9',      maker: 'Boeing',   range: 14140, seats: 290, cruise: 900, body: 'widebody', year: 2014 },
+  b777:     { name: 'Boeing 777-300ER',  maker: 'Boeing',   range: 13650, seats: 396, cruise: 890, body: 'widebody', year: 2004 },
+  a350:     { name: 'Airbus A350-900',   maker: 'Airbus',   range: 15000, seats: 315, cruise: 900, body: 'widebody', year: 2015 },
+  a380:     { name: 'Airbus A380',       maker: 'Airbus',   range: 15200, seats: 525, cruise: 900, body: 'widebody', year: 2007 },
+  b747:     { name: 'Boeing 747-8',       maker: 'Boeing',   range: 14320, seats: 364, cruise: 900, body: 'widebody', year: 2012 },
+  e175:     { name: 'Embraer E175',       maker: 'Embraer',  range: 3300,  seats: 76,  cruise: 830, body: 'regional', year: 2005 },
 
   // ---- THE REST OF WHAT PEOPLE ACTUALLY FLY ----
   //
@@ -84,20 +96,20 @@ export const AIRCRAFT = {
   // These are additions to the COLLECTION. `aircraftFor` and `anyAircraftFor`
   // read the same table for the log form's suggestions, so a variant here also
   // becomes a suggestion where an airline's fleet lists it - which is right.
-  b73g:     { name: 'Boeing 737-700',    maker: 'Boeing',   range: 6230,  seats: 149, cruise: 840, body: 'narrowbody' },
-  b739:     { name: 'Boeing 737-900ER',  maker: 'Boeing',   range: 5925,  seats: 215, cruise: 840, body: 'narrowbody' },
-  b772:     { name: 'Boeing 777-200ER',  maker: 'Boeing',   range: 13080, seats: 314, cruise: 890, body: 'widebody' },
-  b788:     { name: 'Boeing 787-8',      maker: 'Boeing',   range: 13530, seats: 248, cruise: 900, body: 'widebody' },
-  b78x:     { name: 'Boeing 787-10',     maker: 'Boeing',   range: 11730, seats: 336, cruise: 900, body: 'widebody' },
-  b744:     { name: 'Boeing 747-400',    maker: 'Boeing',   range: 13450, seats: 416, cruise: 900, body: 'widebody' },
-  a35k:     { name: 'Airbus A350-1000',  maker: 'Airbus',   range: 16100, seats: 350, cruise: 900, body: 'widebody' },
-  a340:     { name: 'Airbus A340-300',   maker: 'Airbus',   range: 13500, seats: 295, cruise: 870, body: 'widebody' },
-  crj200:   { name: 'CRJ200',            maker: 'Bombardier', range: 3045, seats: 50, cruise: 800, body: 'regional' },
-  e145:     { name: 'Embraer ERJ-145',   maker: 'Embraer',  range: 2870,  seats: 50,  cruise: 800, body: 'regional' },
-  atr42:    { name: 'ATR 42',            maker: 'ATR',      range: 1330,  seats: 48,  cruise: 490, body: 'turboprop' },
+  b73g:     { name: 'Boeing 737-700',    maker: 'Boeing',   range: 6230,  seats: 149, cruise: 840, body: 'narrowbody', year: 1998 },
+  b739:     { name: 'Boeing 737-900ER',  maker: 'Boeing',   range: 5925,  seats: 215, cruise: 840, body: 'narrowbody', year: 2007 },
+  b772:     { name: 'Boeing 777-200ER',  maker: 'Boeing',   range: 13080, seats: 314, cruise: 890, body: 'widebody', year: 1997 },
+  b788:     { name: 'Boeing 787-8',      maker: 'Boeing',   range: 13530, seats: 248, cruise: 900, body: 'widebody', year: 2011 },
+  b78x:     { name: 'Boeing 787-10',     maker: 'Boeing',   range: 11730, seats: 336, cruise: 900, body: 'widebody', year: 2018 },
+  b744:     { name: 'Boeing 747-400',    maker: 'Boeing',   range: 13450, seats: 416, cruise: 900, body: 'widebody', year: 1989 },
+  a35k:     { name: 'Airbus A350-1000',  maker: 'Airbus',   range: 16100, seats: 350, cruise: 900, body: 'widebody', year: 2018 },
+  a340:     { name: 'Airbus A340-300',   maker: 'Airbus',   range: 13500, seats: 295, cruise: 870, body: 'widebody', year: 1993 },
+  crj200:   { name: 'CRJ200',            maker: 'Bombardier', range: 3045, seats: 50, cruise: 800, body: 'regional', year: 1996 },
+  e145:     { name: 'Embraer ERJ-145',   maker: 'Embraer',  range: 2870,  seats: 50,  cruise: 800, body: 'regional', year: 1996 },
+  atr42:    { name: 'ATR 42',            maker: 'ATR',      range: 1330,  seats: 48,  cruise: 490, body: 'turboprop', year: 1985 },
   // The two that get a travel creator to the places nothing else reaches.
-  c208:     { name: 'Cessna 208 Caravan', maker: 'Cessna',  range: 1980,  seats: 12,  cruise: 340, body: 'turboprop' },
-  dhc6:     { name: 'DHC-6 Twin Otter',  maker: 'De Havilland', range: 1480, seats: 19, cruise: 340, body: 'turboprop' },
+  c208:     { name: 'Cessna 208 Caravan', maker: 'Cessna',  range: 1980,  seats: 12,  cruise: 340, body: 'turboprop', year: 1985 },
+  dhc6:     { name: 'DHC-6 Twin Otter',  maker: 'De Havilland', range: 1480, seats: 19, cruise: 340, body: 'turboprop', year: 1966 },
 }
 
 export const aircraft = (key) => (AIRCRAFT[key] ? { key, ...AIRCRAFT[key] } : null)
