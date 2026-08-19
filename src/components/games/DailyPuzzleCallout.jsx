@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom'
+import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import Icon from '../Icon'
 import Flame from './Flame'
-import { dailyStreak } from '../../lib/daily'
+import { dailyStreak, untilNextUkMidnight } from '../../lib/daily'
 import { DAILY_PUZZLES, useDailyPuzzles } from '../../lib/dailyPuzzles'
 import { cx } from '../../lib/utils'
 
@@ -13,14 +14,19 @@ import { cx } from '../../lib/utils'
 // somebody who already has the habit. A section on the hub, between the
 // announcement and the map, is the whole intervention.
 //
-// WHY THREE CARDS AND NOT ONE STRIP. It used to offer the single puzzle you had
-// not played, which sounds tidier and is worse: it hid the fact that there are
-// three, so nobody knew what they were missing, and "done for today" appeared
-// the moment you finished the last one rather than showing the three ticks you
-// had earned. Ethan asked for all three, each highlighting green on its own,
-// and that is also the version that makes the set legible.
+// ONE CARD, THREE PUZZLES ACROSS - the same shape the UK home page has always
+// used (`components/DailyGamesCard`). It was three separate stacked cards here,
+// which on a hub already made of full-width cards read as three more sections
+// to scroll past rather than one thing to do. Ethan: "instead of being 3
+// separate cards, one card where the 3 puzzles are side by side."
 //
-// WHAT EACH CARD SAYS, AND WHY THAT AND NOTHING ELSE
+// WHY THREE AND NOT "the one you have not played". It used to offer the single
+// unplayed puzzle, which sounds tidier and is worse: it hid the fact that there
+// are three, so nobody knew what they were missing, and "done for today"
+// appeared the moment you finished the last one rather than showing the three
+// ticks you had earned.
+//
+// WHAT EACH COLUMN SAYS, AND WHY THAT AND NOTHING ELSE
 //
 //   what it is        the puzzle's name, so it is a specific thing, not "a game"
 //   played or not     green and ticked, INDEPENDENTLY of the other two
@@ -28,56 +34,39 @@ import { cx } from '../../lib/utils'
 //                     reason the section works: 11 creators played this morning
 //                     is a different invitation from "play a game".
 //
-// Your streak rides on the heading rather than on each card: it is one streak
+// Your streak rides on the heading rather than on each column: it is one streak
 // across the three, and printing it three times would read as three.
 //
+// THE COLUMN IS NEUTRAL. THE BUTTON IS THE ONLY THING THAT TURNS GREEN.
+//
+// This rule is absolute, because every softer version of it has been read as a
+// colour change to the card. Ethan: "if I play one game, the entire game card
+// turns to the green colour... the card should always be orange and after I
+// play it just the play button should turn green." So nothing outside the
+// button may vary with `done` - same tile, same puzzle icon, same hover -
+// which also means a row of three is one consistent set at every stage of the
+// day rather than three that drift apart as you work through them.
+//
 // NO MOTION IMPORT. The hub is eagerly routed; entrance animation is the page's
-// own `Reveal`, which is CSS-only for exactly this reason.
+// own `Reveal`, which is CSS-only for exactly this reason. What motion the card
+// does have is CSS: the tile grows and the button slides on hover, and the
+// dividers are borders rather than gaps so the three read as one surface.
 
-// THE ACTION LIVES ON THE RIGHT, AND IT LOOKS LIKE A BUTTON.
-//
-// Ethan: "I think move the play and played button to the right side of each
-// card, just make the design better."
-//
-// What was there was a bare chevron in the right margin plus a "Played" pill
-// wedged in beside the title, so the state was on the left, the affordance was
-// on the right, and neither read as something to press. Now the right-hand end
-// of every card is one control that says exactly what pressing it does: Play,
-// or Played with a tick. The whole card is still the link - the button is a
-// target, not the only one - which is why it is a span and not a nested button.
-//
-// The row also lost its tinted background. Three full-width gradient panels
-// stacked up were the loudest thing on the hub, and the coloured icon tile plus
-// the coloured button already carry the state twice over. White cards with a
-// brand-tinted left edge is the same language as everything else on the page.
-// THE CARD IS ORANGE. THE BUTTON IS THE ONLY THING THAT TURNS GREEN.
-//
-// This is the third pass at it and the rule is now absolute, because every
-// softer version of it has been read as a colour change to the card. First the
-// border, icon tile and button all went green together, which made three
-// finished puzzles a green block on a hub that is otherwise white and Tryp
-// orange. Then green was confined to the button but the border strengthened and
-// the icon became a tick - so a played card still LOOKED like a different card,
-// and with one played and two not the odd one out read as green. Ethan: "if I
-// play one game, the entire game card turns to the green colour... the card
-// should always be orange and after I play it just the play button should turn
-// green."
-//
-// So nothing outside the button may vary with `done`. Same border, same hover,
-// same brand tile, same puzzle icon, whether you have played it or not - which
-// also means a row of three is one consistent set of cards at every stage of
-// the day rather than three that drift apart as you work through them.
-const CARD_CLS =
-  'group flex items-center gap-3.5 rounded-card border border-brand/25 bg-white px-4 py-3.5 shadow-card ' +
-  'transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/60 hover:shadow-lift'
-
-function PuzzleCard({ puzzle, done, count }) {
+function PuzzleColumn({ puzzle, done, count, first }) {
   return (
-    <Link to={`/game?daily=${puzzle.key}`} className={CARD_CLS}>
-      {/* The puzzle's OWN icon, always. Swapping it for a tick was the other
-          half of "the whole card changed": the tile is the card's identity, and
-          an identity that changes when you finish is a different card. The tick
-          lives on the button, next to the word that explains it. */}
+    <Link
+      to={`/game?daily=${puzzle.key}`}
+      className={cx(
+        'group flex items-center gap-3 px-4 py-4 transition-colors duration-200 hover:bg-cloud/50 sm:px-5',
+        // Dividers, not gaps: one card with three compartments. The rule turns
+        // from horizontal to vertical at the same breakpoint the grid does.
+        !first && 'border-t border-gray-50 sm:border-l sm:border-t-0',
+      )}
+    >
+      {/* The puzzle's OWN icon, always. Swapping it for a tick was half of "the
+          whole card changed": the tile is the column's identity, and an identity
+          that changes when you finish is a different thing. The tick lives on
+          the button, next to the word that explains it. */}
       <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand text-white shadow-card transition-transform duration-200 group-hover:scale-110">
         <Icon name={puzzle.icon} className="h-5 w-5" />
       </span>
@@ -90,17 +79,17 @@ function PuzzleCard({ puzzle, done, count }) {
           {count == null
             ? puzzle.short
             : count === 0
-              ? `${puzzle.short} Nobody has played it yet today.`
-              : `${count} ${count === 1 ? 'creator has' : 'creators have'} played it today`}
+              ? puzzle.short
+              : `${count} ${count === 1 ? 'creator has' : 'creators have'} played`}
         </span>
       </span>
 
-      {/* Fixed width, so three cards have their buttons on the same vertical
+      {/* Fixed width, so three columns have their buttons on the same vertical
           line. "Played" and "Play" are different lengths and a right-aligned
-          pair of them would stagger down the column. */}
+          pair of them would stagger across the row. */}
       <span
         className={cx(
-          'flex w-[5.5rem] shrink-0 items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-bold transition-all duration-200',
+          'flex w-[5.25rem] shrink-0 items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-bold transition-all duration-200',
           done
             ? 'bg-green-50 text-green-700 ring-1 ring-inset ring-green-500/30'
             : 'bg-brand text-white shadow-card group-hover:scale-105',
@@ -124,9 +113,13 @@ function PuzzleCard({ puzzle, done, count }) {
 
 export default function DailyPuzzleCallout({ className }) {
   const { user } = useAuth()
+  // Read once on mount: this is a countdown to the top of the day, not a clock,
+  // and re-rendering the hub every minute to move it is not worth a frame.
+  const [nextIn] = useState(() => untilNextUkMidnight(Date.now()))
   const { played, counts, streakDays } = useDailyPuzzles(user?.id)
   const streak = dailyStreak(streakDays)
   const doneCount = DAILY_PUZZLES.filter((p) => played.has(p.key)).length
+  const allDone = doneCount === DAILY_PUZZLES.length
 
   return (
     <section className={className}>
@@ -147,26 +140,40 @@ export default function DailyPuzzleCallout({ className }) {
               {streak} day{streak === 1 ? '' : 's'}
             </span>
           )}
-          {/* Nothing once they are all done, for the same reason the games
-              page dropped its version of this line: three green Played buttons
-              directly underneath already say so, and "New ones at midnight" is
-              the app telling somebody who just finished to come back tomorrow,
-              in the place the reason to stay should be. */}
-          {doneCount < DAILY_PUZZLES.length && (
-            <span className="text-xs text-smoke">{doneCount} of {DAILY_PUZZLES.length} done today</span>
-          )}
+          <Link to="/game" className="text-sm font-medium text-brand hover:underline">All games &rarr;</Link>
         </span>
       </div>
 
       {/* `counts` is null until the query lands and an OBJECT afterwards. A
           puzzle nobody has played is absent from the tally, not zero in it, so
           reading it as `counts?.[key] ?? null` made "nobody yet"
-          indistinguishable from "still loading" and the card would keep showing
-          its tagline for ever. */}
-      <div className="grid gap-2.5">
-        {DAILY_PUZZLES.map((p) => (
-          <PuzzleCard key={p.key} puzzle={p} done={played.has(p.key)} count={counts ? (counts[p.key] ?? 0) : null} />
-        ))}
+          indistinguishable from "still loading" and the column would keep
+          showing its tagline for ever. */}
+      <div className="card !p-0 overflow-hidden">
+        <div className="grid grid-cols-1 sm:grid-cols-3">
+          {DAILY_PUZZLES.map((p, i) => (
+            <PuzzleColumn
+              key={p.key}
+              puzzle={p}
+              first={i === 0}
+              done={played.has(p.key)}
+              count={counts ? (counts[p.key] ?? 0) : null}
+            />
+          ))}
+        </div>
+        {/* The foot is the set's status line, and it is the reason this works as
+            ONE card: three separate cards had nowhere to say "two of three" that
+            was not repeated three times. */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-50 bg-cloud/40 px-5 py-2.5">
+          <p className="flex items-center gap-2 text-xs text-smoke">
+            <span className="relative flex h-2 w-2" aria-hidden>
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-60 motion-reduce:hidden" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+            </span>
+            {allDone ? 'All three done. Nicely played.' : `${doneCount} of ${DAILY_PUZZLES.length} done today`}
+          </p>
+          <p className="text-[11px] text-smoke">New puzzles in {nextIn}</p>
+        </div>
       </div>
     </section>
   )

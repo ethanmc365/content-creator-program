@@ -5,16 +5,40 @@ import { confirm, notice } from '../lib/confirm'
 import { Avatar, Badge, Modal, Spinner } from './ui'
 import Icon from './Icon'
 import { cx, formatDate, parseDateTime } from '../lib/utils'
+import { useMarkets } from '../lib/markets'
+import { useMyScopes } from '../lib/scope'
+import { announceToMarkets } from '../lib/announce'
+import MarketPicker from './calendar/MarketPicker'
+import { toast } from '../lib/toast'
 
-// Availability polls ("find a time"): an admin proposes time slots, creators
-// tick yes/no per slot, and the admin picks the slot most people can make -
-// no external scheduling tool needed.
+// FIND A TIME: an admin proposes time slots, creators tick yes/no per slot, and
+// the admin picks the slot most people can make - no external scheduling tool.
+//
+// IT IS CALLED "FIND A TIME" EVERYWHERE NOW. The section heading said that and
+// the button said "Plan a meet", which is two names for one feature on one
+// screen. Ethan: 'the button says "plan a meet" change it to "find a time"
+// aswell.'
+//
+// IT IS SCOPED. A poll can be for everybody or for named markets, the same way
+// an event can (see components/calendar/MarketPicker), and creators only see
+// the ones that are theirs to answer. A Spanish community call in front of 43
+// UK creators collects 43 useless votes and buries the one that mattered.
+//
+// AND IT GOES WHERE PEOPLE ARE. Posting it also drops a line into the
+// announcements room of every market it is for - see lib/announce. A poll that
+// only exists on the calendar page is a poll only the people who already opened
+// the calendar page will answer.
 //
 // Composer: type a date and times (no native pickers - the fields auto-format
 // as you type), then "repeat until" fills the rest of the day in equal slots
 // (9:00-9:30, 9:30-10:00, ... until 16:00). Any slot can be removed before
 // posting. Voting is one row per (slot, creator) with available true/false;
 // admins see who said what.
+//
+// NOTHING IS RED OR GREEN. "Can make it" was `bg-green-600` and "Can't" was
+// `bg-red-500`, which is a traffic light on a page that has exactly two
+// permitted colours. Yes is the brand orange filled; no is charcoal. Not being
+// free is not an error.
 
 const timeLabel = (iso) =>
   new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -30,9 +54,9 @@ function SlotVoteRow({ slot, myVote, counts, voters, isAdmin, onVote }) {
         </p>
         {voted && (
           <span className="text-[11px] tabular-nums text-smoke">
-            {counts.yes > 0 && <span className="font-semibold text-green-600">{counts.yes} can make it</span>}
+            {counts.yes > 0 && <span className="font-semibold text-brand">{counts.yes} can make it</span>}
             {counts.yes > 0 && counts.no > 0 && <span> · </span>}
-            {counts.no > 0 && <span className="font-semibold text-red-500">{counts.no} can't</span>}
+            {counts.no > 0 && <span className="font-semibold text-ink">{counts.no} can't</span>}
           </span>
         )}
         <div className="flex gap-1.5">
@@ -40,7 +64,7 @@ function SlotVoteRow({ slot, myVote, counts, voters, isAdmin, onVote }) {
             type="button"
             onClick={() => onVote(slot, true)}
             className={cx('inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all',
-              myVote === true ? 'bg-green-600 text-white shadow-card' : 'border border-gray-200 text-smoke hover:border-green-600 hover:text-green-600')}
+              myVote === true ? 'bg-brand text-white shadow-card' : 'border border-gray-200 text-smoke hover:border-brand hover:text-brand')}
           >
             <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M4 12l5 5L20 6"/></svg>
             Can make it
@@ -49,7 +73,7 @@ function SlotVoteRow({ slot, myVote, counts, voters, isAdmin, onVote }) {
             type="button"
             onClick={() => onVote(slot, false)}
             className={cx('inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all',
-              myVote === false ? 'bg-red-500 text-white shadow-card' : 'border border-gray-200 text-smoke hover:border-red-500 hover:text-red-500')}
+              myVote === false ? 'bg-ink text-white shadow-card' : 'border border-gray-200 text-smoke hover:border-ink hover:text-ink')}
           >
             <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden><path d="M6 6l12 12M18 6L6 18"/></svg>
             Can't
@@ -67,7 +91,7 @@ function SlotVoteRow({ slot, myVote, counts, voters, isAdmin, onVote }) {
             <div key={v.creator_id} className="flex items-center gap-2 text-xs text-smoke">
               <Avatar src={v.profiles?.photo_url} name={v.profiles?.name} size="xs" />
               <span className="font-medium text-ink">{v.profiles?.name}</span>
-              <span className={v.available ? 'text-green-600' : 'text-red-500'}>{v.available ? 'yes' : 'no'}</span>
+              <span className={v.available ? 'font-semibold text-brand' : 'text-smoke'}>{v.available ? 'yes' : 'no'}</span>
             </div>
           ))}
         </div>
@@ -110,6 +134,9 @@ function groupSlotsByDay(slots) {
 
 export default function EventPolls() {
   const { user, isAdmin } = useAuth()
+  // The always-on scope helper, not CommunityContext: this section renders on a
+  // page 45 live creators open whether or not the network preview flag is set.
+  const { ids: scopeIds } = useMyScopes()
   const [polls, setPolls] = useState(null)
   const [showComposer, setShowComposer] = useState(false)
 
@@ -119,7 +146,18 @@ export default function EventPolls() {
       .select('*, event_poll_slots(*)')
       .order('created_at', { ascending: false })
       .limit(6)
-    const open = (pollRows ?? []).filter((p) => isAdmin || !p.closed)
+    const open = (pollRows ?? [])
+      .filter((p) => isAdmin || !p.closed)
+      // A poll with no markets named is everybody's. One with markets named is
+      // only for people in them - and an admin sees the lot, because running
+      // the programme means seeing every market's polls.
+      .filter((p) => {
+        if (isAdmin) return true
+        const ids = p.community_ids ?? []
+        if (!ids.length) return true
+        if (!scopeIds) return true          // could not tell: fail open
+        return ids.some((id) => scopeIds.has(id))
+      })
     const slotIds = open.flatMap((p) => p.event_poll_slots.map((s) => s.id))
     let votes = []
     if (slotIds.length) {
@@ -133,7 +171,7 @@ export default function EventPolls() {
       slots: [...p.event_poll_slots].sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at)),
       votes,
     })))
-  }, [isAdmin])
+  }, [isAdmin, scopeIds])
 
   useEffect(() => { load() }, [load])
 
@@ -163,13 +201,13 @@ export default function EventPolls() {
       <div className="mb-3 flex items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 text-lg font-semibold"><Icon name="clock" className="h-5 w-5 text-brand" /> Find a time</h2>
         {isAdmin && (
-          <button onClick={() => setShowComposer(true)} className="btn-secondary !py-2 text-xs">+ Plan a meet</button>
+          <button onClick={() => setShowComposer(true)} className="btn-secondary !py-2 text-xs">+ Find a time</button>
         )}
       </div>
 
       {polls.length === 0 ? (
         <p className="rounded-card border border-dashed border-gray-200 px-5 py-6 text-center text-sm text-smoke">
-          No availability polls right now. Plan a meet and let creators vote on the times.
+          Nothing to vote on right now. Start one and let creators pick the times that work.
         </p>
       ) : (
         <div className="space-y-5">
@@ -178,14 +216,15 @@ export default function EventPolls() {
             return (
               <div key={poll.id} className="card !p-5 sm:!p-6">
                 <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="flex items-center gap-2 text-base font-semibold">
+                  <h3 className="flex flex-wrap items-center gap-2 text-base font-semibold">
                     {poll.title}
                     {poll.closed && <Badge tone="grey">closed</Badge>}
+                    <PollScope ids={poll.community_ids} />
                   </h3>
                   {isAdmin && (
                     <span className="flex gap-2">
                       <button onClick={() => closePoll(poll)} className="text-xs font-medium text-smoke hover:text-brand">{poll.closed ? 'Reopen' : 'Close voting'}</button>
-                      <button onClick={() => removePoll(poll)} className="text-xs font-medium text-red-500 hover:underline">Delete</button>
+                      <button onClick={() => removePoll(poll)} className="text-xs font-medium text-smoke hover:text-ink hover:underline">Delete</button>
                     </span>
                   )}
                 </div>
@@ -266,6 +305,9 @@ function TypedField({ id, label, value, onChange, placeholder, hint }) {
 
 function PollComposer({ open, onClose, onCreated }) {
   const { user } = useAuth()
+  const chapters = useMarkets()
+  const [markets, setMarkets] = useState([])
+  const [announce, setAnnounce] = useState(true)
   const [title, setTitle] = useState('')
   const [note, setNote] = useState('')
   const [date, setDate] = useState('')
@@ -312,22 +354,38 @@ function PollComposer({ open, onClose, onCreated }) {
     if (slots.length === 0) { notice('Add at least one time slot.'); return }
     setSaving(true)
     const { data: poll, error } = await supabase.from('event_polls')
-      .insert({ title: title.trim(), note: note.trim() || null, created_by: user.id })
+      .insert({ title: title.trim(), note: note.trim() || null, created_by: user.id, community_ids: markets })
       .select().single()
-    if (error) { setSaving(false); notice(`Could not create the poll: ${error.message}`); return }
+    if (error) { setSaving(false); notice(`Could not create it: ${error.message}`); return }
     const { error: slotErr } = await supabase.from('event_poll_slots')
       .insert(slots.map((s) => ({ ...s, poll_id: poll.id })))
+    if (slotErr) { setSaving(false); notice(`Created, but the slots failed: ${slotErr.message}`); return }
+
+    // INTO THE ROOMS IT IS FOR. See lib/announce. A failure here is reported
+    // and does NOT undo the poll - the poll is the thing that was asked for and
+    // an admin can always post the line themselves.
+    if (announce) {
+      const first = [...slots].sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at))[0]
+      const day = new Date(first.starts_at).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })
+      const { posted, error: annErr } = await announceToMarkets({
+        communityIds: markets,
+        senderId: user.id,
+        body: `**Find a time: ${title.trim()}**\n\n${slots.length} slot${slots.length === 1 ? '' : 's'} on offer from ${day}. Tick the ones you could make on the [calendar](/events).${note.trim() ? `\n\n${note.trim()}` : ''}`,
+      })
+      if (annErr) toast('Posted to the calendar, but the announcement failed')
+      else if (posted) toast(`Posted to ${posted} announcement${posted === 1 ? '' : 's'} room${posted === 1 ? '' : 's'}`)
+    }
+
     setSaving(false)
-    if (slotErr) { notice(`Poll created but slots failed: ${slotErr.message}`); return }
-    setTitle(''); setNote(''); setSlots([]); setDate(''); setRepeatUntil(''); setSlotError(null)
+    setTitle(''); setNote(''); setSlots([]); setDate(''); setRepeatUntil(''); setSlotError(null); setMarkets([])
     onCreated()
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Plan a meet">
+    <Modal open={open} onClose={onClose} title="Find a time">
       <div className="space-y-4">
         <div>
-          <label htmlFor="poll-title" className="label">What's the meet?</label>
+          <label htmlFor="poll-title" className="label">What are you finding a time for?</label>
           <input id="poll-title" className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="July community call" />
         </div>
         <div>
@@ -335,13 +393,35 @@ function PollComposer({ open, onClose, onCreated }) {
           <input id="poll-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="30 minutes on Google Meet, agenda to follow" />
         </div>
 
+        {/* WHO IS BEING ASKED. Empty means everybody, which is also what the
+            column means, so the control and the data agree. */}
+        <div>
+          <span className="label">Who is this for</span>
+          <MarketPicker id="poll-scope" chapters={chapters} value={markets} onChange={setMarkets} />
+        </div>
+
+        <label className="flex cursor-pointer items-start gap-3 rounded-xl bg-cloud/60 p-3">
+          <input
+            type="checkbox" checked={announce} onChange={(e) => setAnnounce(e.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-brand"
+          />
+          <span className="text-sm">
+            <span className="font-medium">Post it in announcements</span>
+            <span className="block text-xs text-smoke">
+              {markets.length === 0
+                ? 'Goes into the worldwide announcements room.'
+                : `Goes into the announcements room of ${markets.length === 1 ? 'that market' : `all ${markets.length} markets`}.`}
+            </span>
+          </span>
+        </label>
+
         <div className="rounded-xl bg-cloud/60 p-4 sm:p-5">
           <p className="mb-3 text-sm font-semibold text-ink">Offer time slots</p>
           <div className="mb-3">
             <TypedField
               id="poll-date" label="Date" value={date}
               onChange={(e) => setDate(typeDate(e.target.value))}
-              placeholder="DD/MM/YYYY" hint="just type the numbers, e.g. 150826"
+              placeholder="DD/MM/YYYY"
             />
           </div>
           <div className="grid grid-cols-3 gap-3">
@@ -358,7 +438,7 @@ function PollComposer({ open, onClose, onCreated }) {
               onChange={(e) => setRepeatUntil(typeTime(e.target.value))} placeholder="optional"
             />
           </div>
-          {slotError && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">{slotError}</p>}
+          {slotError && <p className="mt-3 rounded-lg bg-brand-tint px-3 py-2 text-xs font-medium text-brand">{slotError}</p>}
           <button type="button" onClick={generate} className="btn-secondary mt-4 w-full !py-2.5 text-sm sm:w-auto">
             {repeatUntil ? '+ Generate slots' : '+ Add this slot'}
           </button>
@@ -384,8 +464,8 @@ function PollComposer({ open, onClose, onCreated }) {
                           type="button"
                           onClick={() => setSlots((prev) => prev.filter((x) => x.starts_at !== s.starts_at))}
                           aria-label="Remove slot"
-                          className="text-sm leading-none hover:text-red-500"
-                        >×</button>
+                          className="text-sm leading-none transition-colors hover:text-ink"
+                        >&times;</button>
                       </span>
                     ))}
                   </div>
@@ -398,10 +478,27 @@ function PollComposer({ open, onClose, onCreated }) {
         <div className="flex justify-end gap-3 pt-2">
           <button onClick={onClose} className="btn-ghost">Cancel</button>
           <button onClick={create} disabled={saving} className="btn-primary">
-            {saving ? <Spinner /> : 'Post to creators'}
+            {saving ? <Spinner /> : 'Post it'}
           </button>
         </div>
       </div>
     </Modal>
+  )
+}
+
+
+// WHICH MARKETS A POLL IS FOR, as a chip on its heading. Only when it is not
+// everybody: a "Worldwide" chip on every poll would be a word repeated down the
+// page carrying no information.
+function PollScope({ ids }) {
+  const chapters = useMarkets()
+  if (!ids?.length) return null
+  const names = chapters.filter((c) => ids.includes(c.id)).map((c) => c.name)
+  if (!names.length) return null
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-brand-tint px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-brand">
+      <Icon name="flag" className="h-3 w-3" />
+      {names.length <= 2 ? names.join(' & ') : `${names[0]} +${names.length - 1}`}
+    </span>
   )
 }

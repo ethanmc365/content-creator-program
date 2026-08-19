@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Avatar, Badge, Skeleton } from '../components/ui'
 import Icon from '../components/Icon'
+import { jumpThreshold, distanceFromBottom } from '../lib/scrollJump'
 import PollCard from '../components/PollCard'
 import GameEventCard from '../components/GameEventCard'
 import BirthdayCard from '../components/BirthdayCard'
@@ -100,6 +101,10 @@ export default function Chat() {
   const [replyTo, setReplyTo] = useState(null)      // message being replied to
   const [typers, setTypers] = useState([])          // others currently typing
   const [atBottom, setAtBottom] = useState(true)    // is the view scrolled to newest
+  // FAR ENOUGH UP TO WANT A WAY BACK. Deliberately NOT `!atBottom`: following
+  // new messages and offering the pill are two different questions and they
+  // want two different distances. See lib/scrollJump.
+  const [farUp, setFarUp] = useState(false)
   const [newBelow, setNewBelow] = useState(0)       // unseen messages while scrolled up
   const bottomRef = useRef(null)
   const textareaRef = useRef(null)
@@ -405,8 +410,13 @@ export default function Chat() {
       // never reaches this branch, so we never fight them.
       scrollToBottom(firstPaint ? 'auto' : 'smooth')
       setNewBelow(0)
+      setFarUp(false)
     } else if (grew) {
       setNewBelow((n) => n + (messages.length - prevLenRef.current))
+      // Messages arriving BELOW a scrolled-up reader grow `scrollHeight`
+      // without firing a scroll event, so the pill would not appear until they
+      // happened to move. Re-measure here as well as on scroll.
+      setFarUp(distanceFromBottom(scrollerRef.current) > jumpThreshold(scrollerRef.current, 5))
     }
     prevLenRef.current = messages.length
     localStorage.setItem(lastReadKey(channel), new Date().toISOString())
@@ -425,15 +435,20 @@ export default function Chat() {
   const onScrollMessages = useCallback(() => {
     const el = scrollerRef.current
     if (!el) return
-    const near = el.scrollHeight - el.scrollTop - el.clientHeight < 90
+    const gap = distanceFromBottom(el)
+    const near = gap < 90
     atBottomRef.current = near
     setAtBottom(near)
+    // Measured against the last five rows actually rendered, so "five messages"
+    // means the same in a room of one-liners and a room of photos.
+    setFarUp(gap > jumpThreshold(el, 5))
     if (near) setNewBelow(0)
   }, [])
 
   const jumpToLatest = useCallback(() => {
     setAtBottom(true)
     atBottomRef.current = true
+    setFarUp(false)
     setNewBelow(0)
     scrollToBottom('smooth')
   }, [scrollToBottom])
@@ -868,6 +883,7 @@ export default function Chat() {
               <div
                 key={m.id}
                 id={`msg-${m.id}`}
+                data-msg
                 className={cx(
                   'group flex gap-3',
                   mine && 'flex-row-reverse',
@@ -1146,7 +1162,7 @@ export default function Chat() {
               <span className="italic">{typingLabel(typers.map((t) => t.name))}</span>
             </div>
           )}
-          {!atBottom && (
+          {farUp && (
             <div className="pointer-events-none absolute -top-14 inset-x-0 z-10 flex justify-center">
               <button
                 type="button"

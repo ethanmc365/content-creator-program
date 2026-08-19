@@ -221,8 +221,21 @@ export default {
         contrail: {
           to: { strokeDashoffset: '-24' },
         },
+        // See the note on `animate-ping-slow`. It never fully disappears: a dot
+        // that vanishes half the time is a dot you cannot count.
+        'ping-slow': {
+          '0%, 100%': { transform: 'scale(1)', opacity: '1' },
+          '50%': { transform: 'scale(1.7)', opacity: '0.45' },
+        },
       },
       animation: {
+        // A CALENDAR DOT FOR SOMETHING THAT IS ON RIGHT NOW.
+        //
+        // Tailwind's own `animate-ping` is 1s and cubic-out, which on a 6px dot
+        // is a flash rather than a pulse - and in a grid of forty-two cells a
+        // flash reads as an error state. Slower, and easing in as well as out,
+        // is what makes it read as a heartbeat.
+        'ping-slow': 'ping-slow 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'fade-up': 'fade-up 0.4s ease-out both',
         'pop-in': 'pop-in 0.35s ease-out both',
         'page-in': 'page-in 0.35s ease-out both',

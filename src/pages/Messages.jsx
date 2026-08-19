@@ -9,6 +9,7 @@ import { loadRelationship, loadRelationships } from '../lib/connections'
 import { openConversation } from '../lib/dm'
 import { Avatar, Badge, EmptyState, Skeleton, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
+import { jumpThreshold, distanceFromBottom } from '../lib/scrollJump'
 import ChatMedia from '../components/ChatMedia'
 import ReactionPill from '../components/ReactionPill'
 import { mediaType } from '../lib/media'
@@ -134,6 +135,8 @@ export default function Messages() {
   // Scroll bookkeeping so the thread only follows new messages when you're
   // already at the bottom (mirrors #general), with a jump-to-latest pill.
   const [atBottom, setAtBottom] = useState(true)
+  // See the note in Chat.jsx: the pill's distance is not the auto-follow's.
+  const [farUp, setFarUp] = useState(false)
   const [newBelow, setNewBelow] = useState(0)
   const bottomRef = useRef(null)
   const scrollerRef = useRef(null)
@@ -705,8 +708,11 @@ export default function Messages() {
     if (firstPaint || atBottom || mineJustSent) {
       scrollToBottom(firstPaint ? 'auto' : 'smooth')
       setNewBelow(0)
+      setFarUp(false)
     } else if (grew) {
       setNewBelow((n) => n + (thread.length - prevLenRef.current))
+      // See Chat.jsx: arrivals below a scrolled-up reader fire no scroll event.
+      setFarUp(distanceFromBottom(scrollerRef.current) > jumpThreshold(scrollerRef.current, 5))
     }
     prevLenRef.current = thread.length
   }, [thread, atBottom, user.id, scrollToBottom])
@@ -721,15 +727,18 @@ export default function Messages() {
   const onScrollMessages = useCallback(() => {
     const el = scrollerRef.current
     if (!el) return
-    const near = el.scrollHeight - el.scrollTop - el.clientHeight < 90
+    const gap = distanceFromBottom(el)
+    const near = gap < 90
     atBottomRef.current = near
     setAtBottom(near)
+    setFarUp(gap > jumpThreshold(el, 5))
     if (near) setNewBelow(0)
   }, [])
 
   const jumpToLatest = useCallback(() => {
     setAtBottom(true)
     atBottomRef.current = true
+    setFarUp(false)
     setNewBelow(0)
     scrollToBottom('smooth')
   }, [scrollToBottom])
@@ -1269,6 +1278,7 @@ export default function Messages() {
                     <div
                       key={m.id}
                       id={`dm-${m.id}`}
+                      data-msg
                       className={cx(
                         'group flex gap-2',
                         mine && 'justify-end',
@@ -1513,7 +1523,7 @@ export default function Messages() {
                     </span>
                   </div>
                 )}
-                {!atBottom && (
+                {farUp && (
                   <div className="pointer-events-none absolute -top-14 inset-x-0 z-10 flex justify-center">
                     <button
                       type="button"

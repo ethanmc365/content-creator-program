@@ -8,7 +8,6 @@ import { Avatar } from '../ui'
 import Icon from '../Icon'
 import NotificationBell from './NotificationBell'
 import PullToRefresh from '../PullToRefresh'
-import { EventRatingPrompt } from '../EventFeedback'
 import { showLocalNotification } from '../../lib/push'
 import { startHeartbeat } from '../../lib/presence'
 import { stripMarkup } from '../../lib/richText'
@@ -521,7 +520,6 @@ export default function AppLayout() {
       </main>
 
       {/* One-off "rate the event" popup after an attended event finishes */}
-      <EventRatingPrompt />
 
       {/* "Introduce yourself" used to live here, as an app-wide popup on any
           chat path - which is why it opened every time you touched /rooms. It

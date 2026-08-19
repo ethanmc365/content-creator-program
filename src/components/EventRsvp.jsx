@@ -1,29 +1,24 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { Avatar } from './ui'
+import Icon from './Icon'
 import { cx } from '../lib/utils'
 
-// RSVP controls for an event that has it enabled: going / can't buttons plus the
-// attendee avatars (green ring for going, red cross for can't). Hover shows the
-// name; clicking opens the profile.
-function AvatarRow({ rows, ring, cross }) {
-  return (
-    <div className="flex -space-x-2">
-      {rows.slice(0, 8).map((r) => (
-        <Link key={r.user_id} to={`/profile/${r.user_id}`} title={r.profiles?.name} className="relative">
-          <Avatar src={r.profiles?.photo_url} name={r.profiles?.name} size="xs" className={cx('!h-7 !w-7 ring-2', ring)} />
-          {cross && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-red-500 text-[7px] font-bold text-white ring-1 ring-white">✕</span>
-          )}
-        </Link>
-      ))}
-      {rows.length > 8 && <span className="ml-3 self-center text-[11px] text-smoke">+{rows.length - 8}</span>}
-    </div>
-  )
-}
-
+// THE ANSWER CONTROL, AND ONLY THE ANSWER CONTROL.
+//
+// It used to print the attendee avatars as well, which is why a card carrying
+// `RsvpFaces` showed the same seven people twice - once as "Alexandra and 6
+// others are going" and again underneath as "Going · 7" with the same faces in
+// the same order. Who is going is the CARD's job now (see
+// components/calendar/RsvpFaces, which orders faces by who you know and leads
+// with a name rather than a number). This is the button pair.
+//
+// IT IS NOT RED AND GREEN ANY MORE. "Can't make it" was `border-red-400
+// bg-red-50 text-red-600`, which is both off-palette and the wrong signal: not
+// being able to come is not an error. Going is the platform orange, filled,
+// because it is the answer the page is asking for; not going is a quiet
+// outline. The count of people who cannot come is a number in words, not a
+// second stack of faces - it is the least interesting fact on the card.
 export default function EventRsvp({ eventId }) {
   const { user } = useAuth()
   const [rows, setRows] = useState([])
@@ -32,15 +27,14 @@ export default function EventRsvp({ eventId }) {
   async function load() {
     const { data } = await supabase
       .from('event_rsvps')
-      .select('user_id, status, profiles:user_id(id, name, photo_url)')
+      .select('user_id, status')
       .eq('event_id', eventId)
     setRows(data ?? [])
   }
   useEffect(() => { load() }, [eventId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const mine = rows.find((r) => r.user_id === user.id)?.status || null
-  const going = rows.filter((r) => r.status === 'going')
-  const cant = rows.filter((r) => r.status === 'cant')
+  const cant = rows.filter((r) => r.status === 'cant').length
 
   async function choose(status) {
     if (busy) return
@@ -48,7 +42,7 @@ export default function EventRsvp({ eventId }) {
     // Optimistic: reflect my choice immediately, then reconcile from the server.
     setRows((prev) => {
       const rest = prev.filter((r) => r.user_id !== user.id)
-      return mine === status ? rest : [...rest, { user_id: user.id, status, profiles: { id: user.id } }]
+      return mine === status ? rest : [...rest, { user_id: user.id, status }]
     })
     if (mine === status) {
       await supabase.from('event_rsvps').delete().eq('event_id', eventId).eq('user_id', user.id)
@@ -60,38 +54,33 @@ export default function EventRsvp({ eventId }) {
   }
 
   return (
-    <div className="mt-3 rounded-xl border border-gray-100 bg-white p-3">
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button" onClick={() => choose('going')}
-          className={cx('rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
-            mine === 'going' ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 text-smoke hover:border-green-400 hover:text-green-600')}
-        >
-          {mine === 'going' ? "✓ I'm going" : "I'm going"}
-        </button>
-        <button
-          type="button" onClick={() => choose('cant')}
-          className={cx('rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
-            mine === 'cant' ? 'border-red-400 bg-red-50 text-red-600' : 'border-gray-200 text-smoke hover:border-red-300 hover:text-red-500')}
-        >
-          {mine === 'cant' ? "✓ Can't make it" : "Can't make it"}
-        </button>
-      </div>
-      {(going.length > 0 || cant.length > 0) && (
-        <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
-          {going.length > 0 && (
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-medium text-green-600">Going · {going.length}</span>
-              <AvatarRow rows={going} ring="ring-green-400" />
-            </div>
-          )}
-          {cant.length > 0 && (
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-medium text-red-500">Can't · {cant.length}</span>
-              <AvatarRow rows={cant} ring="ring-red-300" cross />
-            </div>
-          )}
-        </div>
+    <div className="flex flex-wrap items-center gap-2">
+      <button
+        type="button" onClick={() => choose('going')} disabled={busy}
+        className={cx(
+          'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 active:scale-95',
+          mine === 'going'
+            ? 'border-brand bg-brand text-white shadow-card'
+            : 'border-gray-200 bg-white text-smoke hover:-translate-y-0.5 hover:border-brand hover:text-brand',
+        )}
+      >
+        {mine === 'going' && <Icon name="check" className="h-3.5 w-3.5" />}
+        I&rsquo;m going
+      </button>
+      <button
+        type="button" onClick={() => choose('cant')} disabled={busy}
+        className={cx(
+          'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 active:scale-95',
+          mine === 'cant'
+            ? 'border-ink bg-ink text-white'
+            : 'border-gray-200 bg-white text-smoke hover:-translate-y-0.5 hover:border-ink hover:text-ink',
+        )}
+      >
+        {mine === 'cant' && <Icon name="check" className="h-3.5 w-3.5" />}
+        Can&rsquo;t make it
+      </button>
+      {cant > 0 && (
+        <span className="text-[11px] text-smoke">{cant} can&rsquo;t make it</span>
       )}
     </div>
   )
