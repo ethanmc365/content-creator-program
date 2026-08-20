@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { Modal, PlaneLoader, CopyButton } from '../ui'
 import Icon from '../Icon'
+import { AppleMark, GoogleMark, OutlookMark } from './CalendarBrandMarks'
 import { confirm } from '../../lib/confirm'
 import { toast } from '../../lib/toast'
 
@@ -67,9 +68,25 @@ export default function SubscribeCalendar({ open, onClose }) {
   // sheet instead of downloading a file into Downloads. It is the same URL with
   // a different scheme; every reader that understands one understands the other.
   const webcal = https.replace(/^https?:\/\//, 'webcal://')
+  // GOOGLE'S `cid` WANTS A CALENDAR ID, NOT AN https URL.
+  //
+  // `calendar/r?cid=<https://...ics>` is the form everyone copies off the web
+  // and it is why this button answered "check the URL": handed an http(s)
+  // string, Google tries to resolve it as one of ITS OWN calendar ids, fails,
+  // and blames the address. The same parameter carrying `webcal://` is read as
+  // "subscribe to this external feed" and opens the add dialog properly - which
+  // is exactly the screen Ethan reached by hand through
+  // Settings -> Add calendar -> From URL.
+  //
+  // Google is also the one reader of the three that has been known to reject
+  // even the webcal form when signed into multiple accounts, so the button does
+  // not rely on it alone: clicking also puts the link on the clipboard and the
+  // card says so, making the manual paste a one-step fallback instead of a
+  // hunt through settings.
   const googleAdd = https
-    ? `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(https)}`
+    ? `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}`
     : ''
+  const googleByUrl = 'https://calendar.google.com/calendar/u/0/r/settings/addbyurl'
   // OUTLOOK, AND IT WAS NOT COMPLICATED. Outlook.com has an add-from-web
   // endpoint that takes the same URL as a query parameter, and desktop Outlook
   // has understood `webcal://` since long before either of the other two. So it
@@ -80,6 +97,15 @@ export default function SubscribeCalendar({ open, onClose }) {
   const outlookAdd = https
     ? `https://outlook.live.com/calendar/0/addfromweb?url=${encodeURIComponent(https)}&name=${encodeURIComponent('Tryp.com Creator Program')}`
     : ''
+
+  // Put the feed on the clipboard the moment the Google card is clicked, so if
+  // Google does argue with the link the creator already has it and only has to
+  // paste. Clipboard access can be refused (Safari without a user gesture, an
+  // insecure context); that is not worth an error, the link is on screen below.
+  function copyForGoogle() {
+    try { navigator.clipboard?.writeText(https) } catch { /* the link is visible below */ }
+    toast('Link copied. If Google asks for it, paste it into "From URL".')
+  }
 
   async function reset() {
     if (!await confirm('Reset the link? Any calendar already subscribed to the old one will stop updating.')) return
@@ -119,8 +145,8 @@ export default function SubscribeCalendar({ open, onClose }) {
               href={webcal}
               className="group flex items-center gap-3 rounded-card border border-gray-100 bg-white p-4 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/50 hover:shadow-lift"
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand text-white transition-transform duration-200 group-hover:scale-110">
-                <Icon name="device" className="h-5 w-5" />
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-cloud transition-transform duration-200 group-hover:scale-110">
+                <AppleMark className="h-5 w-5" />
               </span>
               <span className="min-w-0">
                 <span className="block text-sm font-semibold text-ink">Apple Calendar</span>
@@ -131,14 +157,15 @@ export default function SubscribeCalendar({ open, onClose }) {
               href={googleAdd}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={copyForGoogle}
               className="group flex items-center gap-3 rounded-card border border-gray-100 bg-white p-4 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/50 hover:shadow-lift"
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand text-white transition-transform duration-200 group-hover:scale-110">
-                <Icon name="globe" className="h-5 w-5" />
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-cloud transition-transform duration-200 group-hover:scale-110">
+                <GoogleMark className="h-5 w-5" />
               </span>
               <span className="min-w-0">
                 <span className="block text-sm font-semibold text-ink">Google Calendar</span>
-                <span className="block text-xs text-smoke">Opens the add-by-URL screen</span>
+                <span className="block text-xs text-smoke">Link copied as you go</span>
               </span>
             </a>
             <a
@@ -147,8 +174,8 @@ export default function SubscribeCalendar({ open, onClose }) {
               rel="noopener noreferrer"
               className="group flex items-center gap-3 rounded-card border border-gray-100 bg-white p-4 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/50 hover:shadow-lift"
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand text-white transition-transform duration-200 group-hover:scale-110">
-                <Icon name="envelope" className="h-5 w-5" />
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-cloud transition-transform duration-200 group-hover:scale-110">
+                <OutlookMark className="h-5 w-5" />
               </span>
               <span className="min-w-0">
                 <span className="block text-sm font-semibold text-ink">Outlook</span>
@@ -156,6 +183,14 @@ export default function SubscribeCalendar({ open, onClose }) {
               </span>
             </a>
           </div>
+
+          <p className="-mt-2 text-xs text-smoke">
+            Google fussy? Open{' '}
+            <a href={googleByUrl} target="_blank" rel="noopener noreferrer" onClick={copyForGoogle} className="font-semibold text-brand hover:underline">
+              Add calendar → From URL
+            </a>{' '}
+            and paste the link below.
+          </p>
 
           <div>
             <p className="label">Or paste this link into any calendar app</p>

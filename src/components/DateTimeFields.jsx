@@ -27,6 +27,26 @@ import { cx } from '../lib/utils'
 // separators are always visible and are never typed. Each segment keeps its own
 // placeholder, so after typing the day you can still see MM and YYYY waiting.
 
+// A CLICK ANYWHERE IN THE BOX STARTS WHERE THE FIELD IS UNFINISHED.
+//
+// Ethan: "when I click anywhere on the box it should always start with me
+// entering DD then MM then Year, not me clicking near year starts at year."
+//
+// The segments are real inputs sitting side by side, so the browser did the
+// literal thing and focused whichever one your pointer happened to land on -
+// which on an empty field means typing the day into the year box. Reading order
+// is the intent: while the value is INCOMPLETE, any press inside the frame goes
+// to the first segment still waiting for digits.
+//
+// Once the date IS complete this steps aside, because at that point a click on
+// the year is somebody correcting the year, and dragging them back to the day
+// would make an existing date impossible to edit.
+function focusFirstUnfinished(refs, sizes) {
+  const target = refs.findIndex((r, i) => (r.current?.value?.length ?? 0) < sizes[i])
+  if (target === -1) return null
+  return refs[target].current
+}
+
 function Part({ id, label, value, onChange, onOverflow, onBack, width, max, inputRef }) {
   const [focused, setFocused] = useState(false)
   return (
@@ -68,10 +88,11 @@ function Part({ id, label, value, onChange, onOverflow, onBack, width, max, inpu
   )
 }
 
-const Frame = ({ children, invalid, id, label, hint, error }) => (
+const Frame = ({ children, invalid, id, label, hint, error, onMouseDown }) => (
   <div>
     {label && <label htmlFor={id} className="label">{label}</label>}
     <div
+      onMouseDown={onMouseDown}
       className={cx(
         'flex w-full items-center gap-0.5 rounded-xl border bg-white px-3.5 py-2.5 transition-colors',
         'focus-within:border-brand focus-within:ring-1 focus-within:ring-brand',
@@ -138,6 +159,13 @@ export function DateField({ id, label, value, onChange, max, min, hint, futureEr
   return (
     <Frame
       id={`${id}-d`} label={label} hint={hint} invalid={bad}
+      onMouseDown={(e) => {
+        const first = focusFirstUnfinished([dRef, mRef, yRef], [2, 2, 4])
+        if (!first || first === e.target) return
+        e.preventDefault()
+        first.focus()
+        first.select()
+      }}
       error={bad ? (futureError || (tooLate ? 'That is in the future.' : 'That is too far back.')) : null}
     >
       <Part id={`${id}-d`} inputRef={dRef} label="DD" max={2} width="w-7" value={d}
@@ -182,6 +210,13 @@ export function TimeField({ id, label, value, onChange, hint, optional = false }
   return (
     <Frame
       id={`${id}-h`} label={label} hint={hint} invalid={bad}
+      onMouseDown={(e) => {
+        const first = focusFirstUnfinished([hRef, mRef], [2, 2])
+        if (!first || first === e.target) return
+        e.preventDefault()
+        first.focus()
+        first.select()
+      }}
       error={bad ? 'Use a 24 hour time, so 14:30 rather than 2:30pm.' : null}
     >
       <Part id={`${id}-h`} inputRef={hRef} label="HH" max={2} width="w-7" value={h}

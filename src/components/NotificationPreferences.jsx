@@ -334,8 +334,7 @@ export function DeadlineReminderModal({ open, onClose }) {
         <p className="flex items-start gap-2 rounded-xl bg-cloud/60 p-3 text-xs text-smoke">
           <Icon name="bell" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand" />
           <span>
-            Reminders arrive as a notification, and as a push if you have those turned on.
-            You can change all of this in Settings.
+            Reminders arrive as a push notification.
           </span>
         </p>
         <div className="flex justify-end">

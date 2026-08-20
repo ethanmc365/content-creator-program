@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Avatar, Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../components/ui'
+import { DateField } from '../components/DateTimeFields'
 import Icon from '../components/Icon'
 import Reveal from '../components/network/Reveal'
 import ScanBoardingPass from '../components/network/ScanBoardingPass'
@@ -189,133 +190,12 @@ function AirportField({ id, label, value, onChange, autoFocus = false }) {
   )
 }
 
-// ------------------------------------------------------------- the date field
-//
-// A TYPED DATE, WITHOUT THE NATIVE CONTROL.
-//
-// `<input type="date">` is three segments the browser owns. Typing into it
-// works, but every segment you land on is painted with the OS selection
-// highlight - a blue block that flashes across the field as you type, which is
-// what Ethan is describing: "entering the dates by typing is what I want but it
-// shouldn't have to show up the blue highlight". You cannot style that. It is
-// UA shadow DOM and `::selection` does not reach it.
-//
-// So this is three ordinary numeric inputs that behave the way the native one
-// behaves and nothing more: type two digits and the caret moves on by itself,
-// backspace at the start of a box moves back, and the rest of the app's
-// `.input` styling wraps the group so it still looks like one field.
-function DatePart({ id, label, value, onChange, onOverflow, onBack, width, max, inputRef }) {
-  const [focused, setFocused] = useState(false)
-  return (
-    <input
-      id={id}
-      ref={inputRef}
-      aria-label={label}
-      inputMode="numeric"
-      autoComplete="off"
-      value={value}
-      onFocus={(e) => { setFocused(true); e.target.select() }}
-      onBlur={() => setFocused(false)}
-      onChange={(e) => {
-        const digits = e.target.value.replace(/\D/g, '').slice(0, max)
-        onChange(digits)
-        if (digits.length === max) onOverflow?.()
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Backspace' && !value) { e.preventDefault(); onBack?.() }
-      }}
-      placeholder={focused ? '0'.repeat(max) : label}
-      className={cx(
-        'bg-transparent text-center text-sm tabular-nums text-ink outline-none placeholder:text-gray-300',
-        // NO RING ON THE SEGMENT. THIS IS THE ORANGE BOX.
-        //
-        // index.css has a base rule `input:focus-visible { ring-1 ring-brand }`,
-        // which exists so a search box lights up when you tab to it. A text
-        // input is `:focus-visible` on a MOUSE CLICK too (correct per spec - the
-        // browser cannot know you are not about to type), and this field is
-        // three inputs sitting inside one bordered box pretending to be one
-        // control. So clicking into DD drew a small orange rectangle around the
-        // two characters of the day, inside the field's own border, and it
-        // hopped along to MM and YYYY as the caret advanced. Ethan: "when
-        // filling in the dates it shows a weird orange box around dd, mm etc
-        // that looks strange."
-        // The segment is not a control a person perceives, so it must not have
-        // a focus indicator of its own. The WRAPPER carries it instead (see
-        // `focus-within` below), which is what makes the whole field light up as
-        // one thing - which is what it looks like.
-        'focus-visible:ring-0 focus-visible:ring-offset-0',
-        width,
-      )}
-    />
-  )
-}
-
-function DateField({ id, label, value, onChange, max, hint }) {
-  // The three parts are LOCAL state, not derived from `value` on every render.
-  // A controlled field that reformats mid-typing is a field you cannot type "1"
-  // into, because the moment you do it becomes "01" and the caret jumps.
-  const [d, setD] = useState(() => (value ? value.slice(8, 10) : ''))
-  const [m, setM] = useState(() => (value ? value.slice(5, 7) : ''))
-  const [y, setY] = useState(() => (value ? value.slice(0, 4) : ''))
-  const mRef = useRef(null)
-  const yRef = useRef(null)
-  const dRef = useRef(null)
-
-  useEffect(() => {
-    if (value) return
-    if (d || m || y) { setD(''); setM(''); setY('') }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value])
-
-  // Push up only when all three are complete and the result is a real date.
-  // 31/02 is three complete boxes and not a day, and a form that accepts it and
-  // fails on save is worse than one that simply waits.
-  useEffect(() => {
-    if (d.length === 2 && m.length === 2 && y.length === 4) {
-      const iso = `${y}-${m}-${d}`
-      const dt = new Date(`${iso}T12:00:00Z`)
-      const ok = !Number.isNaN(dt.getTime())
-        && dt.getUTCDate() === Number(d) && dt.getUTCMonth() + 1 === Number(m)
-      onChange(ok ? iso : '')
-    } else {
-      onChange('')
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [d, m, y])
-
-  // `max` is only supplied when a future date would be wrong. Logging a flight
-  // you have not taken yet is now a supported thing to do, so the modal simply
-  // stops passing one in that mode rather than this field having a second
-  // opinion about it.
-  const future = value && max && value > max
-
-  return (
-    <div>
-      <label htmlFor={`${id}-d`} className="label">{label}</label>
-      <div
-        className={cx(
-          // The focus indicator for all three segments, on the one element a
-          // person actually sees. See the note in DatePart.
-          'flex w-full items-center gap-0.5 rounded-xl border bg-white px-3.5 py-2.5 transition-colors',
-          'focus-within:border-brand focus-within:ring-1 focus-within:ring-brand',
-          future ? 'border-red-300' : 'border-gray-200',
-        )}
-      >
-        <DatePart id={`${id}-d`} inputRef={dRef} label="DD" max={2} width="w-7" value={d}
-          onChange={setD} onOverflow={() => mRef.current?.focus()} />
-        <span className="text-gray-300">/</span>
-        <DatePart id={`${id}-m`} inputRef={mRef} label="MM" max={2} width="w-8" value={m}
-          onChange={setM} onOverflow={() => yRef.current?.focus()} onBack={() => dRef.current?.focus()} />
-        <span className="text-gray-300">/</span>
-        <DatePart id={`${id}-y`} inputRef={yRef} label="YYYY" max={4} width="w-12" value={y}
-          onChange={setY} onBack={() => mRef.current?.focus()} />
-      </div>
-      {future
-        ? <p className="mt-1 text-[11px] text-red-500">That is in the future. Log it after you fly.</p>
-        : hint && <p className="mt-1 text-[11px] text-gray-400">{hint}</p>}
-    </div>
-  )
-}
+// The date field used to live HERE, as a private DatePart/DateField pair, and
+// then the same control was needed by the calendar, by "find a time" and by the
+// challenge form - so it was copied. Four copies of a control is four places for
+// its behaviour to drift, and it did: only this one moved the caret on its own.
+// It is `components/DateTimeFields` now and every date box on the platform is
+// the same one. See that file for why it is not `<input type="date">`.
 
 // ------------------------------------------------- what the route already knows
 //

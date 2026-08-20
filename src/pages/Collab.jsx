@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
 import { Avatar, Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../components/ui'
+import { DateField } from '../components/DateTimeFields'
 import { confirm, notice } from '../lib/confirm'
 import { toast } from '../lib/toast'
 import { cx } from '../lib/utils'
@@ -659,16 +660,18 @@ export default function Collab() {
                 allowClear={false}
               />
             </div>
-            <div>
-              <label htmlFor="start" className="label">From</label>
-              <input id="start" type="date" className="input" min={todayYmd()} value={form.start_date}
-                onChange={(e) => setForm((f) => ({ ...f, start_date: e.target.value, end_date: f.end_date && f.end_date < e.target.value ? e.target.value : f.end_date }))} />
-            </div>
-            <div>
-              <label htmlFor="end" className="label">To</label>
-              <input id="end" type="date" className="input" min={form.start_date || todayYmd()} value={form.end_date}
-                onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value }))} />
-            </div>
+            {/* The last two `<input type="date">` on the platform. Every other
+                date box is the shared typed field, and a creator meeting the OS
+                picker here after typing everywhere else is the inconsistency
+                Ethan asked to close. Both already store ISO, so it drops in. */}
+            <DateField id="start" label="From" min={todayYmd()}
+              value={form.start_date}
+              futureError="Trips are for dates still to come."
+              onChange={(v) => setForm((f) => ({ ...f, start_date: v, end_date: f.end_date && v && f.end_date < v ? v : f.end_date }))} />
+            <DateField id="end" label="To" min={form.start_date || todayYmd()}
+              value={form.end_date}
+              futureError="The trip would end before it starts."
+              onChange={(v) => setForm((f) => ({ ...f, end_date: v }))} />
           </div>
           {/* THE NOTE IS REQUIRED NOW.
               Ethan: "when posting a trip on the collab board, the note should
@@ -986,16 +989,13 @@ export default function Collab() {
                 allowClear={false}
               />
             </div>
-            <div>
-              <label htmlFor="edit-start" className="label">From</label>
-              <input id="edit-start" type="date" className="input" value={editForm.start_date}
-                onChange={(e) => setEditForm((f) => ({ ...f, start_date: e.target.value, end_date: f.end_date && f.end_date < e.target.value ? e.target.value : f.end_date }))} />
-            </div>
-            <div>
-              <label htmlFor="edit-end" className="label">To</label>
-              <input id="edit-end" type="date" className="input" min={editForm.start_date || undefined} value={editForm.end_date}
-                onChange={(e) => setEditForm((f) => ({ ...f, end_date: e.target.value }))} />
-            </div>
+            <DateField id="edit-start" label="From"
+              value={editForm.start_date}
+              onChange={(v) => setEditForm((f) => ({ ...f, start_date: v, end_date: f.end_date && v && f.end_date < v ? v : f.end_date }))} />
+            <DateField id="edit-end" label="To" min={editForm.start_date || undefined}
+              value={editForm.end_date}
+              futureError="The trip would end before it starts."
+              onChange={(v) => setEditForm((f) => ({ ...f, end_date: v }))} />
           </div>
           <div>
             <label htmlFor="edit-note" className="label">What are you up for?</label>

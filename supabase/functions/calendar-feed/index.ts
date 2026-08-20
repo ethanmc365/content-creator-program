@@ -122,6 +122,14 @@ Deno.serve(async (req) => {
     // help text on the page says "within a day" rather than promising an hour.
     'X-PUBLISHED-TTL:PT1H',
     'REFRESH-INTERVAL;VALUE=DURATION:PT1H',
+    // THE SUBSCRIPTION ARRIVES IN TRYP.COM ORANGE RATHER THAN WHATEVER COLOUR
+    // WAS NEXT IN THE ROTA. Two spellings because the readers disagree:
+    // RFC 7986 COLOR takes a CSS3 colour NAME (a hex triplet there is invalid
+    // and gets dropped), and Apple's own extension takes hex with alpha. Google
+    // honours neither and assigns its own; it is a hint everywhere, so nothing
+    // downstream depends on it landing.
+    'COLOR:orangered',
+    'X-APPLE-CALENDAR-COLOR:#D94407FF',
   ]
 
   for (const r of rows) {
@@ -138,6 +146,10 @@ Deno.serve(async (req) => {
     )
     if (r.description) lines.push(fold(`DESCRIPTION:${esc(r.description)}`))
     if (r.location) lines.push(fold(`LOCATION:${esc(r.location)}`))
+    // Per-event colour as well as per-calendar: a reader that merges the feed
+    // into an existing calendar (rather than creating its own) only ever sees
+    // this one. Same CSS3 name, same caveat - a hint, not a guarantee.
+    lines.push('COLOR:orangered')
     lines.push('END:VEVENT')
   }
   lines.push('END:VCALENDAR')

@@ -6,6 +6,7 @@ import Icon from '../../components/Icon'
 import PointRulesEditor from '../../components/network/PointRulesEditor'
 import { flagFromIso } from '../../components/network/PlaceSwitcher'
 import { PageHeader, Skeleton, Spinner } from '../../components/ui'
+import { DateField, TimeField } from '../../components/DateTimeFields'
 import { SCORING_MODES, scoringMode, DEFAULT_SCORING, STARTER_POINT_RULES } from '../../lib/scoring'
 import { cx, parseDateTime, isoToDateInput, isoToTimeInput } from '../../lib/utils'
 
@@ -13,6 +14,27 @@ import { cx, parseDateTime, isoToDateInput, isoToTimeInput } from '../../lib/uti
 // in, how it is won, length, brief, rules, platforms and the full prize
 // breakdown.
 const ALL_PLATFORMS = ['Instagram', 'TikTok', 'YouTube']
+
+// THE DATE BOXES HERE WERE PLAIN TEXT INPUTS WITH A "DD/MM/YYYY" PLACEHOLDER,
+// which is the one shape the rest of the platform has stopped using: the hint
+// disappears whole the moment you type a single character, the slashes have to
+// be typed, and nothing tells you the date is nonsense until you press save.
+// The shared field does all of that and is the same control as the calendar,
+// "find a time" and the flight log.
+//
+// This form's state is still "DD/MM/YYYY" strings because `parseDateTime`
+// pairs them with the time boxes on save, so the two adapters below sit between
+// that and the ISO the shared field speaks. Converting the whole form's storage
+// would touch validation, the draft-publish block and the edit loader for no
+// visible gain.
+const ddmmToIso = (s) => {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s || '')
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : ''
+}
+const isoToDdmm = (iso) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '')
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : ''
+}
 
 const CURRENCIES = ['GBP', 'EUR', 'USD', 'RON', 'SEK', 'NOK', 'DKK']
 const CURRENCY_SYMBOL = { GBP: '£', EUR: '€', USD: '$', RON: 'lei ', SEK: 'kr ', NOK: 'kr ', DKK: 'kr ' }
@@ -460,22 +482,20 @@ export default function AdminChallengeForm() {
         <section className="card space-y-6">
           <h2 className="text-lg font-semibold">Dates & platforms</h2>
           <div className="grid grid-cols-2 gap-5 sm:grid-cols-4">
-            <div>
-              <label htmlFor="start_date" className="label">Start date</label>
-              <input id="start_date" type="text" inputMode="numeric" required className="input" value={form.startDateStr} onChange={(e) => set({ startDateStr: e.target.value })} placeholder="DD/MM/YYYY" />
-            </div>
-            <div>
-              <label htmlFor="start_time" className="label">Start time</label>
-              <input id="start_time" type="text" inputMode="numeric" required className="input" value={form.startTimeStr} onChange={(e) => set({ startTimeStr: e.target.value })} placeholder="HH:MM" />
-            </div>
-            <div>
-              <label htmlFor="end_date" className="label">End date</label>
-              <input id="end_date" type="text" inputMode="numeric" required className="input" value={form.endDateStr} onChange={(e) => set({ endDateStr: e.target.value })} placeholder="DD/MM/YYYY" />
-            </div>
-            <div>
-              <label htmlFor="end_time" className="label">End time</label>
-              <input id="end_time" type="text" inputMode="numeric" required className="input" value={form.endTimeStr} onChange={(e) => set({ endTimeStr: e.target.value })} placeholder="HH:MM" />
-            </div>
+            <DateField id="start_date" label="Start date"
+              value={ddmmToIso(form.startDateStr)}
+              onChange={(iso) => set({ startDateStr: isoToDdmm(iso) })} />
+            <TimeField id="start_time" label="Start time"
+              value={form.startTimeStr}
+              onChange={(v) => set({ startTimeStr: v })} />
+            <DateField id="end_date" label="End date"
+              value={ddmmToIso(form.endDateStr)}
+              onChange={(iso) => set({ endDateStr: isoToDdmm(iso) })}
+              min={ddmmToIso(form.startDateStr) || undefined}
+              futureError="The challenge would end before it starts." />
+            <TimeField id="end_time" label="End time"
+              value={form.endTimeStr}
+              onChange={(v) => set({ endTimeStr: v })} />
           </div>
 
           {/* Optional: schedule the challenge to go live automatically. */}
@@ -483,8 +503,12 @@ export default function AdminChallengeForm() {
             <p className="label">Schedule publish <span className="font-normal text-smoke">(optional)</span></p>
             <p className="mb-3 text-xs text-smoke">Save as a draft with a publish time and it goes live automatically (creators get notified). Leave blank to publish manually.</p>
             <div className="grid grid-cols-2 gap-4">
-              <input id="publish_date" type="text" inputMode="numeric" className="input" value={form.publishDateStr} onChange={(e) => set({ publishDateStr: e.target.value })} placeholder="DD/MM/YYYY" />
-              <input id="publish_time" type="text" inputMode="numeric" className="input" value={form.publishTimeStr} onChange={(e) => set({ publishTimeStr: e.target.value })} placeholder="HH:MM" />
+              <DateField id="publish_date"
+                value={ddmmToIso(form.publishDateStr)}
+                onChange={(iso) => set({ publishDateStr: isoToDdmm(iso) })} />
+              <TimeField id="publish_time"
+                value={form.publishTimeStr}
+                onChange={(v) => set({ publishTimeStr: v })} optional />
             </div>
           </div>
           <div>
