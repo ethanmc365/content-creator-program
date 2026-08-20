@@ -2,9 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../components/ui'
+import { Avatar, Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
 import Reveal from '../components/network/Reveal'
+import ScanBoardingPass from '../components/network/ScanBoardingPass'
 import { CountUp } from '../components/network/Motion'
 import WhenVisible from '../components/WhenVisible'
 import FlightMap from '../components/network/FlightMap'
@@ -646,6 +647,11 @@ export default function Flights() {
   const [error, setError] = useState('')
   const [showAll, setShowAll] = useState(false)
   const [showAllAirlines, setShowAllAirlines] = useState(false)
+  const [scanning, setScanning] = useState(false)
+  // WHO ELSE IS ON YOUR UPCOMING FLIGHTS. Keyed by flight id. See the
+  // `same_flight` definer function: same route AND same day, both sides
+  // sharing.
+  const [sameFlight, setSameFlight] = useState({})
   const [form, setForm] = useState(BLANK_FORM)
 
   const [allAirlines, setAllAirlines] = useState(false)
@@ -683,6 +689,26 @@ export default function Flights() {
   useEffect(() => { load() }, [load])
 
   const stats = useMemo(() => buildFlightStats(rows, today), [rows, today])
+
+  // Only for flights not yet taken: "somebody was on your flight last March" is
+  // a fact, and "somebody is on your flight on Tuesday" is a plan.
+  useEffect(() => {
+    const upcoming = stats.upcoming || []
+    if (!upcoming.length) return undefined
+    let cancelled = false
+    ;(async () => {
+      const out = {}
+      for (const f of upcoming.slice(0, 8)) {
+        const { data } = await supabase.rpc('same_flight', {
+          p_from: f.from.iata, p_to: f.to.iata, p_on: f.flown_on,
+        })
+        if (cancelled) return
+        if (data?.length) out[f.id] = data
+      }
+      if (!cancelled) setSameFlight(out)
+    })()
+    return () => { cancelled = true }
+  }, [stats.upcoming])
 
   const thisYear = today.slice(0, 4)
   const lastYear = String(Number(thisYear) - 1)
@@ -1234,6 +1260,29 @@ export default function Flights() {
                           </span>
                         </span>
                       </div>
+                      {/* SOMEBODY ELSE IS ON THIS FLIGHT.
+                          The strongest signal in the whole log: same route, same
+                          day, two creators who will be in one airport within a
+                          couple of hours of each other. It goes ABOVE the collab
+                          board button because it is the reason to press it. */}
+                      {sameFlight[f.id]?.length > 0 && (
+                        <Link
+                          to={`/profile/${sameFlight[f.id][0].creator_id}`}
+                          className="mt-3 flex items-center gap-2.5 rounded-xl bg-white/70 px-3 py-2 transition-colors hover:bg-white"
+                        >
+                          <span className="flex -space-x-2">
+                            {sameFlight[f.id].slice(0, 3).map((c) => (
+                              <Avatar key={c.creator_id} src={c.photo_url} name={c.name} size="xs" className="!h-6 !w-6 ring-2 ring-white" />
+                            ))}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-xs font-semibold text-brand">
+                            {sameFlight[f.id][0].name.split(' ')[0]}
+                            {sameFlight[f.id].length > 1
+                              ? ` and ${sameFlight[f.id].length - 1} other${sameFlight[f.id].length > 2 ? 's' : ''} are`
+                              : ' is'} on this flight
+                          </span>
+                        </Link>
+                      )}
                       <div className="mt-3 flex items-center gap-2 border-t border-brand/20 pt-3">
                         <button
                           type="button"
@@ -1699,6 +1748,29 @@ export default function Flights() {
               `upcoming` is now computed from the date as it is typed - it still
               drives what happens after saving (the offer to post to the collab
               board) and the wording on the date labels. */}
+          {/* SCAN IT INSTEAD OF TYPING IT.
+              First, because it is the fastest path through this form and the
+              one that should be tried before anybody starts typing. It only
+              fills five fields - the airline, the aircraft, the purpose and the
+              note are still yours, because a barcode does not know why you
+              went. See components/network/ScanBoardingPass. */}
+          {!editing && (
+            <button
+              type="button"
+              onClick={() => setScanning(true)}
+              className="group flex w-full items-center gap-3 rounded-card border border-dashed border-brand/40 bg-brand-tint/25 px-4 py-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:bg-brand-tint/50"
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand text-white transition-transform duration-200 group-hover:scale-110">
+                <Icon name="magnifier" className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-ink">Scan your boarding pass</span>
+                <span className="block text-xs text-smoke">A photo, or a screenshot from Apple Wallet</span>
+              </span>
+              <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-brand transition-transform duration-200 group-hover:translate-x-0.5" />
+            </button>
+          )}
+
           {/* THE BOARDING PASS IS THE FORM'S ANSWER, AND IT IS AT THE TOP.
               It used to be a tinted panel of facts under the two airport
               fields. Putting it first, and building it as you type, is what
@@ -2085,6 +2157,18 @@ export default function Flights() {
           </div>
         </form>
       </Modal>
+
+      <ScanBoardingPass
+        open={scanning}
+        now={new Date(`${today}T12:00:00`)}
+        onClose={() => setScanning(false)}
+        onFilled={(fields) => {
+          // Merge, never replace: somebody may have already picked an airline
+          // or written a note before reaching for the scanner.
+          setForm((f) => ({ ...f, ...fields }))
+          setError('')
+        }}
+      />
 
       {/* ---- The collab board offer ---- */}
       <Modal open={!!offer} onClose={() => setOffer(null)} title="Tell the community?">
