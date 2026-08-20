@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import Icon from '../Icon'
 import { weekOf } from '../../lib/daily'
+import { FREEZES_PER_MONTH } from '../../lib/gameStreak'
+import StreakLeaderboard from './StreakLeaderboard'
 import { playFireWhoosh } from '../../lib/gameSounds'
 import { cx } from '../../lib/utils'
 
@@ -17,10 +19,10 @@ import { cx } from '../../lib/utils'
 //
 // THE FREEZES ARE AUTOMATIC, AND THE CARD NOW SAYS SO
 //
-// Three a month, spent on the day they are needed, reset on the first of the
+// FIVE a month, spent on the day they are needed, reset on the first of the
 // month. Ethan's note was that the card never said the reset happens - so a
-// creator who used all three in February had no way to know they were getting
-// three more, which turns a safety net into a thing you have already lost. The
+// creator who used them all in February had no way to know they were getting
+// five more, which turns a safety net into a thing you have already lost. The
 // line under the snowflakes says when they come back, in the words a person
 // would use ("back on 1 September"), and the snowflakes themselves are drawn as
 // spent or held rather than as a count you have to read.
@@ -239,8 +241,9 @@ function WeekDots({ days = [], frozen = [], today, week }) {
 // survives the remount that is the problem in the first place.
 let lastFlareAt = -Infinity
 
-export default function StreakCard({ className, days = [], today = null }) {
+export default function StreakCard({ className, days = [], today = null, myId = null }) {
   const [s, setS] = useState(null)
+  const [boardOpen, setBoardOpen] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -265,7 +268,7 @@ export default function StreakCard({ className, days = [], today = null }) {
   if (!s) return null
   const current = s.current_streak || 0
   const best = s.best_streak || 0
-  const left = s.freezes_left ?? 3
+  const left = s.freezes_left ?? FREEZES_PER_MONTH
   const week = today != null ? weekOf(today) : []
   // HAS TODAY BEEN COUNTED YET, OR NOT.
   //
@@ -287,7 +290,26 @@ export default function StreakCard({ className, days = [], today = null }) {
       )}
     >
       <div className="pointer-events-none absolute -right-14 -top-16 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
-      <div className="relative flex flex-wrap items-center gap-x-8 gap-y-5">
+
+      {/* THE WHOLE CARD OPENS THE BOARD.
+          Ethan: "perhaps it shows up as a popup card when I click on the card at
+          the top showing streak info." A stretched button UNDER the content
+          rather than a wrapper around it, for the same reason the challenge
+          board's cards work that way: everything on top keeps its own clicks,
+          and the dead space between the flame and the snowflakes becomes the
+          target. The visible affordance is the chip in the corner, because a
+          card that is silently clickable is a card nobody clicks. */}
+      <button
+        type="button"
+        onClick={() => setBoardOpen(true)}
+        aria-label="See everyone's streaks"
+        className="absolute inset-0 z-0"
+      />
+      <span className="pointer-events-none absolute right-4 top-4 z-10 hidden items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white/90 sm:inline-flex">
+        Everyone&rsquo;s streaks
+        <Icon name="chevronRight" className="h-3 w-3" />
+      </span>
+      <div className="pointer-events-none relative z-10 flex flex-wrap items-center gap-x-8 gap-y-5">
         {/* THE FLAME LEADS, AND IT IS THE STATE. See the note on <Flame>: lit
             when today is counted, embers when the run is alive but today is
             still to be earned, cold at zero. */}
@@ -336,12 +358,13 @@ export default function StreakCard({ className, days = [], today = null }) {
 
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
-            {[0, 1, 2].map((i) => (
+            {Array.from({ length: FREEZES_PER_MONTH }, (_, i) => i).map((i) => (
               <span
                 key={i}
                 title={i < left ? 'Freeze available' : 'Freeze used this month'}
                 className={cx(
-                  'flex h-8 w-8 items-center justify-center rounded-lg transition-colors',
+                  // h-7 rather than h-8: five tiles in the space three had.
+                  'flex h-7 w-7 items-center justify-center rounded-lg transition-colors',
                   // BLUE, PROPERLY. Ethan: "the streak freeze icons should be a
                   // bit more prominently blue."
                   // An available freeze used to be a BRAND ORANGE snowflake on
@@ -356,7 +379,7 @@ export default function StreakCard({ className, days = [], today = null }) {
                     : 'bg-white/15 text-white/35',
                 )}
               >
-                <Icon name="snowflake" className="h-[1.1rem] w-[1.1rem]" strokeWidth={2} />
+                <Icon name="snowflake" className="h-4 w-4" strokeWidth={2} />
               </span>
             ))}
           </div>
@@ -368,10 +391,12 @@ export default function StreakCard({ className, days = [], today = null }) {
                 draw which ones are spent, so the clause repeats them in words,
                 and a specific date is more precision than "monthly" earns on a
                 line nobody came here to read. */}
-            {left} of 3 freezes left this month. Streak freezes reset monthly.
+            {left} of {FREEZES_PER_MONTH} freezes left this month. Streak freezes reset monthly.
           </p>
         </div>
       </div>
+
+      <StreakLeaderboard open={boardOpen} onClose={() => setBoardOpen(false)} myId={myId} />
 
       {/* THE PER-PUZZLE CHIPS ARE GONE.
           There was a row here reading "Guess the Country 3d · Flight Path 3d ·

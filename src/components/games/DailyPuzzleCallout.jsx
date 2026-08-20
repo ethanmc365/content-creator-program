@@ -3,7 +3,8 @@ import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import Icon from '../Icon'
 import Flame from './Flame'
-import { dailyStreak, untilNextUkMidnight } from '../../lib/daily'
+import { untilNextUkMidnight } from '../../lib/daily'
+import { useGameStreak } from '../../lib/gameStreak'
 import { DAILY_PUZZLES, useDailyPuzzles } from '../../lib/dailyPuzzles'
 import { cx } from '../../lib/utils'
 
@@ -134,8 +135,12 @@ export default function DailyPuzzleCallout({ className }) {
   // Read once on mount: this is a countdown to the top of the day, not a clock,
   // and re-rendering the hub every minute to move it is not worth a frame.
   const [nextIn] = useState(() => untilNextUkMidnight(Date.now()))
-  const { played, counts, streakDays } = useDailyPuzzles(user?.id)
-  const streak = dailyStreak(streakDays)
+  const { played, counts } = useDailyPuzzles(user?.id)
+  // THE SAME STREAK THE GAMES PAGE SHOWS. This used to be
+  // `dailyStreak(streakDays)` - the daily puzzles only, client-side, no freezes
+  // - which is why the pill said 8 while the games page said 36 on the same
+  // afternoon. See lib/gameStreak.
+  const { streak } = useGameStreak()
   const doneCount = DAILY_PUZZLES.filter((p) => played.has(p.key)).length
   const allDone = doneCount === DAILY_PUZZLES.length
 

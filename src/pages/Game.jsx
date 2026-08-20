@@ -210,7 +210,7 @@ export default function Game() {
           flashing in as one block. */}
       {!event && screen === 'menu' && (
         <Reveal className="mb-8" from="down">
-          <StreakCard days={myDays} today={ukDayIndex()} />
+          <StreakCard days={myDays} today={ukDayIndex()} myId={user?.id} />
         </Reveal>
       )}
 
