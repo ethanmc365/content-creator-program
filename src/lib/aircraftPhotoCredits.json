@@ -1,261 +1,216 @@
 {
-  "atr72": {
-    "file": "File:ATR 72-600 in flight.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3AATR_72-600_in_flight.jpg",
-    "author": "ATR Aircraft",
-    "licence": "CC BY-SA 2.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by-sa/2.0"
-  },
-  "q400": {
-    "file": "File:Alaska Airlines Bombardier Dash 8 Q400.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3AAlaska_Airlines_Bombardier_Dash_8_Q400.jpg",
-    "author": "Ron Clausen",
-    "licence": "CC BY-SA 4.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0"
-  },
-  "crj900": {
-    "file": "File:Eurowings (Lufthansa Regional) Bombardier CRJ900 at Berlin Tegel Airport.JPG",
-    "page": "https://commons.wikimedia.org/wiki/File%3AEurowings_(Lufthansa_Regional)_Bombardier_CRJ900_at_Berlin_Tegel_Airport.JPG",
-    "author": "FoxyOrange",
-    "licence": "CC BY-SA 3.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by-sa/3.0"
-  },
-  "e190": {
-    "file": "File:JetBlue Embraer 190 N317JB departing Boston April 2025.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3AJetBlue_Embraer_190_N317JB_departing_Boston_April_2025.jpg",
-    "author": "4300streetcar",
-    "licence": "CC BY 4.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by/4.0"
-  },
-  "e195e2": {
-    "file": "File:KLM Cityhopper PH-NXF Embraer E195-E2 Amsterdam Airport Schiphol (AMS EHAM) (52723486012).jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3AKLM_Cityhopper_PH-NXF_Embraer_E195-E2_Amsterdam_Airport_Schiphol_(AMS_EHAM)_(52723486012).jpg",
-    "author": "Mitchul Hope",
-    "licence": "CC BY-SA 2.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by-sa/2.0"
-  },
-  "e175": {
-    "file": "File:American Eagle (Republic) Embraer 175 N125HQ departing Boston April 2025.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3AAmerican_Eagle_(Republic)_Embraer_175_N125HQ_departing_Boston_April_2025.jpg",
-    "author": "4300streetcar",
-    "licence": "CC BY 4.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by/4.0"
-  },
-  "e145": {
-    "file": "File:Embraer ERJ 145 (American Eagle) (3970229297).jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3AEmbraer_ERJ_145_(American_Eagle)_(3970229297).jpg",
-    "author": "Cory W. Watts from Madison, Wisconsin, United States of America",
-    "licence": "CC BY-SA 2.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by-sa/2.0"
-  },
-  "crj200": {
-    "file": "File:Delta N438SW Bombardier CRJ-200 (22147920216).jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3ADelta_N438SW_Bombardier_CRJ-200_(22147920216).jpg",
-    "author": "formulanone from Huntsville, United States",
-    "licence": "CC BY-SA 2.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by-sa/2.0"
-  },
-  "atr42": {
-    "file": "File:F-WWLX(1015 PK-TNJ) ATR42-512(600) TransNusa Airways TLS 22SEP14.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3AF-WWLX(1015_PK-TNJ)_ATR42-512(600)_TransNusa_Airways_TLS_22SEP14.jpg",
-    "author": "Ken Fielding",
-    "licence": "CC BY-SA 3.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by-sa/3.0"
-  },
-  "c208": {
-    "file": "File:Abyssinian Flight Services Cessna 208 Caravan I Stehmann-1.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3AAbyssinian_Flight_Services_Cessna_208_Caravan_I_Stehmann-1.jpg",
-    "author": "Raimund Stehmann",
-    "licence": "GFDL",
-    "licenceUrl": "http://www.gnu.org/copyleft/fdl.html"
-  },
-  "dhc6": {
-    "file": "File:DeHavilland DHC-6 Twin Otter - NASA.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3ADeHavilland_DHC-6_Twin_Otter_-_NASA.jpg",
-    "author": "NASA / Chuck Ritchie",
-    "licence": "Public domain",
-    "licenceUrl": ""
-  },
   "a220": {
-    "file": "File:Airbus A220-300.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3AAirbus_A220-300.jpg",
-    "author": "Romain COUPY",
-    "licence": "CC BY-SA 4.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+    "author": "4300streetcar",
+    "licence": "CC BY 4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:JetBlue_Airbus_A220-300_N3255J_on_final_approach_to_Boston_April_2025_2.jpg"
   },
   "a319": {
-    "file": "File:Airbus A319 - 8967213029 (cropped).jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3AAirbus_A319_-_8967213029_(cropped).jpg",
-    "author": "Austrian Airlines",
-    "licence": "CC BY-SA 2.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by-sa/2.0"
+    "author": "4300streetcar",
+    "licence": "CC BY 4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:American_Airlines_Airbus_A319_N753US_on_final_approach_to_Boston_2.jpg"
   },
   "a320": {
-    "file": "File:Spirit A320 N628NK BWI MD1.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3ASpirit_A320_N628NK_BWI_MD1.jpg",
-    "author": "Acroterion;",
-    "licence": "CC BY-SA 4.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+    "author": "Aero Icarus from Z\u00fcrich, Switzerland",
+    "licence": "CC BY-SA 2.0",
+    "page": "https://commons.wikimedia.org/wiki/File:404cl_-_Air_Berlin_Airbus_A320-214;_D-ABDE@ZRH;07.04.2006_(8479621489).jpg"
   },
   "a320neo": {
-    "file": "File:Airbus A320neo landing 03.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3AAirbus_A320neo_landing_03.jpg",
-    "author": "Don-vip",
-    "licence": "CC BY-SA 4.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+    "author": "4300streetcar",
+    "licence": "CC BY 4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:Air_Macau_Airbus_A320neo_B-MCL_on_final_approach_to_Taoyuan_February_2026.jpg"
   },
   "a321": {
-    "file": "File:Airbus A321-231 - Lufthansa (D-AISI).JPG",
-    "page": "https://commons.wikimedia.org/wiki/File%3AAirbus_A321-231_-_Lufthansa_(D-AISI).JPG",
-    "author": "Eluveitie",
-    "licence": "Public domain",
-    "licenceUrl": ""
+    "author": "Miguel Mendez",
+    "licence": "CC BY 2.0",
+    "page": "https://commons.wikimedia.org/wiki/File:Aer_Lingus_A321_(35377603923).jpg"
   },
   "a321neo": {
-    "file": "File:Airbus A321neo EI-LRH MD1.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3AAirbus_A321neo_EI-LRH_MD1.jpg",
-    "author": "Acroterion",
-    "licence": "CC BY-SA 4.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+    "author": "4300streetcar",
+    "licence": "CC BY 4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:Delta_Airbus_A321neo_N549DN_on_final_approach_to_Boston_April_2025.jpg"
   },
   "a321xlr": {
-    "file": "File:Iberia Airbus A321XLR EC-OIL IAD VA1.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3AIberia_Airbus_A321XLR_EC-OIL_IAD_VA1.jpg",
     "author": "Acroterion",
     "licence": "CC BY-SA 4.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0"
-  },
-  "b737": {
-    "file": "File:United Boeing 737-800 N37273 departing Boston Feb 2025.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3AUnited_Boeing_737-800_N37273_departing_Boston_Feb_2025.jpg",
-    "author": "4300streetcar",
-    "licence": "CC BY 4.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by/4.0"
-  },
-  "b73g": {
-    "file": "File:United Boeing 737-700 N27734 departing Boston March 2025 1.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3AUnited_Boeing_737-700_N27734_departing_Boston_March_2025_1.jpg",
-    "author": "4300streetcar",
-    "licence": "CC BY 4.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by/4.0"
-  },
-  "b739": {
-    "file": "File:United Boeing 737-900ER N36472 departing Boston May 2025.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3AUnited_Boeing_737-900ER_N36472_departing_Boston_May_2025.jpg",
-    "author": "4300streetcar",
-    "licence": "CC BY 4.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by/4.0"
-  },
-  "b737max8": {
-    "file": "File:Icelandair Boeing 737-8 MAX TF-ICF MD2.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3AIcelandair_Boeing_737-8_MAX_TF-ICF_MD2.jpg",
-    "author": "Acroterion",
-    "licence": "CC BY-SA 4.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0"
-  },
-  "b757": {
-    "file": "File:United Boeing 757-200 N29129 departing Boston March 2025.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3AUnited_Boeing_757-200_N29129_departing_Boston_March_2025.jpg",
-    "author": "4300streetcar",
-    "licence": "CC BY 4.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by/4.0"
-  },
-  "b767": {
-    "file": "File:Austrian Airlines Boeing 767-300ER OE-LAE on test flight out of Taoyuan February 2026.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3AAustrian_Airlines_Boeing_767-300ER_OE-LAE_on_test_flight_out_of_Taoyuan_February_2026.jpg",
-    "author": "4300streetcar",
-    "licence": "CC BY 4.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by/4.0"
+    "page": "https://commons.wikimedia.org/wiki/File:Iberia_Airbus_A321XLR_EC-OIL_MD1.jpg"
   },
   "a330": {
-    "file": "File:Swiss Airbus A330-300 HB-JHN MD1.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3ASwiss_Airbus_A330-300_HB-JHN_MD1.jpg",
     "author": "Acroterion",
     "licence": "CC BY-SA 4.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+    "page": "https://commons.wikimedia.org/wiki/File:Swiss_Airbus_A330-300_HB-JHK_MD1.jpg"
   },
   "a330neo": {
-    "file": "File:Delta Airbus A330-900 N421DX departing Boston March 2025 1.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3ADelta_Airbus_A330-900_N421DX_departing_Boston_March_2025_1.jpg",
     "author": "4300streetcar",
     "licence": "CC BY 4.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by/4.0"
+    "page": "https://commons.wikimedia.org/wiki/File:Starlux_Airlines_Airbus_A330-900_B-58306_on_final_approach_to_Taoyuan_February_2026.jpg"
+  },
+  "a332": {
+    "author": "4300streetcar",
+    "licence": "CC BY 4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:Sichuan_Airlines_Airbus_A330-200_B-8962_on_final_approach_to_Taipei_Songshan_April_2026_2.jpg"
   },
   "a340": {
-    "file": "File:Lufthansa Airbus A340-300 D-AIGU departing Boston April 2025 3.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3ALufthansa_Airbus_A340-300_D-AIGU_departing_Boston_April_2025_3.jpg",
-    "author": "4300streetcar",
-    "licence": "CC BY 4.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by/4.0"
+    "author": "ken H from Yokohama, Kanagawa-ken, Japan",
+    "licence": "CC BY-SA 2.0",
+    "page": "https://commons.wikimedia.org/wiki/File:Ken_H._FIN_A340-300_on_final_for_R-W16L._(5637151749).jpg"
   },
   "a350": {
-    "file": "File:Scandinavian Airbus A350-900 SE-RSD MD1.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3AScandinavian_Airbus_A350-900_SE-RSD_MD1.jpg",
     "author": "Acroterion",
     "licence": "CC BY-SA 4.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+    "page": "https://commons.wikimedia.org/wiki/File:Scandinavian_Airbus_A350-900_SE-RSE_MD1.jpg"
   },
   "a35k": {
-    "file": "File:British Airways Airbus A350-1000 G-XWBK MD1.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3ABritish_Airways_Airbus_A350-1000_G-XWBK_MD1.jpg",
-    "author": "Acroterion",
+    "author": "Pedant01",
     "licence": "CC BY-SA 4.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+    "page": "https://commons.wikimedia.org/wiki/File:A350-1041_QATAR_A7-ANJ_approaching_Berlin_Tegel.jpg"
   },
   "a380": {
-    "file": "File:Air France A380 F-HPJA.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3AAir_France_A380_F-HPJA.jpg",
-    "author": "Joe Ravi",
+    "author": "Travel.airbus388",
     "licence": "CC BY-SA 3.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by-sa/3.0"
+    "page": "https://commons.wikimedia.org/wiki/File:Airbus_A380_flying_over_Victoria_Harbour.jpg"
   },
-  "b787": {
-    "file": "File:First flight of Boeing 787-9.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3AFirst_flight_of_Boeing_787-9.jpg",
-    "author": "Gordon Werner from Seattle, United States",
-    "licence": "CC BY 2.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by/2.0"
+  "atr42": {
+    "author": "Ken Fielding",
+    "file": "File:F-WWLX(1015 PK-TNJ) ATR42-512(600) TransNusa Airways TLS 22SEP14.jpg",
+    "licence": "CC BY-SA 3.0",
+    "licenceUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "page": "https://commons.wikimedia.org/wiki/File%3AF-WWLX(1015_PK-TNJ)_ATR42-512(600)_TransNusa_Airways_TLS_22SEP14.jpg"
   },
-  "b788": {
-    "file": "File:Biman Bangladesh Airlines Boeing 787-8 dreamliner.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3ABiman_Bangladesh_Airlines_Boeing_787-8_dreamliner.jpg",
-    "author": "Blinkerx0",
+  "atr72": {
+    "author": "ATR Aircraft",
+    "licence": "CC BY-SA 2.0",
+    "page": "https://commons.wikimedia.org/wiki/File:ATR_72-600_in_flight.jpg"
+  },
+  "b190": {
+    "author": "User:Zkvac",
+    "licence": "Public domain",
+    "page": "https://commons.wikimedia.org/wiki/File:Vincent_Aviation_Beechcraft_1900D_(ZK-VAB)_over_New_Zealand%27s_South_Island.jpg"
+  },
+  "b737": {
+    "author": "4300streetcar",
     "licence": "CC BY 4.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by/4.0"
+    "page": "https://commons.wikimedia.org/wiki/File:United_Boeing_737-800_N87512_on_final_approach_to_Boston_April_2025.jpg"
   },
-  "b78x": {
-    "file": "File:British Airways Boeing 787-10 G-ZBLJ MD1.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3ABritish_Airways_Boeing_787-10_G-ZBLJ_MD1.jpg",
-    "author": "Acroterion",
-    "licence": "CC BY-SA 4.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  "b737max8": {
+    "author": "4300streetcar",
+    "licence": "CC BY 4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:Southwest_retrojet_Boeing_737-8_MAX_N871HK_on_final_approach_to_Boston_March_2025.jpg"
   },
-  "b777": {
-    "file": "File:Turkish Boeing 777-300ER TC-LJE MD1.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3ATurkish_Boeing_777-300ER_TC-LJE_MD1.jpg",
-    "author": "Acroterion",
-    "licence": "CC BY-SA 4.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  "b739": {
+    "author": "4300streetcar",
+    "licence": "CC BY 4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:Delta_Boeing_737-900ER_N808DN_on_final_approach_to_Boston_March_2025.jpg"
   },
-  "b772": {
-    "file": "File:British Airways Boeing 777-200ER G-VIID MD1.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3ABritish_Airways_Boeing_777-200ER_G-VIID_MD1.jpg",
-    "author": "Acroterion",
-    "licence": "CC BY-SA 4.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0"
-  },
-  "b747": {
-    "file": "File:Lufthansa Boeing 747-8 D-ABYI IAD VA1.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3ALufthansa_Boeing_747-8_D-ABYI_IAD_VA1.jpg",
-    "author": "Acroterion",
-    "licence": "CC BY-SA 4.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  "b73g": {
+    "author": "Simon Boddy from Maidenhead, Uk",
+    "licence": "CC BY-SA 2.0",
+    "page": "https://commons.wikimedia.org/wiki/File:PH-BGU_airborne_off_27Left_(9051312062).jpg"
   },
   "b744": {
-    "file": "File:340as - JAL Japan Airlines Boeing 747-400; JA8086@LAS;01.03.2005 (8209774539).jpg",
-    "page": "https://commons.wikimedia.org/wiki/File%3A340as_-_JAL_Japan_Airlines_Boeing_747-400%3B_JA8086%40LAS%3B01.03.2005_(8209774539).jpg",
-    "author": "Aero Icarus from Zürich, Switzerland",
+    "author": "4300streetcar",
+    "licence": "CC BY 4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:Lufthansa_Boeing_747-400_D-ABVM_departing_Boston_June_2025_3.jpg"
+  },
+  "b747": {
+    "author": "Acroterion",
+    "licence": "CC BY-SA 4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:Lufthansa_Boeing_747-8_D-ABYA_MD1.jpg"
+  },
+  "b757": {
+    "author": "4300streetcar",
+    "licence": "CC BY 4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:Delta_Boeing_757-200_N702TW_on_final_approach_to_Boston_April_2025_2.jpg"
+  },
+  "b767": {
+    "author": "4300streetcar",
+    "licence": "CC BY 4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:Icelandair_Boeing_767-300ER_TF-ISN_on_final_approach_to_Boston_June_2026_1.jpg"
+  },
+  "b772": {
+    "author": "4300streetcar",
+    "licence": "CC BY 4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:Jin_Air_Boeing_777-200ER_HL7750_on_final_approach_to_Taoyuan_February_2026_2.jpg"
+  },
+  "b777": {
+    "author": "Acroterion",
+    "licence": "CC BY-SA 4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:Saudia_Boeing_777-300ER_HZ-AK42_MD1.jpg"
+  },
+  "b77l": {
+    "author": "Boeing Dreamscape",
+    "licence": "CC BY 2.0",
+    "page": "https://commons.wikimedia.org/wiki/File:Boeing_777-200LR_banking_over_mountain.jpg"
+  },
+  "b787": {
+    "author": "Adam Moreira (AEMoreira042281)",
+    "licence": "CC BY-SA 4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:Turkish_Airlines_Boeing_787-9_Dreamliner_TC-LLC_approaching_JFK_Airport.jpg"
+  },
+  "b788": {
+    "author": "Acroterion",
+    "licence": "CC BY-SA 4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:Royal_Air_Maroc_Boeing_787-8_CN-RGC_MD3.jpg"
+  },
+  "b78x": {
+    "author": "4300streetcar",
+    "licence": "CC BY 4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:EVA_Air_Boeing_787-10_B-17806_on_final_approach_to_Taoyuan_February_2026.jpg"
+  },
+  "c208": {
+    "author": "Raimund Stehmann",
+    "file": "File:Abyssinian Flight Services Cessna 208 Caravan I Stehmann-1.jpg",
+    "licence": "GFDL",
+    "licenceUrl": "http://www.gnu.org/copyleft/fdl.html",
+    "page": "https://commons.wikimedia.org/wiki/File%3AAbyssinian_Flight_Services_Cessna_208_Caravan_I_Stehmann-1.jpg"
+  },
+  "crj200": {
+    "author": "Grzegorz Jereczek from Gda\u0144sk, Poland",
     "licence": "CC BY-SA 2.0",
-    "licenceUrl": "https://creativecommons.org/licenses/by-sa/2.0"
+    "page": "https://commons.wikimedia.org/wiki/File:Austrian_Arrows_Bombardier_CRJ-200_OE-LCO_(3554120719).jpg"
+  },
+  "crj900": {
+    "author": "Eddie Maloney from  North Las Vegas, USA",
+    "licence": "CC BY-SA 2.0",
+    "page": "https://commons.wikimedia.org/wiki/File:CRJ900_N815SK_approaching_Las_Vegas_Apr_2008_(3455022122).jpg"
+  },
+  "dhc6": {
+    "author": "Paul Spijkers",
+    "licence": "GFDL",
+    "page": "https://commons.wikimedia.org/wiki/File:Air_Moorea_DHC-6_Twin_Otter_(_F-OIQI)_on_final_approach_into_Papeete.jpg"
+  },
+  "e145": {
+    "author": "4300streetcar",
+    "licence": "CC BY 4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:American_Eagle_(Envoy)_Embraer_ERJ-145_N696AE_departing_Boston_April_2025.jpg"
+  },
+  "e170": {
+    "author": "4300streetcar",
+    "licence": "CC BY 4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:DeltaConnection_Embraer_170_N880RW_on_final_approach_to_Boston_December_2025.jpg"
+  },
+  "e175": {
+    "author": "4300streetcar",
+    "licence": "CC BY 4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:American_Eagle_Embraer_175_N114HQ_on_final_approach_to_Boston_December_2025.jpg"
+  },
+  "e190": {
+    "author": "Alan Wilson from Peterborough, Cambs, UK",
+    "licence": "CC BY-SA 2.0",
+    "page": "https://commons.wikimedia.org/wiki/File:Embraer_E190-E2_%E2%80%98LN-WEB%E2%80%99_Wider%C3%B8e_(52175360614).jpg"
+  },
+  "e195e2": {
+    "author": "Mitchul Hope",
+    "licence": "CC BY-SA 2.0",
+    "page": "https://commons.wikimedia.org/wiki/File:KLM_Cityhopper_PH-NXF_Embraer_E195-E2_Amsterdam_Airport_Schiphol_(AMS_EHAM)_(52723486012).jpg"
+  },
+  "q400": {
+    "author": "Ron Clausen",
+    "licence": "CC BY-SA 4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:Alaska_Airlines_Bombardier_Dash_8_Q400.jpg"
+  },
+  "sf34": {
+    "author": "John Davies - CYOW Airport Watch",
+    "licence": "GFDL 1.2",
+    "page": "https://commons.wikimedia.org/wiki/File:Saab_340B,_American_Eagle_AN0175471.jpg"
   }
 }
