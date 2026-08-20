@@ -243,45 +243,130 @@ def plane_rings(size):
 
 
 def world_rings(size, _cache={}):
+    """A GLOBE, BECAUSE A SQUARE TILE CANNOT HOLD A FLAT WORLD HONESTLY.
+
+    WHAT WAS HERE. An equirectangular map with a 1.7x VERTICAL STRETCH baked in,
+    and a comment defending it: a true flat world is 360 wide by 141 tall once
+    Antarctica is out, so drawn to scale in a square it is a band across the
+    middle with two thirds of the icon empty. That reasoning is sound and the
+    conclusion was still wrong - Ethan: "it should be actual world map with
+    correct proportions, currently it looks squashed." Stretching latitude by
+    1.7 makes Africa tall and thin and Greenland enormous, and at 60px what you
+    notice is not "the world", it is that something is off.
+
+    The square tile was the real constraint, and a globe answers it exactly. An
+    orthographic projection of a sphere IS a circle: it fills a square tile
+    edge to edge, every continent keeps its true shape, and nothing is stretched
+    to make it fit. It is also the more legible icon at 60px, because the
+    silhouette is a circle rather than a rectangle of noise.
+
+    Centred on 20N 10E, which is the view that puts Africa in the middle with
+    Europe above it, the Americas on the left limb and Asia on the right - the
+    most recognisable single face of the planet.
+    """
     if 'r' not in _cache: _cache['r'] = land_rings()
     rings = _cache['r']
-    # Equirectangular, because a flat world map is what was asked for. Clipped
-    # north of 84 and south of 57: the atlas already has Antarctica removed, and
-    # those bounds are its real extent, so the map fills the tile.
-    lat0, lat1 = -57.0, 84.0
-    w = size * 0.94
-    # STRETCHED IN LATITUDE, ON PURPOSE.
-    #
-    # A true equirectangular world is 360 wide by 141 tall once Antarctica is
-    # out, so drawn to scale in a square tile it is a band a third of the height
-    # with two thirds of the icon empty - which at the 60 pixels a home screen
-    # actually renders is an orange square with a smudge across the middle.
-    # An app icon is not a chart: nobody is measuring anything off it, and the
-    # only job is that it reads as the world at a glance. A 1.7x vertical
-    # stretch fills the tile and every continent keeps its silhouette.
-    h = w * (lat1 - lat0) / 360.0 * 1.7
-    ox, oy = (size - w) / 2, (size - h) / 2
+
+    lat0, lon0 = math.radians(20.0), math.radians(10.0)
+    R = size * 0.455
+    cx = cy = size / 2.0
+    sin0, cos0 = math.sin(lat0), math.cos(lat0)
+
+    def vec(lon, lat):
+        """Point on the unit sphere. Longitudes are already in degrees here."""
+        la, lo = math.radians(lat), math.radians(lon)
+        return (math.cos(la) * math.cos(lo), math.cos(la) * math.sin(lo), math.sin(la))
+
+    # The viewing direction, as a vector, so "is this point on the near side"
+    # is one dot product rather than a spherical-trig special case.
+    V = vec(math.degrees(lon0), math.degrees(lat0))
+
+    def dot(a, b): return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+
+    def norm(a):
+        m = math.sqrt(dot(a, a)) or 1.0
+        return (a[0] / m, a[1] / m, a[2] / m)
+
+    def screen(v):
+        """Orthographic. x is east of centre, y is south of centre (PNG rows go
+        down), both scaled by the globe's radius."""
+        x, y, z = v
+        # East and north basis vectors at the centre of the projection.
+        ex, ey = -math.sin(lon0), math.cos(lon0)
+        e = x * ex + y * ey
+        n = -sin0 * math.cos(lon0) * x - sin0 * math.sin(lon0) * y + cos0 * z
+        return (cx + e * R, cy - n * R)
+
     out = []
+
+    # NO LIMB OUTLINE, AND NO CLOSING ARC ALONG IT.
+    #
+    # Both were tried and both were wrong for the same reason: the filler uses
+    # NONZERO winding, so every extra ring interacts with every other one. An
+    # annulus for the globe's edge inverted whatever land crossed it, and
+    # closing a clipped continent by slerping along the limb takes the SHORT arc
+    # between the two crossings - which for a landmass spanning a wide slice of
+    # the horizon is the wrong way round, and paints a sweep of white across the
+    # ocean. (Those were the arcs over the Arctic.)
+    #
+    # What is left is the honest minimum: land on the near side, cut at the
+    # horizon, closed straight. The chord that leaves is at most a few pixels
+    # off the limb at this size because the rings are densified first, and the
+    # circle of the globe is drawn by the coastlines themselves.
+
     for r in rings:
-        # THE ANTIMERIDIAN, WHICH RUSSIA SITS ON.
-        # Russia is one ring in this atlas and it crosses 180 degrees, so read
-        # literally it jumps from +180 to -180 and back - and a filled ring with
-        # a jump like that paints a dead-straight white bar right across the
-        # ocean at 70 north. Wrangel Island and Fiji do the same. So the ring is
-        # unwrapped into continuous longitude first, then drawn at -360, 0 and
-        # +360 wherever those copies touch the tile; the rasteriser clips the
-        # rest. Chukotka lands on the left edge where it belongs.
-        u = [r[0]]
-        for lon, lat in r[1:]:
-            prev = u[-1][0]
-            while lon - prev > 180: lon -= 360
-            while lon - prev < -180: lon += 360
-            u.append((lon, lat))
-        lo = min(p[0] for p in u); hi = max(p[0] for p in u)
-        for shift in (-360.0, 0.0, 360.0):
-            if lo + shift > 180 or hi + shift < -180: continue
-            out.append([(ox + (lon + shift + 180) / 360.0 * w,
-                         oy + (lat1 - lat) / (lat1 - lat0) * h) for lon, lat in u])
+        # Densify first. Clipping happens on the near/far boundary, and a ring
+        # whose vertices are ten degrees apart crosses that boundary in one
+        # long step - so the entry and exit points land far from where the
+        # coastline actually meets the horizon.
+        dense = []
+        for i in range(len(r)):
+            lon_a, lat_a = r[i]
+            lon_b, lat_b = r[(i + 1) % len(r)]
+            d = max(abs(lon_b - lon_a), abs(lat_b - lat_a))
+            n = max(1, min(64, int(d / 1.5)))
+            for k in range(n):
+                t = k / n
+                dense.append(vec(lon_a + (lon_b - lon_a) * t, lat_a + (lat_b - lat_a) * t))
+        if not dense: continue
+
+        # Sutherland-Hodgman against the plane dot(P, V) = 0: keep the near side,
+        # and put every crossing exactly on the limb.
+        clipped = []
+        for i in range(len(dense)):
+            a, b = dense[i], dense[(i + 1) % len(dense)]
+            da, db = dot(a, V), dot(b, V)
+            if da >= 0: clipped.append(a)
+            if (da >= 0) != (db >= 0):
+                t = da / (da - db)
+                clipped.append(norm((a[0] + (b[0] - a[0]) * t,
+                                     a[1] + (b[1] - a[1]) * t,
+                                     a[2] + (b[2] - a[2]) * t)))
+        if len(clipped) < 3: continue
+
+        pts = [screen(v) for v in clipped]
+
+        # TWO TIDY-UPS, BOTH ABOUT WHAT SURVIVES CLIPPING.
+        #
+        # Numerical drift at the horizon can put a crossing point a hair outside
+        # the limb, which paints a whisker off the edge of the globe, so every
+        # point is clamped back onto the disc.
+        #
+        # And a ring that comes out of the clipper as a sliver - the far tip of
+        # something almost entirely round the back, or an islet a fraction of a
+        # pixel across - is speckle rather than geography. Those were the flecks
+        # over the Arctic. Anything whose bounding box is under a pixel goes.
+        fixed = []
+        for x, y in pts:
+            dx, dy = x - cx, y - cy
+            d = math.hypot(dx, dy)
+            if d > R and d > 0:
+                x, y = cx + dx / d * R, cy + dy / d * R
+            fixed.append((x, y))
+        xs = [p[0] for p in fixed]; ys = [p[1] for p in fixed]
+        if max(xs) - min(xs) < 1.0 and max(ys) - min(ys) < 1.0: continue
+        out.append(fixed)
+
     return out
 
 

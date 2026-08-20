@@ -30,41 +30,60 @@ export const APP_ICONS = [
   {
     key: 'classic',
     label: 'Classic',
-    hint: 'The Tryp.com Y on brand orange. The one you have now.',
     apple: '/apple-touch-icon-v4.png',
     manifest: '/manifest.webmanifest',
   },
   {
     key: 'mono',
     label: 'Minimal',
-    hint: 'The Y in charcoal on white. Quiet next to everything else.',
     apple: '/icons/mono/apple-touch-icon.png',
     manifest: '/icons/mono/manifest.webmanifest',
   },
   {
     key: 'world',
     label: 'World',
-    hint: 'Every coastline we cover, in white on orange.',
     apple: '/icons/world/apple-touch-icon.png',
     manifest: '/icons/world/manifest.webmanifest',
   },
   {
     key: 'plane',
     label: 'Plane',
-    hint: 'The Tryp plane, the same one that flies across the maps.',
     apple: '/icons/plane/apple-touch-icon.png',
     manifest: '/icons/plane/manifest.webmanifest',
   },
   {
     key: 'midnight',
     label: 'Midnight',
-    hint: 'Orange Y on charcoal. Made for a dark wallpaper.',
     apple: '/icons/midnight/apple-touch-icon.png',
     manifest: '/icons/midnight/manifest.webmanifest',
   },
 ]
 
 export const DEFAULT_APP_ICON = APP_ICONS[0].key
+
+// THE CHOICE HAS TO SURVIVE A FRESH TAB, BECAUSE THAT IS THE WHOLE FLOW.
+//
+// Re-adding a home-screen shortcut means removing the old one and opening the
+// site again, and "again" is often a new tab typed by hand or pasted from a
+// message. localStorage does carry across tabs in the same browser, but it does
+// NOT carry if the person pastes the link into a different browser, or opens it
+// from a message that launches an in-app webview - and both of those are common
+// enough that the instructions cannot rely on it.
+//
+// So the link the card hands over names the icon: `?icon=world`. Read once on
+// boot, it re-selects that icon and stores it, which makes the pasted URL
+// self-contained.
+export const APP_ICON_PARAM = 'icon'
+
+/** The icon named in the current URL, if it names a real one. */
+export function iconFromUrl(search = typeof window !== 'undefined' ? window.location.search : '') {
+  try {
+    const key = new URLSearchParams(search).get(APP_ICON_PARAM)
+    return APP_ICONS.some((v) => v.key === key) ? key : null
+  } catch {
+    return null
+  }
+}
 
 export function iconVariant(key) {
   return APP_ICONS.find((v) => v.key === key) || APP_ICONS[0]

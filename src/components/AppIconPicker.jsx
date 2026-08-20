@@ -9,7 +9,8 @@
 import { useState } from 'react'
 import Icon from './Icon'
 import { toastSuccess } from '../lib/toast'
-import { APP_ICONS, getAppIcon, setAppIcon } from '../lib/appIcon'
+import { CopyButton } from './ui'
+import { APP_ICONS, APP_ICON_PARAM, getAppIcon, setAppIcon } from '../lib/appIcon'
 
 // 60px is roughly what an app icon measures on an iPhone home screen, and the
 // corner radius is the same fraction iOS uses. A preview at some other size is
@@ -26,6 +27,10 @@ export default function AppIconPicker() {
   }
 
   const active = APP_ICONS.find((v) => v.key === chosen) || APP_ICONS[0]
+  // Built from the live origin rather than hard-coded, so it is right on the
+  // vercel.app domain, on a custom domain, and in local development.
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  const installUrl = `${origin}/home?${APP_ICON_PARAM}=${active.key}`
 
   return (
     <section className="card">
@@ -47,7 +52,6 @@ export default function AppIconPicker() {
                 type="button"
                 role="radio"
                 aria-checked={on}
-                title={v.hint}
                 onClick={() => choose(v.key)}
                 className="group flex w-[72px] flex-col items-center gap-2 rounded-xl p-1 text-center transition-transform duration-200 hover:-translate-y-0.5 hover:scale-105 active:translate-y-0"
               >
@@ -81,24 +85,50 @@ export default function AppIconPicker() {
             )
           })}
         </div>
-        <p className="mt-4 text-xs leading-relaxed text-smoke">{active.hint}</p>
       </div>
 
-      {/* THE HONEST BIT. Short, numbered, and not a wall of text: nobody reads a
-          paragraph explaining why their phone works the way it does, but three
-          lines telling them what to press is a thing they will actually do. */}
+      {/* THE HONEST BIT, WITH THE LINK IT WAS MISSING.
+          The steps were right and step two was a dead end: "open Tryp.com in
+          your browser and add it to your home screen again" leaves somebody who
+          has just DELETED their only shortcut with nothing to open. Ethan asked
+          for the address to be handed over instead - "copy this link (here is
+          where you need to provide the correct link for the correct icon they
+          choose, with a button to copy it easily)".
+
+          And the link carries the icon (`?icon=world`), so it works even if
+          they paste it into a different browser or open it from a message. See
+          lib/appIcon. */}
       <div className="mt-5 rounded-xl border border-gray-100 bg-cloud/40 p-4">
         <p className="flex items-start gap-2 text-xs font-semibold text-ink">
           <Icon name="alert" className="mt-px h-4 w-4 shrink-0 text-brand" />
-          An icon already on your home screen cannot be changed
+          An icon already on your home screen cannot be changed automatically
         </p>
         <p className="mt-1.5 text-xs leading-relaxed text-smoke">
-          Your phone copies the icon at the moment you add the shortcut and keeps that copy. To swap it:
+          Your phone uses the icon it copied when you added the website, and keeps that copy. To swap it:
         </p>
-        <ol className="mt-2 space-y-1 pl-4 text-xs leading-relaxed text-smoke">
-          <li className="list-decimal">Pick an icon above.</li>
-          <li className="list-decimal">Press and hold the Tryp.com icon on your home screen, then remove it.</li>
-          <li className="list-decimal">Open Tryp.com in your browser and add it to your home screen again.</li>
+        <ol className="mt-2.5 space-y-2.5 text-xs leading-relaxed text-smoke">
+          <li className="flex gap-2.5">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-bold text-brand shadow-sm">1</span>
+            <span>Pick an icon above. You have chosen <strong className="font-semibold text-ink">{active.label}</strong>.</span>
+          </li>
+          <li className="flex gap-2.5">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-bold text-brand shadow-sm">2</span>
+            <span className="min-w-0 flex-1">
+              Copy this link.
+              <span className="mt-1.5 flex items-center gap-2 rounded-lg border border-gray-100 bg-white p-1.5">
+                <code className="min-w-0 flex-1 truncate px-1 text-[11px] text-smoke">{installUrl}</code>
+                <CopyButton value={installUrl} label="Copy" />
+              </span>
+            </span>
+          </li>
+          <li className="flex gap-2.5">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-bold text-brand shadow-sm">3</span>
+            <span>Press and hold the current icon on your home screen, then remove it.</span>
+          </li>
+          <li className="flex gap-2.5">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-bold text-brand shadow-sm">4</span>
+            <span>Paste the link into your browser, press the share button, and add it to your home screen again.</span>
+          </li>
         </ol>
       </div>
     </section>
