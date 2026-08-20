@@ -6,6 +6,7 @@
 // between finishing up and submitting another video.
 
 import { useEffect } from 'react'
+import { lockScroll } from '../lib/scrollLock'
 
 const CLOUDS = [
   { top: '10%', scale: 0.5, dur: 13, delay: -2, o: 0.9 },
@@ -45,10 +46,10 @@ export default function SubmissionSuccess({
     if (!open) return
     const onKey = (e) => e.key === 'Escape' && onDone()
     document.addEventListener('keydown', onKey)
-    document.body.style.overflow = 'hidden'
+    const release = lockScroll()
     return () => {
       document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = ''
+      release()
     }
   }, [open, onDone])
 

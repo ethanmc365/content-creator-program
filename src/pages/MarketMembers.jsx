@@ -91,6 +91,33 @@ export default function MarketMembers() {
             />
           ) : (
             <>
+              {/* THE TRYP.COM TEAM COMES FIRST. It used to sit under the roster,
+                  which on Ireland meant scrolling past 44 creator cards to find
+                  the four people who actually run the market. Ethan's read:
+                  "the team here should actually be moved to the top above the
+                  creators because that's showing the Tryp.com team". Putting it
+                  first costs the roster nothing - it is a row of pills, not a
+                  section - and it answers "who do I talk to" before the reader
+                  has to go looking. */}
+              {team.length > 0 && (
+                <section>
+                  <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
+                    <Icon name="shield" className="h-5 w-5 text-brand" /> The team here
+                  </h2>
+                  <div className="flex flex-wrap gap-2">
+                    {team.map((m) => (
+                      <Link key={m.profile_id} to={`/profile/${m.profile_id}`}
+                        className={cx('flex items-center gap-2.5 rounded-full border border-gray-200 bg-white py-1.5 pl-1.5 pr-4',
+                          'transition-transform duration-200 hover:scale-105 hover:border-brand')}>
+                        <Avatar src={m.profiles.photo_url} name={m.profiles.name} size="xs" />
+                        <span className="text-sm font-medium">{m.profiles.name}</span>
+                        {m.role === 'manager' && <Badge tone="light">Manager</Badge>}
+                      </Link>
+                    ))}
+                  </div>
+                </section>
+              )}
+
               <section>
                 <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
                   <Icon name="users" className="h-5 w-5 text-brand" />
@@ -127,24 +154,6 @@ export default function MarketMembers() {
                 </motion.div>
               </section>
 
-              {team.length > 0 && (
-                <section>
-                  <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-                    <Icon name="shield" className="h-5 w-5 text-brand" /> The team here
-                  </h2>
-                  <div className="flex flex-wrap gap-2">
-                    {team.map((m) => (
-                      <Link key={m.profile_id} to={`/profile/${m.profile_id}`}
-                        className={cx('flex items-center gap-2.5 rounded-full border border-gray-200 bg-white py-1.5 pl-1.5 pr-4',
-                          'transition-transform duration-200 hover:scale-105 hover:border-brand')}>
-                        <Avatar src={m.profiles.photo_url} name={m.profiles.name} size="xs" />
-                        <span className="text-sm font-medium">{m.profiles.name}</span>
-                        {m.role === 'manager' && <Badge tone="light">Manager</Badge>}
-                      </Link>
-                    ))}
-                  </div>
-                </section>
-              )}
             </>
           )}
         </motion.div>

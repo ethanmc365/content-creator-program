@@ -898,7 +898,7 @@ export default function Chat() {
           // Tapping the chat dismisses the keyboard (WhatsApp-style). A scroll
           // drag doesn't fire click, so scrolling the history leaves it up.
           onClick={() => { if (isMobile && kbOpen) document.activeElement?.blur?.() }}
-          className="min-h-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden overscroll-contain touch-pan-y touch-pinch-zoom px-4 py-4 sm:space-y-5 sm:px-8 sm:py-6"
+          className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain overflow-x-hidden overscroll-contain touch-pan-y touch-pinch-zoom px-4 py-4 sm:space-y-5 sm:px-8 sm:py-6"
         >
           {loading && (
             <div className="space-y-5">

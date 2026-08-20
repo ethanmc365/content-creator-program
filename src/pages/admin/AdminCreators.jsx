@@ -529,7 +529,7 @@ export default function AdminCreators() {
             {detail?.submissions.length > 0 && (
               <div>
                 <h3 className="mb-2 text-sm font-semibold">Submissions</h3>
-                <ul className="max-h-44 space-y-2 overflow-y-auto">
+                <ul className="max-h-44 space-y-2 overflow-y-auto overscroll-contain">
                   {detail.submissions.map((s) => (
                     <li key={s.id} className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 px-4 py-2.5 text-xs">
                       <span className="min-w-0 truncate">{s.challenges?.title} · {s.platform} · {timeAgo(s.submitted_at)}</span>

@@ -43,7 +43,13 @@ export default function AppIconPicker() {
       </p>
 
       <div className="mt-5 border-t border-gray-100 pt-5">
-        <div className="flex flex-wrap gap-4" role="radiogroup" aria-label="Home screen icon">
+        {/* THREE AND THREE, NOT "whatever fits". A wrapping flex row laid the
+            five icons out as five-and-nothing on a wide card and four-and-one
+            on a narrow one, and a single orphan on the second row reads as an
+            afterthought rather than a choice. A fixed three-column grid gives
+            two even rows at every width the card is ever drawn at, which is
+            also why there are six icons now rather than five. */}
+        <div className="grid grid-cols-3 justify-items-center gap-4" role="radiogroup" aria-label="Home screen icon">
           {APP_ICONS.map((v) => {
             const on = v.key === chosen
             return (

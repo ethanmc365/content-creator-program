@@ -265,7 +265,7 @@ export function NewGroupModal({ open, onClose, people, connectionIds, myId, onCr
             placeholder="Search creators…"
             aria-label="Search creators to invite"
           />
-          <div className="max-h-56 space-y-0.5 overflow-y-auto">
+          <div className="max-h-56 space-y-0.5 overflow-y-auto overscroll-contain">
             {listed.map((p) => (
               <PersonToggle
                 key={p.id}
@@ -436,7 +436,7 @@ export function GroupSettingsModal({
             placeholder="Search creators…"
             aria-label="Search creators to invite"
           />
-          <div className="max-h-48 space-y-0.5 overflow-y-auto">
+          <div className="max-h-48 space-y-0.5 overflow-y-auto overscroll-contain">
             {listed.map((p) => (
               <PersonToggle
                 key={p.id}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { videoEmbed, resolveVideoEmbed } from '../lib/videoPreview'
 import { cx } from '../lib/utils'
+import { lockScroll } from '../lib/scrollLock'
 
 // A media-focused lightbox that plays a submitted entry INSIDE the platform:
 // YouTube / TikTok / Instagram all embed via their tokenless iframe players, so
@@ -17,10 +18,10 @@ export default function VideoEmbedModal({ url, platform, title, onClose }) {
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose()
     document.addEventListener('keydown', onKey)
-    document.body.style.overflow = 'hidden'
+    const release = lockScroll()
     return () => {
       document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = ''
+      release()
     }
   }, [onClose])
 

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { _setConfirmHandler } from '../lib/confirm'
+import { lockScroll } from '../lib/scrollLock'
 
 // Branded, non-suppressible replacement for window.confirm(). Mounted once in
 // App.jsx; it registers the handler that lib/confirm.js's confirm() drives.
@@ -43,7 +44,7 @@ export default function ConfirmHost() {
 
   useEffect(() => {
     if (!state) return
-    document.body.style.overflow = 'hidden'
+    const release = lockScroll()
     const onKey = (e) => {
       if (e.key === 'Escape') { e.preventDefault(); close(isPrompt ? null : false) }
       else if (e.key === 'Enter' && !isPrompt) { e.preventDefault(); close(true) }
@@ -53,7 +54,7 @@ export default function ConfirmHost() {
     if (isPrompt) setTimeout(() => inputRef.current?.focus(), 20)
     return () => {
       document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = ''
+      release()
     }
   }, [state, close, isPrompt])
 

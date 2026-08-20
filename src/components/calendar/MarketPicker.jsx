@@ -99,7 +99,7 @@ export default function MarketPicker({ chapters = [], value = [], onChange, id =
           // `max-h-72` keeps a seven-market list from taking the whole form and
           // gives the menu its own scroller; the border and shadow tie it to the
           // button so the two read as one control that has opened.
-          className="relative z-10 mt-1.5 max-h-72 overflow-y-auto rounded-card border border-gray-100 bg-white p-1 shadow-lift animate-menu-in"
+          className="relative z-10 mt-1.5 max-h-72 overflow-y-auto overscroll-contain rounded-card border border-gray-100 bg-white p-1 shadow-lift animate-menu-in"
         >
           <button
             type="button"

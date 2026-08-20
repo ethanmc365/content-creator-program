@@ -266,7 +266,7 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-smoke">
               What gets posted
             </p>
-            <p className="max-h-44 overflow-y-auto whitespace-pre-wrap rounded-xl border border-gray-100 bg-cloud/50 px-4 py-3 text-sm">
+            <p className="max-h-44 overflow-y-auto overscroll-contain whitespace-pre-wrap rounded-xl border border-gray-100 bg-cloud/50 px-4 py-3 text-sm">
               {message}
             </p>
           </div>

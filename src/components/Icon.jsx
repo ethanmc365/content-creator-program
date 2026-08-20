@@ -100,6 +100,13 @@ const LAYERED_PATHS = {
 // Flight Path, nose up.
 const FILLED_PATHS = {
   'plane-tryp': 'M12 1.55 C13.05 1.55 13.71 3.45 13.71 6.11 L13.71 7.82 L21.5 12.95 L21.5 14.95 L13.71 11.81 L13.71 16.75 L16.18 19.22 L16.18 20.74 L12 19.32 L7.82 20.74 L7.82 19.22 L10.29 16.75 L10.29 11.81 L2.5 14.95 L2.5 12.95 L10.29 7.82 L10.29 6.11 C10.29 3.45 10.95 1.55 12 1.55 Z',
+  // `plane-flight` is the PLAIN one, and it exists because `plane-tryp` is a
+  // brand mark. It is nose-up like its neighbour, so anything drawing a plane
+  // travelling left to right rotates it 90 degrees. Slimmer fuselage, straighter
+  // wings and a smaller tailplane than the Tryp silhouette - at 40px on a moving
+  // element what reads is the outline, and these two have to be distinguishable
+  // from each other or there was no point adding the second one.
+  'plane-flight': 'M12 2 C12.62 2 13.06 3.15 13.06 4.7 L13.06 8.5 L21.6 13.5 L21.6 15.2 L13.06 12.7 L13.06 17.4 L15.7 19.5 L15.7 20.9 L12 19.8 L8.3 20.9 L8.3 19.5 L10.94 17.4 L10.94 12.7 L2.4 15.2 L2.4 13.5 L10.94 8.5 L10.94 4.7 C10.94 3.15 11.38 2 12 2 Z',
 }
 
 export default function Icon({ name, className = 'h-5 w-5', strokeWidth = 1.7 }) {

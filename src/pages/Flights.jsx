@@ -16,6 +16,7 @@ import AircraftArt from '../components/network/AircraftArt'
 import { confirm, notice } from '../lib/confirm'
 import { toast } from '../lib/toast'
 import { airport, searchAirports, distanceKm, estimateMinutes, bearing, compass, haul, co2Kg } from '../lib/airports'
+import { NO_AUTOFILL, NO_AUTOFILL_SEARCH } from '../lib/noAutofill'
 import { routeAirlines, aircraftFor, anyAircraftFor, airlineByName, continentOf, AIRCRAFT } from '../lib/airlines'
 import { buildFlightStats, humanHours, clockShift, MONTHS } from '../lib/flightStats'
 import { compressImage } from '../lib/image'
@@ -72,18 +73,19 @@ const PURPOSES = [
 ]
 const PURPOSE_LABEL = Object.fromEntries(PURPOSES.map((p) => [p.key, p.label]))
 
-// SIX ORANGES THAT ARE ACTUALLY SIX COLOURS.
+// THE SIX-ORANGE RAMP IS GONE WITH THE BAR IT COLOURED.
 //
-// The purpose bar was ONE fill - brand orange - with `opacity: 1 - i * 0.14`
-// stepping each segment down. Fourteen percent of alpha over a white ground is
-// a difference you can measure and cannot see: Ethan, "I can barely see the
-// colour differences on the line, they look the same."
+// It existed to make the segments of a stacked purpose bar tell each other
+// apart, and it was rebuilt once for exactly that: the first version stepped one
+// orange down by 14% of alpha per segment, which is a difference you can measure
+// and cannot see. The replacement was six real values walked from a burnt orange
+// to a pale one, and they did read as six colours.
 //
-// A ramp of real values instead, walked from a deep burnt orange to a pale one.
-// Every neighbouring pair differs in lightness by enough to read as a boundary
-// without any of them leaving the brand family, and the legend swatch takes the
-// same value as its segment so the two can never drift apart.
-const PURPOSE_RAMP = ['#8f2c04', '#c23d06', '#d94407', '#ef6a22', '#f5853f', '#fbb384']
+// The bar is now six cards (see PurposeBar), which need no ramp at all: a number
+// on a card says "four" without anybody having to match a swatch to a segment.
+// Deleting the constant rather than leaving it is deliberate - a colour scale
+// with no chart to scale is the sort of thing that gets reused by accident.
+
 
 // One shape, declared once. `save` resets to it and the modal's Cancel does
 // too, so there is no list of fields to keep in step in three places.
@@ -165,14 +167,19 @@ function AirportField({ id, label, value, onChange, autoFocus = false }) {
   return (
     <div ref={boxRef} className="relative">
       <label htmlFor={id} className="label">{label}</label>
+      {/* THE PLACEHOLDER USED TO SAY "city" AND THAT WAS THE WHOLE PROBLEM.
+          Safari's AutoFill classifier reads placeholders, and one address word
+          in one was enough to put a home address above the keyboard on every
+          airport lookup. Two examples say what the abstract noun did, and
+          neither is a word an address book knows. See lib/noAutofill. */}
       <input
         id={id}
         value={query}
         autoFocus={autoFocus}
-        autoComplete="off"
+        {...NO_AUTOFILL_SEARCH}
         onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
         onFocus={() => setOpen(true)}
-        placeholder="Code or city, e.g. LIS or Lisbon"
+        placeholder="Code or place, e.g. LIS or Lisbon"
         className="input w-full"
       />
       {open && hits.length > 0 && (
@@ -313,18 +320,24 @@ function BoardingPass({ from, to, facts, dateStr, airlineName, flightNo, seat, a
               </svg>
               {from && to && (
                 <span className="pass-plane-fly">
-                  {/* THE ACTUAL AIRCRAFT, NOT A GLYPH. Ethan: "rather than
-                      having a plane icon, can you use the actual tryp.com
-                      plane, shrink it down smaller but still clearly visible".
-                      The cutout is the one safe on a coloured ground - the
-                      -transparent file is 1-bit and only works on white - and
-                      it faces LEFT, so `.pass-plane-img` mirrors it.
-                      A drop shadow keeps the white fuselage off the orange. */}
-                  <img
-                    src="/brand/tryp-plane-cutout.png"
-                    alt=""
-                    aria-hidden
-                    className="pass-plane-img w-[38px] drop-shadow-[0_1px_3px_rgba(0,0,0,0.35)] sm:w-[46px]"
+                  {/* A PLAIN WHITE PLANE, NOT THE BRAND ONE.
+                      It was the tryp.com plane photograph, which was asked for
+                      and then read back badly at this size: a 40px photo of an
+                      aircraft on a moving element is a grey-and-white smudge
+                      with a shadow under it, and the thing it is meant to say -
+                      "something is flying along this line" - was the part that
+                      got lost. Ethan: "keep the animation the same, the line the
+                      same, but change the tryp.com airplane to a standard just
+                      white icon airplane. I think it'll look more clear and
+                      simple."
+                      So: a flat silhouette in pure white, which holds its shape
+                      at any size and needs no drop shadow to sit on the orange.
+                      `plane-flight` is nose-up like every plane glyph in the
+                      set, and the line runs left to right, so `.pass-plane-img`
+                      turns it a quarter. */}
+                  <Icon
+                    name="plane-flight"
+                    className="pass-plane-img h-[26px] w-[26px] text-white sm:h-[30px] sm:w-[30px]"
                   />
                 </span>
               )}
@@ -772,6 +785,25 @@ export default function Flights() {
     // upcoming flight, which is the whole point of removing the toggle.
     // No direction check at all now. A past date is a flown flight and a future
     // date is an upcoming one, and both are valid things to be saving.
+    // EVERYTHING NOT MARKED "(optional)" IS NOW ACTUALLY REQUIRED.
+    //
+    // It was possible to save a flight with no airline and no note, because the
+    // labels were the only thing saying they were needed and `save` never
+    // checked. Ethan: "it seems like I've been able to add to log without
+    // actually selecting an airline etcetera, or filling in the note. Only the
+    // things that show optional can be skipped."
+    //
+    // So the rule is now literal and there is exactly one list: a field whose
+    // label carries "(optional)" may be blank, and one whose label does not may
+    // not. Optional today: aircraft, flight number, seat, what-for, the photo.
+    // Required: both airports, the date, the airline, the note - and the return
+    // date once round trip is ticked.
+    //
+    // The message names the field rather than saying "fill in the form", so
+    // somebody who has scrolled past the airline picker knows which control to
+    // go back to.
+    if (!form.airline.trim()) { setError('Pick the airline you flew with, or tap Other to type it in.'); return }
+    if (!form.note.trim()) { setError('Add a note about this trip. It is the bit that makes the flight worth reading back.'); return }
     if (form.round_trip) {
       if (!form.return_on) { setError('Add the date you fly back, or untick round trip.'); return }
       // A return date in the future is fine even on a flight already taken:
@@ -1750,7 +1782,7 @@ export default function Flights() {
               <p className="label">Airline</p>
               {customAirline ? (
                 <div className="flex gap-2">
-                  <input id="flight-airline" value={form.airline} maxLength={60} autoFocus
+                  <input id="flight-airline" value={form.airline} maxLength={60} autoFocus {...NO_AUTOFILL}
                     placeholder="The airline you flew"
                     onChange={(e) => setForm((f) => ({ ...f, airline: e.target.value }))} className="input w-full" />
                   <button type="button" onClick={() => { setCustomAirline(false); setForm((f) => ({ ...f, airline: '' })) }}
@@ -1829,6 +1861,7 @@ export default function Flights() {
                     value={form.aircraft}
                     maxLength={60}
                     autoFocus
+                    {...NO_AUTOFILL}
                     placeholder="The aircraft you were on"
                     onChange={(e) => setForm((f) => ({ ...f, aircraft: e.target.value }))}
                     className="input w-full"
@@ -1891,7 +1924,7 @@ export default function Flights() {
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div>
               <label htmlFor="flight-number" className="label">Flight no. <span className="font-normal text-smoke">(optional)</span></label>
-              <input id="flight-number" maxLength={10}
+              <input id="flight-number" maxLength={10} {...NO_AUTOFILL} autoCapitalize="characters"
                 value={form.flight_number}
                 placeholder={picked ? `${picked.iata}1363` : 'TP1363'}
                 onChange={(e) => setForm((f) => ({ ...f, flight_number: e.target.value }))} className="input w-full" />
@@ -1900,12 +1933,13 @@ export default function Flights() {
                 makes a row read like a memory rather than a database entry. */}
             <div>
               <label htmlFor="flight-seat" className="label">Seat <span className="font-normal text-smoke">(optional)</span></label>
-              <input id="flight-seat" maxLength={8} value={form.seat} placeholder="14A"
+              <input id="flight-seat" maxLength={8} value={form.seat} placeholder="14A" {...NO_AUTOFILL} autoCapitalize="characters"
                 onChange={(e) => setForm((f) => ({ ...f, seat: e.target.value.toUpperCase() }))} className="input w-full" />
             </div>
             <div className="col-span-2">
               <label htmlFor="flight-note" className="label">Note</label>
               <input id="flight-note" value={form.note} maxLength={140} placeholder="Sunrise over the Alps"
+                {...NO_AUTOFILL} autoCorrect="on" autoCapitalize="sentences"
                 onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} className="input w-full" />
             </div>
           </div>
@@ -1963,6 +1997,9 @@ export default function Flights() {
                 <input
                   id="flight-purpose-note"
                   aria-label="What was it for?"
+                  {...NO_AUTOFILL}
+                  autoCorrect="on"
+                  autoCapitalize="sentences"
                   className="input w-full"
                   maxLength={80}
                   value={form.purpose_note}
@@ -2032,9 +2069,21 @@ export default function Flights() {
         now={new Date(`${today}T12:00:00`)}
         onClose={() => setScanning(false)}
         onFilled={(fields) => {
-          // Merge, never replace: somebody may have already picked an airline
-          // or written a note before reaching for the scanner.
-          setForm((f) => ({ ...f, ...fields }))
+          // MERGE, NEVER REPLACE, AND NEVER WITH A BLANK.
+          //
+          // Somebody may have picked an airline or written a note before
+          // reaching for the scanner, and a spread alone would undo that: the
+          // scan returns a full form shape, so a field it could not read comes
+          // back as '' and overwrites whatever was there. That became a live
+          // risk the moment the scan started returning `airline`, which is empty
+          // for any carrier outside lib/airlines - scanning a small regional
+          // pass would have silently cleared an airline the reader had already
+          // chosen by hand.
+          setForm((f) => {
+            const next = { ...f }
+            for (const [k, v] of Object.entries(fields)) if (v) next[k] = v
+            return next
+          })
           setError('')
         }}
       />
@@ -2096,31 +2145,55 @@ export default function Flights() {
 // A SINGLE HUE STEPPED IN OPACITY rather than six colours: the palette here is
 // one orange, and six arbitrary colours would be six things to learn.
 function PurposeBar({ list }) {
-  const counts = PURPOSES
-    .map((p) => ({ ...p, n: list.filter((f) => f.purpose === p.key).length }))
-    .filter((p) => p.n > 0)
-  const total = counts.reduce((s, x) => s + x.n, 0) || 1
+  // SIX CARDS, NOT ONE STACKED BAR.
+  //
+  // The bar was a single rounded strip cut into segments, each in a different
+  // shade of orange, with a legend underneath. The colours were rebuilt once
+  // already to make the segments distinguishable, and the honest conclusion is
+  // that fixing the palette never fixed the control: a reader who wants to know
+  // how many creator trips they took has to find the right orange in the legend,
+  // carry it back up to the strip, judge a width against the whole, and multiply.
+  // Ethan: "rather than doing that, maybe just have cards for each of them to
+  // show the number, it would be clearer and look better."
+  //
+  // AND ALL SIX ARE ALWAYS HERE, INCLUDING THE ZEROES. The bar could only draw
+  // what existed, so the set of categories changed shape as flights were logged
+  // and "Commute" appearing for the first time looked like a new feature. A
+  // fixed grid of six is a stable thing to read, and a zero is information: it
+  // says the category exists and you have not used it, which is exactly what
+  // somebody deciding whether to bother filling the field in wants to know.
+  const counts = PURPOSES.map((p) => ({ ...p, n: list.filter((f) => f.purpose === p.key).length }))
+  const most = Math.max(...counts.map((p) => p.n), 0)
+
   return (
-    <>
-      <div className="flex h-3 overflow-hidden rounded-full bg-cloud">
-        {counts.map((p, i) => (
-          <span
+    <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+      {counts.map((p) => {
+        const on = p.n > 0
+        // The biggest category gets the tint. One highlight, not six competing
+        // ones, and it is the only thing the old ramp was really conveying.
+        const top = on && p.n === most
+        return (
+          <div
             key={p.key}
-            title={`${p.label}: ${p.n}`}
-            style={{ width: `${(p.n / total) * 100}%`, background: PURPOSE_RAMP[i % PURPOSE_RAMP.length] }}
-            className="block transition-[width] duration-700 ease-out"
-          />
-        ))}
-      </div>
-      <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2">
-        {counts.map((p, i) => (
-          <span key={p.key} className="flex items-center gap-2 text-xs">
-            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: PURPOSE_RAMP[i % PURPOSE_RAMP.length] }} />
-            <span className="font-medium text-ink">{p.label}</span>
-            <span className="tabular-nums text-smoke">{p.n}</span>
-          </span>
-        ))}
-      </div>
-    </>
+            className={cx(
+              'flex flex-col items-center gap-1 rounded-xl border px-2 py-3 text-center transition-colors',
+              top ? 'border-brand/40 bg-brand-tint/50'
+                : on ? 'border-gray-100 bg-white' : 'border-gray-100 bg-cloud/40',
+            )}
+          >
+            <Icon name={p.icon} className={cx('h-4 w-4 shrink-0', on ? 'text-brand' : 'text-gray-300')} />
+            <span className={cx('text-lg font-bold leading-none tabular-nums', on ? 'text-ink' : 'text-gray-300')}>
+              {p.n}
+            </span>
+            {/* leading-tight and a two-line box: "Creator trip" wraps at this
+                width and a shorter label must not shunt the numbers out of line
+                with the ones beside it. */}
+            <span className="flex h-7 items-start justify-center text-[11px] font-medium leading-tight text-smoke">
+              {p.label}
+            </span>
+          </div>
+        )
+      })}
+    </div>
   )
 }

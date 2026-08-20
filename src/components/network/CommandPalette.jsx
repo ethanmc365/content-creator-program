@@ -8,6 +8,7 @@ import { Avatar } from '../ui'
 import { flagFromIso } from '../../lib/flags'
 import { cx } from '../../lib/utils'
 import { overlay } from '../../lib/motion'
+import { lockScroll } from '../../lib/scrollLock'
 
 // One box that goes anywhere.
 //
@@ -68,9 +69,8 @@ export default function CommandPalette({ open, onClose }) {
     setQuery('')
     setActive(0)
     const t = setTimeout(() => inputRef.current?.focus(), 60)
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => { clearTimeout(t); document.body.style.overflow = prev }
+    const release = lockScroll()
+    return () => { clearTimeout(t); release() }
   }, [open])
 
   // Built on open. Two queries, both small and both already permitted by RLS,

@@ -5,6 +5,7 @@ import { Avatar } from '../ui'
 import { flagFromIso } from '../../lib/flags'
 import { cx } from '../../lib/utils'
 import { SPRING } from '../../lib/motion'
+import { lockScroll } from '../../lib/scrollLock'
 
 // Choosing a person, with their face.
 //
@@ -40,12 +41,11 @@ export default function PeoplePicker({
     const t = setTimeout(() => inputRef.current?.focus(), 120)
     const onKey = (e) => e.key === 'Escape' && onClose()
     document.addEventListener('keydown', onKey)
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    const release = lockScroll()
     return () => {
       clearTimeout(t)
       document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = prev
+      release()
     }
   }, [open, onClose])
 

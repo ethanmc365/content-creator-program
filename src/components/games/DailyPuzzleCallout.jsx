@@ -2,11 +2,11 @@ import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import Icon from '../Icon'
-import Flame from './Flame'
 import { untilNextUkMidnight } from '../../lib/daily'
 import { useGameStreak } from '../../lib/gameStreak'
 import { DAILY_PUZZLES, useDailyPuzzles } from '../../lib/dailyPuzzles'
 import { cx } from '../../lib/utils'
+import { StreakChip } from '../ui'
 
 // TODAY'S PUZZLES, ON THE PAGE PEOPLE ACTUALLY OPEN.
 //
@@ -38,15 +38,33 @@ import { cx } from '../../lib/utils'
 // Your streak rides on the heading rather than on each column: it is one streak
 // across the three, and printing it three times would read as three.
 //
-// THE COLUMN IS NEUTRAL. THE BUTTON IS THE ONLY THING THAT TURNS GREEN.
+// THE ICON TILE IS BACK, AND IT IS THE TILE THAT CARRIES "PLAYED".
 //
-// This rule is absolute, because every softer version of it has been read as a
-// colour change to the card. Ethan: "if I play one game, the entire game card
-// turns to the green colour... the card should always be orange and after I
-// play it just the play button should turn green." So nothing outside the
-// button may vary with `done` - same tile, same puzzle icon, same hover -
-// which also means a row of three is one consistent set at every stage of the
-// day rather than three that drift apart as you work through them.
+// This has been argued round in a full circle and the screenshot settled it.
+// The tile was removed here to save height on mobile, on the reasoning that a
+// magnifying glass next to the words "Guess the Country" is decoration. That is
+// true of the ICON and false of the TILE: a 36px square that goes from orange to
+// green with a tick in it is the fastest read on the card, and with it gone the
+// only signal was a small pill at the end of a line of text.
+//
+// Ethan, holding the UK home card next to this one: "I'm gonna share a
+// screenshot of how the one that's currently on the UK community looks, I think
+// it looks better... you can condense how the UK one looks slightly, still fit
+// it in, and I think it will look much better. Keep the same structure like the
+// icon shows green with the little tick whenever it's played."
+//
+// So this is `components/DailyGamesCard` - the UK card - laid out horizontally
+// at every width, with the sizes taken in one notch: a 36px tile rather than 40,
+// px-4 rather than px-5, and the count line at 11px. THE HUB IS NARROWER THAN
+// THE UK HOME PAGE, by the width of the right rail, and that is the only reason
+// the two files are not now identical.
+//
+// The old rule this replaces - "the button is the only thing that turns green",
+// which came from Ethan objecting to a green RING appearing around the orange
+// tile - is not contradicted by any of this. A ring around an orange tile is a
+// decoration on an unchanged thing; a tile that becomes green and holds a tick
+// is the state itself, drawn once. The card behind them stays white either way,
+// which is what that rule was really protecting.
 //
 // NO MOTION IMPORT. The hub is eagerly routed; entrance animation is the page's
 // own `Reveal`, which is CSS-only for exactly this reason. What motion the card
@@ -58,57 +76,45 @@ function PuzzleColumn({ puzzle, done, count, first }) {
     <Link
       to={`/game?daily=${puzzle.key}`}
       className={cx(
-        // A ROW ON A PHONE, A COLUMN ON A DESKTOP.
-        //
-        // The stacked-column layout was right for three-across and wrong for
-        // one-across: on mobile the grid collapses to a single column, so three
-        // centred stacks of tile-title-count-button became roughly half a
-        // screen of vertical space for three links. Ethan: "it's currently
-        // taking up way too much space for mobile... maybe one card but the 3
-        // games stacked beneath each other with play button to the right."
-        //
-        // So below `sm` it is exactly that - name and count on the left, the
-        // button on the right, one line each. From `sm` up it goes back to the
-        // centred column, which is what reads correctly three-across.
-        'group flex items-center justify-between gap-3 px-4 py-3 transition-colors duration-200 hover:bg-cloud/50',
-        'sm:flex-col sm:items-center sm:justify-start sm:gap-2 sm:py-4 sm:text-center',
+        // ONE ROW SHAPE AT EVERY WIDTH. It used to be a row below `sm` and a
+        // centred stack above it, which meant the thing being looked at on a
+        // laptop was not the thing that had been tuned on a phone. A row works
+        // at both: tile, then name and count, then the button hard right.
+        'group flex items-center gap-3 px-4 py-3.5 transition-colors duration-200 hover:bg-cloud/50',
         !first && 'border-t border-gray-50 sm:border-l sm:border-t-0',
       )}
     >
-      {/* THE PUZZLE ICONS ARE GONE, AND THAT IS WHAT MADE THE CARD SMALLER.
-          Ethan: "maybe it's just removing the icon... maybe just moving them
-          would actually make it better. Smaller, more concise."
-          He is right, and for a better reason than space: a magnifying glass
-          and a plane are decoration next to a name that already says "Guess the
-          Country" and "Flight Path". Dropping the 12x12 tile plus its gap takes
-          roughly 70px off the card's height on desktop and lets each column sit
-          on two tight lines.
+      {/* 36px, not the UK card's 40. Three of these plus their buttons have to
+          sit inside a hub column that is a rail narrower than the UK home page,
+          and the tile is the one element with slack in it. */}
+      <span
+        className={cx(
+          'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white transition-transform duration-200 group-hover:scale-110',
+          done ? 'bg-green-600' : 'bg-brand',
+        )}
+      >
+        <Icon name={done ? 'check' : puzzle.icon} className="h-5 w-5" strokeWidth={2.2} />
+      </span>
 
-          It also settles a rule that had been argued three times. The tile used
-          to grow a green ring when the puzzle was played - Ethan: "remove the
-          green outline that appears around the orange card with icon when the
-          game is played, it doesn't look good, although keep the function that
-          the play button turns green." With no tile there is nothing left to
-          ring, and the standing rule is whole again: THE BUTTON IS THE ONLY
-          THING THAT TURNS GREEN. */}
-      <span className="min-w-0 flex-1 sm:w-full sm:flex-none">
-        {/* `leading-tight` and NO truncate. Two of the three names wrap to two
-            lines in a narrow column and that is fine - what is not fine is an
-            ellipsis where the name should be. */}
-        <span className="block text-sm font-semibold leading-tight text-ink">{puzzle.title}</span>
-        <span className="mt-0.5 block text-xs leading-tight text-smoke">
+      <span className="min-w-0 flex-1">
+        {/* `truncate`, unlike the stacked version, because a name that wraps to
+            two lines makes this row taller than the two beside it and the three
+            stop reading as one strip. At this width all three fit. */}
+        <span className="block truncate text-sm font-semibold leading-tight text-ink">{puzzle.title}</span>
+        <span className="mt-0.5 block truncate text-[11px] leading-tight text-smoke">
           {/* The count is the point, so it wins the line whenever there is one.
-              "Nobody yet" is not a discouragement here, it is an opening. */}
-          {count == null || count === 0
-            ? puzzle.short
-            : `${count} ${count === 1 ? 'creator has' : 'creators have'} played`}
+              "Nobody yet" is not a discouragement here, it is an opening.
+              `counts` is null until the query lands and an OBJECT afterwards - a
+              puzzle nobody has played is ABSENT from the tally, not zero in it,
+              so this has to separate null from 0 or "nobody yet" and "still
+              loading" become the same thing and the tagline never leaves. */}
+          {count == null || count === 0 ? puzzle.short : `${count} played today`}
         </span>
       </span>
 
       <span
         className={cx(
-          'flex shrink-0 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-all duration-200',
-          'sm:mt-1 sm:w-full sm:max-w-[7rem] sm:py-2',
+          'flex shrink-0 items-center justify-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold transition-all duration-200',
           done
             ? 'bg-green-50 text-green-700 ring-1 ring-inset ring-green-500/30'
             : 'bg-brand text-white shadow-card group-hover:scale-105',
@@ -119,12 +125,7 @@ function PuzzleColumn({ puzzle, done, count, first }) {
             <Icon name="check" className="h-3.5 w-3.5" />
             Played
           </>
-        ) : (
-          <>
-            Play
-            <Icon name="chevronRight" className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
-          </>
-        )}
+        ) : 'Play'}
       </span>
     </Link>
   )
@@ -146,25 +147,22 @@ export default function DailyPuzzleCallout({ className }) {
 
   return (
     <section className={className}>
+      {/* "TODAY'S PUZZLES", NOT "DAILY PUZZLES", and the streak pill sits on the
+          heading rather than off on its own. Both are the UK card's, and the
+          reason to copy them is that this is the same section: two names for one
+          thing across two surfaces of one product is how a platform starts
+          feeling like two products.
+          THE PILL IS THE SHARED `StreakChip` NOW. This file had its own copy -
+          same idea, same lit flame, but "8 day streak" against the UK card's
+          "8 days", and 10px against 11px. Two near-identical chips is one chip
+          that will drift again, so there is one. */}
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="flex items-center gap-2 text-lg font-semibold">
-          <Icon name="joystick" className="h-5 w-5 text-brand" />
-          Daily puzzles
+          <Icon name="joystick" className="h-5 w-5 shrink-0 text-brand" />
+          Today&rsquo;s puzzles
+          {streak > 0 && <StreakChip n={streak} title={`${streak}-day streak`} />}
         </h2>
-        <span className="flex items-center gap-2">
-          {streak > 0 && (
-            // A LIT FLAME ON A WHITE PILL, not a flat white glyph on a brand
-            // one. The pill was solid orange with the flame knocked out of it
-            // in white, which is the one background a fire cannot be drawn on:
-            // every colour that says "burning" is a shade of the thing behind
-            // it. See components/games/Flame.
-            <span className="inline-flex items-center gap-1 rounded-full bg-brand-tint px-2 py-0.5 text-[10px] font-bold text-brand">
-              <Flame className="h-3.5 w-3.5" />
-              {streak} day streak
-            </span>
-          )}
-          <Link to="/game" className="text-sm font-medium text-brand hover:underline">All games &rarr;</Link>
-        </span>
+        <Link to="/game" className="shrink-0 text-sm font-medium text-brand hover:underline">All games &rarr;</Link>
       </div>
 
       {/* `counts` is null until the query lands and an OBJECT afterwards. A
@@ -193,7 +191,7 @@ export default function DailyPuzzleCallout({ className }) {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-60 motion-reduce:hidden" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
             </span>
-            {allDone ? 'All three done. Nicely played.' : `${doneCount} of ${DAILY_PUZZLES.length} played today`}
+            {allDone ? 'All three done. Nicely played.' : `${doneCount} of ${DAILY_PUZZLES.length} done today`}
           </p>
           <p className="text-[11px] text-smoke">New puzzles in {nextIn}</p>
         </div>

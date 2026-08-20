@@ -6,6 +6,7 @@ import { FREEZES_PER_MONTH } from '../../lib/gameStreak'
 import StreakLeaderboard from './StreakLeaderboard'
 import { playFireWhoosh } from '../../lib/gameSounds'
 import { cx } from '../../lib/utils'
+import Flame from './Flame'
 
 // YOUR RUN, YOUR RECORD, AND WHAT IS PROTECTING IT.
 //
@@ -45,22 +46,31 @@ const LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 // instead, which is the right way round: this is a badge you glance at, and a
 // glance reads colour long before it reads a sentence.
 //
-//   LIT     today is counted (played, or a freeze is holding it). A real flame:
-//           white-hot core, amber body, a bright halo pulsing behind it. It is
-//           the brightest thing on the card, which is the point.
-//   EMBER   the run is alive but today is not counted yet. The same flame drawn
-//           hollow and cool, breathing slowly. It is unmistakably the SAME
-//           object, not lit - which is what makes the difference legible
-//           without a key.
+//   LIT     today is counted (played, or a freeze is holding it).
+//   EMBER   the run is alive but today is not counted yet.
 //   COLD    no run at all. Flat, still, an invitation rather than a rebuke.
 //
-// The animation is CONSTANT in the first two states. A flame that only moves on
-// hover is a flame that is not burning.
-// THE BASE OF EVERY LAYER IS ITS PIVOT. A flame anchored at its middle grows
-// downwards as well as up, which reads as inflating rather than burning.
-const FROM_BASE = { transformBox: 'fill-box', transformOrigin: '50% 92%' }
+// THIS FILE USED TO DRAW ITS OWN FLAME AND THAT IS THE BUG THAT WAS HERE.
+//
+// components/games/Flame was rebuilt into a real fire - four temperatures,
+// three tongues, four clocks that do not divide into one another - and every
+// surface picked it up EXCEPT this one, because this file had a private
+// `function Flame({ state })` of its own that shadowed the import. So the
+// leaderboard chip, the puzzle callout and the hub pill all burned properly
+// while the biggest flame on the platform, the one next to "36 days in a row",
+// was still the old two-path drawing. Ethan: "beside where it says 36 days in a
+// row, that little same streak icon and animation is still what it was, so you
+// didn't improve it."
+//
+// The private copy is deleted. The shared component grew the two things it was
+// missing - `state`, and a `warm` tone in white-through-amber, because this card
+// is itself a brand-orange gradient and an orange flame on it is invisible - and
+// there is now exactly one fire in the codebase.
+//
+// What stays here is the CHROME around the flame, which is this card's alone:
+// the blurred halo behind it and the glass tile it sits in.
 
-function Flame({ state }) {
+function StreakFlame({ state }) {
   const lit = state === 'lit'
   const ember = state === 'ember'
   return (
@@ -81,69 +91,7 @@ function Flame({ state }) {
           lit ? 'bg-white/25 ring-white/40' : 'bg-white/10 ring-white/20',
         )}
       >
-        <svg viewBox="0 0 24 24" className="h-10 w-10 overflow-visible" aria-hidden>
-          <defs>
-            {/* A real fire is hottest at the base and coolest at the tip, so
-                every gradient here runs bottom to top rather than top to
-                bottom. Drawn white->amber rather than in the brand orange for
-                one reason: the card IS brand orange, and an orange flame on an
-                orange card is the same mistake the week strip made when a
-                played day was `bg-brand`. */}
-            <linearGradient id="streak-flame-lit" x1="0" y1="1" x2="0" y2="0">
-              <stop offset="0%" stopColor="#ffffff" />
-              <stop offset="40%" stopColor="#fde68a" />
-              <stop offset="100%" stopColor="#f59e0b" />
-            </linearGradient>
-            <linearGradient id="streak-flame-inner" x1="0" y1="1" x2="0" y2="0">
-              <stop offset="0%" stopColor="#ffffff" />
-              <stop offset="55%" stopColor="#fef3c7" />
-              <stop offset="100%" stopColor="#fbbf24" />
-            </linearGradient>
-          </defs>
-
-          {/* ---- THE BODY. The whole outline, swaying slowly. ---- */}
-          <path
-            d="M12 2.5c.5 2.6-.8 4-2 5.2-1.4 1.4-2.6 2.6-2.6 5A6.6 6.6 0 0 0 12 21.5a6.6 6.6 0 0 0 6.6-6.6c0-4-2.6-6-4-8.4-.5 1.3-1.3 2.1-2.2 2.6.4-2.3-.2-4.6-.4-6.6Z"
-            fill={lit ? 'url(#streak-flame-lit)' : 'none'}
-            stroke={lit ? 'none' : 'currentColor'}
-            strokeWidth="1.6"
-            strokeLinejoin="round"
-            className={cx(!lit && 'text-white/55', (lit || ember) && 'animate-flame-body')}
-            style={FROM_BASE}
-          />
-
-          {/* ---- THE INNER TONGUE. Licks up through the body half again as
-                  fast, on its own phase. Only when it is actually alight - an
-                  unlit flame is an outline, and an outline with something
-                  moving inside it is a lantern. ---- */}
-          {lit && (
-            <path
-              d="M12.1 7.4c.4 1.9-.7 2.9-1.5 3.8-1 1-1.9 1.9-1.9 3.6A5 5 0 0 0 12 19.4a5 5 0 0 0 4.4-4.6c0-2.7-1.8-4.1-2.8-5.8-.4.9-.9 1.5-1.6 1.9.3-1.6-.1-2.9 0-3.5Z"
-              fill="url(#streak-flame-inner)"
-              className="animate-flame-inner"
-              style={FROM_BASE}
-            />
-          )}
-
-          {/* ---- THE CORE. The white heart at the base, jittering fastest. ---- */}
-          {lit && (
-            <path
-              d="M12.4 12.6c.3.9-.4 1.5-.9 2.2-.3.5-.5 1-.5 1.6a2.1 2.1 0 0 0 4.2.1c0-1.1-.6-1.8-1.3-2.5-.5.6-1.1.3-1-.4.1-.4-.1-.7-.5-1Z"
-              fill="#ffffff"
-              className="animate-flame-core"
-              style={FROM_BASE}
-            />
-          )}
-
-          {/* ---- TWO SPARKS, on offset delays. Cheap, and the whole difference
-                  between a drawing of a fire and a fire. ---- */}
-          {lit && (
-            <>
-              <circle cx="10.6" cy="4.6" r="0.75" fill="#fff7ed" className="animate-flame-spark" />
-              <circle cx="13.7" cy="3.4" r="0.55" fill="#fde68a" className="animate-flame-spark" style={{ animationDelay: '0.9s' }} />
-            </>
-          )}
-        </svg>
+        <Flame className="h-10 w-10" tone="warm" state={state} sparks={lit} />
       </span>
     </span>
   )
@@ -314,7 +262,7 @@ export default function StreakCard({ className, days = [], today = null, myId = 
             when today is counted, embers when the run is alive but today is
             still to be earned, cold at zero. */}
         <div className="flex items-center gap-4">
-          <Flame state={current === 0 ? 'cold' : (playedToday || frozenToday) ? 'lit' : 'ember'} />
+          <StreakFlame state={current === 0 ? 'cold' : (playedToday || frozenToday) ? 'lit' : 'ember'} />
           <div>
             <p className="text-4xl font-bold leading-none tabular-nums sm:text-5xl">{current}</p>
             <p className="mt-1 text-[11px] font-semibold uppercase tracking-widest text-white/75">

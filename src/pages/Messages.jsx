@@ -1035,7 +1035,7 @@ export default function Messages() {
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             {/* GROUP INVITES SIT ABOVE THE INBOX.
                 An invite is the one thing here that expires socially: a group
                 gets going in its first day or it never does. Putting it in the
@@ -1301,7 +1301,7 @@ export default function Messages() {
                 // Tapping the thread dismisses the keyboard (WhatsApp-style); a
                 // scroll drag doesn't fire click, so scrolling history leaves it up.
                 onClick={() => { if (isMobile && kbOpen) document.activeElement?.blur?.() }}
-                className="min-h-0 flex-1 space-y-3 overflow-y-auto overflow-x-hidden overscroll-contain touch-pan-y touch-pinch-zoom px-5 py-6"
+                className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain overflow-x-hidden overscroll-contain touch-pan-y touch-pinch-zoom px-5 py-6"
               >
                 {loadingThread && <div className="space-y-3"><Skeleton className="h-10 w-2/3" /><Skeleton className="ml-auto h-10 w-1/2" /><Skeleton className="h-10 w-3/5" /></div>}
                 {!loadingThread && visibleThread.map((m, i) => {

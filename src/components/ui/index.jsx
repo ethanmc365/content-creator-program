@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { cx } from '../../lib/utils'
+import { lockScroll } from '../../lib/scrollLock'
 import Icon from '../Icon'
 import Flame from '../games/Flame'
 
@@ -158,10 +159,13 @@ export function Modal({ open, onClose, title, children, wide = false, sheet = tr
     if (!open) return
     const onKey = (e) => e.key === 'Escape' && onClose()
     document.addEventListener('keydown', onKey)
-    document.body.style.overflow = 'hidden'
+    // `document.body.style.overflow = 'hidden'` was here, and it does nothing at
+    // all to touch scrolling on iOS. See lib/scrollLock for the whole story and
+    // for why the release has to restore the scroll position by hand.
+    const release = lockScroll()
     return () => {
       document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = ''
+      release()
     }
   }, [open, onClose])
 
@@ -187,8 +191,12 @@ export function Modal({ open, onClose, title, children, wide = false, sheet = tr
           height (plus the home-indicator safe area) as padding, or a tall
           modal's submit button ends up unreachable underneath it. The card
           variant floats clear of both and needs neither. */}
+      {/* `overscroll-contain` is the OTHER half of the fix, and it is not the
+          same half. Locking the body stops the page moving when the gesture
+          starts outside the card; this stops the card handing its own leftover
+          scroll to the page once it reaches its end. Both were needed. */}
       <div className={cx(
-        'relative overflow-y-auto bg-white shadow-lift animate-fade-up',
+        'relative overflow-y-auto overscroll-contain bg-white shadow-lift animate-fade-up',
         sheet
           ? 'max-h-[90vh] w-full rounded-t-card p-6 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:rounded-card sm:p-8 sm:pb-8'
           : 'max-h-[min(85vh,44rem)] w-full rounded-card p-5 sm:p-7',

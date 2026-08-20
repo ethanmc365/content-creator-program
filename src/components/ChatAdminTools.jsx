@@ -166,7 +166,7 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
             No resources yet. Add some in <Link to="/admin/resources" className="font-medium text-brand hover:underline">Manage resources</Link> first.
           </p>
         ) : (
-          <div className="max-h-[60vh] space-y-2 overflow-y-auto">
+          <div className="max-h-[60vh] space-y-2 overflow-y-auto overscroll-contain">
             {resources.map((r) => (
               <button
                 key={r.id}

@@ -416,7 +416,7 @@ function PollComposer({ open, onClose, onCreated }) {
         {slots.length > 0 && (
           <div>
             <p className="label">Proposed slots ({slots.length})</p>
-            <div className="max-h-56 space-y-3 overflow-y-auto pr-1">
+            <div className="max-h-56 space-y-3 overflow-y-auto overscroll-contain pr-1">
               {groupSlotsByDay(slots).map((g) => (
                 <div key={g.key}>
                   <p className="mb-1.5 text-xs font-bold text-ink">

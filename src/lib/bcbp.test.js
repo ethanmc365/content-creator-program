@@ -53,9 +53,24 @@ describe('boardingPassToForm', () => {
   it('hands the log form exactly the fields it fills', () => {
     const { form } = boardingPassToForm(AER_LINGUS, new Date(2026, 7, 20))
     expect(form).toEqual({
-      from_iata: 'DUB', to_iata: 'CDG', flight_number: 'EI122',
+      from_iata: 'DUB', to_iata: 'CDG', airline: 'Aer Lingus', flight_number: 'EI122',
       seat: '12A', flown_on: '2026-07-14',
     })
+  })
+  // The airline is the field the scan was silently dropping, and it is the one
+  // the log form REQUIRES - so it gets its own assertion rather than riding on
+  // the shape test above. It is a NAME, not the barcode's two-letter code,
+  // because that is what the picker's chips are keyed on.
+  it('turns the carrier code into the name the form expects', () => {
+    expect(boardingPassToForm(AER_LINGUS, new Date(2026, 7, 20)).form.airline).toBe('Aer Lingus')
+  })
+  // An airline outside the table leaves the field EMPTY rather than writing a
+  // code into a field that displays names. A chip reading "ZZ" would be worse
+  // than a blank the reader fills in.
+  it('leaves the airline blank for a carrier it does not know', () => {
+    const unknown = AER_LINGUS.replace('EI 0122', 'ZZ 0122').replace('DUBCDGEI', 'DUBCDGZZ')
+    const out = boardingPassToForm(unknown, new Date(2026, 7, 20))
+    expect(out && out.form.airline).toBe('')
   })
   it('returns null rather than a half-filled form', () => {
     expect(boardingPassToForm('not a pass', new Date())).toBeNull()

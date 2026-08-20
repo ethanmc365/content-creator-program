@@ -65,36 +65,99 @@ const FROM_BASE = { transformBox: 'fill-box', transformOrigin: '50% 92%' }
  * Three gradient elements per flame is nothing. A component that cannot be
  * dropped anywhere is a real cost.
  *
+ * TWO TONES, BECAUSE THE BIG STREAK CARD IS ITSELF BRAND ORANGE.
+ *
+ * `fire` is the real thing and the default: amber at the base through brand
+ * orange to a burnt edge, which is what a fire looks like and what reads on a
+ * white page. On the streak card it is invisible - that card is a brand-orange
+ * gradient, and an orange flame on it is the exact mistake the week strip made
+ * when a played day was `bg-brand`. `warm` is the same fire drawn white through
+ * amber, which is the highest contrast available on that surface.
+ *
+ * THREE STATES, AND ONLY THE FIRST IS ACTUALLY ALIGHT.
+ *
+ *   lit    today is counted. Every layer, moving, hottest at the base.
+ *   ember  the run is alive but today is not counted yet. Envelope only, drawn
+ *          hollow and cool, breathing slowly. Unmistakably the SAME object with
+ *          the fire out, which is what makes the difference legible without a
+ *          key.
+ *   cold   no run. Flat, still, an invitation rather than a rebuke.
+ *
  * @param {object} p
  * @param {string} p.className   size classes; `overflow-visible` is already on
  * @param {boolean} p.sparks     the two embers leaving the tip. Off below about
  *                               20px, where they are one grey pixel each.
+ * @param {'fire'|'warm'} p.tone
+ * @param {'lit'|'ember'|'cold'} p.state
  */
-export default function Flame({ className = 'h-4 w-4', sparks = false }) {
+export default function Flame({ className = 'h-4 w-4', sparks = false, tone = 'fire', state = 'lit' }) {
   const uid = useId()
   const outer = `${uid}-outer`
   const body = `${uid}-body`
   const inner = `${uid}-inner`
+  const warm = tone === 'warm'
+  const lit = state === 'lit'
+  const ember = state === 'ember'
+
+  // NOT ALIGHT: the envelope as an outline and nothing inside it. Drawing the
+  // inner layers unlit would be a lantern - something moving inside a shape
+  // that is meant to be out.
+  if (!lit) {
+    return (
+      <svg viewBox="0 0 24 24" className={cx('overflow-visible', className)} aria-hidden>
+        <path
+          d="M12.6 1.2C14.1 4.6 14.4 7.6 15 10.6c1-1.2 2.4-2.6 3.3-4.2 1.3 2.8 2.5 6 2.5 9 0 4.6-3.9 7.4-8.7 7.4S3.4 20 3.4 15.4c0-2.8.9-5 2.2-7.2 1 1.6 2.1 3 3.2 4 .8-3.6 2.2-7.4 3.8-11Z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+          className={cx(warm ? 'text-white/55' : 'text-brand/40', ember && 'animate-flame-body')}
+          style={FROM_BASE}
+        />
+      </svg>
+    )
+  }
+
   return (
     <svg viewBox="0 0 24 24" className={cx('overflow-visible', className)} aria-hidden>
       <defs>
         {/* The envelope: the coolest, darkest part, at the outside. */}
         <linearGradient id={outer} x1="0" y1="1" x2="0" y2="0">
-          <stop offset="0%" stopColor="#f97316" />
-          <stop offset="45%" stopColor="#ea580c" />
-          <stop offset="100%" stopColor="#9a3412" />
+          {warm ? (
+            <>
+              <stop offset="0%" stopColor="#fef3c7" />
+              <stop offset="45%" stopColor="#fcd34d" />
+              <stop offset="100%" stopColor="#f59e0b" />
+            </>
+          ) : (
+            <>
+              <stop offset="0%" stopColor="#f97316" />
+              <stop offset="45%" stopColor="#ea580c" />
+              <stop offset="100%" stopColor="#9a3412" />
+            </>
+          )}
         </linearGradient>
-        {/* The body. This is the one that carries the brand orange. */}
+        {/* The body. On `fire` this is the one that carries the brand orange. */}
         <linearGradient id={body} x1="0" y1="1" x2="0.15" y2="0">
-          <stop offset="0%" stopColor="#fbbf24" />
-          <stop offset="38%" stopColor="#f97316" />
-          <stop offset="100%" stopColor="#d94407" />
+          {warm ? (
+            <>
+              <stop offset="0%" stopColor="#ffffff" />
+              <stop offset="38%" stopColor="#fde68a" />
+              <stop offset="100%" stopColor="#fbbf24" />
+            </>
+          ) : (
+            <>
+              <stop offset="0%" stopColor="#fbbf24" />
+              <stop offset="38%" stopColor="#f97316" />
+              <stop offset="100%" stopColor="#d94407" />
+            </>
+          )}
         </linearGradient>
         {/* The inner tongue: yellow through to white at the very bottom. */}
         <linearGradient id={inner} x1="0" y1="1" x2="0" y2="0">
-          <stop offset="0%" stopColor="#fffbeb" />
-          <stop offset="35%" stopColor="#fde047" />
-          <stop offset="100%" stopColor="#f59e0b" />
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="35%" stopColor={warm ? '#fffbeb' : '#fde047'} />
+          <stop offset="100%" stopColor={warm ? '#fde68a' : '#f59e0b'} />
         </linearGradient>
       </defs>
       {/* ---- THE ENVELOPE. The whole outline, swaying slowest. ---- */}
@@ -130,7 +193,7 @@ export default function Flame({ className = 'h-4 w-4', sparks = false }) {
       />
       {sparks && (
         <>
-          <circle cx="11" cy="4.2" r="0.8" fill="#fed7aa" className="animate-flame-spark" />
+          <circle cx="11" cy="4.2" r="0.8" fill={warm ? '#fffbeb' : '#fed7aa'} className="animate-flame-spark" />
           <circle cx="14.6" cy="2.8" r="0.6" fill="#fde68a" className="animate-flame-spark" style={{ animationDelay: '0.9s' }} />
         </>
       )}

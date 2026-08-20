@@ -245,7 +245,7 @@ export default function NotificationBell() {
             </div>
           )}
 
-          <div className="max-h-[26rem] overflow-y-auto px-2 pb-1">
+          <div className="max-h-[26rem] overflow-y-auto overscroll-contain px-2 pb-1">
             {loading ? (
               <div className="space-y-2 p-2">
                 {[0, 1, 2].map((i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-cloud" />)}

@@ -350,24 +350,32 @@ export default function AircraftCollection() {
                         offered. The orange cards on the wall say how many you
                         have, and they say it by being orange. */}
                   </div>
-                  {/* A CENTRED WRAP, NOT A GRID.
-                      Ethan: "currently it looks like there's weird spaces. If
-                      you scroll down there's like two blank spaces in the bottom
-                      right, it looks odd. I know there's not an even number of
-                      everything, but perhaps you could design it in a way that
-                      looks better."
+                  {/* A WRAP, NOT A GRID - AND IT STARTS AT THE LEFT.
+                      This has been both ways round and the second answer is the
+                      right one, so the argument for the first is worth keeping.
                       A four-column grid leaves the remainder of every class
-                      hanging on the left of a half-empty final row - so each of
-                      the four sections ends in a hole, and the holes are all in
-                      the same place, which is what makes it read as a layout
-                      fault rather than as "there are eleven of these". Flex-wrap
-                      with `justify-center` centres whatever is left over, so a
-                      short final row reads as the end of a set. The widths are
-                      the same 2/3/4 columns; only the leftovers move. */}
+                      hanging on a half-empty final row, and with four sections
+                      stacked the holes all land in the same corner, which reads
+                      as a layout fault rather than as "there are eleven of
+                      these". Ethan: "there's like two blank spaces in the bottom
+                      right, it looks odd." Centring the leftovers hid that.
+                      What it also did was untether every row from the left
+                      margin, and that shows up hardest under "Been on board",
+                      where a section can hold ONE card: a single card in the
+                      middle of the page, lined up with nothing. Ethan: "you have
+                      it so that all the cards are centered, so if there's only
+                      one it's centre. This would be better if they always start
+                      from the left and go to the right, like all the other pages
+                      work."
+                      He is right, and the reason is consistency rather than
+                      geometry: every other card grid in this product starts at
+                      the left margin, and one that does not reads as broken even
+                      when it is tidier. The widths are unchanged 2/3/4 columns;
+                      only where the leftovers sit has moved. */}
                   {/* The widths go on `itemClassName`, because Reveal wraps
                       every child in its own div and THAT is the flex item. */}
                   <Reveal
-                    className="flex flex-wrap justify-center gap-4"
+                    className="flex flex-wrap justify-start gap-4"
                     // `!h-auto self-stretch` and not the default `height:100%`.
                     // A flex item only stretches to its line's height when its
                     // cross size is `auto`; `.reveal-item` sets `height: 100%`,

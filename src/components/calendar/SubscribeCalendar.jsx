@@ -78,15 +78,14 @@ export default function SubscribeCalendar({ open, onClose }) {
   // is exactly the screen Ethan reached by hand through
   // Settings -> Add calendar -> From URL.
   //
-  // Google is also the one reader of the three that has been known to reject
-  // even the webcal form when signed into multiple accounts, so the button does
-  // not rely on it alone: clicking also puts the link on the clipboard and the
-  // card says so, making the manual paste a one-step fallback instead of a
-  // hunt through settings.
+  // That handshake holds, so the card is now just a card. It used to copy the
+  // link on click and carry a "Google fussy? Add calendar -> From URL" note
+  // underneath, which was a workaround for a problem that no longer happens and
+  // read as a warning about the button next to it. The raw link is still in the
+  // paste box below for anyone whose calendar app is not one of the three.
   const googleAdd = https
     ? `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}`
     : ''
-  const googleByUrl = 'https://calendar.google.com/calendar/u/0/r/settings/addbyurl'
   // OUTLOOK, AND IT WAS NOT COMPLICATED. Outlook.com has an add-from-web
   // endpoint that takes the same URL as a query parameter, and desktop Outlook
   // has understood `webcal://` since long before either of the other two. So it
@@ -97,15 +96,6 @@ export default function SubscribeCalendar({ open, onClose }) {
   const outlookAdd = https
     ? `https://outlook.live.com/calendar/0/addfromweb?url=${encodeURIComponent(https)}&name=${encodeURIComponent('Tryp.com Creator Program')}`
     : ''
-
-  // Put the feed on the clipboard the moment the Google card is clicked, so if
-  // Google does argue with the link the creator already has it and only has to
-  // paste. Clipboard access can be refused (Safari without a user gesture, an
-  // insecure context); that is not worth an error, the link is on screen below.
-  function copyForGoogle() {
-    try { navigator.clipboard?.writeText(https) } catch { /* the link is visible below */ }
-    toast('Link copied. If Google asks for it, paste it into "From URL".')
-  }
 
   async function reset() {
     if (!await confirm('Reset the link? Any calendar already subscribed to the old one will stop updating.')) return
@@ -135,9 +125,9 @@ export default function SubscribeCalendar({ open, onClose }) {
       ) : (
         <div className="space-y-5">
           <p className="text-sm text-smoke">
-            Subscribe once and everything on this page keeps itself up to date in your own calendar:
-            events for your markets, challenge dates, your flights and your own personal days. New
-            things appear on their own, usually within a day.
+            Subscribe once and everything on the calendar syncs daily with your own calendar:
+            events for your markets, challenge dates, your flights logged and your own personal
+            events.
           </p>
 
           <div className="grid gap-3 sm:grid-cols-3">
@@ -157,7 +147,6 @@ export default function SubscribeCalendar({ open, onClose }) {
               href={googleAdd}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={copyForGoogle}
               className="group flex items-center gap-3 rounded-card border border-gray-100 bg-white p-4 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/50 hover:shadow-lift"
             >
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-cloud transition-transform duration-200 group-hover:scale-110">
@@ -165,7 +154,7 @@ export default function SubscribeCalendar({ open, onClose }) {
               </span>
               <span className="min-w-0">
                 <span className="block text-sm font-semibold text-ink">Google Calendar</span>
-                <span className="block text-xs text-smoke">Link copied as you go</span>
+                <span className="block text-xs text-smoke">Gmail, personal or work</span>
               </span>
             </a>
             <a
@@ -183,14 +172,6 @@ export default function SubscribeCalendar({ open, onClose }) {
               </span>
             </a>
           </div>
-
-          <p className="-mt-2 text-xs text-smoke">
-            Google fussy? Open{' '}
-            <a href={googleByUrl} target="_blank" rel="noopener noreferrer" onClick={copyForGoogle} className="font-semibold text-brand hover:underline">
-              Add calendar → From URL
-            </a>{' '}
-            and paste the link below.
-          </p>
 
           <div>
             <p className="label">Or paste this link into any calendar app</p>

@@ -34,12 +34,20 @@
   86%  {              opacity: 1; }
   100% { left: 102%;  opacity: 0; }
 }
-/* The photograph faces LEFT (measured off its alpha channel), so every use of
-   it on a left-to-right journey has to mirror it. Keeping the mirror on an
-   inner element leaves `left` free on the animated one. */
+/* Centres the plane on the point the animation is moving, so it rides the line
+   rather than hanging below it. Kept on an INNER element so `left` stays free on
+   the animated one - two transforms on one element and the later wins.
+   It used to carry `scaleX(-1)` instead of the rotation: the mark was a
+   photograph of the tryp.com plane, which faces LEFT (measured off its alpha
+   channel), so every left-to-right use had to mirror it. The mark is a nose-up
+   silhouette now, so it turns a quarter to fly along the line.
+   THE ROTATION HAS TO BE HERE AND NOT A `rotate-90` CLASS. Tailwind's rotate
+   utility writes the whole `transform` property, so the two would not compose -
+   one of them would simply win, and which one depends on stylesheet order. One
+   declaration, both parts. */
 .pass-plane-img {
   display: block;
-  transform: translate(-50%, -50%) scaleX(-1);
+  transform: translate(-50%, -50%) rotate(90deg);
 }
 @media (prefers-reduced-motion: reduce) {
   .pass-plane-fly { animation: none; left: 50%; opacity: 1; }

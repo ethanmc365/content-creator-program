@@ -716,7 +716,7 @@ export default function NetworkChat() {
         </div>
       )}
 
-      <div ref={scrollerRef} onScroll={onScroll} className="flex-1 space-y-4 overflow-y-auto overflow-x-hidden overscroll-contain px-4 py-4 touch-pan-y touch-pinch-zoom sm:px-5">
+      <div ref={scrollerRef} onScroll={onScroll} className="flex-1 space-y-4 overflow-y-auto overscroll-contain overflow-x-hidden overscroll-contain px-4 py-4 touch-pan-y touch-pinch-zoom sm:px-5">
         {loading ? (
           <ChatSkeleton />
         ) : messages.length === 0 ? (
@@ -996,7 +996,7 @@ export default function NetworkChat() {
               which on a column of white cards reads as a box drawn round the
               sidebar. The region stays wheel and keyboard scrollable; only the
               ring goes. */}
-          <nav aria-label="Rooms" className="hidden focus:outline-none lg:flex lg:w-60 lg:shrink-0 lg:flex-col lg:gap-3 lg:overflow-y-auto lg:overscroll-contain lg:[scrollbar-width:none] lg:[&::-webkit-scrollbar]:hidden">
+          <nav aria-label="Rooms" className="hidden focus:outline-none lg:flex lg:w-60 lg:shrink-0 lg:flex-col lg:gap-3 lg:overflow-y-auto overscroll-contain lg:overscroll-contain lg:[scrollbar-width:none] lg:[&::-webkit-scrollbar]:hidden">
             {/* ONE CARD PER MARKET, IN YOUR ORDER.
                 These were sub-headings inside a single "Your other rooms" box,
                 which made six markets read as one long undifferentiated list -

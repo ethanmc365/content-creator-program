@@ -64,7 +64,25 @@ export default function WhoToMeet({ className }) {
       const byCreator = {}
       for (const t of trips || []) (byCreator[t.creator_id] ||= []).push(t)
 
-      const candidates = (people || []).filter((p) => !known.has(p.id))
+      // ADMINS RUN OUT OF STRANGERS, AND THAT IS NOT A REASON TO HIDE THE
+      // SECTION FROM THEM.
+      //
+      // The filter below is the whole point of the feature for a creator: never
+      // suggest somebody you already know. But the programme lead is connected
+      // to essentially every creator on the platform by the second week, so
+      // `candidates` came back empty, `picks` came back empty, and the component
+      // returned null - on Ethan's hub only. It looked like the section was
+      // broken; it was working exactly as written and had simply run out of
+      // people. A test creator with two connections saw it fine, which is why it
+      // read as an account-specific bug.
+      //
+      // So for an admin, and ONLY when the strict pass finds nobody, we fall
+      // back to the full pool. A creator's rule is untouched.
+      const strangers = (people || []).filter((p) => !known.has(p.id))
+      const isAdmin = profile?.is_admin || profile?.platform_role === 'owner'
+        || profile?.platform_role === 'global_admin'
+      const candidates = strangers.length || !isAdmin ? strangers : (people || []).filter((p) => p.id !== user.id)
+
       setPicks(pickWhoToMeet({ ...profile, id: user.id }, candidates, {
         ...byCreator,
         [user.id]: byCreator[user.id] || [],
@@ -87,7 +105,7 @@ export default function WhoToMeet({ className }) {
             <Icon name="users" className="h-5 w-5 shrink-0 text-brand" /> Who to meet this week
           </h2>
           <p className="mt-1 text-sm text-smoke">
-            Three creators you have not met, and why. Same three all week.
+            Three creators picked for you, and why. Same three all week.
           </p>
         </div>
         <Link to="/creators" className="shrink-0 text-sm font-medium text-brand transition-transform duration-200 hover:scale-105">

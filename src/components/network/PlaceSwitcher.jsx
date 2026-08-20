@@ -5,6 +5,7 @@ import { useCommunity } from '../../context/CommunityContext'
 import Icon from '../Icon'
 import { flagFromIso } from '../../lib/flags'
 import { cx } from '../../lib/utils'
+import { lockScroll } from '../../lib/scrollLock'
 
 // Re-exported for the market components that already import it from here.
 // The definition lives in lib/flags.js: this module pulls in `motion`, and
@@ -73,12 +74,11 @@ export default function PlaceSwitcher() {
   // scrolls the page underneath and the sheet appears to be stuck to nothing.
   useEffect(() => {
     if (!sheet) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    const release = lockScroll()
     const onKey = (e) => e.key === 'Escape' && setSheet(false)
     document.addEventListener('keydown', onKey)
     return () => {
-      document.body.style.overflow = prev
+      release()
       document.removeEventListener('keydown', onKey)
     }
   }, [sheet])

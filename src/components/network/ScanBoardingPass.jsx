@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Modal, PlaneLoader } from '../ui'
 import Icon from '../Icon'
-import { cx } from '../../lib/utils'
+import { cx, formatDate } from '../../lib/utils'
 import { boardingPassToForm } from '../../lib/bcbp'
 import { scanBarcode, scanNeedsDownload } from '../../lib/scanPass'
 
@@ -191,33 +191,81 @@ export default function ScanBoardingPass({ open, onClose, onFilled, now }) {
           </>
         )}
 
+        {/* A FAILED READ NOW NAMES THE THING THAT USUALLY WORKS.
+            It used to end at "type the flight in - it is only five fields",
+            which is the last resort offered as the first one. The step that
+            actually rescues most failures is going one rung UP in quality: a
+            photograph of a paper pass, or of a phone screen, loses contrast and
+            sharpness that the original digital pass still has. Ethan: "if a scan
+            boarding pass is an error, like you can't really read it properly,
+            just show up a message to try upload the digital boarding pass, and
+            that might work, or just fill it in manually." Both, in that order. */}
         {mode === 'failed' && (
           <div className="py-4 text-center">
             <p className="text-sm font-semibold text-ink">No boarding pass found</p>
             <p className="mx-auto mt-1 max-w-sm text-sm text-smoke">
-              Make sure the whole barcode is in the picture and in focus. If it still will not read,
-              close this and type the flight in - it is only five fields.
+              Make sure the whole barcode is in the picture, in focus, and not cut off at the edges.
             </p>
-            <button onClick={() => setMode('idle')} className="btn-secondary mt-4 text-sm">Try again</button>
+            <p className="mx-auto mt-2 max-w-sm text-sm text-smoke">
+              If it still will not read, try the digital pass instead: a screenshot straight from
+              Apple Wallet or the airline app scans far more reliably than a photo of a printed one.
+              Otherwise close this and type the flight in.
+            </p>
+            <div className="mt-4 flex justify-center gap-3">
+              <button onClick={() => fileRef.current?.click()} className="btn-primary text-sm">Choose a photo</button>
+              <button onClick={() => setMode('idle')} className="btn-secondary text-sm">Back</button>
+            </div>
           </div>
         )}
 
         {/* THE DESKTOP ANSWER, WHICH IS "DO THIS ON YOUR PHONE".
             A laptop webcam is fixed-focus, pointed at your face, and could not
             resolve a barcode even if you held the pass up to it. So this does
-            not offer a retry - retrying is the one thing that cannot work. */}
+            not offer a retry - retrying is the one thing that cannot work.
+
+            TWO THINGS WERE WRONG WITH IT AND BOTH ARE FIXED HERE.
+
+            THE COPY LED WITH THE DIAGNOSIS. "There is no camera here that can
+            read a barcode" is a sentence about the hardware, offered to somebody
+            who asked to do a task, and it reads as the app apologising for
+            itself. Ethan: "it shouldn't need to say that. Instead it should just
+            say something simple like: open the app on your phone, open flight
+            log, tap scan your boarding pass, the camera will then show up."
+            So it is three steps in order, and the reason is dropped entirely -
+            nobody needs to be told why their laptop is not a scanner.
+
+            AND "CHOOSE A PHOTO" OPENED TWO THINGS AT ONCE. It called
+            `setMode('idle')` AND `fileRef.click()`, so the file dialog came up
+            over a screen that had just flipped back to the two option cards.
+            Ethan: "whenever I click choose a photo, it actually shows up that
+            choose a photo or use camera option again, but then also loads the
+            choose a photo." It only opens the picker now; `pickFile` moves the
+            mode on when a file actually arrives, and cancelling leaves this
+            screen up with its own Back button, which is what should happen. */}
         {mode === 'nocamera' && (
           <div className="py-4 text-center">
             <p className="text-sm font-semibold text-ink">Use your phone for this one</p>
-            <p className="mx-auto mt-1 max-w-sm text-sm text-smoke">
-              There is no camera here that can read a barcode. Open the flight log on your phone and
-              tap "Scan your boarding pass" - the camera there will pick it up in a second.
-            </p>
-            <p className="mx-auto mt-2 max-w-sm text-sm text-smoke">
-              On this screen you can still choose a photo of the pass, or a screenshot from Apple Wallet.
+            <ol className="mx-auto mt-3 max-w-xs space-y-2 text-left text-sm text-smoke">
+              {[
+                'Open the app on your phone.',
+                'Open the flight log.',
+                'Tap "Scan your boarding pass".',
+                'The camera opens. Scan the pass.',
+              ].map((step, i) => (
+                <li key={step} className="flex gap-2.5">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-tint text-[10px] font-bold text-brand">
+                    {i + 1}
+                  </span>
+                  <span>{step}</span>
+                </li>
+              ))}
+            </ol>
+            <p className="mx-auto mt-4 max-w-sm text-sm text-smoke">
+              On a computer you can still choose a photo of the pass, or a screenshot of it from
+              Apple Wallet.
             </p>
             <div className="mt-4 flex justify-center gap-3">
-              <button onClick={() => { setMode('idle'); fileRef.current?.click() }} className="btn-primary text-sm">Choose a photo</button>
+              <button onClick={() => fileRef.current?.click()} className="btn-primary text-sm">Choose a photo</button>
               <button onClick={() => setMode('idle')} className="btn-secondary text-sm">Back</button>
             </div>
           </div>
@@ -239,11 +287,20 @@ export default function ScanBoardingPass({ open, onClose, onFilled, now }) {
                   <p className="text-2xl font-bold tracking-wider text-ink">{result.form.to_iata}</p>
                 </div>
               </div>
-              <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-brand/20 pt-3 text-center">
+              <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-brand/20 pt-3 text-center sm:grid-cols-4">
+                {/* THE DATE WAS PRINTED AS ITS STORAGE FORMAT. `flown_on` is
+                    an ISO string because that is what the column takes, and it
+                    was going straight onto the card - so the one field this
+                    screen exists to have CHECKED was displayed as "2026-08-18".
+                    Ethan: "whenever I'm showing the date there, I'm showing it
+                    back to front, like 2026 to the 18. Ensure it shows the date
+                    normally, like it always does." `formatDate` is what the
+                    rest of the app uses, and it gives "18 Aug 2026". */}
                 {[
+                  ['Airline', result.form.airline || '—'],
                   ['Flight', result.form.flight_number || '—'],
                   ['Seat', result.form.seat || '—'],
-                  ['Date', result.form.flown_on || '—'],
+                  ['Date', result.form.flown_on ? formatDate(result.form.flown_on) : '—'],
                 ].map(([k, v]) => (
                   <div key={k}>
                     <dt className="text-[10px] font-semibold uppercase tracking-widest text-smoke">{k}</dt>

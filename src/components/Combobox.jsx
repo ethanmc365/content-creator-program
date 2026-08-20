@@ -65,7 +65,7 @@ export default function Combobox({ value, onChange, options, placeholder = 'Sele
               aria-label="Search options"
             />
           </div>
-          <ul role="listbox" className="max-h-60 overflow-y-auto py-1">
+          <ul role="listbox" className="max-h-60 overflow-y-auto overscroll-contain py-1">
             {/* THE "ANY" ROW IS A FILTER'S ROW, NOT A FORM FIELD'S.
                 On the directory's filters, picking nothing is a real answer
                 ("any country"). On the collab form it is not - the trip has a

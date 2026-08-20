@@ -57,6 +57,12 @@ export const APP_ICONS = [
     apple: '/icons/midnight/apple-touch-icon.png',
     manifest: '/icons/midnight/manifest.webmanifest',
   },
+  {
+    key: 'camera',
+    label: 'Camera',
+    apple: '/icons/camera/apple-touch-icon.png',
+    manifest: '/icons/camera/manifest.webmanifest',
+  },
 ]
 
 export const DEFAULT_APP_ICON = APP_ICONS[0].key

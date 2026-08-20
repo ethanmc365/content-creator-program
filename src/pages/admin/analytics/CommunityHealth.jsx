@@ -171,7 +171,7 @@ export default function CommunityHealth() {
             Who has notifications on
             <span className="ml-2 text-xs font-normal text-smoke">({reach.withPush} of {reach.creators})</span>
           </summary>
-          <div className="max-h-96 overflow-y-auto border-t border-gray-100">
+          <div className="max-h-96 overflow-y-auto overscroll-contain border-t border-gray-100">
             {reach.list.map((p) => (
               <div key={p.creator_id} className="flex items-center gap-3 border-b border-gray-50 px-5 py-2.5 text-sm last:border-0">
                 <span className={cx('h-2 w-2 shrink-0 rounded-full', Number(p.devices) > 0 ? 'bg-green-500' : 'bg-gray-300')} />

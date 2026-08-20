@@ -242,44 +242,115 @@ def plane_rings(size):
     return [[(x * k + ox, y * k + oy) for x, y in r] for r in rings]
 
 
-def world_rings(size, _cache={}):
-    """A GLOBE, BECAUSE A SQUARE TILE CANNOT HOLD A FLAT WORLD HONESTLY.
+def _split_antimeridian(rings, jump=180.0):
+    """Cut rings that wrap the date line into separate rings.
 
-    WHAT WAS HERE. An equirectangular map with a 1.7x VERTICAL STRETCH baked in,
-    and a comment defending it: a true flat world is 360 wide by 141 tall once
-    Antarctica is out, so drawn to scale in a square it is a band across the
-    middle with two thirds of the icon empty. That reasoning is sound and the
-    conclusion was still wrong - Ethan: "it should be actual world map with
-    correct proportions, currently it looks squashed." Stretching latitude by
-    1.7 makes Africa tall and thin and Greenland enormous, and at 60px what you
-    notice is not "the world", it is that something is off.
+    RUSSIA IS ONE RING OF 4893 POINTS AND IT IS WHY THE ARCTIC WENT WHITE.
 
-    The square tile was the real constraint, and a globe answers it exactly. An
-    orthographic projection of a sphere IS a circle: it fills a square tile
-    edge to edge, every continent keeps its true shape, and nothing is stretched
-    to make it fit. It is also the more legible icon at 60px, because the
-    silhouette is a circle rather than a rectangle of noise.
+    countries-50m stores it as a single closed loop that runs east along the
+    Arctic coast to 180, hops the seam to -180 for Chukotka, and comes back. In
+    plate-carree coordinates that hop is a single segment 359.9 degrees wide,
+    and any straight-line treatment of it - clipping, interpolating, projecting
+    - reads it as a coastline stretching across every longitude on Earth at
+    about 70N. Clipped to a window over Europe, what is left of that phantom
+    segment is a lid over the top of the map, and the fill underneath it turned
+    the Norwegian Sea into land.
 
-    Centred on 20N 10E, which is the view that puts Africa in the middle with
-    Europe above it, the Americas on the left limb and Asia on the right - the
-    most recognisable single face of the planet.
+    So: split at every segment wider than half the world, and close each run on
+    itself. The two closing chords both sit within a degree of the date line,
+    which is the far side of the planet from anything this icon shows.
     """
-    if 'r' not in _cache: _cache['r'] = land_rings()
-    rings = _cache['r']
+    out = []
+    for r in rings:
+        n = len(r)
+        seams = [k for k in range(n) if abs(r[(k + 1) % n][0] - r[k][0]) > jump]
+        if not seams:
+            out.append(r)
+            continue
+        for i in range(len(seams)):
+            a, b = (seams[i] + 1) % n, seams[(i + 1) % len(seams)]
+            run, k = [], a
+            while True:
+                run.append(r[k])
+                if k == b: break
+                k = (k + 1) % n
+            if len(run) > 2: out.append(run)
+    return out
 
-    lat0, lon0 = math.radians(20.0), math.radians(10.0)
-    R = size * 0.455
+
+def _clip_lonlat(rings, lon_min, lon_max, lat_min, lat_max):
+    """Cut the atlas down to a lon/lat window before anything is projected.
+
+    THIS IS WHAT KILLS THE ARC ACROSS THE ARCTIC, and the bug is worth writing
+    down because it is invisible until you probe a pixel.
+
+    The projector clips each ring against the near/far hemisphere and closes
+    whatever survives with a STRAIGHT CHORD. For a normal country that chord is
+    a few pixels off the horizon and nobody sees it. Russia is not a normal
+    country: countries-50m holds it as ONE ring of 4893 points spanning 359.9
+    degrees of longitude, from -180 to 179.9, wrapping over the pole. Clipped to
+    a hemisphere it comes back as two distant fragments, and the chord joining
+    them ran clean across the Norwegian Sea - which is why 0E 68N, open water,
+    was painting white.
+
+    Clipping in lon/lat FIRST means nothing ever reaches the horizon, so no
+    chord is ever drawn. The window is chosen well outside the tile and well
+    inside the near hemisphere: every one of its four edges projects off-screen,
+    so the cuts themselves are never visible.
+    """
+    def inside(p, edge):
+        lon, lat = p
+        return (lon >= lon_min if edge == 0 else lon <= lon_max if edge == 1
+                else lat >= lat_min if edge == 2 else lat <= lat_max)
+
+    def cross(a, b, edge):
+        (lon_a, lat_a), (lon_b, lat_b) = a, b
+        if edge < 2:
+            v = lon_min if edge == 0 else lon_max
+            t = (v - lon_a) / (lon_b - lon_a)
+            return (v, lat_a + (lat_b - lat_a) * t)
+        v = lat_min if edge == 2 else lat_max
+        t = (v - lat_a) / (lat_b - lat_a)
+        return (lon_a + (lon_b - lon_a) * t, v)
+
+    out = []
+    for r in rings:
+        lons = [q[0] for q in r]; lats = [q[1] for q in r]
+        # Cheap rejection first: most of the atlas is nowhere near the window.
+        if max(lons) < lon_min or min(lons) > lon_max: continue
+        if max(lats) < lat_min or min(lats) > lat_max: continue
+        poly = r
+        for edge in range(4):
+            if not poly: break
+            nxt = []
+            for i in range(len(poly)):
+                a, b = poly[i], poly[(i + 1) % len(poly)]
+                ina, inb = inside(a, edge), inside(b, edge)
+                if ina: nxt.append(a)
+                if ina != inb: nxt.append(cross(a, b, edge))
+            poly = nxt
+        if len(poly) > 2: out.append(poly)
+    return out
+
+
+def _orthographic(size, lat0_deg, lon0_deg, R, rings):
+    """Land rings projected orthographically onto a tile.
+
+    Orthographic is the projection that does not lie about shape near its
+    centre: it is what you would see looking at the globe from very far away,
+    so nothing is stretched to make it fit a square. Everything below is
+    geometry, and both icons that use it differ only in where the camera is and
+    how close it stands.
+    """
     cx = cy = size / 2.0
+    lat0, lon0 = math.radians(lat0_deg), math.radians(lon0_deg)
     sin0, cos0 = math.sin(lat0), math.cos(lat0)
 
     def vec(lon, lat):
-        """Point on the unit sphere. Longitudes are already in degrees here."""
         la, lo = math.radians(lat), math.radians(lon)
         return (math.cos(la) * math.cos(lo), math.cos(la) * math.sin(lo), math.sin(la))
 
-    # The viewing direction, as a vector, so "is this point on the near side"
-    # is one dot product rather than a spherical-trig special case.
-    V = vec(math.degrees(lon0), math.degrees(lat0))
+    V = vec(lon0_deg, lat0_deg)
 
     def dot(a, b): return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 
@@ -288,37 +359,19 @@ def world_rings(size, _cache={}):
         return (a[0] / m, a[1] / m, a[2] / m)
 
     def screen(v):
-        """Orthographic. x is east of centre, y is south of centre (PNG rows go
-        down), both scaled by the globe's radius."""
+        """x east of centre, y south of centre - PNG rows go down."""
         x, y, z = v
-        # East and north basis vectors at the centre of the projection.
         ex, ey = -math.sin(lon0), math.cos(lon0)
         e = x * ex + y * ey
         n = -sin0 * math.cos(lon0) * x - sin0 * math.sin(lon0) * y + cos0 * z
         return (cx + e * R, cy - n * R)
 
     out = []
-
-    # NO LIMB OUTLINE, AND NO CLOSING ARC ALONG IT.
-    #
-    # Both were tried and both were wrong for the same reason: the filler uses
-    # NONZERO winding, so every extra ring interacts with every other one. An
-    # annulus for the globe's edge inverted whatever land crossed it, and
-    # closing a clipped continent by slerping along the limb takes the SHORT arc
-    # between the two crossings - which for a landmass spanning a wide slice of
-    # the horizon is the wrong way round, and paints a sweep of white across the
-    # ocean. (Those were the arcs over the Arctic.)
-    #
-    # What is left is the honest minimum: land on the near side, cut at the
-    # horizon, closed straight. The chord that leaves is at most a few pixels
-    # off the limb at this size because the rings are densified first, and the
-    # circle of the globe is drawn by the coastlines themselves.
-
     for r in rings:
-        # Densify first. Clipping happens on the near/far boundary, and a ring
-        # whose vertices are ten degrees apart crosses that boundary in one
-        # long step - so the entry and exit points land far from where the
-        # coastline actually meets the horizon.
+        # DENSIFY FIRST. Clipping happens on the near/far boundary, and a ring
+        # whose vertices are ten degrees apart crosses that boundary in one long
+        # step - so the entry and exit points land far from where the coastline
+        # actually meets the horizon.
         dense = []
         for i in range(len(r)):
             lon_a, lat_a = r[i]
@@ -344,38 +397,141 @@ def world_rings(size, _cache={}):
                                      a[2] + (b[2] - a[2]) * t)))
         if len(clipped) < 3: continue
 
-        pts = [screen(v) for v in clipped]
-
-        # TWO TIDY-UPS, BOTH ABOUT WHAT SURVIVES CLIPPING.
-        #
-        # Numerical drift at the horizon can put a crossing point a hair outside
-        # the limb, which paints a whisker off the edge of the globe, so every
-        # point is clamped back onto the disc.
-        #
-        # And a ring that comes out of the clipper as a sliver - the far tip of
-        # something almost entirely round the back, or an islet a fraction of a
-        # pixel across - is speckle rather than geography. Those were the flecks
-        # over the Arctic. Anything whose bounding box is under a pixel goes.
+        # Numerical drift at the horizon can put a crossing a hair outside the
+        # limb, which paints a whisker off the edge, so clamp back onto the disc.
         fixed = []
-        for x, y in pts:
+        for x, y in [screen(v) for v in clipped]:
             dx, dy = x - cx, y - cy
             d = math.hypot(dx, dy)
             if d > R and d > 0:
                 x, y = cx + dx / d * R, cy + dy / d * R
             fixed.append((x, y))
-        xs = [p[0] for p in fixed]; ys = [p[1] for p in fixed]
-        if max(xs) - min(xs) < 1.0 and max(ys) - min(ys) < 1.0: continue
-        out.append(fixed)
 
+        # A ring that survives as a sliver - the far tip of something round the
+        # back, or an islet a fraction of a pixel across - is speckle, not
+        # geography. Drop anything whose bounding box is under a pixel, and
+        # anything entirely off the tile, which at this zoom is most of the world.
+        xs = [q[0] for q in fixed]; ys = [q[1] for q in fixed]
+        if max(xs) - min(xs) < 1.0 and max(ys) - min(ys) < 1.0: continue
+        if max(xs) < 0 or min(xs) > size or max(ys) < 0 or min(ys) > size: continue
+        out.append(fixed)
     return out
 
 
-# The four alternates. Each is (folder, background, mark colour, ring builder).
+def world_rings(size, _cache={}):
+    """EUROPE, ZOOMED IN, BECAUSE THE WHOLE WORLD IN A 60px SQUARE IS NOISE.
+
+    THE HISTORY, BECAUSE IT IS THE ARGUMENT.
+
+    First this was an equirectangular map with a 1.7x VERTICAL STRETCH baked in,
+    on the reasoning that a true flat world is 360 wide by 141 tall once
+    Antarctica is out, so drawn to scale in a square it is a band across the
+    middle with two thirds of the tile empty. Sound reasoning, wrong answer:
+    stretching latitude makes Africa tall and thin and Greenland enormous, and
+    at icon size what you notice is not "the world", it is that something is off.
+
+    Then it was a full globe - orthographic, centred on 20N 10E. That fixed the
+    proportions honestly, and Ethan still read it as stretched, which is the
+    useful signal here. A whole hemisphere reduced to 60 pixels gives every
+    continent about eight pixels of coastline, and eight pixels of coastline is
+    not a shape anybody recognises. It is a circle with texture on it, and a
+    circle with texture on it looks like whatever you already suspected.
+
+    So: stop drawing the planet and draw somewhere. Centred on 50N 15E at a
+    radius of 1.45 tiles, the tile holds roughly 19W to 43E and 34N to 66N -
+    Ireland to the Baltics, Sicily to the top of Norway. That is four
+    silhouettes anybody can name in an instant (the British Isles, Scandinavia,
+    Iberia, the boot of Italy) instead of thirty nobody can, and because it is
+    still orthographic near its own centre, nothing is stretched to achieve it.
+
+    It is also the honest icon for this programme, whose markets are European.
+
+    AND IT IS THE ONE VARIANT DRAWN THE OTHER WAY ROUND: orange land on a white
+    field, not a white mark on an orange one. Every other icon here is a small
+    mark on a full-bleed brand field, which works because the mark is small. A
+    map is not small - land covers about 55% of this tile - so on an orange
+    field the eye takes the ORANGE for the subject, reads the Mediterranean and
+    the Atlantic as the shapes being shown, and the whole thing comes out
+    looking like a mistake. Every map anybody has ever looked at puts the ink on
+    the land and leaves the water pale, and doing the same here is the
+    difference between "a map of Europe" and "an orange tile with white bits".
+    """
+    if 'r' not in _cache: _cache['r'] = land_rings()
+    # NO LIMB OUTLINE AND NO CLOSING ARC ALONG IT. Both were tried on the globe
+    # and both were wrong for the same reason: the filler uses NONZERO winding,
+    # so every extra ring interacts with every other one. An annulus for the
+    # edge inverted whatever land crossed it, and closing a clipped continent by
+    # slerping along the limb takes the SHORT arc between the two crossings,
+    # which for a wide landmass is the wrong way round and paints a sweep of
+    # white across the ocean. Land, cut at the horizon, closed straight.
+    # The window: comfortably wider than the tile (which holds about 19W-43E,
+    # 30N-70N) and comfortably inside the near hemisphere, so the cuts land
+    # off-screen. See _clip_lonlat for why this step is not optional.
+    # THE WINDOW IS WIDER THAN THE TILE ON PURPOSE. Its four edges are straight
+    # cuts through the atlas, and a straight cut through a coastline looks like
+    # a coastline. At 50N/15E with R = 1.15 tiles the tile holds roughly 24W-54E
+    # and 25N-75N, so a window of 50W-80E by 15N-85N projects every one of its
+    # own edges off-screen. Widen the zoom without widening this and the cuts
+    # walk into view as suspiciously straight shores.
+    window = _clip_lonlat(_split_antimeridian(_cache['r']), -50.0, 80.0, 15.0, 85.0)
+    return _orthographic(size, 50.0, 15.0, size * 1.15, window)
+
+
+# ------------------------------------------------------------ the camera ----
+
+def _circle(cx, cy, r, n=64, cw=True):
+    """A closed circle. `cw` picks the winding, which is how holes are made:
+    the filler is NONZERO, so a ring wound against its container cancels it."""
+    step = (2 * math.pi) / n
+    pts = [(cx + r * math.cos(i * step), cy + r * math.sin(i * step)) for i in range(n)]
+    return pts if cw else pts[::-1]
+
+
+def _rounded_rect(x0, y0, x1, y1, r, n=8):
+    """A rounded rectangle, wound the same way as _circle's default."""
+    pts = []
+    for (cx, cy, a0) in ((x1 - r, y0 + r, -math.pi / 2), (x1 - r, y1 - r, 0.0),
+                         (x0 + r, y1 - r, math.pi / 2), (x0 + r, y0 + r, math.pi)):
+        for i in range(n + 1):
+            a = a0 + (math.pi / 2) * (i / n)
+            pts.append((cx + r * math.cos(a), cy + r * math.sin(a)))
+    return pts
+
+
+def camera_rings(size):
+    """A CAMERA, FOR THE PEOPLE THE PLATFORM IS FOR.
+
+    The sixth icon, and the brief for it was "something travel themed, maybe a
+    camera for creators, simple, nothing too detailed". So: body, viewfinder
+    hump, lens, shutter light, and nothing else. A strap, a grip or a brand
+    plate all turn into grey mush at the size this is actually looked at.
+
+    THE LENS AND THE LIGHT ARE HOLES, NOT SHAPES, and that distinction is the
+    whole drawing. The rasteriser fills by NONZERO winding, so a ring wound
+    against its container subtracts from it and the background shows through.
+    The first attempt drew the lens as a filled disc with a smaller reversed
+    disc inside it, aiming for a ring: body +1, disc +1, reversed inner -1, and
+    the middle still came out at +1. The icon rendered as a solid white slab
+    with no lens at all. One reversed ring on its own is what cuts a hole.
+    """
+    s_ = size / 100.0
+    def at(*a): return [(x * s_, y * s_) for x, y in a]
+    body = _rounded_rect(11 * s_, 30 * s_, 89 * s_, 79 * s_, 9 * s_)
+    # The hump overlaps the body rather than sitting on it, so the two fills
+    # union into one silhouette instead of meeting at a visible seam.
+    hump = _rounded_rect(34 * s_, 20 * s_, 62 * s_, 36 * s_, 5 * s_)
+    lens = _circle(50 * s_, 55.5 * s_, 16 * s_, cw=False)
+    light = _circle(76 * s_, 40 * s_, 4.5 * s_, cw=False)
+    return [body, hump, lens, light]
+
+
+# The five alternates. Each is (folder, background, mark colour, ring builder).
 VARIANTS = [
     ('mono', WHITE, INK, y_rings),
-    ('world', BRAND, WHITE, world_rings),
+    ('world', WHITE, BRAND, world_rings),
     ('plane', BRAND, WHITE, plane_rings),
     ('midnight', INK, BRAND, y_rings),
+    ('camera', BRAND, WHITE, camera_rings),
 ]
 
 MANIFEST = {

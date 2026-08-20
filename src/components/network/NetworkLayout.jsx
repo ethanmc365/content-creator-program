@@ -65,7 +65,7 @@ export default function NetworkLayout({ children, switcher = true, rail = null, 
           <aside
             className={cx(
               'mt-10 lg:mt-0',
-              'lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:overscroll-contain',
+              'lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto overscroll-contain lg:overscroll-contain',
               // The scrollbar is hidden because the rail is chrome, not content:
               // a permanent grey gutter down the side of five white cards reads
               // as a seam. The region is still keyboard and wheel scrollable.

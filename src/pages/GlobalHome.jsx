@@ -10,7 +10,6 @@ import NetworkMotion from '../components/NetworkMotion'
 import TrypPlane from '../components/network/TrypPlane'
 import LiveChallengeCard from '../components/network/LiveChallengeCard'
 import { CountUp } from '../components/network/Motion'
-import ProfileProgress, { profileNeedsWork } from '../components/network/ProfileProgress'
 import Reorderable from '../components/network/Reorderable'
 import FlagStack from '../components/network/FlagStack'
 import CreatorMap from '../components/CreatorMap'
@@ -729,11 +728,13 @@ export default function GlobalHome() {
               only. The same ten links now live behind your own avatar, one
               thumb-reach from EVERY page. See AppLayout. */}
 
-          {/* Asked here rather than left to the card, so a complete profile does
-              not leave a silent step in the ladder above. */}
-          {profileNeedsWork(profile) && (
-            <Reveal from="down" delay={stepDelay()}><ProfileProgress /></Reveal>
-          )}
+          {/* THE PROFILE PROGRESS CARD IS GONE (20 Aug 2026). "Your profile is
+              33% there" is a nag that only makes sense when a creator arrived
+              with an empty profile, and the onboarding flow being built now
+              collects all of it up front - so by the time anybody reaches this
+              hub the bar would read 100% and the card would never render. It
+              was removed rather than left to rot. ProfileProgress.jsx is still
+              in the tree unused; delete it once onboarding ships. */}
 
           {/* ---------- Welcome ---------- */}
           {/* No `initial/animate` of its own any more. It had a mount tween
