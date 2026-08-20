@@ -34,9 +34,13 @@ function Cloud({ style }) {
   )
 }
 
-export default function TrypPlaneScene({ title, subtitle, children }) {
+// `z` is a prop because not every takeover wants the same altitude. Offline is
+// the highest thing on the page by design - nothing you can click matters while
+// the connection is gone. The error and 404 screens sit BELOW the modal layer on
+// purpose, because their whole point is a dialog you can open on top of them.
+export default function TrypPlaneScene({ title, subtitle, children, z = 'z-[100]' }) {
   return (
-    <div className="fixed inset-0 z-[100] overflow-hidden bg-white">
+    <div className={`fixed inset-0 ${z} overflow-hidden bg-white`}>
       <style>{`
         @keyframes trypCruise {
           0%,100% { transform: translate(0,0) rotate(-0.5deg) }

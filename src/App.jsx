@@ -5,7 +5,8 @@ import { ProtectedRoute, AdminRoute } from './components/ProtectedRoute'
 import NetworkRoute from './components/NetworkRoute'
 import AppLayout from './components/layout/AppLayout'
 import OfflineScreen from './components/OfflineScreen'
-import ErrorBoundary from './components/ErrorScreen'
+import { startOutbox } from './lib/outbox'
+import ErrorBoundary, { NotFoundScreen } from './components/ErrorScreen'
 import ConfirmHost from './components/ConfirmHost'
 import ToastHost from './components/ToastHost'
 import { PlaneLoader } from './components/ui'
@@ -115,6 +116,12 @@ export default function App() {
   // every map holds, so the map that appears when you scroll to it has nothing
   // left to do. See lib/mapCountries.
   useEffect(() => { warmMapAtlas() }, [])
+  // The outbox listens for the connection coming back, once, for the whole app.
+  // It is mounted here rather than in a chat page on purpose: a message queued
+  // in the Lisbon room should still go out if you happen to be standing in your
+  // DMs when the signal returns, and it should go out on the reload after the
+  // tab was killed whether or not you open a chat at all. See lib/outbox.
+  useEffect(() => startOutbox(), [])
   return (
     <>
       <OfflineScreen />
@@ -230,8 +237,11 @@ export default function App() {
         </Route>
       </Route>
 
-      {/* Anything unknown → landing */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {/* ANYTHING UNKNOWN GETS A PAGE, NOT A REDIRECT.
+          This was `<Navigate to="/" replace />`, which meant a mistyped or
+          stale link dropped you on the marketing page with no explanation and
+          no clue that the address was wrong. See NotFoundScreen. */}
+      <Route path="*" element={<NotFoundScreen />} />
       </Routes>
       </Suspense>
       </ErrorBoundary>

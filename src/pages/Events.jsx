@@ -17,6 +17,9 @@ import ReminderBell from '../components/calendar/ReminderBell'
 import RsvpFaces from '../components/calendar/RsvpFaces'
 import PersonalEventModal from '../components/calendar/PersonalEventModal'
 import SubscribeCalendar from '../components/calendar/SubscribeCalendar'
+import TimezonePrompt from '../components/calendar/TimezonePrompt'
+import { DeadlineReminderModal } from '../components/NotificationPreferences'
+import { useTimezone } from '../lib/timezone'
 import { loadCalendar } from '../lib/calendarSources'
 import { cx } from '../lib/utils'
 
@@ -149,7 +152,7 @@ function whenLabel(date, now) {
 // There used to be three near-identical blocks of JSX for the same object,
 // which is how the agenda list ended up with an RSVP control the day panel did
 // not have.
-function EventCard({ e, now, rsvps, myId, connectedIds, compact = false, onEdit, live = false }) {
+function EventCard({ e, now, zone, rsvps, myId, connectedIds, compact = false, onEdit, live = false, onDeadlinePrefs }) {
   const meta = metaFor(e.type)
   const date = new Date(e.date)
   const soon = whenLabel(date, now)
@@ -193,12 +196,12 @@ function EventCard({ e, now, rsvps, myId, connectedIds, compact = false, onEdit,
                 {soon}
               </span>
             )}
-            <ReminderBell item={e} now={now} />
+            <ReminderBell item={e} now={now} onOpenDeadlinePrefs={onDeadlinePrefs} />
           </span>
         </div>
 
         <p className="mt-1 text-xs text-smoke">
-          <EventTime at={e.date} hostZone={e.timezone} prefix={`${format(date, 'd MMM')}, `} />
+          <EventTime at={e.date} zone={zone} prefix={`${format(date, 'd MMM')}, `} />
         </p>
         {e.description && !compact && (
           <p className="mt-1.5 line-clamp-2 text-[13px] leading-snug text-smoke">{e.description}</p>
@@ -250,7 +253,7 @@ function LiveChip({ className = '' }) {
 
 // ---------------------------------------------------------------- the page
 export default function Events() {
-  const { user, isAdmin } = useAuth()
+  const { user, profile, isAdmin } = useAuth()
   // Always-on scope helper, not CommunityContext: this page is one of the ones
   // 45 live creators open, and it has to scope correctly whether or not the
   // network preview flag is set. `inScope` fails OPEN, so an unscoped event is
@@ -266,6 +269,12 @@ export default function Events() {
   const [personalOpen, setPersonalOpen] = useState(false)
   const [editingPersonal, setEditingPersonal] = useState(null)
   const [subscribeOpen, setSubscribeOpen] = useState(false)
+  const [deadlinePrefsOpen, setDeadlinePrefsOpen] = useState(false)
+  // ONE CLOCK, AND IT NOTICES WHEN YOU MOVE. See lib/timezone: the host-time
+  // second line is gone, and what replaced it is a single prompt the first time
+  // the device reports somewhere new.
+  const tz = useTimezone(profile)
+  const [tzAsked, setTzAsked] = useState(false)
   // `react-hooks/purity` bans `new Date()` in render, and this is also the right
   // shape anyway: one clock for the whole page, ticking slowly, so every "in 3
   // days" on it agrees with every other one.
@@ -296,6 +305,13 @@ export default function Events() {
   // everything" - correct as a permanent fallback and wrong as a loading state,
   // because it paints one frame of every market's events before narrowing.
   useEffect(() => { if (!scopesLoading) reload() }, [scopesLoading, reload])
+
+  // A CREATOR WHO HAS NEVER BEEN ASKED IS NOT "MOVED", THEY ARE NEW. The first
+  // visit quietly records where they are, so the prompt fires on the first
+  // actual move rather than on the first ever page load.
+  useEffect(() => {
+    if (tz.firstTime) tz.acknowledge()
+  }, [tz])
 
   // RSVPs for everything on the page, in one query rather than one per card.
   // `EventRsvp` still loads its own rows for the control it owns; this is the
@@ -393,7 +409,15 @@ export default function Events() {
   }, [view])
 
   const dayEvents = selectedDay ? eventsOn(selectedDay) : []
-  const cardProps = { now, rsvps, myId: user?.id, connectedIds, onEdit: (e) => { setEditingPersonal(e); setPersonalOpen(true) } }
+  const cardProps = {
+    now,
+    zone: tz.zone,
+    rsvps,
+    myId: user?.id,
+    connectedIds,
+    onEdit: (e) => { setEditingPersonal(e); setPersonalOpen(true) },
+    onDeadlinePrefs: () => setDeadlinePrefsOpen(true),
+  }
 
   return (
     <div className="page">
@@ -434,7 +458,7 @@ export default function Events() {
             </section>
           )}
 
-          {nextEvent && <NextUp e={nextEvent} now={now} rsvps={rsvps} myId={user?.id} connectedIds={connectedIds} />}
+          {nextEvent && <NextUp e={nextEvent} now={now} zone={tz.zone} rsvps={rsvps} myId={user?.id} connectedIds={connectedIds} />}
 
           {/* ---------- The controls ----------
               THE VIEW SWITCH SPANS THE WHOLE WIDTH ON A PHONE. Ethan: "rather
@@ -602,6 +626,21 @@ export default function Events() {
       />
       <SubscribeCalendar open={subscribeOpen} onClose={() => setSubscribeOpen(false)} />
 
+      {/* THE ONE-OFF "you have moved" QUESTION. Once per new device zone, on
+          the page where it matters. `tzAsked` stops it reappearing within a
+          single visit while the profile write is in flight. */}
+      <TimezonePrompt
+        open={tz.moved && !tzAsked}
+        device={tz.device}
+        previous={tz.pinned || tz.seen}
+        onChange={() => { setTzAsked(true); tz.change() }}
+        onKeep={() => { setTzAsked(true); tz.keep() }}
+      />
+
+      {/* The standing deadline lead-times, opened by the bell on a deadline.
+          Same component Settings renders inline. */}
+      <DeadlineReminderModal open={deadlinePrefsOpen} onClose={() => setDeadlinePrefsOpen(false)} />
+
       {/* "How was it?" for an event you said you were going to, ON THE CALENDAR
           PAGE. It used to be mounted in AppLayout, so it could interrupt
           somebody reading their DMs about a Q&A that finished last Tuesday. */}
@@ -621,7 +660,7 @@ export default function Events() {
 // spent on one event. The phone version keeps the two facts that earn their
 // place - what it is and how soon - and everything else is one tap away in the
 // day panel. The desktop card is unchanged, because there the space is free.
-function NextUp({ e, now, rsvps, myId, connectedIds }) {
+function NextUp({ e, now, zone, rsvps, myId, connectedIds }) {
   const meta = metaFor(e.type)
   const date = new Date(e.date)
   const soon = whenLabel(date, now)
@@ -658,7 +697,7 @@ function NextUp({ e, now, rsvps, myId, connectedIds }) {
             <div className="min-w-0">
               <h2 className="text-2xl font-bold leading-tight sm:text-3xl">{e.title}</h2>
               <p className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-white/85">
-                <EventTime at={e.date} hostZone={e.timezone} prefix={`${format(date, 'd MMM')}, `} stacked={false} />
+                <EventTime at={e.date} zone={zone} prefix={`${format(date, 'd MMM')}, `} />
                 {soon && (
                   <span className="rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider">{soon}</span>
                 )}

@@ -375,7 +375,7 @@ function BoardingPass({ from, to, facts, dateStr, airlineName, flightNo, seat, a
   //
   // The plane is 0.62 scale rather than 0.34 - nearly twice the size - and it
   // has a fade at each end so it arrives and departs rather than teleporting.
-  const line = 'M10 20 L 190 20'
+  const line = 'M6 18 L 394 18'
   return (
     <div className="overflow-hidden rounded-card border border-brand/25 bg-white shadow-card">
       {/* The stub across the top: brand, and the two codes with the aircraft
@@ -383,48 +383,62 @@ function BoardingPass({ from, to, facts, dateStr, airlineName, flightNo, seat, a
           actually reads. */}
       <div className="relative overflow-hidden bg-gradient-to-br from-brand to-brand-light px-5 py-4 text-white">
         <div className="pointer-events-none absolute -right-10 -top-14 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-        <div className="relative flex items-end justify-between gap-3">
+        {/* THE CODES ON ONE ROW, THE ROUTE UNDER THEM, EDGE TO EDGE.
+            The owner, twice: "you made it much shorter and it doesn't look as
+            good", and "I said the dotted line with the animated airplane should
+            go from the airport code to the other airport code but you still
+            have it small in the middle."
+            Both are the same fault. The line was a flex sibling BETWEEN the two
+            code blocks, so it only ever got whatever width was left over after
+            two 4xl codes and two city names had taken theirs - about a third of
+            the card on a phone - and squeezing it in there is what flattened the
+            whole stub. Now the codes are a row of their own and the route is a
+            full-width band beneath them, anchored under DUB and under BUD. The
+            plane has the whole card to cross. */}
+        <div className="relative flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-white/70">From</p>
-            <p className="text-3xl font-bold leading-none tracking-wider sm:text-4xl">{from?.iata || '– – –'}</p>
-            <p className="mt-1 truncate text-[11px] text-white/80">{from?.city || 'Where you left'}</p>
+            <p className="text-4xl font-bold leading-none tracking-wider sm:text-5xl">{from?.iata || '– – –'}</p>
+            <p className="mt-1.5 truncate text-xs text-white/80">{from?.city || 'Where you left'}</p>
           </div>
-
-          <div className="relative h-10 min-w-0 flex-1">
-            <svg viewBox="0 0 200 40" className="h-full w-full overflow-visible" fill="none" aria-hidden>
-              <path d={line} stroke="rgba(255,255,255,0.5)" strokeWidth="1.6" strokeDasharray="5 6" strokeLinecap="round" />
-              {/* The two ends of the line get a solid dot each, so the dashes
-                  read as a route between two places rather than as a border. */}
-              <circle cx="10" cy="20" r="2.4" fill="#ffffff" />
-              <circle cx="190" cy="20" r="2.4" fill="#ffffff" />
-              {from && to && (
-                <g>
-                  {/* THE MOTION DRIVES THE OUTER GROUP AND THE CLASS GOES ON A
-                      NESTED ONE. `animateMotion` writes its parent's transform
-                      and a CSS transform overrides an SVG one, so a fade applied
-                      to the same element would park the plane at the viewBox
-                      origin. Same trap as every map in this product. */}
-                  <g className="pass-plane">
-                    {/* Nose-up silhouette rotated onto the path, the same one
-                        every map here flies - at nearly twice the size it was. */}
-                    <g transform="scale(0.62) rotate(90)">
-                      <path
-                        d="M0 -11 C1.1 -11 1.8 -9 1.8 -6.2 L1.8 -4.4 L10 1 L10 3.1 L1.8 -0.2 L1.8 5 L4.4 7.6 L4.4 9.2 L0 7.7 L-4.4 9.2 L-4.4 7.6 L-1.8 5 L-1.8 -0.2 L-10 3.1 L-10 1 L-1.8 -4.4 L-1.8 -6.2 C-1.8 -9 -1.1 -11 0 -11 Z"
-                        fill="#ffffff"
-                      />
-                    </g>
-                  </g>
-                  <animateMotion dur="3.6s" repeatCount="indefinite" rotate="auto" path={line} />
-                </g>
-              )}
-            </svg>
-          </div>
-
           <div className="min-w-0 text-right">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-white/70">To</p>
-            <p className="text-3xl font-bold leading-none tracking-wider sm:text-4xl">{to?.iata || '– – –'}</p>
-            <p className="mt-1 truncate text-[11px] text-white/80">{to?.city || 'Where you went'}</p>
+            <p className="text-4xl font-bold leading-none tracking-wider sm:text-5xl">{to?.iata || '– – –'}</p>
+            <p className="mt-1.5 truncate text-xs text-white/80">{to?.city || 'Where you went'}</p>
           </div>
+        </div>
+
+        <div className="relative mt-4 h-9 w-full">
+          {/* `preserveAspectRatio="none"` so the 400-unit box stretches to
+              whatever the card is: the dashes and the dots stay put over the two
+              codes at every width, and the plane is counter-scaled below so it
+              does not stretch with them. */}
+          <svg viewBox="0 0 400 36" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" fill="none" aria-hidden>
+            <path d={line} stroke="rgba(255,255,255,0.55)" strokeWidth="1.4" strokeDasharray="6 8" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+          </svg>
+          {/* The dots and the plane live in their own non-stretching layer. */}
+          <svg viewBox="0 0 400 36" className="absolute inset-0 h-full w-full overflow-visible" fill="none" aria-hidden>
+            <circle cx="6" cy="18" r="3" fill="#ffffff" />
+            <circle cx="394" cy="18" r="3" fill="#ffffff" />
+            {from && to && (
+              <g>
+                {/* THE MOTION DRIVES THE OUTER GROUP AND THE CLASS GOES ON A
+                    NESTED ONE. `animateMotion` writes its parent's transform and
+                    a CSS transform overrides an SVG one, so a fade applied to
+                    the same element would park the plane at the viewBox origin.
+                    Same trap as every map in this product. */}
+                <g className="pass-plane">
+                  <g transform="scale(0.95) rotate(90)">
+                    <path
+                      d="M0 -11 C1.1 -11 1.8 -9 1.8 -6.2 L1.8 -4.4 L10 1 L10 3.1 L1.8 -0.2 L1.8 5 L4.4 7.6 L4.4 9.2 L0 7.7 L-4.4 9.2 L-4.4 7.6 L-1.8 5 L-1.8 -0.2 L-10 3.1 L-10 1 L-1.8 -4.4 L-1.8 -6.2 C-1.8 -9 -1.1 -11 0 -11 Z"
+                      fill="#ffffff"
+                    />
+                  </g>
+                </g>
+                <animateMotion dur="4.2s" repeatCount="indefinite" rotate="auto" path={line} />
+              </g>
+            )}
+          </svg>
         </div>
       </div>
 
@@ -466,12 +480,6 @@ function BoardingPass({ from, to, facts, dateStr, airlineName, flightNo, seat, a
             <Badge tone="light" className="!px-2.5 !py-1">{facts.haul}</Badge>
             <Badge tone="grey" className="!px-2.5 !py-1">{facts.direction} · {Math.round(facts.bearing)}°</Badge>
             <Badge tone="grey" className="!px-2.5 !py-1">{facts.co2} kg CO2</Badge>
-            {/* How much of the earth's circumference this single hop is. It is
-                the figure the hero card is built on, and seeing it per-flight is
-                what makes the lifetime number mean anything. */}
-            <Badge tone="grey" className="!px-2.5 !py-1">
-              {((facts.dist / EARTH_CIRCUMFERENCE_KM) * 100).toFixed(1)}% of a lap
-            </Badge>
             {aircraftType && (
               <Badge tone="grey" className="!px-2.5 !py-1">
                 <span className="mr-1.5 inline-block h-4 w-6 align-middle"><AircraftArt type={aircraftType} /></span>
@@ -1132,7 +1140,7 @@ export default function Flights() {
                       to it is worth reading. */}
                   <p className="mt-1.5 text-[11px] text-white/60">
                     {laps < 1 ? (
-                      <>One lap is {km(EARTH_CIRCUMFERENCE_KM)} km. You are {(laps * 100).toFixed(laps < 0.1 ? 1 : 0)}% of the way round.</>
+                      <>One lap is {km(EARTH_CIRCUMFERENCE_KM)} km. You are {(laps * 100).toFixed(laps < 0.1 ? 1 : 0)}% of the way around the world.</>
                     ) : (
                       <>
                         That is {laps < 2 ? 'a full lap' : `${Math.floor(laps)} laps`} of the world
@@ -1585,15 +1593,21 @@ export default function Flights() {
                     <div className="flex min-w-0 flex-1 items-center gap-3">
                       <span className="flex shrink-0 items-center gap-1.5 text-sm font-bold tracking-wider text-brand">
                         {f.from.iata}
-                        {/* THE BRAND PLANE, IN THE BRAND ORANGE. It was
-                            `name="plane"` in `text-gray-300`, which at 14px on
-                            white is very nearly invisible - Ethan: "the little
-                            flight symbol is currently like gray and hard to
-                            read, I want it to make it the tryp.com orange." The
-                            two codes either side are already brand-coloured, so
-                            a grey glyph between them read as a separator rather
-                            than as part of the route. */}
-                        <Icon name="plane-tryp" className="h-3.5 w-3.5 text-brand" />
+                        {/* THE SAME GLYPH THE COMING UP CARDS USE, IN THE
+                            LIGHTER ORANGE. It was `plane` in `text-gray-300`,
+                            which at 14px on white is very nearly invisible; the
+                            first fix swapped it for `plane-tryp` in full brand,
+                            and the owner corrected that too: "I actually wanted
+                            it to be the same, the icon should be the one shown
+                            on the coming up section and it should be that light
+                            coloured orange."
+                            He is right that it should MATCH rather than merely
+                            be visible - the same route, drawn two ways on one
+                            page, reads as two different things. `plane` at
+                            `text-brand-light` is exactly what the upcoming cards
+                            carry, and it also sits back from the two full-brand
+                            codes either side of it instead of competing. */}
+                        <Icon name="plane" className="h-3.5 w-3.5 text-brand-light" />
                         {f.to.iata}
                       </span>
                       <span className="min-w-0">

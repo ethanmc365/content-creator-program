@@ -1,58 +1,45 @@
-// THE THUMBTACK, AND WHY THIS IS THE FIFTH ONE.
+// THE THUMBTACK, AND WHY THIS IS THE SIXTH ONE.
 //
-// The four before it, in order: a flat disc on a straight grey line (a
-// lollipop); a shaded sphere on a collar (a ball on a stick); a wide flat
-// flange with a domed grip (a cork); and a flat-topped grip on a very wide thin
-// disc, with a radial pucker and an offset cast shadow underneath it.
+// The five before it, in order: a flat disc on a straight grey line (a
+// lollipop); a shaded sphere on a collar (a ball on a stick); a wide flange
+// with a domed grip (a cork); a flat-topped grip on a very wide thin disc (a
+// rubber stamp); and a round head with a steel shaft going into a punched hole.
 //
-// THE FOURTH ONE WAS A RUBBER STAMP. Ethan: "the pins you made, although you
-// tried to improve them, they still look really bad. It doesn't look like it's
-// stuck to the page. Now it looks like it's a stamp or something. I want a
-// natural visual, nice, clean, tryp.com simple orange thumb tack pin that makes
-// it look like it's actually pinned into the screen. Maybe there should be a
-// little hole in the card that actually shows the pin going through it."
+// THE FIFTH WAS THE CLOSEST AND IT WAS STILL WRONG, and this time there is a
+// reference photograph to work from rather than a description. What the picture
+// shows is a real office push pin on a cream note, and three things in it are
+// not what was being drawn:
 //
-// THAT LAST SENTENCE IS THE WHOLE FIX AND IT IS WHY THIS ONE IS DIFFERENT.
+//   THE HEAD IS A DOME, NOT A DISC OR A BALL. It is taller than it is wide,
+//   rounded over the top, and it narrows towards the bottom - the shape of a
+//   thimble rather than a marble. Every previous version drew a circle, which
+//   reads as a bead or a dot at any size.
 //
-// Every previous version tried to say "through" with LIGHTING - a pucker, a
-// cast shadow, a contact shadow, a specular. Lighting is what you use when the
-// geometry is already right, and here it never was: in all four the pin was a
-// solid object sitting entirely ON TOP of an unbroken sheet of paper. Nothing
-// was pierced. So the eye correctly read a decal, and every extra gradient made
-// it a more elaborately shaded decal.
+//   THERE IS A VISIBLE COLLAR UNDER IT. A short, straighter section between the
+//   dome and the paper, slightly narrower than the dome. That step is most of
+//   what makes it read as a manufactured object rather than a blob.
 //
-// What makes something look pushed through paper is a HOLE, and a bit of shaft
-// disappearing into it. That is three shapes:
+//   IT IS SMALL, AND IT SITS AT THE VERY TOP OF THE NOTE. In the photograph the
+//   pin is about a twelfth of the card's width and it overlaps the top edge, so
+//   part of it is against the wall behind. Every version here has been drawn too
+//   large, which is why so much effort went into shading detail nobody would see
+//   on a real one.
 //
-//   1. a dark hole in the sheet, with the paper's own thickness catching light
-//      on its lower rim
-//   2. a short length of shaft between the head and the hole - four pixels of
-//      it, which is all you would ever see - going BEHIND the paper's edge
-//   3. the head, in front of both
-//
-// Order of painting IS the illusion. The shaft is drawn before the hole's rim
-// and the head is drawn after everything, so the shaft is genuinely occluded by
-// the sheet rather than being drawn short and hoped for.
-//
-// AND IT IS MUCH SIMPLER. The fourth version had four gradients, a neck, a
-// contact ellipse, a bright far rim and a specular rectangle - about a dozen
-// shapes modelling a real object at forty pixels, where all that detail turns
-// to mud and reads as "something complicated and orange". Ethan asked for
-// "simple orange". One gradient on the head, one flat shaft, one hole. A push
-// pin seen from the front is a round orange head and not much else.
+// SO: a dome, a collar, one highlight, one soft shadow, and a hole small enough
+// that it reads as a puncture rather than a punched eyelet. The steel shaft the
+// last version drew is gone - in the photograph you cannot see any of it,
+// because the collar sits flush on the paper. What says "through" is the shadow
+// under the collar and the pucker around it.
 //
 // EVERY PIN IS TRYP ORANGE. There used to be a green one for an answered
 // question. It made the wall two-coloured on a page that had already had its
 // amber-and-green paper taken away, and a pin is a pin - it is what holds the
-// paper up, not what the paper says. The state reads from the band across the
-// top of the note and its tag chip.
+// paper up, not what the paper says.
 //
 // IT LIVES IN ITS OWN FILE because two surfaces draw it: the board itself and
 // the card on the worldwide hub. They used to have a pin each, which is how the
 // hub ended up with the lollipop version months after the board had stopped
-// using it - and a note has to look like the same object in both places or
-// moving between them reads as a glitch. NO MOTION IMPORT HERE: the hub is
-// eagerly routed and this is drawn on it.
+// using it. NO MOTION IMPORT: the hub is eagerly routed and this is drawn on it.
 
 /**
  * The gradients, declared ONCE per page rather than once per pin. A `<defs>`
@@ -62,93 +49,86 @@ export function ThumbtackDefs() {
   return (
     <svg width="0" height="0" aria-hidden className="absolute">
       <defs>
-        {/* THE HEAD. One radial, lit from the top left like everything else in
-            this product. Two brand stops and one dark edge - a sphere needs a
-            highlight, a midtone and a terminator, and anything past that is
-            detail nobody can see at 40px. */}
-        <radialGradient id="tack-head" cx="34%" cy="28%" r="76%">
-          <stop offset="0%" stopColor="#ffb98a" />
-          <stop offset="38%" stopColor="#f5853f" />
-          <stop offset="100%" stopColor="#c03c05" />
+        {/* THE DOME. Lit from the top left like everything else in this
+            product. The terminator sits low and to the right, which is what
+            gives a dome its volume - a highlight alone just looks glossy. */}
+        <radialGradient id="tack-dome" cx="33%" cy="24%" r="82%">
+          <stop offset="0%" stopColor="#ffc9a3" />
+          <stop offset="30%" stopColor="#f5853f" />
+          <stop offset="72%" stopColor="#d94407" />
+          <stop offset="100%" stopColor="#a63305" />
         </radialGradient>
-        {/* THE PAPER GIVING WAY AROUND THE HOLE. A sheet held by a pin dips
-            towards it, and the dip is darkest at the hole and gone within a few
-            millimetres. Soft, and much smaller than the version this replaces -
-            that one was 34px wide, which is a shadow the size of the note. */}
+        {/* The collar is the same plastic in shadow: darker overall, brighter
+            up its left side, because the dome above it blocks most of the
+            light. */}
+        <linearGradient id="tack-collar" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#a83506" />
+          <stop offset="30%" stopColor="#d94407" />
+          <stop offset="100%" stopColor="#7d2704" />
+        </linearGradient>
+        {/* THE PAPER GIVING WAY. A sheet held by a pin dips towards it, and the
+            dip is darkest at the pin and gone within a few millimetres. */}
         <radialGradient id="tack-pucker" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="rgba(26,26,26,0.22)" />
-          <stop offset="45%" stopColor="rgba(26,26,26,0.09)" />
+          <stop offset="0%" stopColor="rgba(26,26,26,0.20)" />
+          <stop offset="45%" stopColor="rgba(26,26,26,0.08)" />
           <stop offset="100%" stopColor="rgba(26,26,26,0)" />
         </radialGradient>
-        {/* Inside the hole. Not black: a hole in white paper over a white page
-            shows the edge of the sheet, so it is a warm dark brown rather than
-            a void. */}
-        <linearGradient id="tack-hole" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#2b1a10" />
-          <stop offset="100%" stopColor="#6b4a35" />
-        </linearGradient>
       </defs>
     </svg>
   )
 }
 
 /**
- * One pin, pushed THROUGH the top of whatever it is holding up.
+ * One pin, pushed through the top of whatever it is holding up.
  *
  * `top` is a Tailwind class rather than a prop with a number in it, because the
  * two callers place it at different depths (the board's notes have more paper
  * above the writing than the hub's do) and a class composes with the rest of
  * the positioning without a style attribute per note.
  */
-export default function Thumbtack({ className = 'h-11 w-11', top = 'top-1' }) {
+export default function Thumbtack({ className = 'h-9 w-9', top = '-top-1' }) {
   return (
     <span className={`pointer-events-none absolute ${top} left-1/2 z-10 -translate-x-1/2`} aria-hidden>
       <svg viewBox="0 0 40 40" className={className}>
         {/* ---- ON THE PAPER ---- */}
 
-        {/* The sheet dipping towards the hole. */}
-        <ellipse cx="20" cy="26" rx="9.5" ry="4.6" fill="url(#tack-pucker)" />
+        {/* The sheet dipping towards the pin. Small: a push pin puckers a few
+            millimetres of paper, not half the card. */}
+        <ellipse cx="20" cy="28.4" rx="7.6" ry="3.4" fill="url(#tack-pucker)" />
 
-        {/* The hole itself. An ellipse because you are looking slightly down at
-            the sheet, and small - a push pin makes a hole about a millimetre
-            across, and a big one reads as a punched eyelet. */}
-        <ellipse cx="20" cy="25.6" rx="2.5" ry="1.5" fill="url(#tack-hole)" />
+        {/* The pin's shadow, thrown down and to the right. Two ellipses rather
+            than a `drop-shadow` filter: this is drawn on up to fifty notes at
+            once and a filter is an offscreen pass per element per frame. */}
+        <ellipse cx="23.2" cy="27.6" rx="5.6" ry="2.4" fill="rgba(26,26,26,0.16)" />
+        <ellipse cx="22" cy="27.2" rx="4.8" ry="2" fill="rgba(26,26,26,0.12)" />
 
-        {/* ---- THE SHAFT, GOING IN ----
-            Drawn AFTER the hole so its lower end sits inside it, and BEFORE the
-            paper's lit lower rim so the rim crosses in front of it. That
-            crossing is the single mark that says the shaft is behind the sheet
-            rather than lying on it. Steel, not orange: the coloured part of a
-            push pin is the head. */}
-        <path d="M18.4 15 h3.2 v9.6 q0 1.2 -1.6 1.2 t-1.6 -1.2 Z" fill="#8f9299" />
-        <path d="M18.4 15 h1.2 v10.4 q-1.2 -0.2 -1.2 -0.8 Z" fill="#c8cbd1" />
+        {/* THE PUNCTURE. Barely there, and mostly hidden behind the collar -
+            which is exactly how much of it you can see on the real thing. It is
+            what stops the collar reading as resting on top of the sheet. */}
+        <ellipse cx="20" cy="27.4" rx="1.5" ry="0.8" fill="#5c3a26" fillOpacity="0.7" />
 
-        {/* The paper's own thickness on the lower rim of the hole. A hole in a
-            sheet lit from above is dark at the top and CATCHES LIGHT at the
-            bottom, where the torn edge turns up towards the light. Four pixels
-            of near-white, and it is what makes the hole read as a hole rather
-            than as a dot. */}
-        <path d="M17.5 25.9 a2.5 1.5 0 0 0 5 0 a2.5 1.9 0 0 1 -5 0 Z" fill="#ffffff" fillOpacity="0.75" />
+        {/* ---- THE PIN ---- */}
 
-        {/* ---- THE HEAD, IN FRONT OF EVERYTHING ---- */}
+        {/* THE COLLAR. Straight sides, slightly narrower than the dome, sitting
+            flush on the paper. This is the step that makes it a manufactured
+            object; without it the dome grows out of the page like a drop of
+            paint. */}
+        <path d="M15.8 20.6 h8.4 l-0.9 6.4 q-3.3 1.1 -6.6 0 Z" fill="url(#tack-collar)" />
+        {/* A hair of contact darkness where the collar meets the paper, or the
+            two read as stacked rather than as one thing pressed into the other. */}
+        <path d="M16.7 26.6 q3.3 1.1 6.6 0 l-0.15 1 q-3.15 1 -6.3 0 Z" fill="rgba(60,18,2,0.55)" />
 
-        {/* Its shadow first, thrown down and to the right, lit from the top
-            left like the rest of the product. Two ellipses rather than a
-            `drop-shadow` filter: this is drawn on up to fifty notes at once and
-            a filter is an offscreen pass per element per frame. */}
-        <ellipse cx="22.6" cy="20.6" rx="7.4" ry="6.6" fill="rgba(26,26,26,0.16)" />
-        <ellipse cx="21.4" cy="19.6" rx="7.2" ry="6.8" fill="rgba(26,26,26,0.10)" />
+        {/* THE DOME. Taller than it is wide, rounded over the top, narrowing to
+            meet the collar. The curve on each side is what carries the whole
+            silhouette - see the note at the top of this file. */}
+        <path d="M20 5.4 C25.4 5.4 27.8 10.2 27.8 14.6 C27.8 17.9 26.6 19.9 24.4 21 L15.6 21 C13.4 19.9 12.2 17.9 12.2 14.6 C12.2 10.2 14.6 5.4 20 5.4 Z" fill="url(#tack-dome)" />
 
-        {/* The head. Slightly wider than it is tall, because a pin head is a
-            squat cylinder seen very nearly end on, not a ball - that one degree
-            of flattening is the difference between a thumbtack and a bead, and
-            it is the only thing left of the four previous versions' anatomy. */}
-        <ellipse cx="20" cy="14.6" rx="7.6" ry="7" fill="url(#tack-head)" />
-        {/* A thin darker edge along the bottom, where the head turns away. Not a
-            full ring: a ring reads as a printed outline. */}
-        <path d="M12.4 14.6 a7.6 7 0 0 0 15.2 0 a7.6 7.8 0 0 1 -15.2 0 Z" fill="#a8330a" fillOpacity="0.55" />
-        {/* One soft highlight, up and left, where the light is. */}
-        <ellipse cx="17.2" cy="11.6" rx="2.6" ry="1.9" fill="#ffffff" fillOpacity="0.42" transform="rotate(-24 17.2 11.6)" />
+        {/* One highlight, up and left, where the light is. Soft-edged and small:
+            a hard white shape reads as a sticker on the pin. */}
+        <ellipse cx="17.2" cy="10.6" rx="2.2" ry="3.1" fill="#ffffff" fillOpacity="0.38" transform="rotate(-18 17.2 10.6)" />
+        {/* A thin bounce along the right shoulder, so the dome does not go flat
+            black on its dark side. */}
+        <path d="M25.9 11.6 C27.2 13.4 27.4 16.4 26.2 18.8 C26 17.2 26.3 13.6 25.9 11.6 Z" fill="#ffffff" fillOpacity="0.16" />
       </svg>
     </span>
   )

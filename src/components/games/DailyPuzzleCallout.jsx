@@ -57,39 +57,60 @@ function PuzzleColumn({ puzzle, done, count, first }) {
     <Link
       to={`/game?daily=${puzzle.key}`}
       className={cx(
-        'group flex items-center gap-3 px-4 py-4 transition-colors duration-200 hover:bg-cloud/50 sm:px-5',
-        // Dividers, not gaps: one card with three compartments. The rule turns
-        // from horizontal to vertical at the same breakpoint the grid does.
+        // THE COLUMN IS A STACK NOW, NOT A ROW.
+        //
+        // Three across meant tile + title + count + button competing for a
+        // third of the card, and the title lost: `truncate` cut "Guess the
+        // Country" to "Guess the C..." and "Guess the language" to "Guess the
+        // l...". The owner: "I don't like how you can't read the title of the
+        // actual game, need to be able to read the title."
+        //
+        // A row cannot be fixed by juggling widths - there are four things and
+        // room for two. Stacking them gives the title the full column width,
+        // which is enough for every one of the three at every breakpoint, and
+        // it also puts the tile, the name and the button on the axis people
+        // actually scan a card of options in.
+        'group flex flex-col items-center gap-2.5 px-4 py-5 text-center transition-colors duration-200 hover:bg-cloud/50',
         !first && 'border-t border-gray-50 sm:border-l sm:border-t-0',
       )}
     >
-      {/* The puzzle's OWN icon, always. Swapping it for a tick was half of "the
-          whole card changed": the tile is the column's identity, and an identity
-          that changes when you finish is a different thing. The tick lives on
-          the button, next to the word that explains it. */}
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand text-white shadow-card transition-transform duration-200 group-hover:scale-110">
+      {/* THE TILE RINGS GREEN WHEN IT HAS BEEN PLAYED.
+          The owner: "each game icon like the orange card with the magnifying
+          glass should be highlighted with a green around the edge to show when
+          it's been played, similarly how the play button turns green."
+          This is the one exception to the standing rule that nothing outside
+          the button may change with `done`, and it is his call. It also stays
+          inside the spirit of the rule that got the rule written: the TILE IS
+          STILL BRAND ORANGE. Nothing is recoloured - a ring is added around it,
+          which is the same language the Played button uses (green on the
+          outside of a shape that keeps its own fill). A row of three where one
+          has a green halo still reads as three of the same card. */}
+      <span
+        className={cx(
+          'flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand text-white shadow-card transition-all duration-200 group-hover:scale-110',
+          done && 'ring-2 ring-green-500 ring-offset-2 ring-offset-white',
+        )}
+      >
         <Icon name={puzzle.icon} className="h-5 w-5" />
       </span>
 
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-semibold text-ink">{puzzle.title}</span>
-        <span className="mt-0.5 block truncate text-xs text-smoke">
+      <span className="w-full min-w-0">
+        {/* `leading-tight` and NO truncate. Two of the three names wrap to two
+            lines in a narrow column and that is fine - what is not fine is an
+            ellipsis where the name should be. */}
+        <span className="block text-sm font-semibold leading-tight text-ink">{puzzle.title}</span>
+        <span className="mt-1 block text-xs leading-tight text-smoke">
           {/* The count is the point, so it wins the line whenever there is one.
               "Nobody yet" is not a discouragement here, it is an opening. */}
-          {count == null
+          {count == null || count === 0
             ? puzzle.short
-            : count === 0
-              ? puzzle.short
-              : `${count} ${count === 1 ? 'creator has' : 'creators have'} played`}
+            : `${count} ${count === 1 ? 'creator has' : 'creators have'} played`}
         </span>
       </span>
 
-      {/* Fixed width, so three columns have their buttons on the same vertical
-          line. "Played" and "Play" are different lengths and a right-aligned
-          pair of them would stagger across the row. */}
       <span
         className={cx(
-          'flex w-[5.25rem] shrink-0 items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-bold transition-all duration-200',
+          'mt-auto flex w-full max-w-[7rem] items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-bold transition-all duration-200',
           done
             ? 'bg-green-50 text-green-700 ring-1 ring-inset ring-green-500/30'
             : 'bg-brand text-white shadow-card group-hover:scale-105',
@@ -150,7 +171,7 @@ export default function DailyPuzzleCallout({ className }) {
           indistinguishable from "still loading" and the column would keep
           showing its tagline for ever. */}
       <div className="card !p-0 overflow-hidden">
-        <div className="grid grid-cols-1 sm:grid-cols-3">
+        <div className="grid grid-cols-1 items-stretch sm:grid-cols-3">
           {DAILY_PUZZLES.map((p, i) => (
             <PuzzleColumn
               key={p.key}

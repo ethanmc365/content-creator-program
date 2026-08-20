@@ -28,6 +28,8 @@ import { Avatar, EmptyState } from '../components/ui'
 import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
 import { cx, formatMessageTime, messageTimeTitle } from '../lib/utils'
 import { SOFT_SPRING } from '../lib/motion'
+import OutboxNotice from '../components/OutboxNotice'
+import { enqueueMessage, queuedFor, subscribeOutbox, onOutboxSent, retryQueued, dropQueued } from '../lib/outbox'
 
 // Per-market chat. Spain's General, the UK's General and the Worldwide General
 // are three separate rooms that happen to share a layout.
@@ -118,7 +120,7 @@ function AttachedCard({ message, titles }) {
 export default function NetworkChat() {
   const { slug, channelKey } = useParams()
   const navigate = useNavigate()
-  const { user, isAdmin } = useAuth()
+  const { user, profile, isAdmin } = useAuth()
   const { bySlug, network, manages, myCommunities, loading: ctxLoading } = useCommunity()
 
   const community = slug ? bySlug(slug) : network
@@ -384,6 +386,40 @@ export default function NetworkChat() {
   // Per-room draft, so a half-written message in Spain's General is still there
   // when you come back from the UK's.
   const draftKey = `net-chat-${roomKey || 'none'}`
+
+  // ---- The outbox -------------------------------------------------------
+  //
+  // THE MARKET ROOMS HAD NO OPTIMISTIC SEND AT ALL. `postMessage` awaited the
+  // insert and only then put the row on screen, so a message sent on a bad
+  // connection sat behind a spinner and a message sent on no connection played
+  // a fail sound and evaporated - the words were gone from the composer, which
+  // had already been cleared. Both are fixed by the same thing: the queue is
+  // where the message lives from the instant you press send, and this is a view
+  // of it. See `src/lib/outbox.js`.
+  const outboxScope = `net:${roomKey || 'none'}`
+  const [queued, setQueued] = useState(() => queuedFor(outboxScope))
+  useEffect(() => {
+    setQueued(queuedFor(outboxScope))
+    return subscribeOutbox(() => setQueued(queuedFor(outboxScope)))
+  }, [outboxScope])
+
+  // A queued message landing anywhere tells every surface; this room takes its
+  // own, exactly as the outbox drops the item, so the pending bubble is
+  // replaced rather than joined by the real one.
+  useEffect(() => onOutboxSent((item, row) => {
+    if (item.scope !== outboxScope || !row) return
+    setMessages((prev) => (prev.some((m) => m.id === row.id) ? prev : [...prev, row]))
+  }), [outboxScope])
+
+  // The fail sound belongs on giving up, not on the first missed request. A
+  // missed request is now just a tunnel, and a tunnel is not news.
+  const gaveUpRef = useRef(new Set())
+  useEffect(() => {
+    for (const item of queued) {
+      if (item.failed && !gaveUpRef.current.has(item.id)) { gaveUpRef.current.add(item.id); playSendFail() }
+      if (!item.failed) gaveUpRef.current.delete(item.id)
+    }
+  }, [queued])
   // Names the composer turns into @chips as you type. Admins also get the two
   // broadcast handles, @everyone and @here.
   const mentionNames = useMemo(() => {
@@ -439,12 +475,19 @@ export default function NetworkChat() {
   const visible = useMemo(() => {
     // Rows with nothing in them at all never reach the screen. See `hasContent`.
     const real = messages.filter(hasContent)
+    // Anything still in the outbox goes on the end. The dedupe is for the beat
+    // between realtime delivering the row and the insert's own reply getting
+    // back here: for that beat, without it, you see your message twice.
+    const pending = queued
+      .filter((i) => !real.some((m) => m.id === i.id
+        || (m.sender_id === user?.id && (m.body || '') === (i.display.body || '') && !!m.image_url === !!i.display.image_url)))
+      .map((i) => ({ ...i.display, pending: !i.failed, failed: i.failed, queuedId: i.id, tries: i.tries }))
     const q = search.trim().toLowerCase()
-    if (!q) return real
+    if (!q) return [...real, ...pending]
     return real.filter(
       (m) => m.body?.toLowerCase().includes(q) || m.profiles?.name?.toLowerCase().includes(q),
     )
-  }, [messages, search])
+  }, [messages, search, queued, user?.id])
 
   // Typing "@" opens the picker; a space or a match closes it.
   // The composer serialises to markdown on every keystroke, so `body` stays
@@ -473,31 +516,46 @@ export default function NetworkChat() {
     atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
   }
 
-  async function postMessage(fields) {
+  // Post a row into this room. Nothing here awaits the network any more: the
+  // message is queued, drawn, and sent by the outbox, which is the only part of
+  // the app that has to care whether there is any signal.
+  function postMessage(fields) {
     playSend()
-    const { data, error } = await supabase.from('messages').insert({
-      channel: scopedKey(community, active.key),
-      channel_id: active.id,
-      community_id: community.id,
-      sender_id: user.id,
-      ...fields,
-    }).select('*, profiles:sender_id(id, name, photo_url, is_admin)').single()
-    if (error) playSendFail()
-    if (!error && data) setMessages((prev) => (prev.some((m) => m.id === data.id) ? prev : [...prev, data]))
-    return { data, error }
+    enqueueMessage({
+      scope: outboxScope,
+      table: 'messages',
+      row: {
+        channel: scopedKey(community, active.key),
+        channel_id: active.id,
+        community_id: community.id,
+        sender_id: user.id,
+        ...fields,
+      },
+      select: '*, profiles:sender_id(id, name, photo_url, is_admin)',
+      display: {
+        channel: scopedKey(community, active.key),
+        channel_id: active.id,
+        community_id: community.id,
+        sender_id: user.id,
+        body: '',
+        image_url: null,
+        video_url: null,
+        created_at: new Date().toISOString(),
+        profiles: { id: user.id, name: profile?.name, photo_url: profile?.photo_url, is_admin: isAdmin },
+        ...fields,
+      },
+    })
   }
 
-  async function send(e) {
+  function send(e) {
     e?.preventDefault?.()
     const text = body.trim()
     if (!text || !canPost || sending) return
-    setSending(true)
     setBody('')
     composerRef.current?.clear()
     clearDraft(draftKey)
     atBottomRef.current = true
-    await postMessage({ body: text })
-    setSending(false)
+    postMessage({ body: text })
   }
 
   // PHOTOS AND VIDEO, IN EVERY ROOM.
@@ -532,7 +590,10 @@ export default function NetworkChat() {
     if (caption) { setBody(''); composerRef.current?.clear(); clearDraft(draftKey) }
     try {
       const url = isVideo ? await uploadChatVideo(file, user.id) : await uploadChatImage(file, user.id)
-      await postMessage({ body: caption, ...(isVideo ? { video_url: url } : { image_url: url }) })
+      // Only once the bytes are somewhere permanent. A File cannot be queued -
+      // it will not survive localStorage or a reload - so the upload is the one
+      // part of a send that still needs the network up front.
+      postMessage({ body: caption, ...(isVideo ? { video_url: url } : { image_url: url }) })
     } catch (err) {
       setAttachError(err?.message || 'That file could not be sent.')
     }
@@ -699,6 +760,9 @@ export default function NetworkChat() {
                 className={cx(
                   'group/msg relative flex gap-3 hover:z-20 focus-within:z-20',
                   grouped && '!mt-1',
+                  // Quiet, not alarming: a queued message is a message, just
+                  // one the world has not seen yet.
+                  m.pending && 'opacity-60',
                   actionsFor === m.id && 'z-20',
                 )}
               >
@@ -753,6 +817,22 @@ export default function NetworkChat() {
                     )
                   )}
                   <AttachedCard message={m} titles={cardTitles} />
+
+                  {/* A message still in the outbox says which of the two it is:
+                      on its way, or waiting for a connection that has not come
+                      back yet. Grey, not red - nothing has gone wrong. */}
+                  {m.pending && (
+                    <p className="mt-0.5 text-[11px] text-gray-400">{m.tries > 0 ? 'Waiting for signal' : 'Sending…'}</p>
+                  )}
+                  {m.failed && (
+                    <p className="mt-0.5 text-[11px] text-smoke">
+                      Not sent yet.{' '}
+                      <button type="button" onClick={() => retryQueued(m.queuedId)} className="font-semibold text-brand underline">Retry</button>
+                      {' · '}
+                      <button type="button" onClick={() => dropQueued(m.queuedId)} className="font-semibold underline">Discard</button>
+                    </p>
+                  )}
+
                   <ReactionRow
                     messageId={m.id}
                     reactions={reactions}
@@ -804,6 +884,10 @@ export default function NetworkChat() {
           </p>
         </div>
       ) : (
+        <>
+        <div className="shrink-0 px-3 pt-3">
+          <OutboxNotice scope={outboxScope} />
+        </div>
         <ChatComposer
           ref={composerRef}
           docId={`${community.id}:${active?.key}`}
@@ -849,6 +933,7 @@ export default function NetworkChat() {
             )}
           </AnimatePresence>
         </ChatComposer>
+        </>
       )}
     </div>
   )

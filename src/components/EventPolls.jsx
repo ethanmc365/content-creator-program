@@ -4,7 +4,8 @@ import { useAuth } from '../context/AuthContext'
 import { confirm, notice } from '../lib/confirm'
 import { Avatar, Badge, Modal, Spinner } from './ui'
 import Icon from './Icon'
-import { cx, formatDate, parseDateTime } from '../lib/utils'
+import { cx, formatDate } from '../lib/utils'
+import { DateField, TimeField } from './DateTimeFields'
 import { useMarkets } from '../lib/markets'
 import { useMyScopes } from '../lib/scope'
 import { announceToMarkets } from '../lib/announce'
@@ -265,42 +266,19 @@ export default function EventPolls() {
 
 // ---------------------------------------------------------------- composer
 
-// Auto-format as the admin types, so there's no fiddly native picker:
-// "150826" -> "15/08/2026" and "0930" -> "09:30". Rebuilt from digits on every
-// keystroke, so backspacing works naturally too.
-const typeDate = (v) => {
-  const d = v.replace(/\D/g, '').slice(0, 8)
-  if (d.length <= 2) return d
-  if (d.length <= 4) return `${d.slice(0, 2)}/${d.slice(2)}`
-  return `${d.slice(0, 2)}/${d.slice(2, 4)}/${d.slice(4)}`
-}
-const typeTime = (v) => {
-  const d = v.replace(/\D/g, '').slice(0, 4)
-  if (d.length <= 2) return d
-  return `${d.slice(0, 2)}:${d.slice(2)}`
-}
+// THE SAME TYPED FIELDS THE FLIGHT LOG AND MANAGE EVENTS USE.
+//
+// This had its own pair of formatters that rewrote the whole value on every
+// keystroke ("150826" -> "15/08/2026"), which is the exact fault the owner
+// reported: type one digit and the "DD/MM/YYYY" placeholder vanishes, so from
+// then on you are filling in a date from memory. Separate segments with painted
+// separators keep every part of the hint on screen until it is filled, and the
+// slashes and the colon are never typed. See components/DateTimeFields.
+
 const timeToMinutes = (t) => {
-  const m = t.trim().match(/^(\d{1,2}):(\d{2})$/)
+  const m = String(t || '').trim().match(/^(\d{1,2}):(\d{2})$/)
   if (!m || +m[1] > 23 || +m[2] > 59) return null
   return +m[1] * 60 + +m[2]
-}
-
-function TypedField({ id, label, value, onChange, placeholder, hint }) {
-  return (
-    <div>
-      <label htmlFor={id} className="label">{label}</label>
-      <input
-        id={id}
-        className="input !py-3 text-center text-base font-semibold tabular-nums tracking-wide"
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        inputMode="numeric"
-        autoComplete="off"
-      />
-      {hint && <p className="mt-1 text-center text-[10px] text-smoke">{hint}</p>}
-    </div>
-  )
 }
 
 function PollComposer({ open, onClose, onCreated }) {
@@ -320,16 +298,17 @@ function PollComposer({ open, onClose, onCreated }) {
 
   function generate() {
     setSlotError(null)
-    const startIso = parseDateTime(date, startTime)
     const startMin = timeToMinutes(startTime)
     const endMin = timeToMinutes(endTime)
-    if (!startIso) { setSlotError('Type the date as DD/MM/YYYY and times as HH:MM, e.g. 15/08/2026 and 09:00.'); return }
+    // `date` is already an ISO day from DateField, which only emits one when
+    // all three segments are complete AND the result is a real date.
+    if (!date || startMin == null) { setSlotError('Pick a date and a start time.'); return }
     if (endMin == null || endMin <= startMin) { setSlotError('Make the slot end later than it starts.'); return }
     const slotMinutes = endMin - startMin
     const limit = repeatUntil ? timeToMinutes(repeatUntil) : endMin
     if (repeatUntil && limit == null) { setSlotError('Repeat until needs to be a time like 16:00 (or leave it empty for a single slot).'); return }
-    const base = new Date(startIso)
-    base.setHours(0, 0, 0, 0)
+    const [yy, mm, dd] = date.split('-').map(Number)
+    const base = new Date(yy, mm - 1, dd, 0, 0, 0, 0)
     const mk = (mins) => {
       const d = new Date(base)
       d.setMinutes(mins)
@@ -418,25 +397,12 @@ function PollComposer({ open, onClose, onCreated }) {
         <div className="rounded-xl bg-cloud/60 p-4 sm:p-5">
           <p className="mb-3 text-sm font-semibold text-ink">Offer time slots</p>
           <div className="mb-3">
-            <TypedField
-              id="poll-date" label="Date" value={date}
-              onChange={(e) => setDate(typeDate(e.target.value))}
-              placeholder="DD/MM/YYYY"
-            />
+            <DateField id="poll-date" label="Date" value={date} onChange={setDate} />
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <TypedField
-              id="poll-start" label="First slot" value={startTime}
-              onChange={(e) => setStartTime(typeTime(e.target.value))} placeholder="09:00"
-            />
-            <TypedField
-              id="poll-end" label="Slot ends" value={endTime}
-              onChange={(e) => setEndTime(typeTime(e.target.value))} placeholder="09:30"
-            />
-            <TypedField
-              id="poll-repeat" label="Repeat until" value={repeatUntil}
-              onChange={(e) => setRepeatUntil(typeTime(e.target.value))} placeholder="optional"
-            />
+            <TimeField id="poll-start" label="First slot" value={startTime} onChange={setStartTime} />
+            <TimeField id="poll-end" label="Slot ends" value={endTime} onChange={setEndTime} />
+            <TimeField id="poll-repeat" label="Repeat until" value={repeatUntil} onChange={setRepeatUntil} optional />
           </div>
           {slotError && <p className="mt-3 rounded-lg bg-brand-tint px-3 py-2 text-xs font-medium text-brand">{slotError}</p>}
           <button type="button" onClick={generate} className="btn-secondary mt-4 w-full !py-2.5 text-sm sm:w-auto">

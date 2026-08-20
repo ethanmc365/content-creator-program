@@ -6,10 +6,16 @@ import { AuthProvider } from './context/AuthContext'
 import { CommunityProvider } from './context/CommunityContext'
 import { registerServiceWorker } from './lib/push'
 import { initMonitoring } from './lib/monitoring'
+import { applyAppIcon } from './lib/appIcon'
 import './index.css'
 
 // Start error monitoring as early as possible (no-op without VITE_SENTRY_DSN).
 initMonitoring()
+
+// Point the Add to Home Screen hints at whichever icon this device picked, before
+// anything can be added. index.html ships the default, so this is a no-op until
+// somebody has actually chosen something else. See lib/appIcon.
+applyAppIcon()
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

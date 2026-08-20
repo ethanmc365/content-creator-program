@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { Toggle } from './ui'
+import { Modal, Toggle } from './ui'
 import Icon from './Icon'
 import { enablePush, disablePush, pushSupported, pushPermission, showLocalNotification } from '../lib/push'
 import { cx } from '../lib/utils'
@@ -204,25 +204,7 @@ export function CreatorNotifications({ state }) {
       {/* ---- Challenge deadline reminders ---- */}
       <div className="mt-6">
         <Divider title="Challenge deadline reminders" hint="Get reminded before a live challenge closes so you can get your entries in." />
-        <div className="mt-3 flex flex-wrap gap-2">
-          {[14, 7, 5, 3].map((d) => {
-            const on = state.reminderDays.includes(d)
-            return (
-              <button
-                key={d}
-                type="button"
-                onClick={() => state.toggleReminderDay(d)}
-                aria-pressed={on}
-                className={cx('rounded-full px-4 py-1.5 text-xs font-medium transition-colors', on ? 'bg-brand text-white' : 'border border-gray-200 text-smoke hover:border-brand hover:text-brand')}
-              >
-                {d} day{d > 1 ? 's' : ''} before
-              </button>
-            )
-          })}
-        </div>
-        {state.reminderDays.length === 0 && (
-          <p className="mt-3 text-xs text-amber-600">No reminders selected, so you won't be reminded about deadlines.</p>
-        )}
+        <DeadlineReminderDays state={state} />
       </div>
 
       {/* ---- Daily puzzle reminders ---- */}
@@ -272,5 +254,94 @@ export function AdminNotifications({ state }) {
         These alerts only ever go to the Tryp.com Team. Creators never receive them, even by mistake.
       </p>
     </>
+  )
+}
+
+
+// ---------------------------------------------------------------- deadlines
+//
+// THE SAME CONTROL IN TWO PLACES, WHICH IS THE WHOLE POINT.
+//
+// The lead times for a challenge deadline lived only in Settings, three taps
+// from the calendar where the deadline is actually being looked at. The owner:
+// "for the deadlines, the reminder should open up the settings page where you
+// can select what reminders you want for deadlines, or instead even just open
+// this particular section as a popup card, like the deadline notification
+// section from settings still appears in settings but also as a popup here when
+// you click the bell."
+//
+// So it is one component. Settings renders it inline; the calendar's bell
+// renders it in a modal. Not two forms writing the same column - that is how
+// the notification bell and the notifications page ended up disagreeing with
+// each other, which took a rewrite to undo.
+//
+// WHY A DEADLINE IS DIFFERENT FROM EVERYTHING ELSE ON THE CALENDAR. Every other
+// entry gets a one-off reminder pinned to that entry (`event_reminders`, keyed
+// by the thing). A challenge deadline is not a one-off: the programme runs a
+// new challenge every few weeks and nobody wants to re-arm a bell each time.
+// The answer there is a STANDING preference - "always warn me three days out" -
+// which is what `profiles.challenge_reminder_days` and the nightly
+// `send_challenge_reminders` cron already implement. The bell on a deadline
+// therefore opens the standing setting rather than creating a row.
+export function DeadlineReminderDays({ state }) {
+  return (
+    <>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {[14, 7, 5, 3, 1].map((d) => {
+          const on = state.reminderDays.includes(d)
+          return (
+            <button
+              key={d}
+              type="button"
+              onClick={() => state.toggleReminderDay(d)}
+              aria-pressed={on}
+              className={cx(
+                'inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-200 active:scale-95',
+                on
+                  ? 'bg-brand text-white shadow-card'
+                  : 'border border-gray-200 text-smoke hover:-translate-y-0.5 hover:border-brand hover:text-brand',
+              )}
+            >
+              {on && <Icon name="check" className="h-3.5 w-3.5" />}
+              {d} day{d > 1 ? 's' : ''} before
+            </button>
+          )
+        })}
+      </div>
+      {state.reminderDays.length === 0 && (
+        // NOT AMBER. The palette here is brand orange and charcoal, and this is
+        // not a warning anyway - it is a consequence of a choice somebody just
+        // made deliberately.
+        <p className="mt-3 text-xs text-smoke">
+          Nothing selected, so we will not remind you before a challenge closes.
+        </p>
+      )}
+    </>
+  )
+}
+
+/** The same control, as a card over the calendar. See DeadlineReminderDays. */
+export function DeadlineReminderModal({ open, onClose }) {
+  const state = useNotificationPrefs()
+  return (
+    <Modal open={open} onClose={onClose} title="Remind me before a deadline">
+      <div className="space-y-4">
+        <p className="text-sm text-smoke">
+          This is a standing setting, not a one-off: it applies to every challenge the programme
+          runs, so you never have to arm it again.
+        </p>
+        <DeadlineReminderDays state={state} />
+        <p className="flex items-start gap-2 rounded-xl bg-cloud/60 p-3 text-xs text-smoke">
+          <Icon name="bell" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand" />
+          <span>
+            Reminders arrive as a notification, and as a push if you have those turned on.
+            You can change all of this in Settings.
+          </span>
+        </p>
+        <div className="flex justify-end">
+          <button onClick={onClose} className="btn-primary">Done</button>
+        </div>
+      </div>
+    </Modal>
   )
 }

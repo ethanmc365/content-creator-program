@@ -20,6 +20,8 @@ import { RoomSearch } from '../components/ChatSearch'
 import Reveal from '../components/network/Reveal'
 import SeenBy from '../components/SeenBy'
 import ChatComposer from '../components/ChatComposer'
+import OutboxNotice from '../components/OutboxNotice'
+import { enqueueMessage, queuedFor, subscribeOutbox, onOutboxSent, retryQueued, dropQueued } from '../lib/outbox'
 import MessageEditor from '../components/MessageEditor'
 import ReportMessage from '../components/ReportMessage'
 import { useNowTick, withinEditWindow } from '../lib/messageActions'
@@ -95,12 +97,54 @@ export default function Messages() {
   // "what did Jacob say about the Lisbon shoot" - so they are two controls.
   const [threadSearch, setThreadSearch] = useState('')
 
-  // What the thread actually renders. Without a search that is every message.
+  // ---- The outbox -------------------------------------------------------
+  //
+  // THE DMs HAD NOTHING. `send` awaited the insert and let realtime put the
+  // message on screen, which means a DM written with no signal made a fail
+  // noise, left an empty composer and was simply gone - the one surface where
+  // that matters most, because a DM is addressed to a person who is now waiting
+  // for an answer that was never sent. Queued in `src/lib/outbox.js` now, and
+  // read back from there so it survives the reload. Same module the two chats
+  // use; there is exactly one of these in the codebase.
+  const outboxScope = `dm:${conversationId || 'none'}`
+  const [queued, setQueued] = useState(() => queuedFor(outboxScope))
+  useEffect(() => {
+    setQueued(queuedFor(outboxScope))
+    return subscribeOutbox(() => setQueued(queuedFor(outboxScope)))
+  }, [outboxScope])
+
+  // What the thread actually renders. Without a search that is every message,
+  // plus anything still waiting to leave the device.
   const visibleThread = useMemo(() => {
+    // The dedupe covers the beat where realtime has delivered the real row but
+    // the outbox has not yet had the insert's reply back. Without it your own
+    // message appears twice for a frame or two.
+    const pending = queued
+      .filter((i) => !thread.some((m) => m.id === i.id
+        || (m.sender_id === user.id && (m.body || '') === (i.display.body || '') && !!m.image_url === !!i.display.image_url)))
+      .map((i) => ({ ...i.display, pending: !i.failed, failed: i.failed, queuedId: i.id, tries: i.tries }))
     const q = threadSearch.trim().toLowerCase()
-    if (!q) return thread
+    if (!q) return [...thread, ...pending]
     return thread.filter((m) => (m.body || '').toLowerCase().includes(q))
-  }, [thread, threadSearch])
+  }, [thread, threadSearch, queued, user.id])
+  // A queued DM landing puts the real row in the thread straight away, rather
+  // than waiting for realtime to say the same thing a moment later. The id
+  // check means arriving twice is arriving once.
+  useEffect(() => onOutboxSent((item, row) => {
+    if (item.scope !== outboxScope || !row) return
+    setThread((prev) => (prev.some((m) => m.id === row.id) ? prev : [...prev, row]))
+  }), [outboxScope])
+
+  // The fail sound now marks the outbox GIVING UP, which is the only moment
+  // worth interrupting somebody for. A single failed request is a tunnel.
+  const gaveUpRef = useRef(new Set())
+  useEffect(() => {
+    for (const item of queued) {
+      if (item.failed && !gaveUpRef.current.has(item.id)) { gaveUpRef.current.add(item.id); playSendFail() }
+      if (!item.failed) gaveUpRef.current.delete(item.id)
+    }
+  }, [queued])
+
   const [actionsFor, setActionsFor] = useState(null) // message id with actions revealed (mobile tap)
   const [editingId, setEditingId] = useState(null)   // message being edited in place
   const [reporting, setReporting] = useState(null)   // message being reported, or null
@@ -789,26 +833,39 @@ export default function Messages() {
     return () => { cancelled = true }
   }, [thread, signedUrls])
 
-  async function send(e) {
-    e.preventDefault()
-    if (!body.trim() || !active || dmLocked) return
-    setAtBottom(true)
-    setSending(true)
-    playSend()
-    const replyId = replyTo?.id ?? null
-    const { error } = await supabase.from('direct_messages').insert({
+  // Queue a DM row. Everything the send needs travels with it, so the outbox
+  // can post it in twenty minutes from a cold tab with no idea what a
+  // conversation is.
+  function queueDm(fields) {
+    const row = {
       conversation_id: conversationId,
       sender_id: user.id,
       // A GROUP MESSAGE IS ADDRESSED TO THE ROOM. `recipient_id` stays null,
       // and the RLS policy insists on it: a message in a group that named a
       // recipient would land in somebody's 1:1 unread count.
       recipient_id: isGroup ? null : otherParticipant(active, user.id),
-      body: body.trim(),
-      ...(replyId ? { reply_to: replyId } : {}),
+      body: '',
+      ...fields,
+    }
+    enqueueMessage({
+      scope: outboxScope,
+      table: 'direct_messages',
+      row,
+      select: '*',
+      display: { ...row, created_at: new Date().toISOString(), read: false },
     })
-    setSending(false)
-    if (error) playSendFail()
-    else { setBody(''); dmComposerRef.current?.clear(); clearDraft('dm-' + conversationId); setReplyTo(null); stopTyping() }
+  }
+
+  function send(e) {
+    e.preventDefault()
+    if (!body.trim() || !active || dmLocked) return
+    setAtBottom(true)
+    // The whoosh answers the press, not the server. With a queue behind it
+    // there may be no server for an hour.
+    playSend()
+    const replyId = replyTo?.id ?? null
+    queueDm({ body: body.trim(), ...(replyId ? { reply_to: replyId } : {}) })
+    setBody(''); dmComposerRef.current?.clear(); clearDraft('dm-' + conversationId); setReplyTo(null); stopTyping()
   }
 
   // Attach a photo or video to the DM (uploads, then sends with any typed
@@ -827,15 +884,10 @@ export default function Messages() {
         ? await uploadDmVideo(file, conversationId)
         : await uploadDmImage(file, conversationId)
       const replyId = replyTo?.id ?? null
-      const { error } = await supabase.from('direct_messages').insert({
-        conversation_id: conversationId,
-        sender_id: user.id,
-        recipient_id: isGroup ? null : otherParticipant(active, user.id),
-        body: body.trim(),
-        image_url: path,
-        ...(replyId ? { reply_to: replyId } : {}),
-      })
-      if (error) throw new Error(error.message)
+      // Queued only once the file is in storage. The upload is the one part of
+      // a send that genuinely cannot wait for signal: a File does not survive
+      // localStorage, so there is nothing honest to queue until it has a path.
+      queueDm({ body: body.trim(), image_url: path, ...(replyId ? { reply_to: replyId } : {}) })
       playSend()
       setBody(''); dmComposerRef.current?.clear(); clearDraft('dm-' + conversationId); setReplyTo(null)
     } catch (err) {
@@ -1309,7 +1361,9 @@ export default function Messages() {
                       <div
                         // `relative`: the action toolbar is absolutely
                         // positioned against this column so it costs no layout.
-                        className="relative min-w-0 max-w-[80%] sm:max-w-[65%]"
+                        // A queued message fades back a little: still yours,
+                        // still there, just not out in the world yet.
+                        className={cx('relative min-w-0 max-w-[80%] sm:max-w-[65%]', m.pending && 'opacity-60')}
                         // Tap a message on mobile to reveal its reply / react actions.
                         onClick={(e) => { if (isMobile && !e.target.closest('a,button,video,input')) setActionsFor(showActions ? null : m.id) }}
                       >
@@ -1387,8 +1441,22 @@ export default function Messages() {
                           <span title={messageTimeTitle(m.created_at)}>{formatMessageTime(m.created_at)}</span>
                           {/* An edited message says so, here as everywhere. */}
                           {m.edited_at && <span title={`Edited ${messageTimeTitle(m.edited_at)}`}> · edited</span>}
-                          {mine && !isGroup && m.read && ' · Read'}
+                          {/* Sent, waiting, or given up. It replaces "Read"
+                              rather than sitting beside it, because a message
+                              that has not left the phone has certainly not been
+                              read and saying both would be nonsense. */}
+                          {m.pending
+                            ? (m.tries > 0 ? ' · Waiting for signal' : ' · Sending…')
+                            : (mine && !isGroup && m.read && ' · Read')}
                         </p>
+                        {m.failed && (
+                          <p className={cx('mt-0.5 text-[10px] text-smoke', mine && 'text-right')}>
+                            Not sent yet.{' '}
+                            <button type="button" onClick={() => retryQueued(m.queuedId)} className="font-semibold text-brand underline">Retry</button>
+                            {' · '}
+                            <button type="button" onClick={() => dropQueued(m.queuedId)} className="font-semibold underline">Discard</button>
+                          </p>
+                        )}
 
                         {/* Seen by, in groups. A 1:1 says "Read" on the line
                             above; a group needs names, and eight of them will
@@ -1550,6 +1618,7 @@ export default function Messages() {
                   </div>
                 ) : (
                 <>
+                <OutboxNotice scope={outboxScope} />
                 {attachError && <p className="mb-2 text-xs text-red-600">{attachError}</p>}
                 {!connected && !isAdmin && iSentCount === 0 && !theyReplied && (
                   <p className="mb-2 text-xs text-smoke">You can send one message. If {active?.other?.name?.split(' ')[0]} replies, you’ll be connected.</p>

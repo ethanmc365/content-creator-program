@@ -5,7 +5,8 @@ import { Modal, Spinner } from '../ui'
 import Icon from '../Icon'
 import { confirm, notice } from '../../lib/confirm'
 import { toast } from '../../lib/toast'
-import { parseDateTime, isoToDateInput, isoToTimeInput, cx } from '../../lib/utils'
+import { isoToTimeInput, cx } from '../../lib/utils'
+import { DateField, TimeField } from '../DateTimeFields'
 import { viewerZone } from '../../lib/eventTime'
 
 // YOUR OWN DATES, ON THE SAME CALENDAR.
@@ -48,7 +49,11 @@ export default function PersonalEventModal({ open, onClose, editing, onSaved }) 
       setForm({
         title: editing.title || '',
         description: editing.description || '',
-        dateStr: isoToDateInput(editing.date),
+        dateStr: (() => {
+          const d = new Date(editing.date)
+          return Number.isNaN(d.getTime()) ? '' :
+            `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+        })(),
         timeStr: isoToTimeInput(editing.date),
         duration: DURATIONS.some((d) => d.minutes === mins) ? mins : 60,
       })
@@ -59,7 +64,13 @@ export default function PersonalEventModal({ open, onClose, editing, onSaved }) 
 
   async function save(e) {
     e.preventDefault()
-    const iso = parseDateTime(form.dateStr, form.timeStr)
+    const iso = (() => {
+      if (!form.dateStr || !form.timeStr) return null
+      const [y, m, d] = form.dateStr.split('-').map(Number)
+      const [hh, mm] = form.timeStr.split(':').map(Number)
+      const dt = new Date(y, m - 1, d, hh, mm, 0, 0)
+      return Number.isNaN(dt.getTime()) ? null : dt.toISOString()
+    })()
     if (!iso) { notice('Enter the date as DD/MM/YYYY and the time as HH:MM.'); return }
     if (!form.title.trim()) { notice('Give it a name so you know what it is.'); return }
     setBusy(true)
@@ -120,21 +131,13 @@ export default function PersonalEventModal({ open, onClose, editing, onSaved }) 
           />
         </div>
 
+        {/* The same typed fields as everywhere else. See
+            components/DateTimeFields. */}
         <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="pe-date" className="label">Date</label>
-            <input
-              id="pe-date" className="input" required inputMode="numeric" value={form.dateStr}
-              onChange={(e) => setForm({ ...form, dateStr: e.target.value })} placeholder="DD/MM/YYYY"
-            />
-          </div>
-          <div>
-            <label htmlFor="pe-time" className="label">Start</label>
-            <input
-              id="pe-time" className="input" required inputMode="numeric" value={form.timeStr}
-              onChange={(e) => setForm({ ...form, timeStr: e.target.value })} placeholder="HH:MM"
-            />
-          </div>
+          <DateField id="pe-date" label="Date" value={form.dateStr}
+            onChange={(v) => setForm((f) => ({ ...f, dateStr: v }))} />
+          <TimeField id="pe-time" label="Start" value={form.timeStr}
+            onChange={(v) => setForm((f) => ({ ...f, timeStr: v }))} />
         </div>
 
         <div>

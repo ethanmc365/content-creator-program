@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Modal, Spinner, CopyButton } from '../ui'
+import { Modal, PlaneLoader, CopyButton } from '../ui'
 import Icon from '../Icon'
 import { confirm } from '../../lib/confirm'
 import { toast } from '../../lib/toast'
@@ -37,11 +37,27 @@ const FEED_BASE = 'https://heuhqqoxyggawuckxocp.supabase.co/functions/v1/calenda
 
 export default function SubscribeCalendar({ open, onClose }) {
   const [token, setToken] = useState(null)
+  const [failed, setFailed] = useState('')
   const [busy, setBusy] = useState(false)
 
+  // A FAILURE HAS TO SAY SO. This was `if (!error) setToken(data)` - so any
+  // failure left `token` null for ever and the modal sat on its loader with
+  // nothing else to show. That is exactly what the owner hit: "I tried to sync
+  // my calendar with the calendar sync button, it just showed up a loading icon
+  // and didn't load anything."
+  //
+  // The underlying bug was in Postgres: `my_calendar_token` is SECURITY DEFINER
+  // with `search_path = public`, and `gen_random_bytes` is pgcrypto, which
+  // Supabase installs into the `extensions` schema - so the name did not
+  // resolve inside the function and every call raised. It is schema-qualified
+  // now. But a swallowed error is its own bug: the next thing to go wrong here
+  // would look identical, and "it spins for ever" is the least diagnosable
+  // failure a screen can have.
   const mint = useCallback(async () => {
+    setFailed('')
     const { data, error } = await supabase.rpc('my_calendar_token')
-    if (!error) setToken(data)
+    if (error) { setFailed(error.message || 'Could not create your calendar link.'); return }
+    setToken(data)
   }, [])
 
   useEffect(() => { if (open && !token) mint() }, [open, token, mint])
@@ -53,6 +69,16 @@ export default function SubscribeCalendar({ open, onClose }) {
   const webcal = https.replace(/^https?:\/\//, 'webcal://')
   const googleAdd = https
     ? `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(https)}`
+    : ''
+  // OUTLOOK, AND IT WAS NOT COMPLICATED. Outlook.com has an add-from-web
+  // endpoint that takes the same URL as a query parameter, and desktop Outlook
+  // has understood `webcal://` since long before either of the other two. So it
+  // is one more link against the same feed: no second format, no second
+  // endpoint, nothing new to keep in step. Work and school accounts live on
+  // outlook.office.com and are redirected there from outlook.live.com, so one
+  // link covers both.
+  const outlookAdd = https
+    ? `https://outlook.live.com/calendar/0/addfromweb?url=${encodeURIComponent(https)}&name=${encodeURIComponent('Tryp.com Creator Program')}`
     : ''
 
   async function reset() {
@@ -67,8 +93,19 @@ export default function SubscribeCalendar({ open, onClose }) {
 
   return (
     <Modal open={open} onClose={onClose} title="Sync with your calendar" wide>
-      {!token ? (
-        <div className="flex justify-center py-10"><Spinner className="h-6 w-6" /></div>
+      {failed ? (
+        <div className="py-6 text-center">
+          <p className="text-sm font-semibold text-ink">That did not work</p>
+          <p className="mx-auto mt-1 max-w-sm text-sm text-smoke">{failed}</p>
+          <button onClick={mint} className="btn-secondary mt-4 text-sm">Try again</button>
+        </div>
+      ) : !token ? (
+        // THE PLANE ON THE DOTTED LINE, which is the loader this product uses
+        // everywhere else. A bare rotating ring was the one piece of generic
+        // chrome left on a screen that is entirely about going somewhere.
+        <div className="flex justify-center py-10">
+          <PlaneLoader label="Building your calendar link" />
+        </div>
       ) : (
         <div className="space-y-5">
           <p className="text-sm text-smoke">
@@ -77,7 +114,7 @@ export default function SubscribeCalendar({ open, onClose }) {
             things appear on their own, usually within a day.
           </p>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-3">
             <a
               href={webcal}
               className="group flex items-center gap-3 rounded-card border border-gray-100 bg-white p-4 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/50 hover:shadow-lift"
@@ -87,7 +124,7 @@ export default function SubscribeCalendar({ open, onClose }) {
               </span>
               <span className="min-w-0">
                 <span className="block text-sm font-semibold text-ink">Apple Calendar</span>
-                <span className="block text-xs text-smoke">iPhone, iPad, Mac and Outlook</span>
+                <span className="block text-xs text-smoke">iPhone, iPad and Mac</span>
               </span>
             </a>
             <a
@@ -102,6 +139,20 @@ export default function SubscribeCalendar({ open, onClose }) {
               <span className="min-w-0">
                 <span className="block text-sm font-semibold text-ink">Google Calendar</span>
                 <span className="block text-xs text-smoke">Opens the add-by-URL screen</span>
+              </span>
+            </a>
+            <a
+              href={outlookAdd}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex items-center gap-3 rounded-card border border-gray-100 bg-white p-4 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/50 hover:shadow-lift"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand text-white transition-transform duration-200 group-hover:scale-110">
+                <Icon name="envelope" className="h-5 w-5" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-ink">Outlook</span>
+                <span className="block text-xs text-smoke">Outlook.com, work or school</span>
               </span>
             </a>
           </div>

@@ -143,7 +143,7 @@ export default function BoardCard({ className }) {
               // Turns about its pin, and hangs from it - see the long note on
               // QuestionNote in pages/Board. The pin is a size down here
               // because these notes are, so the pivot is higher to match.
-              style={{ transform: `rotate(${tilt}deg)`, transformOrigin: '50% 1.75rem' }}
+              style={{ transform: `rotate(${tilt}deg)`, transformOrigin: '50% 1.5rem' }}
               className={cx(
                 'group relative flex h-full min-h-[10.5rem] flex-col rounded-lg border bg-white transition-all duration-300 ease-out',
                 'shadow-[0_2px_3px_-1px_rgba(20,20,30,0.07),0_10px_16px_-8px_rgba(20,20,30,0.16)]',
@@ -152,9 +152,9 @@ export default function BoardCard({ className }) {
                 open ? 'border-brand/25 hover:border-brand/50' : 'border-green-200 hover:border-green-400',
               )}
             >
-              <Thumbtack className="h-12 w-12" top="top-0.5" />
+              <Thumbtack className="h-9 w-9" top="-top-1" />
               <span className={cx('h-1.5 w-full shrink-0 rounded-t-lg', open ? 'bg-brand' : 'bg-green-500')} aria-hidden />
-              <span className="flex flex-1 flex-col p-3.5 pt-11">
+              <span className="flex flex-1 flex-col p-3.5 pt-8">
                 <span className="mb-2 flex items-center gap-1.5">
                   <span className={cx(
                     'inline-flex min-w-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold',

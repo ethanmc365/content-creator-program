@@ -312,3 +312,49 @@ alter table public.event_ratings alter column rating drop not null;
 alter table public.event_ratings drop constraint if exists event_ratings_answer_or_skip;
 alter table public.event_ratings add constraint event_ratings_answer_or_skip
   check ((skipped and rating is null) or (not skipped and rating is not null));
+
+-- ---------------------------------------------------------------- 19 Aug 2026
+--
+-- THE SYNC BUTTON SPUN FOR EVER. `my_calendar_token` is SECURITY DEFINER with
+-- `set search_path = public`, which is the correct hardening - and
+-- `gen_random_bytes` is pgcrypto, which Supabase installs into the `extensions`
+-- schema. So the name did not resolve inside the function and every call from
+-- the browser raised. It was invisible in testing because the migration ran as
+-- `postgres`, whose default search_path DOES include `extensions`, so minting a
+-- token by hand worked and the feed tested green end to end.
+--
+-- SCHEMA-QUALIFY, do not widen the search path: adding `extensions` to it would
+-- re-open the exact hole the pinned path exists to close.
+create or replace function public.my_calendar_token()
+returns text language plpgsql security definer set search_path = public as $$
+declare t text;
+begin
+  if auth.uid() is null then raise exception 'not signed in'; end if;
+  insert into public.calendar_feed_tokens (user_id, token)
+  values (auth.uid(), encode(extensions.gen_random_bytes(24), 'hex'))
+  on conflict (user_id) do nothing;
+  select token into t from public.calendar_feed_tokens where user_id = auth.uid();
+  return t;
+end $$;
+revoke execute on function public.my_calendar_token() from public, anon;
+grant execute on function public.my_calendar_token() to authenticated;
+
+create or replace function public.rotate_calendar_token()
+returns text language plpgsql security definer set search_path = public as $$
+declare t text;
+begin
+  if auth.uid() is null then raise exception 'not signed in'; end if;
+  insert into public.calendar_feed_tokens (user_id, token)
+  values (auth.uid(), encode(extensions.gen_random_bytes(24), 'hex'))
+  on conflict (user_id) do update set token = excluded.token, created_at = now();
+  select token into t from public.calendar_feed_tokens where user_id = auth.uid();
+  return t;
+end $$;
+revoke execute on function public.rotate_calendar_token() from public, anon;
+grant execute on function public.rotate_calendar_token() to authenticated;
+
+-- WHICH CLOCK A CREATOR WANTS. null = follow the device; an IANA zone = pin.
+-- `timezone_seen` is the device zone last acknowledged, so the travel prompt on
+-- the calendar fires once per move rather than on every visit.
+alter table public.profiles add column if not exists timezone      text;
+alter table public.profiles add column if not exists timezone_seen text;

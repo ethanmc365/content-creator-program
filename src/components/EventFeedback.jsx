@@ -69,7 +69,10 @@ export function SuggestEvent() {
   }
 
   return (
-    <section className="mt-10">
+    // `id` so the admin panel's desk row can link straight to it. See
+    // AdminPanel: these used to be visible only by scrolling to the foot of the
+    // calendar, which is not somewhere anybody goes looking for work.
+    <section id="suggestions" className="mt-10 scroll-mt-24">
       <div className="mb-3 flex items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 text-lg font-semibold"><Icon name="pencil" className="h-5 w-5 text-brand" /> Event ideas</h2>
         <button onClick={() => setOpen(true)} className="btn-secondary !py-2 text-xs">+ Suggest an event</button>

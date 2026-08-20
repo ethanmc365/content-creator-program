@@ -172,10 +172,46 @@ export async function loadCalendar({ userId, scopeIds }) {
     })
   }
 
+  // A TRIP THAT IS ALREADY ON THE CALENDAR AS A FLIGHT IS NOT A SECOND ENTRY.
+  //
+  // The owner: "ensure that if someone logs a flight and shares it on the
+  // collab board, it doesn't create two separate events for the same flight."
+  //
+  // Logging a flight OFFERS to post it to the collab board, with the dates
+  // filled in from the flight - so taking that offer is the single most likely
+  // thing a creator does, and it produced "Flight DUB to CDG" and "Paris,
+  // France" on the same day, both describing one journey.
+  //
+  // The flight wins, because it is the more specific of the two: it names the
+  // airports, it carries the airline, and it is the row an edit would change.
+  // The trip is not thrown away - it still paints the travel days underneath
+  // (see `travelDays` below), which is the part the flight cannot express, and
+  // its destination is folded into the flight's own subtitle so nothing is
+  // lost.
+  //
+  // MATCHED ON THE DAY, NOT ON THE PLACE. A collab post says "Lisbon,
+  // Portugal"; a flight says "LIS". Reconciling those needs the airport table
+  // and would still fail on a train leg or a city with two airports. The date
+  // is the reliable join: nobody posts a trip starting the same day as an
+  // unrelated flight of their own.
+  const flightDays = new Set((flights ?? []).map((f) => String(f.flown_on)))
+  const flightByDay = new Map((flights ?? []).map((f) => [String(f.flown_on), f]))
   for (const t of trips ?? []) {
+    const label = `${t.city ? `${t.city}, ` : ''}${t.country || 'Trip'}`
+    if (flightDays.has(String(t.start_date))) {
+      const f = flightByDay.get(String(t.start_date))
+      const entry = items.find((i) => i.id === `flight-${f.id}`)
+      if (entry) {
+        entry.tripId = t.id
+        entry.location = t.city || t.country || entry.location
+        entry.description = [entry.description, `On the collab board as ${label}`]
+          .filter(Boolean).join(' · ')
+      }
+      continue
+    }
     items.push({
       id: `trip-${t.id}`, key: `trip:${t.id}`,
-      title: `${t.city ? `${t.city}, ` : ''}${t.country || 'Trip'}`,
+      title: label,
       date: middayOf(t.start_date), endsAt: t.end_date ? middayOf(t.end_date) : null,
       type: 'trip', kind: 'trip', link: '/collab',
       description: '', timezone: null, ownerId: userId, communityIds: [],

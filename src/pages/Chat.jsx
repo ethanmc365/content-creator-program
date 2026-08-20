@@ -31,6 +31,8 @@ import MessageEditor from '../components/MessageEditor'
 import ReportMessage from '../components/ReportMessage'
 import { useNowTick, withinEditWindow } from '../lib/messageActions'
 import { playSend, playSendFail, playInbound, playReactionPop } from '../lib/appSounds'
+import OutboxNotice from '../components/OutboxNotice'
+import { enqueueMessage, queuedFor, subscribeOutbox, onOutboxSent, retryQueued, dropQueued } from '../lib/outbox'
 
 // A short label for a message when it's quoted in a reply.
 function messagePreview(m) {
@@ -216,20 +218,47 @@ export default function Chat() {
   const isMuted = profile?.status === 'muted'
   const pinnedMsg = messages.find((m) => m.pinned && !m.deleted) ?? null
 
+  // ---------- The outbox ----------
+  // Anything written without signal lives in `src/lib/outbox.js`, not in
+  // `messages`, and is READ from there on every change. That is what makes a
+  // reload in a tunnel show the message still waiting instead of quietly
+  // dropping it: the queue is the record, this is only a view of it.
+  const outboxScope = `chat:${channel}`
+  const [queued, setQueued] = useState(() => queuedFor(outboxScope))
+  // An in-flight UPLOAD, which is the one thing the outbox cannot hold: a File
+  // is not something you can put in localStorage and still have tomorrow. So
+  // the bubble for a photo lives here until its bytes are somewhere permanent,
+  // and only then does the row join the queue.
+  const [uploading, setUploading] = useState([])
+  useEffect(() => {
+    setQueued(queuedFor(outboxScope))
+    setUploading([])
+    return subscribeOutbox(() => setQueued(queuedFor(outboxScope)))
+  }, [outboxScope])
+
   // What the message list actually renders. Without a search that is simply
   // every message; with one it is the matches, by body or by who wrote it -
   // "what did Jacob say about Lisbon" is one of the two ways anybody looks for
   // an old message, and the other is the words themselves.
   const visibleMessages = useMemo(() => {
+    // Queued messages ride on the end, always last and never searchable: they
+    // have no server time yet, so there is nowhere else in the order they could
+    // honestly go. The filter is the belt to the outbox's braces - realtime can
+    // deliver the real row a beat before the insert's own reply gets back here,
+    // and for that beat the same message would otherwise be on screen twice.
+    const pending = queued
+      .filter((i) => !messages.some((m) => m.id === i.id
+        || (m.sender_id === user.id && (m.body || '') === (i.display.body || '') && !!m.image_url === !!i.display.image_url)))
+      .map((i) => ({ ...i.display, pending: !i.failed, failed: i.failed, queuedId: i.id, tries: i.tries }))
     const q = search.trim().toLowerCase()
-    if (!q) return messages
+    if (!q) return [...messages, ...uploading, ...pending]
     return messages.filter(
       (m) => !m.deleted && (
         (m.body || '').toLowerCase().includes(q) ||
         (m.profiles?.name || '').toLowerCase().includes(q)
       ),
     )
-  }, [messages, search])
+  }, [messages, search, queued, uploading, user.id])
 
   // ---------- Load history ----------
   const load = useCallback(async () => {
@@ -270,6 +299,27 @@ export default function Chat() {
       return [...prev, row]
     })
   }, [])
+
+  // A queued message that lands anywhere in the app tells everyone; this room
+  // only cares about its own. The real row goes in exactly as the outbox drops
+  // the item, so the pending bubble is replaced rather than joined.
+  useEffect(() => onOutboxSent((item, row) => {
+    if (item.scope !== outboxScope || !row) return
+    mergeIncoming(row)
+  }), [outboxScope, mergeIncoming])
+
+  // THE FAIL SOUND MOVED. It used to fire on the first failed request, which is
+  // now the most ordinary thing that can happen: you are in a tunnel and the
+  // message is fine. It belongs on the one moment that is genuinely bad news -
+  // the outbox has stopped trying - and that is worth interrupting somebody for
+  // because by then they have certainly looked away.
+  const failedRef = useRef(new Set())
+  useEffect(() => {
+    for (const item of queued) {
+      if (item.failed && !failedRef.current.has(item.id)) { failedRef.current.add(item.id); playSendFail() }
+      if (!item.failed) failedRef.current.delete(item.id)
+    }
+  }, [queued])
 
   useEffect(() => {
     myMessageIdsRef.current = new Set(messages.filter((m) => m.sender_id === user.id).map((m) => m.id))
@@ -565,10 +615,10 @@ export default function Chat() {
   }, [channel, messages.length])
 
   // ---------- Actions ----------
-  // Build an optimistic bubble that renders instantly (greyed) before the DB
-  // round-trip; mergeIncoming swaps it for the real row when it lands.
+  // The bubble the outbox will render on this message's behalf until the real
+  // row exists. It carries the profile join by hand because nobody is going to
+  // fetch it for us underground.
   const makeOptimistic = (fields) => ({
-    id: newTempId(),
     channel,
     sender_id: user.id,
     body: '',
@@ -577,17 +627,23 @@ export default function Chat() {
     reply_to: null,
     created_at: new Date().toISOString(),
     deleted: false,
-    pending: true,
     profiles: { id: user.id, name: profile?.name, photo_url: profile?.photo_url, is_admin: isAdmin },
     ...fields,
   })
 
-  // A FAILED SEND MAKES A NOISE. This is the one sound in the app worth
-  // interrupting somebody for: the bubble goes grey and stays there, and if you
-  // have already looked away you will believe you sent it.
-  const markFailed = (tempId) => {
+  const markUploadFailed = (tempId) => {
     playSendFail()
-    setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, pending: false, failed: true } : m)))
+    setUploading((prev) => prev.map((m) => (m.id === tempId ? { ...m, pending: false, failed: true } : m)))
+  }
+
+  function queueMessage(row, display) {
+    return enqueueMessage({
+      scope: outboxScope,
+      table: 'messages',
+      row,
+      select: '*, profiles:sender_id(id, name, photo_url, is_admin)',
+      display,
+    })
   }
 
   async function send(e) {
@@ -595,38 +651,32 @@ export default function Chat() {
     const text = body.trim()
     if (!text) return
     const replyId = replyTo?.id ?? null
-    const temp = makeOptimistic({ body: text, reply_to: replyId })
-    // On the OPTIMISTIC bubble, not on the server's answer: the whoosh is the
-    // feedback for the press, and a whoosh that arrives 400ms later is a
-    // different sound about a different thing.
+    // On the PRESS, not on the server's answer: the whoosh is the feedback for
+    // the press, and a whoosh that arrives 400ms later is a different sound
+    // about a different thing. With a queue behind it there may be no answer
+    // for an hour, which makes waiting for one even less defensible.
     playSend()
-    setMessages((prev) => [...prev, temp])
+    queueMessage(
+      { channel, sender_id: user.id, body: text, reply_to: replyId },
+      makeOptimistic({ body: text, reply_to: replyId }),
+    )
     // Clear the composer immediately; keep focus so the mobile keyboard stays up
     // (it only closes when the user taps the chat or swipes the composer down).
     setBody(''); clearDraft('chat-' + channel); setMention(null); setReplyTo(null); stopTyping()
     composerEditorRef.current?.clear()
     setAtBottom(true)
-    ;(composerEditorRef.current ? composerEditorRef.current.focus() : composerEditorRef.current?.focus())
-    const { data, error } = await supabase
-      .from('messages')
-      .insert({ channel, sender_id: user.id, body: text, reply_to: replyId })
-      .select('*, profiles:sender_id(id, name, photo_url, is_admin)')
-      .single()
-    if (error) markFailed(temp.id)
-    else mergeIncoming(data)
+    composerEditorRef.current?.focus()
   }
 
-  // Re-send a bubble that failed the first time (media is already uploaded, so we
-  // only re-insert the row).
-  async function retrySend(m) {
-    setMessages((prev) => prev.map((x) => (x.id === m.id ? { ...x, pending: true, failed: false } : x)))
-    const { data, error } = await supabase
-      .from('messages')
-      .insert({ channel, sender_id: user.id, body: m.body, image_url: m.image_url, video_url: m.video_url, reply_to: m.reply_to })
-      .select('*, profiles:sender_id(id, name, photo_url, is_admin)')
-      .single()
-    if (error) markFailed(m.id)
-    else mergeIncoming(data)
+  // Retry is now only ever an upload that died, since a row that will not
+  // insert is the outbox's problem and it offers its own retry above the
+  // composer. The media is already up, so this is just the row again.
+  function retrySend(m) {
+    setUploading((prev) => prev.filter((x) => x.id !== m.id))
+    queueMessage(
+      { channel, sender_id: user.id, body: m.body, image_url: m.image_url, video_url: m.video_url, reply_to: m.reply_to },
+      makeOptimistic({ body: m.body, image_url: m.image_url, video_url: m.video_url, reply_to: m.reply_to }),
+    )
   }
 
   // Attach an image OR a video (same button). Shows it instantly from a local
@@ -645,30 +695,34 @@ export default function Chat() {
     // you had typed in the composer, so a clip posted with a line of context
     // arrived without the context. Photos have always carried it; there was
     // never a reason for video to be the exception.
-    const temp = makeOptimistic(
-      isVideo
-        ? { body: caption, video_url: localUrl, reply_to: replyId }
-        : { body: caption, image_url: localUrl, reply_to: replyId }
-    )
+    const temp = {
+      ...makeOptimistic(
+        isVideo
+          ? { body: caption, video_url: localUrl, reply_to: replyId }
+          : { body: caption, image_url: localUrl, reply_to: replyId }
+      ),
+      id: newTempId(),
+      pending: true,
+    }
     playSend()
-    setMessages((prev) => [...prev, temp])
+    setUploading((prev) => [...prev, temp])
     setBody(''); clearDraft('chat-' + channel); composerEditorRef.current?.clear()
     setReplyTo(null); setAtBottom(true)
     try {
       const url = isVideo ? await uploadChatVideo(file, user.id) : await uploadChatImage(file, user.id)
-      const row = isVideo
-        ? { channel, sender_id: user.id, body: caption, video_url: url, reply_to: replyId }
-        : { channel, sender_id: user.id, body: caption, image_url: url, reply_to: replyId }
-      const { data, error } = await supabase
-        .from('messages')
-        .insert(row)
-        .select('*, profiles:sender_id(id, name, photo_url, is_admin)')
-        .single()
-      if (error) throw new Error(error.message)
-      mergeIncoming(data)
+      const media = isVideo ? { video_url: url } : { image_url: url }
+      // The bytes are somewhere permanent now, so the row can be queued and
+      // this bubble handed over. The queued display points at the STORAGE url
+      // rather than the local blob: a blob URL does not survive the reload the
+      // queue exists to survive.
+      setUploading((prev) => prev.filter((x) => x.id !== temp.id))
+      queueMessage(
+        { channel, sender_id: user.id, body: caption, ...media, reply_to: replyId },
+        makeOptimistic({ body: caption, ...media, reply_to: replyId }),
+      )
     } catch (err) {
       setAttachError(err.message)
-      markFailed(temp.id)
+      markUploadFailed(temp.id)
     }
   }
 
@@ -991,10 +1045,30 @@ export default function Chat() {
                   {m.resource_id && <ResourceCard resourceId={m.resource_id} />}
                   {m.leaderboard_challenge_id && <LeaderboardCard challengeId={m.leaderboard_challenge_id} />}
 
-                  {m.pending && <p className={cx('mt-0.5 text-[11px] text-gray-400', mine && 'text-right')}>Sending…</p>}
+                  {/* "Sending" only while that is true. Once a try has come
+                      back with nothing, the message is waiting, and the bubble
+                      says so rather than spinning a lie at somebody on a train. */}
+                  {m.pending && (
+                    <p className={cx('mt-0.5 text-[11px] text-gray-400', mine && 'text-right')}>
+                      {m.tries > 0 ? 'Waiting for signal' : 'Sending…'}
+                    </p>
+                  )}
                   {m.failed && (
-                    <p className={cx('mt-0.5 text-[11px] text-red-500', mine && 'text-right')}>
-                      Couldn't send. <button type="button" onClick={() => retrySend(m)} className="font-semibold underline">Retry</button>
+                    <p className={cx('mt-0.5 text-[11px] text-smoke', mine && 'text-right')}>
+                      Not sent yet.{' '}
+                      <button
+                        type="button"
+                        onClick={() => (m.queuedId ? retryQueued(m.queuedId) : retrySend(m))}
+                        className="font-semibold text-brand underline"
+                      >
+                        Retry
+                      </button>
+                      {m.queuedId && (
+                        <>
+                          {' · '}
+                          <button type="button" onClick={() => dropQueued(m.queuedId)} className="font-semibold underline">Discard</button>
+                        </>
+                      )}
                     </p>
                   )}
 
@@ -1184,6 +1258,7 @@ export default function Chat() {
             </p>
           ) : canPost ? (
             <>
+            <OutboxNotice scope={outboxScope} />
             {attachError && <p className="mb-2 text-xs text-red-600">{attachError}</p>}
             {/* FORMATTING IS FOR EVERYONE; the rest of this row is not.
                 Heading, bold and italic were admin-only on the theory that

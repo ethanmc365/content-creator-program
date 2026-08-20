@@ -110,6 +110,30 @@ export const AIRCRAFT = {
   // The two that get a travel creator to the places nothing else reaches.
   c208:     { name: 'Cessna 208 Caravan', maker: 'Cessna',  range: 1980,  seats: 12,  cruise: 340, body: 'turboprop', year: 1985 },
   dhc6:     { name: 'DHC-6 Twin Otter',  maker: 'De Havilland', range: 1480, seats: 19, cruise: 340, body: 'turboprop', year: 1966 },
+
+  // ---- AND THE SEVEN THAT MAKE THE WALL COME OUT EVEN ----
+  //
+  // Ethan: "if there's a few more relatively popular passenger planes exist,
+  // try to add them so it's even with four on each row."
+  //
+  // The collection page lays each body class out four to a row on a wide
+  // screen, so a class holding fourteen ends in a row of two and every one of
+  // the four sections trails off in the same corner. That reads as a layout
+  // fault rather than as a count. The fix is not CSS - it is that these seven
+  // aeroplanes were missing anyway, and adding them takes the classes to
+  // 16 / 12 / 8 / 8, which is four rows, three rows, two rows, two rows.
+  //
+  // Every one is a type somebody could have bought a seat on this decade: the
+  // A330-200 is the most numerous A330 variant flying, the CRJ700 and E170 are
+  // the small end of every US and European regional feed, and the Q300, Saab
+  // 340 and 1900D are what an island, a fjord or a bush strip actually gets.
+  a332:     { name: 'Airbus A330-200',   maker: 'Airbus',   range: 13450, seats: 246, cruise: 870, body: 'widebody', year: 1998 },
+  b77l:     { name: 'Boeing 777-200LR',  maker: 'Boeing',   range: 15843, seats: 317, cruise: 890, body: 'widebody', year: 2006 },
+  crj700:   { name: 'CRJ700',            maker: 'Bombardier', range: 2593, seats: 70,  cruise: 830, body: 'regional', year: 2001 },
+  e170:     { name: 'Embraer E170',      maker: 'Embraer',  range: 3890,  seats: 70,  cruise: 830, body: 'regional', year: 2004 },
+  q300:     { name: 'Dash 8 Q300',       maker: 'De Havilland', range: 1711, seats: 50, cruise: 528, body: 'turboprop', year: 1989 },
+  sf34:     { name: 'Saab 340',          maker: 'Saab',     range: 1730,  seats: 34,  cruise: 500, body: 'turboprop', year: 1984 },
+  b190:     { name: 'Beechcraft 1900D',  maker: 'Beechcraft', range: 2778, seats: 19, cruise: 528, body: 'turboprop', year: 1991 },
 }
 
 export const aircraft = (key) => (AIRCRAFT[key] ? { key, ...AIRCRAFT[key] } : null)

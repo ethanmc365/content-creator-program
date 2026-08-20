@@ -5,7 +5,9 @@ import { useAuth } from '../context/AuthContext'
 import { confirm, notice } from '../lib/confirm'
 import { PageHeader, Toggle, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
+import { useTimezone, allZones, zoneCity } from '../lib/timezone'
 import Reveal from '../components/network/Reveal'
+import AppIconPicker from '../components/AppIconPicker'
 import PaymentDetailsFields from '../components/PaymentDetails'
 import Turnstile from '../components/Turnstile'
 import { EMPTY_PAYEE, payeeFromPrivate, payeeToPrivate, payeeStarted, validatePayee } from '../lib/invoice'
@@ -29,6 +31,7 @@ const THEME_MODES = [
 // everything at once across three columns.
 const SECTIONS = [
   { key: 'display', label: 'Display', icon: 'bulb', hint: 'Theme and motion' },
+  { key: 'appicon', label: 'Home screen icon', icon: 'device', hint: 'Which icon your phone installs' },
   { key: 'sound', label: 'Sound', icon: 'megaphone', hint: 'Chat and game sounds' },
   { key: 'notifications', label: 'Notifications', icon: 'bell', hint: 'Alerts and reminders' },
   { key: 'account', label: 'Account', icon: 'users', hint: 'Profile, privacy, password, your data' },
@@ -61,6 +64,8 @@ export default function Settings() {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
   const [section, setSection] = useState(null) // mobile only: which section is open
+  // See the Timezone block in the Display section.
+  const tz = useTimezone(profile)
 
   // Optimistic local mirrors so the switches feel instant; the profile refresh
   // reconciles them with the saved truth.
@@ -285,6 +290,72 @@ export default function Settings() {
         </div>
         <Toggle on={reduceMotion} onChange={toggleMotion} label="Reduce motion" />
       </div>
+
+      {/* ---- TIMEZONE ----
+          THE ONE PLACE A CREATOR CAN OVERRULE THEIR OWN DEVICE.
+          Everything on this platform is stored as an instant and rendered in
+          the device's zone, which is right and silent. Somebody who travels for
+          a living needs to be able to say "I do not care where this phone
+          thinks it is, show me Lisbon" - most often because they are planning
+          against home while away. Automatic stays the default and is what
+          almost everybody should leave it on.
+          Choosing a fixed zone does NOT stop the calendar noticing a move: the
+          prompt still appears the first time the device reports somewhere new,
+          because a pin is a preference and not an instruction to stop paying
+          attention. See lib/timezone. */}
+      <div className="mt-5 border-t border-gray-100 pt-5">
+        <p className="text-sm font-semibold">Timezone</p>
+        <p className="text-xs text-smoke">
+          Which clock event times, deadlines and your flights are shown on.
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Timezone mode">
+          {[
+            { key: 'auto', label: 'Automatic', icon: 'globe', hint: tz.device ? zoneCity(tz.device) : 'This device' },
+            { key: 'fixed', label: 'Always this one', icon: 'pin', hint: tz.pinned ? zoneCity(tz.pinned) : 'Pick a zone' },
+          ].map((m) => {
+            const active = m.key === 'auto' ? !tz.pinned : !!tz.pinned
+            return (
+              <button
+                key={m.key}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => tz.save(m.key === 'auto' ? null : (tz.pinned || tz.device), { ackDevice: false })}
+                className={`flex flex-col items-center gap-1 rounded-xl border px-2 py-3 text-xs font-semibold transition-all hover:-translate-y-0.5 hover:shadow-card ${
+                  active ? 'border-brand bg-brand/5 text-brand' : 'border-gray-200 bg-white text-smoke'
+                }`}
+              >
+                <Icon name={m.icon} className="h-5 w-5" />
+                {m.label}
+                <span className="max-w-full truncate text-[10px] font-normal opacity-70">{m.hint}</span>
+              </button>
+            )
+          })}
+        </div>
+        {tz.pinned && (
+          <label className="mt-3 block">
+            <span className="label">Timezone</span>
+            <select
+              className="input"
+              value={tz.pinned}
+              onChange={(e) => tz.save(e.target.value, { ackDevice: false })}
+            >
+              {/* The device's own zone first, always, even if it is also further
+                  down the list: it is the one somebody is most likely to want
+                  and hunting for it in four hundred rows is not a feature. */}
+              {tz.device && <option value={tz.device}>{tz.device} (this device)</option>}
+              {allZones().filter((z) => z !== tz.device).map((z) => (
+                <option key={z} value={z}>{z}</option>
+              ))}
+            </select>
+          </label>
+        )}
+        <p className="mt-2 text-[11px] text-smoke">
+          {tz.pinned
+            ? `Times are shown in ${zoneCity(tz.pinned)} wherever you are. We will still ask if you land somewhere new.`
+            : 'Times follow whatever device you are on. If you travel, the calendar asks once whether to switch.'}
+        </p>
+      </div>
     </section>
   )
 
@@ -469,8 +540,14 @@ export default function Settings() {
     </section>
   )
 
+  // A whole card for one preference, and it earns it: the previews are the
+  // control (you are choosing a picture, so you have to see the pictures) and
+  // the "your phone already copied the old one" caveat has nowhere else to live.
+  const AppIconSection = <AppIconPicker />
+
   const BODIES = {
     display: DisplaySection,
+    appicon: AppIconSection,
     sound: SoundSection,
     notifications: NotificationsSection,
     account: AccountSection,
@@ -563,6 +640,7 @@ export default function Settings() {
         {/* Column 1: display + payment */}
         <Reveal className="space-y-6" from="down" stagger={0.06}>
           {DisplaySection}
+          {AppIconSection}
           {SoundSection}
           {PaymentSection}
         </Reveal>

@@ -19,10 +19,25 @@ import { cx } from '../../lib/utils'
 // what every event created before markets existed already is.
 export default function MarketPicker({ chapters = [], value = [], onChange, id = 'market-picker' }) {
   const [open, setOpen] = useState(false)
+  const [flip, setFlip] = useState(false)
   const boxRef = useRef(null)
 
+  // Decide the direction the moment it opens, against the nearest scrolling
+  // ancestor rather than the window: inside a modal the window has plenty of
+  // room and the modal has none, and it is the modal that does the clipping.
   useEffect(() => {
-    if (!open) return undefined
+    if (!open) { setFlip(false); return undefined }
+    const el = boxRef.current
+    if (el) {
+      const r = el.getBoundingClientRect()
+      let bound = window.innerHeight
+      for (let n = el.parentElement; n; n = n.parentElement) {
+        const style = getComputedStyle(n)
+        if (/(auto|scroll|hidden)/.test(style.overflowY)) { bound = n.getBoundingClientRect().bottom; break }
+      }
+      // 18rem of menu plus a little breathing room.
+      setFlip(bound - r.bottom < 300 && r.top > 300)
+    }
     const onDown = (e) => { if (!boxRef.current?.contains(e.target)) setOpen(false) }
     const onKey = (e) => { if (e.key === 'Escape') setOpen(false) }
     document.addEventListener('pointerdown', onDown)
@@ -74,7 +89,24 @@ export default function MarketPicker({ chapters = [], value = [], onChange, id =
       </button>
 
       {open && (
-        <div className="absolute inset-x-0 top-[calc(100%+0.375rem)] z-40 max-h-72 overflow-y-auto rounded-card border border-gray-100 bg-white p-1 shadow-lift animate-menu-in">
+        <div
+          // IT OPENS UPWARDS WHEN THERE IS NO ROOM BELOW.
+          //
+          // This was always `top: 100%`, so inside a modal whose own body
+          // scrolls - which is every one of them on a phone - a picker near the
+          // bottom of the form opened into the modal's lower edge and was cut
+          // off. The owner, on Suggest an event: "the popup to select is cut off
+          // by the bottom, it shouldn't be cut off and you shouldn't have to
+          // scroll within the other card first."
+          //
+          // `flip` is measured on open (see the effect above), not guessed from
+          // a breakpoint: the same control is near the top of one form and at
+          // the foot of another.
+          className={cx(
+            'absolute inset-x-0 z-40 max-h-72 overflow-y-auto rounded-card border border-gray-100 bg-white p-1 shadow-lift animate-menu-in',
+            flip ? 'bottom-[calc(100%+0.375rem)]' : 'top-[calc(100%+0.375rem)]',
+          )}
+        >
           <button
             type="button"
             onClick={() => { onChange([]); setOpen(false) }}
@@ -83,11 +115,18 @@ export default function MarketPicker({ chapters = [], value = [], onChange, id =
               value.length === 0 ? 'font-semibold text-brand' : 'text-ink',
             )}
           >
-            <span className={cx(
-              'flex h-4 w-4 shrink-0 items-center justify-center rounded border',
-              value.length === 0 ? 'border-brand bg-brand text-white' : 'border-gray-300',
-            )}>
-              {value.length === 0 && <Icon name="check" className="h-3 w-3" />}
+            {/* THE PLAIN TICK, WITH NOTHING ROUND IT.
+                It was a 16px bordered square that filled orange when selected -
+                a checkbox drawn by hand. The owner: "when you click a box it
+                shows up a tick with a circle around it, it should just be the
+                standard tick used elsewhere on the platform, no box around it."
+                He is right: every other multi-select on this platform (the
+                daily puzzles, the aircraft filter, the reminder days) marks a
+                chosen row with a bare tick, and an empty box on every unchosen
+                row is a column of furniture the eye has to skip. The row itself
+                already turns brand-coloured and bold. */}
+            <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+              {value.length === 0 && <Icon name="check" className="h-4 w-4" strokeWidth={2.6} />}
             </span>
             Everyone, every market
           </button>
@@ -104,11 +143,8 @@ export default function MarketPicker({ chapters = [], value = [], onChange, id =
                   on ? 'font-semibold text-brand' : 'text-ink',
                 )}
               >
-                <span className={cx(
-                  'flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors',
-                  on ? 'border-brand bg-brand text-white' : 'border-gray-300',
-                )}>
-                  {on && <Icon name="check" className="h-3 w-3" />}
+                <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                  {on && <Icon name="check" className="h-4 w-4" strokeWidth={2.6} />}
                 </span>
                 {c.name}
               </button>

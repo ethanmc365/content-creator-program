@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { confirm, notice } from '../../lib/confirm'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
@@ -6,10 +7,13 @@ import { useMarkets } from '../../lib/markets'
 import { EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../../components/ui'
 import Icon from '../../components/Icon'
 import MarketPicker from '../../components/calendar/MarketPicker'
+import BackLink from '../../components/BackLink'
+import { DateField, TimeField } from '../../components/DateTimeFields'
 import { announceToMarkets } from '../../lib/announce'
 import { toast } from '../../lib/toast'
 import { viewerZone, shortZoneName } from '../../lib/eventTime'
-import { formatDateTime, parseDateTime, isoToDateInput, isoToTimeInput, cx } from '../../lib/utils'
+import { zoneOffsetLabel } from '../../lib/timezone'
+import { formatDateTime, isoToTimeInput, cx } from '../../lib/utils'
 
 // MANAGE EVENTS, REBUILT.
 //
@@ -53,7 +57,26 @@ const TYPES = [
 ]
 const iconFor = (t) => TYPES.find((x) => x.value === t)?.icon || 'calendar'
 
+// The typed fields hand back an ISO day and a 24h time; this is the one place
+// they are joined into the instant that goes in the column. Local time on
+// purpose - see the timezone note on the form.
+function combine(day, time) {
+  if (!day || !time) return null
+  const [y, m, d] = day.split('-').map(Number)
+  const [hh, mm] = time.split(':').map(Number)
+  if (![y, m, d, hh, mm].every(Number.isFinite)) return null
+  const dt = new Date(y, m - 1, d, hh, mm, 0, 0)
+  return Number.isNaN(dt.getTime()) ? null : dt.toISOString()
+}
+/** An instant -> the local yyyy-MM-dd the DateField wants. */
+function toIsoDay(iso) {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 const DURATIONS = [
+  { minutes: 30, label: '30 min' },
   { minutes: 60, label: '1 hour' },
   { minutes: 90, label: '90 min' },
   { minutes: 120, label: '2 hours' },
@@ -63,7 +86,7 @@ const DURATIONS = [
 const emptyForm = {
   title: '', description: '', dateStr: '', timeStr: '', type: 'event',
   meeting_url: '', location: '', rsvp_enabled: false, customType: false,
-  duration: 60, community_ids: [], announce: false,
+  duration: 60, customDuration: false, community_ids: [], announce: false,
 }
 
 export default function AdminEvents() {
@@ -83,8 +106,28 @@ export default function AdminEvents() {
     // the restrictive policy in migration 107 hides anybody's private rows from
     // everybody including admins. The filter is belt and braces, and it also
     // keeps an admin's OWN content days out of a programme-management list.
-    const { data } = await supabase.from('events').select('*').is('owner_id', null).order('date', { ascending: false })
-    setEvents(data ?? [])
+    //
+    // CHALLENGE DATES COME TOO, READ-ONLY. The owner: "it should show all
+    // upcoming events in order of soonest, including deadlines." A challenge's
+    // open and close are the two most important dates the programme has and
+    // they were the only ones missing from the page that manages dates - they
+    // are derived from `challenges`, so they cannot be edited here, but leaving
+    // them out meant the list disagreed with the calendar it feeds.
+    const [{ data: rows }, { data: ch }] = await Promise.all([
+      supabase.from('events').select('*').is('owner_id', null).order('date', { ascending: false }),
+      supabase.from('challenges').select('id, title, start_date, end_date, community_id').neq('status', 'draft'),
+    ])
+    const derived = (ch ?? []).flatMap((c) => [
+      c.start_date && {
+        id: `ch-${c.id}-start`, title: `${c.title} opens`, date: c.start_date, type: 'challenge',
+        community_ids: c.community_id ? [c.community_id] : [], derived: true, link: `/challenges/${c.id}`,
+      },
+      c.end_date && {
+        id: `ch-${c.id}-end`, title: `${c.title} closes`, date: c.end_date, type: 'deadline',
+        community_ids: c.community_id ? [c.community_id] : [], derived: true, link: `/challenges/${c.id}`,
+      },
+    ].filter(Boolean))
+    setEvents([...(rows ?? []), ...derived])
   }
 
   useEffect(() => { load() }, [])
@@ -146,12 +189,13 @@ export default function AdminEvents() {
       setForm({
         ...emptyForm,
         ...event,
-        dateStr: isoToDateInput(event.date),
+        dateStr: toIsoDay(event.date),
         timeStr: isoToTimeInput(event.date),
         meeting_url: event.meeting_url || '',
         location: event.location || '',
         customType: !known,
-        duration: DURATIONS.some((d) => d.minutes === mins) ? mins : 60,
+        duration: mins || 60,
+        customDuration: !!mins && !DURATIONS.some((d) => d.minutes === mins),
         community_ids: event.community_ids?.length ? event.community_ids : (event.community_id ? [event.community_id] : []),
         // Announcing an EDIT would post the same line twice. It is offered on
         // creation only.
@@ -164,7 +208,7 @@ export default function AdminEvents() {
 
   async function save(e) {
     e.preventDefault()
-    const iso = parseDateTime(form.dateStr, form.timeStr)
+    const iso = combine(form.dateStr, form.timeStr)
     if (!iso) { notice('Enter the date as DD/MM/YYYY and the time as HH:MM (24h).'); return }
     setBusy(true)
     const payload = {
@@ -219,6 +263,9 @@ export default function AdminEvents() {
 
   return (
     <div className="page max-w-4xl">
+      {/* BACK TO THE CALENDAR, like every other second-level page here. Manage
+          events is reached from the calendar and had no way back to it. */}
+      <BackLink to="/events" label="Back to the calendar" />
       <PageHeader
         title="Manage events"
         subtitle="Q&As, content days, milestones. Challenge dates show on the calendar automatically."
@@ -248,7 +295,15 @@ export default function AdminEvents() {
         {/* Horizontal scroll rather than a wrap on a phone: seven markets
             wrapping to three rows pushes the list itself off the screen, which
             is the "excessive scrolling" the filters exist to remove. */}
-        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
+        {/* `py-1.5` AND A MATCHING NEGATIVE MARGIN, not `pb-1`.
+            The pills lift 2px on hover (`hover:-translate-y-0.5`) and this row
+            is an `overflow-x-auto` scroller, so a lifted pill was clipped
+            against the top edge of its own scroll box - the owner: "when I hover
+            over the ones at the top the button gets slightly cut off". An
+            overflow container clips on EVERY axis once it scrolls on one, so the
+            fix is room, not `overflow-visible`: pad the scroller and pull the
+            padding back out with a negative margin so nothing moves. */}
+        <div className="-mx-4 -my-1.5 flex gap-2 overflow-x-auto px-4 py-1.5 sm:-mx-1.5 sm:flex-wrap sm:px-1.5">
           <FilterPill on={marketFilter === 'all'} onClick={() => setMarketFilter('all')} icon="reorder" label="Everything" />
           <FilterPill on={marketFilter === 'global'} onClick={() => setMarketFilter('global')} icon="globe" label="Global" />
           {chapters.map((c) => (
@@ -359,17 +414,15 @@ export default function AdminEvents() {
             )}
           </div>
 
+          {/* THE SAME TYPED FIELDS THE FLIGHT LOG USES. See
+              components/DateTimeFields: separate numeric segments with painted
+              separators, so DD/MM/YYYY stays visible as you fill it in and the
+              slashes are never typed. */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="ev-date" className="label">Date</label>
-              <input id="ev-date" type="text" inputMode="numeric" required className="input" value={form.dateStr}
-                onChange={(e) => setForm({ ...form, dateStr: e.target.value })} placeholder="DD/MM/YYYY" />
-            </div>
-            <div>
-              <label htmlFor="ev-time" className="label">Start</label>
-              <input id="ev-time" type="text" inputMode="numeric" required className="input" value={form.timeStr}
-                onChange={(e) => setForm({ ...form, timeStr: e.target.value })} placeholder="HH:MM" />
-            </div>
+            <DateField id="ev-date" label="Date" value={form.dateStr}
+              onChange={(v) => setForm((f) => ({ ...f, dateStr: v }))} />
+            <TimeField id="ev-time" label="Start" value={form.timeStr}
+              onChange={(v) => setForm((f) => ({ ...f, timeStr: v }))} />
           </div>
 
           {/* HOW LONG, WHICH IS WHAT MAKES "LIVE NOW" POSSIBLE. Without an end
@@ -379,20 +432,65 @@ export default function AdminEvents() {
             <span className="label">
               How long <span className="font-normal text-smoke">(this is what makes it show as on now)</span>
             </span>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {DURATIONS.map((d) => (
-                <button key={d.minutes} type="button" onClick={() => setForm({ ...form, duration: d.minutes })}
+                <button key={d.minutes} type="button"
+                  onClick={() => setForm({ ...form, duration: d.minutes, customDuration: false })}
                   className={cx(
                     'rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 active:scale-95',
-                    form.duration === d.minutes
+                    !form.customDuration && form.duration === d.minutes
                       ? 'border-brand bg-brand text-white shadow-card'
                       : 'border-gray-200 bg-white text-smoke hover:-translate-y-0.5 hover:border-brand hover:text-brand',
                   )}
                 >{d.label}</button>
               ))}
+              {/* CUSTOM, because the presets cannot cover a four hour workshop
+                  or a two day trip and an admin should not have to pick the
+                  nearest wrong one. It is minutes, which is the unit the column
+                  is in, with the readable equivalent printed beside it so
+                  nobody has to divide by sixty in their head. */}
+              <button type="button"
+                onClick={() => setForm({ ...form, customDuration: true })}
+                className={cx(
+                  'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 active:scale-95',
+                  form.customDuration
+                    ? 'border-brand bg-brand text-white shadow-card'
+                    : 'border-dashed border-gray-300 bg-white text-smoke hover:-translate-y-0.5 hover:border-brand hover:text-brand',
+                )}
+              >
+                <Icon name="pencil" className="h-3.5 w-3.5" />
+                Custom
+              </button>
+              {form.customDuration && (
+                <span className="inline-flex items-center gap-2">
+                  <input
+                    type="number" min={5} max={10080} step={5}
+                    value={form.duration || ''}
+                    onChange={(e) => setForm({ ...form, duration: Number(e.target.value) || 0 })}
+                    className="input !w-24 !py-1.5 text-center text-xs tabular-nums"
+                    aria-label="Length in minutes"
+                  />
+                  <span className="text-xs text-smoke">
+                    minutes{form.duration >= 60 ? ` (${(form.duration / 60).toFixed(form.duration % 60 ? 1 : 0)}h)` : ''}
+                  </span>
+                </span>
+              )}
             </div>
-            <p className="mt-1.5 text-xs text-smoke">
-              Times are set on your clock ({shortZoneName(viewerZone()) || 'your timezone'}) and every creator sees their own.
+            {/* THE LINE STAYS, AND IT NAMES THE ADMIN'S OWN ZONE.
+                The owner: "that's good for me now but when we have admins from
+                different markets in different timezones, they will need to be
+                able to schedule them in their own timezone, so always match the
+                admin's and ensure that line stays and says their timezone so
+                they can notice if it's wrong."
+                That is exactly what it does: the time typed above is
+                interpreted in the BROWSER's zone, so a Spanish market lead
+                typing 18:00 means 18:00 in Madrid, and the row stores the
+                instant. Printing the zone is the only way they can catch a
+                laptop that is still set to somewhere they left. */}
+            <p className="mt-1.5 flex items-center gap-1.5 text-xs text-smoke">
+              <Icon name="clock" className="h-3.5 w-3.5 shrink-0" />
+              Set on your clock, {shortZoneName(viewerZone()) || 'your timezone'} ({zoneOffsetLabel(viewerZone())}).
+              Every creator sees it on theirs.
             </p>
           </div>
 
@@ -512,11 +610,21 @@ function EventRow({ ev, marketName, past = false, onEdit, onDelete }) {
         </div>
       </div>
 
+      {/* A DERIVED ROW CANNOT BE EDITED HERE. A challenge's open and close come
+          from `challenges.start_date` / `end_date`, so the only honest control
+          is a link to the challenge that owns them. Offering Edit would open a
+          form whose Save had nowhere to go. */}
       <div className="flex shrink-0 gap-2">
-        <button onClick={onEdit} className="btn-secondary !py-2 text-xs">Edit</button>
-        <button onClick={onDelete} className="rounded-full border border-gray-200 px-3 py-2 text-xs font-semibold text-smoke transition-all duration-200 hover:-translate-y-0.5 hover:border-ink hover:text-ink">
-          Delete
-        </button>
+        {ev.derived ? (
+          <Link to={ev.link} className="btn-secondary !py-2 text-xs">Open challenge</Link>
+        ) : (
+          <>
+            <button onClick={onEdit} className="btn-secondary !py-2 text-xs">Edit</button>
+            <button onClick={onDelete} className="rounded-full border border-gray-200 px-3 py-2 text-xs font-semibold text-smoke transition-all duration-200 hover:-translate-y-0.5 hover:border-ink hover:text-ink">
+              Delete
+            </button>
+          </>
+        )}
       </div>
     </div>
   )

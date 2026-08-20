@@ -346,7 +346,29 @@ function noteScale(q) {
 // the writing down the page instead of being pushed to the bottom edge: on a
 // tall note that leaves blank paper under it, which is what a real note with
 // three words on it looks like.
-const NOTE_SHAPES = [0.62, 1, 1, 1.5, 1, 0.62, 2.06, 1, 1, 1.5]
+// HOW TALL A NOTE IS, AND WHY IT IS NO LONGER AN ASPECT RATIO.
+//
+// This was `NOTE_SHAPES = [0.62, 1, 1, 1.5, 1, 0.62, 2.06, 1, 1, 1.5]`, applied
+// as `padding-top: <ratio> * 100%` on a zero-width float - so a note's height
+// was a multiple of its own WIDTH. The idea was that a wall of real pinned
+// paper is not a grid of identical rectangles, which is true.
+//
+// The execution was wrong in a way that only shows up with real content. In a
+// two-column layout a note is about 370px wide, so a `2.06` note is 760px tall
+// - and a one-line question fills perhaps 130px of it. The result is a sheet of
+// paper with a sentence at the top and two thirds of a screen of nothing under
+// it, which does not read as a big note. It reads as broken.
+//
+// The variety was also fake: it came from a hash of the id, so it had no
+// relationship to what was written. Real notes vary in height because what is
+// on them varies.
+//
+// So: the CONTENT sets the height, and this only sets a floor. A short question
+// still looks like a piece of paper rather than a label, a long one grows, and
+// nothing is ever mostly empty. The floors are close together on purpose - the
+// tilt and the ragged column ends already do most of the work of making the
+// wall look hand-made.
+const NOTE_MINS = ['9rem', '10rem', '9rem', '11rem', '10rem', '9rem', '12rem', '10rem', '9rem', '11rem']
 
 function QuestionNote({ q }) {
   const t = tagInfo(q.tag)
@@ -356,7 +378,7 @@ function QuestionNote({ q }) {
   // -1.6, -0.8, 0.8 or 1.6 degrees. Small on purpose: past about two degrees a
   // wall of notes stops looking casual and starts looking broken.
   const tilt = [-1.6, -0.8, 0.8, 1.6][h % 4]
-  const shape = NOTE_SHAPES[h % NOTE_SHAPES.length]
+  const minHeight = NOTE_MINS[h % NOTE_MINS.length]
   const open = answers === 0
 
   return (
@@ -367,9 +389,9 @@ function QuestionNote({ q }) {
       // drawing of the pin does: the tilt is now a sheet hanging off a fixed
       // point rather than a rectangle rotated about its own middle, and
       // straightening on hover swings it back around the same point instead of
-      // sliding the pin sideways across the paper. `2.1rem` is where the
-      // flange sits - see Thumbtack.
-      style={{ transform: `rotate(${tilt}deg)`, transformOrigin: '50% 2.1rem' }}
+      // sliding the pin sideways across the paper. `1.7rem` is where the
+      // collar meets the paper - see Thumbtack.
+      style={{ transform: `rotate(${tilt}deg)`, transformOrigin: '50% 1.7rem', minHeight }}
       className={cx(
         // `break-inside-avoid` is what makes the columns work: without it a
         // note is split across the bottom of one column and the top of the
@@ -394,11 +416,12 @@ function QuestionNote({ q }) {
         open ? 'border-brand/25 hover:border-brand/50' : 'border-green-200 hover:border-green-400',
       )}
     >
-      <Thumbtack className="h-14 w-14" top="top-0.5" />
+      {/* SMALLER, AND HIGHER. A real push pin is about a twelfth of the width
+          of the card it holds and it sits at the very top edge. Fourteen units
+          of pin on a 250px note was roughly three times life size, which is why
+          so much drawing detail was going into it. See Thumbtack. */}
+      <Thumbtack className="h-10 w-10" top="-top-1" />
 
-      {/* THE SHAPE. Zero width so it takes no room across, percentage padding so
-          its height is a fraction of the note's own width. See NOTE_SHAPES. */}
-      <span className="float-left w-0" style={{ paddingTop: `${shape * 100}%` }} aria-hidden />
 
       {/* THE STATE, AS A BAND. Two pixels of colour across the top of a white
           note is legible across a whole wall without tinting the paper - and it
@@ -406,12 +429,12 @@ function QuestionNote({ q }) {
           product rather than as a different one. */}
       <span className={cx('block h-1 w-full rounded-t-lg', open ? 'bg-brand' : 'bg-green-500')} aria-hidden />
 
-      {/* THE PIN NEEDS PAPER TO SIT ON. `pt-14` is the head plus a little air
+      {/* THE PIN NEEDS PAPER TO SIT ON. The padding is the head plus a little air
           under it, and it is not wasted space - a real note has a margin above
           the writing precisely because that is where the pin goes. Content
           that started at the top edge is what forced the old pin off the top
           of the card in the first place. */}
-      <span className="block p-3.5 pt-14 sm:p-4 sm:pt-14">
+      <span className="block p-3.5 pt-9 sm:p-4 sm:pt-10">
         <span className="mb-2 flex items-center gap-1.5">
           <span className={cx(
             'inline-flex min-w-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold',

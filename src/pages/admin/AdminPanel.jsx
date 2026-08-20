@@ -216,7 +216,7 @@ export default function AdminPanel() {
       const [
         { count: creators }, { count: pendingRewards }, { data: active }, { data: paid },
         { count: submissions }, { count: pendingApps }, { count: newFeedback }, { count: toApprove },
-        { count: openReports },
+        { count: openReports }, { count: newSuggestions },
       ] = await Promise.all([
         supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'active').eq('is_admin', false).eq('is_test', false).is('deletion_requested_at', null),
         supabase.from('rewards').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
@@ -231,6 +231,14 @@ export default function AdminPanel() {
         // A reported message is somebody waiting on a person, which is the only
         // thing the desk is for.
         supabase.from('message_reports').select('id', { count: 'exact', head: true }).in('status', ['new', 'reviewing']),
+        // EVENT SUGGESTIONS LANDED NOWHERE. A creator suggesting a workshop got
+        // a "the team has been notified" confirmation, a row in
+        // `event_suggestions`, and a DB trigger writing a notification - and
+        // then the only place the list was ever rendered was at the foot of the
+        // calendar page, which is not somewhere an admin goes to find work. So
+        // the answer to "does anybody read these" was: only by accident.
+        // It is a desk row now, like every other thing waiting on somebody.
+        supabase.from('event_suggestions').select('id', { count: 'exact', head: true }).eq('status', 'new'),
       ])
       const cashPaid = (paid ?? []).filter((r) => r.reward_type !== 'voucher').reduce((s, r) => s + Number(r.amount), 0)
       const voucherPaid = (paid ?? []).filter((r) => r.reward_type === 'voucher').reduce((s, r) => s + Number(r.amount), 0)
@@ -246,6 +254,7 @@ export default function AdminPanel() {
         newFeedback: newFeedback ?? 0,
         toApprove: toApprove ?? 0,
         openReports: openReports ?? 0,
+        newSuggestions: newSuggestions ?? 0,
       })
     }
     load()
@@ -288,6 +297,7 @@ export default function AdminPanel() {
     stats.toApprove > 0 && { to: '/admin/rewards?tab=queue', icon: 'money', count: stats.toApprove, label: `invoice${stats.toApprove === 1 ? '' : 's'} to approve`, hint: 'Money does not go out until somebody signs these off.' },
     stats.openReports > 0 && { to: '/admin/reports', icon: 'flag', count: stats.openReports, label: `reported message${stats.openReports === 1 ? '' : 's'}`, hint: 'Somebody flagged something in a room or a DM.' },
     stats.newFeedback > 0 && { to: '/admin/feedback', icon: 'chat', count: stats.newFeedback, label: `bug report${stats.newFeedback === 1 ? '' : 's'} and ideas`, hint: 'Creators have flagged something.' },
+    stats.newSuggestions > 0 && { to: '/events#suggestions', icon: 'bulb', count: stats.newSuggestions, label: `event idea${stats.newSuggestions === 1 ? '' : 's'} from creators`, hint: 'Somebody asked for a workshop, Q&A or meet-up.' },
     stats.pendingRewards > 0 && { to: '/admin/rewards?tab=payouts', icon: 'wallet', count: stats.pendingRewards, label: `reward${stats.pendingRewards === 1 ? '' : 's'} still to pay`, hint: 'Awarded but not yet distributed.' },
   ].filter(Boolean) : []
 
