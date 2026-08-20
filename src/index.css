@@ -6,23 +6,43 @@
 @tailwind utilities;
 
 
-/* THE BOARDING PASS PLANE ARRIVES AND DEPARTS.
-   `animateMotion` runs the plane along the dashed route for ever, which without
-   this is a hard cut every 3.6s: the plane vanishes at the destination and
-   reappears at the origin on the same frame. Fading the first and last tenth of
-   the run turns the loop into a flight. The class is on a NESTED group because
-   animateMotion writes its parent's transform and a CSS transform would win. */
-.pass-plane {
-  animation: pass-plane-fade 3.6s linear infinite;
+/* THE PLANE FLIES BETWEEN THE TWO AIRPORT CODES, NOT UNDER THEM.
+   Ethan, with a red line drawn across the screenshot: the route belongs in the
+   GAP between DUB and LIS, level with the codes themselves. It had been a
+   full-width band beneath them with a dot at each end, so the plane crossed the
+   whole card and the two dots read as the airports - which put the flight
+   somewhere off to the side of the journey it was describing.
+
+   It is also the real Tryp.com aircraft now rather than a drawn glyph, which
+   means an <img> rather than an SVG path - so the motion is plain CSS instead
+   of animateMotion. `left` is animated (not `transform`) precisely because a
+   percentage in translateX resolves against the ELEMENT's own width while a
+   percentage in `left` resolves against the PARENT's: the plane has to cross
+   the gap, and the gap is the parent. One small element, so the cost of a
+   non-composited property is not worth the trick it would take to avoid.
+
+   The fade at each end is what turns a loop into a flight: without it the plane
+   vanishes at the right edge and reappears at the left on the same frame. */
+.pass-plane-fly {
+  position: absolute;
+  top: 50%;
+  animation: pass-plane-fly 7s linear infinite;
 }
-@keyframes pass-plane-fade {
-  0%   { opacity: 0; }
-  10%  { opacity: 1; }
-  88%  { opacity: 1; }
-  100% { opacity: 0; }
+@keyframes pass-plane-fly {
+  0%   { left: -2%;   opacity: 0; }
+  12%  {              opacity: 1; }
+  86%  {              opacity: 1; }
+  100% { left: 102%;  opacity: 0; }
+}
+/* The photograph faces LEFT (measured off its alpha channel), so every use of
+   it on a left-to-right journey has to mirror it. Keeping the mirror on an
+   inner element leaves `left` free on the animated one. */
+.pass-plane-img {
+  display: block;
+  transform: translate(-50%, -50%) scaleX(-1);
 }
 @media (prefers-reduced-motion: reduce) {
-  .pass-plane { animation: none; opacity: 1; }
+  .pass-plane-fly { animation: none; left: 50%; opacity: 1; }
 }
 
 @layer base {

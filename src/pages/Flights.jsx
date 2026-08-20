@@ -241,22 +241,13 @@ function routeFacts(from, to, dateStr) {
 function BoardingPass({ from, to, facts, dateStr, airlineName, flightNo, seat, aircraftType }) {
   // A STRAIGHT LINE, AND THE PLANE IS THE THING MOVING ALONG IT.
   //
-  // It was a shallow QUADRATIC ARC with a 0.34-scaled silhouette on it, and
-  // Ethan called both: "there's a curved, dotted line in the middle which looks
-  // bad... rather than have that dotted line just like a curve with a tiny
-  // airplane, the dotted line should actually be going straight across from the
-  // DUB... to the BUD... with a bigger white visually moving plane going across
-  // the line."
+  // A great-circle route drawn on a MAP curves because the map is a projection
+  // of a sphere. In a box between two words it is not a projection of anything,
+  // so a curve there is decoration that reads as a wobble. Straight is also what
+  // a departure board draws, which is the object this is imitating.
   //
-  // He is right about the arc for a reason worth writing down: a great-circle
-  // route drawn on a MAP curves because the map is a projection of a sphere. In
-  // a 200x40 box between two words it is not a projection of anything, so the
-  // curve is decoration that reads as a wobble. Straight is also what a
-  // departure board draws, which is the object this is imitating.
-  //
-  // The plane is 0.62 scale rather than 0.34 - nearly twice the size - and it
-  // has a fade at each end so it arrives and departs rather than teleporting.
-  const line = 'M6 18 L 394 18'
+  // Where the line LIVES is in the markup below; how the plane moves along it is
+  // in index.css (`pass-plane-fly`).
   return (
     <div className="overflow-hidden rounded-card border border-brand/25 bg-white shadow-card">
       {/* The stub across the top: brand, and the two codes with the aircraft
@@ -276,50 +267,62 @@ function BoardingPass({ from, to, facts, dateStr, airlineName, flightNo, seat, a
             whole stub. Now the codes are a row of their own and the route is a
             full-width band beneath them, anchored under DUB and under BUD. The
             plane has the whole card to cross. */}
-        <div className="relative flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/70">From</p>
-            <p className="text-4xl font-bold leading-none tracking-wider sm:text-5xl">{from?.iata || '– – –'}</p>
-            <p className="mt-1.5 truncate text-xs text-white/80">{from?.city || 'Where you left'}</p>
-          </div>
-          <div className="min-w-0 text-right">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/70">To</p>
-            <p className="text-4xl font-bold leading-none tracking-wider sm:text-5xl">{to?.iata || '– – –'}</p>
-            <p className="mt-1.5 truncate text-xs text-white/80">{to?.city || 'Where you went'}</p>
-          </div>
-        </div>
+        {/* THE ROUTE RUNS BETWEEN THE CODES, LEVEL WITH THEM.
+            Ethan drew a red line across the screenshot to say where: from the
+            right edge of DUB to the left edge of LIS, at the height of the
+            codes. It had been a full-width band UNDER the codes with a white
+            dot at each end, so the plane crossed the whole card while the two
+            dots - not the codes - read as the airports.
 
-        <div className="relative mt-4 h-9 w-full">
-          {/* `preserveAspectRatio="none"` so the 400-unit box stretches to
-              whatever the card is: the dashes and the dots stay put over the two
-              codes at every width, and the plane is counter-scaled below so it
-              does not stretch with them. */}
-          <svg viewBox="0 0 400 36" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" fill="none" aria-hidden>
-            <path d={line} stroke="rgba(255,255,255,0.55)" strokeWidth="1.4" strokeDasharray="6 8" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-          </svg>
-          {/* The dots and the plane live in their own non-stretching layer. */}
-          <svg viewBox="0 0 400 36" className="absolute inset-0 h-full w-full overflow-visible" fill="none" aria-hidden>
-            <circle cx="6" cy="18" r="3" fill="#ffffff" />
-            <circle cx="394" cy="18" r="3" fill="#ffffff" />
-            {from && to && (
-              <g>
-                {/* THE MOTION DRIVES THE OUTER GROUP AND THE CLASS GOES ON A
-                    NESTED ONE. `animateMotion` writes its parent's transform and
-                    a CSS transform overrides an SVG one, so a fade applied to
-                    the same element would park the plane at the viewBox origin.
-                    Same trap as every map in this product. */}
-                <g className="pass-plane">
-                  <g transform="scale(0.95) rotate(90)">
-                    <path
-                      d="M0 -11 C1.1 -11 1.8 -9 1.8 -6.2 L1.8 -4.4 L10 1 L10 3.1 L1.8 -0.2 L1.8 5 L4.4 7.6 L4.4 9.2 L0 7.7 L-4.4 9.2 L-4.4 7.6 L-1.8 5 L-1.8 -0.2 L-10 3.1 L-10 1 L-1.8 -4.4 L-1.8 -6.2 C-1.8 -9 -1.1 -11 0 -11 Z"
-                      fill="#ffffff"
-                    />
-                  </g>
-                </g>
-                <animateMotion dur="4.2s" repeatCount="indefinite" rotate="auto" path={line} />
-              </g>
-            )}
-          </svg>
+            Three rows rather than two columns is what makes that possible.
+            Labels, then codes-with-the-route-between-them on a single
+            `items-center` row, then cities. The route is the flex child that
+            grows, so it takes every pixel the two three-letter codes do not,
+            which is most of the card - the previous attempt put the line
+            BETWEEN two full From/To blocks, where it got only the leftovers
+            after two 5xl codes and two city names, and that is why it came out
+            "small in the middle". */}
+        <div className="relative">
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/70">From</p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/70">To</p>
+          </div>
+
+          <div className="mt-0.5 flex items-center gap-3">
+            <p className="shrink-0 text-4xl font-bold leading-none tracking-wider sm:text-5xl">{from?.iata || '– – –'}</p>
+
+            <div className="relative h-8 min-w-0 flex-1">
+              {/* The dashes stretch; the plane must not, so they are separate
+                  layers. `vectorEffect` keeps the stroke 1.4px at any width. */}
+              <svg viewBox="0 0 400 32" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" fill="none" aria-hidden>
+                <path d="M0 16 L 400 16" stroke="rgba(255,255,255,0.55)" strokeWidth="1.4" strokeDasharray="6 8" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+              </svg>
+              {from && to && (
+                <span className="pass-plane-fly">
+                  {/* THE ACTUAL AIRCRAFT, NOT A GLYPH. Ethan: "rather than
+                      having a plane icon, can you use the actual tryp.com
+                      plane, shrink it down smaller but still clearly visible".
+                      The cutout is the one safe on a coloured ground - the
+                      -transparent file is 1-bit and only works on white - and
+                      it faces LEFT, so `.pass-plane-img` mirrors it.
+                      A drop shadow keeps the white fuselage off the orange. */}
+                  <img
+                    src="/brand/tryp-plane-cutout.png"
+                    alt=""
+                    aria-hidden
+                    className="pass-plane-img w-[38px] drop-shadow-[0_1px_3px_rgba(0,0,0,0.35)] sm:w-[46px]"
+                  />
+                </span>
+              )}
+            </div>
+
+            <p className="shrink-0 text-4xl font-bold leading-none tracking-wider sm:text-5xl">{to?.iata || '– – –'}</p>
+          </div>
+
+          <div className="mt-1.5 flex items-baseline justify-between gap-3">
+            <p className="min-w-0 truncate text-xs text-white/80">{from?.city || 'Where you left'}</p>
+            <p className="min-w-0 truncate text-right text-xs text-white/80">{to?.city || 'Where you went'}</p>
+          </div>
         </div>
       </div>
 

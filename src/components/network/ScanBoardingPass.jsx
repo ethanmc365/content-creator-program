@@ -38,7 +38,13 @@ import { scanBarcode, scanNeedsDownload } from '../../lib/scanPass'
 const TICK_MS = 400
 
 export default function ScanBoardingPass({ open, onClose, onFilled, now }) {
-  const [mode, setMode] = useState('idle')       // idle | camera | working | found | failed
+  const [mode, setMode] = useState('idle')       // idle | camera | working | found | failed | nocamera
+  // A COARSE POINTER IS THE ONLY HONEST TEST FOR "HAS A CAMERA WORTH USING".
+  // User-agent sniffing is a losing game and `mediaDevices` exists on every
+  // laptop; what actually separates the two cases is whether the device is
+  // held in a hand. Read once at mount rather than on every render.
+  const [handheld] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches)
   const [result, setResult] = useState(null)
   const videoRef = useRef(null)
   const streamRef = useRef(null)
@@ -76,6 +82,14 @@ export default function ScanBoardingPass({ open, onClose, onFilled, now }) {
   async function startCamera() {
     setMode('working')
     try {
+      // NO CAMERA IS NOT A FAILED SCAN, AND SAYING SO WAS THE BUG.
+      //
+      // On a laptop `getUserMedia` either throws outright or hands back a
+      // webcam pointed at the person's face, and both landed in the same
+      // 'failed' branch - so clicking "use the camera" on a desktop answered
+      // "No boarding pass found. Make sure the whole barcode is in the picture
+      // and in focus", which is advice about a photo that was never taken.
+      if (!navigator.mediaDevices?.getUserMedia) { setMode('nocamera'); return }
       // `environment` is the back camera on a phone, which is the one pointed at
       // a boarding pass. Desktop ignores it and uses the only camera there is.
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -91,7 +105,7 @@ export default function ScanBoardingPass({ open, onClose, onFilled, now }) {
         v.play?.().catch(() => {})
       })
     } catch {
-      setMode('failed')
+      setMode('nocamera')
     }
   }
 
@@ -144,7 +158,7 @@ export default function ScanBoardingPass({ open, onClose, onFilled, now }) {
                 </span>
                 <span className="min-w-0">
                   <span className="block text-sm font-semibold text-ink">Use the camera</span>
-                  <span className="block text-xs text-smoke">For a printed pass</span>
+                  <span className="block text-xs text-smoke">{handheld ? 'For a printed pass' : 'Best on your phone'}</span>
                 </span>
               </button>
             </div>
@@ -185,6 +199,27 @@ export default function ScanBoardingPass({ open, onClose, onFilled, now }) {
               close this and type the flight in - it is only five fields.
             </p>
             <button onClick={() => setMode('idle')} className="btn-secondary mt-4 text-sm">Try again</button>
+          </div>
+        )}
+
+        {/* THE DESKTOP ANSWER, WHICH IS "DO THIS ON YOUR PHONE".
+            A laptop webcam is fixed-focus, pointed at your face, and could not
+            resolve a barcode even if you held the pass up to it. So this does
+            not offer a retry - retrying is the one thing that cannot work. */}
+        {mode === 'nocamera' && (
+          <div className="py-4 text-center">
+            <p className="text-sm font-semibold text-ink">Use your phone for this one</p>
+            <p className="mx-auto mt-1 max-w-sm text-sm text-smoke">
+              There is no camera here that can read a barcode. Open the flight log on your phone and
+              tap "Scan your boarding pass" - the camera there will pick it up in a second.
+            </p>
+            <p className="mx-auto mt-2 max-w-sm text-sm text-smoke">
+              On this screen you can still choose a photo of the pass, or a screenshot from Apple Wallet.
+            </p>
+            <div className="mt-4 flex justify-center gap-3">
+              <button onClick={() => { setMode('idle'); fileRef.current?.click() }} className="btn-primary text-sm">Choose a photo</button>
+              <button onClick={() => setMode('idle')} className="btn-secondary text-sm">Back</button>
+            </div>
           </div>
         )}
 
