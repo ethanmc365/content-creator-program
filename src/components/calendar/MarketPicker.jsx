@@ -19,25 +19,28 @@ import { cx } from '../../lib/utils'
 // what every event created before markets existed already is.
 export default function MarketPicker({ chapters = [], value = [], onChange, id = 'market-picker' }) {
   const [open, setOpen] = useState(false)
-  const [flip, setFlip] = useState(false)
   const boxRef = useRef(null)
+  const menuRef = useRef(null)
 
-  // Decide the direction the moment it opens, against the nearest scrolling
-  // ancestor rather than the window: inside a modal the window has plenty of
-  // room and the modal has none, and it is the modal that does the clipping.
+  // THE MENU IS IN THE FLOW, SO THE CARD GROWS INSTEAD OF THE MENU FLOATING.
+  //
+  // It used to be an absolutely-positioned overlay that measured its room on
+  // open and flipped upwards when there was not enough. That is the standard
+  // answer and it was the wrong one here: inside a modal there is almost never
+  // 300px below the control, so the picker flipped nearly every time and opened
+  // UP over the fields you had just filled in. Ethan: "the popup shows up above
+  // which is weird, it should be below and the card can be extended when it's
+  // pressed so the design looks good."
+  //
+  // An in-flow menu cannot be clipped and cannot cover anything, because it is
+  // not on top of the layout - it IS the layout. The modal grows, its own
+  // scroller takes over if it has to, and the direction is always down. No
+  // measuring, no flip state, no breakpoint guess.
   useEffect(() => {
-    if (!open) { setFlip(false); return undefined }
-    const el = boxRef.current
-    if (el) {
-      const r = el.getBoundingClientRect()
-      let bound = window.innerHeight
-      for (let n = el.parentElement; n; n = n.parentElement) {
-        const style = getComputedStyle(n)
-        if (/(auto|scroll|hidden)/.test(style.overflowY)) { bound = n.getBoundingClientRect().bottom; break }
-      }
-      // 18rem of menu plus a little breathing room.
-      setFlip(bound - r.bottom < 300 && r.top > 300)
-    }
+    if (!open) return undefined
+    // Growing downwards can put the new rows past the fold, so bring them in.
+    // `nearest` scrolls the least that will do, which leaves the button in view.
+    menuRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
     const onDown = (e) => { if (!boxRef.current?.contains(e.target)) setOpen(false) }
     const onKey = (e) => { if (e.key === 'Escape') setOpen(false) }
     document.addEventListener('pointerdown', onDown)
@@ -60,7 +63,7 @@ export default function MarketPicker({ chapters = [], value = [], onChange, id =
   }
 
   return (
-    <div ref={boxRef} className="relative">
+    <div ref={boxRef}>
       <button
         id={id}
         type="button"
@@ -90,22 +93,13 @@ export default function MarketPicker({ chapters = [], value = [], onChange, id =
 
       {open && (
         <div
-          // IT OPENS UPWARDS WHEN THERE IS NO ROOM BELOW.
-          //
-          // This was always `top: 100%`, so inside a modal whose own body
-          // scrolls - which is every one of them on a phone - a picker near the
-          // bottom of the form opened into the modal's lower edge and was cut
-          // off. The owner, on Suggest an event: "the popup to select is cut off
-          // by the bottom, it shouldn't be cut off and you shouldn't have to
-          // scroll within the other card first."
-          //
-          // `flip` is measured on open (see the effect above), not guessed from
-          // a breakpoint: the same control is near the top of one form and at
-          // the foot of another.
-          className={cx(
-            'absolute inset-x-0 z-40 max-h-72 overflow-y-auto rounded-card border border-gray-100 bg-white p-1 shadow-lift animate-menu-in',
-            flip ? 'bottom-[calc(100%+0.375rem)]' : 'top-[calc(100%+0.375rem)]',
-          )}
+          ref={menuRef}
+          // In the flow, directly under the button, always downwards. See the
+          // note on the effect above for why this is not an absolute overlay.
+          // `max-h-72` keeps a seven-market list from taking the whole form and
+          // gives the menu its own scroller; the border and shadow tie it to the
+          // button so the two read as one control that has opened.
+          className="relative z-10 mt-1.5 max-h-72 overflow-y-auto rounded-card border border-gray-100 bg-white p-1 shadow-lift animate-menu-in"
         >
           <button
             type="button"

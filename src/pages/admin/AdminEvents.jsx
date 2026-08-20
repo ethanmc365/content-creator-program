@@ -4,7 +4,7 @@ import { confirm, notice } from '../../lib/confirm'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useMarkets } from '../../lib/markets'
-import { EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../../components/ui'
+import { Avatar, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../../components/ui'
 import Icon from '../../components/Icon'
 import MarketPicker from '../../components/calendar/MarketPicker'
 import BackLink from '../../components/BackLink'
@@ -13,7 +13,7 @@ import { announceToMarkets } from '../../lib/announce'
 import { toast } from '../../lib/toast'
 import { viewerZone, shortZoneName } from '../../lib/eventTime'
 import { zoneOffsetLabel } from '../../lib/timezone'
-import { formatDateTime, isoToTimeInput, cx } from '../../lib/utils'
+import { formatDateTime, isoToTimeInput, timeAgo, cx } from '../../lib/utils'
 
 // MANAGE EVENTS, REBUILT.
 //
@@ -142,6 +142,28 @@ export default function AdminEvents() {
     return ids
   }
 
+  // EVENT IDEAS BELONG ON THE PAGE WHERE EVENTS GET MADE.
+  //
+  // Ethan: "when someone suggests an event that can appear somewhere inside the
+  // manage events page for admins." The triage list itself already exists at
+  // the foot of the calendar (`EventFeedback`), which is the right home for it -
+  // creators read it there too, and it closes the loop in public. What was
+  // missing is that an admin who has come here to CREATE an event is exactly
+  // the person with a use for "three people asked for a portfolio review", and
+  // they had no idea it was waiting. So this is a prompt, not a second copy of
+  // the queue: the open ideas, and a way through to act on them.
+  const [ideas, setIdeas] = useState([])
+  useEffect(() => {
+    let cancelled = false
+    supabase.from('event_suggestions')
+      .select('id, title, created_at, profiles:creator_id(id, name, photo_url)')
+      .eq('status', 'new')
+      .order('created_at', { ascending: false })
+      .limit(6)
+      .then(({ data }) => { if (!cancelled) setIdeas(data ?? []) })
+    return () => { cancelled = true }
+  }, [])
+
   const { upcoming, past } = useMemo(() => {
     const q = query.trim().toLowerCase()
     const rows = (events ?? []).filter((ev) => {
@@ -181,7 +203,10 @@ export default function AdminEvents() {
     return out
   }, [upcoming, chapters])
 
-  function openEditor(event) {
+  // `seed` prefills a NEW event. It exists so "Make it" on a creator's idea can
+  // open the editor with their title already in it rather than making the admin
+  // retype something they are looking at.
+  function openEditor(event, seed = null) {
     setEditing(event ?? 'new')
     if (event) {
       const known = TYPES.some((t) => t.value === event.type)
@@ -202,7 +227,7 @@ export default function AdminEvents() {
         announce: false,
       })
     } else {
-      setForm(emptyForm)
+      setForm({ ...emptyForm, ...(seed || {}) })
     }
   }
 
@@ -276,6 +301,39 @@ export default function AdminEvents() {
           </button>
         }
       />
+
+      {/* What creators have asked for, before you decide what to make. */}
+      {ideas.length > 0 && (
+        <div className="mb-8 rounded-card border border-brand/20 bg-brand-tint/30 p-4 sm:p-5">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+              <Icon name="pencil" className="h-4 w-4 text-brand" />
+              {ideas.length} open {ideas.length === 1 ? 'idea' : 'ideas'} from creators
+            </p>
+            <Link to="/events#suggestions" className="text-xs font-semibold text-brand hover:underline">
+              Triage them &rarr;
+            </Link>
+          </div>
+          <ul className="space-y-1.5">
+            {ideas.map((s_) => (
+              <li key={s_.id} className="flex items-center gap-2.5 text-sm">
+                <Avatar src={s_.profiles?.photo_url} name={s_.profiles?.name} size="xs" />
+                <span className="min-w-0 flex-1 truncate text-ink">{s_.title}</span>
+                <span className="shrink-0 text-[11px] text-smoke">{timeAgo(s_.created_at)}</span>
+                {/* Straight into the editor with the title already typed: the
+                    whole point of reading an idea here is to build it here. */}
+                <button
+                  type="button"
+                  onClick={() => openEditor(null, { title: s_.title })}
+                  className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-brand shadow-card transition-transform hover:scale-105"
+                >
+                  Make it
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* ---------- Filters ----------
           A search box and a market strip. Two controls, both of which narrow a
