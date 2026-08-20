@@ -6,6 +6,8 @@ import { Avatar, EmptyState, PageHeader, Skeleton, Spinner } from '../../compone
 import Icon from '../../components/Icon'
 import { useAuth } from '../../context/AuthContext'
 import { formatViews, timeAgo } from '../../lib/utils'
+import { announceToMarkets } from '../../lib/announce'
+import WinnersPodium from '../../components/WinnersPodium'
 
 // Results entry for one challenge:
 //  1. Click through each submission and watch it on the platform.
@@ -22,6 +24,8 @@ export default function AdminResults() {
   const [savingId, setSavingId] = useState(null)
   const [generating, setGenerating] = useState(false)
   const [posting, setPosting] = useState(false)
+  const [publishing, setPublishing] = useState(false)
+  const [results, setResults] = useState([])
   const [toast, setToast] = useState('')
 
   // While the challenge is still running a leaderboard is an INTERIM snapshot;
@@ -39,8 +43,16 @@ export default function AdminResults() {
         .order('submitted_at'),
       supabase.from('results').select('id', { count: 'exact', head: true }).eq('challenge_id', id),
     ])
+    // The rows themselves, not just how many: without them the admin was asked
+    // to publish a leaderboard they had never actually been shown.
+    const { data: rows } = await supabase
+      .from('results')
+      .select('creator_id, final_views, rank, profiles:creator_id(id, name, photo_url)')
+      .eq('challenge_id', id)
+      .order('rank')
     setChallenge(ch)
     setSubmissions(subs ?? [])
+    setResults(rows ?? [])
     setResultsCount(count ?? 0)
     setLoading(false)
   }, [id])
@@ -98,20 +110,75 @@ export default function AdminResults() {
     )
   }
 
-  // Drop a leaderboard-update card into #announcements linking to the current
-  // standings (interim or final). Creators tap it to see the full leaderboard.
+  // Drop a leaderboard-update card into the announcements room this challenge
+  // belongs to. This used to write `channel: 'announcements'` flat, which is the
+  // LEGACY UK room - so a Spanish challenge's standings were posted to 43 UK
+  // creators and to nobody in Spain. A global challenge (no community) goes to
+  // the worldwide room, which is exactly what an empty market list means.
   async function postLeaderboardUpdate() {
     if (resultsCount === 0) return flash('Publish a leaderboard first, then post the update.')
     setPosting(true)
-    const { error } = await supabase.from('messages').insert({
-      channel: 'announcements',
-      sender_id: user.id,
+    const { posted, error } = await announceToMarkets({
+      communityIds: challenge?.community_id ? [challenge.community_id] : [],
+      senderId: user.id,
       body: '',
-      leaderboard_challenge_id: id,
+      extra: { leaderboard_challenge_id: id },
     })
     setPosting(false)
-    flash(error ? `Couldn't post update: ${error.message}` : 'Leaderboard update posted to Announcements.')
+    if (error) return flash(`Couldn't post update: ${error.message}`)
+    flash(posted ? `Leaderboard posted to ${posted === 1 ? 'the announcements room' : `${posted} announcements rooms`}.` : 'No announcements room found for this challenge.')
   }
+
+  // PUBLISHING THE WINNERS IS A SEPARATE, DELIBERATE ACT.
+  //
+  // Logging views writes `results`, and the challenge board used to read that
+  // table directly - so the moment the archive cron flipped a challenge to
+  // 'archived', an interim mid-challenge leaderboard was painted onto the board
+  // as a finished podium. Nothing appears publicly until this button is pressed.
+  async function togglePublished() {
+    const already = !!challenge?.winners_published_at
+    if (!already && resultsCount === 0) return flash('Log the final views and build the leaderboard first.')
+    if (!already && !await confirm(`Publish the winners podium for "${challenge.title}"? Every creator in this market will see it on the challenge board.`)) return
+    if (already && !await confirm('Hide the winners podium again? It disappears from the challenge board until you publish it once more.')) return
+
+    setPublishing(true)
+    const stamp = already ? null : new Date().toISOString()
+    const patch = { winners_published_at: stamp }
+    // Publishing the winners is also the moment the standings stop being a
+    // snapshot, so the label on the public page catches up in the same write.
+    if (!already) patch.results_status = 'final'
+    const { error } = await supabase.from('challenges').update(patch).eq('id', id)
+    setPublishing(false)
+    if (error) return flash(`Couldn't update: ${error.message}`)
+    setChallenge((c) => ({ ...c, ...patch }))
+    flash(already ? 'Winners hidden again.' : 'Winners published. They are on the challenge board now - share them next.')
+  }
+
+  // The podium exactly as creators will see it, drawn from the rows already
+  // saved. Same component as the public board, so the preview cannot drift.
+  const places = Math.max(1, challenge?.winners_count || (Array.isArray(challenge?.prize_structure) ? challenge.prize_structure.length : 0) || 3)
+  const subCountByCreator = submissions.reduce((acc, sub) => {
+    acc[sub.creator_id] = (acc[sub.creator_id] || 0) + 1
+    return acc
+  }, {})
+  const bestByCreator = submissions.reduce((acc, sub) => {
+    const cur = acc[sub.creator_id]
+    if (!cur || (sub.logged_views ?? 0) > (cur.logged_views ?? 0)) acc[sub.creator_id] = sub
+    return acc
+  }, {})
+  const podiumWinners = results.slice(0, places).map((r, i) => ({
+    ...r,
+    rank: i + 1,
+    videoUrl: bestByCreator[r.creator_id]?.video_url ?? null,
+    platform: bestByCreator[r.creator_id]?.platform ?? null,
+  }))
+  const onPodium = new Set(podiumWinners.map((w) => w.creator_id))
+  const voucherWinners = challenge?.participation_threshold
+    ? submissions
+        .filter((sub) => subCountByCreator[sub.creator_id] >= challenge.participation_threshold && !onPodium.has(sub.creator_id))
+        .map((sub) => sub.profiles)
+        .filter((prof, i, arr) => prof && arr.findIndex((o) => o?.id === prof.id) === i)
+    : []
 
   if (loading) {
     return <div className="page space-y-6"><Skeleton className="h-10 w-72" /><Skeleton className="h-96 w-full" /></div>
@@ -136,7 +203,7 @@ export default function AdminResults() {
             {resultsCount > 0 && (
               <>
                 <button onClick={postLeaderboardUpdate} disabled={posting} className="btn-secondary !py-2 text-xs">
-                  {posting ? <Spinner /> : 'Post update to Announcements'}
+                  {posting ? <Spinner /> : 'Share to Announcements'}
                 </button>
                 <Link to={`/challenges/${id}`} className="text-xs font-medium text-brand hover:underline">
                   {challenge?.results_status === 'interim' ? 'Current' : 'Final'} leaderboard live ({resultsCount}) → view
@@ -148,6 +215,44 @@ export default function AdminResults() {
       />
 
       {toast && <p className="mb-6 rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-700 animate-fade-up">{toast}</p>}
+
+      {/* THE PODIUM, BEFORE ANYBODY ELSE SEES IT.
+          Publishing winners was previously invisible until it was already
+          public: you logged views, a cron archived the challenge, and a podium
+          you had never laid eyes on appeared on 43 people's challenge board.
+          Now it is drawn here first, in the same component the board uses, and
+          it goes out only when you say so. */}
+      {podiumWinners.length > 0 && (
+        <div className="mb-8 rounded-card border border-gray-100 p-5 shadow-card sm:p-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-ink">
+                {challenge?.winners_published_at ? 'Published to the challenge board' : 'Not published yet'}
+              </p>
+              <p className="mt-0.5 text-xs text-smoke">
+                {challenge?.winners_published_at
+                  ? `Creators can see this podium. Published ${timeAgo(challenge.winners_published_at)}.`
+                  : 'Only you can see this. Check it reads correctly, then publish it.'}
+              </p>
+            </div>
+            <button
+              onClick={togglePublished}
+              disabled={publishing}
+              className={challenge?.winners_published_at ? 'btn-secondary !py-2 text-xs' : 'btn-primary !py-2 text-xs'}
+            >
+              {publishing ? <Spinner /> : challenge?.winners_published_at ? 'Unpublish' : 'Publish the winners'}
+            </button>
+          </div>
+          <WinnersPodium
+            winners={podiumWinners}
+            entries={submissions.length}
+            totalScore={results.reduce((sum, r) => sum + (r.final_views || 0), 0)}
+            scoring={challenge?.scoring}
+            voucherWinners={voucherWinners}
+            voucherPrize={challenge?.participation_prize}
+          />
+        </div>
+      )}
 
       {submissions.length === 0 ? (
         <EmptyState icon={<Icon name="video" className="h-7 w-7" />} title="No submissions to review" hint="Entries will appear here as creators submit their links." />

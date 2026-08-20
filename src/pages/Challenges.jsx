@@ -4,73 +4,14 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useMyScopes, inScope } from '../lib/scope'
 import CountdownTimer from '../components/CountdownTimer'
-import VideoThumb from '../components/VideoThumb'
 import Icon from '../components/Icon'
-import { Avatar, PageHeader, Badge, SkeletonCards, EmptyState } from '../components/ui'
-import { formatDate, formatViews, formatMoney, challengeDeadline, PRIZE_BASELINE } from '../lib/utils'
+import { PageHeader, Badge, SkeletonCards, EmptyState } from '../components/ui'
+import { formatDate, formatMoney, challengeDeadline, PRIZE_BASELINE } from '../lib/utils'
 import Reveal from '../components/network/Reveal'
 import ParticipationBar from '../components/network/ParticipationBar'
+import WinnersPodium from '../components/WinnersPodium'
 
 const STATUS_TONE = { active: 'brand', ended: 'amber', archived: 'grey', draft: 'red' }
-
-// Podium metal styling per rank.
-const MEDALS = {
-  1: { ring: 'ring-amber-400', bar: 'bg-amber-400', label: '1st', h: 'h-16' },
-  2: { ring: 'ring-gray-300', bar: 'bg-gray-300', label: '2nd', h: 'h-11' },
-  3: { ring: 'ring-amber-600', bar: 'bg-amber-600', label: '3rd', h: 'h-8' },
-}
-
-// Hall-of-fame block for a finished challenge: the top-three podium with
-// avatars + final views, their winning videos, and the closing stats.
-function WinnersGallery({ winners, entries, totalViews }) {
-  if (!winners?.length) return null
-  // Display order 2nd | 1st | 3rd, classic podium shape.
-  const order = [winners[1], winners[0], winners[2]].filter(Boolean)
-  return (
-    <div className="mt-5 rounded-2xl bg-cloud/60 p-4">
-      <p className="mb-4 text-center text-[11px] font-semibold uppercase tracking-widest text-smoke">Hall of fame</p>
-      <div className="flex items-end justify-center gap-3 sm:gap-5">
-        {order.map((w) => {
-          const m = MEDALS[w.rank]
-          return (
-            <div key={w.rank} className="flex w-24 flex-col items-center">
-              <div className={`rounded-full ring-4 ${m.ring}`}>
-                <Avatar src={w.profiles?.photo_url} name={w.profiles?.name} size={w.rank === 1 ? 'lg' : 'md'} />
-              </div>
-              <p className="mt-2 w-full truncate text-center text-xs font-semibold text-ink">{w.profiles?.name?.split(' ')[0] || 'Creator'}</p>
-              <p className="text-[11px] tabular-nums text-smoke">{formatViews(w.final_views)} views</p>
-              <div className={`mt-2 flex w-full items-start justify-center rounded-t-lg ${m.bar} ${m.h}`}>
-                <span className="pt-1 text-xs font-bold text-white">{m.label}</span>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-      {/* the winning videos */}
-      {winners.some((w) => w.videoUrl) && (
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          {winners.filter((w) => w.videoUrl).map((w) => (
-            <VideoThumb key={w.rank} url={w.videoUrl} platform={w.platform} className="rounded-xl" />
-          ))}
-        </div>
-      )}
-      <div className="mt-4 flex items-center justify-center gap-6 border-t border-gray-200/70 pt-3 text-center">
-        <div>
-          <p className="text-sm font-bold tabular-nums text-ink">{entries}</p>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-smoke">Entries</p>
-        </div>
-        <div>
-          <p className="text-sm font-bold tabular-nums text-ink">{formatViews(totalViews)}</p>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-smoke">Final views</p>
-        </div>
-        <div>
-          <p className="text-sm font-bold tabular-nums text-ink">{winners.length}</p>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-smoke">On the podium</p>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // All challenges: the live one up top, past challenges browsable below.
 export default function Challenges() {
@@ -104,35 +45,66 @@ export default function Challenges() {
         setPrizesAwarded(PRIZE_BASELINE + (paid ?? []).reduce((sum, r) => sum + Number(r.amount), 0))
       })
 
-      // Hall-of-fame data: final results + each winner's video, in one sweep.
+      // The winners block, but only for challenges an admin has actually
+      // PUBLISHED. Results rows exist from the moment views are first logged -
+      // including the interim standings posted mid-challenge - so keying the
+      // podium off "are there results" published a half-finished leaderboard as
+      // a final one the day the archive cron ran.
+      const publishedIds = all.filter((c) => c.winners_published_at).map((c) => c.id)
+      if (publishedIds.length === 0) return
       const [{ data: results }, { data: subs }] = await Promise.all([
         supabase.from('results')
           .select('challenge_id, creator_id, final_views, rank, profiles:creator_id(id, name, photo_url)')
+          .in('challenge_id', publishedIds)
           .order('final_views', { ascending: false }),
-        supabase.from('submissions').select('challenge_id, creator_id, video_url, platform, logged_views'),
+        supabase.from('submissions')
+          .select('challenge_id, creator_id, video_url, platform, logged_views, profiles:creator_id(id, name, photo_url)')
+          .in('challenge_id', publishedIds),
       ])
-      const bestVideo = new Map() // `${challenge}:${creator}` -> best submission
+
+      const bestVideo = new Map()   // `${challenge}:${creator}` -> best submission
+      const subCount = new Map()    // `${challenge}:${creator}` -> how many they posted
+      const person = new Map()      // creator id -> profile, for the voucher faces
       for (const s of subs ?? []) {
         const k = `${s.challenge_id}:${s.creator_id}`
         const cur = bestVideo.get(k)
         if (!cur || (s.logged_views ?? 0) > (cur.logged_views ?? 0)) bestVideo.set(k, s)
+        subCount.set(k, (subCount.get(k) || 0) + 1)
+        if (s.profiles) person.set(s.creator_id, s.profiles)
       }
+
       const byChallenge = {}
       for (const r of results ?? []) (byChallenge[r.challenge_id] ||= []).push(r)
       const built = {}
-      for (const [cid, rows] of Object.entries(byChallenge)) {
+      for (const c of all) {
+        const rows = byChallenge[c.id]
+        if (!c.winners_published_at || !rows?.length) continue
+        // How many places this challenge actually pays. Three was hard-coded,
+        // so a five-winner challenge quietly lost two of its winners.
+        const places = Math.max(1, c.winners_count || (Array.isArray(c.prize_structure) ? c.prize_structure.length : 0) || 3)
         const ranked = rows
           .sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99) || b.final_views - a.final_views)
-          .slice(0, 3)
+          .slice(0, places)
           .map((r, i) => ({
             ...r,
             rank: i + 1,
-            videoUrl: bestVideo.get(`${cid}:${r.creator_id}`)?.video_url ?? null,
-            platform: bestVideo.get(`${cid}:${r.creator_id}`)?.platform ?? null,
+            videoUrl: bestVideo.get(`${c.id}:${r.creator_id}`)?.video_url ?? null,
+            platform: bestVideo.get(`${c.id}:${r.creator_id}`)?.platform ?? null,
           }))
-        built[cid] = {
+        // Everyone who cleared the participation threshold and is not already on
+        // the podium: the voucher is for turning up, not for placing.
+        const onPodium = new Set(ranked.map((r) => r.creator_id))
+        const threshold = c.participation_threshold
+        const voucherWinners = threshold
+          ? [...subCount.entries()]
+              .filter(([k, n]) => k.startsWith(`${c.id}:`) && n >= threshold && !onPodium.has(k.split(':')[1]))
+              .map(([k]) => person.get(k.split(':')[1]))
+              .filter(Boolean)
+          : []
+        built[c.id] = {
           winners: ranked,
-          totalViews: rows.reduce((sum, r) => sum + (r.final_views || 0), 0),
+          totalScore: rows.reduce((sum, r) => sum + (r.final_views || 0), 0),
+          voucherWinners,
         }
       }
       setGalleries(built)
@@ -294,24 +266,41 @@ export default function Challenges() {
               <h2 className="mb-5 text-lg font-semibold text-smoke">Past challenges</h2>
               <Reveal className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                 {past.map((c) => (
-                  <Link key={c.id} to={`/challenges/${c.id}`} className="card group transition-all hover:-translate-y-0.5 hover:shadow-lift active:translate-y-0">
-                    <div className="flex items-center justify-between gap-3">
-                      {/* Still status 'active' but past its deadline → show "ended", not "active". */}
-                      <Badge tone={c.status === 'active' ? STATUS_TONE.ended : STATUS_TONE[c.status]}>{c.status === 'active' ? 'ended' : c.status}</Badge>
-                      <span className="text-xs text-smoke">{formatDate(c.start_date)} → {formatDate(c.end_date)}</span>
+                  /* The card used to BE a <Link>, which is why nothing inside it
+                     could ever be its own target - a winner's face, their video,
+                     all of it was swallowed by the one anchor around the lot.
+                     The link is now a stretched overlay sitting UNDERNEATH the
+                     content, so the card still opens the challenge from any dead
+                     space while every real control on top of it works. */
+                  <div key={c.id} className="card group relative transition-all hover:-translate-y-0.5 hover:shadow-lift">
+                    <Link
+                      to={`/challenges/${c.id}`}
+                      className="absolute inset-0 z-0 rounded-card"
+                      aria-label={`${c.title} - challenge details`}
+                    />
+                    <div className="pointer-events-none relative z-10">
+                      <div className="flex items-center justify-between gap-3">
+                        {/* Still status 'active' but past its deadline → show "ended", not "active". */}
+                        <Badge tone={c.status === 'active' ? STATUS_TONE.ended : STATUS_TONE[c.status]}>{c.status === 'active' ? 'ended' : c.status}</Badge>
+                        <span className="text-xs text-smoke">{formatDate(c.start_date)} → {formatDate(c.end_date)}</span>
+                      </div>
+                      <h3 className="mt-4 text-xl font-semibold group-hover:text-brand">{c.title}</h3>
+                      <p className="mt-2 text-sm text-smoke line-clamp-2">{c.description}</p>
+                      {galleries[c.id] ? (
+                        <WinnersPodium
+                          className="pointer-events-auto mt-5"
+                          winners={galleries[c.id].winners}
+                          entries={c.submissions?.[0]?.count ?? 0}
+                          totalScore={galleries[c.id].totalScore}
+                          scoring={c.scoring}
+                          voucherWinners={galleries[c.id].voucherWinners}
+                          voucherPrize={c.participation_prize}
+                        />
+                      ) : (
+                        <p className="mt-4 text-xs font-medium text-smoke">{c.submissions?.[0]?.count ?? 0} entries · results inside →</p>
+                      )}
                     </div>
-                    <h3 className="mt-4 text-xl font-semibold group-hover:text-brand">{c.title}</h3>
-                    <p className="mt-2 text-sm text-smoke line-clamp-2">{c.description}</p>
-                    {galleries[c.id] ? (
-                      <WinnersGallery
-                        winners={galleries[c.id].winners}
-                        entries={c.submissions?.[0]?.count ?? 0}
-                        totalViews={galleries[c.id].totalViews}
-                      />
-                    ) : (
-                      <p className="mt-4 text-xs font-medium text-smoke">{c.submissions?.[0]?.count ?? 0} entries · results inside →</p>
-                    )}
-                  </Link>
+                  </div>
                 ))}
               </Reveal>
             </section>

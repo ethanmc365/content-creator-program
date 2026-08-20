@@ -23,16 +23,38 @@ import { supabase } from './supabase'
 //
 // AN EMPTY MARKET LIST MEANS THE NETWORK, which is the same convention
 // `events.community_ids` uses: nothing named means everybody.
+//
+// THE UK IS STILL ON THE LEGACY CHAT AND THAT CHAT READS THE BARE KEY.
+// NetworkRoute gates the whole network shell behind `preview && isAdmin`, so
+// every one of the UK's creators opens Chat.jsx, which filters messages on
+// `channel = 'announcements'` with no namespace at all. Writing the correct,
+// tidy `uk:announcements` would therefore post a UK announcement into a room
+// that no UK creator can currently open - it would look like it worked and be
+// read by nobody. Until the UK moves onto the network shell, its announcements
+// keep the bare key.
+const LEGACY_CHAT_SLUGS = new Set(['uk'])
+
+/** The channel string a room's messages must carry to be readable today. */
+function channelKeyFor(community) {
+  if (community?.kind === 'network') return 'announcements'
+  if (LEGACY_CHAT_SLUGS.has(community?.slug)) return 'announcements'
+  return `${community?.slug}:announcements`
+}
 
 /**
  * @param {object} opts
  * @param {string[]} opts.communityIds  markets to post into; empty = worldwide
  * @param {string} opts.body            the message
  * @param {string} opts.senderId
+ * @param {object} [opts.extra]        extra message columns (e.g. a card ref)
  * @returns {Promise<{posted: number, error: any}>}
  */
-export async function announceToMarkets({ communityIds = [], body, senderId }) {
-  if (!body?.trim() || !senderId) return { posted: 0, error: null }
+export async function announceToMarkets({ communityIds = [], body, senderId, extra = {} }) {
+  // A card-only post (a leaderboard, a poll) carries no prose, so an empty body
+  // is legitimate as long as SOMETHING is being said. Requiring text here is
+  // what stopped the winners card from being shareable at all.
+  const hasCard = Object.keys(extra).length > 0
+  if ((!body?.trim() && !hasCard) || !senderId) return { posted: 0, error: null }
 
   // One query for the rooms rather than one per market, and it carries the
   // community's slug and kind so the key can be built without a second lookup.
@@ -54,11 +76,12 @@ export async function announceToMarkets({ communityIds = [], body, senderId }) {
   if (!targets.length) return { posted: 0, error: null }
 
   const rows = targets.map((r) => ({
-    channel: r.communities?.kind === 'network' ? 'announcements' : `${r.communities?.slug}:announcements`,
+    channel: channelKeyFor(r.communities),
     channel_id: r.id,
     community_id: r.community_id,
     sender_id: senderId,
-    body: body.trim(),
+    body: (body ?? '').trim(),
+    ...extra,
   }))
   const { error: insErr } = await supabase.from('messages').insert(rows)
   return { posted: insErr ? 0 : rows.length, error: insErr }
