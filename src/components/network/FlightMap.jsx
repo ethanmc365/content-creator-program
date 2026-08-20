@@ -54,8 +54,22 @@ const LABEL_ZOOM = 3.2
 // A route's arc, plus the length of it, so the draw-on animation can be timed
 // to the distance rather than every line taking the same time regardless.
 function arcFor(a, b) {
-  const [ax, ay] = projection([a.lng, a.lat])
-  const [bx, by] = projection([b.lng, b.lat])
+  // A ROUTE WHOSE ENDS DO NOT PROJECT HAS NO PATH, AND MUST SAY SO.
+  //
+  // This is the stray aeroplane in the top-left corner. `projection()` returns
+  // null for a point it cannot place and NaN for a null lat/lng, so one airport
+  // row with missing coordinates produced `d="MNaN NaN Q NaN NaN NaN NaN"`.
+  // An `animateMotion` given an unparseable path does not fail loudly - it
+  // simply never moves its parent, and the parent's untransformed position is
+  // the viewBox ORIGIN. Hence: a plane, at 0,0, going nowhere, on a map where
+  // nobody has flown to the top-left corner of the world. Ethan: "occasionally
+  // a random plane icon appears near the top left corner, why is this here."
+  const pa = projection([a.lng, a.lat])
+  const pb = projection([b.lng, b.lat])
+  if (!pa || !pb) return { d: null, chord: 0 }
+  const [ax, ay] = pa
+  const [bx, by] = pb
+  if (![ax, ay, bx, by].every(Number.isFinite)) return { d: null, chord: 0 }
   const mx = (ax + bx) / 2
   const my = (ay + by) / 2
   const dx = bx - ax
@@ -101,7 +115,32 @@ const PLANE_D = 'M0 -11 C1.1 -11 1.8 -9 1.8 -6.2 L1.8 -4.4 L10 1 L10 3.1 L1.8 -0
 // every route taking the same time regardless of length - the rule CreatorMap
 // already uses. The nose follows the path (`rotate="auto"`).
 const PLANE_SPEED = 26 // projection units per second
+
+// HOW BIG A MARKER IS AT A GIVEN ZOOM.
+//
+// Everything on this map was `base / z` with a floor: `Math.max(1.4, 3.4 / z)`.
+// Dividing by z holds a marker at a CONSTANT APPARENT SIZE, which sounds right
+// and is not what the zoom is for here. Ethan: "when I zoom in a lot the
+// circles and planes should also get a bit smaller, for example even with the
+// map zoomed out or in, my flight from Belfast to Dublin can barely be seen."
+//
+// He is describing the real failure. BFS to DUB is about six projection units
+// long; two 3.4-unit dots sit on top of the whole route, so the arc between
+// them is invisible - and zooming in did not help, because the dots grew with
+// it. Worse, the `Math.max` floor is in MAP units, so past z ~2.4 they stopped
+// shrinking at all and just got bigger and bigger on screen.
+//
+// Dividing by `z^1.15` makes the apparent size fall gently as you go in: a
+// weight-4 pin is 3.4px across the whole world, about 2.8px at z=4, and holds
+// there. Enough for the short hop to open up underneath it, never so small it
+// disappears. The floor is now small enough to be a genuine last resort.
+const MARKER_FALLOFF = 1.15
+const scaleAt = (base, z, min) => Math.max(min, base / Math.pow(z, MARKER_FALLOFF))
 function ArcPlane({ path, chord, size, faint = false, delay = 0 }) {
+  // The second half of the top-left-corner fix: even with arcFor guarded, this
+  // is the component that would park at the origin, so it declines to render
+  // rather than trusting its caller.
+  if (!path) return null
   const dur = Math.max(2.4, chord / PLANE_SPEED)
   return (
     <g style={{ pointerEvents: 'none' }} opacity={faint ? 0.55 : 1}>
@@ -251,7 +290,16 @@ function FlightMap({ routes = [], airports = [] }) {
   // flights through each - which is the same shape of answer, so the two cards
   // can be the same object.
   const [country, setCountry] = useState(null)
-  const pickCountry = useCallback((name, iso) => setCountry({ name, iso }), [])
+  // A NEW CARD ALWAYS CLOSES THE OLD ONE, IN BOTH DIRECTIONS.
+  //
+  // `pickRoute` cleared the country and `pickCountry` did not clear the route,
+  // so the exclusivity only worked one way round: click an arc for its flight
+  // card, then click Spain, and the country card opened ON TOP of it. Ethan:
+  // "clicking a new thing that shows a popup should always close the other one."
+  const pickCountry = useCallback((name, iso) => {
+    setSelected(null)
+    setCountry({ name, iso })
+  }, [])
   const countryDetail = useMemo(() => {
     if (!country) return null
     const here = airports
@@ -266,9 +314,10 @@ function FlightMap({ routes = [], airports = [] }) {
   )
 
   const pins = useMemo(
-    () => airports.map((a) => {
-      const [x, y] = projection([a.lng, a.lat])
-      return { ...a, x, y }
+    () => airports.flatMap((a) => {
+      const p = projection([a.lng, a.lat])
+      if (!p || !Number.isFinite(p[0]) || !Number.isFinite(p[1])) return []
+      return [{ ...a, x: p[0], y: p[1] }]
     }),
     [airports],
   )
@@ -295,7 +344,7 @@ function FlightMap({ routes = [], airports = [] }) {
   // which reads as a mechanism; offset, they read as traffic. The offset is
   // derived from the route's own index so it is stable across renders.
   const flying = useMemo(
-    () => [...arcs].sort((a, b) => b.chord - a.chord).slice(0, 10),
+    () => arcs.filter((r) => r.d).sort((a, b) => b.chord - a.chord).slice(0, 10),
     [arcs],
   )
 
@@ -340,9 +389,16 @@ function FlightMap({ routes = [], airports = [] }) {
         className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg font-semibold text-ink shadow-card transition-transform hover:scale-105 active:scale-95">+</button>
       <button type="button" onClick={() => zoomBy(1 / 1.7)} aria-label="Zoom out"
         className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg font-semibold text-ink shadow-card transition-transform hover:scale-105 active:scale-95">−</button>
-      <button type="button" onClick={reset} aria-label="Show the whole world"
-        className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-ink shadow-card transition-transform hover:scale-105 active:scale-95">
-        <Icon name="globe" className="h-4 w-4" />
+      {/* THE SAME RESET GLYPH EVERY OTHER MAP ON THE PLATFORM USES.
+          This one had a globe, which in a stack under + and − reads as "switch
+          to a globe view" rather than "put it back". Ethan: "the reset icon for
+          this map is a globe rather than the reset icon like on other maps."
+          Inlined rather than added to Icon.jsx because CreatorMap carries the
+          identical inline path - one shape, two call sites, no third source of
+          truth to keep in step. */}
+      <button type="button" onClick={reset} aria-label="Reset map view"
+        className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-smoke shadow-card transition-transform hover:scale-105 active:scale-95">
+        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.7 3M3 4v4h4"/></svg>
       </button>
       {!fullscreen && (
         <button type="button" onClick={enterFullscreen} aria-label="Full screen"
@@ -445,7 +501,7 @@ function FlightMap({ routes = [], airports = [] }) {
               key={`fly-${r.key}`}
               path={r.d}
               chord={r.chord}
-              size={Math.max(0.28, 0.85 / z)}
+              size={scaleAt(0.85, z, 0.16)}
               faint={!!selected && r.key !== selected}
               delay={(i % 5) * 0.9}
             />
@@ -455,7 +511,7 @@ function FlightMap({ routes = [], airports = [] }) {
               key={`fly-${active.key}`}
               path={active.d}
               chord={active.chord}
-              size={Math.max(0.28, 0.85 / z)}
+              size={scaleAt(0.85, z, 0.16)}
             />
           )}
         </g>
@@ -464,7 +520,7 @@ function FlightMap({ routes = [], airports = [] }) {
           // A pin belonging to the open route is drawn up; everything else
           // steps back, which is what makes one route readable on a busy map.
           const on = active && (a.iata === active.from.iata || a.iata === active.to.iata)
-          const r = Math.max(1.4, (a.weight > 4 ? 3.4 : a.weight > 1 ? 2.8 : 2.2) / z)
+          const r = scaleAt(a.weight > 4 ? 3.4 : a.weight > 1 ? 2.8 : 2.2, z, 0.32)
           return (
             <g key={a.iata} className={arrived ? undefined : 'flight-pin'} style={{ transformOrigin: `${a.x}px ${a.y}px` }}>
               <circle
@@ -473,7 +529,7 @@ function FlightMap({ routes = [], airports = [] }) {
                 r={on ? r * 1.5 : r}
                 fill={on ? BRAND : a.weight > 1 ? BRAND : BRAND_LIGHT}
                 stroke="#fff"
-                strokeWidth={Math.max(0.3, 0.7 / z)}
+                strokeWidth={scaleAt(0.7, z, 0.07)}
                 opacity={selected && !on ? 0.35 : 1}
               >
                 <title>{`${a.iata} · ${a.city} · ${a.weight} ${a.weight === 1 ? 'flight' : 'flights'}`}</title>

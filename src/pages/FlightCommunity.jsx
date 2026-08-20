@@ -42,7 +42,7 @@ import { cx } from '../lib/utils'
 // One column of a leaderboard. Module scope, not nested: a component declared
 // during render is a new type every render, so every row would unmount and
 // remount whenever the window switch is pressed.
-function Board({ icon, title, rows, value, unit, myId }) {
+function Board({ icon, title, rows, value, unit, myId, open, note }) {
   // THREE, THEN THE REST ON A TAP.
   //
   // Ethan: "we only show maybe the top five, or when clicking on it, it expands
@@ -53,10 +53,19 @@ function Board({ icon, title, rows, value, unit, myId }) {
   //
   // Eight rows x three boards is twenty-four names, which on a phone is the
   // whole page and on a desktop is three columns of ties. Three is the shape
-  // everybody already reads a ranking in, and the expansion is PER BOARD
-  // because "who has flown furthest" and "who has been to most countries" are
-  // two different questions and nobody wants both answered at length at once.
-  const [open, setOpen] = useState(false)
+  // everybody already reads a ranking in.
+  //
+  // THE EXPANSION IS FOR ALL THREE AT ONCE, AND IT LIVES IN THE SECTION.
+  //
+  // It used to be `useState` in here, one per board, so the control at the foot
+  // of each card only ever opened its own - and because the three cards are a
+  // `grid items-stretch`, opening one STRETCHED the other two to match without
+  // filling them, which is what Ethan hit: "it does expand the cards and at the
+  // bottom of those cards I have to click show top 20 to see them... clicking
+  // see top 20 and clicking show fewer should do it for them all."
+  //
+  // Three cards that are already forced to the same height are one control, not
+  // three. `open` is now owned by the section and passed down.
   const shown = open ? rows : rows.slice(0, 3)
   return (
     <div className="flex h-full flex-col rounded-card border border-gray-100 bg-white p-5 shadow-card">
@@ -66,6 +75,11 @@ function Board({ icon, title, rows, value, unit, myId }) {
         </span>
         {title}
       </p>
+      {/* Where the number comes from, said once, on the board that needs it.
+          "Most countries" is the one ranking whose SOURCE changes with the
+          window, and a ranking that changes its mind without saying why reads
+          as a bug. */}
+      {note && <p className="-mt-3 mb-3 text-[11px] leading-snug text-gray-400">{note}</p>}
       <ol className="space-y-2.5">
         {shown.map((b, i) => (
           <li
@@ -91,16 +105,6 @@ function Board({ icon, title, rows, value, unit, myId }) {
           </li>
         ))}
       </ol>
-      {rows.length > 3 && (
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="mt-auto flex w-full items-center justify-center gap-1 pt-3 text-[11px] font-semibold text-smoke transition-colors hover:text-brand"
-        >
-          {open ? 'Show fewer' : `Show top ${rows.length}`}
-          <Icon name="chevronRight" className={cx('h-3 w-3 transition-transform duration-200', open ? '-rotate-90' : 'rotate-90')} />
-        </button>
-      )}
     </div>
   )
 }
@@ -110,6 +114,8 @@ export default function FlightCommunity() {
   const [today] = useState(() => new Date().toISOString().slice(0, 10))
   const [board, setBoard] = useState(null)
   const [win, setWin] = useState('year')
+  // One expansion for all three leaderboards - see the note on `Board`.
+  const [boardsOpen, setBoardsOpen] = useState(false)
   // THE MAP HAS ITS OWN WINDOW, SEPARATE FROM THE LEADERBOARDS.
   //
   // The owner asked for both: "I think we should be able to toggle two maps.
@@ -245,14 +251,29 @@ export default function FlightCommunity() {
       // that does not resolve is kept as itself rather than dropped: it is
       // still a country somebody has been to, and losing it would understate
       // them.
+      //
+      // BUT THE TRAVEL MAP HAS NO DATES, SO IT CANNOT ANSWER A DATED QUESTION.
+      //
+      // Ethan: "it needs to be by flights logged, not from onboarding map they
+      // filled in, the reason is because there's no years or dates for when
+      // they've been there if they just clicked the map... so for all time it
+      // can show them but for 2026 it has to be from flights logged."
+      //
+      // Exactly right, and the union was quietly wrong in the year view: the
+      // board is windowed to the current year, so a creator with one flight in
+      // 2026 and forty countries ticked at signup was ranked as having been to
+      // forty countries THIS YEAR. The map is a lifetime record, so it joins in
+      // on the lifetime view and stays out of the year.
       const countries = new Set()
       for (const code of b.airports || []) {
         const a = airport(code)
         if (a?.country) countries.add(a.country)
       }
-      for (const name of b.visited || []) {
-        const iso = isoForCountryName(name)
-        countries.add(iso || String(name).trim().toLowerCase())
+      if (win === 'all') {
+        for (const name of b.visited || []) {
+          const iso = isoForCountryName(name)
+          countries.add(iso || String(name).trim().toLowerCase())
+        }
       }
       return { ...b, km: Number(b.km) || 0, flights: Number(b.flights) || 0, countries: countries.size }
     })
@@ -263,7 +284,7 @@ export default function FlightCommunity() {
       countries: [...withCountries].sort((a, b) => b.countries - a.countries || b.km - a.km).slice(0, 20),
       flights: [...withCountries].sort((a, b) => b.flights - a.flights || b.km - a.km).slice(0, 20),
     }
-  }, [board])
+  }, [board, win])
 
   const sharing = board?.length ?? 0
 
@@ -432,13 +453,34 @@ export default function FlightCommunity() {
               />
             ) : (
               <Reveal className="grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3" stagger={0.06}>
-                <Board icon="globe" title="Furthest" rows={boards.distance} myId={user.id}
+                <Board icon="globe" title="Furthest" rows={boards.distance} myId={user.id} open={boardsOpen}
                   value={(b) => Math.round(b.km).toLocaleString('en-GB')} unit=" km" />
-                <Board icon="flag" title="Most countries" rows={boards.countries} myId={user.id}
+                <Board icon="flag" title="Most countries" rows={boards.countries} myId={user.id} open={boardsOpen}
+                  note={win === 'all'
+                    ? 'Flights logged, plus your travel map.'
+                    : 'Flights logged this year. The travel map has no dates, so it counts on all time only.'}
                   value={(b) => b.countries} unit="" />
-                <Board icon="plane" title="Most flights" rows={boards.flights} myId={user.id}
+                <Board icon="plane" title="Most flights" rows={boards.flights} myId={user.id} open={boardsOpen}
                   value={(b) => b.flights} unit="" />
               </Reveal>
+            )}
+            {/* ONE CONTROL, UNDER ALL THREE. It sits outside the grid because
+                it belongs to the set: three cards forced to a common height by
+                `items-stretch` cannot each have their own opinion about how
+                tall they are. */}
+            {boards && Math.max(boards.distance.length, boards.countries.length, boards.flights.length) > 3 && (
+              <div className="mt-4 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setBoardsOpen((v) => !v)}
+                  className="flex items-center justify-center gap-1 rounded-full px-4 py-2 text-xs font-semibold text-smoke transition-colors hover:text-brand"
+                >
+                  {boardsOpen
+                    ? 'Show fewer'
+                    : `Show top ${Math.max(boards.distance.length, boards.countries.length, boards.flights.length)}`}
+                  <Icon name="chevronRight" className={cx('h-3 w-3 transition-transform duration-200', boardsOpen ? '-rotate-90' : 'rotate-90')} />
+                </button>
+              </div>
             )}
           </section>
         </Reveal>
