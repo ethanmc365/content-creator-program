@@ -7,6 +7,7 @@ import WorldMap from '../components/WorldMap'
 import TravelGallery from '../components/TravelGallery'
 import VideoThumb from '../components/VideoThumb'
 import MilestoneSnippet from '../components/network/MilestoneSnippet'
+import ProfileFlights from '../components/network/ProfileFlights'
 import ConnectButton from '../components/ConnectButton'
 import LocalTime from '../components/LocalTime'
 import { loadRelationship, mutualConnections } from '../lib/connections'
@@ -389,6 +390,30 @@ export default function Profile() {
               </Badge>
             ))}
           </div>
+        </section>
+      )}
+
+      {/* ---------- The flight log ----------
+          ABOVE THE COUNTRIES MAP, and deliberately not a second map. "Been to
+          34 countries" and "flown 180,000 km" are the same claim from two
+          directions and they read best together; two world maps on one page is
+          a page that cannot decide what it is about. See ProfileFlights.
+
+          BEHIND THE PREVIEW FLAG, like the log it comes from. `/flights` is
+          inside NetworkRoute, so a UK creator seeing this section would get a
+          panel of numbers with a link that bounces them to /home - and the
+          owner asked specifically that the profile changes stay invisible to
+          the community for now. */}
+      {networkPreview && (
+        <section>
+          <div className="mb-4 flex items-baseline justify-between">
+            <h2 className="flex items-center gap-2 text-lg font-semibold">
+              <Icon name="plane-tryp" className="h-5 w-5 text-brand" />
+              {isMe ? 'Your flying' : `${creator.name.split(' ')[0]}'s flying`}
+            </h2>
+            {isMe && <Link to="/flights" className="text-sm font-medium text-brand hover:underline">Flight log</Link>}
+          </div>
+          <ProfileFlights creatorId={creator.id} isMe={isMe} name={creator.name} />
         </section>
       )}
 
