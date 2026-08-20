@@ -12,6 +12,7 @@ import MapSkeleton from '../components/network/MapSkeleton'
 import { CountUp } from '../components/network/Motion'
 import { airport } from '../lib/airports'
 import { buildFlightStats } from '../lib/flightStats'
+import { isoForCountryName } from '../lib/markets'
 import { cx } from '../lib/utils'
 
 // THE FLIGHT LOG, ACROSS EVERYBODY.
@@ -109,6 +110,20 @@ export default function FlightCommunity() {
   const [today] = useState(() => new Date().toISOString().slice(0, 10))
   const [board, setBoard] = useState(null)
   const [win, setWin] = useState('year')
+  // THE MAP HAS ITS OWN WINDOW, SEPARATE FROM THE LEADERBOARDS.
+  //
+  // The owner asked for both: "I think we should be able to toggle two maps.
+  // One map will show every flown logged flight, which will be an insane map
+  // with a bunch of lines... and then the other one should be for recent
+  // flights... it should always start by showing just the flights for the
+  // current year."
+  //
+  // Not the same switch as the leaderboards' because they answer different
+  // questions: a ranking is nearly always "this year, who is winning", while
+  // the map is a picture and the all-time one is the more impressive of the
+  // two. Tying them together would mean you could not look at the whole map
+  // without also re-ranking everybody.
+  const [mapWin, setMapWin] = useState('year')
   const [mine, setMine] = useState(null)
   const [flyers, setFlyers] = useState({})
   const [totals, setTotals] = useState(null)
@@ -147,18 +162,30 @@ export default function FlightCommunity() {
   useEffect(() => {
     let cancelled = false
     Promise.all([
-      supabase.rpc('community_routes'),
       supabase.rpc('community_aircraft'),
       supabase.rpc('community_flight_records'),
-    ]).then(([r, a, rec]) => {
+    ]).then(([a, rec]) => {
       if (cancelled) return
-      setRoutes(r.data ?? [])
       setFleet(a.data ?? [])
       const row = Array.isArray(rec.data) ? rec.data[0] : rec.data
       setRecords(row ?? null)
     })
     return () => { cancelled = true }
   }, [])
+
+  // The routes, re-fetched when the map's window changes. Every flight in the
+  // window, not a sample: `community_routes` groups by the unordered pair, so
+  // a thousand flights come back as however many distinct city pairs there are
+  // - which is what makes drawing all of them affordable.
+  useEffect(() => {
+    let cancelled = false
+    setRoutes(null)
+    const from = mapWin === 'year' ? `${thisYear}-01-01` : '1970-01-01'
+    supabase.rpc('community_routes', { p_from: from, p_to: today }).then(({ data }) => {
+      if (!cancelled) setRoutes(data ?? [])
+    })
+    return () => { cancelled = true }
+  }, [mapWin, thisYear, today])
 
   // Your own log, for the routes to look other creators up on. Read directly
   // (it is your data, under RLS) rather than through the shared aggregate.
@@ -199,10 +226,33 @@ export default function FlightCommunity() {
   const boards = useMemo(() => {
     if (!board) return null
     const withCountries = board.map((b) => {
+      // THE FLIGHT LOG IS NOT THE ONLY RECORD OF WHERE SOMEBODY HAS BEEN.
+      //
+      // The owner: "most countries visited shouldn't just be from the flight
+      // log because obviously people have already logged the countries they've
+      // been to when they signed up in that travel map."
+      //
+      // He is right, and the flight-log-only version was actively misleading -
+      // a creator who has been to thirty countries and logged four flights
+      // ranked below somebody with six flights and no travel map. It is a
+      // UNION, not a replacement: a country you flew to counts whether or not
+      // you remembered to tick it at signup, and one you drove to counts even
+      // though no flight will ever prove it.
+      //
+      // The two sides speak different languages - an airport carries ISO-2, the
+      // travel map carries country NAMES - so the names are resolved to codes
+      // through the same country table the rest of the app searches. A name
+      // that does not resolve is kept as itself rather than dropped: it is
+      // still a country somebody has been to, and losing it would understate
+      // them.
       const countries = new Set()
       for (const code of b.airports || []) {
         const a = airport(code)
         if (a?.country) countries.add(a.country)
+      }
+      for (const name of b.visited || []) {
+        const iso = isoForCountryName(name)
+        countries.add(iso || String(name).trim().toLowerCase())
       }
       return { ...b, km: Number(b.km) || 0, flights: Number(b.flights) || 0, countries: countries.size }
     })
@@ -307,25 +357,42 @@ export default function FlightCommunity() {
         <Reveal from="down">
           <section>
             <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-              <div>
+              <div className="min-w-0">
                 <h2 className="text-lg font-semibold">Where we all go</h2>
                 <p className="mt-1 text-sm text-smoke">
                   {mapData
-                    ? `${mapData.arcs.length} ${mapData.arcs.length === 1 ? 'route' : 'routes'} shared by the community. Tap a country or an airport.`
+                    ? `${mapData.arcs.length} ${mapData.arcs.length === 1 ? 'route' : 'routes'} across ${mapData.pins.length} airports. Tap a country or an airport.`
                     : 'Every route the community has shared.'}
                 </p>
               </div>
-              {records?.longest_km > 0 && airport(records.longest_a) && airport(records.longest_b) && (
-                // THE LONGEST HOP ANYBODY HAS SHARED, as a caption on the map
-                // rather than a card of its own. It is one fact and it belongs
-                // next to the picture it is a fact about.
+              {/* THIS YEAR, OR EVERYTHING. Defaulting to the current year is
+                  deliberate and it is the owner's: "it should always start by
+                  showing just the flights for the current year." A map of a
+                  live community should show a live year - the all-time one is
+                  the trophy, and it gets better the longer nobody resets it. */}
+              <Segmented
+                value={mapWin}
+                onChange={setMapWin}
+                options={[{ value: 'year', label: thisYear }, { value: 'all', label: 'All time' }]}
+              />
+            </div>
+            {/* THE LONGEST HOP ANYBODY HAS SHARED, as a caption on the map
+                rather than a card of its own. It is one fact and it belongs
+                next to the picture it is a fact about.
+                A JSX COMMENT, NOT A `//` ONE. These were `//` lines, which is
+                correct inside a JSX EXPRESSION and is plain text as soon as
+                they become the children of an element - which is what happened
+                when the block moved out of the header row to make room for the
+                window toggle, and they rendered on the page. */}
+            {records?.longest_km > 0 && airport(records.longest_a) && airport(records.longest_b) && (
+              <div className="mb-3 flex">
                 <span className="flex items-center gap-2 rounded-full bg-brand-tint px-3.5 py-1.5 text-xs font-semibold text-brand">
                   <Icon name="plane" className="h-3.5 w-3.5" />
                   Longest hop {records.longest_a} to {records.longest_b}
                   <span className="font-bold tabular-nums">{Math.round(records.longest_km).toLocaleString('en-GB')} km</span>
                 </span>
-              )}
-            </div>
+              </div>
+            )}
             {!mapData ? (
               <MapSkeleton />
             ) : mapData.arcs.length === 0 ? (
