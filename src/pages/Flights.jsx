@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Avatar, Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../components/ui'
 import { DateField } from '../components/DateTimeFields'
+import AirlineMark from '../components/network/AirlineMark'
 import Icon from '../components/Icon'
 import Reveal from '../components/network/Reveal'
 import ScanBoardingPass from '../components/network/ScanBoardingPass'
@@ -70,6 +71,19 @@ const PURPOSES = [
   { key: 'other', label: 'Other', icon: 'dots' },
 ]
 const PURPOSE_LABEL = Object.fromEntries(PURPOSES.map((p) => [p.key, p.label]))
+
+// SIX ORANGES THAT ARE ACTUALLY SIX COLOURS.
+//
+// The purpose bar was ONE fill - brand orange - with `opacity: 1 - i * 0.14`
+// stepping each segment down. Fourteen percent of alpha over a white ground is
+// a difference you can measure and cannot see: Ethan, "I can barely see the
+// colour differences on the line, they look the same."
+//
+// A ramp of real values instead, walked from a deep burnt orange to a pale one.
+// Every neighbouring pair differs in lightness by enough to read as a boundary
+// without any of them leaving the brand family, and the legend swatch takes the
+// same value as its segment so the two can never drift apart.
+const PURPOSE_RAMP = ['#8f2c04', '#c23d06', '#d94407', '#ef6a22', '#f5853f', '#fbb384']
 
 // One shape, declared once. `save` resets to it and the modal's Cancel does
 // too, so there is no list of fields to keep in step in three places.
@@ -479,15 +493,14 @@ function YearColumn({ title, data, other, lead = false }) {
 }
 
 // The airline you actually fly, and the ones you say you fly.
-function LoyaltyRow({ a, max, rank }) {
+function LoyaltyRow({ a, max }) {
   return (
     <div className="flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3 shadow-card transition-transform duration-200 hover:-translate-y-0.5">
-      <span className={cx(
-        'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold',
-        rank === 0 ? 'bg-brand text-white' : 'bg-cloud text-smoke',
-      )}>
-        {rank + 1}
-      </span>
+      {/* THE AIRLINE, NOT ITS POSITION IN A LIST OF THREE.
+          Ethan: "we don't need that because it's already filtered and has the
+          number of times you fly on the right side." A rank badge on a sorted
+          list is a label for something the order already says. */}
+      <AirlineMark iata={a.iata} name={a.name} size={28} />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-semibold">{a.name}</span>
         <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-cloud">
@@ -1395,8 +1408,8 @@ export default function Flights() {
               <section>
                 <h2 className="mb-3 text-lg font-semibold">Airline loyalty</h2>
                 <Reveal className="space-y-2.5" stagger={0.04}>
-                  {stats.loyalty.slice(0, showAllAirlines ? 12 : 3).map((a, i) => (
-                    <LoyaltyRow key={a.name} a={a} rank={i} max={stats.loyalty[0].flights} />
+                  {stats.loyalty.slice(0, showAllAirlines ? 12 : 3).map((a) => (
+                    <LoyaltyRow key={a.name} a={a} max={stats.loyalty[0].flights} />
                   ))}
                 </Reveal>
                 {stats.loyalty.length > 3 && (
@@ -1412,39 +1425,12 @@ export default function Flights() {
             </Reveal>
           )}
 
-          {/* ---- THE AIRCRAFT COLLECTION, AS A DOOR ---- */}
-          <Reveal from="down">
-            <section>
-              {/* ONE PLANE, AND IT IS THE TRYP ONE, AND IT IS ON THE RIGHT.
-                  This drew up to FOUR silhouettes in an overlapping stack - one
-                  per aircraft type you had flown - so the card's icon changed
-                  shape depending on your log and read as a bug the first time
-                  you saw two. Ethan: "it currently shows two symbols... I think
-                  it should always just show one symbol, so it matches the design
-                  and looks clean. Just the orange tryp.com plane. The orange
-                  tryp.com plane on this card would look very clean, and I think
-                  I would put it to the right of the card."
-                  So: the brand plane, at a fixed size, on the trailing edge
-                  where the chevron used to be - which also means the card now
-                  leads with its words like every other door on the page. */}
-              <Link
-                to="/flights/aircraft"
-                className="group flex items-center gap-5 rounded-card border border-gray-100 bg-white p-5 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-lift sm:p-6"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="text-base font-semibold group-hover:text-brand">Aircraft collection</p>
-                  <p className="mt-0.5 text-sm text-smoke">
-                    {stats.aircraft > 0
-                      ? `You have been on ${stats.aircraft} different aircraft.`
-                      : 'Add an aircraft to a flight and it starts filling in.'}
-                  </p>
-                </div>
-                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-brand-tint text-brand transition-transform duration-200 group-hover:scale-110 group-hover:-rotate-6">
-                  <Icon name="plane-tryp" className="h-7 w-7" />
-                </span>
-              </Link>
-            </section>
-          </Reveal>
+          {/* THE AIRCRAFT COLLECTION CARD WAS HERE AND IS NOW ONLY A BUTTON.
+              Ethan: "remove the airline collection card from here as we already
+              have the button at the top." Two doors to the same room, one of
+              them nine screens down, is one door too many - and the one at the
+              top is the one people actually use because it is in the header row
+              with "Across the community". */}
 
           {/* WHO ELSE FLIES YOUR ROUTES, AND THE LEADERBOARDS, HAVE MOVED.
               Both lived here, nine screens down a page about one person, which
@@ -2121,15 +2107,15 @@ function PurposeBar({ list }) {
           <span
             key={p.key}
             title={`${p.label}: ${p.n}`}
-            style={{ width: `${(p.n / total) * 100}%`, opacity: 1 - i * 0.14 }}
-            className="block bg-brand transition-[width] duration-700 ease-out"
+            style={{ width: `${(p.n / total) * 100}%`, background: PURPOSE_RAMP[i % PURPOSE_RAMP.length] }}
+            className="block transition-[width] duration-700 ease-out"
           />
         ))}
       </div>
       <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2">
         {counts.map((p, i) => (
           <span key={p.key} className="flex items-center gap-2 text-xs">
-            <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-brand" style={{ opacity: 1 - i * 0.14 }} />
+            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: PURPOSE_RAMP[i % PURPOSE_RAMP.length] }} />
             <span className="font-medium text-ink">{p.label}</span>
             <span className="tabular-nums text-smoke">{p.n}</span>
           </span>

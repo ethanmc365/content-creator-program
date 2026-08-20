@@ -1,5 +1,5 @@
 import { airport, distanceKm, estimateMinutes, co2Kg } from './airports'
-import { AIRCRAFT } from './airlines'
+import { AIRCRAFT, airlineByName } from './airlines'
 import { timezoneFor, offsetMinutes } from './localTime'
 
 // EVERY NUMBER ON THE FLIGHT LOG, WORKED OUT IN ONE PLACE.
@@ -156,7 +156,16 @@ export function airlineLoyalty(list) {
     by.set(key, cur)
   }
   return [...by.values()]
-    .map((a) => ({ ...a, routes: a.routes.size, aircraft: a.aircraft.size }))
+    // The flight row stores the airline's NAME (that is what the chips write),
+    // so the code has to be looked back up - the loyalty list is where the tail
+    // mark is drawn, and a fin needs a code on it. An airline typed by hand
+    // that matches nothing in the table keeps its row and gets the neutral mark.
+    .map((a) => ({
+      ...a,
+      iata: airlineByName(a.name)?.iata ?? '',
+      routes: a.routes.size,
+      aircraft: a.aircraft.size,
+    }))
     .sort((a, b) => b.flights - a.flights || b.distance - a.distance)
 }
 
