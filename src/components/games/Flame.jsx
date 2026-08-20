@@ -21,6 +21,16 @@ import { cx } from '../../lib/utils'
 //   body, an inner tongue, and a white core. Each one smaller and hotter than
 //   the one outside it, which is what gives a flame its depth at any size.
 //
+//   AND THREE TONGUES, NOT TWO. Ethan: "it doesn't look like an actual flame,
+//   it should be more fiery and have 3 points like a flame that actually
+//   animates like a flame, not just 2." The old outline had a tall tip and one
+//   side notch, which is a leaf with a bite out of it. Every layer now has a
+//   tall centre tongue with a SHORTER one either side of it, separated by real
+//   valleys - and the side tongues are deliberately uneven in height, because
+//   two matching ones read as a fleur-de-lis rather than as fire. The layers
+//   run on four different clocks, so the three tips never peak together and
+//   the silhouette keeps changing shape.
+//
 //   FOUR CLOCKS THAT DO NOT DIVIDE INTO ONE ANOTHER. 1.9s, 1.25s, 0.8s and
 //   2.1s: the loop never visibly repeats, which is the whole difference
 //   between a fire and a looping animation of a fire. Layers moving on ONE
@@ -89,7 +99,7 @@ export default function Flame({ className = 'h-4 w-4', sparks = false }) {
       </defs>
       {/* ---- THE ENVELOPE. The whole outline, swaying slowest. ---- */}
       <path
-        d="M13.4 1.6c.7 3.1-1 4.7-2.5 6.3C9.1 9.8 7.4 11.6 7.4 14.4A7 7 0 0 0 21 15.1c0-3.4-1.9-5.6-3.6-7.7-.7 1.6-1.7 2.6-2.9 3.2.6-3-.2-5.9-1.1-9Z"
+        d="M12.6 1.2C14.1 4.6 14.4 7.6 15 10.6c1-1.2 2.4-2.6 3.3-4.2 1.3 2.8 2.5 6 2.5 9 0 4.6-3.9 7.4-8.7 7.4S3.4 20 3.4 15.4c0-2.8.9-5 2.2-7.2 1 1.6 2.1 3 3.2 4 .8-3.6 2.2-7.4 3.8-11Z"
         fill={`url(#${outer})`}
         className="animate-flame-body"
         style={FROM_BASE}
@@ -97,14 +107,14 @@ export default function Flame({ className = 'h-4 w-4', sparks = false }) {
       {/* ---- THE BODY. Inside the envelope, on its own phase, so the edge of
               the fire is never a single hard line. ---- */}
       <path
-        d="M13 3.9c.5 2.5-.8 3.9-2 5.2-1.3 1.4-2.7 2.8-2.7 5.1a5.7 5.7 0 0 0 11.4.3c0-2.8-1.5-4.6-2.9-6.3-.6 1.3-1.4 2.1-2.4 2.6.5-2.4-.2-4.7-1.4-6.9Z"
+        d="M12.6 4.4C13.8 7.2 14 9.4 14.5 11.6c.8-.9 1.8-2 2.5-3.2 1 2.2 1.9 4.6 1.9 7 0 3.6-3.1 5.8-6.8 5.8s-6.8-2.2-6.8-5.8c0-2.1.7-3.8 1.7-5.5.8 1.2 1.6 2.3 2.4 3.1.7-2.8 1.9-6 3.2-8.6Z"
         fill={`url(#${body})`}
         className="animate-flame-inner"
         style={FROM_BASE}
       />
       {/* ---- THE INNER TONGUE. Licks up through the body half again as fast. ---- */}
       <path
-        d="M13.1 8.2c.4 1.9-.7 2.9-1.5 3.8-1 1-1.9 1.9-1.9 3.6a4.1 4.1 0 0 0 8.2.2c0-2-1.3-3.3-2.2-4.7-.4.9-.9 1.5-1.6 1.9.3-1.6-.3-3.2-1-4.8Z"
+        d="M12.6 9C13.3 10.8 13.4 12.2 13.7 13.6c.5-.6 1.1-1.3 1.5-2 .7 1.4 1.2 2.8 1.2 4.2 0 2.2-1.9 3.6-4.2 3.6S8 18 8 15.8c0-1.3.4-2.4 1-3.5.5.8 1 1.5 1.5 2 .4-1.8 1.2-3.7 2.1-5.3Z"
         fill={`url(#${inner})`}
         className="animate-flame-core"
         style={FROM_BASE}
@@ -113,7 +123,7 @@ export default function Flame({ className = 'h-4 w-4', sparks = false }) {
               the picture. It is the smallest layer on purpose: an oversized
               white centre is a lightbulb. ---- */}
       <path
-        d="M13.6 13.4c.3.9-.4 1.5-.9 2.2-.3.5-.5 1-.5 1.6a2.1 2.1 0 0 0 4.2.1c0-1.1-.6-1.8-1.3-2.5-.5.6-1.1.3-1-.4.1-.4-.1-.7-.5-1Z"
+        d="M12.4 14.4c.5 1.2.4 2 .3 2.9.4-.3.8-.7 1.1-1.1.4.8.7 1.6.7 2.3 0 1.3-1 2.1-2.3 2.1s-2.3-.8-2.3-2.1c0-.8.3-1.5.8-2.2.3.4.6.8.9 1 .1-1 .4-2 .8-2.9Z"
         fill="#fffdf5"
         className="animate-flame-inner"
         style={{ ...FROM_BASE, animationDuration: '0.72s' }}

@@ -19,6 +19,18 @@ const HELP = {
   name: 'Ethan',
   role: 'Content Creator Community Lead',
   email: 'ethantryp.com@gmail.com',
+  // A REAL FACE, AND A STATIC ONE.
+  //
+  // This was `<Avatar name>` with no src, so the card offered help from a grey
+  // circle with an "E" in it. Ethan: "it should show my profile picture from
+  // the platform, not just E."
+  //
+  // It is a FILE in public/ rather than the live `profiles.photo_url` on
+  // purpose: this screen is what renders when the app has already failed, and
+  // half the time it renders there is no session to query with. An error screen
+  // that needs the thing that just broke is not an error screen. Copied from
+  // his own avatar; re-run the copy if he changes it.
+  photo: '/team/ethan.jpg',
 }
 
 function ContactCard({ open, onClose }) {
@@ -28,7 +40,7 @@ function ContactCard({ open, onClose }) {
     // been sent to, which is the last thing to do to somebody already stuck.
     <Modal open={open} onClose={onClose} title="Get a hand" sheet={false}>
       <div className="flex items-center gap-4">
-        <Avatar name={HELP.name} size="lg" />
+        <Avatar src={HELP.photo} name={HELP.name} size="lg" />
         <div className="min-w-0">
           <p className="text-lg font-semibold">{HELP.name}</p>
           <p className="text-sm text-smoke">{HELP.role}</p>
@@ -44,8 +56,8 @@ function ContactCard({ open, onClose }) {
       </div>
 
       <p className="mt-4 text-xs leading-relaxed text-smoke">
-        Copy the address and email from wherever you normally write. Say what you were doing when it
-        happened and roughly when, and you will get a reply.
+        Copy the email address and send me a message. Try to explain what you were doing or what you
+        clicked when the error happened. I'll get back to you as soon as possible.
       </p>
 
       <div className="mt-5 flex justify-end">
@@ -92,7 +104,7 @@ export function ErrorScreen({ onRetry, detail }) {
     <TrypPlaneScene
       z="z-40"
       title="Mayday, mayday"
-      subtitle="Something on our side just went wrong. Air traffic control has been told and a fix is on its way. Try again in a moment, and radio us in if you need a hand."
+      subtitle="Something on our side just went wrong. Air traffic control has been notified and a fix is on its way. Try again in a moment, and radio us in if you need more help."
     >
       <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
         <button

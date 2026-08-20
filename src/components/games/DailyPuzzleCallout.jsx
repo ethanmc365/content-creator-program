@@ -57,49 +57,45 @@ function PuzzleColumn({ puzzle, done, count, first }) {
     <Link
       to={`/game?daily=${puzzle.key}`}
       className={cx(
-        // THE COLUMN IS A STACK NOW, NOT A ROW.
+        // A ROW ON A PHONE, A COLUMN ON A DESKTOP.
         //
-        // Three across meant tile + title + count + button competing for a
-        // third of the card, and the title lost: `truncate` cut "Guess the
-        // Country" to "Guess the C..." and "Guess the language" to "Guess the
-        // l...". The owner: "I don't like how you can't read the title of the
-        // actual game, need to be able to read the title."
+        // The stacked-column layout was right for three-across and wrong for
+        // one-across: on mobile the grid collapses to a single column, so three
+        // centred stacks of tile-title-count-button became roughly half a
+        // screen of vertical space for three links. Ethan: "it's currently
+        // taking up way too much space for mobile... maybe one card but the 3
+        // games stacked beneath each other with play button to the right."
         //
-        // A row cannot be fixed by juggling widths - there are four things and
-        // room for two. Stacking them gives the title the full column width,
-        // which is enough for every one of the three at every breakpoint, and
-        // it also puts the tile, the name and the button on the axis people
-        // actually scan a card of options in.
-        'group flex flex-col items-center gap-2.5 px-4 py-5 text-center transition-colors duration-200 hover:bg-cloud/50',
+        // So below `sm` it is exactly that - name and count on the left, the
+        // button on the right, one line each. From `sm` up it goes back to the
+        // centred column, which is what reads correctly three-across.
+        'group flex items-center justify-between gap-3 px-4 py-3 transition-colors duration-200 hover:bg-cloud/50',
+        'sm:flex-col sm:items-center sm:justify-start sm:gap-2 sm:py-4 sm:text-center',
         !first && 'border-t border-gray-50 sm:border-l sm:border-t-0',
       )}
     >
-      {/* THE TILE RINGS GREEN WHEN IT HAS BEEN PLAYED.
-          The owner: "each game icon like the orange card with the magnifying
-          glass should be highlighted with a green around the edge to show when
-          it's been played, similarly how the play button turns green."
-          This is the one exception to the standing rule that nothing outside
-          the button may change with `done`, and it is his call. It also stays
-          inside the spirit of the rule that got the rule written: the TILE IS
-          STILL BRAND ORANGE. Nothing is recoloured - a ring is added around it,
-          which is the same language the Played button uses (green on the
-          outside of a shape that keeps its own fill). A row of three where one
-          has a green halo still reads as three of the same card. */}
-      <span
-        className={cx(
-          'flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand text-white shadow-card transition-all duration-200 group-hover:scale-110',
-          done && 'ring-2 ring-green-500 ring-offset-2 ring-offset-white',
-        )}
-      >
-        <Icon name={puzzle.icon} className="h-5 w-5" />
-      </span>
+      {/* THE PUZZLE ICONS ARE GONE, AND THAT IS WHAT MADE THE CARD SMALLER.
+          Ethan: "maybe it's just removing the icon... maybe just moving them
+          would actually make it better. Smaller, more concise."
+          He is right, and for a better reason than space: a magnifying glass
+          and a plane are decoration next to a name that already says "Guess the
+          Country" and "Flight Path". Dropping the 12x12 tile plus its gap takes
+          roughly 70px off the card's height on desktop and lets each column sit
+          on two tight lines.
 
-      <span className="w-full min-w-0">
+          It also settles a rule that had been argued three times. The tile used
+          to grow a green ring when the puzzle was played - Ethan: "remove the
+          green outline that appears around the orange card with icon when the
+          game is played, it doesn't look good, although keep the function that
+          the play button turns green." With no tile there is nothing left to
+          ring, and the standing rule is whole again: THE BUTTON IS THE ONLY
+          THING THAT TURNS GREEN. */}
+      <span className="min-w-0 flex-1 sm:w-full sm:flex-none">
         {/* `leading-tight` and NO truncate. Two of the three names wrap to two
             lines in a narrow column and that is fine - what is not fine is an
             ellipsis where the name should be. */}
         <span className="block text-sm font-semibold leading-tight text-ink">{puzzle.title}</span>
-        <span className="mt-1 block text-xs leading-tight text-smoke">
+        <span className="mt-0.5 block text-xs leading-tight text-smoke">
           {/* The count is the point, so it wins the line whenever there is one.
               "Nobody yet" is not a discouragement here, it is an opening. */}
           {count == null || count === 0
@@ -110,7 +106,8 @@ function PuzzleColumn({ puzzle, done, count, first }) {
 
       <span
         className={cx(
-          'mt-auto flex w-full max-w-[7rem] items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-bold transition-all duration-200',
+          'flex shrink-0 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-all duration-200',
+          'sm:mt-1 sm:w-full sm:max-w-[7rem] sm:py-2',
           done
             ? 'bg-green-50 text-green-700 ring-1 ring-inset ring-green-500/30'
             : 'bg-brand text-white shadow-card group-hover:scale-105',
@@ -158,7 +155,7 @@ export default function DailyPuzzleCallout({ className }) {
             // it. See components/games/Flame.
             <span className="inline-flex items-center gap-1 rounded-full bg-brand-tint px-2 py-0.5 text-[10px] font-bold text-brand">
               <Flame className="h-3.5 w-3.5" />
-              {streak} day{streak === 1 ? '' : 's'}
+              {streak} day streak
             </span>
           )}
           <Link to="/game" className="text-sm font-medium text-brand hover:underline">All games &rarr;</Link>
@@ -191,7 +188,7 @@ export default function DailyPuzzleCallout({ className }) {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-60 motion-reduce:hidden" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
             </span>
-            {allDone ? 'All three done. Nicely played.' : `${doneCount} of ${DAILY_PUZZLES.length} done today`}
+            {allDone ? 'All three done. Nicely played.' : `${doneCount} of ${DAILY_PUZZLES.length} played today`}
           </p>
           <p className="text-[11px] text-smoke">New puzzles in {nextIn}</p>
         </div>
