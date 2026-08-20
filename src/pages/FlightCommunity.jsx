@@ -12,6 +12,8 @@ import MapSkeleton from '../components/network/MapSkeleton'
 import { CountUp } from '../components/network/Motion'
 import { airport } from '../lib/airports'
 import { buildFlightStats } from '../lib/flightStats'
+import { aircraftTypeByName } from '../lib/airlines'
+import AircraftPhoto from '../components/network/AircraftPhoto'
 import { isoForCountryName } from '../lib/markets'
 import { cx } from '../lib/utils'
 
@@ -542,25 +544,62 @@ export default function FlightCommunity() {
                   Your aircraft collection &rarr;
                 </Link>
               </div>
-              <Reveal className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3" stagger={0.04}>
-                {fleet.slice(0, 12).map((a) => (
-                  <Link
-                    key={a.aircraft}
-                    to="/flights/aircraft"
-                    className="group flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-lift"
-                  >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand transition-transform duration-200 group-hover:scale-110">
-                      <Icon name="plane" className="h-4 w-4" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold">{a.aircraft}</span>
-                      <span className="block text-xs text-smoke">
-                        {a.creators} {Number(a.creators) === 1 ? 'creator has' : 'creators have'} flown it
+              {/* THE AIRCRAFT, AND THE PEOPLE WHO HAVE BEEN ON IT.
+                  Ethan: "it should show the visual image of the plane not an
+                  icon and it should show creator profiles as like they've flown
+                  it, like how rsvp would look."
+                  Both halves are the same point. A generic plane glyph beside
+                  the words "Airbus A320neo" says nothing the words did not, and
+                  the collection already ships a photograph of every type. And
+                  "2 creators have flown it" is trivia where two faces are an
+                  introduction - the same reason "others on your routes" names
+                  people instead of counting them. */}
+              <Reveal className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" stagger={0.04}>
+                {fleet.slice(0, 12).map((a) => {
+                  const type = aircraftTypeByName(a.aircraft)
+                  const faces = Array.isArray(a.faces) ? a.faces : []
+                  return (
+                    <div
+                      key={a.aircraft}
+                      className="group relative flex flex-col overflow-hidden rounded-card border border-gray-100 bg-white shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-lift"
+                    >
+                      {/* Stretched link UNDER the content, so a face on top of
+                          it can be its own target. Same pattern as the
+                          challenge board's past cards. */}
+                      <Link to="/flights/aircraft" className="absolute inset-0 z-0" aria-label={`${a.aircraft} in the collection`} />
+                      {/* ONE ASPECT RATIO FOR EVERY CARD. A row of photographs
+                          at their own proportions is a ragged grid. */}
+                      <span className="pointer-events-none relative z-10 block aspect-[16/7] w-full overflow-hidden bg-cloud">
+                        <AircraftPhoto typeKey={type?.key} type={type} />
                       </span>
-                    </span>
-                    <span className="shrink-0 text-sm font-bold tabular-nums text-brand">{a.flights}</span>
-                  </Link>
-                ))}
+                      <div className="pointer-events-none relative z-10 flex flex-1 flex-col px-4 py-3">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className="min-w-0 truncate text-sm font-semibold">{a.aircraft}</span>
+                          <span className="shrink-0 text-sm font-bold tabular-nums text-brand">{a.flights}</span>
+                        </div>
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className="pointer-events-auto flex -space-x-1.5">
+                            {faces.slice(0, 6).map((f) => (
+                              <Link
+                                key={f.id}
+                                to={`/creators/${f.id}`}
+                                title={f.name}
+                                className="transition-transform duration-150 hover:z-10 hover:scale-110"
+                              >
+                                <Avatar src={f.photo_url} name={f.name} size="xs" />
+                              </Link>
+                            ))}
+                          </span>
+                          <span className="text-xs text-smoke">
+                            {Number(a.creators) > 6
+                              ? `+${Number(a.creators) - 6} more`
+                              : `${a.creators} ${Number(a.creators) === 1 ? 'creator' : 'creators'}`}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
               </Reveal>
             </section>
           </Reveal>

@@ -138,6 +138,15 @@ export const AIRCRAFT = {
 
 export const aircraft = (key) => (AIRCRAFT[key] ? { key, ...AIRCRAFT[key] } : null)
 
+// A TYPE FROM THE NAME THE FORM WROTE.
+//
+// The aircraft chips store a NAME ("Airbus A320neo"), not a key, so anything
+// that wants the photograph or the silhouette has to map back. `aircraftSeen`
+// built this table inline; the community page needs the same answer, and two
+// copies of a lookup is two places for it to drift.
+const BY_NAME = new Map(Object.entries(AIRCRAFT).map(([key, a]) => [a.name.toLowerCase(), { key, ...a }]))
+export const aircraftTypeByName = (name) => BY_NAME.get(String(name || '').trim().toLowerCase()) || null
+
 // ---------------------------------------------------------------- airlines
 //
 // `bases` is where the airline actually starts and ends aircraft rotations, not

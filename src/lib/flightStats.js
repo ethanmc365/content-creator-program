@@ -1,5 +1,5 @@
 import { airport, distanceKm, estimateMinutes, co2Kg } from './airports'
-import { AIRCRAFT, airlineByName } from './airlines'
+import { airlineByName, aircraftTypeByName } from './airlines'
 import { timezoneFor, offsetMinutes } from './localTime'
 
 // EVERY NUMBER ON THE FLIGHT LOG, WORKED OUT IN ONE PLACE.
@@ -410,10 +410,7 @@ export function aircraftSeen(list) {
     if (f.airline?.trim()) cur.airlines.add(f.airline.trim())
     wanted.set(key, cur)
   }
-  const table = new Map(
-    Object.entries(AIRCRAFT).map(([key, a]) => [a.name.toLowerCase(), { key, ...a }]),
-  )
   return [...wanted.values()]
-    .map((a) => ({ ...a, airlines: [...a.airlines], type: table.get(a.name.toLowerCase()) || null }))
+    .map((a) => ({ ...a, airlines: [...a.airlines], type: aircraftTypeByName(a.name) }))
     .sort((a, b) => b.flights - a.flights || a.name.localeCompare(b.name))
 }
