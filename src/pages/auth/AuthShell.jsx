@@ -19,3 +19,20 @@ export default function AuthShell({ title, subtitle, children, footer }) {
     </div>
   )
 }
+
+// THE CAPTCHA, WHEN NOBODY IS SIGNING UP.
+//
+// The auth pages are rendered live inside the admin Testing Centre so the
+// public front door can be shown without leaving the app. A real Turnstile
+// widget there would call Cloudflare on every render of a demonstration, and a
+// solved token nobody submits is a token wasted. The demo swaps in this: same
+// space, same position in the form, obviously inert.
+export function DemoCaptcha() {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-dashed border-gray-200 bg-cloud/60 px-4 py-3.5">
+      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white text-[10px] font-bold text-smoke ring-1 ring-gray-200">CF</span>
+      <span className="text-xs text-smoke">Cloudflare Turnstile sits here on the live pages.</span>
+    </div>
+  )
+}
+

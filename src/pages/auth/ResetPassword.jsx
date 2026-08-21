@@ -6,7 +6,7 @@ import AuthShell from './AuthShell'
 
 // Step 2 of the reset flow: the email link opens this page with a recovery
 // session already active, so we just need the new password.
-export default function ResetPassword() {
+export default function ResetPassword({ demo = false }) {
   const { updatePassword } = useAuth()
   const navigate = useNavigate()
   const [password, setPassword] = useState('')
@@ -19,6 +19,7 @@ export default function ResetPassword() {
     setError('')
     if (password.length < 8) return setError('Password must be at least 8 characters.')
     if (password !== confirm) return setError("Passwords don't match.")
+    if (demo) { setError('Sandbox: no password was changed.'); return }
     setBusy(true)
     const { error } = await updatePassword(password)
     setBusy(false)

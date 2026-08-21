@@ -96,6 +96,10 @@ const AdminWhatsNew = lazy(() => import('./pages/admin/AdminWhatsNew'))
 const AdminFeedback = lazy(() => import('./pages/admin/AdminFeedback'))
 const AdminReports = lazy(() => import('./pages/admin/AdminReports'))
 const AdminNotes = lazy(() => import('./pages/admin/AdminNotes'))
+// The Testing Centre: every feature and every automation, demonstrated over
+// invented people. Admin only (it sits under AdminRoute below) and lazy like
+// the rest of /admin, so no creator ever downloads it. See TestingCentre.jsx.
+const TestingCentre = lazy(() => import('./pages/admin/TestingCentre'))
 
 function LazyFallback() {
   return (
@@ -231,6 +235,8 @@ export default function App() {
             <Route path="/admin/feedback" element={<AdminFeedback />} />
             <Route path="/admin/reports" element={<AdminReports />} />
             <Route path="/admin/notes" element={<AdminNotes />} />
+            <Route path="/admin/testing" element={<TestingCentre />} />
+            <Route path="/admin/testing/:lab" element={<TestingCentre />} />
             {/* Invoices now live inside the Rewards dashboard */}
             <Route path="/admin/invoices" element={<Navigate to="/admin/rewards?tab=invoices" replace />} />
           </Route>

@@ -27,7 +27,10 @@ function prizePotLabel(structure) {
 // graceful placeholders are used until the database is connected.
 const TRYP_URL = 'https://www.tryp.com'
 
-export default function Landing() {
+// `demo` keeps this page on screen for a signed-in admin, so the public front
+// page can be shown inside the Testing Centre. Without it the guard below does
+// exactly what it should and sends them to their home page.
+export default function Landing({ demo = false }) {
   const { user, loading } = useAuth()
   const [stats, setStats] = useState({ creators: 40, challenges: 6, prizes: 500 })
   const [featured, setFeatured] = useState([])
@@ -56,7 +59,7 @@ export default function Landing() {
   }, [])
 
   // Already signed in? Straight to the app.
-  if (!loading && user) return <Navigate to="/home" replace />
+  if (!demo && !loading && user) return <Navigate to="/home" replace />
 
   return (
     <div className="bg-white">

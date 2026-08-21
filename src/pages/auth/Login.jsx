@@ -3,9 +3,10 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { Spinner } from '../../components/ui'
 import Turnstile from '../../components/Turnstile'
-import AuthShell from './AuthShell'
+import AuthShell, { DemoCaptcha } from './AuthShell'
 
-export default function Login() {
+// `demo` renders this page inertly for the admin Testing Centre. See Signup.
+export default function Login({ demo = false }) {
   const { signIn, user } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
@@ -22,12 +23,14 @@ export default function Login() {
   // the "have to enter my details twice" bug. Waiting for `user` to appear
   // removes the window entirely: we only leave /login once we're truly signed in.
   useEffect(() => {
+    if (demo) return
     if (user) navigate('/home', { replace: true })
-  }, [user, navigate])
+  }, [user, navigate, demo])
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+    if (demo) { setError('Sandbox: nobody was signed in.'); return }
     // Read straight from the fields too: browser autofill can populate the DOM
     // without firing React's onChange, which would otherwise submit blank creds
     // on the first try (the "enter it twice" bug).
@@ -67,7 +70,7 @@ export default function Login() {
 
         {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
 
-        <Turnstile key={captchaKey} onToken={setCaptchaToken} />
+        {demo ? <DemoCaptcha /> : <Turnstile key={captchaKey} onToken={setCaptchaToken} />}
 
         <button type="submit" disabled={busy || !captchaToken} className="btn-primary w-full">
           {busy ? <Spinner /> : captchaToken ? 'Log in' : 'Verifying…'}

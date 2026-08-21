@@ -4,10 +4,13 @@ import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { Spinner } from '../../components/ui'
 import Turnstile from '../../components/Turnstile'
-import AuthShell from './AuthShell'
+import AuthShell, { DemoCaptcha } from './AuthShell'
 
 // Public creator signup. New accounts are creators by default - // admins are promoted later (see README → "Making an account an admin").
-export default function Signup() {
+// `demo` renders this page inertly for the admin Testing Centre: no redirect
+// when an admin (who is already signed in) looks at it, no account created, and
+// a placeholder where the captcha goes. See pages/admin/testing/SignupLab.
+export default function Signup({ demo = false }) {
   const { signUp, user } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -24,26 +27,28 @@ export default function Signup() {
   // Count one click per browser per referral code, so referrers can see their
   // invite-link funnel (clicks → signed up → approved) on the Refer page.
   useEffect(() => {
-    if (!ref) return
+    if (!ref || demo) return
     const key = `tryp_ref_click_${ref}`
     try {
       if (localStorage.getItem(key)) return
       localStorage.setItem(key, '1')
     } catch { /* private mode: still count the click */ }
     supabase.rpc('increment_referral_click', { code: ref }).then(() => {})
-  }, [ref])
+  }, [ref, demo])
 
   // Navigate declaratively once the session is really in context, for the same
   // reason as Login: navigating straight after signUp() raced the auth state and
   // could bounce back through /login. Onboarding is guarded, so we only move once
   // `user` exists (email confirmation is off, so a session always follows signup).
   useEffect(() => {
+    if (demo) return
     if (user) navigate('/onboarding', { replace: true })
-  }, [user, navigate])
+  }, [user, navigate, demo])
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+    if (demo) { setError('Sandbox: no account was created.'); return }
     // Read from the fields too (browser autofill may not fire React onChange).
     const field = (id) => e.target.querySelector('#' + id)?.value
     const nameVal = (field('name') || name).trim()
@@ -122,7 +127,7 @@ export default function Signup() {
           </span>
         </label>
 
-        <Turnstile key={captchaKey} onToken={setCaptchaToken} />
+        {demo ? <DemoCaptcha /> : <Turnstile key={captchaKey} onToken={setCaptchaToken} />}
 
         <button type="submit" disabled={busy || !captchaToken || !agreed} className="btn-primary w-full">
           {busy ? <Spinner /> : captchaToken ? 'Create account' : 'Verifying…'}

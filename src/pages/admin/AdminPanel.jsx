@@ -383,6 +383,40 @@ export default function AdminPanel() {
           </Reveal>
         )}
 
+
+        {/* ---------- The Testing Centre ----------
+            A DEMO IS NOT A THING YOU CAN DO TO A REAL CREATOR. Most of what
+            this platform does is automatic - an invoice raises itself off a
+            cash reward, a challenge closes itself at local midnight, a birthday
+            card goes out at seven in the morning - and until now the only way
+            to show any of that to somebody was to let it happen to a real
+            person, with their real bank details and their real inbox. The
+            Testing Centre runs all of it over people who do not exist. It gets
+            a band of its own rather than a tile in a grid because it is the
+            door you open in front of an audience. */}
+        <Reveal from="down">
+          <Link
+            to="/admin/testing"
+            className="flex items-center gap-4 rounded-card border border-gray-200 bg-white p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-lift sm:p-6"
+          >
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand-tint text-brand">
+              <Icon name="joystick" className="h-6 w-6" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex flex-wrap items-center gap-2">
+                <span className="text-lg font-bold">Testing Centre</span>
+                <span className="rounded-full bg-brand-tint px-2 py-0.5 text-[10px] font-semibold text-brand">Admins only</span>
+              </span>
+              <span className="mt-1 block text-sm leading-relaxed text-smoke">
+                Every feature and every automation, running on invented people. Raise an invoice and
+                download the PDF, walk the whole onboarding, close a challenge and publish its podium,
+                and dry run the scheduled jobs. Nothing is written and no creator is involved.
+              </span>
+            </span>
+            <Icon name="chevronRight" className="hidden h-5 w-5 shrink-0 text-gray-300 sm:block" />
+          </Link>
+        </Reveal>
+
         {/* ---------- Your markets ----------
             THE MISSING DOOR. Per-market settings have existed at /manage/:slug
             for a while and nothing anywhere linked to them, so running a market

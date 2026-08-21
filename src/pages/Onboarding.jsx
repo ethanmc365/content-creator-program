@@ -15,17 +15,37 @@ import { cx } from '../lib/utils'
 
 // First-login onboarding: a warm, step-by-step profile builder.
 // Steps: welcome → photo & basics → socials → country map → languages → how it works.
-const STEPS = ['Welcome', 'About you', 'Your socials', 'Travel photos', 'Your map', 'Languages', 'Your market', 'How it works']
+export const STEPS = ['Welcome', 'About you', 'Your socials', 'Travel photos', 'Your map', 'Languages', 'Your market', 'How it works']
 
-export default function Onboarding() {
-  const { user, profile, refreshProfile, signOut } = useAuth()
+/**
+ * `demo` puts this component in DRY RUN, for the admin Testing Centre.
+ *
+ * The reason it is a prop on the real component rather than a copy of it: the
+ * only onboarding worth showing anybody is the one creators actually get, and a
+ * second implementation built for demonstrations starts drifting from the
+ * product the day after it is written. So the same JSX runs, prefilled with an
+ * invented applicant, with three things swapped out:
+ *
+ *   - the two steps that would upload a file into the ADMIN'S own account
+ *     (the profile photo and the travel gallery) draw a fixed sample instead,
+ *   - `finish` writes nothing at all, and
+ *   - the step can be driven from outside, so the lab can offer a step picker.
+ *
+ * demo = { profile, draft, contact, pending, step, onStep, onFinish }
+ */
+export default function Onboarding({ demo = null }) {
+  const auth = useAuth()
+  const { user, refreshProfile, signOut } = auth
+  const profile = demo?.profile || auth.profile
   const navigate = useNavigate()
-  const [step, setStep] = useState(0)
+  const [innerStep, setInnerStep] = useState(0)
+  const step = demo?.step ?? innerStep
+  const setStep = demo?.onStep ?? setInnerStep
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('') // shown in orange when Continue is pressed with missing fields
 
   // Local draft of the profile - saved to Supabase when finishing.
-  const [draft, setDraft] = useState({
+  const [draft, setDraft] = useState(() => demo?.draft || {
     photo_url: profile?.photo_url || '',
     dob: profile?.dob || null,
     city: profile?.city || '',
@@ -41,7 +61,7 @@ export default function Onboarding() {
   })
 
   // Phone is saved to the private, admin-only creator_private table, not profiles.
-  const [contact, setContact] = useState({ phone: '', phone_country: '' })
+  const [contact, setContact] = useState(() => demo?.contact || { phone: '', phone_country: '' })
 
   // Your market. Everyone lands in the worldwide network automatically (a DB
   // trigger does it at signup), and then picks the market they work in. Those
@@ -75,7 +95,7 @@ export default function Onboarding() {
 
   // New creators are 'pending' until an admin approves them, so they cannot
   // post yet and land on the review screen instead of the chat.
-  const pending = profile?.status === 'pending'
+  const pending = demo ? !!demo.pending : profile?.status === 'pending'
 
   // Required-field gating so we never get blank profiles. Travel photos and the
   // favourite quote stay optional; everything else must be filled to continue.
@@ -109,6 +129,12 @@ export default function Onboarding() {
 
   async function finish(sayHello) {
     setBusy(true)
+    // DRY RUN. Nothing below this line is allowed to run in the Testing Centre:
+    // it would write to the signed-in ADMIN'S profile, not to a sandbox row.
+    if (demo) {
+      setTimeout(() => { setBusy(false); demo.onFinish?.(sayHello) }, 1400)
+      return
+    }
     // Geocode the town so the new creator shows up on the creator map.
     //
     // country_code is derived here rather than asked for. `country` is free
@@ -237,7 +263,9 @@ export default function Onboarding() {
               </div>
               <div>
                 <p className="label text-center">Profile photo <span className="text-brand">*</span></p>
-                <AvatarUpload photoUrl={draft.photo_url} name={profile?.name} onUploaded={(url) => set({ photo_url: url })} />
+                {demo
+                  ? <DemoAvatar name={profile?.name} />
+                  : <AvatarUpload photoUrl={draft.photo_url} name={profile?.name} onUploaded={(url) => set({ photo_url: url })} />}
               </div>
               <DobField value={draft.dob} onChange={(dob) => set({ dob })} required />
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -281,7 +309,7 @@ export default function Onboarding() {
                 <h2 className="text-2xl font-bold">Add your travel photos</h2>
                 <p className="mt-2 text-sm text-smoke">Optional. Share up to 10 shots from your trips, or just press Continue, you can always add them later from your profile.</p>
               </div>
-              <TravelGallery creatorId={user.id} editable />
+              {demo ? <DemoGallery /> : <TravelGallery creatorId={user.id} editable />}
             </div>
           )}
 
@@ -446,6 +474,41 @@ export default function Onboarding() {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+// The two controls that would write into the signed-in admin's own account,
+// drawn as samples. They are not interactive on purpose: an upload button that
+// does nothing when pressed is worse in a demonstration than an obvious
+// placeholder, because the audience spends the next minute wondering whether it
+// is broken.
+function DemoAvatar({ name }) {
+  const initials = String(name || 'A R').split(' ').map((w) => w[0]).filter(Boolean).slice(0, 2).join('')
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <div className="flex h-28 w-28 items-center justify-center rounded-full bg-brand-tint text-3xl font-semibold text-brand ring-2 ring-white">
+        {initials}
+      </div>
+      <p className="text-xs text-smoke">Sample photo. Uploading is switched off in the Testing Centre.</p>
+    </div>
+  )
+}
+
+function DemoGallery() {
+  const shots = ['Lisbon, rooftop', 'Tromsø, blue hour', 'Seville, morning', 'Dolomites, day two', 'Marrakech, souk', 'Skye, the long road']
+  return (
+    <div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {shots.map((s, i) => (
+          <div key={s} className="flex aspect-square flex-col items-center justify-center gap-2 rounded-xl bg-cloud px-3 text-center">
+            <Icon name="image" className="h-6 w-6 text-brand/50" />
+            <span className="text-[11px] leading-tight text-smoke">{s}</span>
+            <span className="text-[10px] text-gray-400">Photo {i + 1}</span>
+          </div>
+        ))}
+      </div>
+      <p className="mt-3 text-center text-xs text-smoke">Sample gallery. Uploading is switched off in the Testing Centre.</p>
     </div>
   )
 }
