@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { sendConnectionRequest } from '../lib/connections'
+import { Modal } from './ui'
 
 // LinkedIn-style connect control. `relation` is { relation, rowId } | null:
 //   null                -> "Connect"        (sends a request -> pending_sent)
@@ -7,9 +9,44 @@ import { supabase } from '../lib/supabase'
 //   pending_received    -> "Accept request" (tap to accept -> connected)
 //   connected           -> "Connected"      (tap to disconnect)
 // onChange(newRelationOrNull) lets the parent keep its list in sync.
-export default function ConnectButton({ myId, targetId, relation, onChange, className = 'flex-1 !py-2 text-xs' }) {
+export default function ConnectButton({
+  myId, targetId, relation, onChange,
+  className = 'flex-1 !py-2 text-xs',
+  // The dialog needs a name to write "Say hello to Maddie". A caller that has
+  // one passes it; without it the copy falls back to something that reads fine
+  // with nothing in the slot.
+  targetName = '',
+}) {
   const [busy, setBusy] = useState(false)
+  const [asking, setAsking] = useState(false)
+  const [note, setNote] = useState('')
   const rel = relation?.relation || 'none'
+
+  useEffect(() => { if (asking) setNote('') }, [asking])
+
+  // WHY CONNECTING IS TWO TAPS NOW.
+  //
+  // Ethan: "say why you want to connect, an optional note whenever you request
+  // to connect with someone. Maybe you say you love their travel photos or you
+  // want to learn more about the country they've been to. You can just write in
+  // the box or you can skip it, it's optional, just connect with them."
+  //
+  // The cost is one extra tap on a control that used to be instant, and it buys
+  // the thing that makes a request land: a stranger's connection request with
+  // nothing attached is a notification you deal with, and one that says "I loved
+  // your Lisbon video" is a conversation. SKIPPING IS ONE TAP AND IS NOT
+  // BURIED - "Just connect" sits next to "Send", same size, no penalty.
+  //
+  // The note is private to the two of you and lives in its own table; see
+  // lib/connections and migration 107 for why it cannot be a column here.
+  async function confirmSend(withNote) {
+    if (busy) return
+    setBusy(true)
+    const id = await sendConnectionRequest(myId, targetId, withNote ? note : '')
+    setBusy(false)
+    setAsking(false)
+    if (id) onChange?.({ relation: 'pending_sent', rowId: id })
+  }
 
   async function act(e) {
     e.preventDefault()
@@ -17,12 +54,12 @@ export default function ConnectButton({ myId, targetId, relation, onChange, clas
     if (busy) return
     setBusy(true)
     if (rel === 'none') {
-      const { data } = await supabase
-        .from('connections')
-        .insert({ creator_id: myId, connected_creator_id: targetId })
-        .select('id')
-        .single()
-      if (data) onChange?.({ relation: 'pending_sent', rowId: data.id })
+      // NOT SENT YET. Opening the note dialog IS the action; sending happens in
+      // `confirmSend` below. See the note above the dialog for why this became
+      // two steps instead of one.
+      setBusy(false)
+      setAsking(true)
+      return
     } else if (rel === 'pending_received') {
       await supabase.from('connections').update({ status: 'accepted' }).eq('id', relation.rowId)
       onChange?.({ relation: 'connected', rowId: relation.rowId })
@@ -58,7 +95,10 @@ export default function ConnectButton({ myId, targetId, relation, onChange, clas
   }[rel]
   const title = rel === 'pending_sent' ? 'Cancel request' : rel === 'connected' ? 'Disconnect' : ''
 
+  const first = (targetName || '').trim().split(' ')[0]
+
   return (
+    <>
     <button
       onClick={act}
       disabled={busy}
@@ -72,5 +112,48 @@ export default function ConnectButton({ myId, targetId, relation, onChange, clas
       )}
       {label}
     </button>
+
+    {/* Stopping propagation on the wrapper: this control is routinely rendered
+        inside a card that is itself a link to the profile, and a click landing
+        on the dialog must not also navigate away from it. */}
+    <span onClick={(e) => { e.preventDefault(); e.stopPropagation() }}>
+      <Modal open={asking} onClose={() => setAsking(false)} title={first ? `Connect with ${first}` : 'Send a connection request'}>
+        <div className="space-y-5">
+          <p className="text-sm text-smoke">
+            Add a line about why, if you like. It is the difference between a
+            request somebody accepts and one they think about.
+          </p>
+          <div>
+            <label htmlFor="connect-note" className="label">
+              Your note <span className="font-normal text-smoke">(optional)</span>
+            </label>
+            <textarea
+              id="connect-note"
+              rows={3}
+              maxLength={300}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder={first
+                ? `I loved your video from Lisbon, ${first}. I am heading there in March.`
+                : 'I loved your last video. I am heading there in March.'}
+              className="input w-full resize-none"
+              autoFocus
+            />
+            <p className="mt-1 text-right text-[11px] text-smoke tabular-nums">{note.length}/300</p>
+          </div>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button type="button" onClick={() => confirmSend(false)} disabled={busy}
+              className="btn-ghost w-full justify-center sm:w-auto">
+              Just connect
+            </button>
+            <button type="button" onClick={() => confirmSend(true)} disabled={busy || !note.trim()}
+              className="btn-primary w-full justify-center disabled:opacity-50 sm:w-auto">
+              {busy ? 'Sending…' : 'Send with note'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+    </span>
+    </>
   )
 }

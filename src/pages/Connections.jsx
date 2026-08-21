@@ -173,6 +173,23 @@ export default function Connections() {
       .filter((r) => r.person)
       .sort((a, b) => new Date(b.at) - new Date(a.at))
 
+    // THE NOTE THEY SENT WITH IT, WHICH IS THE WHOLE REASON TO ASK FOR ONE.
+    //
+    // A note that is written and never shown is a form field. This is where it
+    // is read: on the card where you decide whether to accept, which is the
+    // moment it exists to influence. One query for all pending requests rather
+    // than one per card - and RLS does the security, so this cannot return a
+    // note belonging to somebody else's request even if the ids were wrong.
+    const noteBy = new Map()
+    if (requests.length) {
+      const { data: notes } = await supabase
+        .from('connection_notes')
+        .select('connection_id, body')
+        .in('connection_id', requests.map((r) => r.id))
+      for (const n of notes || []) noteBy.set(n.connection_id, n.body)
+    }
+    for (const r of requests) r.note = noteBy.get(r.id) || null
+
     const connections = [...mine].map((id) => byId.get(id)).filter(Boolean)
 
     // My markets, and everyone else's, for the strongest non-social reason.
@@ -348,7 +365,9 @@ export default function Connections() {
                 person={row.person}
                 tone="accent"
                 mutuals={d.mutualsWith(row.person.id)}
-                subtitle={row.person.bio || presenceLabel(row.person.last_seen_at) || 'Wants to connect'}
+                subtitle={row.note
+                  ? `“${row.note}”`
+                  : row.person.bio || presenceLabel(row.person.last_seen_at) || 'Wants to connect'}
                 right={
                   <>
                     <button onClick={() => accept(row)} className="btn-primary !py-2 !px-4 text-xs">Accept</button>

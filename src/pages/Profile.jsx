@@ -9,8 +9,9 @@ import VideoThumb from '../components/VideoThumb'
 import MilestoneSnippet from '../components/network/MilestoneSnippet'
 import ProfileFlights from '../components/network/ProfileFlights'
 import ConnectButton from '../components/ConnectButton'
+import ReportCreator from '../components/ReportCreator'
 import LocalTime from '../components/LocalTime'
-import { loadRelationship, mutualConnections } from '../lib/connections'
+import { loadRelationship, mutualCreators } from '../lib/connections'
 import { openConversation } from '../lib/dm'
 import { confirm, notice } from '../lib/confirm'
 import { downloadShareCard } from '../lib/shareCard'
@@ -36,7 +37,8 @@ export default function Profile() {
   const [relation, setRelation] = useState(null)
   const [trips, setTrips] = useState([])
   const [todayStr] = useState(() => format(new Date(), 'yyyy-MM-dd'))
-  const [mutualCount, setMutualCount] = useState(0)
+  const [mutual, setMutual] = useState({ people: [], total: 0 })
+  const [reporting, setReporting] = useState(false)
   const [loading, setLoading] = useState(true)
   // Private contact details (email + phone), only fetched for admin viewers.
   const [contact, setContact] = useState(null)
@@ -118,9 +120,9 @@ export default function Profile() {
 
   // Mutual connections (people you both know), shown on other people's profiles.
   useEffect(() => {
-    if (isMe || !user?.id) { setMutualCount(0); return }
+    if (isMe || !user?.id) { setMutual({ people: [], total: 0 }); return }
     let cancelled = false
-    mutualConnections(user.id, id).then((n) => { if (!cancelled) setMutualCount(n) })
+    mutualCreators(user.id, id).then((m) => { if (!cancelled) setMutual(m) })
     return () => { cancelled = true }
   }, [id, user?.id, isMe])
 
@@ -222,11 +224,32 @@ export default function Profile() {
               </a>
             ))}
           </div>
-          {!isMe && mutualCount > 0 && (
-            <p className="mt-3 flex items-center justify-center gap-1.5 text-xs font-medium text-smoke sm:justify-start">
-              <Icon name="users" className="h-4 w-4 text-brand" />
-              {mutualCount} mutual connection{mutualCount === 1 ? '' : 's'}
-            </p>
+          {/* MUTUALS, AS FACES. It was a count: "3 mutual connections". A number
+              answers "do we overlap"; the faces answer "should I say hello",
+              which is the question somebody is actually asking on a profile -
+              and in a community of 45 the specific people are recognisable, so
+              the overlap is the introduction. Ethan: "mutual connections showing
+              up on a profile, so it shows just connected with who kind of."
+              Overlapped avatars rather than a row: at four or five it stays one
+              object the width of a sentence, and the names are on hover. */}
+          {!isMe && mutual.total > 0 && (
+            <Link
+              to="/connections"
+              className="mt-3 flex items-center justify-center gap-2 text-xs font-medium text-smoke transition-colors hover:text-brand sm:justify-start"
+            >
+              <span className="flex -space-x-2">
+                {mutual.people.slice(0, 5).map((m) => (
+                  <span key={m.id} title={m.name} className="rounded-full ring-2 ring-white">
+                    <Avatar src={m.photo_url} name={m.name} size="xs" />
+                  </span>
+                ))}
+              </span>
+              <span>
+                {mutual.total === 1 && mutual.people[0]
+                  ? `${mutual.people[0].name.split(' ')[0]} is a mutual connection`
+                  : `${mutual.total} mutual connections`}
+              </span>
+            </Link>
           )}
         </div>
         <div className="flex shrink-0 flex-col items-stretch gap-3">
@@ -248,10 +271,28 @@ export default function Profile() {
                   targetId={id}
                   relation={relation}
                   onChange={setRelation}
+                  targetName={creator?.name}
                   className="!py-2.5"
                 />
                 <button onClick={startMessage} className="btn-secondary">Message</button>
               </div>
+              {/* REPORTING IS A QUIET CONTROL AND SHOULD LOOK LIKE ONE.
+                  It sits under the two things you actually came here to do, in
+                  the smallest type on the card, because a prominent Report
+                  button on every profile changes what a profile FEELS like -
+                  it suggests the community needs policing. It has to be
+                  findable, not offered. Admins do not see it: they have the
+                  reports queue, and reporting somebody to yourself is a loop. */}
+              {!viewerIsAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setReporting(true)}
+                  className="self-center text-[11px] font-medium text-smoke transition-colors hover:text-red-600 sm:self-end"
+                >
+                  Report this creator
+                </button>
+              )}
+
               {/* Approve / decline right here for application profiles, so admins
                   don't have to bounce back to the applications list. */}
               {isApplication && (
@@ -477,6 +518,12 @@ export default function Profile() {
         )}
       </section>
       )}
+
+      {/* Mounted at the page root rather than beside the button: Modal portals
+          to the body anyway, and keeping it out of the header section means the
+          header's flex layout never has to account for a child that renders
+          nothing 99% of the time. */}
+      <ReportCreator open={reporting} onClose={() => setReporting(false)} creator={creator} />
     </div>
   )
 }
