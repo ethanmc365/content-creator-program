@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from 'react-simple-maps'
+import { loadWorldAirports, tierAt, dotRadius } from '../../lib/worldAirports'
 import { geoEqualEarth } from 'd3-geo'
 import { loadMapFeatures } from '../../lib/mapCountries'
 import { countryKey } from '../../lib/countryFacts'
@@ -209,6 +210,87 @@ const Countries = memo(function Countries({ features, land, separator, visited, 
     </Geographies>
   )
 })
+
+// EVERY AIRPORT IN THE WORLD, UNDERNEATH EVERYTHING ELSE.
+//
+// The rules for how many and how big are in lib/worldAirports and the argument
+// for them is there too. What is here is the drawing, and the two things that
+// make six thousand of anything survive contact with React.
+//
+// PROJECT ONCE, NOT PER RENDER. The projection is module-level and fixed - the
+// zoom and pan are a transform on the group, not a new projection - so every
+// airport's position in projection units is computed on the frame the data
+// lands and never again. Doing it inside the render was 6,074 trigonometric
+// projections per pan frame.
+//
+// CULL TO THE VIEWPORT. Tier alone is not enough: zoomed into Norway at z=12
+// the tier filter still admits every tier-3 field on Earth, and 3,400 dots
+// drawn 40 screens away cost exactly as much as 3,400 dots you can see. The
+// visible box in projection units is the frame divided by the zoom, centred on
+// wherever the map has been panned to, and it is cheap to test a point against.
+//
+// NOT INTERACTIVE, AND THAT IS DELIBERATE. `pointer-events: none` on the whole
+// layer. These are scenery; the things you can press on this map are your own
+// routes and your own airports, which are drawn on top by the caller. Six
+// thousand hit targets underneath them would make the map you actually use
+// harder to press, to no benefit.
+function WorldAirports({ zoom, center }) {
+  const [all, setAll] = useState(null)
+
+  useEffect(() => {
+    let alive = true
+    loadWorldAirports().then((rows) => { if (alive) setAll(rows) }).catch(() => {})
+    return () => { alive = false }
+  }, [])
+
+  const placed = useMemo(() => {
+    if (!all) return []
+    const out = []
+    for (const a of all) {
+      const p = projection([a.lng, a.lat])
+      // `projection()` returns null for a point it cannot place. See the note
+      // on arcFor: an unguarded null here is a dot at the viewBox origin.
+      if (!p || !Number.isFinite(p[0]) || !Number.isFinite(p[1])) continue
+      out.push({ iata: a.iata, tier: a.tier, x: p[0], y: p[1] })
+    }
+    // Deepest tier first so the hubs paint last and sit on top where two
+    // airports share a pixel.
+    out.sort((a, b) => b.tier - a.tier)
+    return out
+  }, [all])
+
+  const shown = useMemo(() => {
+    if (!placed.length) return []
+    const deepest = tierAt(zoom)
+    const c = projection(center) || [WIDTH / 2, HEIGHT / 2]
+    // A margin of one dot radius, so a marker whose centre is just outside the
+    // frame does not pop as it crosses the edge.
+    const halfW = WIDTH / (2 * zoom) + 4
+    const halfH = HEIGHT / (2 * zoom) + 4
+    return placed.filter((a) => a.tier <= deepest
+      && Math.abs(a.x - c[0]) <= halfW && Math.abs(a.y - c[1]) <= halfH)
+  }, [placed, zoom, center])
+
+  if (!shown.length) return null
+  return (
+    <g style={{ pointerEvents: 'none' }} aria-hidden>
+      {shown.map((a) => (
+        <circle
+          key={a.iata}
+          cx={a.x}
+          cy={a.y}
+          r={dotRadius(a.tier, zoom)}
+          fill={BRAND_LIGHT}
+          // Light on the land, and it has to be light: this is a layer you read
+          // THROUGH to the routes above it. A tier-3 airstrip is fainter again,
+          // which does the same job as the size difference and survives at a
+          // radius where a size difference is under a pixel.
+          opacity={a.tier === 0 ? 0.62 : a.tier === 3 ? 0.3 : 0.44}
+        />
+      ))}
+    </g>
+  )
+}
 
 function FlightMap({ routes = [], airports = [] }) {
   const dark = useIsDark()
@@ -448,6 +530,15 @@ function FlightMap({ routes = [], airports = [] }) {
         />
 
         <g className={arrived ? undefined : 'map-arrive-overlay'}>
+
+        {/* EVERY AIRPORT IN THE WORLD, FIRST IN THE GROUP SO IT IS LAST IN THE
+            STACK. SVG paints in document order, so this has to be drawn before
+            the routes or six thousand dots sit on top of the thing the map is
+            actually about. `liveZoom` and not `position.zoom`, for the reason
+            in the note above: during a zoom gesture the state lags the
+            transform, and a marker sized from the stale value is visibly the
+            wrong size until the gesture ends. */}
+        <WorldAirports zoom={liveZoom} center={position.coordinates} />
 
         {/* THE ROUTES DRAW THEMSELVES IN.
             `stroke-dasharray` set to the path's own length with the offset
@@ -714,18 +805,29 @@ function FlightMap({ routes = [], airports = [] }) {
   }
 
   return (
-    <div className="relative w-full overflow-hidden rounded-card bg-cloud/60">
-      {controls}
-      {map}
-      {card}
-      {countryCard}
-      {hint}
-      {routes.length === 0 && (
-        <p className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-[11px] text-smoke">
-          Log a flight and it will appear here.
-        </p>
-      )}
-    </div>
+    <>
+      <div className="relative w-full overflow-hidden rounded-card bg-cloud/60">
+        {controls}
+        {map}
+        {card}
+        {countryCard}
+        {hint}
+        {routes.length === 0 && (
+          <p className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-[11px] text-smoke">
+            Log a flight and it will appear here.
+          </p>
+        )}
+      </div>
+      {/* THE LICENCE, WHICH IS NOT OPTIONAL. The six thousand faint dots are
+          OpenFlights data under the Open Database Licence, and ODbL requires
+          attribution wherever the data is used. The aircraft collection carries
+          its photo credits for the same reason. Outside the map box rather than
+          floating on it: a legal notice that overlaps the thing it is about is
+          a notice nobody can read and a map somebody has to work around. */}
+      <p className="mt-2 text-right text-[10px] leading-tight text-smoke/70">
+        Airport locations from OpenFlights, Open Database Licence
+      </p>
+    </>
   )
 }
 
