@@ -947,3 +947,20 @@ html[data-reduce-motion] *::after {
 .recharts-wrapper *:focus {
   outline: none !important;
 }
+
+/* THE "HERE RIGHT NOW" MARKER ON A PROFILE MAP.
+   Only drawn while somebody is actually travelling - see WorldMap. A ring that
+   pulses on every profile is decoration; one that pulses only when there is a
+   trip on is information you can read across the room. */
+@keyframes profile-here-pulse {
+  0%   { transform: scale(0.7); opacity: 0.45; }
+  70%  { transform: scale(1.6); opacity: 0; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+.profile-here-pulse {
+  transform-origin: center;
+  animation: profile-here-pulse 2.4s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .profile-here-pulse { animation: none; opacity: 0.3; }
+}

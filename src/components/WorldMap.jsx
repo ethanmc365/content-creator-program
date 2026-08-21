@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useState } from 'react'
-import { ComposableMap, Geographies, Geography, ZoomableGroup } from 'react-simple-maps'
+import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from 'react-simple-maps'
 import { loadMapFeatures, loadMapCountryNames, loadMapCentroids } from '../lib/mapCountries'
 import { useIsDark } from '../lib/theme'
 import { sameCountry } from '../lib/countryFacts'
@@ -32,7 +32,10 @@ const EMPTY_GEO = { type: 'FeatureCollection', features: [] }
 // DM button - because on somebody's profile the useful question is not "who has
 // been here" (the community map answers that) but "you have been here, tell me
 // about it". Without `owner` the map stays exactly as read-only as it was.
-function WorldMap({ selected = [], onToggle, selectable = false, focusCountry = null, fitSelected = false, owner = null }) {
+// `here` puts ONE person on the map, where they are today. See the note above
+// the marker at the foot of this file for what it draws and why it is a face
+// rather than a pin.
+function WorldMap({ selected = [], onToggle, selectable = false, focusCountry = null, fitSelected = false, owner = null, here = null }) {
   const dark = useIsDark()
   const [country, setCountry] = useState(null)
   // Unvisited land + the hairline between countries darken in dark mode so the
@@ -283,6 +286,54 @@ function WorldMap({ selected = [], onToggle, selectable = false, focusCountry = 
                 })
               }
             </Geographies>
+
+            {/* ---- WHERE THEY ARE RIGHT NOW ----
+                Ethan: "it should show where they are right now, maybe with a
+                pulsing profile icon on the map, and it should show if they're
+                in a country currently travelling or just in their home country
+                if that's where they currently are."
+
+                A FACE, NOT A PIN. The map already uses colour to mean "has been
+                here"; another orange shape on it would be read as another
+                visited country. A photograph is unambiguously a person, and on
+                a profile there is only ever one of them.
+
+                THE RING IS THE STATE AND THE ONLY STATE. Travelling gets the
+                brand ring and the pulse; at home it is a quiet grey ring and
+                nothing moves. A pulse that runs whether or not anything is
+                happening is decoration, and it would make every profile on the
+                platform look like somebody is on a trip.
+
+                COUNTER-SCALED, so it stays the same size on screen at every
+                zoom. Everything inside a ZoomableGroup is scaled by the zoom,
+                and a face that grows to fill Europe is not a marker.
+                `pointer-events: none` so it never blocks the country underneath
+                it, which is the thing that opens the panel. */}
+            {here && Number.isFinite(here.lng) && Number.isFinite(here.lat) && (
+              <Marker coordinates={[here.lng, here.lat]} style={{ default: { pointerEvents: 'none' } }}>
+                <g transform={`scale(${1 / view.zoom})`} style={{ pointerEvents: 'none' }}>
+                  {here.travelling && (
+                    <circle r={13} className="profile-here-pulse" fill={BRAND} opacity={0.35} />
+                  )}
+                  <circle r={11} fill="#fff" stroke={here.travelling ? BRAND : '#c9c9cf'} strokeWidth={2} />
+                  <clipPath id="profile-here-clip">
+                    <circle r={9} />
+                  </clipPath>
+                  {here.photo ? (
+                    <image
+                      href={here.photo}
+                      x={-9} y={-9} width={18} height={18}
+                      clipPath="url(#profile-here-clip)"
+                      preserveAspectRatio="xMidYMid slice"
+                    />
+                  ) : (
+                    <text textAnchor="middle" dy="3.5" fontSize="9" fontWeight="700" fill={BRAND}>
+                      {(here.name || '?').trim().charAt(0).toUpperCase()}
+                    </text>
+                  )}
+                </g>
+              </Marker>
+            )}
             </g>
             )}
           </ZoomableGroup>

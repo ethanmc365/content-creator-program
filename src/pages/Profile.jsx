@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -19,6 +19,7 @@ import { flagForCountry } from '../lib/flags'
 import { Avatar, Badge, Skeleton, EmptyState, CopyButton } from '../components/ui'
 import Icon from '../components/Icon'
 import { format } from 'date-fns'
+import { loadMapCentroids } from '../lib/mapCountries'
 import { formatDate, timeAgo, ageFromDob, cx } from '../lib/utils'
 
 // A creator's public profile: photo, bio, socials, the orange country map,
@@ -150,6 +151,54 @@ export default function Profile() {
 
   // A trip that's underway right now (trips are already end_date >= today).
   const currentTrip = trips.find((t) => t.start_date <= todayStr) || null
+
+  // WHERE THEY ARE, AS A POINT ON THE MAP.
+  //
+  // Two sources and they are not equally precise, which decides what each one
+  // is allowed to claim.
+  //
+  //   HOME is `profiles.city_lat/lng`, geocoded from the town they gave, so it
+  //   is a real point and the marker sits on their town.
+  //
+  //   A TRIP is a collab-board post, and that table holds a city and a country
+  //   as TEXT with no coordinates. So a trip is drawn at its COUNTRY's
+  //   centroid - the same centroids the map already loads to zoom onto a
+  //   country. That is honest at the zoom a world map is read at, and it is
+  //   why the label says "in Portugal" rather than pretending to know a street.
+  //
+  // A trip wins when there is one, because "where are they now" is the question
+  // and today's answer is the trip.
+  const [centroids, setCentroids] = useState(null)
+  useEffect(() => { loadMapCentroids().then(setCentroids).catch(() => {}) }, [])
+
+  const here = useMemo(() => {
+    if (!creator) return null
+    // "You are in Lisbon" on your own profile, "Maddie is in Lisbon" on
+    // somebody else's. The alternative is a sentence about yourself in the
+    // third person, which reads as the app talking about you behind your back.
+    const base = {
+      photo: creator.photo_url,
+      name: creator.name,
+      who: isMe ? 'You' : (creator.name || '').trim().split(' ')[0] || 'They',
+    }
+    if (currentTrip) {
+      const c = centroids?.get(currentTrip.country)
+      if (c) {
+        return {
+          ...base, travelling: true, lng: c[0], lat: c[1],
+          place: currentTrip.city || currentTrip.country,
+          country: currentTrip.country,
+        }
+      }
+    }
+    if (Number.isFinite(creator.city_lat) && Number.isFinite(creator.city_lng)) {
+      return {
+        ...base, travelling: false, lng: creator.city_lng, lat: creator.city_lat,
+        place: creator.city || creator.country, country: creator.country,
+      }
+    }
+    return null
+  }, [creator, currentTrip, centroids, isMe])
 
   if (loading) {
     return (
@@ -468,7 +517,39 @@ export default function Profile() {
         </div>
         {/* `owner` makes the countries tappable: what the place is known for,
             and a way to ask the one person whose map this is about it. */}
-        <WorldMap selected={creator.countries_visited || []} owner={creator} />
+        {/* WHERE THEY ARE RIGHT NOW, SAID IN WORDS AS WELL AS DRAWN.
+            The marker on the map is the picture; this is the sentence, and it
+            is here rather than only in the header chip because the map is where
+            somebody is looking when they wonder. Travelling reads as news, at
+            home reads as a fact - so only one of them gets the brand tint. */}
+        {here && (
+          <div className={cx(
+            'mb-4 flex items-center gap-3 rounded-card border p-3.5',
+            here.travelling ? 'border-brand/25 bg-brand-tint/40' : 'border-gray-100 bg-cloud/50',
+          )}>
+            <span className={cx(
+              'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
+              here.travelling ? 'bg-brand text-white' : 'bg-white text-smoke ring-1 ring-gray-200',
+            )}>
+              <Icon name={here.travelling ? 'plane' : 'pin'} className="h-4 w-4" />
+            </span>
+            <p className="min-w-0 text-sm">
+              <span className="font-semibold text-ink">
+                {/* "You ARE", "Maddie IS". Getting this wrong is the sort of
+                    thing that makes a product feel machine-written. */}
+                {here.travelling
+                  ? `${here.who} ${isMe ? 'are' : 'is'} in ${here.place}`
+                  : `${here.who} ${isMe ? 'are' : 'is'} at home in ${here.place}`}
+              </span>
+              {here.travelling && currentTrip && (
+                <span className="block text-xs text-smoke">
+                  Back {formatDate(currentTrip.end_date)}
+                </span>
+              )}
+            </p>
+          </div>
+        )}
+        <WorldMap selected={creator.countries_visited || []} owner={creator} here={here} />
         {creator.countries_visited?.length > 0 && (
           <div className="mt-4 flex flex-wrap gap-2">
             {[...creator.countries_visited].sort().map((c) => (
