@@ -5,13 +5,23 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { AvatarUpload, LanguageSelect, SocialInputs, DobField, PhoneInput, QuoteField } from '../components/ProfileFields'
 import WorldMap from '../components/WorldMap'
+import Icon from '../components/Icon'
+import { cx } from '../lib/utils'
 import TravelGallery from '../components/TravelGallery'
 import { flagForCountry } from '../lib/flags'
 import { geocodeCity } from '../lib/geocode'
 import { PageHeader, Spinner } from '../components/ui'
 
 // Edit every part of your own profile on one calm page.
+const TABS = [
+  { key: 'you', label: 'You', icon: 'user', hint: 'Photo, name and the lines people read first' },
+  { key: 'links', label: 'Links', icon: 'link', hint: 'Where your work lives' },
+  { key: 'travel', label: 'Travel', icon: 'globe', hint: 'Trips, languages, the map' },
+  { key: 'photos', label: 'Photos', icon: 'image', hint: 'Up to ten from your trips' },
+]
+
 export default function EditProfile() {
+  const [tab, setTab] = useState('you')
   const { user, profile, refreshProfile } = useAuth()
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
@@ -103,164 +113,219 @@ export default function EditProfile() {
   }
 
   return (
-    <div className="page max-w-3xl">
+    <div className="page max-w-5xl">
       <PageHeader title="Edit profile" subtitle="Make it a profile you're proud to share." />
 
-      <form onSubmit={save} className="space-y-10">
-        <section className="card space-y-6">
-          <h2 className="text-lg font-semibold">Photo & basics</h2>
-          <AvatarUpload photoUrl={form.photo_url} name={form.name} onUploaded={(url) => set({ photo_url: url })} />
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <div>
-              <label htmlFor="name" className="label">Display name</label>
-              <input id="name" type="text" required className="input" value={form.name} onChange={(e) => set({ name: e.target.value })} />
-            </div>
-            <DobField value={form.dob} onChange={(dob) => set({ dob })} />
-          </div>
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <div>
-              <label htmlFor="city" className="label">City</label>
-              <input id="city" type="text" className="input" value={form.city} onChange={(e) => set({ city: e.target.value })} placeholder="e.g. London" />
-            </div>
-            <div>
-              <label htmlFor="country" className="label">Country</label>
-              <input id="country" type="text" className="input" value={form.country} onChange={(e) => set({ country: e.target.value })} placeholder="e.g. United Kingdom" />
-            </div>
-          </div>
-          <div>
-            <label htmlFor="bio" className="label">One-line bio</label>
-            <input id="bio" type="text" maxLength={120} className="input" value={form.bio} onChange={(e) => set({ bio: e.target.value })} />
-          </div>
-          <div>
-            <label htmlFor="about" className="label">About you</label>
-            <textarea id="about" rows={5} className="input" value={form.about} onChange={(e) => set({ about: e.target.value })} />
-          </div>
-          <QuoteField value={form.favourite_quote} onChange={(favourite_quote) => set({ favourite_quote })} />
-          <PhoneInput value={contact} onChange={setContact} />
-        </section>
+      {/* ================= FOUR PANELS, NOT ONE LONG FORM =================
+          Ethan: "the edit profile page currently opens up, seems like a lot of
+          scrolling and it's hard to completely understand, so I would improve
+          it a lot."
+          It was seven full-width cards in a single column with the save button
+          at the bottom of all of them, so the shortest edit on the page - swap
+          your photo - meant scrolling past a world map and a bucket list to
+          commit it. Four panels, one at a time, and everything saves together
+          whichever one you are looking at.
+          THE FORM IS ONE FORM STILL. The panels are shown and hidden, not
+          mounted and unmounted: `save` posts the whole `form` object, and a
+          field that had been unmounted would post whatever it was when the
+          panel closed. Hiding costs nothing and removes a whole class of bug.
+          THE RAIL IS A ROW ON A PHONE. Four labels fit across 375px; a vertical
+          list of four would be the scrolling this is meant to remove. */}
+      <form onSubmit={save} className="grid grid-cols-1 gap-6 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-8">
+        <nav className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0" aria-label="Profile sections">
+          {TABS.map((t) => {
+            const on = tab === t.key
+            return (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setTab(t.key)}
+                aria-current={on ? 'page' : undefined}
+                className={cx(
+                  'flex shrink-0 items-center gap-2.5 rounded-card px-3.5 py-2.5 text-left transition-all duration-200 lg:w-full',
+                  on ? 'bg-brand text-white shadow-card' : 'bg-cloud text-smoke hover:text-ink',
+                )}
+              >
+                <Icon name={t.icon} className="h-4 w-4 shrink-0" />
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold">{t.label}</span>
+                  <span className={cx('hidden text-[11px] leading-tight lg:block', on ? 'text-white/75' : 'text-smoke')}>
+                    {t.hint}
+                  </span>
+                </span>
+              </button>
+            )
+          })}
+        </nav>
 
-        <section className="card space-y-6">
-          <h2 className="text-lg font-semibold">Social links</h2>
-          <SocialInputs values={form} onChange={(v) => set(v)} />
+        <div className="min-w-0">
+          <div className={tab === 'you' ? 'space-y-6' : 'hidden'}>
+          <section className="card space-y-6">
+            <h2 className="text-lg font-semibold">Photo & basics</h2>
+            <AvatarUpload photoUrl={form.photo_url} name={form.name} onUploaded={(url) => set({ photo_url: url })} />
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <div>
+                <label htmlFor="name" className="label">Display name</label>
+                <input id="name" type="text" required className="input" value={form.name} onChange={(e) => set({ name: e.target.value })} />
+              </div>
+              <DobField value={form.dob} onChange={(dob) => set({ dob })} />
+            </div>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <div>
+                <label htmlFor="city" className="label">City</label>
+                <input id="city" type="text" className="input" value={form.city} onChange={(e) => set({ city: e.target.value })} placeholder="e.g. London" />
+              </div>
+              <div>
+                <label htmlFor="country" className="label">Country</label>
+                <input id="country" type="text" className="input" value={form.country} onChange={(e) => set({ country: e.target.value })} placeholder="e.g. United Kingdom" />
+              </div>
+            </div>
+            <div>
+              <label htmlFor="bio" className="label">One-line bio</label>
+              <input id="bio" type="text" maxLength={120} className="input" value={form.bio} onChange={(e) => set({ bio: e.target.value })} />
+            </div>
+            <div>
+              <label htmlFor="about" className="label">About you</label>
+              <textarea id="about" rows={5} className="input" value={form.about} onChange={(e) => set({ about: e.target.value })} />
+            </div>
+            <QuoteField value={form.favourite_quote} onChange={(favourite_quote) => set({ favourite_quote })} />
+            <PhoneInput value={contact} onChange={setContact} />
+          </section>
+          </div>
+          <div className={tab === 'links' ? 'space-y-6' : 'hidden'}>
+          <section className="card space-y-6">
+            <h2 className="text-lg font-semibold">Social links</h2>
+            <SocialInputs values={form} onChange={(v) => set(v)} />
 
-          {/* Extra links (blog, Linktree, etc.) stored as JSON */}
-          <div>
-            <p className="label">Other links</p>
-            {form.other_links.map((l, i) => (
-              <div key={i} className="mb-3 flex gap-2">
+            {/* Extra links (blog, Linktree, etc.) stored as JSON */}
+            <div>
+              <p className="label">Other links</p>
+              {form.other_links.map((l, i) => (
+                <div key={i} className="mb-3 flex gap-2">
+                  <input
+                    type="text" placeholder="Label (e.g. Blog)" className="input !w-36"
+                    value={l.label}
+                    onChange={(e) => {
+                      const links = [...form.other_links]
+                      links[i] = { ...links[i], label: e.target.value }
+                      set({ other_links: links })
+                    }}
+                  />
+                  <input
+                    type="url" placeholder="https://…" className="input flex-1"
+                    value={l.url}
+                    onChange={(e) => {
+                      const links = [...form.other_links]
+                      links[i] = { ...links[i], url: e.target.value }
+                      set({ other_links: links })
+                    }}
+                  />
+                  <button type="button" aria-label="Remove link" className="btn-ghost !px-3" onClick={() => set({ other_links: form.other_links.filter((_, j) => j !== i) })}>✕</button>
+                </div>
+              ))}
+              <button type="button" className="btn-secondary !py-2 text-xs" onClick={() => set({ other_links: [...form.other_links, { label: '', url: '' }] })}>
+                + Add another link
+              </button>
+            </div>
+          </section>
+          </div>
+          <div className={tab === 'travel' ? 'space-y-6' : 'hidden'}>
+          <section className="card space-y-5">
+            <div className="flex items-baseline justify-between">
+              <h2 className="text-lg font-semibold">Where I'm headed next</h2>
+              <Link to="/collab" className="text-sm font-medium text-brand hover:underline">Manage on the collab board</Link>
+            </div>
+            {trips.length === 0 ? (
+              <p className="text-sm text-smoke">No upcoming trips. Post where you’re headed on the collab board so nearby creators can meet up.</p>
+            ) : (
+              <div className="flex flex-wrap gap-3">
+                {trips.map((t) => (
+                  <Link key={t.id} to="/collab" className="flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-lift">
+                    <span className="text-2xl leading-none" aria-hidden>{flagForCountry(t.country) || '📍'}</span>
+                    <span>
+                      <span className="block text-sm font-semibold">{t.city}{t.country ? `, ${t.country}` : ''}</span>
+                      <span className="block text-xs text-smoke">{format(new Date(t.start_date), 'd MMM')} – {format(new Date(t.end_date), 'd MMM yyyy')}</span>
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="card space-y-5">
+            <h2 className="text-lg font-semibold">Languages spoken</h2>
+            <LanguageSelect selected={form.languages} onChange={(languages) => set({ languages })} />
+          </section>
+
+          <section className="card space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold">Travel bucket list</h2>
+              <p className="mt-1 text-sm text-smoke">Countries (and towns) you're dreaming of visiting. They show on your profile with the flag.</p>
+            </div>
+            {form.bucket_list.map((b, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span className="w-8 shrink-0 text-center text-2xl leading-none" aria-hidden>{flagForCountry(b.country) || '📍'}</span>
                 <input
-                  type="text" placeholder="Label (e.g. Blog)" className="input !w-36"
-                  value={l.label}
-                  onChange={(e) => {
-                    const links = [...form.other_links]
-                    links[i] = { ...links[i], label: e.target.value }
-                    set({ other_links: links })
-                  }}
+                  type="text" placeholder="Country (e.g. Japan)" className="input flex-1"
+                  value={b.country || ''}
+                  onChange={(e) => { const list = [...form.bucket_list]; list[i] = { ...list[i], country: e.target.value }; set({ bucket_list: list }) }}
+                  aria-label={`Bucket-list country ${i + 1}`}
                 />
                 <input
-                  type="url" placeholder="https://…" className="input flex-1"
-                  value={l.url}
-                  onChange={(e) => {
-                    const links = [...form.other_links]
-                    links[i] = { ...links[i], url: e.target.value }
-                    set({ other_links: links })
-                  }}
+                  type="text" placeholder="Town (optional)" className="input flex-1"
+                  value={b.city || ''}
+                  onChange={(e) => { const list = [...form.bucket_list]; list[i] = { ...list[i], city: e.target.value }; set({ bucket_list: list }) }}
+                  aria-label={`Bucket-list town ${i + 1}`}
                 />
-                <button type="button" aria-label="Remove link" className="btn-ghost !px-3" onClick={() => set({ other_links: form.other_links.filter((_, j) => j !== i) })}>✕</button>
+                <button type="button" aria-label="Remove destination" className="btn-ghost !px-3" onClick={() => set({ bucket_list: form.bucket_list.filter((_, j) => j !== i) })}>✕</button>
               </div>
             ))}
-            <button type="button" className="btn-secondary !py-2 text-xs" onClick={() => set({ other_links: [...form.other_links, { label: '', url: '' }] })}>
-              + Add another link
+            <button type="button" className="btn-secondary !py-2 text-xs" onClick={() => set({ bucket_list: [...form.bucket_list, { country: '', city: '' }] })}>
+              + Add a destination
+            </button>
+          </section>
+
+          <section className="card space-y-5">
+            <h2 className="text-lg font-semibold">Countries visited</h2>
+            <WorldMap
+              selectable
+              selected={form.countries_visited}
+              onToggle={(name) =>
+                set({
+                  countries_visited: form.countries_visited.includes(name)
+                    ? form.countries_visited.filter((c) => c !== name)
+                    : [...form.countries_visited, name],
+                })
+              }
+            />
+            <p className="text-sm font-semibold text-brand">{form.countries_visited.length} {form.countries_visited.length === 1 ? 'country' : 'countries'} selected</p>
+          </section>
+
+          {/* Travel photos last, matching the public profile's section order. */}
+          </div>
+          <div className={tab === 'photos' ? 'space-y-6' : 'hidden'}>
+          <section className="card space-y-5">
+            <div>
+              <h2 className="text-lg font-semibold">Travel photos</h2>
+              <p className="mt-1 text-sm text-smoke">Share up to 10 shots from your trips. They appear on your public profile.</p>
+            </div>
+            <TravelGallery creatorId={user.id} editable />
+          </section>
+          </div>
+
+          {/* THE SAVE BAR STICKS TO THE BOTTOM OF THE VIEWPORT.
+              The old one sat after every section, so on the Travel panel it was
+              below a world map and you had to go looking for it. Sticky means
+              the answer to "have I saved this" is always on screen.
+              `bottom-20` on a phone clears the tab bar, which wins the paint
+              order against anything that is not fixed. */}
+          <div className="sticky bottom-20 z-20 mt-6 flex items-center justify-end gap-3 rounded-card border border-gray-100 bg-white/95 p-3 shadow-lift backdrop-blur sm:bottom-4">
+            {saved && <span className="mr-auto text-sm font-medium text-green-600">Saved ✓</span>}
+            <button type="button" onClick={() => navigate(-1)} className="btn-ghost">Cancel</button>
+            <button type="submit" disabled={busy} className="btn-primary">
+              {busy ? <Spinner /> : 'Save profile'}
             </button>
           </div>
-        </section>
-
-        <section className="card space-y-5">
-          <div className="flex items-baseline justify-between">
-            <h2 className="text-lg font-semibold">Where I'm headed next</h2>
-            <Link to="/collab" className="text-sm font-medium text-brand hover:underline">Manage on the collab board</Link>
-          </div>
-          {trips.length === 0 ? (
-            <p className="text-sm text-smoke">No upcoming trips. Post where you’re headed on the collab board so nearby creators can meet up.</p>
-          ) : (
-            <div className="flex flex-wrap gap-3">
-              {trips.map((t) => (
-                <Link key={t.id} to="/collab" className="flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-lift">
-                  <span className="text-2xl leading-none" aria-hidden>{flagForCountry(t.country) || '📍'}</span>
-                  <span>
-                    <span className="block text-sm font-semibold">{t.city}{t.country ? `, ${t.country}` : ''}</span>
-                    <span className="block text-xs text-smoke">{format(new Date(t.start_date), 'd MMM')} – {format(new Date(t.end_date), 'd MMM yyyy')}</span>
-                  </span>
-                </Link>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="card space-y-5">
-          <h2 className="text-lg font-semibold">Languages spoken</h2>
-          <LanguageSelect selected={form.languages} onChange={(languages) => set({ languages })} />
-        </section>
-
-        <section className="card space-y-4">
-          <div>
-            <h2 className="text-lg font-semibold">Travel bucket list</h2>
-            <p className="mt-1 text-sm text-smoke">Countries (and towns) you're dreaming of visiting. They show on your profile with the flag.</p>
-          </div>
-          {form.bucket_list.map((b, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <span className="w-8 shrink-0 text-center text-2xl leading-none" aria-hidden>{flagForCountry(b.country) || '📍'}</span>
-              <input
-                type="text" placeholder="Country (e.g. Japan)" className="input flex-1"
-                value={b.country || ''}
-                onChange={(e) => { const list = [...form.bucket_list]; list[i] = { ...list[i], country: e.target.value }; set({ bucket_list: list }) }}
-                aria-label={`Bucket-list country ${i + 1}`}
-              />
-              <input
-                type="text" placeholder="Town (optional)" className="input flex-1"
-                value={b.city || ''}
-                onChange={(e) => { const list = [...form.bucket_list]; list[i] = { ...list[i], city: e.target.value }; set({ bucket_list: list }) }}
-                aria-label={`Bucket-list town ${i + 1}`}
-              />
-              <button type="button" aria-label="Remove destination" className="btn-ghost !px-3" onClick={() => set({ bucket_list: form.bucket_list.filter((_, j) => j !== i) })}>✕</button>
-            </div>
-          ))}
-          <button type="button" className="btn-secondary !py-2 text-xs" onClick={() => set({ bucket_list: [...form.bucket_list, { country: '', city: '' }] })}>
-            + Add a destination
-          </button>
-        </section>
-
-        <section className="card space-y-5">
-          <h2 className="text-lg font-semibold">Countries visited</h2>
-          <WorldMap
-            selectable
-            selected={form.countries_visited}
-            onToggle={(name) =>
-              set({
-                countries_visited: form.countries_visited.includes(name)
-                  ? form.countries_visited.filter((c) => c !== name)
-                  : [...form.countries_visited, name],
-              })
-            }
-          />
-          <p className="text-sm font-semibold text-brand">{form.countries_visited.length} {form.countries_visited.length === 1 ? 'country' : 'countries'} selected</p>
-        </section>
-
-        {/* Travel photos last, matching the public profile's section order. */}
-        <section className="card space-y-5">
-          <div>
-            <h2 className="text-lg font-semibold">Travel photos</h2>
-            <p className="mt-1 text-sm text-smoke">Share up to 10 shots from your trips. They appear on your public profile.</p>
-          </div>
-          <TravelGallery creatorId={user.id} editable />
-        </section>
-
-        <div className="flex items-center justify-end gap-3">
-          {saved && <span className="text-sm font-medium text-green-600">Saved ✓</span>}
-          <button type="button" onClick={() => navigate(-1)} className="btn-ghost">Cancel</button>
-          <button type="submit" disabled={busy} className="btn-primary">
-            {busy ? <Spinner /> : 'Save profile'}
-          </button>
         </div>
       </form>
 
