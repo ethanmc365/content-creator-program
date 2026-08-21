@@ -5,7 +5,6 @@ import { useAuth } from '../context/AuthContext'
 import NetworkLayout from '../components/network/NetworkLayout'
 import NetworkMotion from '../components/NetworkMotion'
 import Reveal from '../components/network/Reveal'
-import Thumbtack, { ThumbtackDefs } from '../components/network/Thumbtack'
 import Icon from '../components/Icon'
 import LocalTime from '../components/LocalTime'
 import { Avatar, EmptyState, Modal, Skeleton } from '../components/ui'
@@ -223,292 +222,160 @@ function AskModal({ open, onClose, onAsked, existing = null }) {
 //   * A NOTE HAS A SIZE. A square card cannot hold an essay, so a long question
 //     is visibly a long question and the title has to earn its space. The list
 //     card grew to fit anything, which is why the board read as homogeneous.
-//   * THE ROTATION IS THE POINT. A grid of perfectly aligned squares is a grid.
-//     A degree and a half of tilt, DIFFERENT PER NOTE, is what makes it a
-//     board. It is deterministic (hashed from the id) so a note does not jump
-//     to a new angle every time the feed refreshes, which would be unsettling
-//     in a way nobody could name.
-//   * HOVER STRAIGHTENS IT. Reaching for a note squares it up and lifts it off
-//     the cork. That is a physical idea everyone already has, and it costs one
-//     transition.
+// THE HISTORY OF THIS PAGE IS A CORKBOARD, AND IT IS GONE.
 //
-// COLOUR CARRIES THE STATE. Waiting for an answer is warm amber, answered is a
-// pale green, and that is legible across a whole wall of notes at a glance - the
-// state chips in the old design needed reading one at a time.
+// Everything that used to be documented here - the tilt hashed from the id so a
+// note kept its angle across refreshes, hover straightening it as you reached
+// for it, the thumbtack redrawn four times until it read as pushed THROUGH the
+// paper, the nine minimum heights that faked a hand-made wall, the CSS columns
+// that let the heights stay ragged, amber for waiting and green for answered -
+// all of it was real work and all of it has been removed.
+//
+// Ethan: "move away from the current pin section and the slanted post-it notes
+// style cards completely, because I feel like it doesn't match the modern
+// platform."
+//
+// The argument, and why it is worth keeping the epitaph: the corkboard was not
+// badly made, it was made to a brief that stopped being true as the rest of the
+// product settled. Every other surface here is a white card, square to the page,
+// soft even shadow, lifting straight up on hover. One page pretending to be a
+// physical object in the middle of that does not read as charm; it reads as a
+// screen from a different app. See QuestionCard below for what replaced it and
+// for the two design calls that were not just "delete the tilt".
 
-// A stable small integer from an id: same note, same tilt, every render.
-function noteHash(id = '') {
-  let h = 0
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0
-  return Math.abs(h)
-}
+// ---------------------------------------------------------------- one card
+//
+// THE PAPER IS GONE. ALL OF IT.
+//
+// This was a wall of post-it notes: white sheets tilted a degree and a half,
+// each hanging off a drawn thumbtack, laid out in CSS columns so the heights
+// came out ragged like a real corkboard. An enormous amount of care went into
+// it - the pin was redrawn four times, the tilt turned about the pin rather
+// than the note's centre, the shadow was offset downwards to read as a curl
+// rather than a decal, and the note heights were floored by a hash so the wall
+// looked hand-made.
+//
+// Ethan: "move away from the current pin section and the slanted post-it notes
+// style cards completely, because I feel like it doesn't match the modern
+// platform."
+//
+// He is right, and the reason is worth writing down because the old version was
+// not badly built, it was built to the wrong brief. Every other surface in this
+// product is the same object: a white card, square to the page, soft even
+// shadow, rounded corners, lifting straight up on hover. The board was the one
+// page pretending to be a physical thing, and a skeuomorph in the middle of a
+// flat system does not read as charming, it reads as a page from a different
+// app. The tilt also cost real things: it fought the reveal animation (an
+// inline transform beats a stylesheet rule, so the stagger had to move to a
+// wrapper), it needed `break-inside-avoid` and CSS columns, and it meant nine
+// different minimum heights existed to fake variety that the content should
+// have been producing on its own.
+//
+// WHAT REPLACES IT IS A LIST, NOT A GRID, and that is the substantive design
+// call rather than just "remove the tilt". A question is a variable-length
+// sentence with a fixed-shape answer count beside it. In a grid of equal cards
+// the long ones clamp and the short ones sit in a pool of white; in a list every
+// row is exactly as tall as its question and the answer counts line up down the
+// left where they can be compared at a glance. Two columns on a wide screen,
+// because a single 1200px-wide row for a nine-word question is worse than both.
+//
+// THE COUNT IS THE LEFT-HAND OBJECT AND IT CARRIES THE STATE. One thing to
+// look at per row: a number in a tinted square. Brand tint and a pulse when
+// nothing has been answered, green with the count when it has. That replaces
+// the coloured top band, the "waiting for an answer" line with its pinging dot,
+// and the separate answers chip - three signals saying one thing.
 
-// THE THUMBTACK LIVES IN ITS OWN FILE.
-//
-// It was defined here and copied, in an older form, into the hub's BoardCard -
-// so the two drifted and the same note was pinned up by two different objects
-// depending on which page you were looking at. See components/network/Thumbtack
-// for what it is and why it is shaped the way it is. `ThumbtackDefs` is
-// re-exported because BoardThread below renders one too.
-
-// WHAT THE REDESIGN CHANGED, AND WHY
-//
-// Ethan: "the current design doesn't match the platform colours and aesthetics,
-// please redesign it, make it more aesthetic while still keeping that kind of
-// style and function." The shape was right - notes, pins, tilt, hover
-// straightens - and the palette was from somewhere else entirely.
-//
-//   * THE PAPER IS WHITE NOW, AND THE STATE IS A BAND ACROSS THE TOP. Amber
-//     paper and green paper are two hues this product does not own, tiling a
-//     whole page. On a white-dominant product with one orange, a wall of amber
-//     rectangles IS the design, and it is not this one. White notes on a
-//     faintly orange board read as paper on a board; the coloured strip at the
-//     head of each note still carries the state at a glance, which was the one
-//     thing the coloured paper was doing well.
-//   * WAITING IS BRAND ORANGE, ANSWERED IS GREEN. Orange because a question
-//     nobody has answered is the thing this page wants you to act on, and
-//     orange is what this product uses for "here". Green stays for answered:
-//     it is the only other colour in the system and it means done everywhere
-//     else in the app.
-//   * THE TAG IS A REAL CHIP. It was grey uppercase micro-type doing the job of
-//     a label; it is a brand-tint chip now, which is how every other tag in
-//     this product looks.
-//   * THE FOOT IS SEPARATED BY A RULE. The author line used to float against
-//     the paper under the question with nothing between them, so a two-line
-//     question and a name ran together. A hairline is enough.
-// A NOTE IS THE SIZE OF WHAT IS WRITTEN ON IT.
-//
-// Every note used to be `aspect-square`, which is a grid of identical tiles - a
-// spreadsheet with rounded corners. Ethan: "the post it notes shouldn't all be
-// the same size, it should depend on the text and it would look more aesthetic
-// if they were different sizes and arranged in a cool way."
-//
-// So the note has NO fixed height at all now. It is as tall as its question,
-// its answers and its foot, and the arrangement comes from CSS columns rather
-// than a grid: notes flow down a column and the next one starts where the last
-// one ended, which is exactly how things end up on a real board. A grid cannot
-// do this - grid rows are as tall as their tallest cell, so one long note would
-// leave a gap beside every short one on its row.
-//
-// The TYPE SIZE steps with the length too. A six-word question set in the same
-// 15px as a forty-word one is a small note with a lot of air in it; giving the
-// short one bigger type makes it read as a note somebody scrawled, and it is
-// what stops a wall of variable-height cards looking merely uneven.
-function noteScale(q) {
-  const n = (q.title || '').length + (q.body || '').length / 3
-  if (n < 40) return 'text-[17px] sm:text-[19px]'
-  if (n < 80) return 'text-[15px] sm:text-[16px]'
-  return 'text-[14px] sm:text-[15px]'
-}
-
-// A NOTE HAS A SHAPE OF ITS OWN, AND THE WALL IS A MIXTURE OF SHAPES.
-//
-// Letting the height fall out of the text alone got the notes off the grid, and
-// it left a second problem: a board of short questions is a board of identical
-// short strips, because almost every question IS short. Ethan: "I want the
-// visual post notes to be different sizes depending on the question and just
-// have a mixture anyway. On average they should be square, but also have some
-// smaller ones like the current ones, and even longer ones that are like two
-// squares on top of each other."
-//
-// So each note is given a MINIMUM shape, as a ratio of its own width, and the
-// text can still push past it. The mixture is weighted the way he described it -
-// square is the common case, small and tall are the variation, and one in ten is
-// the double - and it is drawn from the id hash, so a note keeps its shape
-// between visits rather than reshuffling the whole wall on every refresh.
-//
-// HOW A MINIMUM ASPECT RATIO IS ACTUALLY DONE HERE, because the two obvious
-// ways are both wrong and the third nearly worked.
-//
-// A PIXEL HEIGHT cannot work: the column width changes at three breakpoints and
-// again whenever the rail is there.
-//
-// `aspect-ratio` ALONE sets the height rather than flooring it, so a note whose
-// question runs long has its own text hanging out of the bottom of the paper.
-//
-// `aspect-ratio` PLUS `min-height: fit-content` is what this was first written
-// as, on the reasoning that `fit-content` in the block axis resolves to the
-// content's own height. It does not, in practice: on a box that already has a
-// resolved aspect-ratio height Chrome leaves the minimum at the ratio, and the
-// long note overflowed exactly as before - which is what shipped for about ten
-// minutes and is visible in the third note on the board.
-//
-// SO IT IS THE PERCENTAGE-PADDING SPACER, which is old and completely reliable.
-// A percentage `padding-top` resolves against the CONTAINING BLOCK'S WIDTH, so a
-// zero-width floated span with `padding-top: 150%` is exactly one and a half
-// note-widths tall and occupies no room across. A parent with `display:
-// flow-root` grows to contain a float, so the note is AT LEAST that tall and
-// taller when the writing needs it, at any column width, with no measuring.
-//
-// `flow-root` and not `overflow: hidden` - the other way to contain a float -
-// because the pin deliberately hangs over the top edge and a clip would cut its
-// head off. And the note stops being a flex column, so the author line follows
-// the writing down the page instead of being pushed to the bottom edge: on a
-// tall note that leaves blank paper under it, which is what a real note with
-// three words on it looks like.
-// HOW TALL A NOTE IS, AND WHY IT IS NO LONGER AN ASPECT RATIO.
-//
-// This was `NOTE_SHAPES = [0.62, 1, 1, 1.5, 1, 0.62, 2.06, 1, 1, 1.5]`, applied
-// as `padding-top: <ratio> * 100%` on a zero-width float - so a note's height
-// was a multiple of its own WIDTH. The idea was that a wall of real pinned
-// paper is not a grid of identical rectangles, which is true.
-//
-// The execution was wrong in a way that only shows up with real content. In a
-// two-column layout a note is about 370px wide, so a `2.06` note is 760px tall
-// - and a one-line question fills perhaps 130px of it. The result is a sheet of
-// paper with a sentence at the top and two thirds of a screen of nothing under
-// it, which does not read as a big note. It reads as broken.
-//
-// The variety was also fake: it came from a hash of the id, so it had no
-// relationship to what was written. Real notes vary in height because what is
-// on them varies.
-//
-// So: the CONTENT sets the height, and this only sets a floor. A short question
-// still looks like a piece of paper rather than a label, a long one grows, and
-// nothing is ever mostly empty. The floors are close together on purpose - the
-// tilt and the ragged column ends already do most of the work of making the
-// wall look hand-made.
-const NOTE_MINS = ['9rem', '10rem', '9rem', '11rem', '10rem', '9rem', '12rem', '10rem', '9rem', '11rem']
-
-function QuestionNote({ q }) {
+function QuestionCard({ q }) {
   const t = tagInfo(q.tag)
   const answers = Number(q.answer_count || 0)
   const shown = q.answers || []
-  const h = noteHash(q.id)
-  // -1.6, -0.8, 0.8 or 1.6 degrees. Small on purpose: past about two degrees a
-  // wall of notes stops looking casual and starts looking broken.
-  const tilt = [-1.6, -0.8, 0.8, 1.6][h % 4]
-  const minHeight = NOTE_MINS[h % NOTE_MINS.length]
   const open = answers === 0
 
   return (
     <Link
       to={`/board/${q.id}`}
-      // THE NOTE TURNS ABOUT ITS PIN, because that is the only thing holding
-      // it. This is one line and it does more for "this is pinned up" than the
-      // drawing of the pin does: the tilt is now a sheet hanging off a fixed
-      // point rather than a rectangle rotated about its own middle, and
-      // straightening on hover swings it back around the same point instead of
-      // sliding the pin sideways across the paper. `1.7rem` is where the
-      // collar meets the paper - see Thumbtack.
-      style={{ transform: `rotate(${tilt}deg)`, transformOrigin: '50% 1.7rem', minHeight }}
       className={cx(
-        // `break-inside-avoid` is what makes the columns work: without it a
-        // note is split across the bottom of one column and the top of the
-        // next, which is a genuinely alarming thing to see happen to a piece of
-        // paper. `mb-*` rather than a grid gap, because columns have no gap
-        // along their own axis.
-        'group relative mb-4 flow-root break-inside-avoid rounded-lg border bg-white transition-all duration-300 ease-out sm:mb-5',
-        // PAPER, NOT A CARD. `shadow-card` is the flat even shadow every other
-        // surface in this app uses and it is the wrong one here: a sheet held
-        // at one point hangs, so it is closest to the page at the pin and
-        // furthest from it at the bottom edge. The shadow is offset downwards
-        // and gets a second, wider, softer pass under it, which is what reads
-        // as a curl rather than a decal.
-        'shadow-[0_2px_3px_-1px_rgba(20,20,30,0.07),0_10px_16px_-8px_rgba(20,20,30,0.16)]',
-        // NO `overflow-hidden` HERE. The state band gets rounded top corners of
-        // its own instead, so the note can keep a square clip-free box.
-        //
-        // `hover:!rotate-0` beats the inline transform: reaching for a note
-        // squares it up and lifts it off the page.
-        'hover:z-10 hover:-translate-y-1.5 hover:!rotate-0',
-        'hover:shadow-[0_4px_6px_-2px_rgba(20,20,30,0.08),0_20px_30px_-12px_rgba(20,20,30,0.24)]',
-        open ? 'border-brand/25 hover:border-brand/50' : 'border-green-200 hover:border-green-400',
+        'group flex w-full gap-3.5 rounded-card border border-gray-100 bg-white p-4 text-left shadow-card',
+        'transition-all duration-200 hover:-translate-y-1 hover:border-brand/40 hover:shadow-lift sm:gap-4 sm:p-5',
       )}
     >
-      {/* SMALLER, AND HIGHER. A real push pin is about a twelfth of the width
-          of the card it holds and it sits at the very top edge. Fourteen units
-          of pin on a 250px note was roughly three times life size, which is why
-          so much drawing detail was going into it. See Thumbtack. */}
-      <Thumbtack className="h-10 w-10" top="-top-1" />
+      {/* THE ANSWER COUNT. Fixed width so every row in a column lines up, and
+          the one element on the card that changes colour with the state. */}
+      <span
+        className={cx(
+          'flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl transition-colors sm:h-14 sm:w-14',
+          open ? 'bg-brand-tint text-brand' : 'bg-green-50 text-green-700',
+        )}
+      >
+        {open ? (
+          <>
+            {/* A pulse, not a number. Zero in a box reads as a score of nought
+                rather than as an invitation. */}
+            <span className="relative flex h-2 w-2" aria-hidden>
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/60 motion-reduce:hidden" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-brand" />
+            </span>
+            <span className="mt-1.5 text-[9px] font-bold uppercase tracking-wider">Open</span>
+          </>
+        ) : (
+          <>
+            <span className="text-lg font-bold leading-none tabular-nums sm:text-xl">{answers}</span>
+            <span className="mt-0.5 text-[9px] font-bold uppercase tracking-wider">
+              {answers === 1 ? 'answer' : 'answers'}
+            </span>
+          </>
+        )}
+      </span>
 
-
-      {/* THE STATE, AS A BAND. Two pixels of colour across the top of a white
-          note is legible across a whole wall without tinting the paper - and it
-          leaves the paper white, which is what makes the wall read as this
-          product rather than as a different one. */}
-      <span className={cx('block h-1 w-full rounded-t-lg', open ? 'bg-brand' : 'bg-green-500')} aria-hidden />
-
-      {/* THE PIN NEEDS PAPER TO SIT ON. The padding is the head plus a little air
-          under it, and it is not wasted space - a real note has a margin above
-          the writing precisely because that is where the pin goes. Content
-          that started at the top edge is what forced the old pin off the top
-          of the card in the first place. */}
-      <span className="block p-3.5 pt-9 sm:p-4 sm:pt-10">
-        <span className="mb-2 flex items-center gap-1.5">
-          <span className={cx(
-            'inline-flex min-w-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold',
-            open ? 'bg-brand-tint text-brand' : 'bg-green-50 text-green-700',
-          )}>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="flex flex-wrap items-center gap-1.5">
+          <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-cloud px-2 py-0.5 text-[10px] font-semibold text-smoke">
             <Icon name={t.icon} className="h-3 w-3 shrink-0" />
             <span className="truncate">{q.tag === 'country' && q.country ? q.country : t.short}</span>
           </span>
-          {!open && (
-            <span className="ml-auto shrink-0 text-[10px] font-bold text-green-700">
-              {answers} {answers === 1 ? 'answer' : 'answers'}
-            </span>
-          )}
+          <span className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
+            {formatMessageTime(q.created_at)}
+          </span>
         </span>
 
-        {/* The question is the note. Still clamped, but at eight lines rather
-            than four: the clamp is now a safety net against somebody pasting an
-            essay into the title, not the thing deciding the note's height. */}
-        <h3 className={cx('line-clamp-[8] font-semibold leading-snug text-ink transition-colors group-hover:text-brand', noteScale(q))}>
+        {/* The question leads. `line-clamp-3` is a safety net against somebody
+            pasting an essay into the title, not the thing setting the height -
+            in a list the row is simply as tall as it needs to be. */}
+        <h3 className="mt-1.5 line-clamp-3 text-[15px] font-semibold leading-snug text-ink transition-colors group-hover:text-brand">
           {q.title}
         </h3>
-        {q.body && <p className="mt-1.5 line-clamp-3 text-[13px] leading-snug text-smoke">{q.body}</p>}
+        {q.body && <p className="mt-1 line-clamp-2 text-[13px] leading-snug text-smoke">{q.body}</p>}
 
-        {/* ---- WHAT PEOPLE SAID, ON THE NOTE ----
-            Ethan: "the answers show below them, but if there's tons of answers
-            or a message is too long you can make it so that you have to click
-            to see it all."
-            Two answers, two lines each, and then a line that says how much is
-            left. Both caps matter and they are different caps: clamping the
-            TEXT stops one long answer swallowing the note, and capping the
-            COUNT stops a popular question becoming a column of its own. The
-            whole note is already a link to the thread, so "click to see it all"
-            costs no extra control - the line just has to say so. */}
+        {/* ---- WHAT PEOPLE SAID ----
+            Ethan, on the old notes: "the answers show below them, but if
+            there's tons of answers or a message is too long you can make it so
+            that you have to click to see it all." Unchanged in substance: ONE
+            answer previewed rather than two, because a list row carries less
+            vertical budget than a note did and the second one was always the
+            first thing to be scrolled past. */}
         {shown.length > 0 && (
-          <span className="mt-3 block space-y-2 border-t border-gray-100 pt-2.5">
-            {shown.slice(0, 2).map((a) => (
-              <span key={a.id} className="flex gap-2">
-                <span className="mt-0.5 shrink-0">
-                  <Avatar src={a.author_photo} name={a.author_name} size="xs" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[11px] font-semibold text-ink">{a.author_name}</span>
-                  <span className="line-clamp-2 block text-[12px] leading-snug text-smoke">{a.body}</span>
-                </span>
-              </span>
-            ))}
-            {(answers > 2 || shown.some((a) => a.truncated)) && (
-              <span className="block pt-0.5 text-[11px] font-semibold text-brand">
-                {answers > 2
-                  ? `Read all ${answers} answers`
-                  : 'Read the full answer'}
-              </span>
-            )}
+          <span className="mt-2.5 flex gap-2 rounded-xl bg-cloud/60 p-2.5">
+            <span className="mt-0.5 shrink-0">
+              <Avatar src={shown[0].author_photo} name={shown[0].author_name} size="xs" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[11px] font-semibold text-ink">{shown[0].author_name}</span>
+              <span className="line-clamp-2 block text-[12px] leading-snug text-smoke">{shown[0].body}</span>
+            </span>
           </span>
         )}
 
-        <span className="block pt-3">
-        <span className="block border-t border-gray-100 pt-2.5">
-          {open && (
-            <span className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold text-brand">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/60" />
-                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand" />
-              </span>
-              Waiting for an answer
+        <span className="mt-2.5 flex items-center gap-2">
+          <Avatar src={q.author_photo} name={q.author_name} size="xs" />
+          <span className="min-w-0 flex-1 truncate text-[11px] text-smoke">
+            {q.author_name}
+          </span>
+          {(answers > 1 || shown.some((a) => a.truncated)) && (
+            <span className="shrink-0 text-[11px] font-semibold text-brand">
+              {answers > 1 ? `All ${answers} answers` : 'Read it'}
             </span>
           )}
-          <span className="flex items-center gap-2">
-            <Avatar src={q.author_photo} name={q.author_name} size="xs" />
-            <span className="min-w-0 flex-1 truncate text-[11px] text-smoke">
-              {q.author_name} · {formatMessageTime(q.created_at)}
-            </span>
-          </span>
-        </span>
+          <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-brand" />
         </span>
       </span>
     </Link>
@@ -664,23 +531,23 @@ export default function Board() {
               address bar collapses, so the page would grow while you scrolled
               it. */}
           <div className="pt-3 pb-[calc(50vh+6rem+env(safe-area-inset-bottom))] sm:pb-[50vh]">
-            {/* The thumbtack's gradients, declared once for every pin on the
-                page rather than once per note. */}
-            <ThumbtackDefs />
             {rows === null ? (
               // The skeleton mirrors NOTE_SHAPES rather than a ladder of
               // arbitrary heights: what loads in has to be the shape of what
               // arrives, or the wall visibly re-lays itself the moment the
               // query lands.
-              <div className="columns-2 gap-4 sm:gap-5 lg:columns-3 xl:columns-4">
-                {[170, 260, 260, 380, 260, 170, 520, 260].map((h, i) => (
-                  <Skeleton key={i} className="mb-4 block sm:mb-5" style={{ height: h }} />
+              // The skeleton is the shape of what arrives, or the page visibly
+              // re-lays itself the moment the query lands. Rows, not a ragged
+              // wall of nine different heights.
+              <div className="grid items-start gap-3 sm:gap-4 lg:grid-cols-2">
+                {[132, 108, 108, 156, 108, 132].map((h, i) => (
+                  <Skeleton key={i} className="block rounded-card" style={{ height: h }} />
                 ))}
               </div>
             ) : rows.length === 0 ? (
               <EmptyState
                 icon={<Icon name="chat" className="h-6 w-6" />}
-                title={search ? `Nothing matches “${search}”` : 'Nothing pinned up yet'}
+                title={search ? `Nothing matches “${search}”` : 'Nothing asked yet'}
                 hint={search
                   ? 'Try a shorter search, or ask it yourself and let the community answer.'
                   : 'Be the first. Somebody here has been where you are going.'}
@@ -709,13 +576,29 @@ export default function Board() {
               // wholly ON the paper now, so nothing overhangs and nothing can
               // be clipped; the margin stays purely as breathing room between
               // the heading and the first row of notes.
-              <div className="reveal is-in columns-2 gap-4 sm:gap-5 lg:columns-3 xl:columns-4">
-                {rows.map((q, i) => (
-                  <div key={q.id} className="reveal-item mt-1.5 break-inside-avoid" style={{ '--reveal-i': Math.min(i, 12) }}>
-                    <QuestionNote q={q} />
-                  </div>
-                ))}
-              </div>
+              // A GRID OF ROWS, AND `items-start` IS DOING REAL WORK.
+              //
+              // The old wall was CSS columns, which was the only way to get
+              // ragged note heights: a grid ROW is as tall as its tallest cell,
+              // so one long note leaves a hole beside every short one. That
+              // problem does not exist here. `items-start` lets each card keep
+              // its own height instead of stretching to match its neighbour, so
+              // a one-line question stays one line tall and the two columns
+              // simply end at different points - which is what a list of
+              // different-length questions should look like.
+              //
+              // ONE COLUMN ON A PHONE. The old wall went two-across even at
+              // 375px, because a single column of notes is a list and the WALL
+              // was the idea. The wall is gone, a list is now exactly the
+              // intention, and two 170px-wide cards on a phone would clamp
+              // every question to three words.
+              //
+              // Reveal can wrap this directly now. It could not before: it puts
+              // each child in its own div, and that wrapper is precisely what
+              // `break-inside-avoid` had to sit on.
+              <Reveal className="grid items-start gap-3 sm:gap-4 lg:grid-cols-2" stagger={0.04}>
+                {rows.map((q) => <QuestionCard key={q.id} q={q} />)}
+              </Reveal>
             )}
           </div>
         </div>
@@ -848,23 +731,24 @@ export function BoardThread() {
             on a wall among others; a tilted page of body text you are trying to
             read is a gimmick. Reaching for a note already straightens it, so
             arriving straightened is the same gesture finishing. */}
-        {/* No surface here either - see the note on the board itself. The
-            question is still the same note it was on the wall (the pin, the
-            state band, the paper), just much bigger, which is what makes
-            opening one feel like taking it down rather than navigating. */}
+        {/* THE THREAD IS THE SAME OBJECT AS THE ROW, ENLARGED. It used to be the
+            note taken off the wall - pin, state band, paper - which was the
+            right instinct for a board made of paper and is the wrong one now
+            that the board is made of cards. Same border, same radius, same
+            shadow as the card you tapped to get here, so opening a question
+            reads as the card expanding rather than as arriving somewhere new.
+            The state has moved entirely into the "waiting for an answer" chip
+            below, which is where it already was in words. */}
         <div className="space-y-6 pt-3">
-          <ThumbtackDefs />
           <Link to="/board" className="inline-flex items-center gap-2 text-sm font-medium text-smoke transition-colors hover:text-brand">
             <Icon name="chevronLeft" className="h-4 w-4" />
             Community board
           </Link>
 
           <article className={cx(
-            'relative rounded-lg border bg-white shadow-lift',
-            openQ ? 'border-brand/25' : 'border-green-200',
+            'relative rounded-card border bg-white shadow-lift',
+            openQ ? 'border-brand/25' : 'border-gray-100',
           )}>
-            <Thumbtack />
-            <span className={cx('block h-1 w-full rounded-t-lg', openQ ? 'bg-brand' : 'bg-green-500')} aria-hidden />
             <div className="p-5 sm:p-7">
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-tint px-2.5 py-1 text-[11px] font-semibold text-brand">

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Icon from '../Icon'
-import Thumbtack, { ThumbtackDefs } from './Thumbtack'
 import { Skeleton } from '../ui'
 import { loadFeed, tagInfo } from '../../lib/board'
 import { cx, formatMessageTime } from '../../lib/utils'
@@ -32,23 +31,15 @@ import { cx, formatMessageTime } from '../../lib/utils'
 // doorway, not the board - three questions in three glances, and everything
 // else is one tap away on a page built to hold it.
 
-// Same hash and the same four angles as the board itself. A note has to be at
-// the same angle in both places or moving between them looks like a glitch.
-function noteHash(id = '') {
-  let h = 0
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0
-  return Math.abs(h)
-}
-
-// THE PIN IS THE BOARD'S PIN, NOT A SMALLER DIFFERENT ONE.
+// THE NOTES ARE GONE HERE TOO, AND THEY HAD TO GO TOGETHER.
 //
-// There was a `MiniPin` here: a flat coloured circle, a white dot and a grey
-// line. That was the board's own pin at the time this card was written, and the
-// board has had two redesigns of it since - so the hub was pinning notes up with
-// an object the board itself stopped using months ago, and a note visibly
-// changed what was holding it when you tapped through. It draws the shared
-// component now, one size down, and it can never drift again.
-// See components/network/Thumbtack.
+// This card existed to make the board familiar before you opened it: the same
+// pinned, tilted paper on the hub as on the wall, so tapping through was
+// continuous. That argument still holds and it now points the other way - the
+// board is cards, so this is cards, and a hub still showing post-it notes
+// would be the one place on the platform where the old design survived.
+//
+// Three rows of the same object the board lists, at hub scale.
 
 export default function BoardCard({ className }) {
   const [rows, setRows] = useState(null)
@@ -129,53 +120,47 @@ export default function BoardCard({ className }) {
           arrives with no motion at all and simply appears. The wrapper does the
           travelling and the note does the tilting. CSS and not Motion because
           the hub is eagerly routed. */}
-      <div className="reveal is-in grid gap-4 pt-3 sm:grid-cols-3">
-        <ThumbtackDefs />
+      <div className="reveal is-in grid gap-3 pt-1 sm:grid-cols-3">
         {rows.map((q, i) => {
           const t = tagInfo(q.tag)
           const answers = Number(q.answer_count || 0)
           const open = answers === 0
-          const tilt = [-1.6, -0.8, 0.8, 1.6][noteHash(q.id) % 4]
           return (
             <div key={q.id} className="reveal-item" style={{ '--reveal-i': i }}>
-            <Link
-              to={`/board/${q.id}`}
-              // Turns about its pin, and hangs from it - see the long note on
-              // QuestionNote in pages/Board. The pin is a size down here
-              // because these notes are, so the pivot is higher to match.
-              style={{ transform: `rotate(${tilt}deg)`, transformOrigin: '50% 1.5rem' }}
-              className={cx(
-                'group relative flex h-full min-h-[10.5rem] flex-col rounded-lg border bg-white transition-all duration-300 ease-out',
-                'shadow-[0_2px_3px_-1px_rgba(20,20,30,0.07),0_10px_16px_-8px_rgba(20,20,30,0.16)]',
-                'hover:z-10 hover:-translate-y-1.5 hover:!rotate-0',
-                'hover:shadow-[0_4px_6px_-2px_rgba(20,20,30,0.08),0_20px_30px_-12px_rgba(20,20,30,0.24)]',
-                open ? 'border-brand/25 hover:border-brand/50' : 'border-green-200 hover:border-green-400',
-              )}
-            >
-              <Thumbtack className="h-9 w-9" top="-top-1" />
-              <span className={cx('h-1.5 w-full shrink-0 rounded-t-lg', open ? 'bg-brand' : 'bg-green-500')} aria-hidden />
-              <span className="flex flex-1 flex-col p-3.5 pt-8">
+              <Link
+                to={`/board/${q.id}`}
+                className={cx(
+                  'group flex h-full flex-col rounded-card border border-gray-100 bg-white p-4 shadow-card',
+                  'transition-all duration-200 hover:-translate-y-1 hover:border-brand/40 hover:shadow-lift',
+                )}
+              >
                 <span className="mb-2 flex items-center gap-1.5">
-                  <span className={cx(
-                    'inline-flex min-w-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                    open ? 'bg-brand-tint text-brand' : 'bg-green-50 text-green-700',
-                  )}>
+                  <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-cloud px-2 py-0.5 text-[10px] font-semibold text-smoke">
                     <Icon name={t.icon} className="h-3 w-3 shrink-0" />
                     <span className="truncate">{q.tag === 'country' && q.country ? q.country : t.short}</span>
                   </span>
-                  {!open && (
-                    <span className="ml-auto shrink-0 text-[10px] font-bold text-green-700">{answers}</span>
-                  )}
+                  {/* The state, as the one coloured thing on the card. It is
+                      the same chip the board's own rows carry, laid flat -
+                      there is no room for the 56px counting square here. */}
+                  <span className={cx(
+                    'ml-auto shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold',
+                    open ? 'bg-brand-tint text-brand' : 'bg-green-50 text-green-700',
+                  )}>
+                    {open ? 'Open' : answers}
+                  </span>
                 </span>
-                {/* THE QUESTION AND NOTHING ELSE. */}
+
+                {/* THE QUESTION AND NOTHING ELSE. This is a doorway, not the
+                    board: three questions in three glances, everything else one
+                    tap away on a page built to hold it. */}
                 <span className="line-clamp-4 text-[14px] font-semibold leading-snug text-ink transition-colors group-hover:text-brand">
                   {q.title}
                 </span>
-                <span className="mt-auto pt-2.5 text-[10px] font-medium uppercase tracking-wide text-gray-400">
+                <span className="mt-auto flex items-center gap-1.5 pt-3 text-[10px] font-medium uppercase tracking-wide text-gray-400">
                   {formatMessageTime(q.created_at)}
+                  <Icon name="chevronRight" className="ml-auto h-3.5 w-3.5 text-gray-300 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-brand" />
                 </span>
-              </span>
-            </Link>
+              </Link>
             </div>
           )
         })}

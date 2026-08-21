@@ -53,14 +53,15 @@ const FROM_BASE = { transformBox: 'fill-box', transformOrigin: '50% 92%' }
 /**
  * EACH FLAME CARRIES ITS OWN GRADIENTS, KEYED BY `useId`.
  *
- * The obvious saving is one shared `<defs>` per page, the way ThumbtackDefs
- * does it, and it is the wrong trade here. A pin is drawn in exactly two
- * places, both of which can mount the defs beside it; a flame is drawn in a
- * shared `StreakChip` that appears on the UK home card, three daily boards, the
- * hub and every row of a leaderboard - so "did somebody remember to mount the
- * defs on this page" becomes a question with dozens of answers, and the failure
- * mode is silent and total: an unresolvable `url(#…)` paints NOTHING, so the
- * flame simply vanishes on whichever surface was forgotten.
+ * The obvious saving is one shared `<defs>` mounted once per page, and it is
+ * the wrong trade here. A flame is drawn in a shared `StreakChip` that appears
+ * on the UK home card, three daily boards, the hub and every row of a
+ * leaderboard - so "did somebody remember to mount the defs on this page"
+ * becomes a question with dozens of answers, and the failure mode is silent and
+ * total: an unresolvable `url(#…)` paints NOTHING, so the flame simply vanishes
+ * on whichever surface was forgotten. (The board's thumbtack did share one set
+ * of defs, which worked because it was drawn in exactly two places. Both of
+ * those are gone and so is the pin.)
  *
  * Three gradient elements per flame is nothing. A component that cannot be
  * dropped anywhere is a real cost.
