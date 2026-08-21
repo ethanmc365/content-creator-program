@@ -10,7 +10,7 @@
     "page": "https://commons.wikimedia.org/wiki/File:American_Airlines_Airbus_A319_N753US_on_final_approach_to_Boston_2.jpg"
   },
   "a320": {
-    "author": "Aero Icarus from Z\u00fcrich, Switzerland",
+    "author": "Aero Icarus from Zürich, Switzerland",
     "licence": "CC BY-SA 2.0",
     "page": "https://commons.wikimedia.org/wiki/File:404cl_-_Air_Berlin_Airbus_A320-214;_D-ABDE@ZRH;07.04.2006_(8479621489).jpg"
   },
@@ -65,9 +65,9 @@
     "page": "https://commons.wikimedia.org/wiki/File:A350-1041_QATAR_A7-ANJ_approaching_Berlin_Tegel.jpg"
   },
   "a380": {
-    "author": "Travel.airbus388",
-    "licence": "CC BY-SA 3.0",
-    "page": "https://commons.wikimedia.org/wiki/File:Airbus_A380_flying_over_Victoria_Harbour.jpg"
+    "author": "Acroterion",
+    "licence": "CC BY-SA 4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:Lufthansa_Airbus_A380_D-AIMA_MD4.jpg"
   },
   "atr42": {
     "author": "Ken Fielding",
@@ -164,7 +164,7 @@
     "page": "https://commons.wikimedia.org/wiki/File%3AAbyssinian_Flight_Services_Cessna_208_Caravan_I_Stehmann-1.jpg"
   },
   "crj200": {
-    "author": "Grzegorz Jereczek from Gda\u0144sk, Poland",
+    "author": "Grzegorz Jereczek from Gdańsk, Poland",
     "licence": "CC BY-SA 2.0",
     "page": "https://commons.wikimedia.org/wiki/File:Austrian_Arrows_Bombardier_CRJ-200_OE-LCO_(3554120719).jpg"
   },
@@ -212,5 +212,15 @@
     "author": "John Davies - CYOW Airport Watch",
     "licence": "GFDL 1.2",
     "page": "https://commons.wikimedia.org/wiki/File:Saab_340B,_American_Eagle_AN0175471.jpg"
+  },
+  "crj700": {
+    "author": "formulanone from Huntsville, United States",
+    "licence": "CC BY-SA 2.0",
+    "page": "https://commons.wikimedia.org/wiki/File:Alaska_N224AG_Bombardier_CRJ-700_(30360035923).jpg"
+  },
+  "q300": {
+    "author": "Mitchul Hope",
+    "licence": "CC BY-SA 2.0",
+    "page": "https://commons.wikimedia.org/wiki/File:Eastern_Australia_Airlines_VH-SBI_De_Havilland_Canada_DHC-8-300_Dash_8_8Q_Melbourne_International_Airport_(MEL_YMML)_(51831773696).jpg"
   }
 }
