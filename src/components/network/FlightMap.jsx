@@ -7,6 +7,7 @@ import { loadMapFeatures } from '../../lib/mapCountries'
 import { countryKey } from '../../lib/countryFacts'
 import { useIsDark } from '../../lib/theme'
 import { cx } from '../../lib/utils'
+import { flagFromIso } from '../../lib/flags'
 import Icon from '../Icon'
 
 // Every flight you have logged, drawn at once.
@@ -214,51 +215,33 @@ const Countries = memo(function Countries({ features, land, separator, visited, 
 // EVERY AIRPORT IN THE WORLD, UNDERNEATH EVERYTHING ELSE.
 //
 // The rules for how many and how big are in lib/worldAirports and the argument
-// for them is there too. What is here is the drawing, and the two things that
-// make six thousand of anything survive contact with React.
+// for them is there too. What is here is the drawing, plus the two things that
+// make eight thousand of anything survive contact with React, plus the hit
+// testing - which is its own problem and the reason this is not just circles.
 //
 // PROJECT ONCE, NOT PER RENDER. The projection is module-level and fixed - the
 // zoom and pan are a transform on the group, not a new projection - so every
-// airport's position in projection units is computed on the frame the data
-// lands and never again. Doing it inside the render was 6,074 trigonometric
-// projections per pan frame.
+// airport's position is computed on the frame the data lands and never again.
 //
 // CULL TO THE VIEWPORT. Tier alone is not enough: zoomed into Norway at z=12
-// the tier filter still admits every tier-3 field on Earth, and 3,400 dots
-// drawn 40 screens away cost exactly as much as 3,400 dots you can see. The
-// visible box in projection units is the frame divided by the zoom, centred on
-// wherever the map has been panned to, and it is cheap to test a point against.
+// the tier filter still admits every tier-3 field on Earth, and 5,000 dots
+// drawn 40 screens away cost exactly what 5,000 visible ones do.
 //
-// NOT INTERACTIVE, AND THAT IS DELIBERATE. `pointer-events: none` on the whole
-// layer. These are scenery; the things you can press on this map are your own
-// routes and your own airports, which are drawn on top by the caller. Six
-// thousand hit targets underneath them would make the map you actually use
-// harder to press, to no benefit.
-function WorldAirports({ zoom, center }) {
-  const [all, setAll] = useState(null)
-
-  useEffect(() => {
-    let alive = true
-    loadWorldAirports().then((rows) => { if (alive) setAll(rows) }).catch(() => {})
-    return () => { alive = false }
-  }, [])
-
-  const placed = useMemo(() => {
-    if (!all) return []
-    const out = []
-    for (const a of all) {
-      const p = projection([a.lng, a.lat])
-      // `projection()` returns null for a point it cannot place. See the note
-      // on arcFor: an unguarded null here is a dot at the viewBox origin.
-      if (!p || !Number.isFinite(p[0]) || !Number.isFinite(p[1])) continue
-      out.push({ iata: a.iata, tier: a.tier, x: p[0], y: p[1] })
-    }
-    // Deepest tier first so the hubs paint last and sit on top where two
-    // airports share a pixel.
-    out.sort((a, b) => b.tier - a.tier)
-    return out
-  }, [all])
-
+// AND THEY ARE CLICKABLE NOW, WHICH NEEDED A SECOND CIRCLE PER DOT.
+//
+// Ethan: "I said every airport little dot should be clickable." They were
+// `pointer-events: none` scenery. The difficulty is that the visible dot is
+// measured at 1.5 to 2.4 SCREEN PIXELS - that is the whole point of the sizing
+// work - and a two-pixel tap target does not exist on a phone. So each shown
+// airport also gets an invisible circle at a fixed ~9px of screen, which is
+// what actually receives the press.
+//
+// The hit circles are a SEPARATE GROUP drawn after the visible ones rather than
+// a bigger stroke on each, because they have to overlap each other freely and
+// must never paint. Their radius divides by the zoom so it stays a constant
+// finger-sized target at every magnification - the opposite rule to the dots,
+// and correct for the opposite reason.
+function WorldAirports({ placed, zoom, center, onPick, selected }) {
   const shown = useMemo(() => {
     if (!placed.length) return []
     const deepest = tierAt(zoom)
@@ -272,23 +255,44 @@ function WorldAirports({ zoom, center }) {
   }, [placed, zoom, center])
 
   if (!shown.length) return null
+  const hit = Math.max(1.2, 9 / zoom)
+
   return (
-    <g style={{ pointerEvents: 'none' }} aria-hidden>
-      {shown.map((a) => (
-        <circle
-          key={a.iata}
-          cx={a.x}
-          cy={a.y}
-          r={dotRadius(a.tier, zoom)}
-          fill={BRAND_LIGHT}
-          // Light on the land, and it has to be light: this is a layer you read
-          // THROUGH to the routes above it. A tier-3 airstrip is fainter again,
-          // which does the same job as the size difference and survives at a
-          // radius where a size difference is under a pixel.
-          opacity={a.tier === 0 ? 0.62 : a.tier === 3 ? 0.3 : 0.44}
-        />
-      ))}
-    </g>
+    <>
+      <g style={{ pointerEvents: 'none' }} aria-hidden>
+        {shown.map((a) => (
+          <circle
+            key={a.iata}
+            cx={a.x}
+            cy={a.y}
+            r={a.iata === selected ? dotRadius(a.tier, zoom) * 2.6 : dotRadius(a.tier, zoom)}
+            fill={a.iata === selected ? BRAND : BRAND_LIGHT}
+            // Light on the land, and it has to be light: this is a layer you
+            // read THROUGH to the routes above it. A tier-3 airstrip is fainter
+            // again, which does the same job as the size difference and survives
+            // at a radius where a size difference is under a pixel.
+            opacity={a.iata === selected ? 1 : a.tier === 0 ? 0.62 : a.tier === 3 ? 0.3 : 0.44}
+          />
+        ))}
+      </g>
+      <g>
+        {shown.map((a) => (
+          <circle
+            key={a.iata}
+            cx={a.x}
+            cy={a.y}
+            r={hit}
+            fill="transparent"
+            style={{ cursor: 'pointer' }}
+            onClick={(e) => { e.stopPropagation(); onPick(a.iata) }}
+          >
+            {/* A native tooltip on the hit target, so hovering a dot on a
+                laptop names it without opening anything. */}
+            <title>{`${a.iata} - ${a.name}`}</title>
+          </circle>
+        ))}
+      </g>
+    </>
   )
 }
 
@@ -371,6 +375,39 @@ function FlightMap({ routes = [], airports = [] }) {
   // place amount to in my log. Airports, busiest first, with the number of
   // flights through each - which is the same shape of answer, so the two cards
   // can be the same object.
+  // THE WORLD LIST LIVES HERE, NOT IN THE LAYER, because three things need it
+  // now: the dots, the card that opens when you press one, and the country card,
+  // which has to be able to say how many airports are in a country rather than
+  // how many of them you personally have used.
+  const [world, setWorld] = useState([])
+  useEffect(() => {
+    let alive = true
+    loadWorldAirports().then((rows) => { if (alive) setWorld(rows) }).catch(() => {})
+    return () => { alive = false }
+  }, [])
+
+  const worldPlaced = useMemo(() => {
+    const out = []
+    for (const a of world) {
+      const pt = projection([a.lng, a.lat])
+      // `projection()` returns null for a point it cannot place. See the note on
+      // arcFor: an unguarded null here is a dot at the viewBox origin.
+      if (!pt || !Number.isFinite(pt[0]) || !Number.isFinite(pt[1])) continue
+      out.push({ ...a, x: pt[0], y: pt[1] })
+    }
+    // Deepest tier first so the hubs paint last and sit on top where two
+    // airports share a pixel.
+    out.sort((a, b) => b.tier - a.tier)
+    return out
+  }, [world])
+
+  const worldByCode = useMemo(() => {
+    const m = new Map()
+    for (const a of world) m.set(a.iata, a)
+    return m
+  }, [world])
+
+  const [pickedAirport, setPickedAirport] = useState(null)
   const [country, setCountry] = useState(null)
   // A NEW CARD ALWAYS CLOSES THE OLD ONE, IN BOTH DIRECTIONS.
   //
@@ -380,15 +417,52 @@ function FlightMap({ routes = [], airports = [] }) {
   // "clicking a new thing that shows a popup should always close the other one."
   const pickCountry = useCallback((name, iso) => {
     setSelected(null)
+    setPickedAirport(null)
     setCountry({ name, iso })
   }, [])
+
+  // The third card, and it obeys the same rule as the other two: opening one
+  // closes the others. Pressing the same dot again closes it.
+  const pickAirport = useCallback((iata) => {
+    setSelected(null)
+    setCountry(null)
+    setPickedAirport((cur) => (cur === iata ? null : iata))
+  }, [])
+  // "1 AIRPORT HERE" WAS TRUE AND READ AS A LIE.
+  //
+  // This counted the airports in YOUR LOG for the country you pressed, and drew
+  // "1 airport · 4 flights through it". Ethan, pressing Ireland: "clicking on
+  // them just shows up information on like one airport, it says one airport
+  // here." Of course it does - he has flown through one. But the map now draws
+  // every airport in the world, so the sentence is sitting next to a dozen
+  // visible dots in that country and the only available reading is that the map
+  // thinks Ireland has one airport.
+  //
+  // So the card now says both numbers, and says which is which.
   const countryDetail = useMemo(() => {
     if (!country) return null
     const here = airports
       .filter((a) => a.country === country.iso)
       .sort((a, b) => b.weight - a.weight)
-    return { ...country, airports: here, flights: here.reduce((n, a) => n + a.weight, 0) }
-  }, [country, airports])
+    const total = world.reduce((n, a) => n + (a.country === country.iso ? 1 : 0), 0)
+    return {
+      ...country,
+      airports: here,
+      total,
+      flights: here.reduce((n, a) => n + a.weight, 0),
+    }
+  }, [country, airports, world])
+
+  // WHAT ONE DOT KNOWS ABOUT ITSELF. The world row, plus whatever the log has
+  // to say about it - which is the part that makes pressing a dot worth doing.
+  const airportDetail = useMemo(() => {
+    if (!pickedAirport) return null
+    const w = worldByCode.get(pickedAirport)
+    if (!w) return null
+    const mine = airports.find((a) => a.iata === pickedAirport) || null
+    const legs = routes.filter((r) => r.from?.iata === pickedAirport || r.to?.iata === pickedAirport)
+    return { ...w, mine, legs }
+  }, [pickedAirport, worldByCode, airports, routes])
 
   const arcs = useMemo(
     () => routes.map((r) => ({ ...r, ...arcFor(r.from, r.to) })),
@@ -410,6 +484,7 @@ function FlightMap({ routes = [], airports = [] }) {
   // stack of paper, and the second one hides the first.
   const pickRoute = useCallback((key) => {
     setCountry(null)
+    setPickedAirport(null)
     setSelected((cur) => (cur === key ? null : key))
   }, [])
 
@@ -538,7 +613,13 @@ function FlightMap({ routes = [], airports = [] }) {
             in the note above: during a zoom gesture the state lags the
             transform, and a marker sized from the stale value is visibly the
             wrong size until the gesture ends. */}
-        <WorldAirports zoom={liveZoom} center={position.coordinates} />
+        <WorldAirports
+          placed={worldPlaced}
+          zoom={liveZoom}
+          center={position.coordinates}
+          onPick={pickAirport}
+          selected={pickedAirport}
+        />
 
         {/* THE ROUTES DRAW THEMSELVES IN.
             `stroke-dasharray` set to the path's own length with the offset
@@ -740,9 +821,13 @@ function FlightMap({ routes = [], airports = [] }) {
         <span className="min-w-0 flex-1">
           <span className="block truncate text-base font-bold">{countryDetail.name}</span>
           <span className="block text-xs text-smoke">
-            {countryDetail.airports.length} {countryDetail.airports.length === 1 ? 'airport' : 'airports'}
-            {' · '}
-            {countryDetail.flights} {countryDetail.flights === 1 ? 'flight' : 'flights'} through it
+            {/* BOTH NUMBERS, AND WHICH IS WHICH. See the note on countryDetail:
+                this used to print only the airports in your own log, which read
+                as the map claiming Ireland has one airport. */}
+            {countryDetail.airports.length > 0
+              ? `You have used ${countryDetail.airports.length} of ${countryDetail.total} airports here`
+              : `${countryDetail.total} ${countryDetail.total === 1 ? 'airport' : 'airports'} here, none of them yours yet`}
+            {countryDetail.flights > 0 && ` · ${countryDetail.flights} ${countryDetail.flights === 1 ? 'flight' : 'flights'} through it`}
           </span>
         </span>
         <button type="button" onClick={() => setCountry(null)} aria-label="Close"
@@ -764,7 +849,61 @@ function FlightMap({ routes = [], airports = [] }) {
     </div>
   )
 
-  const hint = routes.length > 0 && !active && !countryDetail && (
+  // ONE DOT, PRESSED. The same object as the route and country cards, because it
+  // answers the same kind of question about a smaller thing: what is this, where
+  // is it, and does it mean anything to me.
+  //
+  // The last line is the one worth having. An airport you have never used says
+  // so plainly rather than pretending to be a destination - "somewhere you have
+  // not been yet" is an invitation, and an empty card is a dead end.
+  const airportCard = airportDetail && (
+    <div className="pointer-events-auto absolute inset-x-3 bottom-3 z-20 mx-auto max-w-md overflow-hidden rounded-card border border-gray-100 bg-white/97 shadow-lift backdrop-blur animate-map-in">
+      <div className="flex items-start gap-3 px-5 py-4">
+        <span className="flex h-9 w-11 shrink-0 items-center justify-center rounded-lg bg-brand-tint text-xs font-bold tracking-wider text-brand">
+          {airportDetail.iata}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-base font-bold">{airportDetail.name}</span>
+          {/* THE FLAG, NOT THE CODE. `country` on a world row is ISO-2, which is
+              the right thing to STORE (it is what the map's country layer keys
+              on) and the wrong thing to print - the card was reading "Dublin,
+              IE". `flagFromIso` covers every country in the table, where a
+              name lookup would only cover the ones the app already knows about. */}
+          <span className="block truncate text-xs text-smoke">
+            {airportDetail.city || airportDetail.name}
+            {airportDetail.country && (
+              <span aria-hidden className="ml-1.5">{flagFromIso(airportDetail.country)}</span>
+            )}
+          </span>
+        </span>
+        <button type="button" onClick={() => setPickedAirport(null)} aria-label="Close"
+          className="-mr-1.5 -mt-1.5 shrink-0 rounded-full p-1.5 text-smoke transition-colors hover:bg-cloud hover:text-ink">
+          <Icon name="close" className="h-4 w-4" />
+        </button>
+      </div>
+      <div className="border-t border-gray-100 px-5 py-3">
+        {airportDetail.mine ? (
+          <p className="flex items-center gap-2 text-xs text-ink">
+            <Icon name="check" className="h-3.5 w-3.5 shrink-0 text-green-600" />
+            <span>
+              <span className="font-semibold">
+                {airportDetail.mine.weight} {airportDetail.mine.weight === 1 ? 'flight' : 'flights'}
+              </span>
+              {' through here'}
+              {airportDetail.legs.length > 0 && `, on ${airportDetail.legs.length} ${airportDetail.legs.length === 1 ? 'route' : 'routes'}`}
+            </span>
+          </p>
+        ) : (
+          <p className="flex items-center gap-2 text-xs text-smoke">
+            <Icon name="plane" className="h-3.5 w-3.5 shrink-0 text-gray-300" />
+            Somewhere you have not been yet.
+          </p>
+        )}
+      </div>
+    </div>
+  )
+
+  const hint = routes.length > 0 && !active && !countryDetail && !airportCard && (
     <p className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-[11px] text-smoke">
       Tap a route, or a country you have landed in
     </p>
@@ -797,6 +936,7 @@ function FlightMap({ routes = [], airports = [] }) {
           <div className="h-full w-full [&>svg]:h-full">{map}</div>
           {card}
           {countryCard}
+          {airportCard}
           {hint}
         </div>
       </div>,
@@ -811,6 +951,7 @@ function FlightMap({ routes = [], airports = [] }) {
         {map}
         {card}
         {countryCard}
+        {airportCard}
         {hint}
         {routes.length === 0 && (
           <p className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-[11px] text-smoke">

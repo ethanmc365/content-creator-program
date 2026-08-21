@@ -1,3 +1,29 @@
+// FOUR CODES WERE WRONG, AND THEY WERE ALL WRONG THE SAME WAY (21 Aug 2026).
+//
+// Found by cross-checking every row here against OpenFlights while building the
+// world airport layer for the map: four entries carried the right airport, with
+// the right coordinates, under the IATA code of a DIFFERENT airport serving the
+// same city. Somebody had entered the newer field and labelled it with the
+// city's better-known code.
+//
+//   VIS -> VBY   Visby, Gotland. VIS is Visalia Municipal in California, and
+//                that is where the dot was being drawn: 8,845 km out.
+//   CTU -> TFU   Chengdu Tianfu. CTU is Shuangliu, 56 km west.
+//   DKR -> DSS   Dakar Blaise Diagne. DKR is Leopold Sedar Senghor, 45 km west.
+//   TIP -> MJI   Tripoli Mitiga. TIP is Tripoli International, 28 km south.
+//
+// The code is the part that matters, because it is what `flights.from_iata`
+// stores and what a boarding pass barcode hands over - a scanned pass reading
+// CTU has to resolve to Shuangliu. So the codes were corrected AND the airport
+// each code really means was added alongside, which is why Chengdu, Dakar and
+// Tripoli now have two entries each. Visalia does not get one: it is a
+// municipal field nobody here will fly through, and it is in the world file.
+//
+// Nothing had been logged against any of the four, so no stored flight changed
+// meaning. scripts/gen-world-airports.py now fails the build if a curated
+// airport sits more than 50 km from its OpenFlights counterpart, so this class
+// of error cannot come back silently.
+
 // Airports, as a flat table you can search.
 //
 // WHY A LIST IN THE REPO AND NOT A LOOKUP SERVICE. Logging a flight has to be
@@ -210,7 +236,8 @@ const RAW = [
   ['ADD', 'Bole', 'Addis Ababa', 'ET', 8.9779, 38.7993],
   ['LOS', 'Murtala Muhammed', 'Lagos', 'NG', 6.5774, 3.3212],
   ['ACC', 'Kotoka', 'Accra', 'GH', 5.6052, -0.1668],
-  ['DKR', 'Blaise Diagne', 'Dakar', 'SN', 14.6708, -17.0733],
+  ['DSS', 'Blaise Diagne', 'Dakar', 'SN', 14.6708, -17.0733],
+  ['DKR', 'Leopold Sedar Senghor', 'Dakar', 'SN', 14.7397, -17.4902],
   ['ZNZ', 'Abeid Amani Karume', 'Zanzibar', 'TZ', -6.222, 39.2249],
   ['JRO', 'Kilimanjaro', 'Arusha', 'TZ', -3.4294, 37.0745],
   ['MRU', 'Sir Seewoosagur Ramgoolam', 'Mauritius', 'MU', -20.4302, 57.6836],
@@ -293,7 +320,8 @@ const RAW = [
   ['SHA', 'Hongqiao', 'Shanghai', 'CN', 31.1979, 121.3363],
   ['CAN', 'Baiyun', 'Guangzhou', 'CN', 23.3924, 113.2988],
   ['SZX', 'Baoan', 'Shenzhen', 'CN', 22.6393, 113.8107],
-  ['CTU', 'Tianfu', 'Chengdu', 'CN', 30.3125, 104.4413],
+  ['TFU', 'Tianfu', 'Chengdu', 'CN', 30.3125, 104.4413],
+  ['CTU', 'Shuangliu', 'Chengdu', 'CN', 30.5785, 103.947],
   ['HKG', 'Hong Kong', 'Hong Kong', 'HK', 22.308, 113.9185],
   ['TPE', 'Taoyuan', 'Taipei', 'TW', 25.0777, 121.2328],
   ['SIN', 'Changi', 'Singapore', 'SG', 1.3644, 103.9915],
@@ -491,7 +519,7 @@ const RAW = [
   ['UME', 'Umea', 'Umea', 'SE', 63.7918, 20.2828],
   ['VXO', 'Vaxjo', 'Vaxjo', 'SE', 56.9291, 14.728],
   ['KRN', 'Kiruna', 'Kiruna', 'SE', 67.822, 20.3368],
-  ['VIS', 'Visby', 'Gotland', 'SE', 57.6628, 18.3462],
+  ['VBY', 'Visby', 'Gotland', 'SE', 57.6628, 18.3462],
   ['TRF', 'Torp', 'Sandefjord', 'NO', 59.1867, 10.2586],
   ['AES', 'Vigra', 'Alesund', 'NO', 62.5625, 6.1197],
   ['BOO', 'Bodo', 'Bodo', 'NO', 67.2692, 14.3653],
@@ -779,7 +807,8 @@ const RAW = [
   ['OXB', 'Osvaldo Vieira', 'Bissau', 'GW', 11.8948, -15.6537],
   ['MSU', 'Moshoeshoe I', 'Maseru', 'LS', -29.4623, 27.5525],
   ['ROB', 'Roberts', 'Monrovia', 'LR', 6.2337, -10.3623],
-  ['TIP', 'Mitiga', 'Tripoli', 'LY', 32.8940, 13.2760],
+  ['MJI', 'Mitiga', 'Tripoli', 'LY', 32.8940, 13.2760],
+  ['TIP', 'Tripoli International', 'Tripoli', 'LY', 32.6635, 13.1590],
   ['BEN', 'Benina', 'Benghazi', 'LY', 32.0968, 20.2695],
   ['LLW', 'Kamuzu', 'Lilongwe', 'MW', -13.7894, 33.781],
   ['BLZ', 'Chileka', 'Blantyre', 'MW', -15.6791, 34.974],

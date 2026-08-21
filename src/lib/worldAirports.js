@@ -83,6 +83,8 @@ export function dotRadius(tier, zoom) {
   return Math.max(MIN_RADIUS, base / Math.pow(zoom, DOT_FALLOFF))
 }
 
+import { WORLD_AIRPORTS_VERSION } from './worldAirportsVersion'
+
 let pending = null
 
 /**
@@ -94,15 +96,25 @@ let pending = null
  */
 export function loadWorldAirports() {
   if (pending) return pending
-  pending = fetch('/geo/airports-world.json')
+  // THE VERSION IN THE URL IS LOAD-BEARING. The file sits at a stable path with
+  // a long cache header, so without it a regenerated table never reaches anyone
+  // - which is exactly what happened when this went from 6,074 airports to
+  // 8,809 and the map carried on drawing the old one. The hash is stamped by
+  // scripts/gen-world-airports.py; see the note there.
+  pending = fetch(`/geo/airports-world.json?v=${WORLD_AIRPORTS_VERSION}`)
     .then((r) => {
       if (!r.ok) throw new Error(`airports-world: ${r.status}`)
       return r.json()
     })
     .then((data) => {
-      const countries = data.countries || []
+      // Country codes are interned - 8,800 airports across 236 countries, and
+      // "US" does not need storing 1,500 times. `country` is ISO-2, which is
+      // what the map's own country layer keys on; it used to be the country's
+      // NAME, and matching "United States" against the atlas's "United States
+      // of America" by string is the sort of thing that works until it does not.
+      const codes = data.countries || []
       return (data.rows || []).map((r) => ({
-        iata: r[0], name: r[1], city: r[2], country: countries[r[3]] || '',
+        iata: r[0], name: r[1], city: r[2], country: codes[r[3]] || '',
         lat: r[4], lng: r[5], tier: r[6],
       }))
     })
