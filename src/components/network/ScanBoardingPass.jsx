@@ -75,7 +75,9 @@ export default function ScanBoardingPass({ open, onClose, onFilled, now }) {
     e.target.value = ''
     if (!file) return
     setMode('working')
-    const raw = await scanBarcode(file)
+    // EXHAUSTIVE, because this is the one-shot path. The camera loop below
+    // deliberately does not ask for it. See lib/scanPass.
+    const raw = await scanBarcode(file, { exhaustive: true })
     if (!raw || !handle(raw)) setMode('failed')
   }
 

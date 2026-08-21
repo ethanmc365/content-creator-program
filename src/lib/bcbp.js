@@ -38,17 +38,43 @@
 // from a typed one.
 
 import { airlineByCode } from './airlines'
+import { airport } from './airports'
 
 /** Trim the fixed-width padding IATA uses (spaces) and normalise case. */
 const f = (s) => (s || '').trim().toUpperCase()
 
 /**
  * Decode a BCBP string.
+ *
+ * TWO PASSES, BECAUSE THE FIXED OFFSETS ARE A LIE ON PAPER TICKETS.
+ *
+ * Resolution 792 says the mandatory block is 60 characters at known offsets,
+ * and for an app-issued pass it is. Ethan's Aer Lingus pass out of Oslo is
+ * printed with "PAPER TKT" on it, and on a paper ticket the electronic-ticket
+ * indicator at offset 22 is a SPACE rather than an `E`. Read at fixed offsets
+ * that shifts the entire leg block one character left: the PNR field eats the
+ * space plus six characters of the real PNR, the origin lands one short, and
+ * `[A-Z]{3}` fails against " OS". The parser returned null and the scanner said
+ * "no boarding pass found" about a barcode it had decoded perfectly.
+ *
+ * Same failure for a leading newline, which some decoders hand back.
+ *
+ * So: try the canonical layout first, because when it works it is
+ * unambiguous. If it does not, SEARCH for the leg block by its own shape. The
+ * field WIDTHS are still fixed - that is what makes BCBP readable at all - it
+ * is only the offset that floats.
+ *
+ * THE SEARCH NEEDS A GUARD OR IT WILL FIND NONSENSE. Six letters in a row look
+ * like two airport codes, and a passenger called MCCANDLESSGIBBON contains
+ * several. So a candidate is only accepted if BOTH codes resolve to real
+ * airports in lib/airports and the day of year is in range. That is a much
+ * stronger test than any regex, and the table is already loaded.
+ *
  * @returns {null | {from, to, airline, flightNumber, seat, dayOfYear, name, pnr, legs}}
  */
 export function parseBoardingPass(raw) {
   if (!raw) return null
-  const s = String(raw).replace(/\r?\n/g, '')
+  const s = String(raw).replace(/\r?\n/g, '').trimStart()
   // `M` is a boarding pass, the digit after it is how many legs it holds.
   // Anything else is some other barcode that happened to be in the photo.
   if (!/^M[1-9]/.test(s)) return null
@@ -57,32 +83,50 @@ export function parseBoardingPass(raw) {
   // shorter than that is truncated and not worth guessing at.
   if (s.length < 60) return null
 
-  // Name is 20 characters from position 2, "SURNAME/FIRST".
-  const name = s.slice(2, 22).trim()
-  const rest = s.slice(22)
-  // The repeated leg block: E or > then PNR(7) FROM(3) TO(3) CARRIER(3)
-  // FLIGHT(5) DAY(3) CABIN(1) SEAT(4) SEQUENCE(5) ...
-  const m = rest.match(/^[E>]?([A-Z0-9 ]{7})([A-Z]{3})([A-Z]{3})([A-Z0-9 ]{3})([A-Z0-9 ]{5})(\d{3})([A-Z ])([A-Z0-9 ]{4})/)
-  if (!m) return null
-  const [, pnr, from, to, carrier, flight, day, cabin, seat] = m
+  // FROM(3) TO(3) CARRIER(3) FLIGHT(5) DAY(3) CABIN(1) SEAT(4). Widths fixed,
+  // position not.
+  const LEG = /^([A-Z]{3})([A-Z]{3})([A-Z0-9 ]{3})([A-Z0-9 ]{5})(\d{3})([A-Z ])([A-Z0-9 ]{4})/
 
-  const dayOfYear = Number(day)
-  if (!(dayOfYear >= 1 && dayOfYear <= 366)) return null
-
-  return {
-    name,
-    pnr: f(pnr),
-    from: f(from),
-    to: f(to),
-    airline: f(carrier),
-    // Flight numbers are zero-padded to 5 in the barcode and nobody writes them
-    // that way: `00122` is flight 122.
-    flightNumber: `${f(carrier)}${f(flight).replace(/^0+/, '')}`.trim(),
-    cabin: f(cabin) || null,
-    seat: f(seat).replace(/^0+/, '') || null,
-    dayOfYear,
-    legs: legCount,
+  const build = (m, pnr) => {
+    const [, from, to, carrier, flight, day, cabin, seat] = m
+    const dayOfYear = Number(day)
+    if (!(dayOfYear >= 1 && dayOfYear <= 366)) return null
+    return {
+      name: s.slice(2, 22).trim(),
+      pnr: f(pnr),
+      from: f(from),
+      to: f(to),
+      airline: f(carrier),
+      // Flight numbers are zero-padded to 5 in the barcode and nobody writes
+      // them that way: `00122` is flight 122.
+      flightNumber: `${f(carrier)}${f(flight).replace(/^0+/, '')}`.trim(),
+      cabin: f(cabin) || null,
+      seat: f(seat).replace(/^0+/, '') || null,
+      dayOfYear,
+      legs: legCount,
+    }
   }
+
+  // ---- Pass one: the layout as specified. -----------------------------------
+  const rest = s.slice(22)
+  const canonical = rest.match(new RegExp(`^[E>]?([A-Z0-9 ]{7})${LEG.source.slice(1)}`))
+  if (canonical) {
+    const [, pnr, ...leg] = canonical
+    const out = build([null, ...leg], pnr)
+    if (out) return out
+  }
+
+  // ---- Pass two: find the block. -------------------------------------------
+  // Start at 15 rather than 0: the name field is 20 characters and searching
+  // inside it is exactly how a passenger's initials get read as an airport.
+  for (let i = 15; i < Math.min(s.length - 19, 64); i += 1) {
+    const m = s.slice(i).match(LEG)
+    if (!m) continue
+    const out = build(m, s.slice(Math.max(0, i - 7), i))
+    // THE GUARD. Both ends have to be places, or this is a name.
+    if (out && airport(out.from) && airport(out.to)) return out
+  }
+  return null
 }
 
 /**

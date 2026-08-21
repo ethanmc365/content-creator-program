@@ -76,3 +76,57 @@ describe('boardingPassToForm', () => {
     expect(boardingPassToForm('not a pass', new Date())).toBeNull()
   })
 })
+
+// ---------------------------------------------------------------------------
+// THE TWO PASSES THAT DID NOT WORK, 21 Aug 2026.
+//
+// Ethan photographed both: an Aer Lingus paper pass OSL->DUB (EI627, 18 Aug,
+// seat 10C, seq 0036) and the Apple Wallet pass for the outbound DUB->OSL
+// (EI0626, 11 Aug, seat 10C, seq 28). The digital one half worked. The paper
+// one produced "no boarding pass found" every time, and the barcode was fine -
+// the parser was reading at fixed offsets, and a PAPER ticket carries a SPACE
+// where an e-ticket carries `E`, which shifts the whole leg block one left.
+//
+// Built by FIELD rather than typed as a literal, because hand-counting a
+// 60-character fixed-width string is how the first version of this test was
+// wrong in a way that hid the bug.
+const pad = (v, n) => String(v).padEnd(n, ' ').slice(0, n)
+function bcbp({ name, ind = 'E', pnr = 'ABC123', from, to, carrier, flight, day, cabin = 'Y', seat, seq }) {
+  return 'M1' + pad(name, 20) + pad(ind, 1) + pad(pnr, 7) + pad(from, 3) + pad(to, 3)
+    + pad(carrier, 3) + pad(flight, 5) + pad(day, 3) + pad(cabin, 1) + pad(seat, 4)
+    + pad(seq, 5) + '1' + '00'
+}
+const PAPER = { name: 'MCCANDLESSGIBBON/E', from: 'OSL', to: 'DUB', carrier: 'EI', flight: '0627', day: '230', seat: '010C', seq: '0036' }
+
+describe('the passes that failed in the wild', () => {
+  it('reads a PAPER ticket, where the e-ticket indicator is a space', () => {
+    const o = parseBoardingPass(bcbp({ ...PAPER, ind: ' ' }))
+    expect(o).toMatchObject({ from: 'OSL', to: 'DUB', flightNumber: 'EI627', seat: '10C', dayOfYear: 230 })
+  })
+
+  it('still reads the ordinary electronic pass at its canonical offsets', () => {
+    const o = parseBoardingPass(bcbp(PAPER))
+    expect(o).toMatchObject({ from: 'OSL', to: 'DUB', flightNumber: 'EI627', seat: '10C' })
+  })
+
+  it('survives a leading newline from the decoder', () => {
+    expect(parseBoardingPass('\n' + bcbp(PAPER))).toMatchObject({ from: 'OSL', to: 'DUB' })
+  })
+
+  it('survives an empty PNR and trailing conditional data', () => {
+    expect(parseBoardingPass(bcbp({ ...PAPER, pnr: '' }) + '^164ABCDEF')).toMatchObject({ from: 'OSL', to: 'DUB' })
+  })
+
+  // THE GUARD ON THE SEARCH PASS. Six letters in a row look like two airport
+  // codes, and this passenger's name contains several runs that could pass a
+  // regex. Only a pair that resolves to REAL airports is accepted, so a
+  // corrupted barcode returns null instead of inventing a route.
+  it('refuses to read a passenger name as a route', () => {
+    const junk = 'M1MCCANDLESSGIBBON/E ' + 'X'.repeat(48)
+    expect(parseBoardingPass(junk)).toBeNull()
+  })
+
+  it('refuses a leg block whose airports are not real', () => {
+    expect(parseBoardingPass(bcbp({ ...PAPER, ind: ' ', from: 'QQQ', to: 'ZZZ' }))).toBeNull()
+  })
+})
