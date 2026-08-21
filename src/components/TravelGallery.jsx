@@ -8,6 +8,20 @@ import { Spinner } from './ui'
 import Icon from './Icon'
 import { cx } from '../lib/utils'
 
+/** Width / height of an image blob, or null. Used to store a photo's natural
+ *  shape so the board can lay it out as it was taken. */
+async function imageAspect(blob) {
+  const url = URL.createObjectURL(blob)
+  try {
+    const bmp = await createImageBitmap(blob)
+    const a = bmp.width && bmp.height ? bmp.width / bmp.height : null
+    bmp.close?.()
+    return a
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}
+
 const MAX_PHOTOS = 10
 
 // Travel photo gallery (up to MAX_PHOTOS images per creator).
@@ -68,7 +82,18 @@ export default function TravelGallery({ creatorId, editable = false }) {
       try {
         url = await uploadFile('gallery', path, compressed, compressed.type || 'image/jpeg')
       } catch (err) { setError(err.message); continue }
-      await supabase.from('creator_photos').insert({ creator_id: user.id, photo_url: url, sort_order: order++ })
+      // THE SHAPE IS RECORDED AT UPLOAD, and it is the whole reason the board
+      // can put a photo up in the proportions it arrived in. Measured from the
+      // COMPRESSED blob rather than the original: compressImage caps the long
+      // edge, so the two can differ by a rounding, and the number that matters
+      // is the one describing the file that actually got stored.
+      // A failure here is not a failure to upload - `aspect` stays null and the
+      // board falls back to a sensible default box.
+      let aspect = null
+      try { aspect = await imageAspect(compressed) } catch { /* default box */ }
+      await supabase.from('creator_photos').insert({
+        creator_id: user.id, photo_url: url, sort_order: order++, aspect,
+      })
     }
     setUploading(false)
     load()

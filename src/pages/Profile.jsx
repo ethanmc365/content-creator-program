@@ -5,9 +5,11 @@ import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
 import WorldMap from '../components/WorldMap'
 import TravelGallery from '../components/TravelGallery'
+import PhotoBoard from '../components/PhotoBoard'
 import VideoThumb from '../components/VideoThumb'
 import MilestoneSnippet from '../components/network/MilestoneSnippet'
 import ProfileFlights from '../components/network/ProfileFlights'
+import { AircraftCard, ChallengeHistoryCard, PuzzleCard } from '../components/network/ProfileRailCards'
 import ConnectButton from '../components/ConnectButton'
 import ReportCreator from '../components/ReportCreator'
 import LocalTime from '../components/LocalTime'
@@ -355,6 +357,310 @@ export default function Profile() {
         </div>
       </section>
 
+      {/* ================= THE PAGE, SPLIT =================
+          Ethan: "you can split it rather than just having big wide cards
+          everywhere. Similar to the worldwide page, smaller cards on the right
+          hand side and the bigger cards on the left hand side."
+          Everything here used to be a full-width band stacked twelve deep, so
+          a map, four statistics, a language list and a bucket list all had the
+          same weight and the same width - which is why the page read as a
+          scroll of unrelated stripes rather than as one person.
+          LEFT is the things that NEED width: the map, the photo board, the
+          flight log, the video showcase. RIGHT is everything that is a fact
+          rather than a picture, at a quarter of the size.
+          ONE COLUMN BELOW `lg`, main first. A rail stacked above the content on
+          a phone is just the old page with smaller headings.
+          UK CREATORS SEE THE OLD PAGE UNTIL THE NETWORK SHIPS - the split, the
+          board and the new cards are all behind `networkPreview`. */}
+      {networkPreview ? (
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:gap-8">
+        <div className="min-w-0 space-y-8">
+        {/* ---------- About (bio) ---------- */}
+        {creator.about && (
+          <section className="card">
+            <h2 className="mb-3 text-lg font-semibold">About {creator.name.split(' ')[0]}</h2>
+            <p className="whitespace-pre-line leading-relaxed text-smoke">{creator.about}</p>
+          </section>
+        )}
+        {/* ---------- World map (countries visited) ---------- */}
+        <section>
+          <div className="mb-4 flex items-baseline justify-between">
+            <h2 className="text-lg font-semibold">
+              {creator.countries_visited?.length || 0} {creator.countries_visited?.length === 1 ? 'country' : 'countries'} visited
+            </h2>
+            {isMe && <Link to="/profile/edit" className="text-sm font-medium text-brand hover:underline">Update map</Link>}
+          </div>
+            {/* `owner` makes the countries tappable: what the place is known for,
+              and a way to ask the one person whose map this is about it. */}
+          <WorldMap selected={creator.countries_visited || []} owner={creator} here={here} />
+          {creator.countries_visited?.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {[...creator.countries_visited].sort().map((c) => (
+                <Badge key={c} tone="grey">{c}</Badge>
+              ))}
+            </div>
+          )}
+        </section>
+        {/* ---------- Travel photos ---------- */}
+        <ProfileGallery creatorId={creator.id} isMe={isMe} creatorName={creator.name} board />
+        {/* ---------- The flight log ----------
+            ABOVE THE COUNTRIES MAP, and deliberately not a second map. "Been to
+            34 countries" and "flown 180,000 km" are the same claim from two
+            directions and they read best together; two world maps on one page is
+            a page that cannot decide what it is about. See ProfileFlights.
+
+            BEHIND THE PREVIEW FLAG, like the log it comes from. `/flights` is
+            inside NetworkRoute, so a UK creator seeing this section would get a
+            panel of numbers with a link that bounces them to /home - and the
+            owner asked specifically that the profile changes stay invisible to
+            the community for now. */}
+        {networkPreview && (
+          <section>
+            <div className="mb-4 flex items-baseline justify-between">
+              <h2 className="flex items-center gap-2 text-lg font-semibold">
+                <Icon name="plane-tryp" className="h-5 w-5 text-brand" />
+                {isMe ? 'Your flying' : `${creator.name.split(' ')[0]}'s flying`}
+              </h2>
+              {isMe && <Link to="/flights" className="text-sm font-medium text-brand hover:underline">Flight log</Link>}
+            </div>
+            <ProfileFlights creatorId={creator.id} isMe={isMe} name={creator.name} />
+          </section>
+        )}
+        {/* ---------- Content showcase (creators only; admins don't submit) ---------- */}
+        {!creator.is_admin && (
+        <section>
+          <h2 className="mb-4 text-lg font-semibold">Content showcase</h2>
+          {submissions.length === 0 ? (
+            <EmptyState
+              icon={<Icon name="video" className="h-7 w-7" />}
+              title={isMe ? 'No submissions yet' : `${creator.name.split(' ')[0]} hasn't submitted yet`}
+              hint={isMe ? 'Enter the current challenge and your videos will show up here.' : 'Their challenge entries will appear here.'}
+              action={isMe && <Link to="/challenges" className="btn-primary">View challenges</Link>}
+            />
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {submissions.map((s) => (
+                <a
+                  key={s.id}
+                  href={s.video_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="card group overflow-hidden !p-0 transition-all hover:-translate-y-0.5 hover:shadow-lift"
+                >
+                  <VideoThumb url={s.video_url} platform={s.platform} className="rounded-b-none" />
+                  <div className="p-5">
+                    <div className="flex items-center justify-between gap-3 text-xs text-smoke">
+                      <span className="truncate">{s.challenges?.title}</span>
+                      <span className="shrink-0">{timeAgo(s.submitted_at)}</span>
+                    </div>
+                    <p className={cx('mt-2 text-sm font-medium group-hover:text-brand', !s.caption && 'text-smoke')}>
+                      {s.caption || 'View the video ↗'}
+                    </p>
+                  </div>
+                </a>
+              ))}
+            </div>
+          )}
+        </section>
+        )}
+        </div>
+        <aside className="min-w-0 space-y-4">
+        {/* WHERE THEY ARE RIGHT NOW, AND IT LEADS THE RAIL.
+            It used to sit above the map, which is where somebody looks when
+            they wonder - but it is a one-line fact about a person, not a
+            caption for a picture, and at the top of the rail it is the first
+            thing read on the whole page after the name. */}
+        {here && (
+          <section className={cx(
+            'rounded-card border p-4',
+            here.travelling ? 'border-brand/25 bg-brand-tint/50' : 'border-gray-100 bg-white shadow-card',
+          )}>
+            <div className="flex items-center gap-3">
+              <span className={cx(
+                'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
+                here.travelling ? 'bg-brand text-white' : 'bg-cloud text-smoke',
+              )}>
+                <Icon name={here.travelling ? 'plane' : 'pin'} className="h-4 w-4" />
+              </span>
+              <p className="min-w-0 text-sm">
+                <span className="block font-semibold text-ink">
+                  {/* "You ARE", "Maddie IS". Getting this wrong is the sort of
+                      thing that makes a product feel machine-written. */}
+                  {here.travelling
+                    ? `${here.who} ${isMe ? 'are' : 'is'} in ${here.place}`
+                    : `${here.who} ${isMe ? 'are' : 'is'} at home in ${here.place}`}
+                </span>
+                {here.travelling && currentTrip
+                  ? <span className="block text-xs text-smoke">Back {formatDate(currentTrip.end_date)}</span>
+                  : <span className="block text-xs text-smoke"><LocalTime profile={creator} showNote={false} /></span>}
+              </p>
+            </div>
+          </section>
+        )}
+        {/* AT A GLANCE. Four numbers that used to be four full-width boxes in
+            a row across the page, which is a lot of furniture for four facts.
+            As rows in one rail card they take a quarter of the space and read
+            faster, because the labels line up and the eye goes down a column
+            rather than across a band. "Member since" stays - Ethan: "to hear
+            since March 2026, I think we might have something similar to that,
+            it says member since, so yeah that's good, we should keep that." */}
+        <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+            <Icon name="chart" className="h-4 w-4 shrink-0 text-brand" />
+            At a glance
+          </h2>
+          <dl className="space-y-2">
+            {[
+              ['Member since', formatDate(creator.accepted_at || creator.created_at)],
+              ['Countries visited', creator.countries_visited?.length || 0],
+              ['Challenges entered', challengeCount],
+              ['Videos submitted', submissions.length],
+            ].map(([k, v]) => (
+              <div key={k} className="flex items-baseline justify-between gap-3">
+                <dt className="text-xs text-smoke">{k}</dt>
+                <dd className="shrink-0 text-sm font-semibold tabular-nums">{v}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+        {/* CONTACT, AS A RAIL CARD RATHER THAN A BAND ACROSS THE PAGE.
+            Ethan: "the custom contact details that show up on the profile, I
+            think they should be like maybe just a button under the creators
+            somewhere, and maybe improve the design of it better too. Remember
+            it is only visible to the Tryp.com admins and team, ensure creators
+            can't see those details."
+            Still admin-only - the RPC and `creator_private`'s RLS both enforce
+            that server side, so this is presentation, not permission. It was a
+            full-width brand-tinted block, which on a page about a person made
+            their phone number the loudest thing on it. */}
+        {viewerIsAdmin && contact && (contact.email || contact.phone) && (
+          <section className="rounded-card border border-brand/25 bg-brand-tint/40 p-4">
+            <h2 className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-brand">
+              <Icon name="eye" className="h-4 w-4 shrink-0" />
+              Team only
+            </h2>
+            <div className="space-y-2">
+              {contact.email && (
+                <div className="flex items-center gap-1.5">
+                  <a href={`mailto:${contact.email}`} className="min-w-0 flex-1 truncate text-xs font-medium hover:text-brand">
+                    {contact.email}
+                  </a>
+                  <CopyButton value={contact.email} label="Copy email" />
+                </div>
+              )}
+              {contact.phone && (
+                <div className="flex items-center gap-1.5">
+                  <a href={`tel:${contact.phone}`} className="min-w-0 flex-1 truncate text-xs font-medium hover:text-brand">
+                    {contact.phone}
+                  </a>
+                  <CopyButton value={contact.phone} label="Copy phone" />
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+        {/* ---------- Where I'm headed next (upcoming collab trips) ---------- */}
+        {(trips.length > 0 || isMe) && (
+          <section>
+            <div className="mb-4 flex items-baseline justify-between">
+              <h2 className="text-lg font-semibold">
+                {isMe ? "Where I'm headed next" : `Where ${creator.name.split(' ')[0]}'s headed next`}
+              </h2>
+              <Link to="/collab" className="text-sm font-medium text-brand hover:underline">{isMe ? 'Post a trip' : 'Collab board'}</Link>
+            </div>
+            {trips.length === 0 ? (
+              <p className="text-sm text-smoke">No upcoming trips posted. Share where you’re headed on the collab board so nearby creators can meet up.</p>
+            ) : (
+              <div className="flex flex-wrap gap-3">
+                {trips.map((t) => {
+                  const flag = flagForCountry(t.country)
+                  return (
+                    <Link key={t.id} to="/collab" className="flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-lift">
+                      <span className="text-2xl leading-none" aria-hidden>{flag || '📍'}</span>
+                      <span>
+                        <span className="block text-sm font-semibold">{t.city}{t.country ? `, ${t.country}` : ''}</span>
+                        <span className="block text-xs text-smoke">{format(new Date(t.start_date), 'd MMM')} – {format(new Date(t.end_date), 'd MMM yyyy')}</span>
+                      </span>
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
+          </section>
+        )}
+        {/* LANGUAGES AND THE BUCKET LIST, IN ONE CARD AND MUCH SMALLER.
+            Ethan: "we have the languages that show up, the travel bucket list,
+            but the way they show up is really small, taking up a lot of space,
+            and it just doesn't look good."
+            Both were their own full-width section with an 18px heading over a
+            row of pills - so two facts that fit on one line each were spending
+            a third of a screen between them. One card, two labelled rows, and
+            the pills are now plain text separated by dots: a chip around a
+            single word is a button that does nothing. */}
+        {(creator.languages?.length > 0 || creator.bucket_list?.length > 0) && (
+          <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card">
+            {creator.languages?.length > 0 && (
+              <div>
+                <h2 className="flex items-center gap-2 text-sm font-semibold">
+                  <Icon name="chat" className="h-4 w-4 shrink-0 text-brand" />
+                  Speaks
+                </h2>
+                <p className="mt-1.5 text-sm leading-relaxed text-smoke">
+                  {creator.languages.join(' · ')}
+                </p>
+              </div>
+            )}
+            {creator.bucket_list?.length > 0 && (
+              <div className={creator.languages?.length > 0 ? 'mt-4 border-t border-gray-100 pt-4' : undefined}>
+                <h2 className="flex items-center gap-2 text-sm font-semibold">
+                  <Icon name="pin" className="h-4 w-4 shrink-0 text-brand" />
+                  {isMe ? 'Still to go' : 'Still to go'}
+                </h2>
+                <ul className="mt-2 space-y-1.5">
+                  {creator.bucket_list.slice(0, 6).map((b, i) => (
+                    <li key={i} className="flex items-center gap-2 text-sm">
+                      <span aria-hidden className="shrink-0 text-base leading-none">{flagForCountry(b.country) || '📍'}</span>
+                      <span className="min-w-0 truncate text-smoke">
+                        {b.city ? `${b.city}, ${b.country}` : b.country}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                {creator.bucket_list.length > 6 && (
+                  <p className="mt-1.5 text-xs text-smoke">and {creator.bucket_list.length - 6} more</p>
+                )}
+              </div>
+            )}
+          </section>
+        )}
+        {/* ---------- Where they are on the route ----------
+            THIS REPLACES THE ACHIEVEMENT BADGES. Those were effort tiers with
+            nothing on the other side of them: they appeared, they were grey, and
+            reaching one changed nothing, which is why nobody chased them. A
+            milestone is the same idea with the two missing halves attached - a
+            threshold you can see coming and a real reward behind it - so one line
+            here does more than nine icons did. */}
+          {/* BEHIND THE PREVIEW FLAG, like the page it links to. This snippet was
+            the one part of the milestone build with no gate on it, so it drew on
+            every UK creator's profile and its "See the whole route" link took
+            them into the unreleased network. Milestones ship with the network,
+            not before it. */}
+        {networkPreview && !creator.is_admin && (
+          <section>
+            <MilestoneSnippet profileId={creator.id} own={isMe} />
+          </section>
+        )}
+        {networkPreview && (
+          <>
+            <AircraftCard creatorId={creator.id} isMe={isMe} firstName={creator.name.split(' ')[0]} />
+            <ChallengeHistoryCard creatorId={creator.id} isMe={isMe} firstName={creator.name.split(' ')[0]} />
+            <PuzzleCard creatorId={creator.id} isMe={isMe} firstName={creator.name.split(' ')[0]} />
+          </>
+        )}
+        </aside>
+      </div>
+      ) : (
+      <>
       {/* ---------- Admin-only contact (email + phone) ---------- */}
       {viewerIsAdmin && contact && (contact.email || contact.phone) && (
         <section className="rounded-card border border-brand/20 bg-brand-tint/40 p-5">
@@ -385,7 +691,6 @@ export default function Profile() {
           <p className="mt-3 text-xs text-smoke">Only visible to the Tryp.com Team.</p>
         </section>
       )}
-
       {/* ---------- Stats strip ---------- */}
       <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {[
@@ -400,7 +705,6 @@ export default function Profile() {
           </div>
         ))}
       </section>
-
       {/* ---------- About (bio) ---------- */}
       {creator.about && (
         <section className="card">
@@ -408,7 +712,6 @@ export default function Profile() {
           <p className="whitespace-pre-line leading-relaxed text-smoke">{creator.about}</p>
         </section>
       )}
-
       {/* ---------- Where they are on the route ----------
           THIS REPLACES THE ACHIEVEMENT BADGES. Those were effort tiers with
           nothing on the other side of them: they appeared, they were grey, and
@@ -426,7 +729,6 @@ export default function Profile() {
           <MilestoneSnippet profileId={creator.id} own={isMe} />
         </section>
       )}
-
       {/* ---------- Where I'm headed next (upcoming collab trips) ---------- */}
       {(trips.length > 0 || isMe) && (
         <section>
@@ -456,7 +758,6 @@ export default function Profile() {
           )}
         </section>
       )}
-
       {/* ---------- Languages ---------- */}
       {creator.languages?.length > 0 && (
         <section>
@@ -466,7 +767,6 @@ export default function Profile() {
           </div>
         </section>
       )}
-
       {/* ---------- Travel bucket list ---------- */}
       {creator.bucket_list?.length > 0 && (
         <section>
@@ -482,7 +782,6 @@ export default function Profile() {
           </div>
         </section>
       )}
-
       {/* ---------- The flight log ----------
           ABOVE THE COUNTRIES MAP, and deliberately not a second map. "Been to
           34 countries" and "flown 180,000 km" are the same claim from two
@@ -506,7 +805,6 @@ export default function Profile() {
           <ProfileFlights creatorId={creator.id} isMe={isMe} name={creator.name} />
         </section>
       )}
-
       {/* ---------- World map (countries visited) ---------- */}
       <section>
         <div className="mb-4 flex items-baseline justify-between">
@@ -517,38 +815,6 @@ export default function Profile() {
         </div>
         {/* `owner` makes the countries tappable: what the place is known for,
             and a way to ask the one person whose map this is about it. */}
-        {/* WHERE THEY ARE RIGHT NOW, SAID IN WORDS AS WELL AS DRAWN.
-            The marker on the map is the picture; this is the sentence, and it
-            is here rather than only in the header chip because the map is where
-            somebody is looking when they wonder. Travelling reads as news, at
-            home reads as a fact - so only one of them gets the brand tint. */}
-        {here && (
-          <div className={cx(
-            'mb-4 flex items-center gap-3 rounded-card border p-3.5',
-            here.travelling ? 'border-brand/25 bg-brand-tint/40' : 'border-gray-100 bg-cloud/50',
-          )}>
-            <span className={cx(
-              'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
-              here.travelling ? 'bg-brand text-white' : 'bg-white text-smoke ring-1 ring-gray-200',
-            )}>
-              <Icon name={here.travelling ? 'plane' : 'pin'} className="h-4 w-4" />
-            </span>
-            <p className="min-w-0 text-sm">
-              <span className="font-semibold text-ink">
-                {/* "You ARE", "Maddie IS". Getting this wrong is the sort of
-                    thing that makes a product feel machine-written. */}
-                {here.travelling
-                  ? `${here.who} ${isMe ? 'are' : 'is'} in ${here.place}`
-                  : `${here.who} ${isMe ? 'are' : 'is'} at home in ${here.place}`}
-              </span>
-              {here.travelling && currentTrip && (
-                <span className="block text-xs text-smoke">
-                  Back {formatDate(currentTrip.end_date)}
-                </span>
-              )}
-            </p>
-          </div>
-        )}
         <WorldMap selected={creator.countries_visited || []} owner={creator} here={here} />
         {creator.countries_visited?.length > 0 && (
           <div className="mt-4 flex flex-wrap gap-2">
@@ -558,10 +824,8 @@ export default function Profile() {
           </div>
         )}
       </section>
-
       {/* ---------- Travel photos ---------- */}
       <ProfileGallery creatorId={creator.id} isMe={isMe} creatorName={creator.name} />
-
       {/* ---------- Content showcase (creators only; admins don't submit) ---------- */}
       {!creator.is_admin && (
       <section>
@@ -599,7 +863,8 @@ export default function Profile() {
         )}
       </section>
       )}
-
+      </>
+      )}
       {/* Mounted at the page root rather than beside the button: Modal portals
           to the body anyway, and keeping it out of the header section means the
           header's flex layout never has to account for a child that renders
@@ -612,7 +877,17 @@ export default function Profile() {
 // Travel photo section. The section ALWAYS renders (even with no photos) so a
 // profile never looks broken/incomplete. On your own profile an empty state
 // nudges you to add photos; on someone else's it says they haven't added any.
-function ProfileGallery({ creatorId, isMe, creatorName }) {
+// THE PHOTOS. A BOARD ON THE NETWORK PAGE, THE OLD GRID EVERYWHERE ELSE.
+//
+// `board` is the network-preview flag arriving from the page, and it is the one
+// switch: UK creators keep the grid they have until the network ships, and the
+// board only ever draws where the rest of the new profile does.
+//
+// ARRANGING IS FOR THE OWNER AND HAPPENS HERE, NOT IN EDIT PROFILE. Dragging a
+// photo into place while looking at a settings form is arranging something you
+// cannot see; the board is editable in situ, on the page it will be read on,
+// which is the only place the result means anything.
+function ProfileGallery({ creatorId, isMe, creatorName, board = false }) {
   const [count, setCount] = useState(null)
   useEffect(() => {
     supabase
@@ -648,6 +923,8 @@ function ProfileGallery({ creatorId, isMe, creatorName }) {
             hint={`${firstName} hasn't added any travel photos yet.`}
           />
         )
+      ) : board ? (
+        <PhotoBoard creatorId={creatorId} editable={isMe} />
       ) : (
         <TravelGallery creatorId={creatorId} />
       )}
