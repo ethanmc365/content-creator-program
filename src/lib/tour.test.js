@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.mock('./supabase', () => ({ supabase: { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }) }) } }))
 vi.mock('./appFlags', () => ({ readFlag: async () => false }))
 
-import { shouldAutoStart, stepsFor, partOf, TOUR_STEPS, TOUR_PARTS, markSeenLocally, clearSeenLocally } from './tour'
+import { shouldAutoStart, stepsFor, stepAt, stepGoal, partOf, TOUR_STEPS, TOUR_PARTS, markSeenLocally, clearSeenLocally } from './tour'
 
 const member = {
   is_admin: false, is_test: false, status: 'active', onboarded: true, tour_completed_at: null,
@@ -58,10 +58,9 @@ describe('who gets walked round', () => {
 })
 
 describe('the steps', () => {
-  it('every step has somewhere to go and something to say', () => {
+  it('every step has something to say', () => {
     for (const s of TOUR_STEPS) {
       expect(s.key).toBeTruthy()
-      expect(s.route).toBeTruthy()
       expect(s.title.length).toBeGreaterThan(4)
       expect(s.body.length).toBeGreaterThan(20)
     }
@@ -77,31 +76,66 @@ describe('the steps', () => {
   })
 
   it('the parts run in order, never back and forth', () => {
-    // A walk that goes people, work, people reads as a shuffled list. The
-    // order of TOUR_STEPS has to agree with the order of TOUR_PARTS.
     const seen = TOUR_STEPS.map((s) => partOf(s).index)
     for (let i = 1; i < seen.length; i++) expect(seen[i]).toBeGreaterThanOrEqual(seen[i - 1])
   })
 
-  // THE ONE HARD GATE. Everything on the walk is a place you can skip past
-  // except the last thing, which is turning notifications on - because a brief
-  // somebody did not hear about is a brief they did not enter.
+  // THE POINT OF VERSION 3. There is no Next button, so a step with no goal is
+  // a step nobody can ever get past.
+  it('EVERY step has a goal', () => {
+    const KINDS = ['route', 'scroll', 'click', 'connect', 'push', 'dwell', 'end']
+    for (const s of TOUR_STEPS) {
+      const g = stepGoal(s, true)
+      expect(g, `${s.key} has no goal`).toBeTruthy()
+      expect(KINDS, `${s.key} goal kind`).toContain(g.kind)
+    }
+  })
+
+  it('every step that asks for something says what', () => {
+    // The instruction is the only line that matters if they read nothing else.
+    for (const s of TOUR_STEPS) {
+      if (stepGoal(s, true).kind === 'end') continue
+      expect(s.do, `${s.key} has no instruction`).toBeTruthy()
+    }
+  })
+
+  it('goals carry the argument their kind needs', () => {
+    for (const s of TOUR_STEPS) {
+      for (const network of [true, false]) {
+        const g = stepGoal(s, network)
+        if (g.kind === 'route') expect(typeof g.to).toBe('string')
+        if (g.kind === 'scroll') expect(g.px).toBeGreaterThan(0)
+        if (g.kind === 'click') expect(typeof g.anchor).toBe('string')
+        if (g.kind === 'dwell') expect(g.ms).toBeGreaterThan(0)
+      }
+    }
+  })
+
+  it('a click goal points at the thing it spotlights', () => {
+    // Otherwise it highlights one control and waits on another.
+    for (const s of TOUR_STEPS.filter((x) => stepGoal(x, true).kind === 'click')) {
+      expect(stepGoal(s, true).anchor).toBe(s.anchor)
+    }
+  })
+
+  // THE HUB IS /global ON THE NETWORK SHELL, NOT /home. Getting this wrong
+  // walked people round the old home page, which is the bug this pins down.
+  it('sends people to the worldwide hub on the network shell', () => {
+    const hub = TOUR_STEPS.find((s) => s.key === 'hub')
+    expect(stepAt(hub, true)).toBe('/global')
+    expect(stepAt(hub, false)).toBe('/home')
+  })
+
   it('exactly one step is required, and it is notifications', () => {
     const required = TOUR_STEPS.filter((s) => s.required)
     expect(required).toHaveLength(1)
     expect(required[0].key).toBe('notifications')
-    expect(required[0].action).toBe('push')
-  })
-
-  it('every OTHER action step can be passed over', () => {
-    for (const s of TOUR_STEPS.filter((x) => x.action && !x.required)) {
-      expect(s.required).toBeFalsy()
-    }
+    expect(stepGoal(required[0], true).kind).toBe('push')
   })
 
   it('the required step is the last thing before the sign-off', () => {
-    // It has to be last, or somebody who refuses is stuck in the middle of the
-    // walk with the rest of it unreachable.
+    // It has to be, or somebody who refuses is stuck mid-walk with the rest
+    // of it unreachable.
     const i = TOUR_STEPS.findIndex((s) => s.required)
     expect(i).toBe(TOUR_STEPS.length - 2)
   })
@@ -110,11 +144,15 @@ describe('the steps', () => {
     const legacy = stepsFor({ network: false })
     const network = stepsFor({ network: true })
     expect(legacy.length).toBeLessThan(network.length)
-    // Nothing pointing at a page that does not exist yet.
     for (const s of legacy) expect(s.on).toBe('both')
-    // And the walk still ends properly on the legacy shell.
     expect(legacy[legacy.length - 1].key).toBe('done')
     expect(legacy.some((s) => s.required)).toBe(true)
+  })
+
+  it('the rooms step follows the right path on each shell', () => {
+    const rooms = TOUR_STEPS.find((s) => s.key === 'rooms')
+    expect(stepGoal(rooms, true).to).toBe('/rooms')
+    expect(stepGoal(rooms, false).to).toBe('/chat')
   })
 
   it('starts and ends on a card that points at nothing', () => {
@@ -126,19 +164,12 @@ describe('the steps', () => {
   })
 
   it('every anchored step that could be absent says so', () => {
-    // A spotlight on an element that is not there lands at the viewport
-    // origin. Anything that depends on there being content must opt in to
-    // being skipped instead.
-    // Chrome that is always painted for the shell the step belongs to.
-    // `nav-worldwide` is on this list rather than marked skippable because the
-    // step that uses it only runs when the network shell is on, and the tab is
-    // unconditional in that tab set.
     const CHROME = [
       'nav-home', 'nav-challenges', 'nav-chat', 'nav-messages',
       'nav-worldwide', 'avatar-menu', 'enable-push',
     ]
     for (const s of TOUR_STEPS.filter((x) => x.anchor && !CHROME.includes(x.anchor))) {
-      expect(s.skipIfMissing).toBe(true)
+      expect(s.skipIfMissing, `${s.key}`).toBe(true)
     }
   })
 })

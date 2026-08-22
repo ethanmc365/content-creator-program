@@ -1088,22 +1088,30 @@ html[data-reduce-motion] *::after {
    THE GUIDED WALKTHROUGH
    ============================================================================
 
-   All three layers are CSS. The overlay mounts over a live app for a couple of
-   minutes on somebody's first visit, and pulling an animation runtime into the
-   eagerly-loaded shell to do it would cost every creator on every page load. */
+   All of it is CSS. The overlay mounts over a live app for two minutes on
+   somebody's first visit, and pulling an animation runtime into the eagerly
+   loaded shell to do that would cost every creator on every page load.
+
+   Note what is NOT here: any transition on the spotlight's position while it is
+   following a scroll. React does not drive the geometry either - a rAF loop in
+   TourHost writes straight to these elements' styles. Between them that is what
+   makes the highlight track a scrolling page exactly. */
 
 .tour-root {
   position: fixed;
   inset: 0;
-  z-index: 90;          /* over the mobile tab bar (z-30) and the header (z-40),
-                           under a portalled modal, which is never open here */
+  z-index: 90;          /* over the mobile tab bar (z-30) and header (z-40) */
   pointer-events: none; /* NOTHING here traps the app. See TourHost. */
 }
 
 /* --- the frame round the whole screen ----------------------------------- */
 
+/* HEAVY, AND ON FOR THE WHOLE WALK. The first version was a 3px hairline that
+   read as a rendering artefact rather than a mode. This is a thick inner glow
+   with a soft falloff, so at a glance - from across a room, in a screen share -
+   it is unmistakable that the app is being walked through. */
 @keyframes tour-glow-breathe {
-  0%, 100% { opacity: 0.85; }
+  0%, 100% { opacity: 0.9; }
   50%      { opacity: 1; }
 }
 
@@ -1111,56 +1119,143 @@ html[data-reduce-motion] *::after {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  border-radius: 0;
   box-shadow:
-    inset 0 0 0 3px rgba(217, 68, 7, 0.9),
-    inset 0 0 46px -8px rgba(217, 68, 7, 0.45);
-  animation: tour-glow-breathe 3.4s ease-in-out infinite;
+    inset 0 0 0 5px rgba(217, 68, 7, 0.95),
+    inset 0 0 0 9px rgba(245, 133, 63, 0.35),
+    inset 0 0 60px 6px rgba(217, 68, 7, 0.4),
+    inset 0 0 130px 10px rgba(217, 68, 7, 0.16);
+  animation: tour-glow-breathe 3.6s ease-in-out infinite;
 }
 
 /* --- the spotlight ------------------------------------------------------ */
 
-/* ONE element does the whole scrim. A vast spread box-shadow darkens
-   everything outside this rectangle, so the "hole" is simply the element's own
-   box. Four divs forming a frame is the usual approach and it cannot animate
-   as a single shape when the spotlight travels between steps. */
+/* ONE element does the whole scrim. A vast spread box-shadow darkens everything
+   outside this rectangle, so the "hole" is simply the element's own box. Four
+   divs forming a frame is the usual approach and it cannot travel between steps
+   as a single shape. */
 .tour-spot {
   position: fixed;
   pointer-events: none;
   border-radius: 14px;
   box-shadow:
-    0 0 0 9999px rgba(17, 17, 17, 0.6),
+    0 0 0 9999px rgba(17, 17, 17, 0.62),
     0 0 0 2px rgba(217, 68, 7, 0.95),
-    0 0 22px 2px rgba(217, 68, 7, 0.55);
+    0 0 26px 3px rgba(217, 68, 7, 0.6);
   opacity: 0;
   transition: opacity 0.3s ease;
 }
 
+.tour-spot--ready { opacity: 1; }
+
+/* A step pointing at nothing, or at something scrolled off screen: no hole,
+   just the dim. */
+.tour-spot[data-on='no'] {
+  box-shadow: 0 0 0 9999px rgba(17, 17, 17, 0.62);
+  border-radius: 9999px;
+}
+
 /* THE TRAVEL BETWEEN STEPS, AND ONLY BETWEEN STEPS.
-   `left/top/width/height` rather than a transform, because the shadow spread
-   has to stay square to the viewport - a scaled element scales its own ring and
-   its own blur.
-   CRITICALLY, this is only on while the spotlight is moving from one step to
-   the next. The same transition applied to a scroll makes the box swim along a
-   few frames behind the page, which is exactly the "highlighted box doesn't
-   follow the scroll, the animation is delayed" report. During a scroll the
-   position is written straight to the element with no transition at all, so it
-   is welded to its target. See TourHost's `travelling`. */
+   The same transition applied to a scroll makes the box swim a few frames
+   behind the page, which is what "the highlighted box is not smooth" was. The
+   rAF loop flips this attribute off ~560ms after a step change, and from then
+   on the position is written with no transition at all. */
 .tour-spot[data-travel='yes'] {
   transition:
-    top 0.44s cubic-bezier(0.22, 1, 0.36, 1),
-    left 0.44s cubic-bezier(0.22, 1, 0.36, 1),
-    width 0.44s cubic-bezier(0.22, 1, 0.36, 1),
-    height 0.44s cubic-bezier(0.22, 1, 0.36, 1),
+    top 0.46s cubic-bezier(0.22, 1, 0.36, 1),
+    left 0.46s cubic-bezier(0.22, 1, 0.36, 1),
+    width 0.46s cubic-bezier(0.22, 1, 0.36, 1),
+    height 0.46s cubic-bezier(0.22, 1, 0.36, 1),
     opacity 0.3s ease;
 }
 
-/* The progress bar's leading edge, so it reads as filling rather than as a
-   rectangle that got wider. */
+/* --- the card ----------------------------------------------------------- */
+
+@keyframes tour-card-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes tour-sheet-in {
+  from { opacity: 0; transform: translateY(26px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.tour-card {
+  position: fixed;
+  pointer-events: auto;
+  z-index: 1;
+  border-radius: 1.1rem;
+  background: #fff;
+  padding: 1.15rem 1.25rem;
+  box-shadow:
+    0 0 0 1px rgba(217, 68, 7, 0.14),
+    0 10px 28px rgba(26, 26, 26, 0.2),
+    0 28px 70px rgba(26, 26, 26, 0.16);
+}
+
+.tour-card--float {
+  animation: tour-card-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* An anchorless step - or one whose anchor is off screen - sits in the middle,
+   because there is nothing on the page for it to be beside. Driven by a data
+   attribute so the rAF loop can flip it without a React render. */
+.tour-card--float[data-centre='yes'] {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: tour-card-centre-in 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes tour-card-centre-in {
+  from { opacity: 0; transform: translate(-50%, calc(-50% + 12px)) scale(0.97); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+/* ON A PHONE IT IS A SHEET, ALWAYS.
+   A floating card on a 390px screen covers whatever it points at however
+   cleverly it is placed. It clears the tab bar and the home indicator, it never
+   exceeds half the screen, and it scrolls inside itself rather than growing -
+   the connect step carries a body, an instruction and a callout, and on a small
+   phone in landscape that is taller than the viewport. */
+.tour-card--sheet {
+  left: 0.6rem;
+  right: 0.6rem;
+  bottom: calc(5.25rem + env(safe-area-inset-bottom));
+  max-height: min(58vh, 26rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1.05rem 1.1rem;
+  animation: tour-sheet-in 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* A grab handle, so the sheet reads as a sheet rather than as a box that
+   appeared over the tabs. */
+.tour-card--sheet::before {
+  content: '';
+  display: block;
+  width: 2.25rem;
+  height: 0.25rem;
+  margin: -0.35rem auto 0.7rem;
+  border-radius: 9999px;
+  background: #e5e7eb;
+}
+
+/* Wide phones in landscape have almost no vertical room, so the sheet gives
+   back its bottom offset and sits against the bezel. */
+@media (max-height: 460px) {
+  .tour-card--sheet {
+    bottom: calc(0.6rem + env(safe-area-inset-bottom));
+    max-height: 72vh;
+  }
+}
+
+/* --- the one progress bar ----------------------------------------------- */
+
 .tour-bar {
   position: relative;
   overflow: hidden;
-  transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: width 0.55s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .tour-bar::after {
@@ -1173,67 +1268,25 @@ html[data-reduce-motion] *::after {
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55));
 }
 
-.tour-spot--ready { opacity: 1; }
+/* --- the instruction, and the moment it is satisfied -------------------- */
 
-/* A step with no anchor: no hole, just the dim. The element collapses to zero
-   at the centre of the screen, which with the 9999px spread is a plain scrim. */
-.tour-spot--none {
-  box-shadow: 0 0 0 9999px rgba(17, 17, 17, 0.6);
-  border-radius: 9999px;
-}
-
-/* --- the card ----------------------------------------------------------- */
-
-@keyframes tour-card-in {
-  from { opacity: 0; transform: translateY(10px); }
+@keyframes tour-do-in {
+  from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: none; }
 }
 
-@keyframes tour-sheet-in {
-  from { opacity: 0; transform: translateY(24px); }
-  to   { opacity: 1; transform: none; }
+.tour-do { animation: tour-do-in 0.3s ease both; }
+
+@keyframes tour-hit-in {
+  0%   { opacity: 0; transform: scale(0.94); }
+  55%  { transform: scale(1.03); }
+  100% { opacity: 1; transform: scale(1); }
 }
 
-.tour-card {
-  position: fixed;
-  pointer-events: auto;
-  z-index: 1;
-  border-radius: 1rem;
-  background: #fff;
-  padding: 1.15rem 1.25rem;
-  box-shadow: 0 8px 24px rgba(26, 26, 26, 0.18), 0 24px 60px rgba(26, 26, 26, 0.14);
-}
-
-.tour-card--float {
-  animation: tour-card-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-/* An anchorless step - the opening and closing cards - sits in the middle,
-   because there is nothing on the page for it to be beside. */
-.tour-card--centre {
-  top: 50%;
-  left: 50%;
-  width: min(24rem, calc(100vw - 2.5rem));
-  transform: translate(-50%, -50%);
-  animation: tour-card-centre-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@keyframes tour-card-centre-in {
-  from { opacity: 0; transform: translate(-50%, calc(-50% + 12px)) scale(0.97); }
-  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-}
-
-/* On a phone it is a sheet, always. A floating card on a 390px screen covers
-   whatever it is pointing at however cleverly it is placed - and it has to
-   clear the tab bar, which wins the paint order against almost anything. */
-.tour-card--sheet {
-  left: 0.75rem;
-  right: 0.75rem;
-  bottom: calc(5.25rem + env(safe-area-inset-bottom));
-  animation: tour-sheet-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
+.tour-hit { animation: tour-hit-in 0.34s cubic-bezier(0.34, 1.4, 0.5, 1) both; }
 
 html[data-theme='dark'] .tour-card { background: #1e1e20; }
+html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
 
 @media (prefers-reduced-motion: reduce) {
   .tour-glow { animation: none; }
@@ -1241,10 +1294,12 @@ html[data-theme='dark'] .tour-card { background: #1e1e20; }
   .tour-spot[data-travel='yes'] { transition: opacity 0.2s ease; }
   .tour-bar { transition: none; }
   .tour-card--float,
-  .tour-card--sheet { animation: none; }
-  .tour-card--centre { animation: none; transform: translate(-50%, -50%); }
+  .tour-card--sheet,
+  .tour-do,
+  .tour-hit { animation: none; }
+  .tour-card--float[data-centre='yes'] { animation: none; transform: translate(-50%, -50%); }
+  .tour-do .animate-pulse { animation: none; }
 }
-
 
 /* The Testing Centre's card grid, arriving. A short stagger read off the
    card's own index, capped so the last card in a grid of eighteen is not

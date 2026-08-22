@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Badge } from '../../../components/ui'
 import { TOUR_STEPS, TOUR_VERSION } from '../../../lib/tour'
 import { startTour } from '../../../components/tour/TourGate'
+import { useCommunity } from '../../../context/CommunityContext'
 import { installSteps, isIOS, isStandalone } from '../../../lib/install'
 import { LabPage, Panel, Note, Stage, useStage, InfoList, KeyVal, Code, Choice } from './kit'
 
@@ -20,6 +21,14 @@ const ACTION_LABEL = {
 
 export default function WalkthroughLab() {
   const stage = useStage('phone')
+  // THE WALK HAS TO SHOW THE PLATFORM WE ARE ACTUALLY LAUNCHING.
+  //
+  // The network shell is behind a device-local preview flag, so an admin whose
+  // flag happens to be off was being walked round the LEGACY app: the old home
+  // page instead of the worldwide hub, and none of the rooms, board, flight log
+  // or games steps at all. Starting it from here turns the preview on first.
+  const { preview, enterPreview } = useCommunity()
+  const run = () => { if (!preview) enterPreview(); startTour() }
   const [screen, setScreen] = useState('install')
   const ios = isIOS()
 
@@ -29,7 +38,7 @@ export default function WalkthroughLab() {
       icon="sparkles"
       subtitle="What a brand new creator meets and nobody else ever sees again: the walk round the platform, and the ask to put it on their home screen. Both are switched off in the database until somebody turns them on."
       aside={
-        <button type="button" onClick={() => startTour()} className="btn-primary text-sm">
+        <button type="button" onClick={run} className="btn-primary text-sm">
           Start the walkthrough
         </button>
       }
@@ -49,7 +58,7 @@ export default function WalkthroughLab() {
         hint="It takes over this page, points at the real navigation, and follows you as you move. Press Escape at any point, or use the arrow keys."
       >
         <div className="flex flex-wrap items-center gap-3">
-          <button type="button" onClick={() => startTour()} className="btn-primary text-sm">
+          <button type="button" onClick={run} className="btn-primary text-sm">
             Start the walkthrough here
           </button>
           <p className="text-xs text-smoke">

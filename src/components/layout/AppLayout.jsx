@@ -399,6 +399,7 @@ export default function AppLayout() {
               <button
                 onClick={() => setPaletteOpen(true)}
                 aria-label="Search"
+                data-tour="search"
                 className="flex items-center gap-2 rounded-full border border-gray-200 px-2.5 py-1.5 text-smoke transition-colors hover:border-brand hover:text-brand sm:pr-2"
               >
                 <Icon name="magnifier" className="h-4 w-4" />
