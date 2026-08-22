@@ -964,3 +964,62 @@ html[data-reduce-motion] *::after {
 @media (prefers-reduced-motion: reduce) {
   .profile-here-pulse { animation: none; opacity: 0.3; }
 }
+
+/* ============================================================================
+   ONBOARDING AND THE TESTING CENTRE
+   ============================================================================
+
+   Two entrances, both CSS rather than a motion library, for the same reason the
+   toast host and the notification bell are: onboarding is reached by every new
+   creator on their very first render and the Testing Centre is reached from a
+   lazily-loaded route that should stay small. Neither wants a runtime.
+
+   Both END on `transform: none`. That matters more than it looks: a persisted
+   transform on a wrapper becomes the containing block for any `position: fixed`
+   child inside it, which is what once broke the mobile chat overlay. */
+
+@keyframes onb-screen-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* One screen of onboarding arriving. Keyed on the step, so it replays as you
+   move and, crucially, replays going BACKWARDS too - a flow that animates
+   forwards and snaps backwards feels broken in a way people cannot name. */
+.onb-screen {
+  animation: onb-screen-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes lab-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* A Testing Centre panel arriving, laddered off --lab-i. The ladder is a HEAD
+   START, not a wait: it reaches zero by the fourth panel, because a quarter of
+   a second of nothing in front of every section below the fold is the thing
+   that makes a page feel slow rather than considered. */
+.lab-in {
+  animation: lab-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--lab-i, 0) * 60ms);
+}
+
+@keyframes podium-rise {
+  from { opacity: 0; transform: translateY(18px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* The podium landing when an admin publishes the winners. Third, second, first:
+   the ladder runs so the winner arrives LAST, which is the order the eye wants
+   and the order every awards ceremony uses. */
+.podium-in {
+  animation: podium-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--podium-i, 0) * 120ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onb-screen,
+  .lab-in,
+  .podium-in { animation: none; }
+}
+

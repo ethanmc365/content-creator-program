@@ -5,12 +5,14 @@ import { supabase } from '../../lib/supabase'
 import { Spinner } from '../../components/ui'
 import Turnstile from '../../components/Turnstile'
 import AuthShell, { DemoCaptcha } from './AuthShell'
+import { useDemoMode } from '../../lib/demoMode'
 
 // Public creator signup. New accounts are creators by default - // admins are promoted later (see README → "Making an account an admin").
-// `demo` renders this page inertly for the admin Testing Centre: no redirect
-// when an admin (who is already signed in) looks at it, no account created, and
-// a placeholder where the captcha goes. See pages/admin/testing/SignupLab.
-export default function Signup({ demo = false }) {
+// `?demo=1`, for an admin only, renders this page inertly inside the Testing
+// Centre: no redirect when somebody who is already signed in looks at it, no
+// account created, and a placeholder where the captcha goes. See lib/demoMode.
+export default function Signup() {
+  const { on: demo } = useDemoMode()
   const { signUp, user } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()

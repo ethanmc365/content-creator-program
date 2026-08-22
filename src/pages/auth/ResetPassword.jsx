@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { Spinner } from '../../components/ui'
 import AuthShell from './AuthShell'
+import { useDemoMode } from '../../lib/demoMode'
 
 // Step 2 of the reset flow: the email link opens this page with a recovery
 // session already active, so we just need the new password.
-export default function ResetPassword({ demo = false }) {
+export default function ResetPassword() {
+  const { on: demo } = useDemoMode()
   const { updatePassword } = useAuth()
   const navigate = useNavigate()
   const [password, setPassword] = useState('')

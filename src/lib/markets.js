@@ -23,6 +23,42 @@ export function isoForCountryName(name) {
   return hit ? hit.iso2 : null
 }
 
+// WHICH MARKET A CREATOR BELONGS TO, DECIDED RATHER THAN ASKED.
+//
+// Every open market has `join_policy = 'country'` and a list of ISO-2 codes,
+// and those lists do not overlap: GB and IE are UK & Ireland, ES is Spain, PT
+// Portugal, DE Germany, RO Romania, and SE/NO/FI/DK are the Nordics. So for any
+// creator there is exactly ONE answer or NONE, and `join_market()` in the
+// database enforces precisely that rule before it will let anybody in.
+//
+// Which means the old onboarding step asking a creator to pick their market was
+// a question with one possible answer, three screens after we already knew it.
+// This resolves it instead, and both the flow and the Testing Centre's resolver
+// call this same function, so what the demo says is what a creator gets.
+//
+// Returns { code, market, others, outcome }:
+//   outcome 'assigned'  one market covers them
+//   outcome 'choice'    more than one does (impossible today, handled anyway:
+//                       overlapping country lists are a thing an admin could
+//                       create tomorrow and a silent wrong answer is worse)
+//   outcome 'worldwide' no market covers their country yet, which is fine
+//   outcome 'unknown'   we could not turn what they typed into a country
+export function resolveMarket(countryCode, markets = []) {
+  const code = (countryCode || '').trim().toUpperCase() || null
+  if (!code) return { code: null, market: null, others: [], outcome: 'unknown' }
+  const hits = markets.filter(
+    (m) => m.is_active && !m.retired_at && (m.country_codes || []).includes(code),
+  )
+  if (hits.length === 0) return { code, market: null, others: [], outcome: 'worldwide' }
+  if (hits.length === 1) return { code, market: hits[0], others: [], outcome: 'assigned' }
+  return { code, market: hits[0], others: hits.slice(1), outcome: 'choice' }
+}
+
+/** The same answer starting from whatever free text somebody typed. */
+export function resolveMarketForCountryName(name, markets = []) {
+  return resolveMarket(isoForCountryName(name), markets)
+}
+
 // Open markets that cover this country. Returns [] rather than throwing when
 // the network tables are unreadable: a creator finishing onboarding must never
 // be blocked by a market suggestion failing to load.
@@ -61,7 +97,7 @@ export function loadMarkets() {
   if (cache) return cache
   cache = supabase
     .from('communities')
-    .select('id, slug, name, kind, is_active, retired_at')
+    .select('id, slug, name, kind, is_active, retired_at, country_codes, currency, timezone, tagline')
     .eq('kind', 'chapter')
     .then(({ data, error }) => {
       if (error || !data) return []

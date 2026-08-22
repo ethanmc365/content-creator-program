@@ -4,9 +4,11 @@ import { useAuth } from '../../context/AuthContext'
 import { Spinner } from '../../components/ui'
 import Turnstile from '../../components/Turnstile'
 import AuthShell, { DemoCaptcha } from './AuthShell'
+import { useDemoMode } from '../../lib/demoMode'
 
-// `demo` renders this page inertly for the admin Testing Centre. See Signup.
-export default function Login({ demo = false }) {
+// `?demo=1`, admins only, renders this page inertly for the Testing Centre.
+export default function Login() {
+  const { on: demo } = useDemoMode()
   const { signIn, user } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')

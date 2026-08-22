@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Badge } from '../../../components/ui'
 import Icon from '../../../components/Icon'
 import { REFERRAL_STAGES, referralStage, isCountedStage } from '../../../lib/referrals'
-import { LabPage, Panel, Runner, Note, Choice, Code, PersonRow, CardGrid } from './kit'
+import { LabPage, Panel, Runner, Note, Choice, Code, PersonRow, InfoList } from './kit'
 import { APPLICANT, CREATORS } from './fixtures'
 
 // ONE CREATOR, FROM THE OUTSIDE OF THE FRONT DOOR TO THEIR FIRST PAYOUT.
@@ -55,14 +55,14 @@ export default function JourneyLab() {
       key: 'onboard', actor: 'creator',
       title: 'Eight steps, then submit',
       detail: 'Photo, basics, socials, travel photos, the country map, languages, a market, and how the programme works. The onboarding lab walks all eight.',
-      tech: "update profiles set onboarded = true, country_code = 'GB' ...\ninsert into creator_private (phone) ...\nrpc('join_market', { p_slug: 'uk-ireland' })",
+      tech: "update profiles set onboarded = true, country_code = 'GB' ...\ninsert into creator_private (phone) ...\nrpc('join_market', { p_slug: 'uk' })",
       output: <StageCard stage={referralStage({ status: 'pending', onboarded: true }, false)} />,
     },
     {
       key: 'notify', actor: 'push',
       title: 'Every admin is told, in the same second',
       detail: 'A database trigger loops the admins and writes one notification each. Nobody has to go looking for the queue.',
-      tech: "trigger on profiles -> notify_user(admin, 'application', 'Alex Rivers applied')",
+      tech: "trigger on profiles -> notify_user(admin, 'application', 'Alex Test applied')",
     },
     {
       key: 'wait', actor: 'system',
@@ -112,7 +112,7 @@ export default function JourneyLab() {
       icon="plane"
       subtitle="From a referral link to a first video, showing the gate at every step. Switch the outcome to see what a declined application looks like."
     >
-      <Panel title="The outcome" hint="Everything before the decision is identical. Everything after it is not.">
+      <Panel i={0} title="The outcome" hint="Everything before the decision is identical. Everything after it is not.">
         <Choice
           value={outcome}
           onChange={setOutcome}
@@ -126,11 +126,11 @@ export default function JourneyLab() {
         </div>
       </Panel>
 
-      <Panel title="Run it" hint="Press Step to talk over each gate.">
+      <Panel i={1} title="Run it" hint="Press Step to talk over each gate.">
         <Runner steps={steps} autoMs={1000} />
       </Panel>
 
-      <Panel
+      <Panel i={2}
         title="The referral stage machine"
         hint="Five fabricated profiles put through the real referralStage function. Both the admin page and the creator's own page read this, which is why they cannot disagree about who counts."
       >
@@ -175,25 +175,19 @@ export default function JourneyLab() {
         </Note>
       </Panel>
 
-      <Panel title="Every state an account can be in" hint="The guard is default-deny: a status it does not recognise is treated as not allowed, not as allowed.">
-        <CardGrid cols={4}>
-          {[
-            { s: 'pending', t: 'Waiting on review', d: 'Sees the review screen only.' },
-            { s: 'active', t: 'A member', d: 'The whole platform, subject to the connect gate on day one.' },
-            { s: 'muted', t: 'Reading only', d: 'Can be in the community but cannot post.' },
-            { s: 'declined', t: 'Not accepted', d: 'The declined screen and a way to log out.' },
-            { s: 'suspended', t: 'Suspended', d: 'Locked out with an explanation and who to contact.' },
-            { s: 'deleting', t: 'Scheduled for deletion', d: 'Thirty day grace period, and they can restore it themselves.' },
-            { s: 'is_test', t: 'A test account', d: 'Hidden from the community, the rosters and every email list.' },
-            { s: 'unknown', t: 'Anything else', d: 'Refused. Default-deny is the whole rule.' },
-          ].map((x) => (
-            <div key={x.s} className="card !p-4">
-              <code className="text-[11px] font-semibold text-brand">{x.s}</code>
-              <p className="mt-1.5 text-sm font-semibold">{x.t}</p>
-              <p className="mt-1 text-xs leading-relaxed text-smoke">{x.d}</p>
-            </div>
-          ))}
-        </CardGrid>
+      <Panel i={3} title="Every state an account can be in" hint="The guard is default-deny: a status it does not recognise is treated as not allowed, not as allowed.">
+        <InfoList
+          items={[
+            { icon: 'clock', t: 'pending', d: 'Waiting on review. Sees the review screen only.' },
+            { icon: 'check', t: 'active', d: 'A member. The whole platform, subject to the connect gate on day one.' },
+            { icon: 'mute', t: 'muted', d: 'Reading only. Can be in the community but cannot post.' },
+            { icon: 'ban', t: 'declined', d: 'Not accepted. The declined screen and a way to log out.' },
+            { icon: 'ban', t: 'suspended', d: 'Locked out, with an explanation and who to contact.' },
+            { icon: 'trash', t: 'scheduled for deletion', d: 'Thirty day grace period, and they can restore it themselves.' },
+            { icon: 'eye', t: 'is_test', d: 'A test account. Hidden from the community, the rosters and every email list.' },
+            { icon: 'shield', t: 'anything else', d: 'Refused. Default-deny is the whole rule.' },
+          ]}
+        />
         <Code className="mt-5">{`const ALLOWED_STATUSES = ['active', 'muted']
 
 if (!ALLOWED_STATUSES.includes(profile.status) && !profile.is_admin) {

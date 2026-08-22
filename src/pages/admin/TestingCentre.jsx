@@ -42,6 +42,9 @@ const CronLab = lazy(() => import('./testing/CronLab'))
 const FlightLab = lazy(() => import('./testing/FlightLab'))
 const ToolkitLab = lazy(() => import('./testing/ToolkitLab'))
 const HealthLab = lazy(() => import('./testing/HealthLab'))
+const ResultsLab = lazy(() => import('./testing/ResultsLab'))
+const ProfileLab = lazy(() => import('./testing/ProfileLab'))
+const SecurityLab = lazy(() => import('./testing/SecurityLab'))
 
 export const LABS = [
   {
@@ -81,6 +84,12 @@ export const LABS = [
     element: <ProgrammeLab />,
   },
   {
+    key: 'results', title: 'Results and the podium', icon: 'trophy', group: 'The programme',
+    blurb: 'Log the final views, look at standings that are still private, then publish and watch the podium and the £10 vouchers land.',
+    tags: ['Interactive', 'The podium'],
+    element: <ResultsLab />,
+  },
+  {
     key: 'challenge', title: 'Challenge lifecycle', icon: 'flag', group: 'The programme',
     blurb: 'Scheduled, published, reminded, closed, scored, published to a podium and archived. With a clock you can drag.',
     tags: ['Automation', 'Time travel'],
@@ -115,6 +124,18 @@ export const LABS = [
     blurb: 'The message formatter, local time for any creator, deadline maths, and what happens to a photo or a video on upload.',
     tags: ['Live maths'],
     element: <ToolkitLab />,
+  },
+  {
+    key: 'profile', title: 'What a profile is for', icon: 'users', group: 'Joining the programme',
+    blurb: 'Every field onboarding asks for and the exact feature that breaks without it. The argument for what is required.',
+    tags: ['Reference'],
+    element: <ProfileLab />,
+  },
+  {
+    key: 'security', title: 'Who can see what', icon: 'shield', group: 'Toolkit',
+    blurb: 'Twelve questions about privacy, asked of five kinds of account. Every no is enforced by the database, not the interface.',
+    tags: ['Reference'],
+    element: <SecurityLab />,
   },
   {
     key: 'health', title: 'Live platform health', icon: 'chartPie', group: 'Toolkit',

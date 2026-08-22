@@ -41,9 +41,9 @@ const RUN = [
     title: 'Somebody joins',
     to: '/admin/testing/onboarding',
     say: [
-      'Walk the eight steps. Do not read them out, jump to step 2, step 5 and step 7.',
-      'Switch the prefill off and press Continue with the fields empty. The gating is the point: nobody reaches the community with a blank profile, because an admin has to review a complete one.',
-      'Step 7 is the market picker. Two memberships explained as two things, which is why creators join a market at all.',
+      'Nine screens, four named parts. Do not read them out: jump to screen 3, screen 7 and the review at the end.',
+      'Screen 3 is the one to land. Pick a country and the market appears on the same screen, decided rather than asked. Then use the resolver panel below the frame to try France and the United States.',
+      'Switch the prefill to Empty and press Continue with the fields blank. It names the missing field instead of saying "fill in all required boxes", and the review screen lists every one with a button that jumps straight to it.',
     ],
   },
   {
@@ -98,6 +98,16 @@ const RUN = [
     ],
   },
   {
+    minutes: 4,
+    title: 'The podium and the vouchers',
+    to: '/admin/testing/results',
+    say: [
+      'Press "Log them all", then Publish. The podium lands and the voucher row appears underneath it.',
+      'Drag the voucher bar and watch people move above and below it. That one control is what decides whether a challenge rewards three people or nine.',
+      'Then read the last panel out: publishing sets off the notifications, the rewards, the draft invoices and the archive, and none of it needs anybody to remember it.',
+    ],
+  },
+  {
     minutes: 2,
     title: 'Why there is almost no email',
     to: '/admin/testing/email',
@@ -129,6 +139,8 @@ const RUN = [
 ]
 
 const SPARE = [
+  { title: 'Who can see what', to: '/admin/testing/security', why: 'When somebody asks about privacy, and they will. Twelve questions, five kinds of account.' },
+  { title: 'What a profile is for', to: '/admin/testing/profile', why: 'If somebody asks why onboarding needs all that.' },
   { title: 'Notifications', to: '/admin/testing/notifications', why: 'If somebody asks how creators find out about anything.' },
   { title: 'Text, time and media', to: '/admin/testing/toolkit', why: 'If somebody technical asks what happens to a photo on upload.' },
 ]
@@ -163,7 +175,7 @@ export default function ScriptLab() {
         <p>
           Press Step rather than Play, so you are talking over it instead of racing it. Open every lab in
           a second tab before you start. And say the word sandbox once, at the beginning, so nobody spends
-          the next twenty minutes wondering whether Maya Okonjo is a real person.
+          the next twenty minutes wondering whether James Test is a real person.
         </p>
       </Note>
 

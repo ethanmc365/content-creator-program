@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Badge } from '../../../components/ui'
 import Icon from '../../../components/Icon'
 import { SCORING_MODES, STARTER_POINT_RULES, scoreForEntries, scoringMode, isViewRanked } from '../../../lib/scoring'
 import { blendEconomics, challengeEconomics, CPM_BANDS, FALLBACK_RATES, groupBy } from '../../../lib/programme'
 import { formatMoney, formatViews } from '../../../lib/utils'
-import { LabPage, Panel, Note, KeyVal, Choice, Code, CardGrid } from './kit'
+import { LabPage, Panel, Note, KeyVal, Choice, Code, CardGrid, InfoList, useFlip, useCountTo } from './kit'
 import { CREATORS, ENTRIES, POINT_AWARDS, PAST_CHALLENGES, marketName } from './fixtures'
 
 // SCORING AND WHAT IT COSTS.
@@ -17,6 +17,42 @@ import { CREATORS, ENTRIES, POINT_AWARDS, PAST_CHALLENGES, marketName } from './
 
 const BAND_TONE = { good: 'green', warn: 'amber', bad: 'red', neutral: 'grey' }
 const bandMeta = (key) => CPM_BANDS.find((b) => b.key === key) || CPM_BANDS[3]
+
+/**
+ * One row of the leaderboard.
+ *
+ * `data-flip-key` is what useFlip finds it by, and the score counts to its new
+ * value rather than jumping - because when three creators all move at once, a
+ * number that changes instantly reads as a re-render and a number that travels
+ * reads as a result.
+ */
+function BoardRow({ row, rank, scoring }) {
+  const shown = useCountTo(row.score, 520)
+  const top = rank < 3
+  return (
+    <li
+      data-flip-key={row.id}
+      className={
+        'flex items-center gap-3 rounded-card border px-4 py-3 transition-colors duration-500 ' +
+        (top ? 'border-brand/25 bg-brand-tint/25' : 'border-gray-100 bg-white')
+      }
+    >
+      <span className={'w-5 shrink-0 text-sm font-bold tabular-nums transition-colors duration-500 ' + (top ? 'text-brand' : 'text-gray-300')}>
+        {rank + 1}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold">{row.creator.name}</span>
+        <span className="block text-[11px] text-smoke">
+          {row.posts} {row.posts === 1 ? 'entry' : 'entries'}
+          {scoring === 'points' ? '' : ` · best ${formatViews(row.bestViews)} · total ${formatViews(row.totalViews)}`}
+        </span>
+      </span>
+      <span className="shrink-0 text-sm font-bold tabular-nums">
+        {scoring === 'points' ? `${shown} pts` : formatViews(shown)}
+      </span>
+    </li>
+  )
+}
 
 export default function ProgrammeLab() {
   const [scoring, setScoring] = useState('best_video')
@@ -49,6 +85,14 @@ export default function ProgrammeLab() {
 
   const mode = scoringMode(scoring)
 
+  // THE REORDER IS THE POINT, SO IT HAS TO BE VISIBLE.
+  // A list that simply re-renders in a new order shows you the AFTER and never
+  // the change, and which creator overtook which is the entire thing this panel
+  // is for. useFlip measures where each row was, lets React put it where it now
+  // goes, and animates the difference away. See kit.jsx.
+  const boardRef = useRef(null)
+  useFlip(boardRef, standings.map((s2) => s2.id).join('|'))
+
   // Economics over the fabricated history, through the real functions.
   const rows = PAST_CHALLENGES.map((c) => challengeEconomics(c, { currency, rates: FALLBACK_RATES }))
   const blended = blendEconomics(rows, { currency })
@@ -64,6 +108,7 @@ export default function ProgrammeLab() {
       subtitle="How somebody wins, and what a challenge costs. Both answered by the functions the platform actually runs, over entries you can change with a slider."
     >
       <Panel
+        i={0}
         title="The three scoring modes"
         hint="Chosen per challenge, never per market. A fourth value exists in the database for every challenge run before August 2026 and is never offered again, because silently remapping an old contest rewrites its history."
       >
@@ -90,8 +135,9 @@ export default function ProgrammeLab() {
       </Panel>
 
       <Panel
+        i={1}
         title="Change the numbers and watch the winner change"
-        hint="These are the view counts an admin logs when a challenge closes. Drag one. The ranking below is scoreForEntries, exactly as the leaderboard calls it."
+        hint="These are the view counts an admin logs when a challenge closes. Drag one, or switch the mode, and watch the rows move. Nothing is faked: the order comes from scoreForEntries, exactly as the leaderboard calls it."
       >
         <div className="grid gap-8 lg:grid-cols-2">
           <div className="space-y-4">
@@ -132,27 +178,9 @@ export default function ProgrammeLab() {
               <p className="text-xs font-semibold uppercase tracking-wide text-smoke">Leaderboard</p>
               <Badge tone="light">{mode.short}</Badge>
             </div>
-            <ol className="space-y-2">
-              {standings.map((s, i) => (
-                <li
-                  key={s.id}
-                  className={
-                    'flex items-center gap-3 rounded-card border px-4 py-3 transition-colors ' +
-                    (i < 3 ? 'border-brand/25 bg-brand-tint/25' : 'border-gray-100 bg-white')
-                  }
-                >
-                  <span className={'w-5 shrink-0 text-sm font-bold tabular-nums ' + (i < 3 ? 'text-brand' : 'text-gray-300')}>{i + 1}</span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold">{s.creator.name}</span>
-                    <span className="block text-[11px] text-smoke">
-                      {s.posts} {s.posts === 1 ? 'entry' : 'entries'}
-                      {scoring === 'points' ? '' : ` · best ${formatViews(s.bestViews)} · total ${formatViews(s.totalViews)}`}
-                    </span>
-                  </span>
-                  <span className="shrink-0 text-sm font-bold tabular-nums">
-                    {scoring === 'points' ? `${s.score} pts` : formatViews(s.score)}
-                  </span>
-                </li>
+            <ol ref={boardRef} className="space-y-2">
+              {standings.map((row, i) => (
+                <BoardRow key={row.id} row={row} rank={i} scoring={scoring} />
               ))}
             </ol>
             <Note className="mt-4">
@@ -167,6 +195,7 @@ export default function ProgrammeLab() {
       </Panel>
 
       <Panel
+        i={2}
         title="The points ledger"
         hint="What a points challenge starts with. Rules live in code, not on a market, so a brand new market can run one on day one."
       >
@@ -210,6 +239,7 @@ export default function ProgrammeLab() {
       </Panel>
 
       <Panel
+        i={3}
         title="What it costs"
         hint="Six challenges through challengeEconomics, blended the honest way: spend and views summed first and divided once, never an average of averages."
         action={<Choice size="sm" value={currency} onChange={setCurrency} options={[{ value: 'GBP', label: 'Pounds' }, { value: 'EUR', label: 'Euros' }]} />}
@@ -270,13 +300,13 @@ export default function ProgrammeLab() {
             <KeyVal rows={byMarket.map((g) => [g.key, cpm(g.blended.cpm), `${money(g.blended.spend)} over ${g.blended.challenges}`])} />
           </div>
           <div className="space-y-4">
-            <Note>
-              <p className="font-semibold text-ink">Two figures are deliberately blank rather than zero.</p>
-              <p>
-                A challenge with no views logged has an UNKNOWN cost per thousand, not a cost of zero.
-                Showing it as nothing would make the worst result on the board look like the best one.
-              </p>
-            </Note>
+            <InfoList
+              columns={1}
+              items={[
+                { icon: 'alert', t: 'Blank is not zero', d: 'A challenge with no views logged has an UNKNOWN cost per thousand. Showing it as nothing would make the worst result on the board look like the best one.' },
+                { icon: 'chart', t: 'Blended, not an average of averages', d: 'Spend and views are summed first and divided once. Averaging per-challenge figures weights a small express challenge the same as a monthly one.' },
+              ]}
+            />
             <Code>{`cpm  = spend / (views / 1000)
 band = cpm <= target        -> on target
        cpm <= target * 2    -> watch

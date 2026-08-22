@@ -2,13 +2,16 @@
 //  * AvatarUpload   - photo picker that uploads to Supabase storage
 //  * LanguageSelect - multi-select tag picker
 //  * SocialInputs   - Instagram / TikTok / YouTube URL fields
-import { useRef, useState } from 'react'
+//  * CountrySelect  - a country AND its ISO-2 code, picked rather than typed
+import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { compressImage } from '../lib/image'
 import { uploadFile } from '../lib/upload'
-import { parseDob, formatDobInput, ageFromDob } from '../lib/utils'
+import { parseDob, formatDobInput, ageFromDob, cx } from '../lib/utils'
 import { DIAL_CODES, flagEmoji } from '../lib/dialCodes'
+import { COUNTRIES, normalize as normalizeCountry } from '../lib/countries'
 import { Avatar, Spinner } from './ui'
+import Icon from './Icon'
 
 export const LANGUAGE_OPTIONS = [
   'English', 'Irish', 'French', 'Spanish', 'Portuguese', 'Italian', 'German',
@@ -286,6 +289,97 @@ export function SocialInputs({ values, onChange }) {
           />
         </div>
       ))}
+    </div>
+  )
+}
+
+/**
+ * WHERE YOU LIVE, AS A CHOICE RATHER THAN A TYPED STRING.
+ *
+ * `profiles.country` has always been free text, and `profiles.country_code` is
+ * what the market system routes on. Joining those two up meant guessing what
+ * somebody meant by "UK", "England" or "united kingdom" AFTER they had already
+ * finished onboarding, and any guess that missed left a creator with a null
+ * code who could never be offered a market at all.
+ *
+ * Picking from a list removes the guess. The typed box is still here because it
+ * is how you search 83 countries without a scroll, but what comes out the other
+ * side is always a name AND its ISO-2 code together.
+ *
+ * onChange({ country, country_code }).
+ */
+export function CountrySelect({ value = '', code = '', onChange, required, label = 'Country', hint }) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const rootRef = useRef(null)
+
+  useEffect(() => {
+    if (!open) return undefined
+    const onDoc = (e) => { if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [open])
+
+  const q = normalizeCountry(query)
+  const list = q
+    ? COUNTRIES.filter((c) => normalizeCountry(c.name).includes(q)
+        || (c.aliases || []).some((a) => normalizeCountry(a).includes(q)))
+    : COUNTRIES
+  const picked = code ? COUNTRIES.find((c) => c.iso2 === code) : null
+
+  return (
+    <div ref={rootRef} className="relative">
+      <span className="label">{label}{required && <span className="text-brand"> *</span>}</span>
+      <button
+        type="button"
+        onClick={() => { setOpen((o) => !o); setQuery('') }}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className={cx('input flex w-full items-center justify-between gap-2 text-left', !value && 'text-smoke')}
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          {picked && <span aria-hidden>{flagEmoji(picked.iso2)}</span>}
+          <span className="truncate">{value || 'Choose your country'}</span>
+        </span>
+        <Icon name="chevronRight" className="h-4 w-4 shrink-0 rotate-90 text-gray-400" />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded-card border border-gray-200 bg-white shadow-lift">
+          <div className="border-b border-gray-100 p-2">
+            <input
+              autoFocus
+              className="input !py-2 text-sm"
+              placeholder="Start typing…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+          <ul role="listbox" className="max-h-64 overflow-y-auto py-1">
+            {list.length === 0 && (
+              <li className="px-4 py-3 text-xs text-smoke">Nothing matches that. Try the country&apos;s English name.</li>
+            )}
+            {list.map((c) => (
+              <li key={c.iso2}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={c.iso2 === code}
+                  onClick={() => { onChange({ country: c.name, country_code: c.iso2 }); setOpen(false) }}
+                  className={cx(
+                    'flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm transition-colors hover:bg-cloud',
+                    c.iso2 === code && 'bg-brand-tint font-semibold text-brand',
+                  )}
+                >
+                  <span aria-hidden>{flagEmoji(c.iso2)}</span>
+                  <span className="truncate">{c.name}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {hint && <p className="mt-1 text-xs text-smoke">{hint}</p>}
     </div>
   )
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { useDemoMode } from '../lib/demoMode'
 import { Avatar } from '../components/ui'
 import Icon from '../components/Icon'
 import CreatorMap from '../components/CreatorMap'
@@ -27,10 +28,11 @@ function prizePotLabel(structure) {
 // graceful placeholders are used until the database is connected.
 const TRYP_URL = 'https://www.tryp.com'
 
-// `demo` keeps this page on screen for a signed-in admin, so the public front
-// page can be shown inside the Testing Centre. Without it the guard below does
-// exactly what it should and sends them to their home page.
-export default function Landing({ demo = false }) {
+// `?demo=1`, admins only, keeps this page on screen for somebody who is already
+// signed in, so the public front page can be shown inside the Testing Centre.
+// Without it the guard below does exactly what it should and sends them home.
+export default function Landing() {
+  const { on: demo } = useDemoMode()
   const { user, loading } = useAuth()
   const [stats, setStats] = useState({ creators: 40, challenges: 6, prizes: 500 })
   const [featured, setFeatured] = useState([])

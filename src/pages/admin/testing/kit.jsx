@@ -2,7 +2,7 @@
 //
 // Every lab is built out of these, so thirteen very different demonstrations
 // still read as one place. Nothing in here talks to the network.
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Icon from '../../../components/Icon'
 import { Badge } from '../../../components/ui'
@@ -64,9 +64,12 @@ export function SandboxLine({ className = '' }) {
 }
 
 /** A titled block. `tone="quiet"` drops the card border for a nested section. */
-export function Panel({ title, hint, action, children, className = '', tone = 'card' }) {
+export function Panel({ title, hint, action, children, className = '', tone = 'card', i = 0 }) {
   return (
-    <section className={cx(tone === 'card' ? 'card !p-6 sm:!p-7' : '', className)}>
+    <section
+      className={cx('lab-in', tone === 'card' ? 'card !p-6 sm:!p-7' : '', className)}
+      style={{ '--lab-i': Math.min(i, 3) }}
+    >
       {(title || action) && (
         <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
@@ -168,49 +171,49 @@ export function Code({ children, className = '' }) {
 // ---------------------------------------------------------------- stage ----
 
 const DEVICES = [
-  { value: 'phone', label: 'Phone', width: 390 },
-  { value: 'tablet', label: 'Tablet', width: 834 },
-  { value: 'desktop', label: 'Desktop', width: 1280 },
+  { value: 'phone', label: 'Phone', width: 390, height: 844 },
+  { value: 'tablet', label: 'Tablet', width: 834, height: 1112 },
+  { value: 'desktop', label: 'Desktop', width: 1440, height: 900 },
 ]
 
 /**
- * A live screen, at a chosen width, inside the admin page.
+ * A REAL SCREEN AT A REAL WIDTH.
  *
- * This renders the REAL component, not a picture of it. That is the whole
- * reason the onboarding and signup labs are worth having: what is on screen is
- * the same JSX a creator gets, so it cannot drift from the product the way a
- * mockup does.
+ * This used to render the page INLINE inside the admin page, inside a box of a
+ * fixed width. It looked convincing and it was wrong, because a CSS media query
+ * reads the BROWSER VIEWPORT and not the width of whatever box its element is
+ * sitting in. A 390px "phone" preview on a 1440px screen still had every `sm:`
+ * and `lg:` rule applied to it, so what you were shown was the desktop layout
+ * squashed into a narrow column - which is precisely what a phone layout is
+ * not. The desktop preview had the same problem in reverse and was the one that
+ * gave the game away: it did not look like a desktop because it was not one.
  *
- * The scaling is the fiddly part. A CSS transform does not change layout, so a
- * scaled child still reserves its full unscaled height and the scroller ends up
- * with hundreds of pixels of empty space under it. The content's real height is
- * measured and the wrapper is given height x scale.
+ * A same-origin iframe has its own viewport, so at 390px the breakpoints really
+ * are the phone's. The page inside is the real route with `?demo=1` on it, and
+ * that flag only does anything for an admin. See lib/demoMode.
+ *
+ * The scaling is still a transform, and a transform does not change layout, so
+ * the wrapper is given `height x scale` explicitly or the scroller reserves the
+ * frame's full unscaled height and leaves a screen of white underneath.
  */
-export function Stage({ children, device = 'phone', onDevice, zoom = 'fit', onZoom, height = 760, label }) {
-  // React 18 callback refs must not return a cleanup function, so the nodes go
-  // into state and the observers hang off an effect keyed on them.
-  const [frameEl, setFrameEl] = useState(null)
-  const [contentEl, setContentEl] = useState(null)
-  const [frameWidth, setFrameWidth] = useState(0)
-  const [contentHeight, setContentHeight] = useState(0)
+export function Stage({
+  src, device = 'phone', onDevice, zoom = 'fit', onZoom, label, frameRef,
+  onLoad, height, toolbar,
+}) {
+  const [boxEl, setBoxEl] = useState(null)
+  const [boxWidth, setBoxWidth] = useState(0)
 
   useEffect(() => {
-    if (!frameEl) return
-    const ro = new ResizeObserver(([e]) => setFrameWidth(e.contentRect.width))
-    ro.observe(frameEl)
+    if (!boxEl) return undefined
+    const ro = new ResizeObserver(([e]) => setBoxWidth(e.contentRect.width))
+    ro.observe(boxEl)
     return () => ro.disconnect()
-  }, [frameEl])
+  }, [boxEl])
 
-  useEffect(() => {
-    if (!contentEl) return
-    const ro = new ResizeObserver(([e]) => setContentHeight(e.contentRect.height))
-    ro.observe(contentEl)
-    return () => ro.disconnect()
-  }, [contentEl])
-
-  const width = DEVICES.find((d) => d.value === device)?.width ?? 390
-  const fit = frameWidth > 0 ? Math.min(1, frameWidth / width) : 1
+  const d = DEVICES.find((x) => x.value === device) ?? DEVICES[0]
+  const fit = boxWidth > 0 ? Math.min(1, boxWidth / d.width) : 1
   const scale = zoom === 'fit' ? fit : Number(zoom)
+  const frameH = height ?? d.height
 
   return (
     <div className="overflow-hidden rounded-card border border-gray-100 bg-cloud/60 shadow-card">
@@ -218,14 +221,14 @@ export function Stage({ children, device = 'phone', onDevice, zoom = 'fit', onZo
         <div className="flex items-center gap-2 text-xs font-medium text-smoke">
           <Icon name="device" className="h-4 w-4 text-brand" />
           {label || 'Live screen'}
+          <span className="hidden tabular-nums text-gray-400 sm:inline">{d.width}px</span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {toolbar}
           {onDevice && <Choice size="sm" options={DEVICES} value={device} onChange={onDevice} />}
           {onZoom && (
             <Choice
-              size="sm"
-              value={zoom}
-              onChange={onZoom}
+              size="sm" value={zoom} onChange={onZoom}
               options={[
                 { value: 'fit', label: 'Fit' },
                 { value: '1', label: '100%' },
@@ -234,19 +237,32 @@ export function Stage({ children, device = 'phone', onDevice, zoom = 'fit', onZo
               ]}
             />
           )}
+          <a
+            href={src}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-full bg-cloud px-3 py-1 text-[11px] font-medium text-smoke transition-colors hover:text-brand"
+          >
+            Open in a tab
+          </a>
         </div>
       </div>
-      <div ref={setFrameEl} className="overflow-auto p-4" style={{ height }}>
-        <div
-          className="mx-auto"
-          style={{ width: width * scale, height: contentHeight ? contentHeight * scale : undefined }}
-        >
-          <div
-            className="overflow-hidden rounded-card bg-white shadow-lift ring-1 ring-gray-200"
-            style={{ width, transform: `scale(${scale})`, transformOrigin: 'top left' }}
-          >
-            <div ref={setContentEl}>{children}</div>
-          </div>
+      <div ref={setBoxEl} className="overflow-x-auto p-4">
+        <div className="mx-auto" style={{ width: d.width * scale, height: frameH * scale }}>
+          <iframe
+            ref={frameRef}
+            src={src}
+            title={label || 'Preview'}
+            onLoad={onLoad}
+            className="rounded-card bg-white shadow-lift ring-1 ring-gray-200"
+            style={{
+              width: d.width,
+              height: frameH,
+              border: 0,
+              transform: `scale(${scale})`,
+              transformOrigin: 'top left',
+            }}
+          />
         </div>
       </div>
     </div>
@@ -428,3 +444,132 @@ export function useJoined(list) {
     return `${list.slice(0, -1).join(', ')} and ${list[list.length - 1]}`
   }, [list])
 }
+
+// ------------------------------------------------------- information ------
+
+/**
+ * FACTS, DRAWN SO THEY DO NOT LOOK PRESSABLE.
+ *
+ * The "what stops this going wrong" block used the same white card with a
+ * border and a shadow that every navigable tile on this platform uses, and it
+ * read as four buttons that did nothing when you pressed them. A card is a
+ * promise of a destination. These are notes, so they get the shape of notes:
+ * one flat tinted panel, hairline dividers between the rows, an icon in the
+ * margin, no border of their own, no shadow, and nothing that lifts on hover.
+ */
+export function InfoList({ items, title, hint, columns = 2 }) {
+  return (
+    <div>
+      {(title || hint) && (
+        <div className="mb-3">
+          {title && <p className="text-xs font-bold uppercase tracking-[0.14em] text-smoke">{title}</p>}
+          {hint && <p className="mt-1.5 text-xs leading-relaxed text-smoke">{hint}</p>}
+        </div>
+      )}
+      <div
+        className={cx(
+          'overflow-hidden rounded-card bg-cloud/60',
+          columns === 2 ? 'sm:grid sm:grid-cols-2' : '',
+        )}
+      >
+        {items.map((it, i) => (
+          <div
+            key={it.t}
+            className={cx(
+              'flex items-start gap-3 px-4 py-3.5',
+              // Hairlines between rows, and between columns on a wide screen.
+              i > 0 && 'border-t border-white/70',
+              columns === 2 && i === 1 && 'sm:border-t-0',
+              columns === 2 && i % 2 === 1 && 'sm:border-l sm:border-white/70',
+            )}
+          >
+            <Icon name={it.icon || 'bulb'} className="mt-0.5 h-4 w-4 shrink-0 text-brand/70" />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold">{it.t}</p>
+              <p className="mt-1 text-xs leading-relaxed text-smoke">{it.d}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------- animation ----
+
+/**
+ * FLIP: FIRST, LAST, INVERT, PLAY.
+ *
+ * When the scoring mode changes, the leaderboard reorders - and a list that
+ * simply re-renders in a new order shows you the AFTER and never the change.
+ * Which row overtook which is the entire point of that panel, and it was the
+ * one thing the panel did not show.
+ *
+ * So: measure where every row is (First), let React put them where they now go
+ * (Last), work out the difference and put each row visually back where it was
+ * (Invert), then animate the offset away (Play). Because it animates a
+ * transform, nothing re-lays out and the whole thing runs on the compositor.
+ *
+ * `keys` is the order as a string. Rows are found by `data-flip-key`.
+ */
+export function useFlip(containerRef, keys) {
+  const prev = useRef(new Map())
+
+  useLayoutEffect(() => {
+    const root = containerRef.current
+    if (!root) return
+    const nodes = root.querySelectorAll('[data-flip-key]')
+    const now = new Map()
+
+    for (const node of nodes) {
+      const key = node.getAttribute('data-flip-key')
+      const box = node.getBoundingClientRect()
+      now.set(key, box.top)
+      const before = prev.current.get(key)
+      if (before == null || Math.abs(before - box.top) < 1) continue
+      node.animate(
+        [{ transform: `translateY(${before - box.top}px)` }, { transform: 'translateY(0)' }],
+        // Long enough to follow with your eye, short enough that pressing the
+        // three modes in a row does not feel like waiting. Standard ease-out:
+        // it leaves fast and settles, which is what "moved" looks like.
+        { duration: 520, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+      )
+    }
+    prev.current = now
+  }, [containerRef, keys])
+}
+
+/**
+ * A number that counts to its new value instead of jumping.
+ *
+ * Deliberately LINEAR. The readout is an integer, so what the eye actually sees
+ * is frames per whole number, and any curve with zero slope at its ends varies
+ * that wildly - which reads as the counter pausing on some numbers and not
+ * others. A constant rate gives every integer the same dwell. Same reasoning as
+ * CountUp in the main app; this is the small local copy so the Testing Centre
+ * does not pull the eagerly-loaded one in.
+ */
+export function useCountTo(target, ms = 600) {
+  const [shown, setShown] = useState(target)
+  const from = useRef(target)
+
+  useEffect(() => {
+    const start = from.current
+    const delta = target - start
+    if (delta === 0) return undefined
+    let raf = 0
+    let t0 = null
+    const tick = (t) => {
+      if (t0 === null) t0 = t
+      const p = Math.min(1, (t - t0) / ms)
+      setShown(Math.round(start + delta * p))
+      if (p < 1) raf = requestAnimationFrame(tick)
+      else from.current = target
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [target, ms])
+
+  return shown
+}
+

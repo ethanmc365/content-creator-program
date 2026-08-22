@@ -4,10 +4,12 @@ import { useAuth } from '../../context/AuthContext'
 import { Spinner } from '../../components/ui'
 import Turnstile from '../../components/Turnstile'
 import AuthShell, { DemoCaptcha } from './AuthShell'
+import { useDemoMode } from '../../lib/demoMode'
 
 // Step 1 of the reset flow: enter your email → Supabase sends a reset link
 // that lands on /reset-password.
-export default function ForgotPassword({ demo = false }) {
+export default function ForgotPassword() {
+  const { on: demo } = useDemoMode()
   const { sendPasswordReset } = useAuth()
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)

@@ -4,11 +4,11 @@ import Icon from '../../../components/Icon'
 import InvoicePreview from '../../../components/InvoicePreview'
 import { downloadInvoicePdf } from '../../../lib/invoicePdf'
 import {
-  DEFAULT_BILL_TO, invoiceMoney, invoiceNo, invoiceRef, payeeComplete, validatePayee,
+  DEFAULT_BILL_TO, invoiceMoney, invoiceNo, invoiceRef, payeeComplete, paymentRows, validatePayee,
 } from '../../../lib/invoice'
 import { convert, FALLBACK_RATES } from '../../../lib/programme'
 import { toast } from '../../../lib/toast'
-import { LabPage, Panel, Runner, Note, KeyVal, Choice, Field, Code, useNow, PersonRow } from './kit'
+import { LabPage, Panel, Runner, Note, KeyVal, Choice, Field, Code, useNow, PersonRow, InfoList } from './kit'
 import { CREATORS, PAYEE_GBP, PAYEE_EUR, PAYEE_EMPTY, CHALLENGE, iso } from './fixtures'
 
 // AUTOMATIC INVOICING, DEMONSTRATED.
@@ -40,10 +40,12 @@ const STAGES = [
 // the chips can never disagree with the timeline.
 const STAGE_AT = ['none', 'none', 'draft', 'draft', 'awaiting_approval', 'awaiting_approval', 'approved', 'approved', 'approved', 'sent', 'paid']
 
+// Three test accounts, and the currency is in the label because "which one is
+// the euro one" is the first thing anybody asks looking at this.
 const SCENARIOS = [
-  { value: 'gbp', label: 'Pounds', creator: 'demo-c1', payee: PAYEE_GBP, amount: 250, currency: 'GBP', place: 1 },
-  { value: 'eur', label: 'Euros', creator: 'demo-c2', payee: PAYEE_EUR, amount: 150, currency: 'EUR', place: 2 },
-  { value: 'missing', label: 'No bank details', creator: 'demo-c3', payee: PAYEE_EMPTY, amount: 100, currency: 'GBP', place: 3 },
+  { value: 'gbp', label: 'Pounds · James Test', creator: 'demo-c1', payee: PAYEE_GBP, amount: 250, currency: 'GBP', place: 1 },
+  { value: 'eur', label: 'Euros · Miguel Test', creator: 'demo-c2', payee: PAYEE_EUR, amount: 150, currency: 'EUR', place: 2 },
+  { value: 'missing', label: 'Nothing on file · Sofia Test', creator: 'demo-c3', payee: PAYEE_EMPTY, amount: 100, currency: 'GBP', place: 3 },
 ]
 
 function StageChips({ stage }) {
@@ -236,6 +238,7 @@ export default function InvoiceLab() {
       aside={<StageChips stage={stage} />}
     >
       <Panel
+        i={0}
         title="Pick a scenario"
         hint="Three cases worth showing: a UK creator paid in pounds, a Portuguese creator paid in euros over SEPA, and a creator who has never filled in their bank details."
       >
@@ -244,11 +247,30 @@ export default function InvoiceLab() {
             <Field label="Who won">
               <div className="mt-1"><Choice options={SCENARIOS} value={scenarioKey} onChange={(v) => { setScenarioKey(v); setStep(0) }} /></div>
             </Field>
-            <div className="rounded-card border border-gray-100 bg-cloud/50 p-4">
+            <div className="space-y-3 rounded-card border border-gray-100 bg-cloud/50 p-4">
               <PersonRow
                 creator={creator}
-                right={<Badge tone={complete ? 'green' : 'amber'}>{complete ? 'Bank details on file' : 'Nothing on file'}</Badge>}
+                right={<Badge tone={complete ? 'green' : 'amber'}>{payee.label}</Badge>}
               />
+              {complete ? (
+                <dl className="space-y-1.5 border-t border-white pt-3">
+                  {paymentRows(payee).map(([k, v]) => (
+                    <div key={k} className="flex gap-3 text-xs">
+                      <dt className="w-28 shrink-0 text-smoke">{k}</dt>
+                      <dd className="font-semibold tabular-nums">{v}</dd>
+                    </div>
+                  ))}
+                  <p className="pt-1 text-[11px] text-smoke">
+                    Invented, and well formed enough to pass the same validator a creator&apos;s own
+                    payment form uses. {payee.currency === 'EUR' ? 'Euro payments go over SEPA and need an IBAN and a BIC.' : 'Pound payments need a six digit sort code and an eight digit account number.'}
+                  </p>
+                </dl>
+              ) : (
+                <p className="border-t border-white pt-3 text-[11px] text-smoke">
+                  This test account has never filled in its payment details, which is the case the
+                  automation has to stop itself on.
+                </p>
+              )}
             </div>
             <Field label="Who is approving it">
               <div className="mt-1 flex flex-wrap gap-2">
@@ -295,6 +317,7 @@ export default function InvoiceLab() {
       </Panel>
 
       <Panel
+        i={1}
         title="Run it"
         hint="Press play and watch, or press Step to talk over each one. Nothing below leaves this browser tab."
       >
@@ -302,6 +325,7 @@ export default function InvoiceLab() {
       </Panel>
 
       <Panel
+        i={2}
         title="The invoice itself"
         hint="This is the same component the admin composer draws, with the same formatter and the same per currency bank rows as the PDF."
         action={
@@ -321,26 +345,22 @@ export default function InvoiceLab() {
         )}
       </Panel>
 
-      <Panel title="What stops this going wrong" hint="Four rules, each of which exists because the alternative is a real problem.">
-        <div className="grid gap-4 sm:grid-cols-2">
-          {[
+      <Panel
+        i={3}
+        title="What stops this going wrong"
+        hint="Four rules, each of which exists because the alternative is a real problem. These are notes, not doors."
+      >
+        <InfoList
+          items={[
             { icon: 'users', t: 'Two people, always', d: 'Nobody approves their own invoice. The only exception is the platform owner, so one person on their own is never completely blocked.' },
             { icon: 'shield', t: 'The server checks too', d: 'The send function re-reads the stage from the database. Disabling a button in a browser is not a control.' },
-            { icon: 'clock', t: 'Snapshot, not a link', d: 'Bank details are copied onto the invoice when it is raised. A document that changes after it is issued is not a document.' },
-            { icon: 'eye', t: 'Everything is logged', d: 'Who raised it, who approved it, when it was sent and when it was paid. The audit log holds account actions alongside it.' },
-          ].map((c) => (
-            <div key={c.t} className="rounded-card border border-gray-100 bg-white p-5">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-tint text-brand">
-                <Icon name={c.icon} className="h-4 w-4" />
-              </span>
-              <p className="mt-3 text-sm font-semibold">{c.t}</p>
-              <p className="mt-1 text-xs leading-relaxed text-smoke">{c.d}</p>
-            </div>
-          ))}
-        </div>
+            { icon: 'clock', t: 'A snapshot, not a link', d: 'Bank details are copied onto the invoice when it is raised. A document that changes after it is issued is not a document.' },
+            { icon: 'eye', t: 'Everything is logged', d: 'Who raised it, who approved it, when it was sent and when it was paid, alongside the audit log of account actions.' },
+          ]}
+        />
       </Panel>
 
-      <Panel title="The numbering rule" hint="Invoices are numbered in one running sequence across the whole programme, not per creator and not per market.">
+      <Panel i={3} title="The numbering rule" hint="Invoices are numbered in one running sequence across the whole programme, not per creator and not per market.">
         <Code>{[1, 2, 46, 47, 128].map((n) => `${n}  ->  ${invoiceRef(n)}`).join('\n')}</Code>
       </Panel>
     </LabPage>
