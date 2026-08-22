@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useIsPhone } from '../../lib/useKeyboardInset'
+import { useCommunity } from '../../context/CommunityContext'
 import { markSeenLocally, markTourComplete, shouldAutoStart, tourEnabled } from '../../lib/tour'
 
 // WHETHER THE WALKTHROUGH RUNS, DECIDED IN ONE PLACE.
@@ -27,6 +28,14 @@ export function startTour() {
 export default function TourGate() {
   const { profile, user } = useAuth()
   const isPhone = useIsPhone()
+  // WHICH PLATFORM WE ARE WALKING SOMEBODY ROUND.
+  //
+  // The network shell has the worldwide hub, the board, the flight log and the
+  // games; the legacy shell has none of them. Rather than two step lists that
+  // drift apart, the steps declare which shell they belong to and the ones that
+  // do not exist yet are dropped. The percentage counts the steps that are
+  // actually going to run, so nobody tops out at sixty per cent.
+  const { preview: network } = useCommunity()
   const [open, setOpen] = useState(false)
   const layout = isPhone ? 'mobile' : 'desktop'
 
@@ -61,7 +70,7 @@ export default function TourGate() {
   if (!open) return null
   return (
     <Suspense fallback={null}>
-      <TourHost onFinish={finish} />
+      <TourHost onFinish={finish} network={network} />
     </Suspense>
   )
 }

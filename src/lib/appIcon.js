@@ -40,12 +40,6 @@ export const APP_ICONS = [
     manifest: '/icons/mono/manifest.webmanifest',
   },
   {
-    key: 'world',
-    label: 'World',
-    apple: '/icons/world/apple-touch-icon.png',
-    manifest: '/icons/world/manifest.webmanifest',
-  },
-  {
     key: 'plane',
     label: 'Plane',
     apple: '/icons/plane/apple-touch-icon.png',
@@ -56,12 +50,6 @@ export const APP_ICONS = [
     label: 'Midnight',
     apple: '/icons/midnight/apple-touch-icon.png',
     manifest: '/icons/midnight/manifest.webmanifest',
-  },
-  {
-    key: 'camera',
-    label: 'Camera',
-    apple: '/icons/camera/apple-touch-icon.png',
-    manifest: '/icons/camera/manifest.webmanifest',
   },
 ]
 
@@ -76,7 +64,7 @@ export const DEFAULT_APP_ICON = APP_ICONS[0].key
 // from a message that launches an in-app webview - and both of those are common
 // enough that the instructions cannot rely on it.
 //
-// So the link the card hands over names the icon: `?icon=world`. Read once on
+// So the link the card hands over names the icon: `?icon=plane`. Read once on
 // boot, it re-selects that icon and stores it, which makes the pasted URL
 // self-contained.
 export const APP_ICON_PARAM = 'icon'

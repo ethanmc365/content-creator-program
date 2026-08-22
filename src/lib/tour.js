@@ -4,166 +4,315 @@ import { readFlag } from './appFlags'
 // THE GUIDED WALKTHROUGH.
 //
 // A new creator's first minute decides whether they ever come back, and until
-// now that minute was: land on the home page, see five tabs, work it out. The
-// people who work it out are the people who were going to stay anyway.
-//
-// WHAT THIS IS NOT
+// this existed that minute was: land on the home page, see five tabs, work it
+// out. The people who work it out are the people who were going to stay anyway.
 //
 // It is not a tutorial and it does not call itself one. Nobody wants a tutorial
-// and the word promises homework. It is a short walk round the place with
-// somebody pointing at things, and two of the stops ask you to actually do
-// something rather than read about it, because a creator who has enabled
-// notifications and made one connection on day one is a creator who has a
-// reason to open the app on day two.
+// and the word promises homework. It is somebody walking you round, and three
+// of the stops ask you to actually do something rather than read about it -
+// because a creator who has notifications on, one connection made and one brief
+// read on day one is a creator with a reason to open the app on day two.
+//
+// WHAT CHANGED IN THE REWRITE
+//
+// The first version walked people round the LEGACY app: five tabs, a chat room
+// and a rewards page. That is not the platform any more. This one covers the
+// network - the worldwide hub, market chapters, the board, the flight log, the
+// games, the collaboration map - and adapts: with the network shell off it
+// skips straight past everything that does not exist yet, so the same step list
+// serves both without two sets of copy drifting apart.
 //
 // HOW IT IS ANCHORED
 //
-// Every step names a `data-tour` attribute rather than a CSS class or a
-// position. The SAME name is on the desktop nav item and on the mobile tab, and
-// the resolver picks whichever one is actually visible - so one set of steps
-// covers a phone, a tablet and a desktop without three sets of copy that would
-// drift apart within a month. A step whose anchor is nowhere on the page is
-// skipped rather than shown pointing at the top-left corner.
+// A step names a `data-tour` attribute, never a position. The SAME name is on
+// the desktop nav item and the mobile tab, and the resolver picks whichever is
+// actually visible - one set of steps for a phone, a tablet and a desktop. A
+// step whose anchor is nowhere on the page is skipped rather than shown
+// pointing at the top-left corner.
 //
-// WHO SEES IT
-//
-//   - `profiles.tour_completed_at` is null            (they have never done it)
-//   - AND the `tour_enabled` app setting reads true   (the master switch)
-//   - AND they are an approved creator, not an admin, not a test account
-//
-// Migration 107 backfilled tour_completed_at for every creator who was already
-// here, so nobody in the existing community can be ambushed by it even if the
-// switch is flipped on by accident.
+// WHO SEES IT: `shouldAutoStart` at the foot of this file. Short version - a
+// brand new approved creator, once, and nobody else. Migration 107 backfilled
+// every creator who was already here as done, and the whole thing additionally
+// reads a switch in app_settings.
 
-export const TOUR_VERSION = 1
+export const TOUR_VERSION = 2
 
-// Which layout a step belongs to. `both` is the overwhelming majority; the two
-// exceptions exist because the avatar menu is a dropdown on a desktop and a
-// sheet on a phone, and pointing at the wrong one is worse than not pointing.
-const BOTH = 'both'
+// THE PARTS.
+//
+// Eighteen stops read as a list of eighteen things. Five named parts read as a
+// short walk with a shape to it, and the card can say "Your people, 2 of 5" -
+// which is the difference between "how much more of this is there" and "we are
+// nearly at the end of this bit".
+export const TOUR_PARTS = [
+  { key: 'start', label: 'Getting your bearings' },
+  { key: 'work', label: 'The work' },
+  { key: 'people', label: 'Your people' },
+  { key: 'world', label: 'The wider network' },
+  { key: 'you', label: 'Your account' },
+]
+
+// `on`: 'both' | 'network' | 'legacy'. Network steps are dropped entirely when
+// the worldwide shell is off, rather than pointing at a page that redirects.
+const ALL = 'both'
+const NET = 'network'
 
 /**
- * The walk.
- *
- * key      stable id, used for progress and for the Testing Centre's list
- * title    short. It is read in about a second, over the top of a live app.
- * body     one or two sentences. Never three.
- * anchor   a `data-tour` value, or null for a centred card
- * route    navigate here before the step is shown
- * on       'both' | 'desktop' | 'mobile'
- * action   a step that WAITS for the creator to do something real
- * optional true if it can be passed over without doing the action
+ * key       stable id. Used for progress, and for the Testing Centre's list.
+ * part      which of the five named parts this belongs to
+ * title     short. It is read in about a second, over the top of a live app.
+ * body      one or two sentences. Never three.
+ * anchor    a `data-tour` value, or null for a centred card over a dimmed page
+ * route     navigate here before the step is shown
+ * on        which shell this step exists in
+ * action    a step that WAITS for the creator to do something real
+ * required  an action step that cannot be passed over (only the last one is)
+ * tip       an extra line, shown smaller, for the thing people miss
  */
 export const TOUR_STEPS = [
+  // ------------------------------------------------ getting your bearings ---
   {
     key: 'welcome',
-    title: 'Two minutes, and then you are on your own',
-    body: 'A quick walk round so you know where everything is. You can stop at any point, and you can run it again later from Settings.',
+    part: 'start',
+    title: 'Give us two minutes',
+    body: 'A quick walk round so you know where everything is and what is worth doing first. Stop whenever you like.',
     anchor: null,
     route: '/home',
-    on: BOTH,
+    on: ALL,
   },
   {
     key: 'home',
-    title: 'This is your home page',
-    body: 'The live challenge, what is happening in the community, and anything waiting on you. It is the page to check when you open the app.',
+    part: 'start',
+    title: 'Start here every time',
+    body: 'The live brief, what the community is talking about, and anything waiting on you. If you only open one page, open this one.',
     anchor: 'nav-home',
     route: '/home',
-    on: BOTH,
+    on: ALL,
   },
+  {
+    key: 'search',
+    part: 'start',
+    title: 'Everything is one search away',
+    body: 'Any creator, any challenge, any room, any page. Press this rather than hunting through the menus.',
+    anchor: 'search',
+    route: '/home',
+    on: NET,
+    tip: 'Keyboard shortcut: Cmd K, or just press forward slash.',
+    skipIfMissing: true,
+  },
+
+  // -------------------------------------------------------------- the work ---
   {
     key: 'challenges',
-    title: 'The work lives here',
-    body: 'Usually one challenge is running at a time. Read the brief, film your video, and paste the link before the deadline.',
+    part: 'work',
+    title: 'This is what you are here for',
+    body: 'A brief goes up, you film it, you post it, and the best videos win real money. Usually one is running at a time.',
     anchor: 'nav-challenges',
     route: '/challenges',
-    on: BOTH,
+    on: ALL,
   },
   {
-    key: 'challenge-brief',
-    title: 'Open a brief to see what is being asked for',
-    body: 'Every challenge says what to film, when it closes, how it is scored and what the prizes are. Nothing is hidden until afterwards.',
+    key: 'brief',
+    part: 'work',
+    title: 'Read the brief before you film',
+    body: 'It tells you what to shoot, when it closes, how it is judged and exactly what the prizes are. None of that is held back until afterwards.',
     anchor: 'challenge-card',
     route: '/challenges',
-    on: BOTH,
+    on: ALL,
     skipIfMissing: true,
   },
   {
-    key: 'creators',
-    title: 'Everybody else',
-    body: 'Every creator in the programme, where they are based, what they film and where they are going next. This is the part people stay for.',
-    skipIfMissing: true,
-    anchor: 'creator-card',
-    route: '/creators',
-    on: BOTH,
-  },
-  {
-    key: 'connect',
-    title: 'Connect with somebody',
-    body: 'Pick anyone. Connections are how you get introduced, how meet-ups get arranged, and how the collaboration board finds you people.',
-    anchor: 'creator-card',
-    route: '/creators',
-    on: BOTH,
-    action: 'connect',
-    optional: true,
-    skipIfMissing: true,
-  },
-  {
-    key: 'chat',
-    title: 'The rooms',
-    body: 'Where the programme actually talks. Ask anything, post what you are working on, and the team is in here too.',
-    anchor: 'nav-chat',
-    route: '/chat/general',
-    on: BOTH,
-  },
-  {
-    key: 'dms',
-    title: 'And private messages',
-    body: 'One to one, or a group. Every creator you are connected to can be messaged from here.',
-    anchor: 'nav-messages',
-    route: '/messages',
-    on: BOTH,
-  },
-  {
-    key: 'notifications',
-    title: 'Turn notifications on',
-    body: 'This is the one thing worth doing right now. It is how you hear that a challenge went live, that results are in, or that you have been paid.',
-    anchor: 'enable-push',
-    route: '/settings?section=notifications',
-    on: BOTH,
-    action: 'push',
-    optional: true,
+    key: 'submit',
+    part: 'work',
+    title: 'Entering takes about thirty seconds',
+    body: 'Post the video on your own account as you normally would, then paste the link here. We never re-upload your work or take it off your channel.',
+    anchor: null,
+    route: '/challenges',
+    on: ALL,
+    tip: 'You can enter more than once. On most briefs only your strongest video counts.',
   },
   {
     key: 'rewards',
-    title: 'Where the money shows up',
-    body: 'Prizes, vouchers and the invoices behind them. Add your payment details here before you win something, not after.',
+    part: 'work',
+    title: 'Add your bank details before you win',
+    body: 'Prizes, vouchers and the invoices behind them all live here. Filling this in now saves a week of chasing later.',
     anchor: null,
     route: '/rewards',
-    on: BOTH,
+    on: ALL,
   },
   {
+    key: 'milestones',
+    part: 'work',
+    title: 'There is a route through all this',
+    body: 'Videos posted, views reached, challenges entered. Each milestone unlocks something, and you can see exactly how far off the next one you are.',
+    anchor: null,
+    route: '/milestones',
+    on: NET,
+  },
+
+  // ----------------------------------------------------------- your people ---
+  {
+    key: 'creators',
+    part: 'people',
+    title: 'Everybody else',
+    body: 'Every creator in the programme, where they are based, what they film and where they are heading next. This is the part people stay for.',
+    anchor: 'creator-card',
+    route: '/creators',
+    on: ALL,
+    skipIfMissing: true,
+  },
+  {
+    key: 'connect',
+    part: 'people',
+    title: 'Connect with one person now',
+    body: 'Pick anyone at all. Connections are how introductions happen, how meet-ups get arranged, and how you start showing up in other people’s suggestions.',
+    anchor: 'creator-card',
+    route: '/creators',
+    on: ALL,
+    action: 'connect',
+    skipIfMissing: true,
+    tip: 'Press Connect on any card. You can do this later, but doing it now is the single best thing on this list.',
+  },
+  {
+    key: 'rooms',
+    part: 'people',
+    title: 'Where the programme actually talks',
+    body: 'Ask anything, post what you are working on, share a rate you got quoted. The team is in here too, and answers.',
+    anchor: 'nav-chat',
+    route: '/chat/general',
+    on: ALL,
+  },
+  {
+    key: 'dms',
+    part: 'people',
+    title: 'And privately',
+    body: 'One to one or a group. Anybody you are connected to can be messaged from here.',
+    anchor: 'nav-messages',
+    route: '/messages',
+    on: ALL,
+  },
+  {
+    key: 'collab',
+    part: 'people',
+    title: 'Post a trip, find company',
+    body: 'Put your next trip on the map and it tells you who else will be there. Half the collaborations in the programme started as an overlap nobody would have spotted.',
+    anchor: null,
+    route: '/collab',
+    on: NET,
+  },
+  {
+    key: 'board',
+    part: 'people',
+    title: 'Somebody has already answered it',
+    body: 'The question board. Gear, rates, visas, which airline actually pays out. Ask, or read what has been asked.',
+    anchor: null,
+    route: '/board',
+    on: NET,
+  },
+
+  // ------------------------------------------------------ the wider network ---
+  {
+    key: 'worldwide',
+    part: 'world',
+    title: 'You are part of something bigger',
+    body: 'Six markets across Europe, one network. The people, the map and the games are shared; the briefs and the leaderboards are local to you.',
+    anchor: 'nav-worldwide',
+    route: '/global',
+    on: NET,
+  },
+  {
+    key: 'flights',
+    part: 'world',
+    title: 'Log a flight, get a boarding pass',
+    body: 'Two airport codes and a date is enough. It works out the distance, the aircraft, the time zones you crossed and who else has flown that route.',
+    anchor: null,
+    route: '/flights',
+    on: NET,
+    tip: 'Every aircraft type you fly gets added to your collection.',
+  },
+  {
+    key: 'games',
+    part: 'world',
+    title: 'Three puzzles, every day',
+    body: 'Guess the country, fly the flight path, take the quiz. Keep a streak going and you climb the leaderboard.',
+    anchor: null,
+    route: '/game',
+    on: NET,
+  },
+  {
+    key: 'calendar',
+    part: 'world',
+    title: 'What is coming up',
+    body: 'Deadlines, community calls, content days and your own trips, on one calendar you can subscribe to from your phone.',
+    anchor: 'nav-calendar',
+    route: '/events',
+    on: ALL,
+    skipIfMissing: true,
+  },
+
+  // ---------------------------------------------------------- your account ---
+  {
     key: 'profile',
-    title: 'Your profile',
-    body: 'Everything you filled in when you joined, editable any time. A complete profile gets you noticed by other creators and by us.',
+    part: 'you',
+    title: 'Keep your profile current',
+    body: 'Everything you filled in when you joined, editable any time. A complete profile is what gets you picked for paid work.',
     anchor: 'avatar-menu',
     route: '/settings',
-    on: BOTH,
+    on: ALL,
+  },
+  {
+    key: 'settings',
+    part: 'you',
+    title: 'This walk lives in here',
+    body: 'Theme, sounds, timezone, privacy, and a button to walk through all this again whenever you want.',
+    anchor: null,
+    route: '/settings',
+    on: ALL,
+  },
+  // THE LAST STEP, AND THE ONE THAT CANNOT BE SKIPPED.
+  //
+  // Everything else on this list is a place. This is the only thing that
+  // decides whether the creator ever comes back, because a challenge they did
+  // not hear about is a challenge they did not enter. It is the one hard gate
+  // in the whole walk, and it still lets somebody past when their browser has
+  // already refused - see TourHost, a gate with no way through is not a gate.
+  {
+    key: 'notifications',
+    part: 'you',
+    title: 'Last thing, and it matters',
+    body: 'Turn notifications on. It is how you hear that a brief went live, that results are in, or that you have been paid. Without it you will miss deadlines.',
+    anchor: 'enable-push',
+    route: '/settings?section=notifications',
+    on: ALL,
+    action: 'push',
+    required: true,
   },
   {
     key: 'done',
-    title: 'That is the tour',
-    body: 'You can run it again whenever you like from Settings. Now go and read the brief.',
+    part: 'you',
+    title: 'That is everything',
+    body: 'Go and read the current brief. If you get stuck, ask in the rooms - somebody always answers.',
     anchor: null,
     route: '/home',
-    on: BOTH,
+    on: ALL,
   },
 ]
 
-/** The steps that apply to this layout. */
-export function stepsFor(isPhone) {
-  const layout = isPhone ? 'mobile' : 'desktop'
-  return TOUR_STEPS.filter((s) => s.on === BOTH || s.on === layout)
+/**
+ * The steps that apply here.
+ *
+ * `network` drops every step whose feature does not exist yet, so the walk is
+ * shorter and correct on the legacy shell rather than longer and full of dead
+ * ends. The percentage is computed off THIS list, never off TOUR_STEPS, or a
+ * creator on the legacy shell would top out at sixty per cent.
+ */
+export function stepsFor({ network = false } = {}) {
+  return TOUR_STEPS.filter((s) => s.on === ALL || (s.on === NET && network))
+}
+
+/** Which part a step belongs to, and where that part sits in the walk. */
+export function partOf(step) {
+  const i = TOUR_PARTS.findIndex((p) => p.key === step?.part)
+  return { index: i < 0 ? 0 : i, ...(TOUR_PARTS[i] || TOUR_PARTS[0]) }
 }
 
 // ------------------------------------------------------------ persistence ---
@@ -174,11 +323,11 @@ const SEEN_KEY = (layout) => `tryp_tour_seen_${layout}_v${TOUR_VERSION}`
  * ONE FLAG IN THE DATABASE, ONE PER LAYOUT IN THE BROWSER.
  *
  * The database column answers "has this person ever been walked round", which
- * is what stops it running twice and what Settings resets. The local flag is
- * per LAYOUT, because the phone walk and the desktop walk point at genuinely
+ * stops it running twice and is what Settings resets. The local flag is per
+ * LAYOUT, because the phone walk and the desktop walk point at genuinely
  * different chrome - somebody who joined on a laptop and later opens it on
- * their phone has not seen the phone one, and showing it to them once is right
- * rather than annoying.
+ * their phone has not seen the phone one, and showing it once is right rather
+ * than annoying.
  */
 export function seenLocally(layout) {
   try { return localStorage.getItem(SEEN_KEY(layout)) === '1' } catch { return false }
@@ -223,8 +372,7 @@ export const tourEnabled = () => readFlag('tour_enabled')
  *
  * Every condition has to hold. Admins are excluded because they are the people
  * demonstrating it, and a spotlight arriving mid-demonstration is its own kind
- * of problem; they can start it deliberately from the Testing Centre or from
- * Settings.
+ * of problem; they start it deliberately from the Testing Centre or Settings.
  */
 export function shouldAutoStart({ profile, enabled, layout }) {
   if (!enabled) return false

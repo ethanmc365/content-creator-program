@@ -108,7 +108,6 @@ export default function MarketHeader({ market, memberCount, canManage, tab }) {
   const flags = (market.country_codes || []).map(flagFromIso).join(' ')
   const membership = myChapters.find((c) => c.id === market.id)?.membership
   const isMember = !!membership
-  const isHome = !!membership?.is_home
 
   async function join() {
     setBusy(true)
@@ -147,15 +146,6 @@ export default function MarketHeader({ market, memberCount, canManage, tab }) {
     toast(`You have left ${market.name}.`)
   }
 
-  async function makeHome() {
-    setBusy(true)
-    const { error } = await supabase.rpc('set_home_market', { p_slug: market.slug })
-    setBusy(false)
-    if (error) { notice(error.message); return }
-    clearScopeCache()
-    await reload()
-    toast(`${market.name} is your home market.`)
-  }
 
   return (
     <div>
@@ -179,16 +169,17 @@ export default function MarketHeader({ market, memberCount, canManage, tab }) {
           {/* The meta line, and where "home" now lives.
               It used to be a solid orange pill the size of a button sitting
               beside the market's name, which read as a call to action and
-              competed with the title for the loudest thing on the page. Home is
-              a fact about you, not a control, so it is set in the same quiet
-              row as the creator count with a small filled pin to carry it. */}
+              competed with the title for the loudest thing on the page.
+              THERE IS NO "HOME MARKET" ANY MORE. It was a label plus a menu
+              item that let you nominate one of your markets as the main one,
+              and it never meant anything: your briefs, your rooms and your
+              standings come from every market you are in, not from one of them.
+              A setting that changes nothing but has to be explained is worse
+              than no setting. You are simply in whatever markets you are in.
+              `is_home` survives in the database as the ordering hint join_market
+              already sets for the first chapter somebody joins - nothing reads
+              it as a preference and nothing writes it. */}
           <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-smoke">
-            {isHome && (
-              <span className="flex items-center gap-1.5 font-medium text-brand">
-                <Icon name="pin" className="h-4 w-4" />
-                Your home market
-              </span>
-            )}
             <span className="flex items-center gap-1.5">
               <Icon name="users" className="h-4 w-4" />
               {memberCount == null ? '—' : memberCount} {memberCount === 1 ? 'creator' : 'creators'}
@@ -215,7 +206,6 @@ export default function MarketHeader({ market, memberCount, canManage, tab }) {
             <OverflowMenu
               label={`${market.name} membership`}
               items={[
-                ...(isHome ? [] : [{ label: 'Make this my home market', icon: 'pin', onClick: makeHome, disabled: busy }]),
                 { label: `Leave ${market.name}`, icon: 'exit', onClick: leave, danger: true, disabled: busy },
               ]}
             />

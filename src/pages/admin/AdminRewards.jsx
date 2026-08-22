@@ -33,7 +33,7 @@ function detailRows(p) {
 // composer with the creator, amount and challenge prefilled.
 export default function AdminRewards() {
   const [searchParams] = useSearchParams()
-  const TABS = ['queue', 'payouts', 'invoices', 'details']
+  const TABS = ['queue', 'payouts', 'referrals', 'invoices', 'details']
   const [tab, setTab] = useState(() => {
     const t = searchParams.get('tab')
     return TABS.includes(t) ? t : 'queue'
@@ -80,9 +80,21 @@ export default function AdminRewards() {
     return q ? payDetails.filter((p) => (p.name || '').toLowerCase().includes(q)) : payDetails
   }, [payDetails, paySearch])
 
+  // Referral vouchers, split out. `source` is set by the trigger in migration
+  // 109; anything older has the column default of 'challenge'.
+  const referralRewards = useMemo(() => rewards.filter((r) => r.source === 'referral'), [rewards])
+  const referralPending = useMemo(() => referralRewards.filter((r) => r.status === 'pending'), [referralRewards])
+  const referralOwed = useMemo(() => referralPending.reduce((n, r) => n + Number(r.amount || 0), 0), [referralPending])
+  const referralPaid = useMemo(
+    () => referralRewards.filter((r) => r.status === 'distributed').reduce((n, r) => n + Number(r.amount || 0), 0),
+    [referralRewards],
+  )
+
   async function load() {
     const [{ data: r }, { data: c }, { data: ch }] = await Promise.all([
-      supabase.from('rewards').select('*, profiles:creator_id(id, name, photo_url), challenges(title)').order('created_at', { ascending: false }),
+      supabase.from('rewards')
+        .select('*, profiles:creator_id(id, name, photo_url), challenges(title), referred:referred_creator_id(id, name, photo_url)')
+        .order('created_at', { ascending: false }),
       supabase.from('profiles').select('id, name').order('name'),
       supabase.from('challenges').select('id, title').order('created_at', { ascending: false }),
     ])
@@ -216,7 +228,7 @@ export default function AdminRewards() {
           this page stopped being "what shall I invoice" and became "what is
           waiting on me". */}
       <div className="mb-8 flex flex-wrap gap-2">
-        {[['queue', 'Approval queue'], ['payouts', 'Payouts'], ['invoices', 'Invoices'], ['details', 'Payment details']].map(([key, label]) => (
+        {[['queue', 'Approval queue'], ['payouts', 'Payouts'], ['referrals', 'Referrals'], ['invoices', 'Invoices'], ['details', 'Payment details']].map(([key, label]) => (
           <button
             key={key}
             type="button"
@@ -269,9 +281,10 @@ export default function AdminRewards() {
                 <p className="flex items-center gap-1 truncate text-xs text-smoke">
                   <Icon name={r.reward_type === 'cash' ? 'cash' : 'ticket'} className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">
-                    {r.reward_type === 'cash' ? 'Cash' : 'Voucher'}
+                    {r.source === 'referral' ? 'Referral voucher' : r.reward_type === 'cash' ? 'Cash' : 'Voucher'}
                     {r.challenges?.title && ` · ${r.challenges.title}`}
-                    {r.payment_notes && ` · ${r.payment_notes}`}
+                    {r.source === 'referral' && r.referred?.name && ` · brought in ${r.referred.name}`}
+                    {r.payment_notes && r.source !== 'referral' && ` · ${r.payment_notes}`}
                   </span>
                 </p>
               </div>
@@ -290,6 +303,56 @@ export default function AdminRewards() {
         </div>
       )}
       </div>{/* /payouts tab */}
+
+      {/* ---------- Referrals tab ----------
+          THE REFERRAL FUNNEL NOW PAYS, AND THIS IS WHERE IT GETS PAID.
+          A counted referral - meaning the person somebody brought in has
+          actually posted a challenge video - mints a pending voucher reward
+          automatically (migration 109). It shows in Payouts with everything
+          else, and it also gets this tab, because "who is owed a referral
+          voucher" is a question somebody asks on its own and should not have to
+          filter a payout list to answer. */}
+      <div className={tab === 'referrals' ? '' : 'hidden'}>
+        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <StatCard label="Referral vouchers owed" value={formatMoney(referralOwed)} accent hint={referralPending.length ? `${referralPending.length} waiting` : 'Nothing outstanding'} />
+          <StatCard label="Paid out so far" value={formatMoney(referralPaid)} />
+          <StatCard label="Referrals that counted" value={referralRewards.length} hint="A referral counts once they post their first video" />
+        </div>
+
+        {loading ? (
+          <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
+        ) : referralRewards.length === 0 ? (
+          <EmptyState
+            icon={<Icon name="share" className="h-7 w-7" />}
+            title="No referral vouchers yet"
+            hint="One appears the moment a referred creator posts their first challenge video. Nothing has to be raised by hand."
+          />
+        ) : (
+          <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
+            {referralRewards.map((r) => (
+              <div key={r.id} className="flex flex-wrap items-center gap-4 border-b border-gray-50 px-5 py-4 last:border-0 sm:px-7">
+                <Avatar src={r.profiles?.photo_url} name={r.profiles?.name} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold">{r.profiles?.name}</p>
+                  <p className="flex items-center gap-1.5 truncate text-xs text-smoke">
+                    <Icon name="share" className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">brought in {r.referred?.name || 'a creator'}</span>
+                  </p>
+                </div>
+                <span className="font-bold tabular-nums">{formatMoney(r.amount, r.currency)}</span>
+                <Badge tone={r.status === 'distributed' ? 'green' : 'amber'}>
+                  {r.status === 'distributed' ? 'paid' : 'owed'}
+                </Badge>
+                {r.status === 'pending' && (
+                  <button onClick={() => openDistribute(r)} disabled={busyId === r.id} className="btn-primary !py-2 text-xs">
+                    {busyId === r.id ? <Spinner className="h-4 w-4" /> : 'Mark paid'}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>{/* /referrals tab */}
 
       {/* ---------- Payment details tab ---------- */}
       <div className={tab === 'details' ? '' : 'hidden'}>

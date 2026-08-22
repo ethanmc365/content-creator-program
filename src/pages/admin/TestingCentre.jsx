@@ -1,9 +1,9 @@
 import { lazy, Suspense } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import Icon from '../../components/Icon'
-import { Badge, PlaneLoader } from '../../components/ui'
+import { PlaneLoader } from '../../components/ui'
 import { NotFoundScreen } from '../../components/ErrorScreen'
-import { SandboxLine, CardGrid } from './testing/kit'
+import { SandboxLine } from './testing/kit'
 
 // THE TESTING CENTRE.
 //
@@ -152,7 +152,6 @@ export const LABS = [
   },
 ]
 
-const GROUPS = ['Start here', 'Joining the programme', 'Money', 'The programme', 'Automations', 'Toolkit']
 
 function LabFallback() {
   return (
@@ -181,60 +180,65 @@ export default function TestingCentre() {
         Admin
       </Link>
 
-      <div className="mb-8">
+      <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex items-start gap-4">
-          <span className="mt-1 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand-tint text-brand">
-            <Icon name="joystick" className="h-6 w-6" />
+          <span className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-tint text-brand">
+            <Icon name="joystick" className="h-5 w-5" />
           </span>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Testing Centre</h1>
-            <p className="mt-2 max-w-2xl leading-relaxed text-smoke">
-              Every feature and every automation on the platform, running on people who do not exist.
-              Built to be demonstrated: press the buttons, watch an invoice raise itself, walk the
-              onboarding, close a challenge and publish its podium. No creator is ever involved.
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Testing Centre</h1>
+            <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-smoke">
+              Every feature and every automation, running on people who do not exist. Press the buttons:
+              raise an invoice, walk the onboarding, close a challenge and publish its podium.
             </p>
           </div>
         </div>
+        <p className="shrink-0 text-xs text-smoke">
+          <span className="font-semibold text-ink">{LABS.length}</span> areas
+        </p>
       </div>
 
       <SandboxLine />
 
-      <div className="mt-10 space-y-10">
-        {GROUPS.map((group) => {
-          const items = LABS.filter((l) => l.group === group)
-          if (!items.length) return null
-          return (
-            <section key={group}>
-              <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.14em] text-smoke">{group}</h2>
-              <CardGrid>
-                {items.map((l) => (
-                  <Link
-                    key={l.key}
-                    to={`/admin/testing/${l.key}`}
-                    className="card group flex h-full flex-col !p-5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift"
-                  >
-                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-tint text-brand transition-transform duration-200 group-hover:scale-105">
-                      <Icon name={l.icon} className="h-5 w-5" />
-                    </span>
-                    <p className="mt-3 font-semibold transition-colors group-hover:text-brand">{l.title}</p>
-                    <p className="mt-1.5 flex-1 text-xs leading-relaxed text-smoke">{l.blurb}</p>
-                    <span className="mt-3 flex flex-wrap gap-1.5">
-                      {l.tags.map((t) => (
-                        <Badge key={t} tone={t === 'Real data' ? 'amber' : 'grey'} className="!px-2 !py-0.5 !text-[10px]">{t}</Badge>
-                      ))}
-                    </span>
-                  </Link>
-                ))}
-              </CardGrid>
-            </section>
-          )
-        })}
+      {/* ONE GRID, NOT SIX SECTIONS.
+          It used to be five named groups with a heading above each, which on a
+          laptop meant scrolling past three headings to reach the invoice lab
+          and made a page of eighteen small cards nearly two thousand pixels
+          tall. The grouping was orientation, and orientation is what you need
+          the first time; every time after that it is furniture between you and
+          the thing you came for. The group is a word on the card now. */}
+      <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {LABS.map((l, i) => (
+          <Link
+            key={l.key}
+            to={`/admin/testing/${l.key}`}
+            style={{ '--lab-i': i }}
+            className="lab-card group relative flex items-start gap-3.5 overflow-hidden rounded-card border border-gray-100 bg-white p-4 text-left shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand transition-transform duration-200 group-hover:scale-110">
+              <Icon name={l.icon} className="h-[18px] w-[18px]" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-2">
+                <span className="truncate text-sm font-semibold transition-colors group-hover:text-brand">{l.title}</span>
+                {l.tags.includes('Real data') && (
+                  <span className="shrink-0 rounded-full bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-700">
+                    live
+                  </span>
+                )}
+              </span>
+              <span className="mt-1 block text-[11px] leading-relaxed text-smoke">{l.blurb}</span>
+              <span className="mt-2 block text-[10px] font-semibold uppercase tracking-[0.1em] text-gray-400">
+                {l.group}
+              </span>
+            </span>
+            <Icon
+              name="chevronRight"
+              className="mt-0.5 h-4 w-4 shrink-0 text-gray-300 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-brand"
+            />
+          </Link>
+        ))}
       </div>
-
-      <p className="mt-12 text-center text-xs text-smoke">
-        Admins only. This whole area is behind the admin route guard, loads on demand, and is not linked
-        from anywhere a creator can reach.
-      </p>
     </div>
   )
 }

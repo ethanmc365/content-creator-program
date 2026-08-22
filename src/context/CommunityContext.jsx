@@ -83,6 +83,9 @@ export function CommunityProvider({ children }) {
     (c) => c.kind === 'chapter' && (!c.retired_at || isGlobalRole(profile?.platform_role)),
   )
   const myChapters = myCommunities.filter((c) => c.kind === 'chapter')
+  // NOT a "home market" - that concept was removed. This is only the first
+  // chapter somebody joined, which join_market flags automatically, and it is
+  // used for ORDERING their markets. Nothing offers to change it.
   const home = myCommunities.find((c) => c.membership.is_home) || null
 
   const value = {

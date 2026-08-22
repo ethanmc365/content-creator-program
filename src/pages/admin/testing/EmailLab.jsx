@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Badge } from '../../../components/ui'
-import Icon from '../../../components/Icon'
-import { LabPage, Panel, Note, Choice, KeyVal, Code, Runner, useNow } from './kit'
-import { APPLICANT, CREATORS, CHALLENGE, iso } from './fixtures'
+import { LabPage, Panel, Note, Choice, KeyVal, Code, Runner } from './kit'
+import { RealEmail, DemoBirthdayCard, DemoMessage, DemoNotification, DemoPush } from './artefacts'
+import { APPLICANT, CREATORS, CHALLENGE } from './fixtures'
 import { invoiceRef, invoiceMoney } from '../../../lib/invoice'
 
 // EMAIL, AND WHY THERE IS SO LITTLE OF IT.
@@ -23,10 +23,8 @@ import { invoiceRef, invoiceMoney } from '../../../lib/invoice'
 // pulling a server template into the browser bundle to look at it would be a
 // worse trade than keeping the copy in step by eye.
 
-const BRAND = '#d94407'
 
 export default function EmailLab() {
-  const now = useNow()
   const [which, setWhich] = useState('welcome')
   const creator = CREATORS[0]
 
@@ -36,6 +34,9 @@ export default function EmailLab() {
       status: 'live',
       to: `${APPLICANT.name} <${APPLICANT.email}>`,
       subject: `Welcome to the Tryp.com Content Creator Program, ${APPLICANT.name.split(' ')[0]}`,
+      title: `Welcome aboard, ${APPLICANT.name.split(' ')[0]}`,
+      cta: 'Open the community',
+      footerNote: 'You are receiving this because your application to the Content Creator Program was approved.',
       when: 'Queued the moment an application is approved. Held for an admin to read before it goes.',
       body: (
         <>
@@ -48,7 +49,6 @@ export default function EmailLab() {
             Your profile is live, there is a challenge running right now, and the rooms are open. The
             quickest way in is to say hello and to read the current brief.
           </p>
-          <p><Cta>Open the community</Cta></p>
           <p>See you in there,<br />The Tryp.com Team</p>
         </>
       ),
@@ -58,12 +58,14 @@ export default function EmailLab() {
       status: 'live',
       to: `${creator.name} <maya@example.com>`,
       subject: 'Reset your Tryp.com Creator Program password',
+      title: 'Reset your password',
+      cta: 'Choose a new password',
+      footerNote: 'If you did not ask for this, you can safely ignore it. Nothing has changed.',
       when: 'Sent by Supabase Auth the moment somebody asks for it, over our own SMTP.',
       body: (
         <>
           <p>Hi {creator.name.split(' ')[0]},</p>
           <p>Somebody asked to reset the password on this account. If it was not you, nothing has changed and you can ignore this.</p>
-          <p><Cta>Choose a new password</Cta></p>
           <p>This link expires in one hour and can only be used once.</p>
         </>
       ),
@@ -73,6 +75,8 @@ export default function EmailLab() {
       status: 'live',
       to: 'finance@tryp.com',
       subject: `${invoiceRef(47)} - ${creator.name} - ${invoiceMoney(250, 'GBP')}`,
+      title: `${invoiceRef(47)}`,
+      footerNote: 'Raised in the Content Creator Program and approved by a second admin before sending.',
       when: 'Sent by an admin from the rewards page, and only after a second admin has approved it.',
       attachment: `Tryp.com-047-${creator.name.replace(/\s+/g, '-')}.pdf`,
       body: (
@@ -89,47 +93,63 @@ export default function EmailLab() {
     declined: {
       label: 'Not accepted',
       status: 'in the app only',
-      to: `${APPLICANT.name} <${APPLICANT.email}>`,
-      subject: 'About your Tryp.com Creator Program application',
-      when: 'Shown on screen rather than emailed. A declined applicant sees it the moment they log in.',
-      body: (
-        <>
-          <p>Hi {APPLICANT.name.split(' ')[0]},</p>
-          <p>
-            Thanks so much for your interest in the Tryp.com Content Creator Program. Unfortunately your
-            application was not successful this time. We are sorry, and we truly appreciate you taking
-            the time to apply.
-          </p>
-        </>
+      when: 'Shown on screen rather than emailed. A declined applicant meets it the moment they log in, and it is the only screen they can reach.',
+      artefact: (
+        <div className="rounded-card border border-gray-100 bg-white p-8 shadow-card">
+          <div className="mx-auto flex max-w-md flex-col items-center gap-4 text-center">
+            <p className="text-4xl" aria-hidden>✈️</p>
+            <h3 className="text-xl font-bold">Application not approved</h3>
+            <p className="text-sm leading-relaxed text-smoke">
+              Thanks so much for your interest in the Tryp.com Content Creator Program. Unfortunately your
+              application was not successful this time. We&apos;re sorry, and we truly appreciate you
+              taking the time to apply.
+            </p>
+            <span className="btn-ghost pointer-events-none text-sm">Log out</span>
+          </div>
+        </div>
       ),
     },
     birthday: {
       label: 'Birthday card',
       status: 'in the app only',
-      to: `${creator.name}`,
-      subject: `Happy birthday, ${creator.name.split(' ')[0]}`,
-      when: 'A scheduled job at 07:00 posts a card into the room. It is not an email and it never was.',
-      body: (
-        <>
-          <p>Posted into the room as a card the whole community can see, rather than sent privately.</p>
-          <p>A birthday message from forty people is worth something. The same message in an inbox is not.</p>
-        </>
+      when: 'The daily-birthday-cards job at 07:00 posts this into the room as a message. It is not an email and never was: a birthday message from forty people is worth something, and the same message in an inbox is not.',
+      // NOT an email frame. This is the actual card the job posts, in the
+      // actual place it lands.
+      artefact: (
+        <div className="rounded-card border border-gray-100 bg-white p-5 shadow-card">
+          <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.14em] text-smoke">#general</p>
+          <DemoMessage author="Tryp.com" when="07:00">
+            <DemoBirthdayCard creator={creator} />
+          </DemoMessage>
+        </div>
       ),
     },
     nudge: {
       label: 'We have not seen you',
       status: 'push only',
-      to: `${CREATORS[5].name}`,
-      subject: 'There is a live challenge you can still enter',
-      when: 'The inactive-creator job at 08:00. It writes a notification, and a push if they have a device registered.',
-      body: (
-        <>
-          <p>Deliberately not an email.</p>
-          <p>
-            A nudge nobody asked for, sent to an inbox, is the exact category of mail that got the
-            programme filtered in the first place. In the app it is a bell with a number on it.
-          </p>
-        </>
+      when: 'The inactive-creator-alerts job at 08:00 writes a notification, and a push as well if they have a device registered. Deliberately not an email: a nudge nobody asked for, sent to an inbox, is the exact category of mail that gets a sender filtered.',
+      artefact: (
+        <div className="space-y-5">
+          <div>
+            <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-smoke">On the lock screen</p>
+            <DemoPush
+              title="There is a live challenge you can still enter"
+              body={`${CHALLENGE.title} closes in three days.`}
+              when="08:00"
+            />
+          </div>
+          <div>
+            <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-smoke">And in the bell</p>
+            <div className="rounded-card border border-gray-100 bg-white p-2 shadow-card">
+              <DemoNotification
+                type="inactive"
+                title="We have not seen you in a while"
+                body={`${CHALLENGE.title} closes in three days.`}
+                when="08:00"
+              />
+            </div>
+          </div>
+        </div>
       ),
     },
   }
@@ -170,40 +190,29 @@ export default function EmailLab() {
         </div>
       </Panel>
 
-      <Panel title="As it arrives" tone="quiet">
-        <div className="mx-auto max-w-2xl overflow-hidden rounded-card border border-gray-200 bg-white shadow-card">
-          <div className="space-y-1 border-b border-gray-100 bg-cloud/50 px-5 py-4 text-xs">
-            <Head label="From" value="Tryp.com Content Creator Program" />
-            <Head label="To" value={t.to} />
-            <Head label="Subject" value={t.subject} bold />
-            <Head label="Date" value={new Date(iso(0, now)).toUTCString()} />
-            {t.attachment && (
-              <p className="flex items-center gap-1.5 pt-1 text-smoke">
-                <Icon name="copy" className="h-3.5 w-3.5" />
-                {t.attachment}
-              </p>
-            )}
-          </div>
-
-          {/* The 600px table layout the real template uses, with a TEXT
-              wordmark rather than an image, because mail clients block remote
-              images by default and a logo that does not load is a broken box
-              at the top of the first thing a new creator ever gets from us. */}
-          <div className="bg-cloud/40 px-4 py-6">
-            <div className="mx-auto max-w-[600px] overflow-hidden rounded-xl bg-white shadow-card">
-              <div className="px-8 py-5" style={{ backgroundColor: BRAND }}>
-                <p className="text-lg font-bold tracking-tight text-white">Tryp.com</p>
-                <p className="text-[11px] tracking-[0.2em] text-white/80">CONTENT CREATOR PROGRAM</p>
-              </div>
-              <div className="space-y-4 px-8 py-7 text-sm leading-relaxed text-ink [&_p]:text-smoke [&_p:first-child]:text-ink [&_p:first-child]:font-semibold">
-                {t.body}
-              </div>
-              <div className="border-t border-gray-100 px-8 py-5 text-[11px] leading-relaxed text-smoke">
-                <p>Tryp.com Content Creator Program</p>
-                <p className="mt-1">You are receiving this because you are a member of the programme.</p>
-              </div>
-            </div>
-          </div>
+      <Panel
+        title={t.artefact ? 'What actually happens' : 'As it arrives'}
+        tone="quiet"
+      >
+        {/* THE ARTEFACT, NOT A DESCRIPTION OF IT.
+            Three of these six are not emails, and they used to be rendered as
+            a paragraph explaining that, INSIDE an email frame - a note to the
+            reader wearing the costume of the thing it was describing. Now the
+            birthday card is the birthday card, the nudge is a push and a bell
+            row, and the declined message is the screen it appears on. */}
+        <div className="mx-auto max-w-2xl">
+          {t.artefact ?? (
+            <RealEmail
+              to={t.to}
+              subject={t.subject}
+              title={t.title ?? t.subject}
+              cta={t.cta}
+              footerNote={t.footerNote}
+              attachment={t.attachment}
+            >
+              {t.body}
+            </RealEmail>
+          )}
         </div>
       </Panel>
 
@@ -266,22 +275,4 @@ admin who still had the URL.`}</Code>
   )
 }
 
-function Head({ label, value, bold }) {
-  return (
-    <p className="flex gap-3">
-      <span className="w-14 shrink-0 text-smoke">{label}</span>
-      <span className={bold ? 'font-semibold' : ''}>{value}</span>
-    </p>
-  )
-}
 
-function Cta({ children }) {
-  return (
-    <span
-      className="inline-block rounded-xl px-5 py-2.5 text-sm font-semibold text-white"
-      style={{ backgroundColor: BRAND }}
-    >
-      {children}
-    </span>
-  )
-}

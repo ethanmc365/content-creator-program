@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.mock('./supabase', () => ({ supabase: { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }) }) } }))
 vi.mock('./appFlags', () => ({ readFlag: async () => false }))
 
-import { shouldAutoStart, stepsFor, TOUR_STEPS, markSeenLocally, clearSeenLocally } from './tour'
+import { shouldAutoStart, stepsFor, partOf, TOUR_STEPS, TOUR_PARTS, markSeenLocally, clearSeenLocally } from './tour'
 
 const member = {
   is_admin: false, is_test: false, status: 'active', onboarded: true, tour_completed_at: null,
@@ -71,19 +71,74 @@ describe('the steps', () => {
     expect(new Set(TOUR_STEPS.map((s) => s.key)).size).toBe(TOUR_STEPS.length)
   })
 
-  it('every step that waits for an action can be passed over', () => {
-    // A walkthrough you cannot leave is a trap, and both actions depend on a
-    // browser permission or another person.
-    for (const s of TOUR_STEPS.filter((x) => x.action)) expect(s.optional).toBe(true)
+  it('every step belongs to a real part', () => {
+    const parts = new Set(TOUR_PARTS.map((p) => p.key))
+    for (const s of TOUR_STEPS) expect(parts.has(s.part)).toBe(true)
   })
 
-  it('gives a phone and a desktop the same walk', () => {
-    // The anchors differ; the copy deliberately does not.
-    expect(stepsFor(true).map((s) => s.key)).toEqual(stepsFor(false).map((s) => s.key))
+  it('the parts run in order, never back and forth', () => {
+    // A walk that goes people, work, people reads as a shuffled list. The
+    // order of TOUR_STEPS has to agree with the order of TOUR_PARTS.
+    const seen = TOUR_STEPS.map((s) => partOf(s).index)
+    for (let i = 1; i < seen.length; i++) expect(seen[i]).toBeGreaterThanOrEqual(seen[i - 1])
+  })
+
+  // THE ONE HARD GATE. Everything on the walk is a place you can skip past
+  // except the last thing, which is turning notifications on - because a brief
+  // somebody did not hear about is a brief they did not enter.
+  it('exactly one step is required, and it is notifications', () => {
+    const required = TOUR_STEPS.filter((s) => s.required)
+    expect(required).toHaveLength(1)
+    expect(required[0].key).toBe('notifications')
+    expect(required[0].action).toBe('push')
+  })
+
+  it('every OTHER action step can be passed over', () => {
+    for (const s of TOUR_STEPS.filter((x) => x.action && !x.required)) {
+      expect(s.required).toBeFalsy()
+    }
+  })
+
+  it('the required step is the last thing before the sign-off', () => {
+    // It has to be last, or somebody who refuses is stuck in the middle of the
+    // walk with the rest of it unreachable.
+    const i = TOUR_STEPS.findIndex((s) => s.required)
+    expect(i).toBe(TOUR_STEPS.length - 2)
+  })
+
+  it('drops the network steps when the network shell is off', () => {
+    const legacy = stepsFor({ network: false })
+    const network = stepsFor({ network: true })
+    expect(legacy.length).toBeLessThan(network.length)
+    // Nothing pointing at a page that does not exist yet.
+    for (const s of legacy) expect(s.on).toBe('both')
+    // And the walk still ends properly on the legacy shell.
+    expect(legacy[legacy.length - 1].key).toBe('done')
+    expect(legacy.some((s) => s.required)).toBe(true)
   })
 
   it('starts and ends on a card that points at nothing', () => {
-    expect(TOUR_STEPS[0].anchor).toBeNull()
-    expect(TOUR_STEPS[TOUR_STEPS.length - 1].anchor).toBeNull()
+    for (const network of [true, false]) {
+      const steps = stepsFor({ network })
+      expect(steps[0].anchor).toBeNull()
+      expect(steps[steps.length - 1].anchor).toBeNull()
+    }
+  })
+
+  it('every anchored step that could be absent says so', () => {
+    // A spotlight on an element that is not there lands at the viewport
+    // origin. Anything that depends on there being content must opt in to
+    // being skipped instead.
+    // Chrome that is always painted for the shell the step belongs to.
+    // `nav-worldwide` is on this list rather than marked skippable because the
+    // step that uses it only runs when the network shell is on, and the tab is
+    // unconditional in that tab set.
+    const CHROME = [
+      'nav-home', 'nav-challenges', 'nav-chat', 'nav-messages',
+      'nav-worldwide', 'avatar-menu', 'enable-push',
+    ]
+    for (const s of TOUR_STEPS.filter((x) => x.anchor && !CHROME.includes(x.anchor))) {
+      expect(s.skipIfMissing).toBe(true)
+    }
   })
 })

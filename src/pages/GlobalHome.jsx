@@ -438,6 +438,8 @@ export default function GlobalHome() {
     )
   }
 
+  // Ordering only: the first market you joined sorts first. There is no
+  // "home market" setting any more - see MarketHeader.
   const home = myChapters.find((c) => c.membership?.is_home)
   const openMarkets = chapters
     .filter((c) => c.is_active)

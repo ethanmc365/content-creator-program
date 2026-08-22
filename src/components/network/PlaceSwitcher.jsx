@@ -83,6 +83,7 @@ export default function PlaceSwitcher() {
     }
   }, [sheet])
 
+  // Ordering only. See CommunityContext - there is no home market setting.
   const home = myChapters.find((c) => c.membership?.is_home)
   const mine = myChapters
     .slice()

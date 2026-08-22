@@ -1133,15 +1133,44 @@ html[data-reduce-motion] *::after {
     0 0 0 2px rgba(217, 68, 7, 0.95),
     0 0 22px 2px rgba(217, 68, 7, 0.55);
   opacity: 0;
-  /* The travel between steps. `left/top/width/height` rather than a transform
-     because the shadow spread has to stay square to the viewport; a scaled
-     element would scale its own ring and its own blur. */
+  transition: opacity 0.3s ease;
+}
+
+/* THE TRAVEL BETWEEN STEPS, AND ONLY BETWEEN STEPS.
+   `left/top/width/height` rather than a transform, because the shadow spread
+   has to stay square to the viewport - a scaled element scales its own ring and
+   its own blur.
+   CRITICALLY, this is only on while the spotlight is moving from one step to
+   the next. The same transition applied to a scroll makes the box swim along a
+   few frames behind the page, which is exactly the "highlighted box doesn't
+   follow the scroll, the animation is delayed" report. During a scroll the
+   position is written straight to the element with no transition at all, so it
+   is welded to its target. See TourHost's `travelling`. */
+.tour-spot[data-travel='yes'] {
   transition:
-    top 0.42s cubic-bezier(0.22, 1, 0.36, 1),
-    left 0.42s cubic-bezier(0.22, 1, 0.36, 1),
-    width 0.42s cubic-bezier(0.22, 1, 0.36, 1),
-    height 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+    top 0.44s cubic-bezier(0.22, 1, 0.36, 1),
+    left 0.44s cubic-bezier(0.22, 1, 0.36, 1),
+    width 0.44s cubic-bezier(0.22, 1, 0.36, 1),
+    height 0.44s cubic-bezier(0.22, 1, 0.36, 1),
     opacity 0.3s ease;
+}
+
+/* The progress bar's leading edge, so it reads as filling rather than as a
+   rectangle that got wider. */
+.tour-bar {
+  position: relative;
+  overflow: hidden;
+  transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.tour-bar::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 18px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55));
 }
 
 .tour-spot--ready { opacity: 1; }
@@ -1208,9 +1237,28 @@ html[data-theme='dark'] .tour-card { background: #1e1e20; }
 
 @media (prefers-reduced-motion: reduce) {
   .tour-glow { animation: none; }
-  .tour-spot { transition: opacity 0.2s ease; }
+  .tour-spot,
+  .tour-spot[data-travel='yes'] { transition: opacity 0.2s ease; }
+  .tour-bar { transition: none; }
   .tour-card--float,
   .tour-card--sheet { animation: none; }
   .tour-card--centre { animation: none; transform: translate(-50%, -50%); }
 }
 
+
+/* The Testing Centre's card grid, arriving. A short stagger read off the
+   card's own index, capped so the last card in a grid of eighteen is not
+   waiting two seconds for its turn. */
+@keyframes lab-card-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.lab-card {
+  animation: lab-card-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(min(var(--lab-i, 0), 11) * 28ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lab-card { animation: none; }
+}
