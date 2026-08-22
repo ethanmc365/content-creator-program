@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { PlaneLoader, Spinner } from './ui'
 import ConnectGate from './ConnectGate'
+import InstallGate, { shouldShowInstallGate } from './InstallGate'
+import { useAppFlag } from '../lib/appFlags'
 import TrypPlaneScene from './TrypPlaneScene'
 import { formatDate } from '../lib/utils'
 
@@ -119,6 +121,9 @@ function DeletionScheduled({ profile, signOut, onRestore }) {
 export function ProtectedRoute() {
   const { user, profile, profileLoaded, profileError, loading, isSuspended, signOut, refreshProfile, retryProfile } = useAuth()
   const location = useLocation()
+  // Starts false and never blocks a render: a full-screen gate that appears a
+  // beat AFTER the app has painted is worse than one that arrives a beat late.
+  const installGate = useAppFlag('install_gate_enabled')
 
   if (loading) return <FullPageSpinner />
   if (!user) return <Navigate to="/login" replace />
@@ -161,6 +166,16 @@ export function ProtectedRoute() {
   // Default-deny: only active/muted members (or admins) get the app.
   if (!ALLOWED_STATUSES.includes(profile.status) && !profile.is_admin) {
     return <ReviewPending name={profile.name} signOut={signOut} />
+  }
+
+  // ON A PHONE, ASK FOR THE HOME SCREEN FIRST.
+  //
+  // Behind its own switch (off), so nobody currently using the platform meets
+  // it. It is an ASK and not a wall - see InstallGate for why hard-blocking
+  // locks out exactly the people most likely to arrive from an Instagram or
+  // TikTok link, whose in-app browser cannot install anything at all.
+  if (installGate && profile.status === 'active' && !profile.is_admin && shouldShowInstallGate()) {
+    return <InstallGate onSkip={refreshProfile} />
   }
 
   // Newly-approved members connect with a few creators before the app unlocks.

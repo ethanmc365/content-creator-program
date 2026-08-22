@@ -376,9 +376,16 @@ export default function Directory() {
         />
       ) : (
         <Reveal className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filtered.map((c) => (
+          {/* The FIRST card carries the walkthrough anchor. Highlighting the
+              whole card rather than the Connect button inside it is deliberate:
+              the button is three components deep and threading an attribute
+              down to it would break the moment somebody reorders the card, and
+              a highlighted card with "press Connect on anybody here" reads
+              exactly as well. See lib/tour.js. */}
+          {filtered.map((c, cardIndex) => (
             <CreatorCard
               key={c.id}
+              data-tour={cardIndex === 0 ? 'creator-card' : undefined}
               creator={c}
               currentTrip={trips[c.id]?.[0]?.current ? trips[c.id][0] : null}
               relation={relationships.get(c.id) || null}

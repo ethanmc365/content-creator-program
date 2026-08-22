@@ -45,6 +45,7 @@ const HealthLab = lazy(() => import('./testing/HealthLab'))
 const ResultsLab = lazy(() => import('./testing/ResultsLab'))
 const ProfileLab = lazy(() => import('./testing/ProfileLab'))
 const SecurityLab = lazy(() => import('./testing/SecurityLab'))
+const WalkthroughLab = lazy(() => import('./testing/WalkthroughLab'))
 
 export const LABS = [
   {
@@ -64,6 +65,12 @@ export const LABS = [
     blurb: 'All eight steps of the real onboarding, prefilled, with the required-field gating working.',
     tags: ['Live screens', '8 steps'],
     element: <OnboardingLab />,
+  },
+  {
+    key: 'walkthrough', title: 'The first five minutes', icon: 'sparkles', group: 'Joining the programme',
+    blurb: 'The guided walk round the platform a new creator gets once, and the ask to put it on their home screen.',
+    tags: ['Interactive', 'Runs live'],
+    element: <WalkthroughLab />,
   },
   {
     key: 'journey', title: 'A creator, end to end', icon: 'plane', group: 'Joining the programme',

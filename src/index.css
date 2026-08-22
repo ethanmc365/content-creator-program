@@ -978,16 +978,74 @@ html[data-reduce-motion] *::after {
    transform on a wrapper becomes the containing block for any `position: fixed`
    child inside it, which is what once broke the mobile chat overlay. */
 
-@keyframes onb-screen-in {
-  from { opacity: 0; transform: translateY(10px); }
+@keyframes onb-screen-fwd {
+  from { opacity: 0; transform: translateX(18px); }
   to   { opacity: 1; transform: none; }
 }
 
-/* One screen of onboarding arriving. Keyed on the step, so it replays as you
-   move and, crucially, replays going BACKWARDS too - a flow that animates
-   forwards and snaps backwards feels broken in a way people cannot name. */
+@keyframes onb-screen-back {
+  from { opacity: 0; transform: translateX(-18px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* One screen of onboarding arriving, and it arrives from the side it came
+   from. Keyed on the step, so it replays as you move - and it replays going
+   BACKWARDS too, sliding the other way. A flow that animates forwards and
+   snaps backwards feels broken in a way people cannot name.
+   Both end on `transform: none`: a persisted transform on a wrapper becomes the
+   containing block for any position:fixed child inside it. */
 .onb-screen {
-  animation: onb-screen-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: onb-screen-fwd 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.onb-screen[data-dir='back'] {
+  animation-name: onb-screen-back;
+}
+
+/* THE MARKET, ARRIVING. It appears the instant a country is picked, which is
+   the single most satisfying moment in the whole flow and was landing with no
+   ceremony at all. A short rise plus one pass of a warm sweep across it. */
+@keyframes onb-market-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes onb-market-sweep {
+  from { transform: translateX(-120%); }
+  to   { transform: translateX(220%); }
+}
+
+.onb-market {
+  position: relative;
+  overflow: hidden;
+  animation: onb-market-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.onb-market::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 45%;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  animation: onb-market-sweep 0.9s ease-out 0.18s both;
+}
+
+/* The progress bar's fill gets a soft leading edge so it reads as filling
+   rather than as a rectangle that got wider. */
+.onb-bar {
+  position: relative;
+  overflow: hidden;
+}
+
+.onb-bar::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 22px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5));
 }
 
 @keyframes lab-rise {
@@ -1019,7 +1077,140 @@ html[data-reduce-motion] *::after {
 
 @media (prefers-reduced-motion: reduce) {
   .onb-screen,
+  .onb-market,
+  .onb-market::after,
   .lab-in,
   .podium-in { animation: none; }
+  .onb-market::after { display: none; }
+}
+
+/* ============================================================================
+   THE GUIDED WALKTHROUGH
+   ============================================================================
+
+   All three layers are CSS. The overlay mounts over a live app for a couple of
+   minutes on somebody's first visit, and pulling an animation runtime into the
+   eagerly-loaded shell to do it would cost every creator on every page load. */
+
+.tour-root {
+  position: fixed;
+  inset: 0;
+  z-index: 90;          /* over the mobile tab bar (z-30) and the header (z-40),
+                           under a portalled modal, which is never open here */
+  pointer-events: none; /* NOTHING here traps the app. See TourHost. */
+}
+
+/* --- the frame round the whole screen ----------------------------------- */
+
+@keyframes tour-glow-breathe {
+  0%, 100% { opacity: 0.85; }
+  50%      { opacity: 1; }
+}
+
+.tour-glow {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  border-radius: 0;
+  box-shadow:
+    inset 0 0 0 3px rgba(217, 68, 7, 0.9),
+    inset 0 0 46px -8px rgba(217, 68, 7, 0.45);
+  animation: tour-glow-breathe 3.4s ease-in-out infinite;
+}
+
+/* --- the spotlight ------------------------------------------------------ */
+
+/* ONE element does the whole scrim. A vast spread box-shadow darkens
+   everything outside this rectangle, so the "hole" is simply the element's own
+   box. Four divs forming a frame is the usual approach and it cannot animate
+   as a single shape when the spotlight travels between steps. */
+.tour-spot {
+  position: fixed;
+  pointer-events: none;
+  border-radius: 14px;
+  box-shadow:
+    0 0 0 9999px rgba(17, 17, 17, 0.6),
+    0 0 0 2px rgba(217, 68, 7, 0.95),
+    0 0 22px 2px rgba(217, 68, 7, 0.55);
+  opacity: 0;
+  /* The travel between steps. `left/top/width/height` rather than a transform
+     because the shadow spread has to stay square to the viewport; a scaled
+     element would scale its own ring and its own blur. */
+  transition:
+    top 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+    left 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+    width 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+    height 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.3s ease;
+}
+
+.tour-spot--ready { opacity: 1; }
+
+/* A step with no anchor: no hole, just the dim. The element collapses to zero
+   at the centre of the screen, which with the 9999px spread is a plain scrim. */
+.tour-spot--none {
+  box-shadow: 0 0 0 9999px rgba(17, 17, 17, 0.6);
+  border-radius: 9999px;
+}
+
+/* --- the card ----------------------------------------------------------- */
+
+@keyframes tour-card-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes tour-sheet-in {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.tour-card {
+  position: fixed;
+  pointer-events: auto;
+  z-index: 1;
+  border-radius: 1rem;
+  background: #fff;
+  padding: 1.15rem 1.25rem;
+  box-shadow: 0 8px 24px rgba(26, 26, 26, 0.18), 0 24px 60px rgba(26, 26, 26, 0.14);
+}
+
+.tour-card--float {
+  animation: tour-card-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* An anchorless step - the opening and closing cards - sits in the middle,
+   because there is nothing on the page for it to be beside. */
+.tour-card--centre {
+  top: 50%;
+  left: 50%;
+  width: min(24rem, calc(100vw - 2.5rem));
+  transform: translate(-50%, -50%);
+  animation: tour-card-centre-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes tour-card-centre-in {
+  from { opacity: 0; transform: translate(-50%, calc(-50% + 12px)) scale(0.97); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+/* On a phone it is a sheet, always. A floating card on a 390px screen covers
+   whatever it is pointing at however cleverly it is placed - and it has to
+   clear the tab bar, which wins the paint order against almost anything. */
+.tour-card--sheet {
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: calc(5.25rem + env(safe-area-inset-bottom));
+  animation: tour-sheet-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+html[data-theme='dark'] .tour-card { background: #1e1e20; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tour-glow { animation: none; }
+  .tour-spot { transition: opacity 0.2s ease; }
+  .tour-card--float,
+  .tour-card--sheet { animation: none; }
+  .tour-card--centre { animation: none; transform: translate(-50%, -50%); }
 }
 

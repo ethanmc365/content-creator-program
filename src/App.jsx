@@ -6,6 +6,7 @@ import NetworkRoute from './components/NetworkRoute'
 import AppLayout from './components/layout/AppLayout'
 import OfflineScreen from './components/OfflineScreen'
 import { startOutbox } from './lib/outbox'
+import { watchInstallPrompt } from './lib/install'
 import ErrorBoundary, { NotFoundScreen } from './components/ErrorScreen'
 import ConfirmHost from './components/ConfirmHost'
 import ToastHost from './components/ToastHost'
@@ -126,6 +127,10 @@ export default function App() {
   // DMs when the signal returns, and it should go out on the reload after the
   // tab was killed whether or not you open a chat at all. See lib/outbox.
   useEffect(() => startOutbox(), [])
+  // `beforeinstallprompt` fires early and exactly once, so it has to be caught
+  // at startup rather than when a screen that wants it happens to mount. See
+  // lib/install - there is no equivalent on iOS and there never has been.
+  useEffect(() => watchInstallPrompt(), [])
   return (
     <>
       <OfflineScreen />

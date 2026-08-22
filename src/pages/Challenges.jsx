@@ -193,7 +193,7 @@ export default function Challenges() {
         <div className="space-y-12">
           {/* ---------- Live ---------- */}
           {live.map((c) => (
-            <Reveal key={c.id} from="down" delay={0.12} as="div">
+            <Reveal key={c.id} from="down" delay={0.12} as="div" data-tour="challenge-card">
               <div className="relative block overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-6 text-white shadow-lift sm:p-10">
                 {/* Soft light bloom for depth, matching the home hero. */}
                 <div className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-white/10 blur-2xl" />

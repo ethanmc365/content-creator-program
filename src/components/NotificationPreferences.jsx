@@ -181,7 +181,8 @@ export function CreatorNotifications({ state }) {
             <button onClick={state.turnOffPush} disabled={state.busy} className="btn-ghost !py-2 text-xs">Turn off</button>
           </div>
         ) : (
-          <button onClick={state.turnOnPush} disabled={state.busy} className="btn-primary">
+          <button onClick={state.turnOnPush} disabled={state.busy} className="btn-primary"
+            data-tour="enable-push">
             {state.busy ? 'Enabling…' : 'Enable notifications on this device'}
           </button>
         )}

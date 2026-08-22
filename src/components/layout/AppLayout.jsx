@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase'
 import { Avatar } from '../ui'
 import Icon from '../Icon'
 import NotificationBell from './NotificationBell'
+import TourGate from '../tour/TourGate'
 import PullToRefresh from '../PullToRefresh'
 import { showLocalNotification } from '../../lib/push'
 import { startHeartbeat } from '../../lib/presence'
@@ -54,6 +55,25 @@ const NETWORK_TABS = [
   { to: '/messages', label: 'DMs', icon: 'envelope' },
   { to: '/global', label: 'Worldwide', icon: 'globe' },
 ]
+
+// WHERE THE WALKTHROUGH POINTS.
+//
+// One name per destination, put on BOTH the desktop nav item and the mobile
+// tab. Only one of the two is ever visible, and the tour resolver picks
+// whichever that is - which is what lets a single set of steps cover a phone, a
+// tablet and a desktop without three sets of copy drifting apart. `/rooms` and
+// `/chat` are the same idea wearing different names depending on whether the
+// network shell is on, so they share an anchor. See lib/tour.js.
+const TOUR_ANCHORS = {
+  '/home': 'nav-home',
+  '/challenges': 'nav-challenges',
+  '/chat': 'nav-chat',
+  '/rooms': 'nav-chat',
+  '/messages': 'nav-messages',
+  '/events': 'nav-calendar',
+  '/global': 'nav-worldwide',
+}
+const tourAnchor = (to) => TOUR_ANCHORS[to] || undefined
 
 export default function AppLayout() {
   const { profile, isAdmin, impersonating, exitCreatorPreview, user, signOut } = useAuth()
@@ -360,7 +380,7 @@ export default function AppLayout() {
 
           <nav className="hidden items-center gap-2 lg:flex" aria-label="Main">
             {tabs.map((item) => (
-              <NavLink key={item.to} to={item.to} className={navLinkClass}>
+              <NavLink key={item.to} to={item.to} className={navLinkClass} data-tour={tourAnchor(item.to)}>
                 <Icon name={item.icon} className="h-5 w-5" />
                 {item.label}
                 {item.to === '/messages' && dmUnread > 0 && (
@@ -393,11 +413,11 @@ export default function AppLayout() {
                 <span>Admin</span>
               </Link>
             )}
-            <NotificationBell />
+            <span data-tour="bell"><NotificationBell /></span>
 
             {/* Avatar dropdown */}
             <div className="relative" ref={menuRef}>
-              <button onClick={() => setMenuOpen((o) => !o)} aria-label="Account menu" className="relative rounded-full">
+              <button onClick={() => setMenuOpen((o) => !o)} aria-label="Account menu" data-tour="avatar-menu" className="relative rounded-full">
                 <Avatar src={profile?.photo_url} name={profile?.name} size="sm" />
                 {(connReqs > 0 || newResources) && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-brand ring-2 ring-white" aria-label={connReqs > 0 ? `${connReqs} connection requests` : 'New resources in the library'} />}
               </button>
@@ -533,6 +553,10 @@ export default function AppLayout() {
         </Suspense>
       )}
 
+      {/* The guided walkthrough. Almost always renders nothing at all, and
+          the overlay it can open is lazy - see TourGate. */}
+      <TourGate />
+
       {/* ------- Mobile bottom tab bar -------
           Bottom padding includes the iPhone home-indicator safe area so the
           tabs sit higher and stay easily tappable. */}
@@ -549,6 +573,7 @@ export default function AppLayout() {
             <NavLink
               key={tab.to}
               to={tab.to}
+              data-tour={tourAnchor(tab.to)}
               className={({ isActive }) =>
                 cx('relative flex flex-1 flex-col items-center gap-1 rounded-xl px-1 py-1 text-[10px] font-medium', isActive ? 'text-brand' : 'text-smoke')
               }

@@ -154,6 +154,7 @@ export default function Onboarding() {
     : auth.profile
 
   const [step, setStep] = useState(0)
+  const [dir, setDir] = useState('fwd')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [done, setDone] = useState(false)
@@ -243,7 +244,11 @@ export default function Onboarding() {
     if (msg.dir !== 'down') return
     if (msg.type === 'goto' && typeof msg.step === 'number') {
       setError('')
-      setStep(Math.max(0, Math.min(STEPS.length - 1, msg.step)))
+      setStep((cur) => {
+        const to = Math.max(0, Math.min(STEPS.length - 1, msg.step))
+        setDir(to < cur ? 'back' : 'fwd')
+        return to
+      })
       setDone(false)
     }
     if (msg.type === 'reset') { setStep(0); setDone(false); setError('') }
@@ -254,11 +259,14 @@ export default function Onboarding() {
   function next() {
     const mine = problemsFor(current.key)
     if (mine.length) { setError(mine.map((m) => m.text).join(' · ')); return }
-    setError('')
+    setError(''); setDir('fwd')
     setStep((s) => Math.min(STEPS.length - 1, s + 1))
   }
-  function back() { setError(''); setStep((s) => Math.max(0, s - 1)) }
-  function goTo(key) { setError(''); setStep(stepIndex(key)) }
+  function back() { setError(''); setDir('back'); setStep((s) => Math.max(0, s - 1)) }
+  function goTo(key) {
+    const to = stepIndex(key)
+    setError(''); setDir(to < step ? 'back' : 'fwd'); setStep(to)
+  }
 
   async function finish(sayHello) {
     if (!complete) { setError('There are still a few things to fill in.'); setStep(stepIndex('review')); return }
@@ -391,7 +399,7 @@ export default function Onboarding() {
         <Progress step={step} barPct={barPct} current={current} />
 
         <div className="card !p-6 sm:!p-10" key={current.key}>
-          <div className="onb-screen">
+          <div className="onb-screen" data-dir={dir}>
             <StepHead step={current} pending={pending} />
 
             {current.key === 'welcome' && (
@@ -600,7 +608,10 @@ function Progress({ step, barPct, current }) {
           })}
         </div>
         <div className="h-2 overflow-hidden rounded-full bg-white shadow-inner">
-          <div className="h-full rounded-full bg-brand transition-[width] duration-500 ease-out" style={{ width: `${barPct}%` }} />
+          <div
+            className="onb-bar h-full rounded-full bg-brand transition-[width] duration-500 ease-out"
+            style={{ width: `${barPct}%` }}
+          />
         </div>
         <p className="mt-2 text-center text-xs text-smoke">Step {step + 1} of {STEPS.length}</p>
       </div>
@@ -719,7 +730,7 @@ function MarketCard({ market, country, ready }) {
 
   const m = market.market
   return (
-    <div className="rounded-card border border-brand/30 bg-brand-tint/30 px-4 py-3.5 transition-colors duration-300">
+    <div key={m.slug} className="onb-market rounded-card border border-brand/30 bg-brand-tint/30 px-4 py-3.5">
       <div className="flex items-start gap-3">
         <span className="mt-0.5 shrink-0 text-xl leading-none" aria-hidden>
           {(m.country_codes || []).map(flagFromIso).join('') || '🌍'}

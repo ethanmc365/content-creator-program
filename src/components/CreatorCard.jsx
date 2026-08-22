@@ -35,7 +35,7 @@ import { cx } from '../lib/utils'
 // SMALLER, TOO. `!p-4` and a `md` avatar rather than `lg`, so four fit across a
 // desktop where three did - the grid is a directory you scan, and scanning is
 // helped by seeing more of it at once.
-export default function CreatorCard({ creator, relation, onRelationChange, currentTrip = null }) {
+export default function CreatorCard({ creator, relation, onRelationChange, currentTrip = null, ...rest }) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const isMe = creator.id === user?.id
@@ -51,6 +51,7 @@ export default function CreatorCard({ creator, relation, onRelationChange, curre
     <Link
       to={`/profile/${creator.id}`}
       className="card group flex h-full flex-col gap-3 !p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift active:-translate-y-0.5 active:shadow-lift"
+      {...rest}
     >
       <div className="flex items-start gap-3">
         <Avatar src={creator.photo_url} name={creator.name} size="md" />
