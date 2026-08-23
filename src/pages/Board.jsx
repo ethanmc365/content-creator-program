@@ -31,20 +31,46 @@ import { cx, formatMessageTime, messageTimeTitle } from '../lib/utils'
 // wonders the same thing. That last part is the whole return on it - a room's
 // value is spent the moment it scrolls, and a board's compounds.
 //
-// UNANSWERED IS THE STATE THAT MATTERS
+// ------------------------------------------------------------------ v3 -----
 //
-// The board's one promise to somebody who asks is that their question will not
-// sit there. So "waiting for an answer" is a first-class filter with a live
-// count on it, and it is the one the empty-ish board opens on: a creator who
-// arrives with nothing to ask can still see, in one number, whether there is
-// anybody to help. "Answered" is derived from having answers, never from a flag
-// somebody has to remember to set - a resolved flag is wrong within a week.
+// Ethan: "the cards look long and short, it's a bad UI... overall seems like a
+// wasted feature. I want it rebuilt much better, perhaps the questions can
+// stand out more."
 //
-// EVERY CARD SHOWS WHO ANSWERED, AS FACES
+// He is right on all three counts, and they are the same fault seen from three
+// angles. THE QUESTION WAS NOT THE OBJECT ON THE CARD. A row carried a big
+// coloured counter on the left, a tag chip, a timestamp, a title at 15px, a
+// body preview, a quoted answer and an author line - eight things, of which the
+// question was the fifth-largest. Put that in a two-column grid where every row
+// is as tall as its own content and you get exactly what he is describing: a
+// ragged wall of boxes with nothing to look at.
 //
-// Not "3 replies". Three faces, because the question a reader is really asking
-// of an answered thread is whether anybody who would know has been near it, and
-// a number cannot answer that.
+// THREE CHANGES, IN THE ORDER THEY MATTER:
+//
+//  1. THE QUESTION IS THE CARD. It is set at 19px, it is the first thing in the
+//     box, and everything else on the card is 11px grey underneath it. You read
+//     a board by reading questions; nothing else on a card has ever made
+//     somebody click.
+//
+//  2. ONE COLUMN, WITH A RAIL BESIDE IT. Two columns of variable-height cards
+//     is the "long and short" problem by construction - a grid row is as tall
+//     as its tallest cell and a question is a variable-length sentence. One
+//     column of full-width rows has no such row, every card is exactly as tall
+//     as its question, and the left edge of every question lines up, which is
+//     what makes a list scannable. The width that frees goes to a rail that
+//     answers the questions the feed cannot: what is on here, what is waiting,
+//     and what this page is for.
+//
+//  3. IT SAYS WHAT IT IS. "A wasted feature" is partly a discovery problem: a
+//     creator landing on a board of four questions has no idea whether it is
+//     worth asking anything. The header now states the deal in one line, the
+//     composer is an inviting box rather than a button in the corner, and the
+//     rail carries the count of questions still waiting for somebody.
+//
+// UNANSWERED IS STILL THE STATE THAT MATTERS. The board's one promise to
+// somebody who asks is that their question will not sit there, so "waiting" is
+// a first-class filter with a live count, and it is derived from having answers
+// rather than from a flag somebody has to remember to set.
 
 // ---------------------------------------------------------------- the composer
 //
@@ -87,11 +113,44 @@ function AskModal({ open, onClose, onAsked, existing = null }) {
   return (
     <Modal open={open} onClose={onClose} title={editing ? 'Edit your question' : 'Ask the community'} wide>
       <form onSubmit={submit} className="space-y-5">
-        {/* THE TAG FIRST, because it changes what the rest of the form asks.
-            One line each, not a label over a line of examples. See BOARD_TAGS
-            for why the examples went; what it buys here is four short chips
-            instead of four paragraphs, which is most of the white space Ethan
-            was looking at. */}
+        {/* THE QUESTION IS THE FIRST FIELD NOW, not the fourth.
+            The tag used to lead, on the reasoning that it changes what the rest
+            of the form asks - which is true and is still not a good enough
+            reason to make somebody classify a question they have not written
+            yet. Type the question, then say what it is about. */}
+        <div>
+          <label htmlFor="board-title" className="mb-1.5 block text-sm font-semibold">
+            What do you want to know?
+          </label>
+          {/* NO PLACEHOLDER. It used to read "Is the JR Pass still worth it for
+              two weeks?", which is a good example question and a bad thing to
+              put in the box: a fully-formed sentence sitting in the field is
+              read as content by half the people who see it, and it anchors what
+              everybody asks about. */}
+          <input
+            id="board-title" className="input !text-base" value={title} maxLength={160}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+          {/* A LENGTH HINT, NOT A LENGTH ERROR. The counter only speaks up near
+              the ends, because a number that is always there is a number nobody
+              reads. */}
+          <p className="mt-1.5 text-xs text-smoke">
+            {title.trim().length < 5
+              ? 'One clear sentence gets more answers than a headline.'
+              : title.length > 130 ? `${160 - title.length} characters left` : 'Good. Add the detail below if it helps.'}
+          </p>
+        </div>
+
+        <div>
+          <label htmlFor="board-body" className="mb-1.5 block text-sm font-semibold">
+            Anything that would help somebody answer <span className="font-normal text-smoke">(optional)</span>
+          </label>
+          <textarea
+            id="board-body" rows={4} className="input" value={body} maxLength={4000}
+            onChange={(e) => setBody(e.target.value)}
+          />
+        </div>
+
         <div>
           <p className="mb-2 text-sm font-semibold">What is it about?</p>
           <div className="grid grid-cols-2 gap-2">
@@ -122,28 +181,19 @@ function AskModal({ open, onClose, onAsked, existing = null }) {
         </div>
 
         {/* THE COUNTRY FIELD GROWS AND SHRINKS. IT DOES NOT APPEAR AND
-            DISAPPEAR, AND IT NO LONGER RESERVES A HOLE.
+            DISAPPEAR, AND IT DOES NOT RESERVE A HOLE.
 
-            "Which country?" only makes sense for one of the four tags, so there
-            have now been three versions of this slot and the first two were both
-            wrong in the obvious ways. Mounting and unmounting the field made the
-            whole dialog jump a row taller and shorter as you moved between tags,
-            which also moves the button you were about to press. Reserving a
-            fixed 4.5rem slot and filling it with the tag's hint text fixed the
-            jump by making the dialog permanently taller and putting filler in
-            the gap - which is exactly the white space Ethan is now looking at,
-            and the filler was the hint copy he has asked to be rid of.
+            "Which country?" only makes sense for one of the four tags.
+            Mounting and unmounting the field made the whole dialog jump a row
+            taller and shorter as you moved between tags, which also moves the
+            button you were about to press; reserving a fixed slot fixed the
+            jump by making the dialog permanently taller.
 
             So the slot is a real height transition. `grid-template-rows: 0fr ->
             1fr` animates to the content's OWN height without anybody measuring
-            anything or hard-coding a number, and `overflow-hidden` on the inner
-            row is what makes the clip follow it. The field fades as it goes so
-            it does not look like it is being squeezed through a letterbox, and
-            `aria-hidden` plus `inert`-by-tabindex keeps a collapsed input out of
-            the tab order.
-
-            The whole thing is `motion-safe:` - with reduced motion it simply is
-            or is not there, which is the correct reading of that preference. */}
+            anything, and `overflow-hidden` on the inner row is what makes the
+            clip follow it. `aria-hidden` plus a negative tabindex keeps a
+            collapsed input out of the tab order. */}
         <div
           className={cx(
             'grid transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none',
@@ -161,222 +211,93 @@ function AskModal({ open, onClose, onAsked, existing = null }) {
           </div>
         </div>
 
-        <div>
-          <label htmlFor="board-title" className="mb-1.5 block text-sm font-semibold">
-            Your question
-          </label>
-          {/* NO PLACEHOLDER. It used to read "Is the JR Pass still worth it for
-              two weeks?", which is a good example question and a bad thing to
-              put in the box: a fully-formed sentence sitting in the field is
-              read as content by half the people who see it, it anchors what
-              everybody asks about, and the line under the box already says what
-              makes a good question. Ethan: "remove these." */}
-          <input
-            id="board-title" className="input" value={title} maxLength={160}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-          {/* A LENGTH HINT, NOT A LENGTH ERROR. The counter only speaks up near
-              the ends, because a number that is always there is a number nobody
-              reads. */}
-          <p className="mt-1 text-xs text-smoke">
-            {title.trim().length < 5
-              ? 'One clear sentence gets more answers than a headline.'
-              : title.length > 130 ? `${160 - title.length} characters left` : 'Good. Add the detail below if it helps.'}
-          </p>
-        </div>
-
-        <div>
-          <label htmlFor="board-body" className="mb-1.5 block text-sm font-semibold">
-            Anything that would help somebody answer <span className="font-normal text-smoke">(optional)</span>
-          </label>
-          <textarea
-            id="board-body" rows={4} className="input" value={body} maxLength={4000}
-            onChange={(e) => setBody(e.target.value)}
-          />
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 border-t border-gray-100 pt-4">
           <button type="submit" disabled={!ok || busy} className="btn-primary disabled:opacity-40">
             {busy ? 'Saving…' : editing ? 'Save changes' : 'Post to the board'}
           </button>
           <button type="button" onClick={onClose} className="btn-ghost">Cancel</button>
+          {!editing && (
+            <span className="text-xs text-smoke">Everyone in the network can see and answer it.</span>
+          )}
         </div>
       </form>
     </Modal>
   )
 }
 
-// ------------------------------------------------------------------ one note
-//
-// A STICKY NOTE ON A BOARD, NOT A ROW IN A LIST.
-//
-// Ethan: "I don't like the current design, I want it to visually look much
-// different, like an actual board where the cards are square little sticky
-// notes across a wide page with a little pin icon looking like it's pinned on."
-// He is describing the thing the feature already IS - a place where questions
-// are pinned up and left - and the old card, a wide white rectangle in a
-// two-column list, was the shape of every other feed in the app.
-//
-// The design does three things a list cannot:
-//
-//   * A NOTE HAS A SIZE. A square card cannot hold an essay, so a long question
-//     is visibly a long question and the title has to earn its space. The list
-//     card grew to fit anything, which is why the board read as homogeneous.
-// THE HISTORY OF THIS PAGE IS A CORKBOARD, AND IT IS GONE.
-//
-// Everything that used to be documented here - the tilt hashed from the id so a
-// note kept its angle across refreshes, hover straightening it as you reached
-// for it, the thumbtack redrawn four times until it read as pushed THROUGH the
-// paper, the nine minimum heights that faked a hand-made wall, the CSS columns
-// that let the heights stay ragged, amber for waiting and green for answered -
-// all of it was real work and all of it has been removed.
-//
-// Ethan: "move away from the current pin section and the slanted post-it notes
-// style cards completely, because I feel like it doesn't match the modern
-// platform."
-//
-// The argument, and why it is worth keeping the epitaph: the corkboard was not
-// badly made, it was made to a brief that stopped being true as the rest of the
-// product settled. Every other surface here is a white card, square to the page,
-// soft even shadow, lifting straight up on hover. One page pretending to be a
-// physical object in the middle of that does not read as charm; it reads as a
-// screen from a different app. See QuestionCard below for what replaced it and
-// for the two design calls that were not just "delete the tilt".
-
 // ---------------------------------------------------------------- one card
 //
-// THE PAPER IS GONE. ALL OF IT.
+// THE QUESTION IS THE OBJECT. Everything else is a caption on it.
 //
-// This was a wall of post-it notes: white sheets tilted a degree and a half,
-// each hanging off a drawn thumbtack, laid out in CSS columns so the heights
-// came out ragged like a real corkboard. An enormous amount of care went into
-// it - the pin was redrawn four times, the tilt turned about the pin rather
-// than the note's centre, the shadow was offset downwards to read as a curl
-// rather than a decal, and the note heights were floored by a hash so the wall
-// looked hand-made.
+// A reader scanning this page is doing exactly one thing: reading questions and
+// deciding whether they know the answer or want to know it. So the question is
+// 19px and sits at the top of the box with nothing above it but a hairline of
+// context, and the six other things a card used to shout are one grey line
+// underneath.
 //
-// Ethan: "move away from the current pin section and the slanted post-it notes
-// style cards completely, because I feel like it doesn't match the modern
-// platform."
-//
-// He is right, and the reason is worth writing down because the old version was
-// not badly built, it was built to the wrong brief. Every other surface in this
-// product is the same object: a white card, square to the page, soft even
-// shadow, rounded corners, lifting straight up on hover. The board was the one
-// page pretending to be a physical thing, and a skeuomorph in the middle of a
-// flat system does not read as charming, it reads as a page from a different
-// app. The tilt also cost real things: it fought the reveal animation (an
-// inline transform beats a stylesheet rule, so the stagger had to move to a
-// wrapper), it needed `break-inside-avoid` and CSS columns, and it meant nine
-// different minimum heights existed to fake variety that the content should
-// have been producing on its own.
-//
-// WHAT REPLACES IT IS A LIST, NOT A GRID, and that is the substantive design
-// call rather than just "remove the tilt". A question is a variable-length
-// sentence with a fixed-shape answer count beside it. In a grid of equal cards
-// the long ones clamp and the short ones sit in a pool of white; in a list every
-// row is exactly as tall as its question and the answer counts line up down the
-// left where they can be compared at a glance. Two columns on a wide screen,
-// because a single 1200px-wide row for a nine-word question is worse than both.
-//
-// THE COUNT IS THE LEFT-HAND OBJECT AND IT CARRIES THE STATE. One thing to
-// look at per row: a number in a tinted square. Brand tint and a pulse when
-// nothing has been answered, green with the count when it has. That replaces
-// the coloured top band, the "waiting for an answer" line with its pinging dot,
-// and the separate answers chip - three signals saying one thing.
-
+// THE STATE LIVES ON THE LEFT EDGE, AS A COLOUR. A 3px bar rather than a badge:
+// it costs no vertical space, it is legible at the edge of vision while you are
+// reading something else, and it means "waiting" and "answered" can be told
+// apart down a whole column without reading a word.
 function QuestionCard({ q }) {
   const t = tagInfo(q.tag)
   const answers = Number(q.answer_count || 0)
-  const shown = q.answers || []
   const open = answers === 0
+  const preview = (q.answers || [])[0]
 
   return (
-    <Link
-      to={`/board/${q.id}`}
-      className={cx(
-        'group flex w-full gap-3.5 rounded-card border border-gray-100 bg-white p-4 text-left shadow-card',
-        'transition-all duration-200 hover:-translate-y-1 hover:border-brand/40 hover:shadow-lift sm:gap-4 sm:p-5',
-      )}
-    >
-      {/* THE ANSWER COUNT. Fixed width so every row in a column lines up, and
-          the one element on the card that changes colour with the state. */}
-      <span
-        className={cx(
-          'flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl transition-colors sm:h-14 sm:w-14',
-          open ? 'bg-brand-tint text-brand' : 'bg-green-50 text-green-700',
-        )}
-      >
-        {open ? (
-          <>
-            {/* A pulse, not a number. Zero in a box reads as a score of nought
-                rather than as an invitation. */}
-            <span className="relative flex h-2 w-2" aria-hidden>
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/60 motion-reduce:hidden" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-brand" />
-            </span>
-            <span className="mt-1.5 text-[9px] font-bold uppercase tracking-wider">Open</span>
-          </>
-        ) : (
-          <>
-            <span className="text-lg font-bold leading-none tabular-nums sm:text-xl">{answers}</span>
-            <span className="mt-0.5 text-[9px] font-bold uppercase tracking-wider">
-              {answers === 1 ? 'answer' : 'answers'}
-            </span>
-          </>
-        )}
+    <Link to={`/board/${q.id}`} className={cx('board-card', open ? 'is-open' : 'is-answered')}>
+      <span className="board-card-edge" aria-hidden />
+
+      <span className="board-card-top">
+        <span className="board-tag">
+          <Icon name={t.icon} className="h-3 w-3 shrink-0" />
+          <span className="truncate">{q.tag === 'country' && q.country ? q.country : t.short}</span>
+        </span>
+        <span className="board-dot" aria-hidden>·</span>
+        <span className="truncate">{q.author_name}</span>
+        <span className="board-dot" aria-hidden>·</span>
+        <span className="shrink-0" title={messageTimeTitle(q.created_at)}>{formatMessageTime(q.created_at)}</span>
       </span>
 
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className="flex flex-wrap items-center gap-1.5">
-          <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-cloud px-2 py-0.5 text-[10px] font-semibold text-smoke">
-            <Icon name={t.icon} className="h-3 w-3 shrink-0" />
-            <span className="truncate">{q.tag === 'country' && q.country ? q.country : t.short}</span>
-          </span>
-          <span className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
-            {formatMessageTime(q.created_at)}
-          </span>
-        </span>
+      <h3 className="board-question">{q.title}</h3>
+      {q.body && <p className="board-body">{q.body}</p>}
 
-        {/* The question leads. `line-clamp-3` is a safety net against somebody
-            pasting an essay into the title, not the thing setting the height -
-            in a list the row is simply as tall as it needs to be. */}
-        <h3 className="mt-1.5 line-clamp-3 text-[15px] font-semibold leading-snug text-ink transition-colors group-hover:text-brand">
-          {q.title}
-        </h3>
-        {q.body && <p className="mt-1 line-clamp-2 text-[13px] leading-snug text-smoke">{q.body}</p>}
-
-        {/* ---- WHAT PEOPLE SAID ----
-            Ethan, on the old notes: "the answers show below them, but if
-            there's tons of answers or a message is too long you can make it so
-            that you have to click to see it all." Unchanged in substance: ONE
-            answer previewed rather than two, because a list row carries less
-            vertical budget than a note did and the second one was always the
-            first thing to be scrolled past. */}
-        {shown.length > 0 && (
-          <span className="mt-2.5 flex gap-2 rounded-xl bg-cloud/60 p-2.5">
-            <span className="mt-0.5 shrink-0">
-              <Avatar src={shown[0].author_photo} name={shown[0].author_name} size="xs" />
+      <span className="board-card-foot">
+        {open ? (
+          <span className="board-waiting">
+            <span className="relative flex h-1.5 w-1.5" aria-hidden>
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/60 motion-reduce:hidden" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand" />
             </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-[11px] font-semibold text-ink">{shown[0].author_name}</span>
-              <span className="line-clamp-2 block text-[12px] leading-snug text-smoke">{shown[0].body}</span>
+            Waiting for an answer
+          </span>
+        ) : (
+          <span className="board-answered">
+            {/* FACES, NOT A NUMBER. The question a reader is really asking of an
+                answered thread is whether anybody who would know has been near
+                it, and a count cannot answer that. */}
+            <span className="flex -space-x-2">
+              {(q.answers || []).slice(0, 3).map((a, i) => (
+                <Avatar key={i} src={a.author_photo} name={a.author_name} size="xs" className="!ring-2 !ring-white" />
+              ))}
+            </span>
+            <span className="font-semibold text-green-700">
+              {answers} {answers === 1 ? 'answer' : 'answers'}
             </span>
           </span>
         )}
 
-        <span className="mt-2.5 flex items-center gap-2">
-          <Avatar src={q.author_photo} name={q.author_name} size="xs" />
-          <span className="min-w-0 flex-1 truncate text-[11px] text-smoke">
-            {q.author_name}
+        {/* The first answer, one line, in quotes. It is the difference between
+            "somebody replied" and "here is what they said", and it is what
+            makes an answered board worth reading rather than merely tidy. */}
+        {preview && (
+          <span className="board-quote">
+            &ldquo;{preview.body}&rdquo;
           </span>
-          {(answers > 1 || shown.some((a) => a.truncated)) && (
-            <span className="shrink-0 text-[11px] font-semibold text-brand">
-              {answers > 1 ? `All ${answers} answers` : 'Read it'}
-            </span>
-          )}
-          <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-brand" />
-        </span>
+        )}
+
+        <Icon name="chevronRight" className="board-chev" />
       </span>
     </Link>
   )
@@ -384,27 +305,45 @@ function QuestionCard({ q }) {
 
 // ---------------------------------------------------------------- the board
 const STATES = [
-  { key: null, label: 'Everything' },
-  { key: 'unanswered', label: 'Waiting for an answer' },
-  { key: 'answered', label: 'Answered' },
+  { key: null, label: 'Everything', icon: 'chat' },
+  { key: 'unanswered', label: 'Waiting', icon: 'clock' },
+  { key: 'answered', label: 'Answered', icon: 'check' },
 ]
+
+// HOW THE LIST IS ORDERED, AND WHY THERE IS A CHOICE AT ALL.
+//
+// The RPC returns newest first, which is right for somebody checking in and
+// wrong for somebody who came to help - "most answers" finds the threads worth
+// reading, and "waiting longest" finds the person who has been ignored for a
+// week. Sorting in the browser rather than in Postgres because the whole page
+// is one query of at most a hundred rows, and a sort control that costs a round
+// trip is a sort control nobody touches twice.
+const SORTS = [
+  { key: 'new', label: 'Newest', fn: (a, b) => new Date(b.created_at) - new Date(a.created_at) },
+  { key: 'busy', label: 'Most answered', fn: (a, b) => Number(b.answer_count || 0) - Number(a.answer_count || 0) },
+  { key: 'stale', label: 'Waiting longest', fn: (a, b) => new Date(a.created_at) - new Date(b.created_at) },
+]
+
+const PAGE = 40
 
 export default function Board() {
   const [rows, setRows] = useState(null)
   const [search, setSearch] = useState('')
   const [tag, setTag] = useState(null)
   const [state, setState] = useState(null)
+  const [sort, setSort] = useState('new')
+  const [limit, setLimit] = useState(PAGE)
   const [asking, setAsking] = useState(false)
   const navigate = useNavigate()
 
   const refresh = useCallback(async (opts) => {
     try {
-      setRows(await loadFeed({ search, tag, state, ...opts }))
+      setRows(await loadFeed({ search, tag, state, limit, ...opts }))
     } catch (e) {
       notice(`The board could not load: ${e.message}`)
       setRows([])
     }
-  }, [search, tag, state])
+  }, [search, tag, state, limit])
 
   // DEBOUNCED, because this is a full-text query and a keystroke is not a
   // question. 250ms is under the threshold where typing feels laggy and well
@@ -414,191 +353,254 @@ export default function Board() {
     return () => clearTimeout(t)
   }, [refresh, search])
 
-  const waiting = useMemo(
-    () => (rows || []).filter((r) => Number(r.answer_count) === 0).length,
-    [rows],
+  // Any filter change starts the list again from the top.
+  useEffect(() => { setLimit(PAGE) }, [search, tag, state])
+
+  const stats = useMemo(() => {
+    const list = rows || []
+    const waiting = list.filter((r) => Number(r.answer_count) === 0)
+    return {
+      total: list.length,
+      waiting: waiting.length,
+      answered: list.length - waiting.length,
+      // The oldest questions nobody has answered. This is the one thing on the
+      // page that asks the reader for something rather than offering them
+      // something, which is why it is in the rail and not the feed.
+      stalest: [...waiting].sort((a, b) => new Date(a.created_at) - new Date(b.created_at)).slice(0, 4),
+    }
+  }, [rows])
+
+  const tagCounts = useMemo(() => {
+    const counts = {}
+    for (const r of rows || []) counts[r.tag] = (counts[r.tag] || 0) + 1
+    return counts
+  }, [rows])
+
+  const shown = useMemo(() => {
+    const fn = (SORTS.find((s) => s.key === sort) || SORTS[0]).fn
+    return [...(rows || [])].sort(fn)
+  }, [rows, sort])
+
+  const filtered = !!search || !!tag || !!state
+
+  const rail = (
+    <>
+      {/* WHAT THIS PAGE IS FOR, SAID ONCE.
+          Half of "it seems like a wasted feature" is that nothing on the page
+          ever explained the deal. Three lines, in the rail where an explanation
+          belongs, rather than a paragraph under the title where it would be in
+          the way of the board forever. */}
+      <div className="board-rail-card">
+        <p className="board-rail-head">How this works</p>
+        <ul className="mt-2.5 space-y-2.5">
+          {[
+            ['chat', 'Ask anything', 'Gear, rates, visas, which airline actually pays out.'],
+            ['users', 'Anyone can answer', 'Several people can, and they often disagree - that is useful.'],
+            ['clock', 'It stays put', 'Unlike a room. The answer is still here in March.'],
+          ].map(([icon, head, line]) => (
+            <li key={head} className="flex gap-2.5">
+              <span className="board-rail-icon"><Icon name={icon} className="h-3.5 w-3.5" /></span>
+              <span className="min-w-0">
+                <span className="block text-xs font-semibold">{head}</span>
+                <span className="block text-[11px] leading-relaxed text-smoke">{line}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {rows !== null && stats.total > 0 && (
+        <div className="board-rail-card">
+          <p className="board-rail-head">On the board</p>
+          <div className="mt-2.5 grid grid-cols-3 gap-2">
+            {[
+              ['Questions', stats.total, 'text-ink'],
+              ['Waiting', stats.waiting, 'text-brand'],
+              ['Answered', stats.answered, 'text-green-700'],
+            ].map(([label, n, tone]) => (
+              <div key={label} className="rounded-xl bg-cloud/70 px-2 py-2 text-center">
+                <p className={cx('text-lg font-bold tabular-nums leading-none', tone)}>{n}</p>
+                <p className="mt-1 text-[10px] font-medium text-smoke">{label}</p>
+              </div>
+            ))}
+          </div>
+          {filtered && (
+            <p className="mt-2 text-[10px] leading-relaxed text-gray-400">
+              Counted across what your filters are showing.
+            </p>
+          )}
+        </div>
+      )}
+
+      {stats.stalest.length > 0 && (
+        <div className="board-rail-card">
+          <p className="board-rail-head">Nobody has answered these</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-smoke">
+            You almost certainly know one of them.
+          </p>
+          <div className="mt-2.5 space-y-1">
+            {stats.stalest.map((q) => (
+              <Link key={q.id} to={`/board/${q.id}`} className="board-rail-row">
+                <span className="line-clamp-2 text-xs font-medium leading-snug">{q.title}</span>
+                <span className="mt-0.5 block text-[10px] text-smoke">
+                  {q.author_name} · {formatMessageTime(q.created_at)}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="board-rail-card">
+        <p className="board-rail-head">Browse by topic</p>
+        <div className="mt-2.5 space-y-1">
+          {BOARD_TAGS.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTag(tag === t.key ? null : t.key)}
+              aria-pressed={tag === t.key}
+              className={cx('board-topic', tag === t.key && 'is-on')}
+            >
+              <Icon name={t.icon} className="h-3.5 w-3.5 shrink-0" />
+              <span className="min-w-0 flex-1 truncate text-left">{t.label}</span>
+              <span className="shrink-0 tabular-nums text-[10px] text-smoke">{tagCounts[t.key] || 0}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </>
   )
 
   return (
     <NetworkMotion>
-      {/* A WIDE PAGE, because a board is a wall. `narrow` gave the notes two
-          columns at any screen size, which is a list with square cards in it. */}
-      <NetworkLayout width="full" switcher={false}>
-        <div className="space-y-6">
-          <header className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight sm:text-3xl">
-                <Icon name="chat" className="h-7 w-7 shrink-0 text-brand" />
-                Community board
-              </h1>
-              {/* NO STRAPLINE. It read "Ask the whole network something. Anyone
-                  can answer, and the answers stay here for whoever asks next",
-                  which is a good description of the feature and a thing you need
-                  told once. The wall of pinned notes under it says all of it
-                  without a sentence, and the space is better spent on the notes.
-                  Ethan: "remove this description below the title." */}
-            </div>
-            <button onClick={() => setAsking(true)} className="btn-primary transition-transform duration-200 hover:scale-105">
-              <Icon name="pencil" className="h-4 w-4" />
-              Ask a question
-            </button>
+      {/* NOT `width="full"` ANY MORE. The board was a wall of notes and needed
+          the whole screen; it is a list of questions now, and a 1500px-wide row
+          holding a nine-word question is the worst of both. A reading column
+          with a rail beside it is the shape of the content. */}
+      <NetworkLayout switcher={false} rail={rail} ready={rows !== null}>
+        <div className="space-y-5">
+          <header>
+            <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight sm:text-3xl">
+              <Icon name="chat" className="h-7 w-7 shrink-0 text-brand" />
+              Community board
+            </h1>
+            <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-smoke">
+              The questions worth asking somebody who has actually been there. Ask one, or answer one -
+              both take about a minute.
+            </p>
           </header>
 
-          {/* SEARCH IS THE FIRST CONTROL, not a filter tucked beside the tags.
-              A board is only worth building if the answer from March is
-              findable, and search is the only way anybody finds it. */}
-          <div className="relative">
-            <Icon name="magnifier" className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-300" />
-            <input
-              type="search"
-              className="input !pl-11"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search questions and answers…"
-              aria-label="Search the board"
-            />
+          {/* THE COMPOSER IS A BOX YOU CAN TYPE IN, NOT A BUTTON IN THE CORNER.
+              A primary button labelled "Ask a question" is a thing you decide to
+              press; an empty field with your own face beside it is a thing you
+              start filling in. It opens the real dialog on focus - one field
+              here and five in the modal would be two composers to keep in step. */}
+          <button onClick={() => setAsking(true)} className="board-ask">
+            <span className="board-ask-icon"><Icon name="pencil" className="h-4 w-4" /></span>
+            <span className="board-ask-text">Ask the network something…</span>
+            <span className="board-ask-go">Ask</span>
+          </button>
+
+          <div className="board-controls">
+            <div className="relative flex-1">
+              <Icon name="magnifier" className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-300" />
+              <input
+                type="search"
+                className="input !py-2.5 !pl-10 !text-sm"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search questions and answers…"
+                aria-label="Search the board"
+              />
+            </div>
+
+            {/* A SEGMENTED CONTROL, NOT SEVEN PILLS IN A ROW. The three states
+                are mutually exclusive and the tags are not, so drawing them as
+                one undifferentiated row of chips taught people that pressing
+                two of them was possible when it was not. */}
+            <div className="board-seg" role="group" aria-label="Filter by state">
+              {STATES.map((s) => (
+                <button
+                  key={s.label}
+                  onClick={() => setState(s.key)}
+                  aria-pressed={state === s.key}
+                  className={cx('board-seg-btn', state === s.key && 'is-on')}
+                >
+                  <Icon name={s.icon} className="h-3.5 w-3.5 shrink-0" />
+                  <span>{s.label}</span>
+                  {s.key === 'unanswered' && state !== s.key && stats.waiting > 0 && (
+                    <span className="board-seg-count">{stats.waiting}</span>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* ONE ROW THAT SCROLLS ON A PHONE, wrapping from `sm` up. Seven
-              pills wrapping at 375px is three rows of controls above the thing
-              they filter, which pushed the board itself below the fold on the
-              page whose whole point is the board. */}
-          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 [&::-webkit-scrollbar]:hidden">
-            {STATES.map((s) => (
-              <button
-                key={s.label}
-                onClick={() => setState(s.key)}
-                aria-pressed={state === s.key}
-                className={cx(
-                  'inline-flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200',
-                  state === s.key
-                    ? 'border-brand bg-brand text-white'
-                    : 'border-gray-200 bg-white text-smoke hover:-translate-y-0.5 hover:border-brand hover:text-brand',
-                )}
-              >
-                {s.key === 'unanswered' && state !== s.key && waiting > 0 && (
-                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-                )}
-                {s.label}
-              </button>
-            ))}
-            <span className="mx-1 hidden w-px self-stretch bg-gray-200 sm:block" />
-            {BOARD_TAGS.map((t) => (
-              <button
-                key={t.key}
-                onClick={() => setTag(tag === t.key ? null : t.key)}
-                aria-pressed={tag === t.key}
-                className={cx(
-                  'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200',
-                  tag === t.key
-                    ? 'border-brand bg-brand text-white'
-                    : 'border-gray-200 bg-white text-smoke hover:-translate-y-0.5 hover:border-brand hover:text-brand',
-                )}
-              >
-                <Icon name={t.icon} className="h-3.5 w-3.5" />
-                {t.short}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-smoke">
+              {rows === null
+                ? 'Loading…'
+                : `${shown.length} question${shown.length === 1 ? '' : 's'}${tag ? ` about ${tagInfo(tag).short.toLowerCase()}` : ''}`}
+            </p>
+            <div className="flex items-center gap-1">
+              <span className="text-[11px] text-gray-400">Sort</span>
+              {SORTS.map((s) => (
+                <button
+                  key={s.key}
+                  onClick={() => setSort(s.key)}
+                  aria-pressed={sort === s.key}
+                  className={cx('board-sort', sort === s.key && 'is-on')}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* THERE IS NO BOARD BEHIND THE NOTES ANY MORE.
-              It was a tinted, faintly grained panel with an inset edge - a
-              drawn cork wall for the notes to be pinned to. Ethan: "remove the
-              backing wall and just have the cards pinned on the entire white
-              screen."
-              He is right, and the reason is the same one that took the amber
-              and green paper away before it: this product is white with one
-              orange in it, and a full-width textured panel is a second surface
-              competing with the notes for the reader's attention on a page
-              whose entire content is the notes. Pinned straight onto the page,
-              the paper is the only thing with a shadow, so the paper is the only
-              thing that looks raised - which is what "pinned up" actually looks
-              like.
-              The minimum height went with it. It existed to stop a half-empty
-              WALL looking like a strip of cork; with no wall there is nothing to
-              look empty, and a screen and a half of enforced whitespace under
-              four notes would be the new version of the same problem. */}
-          {/* HALF A SCREEN OF ROOM UNDER THE LAST NOTE, ALWAYS.
-              A board with six notes on it stops dead a third of the way down
-              the window, and on a phone the last note ends up jammed against
-              the tab bar with nowhere to go - the page simply refuses to
-              scroll, which reads as the app having locked up rather than as
-              there being nothing more. Ethan: "I want to be able to always
-              scroll at least half a page down below nothing." So the wall
-              carries half a viewport of empty board under it, plus the phone's
-              tab bar and safe area, and a short board scrolls exactly like a
-              long one. `50vh` and not `50dvh`: on iOS a dvh unit changes as the
-              address bar collapses, so the page would grow while you scrolled
-              it. */}
-          <div className="pt-3 pb-[calc(50vh+6rem+env(safe-area-inset-bottom))] sm:pb-[50vh]">
+          {/* ROOM UNDER THE LAST QUESTION ON A DESKTOP, AND NONE ON A PHONE.
+              A short board used to stop dead a third of the way down the window
+              with nothing under it, so half a viewport of padding was added -
+              which was right when the feed was the whole page and is wrong now
+              that the rail follows the feed on a phone. Half a screen of
+              nothing between the last question and "how this works" is worse
+              than a page that ends. On a desktop the rail is a column beside
+              the feed, so the spacer still earns its place there.
+              `40vh` and not `40dvh`: on iOS a dvh unit changes as the address
+              bar collapses, so the page would grow while you scrolled it. */}
+          <div className="pb-4 lg:pb-[40vh]">
             {rows === null ? (
-              // The skeleton mirrors NOTE_SHAPES rather than a ladder of
-              // arbitrary heights: what loads in has to be the shape of what
-              // arrives, or the wall visibly re-lays itself the moment the
-              // query lands.
-              // The skeleton is the shape of what arrives, or the page visibly
-              // re-lays itself the moment the query lands. Rows, not a ragged
-              // wall of nine different heights.
-              <div className="grid items-start gap-3 sm:gap-4 lg:grid-cols-2">
-                {[132, 108, 108, 156, 108, 132].map((h, i) => (
+              <div className="space-y-3">
+                {[112, 96, 128, 96, 112].map((h, i) => (
                   <Skeleton key={i} className="block rounded-card" style={{ height: h }} />
                 ))}
               </div>
-            ) : rows.length === 0 ? (
+            ) : shown.length === 0 ? (
               <EmptyState
                 icon={<Icon name="chat" className="h-6 w-6" />}
-                title={search ? `Nothing matches “${search}”` : 'Nothing asked yet'}
+                title={search ? `Nothing matches “${search}”` : state === 'unanswered' ? 'Everything has been answered' : 'Nothing asked yet'}
                 hint={search
                   ? 'Try a shorter search, or ask it yourself and let the community answer.'
-                  : 'Be the first. Somebody here has been where you are going.'}
+                  : state === 'unanswered'
+                    ? 'Nobody is waiting on anything right now. That is the board working.'
+                    : 'Be the first. Somebody here has been where you are going.'}
                 action={<button onClick={() => setAsking(true)} className="btn-primary">Ask a question</button>}
               />
             ) : (
-              // COLUMNS, NOT A GRID, and that is what makes the notes different
-              // sizes. A grid row is as tall as its tallest cell, so one long
-              // note leaves a hole beside every short one on its row and the
-              // only way out is to make them all the same height - which is
-              // where `aspect-square` came from in the first place. Columns
-              // have no rows: a note ends and the next one starts, so the wall
-              // packs itself and the heights can be whatever the text needs.
-              //
-              // TWO ACROSS ON A PHONE, NOT ONE. A single column of notes is a
-              // list - the wall is the whole idea. Two fit at 375px once the
-              // page gutters are gone, which is what the full bleed bought.
-              //
-              // `Reveal` cannot wrap this: it puts every child in its own div,
-              // and a wrapper between the column container and the note is
-              // exactly what `break-inside-avoid` needs to be ON. The stagger
-              // is done here instead, with the same variable the stylesheet
-              // reads, so the notes still arrive one after another.
-              // `mt-1.5` used to be here to stop a column box clipping the head
-              // off the pin of whichever note started a column. The pin sits
-              // wholly ON the paper now, so nothing overhangs and nothing can
-              // be clipped; the margin stays purely as breathing room between
-              // the heading and the first row of notes.
-              // A GRID OF ROWS, AND `items-start` IS DOING REAL WORK.
-              //
-              // The old wall was CSS columns, which was the only way to get
-              // ragged note heights: a grid ROW is as tall as its tallest cell,
-              // so one long note leaves a hole beside every short one. That
-              // problem does not exist here. `items-start` lets each card keep
-              // its own height instead of stretching to match its neighbour, so
-              // a one-line question stays one line tall and the two columns
-              // simply end at different points - which is what a list of
-              // different-length questions should look like.
-              //
-              // ONE COLUMN ON A PHONE. The old wall went two-across even at
-              // 375px, because a single column of notes is a list and the WALL
-              // was the idea. The wall is gone, a list is now exactly the
-              // intention, and two 170px-wide cards on a phone would clamp
-              // every question to three words.
-              //
-              // Reveal can wrap this directly now. It could not before: it puts
-              // each child in its own div, and that wrapper is precisely what
-              // `break-inside-avoid` had to sit on.
-              <Reveal className="grid items-start gap-3 sm:gap-4 lg:grid-cols-2" stagger={0.04}>
-                {rows.map((q) => <QuestionCard key={q.id} q={q} />)}
-              </Reveal>
+              <>
+                <Reveal className="space-y-3" stagger={0.035}>
+                  {shown.map((q) => <QuestionCard key={q.id} q={q} />)}
+                </Reveal>
+                {/* MORE, WHEN THERE IS MORE. The query takes a limit and the
+                    old page hard-coded fifty with no way past it, which on a
+                    board that works is a board that silently stops. */}
+                {rows.length >= limit && (
+                  <div className="mt-5 flex justify-center">
+                    <button onClick={() => setLimit((n) => n + PAGE)} className="btn-secondary !py-2 text-sm">
+                      Show more questions
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -619,11 +621,34 @@ export default function Board() {
 }
 
 // ---------------------------------------------------------------- one thread
+//
+// WHAT OPENING A QUESTION LOOKS LIKE.
+//
+// Ethan: "improve the whole functionality and how it appears when clicked."
+//
+// The thread used to be the same white card as the feed row, at a bigger size,
+// followed by a flat list of identical white cards and a form. Three things are
+// different now and each fixes something specific:
+//
+//   THE QUESTION IS A HEADER, NOT A CARD. It is set on the page in 24px with
+//   its state and its author under it. A question you have navigated TO does
+//   not need a box round it to say it is the subject - it is the only thing at
+//   the top of the screen.
+//
+//   THE ANSWERS ARE A THREAD. A rule down the left, avatars on it, and the
+//   first answer marked. That is what makes six answers read as a conversation
+//   about one thing rather than six unrelated cards.
+//
+//   THE RAIL CARRIES WHAT ELSE IS ON THIS TOPIC. Reusing the feed query with
+//   the same tag, which costs one round trip and turns a dead end into a way
+//   further in - the single biggest thing a Q&A page can do for the "it is a
+//   wasted feature" problem.
 export function BoardThread() {
   const { id } = useParams()
   const { user, isAdmin } = useAuth()
   const navigate = useNavigate()
   const [data, setData] = useState(null)
+  const [related, setRelated] = useState([])
   const [body, setBody] = useState('')
   const [busy, setBusy] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -643,6 +668,18 @@ export function BoardThread() {
     return () => supabase.removeChannel(ch)
   }, [id, load])
 
+  // More on the same topic. Best effort in every sense: a failure here costs
+  // the rail a card and must never take the thread down with it.
+  const tagKey = data?.question?.tag
+  useEffect(() => {
+    if (!tagKey) return undefined
+    let alive = true
+    loadFeed({ tag: tagKey, limit: 6 })
+      .then((r) => { if (alive) setRelated((r || []).filter((q) => q.id !== id)) })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [tagKey, id])
+
   async function answer(e) {
     e.preventDefault()
     if (!body.trim() || busy) return
@@ -654,13 +691,13 @@ export function BoardThread() {
     load()
   }
 
-  // BOTH OF THESE NOW SAY WHEN THEY FAIL.
+  // BOTH OF THESE SAY WHEN THEY FAIL.
   //
   // They used to `await` a builder and throw the result away, so the RLS
   // refusal that made Remove a no-op (see migration 101) reached nobody: the
-  // dialog closed, the page navigated, and the note was still there when you
-  // got back. A destructive action that cannot report failure is worse than one
-  // that does not exist, because you believe it worked.
+  // dialog closed, the page navigated, and the question was still there when
+  // you got back. A destructive action that cannot report failure is worse than
+  // one that does not exist, because you believe it worked.
   async function dropAnswer(a) {
     if (!await confirm('Remove your answer? It will disappear from the thread.')) return
     try {
@@ -687,7 +724,11 @@ export function BoardThread() {
     return (
       <NetworkMotion>
         <NetworkLayout width="narrow" switcher={false}>
-          <Skeleton className="h-64" />
+          <div className="space-y-4 pt-3">
+            <Skeleton className="h-6 w-40" />
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-40 w-full" />
+          </div>
         </NetworkLayout>
       </NetworkMotion>
     )
@@ -711,57 +752,72 @@ export function BoardThread() {
 
   const t = tagInfo(q.tag)
   const mine = q.author_id === user?.id
-
   const openQ = answers.length === 0
+
+  const rail = (
+    <>
+      <div className="board-rail-card">
+        <p className="board-rail-head">{openQ ? 'Nobody has answered yet' : 'Add yours'}</p>
+        <p className="mt-1.5 text-[11px] leading-relaxed text-smoke">
+          {openQ
+            ? 'If you know even part of it, say so. A partial answer beats silence, and somebody else will fill in the rest.'
+            : 'Yours does not replace anybody else’s. Two people disagreeing is the most useful thing on this board.'}
+        </p>
+        <button
+          onClick={() => boxRef.current?.focus()}
+          className="btn-primary mt-3 w-full !py-2 text-xs"
+        >
+          {mine ? 'Add to your question' : 'Write an answer'}
+        </button>
+      </div>
+
+      {related.length > 0 && (
+        <div className="board-rail-card">
+          <p className="board-rail-head">More about {t.short.toLowerCase()}</p>
+          <div className="mt-2.5 space-y-1">
+            {related.slice(0, 5).map((r) => (
+              <Link key={r.id} to={`/board/${r.id}`} className="board-rail-row">
+                <span className="line-clamp-2 text-xs font-medium leading-snug">{r.title}</span>
+                <span className="mt-0.5 block text-[10px] text-smoke">
+                  {Number(r.answer_count) === 0
+                    ? 'Waiting for an answer'
+                    : `${r.answer_count} ${Number(r.answer_count) === 1 ? 'answer' : 'answers'}`}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  )
 
   return (
     <NetworkMotion>
-      <NetworkLayout width="narrow" switcher={false}>
-        {/* OPENING A NOTE KEEPS THE BOARD.
-            Ethan: "when clicking, I think it should open big but still keep the
-            same look and aesthetic, not just back to a random card."
-            It used to be a plain white card on the plain page background, which
-            is the shape of every other detail page in the app - so tapping a
-            pinned note took you somewhere that had nothing to do with a board.
-            The thread now sits ON the same surface, and the question is the
-            same note it was on the wall: the pin, the state band, the paper.
-            Just much bigger, which is what "open big" means.
-
-            The tilt is deliberately NOT carried over. A tilted note is a note
-            on a wall among others; a tilted page of body text you are trying to
-            read is a gimmick. Reaching for a note already straightens it, so
-            arriving straightened is the same gesture finishing. */}
-        {/* THE THREAD IS THE SAME OBJECT AS THE ROW, ENLARGED. It used to be the
-            note taken off the wall - pin, state band, paper - which was the
-            right instinct for a board made of paper and is the wrong one now
-            that the board is made of cards. Same border, same radius, same
-            shadow as the card you tapped to get here, so opening a question
-            reads as the card expanding rather than as arriving somewhere new.
-            The state has moved entirely into the "waiting for an answer" chip
-            below, which is where it already was in words. */}
-        <div className="space-y-6 pt-3">
+      <NetworkLayout switcher={false} rail={rail}>
+        <div className="space-y-6 pt-3 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-10">
           <Link to="/board" className="inline-flex items-center gap-2 text-sm font-medium text-smoke transition-colors hover:text-brand">
             <Icon name="chevronLeft" className="h-4 w-4" />
             Community board
           </Link>
 
-          <article className={cx(
-            'relative rounded-card border bg-white shadow-lift',
-            openQ ? 'border-brand/25' : 'border-gray-100',
-          )}>
-            <div className="p-5 sm:p-7">
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-tint px-2.5 py-1 text-[11px] font-semibold text-brand">
-                <Icon name={t.icon} className="h-3 w-3" />
+          {/* THE QUESTION, AS THE PAGE'S SUBJECT. No card: it is the only thing
+              at the top of the screen and a box round it would be a box round
+              the whole page. */}
+          <header>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="board-tag board-tag--lg">
+                <Icon name={t.icon} className="h-3.5 w-3.5" />
                 {q.tag === 'country' && q.country ? q.country : t.short}
               </span>
-              {/* Brand orange, not amber. It is the same state the note on the
-                  wall draws in orange, and the two surfaces have to agree or
-                  the colour stops meaning anything. */}
-              {openQ && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-tint px-2.5 py-1 text-[11px] font-semibold text-brand">
+              {openQ ? (
+                <span className="board-state board-state--open">
                   <span className="h-1.5 w-1.5 rounded-full bg-brand" />
                   Waiting for an answer
+                </span>
+              ) : (
+                <span className="board-state board-state--done">
+                  <Icon name="check" className="h-3 w-3" />
+                  {answers.length} {answers.length === 1 ? 'answer' : 'answers'}
                 </span>
               )}
               {(mine || isAdmin) && (
@@ -782,8 +838,8 @@ export function BoardThread() {
               )}
             </div>
 
-            <h1 className="text-xl font-bold leading-snug sm:text-2xl">{q.title}</h1>
-            {q.body && <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-ink">{q.body}</p>}
+            <h1 className="mt-3 text-[26px] font-bold leading-tight tracking-tight sm:text-[32px]">{q.title}</h1>
+            {q.body && <p className="mt-3 whitespace-pre-wrap text-[15px] leading-relaxed text-ink">{q.body}</p>}
 
             <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-gray-100 pt-4">
               <Avatar src={q.profiles?.photo_url} name={q.profiles?.name} size="sm" />
@@ -797,46 +853,52 @@ export function BoardThread() {
               </div>
               {!mine && <LocalTime profile={q.profiles} className="ml-auto text-xs text-smoke" />}
             </div>
-            </div>
-          </article>
+          </header>
 
           <section>
-            <h2 className="mb-3 text-sm font-semibold text-ink">
-              {answers.length === 0
-                ? 'No answers yet'
-                : `${answers.length} ${answers.length === 1 ? 'answer' : 'answers'}`}
-            </h2>
-
             {answers.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-brand/30 bg-white/70 px-5 py-8 text-center text-sm text-smoke">
-                Nobody has answered this yet. If you know even part of it, say so - a partial answer beats
-                silence and somebody else will fill in the rest.
-              </p>
+              <div className="board-empty-answers">
+                <Icon name="chat" className="h-5 w-5 shrink-0 text-brand" />
+                <p>
+                  Nobody has answered this yet. If you know even part of it, say so - a partial answer beats
+                  silence and somebody else will fill in the rest.
+                </p>
+              </div>
             ) : (
-              // The answers are smaller notes under the big one, so the whole
-              // thread reads as one thing pinned up rather than as a card
-              // followed by a list of unrelated cards.
-              <Reveal className="space-y-3" stagger={0.05}>
-                {answers.map((a) => (
-                  <div key={a.id} className="rounded-lg border border-gray-100 bg-white p-4 shadow-card">
-                    <div className="mb-2.5 flex items-center gap-2.5">
-                      <Avatar src={a.profiles?.photo_url} name={a.profiles?.name} size="xs" />
-                      <Link to={`/profile/${a.author_id}`} className="truncate text-sm font-semibold hover:text-brand">
-                        {a.profiles?.name}
-                      </Link>
-                      {a.profiles?.is_admin && (
-                        <span className="rounded-full bg-brand-tint px-1.5 py-0.5 text-[10px] font-semibold text-brand">Team</span>
-                      )}
-                      <span className="text-[11px] text-smoke" title={messageTimeTitle(a.created_at)}>
-                        {formatMessageTime(a.created_at)}
-                      </span>
-                      {(a.author_id === user?.id || isAdmin) && (
-                        <button onClick={() => dropAnswer(a)} className="ml-auto text-[11px] font-medium text-smoke hover:text-red-600">
-                          Remove
-                        </button>
-                      )}
+              // A THREAD, NOT A LIST OF CARDS. One rule down the left with the
+              // avatars sitting on it, so six answers read as a conversation
+              // about one thing.
+              // The rule down the left is drawn only from the second answer
+              // onwards: with one answer it is a two-inch line hanging off an
+              // avatar, which reads as a rendering fault rather than a thread.
+              <Reveal className="board-thread" data-many={answers.length > 1 ? 'yes' : 'no'} stagger={0.05}>
+                {answers.map((a, i) => (
+                  <div key={a.id} className="board-answer">
+                    <span className="board-answer-mark">
+                      <Avatar src={a.profiles?.photo_url} name={a.profiles?.name} size="sm" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1 flex flex-wrap items-center gap-2">
+                        <Link to={`/profile/${a.author_id}`} className="truncate text-sm font-semibold hover:text-brand">
+                          {a.profiles?.name}
+                        </Link>
+                        {a.profiles?.is_admin && (
+                          <span className="rounded-full bg-brand-tint px-1.5 py-0.5 text-[10px] font-semibold text-brand">Team</span>
+                        )}
+                        {i === 0 && answers.length > 1 && (
+                          <span className="rounded-full bg-green-50 px-1.5 py-0.5 text-[10px] font-semibold text-green-700">First</span>
+                        )}
+                        <span className="text-[11px] text-smoke" title={messageTimeTitle(a.created_at)}>
+                          {formatMessageTime(a.created_at)}
+                        </span>
+                        {(a.author_id === user?.id || isAdmin) && (
+                          <button onClick={() => dropAnswer(a)} className="ml-auto text-[11px] font-medium text-smoke hover:text-red-600">
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                      <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-ink">{a.body}</p>
                     </div>
-                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">{a.body}</p>
                   </div>
                 ))}
               </Reveal>
@@ -844,9 +906,9 @@ export function BoardThread() {
           </section>
 
           {/* THE COMPOSER IS ALWAYS THERE, and it is never a modal. A question
-              you have to click a button to answer is a question fewer people
+              you have to press a button to answer is a question fewer people
               answer, and the reason to be on this page at all is to answer it. */}
-          <form onSubmit={answer} className="rounded-lg border border-brand/25 bg-white p-4 shadow-card sm:p-5">
+          <form onSubmit={answer} className="board-composer">
             <label htmlFor="board-answer" className="mb-2 block text-sm font-semibold">
               {mine ? 'Add something to your own question' : 'Answer this'}
             </label>

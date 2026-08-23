@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Onboarding imports the whole app world (Supabase, the map, the uploader).
 // `draftProblems` is a pure function and the only thing under test, so the
@@ -8,7 +8,7 @@ vi.mock('../context/AuthContext', () => ({ useAuth: () => ({}) }))
 vi.mock('../lib/geocode', () => ({ geocodeCity: async () => null }))
 vi.mock('../lib/upload', () => ({ uploadFile: async () => '' }))
 
-import { draftProblems, STEPS } from './Onboarding'
+import { draftProblems, STEPS, loadDraft, saveDraft, clearDraft } from './Onboarding'
 
 const FULL = {
   name: 'Alex Test',
@@ -39,6 +39,40 @@ describe('onboarding steps', () => {
 
   it('every step key is unique, or the jump buttons collide', () => {
     expect(new Set(STEPS.map((s) => s.key)).size).toBe(STEPS.length)
+  })
+})
+
+// A HALF-FINISHED APPLICATION SURVIVES A REFRESH.
+//
+// Nine screens is a lot to lose to a stray back-swipe or a browser reloading a
+// backgrounded tab, and both happen: this form is filled in on a phone by
+// somebody who heard about the programme ten minutes ago.
+describe('the saved draft', () => {
+  beforeEach(() => { clearDraft('u1') })
+
+  it('comes back exactly as it went in', () => {
+    saveDraft('u1', { name: 'Alex', languages: ['English'] }, 3)
+    expect(loadDraft('u1')).toEqual({ draft: { name: 'Alex', languages: ['English'] }, step: 3, at: expect.any(Number) })
+  })
+
+  it('is per account, so a shared laptop does not leak one draft into another', () => {
+    saveDraft('u1', { name: 'Alex' }, 2)
+    expect(loadDraft('u2')).toBeNull()
+  })
+
+  it('is gone once the application has been sent', () => {
+    saveDraft('u1', { name: 'Alex' }, 2)
+    clearDraft('u1')
+    expect(loadDraft('u1')).toBeNull()
+  })
+
+  // A draft written by an older version of this form, or one somebody has
+  // hand-edited, must never take the sign-up down with it.
+  it('shrugs off rubbish rather than throwing', () => {
+    localStorage.setItem('tryp_onboarding_draft_u1', 'not json at all')
+    expect(loadDraft('u1')).toBeNull()
+    localStorage.setItem('tryp_onboarding_draft_u1', '"a string"')
+    expect(loadDraft('u1')).toBeNull()
   })
 })
 

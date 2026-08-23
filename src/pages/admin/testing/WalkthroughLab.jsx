@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Badge } from '../../../components/ui'
-import { TOUR_STEPS, TOUR_VERSION } from '../../../lib/tour'
+import { TOUR_STEPS, TOUR_VERSION, partOf } from '../../../lib/tour'
 import { startTour } from '../../../components/tour/TourGate'
 import { useCommunity } from '../../../context/CommunityContext'
 import { installSteps, isIOS, isStandalone } from '../../../lib/install'
@@ -14,10 +14,23 @@ import { LabPage, Panel, Note, Stage, useStage, InfoList, KeyVal, Code, Choice }
 // is shown in a frame, because on a desktop it correctly refuses to appear at
 // all.
 
-const ACTION_LABEL = {
-  push: 'Waits for notifications to be turned on',
-  connect: 'Waits for a connection to be sent',
+// WHAT EACH KIND OF GOAL IS WAITING FOR, IN WORDS.
+//
+// This list used to read `s.action`, a field that stopped existing two versions
+// ago - so every badge on this page was `undefined` and the count at the bottom
+// said zero. The lab is supposed to be the honest picture of the feature, and a
+// panel describing fields that are not on the object is worse than no panel.
+const GOAL_LABEL = {
+  route: (g) => `Waits for them to open ${g.any ? g.any.join(' or ') : g.to}`,
+  scroll: (g) => `Waits for ${g.px}px of scrolling, from any scroller on the page`,
+  click: (g) => `Waits for a press on ${g.anchor}`,
+  connect: () => 'Waits for a connection request to go out',
+  push: () => 'Waits for notification permission',
+  dwell: (g) => `Moves on by itself after ${(g.ms / 1000).toFixed(1)}s`,
+  end: () => 'The sign-off',
 }
+
+const goalText = (g) => (g && GOAL_LABEL[g.kind] ? GOAL_LABEL[g.kind](g) : 'No goal')
 
 export default function WalkthroughLab() {
   const stage = useStage('phone')
@@ -55,7 +68,7 @@ export default function WalkthroughLab() {
       <Panel
         i={0}
         title="Run it"
-        hint="It takes over this page, points at the real navigation, and follows you as you move. Press Escape at any point, or use the arrow keys."
+        hint="It takes over this page, points at the real navigation, and follows you as you move. Press Escape to leave it, or use the worded link at the foot of the card - there is deliberately no cross in the corner."
       >
         <div className="flex flex-wrap items-center gap-3">
           <button type="button" onClick={run} className="btn-primary text-sm">
@@ -67,36 +80,65 @@ export default function WalkthroughLab() {
         </div>
       </Panel>
 
-      <Panel i={1} title={`The ${TOUR_STEPS.length} stops`} hint="Two of them ask the creator to do something real rather than read about it.">
+      <Panel
+        i={1}
+        title={`The ${TOUR_STEPS.length} stops`}
+        hint="There is no Next button anywhere in it. Every stop waits for the creator to actually do the thing, and the middle column is what each one is waiting for."
+      >
         <div className="space-y-2">
-          {TOUR_STEPS.map((s, i) => (
-            <div
-              key={s.key}
-              className={
-                'flex flex-wrap items-start gap-3 rounded-card border px-4 py-3 ' +
-                (s.action ? 'border-brand/25 bg-brand-tint/25' : 'border-gray-100 bg-white')
-              }
-            >
-              <span className={
-                'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ' +
-                (s.action ? 'bg-brand text-white' : 'bg-cloud text-smoke')
-              }>
-                {i + 1}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold">{s.title}</p>
-                <p className="mt-0.5 text-xs leading-relaxed text-smoke">{s.body}</p>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <code className="text-[10px] text-gray-400">{s.route}</code>
-                  {s.anchor
-                    ? <Badge tone="grey" className="!px-2 !py-0.5 !text-[10px]">points at {s.anchor}</Badge>
-                    : <Badge tone="grey" className="!px-2 !py-0.5 !text-[10px]">centred card</Badge>}
-                  {s.action && <Badge tone="brand" className="!px-2 !py-0.5 !text-[10px]">{ACTION_LABEL[s.action]}</Badge>}
-                  {s.optional && <Badge tone="light" className="!px-2 !py-0.5 !text-[10px]">skippable</Badge>}
+          {TOUR_STEPS.map((s, i) => {
+            const live = s.goal?.kind !== 'dwell' && s.goal?.kind !== 'end'
+            return (
+              <div
+                key={s.key}
+                className={
+                  'flex flex-wrap items-start gap-3 rounded-card border px-4 py-3 '
+                  + (live ? 'border-brand/25 bg-brand-tint/25' : 'border-gray-100 bg-white')
+                }
+              >
+                <span className={
+                  'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold '
+                  + (live ? 'bg-brand text-white' : 'bg-cloud text-smoke')
+                }>
+                  {i + 1}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold">{s.title}</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-smoke">{s.body}</p>
+                  {s.do && <p className="mt-1 text-xs font-semibold text-brand">&ldquo;{s.do}&rdquo;</p>}
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <Badge tone="grey" className="!px-2 !py-0.5 !text-[10px]">{partOf(s).label}</Badge>
+                    <Badge tone="brand" className="!px-2 !py-0.5 !text-[10px]">{goalText(s.goal)}</Badge>
+                    {s.anchor
+                      ? <Badge tone="light" className="!px-2 !py-0.5 !text-[10px]">points at {s.anchor}</Badge>
+                      : <Badge tone="grey" className="!px-2 !py-0.5 !text-[10px]">centred card</Badge>}
+                    {s.on === 'network' && <Badge tone="grey" className="!px-2 !py-0.5 !text-[10px]">network shell only</Badge>}
+                    {s.required && <Badge tone="amber" className="!px-2 !py-0.5 !text-[10px]">cannot be skipped</Badge>}
+                    {s.empty && <Badge tone="green" className="!px-2 !py-0.5 !text-[10px]">has an empty-state version</Badge>}
+                    {s.door && <Badge tone="green" className="!px-2 !py-0.5 !text-[10px]">carries its own door</Badge>}
+                    {s.skipIfMissing && <Badge tone="grey" className="!px-2 !py-0.5 !text-[10px]">dropped if absent</Badge>}
+                  </div>
+                  {/* THE HALF OF THE FEATURE NOBODY EVER SEES. An admin looking
+                      at this page has a live brief on the board, so the normal
+                      copy is the only copy they will ever meet. The empty
+                      version is what a creator in a brand new market gets, and
+                      it needs checking as carefully as the other one. */}
+                  {s.empty && (
+                    <div className="mt-2 rounded-xl border border-dashed border-gray-200 bg-cloud/50 px-3 py-2">
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-smoke">
+                        When there is nothing there
+                      </p>
+                      <p className="mt-1 text-xs font-semibold">{s.empty.title || s.title}</p>
+                      <p className="mt-0.5 text-xs leading-relaxed text-smoke">{s.empty.body}</p>
+                      <p className="mt-1 text-xs font-semibold text-brand">
+                        &ldquo;{s.empty.do}&rdquo; · {goalText(s.empty.goal)}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </Panel>
 
@@ -104,9 +146,10 @@ export default function WalkthroughLab() {
         <InfoList
           items={[
             { icon: 'pin', t: 'Steps name an anchor, never a position', d: 'The SAME data-tour name is on the desktop nav item and on the mobile tab, and the resolver picks whichever is actually visible. One set of copy covers a phone, a tablet and a desktop instead of three sets that drift apart.' },
-            { icon: 'eye', t: 'Nothing is trapped', d: 'The scrim is pointer-events:none the whole way through, so every control underneath stays live. That is what lets the notification step use the REAL button rather than a picture of one. A walkthrough that blocks the app teaches you how to use a walkthrough.' },
-            { icon: 'sparkles', t: 'The spotlight is one element', d: 'A rounded rectangle with a 9999px box-shadow spread, which darkens everything outside it. Four divs forming a frame is the usual way and it cannot travel between steps as a single shape.' },
-            { icon: 'ban', t: 'A missing anchor is skipped, not pointed at', d: 'A creator with no challenges running has nothing for the brief step to highlight, and a spotlight on the top-left corner of the screen is worse than no spotlight.' },
+            { icon: 'eye', t: 'Nothing is trapped', d: 'The wash is pointer-events:none the whole way through, so every control underneath stays live. That is what lets the notification step use the REAL button rather than a picture of one. A walkthrough that blocks the app teaches you how to use a walkthrough.' },
+            { icon: 'sparkles', t: 'The highlighting is light, not darkness', d: 'The page dims by a fifth, and the thing being talked about wears a heavy orange glow. It used to be the other way round - 62% black with a hole in it - which turned a live app into a photograph of one.' },
+            { icon: 'ban', t: 'An empty page gets different words, not a dead end', d: 'A creator whose market has no live brief cannot "open a challenge", and for two versions the only way past that step was the skip button. Every step that points at CONTENT now carries a second set of copy for when the content is not there: what this page is, what will appear on it, and a goal that can actually be met.' },
+            { icon: 'device', t: 'The card is placed, never parked', d: 'Sixty times a second it works out which side of the highlighted thing has room, picks a width that fits that gap and moves there - so it changes size and shape as the walk goes on and never covers what it is pointing at. On a phone it goes full width, above or below.' },
           ]}
         />
       </Panel>
@@ -126,7 +169,8 @@ resets it, on this device.`}</Code>
           <KeyVal
             rows={[
               ['Stops', String(TOUR_STEPS.length)],
-              ['Steps that wait for an action', String(TOUR_STEPS.filter((s) => s.action).length)],
+              ['Stops that wait for a real action', String(TOUR_STEPS.filter((s) => !['dwell', 'end'].includes(s.goal?.kind)).length)],
+              ['Stops with an empty-state version', String(TOUR_STEPS.filter((s) => s.empty).length)],
               ['Version', `v${TOUR_VERSION}, so the copy can be reissued later`],
               ['Runs again from', 'Settings, Display'],
               ['Remembered in', 'A profile column, plus one local flag per layout'],

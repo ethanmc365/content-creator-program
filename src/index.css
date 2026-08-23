@@ -979,14 +979,502 @@ html[data-reduce-motion] *::after {
    child inside it, which is what once broke the mobile chat overlay. */
 
 @keyframes onb-screen-fwd {
-  from { opacity: 0; transform: translateX(18px); }
+  from { opacity: 0; transform: translate3d(26px, 0, 0); }
   to   { opacity: 1; transform: none; }
 }
 
 @keyframes onb-screen-back {
-  from { opacity: 0; transform: translateX(-18px); }
+  from { opacity: 0; transform: translate3d(-26px, 0, 0); }
   to   { opacity: 1; transform: none; }
 }
+
+/* ---------------------------------------------------------------------------
+   THE PAGE
+   ---------------------------------------------------------------------------
+
+   Signup is a brand-coloured half screen. Landing from that on a flat grey box
+   in the middle of a grey page reads as a different product, so the colour is
+   carried through - at about a tenth of the strength, because this screen has a
+   form on it and a form needs the quietest background it can get. */
+
+.onb-page {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  background: linear-gradient(180deg, #fdf7f3 0%, #f7f7f8 46%, #f7f7f8 100%);
+  padding: 1.5rem 1rem calc(9rem + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 640px) {
+  .onb-page { padding: 2.5rem 1.5rem 4rem; }
+}
+
+.onb-glow {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 26rem;
+  pointer-events: none;
+  background:
+    radial-gradient(48rem 20rem at 12% -6rem, rgba(217, 68, 7, 0.16), transparent 70%),
+    radial-gradient(40rem 18rem at 88% -4rem, rgba(245, 133, 63, 0.18), transparent 70%);
+}
+
+.onb-inner {
+  position: relative;
+  margin: 0 auto;
+  width: 100%;
+  max-width: 40rem;
+}
+
+.onb-card {
+  border-radius: 1.35rem;
+  border: 1px solid rgba(26, 26, 26, 0.06);
+  background: #fff;
+  padding: 1.35rem 1.25rem;
+  box-shadow:
+    0 1px 2px rgba(26, 26, 26, 0.04),
+    0 12px 34px rgba(26, 26, 26, 0.07),
+    0 34px 70px rgba(26, 26, 26, 0.05);
+}
+
+@media (min-width: 640px) {
+  .onb-card { padding: 2.25rem 2.25rem 2rem; }
+}
+
+/* ---------------------------------------------------------------------------
+   THE STEPPER */
+
+.onb-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 1.35rem;
+}
+
+.onb-logo {
+  height: 2.5rem;
+  border-radius: 0.7rem;
+  box-shadow: 0 1px 3px rgba(26, 26, 26, 0.05), 0 4px 16px rgba(26, 26, 26, 0.04);
+}
+
+.onb-steps {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+@media (min-width: 400px) {
+  .onb-steps { gap: 0.5rem; }
+}
+
+/* Nine dots at 1.85rem plus gaps is 311px, which fits a 390px phone and does
+   not fit a 320px one. They shrink rather than wrap: a stepper on two lines
+   stops reading as a line you are travelling along. */
+@media (max-width: 359px) {
+  .onb-steps { gap: 0.2rem; }
+  .onb-step { height: 1.6rem; width: 1.6rem; }
+}
+
+.onb-step {
+  position: relative;
+  display: flex;
+  height: 1.85rem;
+  width: 1.85rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid #e8e8ea;
+  background: #fff;
+  color: #c8c8cc;
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+              background-color 0.28s ease, color 0.28s ease,
+              border-color 0.28s ease, box-shadow 0.28s ease;
+}
+
+.onb-step.is-done {
+  border-color: rgba(217, 68, 7, 0.35);
+  background: #fdf0e7;
+  color: #d94407;
+}
+
+.onb-step.is-on {
+  transform: scale(1.18);
+  border-color: #d94407;
+  background: #d94407;
+  color: #fff;
+  box-shadow: 0 0 0 4px rgba(217, 68, 7, 0.14), 0 4px 12px rgba(217, 68, 7, 0.3);
+}
+
+.onb-step.is-open:hover {
+  transform: translateY(-2px);
+  border-color: rgba(217, 68, 7, 0.6);
+  color: #d94407;
+}
+
+/* A screen further back that still owes something. A dot, not a red ring: this
+   is a reminder, not a rejection, and half of them are simply screens the
+   creator has not reached yet. */
+.onb-step-owed {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  height: 0.5rem;
+  width: 0.5rem;
+  border-radius: 9999px;
+  background: #f59e0b;
+  box-shadow: 0 0 0 2px #fff;
+}
+
+.onb-track {
+  width: 100%;
+  max-width: 22rem;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgba(26, 26, 26, 0.07);
+}
+
+.onb-partline {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* ---------------------------------------------------------------------------
+   THE SCREEN HEAD */
+
+.onb-head {
+  display: flex;
+  gap: 0.9rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid #f3f3f4;
+}
+
+.onb-head-icon {
+  display: flex;
+  height: 2.6rem;
+  width: 2.6rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.85rem;
+  background: linear-gradient(140deg, #fdf0e7, #fbe3d4);
+  color: #d94407;
+  box-shadow: inset 0 0 0 1px rgba(217, 68, 7, 0.12);
+}
+
+.onb-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 0.15rem 0.5rem;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.onb-chip--need { background: #fdf0e7; color: #d94407; }
+.onb-chip--opt { background: #f1f1f3; color: #6b7280; }
+
+/* ---------------------------------------------------------------------------
+   THE WELCOME SCREEN */
+
+.onb-welcome { text-align: center; }
+
+.onb-welcome-mark {
+  display: inline-flex;
+  height: 3.75rem;
+  width: 3.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1.15rem;
+  background: linear-gradient(140deg, #d94407, #f5853f);
+  color: #fff;
+  box-shadow: 0 10px 26px rgba(217, 68, 7, 0.32);
+  animation: onb-mark-in 0.6s cubic-bezier(0.34, 1.3, 0.5, 1) both;
+}
+
+@keyframes onb-mark-in {
+  from { opacity: 0; transform: scale(0.6) rotate(-12deg); }
+  to   { opacity: 1; transform: none; }
+}
+
+.onb-welcome-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin: 1.75rem auto 0;
+  max-width: 24rem;
+  text-align: left;
+}
+
+.onb-welcome-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  border-radius: 0.85rem;
+  background: #f7f7f8;
+  padding: 0.7rem 0.85rem;
+  animation: onb-row-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(180ms + var(--i) * 80ms);
+}
+
+@keyframes onb-row-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.onb-welcome-icon {
+  display: flex;
+  height: 1.7rem;
+  width: 1.7rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.55rem;
+  background: #fff;
+  color: #d94407;
+  box-shadow: 0 1px 2px rgba(26, 26, 26, 0.06);
+}
+
+/* ---------------------------------------------------------------------------
+   WHAT THIS SCREEN STILL WANTS, AND WHAT WENT WRONG */
+
+.onb-waiting {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  border-radius: 0.85rem;
+  background: #fffbeb;
+  padding: 0.6rem 0.8rem;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #92400e;
+  animation: onb-row-in 0.3s ease both;
+}
+
+.onb-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  border-radius: 0.85rem;
+  background: #fdf0e7;
+  padding: 0.7rem 0.9rem;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: #d94407;
+  animation: onb-row-in 0.3s ease both;
+}
+
+/* ---------------------------------------------------------------------------
+   THE NAV BAR
+
+   On a phone it is fixed to the bottom of the screen, because Continue at the
+   foot of a card is in a different place on every screen and below the fold on
+   half of them. On a desktop there is no such problem, so it simply sits under
+   the card. */
+
+.onb-nav {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 30;
+  border-top: 1px solid rgba(26, 26, 26, 0.07);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@media (min-width: 640px) {
+  .onb-nav {
+    position: static;
+    margin-top: 1rem;
+    border: 0;
+    background: none;
+    backdrop-filter: none;
+    padding-bottom: 0;
+  }
+}
+
+.onb-nav-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 auto;
+  max-width: 40rem;
+  padding: 0.7rem 1rem;
+}
+
+@media (min-width: 640px) {
+  .onb-nav-inner { padding: 0; }
+}
+
+.onb-back {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 9999px;
+  border: 1px solid #e8e8ea;
+  padding: 0.6rem 0.85rem;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.2s ease, color 0.2s ease;
+}
+
+.onb-back:hover { transform: translateY(-1px); border-color: #d94407; color: #d94407; }
+
+.onb-nav-mid {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
+  color: #9ca3af;
+}
+
+.onb-jump {
+  margin-top: 1.1rem;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #6b7280;
+}
+
+/* ---------------------------------------------------------------------------
+   THE REVIEW */
+
+.onb-todo {
+  border-radius: 1rem;
+  border: 1px solid rgba(217, 68, 7, 0.25);
+  background: rgba(253, 240, 231, 0.5);
+  padding: 0.9rem 1rem;
+}
+
+.onb-todo-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 13px;
+  font-weight: 700;
+  color: #d94407;
+}
+
+.onb-todo-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.6rem;
+  padding: 0.4rem 0.5rem;
+  text-align: left;
+  font-size: 12.5px;
+  color: #1a1a1a;
+  transition: background-color 0.18s ease;
+}
+
+.onb-todo-row:hover { background: #fff; }
+
+.onb-todo-fix {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.15rem;
+  font-size: 11px;
+  font-weight: 700;
+  color: #d94407;
+}
+
+.onb-ready {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 1rem;
+  background: #f0fdf4;
+  padding: 0.75rem 1rem;
+  font-size: 13px;
+  font-weight: 600;
+  color: #166534;
+}
+
+.onb-preview {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.1rem;
+  border: 1px solid rgba(26, 26, 26, 0.07);
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(26, 26, 26, 0.05), 0 8px 24px rgba(26, 26, 26, 0.05);
+}
+
+.onb-preview-band {
+  display: block;
+  height: 3.75rem;
+  background: linear-gradient(120deg, #d94407, #f5853f);
+}
+
+.onb-preview-body {
+  display: flex;
+  gap: 1rem;
+  padding: 0 1.1rem 1.1rem;
+  margin-top: -1.75rem;
+}
+
+.onb-preview-avatar {
+  display: flex;
+  height: 5rem;
+  width: 5rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: #fdf0e7;
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: #d94407;
+  box-shadow: 0 0 0 4px #fff;
+}
+
+.onb-preview-body > :first-child { align-self: flex-start; }
+.onb-preview-body > .min-w-0 { padding-top: 2rem; }
+
+.onb-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 9999px;
+  background: #f1f1f3;
+  padding: 0.15rem 0.5rem;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.onb-edit {
+  flex-shrink: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #d94407;
+  transition: transform 0.2s ease;
+}
+
+.onb-edit:hover { transform: scale(1.06); }
+
+html[data-theme='dark'] .onb-page { background: var(--d-bg, #151517); }
+html[data-theme='dark'] .onb-card { background: #1e1e20; border-color: #2c2c30; }
+html[data-theme='dark'] .onb-step { background: #1e1e20; border-color: #2c2c30; }
+html[data-theme='dark'] .onb-head { border-color: #2c2c30; }
+html[data-theme='dark'] .onb-welcome-row { background: #232326; }
+html[data-theme='dark'] .onb-nav { background: rgba(24, 24, 26, 0.92); border-color: #2c2c30; }
+
 
 /* One screen of onboarding arriving, and it arrives from the side it came
    from. Keyed on the step, so it replays as you move - and it replays going
@@ -1036,6 +1524,10 @@ html[data-reduce-motion] *::after {
 .onb-bar {
   position: relative;
   overflow: hidden;
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #d94407, #f5853f);
+  transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .onb-bar::after {
@@ -1079,9 +1571,14 @@ html[data-reduce-motion] *::after {
   .onb-screen,
   .onb-market,
   .onb-market::after,
+  .onb-welcome-mark,
+  .onb-welcome-row,
+  .onb-waiting,
+  .onb-error,
   .lab-in,
   .podium-in { animation: none; }
   .onb-market::after { display: none; }
+  .onb-step.is-on { transform: none; }
 }
 
 /* ============================================================================
@@ -1092,10 +1589,19 @@ html[data-reduce-motion] *::after {
    somebody's first visit, and pulling an animation runtime into the eagerly
    loaded shell to do that would cost every creator on every page load.
 
-   Note what is NOT here: any transition on the spotlight's position while it is
-   following a scroll. React does not drive the geometry either - a rAF loop in
-   TourHost writes straight to these elements' styles. Between them that is what
-   makes the highlight track a scrolling page exactly. */
+   NOTE WHAT IS NOT HERE: any transition on the halo's or the card's POSITION.
+   A CSS transition cannot tell the difference between "the step changed" and
+   "the page scrolled", which is why the highlight used to swim a few frames
+   behind every scroll. The rAF loop in TourHost owns every pixel of geometry
+   and keeps its own clock for the travel between steps. Everything below is
+   colour, shadow, type and the entrances - never position. */
+
+:root {
+  /* Read back in JS to keep the card off a phone's home indicator. A custom
+     property is the only way to get env() out of the stylesheet and into a
+     measurement. */
+  --tour-safe-b: env(safe-area-inset-bottom, 0px);
+}
 
 .tour-root {
   position: fixed;
@@ -1104,157 +1610,232 @@ html[data-reduce-motion] *::after {
   pointer-events: none; /* NOTHING here traps the app. See TourHost. */
 }
 
-/* --- the frame round the whole screen ----------------------------------- */
+/* --- the aura ------------------------------------------------------------
 
-/* HEAVY, AND ON FOR THE WHOLE WALK. The first version was a 3px hairline that
-   read as a rendering artefact rather than a mode. This is a thick inner glow
-   with a soft falloff, so at a glance - from across a room, in a screen share -
-   it is unmistakable that the app is being walked through. */
-@keyframes tour-glow-breathe {
-  0%, 100% { opacity: 0.9; }
+   THE SCREEN IS LIT FROM ITS EDGES. THERE IS NO BORDER.
+
+   The old frame was a 5px orange rule with a glow behind it, and a rule is a
+   rule however soft the thing behind it: it read as a window chrome somebody
+   had drawn on. Ethan: "a strange orange glow around the border of the screen,
+   not just a hard orange border but like a gradient glow".
+
+   So there is no line at all. Four linear gradients bleed inwards from the four
+   edges and fade out over a fifth of the screen, and two big radial blooms sit
+   in the corners where the gradients meet - which is what stops the corners
+   looking like a crossword. `screen` blending keeps it luminous over the white
+   app instead of muddying it, and it breathes slowly so the whole thing reads
+   as lit rather than printed. */
+@keyframes tour-aura-breathe {
+  0%, 100% { opacity: 0.82; }
   50%      { opacity: 1; }
 }
 
-.tour-glow {
+.tour-aura {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  box-shadow:
-    inset 0 0 0 5px rgba(217, 68, 7, 0.95),
-    inset 0 0 0 9px rgba(245, 133, 63, 0.35),
-    inset 0 0 60px 6px rgba(217, 68, 7, 0.4),
-    inset 0 0 130px 10px rgba(217, 68, 7, 0.16);
-  animation: tour-glow-breathe 3.6s ease-in-out infinite;
+  /* MEASURED IN PIXELS, NOT PER CENT.
+     The first attempt faded over 18% of the viewport and put four big radial
+     blooms in the corners, which on a 1440px screen is a 260px orange band on
+     every side meeting in the middle: the entire app went orange. A glow is
+     something that hugs an edge. Roughly a finger's width of falloff, whatever
+     the screen, plus a brighter 30px rim inside it so the very edge is hot
+     without there being a line anywhere. */
+  background:
+    linear-gradient(to bottom, rgba(217, 68, 7, 0.42), rgba(217, 68, 7, 0) min(34px, 4vh)),
+    linear-gradient(to top, rgba(217, 68, 7, 0.42), rgba(217, 68, 7, 0) min(34px, 4vh)),
+    linear-gradient(to right, rgba(217, 68, 7, 0.38), rgba(217, 68, 7, 0) min(30px, 5vw)),
+    linear-gradient(to left, rgba(217, 68, 7, 0.38), rgba(217, 68, 7, 0) min(30px, 5vw)),
+    radial-gradient(min(240px, 40vw) min(190px, 24vh) at 0% 0%, rgba(245, 133, 63, 0.26), transparent 68%),
+    radial-gradient(min(240px, 40vw) min(190px, 24vh) at 100% 0%, rgba(245, 133, 63, 0.26), transparent 68%),
+    radial-gradient(min(240px, 40vw) min(190px, 24vh) at 0% 100%, rgba(245, 133, 63, 0.26), transparent 68%),
+    radial-gradient(min(240px, 40vw) min(190px, 24vh) at 100% 100%, rgba(245, 133, 63, 0.26), transparent 68%),
+    linear-gradient(to bottom, rgba(217, 68, 7, 0.22), rgba(217, 68, 7, 0) min(130px, 15vh)),
+    linear-gradient(to top, rgba(217, 68, 7, 0.22), rgba(217, 68, 7, 0) min(130px, 15vh)),
+    linear-gradient(to right, rgba(217, 68, 7, 0.18), rgba(217, 68, 7, 0) min(110px, 17vw)),
+    linear-gradient(to left, rgba(217, 68, 7, 0.18), rgba(217, 68, 7, 0) min(110px, 17vw));
+  mix-blend-mode: multiply;
+  animation: tour-aura-breathe 5.2s ease-in-out infinite;
 }
 
-/* --- the spotlight ------------------------------------------------------ */
-
-/* ONE element does the whole scrim. A vast spread box-shadow darkens everything
-   outside this rectangle, so the "hole" is simply the element's own box. Four
-   divs forming a frame is the usual approach and it cannot travel between steps
-   as a single shape. */
-.tour-spot {
-  position: fixed;
-  pointer-events: none;
-  border-radius: 14px;
-  box-shadow:
-    0 0 0 9999px rgba(17, 17, 17, 0.62),
-    0 0 0 2px rgba(217, 68, 7, 0.95),
-    0 0 26px 3px rgba(217, 68, 7, 0.6);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.tour-spot--ready { opacity: 1; }
-
-/* A step pointing at nothing, or at something scrolled off screen: no hole,
-   just the dim. */
-.tour-spot[data-on='no'] {
-  box-shadow: 0 0 0 9999px rgba(17, 17, 17, 0.62);
-  border-radius: 9999px;
-}
-
-/* THE TRAVEL BETWEEN STEPS, AND ONLY BETWEEN STEPS.
-   The same transition applied to a scroll makes the box swim a few frames
-   behind the page, which is what "the highlighted box is not smooth" was. The
-   rAF loop flips this attribute off ~560ms after a step change, and from then
-   on the position is written with no transition at all. */
-.tour-spot[data-travel='yes'] {
-  transition:
-    top 0.46s cubic-bezier(0.22, 1, 0.36, 1),
-    left 0.46s cubic-bezier(0.22, 1, 0.36, 1),
-    width 0.46s cubic-bezier(0.22, 1, 0.36, 1),
-    height 0.46s cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 0.3s ease;
-}
-
-/* --- the card ----------------------------------------------------------- */
-
-@keyframes tour-card-in {
-  from { opacity: 0; transform: translateY(10px) scale(0.985); }
-  to   { opacity: 1; transform: none; }
-}
-
-@keyframes tour-sheet-in {
-  from { opacity: 0; transform: translateY(26px); }
-  to   { opacity: 1; transform: none; }
-}
-
-.tour-card {
-  position: fixed;
-  pointer-events: auto;
-  z-index: 1;
-  border-radius: 1.1rem;
-  background: #fff;
-  padding: 1.15rem 1.25rem;
-  box-shadow:
-    0 0 0 1px rgba(217, 68, 7, 0.14),
-    0 10px 28px rgba(26, 26, 26, 0.2),
-    0 28px 70px rgba(26, 26, 26, 0.16);
-}
-
-.tour-card--float {
-  animation: tour-card-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-/* An anchorless step - or one whose anchor is off screen - sits in the middle,
-   because there is nothing on the page for it to be beside. Driven by a data
-   attribute so the rAF loop can flip it without a React render. */
-.tour-card--float[data-centre='yes'] {
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  animation: tour-card-centre-in 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@keyframes tour-card-centre-in {
-  from { opacity: 0; transform: translate(-50%, calc(-50% + 12px)) scale(0.97); }
-  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-}
-
-/* ON A PHONE IT IS A SHEET, ALWAYS.
-   A floating card on a 390px screen covers whatever it points at however
-   cleverly it is placed. It clears the tab bar and the home indicator, it never
-   exceeds half the screen, and it scrolls inside itself rather than growing -
-   the connect step carries a body, an instruction and a callout, and on a small
-   phone in landscape that is taller than the viewport. */
-.tour-card--sheet {
-  left: 0.6rem;
-  right: 0.6rem;
-  bottom: calc(5.25rem + env(safe-area-inset-bottom));
-  max-height: min(58vh, 26rem);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 1.05rem 1.1rem;
-  animation: tour-sheet-in 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-/* A grab handle, so the sheet reads as a sheet rather than as a box that
-   appeared over the tabs. */
-.tour-card--sheet::before {
+/* A second, brighter wash in `screen`, tight to the edge. This is what makes it
+   read as LIGHT coming off the bezel rather than as paint on the glass - one
+   blend mode can either tint or brighten, and a glow needs both. */
+.tour-aura::after {
   content: '';
-  display: block;
-  width: 2.25rem;
-  height: 0.25rem;
-  margin: -0.35rem auto 0.7rem;
-  border-radius: 9999px;
-  background: #e5e7eb;
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to bottom, rgba(255, 156, 92, 0.55), transparent min(60px, 7vh)),
+    linear-gradient(to top, rgba(255, 156, 92, 0.55), transparent min(60px, 7vh)),
+    linear-gradient(to right, rgba(255, 156, 92, 0.45), transparent min(52px, 9vw)),
+    linear-gradient(to left, rgba(255, 156, 92, 0.45), transparent min(52px, 9vw));
+  mix-blend-mode: screen;
+  filter: blur(10px);
 }
 
-/* Wide phones in landscape have almost no vertical room, so the sheet gives
-   back its bottom offset and sits against the bezel. */
-@media (max-height: 460px) {
-  .tour-card--sheet {
-    bottom: calc(0.6rem + env(safe-area-inset-bottom));
-    max-height: 72vh;
+/* --- the veil ------------------------------------------------------------
+
+   ONE element does the whole wash. A vast spread box-shadow dims everything
+   outside this rectangle, so the "hole" is simply the element's own box, and a
+   BLUR on that shadow feathers the edge of the hole - which is the difference
+   between a spotlight and a cut-out.
+
+   IT IS 20% BLACK, NOT 62%. Ethan: "the main screen is too dim... maybe
+   highlight it in orange glow rather than having to dim the main screen a lot."
+   The halo below is doing the highlighting now; this only has to say "over
+   there, not here", and a fifth of a stop of dim says that perfectly well while
+   leaving the app looking like a live app. */
+.tour-veil {
+  position: fixed;
+  top: 0;
+  left: 0;
+  will-change: transform, width, height;
+  box-shadow: 0 0 40px 9999px rgba(24, 20, 28, 0.13);
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+/* --- the halo ------------------------------------------------------------
+
+   THE HIGHLIGHT IS LIGHT, NOT DARKNESS. Three rings of orange at falling
+   opacity and rising blur, plus a hairline of pure brand at the very edge of
+   the box so the shape stays crisp inside all that bloom. It pulses, slowly,
+   which is the only thing on the screen that moves and therefore the only thing
+   the eye goes to. */
+@keyframes tour-halo-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 2px rgba(217, 68, 7, 0.85),
+      0 0 0 6px rgba(217, 68, 7, 0.18),
+      0 0 22px 4px rgba(245, 133, 63, 0.55),
+      0 0 60px 14px rgba(217, 68, 7, 0.3);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px rgba(217, 68, 7, 0.95),
+      0 0 0 9px rgba(217, 68, 7, 0.13),
+      0 0 34px 8px rgba(245, 133, 63, 0.72),
+      0 0 96px 26px rgba(217, 68, 7, 0.36);
   }
 }
 
-/* --- the one progress bar ----------------------------------------------- */
+.tour-halo {
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  will-change: transform, width, height;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  animation: tour-halo-pulse 2.8s ease-in-out infinite;
+}
+
+/* --- the card ------------------------------------------------------------
+
+   The LAYER is what the loop moves; the CARD inside it is what is drawn. They
+   are two elements because the layer carries an inline transform sixty times a
+   second and an entrance animation on the same element would be overwritten on
+   the first frame. */
+.tour-card-layer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  will-change: transform;
+  opacity: 0;
+  transition: opacity 0.24s ease;
+}
+
+.tour-card-layer[data-ready='yes'] { opacity: 1; }
+
+.tour-card {
+  pointer-events: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 1.25rem;
+  background: #fff;
+  padding: 1.15rem 1.25rem 1rem;
+  /* The card belongs to the walkthrough, so it wears the walkthrough's colour:
+     a whisper of orange in the rim light and a deep soft drop below it. */
+  box-shadow:
+    0 0 0 1px rgba(217, 68, 7, 0.16),
+    0 0 0 5px rgba(217, 68, 7, 0.06),
+    0 12px 30px rgba(26, 26, 26, 0.16),
+    0 34px 80px rgba(26, 26, 26, 0.18);
+  transition: width 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* A NIB POINTING AT THE THING. The card knows which side of the highlight it
+   ended up on, so it can grow a small triangle on the opposite face - which is
+   what turns "a card that happens to be near that button" into "a card about
+   that button". Centred cards have nothing to point at and get none. */
+.tour-card-layer::before {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  transform: rotate(45deg);
+  box-shadow: 0 0 0 1px rgba(217, 68, 7, 0.16);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.tour-card-layer[data-side='below']::before { top: -6px; left: calc(50% - 7px); opacity: 1; clip-path: polygon(0 0, 100% 0, 0 100%); }
+.tour-card-layer[data-side='above']::before { bottom: -6px; left: calc(50% - 7px); opacity: 1; clip-path: polygon(100% 0, 100% 100%, 0 100%); }
+.tour-card-layer[data-side='right']::before { left: -6px; top: calc(50% - 7px); opacity: 1; clip-path: polygon(0 0, 0 100%, 100% 100%); }
+.tour-card-layer[data-side='left']::before { right: -6px; top: calc(50% - 7px); opacity: 1; clip-path: polygon(0 0, 100% 0, 100% 100%); }
+
+@keyframes tour-hit-flash {
+  0%   { box-shadow: 0 0 0 1px rgba(22, 163, 74, 0.35), 0 0 0 5px rgba(22, 163, 74, 0.14), 0 12px 30px rgba(26, 26, 26, 0.16); }
+  100% { box-shadow: 0 0 0 1px rgba(217, 68, 7, 0.16), 0 0 0 5px rgba(217, 68, 7, 0.06), 0 12px 30px rgba(26, 26, 26, 0.16), 0 34px 80px rgba(26, 26, 26, 0.18); }
+}
+
+.tour-card.is-hit { animation: tour-hit-flash 0.62s ease-out both; }
+
+/* --- the card's furniture ------------------------------------------------ */
+
+.tour-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.tour-part {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: #d94407;
+}
+
+.tour-pct {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #6b7280;
+}
+
+.tour-track {
+  margin-top: 0.5rem;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: #f1f1f3;
+}
 
 .tour-bar {
   position: relative;
-  overflow: hidden;
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #d94407, #f5853f);
   transition: width 0.55s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -1264,18 +1845,54 @@ html[data-reduce-motion] *::after {
   right: 0;
   top: 0;
   bottom: 0;
-  width: 18px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55));
+  width: 20px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7));
+}
+
+.tour-title {
+  margin-top: 0.9rem;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.tour-body {
+  margin-top: 0.4rem;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: #6b7280;
 }
 
 /* --- the instruction, and the moment it is satisfied -------------------- */
 
 @keyframes tour-do-in {
-  from { opacity: 0; transform: translateY(4px); }
+  from { opacity: 0; transform: translateY(5px); }
   to   { opacity: 1; transform: none; }
 }
 
-.tour-do { animation: tour-do-in 0.3s ease both; }
+.tour-do {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+  border-radius: 0.85rem;
+  background: linear-gradient(100deg, rgba(253, 240, 231, 0.95), rgba(253, 240, 231, 0.5));
+  box-shadow: inset 0 0 0 1px rgba(217, 68, 7, 0.14);
+  padding: 0.6rem 0.75rem;
+  font-size: 13px;
+  font-weight: 600;
+  color: #d94407;
+  animation: tour-do-in 0.3s ease both;
+}
+
+@keyframes tour-nudge {
+  0%, 100% { transform: translateX(0); opacity: 0.75; }
+  50%      { transform: translateX(3px); opacity: 1; }
+}
+
+.tour-nudge { animation: tour-nudge 1.25s ease-in-out infinite; }
 
 @keyframes tour-hit-in {
   0%   { opacity: 0; transform: scale(0.94); }
@@ -1283,22 +1900,147 @@ html[data-reduce-motion] *::after {
   100% { opacity: 1; transform: scale(1); }
 }
 
-.tour-hit { animation: tour-hit-in 0.34s cubic-bezier(0.34, 1.4, 0.5, 1) both; }
+.tour-hit {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+  border-radius: 0.85rem;
+  background: #f0fdf4;
+  padding: 0.6rem 0.75rem;
+  font-size: 13px;
+  font-weight: 600;
+  color: #166534;
+  animation: tour-hit-in 0.34s cubic-bezier(0.34, 1.4, 0.5, 1) both;
+}
+
+/* --- the one step with four doors on it --------------------------------- */
+
+.tour-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+}
+
+@media (max-width: 380px) {
+  .tour-choices { grid-template-columns: minmax(0, 1fr); }
+}
+
+.tour-choices--one { grid-template-columns: minmax(0, 1fr); }
+
+.tour-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  border-radius: 0.8rem;
+  border: 1px solid #ececed;
+  padding: 0.55rem 0.6rem;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tour-choice:hover {
+  transform: translateY(-2px);
+  border-color: rgba(217, 68, 7, 0.5);
+  box-shadow: 0 6px 16px rgba(217, 68, 7, 0.12);
+}
+
+.tour-choice-icon {
+  display: flex;
+  height: 1.75rem;
+  width: 1.75rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.6rem;
+  background: #fdf0e7;
+  color: #d94407;
+}
+
+.tour-choice-label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.tour-choice-hint {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10.5px;
+  color: #6b7280;
+}
+
+/* --- the foot ------------------------------------------------------------ */
+
+.tour-foot {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.tour-count {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.tour-skip {
+  flex-shrink: 0;
+  border-radius: 9999px;
+  border: 1px solid #ececed;
+  padding: 0.3rem 0.7rem;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.tour-skip:hover { color: #d94407; border-color: rgba(217, 68, 7, 0.45); }
+
+/* NO CROSS IN THE CORNER. The way out is a sentence, at the bottom, in the
+   quietest type on the card - findable by anybody who wants it and invisible to
+   the reflex that closes anything with an X on it. */
+.tour-leave {
+  display: block;
+  width: 100%;
+  margin-top: 0.55rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #f3f3f4;
+  font-size: 10.5px;
+  color: #9ca3af;
+  transition: color 0.2s ease;
+}
+
+.tour-leave:hover { color: #6b7280; }
 
 html[data-theme='dark'] .tour-card { background: #1e1e20; }
-html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
+html[data-theme='dark'] .tour-card-layer::before { background: #1e1e20; }
+html[data-theme='dark'] .tour-track { background: #2c2c30; }
+html[data-theme='dark'] .tour-choice { border-color: #2c2c30; }
 
 @media (prefers-reduced-motion: reduce) {
-  .tour-glow { animation: none; }
-  .tour-spot,
-  .tour-spot[data-travel='yes'] { transition: opacity 0.2s ease; }
-  .tour-bar { transition: none; }
-  .tour-card--float,
-  .tour-card--sheet,
+  .tour-aura,
+  .tour-halo,
+  .tour-nudge,
   .tour-do,
-  .tour-hit { animation: none; }
-  .tour-card--float[data-centre='yes'] { animation: none; transform: translate(-50%, -50%); }
-  .tour-do .animate-pulse { animation: none; }
+  .tour-hit,
+  .tour-card.is-hit { animation: none; }
+  .tour-halo {
+    box-shadow:
+      0 0 0 2px rgba(217, 68, 7, 0.95),
+      0 0 26px 6px rgba(245, 133, 63, 0.6),
+      0 0 70px 18px rgba(217, 68, 7, 0.3);
+  }
+  .tour-bar,
+  .tour-card { transition: none; }
 }
 
 /* The Testing Centre's card grid, arriving. A short stagger read off the
@@ -1316,4 +2058,1176 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
 
 @media (prefers-reduced-motion: reduce) {
   .lab-card { animation: none; }
+}
+
+/* ============================================================================
+   THE FRONT DOOR
+   ============================================================================
+
+   Log in, sign up, forgot password and reset all share one frame: a brand panel
+   carrying the pitch on the left, the form on the right, and on a phone the
+   panel folds down to a strip so the form gets the screen. See AuthShell for
+   why the page needed a pitch on it at all. */
+
+.auth-shell {
+  display: grid;
+  min-height: 100vh;
+  min-height: 100dvh;
+  grid-template-columns: minmax(0, 1fr);
+  background: #fff;
+}
+
+@media (min-width: 1024px) {
+  .auth-shell { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); }
+}
+
+/* --- the pitch ----------------------------------------------------------- */
+
+.auth-pitch {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  color: #fff;
+  background: linear-gradient(150deg, #b93a06 0%, #d94407 45%, #f5853f 100%);
+}
+
+.auth-bloom {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(60px);
+  pointer-events: none;
+}
+
+.auth-bloom--a {
+  top: -18%;
+  right: -12%;
+  width: 32rem;
+  height: 32rem;
+  background: rgba(255, 255, 255, 0.22);
+  animation: auth-drift-a 18s ease-in-out infinite;
+}
+
+.auth-bloom--b {
+  bottom: -22%;
+  left: -14%;
+  width: 30rem;
+  height: 30rem;
+  background: rgba(0, 0, 0, 0.16);
+  animation: auth-drift-b 22s ease-in-out infinite;
+}
+
+@keyframes auth-drift-a {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(-3rem, 2.5rem, 0) scale(1.08); }
+}
+
+@keyframes auth-drift-b {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(3rem, -2rem, 0) scale(1.1); }
+}
+
+.auth-pitch-inner {
+  position: relative;
+  display: flex;
+  width: 100%;
+  max-width: 34rem;
+  flex-direction: column;
+  gap: 2.5rem;
+  margin-left: auto;
+  padding: 2.25rem 2rem;
+}
+
+@media (min-width: 1024px) {
+  .auth-pitch-inner { padding: 3.5rem 3.5rem 3.5rem 3rem; justify-content: space-between; }
+}
+
+.auth-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  align-self: flex-start;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.auth-mark:hover { transform: translateY(-2px); }
+
+.auth-mark--mobile { display: none; }
+
+.auth-pitch-head {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  max-width: 22ch;
+}
+
+@media (min-width: 1024px) {
+  .auth-pitch-head { font-size: 2.25rem; }
+}
+
+.auth-pitch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.05rem;
+  margin-top: 1.75rem;
+}
+
+.auth-pitch-list li {
+  display: flex;
+  gap: 0.85rem;
+  animation: auth-line-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(140ms + var(--i) * 90ms);
+}
+
+@keyframes auth-line-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.auth-pitch-icon {
+  display: flex;
+  height: 2rem;
+  width: 2rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.65rem;
+  background: rgba(255, 255, 255, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+.auth-pitch-foot {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+/* ON A PHONE THE PITCH IS A STRIP, NOT A SCREEN.
+   Four selling points above the fold on a 390px screen pushes the email field
+   below it, and somebody who tapped "sign up" has already been sold. The panel
+   keeps the logo and one line; the rest of it is on the marketing site. */
+@media (max-width: 1023px) {
+  .auth-pitch { min-height: auto; }
+  .auth-pitch-inner {
+    margin: 0;
+    max-width: none;
+    gap: 1rem;
+    padding: 1.5rem 1.5rem 1.75rem;
+  }
+  .auth-pitch-body { display: none; }
+  .auth-pitch-foot { font-size: 12.5px; }
+}
+
+/* --- the form ------------------------------------------------------------ */
+
+.auth-form-side {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 1.25rem 3.5rem;
+}
+
+@media (min-width: 1024px) {
+  .auth-form-side { padding: 3rem 2.5rem; }
+}
+
+.auth-form {
+  width: 100%;
+  max-width: 26rem;
+  animation: auth-form-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.auth-form--wide { max-width: 30rem; }
+
+@keyframes auth-form-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.auth-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.auth-sub {
+  margin-top: 0.55rem;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #6b7280;
+}
+
+.auth-foot {
+  margin-top: 1.75rem;
+  border-top: 1px solid #f3f3f4;
+  padding-top: 1.25rem;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+/* --- the fields ---------------------------------------------------------- */
+
+/* A FIELD KNOWS WHEN IT IS WRONG, AND SAYS SO WHERE IT IS.
+   The old form put one red line at the bottom for the whole thing, which tells
+   somebody that something is wrong and not what. */
+.field-error {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+  font-size: 12px;
+  font-weight: 500;
+  color: #dc2626;
+  animation: auth-line-in 0.28s ease both;
+}
+
+.input[aria-invalid='true'] {
+  border-color: #fca5a5;
+  background: #fffafa;
+}
+
+/* The password strength bar. Four segments, because a continuous bar invites
+   the question "how long does it have to be" and four blocks answer it. */
+.pw-meter {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.3rem;
+  margin-top: 0.55rem;
+}
+
+.pw-seg {
+  height: 4px;
+  border-radius: 9999px;
+  background: #ececed;
+  transition: background-color 0.35s ease;
+}
+
+.pw-seg[data-on='1'] { background: #f87171; }
+.pw-seg[data-on='2'] { background: #fbbf24; }
+.pw-seg[data-on='3'] { background: #84cc16; }
+.pw-seg[data-on='4'] { background: #16a34a; }
+
+.pw-reveal {
+  position: absolute;
+  right: 0.65rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  height: 2rem;
+  width: 2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.55rem;
+  color: #9ca3af;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.pw-reveal:hover { color: #d94407; background: #fdf0e7; }
+
+html[data-theme='dark'] .auth-shell { background: var(--d-bg, #151517); }
+html[data-theme='dark'] .auth-foot { border-color: #2c2c30; }
+html[data-theme='dark'] .pw-seg { background: #2c2c30; }
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-bloom,
+  .auth-pitch-list li,
+  .auth-form,
+  .field-error { animation: none; }
+}
+
+/* ============================================================================
+   THE COMMUNITY BOARD
+   ============================================================================
+
+   See Board.jsx for the argument. The short version: the question is the
+   object on the card, everything else is a caption on it, and the state lives
+   on the left edge as a colour so a whole column can be read without reading a
+   word. */
+
+/* --- the composer prompt -------------------------------------------------- */
+
+.board-ask {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.75rem;
+  border-radius: 1rem;
+  border: 1px solid #ececed;
+  background: #fff;
+  padding: 0.7rem 0.75rem 0.7rem 0.85rem;
+  text-align: left;
+  box-shadow: 0 1px 2px rgba(26, 26, 26, 0.04);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.board-ask:hover {
+  transform: translateY(-1px);
+  border-color: rgba(217, 68, 7, 0.45);
+  box-shadow: 0 4px 14px rgba(217, 68, 7, 0.1);
+}
+
+.board-ask-icon {
+  display: flex;
+  height: 2.1rem;
+  width: 2.1rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.7rem;
+  background: #fdf0e7;
+  color: #d94407;
+}
+
+.board-ask-text {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  color: #9ca3af;
+}
+
+.board-ask-go {
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: #d94407;
+  padding: 0.4rem 1rem;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+}
+
+/* --- the controls --------------------------------------------------------- */
+
+.board-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+@media (min-width: 640px) {
+  .board-controls { flex-direction: row; align-items: center; }
+}
+
+/* A SEGMENTED CONTROL, because the three states are mutually exclusive. Seven
+   identical pills in one row - three states and four tags - taught people that
+   pressing two of them was possible when it was not. */
+.board-seg {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.15rem;
+  border-radius: 9999px;
+  border: 1px solid #ececed;
+  background: #f7f7f8;
+  padding: 0.2rem;
+}
+
+.board-seg-btn {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border-radius: 9999px;
+  padding: 0.4rem 0.7rem;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  white-space: nowrap;
+  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.board-seg-btn:hover { color: #d94407; }
+
+.board-seg-btn.is-on {
+  background: #fff;
+  color: #d94407;
+  box-shadow: 0 1px 2px rgba(26, 26, 26, 0.08);
+}
+
+.board-seg-count {
+  border-radius: 9999px;
+  background: #fdf0e7;
+  padding: 0 0.3rem;
+  font-size: 10px;
+  font-weight: 700;
+  color: #d94407;
+}
+
+.board-sort {
+  border-radius: 9999px;
+  padding: 0.2rem 0.55rem;
+  font-size: 11px;
+  font-weight: 600;
+  color: #9ca3af;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.board-sort:hover { color: #d94407; }
+.board-sort.is-on { background: #fdf0e7; color: #d94407; }
+
+/* --- one question --------------------------------------------------------- */
+
+.board-card {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: 1rem;
+  border: 1px solid #f0f0f1;
+  background: #fff;
+  padding: 0.95rem 1.1rem 0.85rem 1.35rem;
+  box-shadow: 0 1px 2px rgba(26, 26, 26, 0.03);
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 0.22s ease, box-shadow 0.22s ease;
+}
+
+.board-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(217, 68, 7, 0.3);
+  box-shadow: 0 6px 18px rgba(26, 26, 26, 0.07), 0 18px 40px rgba(26, 26, 26, 0.05);
+}
+
+/* THE STATE, AS A COLOURED EDGE. It costs no vertical space and it is legible
+   at the edge of vision, so a column of twenty questions can be read for
+   "which of these still needs me" without reading a single word. */
+.board-card-edge {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  transition: width 0.22s ease;
+}
+
+.board-card.is-open .board-card-edge { background: linear-gradient(180deg, #d94407, #f5853f); }
+.board-card.is-answered .board-card-edge { background: linear-gradient(180deg, #34d399, #a7f3d0); }
+.board-card:hover .board-card-edge { width: 5px; }
+
+.board-card-top {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.board-dot { color: #d4d4d8; }
+
+.board-tag {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 12rem;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 9999px;
+  background: #f7f7f8;
+  padding: 0.1rem 0.5rem;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.board-tag--lg {
+  background: #fdf0e7;
+  color: #d94407;
+  padding: 0.25rem 0.65rem;
+  font-size: 11.5px;
+  max-width: none;
+}
+
+/* THE QUESTION. This is the only thing on the card anybody reads first, so it
+   is the only thing on the card set above 13px. */
+.board-question {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-top: 0.4rem;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.32;
+  letter-spacing: -0.011em;
+  color: #1a1a1a;
+  transition: color 0.2s ease;
+}
+
+@media (min-width: 640px) {
+  .board-question { font-size: 19px; }
+}
+
+.board-card:hover .board-question { color: #d94407; }
+
+.board-body {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-top: 0.35rem;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #6b7280;
+}
+
+.board-card-foot {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.7rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid #f5f5f6;
+}
+
+.board-waiting {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #d94407;
+}
+
+.board-answered {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 11.5px;
+}
+
+.board-quote {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-style: italic;
+  color: #9ca3af;
+}
+
+/* Always hard right, even when there is no answer preview to push it there -
+   otherwise the arrow trails the words on an unanswered card and sits at the
+   edge on an answered one, and the column stops lining up. */
+.board-chev {
+  margin-left: auto;
+  height: 1rem;
+  width: 1rem;
+  flex-shrink: 0;
+  color: #d4d4d8;
+  transition: transform 0.22s ease, color 0.22s ease;
+}
+
+.board-card:hover .board-chev { transform: translateX(2px); color: #d94407; }
+
+/* --- the rail ------------------------------------------------------------- */
+
+.board-rail-card {
+  border-radius: 1rem;
+  border: 1px solid #f0f0f1;
+  background: #fff;
+  padding: 0.95rem 1rem;
+  box-shadow: 0 1px 2px rgba(26, 26, 26, 0.03);
+}
+
+.board-rail-head {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #9ca3af;
+}
+
+.board-rail-icon {
+  display: flex;
+  height: 1.55rem;
+  width: 1.55rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  background: #fdf0e7;
+  color: #d94407;
+}
+
+.board-rail-row {
+  display: block;
+  border-radius: 0.6rem;
+  padding: 0.4rem 0.5rem;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.board-rail-row:hover { background: #f7f7f8; color: #d94407; }
+
+.board-topic {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.6rem;
+  padding: 0.4rem 0.5rem;
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.board-topic:hover { background: #f7f7f8; color: #d94407; }
+.board-topic.is-on { background: #fdf0e7; color: #d94407; font-weight: 600; }
+
+/* --- the thread ----------------------------------------------------------- */
+
+.board-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 9999px;
+  padding: 0.25rem 0.65rem;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.board-state--open { background: #fdf0e7; color: #d94407; }
+.board-state--done { background: #f0fdf4; color: #15803d; }
+
+.board-empty-answers {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  border-radius: 1rem;
+  border: 1px dashed rgba(217, 68, 7, 0.3);
+  background: rgba(253, 240, 231, 0.35);
+  padding: 1rem 1.15rem;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: #6b7280;
+}
+
+/* ONE RULE DOWN THE LEFT, AVATARS SITTING ON IT. That is the whole difference
+   between six answers reading as a conversation and six answers reading as six
+   unrelated cards. */
+.board-thread {
+  position: relative;
+  padding-left: 1.4rem;
+}
+
+.board-thread[data-many='no']::before { display: none; }
+
+.board-thread::before {
+  content: '';
+  position: absolute;
+  top: 1.15rem;
+  bottom: 1.15rem;
+  left: 1.4rem;
+  width: 2px;
+  border-radius: 9999px;
+  background: linear-gradient(180deg, rgba(217, 68, 7, 0.28), rgba(217, 68, 7, 0.05));
+}
+
+.board-thread > .reveal-item + .reveal-item { margin-top: 0.35rem; }
+
+.board-answer {
+  position: relative;
+  display: flex;
+  gap: 0.85rem;
+  border-radius: 0.9rem;
+  padding: 0.85rem 0.9rem 0.85rem 0;
+  transition: background-color 0.2s ease;
+}
+
+.board-answer-mark {
+  position: relative;
+  z-index: 1;
+  margin-left: -1.4rem;
+  flex-shrink: 0;
+}
+
+.board-composer {
+  border-radius: 1rem;
+  border: 1px solid rgba(217, 68, 7, 0.25);
+  background: rgba(253, 240, 231, 0.28);
+  padding: 1rem;
+}
+
+@media (min-width: 640px) {
+  .board-composer { padding: 1.25rem; }
+}
+
+html[data-theme='dark'] .board-card,
+html[data-theme='dark'] .board-rail-card,
+html[data-theme='dark'] .board-ask { background: #1e1e20; border-color: #2c2c30; }
+html[data-theme='dark'] .board-question { color: var(--d-text, #ededed); }
+html[data-theme='dark'] .board-card-foot { border-color: #2c2c30; }
+html[data-theme='dark'] .board-seg { background: #232326; border-color: #2c2c30; }
+html[data-theme='dark'] .board-seg-btn.is-on { background: #1e1e20; }
+html[data-theme='dark'] .board-tag { background: #232326; }
+
+@media (prefers-reduced-motion: reduce) {
+  .board-card,
+  .board-card-edge,
+  .board-chev,
+  .board-ask { transition: none; }
+}
+
+/* ============================================================================
+   MILESTONES
+   ============================================================================
+
+   See MilestoneLadder.jsx for why the drawn flight path is gone. Everything
+   here is built to be the same shape at 375px and at 1600px - the old layout
+   had a phone variant, a desktop variant and a set of compromises between them,
+   and the phone one was the one nobody looked at. */
+
+.ms-section-head {
+  margin-bottom: 0.6rem;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #9ca3af;
+}
+
+/* --- where you are -------------------------------------------------------- */
+
+.ms-standing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  border-radius: 1.25rem;
+  border: 1px solid rgba(217, 68, 7, 0.16);
+  background:
+    radial-gradient(24rem 14rem at 8% -20%, rgba(217, 68, 7, 0.09), transparent 70%),
+    radial-gradient(20rem 12rem at 100% 120%, rgba(245, 133, 63, 0.12), transparent 70%),
+    #fff;
+  padding: 1.35rem;
+  text-align: center;
+  box-shadow: 0 1px 2px rgba(26, 26, 26, 0.04), 0 10px 30px rgba(26, 26, 26, 0.05);
+}
+
+@media (min-width: 640px) {
+  .ms-standing {
+    flex-direction: row;
+    align-items: center;
+    gap: 1.75rem;
+    padding: 1.6rem 1.9rem;
+    text-align: left;
+  }
+}
+
+.ms-ring-wrap {
+  position: relative;
+  height: 7.5rem;
+  width: 7.5rem;
+  flex-shrink: 0;
+}
+
+.ms-ring {
+  height: 100%;
+  width: 100%;
+  transform: rotate(-90deg);
+}
+
+/* The arc draws itself once, from nothing. `stroke-dashoffset` is the only
+   property that can animate a circle's fill without a runtime, and starting it
+   at the full circumference is what makes it sweep rather than appear. */
+@keyframes ms-ring-draw {
+  from { stroke-dashoffset: 327; }
+}
+
+.ms-ring-arc { animation: ms-ring-draw 1.1s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+.ms-ring-mid {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.ms-ring-num {
+  font-size: 1.9rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: #d94407;
+  font-variant-numeric: tabular-nums;
+}
+
+.ms-ring-of { font-size: 1rem; color: #9ca3af; }
+
+.ms-ring-cap {
+  margin-top: 0.2rem;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9ca3af;
+}
+
+.ms-standing-kicker {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #d94407;
+}
+
+.ms-standing-title {
+  margin-top: 0.3rem;
+  font-size: 1.3rem;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+}
+
+@media (min-width: 640px) {
+  .ms-standing-title { font-size: 1.5rem; }
+}
+
+.ms-standing-reward {
+  display: inline-block;
+  margin-top: 0.5rem;
+  border-radius: 9999px;
+  background: #d94407;
+  padding: 0.2rem 0.65rem;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.ms-standing-bar {
+  margin-top: 0.85rem;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgba(26, 26, 26, 0.07);
+}
+
+.ms-standing-fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #d94407, #f5853f);
+  box-shadow: 0 0 12px rgba(217, 68, 7, 0.4);
+  animation: ms-fill 1s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes ms-fill {
+  from { transform: scaleX(0); transform-origin: left; }
+}
+
+.ms-standing-line {
+  margin-top: 0.6rem;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #6b7280;
+}
+
+.ms-standing-last {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  margin-top: 0.75rem;
+  font-size: 11.5px;
+  color: #6b7280;
+}
+
+@media (min-width: 640px) {
+  .ms-standing-last { justify-content: flex-start; }
+}
+
+/* --- the four numbers ----------------------------------------------------- */
+
+.ms-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+@media (min-width: 900px) {
+  .ms-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+.ms-metric {
+  border-radius: 1rem;
+  border: 1px solid #f0f0f1;
+  background: #fff;
+  padding: 0.85rem 0.9rem;
+  box-shadow: 0 1px 2px rgba(26, 26, 26, 0.03);
+  animation: ms-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+
+@keyframes ms-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.ms-metric-icon {
+  display: flex;
+  height: 1.75rem;
+  width: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.6rem;
+  background: #fdf0e7;
+  color: #d94407;
+}
+
+.ms-metric-value {
+  margin-top: 0.5rem;
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.ms-metric-label {
+  margin-top: 0.1rem;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.ms-metric-what {
+  margin-top: 0.2rem;
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: #9ca3af;
+}
+
+/* --- the ladder ----------------------------------------------------------- */
+
+.ms-ladder {
+  position: relative;
+  padding-left: 2.75rem;
+}
+
+/* THE SPINE, DRAWN RUNG BY RUNG.
+   Two stubs per row - one from the top of the row to its node, one from the
+   node down through the gap to the next row - each coloured from that row's own
+   state. That is what makes the line agree with the nodes it joins whatever
+   height the cards happen to be, which a single scaled line could not (see
+   MilestoneLadder). */
+.ms-rung::before,
+.ms-rung::after {
+  content: '';
+  position: absolute;
+  left: calc(-1.7rem - 1px);
+  width: 2px;
+  border-radius: 9999px;
+  background: #ececed;
+}
+
+.ms-rung::before { top: 0; height: 0.85rem; }
+.ms-rung::after { top: 2.95rem; bottom: -0.6rem; }
+
+.ms-rung:first-child::before,
+.ms-rung:last-child::after { display: none; }
+
+/* Above the node is climbed if this milestone is reached; below it is climbed
+   only if the NEXT row down is also behind you. `next` therefore gets a brand
+   stub above and a grey one below, which is the line stopping exactly where the
+   creator has stopped. */
+.ms-rung[data-state='done']::before,
+.ms-rung[data-state='done']::after { background: linear-gradient(180deg, #d94407, #e8631f); }
+
+.ms-rung[data-state='next']::before { background: linear-gradient(180deg, #e8631f, #f5853f); }
+
+.ms-rungs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.ms-rung {
+  position: relative;
+  animation: ms-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(120ms + var(--i, 0) * 55ms);
+}
+
+.ms-node {
+  position: absolute;
+  left: -2.75rem;
+  top: 0.85rem;
+  display: flex;
+  height: 2.1rem;
+  width: 2.1rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 2px solid #ececed;
+  background: #fff;
+  color: #c8c8cc;
+  transform: translateX(0.05rem);
+}
+
+.ms-rung[data-state='done'] .ms-node {
+  border-color: #d94407;
+  background: #d94407;
+  color: #fff;
+}
+
+.ms-rung[data-state='next'] .ms-node {
+  border-color: #d94407;
+  color: #d94407;
+  box-shadow: 0 0 0 4px rgba(217, 68, 7, 0.14);
+  animation: ms-node-pulse 2.6s ease-in-out infinite;
+}
+
+@keyframes ms-node-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(217, 68, 7, 0.14); }
+  50%      { box-shadow: 0 0 0 8px rgba(217, 68, 7, 0.06); }
+}
+
+.ms-card {
+  border-radius: 1rem;
+  border: 1px solid #f0f0f1;
+  background: #fff;
+  padding: 0.85rem 1rem;
+  box-shadow: 0 1px 2px rgba(26, 26, 26, 0.03);
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.22s ease, border-color 0.22s ease;
+}
+
+.ms-rung[data-state='done'] .ms-card {
+  border-color: rgba(217, 68, 7, 0.18);
+  background: linear-gradient(100deg, rgba(253, 240, 231, 0.6), #fff 55%);
+}
+
+/* THE NEXT ONE IS THE ONLY ROW THAT IS BIGGER THAN THE OTHERS, and that is the
+   whole hierarchy of this page: everything above it is history and everything
+   below it is a long way off. */
+.ms-rung[data-state='next'] .ms-card {
+  border-color: rgba(217, 68, 7, 0.4);
+  padding: 1.05rem 1.15rem;
+  box-shadow: 0 2px 4px rgba(217, 68, 7, 0.06), 0 12px 30px rgba(217, 68, 7, 0.1);
+}
+
+.ms-rung[data-state='ahead'] .ms-card { background: #fcfcfd; }
+
+.ms-card-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ms-title {
+  min-width: 0;
+  flex: 1;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.008em;
+}
+
+.ms-rung[data-state='next'] .ms-title { font-size: 17px; }
+.ms-rung[data-state='ahead'] .ms-title { color: #6b7280; }
+
+.ms-reward {
+  flex-shrink: 0;
+  border-radius: 9999px;
+  padding: 0.15rem 0.55rem;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.ms-desc {
+  margin-top: 0.35rem;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #6b7280;
+}
+
+.ms-req {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.ms-rung[data-state='next'] .ms-req { color: #d94407; font-weight: 600; }
+
+.ms-done-chip {
+  border-radius: 9999px;
+  background: #f0fdf4;
+  padding: 0.05rem 0.4rem;
+  font-size: 10px;
+  font-weight: 700;
+  color: #15803d;
+}
+
+.ms-bar {
+  margin-top: 0.6rem;
+  height: 7px;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgba(26, 26, 26, 0.07);
+}
+
+.ms-bar-fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #d94407, #f5853f);
+  animation: ms-fill 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ms-left {
+  margin-top: 0.45rem;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.ms-what {
+  margin-top: 0.35rem;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #9ca3af;
+}
+
+.ms-faces {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid #f5f5f6;
+}
+
+.ms-faces-count {
+  font-size: 10.5px;
+  color: #9ca3af;
+}
+
+.ms-company {
+  border-radius: 1rem;
+  border: 1px solid #f0f0f1;
+  background: #fff;
+  padding: 1rem 1.1rem;
+}
+
+html[data-theme='dark'] .ms-standing,
+html[data-theme='dark'] .ms-metric,
+html[data-theme='dark'] .ms-card,
+html[data-theme='dark'] .ms-company { background: #1e1e20; border-color: #2c2c30; }
+html[data-theme='dark'] .ms-node { background: #1e1e20; border-color: #2c2c30; }
+html[data-theme='dark'] 
+html[data-theme='dark'] 
+html[data-theme='dark'] .ms-rung[data-state='ahead'] .ms-card { background: #1a1a1c; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ms-ring-arc,
+  .ms-standing-fill,
+  .ms-metric,
+  .ms-rung,
+  .ms-bar-fill { animation: none; }
+  .ms-rung[data-state='next'] .ms-node { animation: none; }
 }

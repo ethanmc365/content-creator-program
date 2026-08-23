@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -71,7 +71,10 @@ import { useDemoMode, postDemoState, useDemoMessages } from '../lib/demoMode'
 // required is anything the team needs to make a decision, plus anything a
 // community feature would silently break without. Flavour is never required.
 
-const PARTS = ['You', 'Your work', 'Your travel', 'Finish']
+// The four parts, named. They are not drawn as a row of words any more (the
+// stepper carries the shape), but the names are still what the nav bar and the
+// stepper caption say out loud, and STEPS reads them.
+export const PARTS = ['You', 'Your work', 'Your travel', 'Finish']
 
 // `need`      does this screen block Continue until it is filled in
 // `skippable` does this screen HAVE fields, none of which are required
@@ -91,6 +94,61 @@ export const STEPS = [
 ]
 
 const stepIndex = (key) => STEPS.findIndex((s) => s.key === key)
+
+// WHAT EACH SCREEN IS ABOUT, IN ONE GLYPH.
+//
+// Nine screens is enough that "step 6 of 9" stops meaning anything on its own -
+// a number tells you how much is left and nothing at all about what is coming.
+// The stepper draws these instead, so somebody halfway through can see that the
+// map and the photos are still ahead and that neither of them is a form.
+const STEP_ICON = {
+  welcome: 'sparkles',
+  identity: 'smile',
+  based: 'pin',
+  socials: 'video',
+  story: 'pencil',
+  languages: 'chat',
+  map: 'globe',
+  extras: 'image',
+  review: 'check',
+}
+
+// A HALF-FINISHED APPLICATION SURVIVES A REFRESH.
+//
+// Nine screens is a lot to lose to a stray back-swipe, a phone call, or a
+// browser deciding to reload a backgrounded tab - and every one of those
+// happens, because this form is filled in on a phone by somebody who has just
+// been told about the programme. The draft lives in this browser until it is
+// submitted.
+//
+// THE PHONE NUMBER IS NOT IN IT, DELIBERATELY. It is the one field the product
+// already treats as sensitive - it is written to `creator_private` rather than
+// to `profiles`, and it is the number the team rings about money. Something the
+// schema keeps out of the public table does not belong in localStorage on a
+// machine that might be shared. One field retyped after a refresh is a fair
+// price for that.
+const DRAFT_KEY = (id) => `tryp_onboarding_draft_${id || 'anon'}`
+
+export function loadDraft(id) {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY(id))
+    if (!raw) return null
+    const saved = JSON.parse(raw)
+    // A draft from a previous version of this form, or a corrupted one, must
+    // never take the flow down. Anything that is not an object is discarded.
+    return saved && typeof saved === 'object' ? saved : null
+  } catch { return null }
+}
+
+export function saveDraft(id, draft, step) {
+  try {
+    localStorage.setItem(DRAFT_KEY(id), JSON.stringify({ draft, step, at: Date.now() }))
+  } catch { /* private mode, or a full quota: the form still works */ }
+}
+
+export function clearDraft(id) {
+  try { localStorage.removeItem(DRAFT_KEY(id)) } catch { /* nothing to clean up */ }
+}
 
 const EMPTY = {
   name: '', photo_url: '', dob: null, city: '', country: '', country_code: '',
@@ -186,6 +244,41 @@ export default function Onboarding() {
     demo && prefilled ? { phone: '7700 900123', phone_country: '+44' } : { phone: '', phone_country: '' }
   ))
 
+  // RESTORE ONCE, ON THE WAY IN, AND ONLY OVER EMPTY FIELDS.
+  //
+  // The saved draft is merged UNDER whatever the profile already has, never
+  // over it: somebody who filled half of this in on their laptop and came back
+  // on their phone should get their profile's real name, not the one they were
+  // half way through typing on another device a week ago.
+  const [restored, setRestored] = useState(false)
+  useEffect(() => {
+    if (demo || restored) return
+    const saved = loadDraft(user?.id)
+    setRestored(true)
+    if (!saved?.draft) return
+    setDraft((d) => {
+      const merged = { ...d }
+      let changed = false
+      for (const [k, v] of Object.entries(saved.draft)) {
+        const empty = merged[k] === '' || merged[k] == null
+          || (Array.isArray(merged[k]) && merged[k].length === 0)
+        const has = Array.isArray(v) ? v.length > 0 : v !== '' && v != null
+        if (empty && has) { merged[k] = v; changed = true }
+      }
+      return changed ? merged : d
+    })
+    if (typeof saved.step === 'number' && saved.step > 0 && saved.step < STEPS.length - 1) {
+      setStep(saved.step)
+    }
+  }, [demo, user?.id, restored])
+
+  // And save on every change, once the restore has happened - saving before it
+  // would write the empty form over the thing we are about to read.
+  useEffect(() => {
+    if (demo || !restored || done) return
+    saveDraft(user?.id, draft, step)
+  }, [demo, restored, done, draft, step, user?.id])
+
   // THE MARKETS, LOADED ONCE AND EARLY. The resolution has to be instant when
   // somebody picks their country on step three - a spinner where the answer
   // goes turns a confident statement into a question.
@@ -216,6 +309,8 @@ export default function Onboarding() {
   // that starts at nothing. It reaches 100 on the review screen.
   const barPct = Math.round(15 + (step / (STEPS.length - 1)) * 85)
   const current = STEPS[step]
+  // What is missing on the screen the creator is looking at right now.
+  const mine = problemsFor(current.key)
 
   // --------------------------------------------------------------- demo ----
   // Inside the Testing Centre this runs in a same-origin iframe, so the lab
@@ -264,9 +359,23 @@ export default function Onboarding() {
   }
   function back() { setError(''); setDir('back'); setStep((s) => Math.max(0, s - 1)) }
   function goTo(key) {
-    const to = stepIndex(key)
+    const to = typeof key === 'number' ? key : stepIndex(key)
+    if (to < 0) return
     setError(''); setDir(to < step ? 'back' : 'fwd'); setStep(to)
   }
+
+  // HOW FAR ANYBODY IS ALLOWED TO JUMP.
+  //
+  // Backwards, always - somebody who wants to change the photo they picked four
+  // screens ago should not have to press Back four times. Forwards only as far
+  // as they have already been, plus the review, which is reachable from
+  // anywhere the moment the form is actually complete. Letting the stepper jump
+  // past an unfilled screen would quietly defeat the per-screen validation that
+  // is the whole reason this flow has nine screens instead of one.
+  const furthest = useRef(0)
+  useEffect(() => { furthest.current = Math.max(furthest.current, step) }, [step])
+  const canJumpTo = (n) => n <= Math.max(step, furthest.current)
+    || (n === STEPS.length - 1 && complete)
 
   async function finish(sayHello) {
     if (!complete) { setError('There are still a few things to fill in.'); setStep(stepIndex('review')); return }
@@ -343,6 +452,7 @@ export default function Onboarding() {
       })
     }
 
+    clearDraft(user.id)
     await refreshProfile()
     navigate(sayHello && !pending ? '/chat/general' : '/home')
   }
@@ -353,8 +463,8 @@ export default function Onboarding() {
       <TrypPlaneScene
         title={pending ? 'Your application is on its way' : 'Setting up your profile'}
         subtitle={pending
-          ? "It's heading to the Tryp.com Team and will be reviewed shortly. We'll notify you by email soon, so keep an eye on your inbox and check back here shortly."
-          : "Fastening your seatbelt. We're getting your creator profile ready for take-off."}
+          ? 'It is with the Tryp.com team now. Somebody reads every application properly, so give it a day or two - you will hear back by email either way.'
+          : 'Putting your profile together. This takes a few seconds.'}
       >
         {pending && !demo && (
           <button onClick={async () => { await signOut(); window.location.href = '/' }} className="btn-ghost mt-6 text-sm">
@@ -394,11 +504,25 @@ export default function Onboarding() {
   }
 
   return (
-    <div className="min-h-screen bg-cloud/50 px-5 py-8 sm:py-14">
-      <div className="mx-auto max-w-2xl">
-        <Progress step={step} barPct={barPct} current={current} />
+    <div className="onb-page">
+      {/* THE SAME AURA THE FRONT DOOR USES, TURNED WAY DOWN.
+          Signup is a brand-coloured half-screen; this is the screen straight
+          after it, and going from that to a flat grey form is a change of
+          product rather than a change of page. Two blooms at the top corners is
+          enough to carry the colour through without competing with a form. */}
+      <span className="onb-glow" aria-hidden />
 
-        <div className="card !p-6 sm:!p-10" key={current.key}>
+      <div className="onb-inner">
+        <Progress
+          step={step}
+          barPct={barPct}
+          current={current}
+          problems={problems}
+          canJumpTo={canJumpTo}
+          onJump={goTo}
+        />
+
+        <div className="onb-card" key={current.key}>
           <div className="onb-screen" data-dir={dir}>
             <StepHead step={current} pending={pending} />
 
@@ -526,43 +650,89 @@ export default function Onboarding() {
               />
             )}
 
-            {error && (
-              <p role="alert" className="mt-6 rounded-xl bg-brand-tint/60 px-4 py-3 text-center text-sm font-medium text-brand">
-                {error}
-              </p>
+            {/* WHAT THIS SCREEN IS STILL WAITING FOR, WHILE YOU ARE ON IT.
+                The error line under the button only appeared AFTER somebody
+                pressed Continue and was turned back, which is the last possible
+                moment to mention a rule. This is the same information a beat
+                earlier: live, quiet, and gone the instant the screen is
+                satisfied. The red line stays for the case where they pressed
+                Continue anyway. */}
+            {current.need && mine.length > 0 && !error && (
+              <div className="onb-waiting">
+                <Icon name="alert" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>
+                  Still needed on this screen: {mine.map((m) => m.text.replace(/^(Add|Write|Pick|Choose|Link|Tap) /, '').toLowerCase()).join(', ')}.
+                </span>
+              </div>
             )}
 
-            <div className={cx('mt-8 flex flex-wrap gap-3', step === 0 ? 'justify-center' : 'justify-between')}>
-              {step > 0 && <button onClick={back} className="btn-ghost">← Back</button>}
-              {step < STEPS.length - 1 && (
-                <button onClick={next} className="btn-primary">
-                  {step === 0 ? "Let's go" : current.need ? 'Continue' : 'Continue'} →
+            {error && (
+              <p role="alert" className="onb-error">
+                <Icon name="alert" className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{error}</span>
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* THE CONTROLS ARE A BAR, AND ON A PHONE THAT BAR IS PINNED.
+            Continue used to sit at the bottom of the card, which on the map
+            screen is below a world map and on the languages screen below a list
+            of forty chips - so the one control every screen has in common was
+            in a different place on every screen, and on a phone it was
+            frequently off the bottom of it. It is furniture now: same place,
+            always reachable, above the home indicator. */}
+        <div className="onb-nav">
+          <div className="onb-nav-inner">
+            {step > 0
+              ? (
+                <button onClick={back} className="onb-back">
+                  <Icon name="chevronLeft" className="h-4 w-4" />
+                  <span className="hidden sm:inline">Back</span>
                 </button>
-              )}
-              {step === STEPS.length - 1 && (
-                pending ? (
-                  <button onClick={() => finish(false)} disabled={!complete} className="btn-primary disabled:opacity-40 sm:ml-auto">
-                    {busy ? <Spinner /> : 'Submit application →'}
-                  </button>
-                ) : (
-                  <div className="flex flex-col gap-3 sm:flex-row">
-                    <button onClick={() => finish(false)} disabled={!complete} className="btn-secondary disabled:opacity-40">Skip for now</button>
-                    <button onClick={() => finish(true)} disabled={!complete} className="btn-primary disabled:opacity-40">Say hello in chat</button>
-                  </div>
-                )
-              )}
-            </div>
+              )
+              : <span className="hidden sm:block" />}
+
+            {/* The middle of the bar answers "how much more of this is there",
+                which is the question somebody on screen five is actually
+                asking. */}
+            <p className="onb-nav-mid">
+              {step === STEPS.length - 1
+                ? complete
+                  ? 'Everything is filled in.'
+                  : `${problems.length} thing${problems.length === 1 ? '' : 's'} left`
+                : `Step ${step + 1} of ${STEPS.length} · ${current.part}`}
+            </p>
+
+            {step < STEPS.length - 1 && (
+              <button onClick={next} className="btn-primary !px-6">
+                {step === 0 ? 'Start' : current.skippable && mine.length === 0 ? 'Continue' : 'Continue'}
+                <Icon name="chevronRight" className="h-4 w-4" />
+              </button>
+            )}
+            {step === STEPS.length - 1 && (
+              pending ? (
+                <button onClick={() => finish(false)} disabled={!complete} className="btn-primary !px-6 disabled:opacity-40">
+                  {busy ? <Spinner /> : 'Send my application'}
+                </button>
+              ) : (
+                <div className="flex gap-2">
+                  <button onClick={() => finish(false)} disabled={!complete} className="btn-secondary !px-4 disabled:opacity-40">Finish</button>
+                  <button onClick={() => finish(true)} disabled={!complete} className="btn-primary !px-4 disabled:opacity-40">Finish &amp; say hello</button>
+                </div>
+              )
+            )}
           </div>
         </div>
 
         {step > 0 && step < STEPS.length - 1 && (
-          <p className="mt-5 text-center text-xs text-smoke">
-            {problems.length === 0
-              ? 'Everything required is filled in. You can jump to the end from here.'
-              : `${problems.length} thing${problems.length === 1 ? '' : 's'} still to fill in.`}
+          <p className="onb-jump">
+            {complete
+              ? 'Everything required is filled in - you can go straight to the end.'
+              : `${problems.length} thing${problems.length === 1 ? '' : 's'} still to fill in across the whole form.`}
             {' '}
             <button onClick={() => goTo('review')} className="font-semibold text-brand hover:underline">
-              Go to review
+              Jump to the review
             </button>
           </p>
         )}
@@ -581,99 +751,153 @@ function Req() {
   return <span className="text-brand" title="Required">*</span>
 }
 
-function Progress({ step, barPct, current }) {
+/**
+ * THE STEPPER.
+ *
+ * WHAT WAS HERE: four words in a row (You / Your work / Your travel / Finish),
+ * a thin bar, and "Step 4 of 9". Three separate readings of one fact, none of
+ * which told anybody what was coming next or let them go back to a screen they
+ * had already done.
+ *
+ * WHAT IT IS NOW: nine dots, grouped visually into the four parts, each one an
+ * icon of what that screen is about. Done screens are solid, the current one is
+ * a ring, screens that still owe something carry a small mark, and any screen
+ * you have already been to is a button that takes you straight back to it. The
+ * bar underneath is still there because a bar is the only thing that reads at a
+ * glance, and it still starts at fifteen per cent - endowed progress: a goal
+ * that already looks underway is one people finish far more often than one that
+ * starts at nothing.
+ */
+function Progress({ step, barPct, current, problems, canJumpTo, onJump }) {
+  // ONLY FOR SCREENS SOMEBODY HAS ACTUALLY BEEN TO.
+  //
+  // Every required screen "owes something" before it has been filled in, so
+  // marking them all put an amber dot on six of the nine steps on the welcome
+  // screen - which reads as six errors on a form nobody has touched. A mark
+  // means "you left this one unfinished", and that is only true of a screen you
+  // have already seen.
+  const owed = new Set(problems.map((p) => p.step))
   return (
-    <div className="mb-8 flex flex-col items-center gap-5">
-      <img src="/brand/tryp-logo.png" alt="Tryp.com" className="h-11 rounded-xl shadow-card" />
-      <div className="w-full max-w-md">
-        {/* THE FOUR PARTS, SO NINE SCREENS READ AS A SHORT JOURNEY RATHER THAN A
-            LONG FORM. A step counter alone answers "how far in am I"; the part
-            answers "what am I doing", which is the question people actually ask
-            themselves halfway through a sign-up. */}
-        <div className="mb-2 flex items-center justify-between gap-2">
-          {PARTS.map((p) => {
-            const on = p === current.part
-            const passed = PARTS.indexOf(p) < PARTS.indexOf(current.part)
-            return (
-              <span
-                key={p}
-                className={cx(
-                  'text-[11px] font-semibold uppercase tracking-wide transition-colors duration-300',
-                  on ? 'text-brand' : passed ? 'text-smoke' : 'text-gray-300',
-                )}
-              >
-                {p}
-              </span>
-            )
-          })}
-        </div>
-        <div className="h-2 overflow-hidden rounded-full bg-white shadow-inner">
-          <div
-            className="onb-bar h-full rounded-full bg-brand transition-[width] duration-500 ease-out"
-            style={{ width: `${barPct}%` }}
-          />
-        </div>
-        <p className="mt-2 text-center text-xs text-smoke">Step {step + 1} of {STEPS.length}</p>
+    <div className="onb-progress">
+      <img src="/brand/tryp-logo.png" alt="Tryp.com" className="onb-logo" />
+
+      <div className="onb-steps" role="list">
+        {STEPS.map((s, i) => {
+          const done = i < step
+          const on = i === step
+          const jump = canJumpTo(i)
+          const owes = owed.has(s.key) && i !== step && canJumpTo(i)
+          const Tag = jump && !on ? 'button' : 'span'
+          return (
+            <Tag
+              key={s.key}
+              role="listitem"
+              type={Tag === 'button' ? 'button' : undefined}
+              onClick={Tag === 'button' ? () => onJump(i) : undefined}
+              title={`${s.title}${owes ? ' · still needs something' : ''}`}
+              aria-current={on ? 'step' : undefined}
+              className={cx('onb-step', on && 'is-on', done && 'is-done', jump && !on && 'is-open')}
+            >
+              <Icon name={STEP_ICON[s.key] || 'check'} className="h-3.5 w-3.5" />
+              {owes && <span className="onb-step-owed" aria-hidden />}
+            </Tag>
+          )
+        })}
       </div>
+
+      <div className="onb-track">
+        <div className="onb-bar" style={{ width: `${barPct}%` }} />
+      </div>
+
+      <p className="onb-partline">
+        <span className="font-semibold text-ink">{current.part}</span>
+        <span aria-hidden> · </span>
+        <span>{current.title}</span>
+      </p>
     </div>
   )
+}
+
+// A SHORT LINE PER SCREEN, WRITTEN AS A PERSON WOULD SAY IT.
+//
+// Every one of these used to be a description of a form field ("Link your
+// accounts so creators and the Tryp.com Team can find your work"). They now say
+// why it is being asked, because that is the thing that makes somebody answer
+// properly rather than minimally - "this is the part a human reads" gets a real
+// paragraph out of people, and "tell us about you" gets a sentence.
+const HEAD_COPY = {
+  identity: ['Who are you?', 'Your face and your name. Both of these follow you round the whole platform, so use the ones people would recognise.'],
+  based: ['Where do you live?', 'This decides which market you land in, puts you on the creator map, and is how the team reaches you about a shoot or a payment.'],
+  socials: ['Where do you post?', 'Your accounts are the work. This is what the team looks at, and what other creators click when they find you.'],
+  story: ['Tell us about you', 'This is the part an actual person reads before deciding. Worth five minutes.'],
+  languages: ['What can you speak?', 'Used to pair you up for collaborations, and to know which markets you could film in.'],
+  map: ['Where have you been?', 'Tap every country. It builds your map, and it is how somebody planning a trip finds the person who has already done it.'],
+  extras: ['A couple of extras', 'None of this is required. Skip it and add it later from your profile if you would rather get on.'],
+  review: [null, 'Read it back. Everything here can be changed later from your profile.'],
 }
 
 function StepHead({ step, pending }) {
   if (step.key === 'welcome') return null
   const chip = step.need ? 'Required' : step.skippable ? 'Optional' : null
-  const COPY = {
-    identity: ['Who are you?', 'Your face and your name. Both appear everywhere on the platform.'],
-    based: ['Where are you based?', 'This decides your market, puts you on the map, and is how the team reaches you.'],
-    socials: ['Where do you post?', 'Link your accounts so creators and the Tryp.com Team can find your work.'],
-    story: ['Tell us about you', 'This is the part a person actually reads.'],
-    languages: ['Languages you speak', 'Used to match you with collaboration partners and audiences.'],
-    map: ['Paint your travel map', 'Tap every country you have been to and watch it glow.'],
-    extras: ['A few extras', 'All of this is optional. Press Continue and add it later if you would rather.'],
-    review: [pending ? 'Ready to submit' : 'Almost done', 'Check it over. You can change any of it later from your profile.'],
-  }
-  const [title, sub] = COPY[step.key] || [step.title, '']
+  const [copyTitle, sub] = HEAD_COPY[step.key] || [step.title, '']
+  const title = copyTitle || (pending ? 'Ready to send' : 'Almost there')
   return (
-    <div className="mb-7 text-center">
-      {chip && (
-        <span
-          className={cx(
-            'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide',
-            step.need ? 'bg-brand-tint text-brand' : 'bg-cloud text-smoke',
+    <div className="onb-head">
+      <span className="onb-head-icon" aria-hidden>
+        <Icon name={STEP_ICON[step.key] || 'check'} className="h-5 w-5" />
+      </span>
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-[22px] font-bold leading-tight tracking-tight sm:text-2xl">{title}</h2>
+          {chip && (
+            <span className={cx('onb-chip', step.need ? 'onb-chip--need' : 'onb-chip--opt')}>{chip}</span>
           )}
-        >
-          {chip}
-        </span>
-      )}
-      <h2 className={cx('text-2xl font-bold tracking-tight', chip && 'mt-3')}>{title}</h2>
-      {sub && <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-smoke">{sub}</p>}
+        </div>
+        {sub && <p className="mt-1.5 text-sm leading-relaxed text-smoke">{sub}</p>}
+      </div>
     </div>
   )
 }
 
+// THE FIRST SCREEN, WHICH HAS NO FIELDS ON IT AND HAS TO EARN ITS PLACE.
+//
+// A welcome screen in a sign-up flow is usually a tax: one more tap between
+// somebody and the thing they came for. This one is doing a job, and the job is
+// SETTING EXPECTATIONS - how long, how many screens, what happens at the end,
+// and whether a human is involved. People abandon forms they cannot see the end
+// of far more often than forms that are long.
 function Welcome({ name, pending }) {
+  const first = name?.trim()?.split(' ')[0]
   return (
-    <div className="space-y-5 text-center">
-      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-tint text-brand" aria-hidden>
-        <Icon name="heart" className="h-8 w-8" />
-      </div>
-      <h1 className="text-3xl font-bold">Welcome to the crew{name ? `, ${name.split(' ')[0]}` : ''}!</h1>
-      <p className="mx-auto max-w-md text-smoke">
-        You are joining the Tryp.com Content Creator Program, a global community of travel creators who
-        make great content, compete in challenges and earn real rewards.
+    <div className="onb-welcome">
+      <span className="onb-welcome-mark" aria-hidden>
+        <Icon name="sparkles" className="h-7 w-7" />
+      </span>
+      <h1 className="mt-5 text-[26px] font-bold leading-tight tracking-tight sm:text-3xl">
+        {first ? `Right then, ${first}.` : 'Right then.'}
+        <br />
+        <span className="text-brand">Time to build your profile.</span>
+      </h1>
+      <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-smoke">
+        {pending
+          ? 'What you fill in here is your application. Somebody on the team reads it properly, so it is worth doing once rather than twice.'
+          : 'A few short screens and you are in. Everything here can be changed later from your profile.'}
       </p>
-      <div className="mx-auto max-w-sm space-y-2.5 pt-2 text-left">
+
+      <div className="onb-welcome-list">
         {[
-          ['clock', 'About three minutes', 'Nine short screens, one thing on each.'],
-          ['check', 'Two screens are optional', 'They are marked, and you can skip straight past them.'],
-          ['globe', 'Your market is worked out for you', 'You will see which one before you finish.'],
-          ['shield', pending ? 'Then the team reviews it' : 'Then you are in', pending ? 'A person reads every application.' : 'Your profile goes live straight away.'],
-        ].map(([icon, t, d]) => (
-          <div key={t} className="flex items-start gap-3 rounded-xl bg-cloud/70 px-4 py-3">
-            <Icon name={icon} className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+          ['clock', 'Five minutes, give or take', 'Nine screens, one kind of thing on each.'],
+          ['image', 'Two of them you can skip', 'They are marked, and skipping costs you nothing.'],
+          ['globe', 'Your market is worked out for you', 'You will see which one before you finish, and why.'],
+          [pending ? 'shield' : 'check',
+            pending ? 'Then a person reads it' : 'Then you are in',
+            pending ? 'Not a filter, not a score. You hear back by email.' : 'Your profile goes live straight away.'],
+        ].map(([icon, t, d], i) => (
+          <div key={t} className="onb-welcome-row" style={{ '--i': i }}>
+            <span className="onb-welcome-icon"><Icon name={icon} className="h-4 w-4" /></span>
             <span className="min-w-0">
               <span className="block text-sm font-semibold">{t}</span>
-              <span className="block text-xs text-smoke">{d}</span>
+              <span className="block text-xs leading-relaxed text-smoke">{d}</span>
             </span>
           </div>
         ))}
@@ -845,69 +1069,85 @@ function Review({ draft, contact, market, problems, pending, onJump, demo }) {
   ].filter(([, v]) => v?.trim())
 
   return (
-    <div className="space-y-6">
-      {problems.length > 0 && (
-        <div className="rounded-card border border-brand/30 bg-brand-tint/30 p-4">
-          <p className="text-sm font-semibold text-brand">
-            {problems.length} thing{problems.length === 1 ? '' : 's'} still to fill in
+    <div className="space-y-5">
+      {problems.length > 0 ? (
+        <div className="onb-todo">
+          <p className="onb-todo-head">
+            <Icon name="alert" className="h-4 w-4 shrink-0" />
+            {problems.length} thing{problems.length === 1 ? '' : 's'} to finish before this can go
           </p>
-          <ul className="mt-3 space-y-1.5">
+          <ul className="mt-2.5 space-y-1">
             {problems.map((p) => (
               <li key={p.text}>
-                <button
-                  type="button"
-                  onClick={() => onJump(p.step)}
-                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors hover:bg-white"
-                >
-                  <Icon name="alert" className="h-3.5 w-3.5 shrink-0 text-brand" />
+                <button type="button" onClick={() => onJump(p.step)} className="onb-todo-row">
                   <span className="min-w-0 flex-1">{p.text}</span>
-                  <span className="shrink-0 font-semibold text-brand">Fix</span>
+                  <span className="onb-todo-fix">Fix<Icon name="chevronRight" className="h-3 w-3" /></span>
                 </button>
               </li>
             ))}
           </ul>
         </div>
+      ) : (
+        <p className="onb-ready">
+          <Icon name="check" className="h-4 w-4 shrink-0" />
+          <span>{pending ? 'All done. Send it whenever you are ready.' : 'All done. Finish and you are in.'}</span>
+        </p>
       )}
 
-      <div className="flex items-center gap-4 rounded-card border border-gray-100 bg-cloud/50 p-4">
-        {demo || !draft.photo_url
-          ? <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-brand-tint text-lg font-semibold text-brand">
-              {draft.name.split(' ').map((w) => w[0]).filter(Boolean).slice(0, 2).join('') || '?'}
-            </span>
-          : <Avatar src={draft.photo_url} name={draft.name} size="lg" />}
-        <div className="min-w-0">
-          <p className="truncate text-lg font-bold">{draft.name || 'Your name'}</p>
-          <p className="truncate text-sm text-smoke">{draft.bio || 'Your one-line bio'}</p>
-          <p className="mt-0.5 text-xs text-smoke">
-            {[draft.city, draft.country].filter(Boolean).join(', ') || 'Where you live'}
-            {age != null && ` · ${age}`}
-          </p>
+      {/* THE PROFILE CARD, AS IT WILL LOOK TO EVERYBODY ELSE.
+          A list of field values answers "did I fill it in". This answers the
+          question people actually have at the end of a sign-up, which is "what
+          have I just made" - and it is the reason somebody goes back and
+          rewrites a one-line bio that reads badly. */}
+      <div className="onb-preview">
+        <span className="onb-preview-band" aria-hidden />
+        <div className="onb-preview-body">
+          {demo || !draft.photo_url
+            ? <span className="onb-preview-avatar">
+                {draft.name.split(' ').map((w) => w[0]).filter(Boolean).slice(0, 2).join('') || '?'}
+              </span>
+            : <Avatar src={draft.photo_url} name={draft.name} size="lg" className="!ring-4" />}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-lg font-bold leading-tight">{draft.name || 'Your name'}</p>
+            <p className="mt-0.5 line-clamp-2 text-sm text-smoke">{draft.bio || 'Your one-line bio'}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {[draft.city, draft.country].filter(Boolean).length > 0 && (
+                <span className="onb-tag"><Icon name="pin" className="h-3 w-3" />{[draft.city, draft.country].filter(Boolean).join(', ')}</span>
+              )}
+              {age != null && <span className="onb-tag">{age}</span>}
+              {socials.map(([k]) => <span key={k} className="onb-tag">{k}</span>)}
+              {draft.countries_visited.length > 0 && (
+                <span className="onb-tag"><Icon name="globe" className="h-3 w-3" />{draft.countries_visited.length} visited</span>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
       {market.market ? (
-        <div className="flex items-center gap-3 rounded-card border border-brand/30 bg-brand-tint/30 px-4 py-3">
+        <div className="flex items-center gap-3 rounded-card border border-brand/30 bg-brand-tint/30 px-4 py-3.5">
           <span className="text-xl leading-none" aria-hidden>
             {(market.market.country_codes || []).map(flagFromIso).join('') || '🌍'}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-xs text-smoke">You will be assigned to</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-smoke">You will land in</p>
             <p className="text-sm font-bold text-brand">{market.market.name}</p>
           </div>
           <Icon name="check" className="h-5 w-5 shrink-0 text-brand" />
         </div>
       ) : (
-        <div className="rounded-card border border-gray-200 px-4 py-3 text-xs text-smoke">
-          Worldwide community only for now. No market covers {draft.country || 'your country'} yet.
+        <div className="rounded-card border border-dashed border-gray-200 px-4 py-3.5 text-xs leading-relaxed text-smoke">
+          Worldwide community for now - no market covers {draft.country || 'your country'} yet. You still
+          get everything that is open to everyone, and we will tell you the day one opens near you.
         </div>
       )}
 
-      <dl className="divide-y divide-gray-100">
+      <dl className="divide-y divide-gray-100 rounded-card border border-gray-100 px-4">
         <ReviewRow label="About you" onJump={() => onJump('story')} value={draft.about} multiline />
         <ReviewRow label="Posts on" onJump={() => onJump('socials')} value={socials.map(([k]) => k).join(', ')} />
         <ReviewRow label="Languages" onJump={() => onJump('languages')} value={draft.languages.join(', ')} />
         <ReviewRow label="Countries visited" onJump={() => onJump('map')} value={draft.countries_visited.length ? `${draft.countries_visited.length}` : ''} />
-        <ReviewRow label="Phone" onJump={() => onJump('based')} value={contact.phone ? `${contact.phone_country} ${contact.phone}` : ''} hint="Private. Only the team can see this." />
+        <ReviewRow label="Phone" onJump={() => onJump('based')} value={contact.phone ? `${contact.phone_country} ${contact.phone}` : ''} hint="Private. Only the team sees this." />
         <ReviewRow label="Favourite quote" onJump={() => onJump('story')} value={draft.favourite_quote} optional />
         <ReviewRow label="Headed next" onJump={() => onJump('extras')} value={(draft.bucket_list || []).filter((b) => b.country).map((b) => [b.city, b.country].filter(Boolean).join(', ')).join(' · ')} optional />
         <ReviewRow label="Other links" onJump={() => onJump('extras')} value={(draft.other_links || []).filter((l) => l.url).length ? `${(draft.other_links || []).filter((l) => l.url).length}` : ''} optional />
@@ -915,8 +1155,8 @@ function Review({ draft, contact, market, problems, pending, onJump, demo }) {
 
       <p className="text-center text-xs leading-relaxed text-smoke">
         {pending
-          ? 'When you submit, the Tryp.com Team is notified and a person reads your application. You will hear back by email.'
-          : 'Your profile goes live as soon as you finish. You can change any of it later.'}
+          ? 'Sending this notifies the team. Somebody reads it, and you hear back by email either way.'
+          : 'Your profile goes live as soon as you finish. Change any of it later from your profile.'}
       </p>
     </div>
   )
@@ -925,8 +1165,8 @@ function Review({ draft, contact, market, problems, pending, onJump, demo }) {
 function ReviewRow({ label, value, onJump, optional, multiline, hint }) {
   const empty = !value?.trim?.()
   return (
-    <div className="flex items-start justify-between gap-4 py-2.5">
-      <dt className="w-32 shrink-0 text-xs text-smoke">
+    <div className="flex items-start justify-between gap-4 py-3">
+      <dt className="w-28 shrink-0 text-xs text-smoke sm:w-32">
         {label}
         {hint && <span className="mt-0.5 block text-[10px] opacity-80">{hint}</span>}
       </dt>
@@ -935,9 +1175,7 @@ function ReviewRow({ label, value, onJump, optional, multiline, hint }) {
           ? <span className={cx('text-xs', optional ? 'text-gray-400' : 'font-medium text-brand')}>{optional ? 'Not added' : 'Missing'}</span>
           : <span className={cx('block', multiline ? 'line-clamp-3 leading-relaxed' : 'truncate')}>{value}</span>}
       </dd>
-      <button type="button" onClick={onJump} className="shrink-0 text-xs font-semibold text-brand transition-transform duration-200 hover:scale-105">
-        Edit
-      </button>
+      <button type="button" onClick={onJump} className="onb-edit">Edit</button>
     </div>
   )
 }

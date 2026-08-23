@@ -3,7 +3,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.mock('./supabase', () => ({ supabase: { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }) }) } }))
 vi.mock('./appFlags', () => ({ readFlag: async () => false }))
 
-import { shouldAutoStart, stepsFor, stepAt, stepGoal, partOf, TOUR_STEPS, TOUR_PARTS, markSeenLocally, clearSeenLocally } from './tour'
+import {
+  shouldAutoStart, stepsFor, stepAt, stepGoal, partOf, goalAccepts, variantFor,
+  TOUR_STEPS, TOUR_PARTS, markSeenLocally, clearSeenLocally,
+} from './tour'
 
 const member = {
   is_admin: false, is_test: false, status: 'active', onboarded: true, tour_completed_at: null,
@@ -103,7 +106,7 @@ describe('the steps', () => {
     for (const s of TOUR_STEPS) {
       for (const network of [true, false]) {
         const g = stepGoal(s, network)
-        if (g.kind === 'route') expect(typeof g.to).toBe('string')
+        if (g.kind === 'route') expect(typeof g.to === 'string' || Array.isArray(g.any)).toBe(true)
         if (g.kind === 'scroll') expect(g.px).toBeGreaterThan(0)
         if (g.kind === 'click') expect(typeof g.anchor).toBe('string')
         if (g.kind === 'dwell') expect(g.ms).toBeGreaterThan(0)
@@ -163,13 +166,114 @@ describe('the steps', () => {
     }
   })
 
-  it('every anchored step that could be absent says so', () => {
+  // THE WHOLE POINT OF VERSION 4. A step that points at content rather than at
+  // chrome has to survive that content not existing - no live brief, an empty
+  // directory, a rail that is not drawn on a phone. Three ways out, and every
+  // such step must take one of them or it is a dead end with a Skip button.
+  it('every step that points at something that might not be there has a way out', () => {
     const CHROME = [
       'nav-home', 'nav-challenges', 'nav-chat', 'nav-messages',
-      'nav-worldwide', 'avatar-menu', 'enable-push',
+      'nav-worldwide', 'nav-calendar', 'avatar-menu', 'enable-push', 'search',
     ]
     for (const s of TOUR_STEPS.filter((x) => x.anchor && !CHROME.includes(x.anchor))) {
-      expect(s.skipIfMissing, `${s.key}`).toBe(true)
+      expect(!!(s.empty || s.door || s.skipIfMissing), `${s.key} has no fallback`).toBe(true)
     }
+  })
+
+  it('the chrome steps that can genuinely be absent are marked skippable', () => {
+    for (const key of ['search', 'calendar']) {
+      expect(TOUR_STEPS.find((s) => s.key === key).skipIfMissing, key).toBe(true)
+    }
+  })
+
+  // A CARD THAT ASKS FOR SOMETHING MUST HAVE SOMETHING TO PRESS.
+  //
+  // A step with no anchor draws no highlight, so "open your rewards" is an
+  // instruction with nothing on the screen that carries it out - rewards, the
+  // creator network and the milestones all live behind the avatar menu, which
+  // is shut. Every anchorless step whose goal is a navigation therefore needs a
+  // door on the card, a set of choices, or a `to` the tour itself walks them to.
+  it('every anchorless step that asks you to navigate carries its own way there', () => {
+    for (const s of TOUR_STEPS) {
+      if (s.anchor) continue
+      const g = stepGoal(s, true)
+      if (g.kind !== 'route') continue
+      expect(!!(s.door || s.choices), `${s.key} has no door`).toBe(true)
+    }
+  })
+
+  it('an empty variant is a complete step in its own right', () => {
+    for (const s of TOUR_STEPS.filter((x) => x.empty)) {
+      expect(s.empty.body.length, `${s.key}`).toBeGreaterThan(20)
+      expect(s.empty.do, `${s.key}`).toBeTruthy()
+      expect(s.empty.goal?.kind, `${s.key}`).toBeTruthy()
+    }
+  })
+})
+
+describe('what a step resolves to', () => {
+  const brief = TOUR_STEPS.find((s) => s.key === 'brief')
+
+  it('a live brief on the board is the normal step', () => {
+    const v = variantFor(brief, { network: true, present: true, pathname: '/challenges' })
+    expect(v.variant).toBe('normal')
+    expect(v.anchor).toBe('challenge-card')
+    expect(v.goal.kind).toBe('route')
+  })
+
+  // NO CHALLENGE RUNNING. This is the case Ethan asked about: the walk must not
+  // ask somebody to open a brief that does not exist.
+  it('an empty challenge board says so and moves on by itself', () => {
+    const v = variantFor(brief, { network: true, present: false, pathname: '/challenges' })
+    expect(v.variant).toBe('empty')
+    expect(v.anchor).toBeNull()
+    expect(v.goal.kind).toBe('dwell')
+    expect(v.body).toMatch(/when a brief goes live/i)
+  })
+
+  // …and the step that asks you to scroll THROUGH a brief goes with it, because
+  // there is no brief under the card to scroll.
+  it('the read-the-brief step disappears when no brief was opened', () => {
+    const read = TOUR_STEPS.find((s) => s.key === 'brief-read')
+    expect(variantFor(read, { network: true, present: true, pathname: '/challenges' })).toBeNull()
+    expect(variantFor(read, { network: true, present: true, pathname: '/challenges/abc' })).toBeTruthy()
+  })
+
+  it('a missing anchor with no fallback drops the step entirely', () => {
+    const search = TOUR_STEPS.find((s) => s.key === 'search')
+    expect(variantFor(search, { network: true, present: false, pathname: '/global' })).toBeNull()
+  })
+
+  it('a missing rail link falls back to a door on the card', () => {
+    const board = TOUR_STEPS.find((s) => s.key === 'board')
+    const v = variantFor(board, { network: true, present: false, pathname: '/global' })
+    expect(v.variant).toBe('unanchored')
+    expect(v.anchor).toBeNull()
+    expect(v.door.to).toBe('/board')
+  })
+
+  it('resolves the shell-specific goal once, so the host never has to', () => {
+    const rooms = TOUR_STEPS.find((s) => s.key === 'rooms')
+    expect(variantFor(rooms, { network: true, present: true }).goal.to).toBe('/rooms')
+    expect(variantFor(rooms, { network: false, present: true }).goal.to).toBe('/chat')
+  })
+})
+
+describe('when a route goal is satisfied', () => {
+  it('a single destination matches by prefix', () => {
+    expect(goalAccepts({ kind: 'route', to: '/challenges/' }, '/challenges/abc')).toBe(true)
+    expect(goalAccepts({ kind: 'route', to: '/challenges/' }, '/challenges')).toBe(false)
+  })
+
+  it('any one of several destinations will do', () => {
+    const g = { kind: 'route', any: ['/leaderboard', '/resources'] }
+    expect(goalAccepts(g, '/resources')).toBe(true)
+    expect(goalAccepts(g, '/leaderboard')).toBe(true)
+    expect(goalAccepts(g, '/refer')).toBe(false)
+  })
+
+  it('never claims a goal of another kind', () => {
+    expect(goalAccepts({ kind: 'scroll', px: 100 }, '/anything')).toBe(false)
+    expect(goalAccepts(null, '/anything')).toBe(false)
   })
 })

@@ -193,13 +193,14 @@ export default function App() {
             <Route path="/rooms" element={<Rooms />} />
             <Route path="/board" element={<Board />} />
             <Route path="/board/:id" element={<BoardThread />} />
-            {/* MOVED IN HERE, IT WAS NEVER MEANT TO BE OUT THERE. The milestone
-                route is part of the network build: the milestones are defined
-                per market, the page is the network's flight path, and the only
-                link to it has always been gated on the preview flag. Sitting in
-                the open list it was still reachable by URL, and a UK creator who
-                landed on it got a page of the unreleased build - the reported
-                "UK creators have been able to view My route". */}
+            {/* MOVED IN HERE, IT WAS NEVER MEANT TO BE OUT THERE. Milestones
+                are part of the network build: they are defined per market and
+                the only link to the page has always been gated on the preview
+                flag. Sitting in the open list it was still reachable by URL,
+                and a UK creator who landed on it got a page of the unreleased
+                build - the reported "UK creators have been able to view My
+                route". (The page is called Milestones now; the report is quoted
+                as it was made.) */}
             <Route path="/milestones" element={<Milestones />} />
             <Route path="/flights" element={<Flights />} />
             <Route path="/flights/aircraft" element={<AircraftCollection />} />

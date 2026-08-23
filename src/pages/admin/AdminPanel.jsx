@@ -53,7 +53,7 @@ const GROUPS = [
     hint: 'The work creators are here to do.',
     tools: [
       { to: '/admin/challenges', icon: 'flag', title: 'Challenges', text: 'Create, edit, close and archive briefs.' },
-      { to: '/admin/milestones', icon: 'plane', title: 'Milestones', text: 'The route every creator flies. Thresholds, rewards and order.' },
+      { to: '/admin/milestones', icon: 'flag', title: 'Milestones', text: 'The ladder every creator climbs. Thresholds, rewards and order.' },
       { to: '/admin/events', icon: 'calendar', title: 'Events', text: 'Q&As, content days and meetups on the calendar.' },
       { to: '/admin/resources', icon: 'book', title: 'Resources', text: 'Guides, guidelines and downloadable assets.' },
       { to: '/admin/jobs', icon: 'briefcase', title: 'Roles', text: 'Paid work you are hiring for. Every creator is notified.' },

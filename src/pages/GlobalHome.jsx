@@ -183,7 +183,17 @@ function NetworkLinkRow({ link, count, isNew, handleProps, dragging }) {
       // corners of whatever was being dragged.
       dragging ? 'bg-white shadow-card' : 'hover:bg-cloud',
     )}>
-      <Link to={link.to} className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-3 py-2">
+      {/* THE WALKTHROUGH POINTS AT THESE.
+          One name per destination, derived from the path so a link added to
+          lib/networkLinks is spotlightable the day it appears rather than the
+          day somebody remembers to add an attribute. The rail is desktop-only,
+          which is why every tour step that aims here also carries a `door` -
+          see lib/tour. */}
+      <Link
+        to={link.to}
+        data-tour={`link-${link.to.replace(/^\//, '')}`}
+        className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-3 py-2"
+      >
         <Icon name={link.icon} className="h-4 w-4 shrink-0 text-smoke transition-colors group-hover:text-brand" />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-medium">{link.label}</span>

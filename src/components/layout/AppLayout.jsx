@@ -433,14 +433,18 @@ export default function AppLayout() {
                   <Link to="/rewards" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">My rewards</Link>
                   <Link to="/dashboard" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">My dashboard</Link>
                   {/* Two things that ARE about you and have no home in the nav:
-                      how far along the route you are, and who to ask when
-                      something goes wrong. Both belong in the menu that already
-                      holds your profile and your money. */}
+                      how far up the milestone ladder you are, and who to ask
+                      when something goes wrong. Both belong in the menu that
+                      already holds your profile and your money.
+                      It said "My route" until v4. Nothing else in the product
+                      ever called it that - the table is `milestones`, the admin
+                      editor is Milestones, and a page named after its own
+                      illustration is a page whose name has to be learned. */}
                   {/* The Tryp.com team link is gone: the team are creators in
                       the directory with a role on their card, not a separate
                       page you have to know about. See Directory. */}
                   {networkPreview && (
-                    <Link to="/milestones" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">My route</Link>
+                    <Link to="/milestones" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Milestones</Link>
                   )}
 
                   {/* EVERYWHERE ELSE, ON A PHONE.

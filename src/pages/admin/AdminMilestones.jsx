@@ -5,17 +5,22 @@ import { confirm, notice } from '../../lib/confirm'
 import { toast } from '../../lib/toast'
 import Icon from '../../components/Icon'
 import Reorderable from '../../components/network/Reorderable'
-import MilestonePath from '../../components/network/MilestonePath'
+import MilestoneLadder from '../../components/network/MilestoneLadder'
 import { Badge, EmptyState, PageHeader, Skeleton } from '../../components/ui'
 import { cx, formatViews } from '../../lib/utils'
 
 // Editing the ladder.
 //
 // The whole feature is data, so this page is a table editor with a live preview
-// of the exact component creators see. That preview is not decoration: the route
-// is a drawn curve whose readability depends on how many stops there are and how
-// long the labels run, and an admin adding a twelfth milestone should find that
-// out here rather than from a creator.
+// of the exact component creators see. That preview is not decoration: an admin
+// adding a twelfth milestone, or a title that runs to two lines, should find out
+// what it does to the page here rather than from a creator.
+//
+// THE DESCRIPTION FIELD IS NOT OPTIONAL DECORATION. It has been on the table
+// since the first migration and the creator-facing page never rendered it,
+// which is most of why the ladder read as a list of arbitrary numbers. It is
+// rendered now, so a milestone with no description looks unfinished - which it
+// is.
 
 const METRICS = [
   { value: 'videos', label: 'Videos published', hint: 'Entries submitted to any challenge' },
@@ -125,8 +130,17 @@ export default function AdminMilestones() {
     return <div className="page space-y-4"><Skeleton className="h-12 w-64" /><Skeleton className="h-64 w-full" /></div>
   }
 
+  // A PLAUSIBLE CREATOR, NOT AN EMPTY ONE AND NOT A FINISHED ONE.
+  //
+  // Two reached, part way into the third, nothing after it - which is the only
+  // state in which all three kinds of rung are on screen at once. `value: 0` on
+  // every row was the old version and it drew the whole preview with no bar and
+  // no "how far to go" line, so the two things most likely to be wrong about a
+  // new milestone were the two things the preview never showed.
   const preview = rows.filter((m) => m.is_active).map((m, i) => ({
-    ...m, value: 0, reached: i < 2, // a plausible mid-route creator
+    ...m,
+    reached: i < 2,
+    value: i < 2 ? m.threshold : i === 2 ? Math.floor(Number(m.threshold || 0) * 0.4) : 0,
   }))
 
   return (
@@ -134,7 +148,7 @@ export default function AdminMilestones() {
       <Link to="/admin" className="mb-6 inline-block text-sm font-medium text-smoke hover:text-brand">← Admin</Link>
       <PageHeader
         title="Milestones"
-        subtitle="The route every creator flies. Thresholds, rewards and order are all editable, and the route redraws itself."
+        subtitle="The ladder every creator climbs. Thresholds, rewards, descriptions and order are all editable, and the preview below is the exact component creators see."
         action={
           <button onClick={() => setEditing({ ...BLANK })} className="btn-primary !py-2.5">
             <Icon name="plus" className="h-4 w-4" /> New milestone
@@ -286,12 +300,15 @@ export default function AdminMilestones() {
 
         <aside className="lg:sticky lg:top-24">
           <h2 className="mb-1 text-lg font-semibold">How it looks</h2>
-          <p className="mb-4 text-sm text-smoke">A creator two stops in.</p>
-          {/* The preview lays itself out from ITS OWN width now, so a 22rem
-              rail gets the narrow lane rather than the wide serpentine
-              squeezed into a third of the room it needs. */}
+          <p className="mb-4 text-sm text-smoke">A creator two milestones in, part way to the third.</p>
+          {/* THE LADDER IS THE SAME SHAPE AT EVERY WIDTH, which is why this can
+              be a live copy of the real component inside a 22rem rail. The
+              drawing it replaced could not: it laid out a serpentine whose
+              labels needed room to alternate into, so the preview here was
+              either a squeezed version of the creator's view or a different
+              layout altogether. */}
           <div className="max-h-[70vh] overflow-y-auto overscroll-contain rounded-card border border-gray-100 bg-white px-2 py-5">
-            <MilestonePath milestones={preview} standings={[]} />
+            <MilestoneLadder milestones={preview} standings={[]} />
           </div>
         </aside>
       </div>
