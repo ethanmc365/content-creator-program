@@ -14,6 +14,7 @@
 // Deploy:  supabase functions deploy upload --no-verify-jwt
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { createRemoteJWKSet, jwtVerify } from 'npm:jose@5'
+import { corsHeaders as sharedCors } from '../_shared/cors.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -53,27 +54,11 @@ async function verifyUser(jwt: string): Promise<string | null> {
 const PUBLIC_BUCKETS = new Set(['avatars', 'chat-media', 'gallery'])
 const PRIVATE_BUCKETS = new Set(['dm-media'])
 
-const PRIMARY_ORIGIN = 'https://trypcreators.vercel.app'
-function allowOrigin(origin: string | null): string {
-  if (!origin) return PRIMARY_ORIGIN
-  try {
-    const { hostname, protocol } = new URL(origin)
-    const ok =
-      (protocol === 'https:' && (hostname === 'trypcreators.vercel.app' || hostname === 'content-creator-program.vercel.app' || hostname.endsWith('.vercel.app'))) ||
-      ((protocol === 'http:' || protocol === 'https:') && (hostname === 'localhost' || hostname === '127.0.0.1'))
-    return ok ? origin : PRIMARY_ORIGIN
-  } catch {
-    return PRIMARY_ORIGIN
-  }
-}
-function corsHeaders(req: Request) {
-  return {
-    'Access-Control-Allow-Origin': allowOrigin(req.headers.get('origin')),
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-upload-bucket, x-upload-path, x-upload-content-type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Vary': 'Origin',
-  }
-}
+// CORS lives in _shared/cors.ts now: every function had its own copy and every
+// copy allowed ANY *.vercel.app origin, which anybody can register.
+const corsHeaders = (req: Request) =>
+  sharedCors(req, 'x-upload-bucket, x-upload-path, x-upload-content-type')
+
 const json = (req: Request, obj: unknown, status = 200) =>
   new Response(JSON.stringify(obj), { status, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } })
 
@@ -120,6 +105,55 @@ Deno.serve(async (req) => {
   const isPrivate = PRIVATE_BUCKETS.has(bucket)
   if (!PUBLIC_BUCKETS.has(bucket) && !isPrivate) return json(req, { error: 'bucket not allowed' }, 403)
 
+  // WHAT MAY BE UPLOADED, DECIDED HERE AS WELL AS BY THE BUCKET.
+  //
+  // The buckets carry `allowed_mime_types` and `file_size_limit`, and those are
+  // the controls that actually held when the audit went looking. But this
+  // function uploads with the SERVICE ROLE, one refactor away from being the
+  // only thing in the path, and it was passing a caller-supplied content type
+  // through untouched with no size check at all. Two rules that a bucket
+  // setting should never be the sole owner of:
+  //
+  //   NO SVG, ANYWHERE. An SVG is a document with scripts in it. Served from a
+  //   public bucket and opened directly it executes on the storage origin, and
+  //   "a different origin from the app" is a mitigation, not a defence.
+  //   (`resources`, which does allow SVG, is admin-only and does not come
+  //   through this function.)
+  //
+  //   NO HTML, NO ANYTHING-ELSE. An allow-list, so the next media type somebody
+  //   adds is a decision rather than an oversight.
+  const ALLOWED_TYPES = new Set([
+    'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+    'video/mp4', 'video/webm', 'video/quicktime', 'video/ogg',
+    'audio/webm', 'audio/mp4', 'audio/mpeg', 'audio/ogg', 'audio/aac', 'audio/wav', 'audio/x-m4a',
+  ])
+  // A FILE WITH NO TYPE IS NOT A REJECTION, IT IS A LOOKUP.
+  //
+  // The client falls back to `application/octet-stream` whenever the browser
+  // gives it a File with an empty `type`, which really happens - some Android
+  // pickers, some HEIC conversions. Rejecting those would have broken photo
+  // upload for a slice of the community in the name of security, which is how
+  // security controls get turned off again. The extension decides instead, and
+  // an extension we do not recognise is still a no.
+  const BY_EXTENSION: Record<string, string> = {
+    jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif',
+    mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime', ogv: 'video/ogg',
+    m4a: 'audio/mp4', mp3: 'audio/mpeg', ogg: 'audio/ogg', aac: 'audio/aac', wav: 'audio/wav',
+  }
+  let baseType = contentType.split(';')[0].trim().toLowerCase()
+  if (!baseType || baseType === 'application/octet-stream') {
+    baseType = BY_EXTENSION[(path.split('.').pop() || '').toLowerCase()] ?? ''
+  }
+  if (!ALLOWED_TYPES.has(baseType)) return json(req, { error: 'that file type is not allowed' }, 415)
+  contentType = baseType
+
+  // A cap of our own, checked BEFORE the body is read into memory where we can.
+  // 60MB matches the most generous bucket; the point is that the number exists
+  // in this file rather than only in a dashboard setting somebody can widen.
+  const MAX_BYTES = 62_914_560
+  const declared = Number(req.headers.get('content-length') || 0)
+  if (declared > MAX_BYTES * 1.4) return json(req, { error: 'that file is too large' }, 413)
+
   // Path hygiene: no traversal, no odd characters, bounded length. Storage keys
   // are S3-style (no real filesystem) but this blocks abuse and keeps keys sane.
   if (path.length > 256 || path.includes('..') || !/^[A-Za-z0-9][\w./-]*$/.test(path)) {
@@ -129,11 +163,22 @@ Deno.serve(async (req) => {
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } })
 
   if (isPrivate) {
-    // dm-media/<conversationId>/... — the writer must be a participant.
+    // dm-media/<conversationId>/... — the writer must be in the conversation.
+    //
+    // THIS USED TO CHECK ONLY participant_a / participant_b, which are the two
+    // columns a DIRECT conversation uses. A GROUP conversation leaves both null
+    // and keeps its people in `conversation_members`, so nobody could put a
+    // photo in a group DM at all - the same blind spot the storage read policy
+    // had (migration 108). Both halves now ask the same question.
     const convId = path.split('/')[0]
-    const { data: conv } = await admin
-      .from('conversations').select('participant_a, participant_b').eq('id', convId).maybeSingle()
-    if (!conv || (conv.participant_a !== uid && conv.participant_b !== uid)) {
+    const [{ data: conv }, { data: member }] = await Promise.all([
+      admin.from('conversations').select('participant_a, participant_b').eq('id', convId).maybeSingle(),
+      admin.from('conversation_members').select('profile_id')
+        .eq('conversation_id', convId).eq('profile_id', uid).maybeSingle(),
+    ])
+    const isParticipant = !!member
+      || (!!conv && (conv.participant_a === uid || conv.participant_b === uid))
+    if (!isParticipant) {
       return json(req, { error: 'not a participant of this conversation' }, 403)
     }
   } else {
@@ -153,6 +198,7 @@ Deno.serve(async (req) => {
   // 3) Read the bytes (decode base64, or take the raw body) and upload with the
   // service role (bypasses Storage RLS safely).
   const bytes = await getBytes()
+  if (bytes.length > MAX_BYTES) return json(req, { error: 'that file is too large' }, 413)
   const { error: upErr } = await admin.storage.from(bucket).upload(path, bytes, {
     contentType,
     upsert: true,

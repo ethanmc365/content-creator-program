@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { Avatar, Badge, EmptyState, PageHeader, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { formatDate } from '../../lib/utils'
+import { safeUrl } from '../../lib/safeUrl'
 
 const STATUSES = [
   { key: 'new', label: 'New', tone: 'amber' },
@@ -104,7 +105,7 @@ export default function AdminFeedback() {
 
                 <p className="whitespace-pre-line text-sm text-ink">{f.message}</p>
                 {f.screenshot_url && (
-                  <a href={f.screenshot_url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block" title="Open full size">
+                  <a href={safeUrl(f.screenshot_url)} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block" title="Open full size">
                     <img src={f.screenshot_url} alt="Attached screenshot" loading="lazy" className="max-h-48 rounded-xl border border-gray-100 object-cover" />
                   </a>
                 )}

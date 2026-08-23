@@ -22,6 +22,7 @@ import { DeadlineReminderModal } from '../components/NotificationPreferences'
 import { useTimezone } from '../lib/timezone'
 import { loadCalendar } from '../lib/calendarSources'
 import { cx } from '../lib/utils'
+import { safeUrl } from '../lib/safeUrl'
 
 // THE CALENDAR, THIRD PASS.
 //
@@ -213,7 +214,7 @@ function EventCard({ e, now, zone, rsvps, myId, connectedIds, compact = false, o
             {meta.label}
           </span>
           {e.meetingUrl && (
-            <a href={e.meetingUrl} target="_blank" rel="noopener noreferrer"
+            <a href={safeUrl(e.meetingUrl)} target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-xs font-semibold text-brand transition-transform duration-200 hover:translate-x-0.5">
               Join the call
               <Icon name="chevronRight" className="h-3 w-3" />
@@ -706,7 +707,7 @@ function NextUp({ e, now, zone, rsvps, myId, connectedIds }) {
             </div>
             <div className="flex shrink-0 flex-wrap gap-3">
               {e.meetingUrl && (
-                <a href={e.meetingUrl} target="_blank" rel="noopener noreferrer"
+                <a href={safeUrl(e.meetingUrl)} target="_blank" rel="noopener noreferrer"
                   className="btn bg-white text-brand transition-transform duration-200 hover:scale-105 hover:bg-white">
                   Join the call
                 </a>

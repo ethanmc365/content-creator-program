@@ -23,6 +23,7 @@ import Icon from '../components/Icon'
 import { format } from 'date-fns'
 import { loadMapCentroids } from '../lib/mapCountries'
 import { formatDate, timeAgo, ageFromDob, cx } from '../lib/utils'
+import { safeUrl } from '../lib/safeUrl'
 
 // A creator's public profile: photo, bio, socials, the orange country map,
 // languages, stats and their content showcase (submitted video links).
@@ -270,7 +271,7 @@ export default function Profile() {
           )}
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
             {socials.map((s) => (
-              <a key={s.label} href={s.url} target="_blank" rel="noopener noreferrer" className="btn-secondary !px-4 !py-2 text-xs">
+              <a key={s.label} href={safeUrl(s.url)} target="_blank" rel="noopener noreferrer" className="btn-secondary !px-4 !py-2 text-xs">
                 {s.label} ↗
               </a>
             ))}
@@ -442,7 +443,7 @@ export default function Profile() {
               {submissions.map((s) => (
                 <a
                   key={s.id}
-                  href={s.video_url}
+                  href={safeUrl(s.video_url)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="card group overflow-hidden !p-0 transition-all hover:-translate-y-0.5 hover:shadow-lift"
@@ -842,7 +843,7 @@ export default function Profile() {
             {submissions.map((s) => (
               <a
                 key={s.id}
-                href={s.video_url}
+                href={safeUrl(s.video_url)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="card group overflow-hidden !p-0 transition-all hover:-translate-y-0.5 hover:shadow-lift"

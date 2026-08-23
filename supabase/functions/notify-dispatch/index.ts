@@ -34,11 +34,33 @@ const VAPID_PRIVATE = Deno.env.get('VAPID_PRIVATE_KEY')!
 
 webpush.setVapidDetails('mailto:hello@tryp.com', VAPID_PUBLIC, VAPID_PRIVATE)
 
+/** Constant-time string compare, so the secret cannot be guessed a byte at a time. */
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return diff === 0
+}
+
 const WEBHOOK_SECRET = Deno.env.get('WEBHOOK_SECRET')
 
 Deno.serve(async (req) => {
-  // Only the database webhook (which knows the shared secret) may call this.
-  if (WEBHOOK_SECRET && req.headers.get('x-webhook-secret') !== WEBHOOK_SECRET) {
+  // ONLY THE DATABASE WEBHOOK MAY CALL THIS, AND A MISSING SECRET IS A NO.
+  //
+  // This used to read `if (WEBHOOK_SECRET && header !== WEBHOOK_SECRET)`, so an
+  // unset or empty env var skipped the check entirely and the function became a
+  // public endpoint that sends a push notification with any title and body, to
+  // any user id, on any device they have registered. A phishing push that
+  // arrives on a locked phone showing our name is about as convincing as it
+  // gets.
+  //
+  // Nothing about "the secret is missing" makes the caller more trustworthy, so
+  // it now fails the way every other check in this codebase fails: closed. Its
+  // sibling media-cleanup already did this correctly, which is what made the
+  // difference visible. Timing-safe comparison because the value is a fixed
+  // secret and the comparison is remote-observable.
+  const presented = req.headers.get('x-webhook-secret') ?? ''
+  if (!WEBHOOK_SECRET || !timingSafeEqual(presented, WEBHOOK_SECRET)) {
     return new Response('unauthorized', { status: 401 })
   }
 

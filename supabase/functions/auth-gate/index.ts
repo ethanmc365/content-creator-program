@@ -6,6 +6,7 @@
 //
 // Deploy: supabase functions deploy auth-gate --no-verify-jwt
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { corsHeaders } from '../_shared/cors.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -14,32 +15,23 @@ const ANON = Deno.env.get('SUPABASE_ANON_KEY')!
 const MAX_ATTEMPTS = 5
 const WINDOW_MIN = 15
 
+// A SECOND BUCKET, ON THE IP ALONE, FOR LOGIN.
+//
+// The per-(email + IP) limit stops somebody guessing ONE person's password. It
+// does nothing at all about the attack that actually happens to a community
+// platform: take one leaked password and try it against every address you can
+// think of. Every attempt is a different email, so every attempt is a fresh
+// bucket with a fresh count of one, and a single machine could run tens of
+// thousands of them.
+//
+// 30 in 15 minutes is far more than a person with a forgotten password and far
+// less than a spray. It is deliberately generous because an office or a
+// university shares one address, and the per-email bucket is still the tight
+// one.
+const MAX_PER_IP = 30
+
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } })
 
-// CORS: reflect the request Origin only when it's one of ours (the two Vercel
-// production domains, any *.vercel.app preview deploy, or localhost dev). An
-// unknown origin gets the primary domain, so the browser blocks it.
-const PRIMARY_ORIGIN = 'https://trypcreators.vercel.app'
-function allowOrigin(origin: string | null): string {
-  if (!origin) return PRIMARY_ORIGIN
-  try {
-    const { hostname, protocol } = new URL(origin)
-    const ok =
-      (protocol === 'https:' && (hostname === 'trypcreators.vercel.app' || hostname === 'content-creator-program.vercel.app' || hostname.endsWith('.vercel.app'))) ||
-      ((protocol === 'http:' || protocol === 'https:') && (hostname === 'localhost' || hostname === '127.0.0.1'))
-    return ok ? origin : PRIMARY_ORIGIN
-  } catch {
-    return PRIMARY_ORIGIN
-  }
-}
-function corsHeaders(req: Request) {
-  return {
-    'Access-Control-Allow-Origin': allowOrigin(req.headers.get('origin')),
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Vary': 'Origin',
-  }
-}
 const json = (req: Request, obj: unknown, status = 200) =>
   new Response(JSON.stringify(obj), { status, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } })
 
@@ -52,7 +44,7 @@ function clientIp(req: Request) {
 }
 
 // Returns true if the identifier is over the limit (and prunes old rows).
-async function isLimited(identifier: string) {
+async function isLimited(identifier: string, max = MAX_ATTEMPTS) {
   const since = new Date(Date.now() - WINDOW_MIN * 60_000).toISOString()
   await admin.from('auth_attempts').delete().lt('created_at', new Date(Date.now() - 3_600_000).toISOString())
   const { count } = await admin
@@ -60,7 +52,7 @@ async function isLimited(identifier: string) {
     .select('id', { count: 'exact', head: true })
     .eq('identifier', identifier)
     .gte('created_at', since)
-  return (count ?? 0) >= MAX_ATTEMPTS
+  return (count ?? 0) >= max
 }
 const record = (identifier: string) => admin.from('auth_attempts').insert({ identifier })
 const clear = (identifier: string) => admin.from('auth_attempts').delete().eq('identifier', identifier)
@@ -71,10 +63,18 @@ const clear = (identifier: string) => admin.from('auth_attempts').delete().eq('i
 // email string is stored as-is and recipient_id is filled in only when it maps
 // to a real account. GoTrue answers 200 whether or not it sent anything, so a
 // non-2xx is the only signal we have that the send itself failed.
+// ONE LOOKUP, NOT A SCAN OF EVERY ACCOUNT.
+//
+// This used to pull the first 1000 users out of the auth API on every password
+// reset request, from an endpoint that needs no authentication, and then filter
+// in memory - so it did O(all users) work per request and quietly stopped
+// matching anybody past the thousandth account. `profiles` is indexed and
+// already has what we need.
 async function logRecovery(email: string, status: number) {
   const wanted = email.trim().toLowerCase()
-  const { data: list } = await admin.auth.admin.listUsers({ perPage: 1000 })
-  const match = (list?.users ?? []).find((u) => (u.email ?? '').toLowerCase() === wanted)
+  const { data: match } = await admin.rpc('admin_find_user_id_by_email', { p_email: wanted })
+    .then((r) => ({ data: r.data ? { id: r.data as string } : null }))
+    .catch(() => ({ data: null }))
   await admin.from('email_send_log').insert({
     kind: 'password_reset',
     recipient_id: match?.id ?? null,
@@ -109,10 +109,21 @@ Deno.serve(async (req) => {
   if (action === 'login') {
     if (!email || !password) return json(req, { error: 'Email and password are required.' }, 400)
     const id = `login:${String(email).toLowerCase()}|${ip}`
+    const ipId = `login-ip:${ip}`
     if (await isLimited(id)) return json(req, tooMany, 429)
+    // The spray bucket. Checked second so a genuine user hitting their own
+    // per-email limit still gets the per-email message.
+    if (await isLimited(ipId, MAX_PER_IP)) return json(req, tooMany, 429)
     await record(id)
+    await record(ipId)
     const { status, data } = await gotrue('token?grant_type=password', { email, password, ...sec })
-    if (status === 200 && data.access_token) { await clear(id); return json(req, data, 200) }
+    // A successful login clears BOTH buckets: the person at this address has
+    // proved they are not the thing the limit is for.
+    if (status === 200 && data.access_token) {
+      await clear(id)
+      await clear(ipId)
+      return json(req, data, 200)
+    }
     return json(req, { error: data.error_description || data.msg || data.error || 'Invalid login credentials' }, 400)
   }
 

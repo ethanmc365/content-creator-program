@@ -12,6 +12,7 @@ import { DIAL_CODES, flagEmoji } from '../lib/dialCodes'
 import { COUNTRIES, normalize as normalizeCountry } from '../lib/countries'
 import { Avatar, Spinner } from './ui'
 import Icon from './Icon'
+import { urlProblem } from '../lib/safeUrl'
 
 export const LANGUAGE_OPTIONS = [
   'English', 'Irish', 'French', 'Spanish', 'Portuguese', 'Italian', 'German',
@@ -268,6 +269,13 @@ export function LanguageSelect({ selected = [], onChange }) {
 }
 
 /** The three main social URL fields. */
+// A LINK IS CHECKED WHERE IT IS TYPED, AS WELL AS WHERE IT IS RENDERED.
+//
+// `safeUrl` at the render site is the security control and it is not optional -
+// see lib/safeUrl for what it stops. This is the other half: telling somebody
+// their link is wrong while they are looking at the field, rather than storing
+// it and silently refusing to render it a week later. It also means the bad
+// value never reaches the database in the first place.
 export function SocialInputs({ values, onChange }) {
   const fields = [
     { key: 'instagram_url', label: 'Instagram', placeholder: 'https://instagram.com/yourhandle' },
@@ -276,19 +284,24 @@ export function SocialInputs({ values, onChange }) {
   ]
   return (
     <div className="space-y-4">
-      {fields.map((f) => (
-        <div key={f.key}>
-          <label htmlFor={f.key} className="label">{f.label}</label>
-          <input
-            id={f.key}
-            type="url"
-            className="input"
-            placeholder={f.placeholder}
-            value={values[f.key] || ''}
-            onChange={(e) => onChange({ ...values, [f.key]: e.target.value })}
-          />
-        </div>
-      ))}
+      {fields.map((f) => {
+        const problem = urlProblem(values[f.key])
+        return (
+          <div key={f.key}>
+            <label htmlFor={f.key} className="label">{f.label}</label>
+            <input
+              id={f.key}
+              type="url"
+              className="input"
+              aria-invalid={problem ? 'true' : undefined}
+              placeholder={f.placeholder}
+              value={values[f.key] || ''}
+              onChange={(e) => onChange({ ...values, [f.key]: e.target.value })}
+            />
+            {problem && <p className="field-error"><Icon name="alert" className="h-3.5 w-3.5" />{problem}</p>}
+          </div>
+        )
+      })}
     </div>
   )
 }

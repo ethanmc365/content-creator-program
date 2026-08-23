@@ -3,6 +3,7 @@ import { Avatar } from './ui'
 import { TIKTOK_PATH } from './PlatformBadges'
 import { detectPlatformFromUrl } from '../lib/videoPreview'
 import { formatViews, cx } from '../lib/utils'
+import { safeUrl } from '../lib/safeUrl'
 
 // The closing graphic for a finished challenge.
 //
@@ -77,7 +78,7 @@ function VideoChip({ url, platform }) {
   const icon = PLATFORM_ICON[plat] || PLAY
   return (
     <a
-      href={url}
+      href={safeUrl(url)}
       target="_blank"
       rel="noopener noreferrer"
       onClick={own}

@@ -6,6 +6,7 @@ import { confirm } from '../lib/confirm'
 import { Badge, EmptyState, Modal, PageHeader, SkeletonCards, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
 import { timeAgo } from '../lib/utils'
+import { safeUrl } from '../lib/safeUrl'
 
 // How the applicant sees their application move through the admin's pipeline.
 const APPLICANT_STATUS = {
@@ -97,7 +98,7 @@ export default function Jobs() {
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {j.apply_url && (
-                      <a href={j.apply_url} target="_blank" rel="noopener noreferrer" className="btn-secondary">Apply form ↗</a>
+                      <a href={safeUrl(j.apply_url)} target="_blank" rel="noopener noreferrer" className="btn-secondary">Apply form ↗</a>
                     )}
                     {app ? (
                       <div className="flex items-center gap-2">

@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase'
 import { Avatar, Badge, EmptyState, PageHeader, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { ageFromDob, timeAgo } from '../../lib/utils'
+import { safeUrl } from '../../lib/safeUrl'
 
 // Signup review: new creators sign up and complete their profile, then wait
 // here as 'pending' until an admin approves or declines them. Approving flips
@@ -104,7 +105,7 @@ export default function AdminApplications() {
                     {a.about && <p className="line-clamp-3 text-sm text-smoke">{a.about}</p>}
                     <div className="flex flex-wrap gap-2">
                       {socials.length > 0 ? socials.map((s) => (
-                        <a key={s.label + s.url} href={s.url} target="_blank" rel="noopener noreferrer" className="btn-secondary !px-3 !py-1.5 text-xs">
+                        <a key={s.label + s.url} href={safeUrl(s.url)} target="_blank" rel="noopener noreferrer" className="btn-secondary !px-3 !py-1.5 text-xs">
                           {s.label} ↗
                         </a>
                       )) : <span className="text-xs text-gray-400">No social links provided</span>}

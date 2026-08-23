@@ -3,6 +3,7 @@ import { mediaType, fileNameFromUrl, saveFile } from '../lib/media'
 import VideoPlayer from './VideoPlayer'
 import { Spinner } from './ui'
 import Icon from './Icon'
+import { safeUrl } from '../lib/safeUrl'
 
 // A chat / DM attachment (image or video). Videos use the browser's native
 // <video controls> (reliable play button + inline playback everywhere, incl.
@@ -117,7 +118,7 @@ export default function ChatMedia({ url, alt, kind, maxW = 260, maxH = 380 }) {
         <VideoPlayer url={url} maxW={maxW} maxH={maxH} />
       ) : (
         <a
-          href={url}
+          href={safeUrl(url)}
           target="_blank"
           rel="noopener noreferrer"
           aria-label="Open image full size"

@@ -13,18 +13,41 @@ import { supabase } from './supabase'
 // EVERY ONE OF THESE FAILS CLOSED. A read that errors, a row that is missing,
 // or any value that is not exactly true means off. There is no flag here whose
 // absence should unlock something.
+//
+// FAILING CLOSED IS NOT THE SAME AS BEING UNREADABLE, which is what the August
+// 2026 audit found: see readFlag below.
 
 const cache = new Map()
 
+// THROUGH AN RPC, AND THAT IS THE WHOLE FIX FOR "THE WALKTHROUGH NEVER RAN".
+//
+// This used to select straight from `app_settings`. That table's only policy is
+// `is_admin()` for ALL commands - correct, because it also holds the company's
+// billing address - so a creator's read returned no rows, `readFlag` failed
+// closed to false exactly as designed, and the two features gated on it could
+// never start for ANYBODY. They were switched off in a way no row update could
+// switch on, and nothing anywhere said so: a silent, permanent false.
+//
+// `public_flag` is a SECURITY DEFINER reader with a two-key allow-list
+// (migration 108). It answers for the flags that are meant to be public and
+// false for everything else, so opening this path did not open the table.
+//
+// FAILING CLOSED HAS TO INCLUDE FAILING TO ASK. The first version called
+// `.then()` straight off the query builder, so anything that made `rpc` return
+// something without a `.then` - an offline shim, a stubbed client, a future
+// supabase-js - threw SYNCHRONOUSLY, out of `useAppFlag`'s effect, and took the
+// whole React tree down with it. A switch that is off is fine; a switch that
+// takes the app with it is not. Every path below ends at `false`.
 export async function readFlag(key) {
   if (cache.has(key)) return cache.get(key)
-  const p = supabase
-    .from('app_settings').select('value').eq('key', key).maybeSingle()
-    .then(({ data, error }) => {
-      if (error || !data) return false
-      return data.value === true || data.value === 'true'
-    })
-    .catch(() => false)
+  let p
+  try {
+    p = Promise.resolve(supabase.rpc('public_flag', { p_key: key }))
+      .then((res) => res?.error ? false : res?.data === true)
+      .catch(() => false)
+  } catch {
+    p = Promise.resolve(false)
+  }
   cache.set(key, p)
   return p
 }

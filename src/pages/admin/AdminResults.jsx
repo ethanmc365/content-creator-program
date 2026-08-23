@@ -8,6 +8,7 @@ import { useAuth } from '../../context/AuthContext'
 import { formatViews, timeAgo } from '../../lib/utils'
 import { announceToMarkets } from '../../lib/announce'
 import WinnersPodium from '../../components/WinnersPodium'
+import { safeUrl } from '../../lib/safeUrl'
 
 // Results entry for one challenge:
 //  1. Click through each submission and watch it on the platform.
@@ -265,7 +266,7 @@ export default function AdminResults() {
                 <p className="truncate text-sm font-semibold">{s.profiles?.name}</p>
                 <p className="text-xs text-smoke">{s.platform} · {timeAgo(s.submitted_at)}</p>
               </div>
-              <a href={s.video_url} target="_blank" rel="noopener noreferrer" className="btn-secondary !py-2 text-xs">
+              <a href={safeUrl(s.video_url)} target="_blank" rel="noopener noreferrer" className="btn-secondary !py-2 text-xs">
                 Watch ↗
               </a>
               <div className="flex items-center gap-2">

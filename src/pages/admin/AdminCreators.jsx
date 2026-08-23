@@ -8,6 +8,7 @@ import Icon from '../../components/Icon'
 import Turnstile from '../../components/Turnstile'
 import { formatDate, timeAgo, downloadCsv } from '../../lib/utils'
 import { isOnlineAt } from '../../lib/presence'
+import { safeUrl } from '../../lib/safeUrl'
 
 // Creator management: the full list with emails (admin-only RPC), plus all
 // account actions - password reset, mute, suspend, promote to admin, DM.
@@ -533,7 +534,7 @@ export default function AdminCreators() {
                   {detail.submissions.map((s) => (
                     <li key={s.id} className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 px-4 py-2.5 text-xs">
                       <span className="min-w-0 truncate">{s.challenges?.title} · {s.platform} · {timeAgo(s.submitted_at)}</span>
-                      <a href={s.video_url} target="_blank" rel="noopener noreferrer" className="shrink-0 font-medium text-brand hover:underline">Watch ↗</a>
+                      <a href={safeUrl(s.video_url)} target="_blank" rel="noopener noreferrer" className="shrink-0 font-medium text-brand hover:underline">Watch ↗</a>
                     </li>
                   ))}
                 </ul>

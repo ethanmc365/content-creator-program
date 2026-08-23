@@ -1,3 +1,4 @@
+import { corsHeaders as cors } from '../_shared/cors.ts'
 // Supabase Edge Function: geocode
 // Turns a creator's free-text town ("London", "Dublin/ Sligo", "Florida") into
 // coordinates for the creator map, using OpenStreetMap's Nominatim geocoder.
@@ -12,27 +13,6 @@
 //
 // Deploy:  supabase functions deploy geocode
 
-const PRIMARY_ORIGIN = 'https://trypcreators.vercel.app'
-function allowOrigin(origin: string | null): string {
-  if (!origin) return PRIMARY_ORIGIN
-  try {
-    const { hostname, protocol } = new URL(origin)
-    const ok =
-      (protocol === 'https:' && (hostname === 'trypcreators.vercel.app' || hostname === 'content-creator-program.vercel.app' || hostname.endsWith('.vercel.app'))) ||
-      ((protocol === 'http:' || protocol === 'https:') && (hostname === 'localhost' || hostname === '127.0.0.1'))
-    return ok ? origin : PRIMARY_ORIGIN
-  } catch {
-    return PRIMARY_ORIGIN
-  }
-}
-function cors(req: Request) {
-  return {
-    'Access-Control-Allow-Origin': allowOrigin(req.headers.get('origin')),
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Vary': 'Origin',
-  }
-}
 const json = (req: Request, obj: unknown, status = 200) =>
   new Response(JSON.stringify(obj), {
     status,

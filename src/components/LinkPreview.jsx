@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getLinkPreview } from '../lib/linkPreview'
 import { cx } from '../lib/utils'
+import { safeUrl } from '../lib/safeUrl'
 
 // Rich link card under a chat message that contains a URL. Renders nothing until
 // (and unless) the edge function returns a usable Open Graph card. `onDark`
@@ -33,7 +34,7 @@ export default function LinkPreview({ url, onDark }) {
 
   return (
     <a
-      href={data.url}
+      href={safeUrl(data.url)}
       target="_blank"
       rel="noopener noreferrer"
       className={cx(

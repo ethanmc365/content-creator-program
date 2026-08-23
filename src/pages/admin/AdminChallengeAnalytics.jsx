@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase'
 import { Avatar, PageHeader, Skeleton, StatCard } from '../../components/ui'
 import PlatformBadges from '../../components/PlatformBadges'
 import { formatViews, formatMoney, formatDate, downloadCsv } from '../../lib/utils'
+import { safeUrl } from '../../lib/safeUrl'
 
 // Deep-dive analytics for ONE challenge (admin only).
 // Reached by tapping a bar/row on the main Analytics page.
@@ -189,7 +190,7 @@ export default function AdminChallengeAnalytics() {
                 </div>
                 <PlatformBadges platforms={[s.platform]} className="hidden sm:flex" />
                 <span className="w-20 text-right text-sm tabular-nums">{s.logged_views != null ? formatViews(s.logged_views) : '-'}</span>
-                <a href={s.video_url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-brand hover:underline">Watch ↗</a>
+                <a href={safeUrl(s.video_url)} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-brand hover:underline">Watch ↗</a>
               </div>
             ))}
           </div>

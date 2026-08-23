@@ -14,6 +14,7 @@ import ParticipationBar from '../components/network/ParticipationBar'
 import { EntryFeedbackNote, EntryFeedbackEditor, loadFeedback } from '../components/EntryFeedback'
 import { Avatar, Badge, Modal, PageHeader, Skeleton, EmptyState, Spinner } from '../components/ui'
 import { formatDate, timeAgo, formatViews, detectPlatform, cx, challengeDeadline } from '../lib/utils'
+import { safeUrl } from '../lib/safeUrl'
 
 const PLATFORM_ORDER = ['Instagram', 'TikTok', 'YouTube', 'Other']
 
@@ -486,7 +487,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
 
                   <div className="mt-auto flex gap-2">
                     <a
-                      href={s.video_url}
+                      href={safeUrl(s.video_url)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="btn-secondary inline-flex flex-1 items-center justify-center gap-1.5 !py-2 text-xs"
