@@ -45,7 +45,11 @@ export function passwordScore(pw = '') {
   if (pw.length >= 12) n += 1
   if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) n += 1
   if (/\d/.test(pw) || /[^\w\s]/.test(pw)) n += 1
-  if (pw.length < 8) n = Math.min(n, 1)
+  // A PASSWORD TOO SHORT TO ACCEPT STILL SCORES ONE, NEVER ZERO.
+  // Zero draws four empty blocks and no words under a field somebody is
+  // actively typing into, which reads as the meter being broken rather than as
+  // the password being weak.
+  if (pw.length < 8) n = 1
   const label = ['', 'Too easy to guess', 'Passable', 'Good', 'Strong'][n]
   return { score: n, label }
 }

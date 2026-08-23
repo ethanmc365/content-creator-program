@@ -522,7 +522,33 @@ export default function Onboarding() {
           onJump={goTo}
         />
 
-        <div className="onb-card" key={current.key}>
+        {/* ENTER MOVES YOU ON.
+            Nine screens of one or two fields each is a form somebody fills in
+            with their hands on the keyboard, and every other form on the
+            internet advances on Enter - so a flow that does not simply feels
+            broken, and on a phone the return key is right next to the field.
+            Guarded three ways: only from a text input (a button or a checkbox
+            already does its own thing with Enter), never from a textarea where
+            Enter is a new line, and never when something underneath has already
+            claimed the key - which is what the country picker and the language
+            chips do when they take a selection. */}
+        <div
+          className="onb-card"
+          key={current.key}
+          onKeyDown={(e) => {
+            if (e.key !== 'Enter' || e.defaultPrevented || e.shiftKey) return
+            const t = e.target
+            if (t?.tagName !== 'INPUT') return
+            if (['checkbox', 'radio', 'button', 'submit'].includes(t.type)) return
+            // A picker is open somewhere on the screen: Enter belongs to it,
+            // whatever it does with it. The country picker's search box is a
+            // sibling of its list rather than a child, so asking the target
+            // whether it is inside a listbox answers no even when it plainly is.
+            if (document.querySelector('[role="listbox"]')) return
+            e.preventDefault()
+            if (step < STEPS.length - 1) next()
+          }}
+        >
           <div className="onb-screen" data-dir={dir}>
             <StepHead step={current} pending={pending} />
 

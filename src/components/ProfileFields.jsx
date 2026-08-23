@@ -347,12 +347,24 @@ export function CountrySelect({ value = '', code = '', onChange, required, label
       {open && (
         <div className="absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded-card border border-gray-200 bg-white shadow-lift">
           <div className="border-b border-gray-100 p-2">
+            {/* ENTER TAKES THE TOP MATCH, ESCAPE GIVES UP.
+                Typing "unit" and pressing Enter is what everybody does with a
+                search box in a dropdown, and this one used to do nothing at all
+                - which on the onboarding screen now means the keypress falls
+                through to the form and moves you on WITHOUT a country. */}
             <input
               autoFocus
               className="input !py-2 text-sm"
               placeholder="Start typing…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') { e.preventDefault(); setOpen(false); return }
+                if (e.key !== 'Enter') return
+                e.preventDefault()
+                const top = list[0]
+                if (top) { onChange({ country: top.name, country_code: top.iso2 }); setOpen(false); setQuery('') }
+              }}
             />
           </div>
           <ul role="listbox" className="max-h-64 overflow-y-auto py-1">
