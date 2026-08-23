@@ -8,8 +8,28 @@
 // the app uses: # ## ### headings, **bold**, *italic*, `code`, - / 1. lists,
 // - [ ] checklists, > quotes, --- dividers, [text](url) links and @mentions.
 
+// QUOTES ARE ESCAPED TOO, AND THAT IS NOT COSMETIC.
+//
+// This escaped &, < and > only, which is enough for text that lands in element
+// CONTENT and is not enough for text that lands in an ATTRIBUTE - and the
+// mention rule below puts the matched name into `data-mention="..."`. A creator
+// whose display name contained a double quote could therefore close that
+// attribute and add another one:
+//
+//   name:   Bob" onmouseover="...
+//   output: <span data-mention="Bob" onmouseover="..." ...>
+//
+// which is a stored cross-site-scripting hole, delivered through
+// RichEditable's dangerouslySetInnerHTML, and the person who opens the editor
+// holding that content is an admin. Display names are free text, so the
+// attacker is any creator and the victim is the team.
+//
+// Escaping quotes here is safe for the content case as well: a browser renders
+// &quot; as " and reads it back as " through textContent, so the markdown round
+// trip is unchanged. Verified by the round-trip tests.
 const escapeHtml = (s = '') =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
 
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
@@ -25,7 +45,12 @@ function inlineToHtml(text, { mentionNames } = {}) {
   html = html.replace(/(^|[\s(])_([^_\n]+)_(?=$|[\s).,!?])/g, '$1<em>$2</em>')
   html = html.replace(/`([^`\n]+)`/g, '<code>$1</code>')
   if (mentionNames?.length) {
-    const re = new RegExp('@(' + mentionNames.map(escapeRe).join('|') + ')', 'g')
+    // The pattern is built from ESCAPED names, because `html` has already been
+    // through escapeHtml by this point - matching the raw name would simply
+    // never fire for anybody whose name contains a quote or an ampersand.
+    // The captured text is therefore already attribute-safe and must NOT be
+    // escaped a second time, or the data-mention reads back as `Bob&quot;`.
+    const re = new RegExp('@(' + mentionNames.map((n) => escapeRe(escapeHtml(n))).join('|') + ')', 'g')
     html = html.replace(re, '<span class="rt-mention" data-mention="$1" contenteditable="false">@$1</span>')
   }
   return html || '<br>'
