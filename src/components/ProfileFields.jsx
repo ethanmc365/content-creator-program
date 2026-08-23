@@ -66,7 +66,10 @@ export function AvatarUpload({ photoUrl, name, onUploaded }) {
         </span>
       </button>
       <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
-      <button type="button" onClick={() => inputRef.current?.click()} className="text-sm font-medium text-brand hover:underline">
+      {/* py-2 -px-3 is not decoration: as bare text this was a 20px-high tap
+          target, which is under half what a thumb needs. The avatar above does
+          the same job and is large, but the words are what people aim at. */}
+      <button type="button" onClick={() => inputRef.current?.click()} className="-mx-3 rounded-lg px-3 py-2 text-sm font-medium text-brand hover:underline">
         {photoUrl ? 'Change photo' : 'Upload a photo'}
       </button>
       {error && <p className="text-xs text-red-600">{error}</p>}

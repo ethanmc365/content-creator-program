@@ -1,5 +1,9 @@
-/* Poppins - Tryp.com's brand font (free via Google Fonts). */
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
+/* Poppins - Tryp.com's brand font - is NOT imported here.
+   An @import of a remote stylesheet is render-blocking and serial: the browser
+   has to fetch and parse this whole file before it even learns the font exists.
+   A stress test on a connection that could not reach Google measured 12.7
+   seconds of blank screen because of this one line. It is attached from
+   /font.js instead, where it cannot hold up the first paint. */
 
 @tailwind base;
 @tailwind components;

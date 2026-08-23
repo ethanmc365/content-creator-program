@@ -3,6 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    <!-- Open the sockets to the font hosts now, in parallel with everything
+         else, so /font.js has nothing left to wait for. Preconnect costs one
+         idle connection and never blocks rendering. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Attaches the Poppins stylesheet without letting it block the first
+         paint. See the file for why it is not a plain <link> or an @import. -->
+    <script defer src="/font.js"></script>
     <link rel="icon" href="/favicon-32.png" sizes="32x32" />
     <!-- Mobile-first viewport. viewport-fit=cover handles iPhone notch/safe areas. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />

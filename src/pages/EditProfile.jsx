@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase'
 import { AvatarUpload, LanguageSelect, SocialInputs, DobField, PhoneInput, QuoteField } from '../components/ProfileFields'
 import WorldMap from '../components/WorldMap'
 import Icon from '../components/Icon'
-import { cx } from '../lib/utils'
+import { cx, ageFromDob } from '../lib/utils'
 import TravelGallery from '../components/TravelGallery'
 import { flagForCountry } from '../lib/flags'
 import { geocodeCity } from '../lib/geocode'
@@ -29,7 +29,9 @@ export default function EditProfile() {
 
   const [form, setForm] = useState({
     name: profile?.name || '',
-    dob: profile?.dob || null,
+    // Loaded from creator_private below, not from `profile` - a birthday is not
+    // something the rest of the community gets to read (migration 110).
+    dob: null,
     city: profile?.city || '',
     country: profile?.country || '',
     bio: profile?.bio || '',
@@ -45,18 +47,19 @@ export default function EditProfile() {
     bucket_list: Array.isArray(profile?.bucket_list) ? profile.bucket_list : [],
   })
 
-  // Phone is stored separately (private: only the creator and admins can read
-  // it). Payment details live on the Settings page now. Load the private row.
+  // Phone and date of birth are stored separately (private: only the creator
+  // and admins can read them). Payment details live on the Settings page now.
   const [contact, setContact] = useState({ phone: '', phone_country: '' })
   useEffect(() => {
     supabase
       .from('creator_private')
-      .select('phone, phone_country')
+      .select('phone, phone_country, dob')
       .eq('id', user.id)
       .maybeSingle()
       .then(({ data }) => {
         if (!data) return
         setContact({ phone: data.phone || '', phone_country: data.phone_country || '' })
+        if (data.dob) setForm((f) => (f.dob ? f : { ...f, dob: data.dob }))
       })
   }, [user.id])
 
@@ -81,6 +84,10 @@ export default function EditProfile() {
     // Geocode the town so this creator lands on the creator map. Best-effort:
     // if it changed (or was never geocoded) look it up, else keep old coords.
     const payload = { ...form }
+    // The birthday goes to creator_private; `profiles` carries the age, which
+    // is the only part of it the community was ever shown.
+    delete payload.dob
+    payload.age = ageFromDob(form.dob) ?? profile?.age ?? null
     // Drop half-empty bucket-list rows (a destination needs at least a country).
     payload.bucket_list = form.bucket_list
       .map((b) => ({ country: (b.country || '').trim(), city: (b.city || '').trim() }))
@@ -101,6 +108,7 @@ export default function EditProfile() {
         id: user.id,
         phone: contact.phone,
         phone_country: contact.phone_country,
+        ...(form.dob ? { dob: form.dob } : {}),
         updated_at: new Date().toISOString(),
       }),
     ])

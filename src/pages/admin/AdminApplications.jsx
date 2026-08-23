@@ -79,7 +79,9 @@ export default function AdminApplications() {
       ) : (
         <div className="space-y-5">
           {apps.map((a) => {
-            const age = ageFromDob(a.dob)
+            // profiles.age, which the birthday keeps in step (migration 110).
+            // The date itself is no longer on this row for anyone to read.
+            const age = a.age ?? ageFromDob(a.dob)
             const socials = socialsOf(a)
             return (
               <div key={a.id} className="card !p-6">

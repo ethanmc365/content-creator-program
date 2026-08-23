@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ComposableMap, Geographies, Geography, ZoomableGroup, Marker } from 'react-simple-maps'
 import { geoEqualEarth, geoDistance, geoContains } from 'd3-geo'
@@ -7,8 +7,20 @@ import { loadMapFeatures, loadMapCentroids } from '../lib/mapCountries'
 import { geocodeCity } from '../lib/geocode'
 import { cx, formatDate } from '../lib/utils'
 import { useIsDark } from '../lib/theme'
-import { countryKey, sameCountry } from '../lib/countryFacts'
-import CountryPanel, { TownPanel } from './CountryPanel'
+import { countryKey, sameCountry } from '../lib/countryKey'
+// THE FACT PANEL IS WHAT YOU GET WHEN YOU TAP A COUNTRY, SO IT LOADS THEN.
+//
+// CountryPanel imports the whole country fact bank, the population and area
+// tables and all three clue sets of the geography game - about 100KB that
+// exists to fill in a popup. Importing it at the top of this file put every one
+// of those bytes into the bundle of any page that draws a map, which includes
+// the HOME page, where the map is below the fold and most people never tap
+// anything at all.
+//
+// A tap is a deliberate act with a natural pause in it, which is exactly where
+// a chunk boundary belongs.
+const CountryPanel = lazy(() => import('./CountryPanel'))
+const TownPanel = lazy(() => import('./CountryPanel').then((m) => ({ default: m.TownPanel })))
 import DraggablePanel from './DraggablePanel'
 import Icon from './Icon'
 
@@ -1309,21 +1321,21 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   const panelBox = `pointer-events-auto flex min-h-0 w-full flex-col ${panelCls}`
 
   const townPanel = selected ? (
-    <TownPanel
+    <Suspense fallback={null}><TownPanel
       town={selected}
       onClose={() => selectTown(null)}
       onCreatorClick={onCreatorClick}
-    />
+    /></Suspense>
   ) : null
 
   const countryPanel = country ? (
-    <CountryPanel
+    <Suspense fallback={null}><CountryPanel
       country={country.name}
       lives={country.lives}
       visited={country.visited}
       onClose={() => { setCountry(null); writeUrl({ country: null }) }}
       onCreatorClick={onCreatorClick}
-    />
+    /></Suspense>
   ) : null
 
   // THE PANEL MUST NOT REACH THE ROW THE COUNTRY NAME SITS IN.

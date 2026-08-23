@@ -1,9 +1,20 @@
-import { memo, useEffect, useMemo, useState } from 'react'
+import { lazy, memo, Suspense, useEffect, useMemo, useState } from 'react'
 import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from 'react-simple-maps'
 import { loadMapFeatures, loadMapCountryNames, loadMapCentroids } from '../lib/mapCountries'
 import { useIsDark } from '../lib/theme'
-import { sameCountry } from '../lib/countryFacts'
-import CountryPanel from './CountryPanel'
+import { sameCountry } from '../lib/countryKey'
+// THE FACT PANEL IS WHAT YOU GET WHEN YOU TAP A COUNTRY, SO IT LOADS THEN.
+//
+// CountryPanel imports the whole country fact bank, the population and area
+// tables and all three clue sets of the geography game - about 100KB that
+// exists to fill in a popup. Importing it at the top of this file put every one
+// of those bytes into the bundle of any page that draws a map, which includes
+// the HOME page, where the map is below the fold and most people never tap
+// anything at all.
+//
+// A tap is a deliberate act with a natural pause in it, which is exactly where
+// a chunk boundary belongs.
+const CountryPanel = lazy(() => import('./CountryPanel'))
 
 // Interactive world map for "countries visited".
 //  * Free & open source: react-simple-maps + the world-atlas TopoJSON from
@@ -112,7 +123,7 @@ function WorldMap({ selected = [], onToggle, selectable = false, focusCountry = 
   const resetView = () => setPosition({ coordinates: [12, 8], zoom: 1 })
 
   const countryPanel = owner && country ? (
-    <CountryPanel
+    <Suspense fallback={null}><CountryPanel
       className="max-w-sm"
       country={country}
       variant="personal"
@@ -125,7 +136,7 @@ function WorldMap({ selected = [], onToggle, selectable = false, focusCountry = 
             : 'none'
       }
       onClose={() => setCountry(null)}
-    />
+    /></Suspense>
   ) : null
 
   return (

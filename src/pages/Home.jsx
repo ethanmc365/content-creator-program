@@ -4,7 +4,6 @@ import { format } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import CountdownTimer from '../components/CountdownTimer'
-import WorldMap from '../components/WorldMap'
 import CreatorSpotlight from '../components/CreatorSpotlight'
 import WhoToMeet from '../components/WhoToMeet'
 import DailyGamesCard from '../components/DailyGamesCard'
@@ -15,6 +14,9 @@ import { stripMarkup } from '../lib/richText'
 import { timeAgo, challengeDeadline } from '../lib/utils'
 import { loadMyScopes, inScope } from '../lib/scope'
 import Reveal from '../components/network/Reveal'
+import WorldMap from '../components/WorldMap'
+import WhenVisible from '../components/WhenVisible'
+import MapSkeleton from '../components/network/MapSkeleton'
 
 // Signed-in home: the CURRENT challenge front and centre with a live
 // countdown, plus quick community pulse (latest announcement, new creators).
@@ -288,7 +290,15 @@ export default function Home() {
             <span className="font-semibold text-brand">{allCountries.length} countries</span>. How much of the world can we see together?
           </p>
         </div>
-        <WorldMap selected={allCountries} />
+        {/* MOUNTED WHEN IT IS NEARLY ON SCREEN, NOT WHEN THE PAGE LOADS.
+            The atlas is 241 country outlines to fetch and parse, and that parse
+            blocks the main thread - which it was doing while the cards ABOVE it
+            were still animating in. A dynamic import would not help here
+            (WorldMap is a static import on five other pages), but deferring the
+            mount moves the fetch and the parse off the first paint entirely. */}
+        <WhenVisible rootMargin="1000px" fallback={<MapSkeleton ratio="world" />}>
+          <WorldMap selected={allCountries} />
+        </WhenVisible>
       </section>
 
       {/* ---------- New creators ---------- */}

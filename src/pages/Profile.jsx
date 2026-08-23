@@ -22,7 +22,7 @@ import { Avatar, Badge, Skeleton, EmptyState, CopyButton } from '../components/u
 import Icon from '../components/Icon'
 import { format } from 'date-fns'
 import { loadMapCentroids } from '../lib/mapCountries'
-import { formatDate, timeAgo, ageFromDob, cx } from '../lib/utils'
+import { formatDate, timeAgo, cx } from '../lib/utils'
 import { safeUrl } from '../lib/safeUrl'
 
 // A creator's public profile: photo, bio, socials, the orange country map,
@@ -240,7 +240,10 @@ export default function Profile() {
             <h1 className="text-3xl font-bold tracking-tight">{creator.name}</h1>
             {creator.is_admin && <Badge tone="light">Tryp.com Team</Badge>}
             {isApplication && <Badge tone="amber">Pending review</Badge>}
-            {(ageFromDob(creator.dob) ?? creator.age) && <span className="text-smoke">{ageFromDob(creator.dob) ?? creator.age}</span>}
+            {/* An age, never a birthday. `profiles.dob` is deprecated and
+                always null now; the date itself lives in creator_private,
+                which only the creator and admins can read (migration 110). */}
+            {creator.age != null && <span className="text-smoke">{creator.age}</span>}
           </div>
           {(creator.city || creator.country || currentTrip) && (
             <p className="mt-1 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-sm text-smoke sm:justify-start">

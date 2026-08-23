@@ -223,7 +223,10 @@ export default function Onboarding() {
       ...EMPTY,
       name: auth.profile?.name || '',
       photo_url: auth.profile?.photo_url || '',
-      dob: auth.profile?.dob || null,
+      // Never from `auth.profile`: a birthday lives in creator_private, which
+      // no other member can read (migration 110). Someone resuming onboarding
+      // re-enters it, and the localStorage draft carries it between steps.
+      dob: null,
       city: auth.profile?.city || '',
       country: auth.profile?.country || '',
       country_code: auth.profile?.country_code || isoForCountryName(auth.profile?.country) || '',
@@ -391,7 +394,9 @@ export default function Onboarding() {
     const update = {
       name: draft.name.trim(),
       photo_url: draft.photo_url,
-      dob: draft.dob,
+      // `age`, not `dob`. The date itself goes to creator_private below; this
+      // is the derived number the directory and profile pages show.
+      age: ageFromDob(draft.dob),
       city: draft.city.trim(),
       country: draft.country.trim(),
       // Derived, never asked for: the picker hands us both halves at once, and
@@ -423,11 +428,12 @@ export default function Onboarding() {
 
     await Promise.all([
       supabase.from('profiles').update(update).eq('id', user.id),
-      (contact.phone || contact.phone_country)
+      (contact.phone || contact.phone_country || draft.dob)
         ? supabase.from('creator_private').upsert({
             id: user.id,
             phone: contact.phone,
             phone_country: contact.phone_country,
+            ...(draft.dob ? { dob: draft.dob } : {}),
             updated_at: new Date().toISOString(),
           })
         : Promise.resolve(),

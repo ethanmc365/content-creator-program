@@ -4,7 +4,7 @@ import { ComposableMap, Geographies, Geography, ZoomableGroup } from 'react-simp
 import { loadWorldAirports, tierAt, dotRadius } from '../../lib/worldAirports'
 import { geoEqualEarth } from 'd3-geo'
 import { loadMapFeatures } from '../../lib/mapCountries'
-import { countryKey } from '../../lib/countryFacts'
+import { countryKey } from '../../lib/countryKey'
 import { useIsDark } from '../../lib/theme'
 import { cx } from '../../lib/utils'
 import { flagFromIso } from '../../lib/flags'

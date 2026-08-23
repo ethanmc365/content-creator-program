@@ -2,8 +2,11 @@
    Handles web-push delivery, page-driven notifications, click routing, AND
    offline app-shell caching so the app still boots with no connection. */
 
-const CACHE = 'tryp-cache-v6'
-const SHELL = ['/', '/index.html', '/brand/tryp-logo.png', '/brand/tryp-plane.png', '/manifest.webmanifest']
+const CACHE = 'tryp-cache-v7'
+// /font.js is in the shell because it is what attaches the brand font, and a
+// creator who opens the app offline should still get Poppins from the cache
+// rather than the system fallback.
+const SHELL = ['/', '/index.html', '/font.js', '/brand/tryp-logo.png', '/brand/tryp-plane.png', '/manifest.webmanifest']
 
 self.addEventListener('install', (event) => {
   self.skipWaiting()
