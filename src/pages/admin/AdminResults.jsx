@@ -9,6 +9,7 @@ import { describeSyncError } from '../../lib/viewSync'
 import WinnersPodium from '../../components/WinnersPodium'
 import ViewSyncPanel from '../../components/admin/ViewSyncPanel'
 import ShareLeaderboard from '../../components/admin/ShareLeaderboard'
+import PrizesPanel from '../../components/admin/PrizesPanel'
 import { PLATFORM_ORDER } from '../../components/PlatformBadges'
 
 // Results entry for one challenge:
@@ -289,6 +290,8 @@ export default function AdminResults() {
           />
         </div>
       )}
+
+      {resultsCount > 0 ? <PrizesPanel challengeId={id} onFlash={flash} /> : null}
 
       {submissions.length > 0 ? (
         <ViewSyncPanel challengeId={id} submissions={submissions} onSynced={load} />
