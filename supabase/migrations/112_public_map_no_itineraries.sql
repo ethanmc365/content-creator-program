@@ -37,7 +37,12 @@
 -- and it is what makes the map a map. The dates are the part that turns a
 -- marketing graphic into a schedule of unoccupied houses.
 --
--- Applied to production 23 Aug 2026.
+-- Applied to production 24 Aug 2026, as `public_map_no_itineraries`.
+--
+-- Numbered 112, not 111: a `111_harden_resources_bucket` is already in the
+-- applied history without a file in this folder. The number here is a label for
+-- readers - the database tracks what it has actually run - but two files
+-- claiming 111 would be a trap for whoever reads this next.
 create or replace function public.public_creator_map()
 returns json
 language sql
