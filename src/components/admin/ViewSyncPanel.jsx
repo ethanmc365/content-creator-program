@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Select, Spinner } from '../ui'
 import Icon from '../Icon'
 import { timeAgo } from '../../lib/utils'
 import {
   CADENCES,
   describeSyncError,
-  saveViewSyncSecret,
   saveViewSyncSettings,
   startViewSync,
   viewSyncBacklog,
@@ -35,11 +35,6 @@ function nextDue(lastRunAt, intervalHours) {
   return hrs < 48 ? `in ${hrs} hours` : `in ${Math.round(hrs / 24)} days`
 }
 
-const CREDENTIALS = [
-  { name: 'instagram_sessionid', label: 'Instagram session', placeholder: 'sessionid', platform: 'Instagram' },
-  { name: 'youtube_api_key', label: 'YouTube API key', placeholder: 'AIza…', platform: 'YouTube' },
-]
-
 function Stat({ label, children }) {
   return (
     <div>
@@ -53,10 +48,6 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
   const [status, setStatus] = useState(null)
   const [backlog, setBacklog] = useState(null)
   const [starting, setStarting] = useState(false)
-  const [showKeys, setShowKeys] = useState(false)
-  const [keysTouched, setKeysTouched] = useState(false)
-  const [draft, setDraft] = useState({ instagram_sessionid: '', youtube_api_key: '' })
-  const [saving, setSaving] = useState('')
   const [error, setError] = useState('')
   const pollRef = useRef(null)
   const wasRunning = useRef(false)
@@ -115,14 +106,14 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
     .map(([code, rows]) => ({ code, rows, meta: describeSyncError(code) }))
     .sort((a, b) => Number(b.meta.needsAttention) - Number(a.meta.needsAttention))
 
+  // A missing or rejected credential is the one thing here a person has to go
+  // and fix, and the place to fix it is /admin/connections. Everything else on
+  // this page is about THIS challenge.
   const credentialTrouble =
     !!status && (
       !connected.Instagram || !connected.YouTube ||
       !!problems.session_expired || !!problems.youtube_key_rejected
     )
-  useEffect(() => {
-    if (status && !keysTouched) setShowKeys(credentialTrouble)
-  }, [status, credentialTrouble, keysTouched])
 
   const automatic = submissions.filter((s) => s.views_source && s.views_source !== 'manual').length
   const pct = running && run.total ? Math.round((run.done / run.total) * 100) : 0
@@ -132,7 +123,10 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
     setStarting(true)
     setError('')
     try {
-      const r = await startViewSync({ challengeId })
+      // force: pressing this means "read these now". Without it the sweep's
+      // staleness rule applies, and a button that does nothing because
+      // everything was read four hours ago is a button that looks broken.
+      const r = await startViewSync({ challengeId, force: true })
       if (r.busy) setError('A sync is already running.')
       await refresh()
     } catch (e) {
@@ -152,19 +146,6 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
     }
   }
 
-  async function storeSecret(name) {
-    setSaving(name)
-    setError('')
-    try {
-      await saveViewSyncSecret(name, draft[name].trim())
-      setDraft((d) => ({ ...d, [name]: '' }))
-      await refresh()
-    } catch (e) {
-      setError(e.message ?? 'Could not save that credential.')
-    }
-    setSaving('')
-  }
-
   return (
     <section className="mb-8 overflow-hidden rounded-card border border-gray-100 shadow-card">
       {/* ---- The action, given the room an action deserves ---- */}
@@ -175,7 +156,9 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
             View counts
           </h2>
           <p className="mt-1 max-w-sm text-sm leading-relaxed text-smoke">
-            Read off each entry&apos;s link automatically. Type a number in any row to override.
+            Read off each entry&apos;s link automatically.
+            <br />
+            Type in number at the end to override the automation.
           </p>
         </div>
 
@@ -255,57 +238,17 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
         </div>
       ) : null}
 
-      {/* ---- Credentials: touched about once a year, so kept out of the way ---- */}
-      <div className="border-t border-gray-100 px-5 py-4 sm:px-7">
-        <button
-          type="button"
-          className="flex items-center gap-2 text-sm text-smoke transition-colors hover:text-brand"
-          onClick={() => { setKeysTouched(true); setShowKeys((v) => !v) }}
-        >
-          <span className={credentialTrouble ? 'font-semibold text-brand' : ''}>
-            {credentialTrouble ? 'Instagram or YouTube needs attention' : 'Instagram and YouTube connected'}
-          </span>
-          <Icon name="chevronRight" className={`h-3.5 w-3.5 transition-transform ${showKeys ? '-rotate-90' : 'rotate-90'}`} />
-        </button>
-
-        {showKeys ? (
-          <div className="mt-4 max-w-xl space-y-4">
-            {CREDENTIALS.map((f) => (
-              <div key={f.name}>
-                <div className="mb-1.5 flex items-baseline gap-2">
-                  <span className="label !mb-0">{f.label}</span>
-                  <span className={connected[f.platform] ? 'text-xs text-green-700' : 'text-xs text-brand'}>
-                    {connected[f.platform] ? 'connected' : 'not set'}
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <input
-                    type="password"
-                    autoComplete="off"
-                    className="input min-w-[16rem] flex-1 !w-auto"
-                    placeholder={f.placeholder}
-                    value={draft[f.name]}
-                    onChange={(e) => setDraft((d) => ({ ...d, [f.name]: e.target.value }))}
-                    onKeyDown={(e) => e.key === 'Enter' && draft[f.name].trim() && storeSecret(f.name)}
-                  />
-                  <button
-                    type="button"
-                    className="btn-secondary !py-2 text-sm"
-                    onClick={() => storeSecret(f.name)}
-                    disabled={saving === f.name || !draft[f.name].trim()}
-                  >
-                    {saving === f.name ? 'Saving…' : connected[f.platform] ? 'Replace' : 'Save'}
-                  </button>
-                </div>
-              </div>
-            ))}
-            <p className="text-xs leading-relaxed text-smoke">
-              The YouTube key does not expire. The Instagram session lasts months, and the entries will say so
-              when it stops working.
-            </p>
-          </div>
-        ) : null}
-      </div>
+      {credentialTrouble ? (
+        <div className="border-t border-gray-100 px-5 py-4 sm:px-7">
+          <Link
+            to="/admin/connections"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-brand hover:underline"
+          >
+            <Icon name="alert" className="h-4 w-4" />
+            Instagram or YouTube needs reconnecting
+          </Link>
+        </div>
+      ) : null}
     </section>
   )
 }

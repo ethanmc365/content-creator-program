@@ -90,6 +90,7 @@ const AdminReferrals = lazy(() => import('./pages/admin/AdminReferrals'))
 const AdminEmail = lazy(() => import('./pages/admin/AdminEmail'))
 const AdminApplications = lazy(() => import('./pages/admin/AdminApplications'))
 const AdminAuditLog = lazy(() => import('./pages/admin/AdminAuditLog'))
+const AdminConnections = lazy(() => import('./pages/admin/AdminConnections'))
 const AdminTeam = lazy(() => import('./pages/admin/AdminTeam'))
 const AdminMilestones = lazy(() => import('./pages/admin/AdminMilestones'))
 const AdminScheduledAnnouncements = lazy(() => import('./pages/admin/AdminScheduledAnnouncements'))
@@ -219,6 +220,7 @@ export default function App() {
             <Route path="/admin" element={<AdminPanel />} />
             <Route path="/admin/applications" element={<AdminApplications />} />
             <Route path="/admin/creators" element={<AdminCreators />} />
+            <Route path="/admin/connections" element={<AdminConnections />} />
             <Route path="/admin/challenges" element={<AdminChallenges />} />
             <Route path="/admin/challenges/new" element={<AdminChallengeForm />} />
             <Route path="/admin/challenges/:id/edit" element={<AdminChallengeForm />} />

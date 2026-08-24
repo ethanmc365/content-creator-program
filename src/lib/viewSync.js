@@ -90,10 +90,14 @@ export async function probeLink(url) {
 //
 // Poll `viewSyncStatus().run` for progress. `{ busy: true }` means a run is
 // already going, which is a normal answer rather than an error.
-export async function startViewSync({ challengeId, submissionIds } = {}) {
+// `force` skips the staleness rule, which is what a person pressing a button
+// means. The scheduled sweep leaves it off and reads only what has gone stale;
+// that is what lets a programme of thousands drain steadily.
+export async function startViewSync({ challengeId, submissionIds, force = false } = {}) {
   const body = {}
   if (challengeId) body.challenge_id = challengeId
   if (submissionIds?.length) body.submission_ids = submissionIds
+  if (force) body.force = true
 
   const { data, error } = await supabase.functions.invoke('view-sync', { body })
   // A 409 arrives as an error with the body attached; "already running" is not

@@ -51,7 +51,8 @@ programme is nothing: 39 entries take about 7 seconds.
 | `run_view_sync(force)` | Postgres, `security definer` | Decides whether the interval has elapsed, then POSTs the function |
 | `view-sync` cron job | pg_cron, `7 * * * *` | Ticks hourly and calls the above |
 | `view_snapshots` | table | Every reading ever taken, whether or not it reached the leaderboard |
-| `ViewSyncPanel` | `/admin/challenges/:id/results` | Status, cadence, Sync now, both credentials |
+| `ViewSyncPanel` | `/admin/challenges/:id/results` | Status, cadence, Sync now |
+| `AdminConnections` | `/admin/connections` | The two credentials, and what each platform needs |
 | `ViewsLab` | `/admin/testing/views` | Paste a link, see what it reads. Writes nothing |
 
 The cron ticks **hourly** but the cadence is a **setting**, not a schedule:
@@ -100,8 +101,11 @@ page read stays as a fallback for the day the block lifts.
 
 ### Facebook, rounded, no sign-in
 
-`og:title` reads `"5.6K views · 152K reactions | ..."` and that is the only
-statement of a count in the whole document. There is no exact figure anywhere,
+`og:title` reads `"5.7K views · 152K reactions | ..."` and that is the only
+statement of a count in the whole document. **A `/reel/<id>` URL is answered
+with a 400**, while the same video at `watch/?v=<id>` returns fine - so once the
+id is known the request is made in the form that works, not the form the creator
+pasted. There is no exact figure anywhere,
 `m.facebook.com` returns a stub and `mbasic.facebook.com` redirects to a login.
 
 So a Facebook number is stored with `views_approx` set, shown with a `~`, and
@@ -258,6 +262,17 @@ obvious next to the ones either side of it.
 | `fetch_failed` | Request failed or timed out. Retried next run |
 
 ## Running a sync
+
+**"Sync now" forces.** The scheduled sweep reads what has gone STALE, which is
+what lets a big programme drain steadily. A person pressing the button means
+"read these now", so it sends `force: true` and the staleness rule is skipped
+entirely. Without that the button did nothing whenever everything had been read
+inside the interval, which looks exactly like a broken button.
+
+A forced chain knows it is finished differently from a scheduled one: a scheduled
+sweep counts down what is still stale, but a forced run makes every row it reads
+fresh, so it counts `done` against the `total` it started with. Using
+"remaining stale" for a forced run would never reach zero.
 
 Every run is a BACKGROUND run. The caller gets `202` immediately and polls
 `view_sync_status().run`, which carries `{ running, total, done, updated,

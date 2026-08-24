@@ -31,7 +31,6 @@ export default function AdminResults() {
   const [generating, setGenerating] = useState(false)
   const [posting, setPosting] = useState(false)
   const [publishing, setPublishing] = useState(false)
-  const [results, setResults] = useState([])
   const [toast, setToast] = useState('')
 
   // While the challenge is still running a leaderboard is an INTERIM snapshot;
@@ -49,16 +48,13 @@ export default function AdminResults() {
         .order('submitted_at'),
       supabase.from('results').select('id', { count: 'exact', head: true }).eq('challenge_id', id),
     ])
-    // The rows themselves, not just how many: without them the admin was asked
-    // to publish a leaderboard they had never actually been shown.
-    const { data: rows } = await supabase
-      .from('results')
-      .select('creator_id, final_views, rank, profiles:creator_id(id, name, photo_url)')
-      .eq('challenge_id', id)
-      .order('rank')
+    // The saved `results` rows are NOT read here any more. The podium preview is
+    // built from the entries themselves, so it reflects the view counts on this
+    // page rather than whatever was saved the last time somebody pressed
+    // "Generate leaderboard". Only the COUNT is still needed, for the "leaderboard
+    // live (N)" link.
     setChallenge(ch)
     setSubmissions(subs ?? [])
-    setResults(rows ?? [])
     setResultsCount(count ?? 0)
     setLoading(false)
   }, [id])
@@ -177,12 +173,30 @@ export default function AdminResults() {
     if (!cur || (sub.logged_views ?? 0) > (cur.logged_views ?? 0)) acc[sub.creator_id] = sub
     return acc
   }, {})
-  const podiumWinners = results.slice(0, places).map((r, i) => ({
-    ...r,
-    rank: i + 1,
-    videoUrl: bestByCreator[r.creator_id]?.video_url ?? null,
-    platform: bestByCreator[r.creator_id]?.platform ?? null,
-  }))
+  // THE PREVIEW IS BUILT FROM THE ENTRIES, NOT FROM THE SAVED RESULTS.
+  //
+  // It used to read the `results` table, which only changes when somebody
+  // presses "Generate leaderboard" - so a sync could refresh every view count on
+  // the page and the podium above them would still be showing last week's order
+  // and last week's numbers. This is a preview; it should show what the
+  // leaderboard WOULD be right now. Generating still writes the saved results,
+  // which is what creators see.
+  const liveRanking = Object.values(bestByCreator)
+    .filter((sub) => sub.logged_views != null)
+    .map((sub) => ({
+      creator_id: sub.creator_id,
+      profiles: sub.profiles,
+      final_views: sub.logged_views ?? 0,
+      videoUrl: sub.video_url ?? null,
+      platform: sub.platform ?? null,
+    }))
+    .sort((a, b) => b.final_views - a.final_views)
+    .map((r, i) => ({ ...r, rank: i + 1 }))
+
+  const podiumWinners = liveRanking.slice(0, places)
+  // Every entry counts toward the total, not just the best one per creator:
+  // "final views" is what the challenge produced.
+  const liveTotalViews = submissions.reduce((sum, sub) => sum + (sub.logged_views ?? 0), 0)
   // EVERYONE who cleared the participation threshold, podium included. Podium
   // creators used to be filtered out, which made a row headed "for everyone
   // here" leave out the three people most obviously here. Placing first does not
@@ -206,8 +220,8 @@ export default function AdminResults() {
         title={`Results: ${challenge?.title}`}
         subtitle={
           isLive
-            ? 'View counts are read off each entry automatically. Publish the current leaderboard mid-challenge, then publish again after it closes for the final ranking. Any number you type by hand wins.'
-            : 'View counts are read off each entry automatically. Check anything flagged below, correct it by hand, then generate the leaderboard. Any number you type by hand wins.'
+            ? 'View counts are read off each entry automatically. Check anything flagged below and correct it.'
+            : 'View counts are read off each entry automatically. Check anything flagged below and correct it.'
         }
         action={
           <div className="flex flex-col items-end gap-2">
@@ -260,7 +274,7 @@ export default function AdminResults() {
           <WinnersPodium
             winners={podiumWinners}
             entries={submissions.length}
-            totalScore={results.reduce((sum, r) => sum + (r.final_views || 0), 0)}
+            totalScore={liveTotalViews}
             scoring={challenge?.scoring}
             voucherWinners={voucherWinners}
             voucherPrize={challenge?.participation_prize}

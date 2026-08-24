@@ -15,7 +15,8 @@
 //   Facebook   Exact below a thousand, ROUNDED above it. og:title is the only
 //              statement of a count logged out ("847 views", "5.7K views") and
 //              nothing in the document carries an exact one; m./mbasic. are
-//              login-walled.
+//              login-walled. A /reel/<id> URL 400s, so it is asked for as
+//              watch/?v=<id> instead.
 //   Instagram  Exact, needs a session cookie AND THE COOKIES THAT GO WITH IT.
 //              `sessionid` alone gets a 302 that redirects to itself forever;
 //              adding ds_user_id, csrftoken, ig_did and mid returns the media.
@@ -24,9 +25,9 @@
 //              derived. See igCookie().
 //
 // Callers, all authenticated:
-//   pg_cron / run_view_sync()   x-webhook-secret, {}              -> sweep
+//   pg_cron / run_view_sync()   x-webhook-secret, {}              -> stale sweep
 //   itself                      x-webhook-secret, { continuation } -> next chunk
-//   admin "Sync now"            admin JWT, { challenge_id }        -> one challenge
+//   admin "Sync now"            admin JWT, { challenge_id, force } -> read now
 //   Testing Centre              admin JWT, { probe: url }          -> READ ONLY
 //
 // SCALE. A UK challenge has 39 entries; a Spanish one has 400 to 500 and a
@@ -306,8 +307,13 @@ async function facebookViews(url: string, knownId: string | null): Promise<Resol
     if (canonical) id = facebookIdFrom(canonical)
   }
 
+  // A /reel/<id> URL is answered with a 400 by Facebook, while the very same
+  // video at watch/?v=<id> returns fine - so once the id is known, ask for the
+  // form that works rather than the form the creator happened to paste.
+  const target = id ? `https://www.facebook.com/watch/?v=${id}` : (canonical ?? url)
+
   try {
-    const html = await getText(canonical ?? url)
+    const html = await getText(target)
     const title = decodeEntities(html.match(/property="og:title"\s+content="([^"]*)"/)?.[1] ?? '')
 
     // ROUNDED FIRST, then exact. Facebook states a plain number below a
@@ -616,8 +622,7 @@ const ROW_COLS = 'id, video_url, platform, logged_views, platform_video_id'
 // STALENESS BELONGS TO THE ENTRY, not to the run. Oldest reading first, so a
 // programme too big to read in one go drains evenly instead of the same first
 // hundred being refreshed over and over.
-async function staleRows(challengeId: string | undefined, intervalHours: number): Promise<Row[]> {
-  const staleBefore = new Date(Date.now() - intervalHours * 3600_000).toISOString()
+async function staleRows(challengeId: string | undefined, intervalHours: number, force = false): Promise<Row[]> {
   let q = supabase.from('submissions').select(ROW_COLS)
 
   if (challengeId) {
@@ -628,15 +633,22 @@ async function staleRows(challengeId: string | undefined, intervalHours: number)
     q = q.in('challenge_id', ids)
   }
 
+  // FORCE skips the staleness rule entirely. Pressing "Sync now" has to sync:
+  // the scheduled sweep reads what has gone stale, but an admin asking for it
+  // means "read these now", and a button that quietly does nothing because
+  // everything was read four hours ago is a button that looks broken.
+  if (!force) {
+    const staleBefore = new Date(Date.now() - intervalHours * 3600_000).toISOString()
+    q = q.or(`views_synced_at.is.null,views_synced_at.lt.${staleBefore}`)
+  }
+
   const { data } = await q
-    .or(`views_synced_at.is.null,views_synced_at.lt.${staleBefore}`)
     .order('views_synced_at', { ascending: true, nullsFirst: true })
     .limit(CHUNK)
   return (data ?? []) as Row[]
 }
 
-async function countStale(challengeId: string | undefined, intervalHours: number): Promise<number> {
-  const staleBefore = new Date(Date.now() - intervalHours * 3600_000).toISOString()
+async function countStale(challengeId: string | undefined, intervalHours: number, force = false): Promise<number> {
   let q = supabase.from('submissions').select('id', { count: 'exact', head: true })
 
   if (challengeId) {
@@ -646,7 +658,11 @@ async function countStale(challengeId: string | undefined, intervalHours: number
     if (!ids.length) return 0
     q = q.in('challenge_id', ids)
   }
-  const { count } = await q.or(`views_synced_at.is.null,views_synced_at.lt.${staleBefore}`)
+  if (!force) {
+    const staleBefore = new Date(Date.now() - intervalHours * 3600_000).toISOString()
+    q = q.or(`views_synced_at.is.null,views_synced_at.lt.${staleBefore}`)
+  }
+  const { count } = await q
   return count ?? 0
 }
 
@@ -664,7 +680,7 @@ async function syncInterval(): Promise<number> {
 // Hand the rest of the work to a fresh invocation rather than trying to finish
 // it here. Each chunk gets its own clock, so a programme of any size drains at a
 // steady rate instead of one run racing a timeout.
-async function continueChain(scope: { challenge_id?: string }, progress: Progress) {
+async function continueChain(scope: { challenge_id?: string; force?: boolean }, progress: Progress) {
   try {
     await fetch(`${SUPABASE_URL}/functions/v1/view-sync`, {
       method: 'POST',
@@ -697,6 +713,7 @@ Deno.serve(async (req) => {
     challenge_id?: string
     submission_ids?: string[]
     continuation?: Progress
+    force?: boolean
   }
 
   const secret = req.headers.get('x-webhook-secret') ?? ''
@@ -749,7 +766,8 @@ Deno.serve(async (req) => {
   }
 
   const interval = await syncInterval()
-  const rows = await staleRows(body.challenge_id, interval)
+  const force = body.force === true
+  const rows = await staleRows(body.challenge_id, interval, force)
 
   if (!rows.length) {
     // Nothing stale. If this is the tail of a chain, close the run properly so
@@ -764,7 +782,7 @@ Deno.serve(async (req) => {
   const progress: Progress = continuation ?? {
     started_at: new Date().toISOString(),
     trigger: fromCron ? 'scheduled' : 'admin',
-    total: await countStale(body.challenge_id, interval),
+    total: await countStale(body.challenge_id, interval, force),
     done: 0, updated: 0, failed: 0, chunk: 0,
   }
   progress.chunk += 1
@@ -772,9 +790,19 @@ Deno.serve(async (req) => {
 
   const work = (async () => {
     const after = await syncChunk(rows, progress)
-    const remaining = await countStale(body.challenge_id, interval)
-    if (remaining > 0 && after.chunk < MAX_CHUNKS_PER_CHAIN) {
-      await continueChain({ challenge_id: body.challenge_id }, after)
+
+    // How a chain knows it is finished depends on why it started. A SCHEDULED
+    // sweep asks what is still stale, and each chunk it reads stops being
+    // stale. A FORCED run has no staleness to count down - every row it reads
+    // is fresh the moment it reads it - so it counts against the total it set
+    // out with. Using "remaining stale" for a forced run would never reach zero
+    // and would loop until the chunk cap.
+    const more = force
+      ? after.done < after.total
+      : (await countStale(body.challenge_id, interval)) > 0
+
+    if (more && after.chunk < MAX_CHUNKS_PER_CHAIN) {
+      await continueChain({ challenge_id: body.challenge_id, force }, after)
     } else {
       await finishRun(after)
     }

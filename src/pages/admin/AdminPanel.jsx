@@ -85,6 +85,7 @@ const GROUPS = [
     tools: [
       { to: '/global/settings', icon: 'globe', title: 'Network settings', short: 'Network', text: 'The worldwide network itself.' },
       { to: '/global/markets', icon: 'flag', title: 'All markets', text: 'Every market, open and closed, and how to open another.' },
+      { to: '/admin/connections', icon: 'link', title: 'Platform connections', short: 'Connections', text: 'What automatic view counts needs to read Instagram and YouTube.' },
       { to: '/admin/audit', icon: 'eye', title: 'Audit log', text: 'A record of account actions taken by the team.' },
     ],
   },
