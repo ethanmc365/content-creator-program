@@ -326,3 +326,121 @@ export function CopyButton({ value, label = 'Copy', className = '' }) {
   )
 }
 
+
+/**
+ * A select that is ours.
+ *
+ * The native `<select>` opens the operating system's own menu, which on a Mac is
+ * a grey rounded panel with a blue highlight and a system typeface. Next to a
+ * white, spacious, orange-accented page it reads as a piece of a different
+ * application, which is exactly what it is. This is a listbox instead: same
+ * keyboard behaviour, our type and our colour.
+ *
+ * The menu is absolutely positioned and opens DOWNWARD unless there is genuinely
+ * no room, in which case it opens up. It never measures-and-flips on every open
+ * (see the modal-menu note in the design rules) because the list is short and a
+ * jumping menu is worse than one that occasionally sits above the control.
+ */
+export function Select({ value, onChange, options, className = '', ariaLabel }) {
+  const [open, setOpen] = useState(false)
+  const [active, setActive] = useState(() => options.findIndex((o) => o.value === value))
+  const [up, setUp] = useState(false)
+  const wrapRef = useRef(null)
+  const btnRef = useRef(null)
+
+  const selected = options.find((o) => o.value === value)
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e) => { if (!wrapRef.current?.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [open])
+
+  function openMenu() {
+    const box = btnRef.current?.getBoundingClientRect()
+    // 44px a row plus padding, capped the same way the menu itself is.
+    const needed = Math.min(options.length * 44 + 12, 280)
+    setUp(!!box && box.bottom + needed > window.innerHeight && box.top > needed)
+    setActive(options.findIndex((o) => o.value === value))
+    setOpen(true)
+  }
+
+  function choose(i) {
+    const opt = options[i]
+    if (!opt) return
+    onChange(opt.value)
+    setOpen(false)
+    btnRef.current?.focus()
+  }
+
+  function onKeyDown(e) {
+    if (!open) {
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') { e.preventDefault(); openMenu() }
+      return
+    }
+    if (e.key === 'Escape') { e.preventDefault(); setOpen(false); btnRef.current?.focus() }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); setActive((i) => Math.min(i + 1, options.length - 1)) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((i) => Math.max(i - 1, 0)) }
+    else if (e.key === 'Home') { e.preventDefault(); setActive(0) }
+    else if (e.key === 'End') { e.preventDefault(); setActive(options.length - 1) }
+    else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(active) }
+  }
+
+  return (
+    <div ref={wrapRef} className={cx('relative', className)}>
+      <button
+        ref={btnRef}
+        type="button"
+        role="combobox"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={ariaLabel}
+        onClick={() => (open ? setOpen(false) : openMenu())}
+        onKeyDown={onKeyDown}
+        className={cx(
+          'flex w-full items-center justify-between gap-2 rounded-full border bg-white px-4 py-2 text-sm font-medium transition-all',
+          open ? 'border-brand text-ink shadow-card' : 'border-gray-200 text-ink hover:border-brand hover:shadow-card',
+        )}
+      >
+        <span className="truncate">{selected?.label ?? 'Choose'}</span>
+        <Icon
+          name="chevronRight"
+          className={cx('h-4 w-4 shrink-0 text-smoke transition-transform', open ? '-rotate-90' : 'rotate-90')}
+        />
+      </button>
+
+      {open && (
+        <ul
+          role="listbox"
+          aria-label={ariaLabel}
+          className={cx(
+            'absolute z-40 max-h-[280px] w-full min-w-max overflow-auto rounded-card border border-gray-100 bg-white p-1.5 shadow-lift',
+            up ? 'bottom-full mb-2' : 'top-full mt-2',
+          )}
+        >
+          {options.map((o, i) => {
+            const isSelected = o.value === value
+            return (
+              <li key={o.value} role="option" aria-selected={isSelected}>
+                <button
+                  type="button"
+                  onClick={() => choose(i)}
+                  onMouseEnter={() => setActive(i)}
+                  className={cx(
+                    'flex w-full items-center justify-between gap-4 rounded-xl px-3.5 py-2.5 text-left text-sm transition-colors',
+                    i === active ? 'bg-brand-tint text-brand' : 'text-ink',
+                    isSelected && i !== active && 'text-brand',
+                  )}
+                >
+                  <span className="whitespace-nowrap">{o.label}</span>
+                  {isSelected && <Icon name="check" className="h-4 w-4 shrink-0" />}
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
+  )
+}

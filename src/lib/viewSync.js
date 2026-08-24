@@ -12,7 +12,19 @@ import { supabase } from './supabase'
 export const SYNC_ERRORS = {
   needs_session: {
     label: 'Instagram sign-in needed',
-    hint: 'Instagram only shows view counts to a signed-in account. Add a session below and these fill in on the next run.',
+    hint: 'Instagram only shows view counts to a signed-in account. Add a session and these fill in on the next run.',
+  },
+  needs_youtube_key: {
+    label: 'YouTube key needed',
+    hint: 'YouTube blocks servers from reading its pages, so these need a free YouTube Data API key. Add one and they fill in on the next run.',
+  },
+  youtube_key_rejected: {
+    label: 'YouTube key rejected',
+    hint: 'YouTube refused the stored key. Check it is valid and unrestricted, and that the Data API v3 is switched on for its project.',
+  },
+  trial_reel: {
+    label: 'No view count found (likely trial reel)',
+    hint: 'A trial reel is shown only to people who do not follow the account and never appears on the creator\'s own profile, so it has no readable count and never will. Ask the creator for the number and type it in.',
   },
   session_expired: {
     label: 'Instagram session expired',
@@ -25,6 +37,10 @@ export const SYNC_ERRORS = {
   no_count_in_page: {
     label: 'No count on the page',
     hint: 'The post loaded but carries no view count. Photo posts and carousels have none.',
+  },
+  approximate: {
+    label: 'Rounded figure',
+    hint: 'Facebook only ever states a rounded number logged out, so this is accurate to about a percent. Type an exact one if a ranking turns on it.',
   },
   blocked: {
     label: 'Platform refused',
@@ -39,8 +55,8 @@ export const SYNC_ERRORS = {
     hint: 'The live count is BELOW the number already saved. Views do not fall, so the saved one was probably typed from somewhere else. Nothing was overwritten.',
   },
   unsupported: {
-    label: 'Not TikTok or Instagram',
-    hint: 'Only TikTok and Instagram links carry a view count this can read.',
+    label: 'Not a platform we can read',
+    hint: 'Only TikTok, Instagram, YouTube and Facebook links carry a view count this can read.',
   },
   bad_url: { label: 'Not a link', hint: 'That is not a URL.' },
 }
@@ -79,21 +95,27 @@ export async function viewSyncStatus() {
   return data
 }
 
-export async function saveInstagramSession(session) {
-  const { error } = await supabase.rpc('set_instagram_session', { p_session: session })
+// The two credentials automatic views needs. Written by admins, read only by
+// the Edge Function, never readable back through the API.
+export async function saveViewSyncSecret(name, value) {
+  const { error } = await supabase.rpc('set_view_sync_secret', { p_name: name, p_value: value })
   if (error) throw error
 }
 
-export async function saveViewSyncSettings({ enabled, intervalHours }) {
+// `enabled` is written true and never offered as a choice. Reading views is how
+// the leaderboard works now, on every challenge, current and future; only how
+// OFTEN is a decision worth anybody's attention.
+export async function saveViewSyncSettings({ intervalHours }) {
   const { error } = await supabase
     .from('app_settings')
-    .upsert({ key: 'view_sync', value: { enabled, interval_hours: intervalHours }, updated_at: new Date().toISOString() })
+    .upsert({ key: 'view_sync', value: { enabled: true, interval_hours: intervalHours }, updated_at: new Date().toISOString() })
   if (error) throw error
 }
 
 // The cadences worth offering. Anything under an hour is pointless (the sweep
 // itself is the slow part) and anything over a week outlives a challenge.
 export const CADENCES = [
+  { hours: 3, label: 'Every 3 hours' },
   { hours: 6, label: 'Every 6 hours' },
   { hours: 12, label: 'Twice a day' },
   { hours: 24, label: 'Once a day' },

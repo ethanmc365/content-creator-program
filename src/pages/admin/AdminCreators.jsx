@@ -226,6 +226,7 @@ export default function AdminCreators() {
         instagram: c.instagram_url ?? '',
         tiktok: c.tiktok_url ?? '',
         youtube: c.youtube_url ?? '',
+        facebook: c.facebook_url ?? '',
         languages: (c.languages ?? []).join('; '),
         countries_visited: (c.countries_visited ?? []).length,
         joined: formatDate(c.created_at),

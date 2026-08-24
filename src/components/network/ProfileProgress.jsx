@@ -38,7 +38,7 @@ function steps(profile) {
     { done: !!(profile?.city && profile?.country), label: 'Add your town so you appear on the map', to: '/settings', icon: 'pin' },
     { done: !!profile?.bio, label: 'Write a one-line bio', to: '/settings', icon: 'pencil' },
     {
-      done: !!(profile?.instagram_url || profile?.tiktok_url || profile?.youtube_url),
+      done: !!(profile?.instagram_url || profile?.tiktok_url || profile?.youtube_url || profile?.facebook_url),
       label: 'Link the accounts you post on', to: '/settings', icon: 'link',
     },
     { done: (profile?.languages || []).length > 0, label: 'Tell us which languages you speak', to: '/settings', icon: 'chat' },

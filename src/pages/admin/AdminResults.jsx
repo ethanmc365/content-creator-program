@@ -203,8 +203,8 @@ export default function AdminResults() {
         title={`Results: ${challenge?.title}`}
         subtitle={
           isLive
-            ? 'View counts are read off each entry once a day. Publish the current leaderboard mid-challenge, then publish again after it closes for the final ranking. Any number you type by hand wins.'
-            : 'View counts are read off each entry once a day. Check the ones flagged below, correct anything by hand, then generate the leaderboard. Any number you type by hand wins.'
+            ? 'View counts are read off each entry automatically. Publish the current leaderboard mid-challenge, then publish again after it closes for the final ranking. Any number you type by hand wins.'
+            : 'View counts are read off each entry automatically. Check anything flagged below, correct it by hand, then generate the leaderboard. Any number you type by hand wins.'
         }
         action={
           <div className="flex flex-col items-end gap-2">
@@ -312,7 +312,11 @@ export default function AdminResults() {
                   onKeyDown={(e) => e.key === 'Enter' && e.target.blur()}
                 />
                 <span className="w-14 text-xs text-smoke">
-                  {savingId === s.id ? 'Saving…' : s.logged_views != null ? formatViews(s.logged_views) : '-'}
+                  {savingId === s.id
+                    ? 'Saving…'
+                    : s.logged_views != null
+                      ? `${s.views_approx ? '~' : ''}${formatViews(s.logged_views)}`
+                      : '-'}
                 </span>
               </div>
             </div>

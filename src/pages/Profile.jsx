@@ -226,6 +226,7 @@ export default function Profile() {
     { url: creator.instagram_url, label: 'Instagram' },
     { url: creator.tiktok_url, label: 'TikTok' },
     { url: creator.youtube_url, label: 'YouTube' },
+    { url: creator.facebook_url, label: 'Facebook' },
     ...(Array.isArray(creator.other_links) ? creator.other_links.map((l) => ({ url: l.url, label: l.label || 'Link' })) : []),
   ].filter((s) => s.url)
 

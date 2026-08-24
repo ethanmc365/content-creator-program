@@ -123,6 +123,7 @@ export function detectPlatform(url = '') {
   if (u.includes('instagram.com')) return 'Instagram'
   if (u.includes('tiktok.com')) return 'TikTok'
   if (u.includes('youtube.com') || u.includes('youtu.be')) return 'YouTube'
+  if (u.includes('facebook.com') || u.includes('fb.watch') || u.includes('fb.me')) return 'Facebook'
   return 'Other'
 }
 

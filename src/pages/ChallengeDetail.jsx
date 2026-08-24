@@ -15,7 +15,7 @@ import { EntryFeedbackNote, EntryFeedbackEditor, loadFeedback } from '../compone
 import { Avatar, Badge, Modal, PageHeader, Skeleton, EmptyState, Spinner } from '../components/ui'
 import { formatDate, timeAgo, formatViews, detectPlatform, cx, challengeDeadline } from '../lib/utils'
 
-const PLATFORM_ORDER = ['Instagram', 'TikTok', 'YouTube', 'Other']
+const PLATFORM_ORDER = ['Instagram', 'TikTok', 'YouTube', 'Facebook', 'Other']
 
 // The submit form does its own validation so problems are shown in the branded
 // card, never in Chrome's grey "Please enter a URL" speech bubble (which sits
@@ -128,7 +128,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         .order('submitted_at', { ascending: false }),
       supabase
         .from('results')
-        .select('*, profiles:creator_id(id, name, photo_url, instagram_url, tiktok_url, youtube_url)')
+        .select('*, profiles:creator_id(id, name, photo_url, instagram_url, tiktok_url, youtube_url, facebook_url)')
         .eq('challenge_id', id)
         .order('rank'),
     ])
@@ -599,7 +599,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
               aria-invalid={errorField === 'url'}
               aria-describedby={submitError ? 'submit-error' : undefined}
               className={cx('input', errorField === 'url' && '!border-red-300 !ring-2 !ring-red-100')}
-              placeholder="Paste your Instagram or TikTok link…"
+              placeholder="Paste your Instagram, TikTok, YouTube or Facebook link…"
               value={videoUrl}
               onChange={(e) => {
                 setVideoUrl(e.target.value)

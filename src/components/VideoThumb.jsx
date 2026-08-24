@@ -1,5 +1,5 @@
 import { detectPlatformFromUrl } from '../lib/videoPreview'
-import { TIKTOK_PATH } from './PlatformBadges'
+import { TIKTOK_PATH, FACEBOOK_PATH } from './PlatformBadges'
 import { cx } from '../lib/utils'
 
 // The face of a submitted entry. Deliberately no thumbnail fetch (Instagram
@@ -41,6 +41,14 @@ const PLATFORMS = {
     icon: (
       <svg viewBox="0 0 24 24" fill="currentColor" className="h-full w-full" aria-hidden>
         <path d="M23 7.3a3 3 0 00-2.1-2.1C19 4.7 12 4.7 12 4.7s-7 0-8.9.5A3 3 0 001 7.3 31.2 31.2 0 00.5 12 31.2 31.2 0 001 16.7a3 3 0 002.1 2.1c1.9.5 8.9.5 8.9.5s7 0 8.9-.5a3 3 0 002.1-2.1A31.2 31.2 0 0023.5 12 31.2 31.2 0 0023 7.3zM9.8 15.1V8.9L15.9 12l-6.1 3.1z" />
+      </svg>
+    ),
+  },
+  Facebook: {
+    label: 'Facebook',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="currentColor" className="h-full w-full" aria-hidden>
+        <path d={FACEBOOK_PATH} />
       </svg>
     ),
   },

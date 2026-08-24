@@ -64,6 +64,7 @@ function platformOf(p) {
   if (p?.tiktok_url) return 'TikTok'
   if (p?.instagram_url) return 'Instagram'
   if (p?.youtube_url) return 'YouTube'
+  if (p?.facebook_url) return 'Facebook'
   return null
 }
 

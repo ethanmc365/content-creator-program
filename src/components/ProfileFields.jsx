@@ -1,7 +1,7 @@
 // Form pieces shared by Onboarding and Edit Profile:
 //  * AvatarUpload   - photo picker that uploads to Supabase storage
 //  * LanguageSelect - multi-select tag picker
-//  * SocialInputs   - Instagram / TikTok / YouTube URL fields
+//  * SocialInputs   - Instagram / TikTok / YouTube / Facebook URL fields
 //  * CountrySelect  - a country AND its ISO-2 code, picked rather than typed
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
@@ -267,12 +267,13 @@ export function LanguageSelect({ selected = [], onChange }) {
   )
 }
 
-/** The three main social URL fields. */
+/** The four social URL fields. */
 export function SocialInputs({ values, onChange }) {
   const fields = [
     { key: 'instagram_url', label: 'Instagram', placeholder: 'https://instagram.com/yourhandle' },
     { key: 'tiktok_url', label: 'TikTok', placeholder: 'https://tiktok.com/@yourhandle' },
     { key: 'youtube_url', label: 'YouTube', placeholder: 'https://youtube.com/@yourchannel' },
+    { key: 'facebook_url', label: 'Facebook', placeholder: 'https://facebook.com/yourpage' },
   ]
   return (
     <div className="space-y-4">

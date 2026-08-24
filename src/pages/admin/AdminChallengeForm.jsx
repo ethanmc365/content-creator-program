@@ -13,7 +13,7 @@ import { cx, parseDateTime, isoToDateInput, isoToTimeInput } from '../../lib/uti
 // Create / edit a challenge. Everything is customisable: which market it runs
 // in, how it is won, length, brief, rules, platforms and the full prize
 // breakdown.
-const ALL_PLATFORMS = ['Instagram', 'TikTok', 'YouTube']
+const ALL_PLATFORMS = ['Instagram', 'TikTok', 'YouTube', 'Facebook']
 
 // THE DATE BOXES HERE WERE PLAIN TEXT INPUTS WITH A "DD/MM/YYYY" PLACEHOLDER,
 // which is the one shape the rest of the platform has stopped using: the hint

@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { LabPage, Panel, Note, KeyVal, Code, Field, InfoList } from './kit'
 import { Badge, Spinner } from '../../../components/ui'
+import PlatformBadges from '../../../components/PlatformBadges'
 import { formatViews } from '../../../lib/utils'
 import { describeLink } from '../../../lib/videoLinks'
 import { describeSyncError, probeLink } from '../../../lib/viewSync'
 
-// Paste a link, see the number.
+// Paste a link, see the number, on all four platforms.
 //
 // This is the SECOND lab that touches real data (HealthLab is the other), and
 // like that one it is strictly READ ONLY: it calls `view-sync` in probe mode,
@@ -15,9 +16,34 @@ import { describeSyncError, probeLink } from '../../../lib/viewSync'
 // generic "everyone here is invented" banner would be a lie on a page whose
 // whole purpose is real numbers off real posts.
 //
-// The sample is TikTok's OWN corporate account, never a creator's entry: these
-// lab chunks are fetchable by URL like any JS asset.
-const SAMPLE = 'https://www.tiktok.com/@tiktok/video/7106594312292453675'
+// The two samples are TikTok's OWN corporate account and the first video ever
+// uploaded to YouTube. Never a creator's entry: these lab chunks are fetchable
+// by URL like any JS asset. Instagram and Facebook have no sample for the same
+// reason - every candidate belongs to a private person - so those two are
+// pasted, which is the thing being tested anyway.
+const SAMPLES = [
+  { platform: 'TikTok', label: 'Sample TikTok', url: 'https://www.tiktok.com/@tiktok/video/7106594312292453675' },
+  { platform: 'YouTube', label: 'Sample YouTube', url: 'https://www.youtube.com/watch?v=jNQXAC9IVRw' },
+]
+
+const HOW = [
+  {
+    t: 'TikTok, exact, no sign-in',
+    d: 'The share link is followed to its canonical form and the id read off the embed endpoint, which carries the same stats as the video page in a third of the bytes. The id is cached on the entry, so every later read is one request.',
+  },
+  {
+    t: 'YouTube, exact, via its own API',
+    d: 'Watch links, youtu.be links, Shorts and embeds all reduce to the same eleven-character id. YouTube bot-blocks servers from reading its pages, so the count comes from the free Data API v3 instead: no review, and one unit of a 10,000 a day quota per entry.',
+  },
+  {
+    t: 'Facebook, rounded',
+    d: 'Logged out, the only place Facebook states a count is the page title, and it is rounded to "5.6K views". Nothing in the page carries an exact figure and the mobile site is login-walled, so the number is saved as approximate and labelled that way.',
+  },
+  {
+    t: 'Instagram, needs a session',
+    d: 'Every public Instagram route answers require_login, and a logged-out reel page shows likes and comments but no play count. The counts on a logged-out reels grid come from an internal call whose id rotates and only covers recent posts, so the sync uses a Tryp account session instead and asks by media id.',
+  },
+]
 
 export default function ViewsLab() {
   const [url, setUrl] = useState('')
@@ -48,18 +74,15 @@ export default function ViewsLab() {
       title="View counts, off the link"
       icon="eye"
       sandbox={false}
-      subtitle="Paste a TikTok or Instagram link and see exactly what the automatic sync would read from it. This calls the live function against the live post, and writes nothing."
+      subtitle="Paste a TikTok, Instagram, YouTube or Facebook link and see exactly what the automatic sync would read from it. This calls the live function against the live post, and writes nothing."
+      aside={<PlatformBadges platforms={['Instagram', 'TikTok', 'YouTube', 'Facebook']} size="md" />}
     >
-      <Panel
-        title="Read a link"
-        hint="The same code path the daily sweep uses, in probe mode."
-        i={0}
-      >
+      <Panel title="Read a link" hint="The same code path the scheduled sweep uses, in probe mode." i={0}>
         <Field label="Video link" hint="A share-sheet short link is fine. It gets followed to the real video.">
           <input
             type="url"
             className="input"
-            placeholder="https://vm.tiktok.com/... or https://www.instagram.com/reel/..."
+            placeholder="https://vm.tiktok.com/… · instagram.com/reel/… · youtu.be/… · facebook.com/reel/…"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && run()}
@@ -85,15 +108,23 @@ export default function ViewsLab() {
             {busy ? <Spinner className="h-4 w-4" /> : null}
             {busy ? 'Reading…' : 'Read the view count'}
           </button>
-          <button
-            type="button"
-            className="btn-secondary !py-2 text-sm"
-            onClick={() => { setUrl(SAMPLE); run(SAMPLE) }}
-            disabled={busy}
-          >
-            Try a known TikTok
-          </button>
+          {SAMPLES.map((s) => (
+            <button
+              key={s.platform}
+              type="button"
+              className="btn-secondary !py-2 text-sm"
+              onClick={() => { setUrl(s.url); run(s.url) }}
+              disabled={busy}
+            >
+              {s.label}
+            </button>
+          ))}
         </div>
+
+        <Note className="mt-4">
+          Instagram and Facebook have no sample button because every public candidate belongs to a real
+          person. Paste one of those two to test them, which is the thing worth testing anyway.
+        </Note>
 
         {failed ? <Note tone="warn" icon="alert" className="mt-4">{failed}</Note> : null}
 
@@ -103,17 +134,24 @@ export default function ViewsLab() {
               <div>
                 <p className="text-xs uppercase tracking-wide text-smoke">Views</p>
                 <p className="mt-1 text-3xl font-bold tabular-nums">
-                  {result.views != null ? Number(result.views).toLocaleString() : '-'}
+                  {result.views != null
+                    ? `${result.approx ? '~' : ''}${Number(result.views).toLocaleString()}`
+                    : '-'}
                 </p>
                 {result.views != null ? (
-                  <p className="text-xs text-smoke">shown as {formatViews(result.views)} on the leaderboard</p>
+                  <p className="text-xs text-smoke">
+                    shown as {formatViews(result.views)} on the leaderboard
+                    {result.approx ? ', rounded' : ''}
+                  </p>
                 ) : null}
               </div>
               <div className="ml-auto flex flex-col items-end gap-2">
-                <Badge tone={result.views != null ? 'green' : 'amber'}>
-                  {result.views != null ? 'Read cleanly' : (errorMeta?.label ?? 'No count')}
+                <Badge tone={result.views != null ? (result.approx ? 'amber' : 'green') : 'amber'}>
+                  {result.views != null
+                    ? result.approx ? 'Read, rounded' : 'Read cleanly'
+                    : (errorMeta?.label ?? 'No count')}
                 </Badge>
-                <span className="text-xs text-smoke tabular-nums">{result.ms} ms</span>
+                <span className="text-xs tabular-nums text-smoke">{result.ms} ms</span>
               </div>
             </div>
 
@@ -123,8 +161,12 @@ export default function ViewsLab() {
               rows={[
                 ['Platform', result.platform ?? '-'],
                 ['Video id', result.videoId ?? '-'],
+                ['Exactness', result.views == null ? '-' : result.approx ? 'rounded by the platform' : 'exact'],
                 ['Instagram session', result.instagram_session === 'set' ? 'stored' : 'not set'],
-                result.canonicalUrl ? ['Resolved to', <span key="u" className="break-all text-xs font-normal">{result.canonicalUrl}</span>] : null,
+                ['YouTube key', result.youtube_key === 'set' ? 'stored' : 'not set'],
+                result.canonicalUrl
+                  ? ['Resolved to', <span key="u" className="break-all text-xs font-normal">{result.canonicalUrl}</span>]
+                  : null,
               ]}
             />
 
@@ -134,30 +176,34 @@ export default function ViewsLab() {
       </Panel>
 
       <Panel title="How each platform is read" i={1}>
+        <InfoList columns={2} items={HOW} />
+      </Panel>
+
+      <Panel title="The rules that keep a number honest" i={2}>
         <InfoList
           columns={2}
           items={[
             {
-              t: 'TikTok, no sign-in',
-              d: 'The share link is followed to its canonical form, and the numeric id read off the embed endpoint, which carries the same stats as the video page in a third of the bytes. The id is cached on the entry, so every later read is one request.',
-            },
-            {
-              t: 'Instagram, sign-in required',
-              d: 'Every public Instagram endpoint now answers require_login, and a logged-out reel page shows likes and comments but no play count at all. So the sync uses a Tryp account session, stored where only it can read it.',
+              t: 'It is asked for by id',
+              d: 'Every platform is queried by the id in the link, never by position on a page, so the count always belongs to the entry it was read for.',
             },
             {
               t: 'A number never falls',
-              d: 'A reading below what is already saved is flagged, not written. Views do not go down, so a lower one means a bad read or a number typed from a better source, and the saved one stands.',
+              d: 'A reading below what is already saved is recorded and flagged, not written. Views do not go down, so a lower one means a bad read or a number typed from a better source.',
             },
             {
-              t: 'Every reading is kept',
-              d: 'Each successful read is written to view_snapshots whether or not it reaches the leaderboard, so a wrong number is obvious next to the ones either side of it.',
+              t: 'Rounded never overwrites exact',
+              d: 'A Facebook figure within its own rounding of what is already saved is left alone, so "5.6K" cannot replace an exact 5,573.',
+            },
+            {
+              t: 'Trial reels are called what they are',
+              d: 'An Instagram trial reel is shown only to non-followers and never appears on the author’s profile, so it has no readable count and never will. It is reported as such rather than retried forever.',
             },
           ]}
         />
       </Panel>
 
-      <Panel title="What this page does not do" i={2}>
+      <Panel title="What this page does not do" i={3}>
         <Note icon="shield">
           This is the only lab besides platform health that reaches real data, and it is read only. Probing a
           link resolves it and reports what it saw. It does not write a view count, touch a submission, or

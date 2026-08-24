@@ -147,7 +147,7 @@ export const LABS = [
   },
   {
     key: 'views', title: 'View counts, off the link', icon: 'eye', group: 'Toolkit',
-    blurb: 'Paste a TikTok or Instagram link and see what the automatic sync reads from it. Real posts, live numbers, writes nothing.',
+    blurb: 'Paste a TikTok, Instagram, YouTube or Facebook link and see what the automatic sync reads from it. Real posts, live numbers, writes nothing.',
     tags: ['Real data', 'Read only'],
     element: <ViewsLab />,
   },

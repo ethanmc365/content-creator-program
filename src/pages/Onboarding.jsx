@@ -95,7 +95,7 @@ const stepIndex = (key) => STEPS.findIndex((s) => s.key === key)
 const EMPTY = {
   name: '', photo_url: '', dob: null, city: '', country: '', country_code: '',
   bio: '', about: '', favourite_quote: '',
-  instagram_url: '', tiktok_url: '', youtube_url: '', other_links: [],
+  instagram_url: '', tiktok_url: '', youtube_url: '', facebook_url: '', other_links: [],
   languages: [], countries_visited: [], bucket_list: [],
 }
 
@@ -115,6 +115,7 @@ const DEMO_DRAFT = {
   instagram_url: 'https://instagram.com/alextest',
   tiktok_url: 'https://tiktok.com/@alextest',
   youtube_url: '',
+  facebook_url: '',
   other_links: [],
   languages: ['English', 'Spanish'],
   countries_visited: ['France', 'Spain', 'Portugal', 'Italy', 'Netherlands', 'Morocco', 'Iceland'],
@@ -130,7 +131,7 @@ export function draftProblems(draft, contact) {
   if (!draft.city?.trim()) p.push({ step: 'based', text: 'Add your town or city' })
   if (!draft.dob) p.push({ step: 'based', text: 'Add your date of birth' })
   if (!contact.phone?.trim() || !contact.phone_country) p.push({ step: 'based', text: 'Add a phone number with its country code' })
-  if (!draft.instagram_url?.trim() && !draft.tiktok_url?.trim() && !draft.youtube_url?.trim()) {
+  if (!draft.instagram_url?.trim() && !draft.tiktok_url?.trim() && !draft.youtube_url?.trim() && !draft.facebook_url?.trim()) {
     p.push({ step: 'socials', text: 'Link at least one account you post on' })
   }
   if (!draft.bio?.trim()) p.push({ step: 'story', text: 'Write your one-line bio' })
@@ -175,6 +176,7 @@ export default function Onboarding() {
       instagram_url: auth.profile?.instagram_url || '',
       tiktok_url: auth.profile?.tiktok_url || '',
       youtube_url: auth.profile?.youtube_url || '',
+      facebook_url: auth.profile?.facebook_url || '',
       other_links: Array.isArray(auth.profile?.other_links) ? auth.profile.other_links : [],
       languages: auth.profile?.languages || [],
       countries_visited: auth.profile?.countries_visited || [],
@@ -294,6 +296,7 @@ export default function Onboarding() {
       instagram_url: draft.instagram_url.trim(),
       tiktok_url: draft.tiktok_url.trim(),
       youtube_url: draft.youtube_url.trim(),
+      facebook_url: draft.facebook_url.trim(),
       other_links: (draft.other_links || []).filter((l) => l.url?.trim()),
       languages: draft.languages,
       countries_visited: draft.countries_visited,
@@ -842,6 +845,7 @@ function Review({ draft, contact, market, problems, pending, onJump, demo }) {
     ['Instagram', draft.instagram_url],
     ['TikTok', draft.tiktok_url],
     ['YouTube', draft.youtube_url],
+    ['Facebook', draft.facebook_url],
   ].filter(([, v]) => v?.trim())
 
   return (

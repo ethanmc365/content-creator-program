@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Badge, Spinner, Toggle } from '../ui'
+import { Select, Spinner } from '../ui'
 import Icon from '../Icon'
 import { timeAgo } from '../../lib/utils'
 import {
   CADENCES,
   describeSyncError,
-  saveInstagramSession,
+  saveViewSyncSecret,
   saveViewSyncSettings,
   syncViews,
   viewSyncStatus,
@@ -15,20 +15,19 @@ import {
 // results page - which is exactly where an admin used to sit opening forty links
 // and typing forty numbers.
 //
-// The schedule and the Instagram session are PROGRAMME-WIDE even though the
-// panel lives on one challenge's page. That is deliberate: they are two settings
-// that are only ever thought about while looking at a leaderboard, and a
-// separate admin route for them would be a page nobody remembers exists.
-
-function relative(iso) {
-  if (!iso) return 'never'
-  return timeAgo(iso)
-}
+// There is no on/off switch. Reading views off the link is simply how a view
+// count arrives now, on every challenge, running and future, and a per-challenge
+// opt-in would only ever be a way to end up with a stale leaderboard nobody
+// noticed. Typing a number by hand still wins on that row.
+//
+// The cadence and the two platform credentials are programme-wide even though
+// the panel lives on one challenge's page: they are settings only ever thought
+// about while looking at a leaderboard, and a separate admin route for them
+// would be a page nobody remembers exists.
 
 function nextDue(lastRunAt, intervalHours) {
   if (!lastRunAt) return 'due now'
-  const due = new Date(lastRunAt).getTime() + intervalHours * 3600_000
-  const mins = Math.round((due - Date.now()) / 60000)
+  const mins = Math.round((new Date(lastRunAt).getTime() + intervalHours * 3600_000 - Date.now()) / 60000)
   if (mins <= 0) return 'due now'
   if (mins < 60) return `in ${mins} min`
   const hrs = Math.round(mins / 60)
@@ -39,9 +38,9 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
   const [status, setStatus] = useState(null)
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState(null)
-  const [showSession, setShowSession] = useState(false)
-  const [session, setSession] = useState('')
-  const [savingSession, setSavingSession] = useState(false)
+  const [showKeys, setShowKeys] = useState(false)
+  const [draft, setDraft] = useState({ instagram_sessionid: '', youtube_api_key: '' })
+  const [saving, setSaving] = useState('')
   const [error, setError] = useState('')
 
   const refresh = useCallback(async () => {
@@ -54,17 +53,21 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
 
   useEffect(() => { refresh() }, [refresh])
 
-  const settings = status?.settings ?? { enabled: true, interval_hours: 24 }
+  const settings = status?.settings ?? { interval_hours: 24 }
   const lastRun = status?.last_run ?? null
   const hasSession = status?.instagram_session === true
+  const hasYoutubeKey = status?.youtube_key === true
+  const missing = [!hasSession && 'Instagram', !hasYoutubeKey && 'YouTube'].filter(Boolean)
 
-  // Group what went wrong by REASON rather than listing forty rows: an admin
-  // needs to know "Instagram is not signed in" once, not seventeen times.
+  // Grouped by REASON rather than listed row by row: an admin needs to know
+  // "Instagram is not signed in" once, not seventeen times.
   const problems = submissions.reduce((acc, s) => {
     if (!s.views_sync_error) return acc
     ;(acc[s.views_sync_error] ??= []).push(s)
     return acc
   }, {})
+
+  const automatic = submissions.filter((s) => s.views_source && s.views_source !== 'manual').length
 
   async function runNow() {
     setBusy(true)
@@ -81,29 +84,27 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
     setBusy(false)
   }
 
-  async function updateSettings(patch) {
-    const next = { enabled: settings.enabled, intervalHours: settings.interval_hours, ...patch }
-    setStatus((s) => ({ ...s, settings: { enabled: next.enabled, interval_hours: next.intervalHours } }))
+  async function updateCadence(intervalHours) {
+    setStatus((s) => ({ ...s, settings: { ...(s?.settings ?? {}), interval_hours: intervalHours } }))
     try {
-      await saveViewSyncSettings(next)
+      await saveViewSyncSettings({ intervalHours })
     } catch (e) {
       setError(e.message ?? 'Could not save that setting.')
       refresh()
     }
   }
 
-  async function storeSession() {
-    setSavingSession(true)
+  async function storeSecret(name) {
+    setSaving(name)
     setError('')
     try {
-      await saveInstagramSession(session.trim())
-      setSession('')
-      setShowSession(false)
+      await saveViewSyncSecret(name, draft[name].trim())
+      setDraft((d) => ({ ...d, [name]: '' }))
       await refresh()
     } catch (e) {
-      setError(e.message ?? 'Could not save the session.')
+      setError(e.message ?? 'Could not save that credential.')
     }
-    setSavingSession(false)
+    setSaving('')
   }
 
   return (
@@ -112,34 +113,33 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
         <div>
           <h2 className="flex items-center gap-2 text-base font-semibold">
             <Icon name="eye" className="h-5 w-5 text-brand" />
-            Automatic view counts
+            View counts
           </h2>
           <p className="mt-1 text-sm text-smoke">
-            Reads each entry&apos;s view count off the link the creator submitted, so you do not have to open them.
+            Read off each entry&apos;s link automatically. Type a number in any row to override it.
           </p>
         </div>
-        <Badge tone={settings.enabled ? 'green' : 'grey'}>{settings.enabled ? 'On' : 'Paused'}</Badge>
       </div>
 
       {/* Facts, deliberately not cards: a card is a promise of a destination. */}
       <dl className="mt-5 grid gap-x-8 gap-y-3 text-sm sm:grid-cols-3">
         <div>
           <dt className="text-xs uppercase tracking-wide text-smoke">Last read</dt>
-          <dd className="mt-0.5 font-medium tabular-nums">
-            {relative(lastRun?.at)}
-            {lastRun ? <span className="ml-2 font-normal text-smoke">{lastRun.updated} updated</span> : null}
+          <dd className="mt-0.5 font-medium">
+            {lastRun?.at ? timeAgo(lastRun.at) : 'never'}
           </dd>
         </div>
         <div>
           <dt className="text-xs uppercase tracking-wide text-smoke">Next</dt>
-          <dd className="mt-0.5 font-medium">
-            {settings.enabled ? nextDue(lastRun?.at, settings.interval_hours) : 'paused'}
-          </dd>
+          <dd className="mt-0.5 font-medium">{nextDue(lastRun?.at, settings.interval_hours ?? 24)}</dd>
         </div>
         <div>
-          <dt className="text-xs uppercase tracking-wide text-smoke">Instagram</dt>
-          <dd className="mt-0.5 font-medium">
-            {hasSession ? 'signed in' : <span className="text-brand">needs a session</span>}
+          <dt className="text-xs uppercase tracking-wide text-smoke">This challenge</dt>
+          <dd className="mt-0.5 font-medium tabular-nums">
+            {automatic} of {submissions.length} automatic
+            {missing.length ? (
+              <span className="ml-2 font-normal text-brand">{missing.join(' and ')} not connected</span>
+            ) : null}
           </dd>
         </div>
       </dl>
@@ -147,29 +147,18 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
       <div className="mt-6 flex flex-wrap items-center gap-4">
         <button type="button" className="btn-primary !py-2 text-sm" onClick={runNow} disabled={busy}>
           {busy ? <Spinner className="h-4 w-4" /> : null}
-          {busy ? 'Reading entries…' : 'Sync this challenge now'}
+          {busy ? 'Reading entries…' : 'Sync now'}
         </button>
 
-        <label className="flex items-center gap-2 text-sm">
-          <span className="text-smoke">Runs</span>
-          <select
-            className="input !w-auto !py-1.5 text-sm"
-            value={settings.interval_hours}
-            onChange={(e) => updateSettings({ intervalHours: Number(e.target.value) })}
-          >
-            {CADENCES.map((c) => (
-              <option key={c.hours} value={c.hours}>{c.label}</option>
-            ))}
-          </select>
-        </label>
-
         <span className="flex items-center gap-2 text-sm">
-          <Toggle
-            on={!!settings.enabled}
-            onChange={(on) => updateSettings({ enabled: on })}
-            label="Run on a schedule"
+          <span className="text-smoke">Runs</span>
+          <Select
+            ariaLabel="How often view counts are read"
+            className="w-auto"
+            value={settings.interval_hours ?? 24}
+            onChange={updateCadence}
+            options={CADENCES.map((c) => ({ value: c.hours, label: c.label }))}
           />
-          <span className="text-smoke">on a schedule</span>
         </span>
       </div>
 
@@ -177,14 +166,14 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
         <p className="mt-4 text-sm">
           Read {result.ran} {result.ran === 1 ? 'entry' : 'entries'},{' '}
           <strong className="tabular-nums">{result.updated}</strong> refreshed
-          {result.failed ? `, ${result.failed} could not be read` : ''}.
+          {result.failed ? `, ${result.failed} need a look` : ''}.
         </p>
       ) : null}
 
       {error ? <p className="mt-4 text-sm text-brand">{error}</p> : null}
 
       {Object.keys(problems).length > 0 ? (
-        <ul className="mt-5 space-y-2 border-t border-gray-100 pt-5">
+        <ul className="mt-5 space-y-3 border-t border-gray-100 pt-5">
           {Object.entries(problems).map(([code, rows]) => {
             const meta = describeSyncError(code)
             return (
@@ -198,44 +187,49 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
         </ul>
       ) : null}
 
-      {/* Instagram is the only thing here that ever needs a human, so it stays
-          folded away until it does. */}
       <div className="mt-5 border-t border-gray-100 pt-5">
         <button
           type="button"
           className="text-sm font-medium text-brand hover:underline"
-          onClick={() => setShowSession((v) => !v)}
+          onClick={() => setShowKeys((v) => !v)}
         >
-          {showSession ? 'Hide' : hasSession ? 'Replace the Instagram session' : 'Add an Instagram session'}
+          {showKeys ? 'Hide connections' : 'Instagram and YouTube connections'}
         </button>
 
-        {showSession ? (
-          <div className="mt-3 max-w-xl">
-            <p className="text-xs leading-relaxed text-smoke">
-              Instagram only shows view counts to a signed-in account, so this needs the{' '}
-              <code className="rounded bg-gray-50 px-1">sessionid</code> cookie from a Tryp-owned Instagram
-              login. In a browser signed in as that account, open developer tools, go to Application then
-              Cookies for instagram.com, and copy the value of <code className="rounded bg-gray-50 px-1">sessionid</code>.
-              It is stored where only the sync can read it and is never shown again.
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <input
-                type="password"
-                autoComplete="off"
-                className="input flex-1 !w-auto min-w-[16rem]"
-                placeholder="sessionid value"
-                value={session}
-                onChange={(e) => setSession(e.target.value)}
-              />
-              <button
-                type="button"
-                className="btn-secondary !py-2 text-sm"
-                onClick={storeSession}
-                disabled={savingSession || !session.trim()}
-              >
-                {savingSession ? 'Saving…' : 'Save'}
-              </button>
-            </div>
+        {showKeys ? (
+          <div className="mt-4 max-w-xl space-y-4">
+            {[
+              { name: 'instagram_sessionid', label: 'Instagram session', placeholder: 'sessionid', has: hasSession },
+              { name: 'youtube_api_key', label: 'YouTube Data API key', placeholder: 'AIza…', has: hasYoutubeKey },
+            ].map((f) => (
+              <div key={f.name}>
+                <div className="mb-1.5 flex items-baseline gap-2">
+                  <span className="label !mb-0">{f.label}</span>
+                  <span className={f.has ? 'text-xs text-green-700' : 'text-xs text-smoke'}>
+                    {f.has ? 'connected' : 'not set'}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    type="password"
+                    autoComplete="off"
+                    className="input min-w-[16rem] flex-1 !w-auto"
+                    placeholder={f.placeholder}
+                    value={draft[f.name]}
+                    onChange={(e) => setDraft((d) => ({ ...d, [f.name]: e.target.value }))}
+                    onKeyDown={(e) => e.key === 'Enter' && draft[f.name].trim() && storeSecret(f.name)}
+                  />
+                  <button
+                    type="button"
+                    className="btn-secondary !py-2 text-sm"
+                    onClick={() => storeSecret(f.name)}
+                    disabled={saving === f.name || !draft[f.name].trim()}
+                  >
+                    {saving === f.name ? 'Saving…' : f.has ? 'Replace' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         ) : null}
       </div>

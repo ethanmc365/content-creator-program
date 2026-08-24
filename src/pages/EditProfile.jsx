@@ -39,6 +39,7 @@ export default function EditProfile() {
     instagram_url: profile?.instagram_url || '',
     tiktok_url: profile?.tiktok_url || '',
     youtube_url: profile?.youtube_url || '',
+    facebook_url: profile?.facebook_url || '',
     other_links: Array.isArray(profile?.other_links) ? profile.other_links : [],
     languages: profile?.languages || [],
     countries_visited: profile?.countries_visited || [],

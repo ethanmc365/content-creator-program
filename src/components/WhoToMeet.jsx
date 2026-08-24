@@ -40,7 +40,7 @@ export default function WhoToMeet({ className }) {
       const today = format(new Date(), 'yyyy-MM-dd')
       const [{ data: people }, { data: trips }, { data: rels }] = await Promise.all([
         supabase.from('profiles')
-          .select('id, name, photo_url, bio, city, country, country_code, city_lng, languages, countries_visited, instagram_url, tiktok_url, youtube_url')
+          .select('id, name, photo_url, bio, city, country, country_code, city_lng, languages, countries_visited, instagram_url, tiktok_url, youtube_url, facebook_url')
           .eq('status', 'active').eq('is_test', false).eq('is_admin', false)
           .is('deletion_requested_at', null),
         // Everything upcoming, for everybody. The overlap test needs both sides,
