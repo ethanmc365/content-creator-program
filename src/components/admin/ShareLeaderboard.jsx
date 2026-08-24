@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Modal, Spinner } from '../ui'
 import Icon from '../Icon'
+import WinnersPodium from '../WinnersPodium'
+import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { SHAREABLE_ROOMS, postToRooms } from '../../lib/announce'
 import { generatePodiumImage, downloadPodiumImage } from '../../lib/podiumImage'
@@ -19,14 +21,31 @@ import { uploadFile } from '../../lib/upload'
 // posted as an ordinary message, which means it renders and downloads like any
 // other photo with no new plumbing behind it.
 
-export default function ShareLeaderboard({ open, onClose, challenge, winners, entries, totalViews, onDone }) {
+export default function ShareLeaderboard({
+  open, onClose, challenge, winners, entries, totalViews, voucherWinners = [], voucherPrize = '', onDone,
+}) {
   const { user } = useAuth()
   const [what, setWhat] = useState('image')
   const [room, setRoom] = useState('announcements')
   const [note, setNote] = useState('')
   const [preview, setPreview] = useState(null)
+  const [market, setMarket] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+
+  // Which room this actually lands in, said out loud. Today every challenge is
+  // the UK's, so the answer is always the same - but it will not be, and a
+  // dialog that says "Announcements" without saying WHOSE is the one that
+  // eventually posts a Spanish leaderboard to the wrong country.
+  useEffect(() => {
+    if (!open) return
+    let dead = false
+    const id = challenge?.community_id
+    if (!id) return setMarket({ name: 'Worldwide', kind: 'network' })
+    supabase.from('communities').select('name, kind').eq('id', id).maybeSingle()
+      .then(({ data }) => { if (!dead) setMarket(data ?? null) })
+    return () => { dead = true }
+  }, [open, challenge?.community_id])
 
   // Draw the image as soon as the dialog opens, so what you send is what you
   // have already seen rather than a description of it.
@@ -34,7 +53,9 @@ export default function ShareLeaderboard({ open, onClose, challenge, winners, en
     if (!open) return
     let dead = false
     let url
-    generatePodiumImage({ title: challenge?.title ?? 'Challenge', winners, entries, totalViews })
+    generatePodiumImage({
+      title: challenge?.title ?? 'Challenge', winners, entries, totalViews, voucherWinners, voucherPrize,
+    })
       .then((blob) => {
         if (dead || !blob) return
         url = URL.createObjectURL(blob)
@@ -46,7 +67,7 @@ export default function ShareLeaderboard({ open, onClose, challenge, winners, en
       if (url) URL.revokeObjectURL(url)
       setPreview(null)
     }
-  }, [open, challenge?.title, winners, entries, totalViews])
+  }, [open, challenge?.title, winners, entries, totalViews, voucherWinners, voucherPrize])
 
   useEffect(() => {
     if (open) { setError(''); setNote('') }
@@ -60,7 +81,7 @@ export default function ShareLeaderboard({ open, onClose, challenge, winners, en
 
       if (what === 'image') {
         const blob = await generatePodiumImage({
-          title: challenge?.title ?? 'Challenge', winners, entries, totalViews,
+          title: challenge?.title ?? 'Challenge', winners, entries, totalViews, voucherWinners, voucherPrize,
         })
         if (!blob) throw new Error('The image could not be drawn.')
         const path = `leaderboards/${challenge.id}-${winners.length}-winners.png`
@@ -117,17 +138,31 @@ export default function ShareLeaderboard({ open, onClose, challenge, winners, en
           </div>
         </div>
 
-        {what === 'image' ? (
-          <div className="overflow-hidden rounded-card border border-gray-100 bg-cloud/40">
-            {preview ? (
+        <div className="overflow-hidden rounded-card border border-gray-100 bg-cloud/40 p-3">
+          {what === 'image' ? (
+            preview ? (
               <img src={preview} alt="The podium as it will be shared" className="mx-auto block w-full max-w-sm" />
             ) : (
               <div className="flex h-56 items-center justify-center text-sm text-smoke">
                 <Spinner className="mr-2 h-4 w-4" /> Drawing it…
               </div>
-            )}
-          </div>
-        ) : null}
+            )
+          ) : (
+            // The card at the width a chat bubble actually gives it, so what you
+            // approve is what lands in the room rather than a full-width version
+            // of it.
+            <div className="mx-auto w-full max-w-[300px]">
+              <WinnersPodium
+                winners={winners}
+                entries={entries}
+                totalScore={totalViews}
+                scoring={challenge?.scoring}
+                voucherWinners={voucherWinners}
+                voucherPrize={voucherPrize}
+              />
+            </div>
+          )}
+        </div>
 
         <div>
           <p className="label">Where it goes</p>
@@ -148,7 +183,9 @@ export default function ShareLeaderboard({ open, onClose, challenge, winners, en
                   className={`h-4 w-4 shrink-0 ${room === r.key ? 'text-brand' : 'text-smoke'}`}
                 />
                 <span className="min-w-0">
-                  <span className="block text-sm font-semibold">{r.label}</span>
+                  <span className="block text-sm font-semibold">
+                    {market?.name ? `${market.name} ${r.label.toLowerCase()}` : r.label}
+                  </span>
                   <span className="block text-xs text-smoke">{r.hint}</span>
                 </span>
               </button>
@@ -172,7 +209,9 @@ export default function ShareLeaderboard({ open, onClose, challenge, winners, en
           <button
             type="button"
             className="btn-secondary !py-2 text-sm"
-            onClick={() => downloadPodiumImage({ title: challenge?.title ?? 'Challenge', winners, entries, totalViews })}
+            onClick={() => downloadPodiumImage({
+              title: challenge?.title ?? 'Challenge', winners, entries, totalViews, voucherWinners, voucherPrize,
+            })}
           >
             Download the image
           </button>

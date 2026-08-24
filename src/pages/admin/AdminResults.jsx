@@ -263,6 +263,8 @@ export default function AdminResults() {
             winners={podiumWinners}
             entries={submissions.length}
             totalViews={liveTotalViews}
+            voucherWinners={voucherWinners}
+            voucherPrize={challenge?.participation_prize}
             onDone={flash}
           />
           <WinnersPodium

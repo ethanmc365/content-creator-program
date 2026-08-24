@@ -74,7 +74,7 @@ export default function TravelGallery({ creatorId, editable = false }) {
         // than the JPEG at 0.82 it replaces while landing about a third smaller.
         // Ten photos a creator on a free 1GB tier is why this matters: the same
         // storage now takes roughly half again as many creators.
-        compressed = await compressImage(file, { maxDim: 1200, quality: 0.78, format: 'webp' })
+        compressed = await compressImage(file, { maxDim: 1200, quality: 0.8 })
       } catch (err) { setError(err.message); continue }
       const ext = (compressed.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg')
       const path = `${user.id}/${Date.now()}-${order}.${ext}`

@@ -35,11 +35,19 @@ function canEncodeWebp() {
   return webpOk
 }
 
-// `format: 'webp'` re-encodes to WebP where the browser can, falling back to
-// JPEG where it cannot. WebP at 0.78 is visually cleaner than JPEG at 0.82 and
-// lands roughly a third smaller, which is the whole point: this is a free 1GB
-// storage tier and travel galleries are ten photos per creator.
-export async function compressImage(file, { maxDim = 1280, quality = 0.82, format = 'jpeg' } = {}) {
+// WEBP IS THE DEFAULT, not an opt-in. It was opt-in, and the result was measured
+// on 24 Aug 2026: 270 of 274 gallery files were JPEG averaging 409 kB, against
+// 4 WebP averaging 136 kB. Eleven of the JPEGs had been uploaded that month, so
+// this was not legacy - it was live. The cause was that only the travel gallery
+// asked for WebP; flight photos went into the SAME bucket through a call that
+// did not, and every other surface encoded JPEG too.
+//
+// Making it the default is a three-times size reduction with no visible quality
+// change - WebP at 0.82 is cleaner than JPEG at 0.82, not worse - which is worth
+// far more than shaving dimensions or quality would be. Callers that genuinely
+// need JPEG can still pass `format: 'jpeg'`; a browser that cannot encode WebP
+// falls back on its own.
+export async function compressImage(file, { maxDim = 1280, quality = 0.82, format = 'webp' } = {}) {
   // Keep GIFs as-is (animation would be lost by canvas re-encoding).
   if (file.type === 'image/gif') return file
   const useWebp = format === 'webp' && canEncodeWebp()

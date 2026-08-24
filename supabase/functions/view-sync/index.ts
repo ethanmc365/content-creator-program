@@ -292,75 +292,125 @@ function decodeEntities(s: string): string {
     .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
 }
 
-async function facebookViews(url: string, knownId: string | null): Promise<Resolved> {
-  const base = { platform: 'Facebook' as const }
-  let id = knownId ?? facebookIdFrom(url)
-  let canonical: string | null = url
-
-  // A share link (/share/r/<code>, /share/v/<code>, fb.watch/<code>) carries no
-  // id, and Facebook answers it with a 400 to the desktop agent - so following
-  // it as a PHONE is the only way to find out what it points at.
-  if (!id) {
-    canonical = (await followRedirects(url, MOBILE_UA)) ?? (await followRedirects(url))
-    if (canonical) id = facebookIdFrom(canonical)
-  }
-
-  // Still nothing: read the page it landed on and pull the id out of the markup.
-  if (!id && canonical) {
+// A /share/ link does not redirect. It answers a desktop agent with a 400, and a
+// phone with an 836-byte shell whose only content is a JavaScript bounce back to
+// ITSELF carrying `?hpir=1`. Fetching that second URL finally returns the real
+// page. Nothing in the chain is an HTTP redirect, so `redirect: follow` never
+// helped and the link looked like it pointed at nothing.
+async function resolveFacebookShare(url: string): Promise<{ html: string; url: string } | null> {
+  let current = url
+  for (let hop = 0; hop < 3; hop++) {
+    let html: string
     try {
-      const html = await getText(canonical, {}, 'follow')
-      id =
-        html.match(/"video_id"\s*:\s*"(\d{6,})"/)?.[1] ??
-        html.match(/property="og:url"\s+content="[^"]*\/(?:videos|reel)\/(\d{6,})/)?.[1] ??
-        null
+      html = await getText(current, { 'User-Agent': MOBILE_UA }, 'follow')
     } catch {
-      // fall through to the honest error below
+      return null
     }
+    // A bounce page is tiny and does nothing but set location. A real page is
+    // tens of kilobytes, so size is the honest way to tell them apart.
+    const jump = html.match(/location\.replace\("([^"]+)"\)/)?.[1]
+    if (jump && html.length < 4000) {
+      current = jump.replace(/\\\//g, '/')
+      continue
+    }
+    return { html, url: current }
   }
+  return null
+}
 
-  if (!id) {
-    return fail({ ...base, canonicalUrl: canonical }, 'no_video_id',
-      'That Facebook link does not resolve to a video. Share links from a private profile often do not.')
+// The id is not in the URL and not in an og tag; it is in the page's own
+// bootstrap JSON. `pageID` is the one that holds it for a share link. The
+// seventeen-digit number that appears six times is a LOGGING id (WebLiteLid) and
+// resolves to Facebook's generic video page, so candidates are TRIED rather than
+// trusted.
+export function facebookIdCandidates(html: string): string[] {
+  const found: string[] = []
+  const push = (v?: string | null) => {
+    if (v && !found.includes(v)) found.push(v)
   }
+  push(html.match(/"pageID"\s*:\s*"?(\d{6,})"?/)?.[1])
+  push(html.match(/"video_id"\s*:\s*"(\d{6,})"/)?.[1])
+  push(html.match(/"videoID"\s*:\s*"(\d{6,})"/)?.[1])
+  push(html.match(/\/(?:videos|reel)\/(\d{6,})/)?.[1])
+  return found
+}
 
-  // watch/?v=<id> is the form that answers. /reel/<id> is a 400 to the desktop
-  // agent and an empty shell to a phone, so the pasted form is never used to
-  // READ, only to find the id.
-  let lastStatus = 0
+type FbRead = { views: number; approx: boolean } | { blocked: true } | null
+
+// Reads one candidate id. `null` means "that was not the video" - the generic
+// "Discover popular videos" page, which is what a wrong id lands on.
+async function readFacebookCount(id: string): Promise<FbRead> {
   for (const target of [`https://www.facebook.com/watch/?v=${id}`, `https://www.facebook.com/video.php?v=${id}`]) {
+    let title: string
     try {
       const html = await getText(target)
-      const title = decodeEntities(html.match(/property="og:title"\s+content="([^"]*)"/)?.[1] ?? '')
+      title = decodeEntities(html.match(/property="og:title"\s+content="([^"]*)"/)?.[1] ?? '')
+    } catch {
+      continue
+    }
 
-      // ROUNDED FIRST, then exact. Facebook states a plain number below a
-      // thousand ("847 views") and only rounds above it ("5.7K views"), so a
-      // small video IS exact.
-      const rounded = title.match(/([\d.]+[KMB])\s+views?/i)?.[1]
-      if (rounded) {
-        const n = parseCompactCount(rounded)
-        if (n != null) return { ...base, videoId: id, canonicalUrl: canonical, views: n, approx: true, error: null }
+    // ROUNDED FIRST, then exact: Facebook states a plain number below a thousand
+    // ("847 views") and only rounds above it ("5.7K views").
+    const rounded = title.match(/([\d.]+[KMB])\s+views?/i)?.[1]
+    if (rounded) {
+      const n = parseCompactCount(rounded)
+      if (n != null) return { views: n, approx: true }
+    }
+    const exact = title.match(/(\d[\d,]*)\s+views?/i)?.[1]
+    if (exact) {
+      const n = parseCompactCount(exact)
+      if (n != null) return { views: n, approx: false }
+    }
+    if (/log in/i.test(title)) return { blocked: true }
+  }
+  return null
+}
+
+async function facebookViews(url: string, knownId: string | null): Promise<Resolved> {
+  const base = { platform: 'Facebook' as const }
+  let canonical: string | null = url
+  let candidates: string[] = []
+
+  const direct = knownId ?? facebookIdFrom(url)
+  if (direct) {
+    candidates = [direct]
+  } else {
+    // fb.watch and friends DO redirect over HTTP; /share/ links do not.
+    const followed = await followRedirects(url, MOBILE_UA)
+    if (followed && followed !== url) {
+      canonical = followed
+      const fromUrl = facebookIdFrom(followed)
+      if (fromUrl) candidates = [fromUrl]
+    }
+    if (!candidates.length) {
+      const page = await resolveFacebookShare(canonical ?? url)
+      if (page) {
+        canonical = page.url
+        candidates = facebookIdCandidates(page.html)
       }
-      const exact = title.match(/(\d[\d,]*)\s+views?/i)?.[1]
-      if (exact) {
-        const n = parseCompactCount(exact)
-        if (n != null) return { ...base, videoId: id, canonicalUrl: canonical, views: n, approx: false, error: null }
-      }
-      if (/log in/i.test(title)) {
-        return fail({ ...base, videoId: id, canonicalUrl: canonical }, 'blocked',
-          'Facebook asked for a login instead of showing the video, which it does for posts that are not public.')
-      }
-      return fail({ ...base, videoId: id, canonicalUrl: canonical }, 'no_count_in_page',
-        'Facebook served the post but stated no view count. Photo and text posts have none.')
-    } catch (e) {
-      lastStatus = e instanceof HttpError ? e.status : 0
     }
   }
 
-  if (lastStatus === 400 || lastStatus === 404) {
-    return fail({ ...base, videoId: id, canonicalUrl: canonical }, 'blocked',
-      'Facebook would not serve that video to a signed-out reader. Reels posted from a personal profile rather than a Page are usually private to non-followers.')
+  if (!candidates.length) {
+    return fail({ ...base, canonicalUrl: canonical }, 'no_video_id',
+      'That Facebook link does not resolve to a video. A post that is not public cannot be read.')
   }
-  return fail({ ...base, videoId: id, canonicalUrl: canonical }, 'fetch_failed', 'Could not reach that Facebook post.')
+
+  let sawBlocked = false
+  for (const id of candidates.slice(0, 4)) {
+    const read = await readFacebookCount(id)
+    if (read && 'views' in read) {
+      return { ...base, videoId: id, canonicalUrl: canonical, views: read.views, approx: read.approx, error: null }
+    }
+    if (read && 'blocked' in read) sawBlocked = true
+  }
+
+  if (sawBlocked) {
+    return fail({ ...base, videoId: candidates[0], canonicalUrl: canonical }, 'blocked',
+      'Facebook asked for a login instead of showing the video, which it does for posts that are not public.')
+  }
+  return fail({ ...base, videoId: candidates[0], canonicalUrl: canonical }, 'no_count_in_page',
+    'Facebook served the post but stated no view count. Photo and text posts have none.')
 }
 
 // ---------------------------------------------------------------- instagram

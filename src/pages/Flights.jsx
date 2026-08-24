@@ -761,6 +761,8 @@ export default function Flights() {
     if (!file) return
     setUploading(true)
     try {
+      // Same `gallery` bucket as the travel photos, and until 24 Aug 2026 this
+      // was the call still writing JPEG into it. WebP is the default now.
       const compressed = await compressImage(file, { maxDim: 1400, quality: 0.8 })
       const path = `${user.id}/flights/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`
       const url = await uploadFile('gallery', path, compressed, compressed.type || 'image/jpeg')

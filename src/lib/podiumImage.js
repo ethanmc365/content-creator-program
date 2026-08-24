@@ -100,9 +100,13 @@ function avatar(ctx, img, name, cx, cy, r, ring) {
  * @param {Array}  opts.winners    [{ profiles: {name, photo_url}, final_views }]
  * @param {number} opts.entries
  * @param {number} opts.totalViews
+ * @param {Array}  opts.voucherWinners  everyone who earned the participation prize
+ * @param {string} opts.voucherPrize    e.g. "£10 Tryp.com voucher"
  * @returns {Promise<Blob>}
  */
-export async function generatePodiumImage({ title, winners = [], entries = 0, totalViews = 0 }) {
+export async function generatePodiumImage({
+  title, winners = [], entries = 0, totalViews = 0, voucherWinners = [], voucherPrize = '',
+}) {
   await ensureFonts()
 
   const canvas = document.createElement('canvas')
@@ -138,7 +142,7 @@ export async function generatePodiumImage({ title, winners = [], entries = 0, to
   const order = [1, 0, 2]
   const top = winners.slice(0, 3)
   const xs = [W / 2 - 300, W / 2, W / 2 + 300]
-  const baseY = 900
+  const baseY = 820
   const photos = await Promise.all(top.map((w) => loadImage(w.profiles?.photo_url)))
 
   order.forEach((rankIndex, slot) => {
@@ -174,11 +178,58 @@ export async function generatePodiumImage({ title, winners = [], entries = 0, to
     ctx.fillText(place.label, cx, barY + 52)
   })
 
+  // THE VOUCHER ROW, because the image has to be the podium as it is SHOWN.
+  // Leaving it out made the picture a different thing from the panel it was
+  // shared from - and the people who earned a voucher are half the point of it.
+  let y = baseY + 44
+  if (voucherWinners.length) {
+    const SHOWN = 10
+    const shown = voucherWinners.slice(0, SHOWN)
+    const extra = voucherWinners.length - shown.length
+    const boxH = 132
+    ctx.fillStyle = '#fdf1eb'
+    roundRect(ctx, 100, y, W - 200, boxH, 20)
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(217,68,7,0.18)'
+    ctx.lineWidth = 2
+    roundRect(ctx, 100, y, W - 200, boxH, 20)
+    ctx.stroke()
+
+    ctx.fillStyle = BRAND
+    ctx.font = '700 22px Poppins, system-ui, sans-serif'
+    ctx.fillText(
+      (voucherPrize ? `${voucherPrize} for everyone here` : 'Everyone here earned the participation prize').toUpperCase(),
+      W / 2,
+      y + 40,
+    )
+
+    const faces = await Promise.all(shown.map((v) => loadImage(v.photo_url)))
+    const r = 26
+    const gap = 12
+    const unit = r * 2 + gap
+    const totalW = shown.length * unit - gap + (extra > 0 ? 60 : 0)
+    let x = W / 2 - totalW / 2 + r
+    shown.forEach((v, i) => {
+      avatar(ctx, faces[i], v.name, x, y + 92, r, '#ffffff')
+      x += unit
+    })
+    if (extra > 0) {
+      ctx.fillStyle = BRAND
+      ctx.font = '700 24px Poppins, system-ui, sans-serif'
+      ctx.textAlign = 'left'
+      ctx.fillText(`+${extra}`, x - gap + 6, y + 100)
+      ctx.textAlign = 'center'
+    }
+    y += boxH + 28
+  } else {
+    y += 16
+  }
+
   ctx.strokeStyle = '#eeeeee'
   ctx.lineWidth = 2
   ctx.beginPath()
-  ctx.moveTo(120, baseY + 60)
-  ctx.lineTo(W - 120, baseY + 60)
+  ctx.moveTo(120, y)
+  ctx.lineTo(W - 120, y)
   ctx.stroke()
 
   const facts = [
@@ -190,10 +241,10 @@ export async function generatePodiumImage({ title, winners = [], entries = 0, to
     const cx = W / 2 + (i - 1) * 300
     ctx.fillStyle = INK
     ctx.font = '700 44px Poppins, system-ui, sans-serif'
-    ctx.fillText(value, cx, baseY + 132)
+    ctx.fillText(value, cx, y + 72)
     ctx.fillStyle = SMOKE
     ctx.font = '600 22px Poppins, system-ui, sans-serif'
-    ctx.fillText(label, cx, baseY + 168)
+    ctx.fillText(label, cx, y + 108)
   })
 
   return new Promise((resolve) => canvas.toBlob((b) => resolve(b), 'image/png', 0.95))
