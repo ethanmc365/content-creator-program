@@ -9,6 +9,7 @@ import { describeSyncError } from '../../lib/viewSync'
 import WinnersPodium from '../../components/WinnersPodium'
 import ViewSyncPanel from '../../components/admin/ViewSyncPanel'
 import ShareLeaderboard from '../../components/admin/ShareLeaderboard'
+import { PLATFORM_ORDER } from '../../components/PlatformBadges'
 
 // Results entry for one challenge:
 //  1. View counts arrive by themselves - the `view-sync` Edge Function reads
@@ -179,6 +180,14 @@ export default function AdminResults() {
     .map((r, i) => ({ ...r, rank: i + 1 }))
 
   const podiumWinners = liveRanking.slice(0, places)
+  // Which platforms each creator actually submitted on, so the shared board
+  // carries the same icons the public one does.
+  const platformsByCreator = submissions.reduce((acc, sub) => {
+    (acc[sub.creator_id] ||= new Set()).add(sub.platform)
+    return acc
+  }, {})
+  const platformsFor = (creatorId) =>
+    PLATFORM_ORDER.filter((p) => platformsByCreator[creatorId]?.has(p))
   // Every entry counts toward the total, not just the best one per creator:
   // "final views" is what the challenge produced.
   const liveTotalViews = submissions.reduce((sum, sub) => sum + (sub.logged_views ?? 0), 0)
@@ -266,6 +275,8 @@ export default function AdminResults() {
             totalViews={liveTotalViews}
             voucherWinners={voucherWinners}
             voucherPrize={challenge?.participation_prize}
+            subCountByCreator={subCountByCreator}
+            platformsFor={platformsFor}
             onDone={flash}
           />
           <WinnersPodium

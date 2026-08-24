@@ -1,27 +1,29 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Modal, Spinner } from '../ui'
 import Icon from '../Icon'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { SHAREABLE_ROOMS, postToRooms } from '../../lib/announce'
-import { renderPodium, renderLeaderboard, downloadBlob, slugForFile } from '../../lib/shareGraphics'
+import { snapshotNode, downloadBlob, slugForFile } from '../../lib/domSnapshot'
+import ShareCard, { SHARE_LAYOUT } from './ShareCard'
 import { uploadFile } from '../../lib/upload'
 
 // Sharing the result of a challenge, as a picture.
 //
-//   The podium      the top three on a podium, the voucher row included, drawn
-//                   to match WinnersPodium.
-//   The leaderboard every place in order with the voucher marked against
-//                   whoever earned it. The thing a top-three graphic cannot
-//                   show, and the thing most creators are actually looking for.
+//   The podium      the winners, the voucher row and the totals.
+//   The leaderboard every place in order, with the vouchers and the platforms
+//                   marked. The thing a top-three graphic cannot show, and the
+//                   thing most creators are actually looking for.
 //
-// Both are drawn on canvas (lib/shareGraphics.js). Snapshotting the real
-// components would be better and was tried; html-to-image hangs in this app,
-// measured on a plain text div with no images, so it is not an option.
+// BOTH ARE PHOTOGRAPHS OF THE REAL COMPONENTS (lib/domSnapshot.js), not drawings
+// of them. They were drawn on a canvas, which meant a second implementation of
+// the podium that drifted from the first - no "Watch" chips, its own bar
+// heights, its own leaderboard row - and Ethan, comparing the picture with the
+// board it came from, picked the board. So the picture IS the board now.
 
 export default function ShareLeaderboard({
   open, onClose, challenge, winners = [], ranking = [], entries, totalViews,
-  voucherWinners = [], voucherPrize = '', onDone,
+  voucherWinners = [], voucherPrize = '', subCountByCreator = {}, platformsFor, onDone,
 }) {
   const { user } = useAuth()
   const [what, setWhat] = useState('podium')
@@ -32,8 +34,6 @@ export default function ShareLeaderboard({
   const [busy, setBusy] = useState(false)
   const [drawing, setDrawing] = useState(false)
   const [error, setError] = useState('')
-
-  const voucherIds = new Set(voucherWinners.map((v) => v?.id).filter(Boolean))
 
   // Which room this actually lands in, said out loud. Today every challenge is
   // the UK's, so the answer is always the same - but it will not be, and a
@@ -49,19 +49,15 @@ export default function ShareLeaderboard({
     return () => { dead = true }
   }, [open, challenge?.community_id])
 
-  const render = useCallback(async () => {
-    const shared = {
-      title: challenge?.title ?? 'Challenge', entries, totalViews, voucherPrize,
-      // A points challenge is scored in points. Without this the picture says
-      // "views" under numbers that are not views, which the panel beside it
-      // does not.
-      scoring: challenge?.scoring,
-    }
-    return what === 'podium'
-      ? renderPodium({ ...shared, winners, voucherWinners })
-      : renderLeaderboard({ ...shared, ranking, voucherIds })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [what, challenge?.title, challenge?.scoring, entries, totalViews, voucherPrize, winners, ranking, voucherWinners])
+  const cardRef = useRef(null)
+
+  // The card below is mounted off-screen for exactly as long as this dialog is
+  // open, and this photographs it. Off-screen rather than hidden: a node with
+  // `display:none` has no layout, and a picture of no layout is 0x0.
+  const render = useCallback(
+    () => snapshotNode(cardRef.current, { scale: (SHARE_LAYOUT[what] ?? SHARE_LAYOUT.podium).scale }),
+    [what],
+  )
 
   // Draw whichever is selected, so what you send is what you have already seen.
   useEffect(() => {
@@ -77,7 +73,7 @@ export default function ShareLeaderboard({
           setPreview(url)
           setDrawing(false)
         })
-        .catch(() => setDrawing(false))
+        .catch((e) => { setError(e.message ?? 'The picture could not be drawn.'); setDrawing(false) })
     }, 120)
     return () => {
       dead = true
@@ -85,7 +81,10 @@ export default function ShareLeaderboard({
       if (url) URL.revokeObjectURL(url)
       setPreview(null)
     }
-  }, [open, what, render])
+    // The arrays are rebuilt on every parent render, so the picture is redrawn
+    // on what is IN them rather than on their identity - otherwise an unrelated
+    // re-render of the results page re-photographs the card.
+  }, [open, what, render, winners.length, ranking.length, entries, totalViews, voucherWinners.length, voucherPrize])
 
   useEffect(() => {
     if (open) { setError(''); setNote('') }
@@ -97,7 +96,11 @@ export default function ShareLeaderboard({
     try {
       const blob = await render()
       if (!blob) throw new Error('The image could not be drawn. Try again.')
-      const path = `leaderboards/${challenge.id}-${what}-${Date.now()}.png`
+      // EVERY PUBLIC-BUCKET UPLOAD LIVES UNDER THE UPLOADER'S OWN FOLDER. The
+      // proxy enforces it (`path not allowed`, 403) and this path did not, so
+      // sharing a result has never once succeeded - it failed at the upload,
+      // before the message was written, every time.
+      const path = `${user.id}/leaderboards/${challenge.id}-${what}-${Date.now()}.png`
       const image_url = await uploadFile('chat-media', path, blob, 'image/png')
 
       const { posted, error: postError } = await postToRooms({
@@ -128,6 +131,34 @@ export default function ShareLeaderboard({
 
   return (
     <>
+      {/* THE THING BEING PHOTOGRAPHED. Off-screen, at a fixed width, mounted
+          only while the dialog is open. `aria-hidden` because it is a duplicate
+          of content already on the page and a screen reader should not read the
+          leaderboard twice. */}
+      {open && (
+        <div
+          aria-hidden
+          style={{
+            position: 'fixed', top: 0, left: '-20000px', pointerEvents: 'none', zIndex: -1,
+            width: `${(SHARE_LAYOUT[what] ?? SHARE_LAYOUT.podium).width}px`,
+          }}
+        >
+          <ShareCard
+            cardRef={cardRef}
+            what={what}
+            challenge={challenge}
+            winners={winners}
+            ranking={ranking}
+            entries={entries}
+            totalViews={totalViews}
+            voucherWinners={voucherWinners}
+            voucherPrize={voucherPrize}
+            subCountByCreator={subCountByCreator}
+            platformsFor={platformsFor}
+          />
+        </div>
+      )}
+
       <Modal open={open} onClose={onClose} title="Share the result">
         <div className="space-y-6">
           <div>

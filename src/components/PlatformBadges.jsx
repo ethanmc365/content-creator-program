@@ -47,6 +47,11 @@ const ICONS = {
  * Works out which platforms a creator is on (from their profile links)
  * and renders a row of small badges.
  */
+// The order platform icons are shown in, wherever they are shown. Lived as a
+// private const in ChallengeDetail until the same list was needed to build the
+// shared picture of that page.
+export const PLATFORM_ORDER = ['Instagram', 'TikTok', 'YouTube', 'Facebook', 'Other']
+
 export function platformsForProfile(profile) {
   const list = []
   if (profile?.instagram_url) list.push('Instagram')

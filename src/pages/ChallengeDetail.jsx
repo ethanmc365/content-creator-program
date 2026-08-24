@@ -1,11 +1,12 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { confirm } from '../lib/confirm'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
+import ChallengeLeaderboard from '../components/ChallengeLeaderboard'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import CountdownTimer from '../components/CountdownTimer'
 import Icon from '../components/Icon'
-import PlatformBadges from '../components/PlatformBadges'
+import PlatformBadges, { PLATFORM_ORDER } from '../components/PlatformBadges'
 import VideoThumb from '../components/VideoThumb'
 import VideoEmbedModal from '../components/VideoEmbedModal'
 import SubmissionSuccess from '../components/SubmissionSuccess'
@@ -15,7 +16,6 @@ import { EntryFeedbackNote, EntryFeedbackEditor, loadFeedback } from '../compone
 import { Avatar, Badge, Modal, PageHeader, Skeleton, EmptyState, Spinner } from '../components/ui'
 import { formatDate, timeAgo, formatViews, detectPlatform, cx, challengeDeadline } from '../lib/utils'
 
-const PLATFORM_ORDER = ['Instagram', 'TikTok', 'YouTube', 'Facebook', 'Other']
 
 // The submit form does its own validation so problems are shown in the branded
 // card, never in Chrome's grey "Please enter a URL" speech bubble (which sits
@@ -532,44 +532,13 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
             </div>
           ) : null}
 
-          <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
-          {results.map((r) => {
-            const mine = r.creator_id === user.id
-            const medal = { 1: '🥇', 2: '🥈', 3: '🥉' }[r.rank]
-            return (
-              <div
-                key={r.id}
-                className={cx(
-                  'flex items-center gap-4 border-b border-gray-50 px-5 py-4 last:border-0 sm:px-8',
-                  mine && 'bg-brand-tint/60'
-                )}
-              >
-                <span className={cx('w-10 text-center text-lg font-bold', r.rank <= 3 ? '' : 'text-smoke')}>
-                  {medal || r.rank}
-                </span>
-                <Link to={`/profile/${r.profiles?.id}`} className="flex min-w-0 flex-1 items-center gap-3">
-                  <Avatar src={r.profiles?.photo_url} name={r.profiles?.name} size="sm" />
-                  <span className="truncate text-sm font-semibold hover:text-brand">
-                    {r.profiles?.name} {mine && <span className="ml-1 text-xs font-medium text-brand">(you)</span>}
-                  </span>
-                </Link>
-                {/* Voucher badge: this creator posted enough videos to earn the
-                    participation prize. */}
-                {participation && (subCountByCreator[r.creator_id] || 0) >= participation.threshold && (
-                  <span
-                    title={`Posted ${participation.threshold}+ videos`}
-                    className="hidden shrink-0 items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-semibold text-green-700 sm:inline-flex"
-                  >
-                    <Icon name="ticket" className="h-3.5 w-3.5" /> {participation.prize}
-                  </span>
-                )}
-                {/* Only the platforms this creator actually submitted on. */}
-                <PlatformBadges platforms={submittedPlatforms(r.creator_id)} className="hidden sm:flex" />
-                <span className="w-24 text-right text-sm font-bold tabular-nums">{formatViews(r.final_views)}</span>
-              </div>
-            )
-          })}
-          </div>
+          <ChallengeLeaderboard
+            rows={results}
+            meId={user.id}
+            participation={participation}
+            subCountByCreator={subCountByCreator}
+            platformsFor={submittedPlatforms}
+          />
         </div>
       )}
 
