@@ -35,6 +35,7 @@ Last full audit: **23 August 2026**. What that audit found and fixed is in
 
 | Area | Control |
 |---|---|
+| Public surface | The four `SECURITY DEFINER` RPCs the signed-out landing page calls (`landing_stats`, `featured_creators`, `public_creator_map`, `public_live_challenge`) are deliberately `anon`-executable and were re-reviewed for what they actually return. `public_creator_map` no longer returns upcoming trips to anonymous callers (migration 111). |
 | Data access | RLS enabled on **all 69 public tables**; every write policy scoped to `auth.uid()` / `is_admin()` / `can_post()`. Verified with a live impersonated creator token: cannot escalate `is_admin`, edit others' rows, read others' DMs, read other creators' `creator_private`, read `invoices`, or read any admin-only table. |
 | Account onboarding | New signups are `pending` and **cannot access the app until an admin approves**; declining deletes the account. Route guards default-deny on unknown status. |
 | Auth abuse | `auth-gate` enforces **5 attempts / 15 min per email+IP**, **plus 30 / 15 min per IP** for login (the credential-spray bucket). Turnstile CAPTCHA is enabled in Supabase Auth. Password reset never reveals whether an email exists. |
@@ -54,7 +55,7 @@ Last full audit: **23 August 2026**. What that audit found and fixed is in
 ## Audit — August 2026
 
 A full pass over the platform, with each finding verified against production
-after the fix. Migrations `108`–`110`.
+after the fix. Migrations `108`–`111`.
 
 **Fixed — high severity**
 
@@ -79,10 +80,24 @@ after the fix. Migrations `108`–`110`.
    fails closed, timing-safe.
 4. **CORS allowed any `*.vercel.app`** — five minutes and no money to register.
    Now an exact allow-list.
+5. **The landing page published every creator's travel schedule to the open
+   internet.** `public_creator_map()` is `SECURITY DEFINER` and executable by
+   `anon`, because it draws the community map on the signed-out marketing page.
+   It also returned `trips` — every upcoming collab post, keyed by creator, with
+   the destination and the **exact start and end dates** — joined to the
+   `creators` array in the same payload. One unauthenticated `POST` to
+   `/rest/v1/rpc/public_creator_map` returned, for 44 named people: full name,
+   photograph, home city, that city's latitude and longitude, and the precise
+   dates they would not be in it. No login, no rate limit. Nothing was broken;
+   it was working like this in the open, and most of this community are young
+   women. Migration `111` returns `trips` only to a signed-in member. Home city
+   and coordinates stay public — a creator typed those into a profile meant to
+   be seen, and they are what make the map a map; the dates are the part that
+   turns a marketing graphic into a schedule of unoccupied houses.
 
 **Fixed — medium**
 
-5. **Dates of birth were readable by every member.** `profiles` is readable by
+6. **Dates of birth were readable by every member.** `profiles` is readable by
    any signed-in member (that is what the directory and chat are built on) and
    `profiles.dob` sat in it, with `/profile/:id` fetching `select('*')`. The
    product only ever wanted to show an *age* — `profiles.age` already existed
@@ -91,21 +106,21 @@ after the fix. Migrations `108`–`110`.
    (`id = auth.uid() OR is_admin()`), backfills the ages, and keeps the two in
    step with triggers. See the migration for why RLS and a column `REVOKE`
    could not fix this.
-6. **Group DMs could not carry media at all** — the storage read policy and the
+7. **Group DMs could not carry media at all** — the storage read policy and the
    `upload` participant check both understood only `participant_a`/
    `participant_b`, which a group conversation leaves null.
-7. **Uploads had no server-side type or size limit** — the bucket settings were
+8. **Uploads had no server-side type or size limit** — the bucket settings were
    holding, but the function uploads with the service role, so SVG (a document
    with scripts in it) could have been written to a public bucket.
-8. **Credential spray was unlimited.** The per-(email + IP) login limit does
+9. **Credential spray was unlimited.** The per-(email + IP) login limit does
    nothing about one leaked password tried against every address, because every
    attempt is a new bucket. Added a per-IP bucket.
-9. **Feature flags were unreadable, so two features could never start.**
+10. **Feature flags were unreadable, so two features could never start.**
    `readFlag` selected from `app_settings`, whose only policy is `is_admin()`,
    so every creator's read returned nothing and failed closed — the walkthrough
    and the install gate were switched off in a way no row update could switch
    on. Now a `public_flag()` reader with a two-key allow-list.
-10. **Password reset did O(all users) work per request** on an unauthenticated
+11. **Password reset did O(all users) work per request** on an unauthenticated
     endpoint, and silently stopped matching anybody past the thousandth
     account. Replaced with an indexed, service-role-only lookup.
 
