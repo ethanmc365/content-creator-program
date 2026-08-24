@@ -42,6 +42,7 @@ const CronLab = lazy(() => import('./testing/CronLab'))
 const FlightLab = lazy(() => import('./testing/FlightLab'))
 const ToolkitLab = lazy(() => import('./testing/ToolkitLab'))
 const HealthLab = lazy(() => import('./testing/HealthLab'))
+const ViewsLab = lazy(() => import('./testing/ViewsLab'))
 const ResultsLab = lazy(() => import('./testing/ResultsLab'))
 const ProfileLab = lazy(() => import('./testing/ProfileLab'))
 const SecurityLab = lazy(() => import('./testing/SecurityLab'))
@@ -143,6 +144,12 @@ export const LABS = [
     blurb: 'Twelve questions about privacy, asked of five kinds of account. Every no is enforced by the database, not the interface.',
     tags: ['Reference'],
     element: <SecurityLab />,
+  },
+  {
+    key: 'views', title: 'View counts, off the link', icon: 'eye', group: 'Toolkit',
+    blurb: 'Paste a TikTok or Instagram link and see what the automatic sync reads from it. Real posts, live numbers, writes nothing.',
+    tags: ['Real data', 'Read only'],
+    element: <ViewsLab />,
   },
   {
     key: 'health', title: 'Live platform health', icon: 'chartPie', group: 'Toolkit',

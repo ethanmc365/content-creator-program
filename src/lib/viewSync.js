@@ -1,0 +1,123 @@
+// Automatic view counts: the client side of the `view-sync` Edge Function.
+//
+// The function reads a challenge entry's view count off the page the creator
+// linked to (see supabase/functions/view-sync/index.ts). Everything here is
+// admin-only at the server; these helpers exist so the admin panel and the
+// Testing Centre call it the same way and read the same vocabulary of errors.
+import { supabase } from './supabase'
+
+// What the sync can come back with, in the words an admin should see. The keys
+// are the `views_sync_error` values the function writes onto a submission, so a
+// stale row explains itself long after the run that produced it.
+export const SYNC_ERRORS = {
+  needs_session: {
+    label: 'Instagram sign-in needed',
+    hint: 'Instagram only shows view counts to a signed-in account. Add a session below and these fill in on the next run.',
+  },
+  session_expired: {
+    label: 'Instagram session expired',
+    hint: 'The stored Instagram session has been rejected. Paste a fresh one to start these again.',
+  },
+  no_video_id: {
+    label: 'Link goes nowhere',
+    hint: 'The link does not resolve to a video. Usually it was deleted, set to private, or pasted incompletely.',
+  },
+  no_count_in_page: {
+    label: 'No count on the page',
+    hint: 'The post loaded but carries no view count. Photo posts and carousels have none.',
+  },
+  blocked: {
+    label: 'Platform refused',
+    hint: 'The platform served a check page instead of the video. It usually clears by itself on the next run.',
+  },
+  fetch_failed: {
+    label: 'Could not reach it',
+    hint: 'The request failed or timed out. It will be retried on the next run.',
+  },
+  lower_than_recorded: {
+    label: 'Lower than the saved number',
+    hint: 'The live count is BELOW the number already saved. Views do not fall, so the saved one was probably typed from somewhere else. Nothing was overwritten.',
+  },
+  unsupported: {
+    label: 'Not TikTok or Instagram',
+    hint: 'Only TikTok and Instagram links carry a view count this can read.',
+  },
+  bad_url: { label: 'Not a link', hint: 'That is not a URL.' },
+}
+
+export function describeSyncError(code) {
+  if (!code) return null
+  return SYNC_ERRORS[code] ?? { label: code.replace(/_/g, ' '), hint: '' }
+}
+
+// Read one pasted link and report what is on it. Writes NOTHING, which is what
+// lets the Testing Centre use it against real links without breaking the rule
+// that no lab touches real data.
+export async function probeLink(url) {
+  const { data, error } = await supabase.functions.invoke('view-sync', { body: { probe: url } })
+  if (error) throw error
+  return data
+}
+
+// Sync now. Pass a challenge to do all of its entries, or a list of submission
+// ids to do exactly those. Resolves once the numbers are actually written, so
+// the caller can refresh straight after.
+export async function syncViews({ challengeId, submissionIds } = {}) {
+  const body = {}
+  if (challengeId) body.challenge_id = challengeId
+  if (submissionIds?.length) body.submission_ids = submissionIds
+  const { data, error } = await supabase.functions.invoke('view-sync', { body })
+  if (error) throw error
+  return data
+}
+
+// Schedule, last run, whether an Instagram session is present (never the cookie
+// itself) and how the current entries are doing.
+export async function viewSyncStatus() {
+  const { data, error } = await supabase.rpc('view_sync_status')
+  if (error) throw error
+  return data
+}
+
+export async function saveInstagramSession(session) {
+  const { error } = await supabase.rpc('set_instagram_session', { p_session: session })
+  if (error) throw error
+}
+
+export async function saveViewSyncSettings({ enabled, intervalHours }) {
+  const { error } = await supabase
+    .from('app_settings')
+    .upsert({ key: 'view_sync', value: { enabled, interval_hours: intervalHours }, updated_at: new Date().toISOString() })
+  if (error) throw error
+}
+
+// The cadences worth offering. Anything under an hour is pointless (the sweep
+// itself is the slow part) and anything over a week outlives a challenge.
+export const CADENCES = [
+  { hours: 6, label: 'Every 6 hours' },
+  { hours: 12, label: 'Twice a day' },
+  { hours: 24, label: 'Once a day' },
+  { hours: 72, label: 'Every 3 days' },
+  { hours: 168, label: 'Once a week' },
+]
+
+export function cadenceLabel(hours) {
+  return CADENCES.find((c) => c.hours === Number(hours))?.label ?? `Every ${hours} hours`
+}
+
+// The most recent snapshot of every submission, oldest first, for a sparkline
+// or a "grew by N since yesterday" line.
+export async function viewHistory(submissionIds) {
+  if (!submissionIds?.length) return {}
+  const { data, error } = await supabase
+    .from('view_snapshots')
+    .select('submission_id, views, source, captured_at')
+    .in('submission_id', submissionIds)
+    .order('captured_at', { ascending: true })
+  if (error) throw error
+  const bySubmission = {}
+  for (const row of data ?? []) {
+    ;(bySubmission[row.submission_id] ??= []).push(row)
+  }
+  return bySubmission
+}

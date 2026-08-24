@@ -33,3 +33,6 @@ graphify-out/
 
 # Large source design assets (optimised copies live in public/brand)
 /Custom Tryp Plane Design.png
+
+# Supabase CLI scratch (npx supabase writes its version here)
+supabase/.temp/

@@ -7,11 +7,17 @@ import Icon from '../../components/Icon'
 import { useAuth } from '../../context/AuthContext'
 import { formatViews, timeAgo } from '../../lib/utils'
 import { announceToMarkets } from '../../lib/announce'
+import { describeSyncError } from '../../lib/viewSync'
 import WinnersPodium from '../../components/WinnersPodium'
+import ViewSyncPanel from '../../components/admin/ViewSyncPanel'
 
 // Results entry for one challenge:
-//  1. Click through each submission and watch it on the platform.
-//  2. Type the view count you saw into the box (saved per submission).
+//  1. View counts arrive by themselves - the `view-sync` Edge Function reads
+//     each entry off the link the creator submitted, daily by default. The box
+//     on each row is still there and still wins: a number typed by hand is
+//     never overwritten by a LOWER reading (views do not fall, so a lower one
+//     means a bad read or a better source), and the row says where it came from.
+//  2. "Sync this challenge now" in the panel above does the whole list on demand.
 //  3. "Generate leaderboard" ranks creators by their best entry's views
 //     and writes the final results table (which feeds the Wall of Fame).
 export default function AdminResults() {
@@ -70,8 +76,13 @@ export default function AdminResults() {
     if (raw !== '' && (isNaN(views) || views < 0)) return
     if (views === submission.logged_views) return
     setSavingId(submission.id)
-    await supabase.from('submissions').update({ logged_views: views }).eq('id', submission.id)
-    setSubmissions((prev) => prev.map((s) => (s.id === submission.id ? { ...s, logged_views: views } : s)))
+    await supabase
+      .from('submissions')
+      .update({ logged_views: views, views_source: 'manual', views_sync_error: null })
+      .eq('id', submission.id)
+    setSubmissions((prev) =>
+      prev.map((s) => (s.id === submission.id ? { ...s, logged_views: views, views_source: 'manual', views_sync_error: null } : s)),
+    )
     setSavingId(null)
   }
 
@@ -192,8 +203,8 @@ export default function AdminResults() {
         title={`Results: ${challenge?.title}`}
         subtitle={
           isLive
-            ? 'Log the views you can see so far and publish the current leaderboard mid-challenge. Re-log and publish again after it closes for the final ranking. No scraping. Your eyes are the source of truth.'
-            : 'Open each video, check its views on the platform, and log the number here. No scraping. Your eyes are the source of truth.'
+            ? 'View counts are read off each entry once a day. Publish the current leaderboard mid-challenge, then publish again after it closes for the final ranking. Any number you type by hand wins.'
+            : 'View counts are read off each entry once a day. Check the ones flagged below, correct anything by hand, then generate the leaderboard. Any number you type by hand wins.'
         }
         action={
           <div className="flex flex-col items-end gap-2">
@@ -254,6 +265,10 @@ export default function AdminResults() {
         </div>
       )}
 
+      {submissions.length > 0 ? (
+        <ViewSyncPanel challengeId={id} submissions={submissions} onSynced={load} />
+      ) : null}
+
       {submissions.length === 0 ? (
         <EmptyState icon={<Icon name="video" className="h-7 w-7" />} title="No submissions to review" hint="Entries will appear here as creators submit their links." />
       ) : (
@@ -263,7 +278,17 @@ export default function AdminResults() {
               <Avatar src={s.profiles?.photo_url} name={s.profiles?.name} size="sm" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold">{s.profiles?.name}</p>
-                <p className="text-xs text-smoke">{s.platform} · {timeAgo(s.submitted_at)}</p>
+                <p className="text-xs text-smoke">
+                  {s.platform} · {timeAgo(s.submitted_at)}
+                  {s.views_source !== 'manual' && s.views_synced_at ? (
+                    <span className="text-green-700"> · read {timeAgo(s.views_synced_at)}</span>
+                  ) : null}
+                  {s.views_sync_error ? (
+                    <span className="text-brand" title={describeSyncError(s.views_sync_error)?.hint}>
+                      {' '}· {describeSyncError(s.views_sync_error)?.label}
+                    </span>
+                  ) : null}
+                </p>
               </div>
               <a href={s.video_url} target="_blank" rel="noopener noreferrer" className="btn-secondary !py-2 text-xs">
                 Watch ↗
