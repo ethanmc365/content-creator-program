@@ -71,7 +71,7 @@ export default function StreakLeaderboard({ open, onClose, myId }) {
                   )}>{i + 1}</span>
                   <Avatar src={r.photo_url} name={r.name} size="sm" />
                   <Link
-                    to={`/creators/${r.profile_id}`}
+                    to={`/profile/${r.profile_id}`}
                     onClick={onClose}
                     className="min-w-0 flex-1 truncate text-sm font-medium hover:text-brand"
                   >

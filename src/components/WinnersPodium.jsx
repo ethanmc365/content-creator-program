@@ -123,7 +123,7 @@ export default function WinnersPodium({
     return (
       <div key={w.rank} className="flex w-[5.5rem] flex-col items-center sm:w-24">
         <Link
-          to={`/creators/${w.profiles?.id}`}
+          to={`/profile/${w.profiles?.id}`}
           onClick={own}
           className="block rounded-full transition-transform duration-150 hover:scale-105"
           title={`${w.profiles?.name || 'Creator'} - view profile`}
@@ -159,7 +159,7 @@ export default function WinnersPodium({
           {rest.map((w) => (
             <div key={w.rank} className="flex items-center gap-2">
               <span className="w-5 text-right text-[11px] font-bold tabular-nums text-smoke">{w.rank}</span>
-              <Link to={`/creators/${w.profiles?.id}`} onClick={own} className="transition-transform duration-150 hover:scale-105">
+              <Link to={`/profile/${w.profiles?.id}`} onClick={own} className="transition-transform duration-150 hover:scale-105">
                 <Avatar src={w.profiles?.photo_url} name={w.profiles?.name} size="xs" />
               </Link>
               <span className="text-xs font-medium text-ink">{w.profiles?.name?.split(' ')[0] || 'Creator'}</span>
@@ -189,7 +189,7 @@ export default function WinnersPodium({
               {shown.map((v) => (
                 <Link
                   key={v.id}
-                  to={`/creators/${v.id}`}
+                  to={`/profile/${v.id}`}
                   onClick={own}
                   title={v.name}
                   className="transition-transform duration-150 hover:scale-110"

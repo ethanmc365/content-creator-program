@@ -102,10 +102,18 @@ page read stays as a fallback for the day the block lifts.
 ### Facebook, rounded, no sign-in
 
 `og:title` reads `"5.7K views · 152K reactions | ..."` and that is the only
-statement of a count in the whole document. **A `/reel/<id>` URL is answered
-with a 400**, while the same video at `watch/?v=<id>` returns fine - so once the
-id is known the request is made in the form that works, not the form the creator
-pasted. There is no exact figure anywhere,
+statement of a count in the whole document. Facebook is fussy about WHICH URL and WHICH agent:
+
+| Shape | Desktop agent | Phone agent |
+| --- | --- | --- |
+| `/reel/<id>` | **400** | 200, but an empty shell |
+| `/share/r/<code>` | **400** | follows the redirect properly |
+| `watch/?v=<id>` | **200 with og:title** | - |
+
+So a link is RESOLVED as a phone (the only way a share link gives up its
+destination) and READ as `watch/?v=<id>` on the desktop agent (the only response
+that carries the count). The pasted form is never used to read. If the id still
+cannot be found, the landing page is scraped for `video_id` / `og:url`. There is no exact figure anywhere,
 `m.facebook.com` returns a stub and `mbasic.facebook.com` redirects to a login.
 
 So a Facebook number is stored with `views_approx` set, shown with a `~`, and

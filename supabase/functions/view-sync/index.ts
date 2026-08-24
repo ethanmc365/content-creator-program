@@ -4,25 +4,16 @@
 // submitted, so leaderboards keep themselves current instead of an admin
 // opening every entry and typing the number in. Four platforms.
 //
-//   TikTok     Exact, nothing needed. Follow the share-sheet short link once,
-//              then read "playCount" off the embed endpoint.
-//   YouTube    Exact, needs a free Data API v3 key. The watch page states the
-//              count but ONLY to a normal connection: YouTube bot-blocks
-//              datacenter ranges, so from Deno Deploy the page comes back as a
-//              1.2 MB shell with an empty <title> and every innertube client
-//              answers "Sign in to confirm you're not a bot". The API costs
-//              1 unit of a 10,000/day quota per lookup.
+//   TikTok     Exact, nothing needed.
+//   YouTube    Exact, needs a free Data API v3 key: YouTube bot-blocks servers
+//              from reading its pages.
 //   Facebook   Exact below a thousand, ROUNDED above it. og:title is the only
-//              statement of a count logged out ("847 views", "5.7K views") and
-//              nothing in the document carries an exact one; m./mbasic. are
-//              login-walled. A /reel/<id> URL 400s, so it is asked for as
-//              watch/?v=<id> instead.
+//              statement of a count logged out. /reel/<id> 400s and /share/ 400s
+//              to a desktop agent, so links are RESOLVED as a phone and READ as
+//              watch/?v=<id>.
 //   Instagram  Exact, needs a session cookie AND THE COOKIES THAT GO WITH IT.
-//              `sessionid` alone gets a 302 that redirects to itself forever;
-//              adding ds_user_id, csrftoken, ig_did and mid returns the media.
-//              ds_user_id is not a second thing to paste - it IS the first
-//              segment of the sessionid ("<uid>%3A<token>%3A..."), so it is
-//              derived. See igCookie().
+//              `sessionid` alone gets a 302 that redirects to itself forever.
+//              ds_user_id is derived from the sessionid, not pasted separately.
 //
 // Callers, all authenticated:
 //   pg_cron / run_view_sync()   x-webhook-secret, {}              -> stale sweep
@@ -30,14 +21,11 @@
 //   admin "Sync now"            admin JWT, { challenge_id, force } -> read now
 //   Testing Centre              admin JWT, { probe: url }          -> READ ONLY
 //
-// SCALE. A UK challenge has 39 entries; a Spanish one has 400 to 500 and a
-// worldwide brief could have thousands, all wanting a daily read. So staleness
-// belongs to the ENTRY, not to the run: each invocation takes the oldest-read
-// chunk it can finish comfortably, then hands the rest to a fresh invocation.
-// The hourly cron tops up whatever is still stale. Nothing races a timeout.
+// SCALE. Staleness belongs to the ENTRY, not to the run: each invocation takes
+// the oldest-read chunk it can finish, then hands the rest to a fresh one. The
+// hourly cron tops up whatever is still stale. Nothing races a timeout.
 //
-// Deploy with verify_jwt=false: it authenticates callers itself, and the cron
-// sweep arrives with a webhook secret rather than a user token.
+// Deploy with verify_jwt=false: it authenticates callers itself.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { createRemoteJWKSet, jwtVerify } from 'npm:jose@5'
 
@@ -67,6 +55,13 @@ async function secrets(): Promise<Secrets> {
 // keeps changing user agent, so this stays fixed.
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
+
+// Facebook answers a /share/ link with a 400 to the desktop agent and follows it
+// properly for a phone, so link RESOLUTION is done as a phone. Reading the count
+// is still done as the desktop agent, because that is the response that carries
+// og:title.
+const MOBILE_UA =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
 
 const FETCH_TIMEOUT_MS = 10_000
 
@@ -172,11 +167,11 @@ const fail = (base: Partial<Resolved>, error: string, detail: string): Resolved 
   platform: null, videoId: null, canonicalUrl: null, views: null, approx: false, ...base, error, detail,
 })
 
-async function followRedirects(url: string): Promise<string | null> {
+async function followRedirects(url: string, ua: string = UA): Promise<string | null> {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS)
   try {
-    const res = await fetch(url, { redirect: 'follow', headers: { 'User-Agent': UA }, signal: ctrl.signal })
+    const res = await fetch(url, { redirect: 'follow', headers: { 'User-Agent': ua }, signal: ctrl.signal })
     await res.body?.cancel()
     return res.url || null
   } catch {
@@ -299,47 +294,73 @@ function decodeEntities(s: string): string {
 
 async function facebookViews(url: string, knownId: string | null): Promise<Resolved> {
   const base = { platform: 'Facebook' as const }
-  let canonical: string | null = url
   let id = knownId ?? facebookIdFrom(url)
+  let canonical: string | null = url
 
+  // A share link (/share/r/<code>, /share/v/<code>, fb.watch/<code>) carries no
+  // id, and Facebook answers it with a 400 to the desktop agent - so following
+  // it as a PHONE is the only way to find out what it points at.
   if (!id) {
-    canonical = await followRedirects(url)
+    canonical = (await followRedirects(url, MOBILE_UA)) ?? (await followRedirects(url))
     if (canonical) id = facebookIdFrom(canonical)
   }
 
-  // A /reel/<id> URL is answered with a 400 by Facebook, while the very same
-  // video at watch/?v=<id> returns fine - so once the id is known, ask for the
-  // form that works rather than the form the creator happened to paste.
-  const target = id ? `https://www.facebook.com/watch/?v=${id}` : (canonical ?? url)
-
-  try {
-    const html = await getText(target)
-    const title = decodeEntities(html.match(/property="og:title"\s+content="([^"]*)"/)?.[1] ?? '')
-
-    // ROUNDED FIRST, then exact. Facebook states a plain number below a
-    // thousand ("847 views") and only rounds above it ("5.7K views"), so a
-    // small video IS exact - and the old order, which demanded four or more
-    // characters before it would accept an exact figure, silently failed every
-    // video under 1,000 views rather than reading it.
-    const rounded = title.match(/([\d.]+[KMB])\s+views?/i)?.[1]
-    if (rounded) {
-      const n = parseCompactCount(rounded)
-      if (n != null) return { ...base, videoId: id, canonicalUrl: canonical, views: n, approx: true, error: null }
+  // Still nothing: read the page it landed on and pull the id out of the markup.
+  if (!id && canonical) {
+    try {
+      const html = await getText(canonical, {}, 'follow')
+      id =
+        html.match(/"video_id"\s*:\s*"(\d{6,})"/)?.[1] ??
+        html.match(/property="og:url"\s+content="[^"]*\/(?:videos|reel)\/(\d{6,})/)?.[1] ??
+        null
+    } catch {
+      // fall through to the honest error below
     }
-    const exact = title.match(/(\d[\d,]*)\s+views?/i)?.[1]
-    if (exact) {
-      const n = parseCompactCount(exact)
-      if (n != null) return { ...base, videoId: id, canonicalUrl: canonical, views: n, approx: false, error: null }
-    }
-    if (/log in/i.test(title)) {
-      return fail({ ...base, videoId: id, canonicalUrl: canonical }, 'blocked',
-        'Facebook asked for a login instead of showing the video. Private and restricted posts do this.')
-    }
-    return fail({ ...base, videoId: id, canonicalUrl: canonical }, 'no_count_in_page',
-      'Facebook served the post but stated no view count. Photo and text posts have none.')
-  } catch {
-    return fail({ ...base, videoId: id, canonicalUrl: canonical }, 'fetch_failed', 'Could not reach that Facebook post.')
   }
+
+  if (!id) {
+    return fail({ ...base, canonicalUrl: canonical }, 'no_video_id',
+      'That Facebook link does not resolve to a video. Share links from a private profile often do not.')
+  }
+
+  // watch/?v=<id> is the form that answers. /reel/<id> is a 400 to the desktop
+  // agent and an empty shell to a phone, so the pasted form is never used to
+  // READ, only to find the id.
+  let lastStatus = 0
+  for (const target of [`https://www.facebook.com/watch/?v=${id}`, `https://www.facebook.com/video.php?v=${id}`]) {
+    try {
+      const html = await getText(target)
+      const title = decodeEntities(html.match(/property="og:title"\s+content="([^"]*)"/)?.[1] ?? '')
+
+      // ROUNDED FIRST, then exact. Facebook states a plain number below a
+      // thousand ("847 views") and only rounds above it ("5.7K views"), so a
+      // small video IS exact.
+      const rounded = title.match(/([\d.]+[KMB])\s+views?/i)?.[1]
+      if (rounded) {
+        const n = parseCompactCount(rounded)
+        if (n != null) return { ...base, videoId: id, canonicalUrl: canonical, views: n, approx: true, error: null }
+      }
+      const exact = title.match(/(\d[\d,]*)\s+views?/i)?.[1]
+      if (exact) {
+        const n = parseCompactCount(exact)
+        if (n != null) return { ...base, videoId: id, canonicalUrl: canonical, views: n, approx: false, error: null }
+      }
+      if (/log in/i.test(title)) {
+        return fail({ ...base, videoId: id, canonicalUrl: canonical }, 'blocked',
+          'Facebook asked for a login instead of showing the video, which it does for posts that are not public.')
+      }
+      return fail({ ...base, videoId: id, canonicalUrl: canonical }, 'no_count_in_page',
+        'Facebook served the post but stated no view count. Photo and text posts have none.')
+    } catch (e) {
+      lastStatus = e instanceof HttpError ? e.status : 0
+    }
+  }
+
+  if (lastStatus === 400 || lastStatus === 404) {
+    return fail({ ...base, videoId: id, canonicalUrl: canonical }, 'blocked',
+      'Facebook would not serve that video to a signed-out reader. Reels posted from a personal profile rather than a Page are usually private to non-followers.')
+  }
+  return fail({ ...base, videoId: id, canonicalUrl: canonical }, 'fetch_failed', 'Could not reach that Facebook post.')
 }
 
 // ---------------------------------------------------------------- instagram

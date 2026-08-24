@@ -582,7 +582,7 @@ export default function FlightCommunity() {
                             {faces.slice(0, 6).map((f) => (
                               <Link
                                 key={f.id}
-                                to={`/creators/${f.id}`}
+                                to={`/profile/${f.id}`}
                                 title={f.name}
                                 className="transition-transform duration-150 hover:z-10 hover:scale-110"
                               >

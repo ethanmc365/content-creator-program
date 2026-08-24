@@ -35,11 +35,20 @@ import { supabase } from './supabase'
 const LEGACY_CHAT_SLUGS = new Set(['uk'])
 
 /** The channel string a room's messages must carry to be readable today. */
-function channelKeyFor(community) {
-  if (community?.kind === 'network') return 'announcements'
-  if (LEGACY_CHAT_SLUGS.has(community?.slug)) return 'announcements'
-  return `${community?.slug}:announcements`
+function channelKeyFor(community, base = 'announcements') {
+  if (community?.kind === 'network') return base
+  if (LEGACY_CHAT_SLUGS.has(community?.slug)) return base
+  return `${community?.slug}:${base}`
 }
+
+// The rooms something can be shared into. `announcements` broadcasts (posting
+// there notifies everyone); `general` is the ordinary room, which is sometimes
+// the better place for a leaderboard nobody needs a push about.
+export const SHAREABLE_ROOMS = [
+  { key: 'announcements', label: 'Announcements', hint: 'Notifies everyone in the market' },
+  { key: 'general', label: 'General chat', hint: 'Posts without a notification' },
+  { key: 'content_tips', label: 'Content Tips', hint: 'For anything creators can learn from' },
+]
 
 /**
  * @param {object} opts
@@ -50,6 +59,16 @@ function channelKeyFor(community) {
  * @returns {Promise<{posted: number, error: any}>}
  */
 export async function announceToMarkets({ communityIds = [], body, senderId, extra = {} }) {
+  return postToRooms({ communityIds, base: 'announcements', body, senderId, extra })
+}
+
+/**
+ * The same delivery, into whichever room was chosen. `announceToMarkets` is this
+ * with `announcements` hard-coded, kept because most callers only ever want that.
+ *
+ * @param {string} opts.base  'announcements' | 'general' | 'content_tips'
+ */
+export async function postToRooms({ communityIds = [], base = 'announcements', body, senderId, extra = {} }) {
   // A card-only post (a leaderboard, a poll) carries no prose, so an empty body
   // is legitimate as long as SOMETHING is being said. Requiring text here is
   // what stopped the winners card from being shareable at all.
@@ -61,7 +80,7 @@ export async function announceToMarkets({ communityIds = [], body, senderId, ext
   let q = supabase
     .from('channels')
     .select('id, key, community_id, communities:community_id(slug, kind)')
-    .eq('key', 'announcements')
+    .eq('key', base)
   if (communityIds.length) q = q.in('community_id', communityIds)
   const { data: rooms, error } = await q
   if (error) return { posted: 0, error }
@@ -76,7 +95,7 @@ export async function announceToMarkets({ communityIds = [], body, senderId, ext
   if (!targets.length) return { posted: 0, error: null }
 
   const rows = targets.map((r) => ({
-    channel: channelKeyFor(r.communities),
+    channel: channelKeyFor(r.communities, base),
     channel_id: r.id,
     community_id: r.community_id,
     sender_id: senderId,

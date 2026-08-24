@@ -4,12 +4,11 @@ import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Avatar, EmptyState, PageHeader, Skeleton, Spinner } from '../../components/ui'
 import Icon from '../../components/Icon'
-import { useAuth } from '../../context/AuthContext'
 import { formatViews, timeAgo } from '../../lib/utils'
-import { announceToMarkets } from '../../lib/announce'
 import { describeSyncError } from '../../lib/viewSync'
 import WinnersPodium from '../../components/WinnersPodium'
 import ViewSyncPanel from '../../components/admin/ViewSyncPanel'
+import ShareLeaderboard from '../../components/admin/ShareLeaderboard'
 
 // Results entry for one challenge:
 //  1. View counts arrive by themselves - the `view-sync` Edge Function reads
@@ -22,14 +21,13 @@ import ViewSyncPanel from '../../components/admin/ViewSyncPanel'
 //     and writes the final results table (which feeds the Wall of Fame).
 export default function AdminResults() {
   const { id } = useParams()
-  const { user } = useAuth()
   const [challenge, setChallenge] = useState(null)
   const [submissions, setSubmissions] = useState([])
   const [resultsCount, setResultsCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [savingId, setSavingId] = useState(null)
   const [generating, setGenerating] = useState(false)
-  const [posting, setPosting] = useState(false)
+  const [sharing, setSharing] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [toast, setToast] = useState('')
 
@@ -122,19 +120,6 @@ export default function AdminResults() {
   // LEGACY UK room - so a Spanish challenge's standings were posted to 43 UK
   // creators and to nobody in Spain. A global challenge (no community) goes to
   // the worldwide room, which is exactly what an empty market list means.
-  async function postLeaderboardUpdate() {
-    if (resultsCount === 0) return flash('Publish a leaderboard first, then post the update.')
-    setPosting(true)
-    const { posted, error } = await announceToMarkets({
-      communityIds: challenge?.community_id ? [challenge.community_id] : [],
-      senderId: user.id,
-      body: '',
-      extra: { leaderboard_challenge_id: id },
-    })
-    setPosting(false)
-    if (error) return flash(`Couldn't post update: ${error.message}`)
-    flash(posted ? `Leaderboard posted to ${posted === 1 ? 'the announcements room' : `${posted} announcements rooms`}.` : 'No announcements room found for this challenge.')
-  }
 
   // PUBLISHING THE WINNERS IS A SEPARATE, DELIBERATE ACT.
   //
@@ -230,8 +215,8 @@ export default function AdminResults() {
             </button>
             {resultsCount > 0 && (
               <>
-                <button onClick={postLeaderboardUpdate} disabled={posting} className="btn-secondary !py-2 text-xs">
-                  {posting ? <Spinner /> : 'Share to Announcements'}
+                <button onClick={() => setSharing(true)} className="btn-secondary !py-2 text-xs">
+                  Share the result
                 </button>
                 <Link to={`/challenges/${id}`} className="text-xs font-medium text-brand hover:underline">
                   {challenge?.results_status === 'interim' ? 'Current' : 'Final'} leaderboard live ({resultsCount}) → view
@@ -271,6 +256,15 @@ export default function AdminResults() {
               {publishing ? <Spinner /> : challenge?.winners_published_at ? 'Unpublish' : 'Publish the winners'}
             </button>
           </div>
+          <ShareLeaderboard
+            open={sharing}
+            onClose={() => setSharing(false)}
+            challenge={challenge}
+            winners={podiumWinners}
+            entries={submissions.length}
+            totalViews={liveTotalViews}
+            onDone={flash}
+          />
           <WinnersPodium
             winners={podiumWinners}
             entries={submissions.length}
