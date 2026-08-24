@@ -77,6 +77,25 @@ export function instagramMediaId(shortcode) {
   return n.toString()
 }
 
+// An Instagram sessionid is "<user id>%3A<token>%3A<...>", so the account's
+// numeric id is its first segment. That matters because a request carrying only
+// `sessionid` is answered with a redirect to itself: Instagram wants ds_user_id
+// alongside it, and this is where that value comes from rather than being a
+// second thing for an admin to find. The Edge Function applies the same rule
+// (igCookie); this exists so the rule is pinned by a test.
+export function instagramUserIdFromSession(sessionid) {
+  if (typeof sessionid !== 'string') return null
+  const raw = sessionid.trim().replace(/^sessionid=/, '').split(';')[0]
+  let decoded
+  try {
+    decoded = decodeURIComponent(raw)
+  } catch {
+    return null
+  }
+  const id = decoded.split(':')[0]
+  return /^\d+$/.test(id) ? id : null
+}
+
 /** The id this link resolves to, whichever platform it belongs to. */
 export function videoIdOf(url) {
   switch (platformOf(url)) {
@@ -111,7 +130,7 @@ export function describeLink(url) {
   if (platform === 'YouTube') {
     const id = youtubeId(url)
     return id
-      ? { platform, id, ready: true, note: 'Exact count, no sign-in needed.' }
+      ? { platform, id, ready: true, note: 'Exact count, read through the YouTube Data API.' }
       : { platform, id: null, ready: false, note: 'No video id in that YouTube link.' }
   }
 
@@ -127,5 +146,5 @@ export function describeLink(url) {
 
   const code = instagramShortcode(url)
   if (!code) return { platform, id: null, ready: false, note: 'No post code in that Instagram link.' }
-  return { platform, id: code, ready: true, note: 'Reel code found. Instagram needs a signed-in session to show views.' }
+  return { platform, id: code, ready: true, note: 'Reel code found. Read as the signed-in Tryp account.' }
 }

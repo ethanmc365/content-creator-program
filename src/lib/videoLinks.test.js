@@ -7,6 +7,7 @@ import {
   facebookId,
   instagramShortcode,
   instagramMediaId,
+  instagramUserIdFromSession,
   videoIdOf,
   describeLink,
 } from './videoLinks'
@@ -89,6 +90,31 @@ describe('facebook ids', () => {
   // fb.watch carries nothing until it is followed, which only the server can do.
   it('finds nothing in a share link, which is not a failure', () => {
     expect(facebookId('https://fb.watch/xY9aBc/')).toBeNull()
+  })
+})
+
+// A sessionid on its own gets a redirect to itself, forever. Instagram wants
+// ds_user_id with it, and that value is inside the sessionid - so this rule is
+// the difference between every Instagram entry working and every Instagram entry
+// reporting a failure.
+describe('the instagram user id hidden in a session', () => {
+  it('takes the first segment, url-encoded or not', () => {
+    expect(instagramUserIdFromSession('68006166193%3AAbCdEf%3A17%3AAYc')).toBe('68006166193')
+    expect(instagramUserIdFromSession('68006166193:AbCdEf:17:AYc')).toBe('68006166193')
+    expect(instagramUserIdFromSession('sessionid=68006166193%3AAbCdEf')).toBe('68006166193')
+    expect(instagramUserIdFromSession('  68006166193%3AAbCdEf  ')).toBe('68006166193')
+  })
+
+  it('takes only the sessionid out of a whole cookie header', () => {
+    expect(instagramUserIdFromSession('68006166193%3AAbC; ds_user_id=999; csrftoken=x')).toBe('68006166193')
+  })
+
+  it('returns nothing rather than a guess when the shape is wrong', () => {
+    expect(instagramUserIdFromSession('notanid%3Atoken')).toBeNull()
+    expect(instagramUserIdFromSession('')).toBeNull()
+    expect(instagramUserIdFromSession(null)).toBeNull()
+    // a stray percent is not a valid escape and must not throw
+    expect(instagramUserIdFromSession('100%wrong')).toBeNull()
   })
 })
 

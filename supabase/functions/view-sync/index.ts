@@ -4,41 +4,35 @@
 // submitted, so leaderboards keep themselves current instead of an admin
 // opening every entry and typing the number in. Four platforms.
 //
-// This is the SECOND attempt at automatic views. The first (Aug 2026, migration
-// 068) went through the TikTok Display API and needed a reviewed developer app
-// plus a creator-by-creator OAuth link, which is why it was withdrawn before it
-// ever went live. This one reads the PUBLIC page the link already points at, so
-// there is nothing for a creator to connect and nothing to get approved.
+//   TikTok     Exact, nothing needed. Follow the share-sheet short link once,
+//              then read "playCount" off the embed endpoint.
+//   YouTube    Exact, needs a free Data API v3 key. The watch page states the
+//              count but ONLY to a normal connection: YouTube bot-blocks
+//              datacenter ranges, so from Deno Deploy the page comes back as a
+//              1.2 MB shell with an empty <title> and every innertube client
+//              answers "Sign in to confirm you're not a bot". The API costs
+//              1 unit of a 10,000/day quota per lookup.
+//   Facebook   ROUNDED, nothing needed. og:title ("5.7K views | ...") is the
+//              only statement of a count logged out; nothing in the document
+//              carries an exact one and m./mbasic. are login-walled.
+//   Instagram  Exact, needs a session cookie AND THE COOKIES THAT GO WITH IT.
+//              `sessionid` alone gets a 302 that redirects to itself forever;
+//              adding ds_user_id, csrftoken, ig_did and mid returns the media.
+//              ds_user_id is not a second thing to paste - it IS the first
+//              segment of the sessionid ("<uid>%3A<token>%3A..."), so it is
+//              derived. See igCookie().
 //
-//   TikTok     Public. Follow the share-sheet short link once, then read
-//              "playCount" off the embed endpoint. Exact.
-//   YouTube    Exact, via the official Data API v3. The watch page states the
-//              count too, but ONLY to a normal connection: YouTube bot-blocks
-//              datacenter ranges, so from Deno Deploy it returns a 1.2 MB shell
-//              with an empty <title> and every innertube client answers "Sign in
-//              to confirm you're not a bot". The API is free, needs no review,
-//              and costs 1 unit of a 10,000/day quota per lookup.
-//   Facebook   Public, but ROUNDED. The og:title is the only place a count
-//              appears logged out ("5.6K views | ...") and nothing in the page
-//              carries an exact one; m./mbasic. are login-walled. So the number
-//              is stored with views_approx set and says so wherever it shows.
-//   Instagram  Needs a signed-in session and there is no way around it. Checked
-//              every route in Aug 2026: /api/v1/media/../info and /graphql/query
-//              answer require_login, the embed iframe is an empty JS shell, and
-//              a logged-out reel page renders likes and comments but no play
-//              count at all. The logged-out REELS TAB does show counts, but only
-//              via an internal /api/graphql call whose doc_id rotates, and only
-//              for the most recent page of reels - too brittle and too partial
-//              to hang a leaderboard on. web_profile_info needs no cookie but
-//              returns `video_view_count`, a LEGACY metric reading roughly a
-//              third of the number Instagram actually displays (1123 against a
-//              displayed 4245 on a checked reel), so it is worse than useless.
-//
-// Callers, all authenticated, four different ways:
+// Callers, all authenticated:
 //   pg_cron / run_view_sync()   x-webhook-secret, {}              -> sweep
 //   admin "Sync now"            admin JWT, { challenge_id }        -> one challenge
 //   admin "Sync now"            admin JWT, { submission_ids: [] }  -> named rows
 //   Testing Centre              admin JWT, { probe: url }          -> READ ONLY
+//
+// Every sync runs in the BACKGROUND and publishes progress to
+// app_settings.view_sync_run as it goes; the caller gets a 202 immediately and
+// polls. A synchronous sync was the original design and it was wrong: a sweep
+// can take minutes when a platform is timing out, the browser gave up on the
+// request, and pressing the button again started a second overlapping run.
 //
 // Deploy with verify_jwt=false: it authenticates callers itself, and the cron
 // sweep arrives with a webhook secret rather than a user token.
@@ -50,8 +44,8 @@ const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const WEBHOOK_SECRET = Deno.env.get('WEBHOOK_SECRET') ?? ''
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE)
 
-// The two admin-supplied credentials live in private.config, read through a
-// definer RPC only service_role may execute, so either can be replaced from the
+// Both admin-supplied credentials live in private.config, read through a definer
+// RPC only service_role may execute, so either can be replaced from the admin
 // panel without a redeploy. The env vars stay as fallbacks.
 type Secrets = { instagram_sessionid: string; youtube_api_key: string }
 let secretsCache: Secrets | null = null
@@ -66,32 +60,20 @@ async function secrets(): Promise<Secrets> {
   return secretsCache
 }
 
-// Accepts either a bare sessionid value or a whole `Cookie:` header copied out
-// of dev tools. The full header is the better thing to paste - a session that
-// keeps presenting the cookie set it was issued with lasts longer - so it is
-// worth accepting both rather than making somebody pick one value out.
-export function cookieHeader(stored: string): string {
-  const s = stored.trim().replace(/^Cookie:\s*/i, '')
-  return /(^|;)\s*sessionid=/.test(s) ? s : `sessionid=${s}`
-}
-
 // One browser identity for every request. TikTok serves a bot shell to anything
 // that looks automated, and Instagram is quicker to invalidate a session that
 // keeps changing user agent, so this stays fixed.
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
 
-const FETCH_TIMEOUT_MS = 15_000
-const BATCH_SIZE = 6 // concurrent fetches
-const BATCH_PAUSE_MS = 250
+const FETCH_TIMEOUT_MS = 10_000
+const BATCH_SIZE = 6
+const BATCH_PAUSE_MS = 200
 const MAX_PER_RUN = 300
 
 export type Platform = 'TikTok' | 'Instagram' | 'YouTube' | 'Facebook'
 const SOURCE: Record<Platform, string> = {
-  TikTok: 'tiktok',
-  Instagram: 'instagram',
-  YouTube: 'youtube',
-  Facebook: 'facebook',
+  TikTok: 'tiktok', Instagram: 'instagram', YouTube: 'youtube', Facebook: 'facebook',
 }
 
 // ---------------------------------------------------------------- transport
@@ -102,8 +84,7 @@ function allowOrigin(origin: string | null): string {
     const { hostname, protocol } = new URL(origin)
     const ok =
       (protocol === 'https:' && hostname.endsWith('.vercel.app')) ||
-      ((protocol === 'http:' || protocol === 'https:') &&
-        (hostname === 'localhost' || hostname === '127.0.0.1'))
+      ((protocol === 'http:' || protocol === 'https:') && (hostname === 'localhost' || hostname === '127.0.0.1'))
     return ok ? origin : PRIMARY_ORIGIN
   } catch {
     return PRIMARY_ORIGIN
@@ -112,31 +93,24 @@ function allowOrigin(origin: string | null): string {
 function cors(req: Request) {
   return {
     'Access-Control-Allow-Origin': allowOrigin(req.headers.get('origin')),
-    'Access-Control-Allow-Headers':
-      'authorization, x-client-info, apikey, content-type, x-webhook-secret',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-secret',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     Vary: 'Origin',
   }
 }
 const json = (req: Request, obj: unknown, status = 200) =>
-  new Response(JSON.stringify(obj), {
-    status,
-    headers: { ...cors(req), 'Content-Type': 'application/json' },
-  })
+  new Response(JSON.stringify(obj), { status, headers: { ...cors(req), 'Content-Type': 'application/json' } })
 
 const JWKS = createRemoteJWKSet(new URL(`${SUPABASE_URL}/auth/v1/.well-known/jwks.json`))
 
 // Verified via JWKS, never auth.getUser: a global sign-out elsewhere deletes the
 // session row while the token stays valid for its week, and getUser then 401s
-// (`session_not_found`) while the rest of the app carries on working.
+// while the rest of the app carries on working.
 async function callerId(req: Request): Promise<string | null> {
   const raw = req.headers.get('authorization')?.replace(/^Bearer /i, '') ?? ''
   if (!raw) return null
   try {
-    const { payload } = await jwtVerify(raw, JWKS, {
-      issuer: `${SUPABASE_URL}/auth/v1`,
-      audience: 'authenticated',
-    })
+    const { payload } = await jwtVerify(raw, JWKS, { issuer: `${SUPABASE_URL}/auth/v1`, audience: 'authenticated' })
     return payload.sub ? String(payload.sub) : null
   } catch {
     return null
@@ -148,17 +122,22 @@ async function isAdmin(userId: string): Promise<boolean> {
   return data?.is_admin === true
 }
 
-async function getText(url: string, headers: Record<string, string> = {}): Promise<string> {
+class HttpError extends Error {
+  constructor(public status: number) { super(`http ${status}`) }
+}
+
+async function getText(url: string, headers: Record<string, string> = {}, redirect: RequestRedirect = 'follow'): Promise<string> {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS)
   try {
     const res = await fetch(url, {
       headers: { 'User-Agent': UA, 'Accept-Language': 'en-GB,en;q=0.9', ...headers },
+      redirect,
       signal: ctrl.signal,
     })
     if (!res.ok) {
       await res.body?.cancel()
-      throw new Error(`http ${res.status}`)
+      throw new HttpError(res.status)
     }
     return await res.text()
   } finally {
@@ -177,8 +156,7 @@ type Resolved = {
 }
 
 const fail = (base: Partial<Resolved>, error: string, detail: string): Resolved => ({
-  platform: null, videoId: null, canonicalUrl: null, views: null, approx: false,
-  ...base, error, detail,
+  platform: null, videoId: null, canonicalUrl: null, views: null, approx: false, ...base, error, detail,
 })
 
 async function followRedirects(url: string): Promise<string | null> {
@@ -196,19 +174,14 @@ async function followRedirects(url: string): Promise<string | null> {
 }
 
 // ------------------------------------------------------------------- tiktok
-//
-// A TikTok URL only carries the numeric video id in its canonical form
-// (tiktok.com/@handle/video/7412...). Most creators paste the share-sheet short
-// link (vm.tiktok.com/ZN8LAJggS), which carries nothing, so it is followed once
-// and the id cached on the submission row - after which a sync is one request.
 export function tiktokIdFrom(url: string): string | null {
   return url.match(/\/(?:video|photo)\/(\d{6,})/)?.[1] ?? url.match(/[?&]item_id=(\d{6,})/)?.[1] ?? null
 }
 
-// The stats blob appears as "playCount":1951 in the rehydration JSON. An embed
-// page carries exactly one video, but the full video page also carries the stats
-// of RECOMMENDED videos, so prefer the object that names THIS id. Reading the
-// wrong video's number is the one failure that would not look like a failure.
+// An embed page carries exactly one video, but the full video page also carries
+// the stats of RECOMMENDED videos, so prefer the object that names THIS id.
+// Reading the wrong video's number is the one failure that would not look like a
+// failure.
 function playCountFrom(html: string, videoId: string): number | null {
   const idx = html.indexOf(`"id":"${videoId}"`)
   if (idx >= 0) {
@@ -233,20 +206,16 @@ async function tiktokViews(url: string, knownId: string | null): Promise<Resolve
       'No TikTok video id in that link. A deleted or private video redirects to the app store.')
   }
 
-  // Embed first: same stats, a third of the bytes, and an endpoint that exists
-  // to be fetched by other sites. The video page is the fallback.
   const targets = [`https://www.tiktok.com/embed/v2/${id}`, canonical ?? `https://www.tiktok.com/@_/video/${id}`]
   let lastErr = ''
   for (const target of targets) {
     try {
       const html = await getText(target)
       const views = playCountFrom(html, id)
-      if (views != null) {
-        return { ...base, videoId: id, canonicalUrl: canonical, views, error: null }
-      }
+      if (views != null) return { ...base, videoId: id, canonicalUrl: canonical, views, error: null }
       lastErr = /captcha|verify_bar|Access Denied/i.test(html.slice(0, 5000)) ? 'blocked' : 'no_count_in_page'
     } catch (e) {
-      lastErr = String((e as Error).message ?? e)
+      lastErr = e instanceof HttpError ? 'fetch_failed' : 'fetch_failed'
     }
   }
   return fail({ ...base, videoId: id, canonicalUrl: canonical }, lastErr || 'no_count_in_page',
@@ -254,10 +223,6 @@ async function tiktokViews(url: string, knownId: string | null): Promise<Resolve
 }
 
 // ------------------------------------------------------------------ youtube
-//
-// Every YouTube surface reduces to an eleven-character video id. The count comes
-// from the official Data API because YouTube bot-blocks servers from reading its
-// pages; the page read stays as a fallback for the rare case it works.
 export function youtubeIdFrom(url: string): string | null {
   return (
     url.match(/[?&]v=([A-Za-z0-9_-]{11})/)?.[1] ??
@@ -274,73 +239,41 @@ async function youtubeViews(url: string): Promise<Resolved> {
 
   const canonicalUrl = `https://www.youtube.com/watch?v=${id}`
   const { youtube_api_key: key } = await secrets()
-
-  if (key) {
-    try {
-      const body = await getText(
-        `https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${id}&key=${encodeURIComponent(key)}`,
-      )
-      const parsed = JSON.parse(body)
-      const item = parsed?.items?.[0]
-      const views = item?.statistics?.viewCount
-      if (views != null) return { ...base, videoId: id, canonicalUrl, views: Number(views), error: null }
-      // An empty items array means the id is real-looking but no such video.
-      if (Array.isArray(parsed?.items)) {
-        return fail({ ...base, videoId: id, canonicalUrl }, 'no_video_id',
-          'YouTube has no video with that id. Usually deleted or set to private.')
-      }
-    } catch (e) {
-      const msg = String((e as Error).message ?? e)
-      // 400 is a bad key, 403 is quota or a key restricted to the wrong referrer.
-      if (/http 40[03]/.test(msg)) {
-        return fail({ ...base, videoId: id, canonicalUrl }, 'youtube_key_rejected',
-          'YouTube rejected the API key. Check it is valid, unrestricted, and that the Data API v3 is enabled.')
-      }
-    }
+  if (!key) {
+    return fail({ ...base, videoId: id, canonicalUrl }, 'needs_youtube_key',
+      'YouTube blocks servers from reading its pages. Add a free YouTube Data API key.')
   }
 
-  // No key, or the key call fell through: try the page. This works from an
-  // ordinary connection and is expected to fail from a server, which is exactly
-  // why the key exists.
   try {
-    const html = await getText(canonicalUrl)
-    const views =
-      html.match(/"viewCount"\s*:\s*"(\d+)"/)?.[1] ??
-      html.match(/itemprop="interactionCount"\s+content="(\d+)"/)?.[1] ??
-      null
+    const body = await getText(
+      `https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${id}&key=${encodeURIComponent(key)}`,
+    )
+    const parsed = JSON.parse(body)
+    const views = parsed?.items?.[0]?.statistics?.viewCount
     if (views != null) return { ...base, videoId: id, canonicalUrl, views: Number(views), error: null }
-  } catch {
-    // fall through to the honest answer below
+    return fail({ ...base, videoId: id, canonicalUrl }, 'no_video_id',
+      'YouTube has no video with that id, or its owner has hidden its statistics.')
+  } catch (e) {
+    if (e instanceof HttpError && (e.status === 400 || e.status === 403)) {
+      return fail({ ...base, videoId: id, canonicalUrl }, 'youtube_key_rejected',
+        'YouTube rejected the API key. Check it is unrestricted, that the Data API v3 is enabled, and that the daily quota is not spent.')
+    }
+    return fail({ ...base, videoId: id, canonicalUrl }, 'fetch_failed', 'Could not reach the YouTube API.')
   }
-
-  return fail({ ...base, videoId: id, canonicalUrl }, key ? 'no_count_in_page' : 'needs_youtube_key',
-    key
-      ? 'YouTube returned no count for that video. Usually private, removed, or still processing.'
-      : 'YouTube blocks servers from reading its pages. Add a free YouTube Data API key to read these.')
 }
 
 // ----------------------------------------------------------------- facebook
-//
-// Logged out, the ONLY statement of a view count is the og:title, and it is
-// rounded: "5.6K views - 152K reactions | ...". Nothing in the page carries an
-// exact figure and both m. and mbasic. are login-walled, so a Facebook number is
-// stored as approximate and says so wherever it is shown.
 export function facebookIdFrom(url: string): string | null {
-  return (
-    url.match(/\/(?:videos|reel|video)\/(\d{6,})/)?.[1] ??
-    url.match(/[?&]v=(\d{6,})/)?.[1] ??
-    null
-  )
+  return url.match(/\/(?:videos|reel|video)\/(\d{6,})/)?.[1] ?? url.match(/[?&]v=(\d{6,})/)?.[1] ?? null
 }
 
-// "5.6K" -> 5600, "8.9M" -> 8900000, "1,234" -> 1234.
+// "5.7K" -> 5700, "8.9M" -> 8900000, "1,234" -> 1234.
 export function parseCompactCount(raw: string): number | null {
   const m = raw.replace(/,/g, '').match(/^([\d.]+)\s*([KMB]?)$/i)
   if (!m) return null
   const n = parseFloat(m[1])
   if (!isFinite(n)) return null
-  const mult = { '': 1, k: 1e3, m: 1e6, b: 1e9 }[m[2].toLowerCase() as '' | 'k' | 'm' | 'b']
-  return Math.round(n * mult)
+  return Math.round(n * { '': 1, k: 1e3, m: 1e6, b: 1e9 }[m[2].toLowerCase() as '' | 'k' | 'm' | 'b'])
 }
 
 function decodeEntities(s: string): string {
@@ -356,7 +289,6 @@ async function facebookViews(url: string, knownId: string | null): Promise<Resol
   let canonical: string | null = url
   let id = knownId ?? facebookIdFrom(url)
 
-  // fb.watch and /share/ links carry nothing until followed.
   if (!id) {
     canonical = await followRedirects(url)
     if (canonical) id = facebookIdFrom(canonical)
@@ -366,7 +298,6 @@ async function facebookViews(url: string, knownId: string | null): Promise<Resol
     const html = await getText(canonical ?? url)
     const title = decodeEntities(html.match(/property="og:title"\s+content="([^"]*)"/)?.[1] ?? '')
 
-    // Exact first, in case Facebook ever states one, then the rounded form.
     const exact = title.match(/([\d,]{4,})\s+views?/i)?.[1]
     if (exact) {
       const n = parseCompactCount(exact)
@@ -377,30 +308,27 @@ async function facebookViews(url: string, knownId: string | null): Promise<Resol
       const n = parseCompactCount(rounded)
       if (n != null) return { ...base, videoId: id, canonicalUrl: canonical, views: n, approx: true, error: null }
     }
-
     if (/log in/i.test(title)) {
       return fail({ ...base, videoId: id, canonicalUrl: canonical }, 'blocked',
-        'Facebook asked for a login instead of showing the video. Private or restricted posts do this.')
+        'Facebook asked for a login instead of showing the video. Private and restricted posts do this.')
     }
     return fail({ ...base, videoId: id, canonicalUrl: canonical }, 'no_count_in_page',
       'Facebook served the post but stated no view count. Photo and text posts have none.')
-  } catch (e) {
-    return fail({ ...base, videoId: id, canonicalUrl: canonical }, 'fetch_failed', String((e as Error).message ?? e))
+  } catch {
+    return fail({ ...base, videoId: id, canonicalUrl: canonical }, 'fetch_failed', 'Could not reach that Facebook post.')
   }
 }
 
 // ---------------------------------------------------------------- instagram
-//
-// The shortcode in /reel/<code>/ IS the media id, base64'd against Instagram's
-// own alphabet, so no lookup request is needed to turn one into the other - and
-// asking by id is what guarantees the count belongs to the entry we were handed
-// rather than to whatever happened to be nearby on a page.
 const IG_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
 
 export function igShortcodeFrom(url: string): string | null {
   return url.match(/instagram\.com\/(?:[^/]+\/)?(?:reels?|p|tv)\/([A-Za-z0-9_-]{5,})/)?.[1] ?? null
 }
 
+// The shortcode IS the media id, base64'd against Instagram's own alphabet, so
+// no lookup request is needed - and asking by id is what guarantees the count
+// belongs to the entry we were handed rather than to something near it on a page.
 export function igMediaId(shortcode: string): string | null {
   let n = 0n
   for (const ch of shortcode) {
@@ -411,20 +339,34 @@ export function igMediaId(shortcode: string): string | null {
   return n.toString()
 }
 
-function igHeaders(cookie: string) {
-  return {
-    'x-ig-app-id': '936619743392459',
-    Cookie: cookie,
-    Accept: '*/*',
-    Referer: 'https://www.instagram.com/',
-  }
+// THE FIX THAT MADE INSTAGRAM WORK.
+//
+// A request carrying only `sessionid` gets a 302 whose Location is the URL it
+// just asked for, forever - which looks like a dead endpoint and, once the
+// redirect chain gave up, was being reported as "trial reel" on every single
+// entry. Instagram wants the cookie set a browser would have. `ds_user_id` is
+// not a second thing to paste: a sessionid is "<uid>%3A<token>%3A<...>", so the
+// user id is its first segment. csrftoken/ig_did/mid only have to be PRESENT.
+export function igCookie(stored: string): string {
+  const s = stored.trim().replace(/^Cookie:\s*/i, '')
+  // A whole Cookie header pasted from dev tools already has everything.
+  if (/(^|;)\s*sessionid=/.test(s) && /ds_user_id=/.test(s)) return s
+
+  const sessionid = s.replace(/^sessionid=/, '').split(';')[0].trim()
+  const dsUserId = decodeURIComponent(sessionid).split(':')[0]
+  return [
+    `sessionid=${sessionid}`,
+    /^\d+$/.test(dsUserId) ? `ds_user_id=${dsUserId}` : '',
+    'csrftoken=missing',
+    'ig_did=00000000-0000-0000-0000-000000000000',
+    'mid=aaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  ].filter(Boolean).join('; ')
 }
 
 // Instagram calls the number "views" on a reel; the field behind it is the play
-// count. Which key carries it has changed more than once, so read them in order.
-// `video_view_count` is deliberately NOT in this list: it is a legacy metric
-// worth about a third of the displayed figure and would quietly wreck a
-// leaderboard.
+// count. `video_view_count` is deliberately NOT read: it is a legacy metric
+// worth about a third of the displayed figure (1123 against a displayed 4245 on
+// a checked reel) and would quietly wreck a leaderboard.
 function igPlayCount(item: Record<string, unknown> | null | undefined): number | null {
   if (!item) return null
   for (const key of ['play_count', 'ig_play_count']) {
@@ -445,54 +387,69 @@ async function instagramViews(url: string): Promise<Resolved> {
     return fail({ ...base, videoId: code, canonicalUrl }, 'needs_session',
       'Instagram only shows view counts to a signed-in account.')
   }
-  const cookie = cookieHeader(stored)
   const mediaId = igMediaId(code)
+  if (!mediaId) return fail({ ...base, videoId: code, canonicalUrl }, 'no_video_id', 'That is not a readable Instagram code.')
 
-  if (mediaId) {
-    try {
-      const body = await getText(`https://www.instagram.com/api/v1/media/${mediaId}/info/`, igHeaders(cookie))
-      const parsed = JSON.parse(body)
-      const item = parsed?.items?.[0]
-      const views = igPlayCount(item)
-      if (views != null) return { ...base, videoId: code, canonicalUrl, views, error: null }
-
-      if (parsed?.require_login || parsed?.message === 'login_required') {
-        return fail({ ...base, videoId: code, canonicalUrl }, 'session_expired',
-          'Instagram rejected the stored session.')
-      }
-      // The post exists and we are signed in, yet it states no plays. That is a
-      // TRIAL REEL: shown only to people who do not follow the account, never on
-      // the author's own profile, and it will never carry a readable count
-      // however often we ask. Retrying cannot fix it; only the creator can.
-      if (item) {
-        return fail({ ...base, videoId: code, canonicalUrl }, 'trial_reel',
-          'No view count found (likely trial reel).')
-      }
-    } catch {
-      // fall through to the page read
-    }
+  const headers = {
+    'x-ig-app-id': '936619743392459',
+    'X-IG-WWW-Claim': '0',
+    Cookie: igCookie(stored),
+    Accept: '*/*',
+    Referer: 'https://www.instagram.com/',
   }
 
+  let body: string
   try {
-    const html = await getText(canonicalUrl!, igHeaders(cookie))
-    if (/"require_login":\s*true/.test(html) || /accounts\/login/.test(html.slice(0, 2000))) {
-      return fail({ ...base, videoId: code, canonicalUrl }, 'session_expired', 'Instagram rejected the stored session.')
+    // `redirect: manual` on purpose: an unauthenticated request self-redirects,
+    // and following that chain wastes ten seconds before failing anyway.
+    body = await getText(`https://www.instagram.com/api/v1/media/${mediaId}/info/`, headers, 'manual')
+  } catch (e) {
+    if (e instanceof HttpError && (e.status === 302 || e.status === 401 || e.status === 403)) {
+      return fail({ ...base, videoId: code, canonicalUrl }, 'session_expired',
+        'Instagram would not accept the stored session. Paste a fresh one.')
     }
-    for (const key of ['play_count', 'ig_play_count']) {
-      const m = html.match(new RegExp(`"${key}":\\s*(\\d+)`))
-      if (m) return { ...base, videoId: code, canonicalUrl, views: Number(m[1]), error: null }
+    return fail({ ...base, videoId: code, canonicalUrl }, 'fetch_failed', 'Could not reach Instagram.')
+  }
+
+  let parsed: Record<string, unknown>
+  try {
+    parsed = JSON.parse(body)
+  } catch {
+    return fail({ ...base, videoId: code, canonicalUrl }, 'session_expired',
+      'Instagram answered with a page instead of data, which means the session was not accepted.')
+  }
+
+  if (parsed?.require_login || parsed?.message === 'login_required') {
+    return fail({ ...base, videoId: code, canonicalUrl }, 'session_expired', 'Instagram rejected the stored session.')
+  }
+
+  const item = (parsed as { items?: Record<string, unknown>[] })?.items?.[0]
+  const views = igPlayCount(item)
+  if (views != null) return { ...base, videoId: code, canonicalUrl, views, error: null }
+
+  if (item) {
+    // A photo (media_type 1) or a carousel (8) has no plays because it is not a
+    // video, which is a different thing from a video whose plays are hidden.
+    const mediaType = item.media_type
+    if (mediaType === 1 || mediaType === 8) {
+      return fail({ ...base, videoId: code, canonicalUrl }, 'not_a_video',
+        'That Instagram post is a photo or a carousel, so it has no view count.')
     }
+    // Only NOW is "trial reel" the honest answer: we are signed in, Instagram
+    // returned a VIDEO, and it states no plays. Every transport failure above
+    // returns its own reason instead - reporting those as trial reels is exactly
+    // the bug that made all seventeen entries claim to be one.
     return fail({ ...base, videoId: code, canonicalUrl }, 'trial_reel',
       'No view count found (likely trial reel).')
-  } catch (e) {
-    return fail({ ...base, videoId: code, canonicalUrl }, 'fetch_failed', String((e as Error).message ?? e))
   }
+  return fail({ ...base, videoId: code, canonicalUrl }, 'no_video_id',
+    'Instagram has no post with that code. Usually deleted or set to private.')
 }
 
 // --------------------------------------------------------------- dispatcher
 // Takes a HOSTNAME, anchored at both ends. A substring test would accept
 // `tiktok.com.evil.test`, and the platform branches fall back to fetching the
-// submitted URL itself - so a loose match here is a request sent wherever an
+// submitted URL itself - so a loose match is a request sent wherever an
 // attacker likes.
 export function platformOf(host: string): Platform | null {
   if (/(^|\.)tiktok\.com$/i.test(host)) return 'TikTok'
@@ -519,7 +476,7 @@ async function resolveOne(url: string, knownId: string | null = null): Promise<R
     case 'Facebook': return facebookViews(target.toString(), knownId)
     default:
       return fail({}, 'unsupported',
-        'Only TikTok, Instagram, YouTube and Facebook links carry a view count this can read.')
+        'Only TikTok, Instagram, YouTube and Facebook state a view count we can read.')
   }
 }
 
@@ -542,7 +499,13 @@ type Outcome = {
   error: string | null
 }
 
-async function syncRows(rows: Row[]): Promise<Outcome[]> {
+async function publishRun(value: Record<string, unknown>) {
+  await supabase.from('app_settings').upsert({
+    key: 'view_sync_run', value, updated_at: new Date().toISOString(),
+  })
+}
+
+async function syncRows(rows: Row[], trigger: 'scheduled' | 'admin', startedAt: string): Promise<Outcome[]> {
   const out: Outcome[] = []
 
   for (let i = 0; i < rows.length; i += BATCH_SIZE) {
@@ -554,33 +517,23 @@ async function syncRows(rows: Row[]): Promise<Outcome[]> {
         const now = new Date().toISOString()
 
         if (r.views == null) {
-          await supabase
-            .from('submissions')
-            .update({
-              views_sync_error: r.error,
-              views_synced_at: now,
-              ...(r.videoId ? { platform_video_id: r.videoId } : {}),
-            })
-            .eq('id', row.id)
+          await supabase.from('submissions').update({
+            views_sync_error: r.error,
+            views_synced_at: now,
+            ...(r.videoId ? { platform_video_id: r.videoId } : {}),
+          }).eq('id', row.id)
           return { submission_id: row.id, platform: row.platform, views: null, previous, approx: false, written: false, error: r.error }
         }
 
         const source = r.platform ? SOURCE[r.platform] : 'manual'
-
-        // Every reading is kept, whether or not it is the one that lands on the
-        // leaderboard: the history is what makes a wrong number obvious later.
         await supabase.from('view_snapshots').insert({ submission_id: row.id, views: r.views, source })
 
-        // Views only ever go up. A reading BELOW what is already recorded means
-        // either a half-read page or a number an admin typed from somewhere
-        // better, so the recorded one stands and the discrepancy is flagged
-        // rather than silently overwritten.
+        // Views only ever go up, so a reading BELOW what is already saved means
+        // a bad read or a number typed from a better source; the saved one
+        // stands. And a ROUNDED Facebook figure must never overwrite a number it
+        // merely disagrees with by less than its own rounding.
         const goesBackwards = previous != null && r.views < previous
-        // A ROUNDED Facebook figure must never overwrite a number it merely
-        // disagrees with by less than its own rounding: "5.6K" replacing an
-        // exact 5,573 would be a step backwards dressed up as an update.
-        const roundingOnly =
-          r.approx && previous != null && Math.abs(r.views - previous) <= Math.max(50, previous * 0.05)
+        const roundingOnly = r.approx && previous != null && Math.abs(r.views - previous) <= Math.max(50, previous * 0.05)
         const hold = goesBackwards || roundingOnly
 
         const patch: Record<string, unknown> = {
@@ -596,17 +549,23 @@ async function syncRows(rows: Row[]): Promise<Outcome[]> {
 
         const { error } = await supabase.from('submissions').update(patch).eq('id', row.id)
         return {
-          submission_id: row.id,
-          platform: row.platform,
-          views: r.views,
-          previous,
-          approx: r.approx,
+          submission_id: row.id, platform: row.platform, views: r.views, previous, approx: r.approx,
           written: !hold && !error,
-          error: error ? error.message : goesBackwards ? 'lower_than_recorded' : null,
+          error: error ? 'write_failed' : goesBackwards ? 'lower_than_recorded' : null,
         }
       }),
     )
     out.push(...results)
+
+    // Published per batch so the button can say "read 12 of 39" rather than
+    // sitting there looking broken.
+    await publishRun({
+      running: true, started_at: startedAt, trigger,
+      total: rows.length, done: out.length,
+      updated: out.filter((r) => r.written).length,
+      failed: out.filter((r) => r.error).length,
+    })
+
     if (i + BATCH_SIZE < rows.length) await new Promise((r) => setTimeout(r, BATCH_PAUSE_MS))
   }
   return out
@@ -631,10 +590,7 @@ async function eligibleRows(challengeId?: string, submissionIds?: string[]): Pro
 
   const cutoff = new Date(Date.now() - 30 * 864e5).toISOString()
   const { data: challenges } = await supabase
-    .from('challenges')
-    .select('id')
-    .is('winners_published_at', null)
-    .gte('end_date', cutoff)
+    .from('challenges').select('id').is('winners_published_at', null).gte('end_date', cutoff)
   const ids = (challenges ?? []).map((c: { id: string }) => c.id)
   if (!ids.length) return []
 
@@ -642,18 +598,25 @@ async function eligibleRows(challengeId?: string, submissionIds?: string[]): Pro
   return (data ?? []) as Row[]
 }
 
-async function recordRun(results: Outcome[], trigger: 'scheduled' | 'admin') {
-  await supabase.from('app_settings').upsert({
-    key: 'view_sync_last_run',
-    value: {
+async function runSync(rows: Row[], trigger: 'scheduled' | 'admin') {
+  const startedAt = new Date().toISOString()
+  await publishRun({ running: true, started_at: startedAt, trigger, total: rows.length, done: 0, updated: 0, failed: 0 })
+  try {
+    const results = await syncRows(rows, trigger, startedAt)
+    const summary = {
       at: new Date().toISOString(),
       ran: results.length,
       updated: results.filter((r) => r.written).length,
       failed: results.filter((r) => r.error).length,
       trigger,
-    },
-    updated_at: new Date().toISOString(),
-  })
+    }
+    await supabase.from('app_settings').upsert({ key: 'view_sync_last_run', value: summary, updated_at: summary.at })
+    await publishRun({ running: false, finished_at: summary.at, trigger, total: rows.length, done: results.length, updated: summary.updated, failed: summary.failed })
+  } catch (e) {
+    // A run that throws must still clear `running`, or the button stays locked
+    // out until the fifteen-minute staleness guard expires.
+    await publishRun({ running: false, finished_at: new Date().toISOString(), trigger, error: String((e as Error).message ?? e) })
+  }
 }
 
 // ---------------------------------------------------------------------- http
@@ -691,30 +654,20 @@ Deno.serve(async (req) => {
     })
   }
 
+  // One run at a time. Pressing the button twice used to start two overlapping
+  // sweeps writing the same rows.
+  const { data: busy } = await supabase.rpc('view_sync_running')
+  if (busy === true) return json(req, { busy: true }, 409)
+
   const rows = await eligibleRows(body.challenge_id, body.submission_ids)
-  if (!rows.length) return json(req, { ran: 0, updated: 0, failed: 0, results: [] })
+  if (!rows.length) return json(req, { accepted: 0 })
 
-  // pg_net gives up after five seconds and a sweep takes minutes, so the
-  // scheduled caller is answered immediately and the work continues in the
-  // background. The run is recorded in app_settings.view_sync_last_run either
-  // way, which is what the panel reads. An admin pressing "Sync now" is waiting
-  // for the numbers, so that path stays synchronous.
-  if (fromCron) {
-    const work = (async () => {
-      const results = await syncRows(rows)
-      await recordRun(results, 'scheduled')
-    })()
-    // deno-lint-ignore no-explicit-any
-    ;(globalThis as any).EdgeRuntime?.waitUntil?.(work)
-    return json(req, { accepted: rows.length }, 202)
-  }
+  // Always background: pg_net gives up after five seconds, and a browser gives
+  // up long before a slow sweep finishes. Progress goes to app_settings and the
+  // caller polls view_sync_status().
+  const work = runSync(rows, fromCron ? 'scheduled' : 'admin')
+  // deno-lint-ignore no-explicit-any
+  ;(globalThis as any).EdgeRuntime?.waitUntil?.(work)
 
-  const results = await syncRows(rows)
-  await recordRun(results, 'admin')
-  return json(req, {
-    ran: results.length,
-    updated: results.filter((r) => r.written).length,
-    failed: results.filter((r) => r.error).length,
-    results,
-  })
+  return json(req, { accepted: rows.length }, 202)
 })

@@ -16,14 +16,14 @@ import { describeSyncError, probeLink } from '../../../lib/viewSync'
 // generic "everyone here is invented" banner would be a lie on a page whose
 // whole purpose is real numbers off real posts.
 //
-// The two samples are TikTok's OWN corporate account and the first video ever
-// uploaded to YouTube. Never a creator's entry: these lab chunks are fetchable
-// by URL like any JS asset. Instagram and Facebook have no sample for the same
-// reason - every candidate belongs to a private person - so those two are
-// pasted, which is the thing being tested anyway.
+// The samples are TikTok's OWN corporate account and the first video ever
+// uploaded to YouTube - never a creator's entry, because these lab chunks are
+// fetchable by URL like any JS asset. Instagram and Facebook get no sample for
+// the same reason: every public candidate belongs to a private person. Paste
+// one of those, which is the thing worth testing anyway.
 const SAMPLES = [
-  { platform: 'TikTok', label: 'Sample TikTok', url: 'https://www.tiktok.com/@tiktok/video/7106594312292453675' },
-  { platform: 'YouTube', label: 'Sample YouTube', url: 'https://www.youtube.com/watch?v=jNQXAC9IVRw' },
+  { platform: 'TikTok', label: 'TikTok', url: 'https://www.tiktok.com/@tiktok/video/7106594312292453675' },
+  { platform: 'YouTube', label: 'YouTube', url: 'https://www.youtube.com/watch?v=jNQXAC9IVRw' },
 ]
 
 const HOW = [
@@ -40,8 +40,8 @@ const HOW = [
     d: 'Logged out, the only place Facebook states a count is the page title, and it is rounded to "5.6K views". Nothing in the page carries an exact figure and the mobile site is login-walled, so the number is saved as approximate and labelled that way.',
   },
   {
-    t: 'Instagram, needs a session',
-    d: 'Every public Instagram route answers require_login, and a logged-out reel page shows likes and comments but no play count. The counts on a logged-out reels grid come from an internal call whose id rotates and only covers recent posts, so the sync uses a Tryp account session instead and asks by media id.',
+    t: 'Instagram, exact, needs a session',
+    d: 'Every public route answers require_login, so the sync signs in and asks by media id. A sessionid on its own is not enough: Instagram answers it with a redirect to itself, so the request also carries the ds_user_id derived from the sessionid and the cookies a browser would have.',
   },
 ]
 
@@ -108,23 +108,21 @@ export default function ViewsLab() {
             {busy ? <Spinner className="h-4 w-4" /> : null}
             {busy ? 'Reading…' : 'Read the view count'}
           </button>
-          {SAMPLES.map((s) => (
-            <button
-              key={s.platform}
-              type="button"
-              className="btn-secondary !py-2 text-sm"
-              onClick={() => { setUrl(s.url); run(s.url) }}
-              disabled={busy}
-            >
-              {s.label}
-            </button>
-          ))}
+          <span className="flex items-center gap-2 text-xs text-smoke">
+            or try
+            {SAMPLES.map((s) => (
+              <button
+                key={s.platform}
+                type="button"
+                className="btn-secondary !py-1.5 text-xs"
+                onClick={() => { setUrl(s.url); run(s.url) }}
+                disabled={busy}
+              >
+                {s.label}
+              </button>
+            ))}
+          </span>
         </div>
-
-        <Note className="mt-4">
-          Instagram and Facebook have no sample button because every public candidate belongs to a real
-          person. Paste one of those two to test them, which is the thing worth testing anyway.
-        </Note>
 
         {failed ? <Note tone="warn" icon="alert" className="mt-4">{failed}</Note> : null}
 
@@ -155,7 +153,12 @@ export default function ViewsLab() {
               </div>
             </div>
 
-            {errorMeta?.hint ? <Note tone="warn" icon="alert">{errorMeta.hint}</Note> : null}
+            {result.error ? (
+              <Note tone="warn" icon="alert">
+                {result.detail ? <p className="font-medium text-ink">{result.detail}</p> : null}
+                {errorMeta?.hint ? <p>{errorMeta.hint}</p> : null}
+              </Note>
+            ) : null}
 
             <KeyVal
               rows={[

@@ -18,7 +18,30 @@ count arrives now. A number typed by hand still wins on that row.
 
 Both credentials are pasted into the panel on a challenge's results page and
 stored in `private.config`, never as Edge Function secrets, because a cookie
-expires and a key can be rotated and neither should be a redeploy.
+expires and a key can be rotated and neither should be a redeploy. They stay
+folded away unless one of them is actually the problem.
+
+## How much can it do
+
+| Platform | Ceiling | What sets it |
+| --- | --- | --- |
+| TikTok | no published quota | Page reads. Politeness, not policy: 6 at a time, ~40 requests for a full sweep. Thousands a day is fine; hammering it earns a captcha page, which the sync reports as `blocked` and retries next run |
+| YouTube | **10,000 videos/day** | Data API quota: 10,000 units a day, `videos.list` costs 1 unit per call. If that ever binds, one call accepts up to 50 ids, which would take it to 500,000/day - not worth building at 39 entries |
+| Instagram | a few hundred a day, comfortably | No published quota on the private endpoint. One session, one user agent, one request per entry. The programme uses about 17 a day |
+| Facebook | no published quota | Page reads, same shape as TikTok |
+
+`MAX_PER_RUN` caps a single run at 300 entries. The real constraint for this
+programme is nothing: 39 entries take about 7 seconds.
+
+## How often the credentials need touching
+
+- **YouTube key: never.** It does not expire. Rotate it only if it leaks.
+- **Instagram session: months, not days.** A sessionid is good for up to about a
+  year, and using it daily from one fixed user agent is what keeps it alive.
+  What kills it early is a password change, a "log out of all sessions", or
+  Instagram deciding the account looks odd. There is no schedule to keep: when it
+  goes, every Instagram entry reports `session_expired`, the panel says so, and
+  pasting a fresh one takes a minute.
 
 ## What runs where
 
@@ -95,6 +118,29 @@ Every public route is now closed to anonymous callers:
 - the logged-out reel page renders **likes and comments but no play count at
   all** (checked in a real browser, not just curl)
 
+### The cookie that made it work
+
+A request carrying **only** `sessionid` is answered with a `302` whose `Location`
+is the URL it just asked for. Following that chain wastes the timeout and fails,
+and the first version then fell through to a page read that also found no count,
+so **every Instagram entry was reported as a trial reel**. It was not a trial
+reel problem; it was an authentication problem wearing its clothes.
+
+Instagram wants the cookie set a browser would carry:
+
+    sessionid=<value>; ds_user_id=<uid>; csrftoken=<any>; ig_did=<any>; mid=<any>
+
+`ds_user_id` is **not** a second thing to paste. A sessionid is
+`<uid>%3A<token>%3A<...>`, so the account id is its first segment and is derived
+(`igCookie()` in the function, `instagramUserIdFromSession()` in
+`src/lib/videoLinks.js`, which exists so a test pins the rule). The other three
+only have to be present. With that set the endpoint returns `play_count`
+immediately, matching the number Instagram displays.
+
+The request is also made with `redirect: 'manual'`: if the session ever stops
+being accepted, the 302 is the answer, and following it just burns ten seconds
+before failing anyway.
+
 So the sync uses the `sessionid` cookie of a **Tryp-owned Instagram account**,
 stored in `private.config` (RLS on, zero policies, service-role only, sitting
 next to the webhook secret). Two functions bracket it, shared with the YouTube
@@ -132,11 +178,14 @@ brittle and partial where the media-id lookup is neither. Separately,
 against a displayed **4,245**, and against **3,920** logged by hand. Using it
 would have quietly cut every Instagram number to a third.
 
-**Trial reels.** A trial reel is shown only to people who do not follow the
-account and never appears on the author's own profile, so it has no readable
-count and never will. When the media exists and states no plays, the sync reports
-`trial_reel` - "No view count found (likely trial reel)" - rather than retrying
-something that cannot succeed. The only fix is to ask the creator.
+**Trial reels, and what is NOT one.** A trial reel is shown only to people who do
+not follow the account and never appears on the author's own profile, so it has
+no readable count and never will. `trial_reel` is only reported when all three
+are true: we are signed in, Instagram returned the media, and the media is a
+video that states no plays. A photo or carousel (`media_type` 1 or 8) is
+`not_a_video` instead, and every transport failure returns its own reason. That
+distinction matters: the first version reported ALL of them as trial reels, which
+made a broken login look like seventeen unlucky posts.
 
 ## The rules that keep it honest
 
@@ -179,6 +228,20 @@ obvious next to the ones either side of it.
 | `blocked` | The platform served a check page. Usually clears itself next run |
 | `fetch_failed` | Request failed or timed out. Retried next run |
 | `lower_than_recorded` | Live count is below the saved one. Nothing was overwritten |
+
+## Running a sync
+
+Every run is a BACKGROUND run. The caller gets `202` immediately and polls
+`view_sync_status().run`, which carries `{ running, total, done, updated,
+failed }` republished after each batch - so the button reads "Reading 24 of 39"
+instead of sitting there looking dead.
+
+That is not a nicety. The first version awaited the whole sweep inside the
+request: the browser eventually abandoned it, the button never changed, and
+pressing it again started a SECOND overlapping run writing the same rows.
+`view_sync_running()` now refuses a second run while one is going (409), with a
+fifteen-minute staleness guard so a run killed mid-flight cannot lock the button
+out forever.
 
 ## Two things worth knowing before changing it
 

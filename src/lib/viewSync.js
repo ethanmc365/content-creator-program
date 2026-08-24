@@ -22,6 +22,14 @@ export const SYNC_ERRORS = {
     label: 'YouTube key rejected',
     hint: 'YouTube refused the stored key. Check it is valid and unrestricted, and that the Data API v3 is switched on for its project.',
   },
+  not_a_video: {
+    label: 'Photo or carousel post',
+    hint: 'That Instagram post is not a video, so it has no view count. If the creator meant to enter a reel, ask them for the right link.',
+  },
+  write_failed: {
+    label: 'Could not save',
+    hint: 'The number was read but writing it to the entry failed. It will be retried on the next run.',
+  },
   trial_reel: {
     label: 'No view count found (likely trial reel)',
     hint: 'A trial reel is shown only to people who do not follow the account and never appears on the creator\'s own profile, so it has no readable count and never will. Ask the creator for the number and type it in.',
@@ -75,16 +83,27 @@ export async function probeLink(url) {
   return data
 }
 
-// Sync now. Pass a challenge to do all of its entries, or a list of submission
-// ids to do exactly those. Resolves once the numbers are actually written, so
-// the caller can refresh straight after.
-export async function syncViews({ challengeId, submissionIds } = {}) {
+// Start a sync. Returns as soon as the run is ACCEPTED, not when it finishes:
+// a sweep can take a while, and a request held open that long is one the browser
+// eventually abandons - which is what made the button look broken and invited
+// people to press it again and start a second overlapping run.
+//
+// Poll `viewSyncStatus().run` for progress. `{ busy: true }` means a run is
+// already going, which is a normal answer rather than an error.
+export async function startViewSync({ challengeId, submissionIds } = {}) {
   const body = {}
   if (challengeId) body.challenge_id = challengeId
   if (submissionIds?.length) body.submission_ids = submissionIds
+
   const { data, error } = await supabase.functions.invoke('view-sync', { body })
-  if (error) throw error
-  return data
+  // A 409 arrives as an error with the body attached; "already running" is not
+  // something to shout about.
+  if (error) {
+    const status = error.context?.status ?? error.status
+    if (status === 409) return { busy: true }
+    throw error
+  }
+  return data ?? {}
 }
 
 // Schedule, last run, whether an Instagram session is present (never the cookie

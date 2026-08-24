@@ -191,6 +191,31 @@ export default function Challenges() {
         <EmptyState icon={<Icon name="flag" className="h-7 w-7" />} title="No challenges yet" hint="The first challenge will appear here once the team posts it." />
       ) : (
         <div className="space-y-12">
+          {/* ---------- Nothing live ----------
+              Without this the board went straight from the prize pill to "Past
+              challenges", which reads as a page that has stopped rather than a
+              programme between briefs. It is a panel and not a card: there is
+              nowhere to go yet, and a card is a promise of a destination. */}
+          {live.length === 0 && (
+            <Reveal from="down" delay={0.12}>
+              <div className="rounded-card border border-gray-100 bg-cloud/50 px-6 py-8 text-center sm:py-10">
+                <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-tint text-brand">
+                  <Icon name="flag" className="h-5 w-5" />
+                </span>
+                <h2 className="text-lg font-semibold">No challenge running right now</h2>
+                <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-smoke">
+                  The next brief lands here as soon as the team posts it, and you will get a notification when
+                  it does. Past challenges and their winners are below.
+                </p>
+                {isAdmin && (
+                  <Link to="/admin/challenges/new" className="btn-secondary mt-5 inline-flex !py-2 text-sm">
+                    Post a challenge
+                  </Link>
+                )}
+              </div>
+            </Reveal>
+          )}
+
           {/* ---------- Live ---------- */}
           {live.map((c) => (
             <Reveal key={c.id} from="down" delay={0.12} as="div" data-tour="challenge-card">
