@@ -46,10 +46,6 @@ export const SYNC_ERRORS = {
     label: 'No count on the page',
     hint: 'The post loaded but carries no view count. Photo posts and carousels have none.',
   },
-  approximate: {
-    label: 'Rounded figure',
-    hint: 'Facebook only ever states a rounded number logged out, so this is accurate to about a percent. Type an exact one if a ranking turns on it.',
-  },
   blocked: {
     label: 'Platform refused',
     hint: 'The platform served a check page instead of the video. It usually clears by itself on the next run.',
@@ -58,10 +54,6 @@ export const SYNC_ERRORS = {
     label: 'Could not reach it',
     hint: 'The request failed or timed out. It will be retried on the next run.',
   },
-  lower_than_recorded: {
-    label: 'Lower than the saved number',
-    hint: 'The live count is BELOW the number already saved. Views do not fall, so the saved one was probably typed from somewhere else. Nothing was overwritten.',
-  },
   unsupported: {
     label: 'Not a platform we can read',
     hint: 'Only TikTok, Instagram, YouTube and Facebook links carry a view count this can read.',
@@ -69,9 +61,17 @@ export const SYNC_ERRORS = {
   bad_url: { label: 'Not a link', hint: 'That is not a URL.' },
 }
 
+// Which problems need a person, and which sort themselves out. `needs` means
+// somebody has to do something; `waiting` resolves on a later run by itself.
+export const NEEDS_ATTENTION = new Set([
+  'trial_reel', 'not_a_video', 'no_video_id', 'needs_session', 'session_expired',
+  'needs_youtube_key', 'youtube_key_rejected', 'unsupported', 'bad_url',
+])
+
 export function describeSyncError(code) {
   if (!code) return null
-  return SYNC_ERRORS[code] ?? { label: code.replace(/_/g, ' '), hint: '' }
+  const meta = SYNC_ERRORS[code] ?? { label: code.replace(/_/g, ' '), hint: '' }
+  return { ...meta, needsAttention: NEEDS_ATTENTION.has(code) }
 }
 
 // Read one pasted link and report what is on it. Writes NOTHING, which is what
@@ -114,6 +114,15 @@ export async function viewSyncStatus() {
   return data
 }
 
+// How many entries are waiting to be read. Only interesting once a programme is
+// big enough that one sweep does not clear it, which is the point at which an
+// admin needs to be told the queue is draining rather than stuck.
+export async function viewSyncBacklog() {
+  const { data, error } = await supabase.rpc('view_sync_backlog')
+  if (error) throw error
+  return data
+}
+
 // The two credentials automatic views needs. Written by admins, read only by
 // the Edge Function, never readable back through the API.
 export async function saveViewSyncSecret(name, value) {
@@ -133,13 +142,16 @@ export async function saveViewSyncSettings({ intervalHours }) {
 
 // The cadences worth offering. Anything under an hour is pointless (the sweep
 // itself is the slow part) and anything over a week outlives a challenge.
+// `label` stands alone; `short` follows the word "Every", so the two together
+// always read as a sentence. Deriving one from the other by trimming a prefix
+// produced "Every Twice a day".
 export const CADENCES = [
-  { hours: 3, label: 'Every 3 hours' },
-  { hours: 6, label: 'Every 6 hours' },
-  { hours: 12, label: 'Twice a day' },
-  { hours: 24, label: 'Once a day' },
-  { hours: 72, label: 'Every 3 days' },
-  { hours: 168, label: 'Once a week' },
+  { hours: 3, label: 'Every 3 hours', short: '3 hours' },
+  { hours: 6, label: 'Every 6 hours', short: '6 hours' },
+  { hours: 12, label: 'Twice a day', short: '12 hours' },
+  { hours: 24, label: 'Once a day', short: 'day' },
+  { hours: 72, label: 'Every 3 days', short: '3 days' },
+  { hours: 168, label: 'Once a week', short: 'week' },
 ]
 
 export function cadenceLabel(hours) {

@@ -91,13 +91,15 @@ export default function Challenges() {
             videoUrl: bestVideo.get(`${c.id}:${r.creator_id}`)?.video_url ?? null,
             platform: bestVideo.get(`${c.id}:${r.creator_id}`)?.platform ?? null,
           }))
-        // Everyone who cleared the participation threshold and is not already on
-        // the podium: the voucher is for turning up, not for placing.
-        const onPodium = new Set(ranked.map((r) => r.creator_id))
+        // EVERYONE who cleared the participation threshold, podium included.
+        // They were excluded before, on the reasoning that the voucher is for
+        // turning up rather than for placing - but the row says "for everyone
+        // here" and then quietly left out the three people most obviously here,
+        // so it read as broken. Placing does not un-earn the voucher.
         const threshold = c.participation_threshold
         const voucherWinners = threshold
           ? [...subCount.entries()]
-              .filter(([k, n]) => k.startsWith(`${c.id}:`) && n >= threshold && !onPodium.has(k.split(':')[1]))
+              .filter(([k, n]) => k.startsWith(`${c.id}:`) && n >= threshold)
               .map(([k]) => person.get(k.split(':')[1]))
               .filter(Boolean)
           : []

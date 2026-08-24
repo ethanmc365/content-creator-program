@@ -183,10 +183,13 @@ export default function AdminResults() {
     videoUrl: bestByCreator[r.creator_id]?.video_url ?? null,
     platform: bestByCreator[r.creator_id]?.platform ?? null,
   }))
-  const onPodium = new Set(podiumWinners.map((w) => w.creator_id))
+  // EVERYONE who cleared the participation threshold, podium included. Podium
+  // creators used to be filtered out, which made a row headed "for everyone
+  // here" leave out the three people most obviously here. Placing first does not
+  // un-earn the voucher for turning up.
   const voucherWinners = challenge?.participation_threshold
     ? submissions
-        .filter((sub) => subCountByCreator[sub.creator_id] >= challenge.participation_threshold && !onPodium.has(sub.creator_id))
+        .filter((sub) => subCountByCreator[sub.creator_id] >= challenge.participation_threshold)
         .map((sub) => sub.profiles)
         .filter((prof, i, arr) => prof && arr.findIndex((o) => o?.id === prof.id) === i)
     : []
@@ -324,10 +327,6 @@ export default function AdminResults() {
         </div>
       )}
 
-      <p className="mt-6 text-xs leading-relaxed text-smoke">
-        💡 A creator with multiple entries is ranked by their <strong>best</strong> video.
-        Generating the leaderboard replaces previous results for this challenge, so it's safe to redo if you spot a typo.
-      </p>
     </div>
   )
 }

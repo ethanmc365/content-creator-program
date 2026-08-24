@@ -172,26 +172,38 @@ export default function WinnersPodium({
 
       {/* The participation voucher, which until now was a number nobody could
           see the people behind. */}
-      {voucherWinners.length > 0 && (
-        <div className="mt-4 rounded-xl border border-brand/15 bg-brand-tint/40 px-3 py-2.5">
-          <p className="mb-2 text-center text-[10px] font-semibold uppercase tracking-widest text-brand">
-            {voucherPrize ? `${voucherPrize} for everyone here` : 'Participation voucher'}
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-1.5">
-            {voucherWinners.map((v) => (
-              <Link
-                key={v.id}
-                to={`/creators/${v.id}`}
-                onClick={own}
-                title={v.name}
-                className="transition-transform duration-150 hover:scale-110"
-              >
-                <Avatar src={v.photo_url} name={v.name} size="xs" />
-              </Link>
-            ))}
+      {voucherWinners.length > 0 && (() => {
+        // A face row has to survive a challenge with forty qualifiers as well as
+        // one with three, so it shows a dozen and counts the rest. And the
+        // heading has to survive any prize, or none: "for everyone here" only
+        // makes sense once a prize has been named.
+        const SHOWN = 12
+        const shown = voucherWinners.slice(0, SHOWN)
+        const extra = voucherWinners.length - shown.length
+        return (
+          <div className="mt-4 rounded-xl border border-brand/15 bg-brand-tint/40 px-3 py-2.5">
+            <p className="mb-2 text-balance text-center text-[10px] font-semibold uppercase tracking-widest text-brand">
+              {voucherPrize ? `${voucherPrize} for everyone here` : 'Everyone here earned the participation prize'}
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-1.5">
+              {shown.map((v) => (
+                <Link
+                  key={v.id}
+                  to={`/creators/${v.id}`}
+                  onClick={own}
+                  title={v.name}
+                  className="transition-transform duration-150 hover:scale-110"
+                >
+                  <Avatar src={v.photo_url} name={v.name} size="xs" />
+                </Link>
+              ))}
+              {extra > 0 && (
+                <span className="ml-0.5 text-[11px] font-semibold tabular-nums text-brand">+{extra}</span>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       <div className="mt-4 flex items-center justify-center gap-6 border-t border-gray-200/70 pt-3 text-center">
         <div>

@@ -12,9 +12,10 @@
 //              1.2 MB shell with an empty <title> and every innertube client
 //              answers "Sign in to confirm you're not a bot". The API costs
 //              1 unit of a 10,000/day quota per lookup.
-//   Facebook   ROUNDED, nothing needed. og:title ("5.7K views | ...") is the
-//              only statement of a count logged out; nothing in the document
-//              carries an exact one and m./mbasic. are login-walled.
+//   Facebook   Exact below a thousand, ROUNDED above it. og:title is the only
+//              statement of a count logged out ("847 views", "5.7K views") and
+//              nothing in the document carries an exact one; m./mbasic. are
+//              login-walled.
 //   Instagram  Exact, needs a session cookie AND THE COOKIES THAT GO WITH IT.
 //              `sessionid` alone gets a 302 that redirects to itself forever;
 //              adding ds_user_id, csrftoken, ig_did and mid returns the media.
@@ -24,15 +25,15 @@
 //
 // Callers, all authenticated:
 //   pg_cron / run_view_sync()   x-webhook-secret, {}              -> sweep
+//   itself                      x-webhook-secret, { continuation } -> next chunk
 //   admin "Sync now"            admin JWT, { challenge_id }        -> one challenge
-//   admin "Sync now"            admin JWT, { submission_ids: [] }  -> named rows
 //   Testing Centre              admin JWT, { probe: url }          -> READ ONLY
 //
-// Every sync runs in the BACKGROUND and publishes progress to
-// app_settings.view_sync_run as it goes; the caller gets a 202 immediately and
-// polls. A synchronous sync was the original design and it was wrong: a sweep
-// can take minutes when a platform is timing out, the browser gave up on the
-// request, and pressing the button again started a second overlapping run.
+// SCALE. A UK challenge has 39 entries; a Spanish one has 400 to 500 and a
+// worldwide brief could have thousands, all wanting a daily read. So staleness
+// belongs to the ENTRY, not to the run: each invocation takes the oldest-read
+// chunk it can finish comfortably, then hands the rest to a fresh invocation.
+// The hourly cron tops up whatever is still stale. Nothing races a timeout.
 //
 // Deploy with verify_jwt=false: it authenticates callers itself, and the cron
 // sweep arrives with a webhook secret rather than a user token.
@@ -67,9 +68,20 @@ const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
 
 const FETCH_TIMEOUT_MS = 10_000
-const BATCH_SIZE = 6
-const BATCH_PAUSE_MS = 200
-const MAX_PER_RUN = 300
+
+// A chunk is what one invocation can finish comfortably. Bigger programmes are
+// not read in one heroic run: the chain continues itself, and the hourly cron
+// tops up whatever is still stale. 120 entries take roughly fifteen seconds.
+const CHUNK = 120
+const MAX_CHUNKS_PER_CHAIN = 40 // 4,800 entries before a chain stops itself
+
+// Concurrency is per platform, not global. TikTok, YouTube and Facebook are
+// public endpoints and take the wide lane; Instagram is one signed-in session
+// and gets a narrow one, because the thing that would break it is not volume
+// per day, it is volume per second.
+const LANE_PUBLIC = 8
+const LANE_INSTAGRAM = 3
+const IG_GAP_MS = 120
 
 export type Platform = 'TikTok' | 'Instagram' | 'YouTube' | 'Facebook'
 const SOURCE: Record<Platform, string> = {
@@ -298,15 +310,20 @@ async function facebookViews(url: string, knownId: string | null): Promise<Resol
     const html = await getText(canonical ?? url)
     const title = decodeEntities(html.match(/property="og:title"\s+content="([^"]*)"/)?.[1] ?? '')
 
-    const exact = title.match(/([\d,]{4,})\s+views?/i)?.[1]
-    if (exact) {
-      const n = parseCompactCount(exact)
-      if (n != null) return { ...base, videoId: id, canonicalUrl: canonical, views: n, approx: false, error: null }
-    }
+    // ROUNDED FIRST, then exact. Facebook states a plain number below a
+    // thousand ("847 views") and only rounds above it ("5.7K views"), so a
+    // small video IS exact - and the old order, which demanded four or more
+    // characters before it would accept an exact figure, silently failed every
+    // video under 1,000 views rather than reading it.
     const rounded = title.match(/([\d.]+[KMB])\s+views?/i)?.[1]
     if (rounded) {
       const n = parseCompactCount(rounded)
       if (n != null) return { ...base, videoId: id, canonicalUrl: canonical, views: n, approx: true, error: null }
+    }
+    const exact = title.match(/(\d[\d,]*)\s+views?/i)?.[1]
+    if (exact) {
+      const n = parseCompactCount(exact)
+      if (n != null) return { ...base, videoId: id, canonicalUrl: canonical, views: n, approx: false, error: null }
     }
     if (/log in/i.test(title)) {
       return fail({ ...base, videoId: id, canonicalUrl: canonical }, 'blocked',
@@ -367,6 +384,11 @@ export function igCookie(stored: string): string {
 // count. `video_view_count` is deliberately NOT read: it is a legacy metric
 // worth about a third of the displayed figure (1123 against a displayed 4245 on
 // a checked reel) and would quietly wreck a leaderboard.
+//
+// Note this reads counts the PUBLIC page hides: a creator with
+// `like_and_view_counts_disabled` shows nobody their numbers, and the signed-in
+// API still returns them. That is why the sync can fill in entries an admin
+// looking at the post cannot read for themselves.
 function igPlayCount(item: Record<string, unknown> | null | undefined): number | null {
   if (!item) return null
   for (const key of ['play_count', 'ig_play_count']) {
@@ -489,86 +511,92 @@ type Row = {
   platform_video_id: string | null
 }
 
-type Outcome = {
-  submission_id: string
-  platform: string
-  views: number | null
-  previous: number | null
-  approx: boolean
-  written: boolean
-  error: string | null
-}
-
 async function publishRun(value: Record<string, unknown>) {
   await supabase.from('app_settings').upsert({
     key: 'view_sync_run', value, updated_at: new Date().toISOString(),
   })
 }
 
-async function syncRows(rows: Row[], trigger: 'scheduled' | 'admin', startedAt: string): Promise<Outcome[]> {
-  const out: Outcome[] = []
+// Run `items` through `worker` with at most `limit` in flight.
+async function pool<T>(items: T[], limit: number, worker: (item: T) => Promise<void>) {
+  let next = 0
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) await worker(items[next++])
+  })
+  await Promise.all(runners)
+}
 
-  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-    const slice = rows.slice(i, i + BATCH_SIZE)
-    const results = await Promise.all(
-      slice.map(async (row): Promise<Outcome> => {
-        const r = await resolveOne(row.video_url, row.platform_video_id)
-        const previous = row.logged_views ?? null
-        const now = new Date().toISOString()
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-        if (r.views == null) {
-          await supabase.from('submissions').update({
-            views_sync_error: r.error,
-            views_synced_at: now,
-            ...(r.videoId ? { platform_video_id: r.videoId } : {}),
-          }).eq('id', row.id)
-          return { submission_id: row.id, platform: row.platform, views: null, previous, approx: false, written: false, error: r.error }
-        }
+type Progress = {
+  started_at: string
+  trigger: 'scheduled' | 'admin'
+  total: number
+  done: number
+  updated: number
+  failed: number
+  chunk: number
+}
 
-        const source = r.platform ? SOURCE[r.platform] : 'manual'
-        await supabase.from('view_snapshots').insert({ submission_id: row.id, views: r.views, source })
+async function syncChunk(rows: Row[], progress: Progress): Promise<Progress> {
+  const p = { ...progress }
+  let sincePublish = 0
 
-        // Views only ever go up, so a reading BELOW what is already saved means
-        // a bad read or a number typed from a better source; the saved one
-        // stands. And a ROUNDED Facebook figure must never overwrite a number it
-        // merely disagrees with by less than its own rounding.
-        const goesBackwards = previous != null && r.views < previous
-        const roundingOnly = r.approx && previous != null && Math.abs(r.views - previous) <= Math.max(50, previous * 0.05)
-        const hold = goesBackwards || roundingOnly
+  const one = async (row: Row) => {
+    const r = await resolveOne(row.video_url, row.platform_video_id)
+    const now = new Date().toISOString()
 
-        const patch: Record<string, unknown> = {
-          views_source: source,
-          views_synced_at: now,
-          views_sync_error: goesBackwards ? 'lower_than_recorded' : null,
-          ...(r.videoId ? { platform_video_id: r.videoId } : {}),
-        }
-        if (!hold) {
-          patch.logged_views = r.views
-          patch.views_approx = r.approx
-        }
+    if (r.views == null) {
+      await supabase.from('submissions').update({
+        views_sync_error: r.error,
+        views_synced_at: now,
+        ...(r.videoId ? { platform_video_id: r.videoId } : {}),
+      }).eq('id', row.id)
+      p.failed += 1
+    } else {
+      const source = r.platform ? SOURCE[r.platform] : 'manual'
+      await supabase.from('view_snapshots').insert({ submission_id: row.id, views: r.views, source })
 
-        const { error } = await supabase.from('submissions').update(patch).eq('id', row.id)
-        return {
-          submission_id: row.id, platform: row.platform, views: r.views, previous, approx: r.approx,
-          written: !hold && !error,
-          error: error ? 'write_failed' : goesBackwards ? 'lower_than_recorded' : null,
-        }
-      }),
-    )
-    out.push(...results)
+      // The platform is the source of truth, full stop. An earlier version
+      // refused to write a reading that was LOWER than the saved number, on the
+      // theory that views only rise. They do - but the saved number was
+      // sometimes simply wrong, typed from the wrong video, and the guard then
+      // preserved that error forever while flagging the truth as the problem.
+      // A number typed by hand is for what the platform cannot answer, not for
+      // outranking what it can.
+      const { error } = await supabase.from('submissions').update({
+        logged_views: r.views,
+        views_approx: r.approx,
+        views_source: source,
+        views_synced_at: now,
+        views_sync_error: null,
+        ...(r.videoId ? { platform_video_id: r.videoId } : {}),
+      }).eq('id', row.id)
 
-    // Published per batch so the button can say "read 12 of 39" rather than
-    // sitting there looking broken.
-    await publishRun({
-      running: true, started_at: startedAt, trigger,
-      total: rows.length, done: out.length,
-      updated: out.filter((r) => r.written).length,
-      failed: out.filter((r) => r.error).length,
-    })
+      if (error) p.failed += 1
+      else p.updated += 1
+    }
 
-    if (i + BATCH_SIZE < rows.length) await new Promise((r) => setTimeout(r, BATCH_PAUSE_MS))
+    p.done += 1
+    sincePublish += 1
+    // Published often enough that the button counts up smoothly, rarely enough
+    // that it is not one write per entry.
+    if (sincePublish >= 10) {
+      sincePublish = 0
+      await publishRun({ running: true, ...p })
+    }
   }
-  return out
+
+  const instagram = rows.filter((r) => r.platform === 'Instagram')
+  const publicRows = rows.filter((r) => r.platform !== 'Instagram')
+
+  await Promise.all([
+    pool(publicRows, LANE_PUBLIC, one),
+    pool(instagram, LANE_INSTAGRAM, async (row) => { await one(row); await sleep(IG_GAP_MS) }),
+  ])
+
+  await publishRun({ running: true, ...p })
+  return p
 }
 
 // Which entries are worth reading: every challenge whose winners have not been
@@ -576,47 +604,87 @@ async function syncRows(rows: Row[], trigger: 'scheduled' | 'admin', startedAt: 
 // every future one, and everything still being judged - no per-challenge opt in,
 // now or ever. A challenge whose winners ARE published is done, and its numbers
 // are the ones it was judged on, so re-reading them would rewrite history.
-async function eligibleRows(challengeId?: string, submissionIds?: string[]): Promise<Row[]> {
-  const cols = 'id, video_url, platform, logged_views, platform_video_id'
-
-  if (submissionIds?.length) {
-    const { data } = await supabase.from('submissions').select(cols).in('id', submissionIds).limit(MAX_PER_RUN)
-    return (data ?? []) as Row[]
-  }
-  if (challengeId) {
-    const { data } = await supabase.from('submissions').select(cols).eq('challenge_id', challengeId).limit(MAX_PER_RUN)
-    return (data ?? []) as Row[]
-  }
-
+async function eligibleChallengeIds(): Promise<string[]> {
   const cutoff = new Date(Date.now() - 30 * 864e5).toISOString()
-  const { data: challenges } = await supabase
+  const { data } = await supabase
     .from('challenges').select('id').is('winners_published_at', null).gte('end_date', cutoff)
-  const ids = (challenges ?? []).map((c: { id: string }) => c.id)
-  if (!ids.length) return []
+  return (data ?? []).map((c: { id: string }) => c.id)
+}
 
-  const { data } = await supabase.from('submissions').select(cols).in('challenge_id', ids).limit(MAX_PER_RUN)
+const ROW_COLS = 'id, video_url, platform, logged_views, platform_video_id'
+
+// STALENESS BELONGS TO THE ENTRY, not to the run. Oldest reading first, so a
+// programme too big to read in one go drains evenly instead of the same first
+// hundred being refreshed over and over.
+async function staleRows(challengeId: string | undefined, intervalHours: number): Promise<Row[]> {
+  const staleBefore = new Date(Date.now() - intervalHours * 3600_000).toISOString()
+  let q = supabase.from('submissions').select(ROW_COLS)
+
+  if (challengeId) {
+    q = q.eq('challenge_id', challengeId)
+  } else {
+    const ids = await eligibleChallengeIds()
+    if (!ids.length) return []
+    q = q.in('challenge_id', ids)
+  }
+
+  const { data } = await q
+    .or(`views_synced_at.is.null,views_synced_at.lt.${staleBefore}`)
+    .order('views_synced_at', { ascending: true, nullsFirst: true })
+    .limit(CHUNK)
   return (data ?? []) as Row[]
 }
 
-async function runSync(rows: Row[], trigger: 'scheduled' | 'admin') {
-  const startedAt = new Date().toISOString()
-  await publishRun({ running: true, started_at: startedAt, trigger, total: rows.length, done: 0, updated: 0, failed: 0 })
-  try {
-    const results = await syncRows(rows, trigger, startedAt)
-    const summary = {
-      at: new Date().toISOString(),
-      ran: results.length,
-      updated: results.filter((r) => r.written).length,
-      failed: results.filter((r) => r.error).length,
-      trigger,
-    }
-    await supabase.from('app_settings').upsert({ key: 'view_sync_last_run', value: summary, updated_at: summary.at })
-    await publishRun({ running: false, finished_at: summary.at, trigger, total: rows.length, done: results.length, updated: summary.updated, failed: summary.failed })
-  } catch (e) {
-    // A run that throws must still clear `running`, or the button stays locked
-    // out until the fifteen-minute staleness guard expires.
-    await publishRun({ running: false, finished_at: new Date().toISOString(), trigger, error: String((e as Error).message ?? e) })
+async function countStale(challengeId: string | undefined, intervalHours: number): Promise<number> {
+  const staleBefore = new Date(Date.now() - intervalHours * 3600_000).toISOString()
+  let q = supabase.from('submissions').select('id', { count: 'exact', head: true })
+
+  if (challengeId) {
+    q = q.eq('challenge_id', challengeId)
+  } else {
+    const ids = await eligibleChallengeIds()
+    if (!ids.length) return 0
+    q = q.in('challenge_id', ids)
   }
+  const { count } = await q.or(`views_synced_at.is.null,views_synced_at.lt.${staleBefore}`)
+  return count ?? 0
+}
+
+async function namedRows(submissionIds: string[]): Promise<Row[]> {
+  const { data } = await supabase.from('submissions').select(ROW_COLS).in('id', submissionIds).limit(CHUNK)
+  return (data ?? []) as Row[]
+}
+
+async function syncInterval(): Promise<number> {
+  const { data } = await supabase.from('app_settings').select('value').eq('key', 'view_sync').maybeSingle()
+  const hours = Number((data?.value as { interval_hours?: number })?.interval_hours)
+  return Number.isFinite(hours) && hours > 0 ? hours : 24
+}
+
+// Hand the rest of the work to a fresh invocation rather than trying to finish
+// it here. Each chunk gets its own clock, so a programme of any size drains at a
+// steady rate instead of one run racing a timeout.
+async function continueChain(scope: { challenge_id?: string }, progress: Progress) {
+  try {
+    await fetch(`${SUPABASE_URL}/functions/v1/view-sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-webhook-secret': WEBHOOK_SECRET },
+      body: JSON.stringify({ ...scope, continuation: progress }),
+    })
+  } catch {
+    // If the hand-off fails the entries simply stay stale and the hourly cron
+    // picks them up, which is the whole point of staleness being per entry.
+  }
+}
+
+async function finishRun(p: Progress) {
+  const at = new Date().toISOString()
+  await supabase.from('app_settings').upsert({
+    key: 'view_sync_last_run',
+    value: { at, ran: p.done, updated: p.updated, failed: p.failed, trigger: p.trigger },
+    updated_at: at,
+  })
+  await publishRun({ running: false, finished_at: at, ...p })
 }
 
 // ---------------------------------------------------------------------- http
@@ -628,6 +696,7 @@ Deno.serve(async (req) => {
     probe?: string
     challenge_id?: string
     submission_ids?: string[]
+    continuation?: Progress
   }
 
   const secret = req.headers.get('x-webhook-secret') ?? ''
@@ -654,20 +723,68 @@ Deno.serve(async (req) => {
     })
   }
 
-  // One run at a time. Pressing the button twice used to start two overlapping
-  // sweeps writing the same rows.
-  const { data: busy } = await supabase.rpc('view_sync_running')
-  if (busy === true) return json(req, { busy: true }, 409)
+  const continuation = body.continuation
 
-  const rows = await eligibleRows(body.challenge_id, body.submission_ids)
-  if (!rows.length) return json(req, { accepted: 0 })
+  // One chain at a time. Pressing the button twice used to start two overlapping
+  // sweeps writing the same rows. A CONTINUATION is already inside a run, so it
+  // must not be turned away by its own guard.
+  if (!continuation) {
+    const { data: busy } = await supabase.rpc('view_sync_running')
+    if (busy === true) return json(req, { busy: true }, 409)
+  }
+
+  // Named entries are a one-shot: a caller asking for these exact rows wants
+  // them read now, not queued behind a staleness rule.
+  if (body.submission_ids?.length) {
+    const rows = await namedRows(body.submission_ids)
+    if (!rows.length) return json(req, { accepted: 0 })
+    const progress: Progress = {
+      started_at: new Date().toISOString(), trigger: fromCron ? 'scheduled' : 'admin',
+      total: rows.length, done: 0, updated: 0, failed: 0, chunk: 1,
+    }
+    await publishRun({ running: true, ...progress })
+    // deno-lint-ignore no-explicit-any
+    ;(globalThis as any).EdgeRuntime?.waitUntil?.(syncChunk(rows, progress).then(finishRun))
+    return json(req, { accepted: rows.length }, 202)
+  }
+
+  const interval = await syncInterval()
+  const rows = await staleRows(body.challenge_id, interval)
+
+  if (!rows.length) {
+    // Nothing stale. If this is the tail of a chain, close the run properly so
+    // the button stops spinning; otherwise there was simply nothing to do.
+    if (continuation) {
+      // deno-lint-ignore no-explicit-any
+      ;(globalThis as any).EdgeRuntime?.waitUntil?.(finishRun(continuation))
+    }
+    return json(req, { accepted: 0 })
+  }
+
+  const progress: Progress = continuation ?? {
+    started_at: new Date().toISOString(),
+    trigger: fromCron ? 'scheduled' : 'admin',
+    total: await countStale(body.challenge_id, interval),
+    done: 0, updated: 0, failed: 0, chunk: 0,
+  }
+  progress.chunk += 1
+  await publishRun({ running: true, ...progress })
+
+  const work = (async () => {
+    const after = await syncChunk(rows, progress)
+    const remaining = await countStale(body.challenge_id, interval)
+    if (remaining > 0 && after.chunk < MAX_CHUNKS_PER_CHAIN) {
+      await continueChain({ challenge_id: body.challenge_id }, after)
+    } else {
+      await finishRun(after)
+    }
+  })()
 
   // Always background: pg_net gives up after five seconds, and a browser gives
-  // up long before a slow sweep finishes. Progress goes to app_settings and the
+  // up long before a big sweep finishes. Progress goes to app_settings and the
   // caller polls view_sync_status().
-  const work = runSync(rows, fromCron ? 'scheduled' : 'admin')
   // deno-lint-ignore no-explicit-any
   ;(globalThis as any).EdgeRuntime?.waitUntil?.(work)
 
-  return json(req, { accepted: rows.length }, 202)
+  return json(req, { accepted: rows.length, total: progress.total }, 202)
 })

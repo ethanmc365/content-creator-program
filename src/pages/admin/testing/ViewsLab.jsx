@@ -16,16 +16,6 @@ import { describeSyncError, probeLink } from '../../../lib/viewSync'
 // generic "everyone here is invented" banner would be a lie on a page whose
 // whole purpose is real numbers off real posts.
 //
-// The samples are TikTok's OWN corporate account and the first video ever
-// uploaded to YouTube - never a creator's entry, because these lab chunks are
-// fetchable by URL like any JS asset. Instagram and Facebook get no sample for
-// the same reason: every public candidate belongs to a private person. Paste
-// one of those, which is the thing worth testing anyway.
-const SAMPLES = [
-  { platform: 'TikTok', label: 'TikTok', url: 'https://www.tiktok.com/@tiktok/video/7106594312292453675' },
-  { platform: 'YouTube', label: 'YouTube', url: 'https://www.youtube.com/watch?v=jNQXAC9IVRw' },
-]
-
 const HOW = [
   {
     t: 'TikTok, exact, no sign-in',
@@ -33,15 +23,19 @@ const HOW = [
   },
   {
     t: 'YouTube, exact, via its own API',
-    d: 'Watch links, youtu.be links, Shorts and embeds all reduce to the same eleven-character id. YouTube bot-blocks servers from reading its pages, so the count comes from the free Data API v3 instead: no review, and one unit of a 10,000 a day quota per entry.',
+    d: 'Watch links, youtu.be links, Shorts and embeds all reduce to the same eleven-character id. YouTube bot-blocks servers from reading its pages, so the count comes from the free Data API v3: one unit of a 10,000 a day quota per entry.',
   },
   {
-    t: 'Facebook, rounded',
-    d: 'Logged out, the only place Facebook states a count is the page title, and it is rounded to "5.6K views". Nothing in the page carries an exact figure and the mobile site is login-walled, so the number is saved as approximate and labelled that way.',
+    t: 'Facebook, exact under a thousand',
+    d: 'Logged out, the page title is the only place Facebook states a count. Below a thousand it states a plain number and that is exact; above it, it rounds to "5.7K views" and the entry is saved as approximate and labelled that way.',
   },
   {
     t: 'Instagram, exact, needs a session',
-    d: 'Every public route answers require_login, so the sync signs in and asks by media id. A sessionid on its own is not enough: Instagram answers it with a redirect to itself, so the request also carries the ds_user_id derived from the sessionid and the cookies a browser would have.',
+    d: 'Every public route answers require_login, so the sync signs in and asks by media id. A sessionid alone is not enough: Instagram answers that with a redirect to itself, so the request also carries the ds_user_id derived from the sessionid and the cookies a browser would have.',
+  },
+  {
+    t: 'It reads what the page hides',
+    d: 'A creator who has turned off like and view counts shows nobody their numbers, and the signed-in Instagram API still returns them. So the sync fills in entries you cannot read by opening the post yourself.',
   },
 ]
 
@@ -78,11 +72,10 @@ export default function ViewsLab() {
       aside={<PlatformBadges platforms={['Instagram', 'TikTok', 'YouTube', 'Facebook']} size="md" />}
     >
       <Panel title="Read a link" hint="The same code path the scheduled sweep uses, in probe mode." i={0}>
-        <Field label="Video link" hint="A share-sheet short link is fine. It gets followed to the real video.">
+        <Field label="Video link">
           <input
             type="url"
             className="input"
-            placeholder="https://vm.tiktok.com/… · instagram.com/reel/… · youtu.be/… · facebook.com/reel/…"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && run()}
@@ -108,20 +101,6 @@ export default function ViewsLab() {
             {busy ? <Spinner className="h-4 w-4" /> : null}
             {busy ? 'Reading…' : 'Read the view count'}
           </button>
-          <span className="flex items-center gap-2 text-xs text-smoke">
-            or try
-            {SAMPLES.map((s) => (
-              <button
-                key={s.platform}
-                type="button"
-                className="btn-secondary !py-1.5 text-xs"
-                onClick={() => { setUrl(s.url); run(s.url) }}
-                disabled={busy}
-              >
-                {s.label}
-              </button>
-            ))}
-          </span>
         </div>
 
         {failed ? <Note tone="warn" icon="alert" className="mt-4">{failed}</Note> : null}
@@ -191,12 +170,12 @@ export default function ViewsLab() {
               d: 'Every platform is queried by the id in the link, never by position on a page, so the count always belongs to the entry it was read for.',
             },
             {
-              t: 'A number never falls',
-              d: 'A reading below what is already saved is recorded and flagged, not written. Views do not go down, so a lower one means a bad read or a number typed from a better source.',
+              t: 'The platform wins',
+              d: 'Whatever the platform states is what gets saved, every time. Typing a number by hand is for the entries the platform cannot answer, not for outranking the ones it can.',
             },
             {
-              t: 'Rounded never overwrites exact',
-              d: 'A Facebook figure within its own rounding of what is already saved is left alone, so "5.6K" cannot replace an exact 5,573.',
+              t: 'Big programmes drain steadily',
+              d: 'Staleness belongs to the entry, not the run. Each pass takes the oldest-read chunk it can finish, then hands the rest to a fresh one, so five hundred entries read at the same steady rate as forty.',
             },
             {
               t: 'Trial reels are called what they are',

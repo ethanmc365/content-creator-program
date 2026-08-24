@@ -13,7 +13,7 @@ count arrives now. A number typed by hand still wins on that row.
 | --- | --- | --- | --- |
 | TikTok | yes | nothing | The embed endpoint states `playCount` to anyone |
 | YouTube | yes | a free Data API key | YouTube bot-blocks datacenter IPs; the API does not |
-| Facebook | **no, rounded** | nothing | Logged out, only the page title states a count, as "5.6K views" |
+| Facebook | **exact under 1,000, rounded above** | nothing | The page title is the only statement of a count logged out |
 | Instagram | yes | a Tryp account session cookie | Every public route answers `require_login` |
 
 Both credentials are pasted into the panel on a challenge's results page and
@@ -178,6 +178,12 @@ brittle and partial where the media-id lookup is neither. Separately,
 against a displayed **4,245**, and against **3,920** logged by hand. Using it
 would have quietly cut every Instagram number to a third.
 
+**It reads counts the public page hides.** A creator with
+`like_and_view_counts_disabled` shows nobody their numbers - and the signed-in
+API returns them anyway. That is why the sync can fill in entries an admin
+looking at the post cannot read for themselves, which is not a bug and was
+checked against the post's own owner, code and caption before being believed.
+
 **Trial reels, and what is NOT one.** A trial reel is shown only to people who do
 not follow the account and never appears on the author's own profile, so it has
 no readable count and never will. `trial_reel` is only reported when all three
@@ -187,16 +193,38 @@ video that states no plays. A photo or carousel (`media_type` 1 or 8) is
 distinction matters: the first version reported ALL of them as trial reels, which
 made a broken login look like seventeen unlucky posts.
 
+## Scale
+
+A UK challenge has 39 entries. A Spanish one has 400 to 500, and a worldwide
+brief could have thousands, all wanting a daily read. So **staleness belongs to
+the entry, not to the run**:
+
+- The cron fires hourly and simply asks.
+- Each invocation takes the `CHUNK` (120) entries whose own reading is oldest,
+  reads them, then hands the rest to a fresh invocation. Up to 40 chunks chain
+  before one stops itself; whatever is left is still stale, so the next hourly
+  tick picks it up. Nothing races a timeout.
+- Concurrency is **per platform**. TikTok, YouTube and Facebook are public and
+  take the wide lane (8). Instagram is one signed-in session and takes a narrow
+  one (3, with a small gap), because what would break it is not requests per day,
+  it is requests per second.
+
+**Measured 24 Aug 2026**: 250 entries read in **3 self-continuing chunks in 4.5
+seconds**, 250 of 250 updated, 0 failed. The programme's real 39 entries take
+about 4 seconds.
+
 ## The rules that keep it honest
 
-**A number never falls.** A reading below what is already saved is recorded in
-`view_snapshots` and flagged as `lower_than_recorded`, but is **not** written to
-the leaderboard. Views do not go down, so a lower reading means either a bad
-read or a number typed from a better source, and the saved one stands.
+**The platform is the source of truth.** Whatever it states is what gets saved,
+every time.
 
-This caught two wrong numbers on its first run: entries recorded at 1579 and 825
-whose live counts were 646 and 536. Both were typed by hand, both were wrong,
-and neither was silently corrected.
+An earlier version refused to write a reading LOWER than the saved number, on the
+theory that views only rise. They do - but the SAVED number was sometimes simply
+wrong, typed from the wrong video, and the guard then preserved that error
+permanently while flagging the truth as the problem. Two entries sat at 1,579 and
+825 whose real counts were 648 and 537, and the guard was the reason they stayed
+wrong. Typing a number by hand is for the entries the platform cannot answer, not
+for outranking the ones it can.
 
 **Typing a number makes the row manual again.** `saveViews` sets
 `views_source: 'manual'` and clears the error, so a row never claims to be
@@ -222,12 +250,12 @@ obvious next to the ones either side of it.
 | `session_expired` | Instagram rejected the stored cookie. Paste a fresh one |
 | `no_video_id` | The link does not resolve to a video. Deleted, private, or truncated |
 | `no_count_in_page` | Loaded, but carries no count. Photo posts and carousels have none |
-| `trial_reel` | Instagram trial reel. No count exists; ask the creator |
+| `trial_reel` | Instagram VIDEO stating no plays. No count exists; ask the creator |
+| `not_a_video` | Instagram photo or carousel. Never has a view count |
 | `needs_youtube_key` | No YouTube Data API key stored |
 | `youtube_key_rejected` | YouTube refused the key (invalid, restricted, or API not enabled) |
 | `blocked` | The platform served a check page. Usually clears itself next run |
 | `fetch_failed` | Request failed or timed out. Retried next run |
-| `lower_than_recorded` | Live count is below the saved one. Nothing was overwritten |
 
 ## Running a sync
 
