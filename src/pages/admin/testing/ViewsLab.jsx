@@ -26,8 +26,8 @@ const HOW = [
     d: 'Watch links, youtu.be links, Shorts and embeds all reduce to the same eleven-character id. YouTube bot-blocks servers from reading its pages, so the count comes from the free Data API v3: one unit of a 10,000 a day quota per entry.',
   },
   {
-    t: 'Facebook, exact under a thousand',
-    d: 'Logged out, the page title is the only place Facebook states a count. Below a thousand it states a plain number and that is exact; above it, it rounds to "5.7K views" and the entry is saved as approximate and labelled that way.',
+    t: 'Facebook, exact under a thousand and close above it',
+    d: 'The page title is the only place Facebook states a count. Below a thousand it gives a plain number and that is exact. Above it, it rounds to two figures: "5.7K" means somewhere between 5,650 and 5,749, so the number is within about 1% and never more than fifty out at that size. Good enough to rank on; the row still says it is rounded.',
   },
   {
     t: 'Instagram, exact, needs a session',
@@ -118,7 +118,6 @@ export default function ViewsLab() {
                 {result.views != null ? (
                   <p className="text-xs text-smoke">
                     shown as {formatViews(result.views)} on the leaderboard
-                    {result.approx ? ', rounded' : ''}
                   </p>
                 ) : null}
               </div>
@@ -143,9 +142,19 @@ export default function ViewsLab() {
               rows={[
                 ['Platform', result.platform ?? '-'],
                 ['Video id', result.videoId ?? '-'],
-                ['Exactness', result.views == null ? '-' : result.approx ? 'rounded by the platform' : 'exact'],
-                ['Instagram session', result.instagram_session === 'set' ? 'stored' : 'not set'],
-                ['YouTube key', result.youtube_key === 'set' ? 'stored' : 'not set'],
+                [
+                  'Exactness',
+                  result.views == null
+                    ? '-'
+                    : result.approx
+                      ? 'rounded to 2 figures'
+                      : 'exact',
+                  result.views == null
+                    ? null
+                    : result.approx
+                      ? 'Facebook rounds above a thousand, so this is within about 1%'
+                      : null,
+                ],
                 result.canonicalUrl
                   ? ['Resolved to', <span key="u" className="break-all text-xs font-normal">{result.canonicalUrl}</span>]
                   : null,

@@ -261,6 +261,7 @@ export default function AdminResults() {
             onClose={() => setSharing(false)}
             challenge={challenge}
             winners={podiumWinners}
+            ranking={liveRanking}
             entries={submissions.length}
             totalViews={liveTotalViews}
             voucherWinners={voucherWinners}

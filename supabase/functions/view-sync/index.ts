@@ -1,19 +1,15 @@
 // Supabase Edge Function: view-sync
 //
 // Reads the view count of a challenge entry straight off the link the creator
-// submitted, so leaderboards keep themselves current instead of an admin
-// opening every entry and typing the number in. Four platforms.
+// submitted. Four platforms.
 //
 //   TikTok     Exact, nothing needed.
-//   YouTube    Exact, needs a free Data API v3 key: YouTube bot-blocks servers
-//              from reading its pages.
-//   Facebook   Exact below a thousand, ROUNDED above it. og:title is the only
-//              statement of a count logged out. /reel/<id> 400s and /share/ 400s
-//              to a desktop agent, so links are RESOLVED as a phone and READ as
-//              watch/?v=<id>.
-//   Instagram  Exact, needs a session cookie AND THE COOKIES THAT GO WITH IT.
-//              `sessionid` alone gets a 302 that redirects to itself forever.
-//              ds_user_id is derived from the sessionid, not pasted separately.
+//   YouTube    Exact, needs a free Data API v3 key: YouTube bot-blocks servers.
+//   Facebook   Exact below a thousand, rounded to two figures above it. A
+//              /share/ link does not redirect - it JS-bounces to itself with
+//              ?hpir=1 - and Facebook randomly serves a cookie-consent page
+//              instead of the video, so resolution RETRIES.
+//   Instagram  Exact, needs a session cookie AND the cookies that go with it.
 //
 // Callers, all authenticated:
 //   pg_cron / run_view_sync()   x-webhook-secret, {}              -> stale sweep
@@ -21,9 +17,8 @@
 //   admin "Sync now"            admin JWT, { challenge_id, force } -> read now
 //   Testing Centre              admin JWT, { probe: url }          -> READ ONLY
 //
-// SCALE. Staleness belongs to the ENTRY, not to the run: each invocation takes
-// the oldest-read chunk it can finish, then hands the rest to a fresh one. The
-// hourly cron tops up whatever is still stale. Nothing races a timeout.
+// SCALE. Staleness belongs to the ENTRY, not the run: each invocation takes the
+// oldest-read chunk it can finish, then hands the rest to a fresh one.
 //
 // Deploy with verify_jwt=false: it authenticates callers itself.
 import { createClient } from 'npm:@supabase/supabase-js@2'
@@ -62,6 +57,8 @@ const UA =
 // og:title.
 const MOBILE_UA =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 const FETCH_TIMEOUT_MS = 10_000
 
@@ -297,7 +294,7 @@ function decodeEntities(s: string): string {
 // ITSELF carrying `?hpir=1`. Fetching that second URL finally returns the real
 // page. Nothing in the chain is an HTTP redirect, so `redirect: follow` never
 // helped and the link looked like it pointed at nothing.
-async function resolveFacebookShare(url: string): Promise<{ html: string; url: string } | null> {
+async function resolveFacebookShareOnce(url: string): Promise<{ html: string; url: string } | null> {
   let current = url
   for (let hop = 0; hop < 3; hop++) {
     let html: string
@@ -328,11 +325,37 @@ export function facebookIdCandidates(html: string): string[] {
   const push = (v?: string | null) => {
     if (v && !found.includes(v)) found.push(v)
   }
+  // Authoritative first: canonical and og:url describe THIS page. A bare path
+  // match anywhere in 400 kB could belong to a recommended video.
+  push(html.match(/rel="canonical"\s+href="[^"]*\/(?:videos|reel|video)\/(\d{6,})/)?.[1])
+  push(html.match(/property="og:url"\s+content="[^"]*\/(?:videos|reel|video)\/(\d{6,})/)?.[1])
   push(html.match(/"pageID"\s*:\s*"?(\d{6,})"?/)?.[1])
   push(html.match(/"video_id"\s*:\s*"(\d{6,})"/)?.[1])
   push(html.match(/"videoID"\s*:\s*"(\d{6,})"/)?.[1])
   push(html.match(/\/(?:videos|reel)\/(\d{6,})/)?.[1])
   return found
+}
+
+// WHY THIS RETRIES, measured 24 Aug 2026.
+//
+// Facebook serves the same share link as one of THREE pages at random: a 65 kB
+// one and a 400 kB one, both of which carry the video, and a 48 kB COOKIE
+// CONSENT interstitial that carries nothing at all. Over ten attempts the
+// consent page came back once or twice - which is exactly the "fails three
+// times then works on the fourth" that made this look broken.
+//
+// It is not a rate limit and there is nothing to back off from: asking again
+// simply gets a different page. Four attempts took a measured 9/10 to 15/15.
+async function facebookCandidatesFor(url: string): Promise<string[]> {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const page = await resolveFacebookShareOnce(url)
+    if (page) {
+      const found = facebookIdCandidates(page.html)
+      if (found.length) return found
+    }
+    await sleep(250 * (attempt + 1))
+  }
+  return []
 }
 
 type FbRead = { views: number; approx: boolean } | { blocked: true } | null
@@ -383,11 +406,7 @@ async function facebookViews(url: string, knownId: string | null): Promise<Resol
       if (fromUrl) candidates = [fromUrl]
     }
     if (!candidates.length) {
-      const page = await resolveFacebookShare(canonical ?? url)
-      if (page) {
-        canonical = page.url
-        candidates = facebookIdCandidates(page.html)
-      }
+      candidates = await facebookCandidatesFor(canonical ?? url)
     }
   }
 
@@ -602,8 +621,6 @@ async function pool<T>(items: T[], limit: number, worker: (item: T) => Promise<v
   })
   await Promise.all(runners)
 }
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 type Progress = {
   started_at: string

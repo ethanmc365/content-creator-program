@@ -1,37 +1,39 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Modal, Spinner } from '../ui'
 import Icon from '../Icon'
-import WinnersPodium from '../WinnersPodium'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { SHAREABLE_ROOMS, postToRooms } from '../../lib/announce'
-import { generatePodiumImage, downloadPodiumImage } from '../../lib/podiumImage'
+import { renderPodium, renderLeaderboard, downloadBlob, slugForFile } from '../../lib/shareGraphics'
 import { uploadFile } from '../../lib/upload'
 
-// Sharing the result of a challenge.
+// Sharing the result of a challenge, as a picture.
 //
-// There used to be one button, "Share to Announcements", which posted the
-// interactive leaderboard card and nothing else. Two things were missing: the
-// podium as an actual IMAGE, which is the thing anybody would want to send on or
-// put in a story, and any choice about WHERE it lands - a leaderboard is not
-// always worth notifying a whole market about.
+//   The podium      the top three on a podium, the voucher row included, drawn
+//                   to match WinnersPodium.
+//   The leaderboard every place in order with the voucher marked against
+//                   whoever earned it. The thing a top-three graphic cannot
+//                   show, and the thing most creators are actually looking for.
 //
-// So: pick what, pick where, add a note if you want. The image is drawn on
-// canvas in the browser (lib/podiumImage.js), uploaded to the chat bucket, and
-// posted as an ordinary message, which means it renders and downloads like any
-// other photo with no new plumbing behind it.
+// Both are drawn on canvas (lib/shareGraphics.js). Snapshotting the real
+// components would be better and was tried; html-to-image hangs in this app,
+// measured on a plain text div with no images, so it is not an option.
 
 export default function ShareLeaderboard({
-  open, onClose, challenge, winners, entries, totalViews, voucherWinners = [], voucherPrize = '', onDone,
+  open, onClose, challenge, winners = [], ranking = [], entries, totalViews,
+  voucherWinners = [], voucherPrize = '', onDone,
 }) {
   const { user } = useAuth()
-  const [what, setWhat] = useState('image')
+  const [what, setWhat] = useState('podium')
   const [room, setRoom] = useState('announcements')
   const [note, setNote] = useState('')
   const [preview, setPreview] = useState(null)
   const [market, setMarket] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [drawing, setDrawing] = useState(false)
   const [error, setError] = useState('')
+
+  const voucherIds = new Set(voucherWinners.map((v) => v?.id).filter(Boolean))
 
   // Which room this actually lands in, said out loud. Today every challenge is
   // the UK's, so the answer is always the same - but it will not be, and a
@@ -41,33 +43,45 @@ export default function ShareLeaderboard({
     if (!open) return
     let dead = false
     const id = challenge?.community_id
-    if (!id) return setMarket({ name: 'Worldwide', kind: 'network' })
-    supabase.from('communities').select('name, kind').eq('id', id).maybeSingle()
+    if (!id) return setMarket({ name: 'Worldwide' })
+    supabase.from('communities').select('name').eq('id', id).maybeSingle()
       .then(({ data }) => { if (!dead) setMarket(data ?? null) })
     return () => { dead = true }
   }, [open, challenge?.community_id])
 
-  // Draw the image as soon as the dialog opens, so what you send is what you
-  // have already seen rather than a description of it.
+  const render = useCallback(async () => {
+    const shared = {
+      title: challenge?.title ?? 'Challenge', entries, totalViews, voucherPrize,
+    }
+    return what === 'podium'
+      ? renderPodium({ ...shared, winners, voucherWinners })
+      : renderLeaderboard({ ...shared, ranking, voucherIds })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [what, challenge?.title, entries, totalViews, voucherPrize, winners, ranking, voucherWinners])
+
+  // Draw whichever is selected, so what you send is what you have already seen.
   useEffect(() => {
     if (!open) return
     let dead = false
     let url
-    generatePodiumImage({
-      title: challenge?.title ?? 'Challenge', winners, entries, totalViews, voucherWinners, voucherPrize,
-    })
-      .then((blob) => {
-        if (dead || !blob) return
-        url = URL.createObjectURL(blob)
-        setPreview(url)
-      })
-      .catch(() => {})
+    setDrawing(true)
+    const t = setTimeout(() => {
+      render()
+        .then((blob) => {
+          if (dead || !blob) return setDrawing(false)
+          url = URL.createObjectURL(blob)
+          setPreview(url)
+          setDrawing(false)
+        })
+        .catch(() => setDrawing(false))
+    }, 120)
     return () => {
       dead = true
+      clearTimeout(t)
       if (url) URL.revokeObjectURL(url)
       setPreview(null)
     }
-  }, [open, challenge?.title, winners, entries, totalViews, voucherWinners, voucherPrize])
+  }, [open, what, render])
 
   useEffect(() => {
     if (open) { setError(''); setNote('') }
@@ -77,25 +91,17 @@ export default function ShareLeaderboard({
     setBusy(true)
     setError('')
     try {
-      const extra = {}
-
-      if (what === 'image') {
-        const blob = await generatePodiumImage({
-          title: challenge?.title ?? 'Challenge', winners, entries, totalViews, voucherWinners, voucherPrize,
-        })
-        if (!blob) throw new Error('The image could not be drawn.')
-        const path = `leaderboards/${challenge.id}-${winners.length}-winners.png`
-        extra.image_url = await uploadFile('chat-media', path, blob, 'image/png')
-      } else {
-        extra.leaderboard_challenge_id = challenge.id
-      }
+      const blob = await render()
+      if (!blob) throw new Error('The image could not be drawn. Try again.')
+      const path = `leaderboards/${challenge.id}-${what}-${Date.now()}.png`
+      const image_url = await uploadFile('chat-media', path, blob, 'image/png')
 
       const { posted, error: postError } = await postToRooms({
         communityIds: challenge?.community_id ? [challenge.community_id] : [],
         base: room,
         senderId: user.id,
         body: note.trim(),
-        extra,
+        extra: { image_url },
       })
       if (postError) throw postError
 
@@ -111,121 +117,106 @@ export default function ShareLeaderboard({
     setBusy(false)
   }
 
-  return (
-    <Modal open={open} onClose={onClose} title="Share the result">
-      <div className="space-y-6">
-        <div>
-          <p className="label">What to share</p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {[
-              { key: 'image', title: 'The podium graphic', hint: 'A picture creators can save and repost.' },
-              { key: 'card', title: 'The leaderboard card', hint: 'The interactive standings, inside the app.' },
-            ].map((o) => (
-              <button
-                key={o.key}
-                type="button"
-                onClick={() => setWhat(o.key)}
-                className={
-                  what === o.key
-                    ? 'rounded-card border-2 border-brand bg-brand-tint/40 p-4 text-left transition-all'
-                    : 'rounded-card border border-gray-200 p-4 text-left transition-all hover:border-brand'
-                }
-              >
-                <p className="text-sm font-semibold">{o.title}</p>
-                <p className="mt-1 text-xs leading-relaxed text-smoke">{o.hint}</p>
-              </button>
-            ))}
-          </div>
-        </div>
+  async function download() {
+    const blob = await render()
+    downloadBlob(blob, slugForFile(challenge?.title, what === 'podium' ? 'winners' : 'leaderboard'))
+  }
 
-        <div className="overflow-hidden rounded-card border border-gray-100 bg-cloud/40 p-3">
-          {what === 'image' ? (
-            preview ? (
-              <img src={preview} alt="The podium as it will be shared" className="mx-auto block w-full max-w-sm" />
+  return (
+    <>
+      <Modal open={open} onClose={onClose} title="Share the result">
+        <div className="space-y-6">
+          <div>
+            <p className="label">What to share</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {[
+                { key: 'podium', title: 'The podium', hint: 'The top three, exactly as the board shows them.' },
+                { key: 'table', title: 'The leaderboard', hint: 'Every place down to tenth, with the vouchers marked.' },
+              ].map((o) => (
+                <button
+                  key={o.key}
+                  type="button"
+                  onClick={() => setWhat(o.key)}
+                  className={
+                    what === o.key
+                      ? 'rounded-card border-2 border-brand bg-brand-tint/40 p-4 text-left transition-all'
+                      : 'rounded-card border border-gray-200 p-4 text-left transition-all hover:border-brand'
+                  }
+                >
+                  <p className="text-sm font-semibold">{o.title}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-smoke">{o.hint}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-card border border-gray-100 bg-cloud/40 p-3">
+            {preview && !drawing ? (
+              <img src={preview} alt="Exactly what will be shared" className="mx-auto block w-full max-w-[320px]" />
             ) : (
               <div className="flex h-56 items-center justify-center text-sm text-smoke">
                 <Spinner className="mr-2 h-4 w-4" /> Drawing it…
               </div>
-            )
-          ) : (
-            // The card at the width a chat bubble actually gives it, so what you
-            // approve is what lands in the room rather than a full-width version
-            // of it.
-            <div className="mx-auto w-full max-w-[300px]">
-              <WinnersPodium
-                winners={winners}
-                entries={entries}
-                totalScore={totalViews}
-                scoring={challenge?.scoring}
-                voucherWinners={voucherWinners}
-                voucherPrize={voucherPrize}
-              />
-            </div>
-          )}
-        </div>
+            )}
+          </div>
 
-        <div>
-          <p className="label">Where it goes</p>
-          <div className="space-y-2">
-            {SHAREABLE_ROOMS.map((r) => (
-              <button
-                key={r.key}
-                type="button"
-                onClick={() => setRoom(r.key)}
-                className={
-                  room === r.key
-                    ? 'flex w-full items-center gap-3 rounded-card border-2 border-brand bg-brand-tint/40 px-4 py-3 text-left'
-                    : 'flex w-full items-center gap-3 rounded-card border border-gray-200 px-4 py-3 text-left hover:border-brand'
-                }
-              >
-                <Icon
-                  name={r.key === 'announcements' ? 'megaphone' : r.key === 'general' ? 'chat' : 'bulb'}
-                  className={`h-4 w-4 shrink-0 ${room === r.key ? 'text-brand' : 'text-smoke'}`}
-                />
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold">
-                    {market?.name ? `${market.name} ${r.label.toLowerCase()}` : r.label}
+          <div>
+            <p className="label">Where it goes</p>
+            <div className="space-y-2">
+              {SHAREABLE_ROOMS.map((r) => (
+                <button
+                  key={r.key}
+                  type="button"
+                  onClick={() => setRoom(r.key)}
+                  className={
+                    room === r.key
+                      ? 'flex w-full items-center gap-3 rounded-card border-2 border-brand bg-brand-tint/40 px-4 py-3 text-left'
+                      : 'flex w-full items-center gap-3 rounded-card border border-gray-200 px-4 py-3 text-left hover:border-brand'
+                  }
+                >
+                  <Icon
+                    name={r.key === 'announcements' ? 'megaphone' : r.key === 'general' ? 'chat' : 'bulb'}
+                    className={`h-4 w-4 shrink-0 ${room === r.key ? 'text-brand' : 'text-smoke'}`}
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold">
+                      {market?.name ? `${market.name} ${r.label.toLowerCase()}` : r.label}
+                    </span>
+                    <span className="block text-xs text-smoke">{r.hint}</span>
                   </span>
-                  <span className="block text-xs text-smoke">{r.hint}</span>
-                </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <label className="block">
+            <span className="label">Say something (optional)</span>
+            <textarea
+              className="input min-h-[80px]"
+              placeholder="Congratulations to everyone who entered."
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
+          </label>
+
+          {error ? <p className="text-sm text-brand">{error}</p> : null}
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <button type="button" className="btn-secondary !py-2 text-sm" onClick={download} disabled={busy}>
+              Download the image
+            </button>
+            <div className="flex gap-2">
+              <button type="button" className="btn-secondary !py-2 text-sm" onClick={onClose} disabled={busy}>
+                Cancel
               </button>
-            ))}
+              <button type="button" className="btn-primary !py-2 text-sm" onClick={share} disabled={busy || drawing}>
+                {busy ? <Spinner className="h-4 w-4" /> : null}
+                {busy ? 'Sharing…' : 'Share'}
+              </button>
+            </div>
           </div>
         </div>
-
-        <label className="block">
-          <span className="label">Say something (optional)</span>
-          <textarea
-            className="input min-h-[80px]"
-            placeholder="Congratulations to everyone who entered."
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-          />
-        </label>
-
-        {error ? <p className="text-sm text-brand">{error}</p> : null}
-
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <button
-            type="button"
-            className="btn-secondary !py-2 text-sm"
-            onClick={() => downloadPodiumImage({
-              title: challenge?.title ?? 'Challenge', winners, entries, totalViews, voucherWinners, voucherPrize,
-            })}
-          >
-            Download the image
-          </button>
-          <div className="flex gap-2">
-            <button type="button" className="btn-secondary !py-2 text-sm" onClick={onClose} disabled={busy}>
-              Cancel
-            </button>
-            <button type="button" className="btn-primary !py-2 text-sm" onClick={share} disabled={busy}>
-              {busy ? <Spinner className="h-4 w-4" /> : null}
-              {busy ? 'Sharing…' : 'Share'}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Modal>
+      </Modal>
+    </>
   )
 }

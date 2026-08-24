@@ -13,7 +13,7 @@ count arrives now. A number typed by hand still wins on that row.
 | --- | --- | --- | --- |
 | TikTok | yes | nothing | The embed endpoint states `playCount` to anyone |
 | YouTube | yes | a free Data API key | YouTube bot-blocks datacenter IPs; the API does not |
-| Facebook | **exact under 1,000, rounded above** | nothing | The page title is the only statement of a count logged out |
+| Facebook | **exact under 1,000, ~1% above** | nothing | The page title is the only statement of a count logged out |
 | Instagram | yes | a Tryp account session cookie | Every public route answers `require_login` |
 
 Both credentials are pasted into the panel on a challenge's results page and
@@ -102,7 +102,26 @@ page read stays as a fallback for the day the block lifts.
 ### Facebook, rounded, no sign-in
 
 `og:title` reads `"5.7K views · 152K reactions | ..."` and that is the only
-statement of a count in the whole document. Facebook is fussy about WHICH URL and WHICH agent:
+statement of a count in the whole document. **Facebook serves the same link as one of three different pages, at random.**
+That is the whole explanation for "it fails three times then works on the
+fourth". Measured over ten attempts on one share link: a 65 kB page and a 400 kB
+page, both carrying the video, and a 48 kB COOKIE CONSENT interstitial carrying
+nothing at all, which came back once or twice in ten.
+
+It is not a rate limit and there is nothing to back off from - asking again
+simply gets a different page - so resolution retries up to four times. Measured
+after the fix: 12/12, with the share link 6/6.
+
+A `/share/` link also does not redirect. It answers a desktop agent with a 400
+and a phone with an 836-byte shell whose only content is a JavaScript bounce back
+to ITSELF carrying `?hpir=1`; fetching that second URL returns the real page. And
+the id is not in the URL - it is in the page's own markup, so `canonical` and
+`og:url` are read first (they describe THIS page) before falling back to the
+bootstrap JSON. The 17-digit number that appears six times is a LOGGING id and
+resolves to Facebook's generic video page, so candidates are TRIED against
+`watch/?v=` and the first that states a count wins.
+
+Facebook is fussy about WHICH URL and WHICH agent:
 
 | Shape | Desktop agent | Phone agent |
 | --- | --- | --- |
