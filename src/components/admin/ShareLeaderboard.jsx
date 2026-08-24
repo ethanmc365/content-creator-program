@@ -52,12 +52,16 @@ export default function ShareLeaderboard({
   const render = useCallback(async () => {
     const shared = {
       title: challenge?.title ?? 'Challenge', entries, totalViews, voucherPrize,
+      // A points challenge is scored in points. Without this the picture says
+      // "views" under numbers that are not views, which the panel beside it
+      // does not.
+      scoring: challenge?.scoring,
     }
     return what === 'podium'
       ? renderPodium({ ...shared, winners, voucherWinners })
       : renderLeaderboard({ ...shared, ranking, voucherIds })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [what, challenge?.title, entries, totalViews, voucherPrize, winners, ranking, voucherWinners])
+  }, [what, challenge?.title, challenge?.scoring, entries, totalViews, voucherPrize, winners, ranking, voucherWinners])
 
   // Draw whichever is selected, so what you send is what you have already seen.
   useEffect(() => {
@@ -130,7 +134,7 @@ export default function ShareLeaderboard({
             <p className="label">What to share</p>
             <div className="grid gap-3 sm:grid-cols-2">
               {[
-                { key: 'podium', title: 'The podium', hint: 'The top three, exactly as the board shows them.' },
+                { key: 'podium', title: 'The podium', hint: 'Every winning place, the vouchers and the totals.' },
                 { key: 'table', title: 'The leaderboard', hint: 'Every place down to tenth, with the vouchers marked.' },
               ].map((o) => (
                 <button
