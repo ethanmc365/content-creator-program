@@ -67,7 +67,7 @@ function fontFaces() {
 // visible gain; this is the set that actually describes how a box looks.
 const COPY = [
   'display', 'position', 'top', 'right', 'bottom', 'left', 'z-index', 'float', 'clear',
-  'box-sizing', 'width', 'height', 'min-width', 'min-height', 'max-width', 'max-height',
+  'box-sizing', 'max-width', 'max-height',
   'margin-top', 'margin-right', 'margin-bottom', 'margin-left',
   'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
   'flex-direction', 'flex-wrap', 'flex-grow', 'flex-shrink', 'flex-basis',
@@ -93,19 +93,44 @@ function inlineStyles(source, clone) {
     const el = to[i]
     if (!el || el.nodeType !== 1) continue
     const cs = window.getComputedStyle(from[i])
-    // A TRUNCATING BOX MUST NOT BE GIVEN ITS OWN WIDTH. Its computed width is
-    // exactly the width of the text inside it, and the embedded Poppins is not
-    // metrically identical to the one the browser loaded from Google - so every
-    // name came out two characters short with an ellipsis ("Lisa Bur...") and
-    // half the picture's information with it. Let flex size these instead;
-    // everything else keeps its measured width.
+
+    // A BOX OF TEXT IS GIVEN A FLOOR, NOT A SIZE.
+    //
+    // The embedded Poppins is not metrically identical to the one the browser
+    // loaded from Google, so text is a few pixels wider in the photograph than
+    // it was on screen. Copying a box's measured width and height freezes the
+    // OLD layout around the NEW text, and both failures showed up immediately:
+    // every leaderboard name came out two characters short with an ellipsis
+    // ("Lisa Bur..."), and a line on the certificate wrapped inside its frozen
+    // width and then printed on top of the line beneath it.
+    //
+    // So a box that is not clipping its own content gets `min-width` and
+    // `min-height`: it can never be SMALLER than it was measured, and it can
+    // grow by the pixel or two the font costs. A box that clips - a card, a
+    // round avatar - keeps its exact size, because that is what holds the
+    // layout together. A truncating box gets neither and is sized by its parent.
     const clips = cs.getPropertyValue('text-overflow') === 'ellipsis'
+    const growX = cs.getPropertyValue('overflow-x') === 'visible'
+    const growY = cs.getPropertyValue('overflow-y') === 'visible'
+
     let css = ''
     for (const prop of COPY) {
-      if (clips && (prop === 'width' || prop === 'max-width')) continue
+      if (clips && prop === 'max-width') continue
       const value = cs.getPropertyValue(prop)
       if (value) css += `${prop}:${value};`
     }
+
+    // LAST, AND THE ELEMENT'S OWN min-width/min-height ARE NEVER COPIED.
+    // Emitting these in list order put a computed `min-height:0px` after the
+    // mapped one and quietly undid it - which is the overlap above, surviving
+    // the fix for it.
+    if (!clips) {
+      const w = cs.getPropertyValue('width')
+      const h = cs.getPropertyValue('height')
+      if (w) css += `${growX ? 'min-width' : 'width'}:${w};`
+      if (h) css += `${growY ? 'min-height' : 'height'}:${h};`
+    }
+
     // A transition mid-flight would be photographed half-finished.
     css += 'transition:none;animation:none;'
     el.setAttribute('style', css)

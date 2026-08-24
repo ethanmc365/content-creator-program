@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Badge, EmptyState, PageHeader, Skeleton, StatCard } from '../components/ui'
 import Icon from '../components/Icon'
+import CertificateModal from '../components/CertificateModal'
 import { formatDate, formatMoney } from '../lib/utils'
 
 // A creator's own reward history. We filter by creator_id explicitly so that
@@ -13,16 +14,29 @@ export default function Rewards() {
   const { user } = useAuth()
   const [rewards, setRewards] = useState([])
   const [loading, setLoading] = useState(true)
+  const [certificate, setCertificate] = useState(null)
+  // Where they finished, for the certificate. One query for every challenge
+  // they were rewarded in rather than one per row.
+  const [placings, setPlacings] = useState({})
 
   useEffect(() => {
     supabase
       .from('rewards')
-      .select('*, challenges(title)')
+      .select('*, challenges(title), profiles:creator_id(name)')
       .eq('creator_id', user.id)
       .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        setRewards(data ?? [])
+      .then(async ({ data }) => {
+        const rows = data ?? []
+        setRewards(rows)
         setLoading(false)
+        const ids = [...new Set(rows.map((r) => r.challenge_id).filter(Boolean))]
+        if (!ids.length) return
+        const { data: res } = await supabase
+          .from('results')
+          .select('challenge_id, rank, final_views')
+          .eq('creator_id', user.id)
+          .in('challenge_id', ids)
+        setPlacings(Object.fromEntries((res ?? []).map((r) => [r.challenge_id, r])))
       })
   }, [user.id])
 
@@ -67,12 +81,28 @@ export default function Rewards() {
                   </div>
                   <span className="text-base font-bold tabular-nums">{formatMoney(r.amount, r.currency)}</span>
                   <Badge tone={r.status === 'distributed' ? 'green' : 'amber'}>{r.status}</Badge>
+                  {/* THE THING WORTH POSTING. A reward is a line in a table
+                      until it has your name on it. */}
+                  <button
+                    type="button"
+                    onClick={() => setCertificate(r)}
+                    className="btn-secondary !py-1.5 !px-3 text-xs"
+                  >
+                    Certificate
+                  </button>
                 </div>
               ))}
             </div>
           )}
         </>
       )}
+
+      <CertificateModal
+        open={!!certificate}
+        onClose={() => setCertificate(null)}
+        reward={certificate}
+        result={certificate ? placings[certificate.challenge_id] : null}
+      />
     </div>
   )
 }
