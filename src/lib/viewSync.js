@@ -10,10 +10,6 @@ import { supabase } from './supabase'
 // are the `views_sync_error` values the function writes onto a submission, so a
 // stale row explains itself long after the run that produced it.
 export const SYNC_ERRORS = {
-  needs_session: {
-    label: 'Instagram sign-in needed',
-    hint: 'Instagram only shows view counts to a signed-in account. Add a session and these fill in on the next run.',
-  },
   needs_youtube_key: {
     label: 'YouTube key needed',
     hint: 'YouTube blocks servers from reading its pages, so these need a free YouTube Data API key. Add one and they fill in on the next run.',
@@ -30,13 +26,9 @@ export const SYNC_ERRORS = {
     label: 'Could not save',
     hint: 'The number was read but writing it to the entry failed. It will be retried on the next run.',
   },
-  trial_reel: {
-    label: 'No view count found (likely trial reel)',
-    hint: 'A trial reel is shown only to people who do not follow the account and never appears on the creator\'s own profile, so it has no readable count and never will. Ask the creator for the number and type it in.',
-  },
-  session_expired: {
-    label: 'Instagram session expired',
-    hint: 'The stored Instagram session has been rejected. Paste a fresh one to start these again.',
+  not_on_reels_tab: {
+    label: 'Not on the public reels tab',
+    hint: 'Instagram view counts are read off the creator\'s public reels tab. This one is not there, which means a private account, a feed video rather than a reel, or a reel too far back to reach. Ask the creator for the number and type it in.',
   },
   no_video_id: {
     label: 'Link goes nowhere',
@@ -64,7 +56,7 @@ export const SYNC_ERRORS = {
 // Which problems need a person, and which sort themselves out. `needs` means
 // somebody has to do something; `waiting` resolves on a later run by itself.
 export const NEEDS_ATTENTION = new Set([
-  'trial_reel', 'not_a_video', 'no_video_id', 'needs_session', 'session_expired',
+  'not_on_reels_tab', 'not_a_video', 'no_video_id',
   'needs_youtube_key', 'youtube_key_rejected', 'unsupported', 'bad_url',
 ])
 

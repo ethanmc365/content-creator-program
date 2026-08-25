@@ -30,12 +30,16 @@ const HOW = [
     d: 'The page title is the only place Facebook states a count. Below a thousand it gives a plain number and that is exact. Above it, it rounds to two figures: "5.7K" means somewhere between 5,650 and 5,749, so the number is within about 1% and never more than fifty out at that size. Good enough to rank on; the row still says it is rounded.',
   },
   {
-    t: 'Instagram, exact, needs a session',
-    d: 'Every public route answers require_login, so the sync signs in and asks by media id. A sessionid alone is not enough: Instagram answers that with a redirect to itself, so the request also carries the ds_user_id derived from the sessionid and the cookies a browser would have.',
+    t: 'Instagram, exact, no account at all',
+    d: 'Read off the creator\u2019s public reels tab, which states a view count under every reel to anybody signed out, and matched to the entry by its shortcode. This used to need a session cookie from a Tryp-owned account; Instagram warned that account for suspected automated behaviour, so the cookie was deleted and this replaced it. Nothing here can get a Tryp.com account flagged.',
   },
   {
-    t: 'It reads what the page hides',
-    d: 'A creator who has turned off like and view counts shows nobody their numbers, and the signed-in Instagram API still returns them. So the sync fills in entries you cannot read by opening the post yourself.',
+    t: 'One request per creator, not per video',
+    d: 'A page of the reels tab carries twelve reels, so a creator with eight entries costs one request, not eight. A whole month of a market is usually single digits.',
+  },
+  {
+    t: 'It still reads what the post hides',
+    d: 'A creator who has turned off like and view counts shows nobody their numbers on the post itself \u2014 and the reels tab still states them. So the sync fills in entries you cannot read by opening the post yourself.',
   },
 ]
 
@@ -187,8 +191,8 @@ export default function ViewsLab() {
               d: 'Staleness belongs to the entry, not the run. Each pass takes the oldest-read chunk it can finish, then hands the rest to a fresh one, so five hundred entries read at the same steady rate as forty.',
             },
             {
-              t: 'Trial reels are called what they are',
-              d: 'An Instagram trial reel is shown only to non-followers and never appears on the author’s profile, so it has no readable count and never will. It is reported as such rather than retried forever.',
+              t: 'A failure says which failure it was',
+              d: 'A photo or carousel is called a photo or carousel. A reel that is not on the public tab \u2014 a private account, or a feed video rather than a reel \u2014 says exactly that. Neither is dressed up as the other, and neither is retried forever.',
             },
           ]}
         />

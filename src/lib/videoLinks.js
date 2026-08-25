@@ -77,23 +77,29 @@ export function instagramMediaId(shortcode) {
   return n.toString()
 }
 
-// An Instagram sessionid is "<user id>%3A<token>%3A<...>", so the account's
-// numeric id is its first segment. That matters because a request carrying only
-// `sessionid` is answered with a redirect to itself: Instagram wants ds_user_id
-// alongside it, and this is where that value comes from rather than being a
-// second thing for an admin to find. The Edge Function applies the same rule
-// (igCookie); this exists so the rule is pinned by a test.
-export function instagramUserIdFromSession(sessionid) {
-  if (typeof sessionid !== 'string') return null
-  const raw = sessionid.trim().replace(/^sessionid=/, '').split(';')[0]
-  let decoded
+// Whose profile a link belongs to. Instagram view counts are read off the
+// creator's public reels tab, so the handle is what the reader needs, and a
+// wrong one sends it to the wrong profile - or, if a route word slipped through,
+// to instagram.com/reel/reels/ as though "reel" were a person. The Edge Function
+// applies the same rule (igHandleFrom); this exists so the rule is pinned by a
+// test. Handles are compared lower-case because Instagram treats them that way.
+const INSTAGRAM_ROUTES = new Set([
+  'p', 'reel', 'reels', 'tv', 'explore', 'stories', 'accounts', 'direct', 'api', 'graphql', 's',
+])
+
+export function instagramHandleFrom(url) {
+  if (typeof url !== 'string' || !url.trim()) return null
+  let first
   try {
-    decoded = decodeURIComponent(raw)
+    const u = new URL(url.trim())
+    if (!/(^|\.)instagram\.com$/i.test(u.hostname)) return null
+    first = u.pathname.split('/').filter(Boolean)[0]
   } catch {
-    return null
+    // Not a URL: accept a bare handle, with or without the @.
+    first = url.trim().replace(/^@/, '')
   }
-  const id = decoded.split(':')[0]
-  return /^\d+$/.test(id) ? id : null
+  if (!first || INSTAGRAM_ROUTES.has(first.toLowerCase())) return null
+  return /^[A-Za-z0-9._]{1,30}$/.test(first) ? first.toLowerCase() : null
 }
 
 /** The id this link resolves to, whichever platform it belongs to. */
@@ -146,5 +152,5 @@ export function describeLink(url) {
 
   const code = instagramShortcode(url)
   if (!code) return { platform, id: null, ready: false, note: 'No post code in that Instagram link.' }
-  return { platform, id: code, ready: true, note: 'Reel code found. Read as the signed-in Tryp account.' }
+  return { platform, id: code, ready: true, note: 'Reel code found. Matched on the creator\u2019s public reels tab, signed out.' }
 }

@@ -14,7 +14,7 @@ count arrives now. A number typed by hand still wins on that row.
 | TikTok | yes | nothing | The embed endpoint states `playCount` to anyone |
 | YouTube | yes | a free Data API key | YouTube bot-blocks datacenter IPs; the API does not |
 | Facebook | **exact under 1,000, ~1% above** | nothing | The page title is the only statement of a count logged out |
-| Instagram | yes | a Tryp account session cookie | Every public route answers `require_login` |
+| Instagram | yes | **nothing** | Read off the public reels tab, signed out |
 
 Both credentials are pasted into the panel on a challenge's results page and
 stored in `private.config`, never as Edge Function secrets, because a cookie
@@ -27,7 +27,7 @@ folded away unless one of them is actually the problem.
 | --- | --- | --- |
 | TikTok | no published quota | Page reads. Politeness, not policy: 6 at a time, ~40 requests for a full sweep. Thousands a day is fine; hammering it earns a captcha page, which the sync reports as `blocked` and retries next run |
 | YouTube | **10,000 videos/day** | Data API quota: 10,000 units a day, `videos.list` costs 1 unit per call. If that ever binds, one call accepts up to 50 ids, which would take it to 500,000/day - not worth building at 39 entries |
-| Instagram | a few hundred a day, comfortably | No published quota on the private endpoint. One session, one user agent, one request per entry. The programme uses about 17 a day |
+| Instagram | thousands a day | A public page read, so politeness only. One request per CREATOR covers all their entries, so the programme uses single digits per sweep |
 | Facebook | no published quota | Page reads, same shape as TikTok |
 
 `MAX_PER_RUN` caps a single run at 300 entries. The real constraint for this
@@ -36,12 +36,11 @@ programme is nothing: 39 entries take about 7 seconds.
 ## How often the credentials need touching
 
 - **YouTube key: never.** It does not expire. Rotate it only if it leaks.
-- **Instagram session: months, not days.** A sessionid is good for up to about a
-  year, and using it daily from one fixed user agent is what keeps it alive.
-  What kills it early is a password change, a "log out of all sessions", or
-  Instagram deciding the account looks odd. There is no schedule to keep: when it
-  goes, every Instagram entry reports `session_expired`, the panel says so, and
-  pasting a fresh one takes a minute.
+- **Instagram: there is no credential.** The session cookie was deleted on
+  25 Aug 2026 after Instagram warned the Tryp.com UK account for suspected
+  automated behaviour, and nothing replaced it. Do not add one back. The only
+  thing that can need touching is a `doc_id`, and only if Meta rotates one - see
+  "Instagram, no account at all" below.
 
 ## What runs where
 
@@ -139,90 +138,100 @@ So a Facebook number is stored with `views_approx` set, shown with a `~`, and
 never allowed to overwrite a number it disagrees with by less than its own
 rounding - otherwise "5.6K" would replace an exact 5,573 and call it an update.
 
-### Instagram, sign-in required
+### Instagram, no account at all
 
-Every public route is now closed to anonymous callers:
+**This was rebuilt on 25 Aug 2026.** Instagram showed the Tryp.com UK account a
+warning that it suspected automated behaviour and that the account could be
+disabled. An account is worth more than a view count, so the session cookie was
+deleted from `private.config`, the field was removed from the admin panel, and
+the reader was rebuilt on something that needs no account at all.
 
-- `/api/v1/media/<id>/info/` → `302` to login
-- `/graphql/query/?...` → `401 {"require_login": true}`
-- `/reel/<code>/embed/captioned/` → a JS shell with no data in it
-- the logged-out reel page renders **likes and comments but no play count at
-  all** (checked in a real browser, not just curl)
+The public reels tab of a public profile **states a view count under every
+reel**, to anybody, signed out. Meta renders it from its own logged-out desktop
+query, and that query answers a plain server:
 
-### The cookie that made it work
+    POST https://www.instagram.com/api/graphql
+    doc_id=27838951732404191
+    variables={"after":null,"first":12,"username":"<handle>"}
 
-A request carrying **only** `sessionid` is answered with a `302` whose `Location`
-is the URL it just asked for. Following that chain wastes the timeout and fails,
-and the first version then fell through to a page read that also found no count,
-so **every Instagram entry was reported as a trial reel**. It was not a trial
-reel problem; it was an authentication problem wearing its clothes.
+Two things make this work, and neither is obvious.
 
-Instagram wants the cookie set a browser would carry:
+**1. It must be `/api/graphql`, not `/graphql/query`.** The same `doc_id` posted
+to `/graphql/query` answers `xig_user_by_username: null` for the reels tab, and
+`403`s the post lookup unless a csrftoken cookie is sent. `/api/graphql` needs no
+cookie for either.
 
-    sessionid=<value>; ds_user_id=<uid>; csrftoken=<any>; ig_did=<any>; mid=<any>
+**2. The one required header is `Sec-Fetch-Site: same-origin`.** That was
+bisected, not guessed: with it and nothing else the call succeeds; without it
+Instagram hands the POST to its page router and returns the **617 kB app
+shell** instead of JSON. No cookie, no csrftoken, no `lsd` token and no
+`x-ig-app-id` are needed. If this ever starts returning HTML, that header is the
+first thing to check.
 
-`ds_user_id` is **not** a second thing to paste. A sessionid is
-`<uid>%3A<token>%3A<...>`, so the account id is its first segment and is derived
-(`igCookie()` in the function, `instagramUserIdFromSession()` in
-`src/lib/videoLinks.js`, which exists so a test pins the rule). The other three
-only have to be present. With that set the endpoint returns `play_count`
-immediately, matching the number Instagram displays.
+The response is
+`data.xig_user_by_username.polaris_clips_connection.{edges, page_info}`. Each
+node carries `code` and **`play_count`**, and the count is exact - the tab
+displays "16.8k" where the JSON says `16871`. `page_info.end_cursor` pages
+backwards twelve at a time, up to `IG_MAX_PAGES` (8, so 96 reels). Pinned reels
+come first, so the order is **not** chronological and there is no early exit.
 
-The request is also made with `redirect: 'manual'`: if the session ever stops
-being accepted, the 302 is the answer, and following it just burns ten seconds
-before failing anyway.
+**Cost is per creator, not per video.** One page covers a creator's whole set of
+entries, and the fetch is cached per run as a *promise*, so eight entries by one
+creator make one request rather than eight. A month of a market is single-digit
+requests.
 
-So the sync uses the `sessionid` cookie of a **Tryp-owned Instagram account**,
-stored in `private.config` (RLS on, zero policies, service-role only, sitting
-next to the webhook secret). Two functions bracket it, shared with the YouTube
-key (migration 111):
+**Finding the right profile.** In order: the handle in the link itself when it is
+of the `/{username}/reel/{code}/` form, then the creator's saved
+`profiles.instagram_url`, and only if neither tab contains the shortcode, an
+authoritative lookup:
 
-- `set_view_sync_secret(name, value)` - admin only, write only, allowlisted names
-- `get_view_sync_secrets()` - `service_role` only, so the Edge Function can read
-  them and nothing else can
+    POST /api/graphql  doc_id=27128499623469141   (PolarisPostRootQuery)
+    variables={"shortcode":"<code>", "__relay_internal__pv__PolarisAIGMMediaWebLabelEnabledrelayprovider":false}
 
-They live in the database rather than as Edge Function secrets because a cookie
-**expires** and a key gets rotated, and replacing either should be a field in the
-admin panel rather than a redeploy. `INSTAGRAM_SESSIONID` and `YOUTUBE_API_KEY`
-still work as fallbacks.
+which returns `user.username`, `media_type` and `product_type` for any public
+post, logged out. It does **not** state a view count - Meta stripped counts from
+single-post lookups in 2026 - which is precisely why the reels tab is the route.
+It is what tells a photo or carousel (`media_type` 1 or 8) apart from a reel we
+simply could not find.
 
-The cookie is accepted either as a bare `sessionid` value or as a whole `Cookie:`
-header pasted from dev tools; the full header is the better thing to give it,
-since a session that keeps presenting the cookie set it was issued with lasts
-longer. The user agent is fixed for the same reason.
+**It still reads counts the post hides.** A creator with
+`like_and_view_counts_disabled` shows nobody their numbers on the post itself,
+and the reels tab states them anyway - measured against a reel reading 1,130,760.
+So nothing was lost by giving up the session.
 
-The shortcode in `/reel/<code>/` **is** the media id, base64'd against
-Instagram's own alphabet, so no lookup request is needed to convert one to the
-other (`instagramMediaId` in `src/lib/videoLinks.js`, pinned in tests against
-values checked on the live API).
+**The one maintenance risk: `doc_id` rotation.** Meta changes these numbers from
+time to time; when it does, every Instagram entry stops reading at once. Both ids
+are therefore stored in `private.config` as `instagram_reels_doc_id` and
+`instagram_post_doc_id`, each accepting a **comma-separated list tried in
+order**, editable under "Instagram query ids" on `/admin/connections`. A new id
+can be added before the old one dies, and a rotation is a paste rather than a
+redeploy. The shipped defaults are used when both are empty.
 
-Without a session, Instagram entries report `needs_session` and are left for an
-admin. They never fail the run.
+Auto-discovering the id from Instagram's own JavaScript was investigated and
+**rejected**: the operation id lives in a lazily-loaded chunk as
+`__d("...Query_instagramRelayOperation",[],(...){e.exports="<docid>"})`, the
+shell HTML's `rsrcMap` lists 439 bundles, and none of the three long-name package
+bundles reachable from a server-fetched shell contains it. The fallback list is
+the answer; do not spend a session on the crawl.
 
-**Two dead ends worth not re-walking.** The logged-out REELS TAB on a profile
-does display view counts, and they are the right numbers. But they arrive from an
-internal `POST /api/graphql` call whose `doc_id` rotates, they only cover the most
-recent page of reels, and matching an entry would mean paginating a private API -
-brittle and partial where the media-id lookup is neither. Separately,
-`api/v1/users/web_profile_info` needs no cookie at all and returns
-`video_view_count`, which is a LEGACY metric: on a checked reel it read **1,123**
-against a displayed **4,245**, and against **3,920** logged by hand. Using it
-would have quietly cut every Instagram number to a third.
+**Routes ruled out, so they are not re-walked.**
 
-**It reads counts the public page hides.** A creator with
-`like_and_view_counts_disabled` shows nobody their numbers - and the signed-in
-API returns them anyway. That is why the sync can fill in entries an admin
-looking at the post cannot read for themselves, which is not a bug and was
-checked against the post's own owner, code and caption before being believed.
+- `api/v1/users/web_profile_info` now `400`s outright, and its `video_view_count`
+  was a LEGACY metric anyway: **1,123** against a displayed **4,245** on a checked
+  reel. `video_view_count` must never be read.
+- `POST /api/v1/clips/user/` → `401 require_login`.
+- The logged-out reel page, profile page and `/embed/captioned/` all serve the
+  same 617 kB app shell. A **Googlebot** user agent does get a server-rendered
+  page carrying real post JSON (`like_count`, `comment_count`, `media_type`) but
+  still **no `play_count`**.
+- A private account has no public reels tab, and is reported as
+  `not_on_reels_tab`.
 
-**Trial reels, and what is NOT one.** A trial reel is shown only to people who do
-not follow the account and never appears on the author's own profile, so it has
-no readable count and never will. `trial_reel` is only reported when all three
-are true: we are signed in, Instagram returned the media, and the media is a
-video that states no plays. A photo or carousel (`media_type` 1 or 8) is
-`not_a_video` instead, and every transport failure returns its own reason. That
-distinction matters: the first version reported ALL of them as trial reels, which
-made a broken login look like seventeen unlucky posts.
+**Failures say which failure they were.** `not_a_video` for a photo or carousel;
+`not_on_reels_tab` for a private account or a feed video rather than a reel;
+`no_video_id` for a code Instagram has no post for. The old `trial_reel`,
+`needs_session` and `session_expired` codes are gone, and migration 113 cleared
+them off every entry that was carrying one.
 
 ## Scale
 
@@ -277,11 +286,9 @@ obvious next to the ones either side of it.
 
 | Code | Means |
 | --- | --- |
-| `needs_session` | No Instagram session stored |
-| `session_expired` | Instagram rejected the stored cookie. Paste a fresh one |
 | `no_video_id` | The link does not resolve to a video. Deleted, private, or truncated |
 | `no_count_in_page` | Loaded, but carries no count. Photo posts and carousels have none |
-| `trial_reel` | Instagram VIDEO stating no plays. No count exists; ask the creator |
+| `not_on_reels_tab` | Not on the creator's public reels tab: a private account, or a feed video rather than a reel. Ask the creator |
 | `not_a_video` | Instagram photo or carousel. Never has a view count |
 | `needs_youtube_key` | No YouTube Data API key stored |
 | `youtube_key_rejected` | YouTube refused the key (invalid, restricted, or API not enabled) |

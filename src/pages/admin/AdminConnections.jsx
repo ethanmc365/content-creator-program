@@ -6,28 +6,20 @@ import PlatformBadges from '../../components/PlatformBadges'
 import { timeAgo } from '../../lib/utils'
 import { saveViewSyncSecret, viewSyncStatus } from '../../lib/viewSync'
 
-// The two credentials automatic view counts need, on their own page.
+// What automatic view counts needs to read each platform - which, since 25 Aug
+// 2026, is one free API key and nothing else.
 //
-// They used to sit on the challenge results page, which is the page you open
-// every week, holding two values you touch about once a year. This is where they
-// belong: platform settings, next to the other things that are true everywhere
-// rather than true of one challenge.
+// Instagram used to want a session cookie from a Tryp-owned account. Instagram
+// then warned that account for suspected automated behaviour and threatened to
+// disable it, so the cookie was deleted and the reader was rebuilt on the public
+// reels tab, which states a view count under every reel to anybody signed out.
+// Do not add a session field back.
 //
-// Neither value is ever readable back. `view_sync_status()` reports only whether
-// each is PRESENT; the values themselves live in private.config, which is RLS-on
-// with no policies and reachable only by the Edge Function's service role.
+// The YouTube key is never readable back. `view_sync_status()` reports only
+// whether it is PRESENT; the value lives in private.config, which is RLS-on with
+// no policies and reachable only by the Edge Function's service role.
 
 const PLATFORMS = [
-  {
-    name: 'instagram_sessionid',
-    platform: 'Instagram',
-    label: 'Instagram session',
-    placeholder: 'sessionid',
-    needs: 'A session cookie from a Tryp-owned Instagram account.',
-    why: 'Every public Instagram route answers require_login, and a logged-out reel page shows likes and comments but no play count at all. Signed in, it reads the exact number, including for creators who have hidden their counts publicly.',
-    life: 'Lasts months, usually close to a year. A password change or a "log out of all sessions" ends it early. When it goes, every Instagram entry says so.',
-    how: 'In a browser signed in as that account, open developer tools, then Application, then Cookies for instagram.com, and copy the value of sessionid. A whole Cookie header works too and lasts a little longer.',
-  },
   {
     name: 'youtube_api_key',
     platform: 'YouTube',
@@ -41,13 +33,35 @@ const PLATFORMS = [
 ]
 
 const NO_CREDENTIAL = [
+  {
+    platform: 'Instagram',
+    text: 'Reads the exact count off the creator\'s public reels tab, the same number a signed-out visitor sees, including for creators who have hidden their counts on the post itself. No account, no cookie, nothing to connect - and nothing that can get a Tryp.com account flagged.',
+  },
   { platform: 'TikTok', text: 'Reads the exact count off the public embed endpoint. Nothing to connect.' },
   { platform: 'Facebook', text: 'Reads the count off the public page. Exact below a thousand views, rounded above it. Nothing to connect.' },
 ]
 
+// Meta gives each of its saved queries a numeric id and rotates them. The reader
+// ships with working ids, so these are empty almost always; they exist so that a
+// rotation is a paste here rather than a redeploy. Both take a comma-separated
+// list and try each in turn, so a new id can be added before the old one dies.
+const QUERY_IDS = [
+  {
+    name: 'instagram_reels_doc_id',
+    label: 'Reels tab query',
+    hint: 'The query behind a public profile\'s reels tab, which is where every Instagram view count comes from.',
+  },
+  {
+    name: 'instagram_post_doc_id',
+    label: 'Post lookup query',
+    hint: 'Used only to find out who posted a reel when the creator\'s saved Instagram handle does not match.',
+  },
+]
+
 export default function AdminConnections() {
   const [status, setStatus] = useState(null)
-  const [draft, setDraft] = useState({ instagram_sessionid: '', youtube_api_key: '' })
+  const [draft, setDraft] = useState({ youtube_api_key: '', instagram_reels_doc_id: '', instagram_post_doc_id: '' })
+  const [showAdvanced, setShowAdvanced] = useState(false)
   const [saving, setSaving] = useState('')
   const [saved, setSaved] = useState('')
   const [error, setError] = useState('')
@@ -63,7 +77,6 @@ export default function AdminConnections() {
   useEffect(() => { refresh() }, [refresh])
 
   const connected = {
-    instagram_sessionid: status?.instagram_session === true,
     youtube_api_key: status?.youtube_key === true,
   }
 
@@ -92,7 +105,7 @@ export default function AdminConnections() {
 
       <PageHeader
         title="Platform connections"
-        subtitle="What automatic view counts needs to read each platform. Two of the four need nothing at all."
+        subtitle="What automatic view counts needs to read each platform. Three of the four need nothing at all."
         action={<PlatformBadges platforms={['Instagram', 'TikTok', 'YouTube', 'Facebook']} size="md" />}
       />
 
@@ -173,10 +186,73 @@ export default function AdminConnections() {
             ))}
           </dl>
         </section>
+
+        <section className="rounded-card border border-gray-100 p-5 shadow-card sm:p-7">
+          <button
+            type="button"
+            onClick={() => setShowAdvanced((v) => !v)}
+            className="flex w-full items-center justify-between gap-3 text-left"
+          >
+            <span>
+              <span className="block text-base font-semibold">Instagram query ids</span>
+              <span className="mt-0.5 block text-sm text-smoke">
+                {status?.instagram_query_pinned
+                  ? 'Pinned to an id saved here.'
+                  : 'Using the built-in ids. Nothing to do unless Instagram entries suddenly stop reading.'}
+              </span>
+            </span>
+            <Icon
+              name="chevronRight"
+              className={`h-5 w-5 shrink-0 text-smoke transition-transform duration-200 ${showAdvanced ? 'rotate-90' : ''}`}
+            />
+          </button>
+
+          {showAdvanced ? (
+            <div className="mt-5 space-y-5 border-t border-gray-100 pt-5">
+              <p className="text-xs leading-relaxed text-smoke">
+                Instagram gives each of its saved queries a numeric id and changes them from time to
+                time. When that happens every Instagram entry stops reading at once, and the fix is
+                the new id rather than a new deploy. Leave both empty to use the built-in ones. Each
+                accepts several ids separated by commas and tries them in order, so a new id can be
+                added before the old one dies.
+              </p>
+              {QUERY_IDS.map((q) => (
+                <div key={q.name}>
+                  <label className="block text-sm font-semibold text-ink" htmlFor={q.name}>{q.label}</label>
+                  <p className="mt-0.5 text-xs leading-relaxed text-smoke">{q.hint}</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <input
+                      id={q.name}
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      className="input min-w-[16rem] flex-1 !w-auto font-mono text-sm"
+                      placeholder="Built-in id in use"
+                      value={draft[q.name]}
+                      onChange={(e) => { setDraft((d) => ({ ...d, [q.name]: e.target.value })); setSaved('') }}
+                      onKeyDown={(e) => e.key === 'Enter' && store(q.name)}
+                    />
+                    <button
+                      type="button"
+                      className="btn-secondary !py-2 text-sm"
+                      onClick={() => store(q.name)}
+                      disabled={saving === q.name}
+                    >
+                      {saving === q.name ? 'Saving…' : draft[q.name].trim() ? 'Save' : 'Clear'}
+                    </button>
+                  </div>
+                  {saved === q.name ? (
+                    <p className="mt-2 text-xs text-green-700">Saved. It is in use from the next read.</p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </section>
       </div>
 
       <p className="mt-8 text-xs leading-relaxed text-smoke">
-        Neither value can be read back once saved. To check one is working, paste a link into{' '}
+        Nothing saved here can be read back. To check any platform is working, paste a link into{' '}
         <Link to="/admin/testing/views" className="font-medium text-brand hover:underline">the view count tester</Link>.
       </p>
     </div>

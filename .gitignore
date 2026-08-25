@@ -36,3 +36,6 @@ graphify-out/
 
 # Supabase CLI scratch (npx supabase writes its version here)
 supabase/.temp/
+
+# created by `deno check` when typechecking edge functions
+deno.lock

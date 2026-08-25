@@ -90,8 +90,10 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
   const running = run.running === true
   const lastRun = status?.last_run ?? null
 
+  // Instagram is deliberately absent: it needs no credential at all since the
+  // reader moved to the public reels tab, so there is nothing here that can be
+  // missing or expired for it.
   const connected = {
-    Instagram: status?.instagram_session === true,
     YouTube: status?.youtube_key === true,
   }
 
@@ -110,10 +112,7 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
   // and fix, and the place to fix it is /admin/connections. Everything else on
   // this page is about THIS challenge.
   const credentialTrouble =
-    !!status && (
-      !connected.Instagram || !connected.YouTube ||
-      !!problems.session_expired || !!problems.youtube_key_rejected
-    )
+    !!status && (!connected.YouTube || !!problems.youtube_key_rejected)
 
   const automatic = submissions.filter((s) => s.views_source && s.views_source !== 'manual').length
   const pct = running && run.total ? Math.round((run.done / run.total) * 100) : 0

@@ -7,8 +7,8 @@ import {
   facebookId,
   instagramShortcode,
   instagramMediaId,
-  instagramUserIdFromSession,
   videoIdOf,
+  instagramHandleFrom,
   describeLink,
 } from './videoLinks'
 
@@ -93,28 +93,33 @@ describe('facebook ids', () => {
   })
 })
 
-// A sessionid on its own gets a redirect to itself, forever. Instagram wants
-// ds_user_id with it, and that value is inside the sessionid - so this rule is
-// the difference between every Instagram entry working and every Instagram entry
-// reporting a failure.
-describe('the instagram user id hidden in a session', () => {
-  it('takes the first segment, url-encoded or not', () => {
-    expect(instagramUserIdFromSession('68006166193%3AAbCdEf%3A17%3AAYc')).toBe('68006166193')
-    expect(instagramUserIdFromSession('68006166193:AbCdEf:17:AYc')).toBe('68006166193')
-    expect(instagramUserIdFromSession('sessionid=68006166193%3AAbCdEf')).toBe('68006166193')
-    expect(instagramUserIdFromSession('  68006166193%3AAbCdEf  ')).toBe('68006166193')
+// The handle is what points the reader at the right public reels tab, so a
+// route word mistaken for a person would send it somewhere that cannot exist.
+describe('whose instagram profile a link belongs to', () => {
+  it('takes the handle from a profile or a named post link', () => {
+    expect(instagramHandleFrom('https://www.instagram.com/denisahadarau_/')).toBe('denisahadarau_')
+    expect(instagramHandleFrom('https://www.instagram.com/denisahadarau_/reel/DbpxlShtiot/')).toBe('denisahadarau_')
+    expect(instagramHandleFrom('https://instagram.com/jacobs_world_travels?igsh=MWwz&utm_source=qr')).toBe('jacobs_world_travels')
   })
 
-  it('takes only the sessionid out of a whole cookie header', () => {
-    expect(instagramUserIdFromSession('68006166193%3AAbC; ds_user_id=999; csrftoken=x')).toBe('68006166193')
+  it('lower-cases, the way Instagram does', () => {
+    expect(instagramHandleFrom('https://www.instagram.com/JacobsWorldTravels/')).toBe('jacobsworldtravels')
+    expect(instagramHandleFrom('@Anya.Joyful')).toBe('anya.joyful')
   })
 
-  it('returns nothing rather than a guess when the shape is wrong', () => {
-    expect(instagramUserIdFromSession('notanid%3Atoken')).toBeNull()
-    expect(instagramUserIdFromSession('')).toBeNull()
-    expect(instagramUserIdFromSession(null)).toBeNull()
-    // a stray percent is not a valid escape and must not throw
-    expect(instagramUserIdFromSession('100%wrong')).toBeNull()
+  it('refuses a route word, so /reel/ is never read as a person', () => {
+    expect(instagramHandleFrom('https://www.instagram.com/reel/DcJwJHEMJ4L/')).toBeNull()
+    expect(instagramHandleFrom('https://www.instagram.com/p/DbjKzotjAv0/')).toBeNull()
+    expect(instagramHandleFrom('https://www.instagram.com/explore/tags/travel/')).toBeNull()
+  })
+
+  it('refuses another site, an empty path and a malformed handle', () => {
+    expect(instagramHandleFrom('https://www.instagram.com.evil.test/someone/')).toBeNull()
+    expect(instagramHandleFrom('https://www.instagram.com/')).toBeNull()
+    expect(instagramHandleFrom('https://www.tiktok.com/@someone')).toBeNull()
+    expect(instagramHandleFrom('has spaces')).toBeNull()
+    expect(instagramHandleFrom('')).toBeNull()
+    expect(instagramHandleFrom(null)).toBeNull()
   })
 })
 

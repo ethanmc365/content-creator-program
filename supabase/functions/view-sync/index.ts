@@ -9,7 +9,10 @@
 //              /share/ link does not redirect - it JS-bounces to itself with
 //              ?hpir=1 - and Facebook randomly serves a cookie-consent page
 //              instead of the video, so resolution RETRIES.
-//   Instagram  Exact, needs a session cookie AND the cookies that go with it.
+//   Instagram  Exact, NOTHING needed. Read off the creator's public reels tab,
+//              which states a view count to anybody signed out. The session
+//              cookie this used to carry got the Tryp.com UK account warned for
+//              automated behaviour and was deleted on 25 Aug 2026.
 //
 // Callers, all authenticated:
 //   pg_cron / run_view_sync()   x-webhook-secret, {}              -> stale sweep
@@ -29,25 +32,34 @@ const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const WEBHOOK_SECRET = Deno.env.get('WEBHOOK_SECRET') ?? ''
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE)
 
-// Both admin-supplied credentials live in private.config, read through a definer
-// RPC only service_role may execute, so either can be replaced from the admin
-// panel without a redeploy. The env vars stay as fallbacks.
-type Secrets = { instagram_sessionid: string; youtube_api_key: string }
+// Settings live in private.config, read through a definer RPC only service_role
+// may execute, so each can be replaced from the admin panel without a redeploy.
+// The env vars stay as fallbacks.
+//
+// There is NO Instagram credential here any more, and there must not be one
+// again: a session cookie is what got the Tryp.com UK account warned for
+// automated behaviour. The two doc_id fields are not secrets, they are Meta's
+// persisted-query ids, kept here so a rotation is a paste rather than a deploy.
+type Secrets = {
+  youtube_api_key: string
+  instagram_reels_doc_id: string
+  instagram_post_doc_id: string
+}
 let secretsCache: Secrets | null = null
 async function secrets(): Promise<Secrets> {
   if (secretsCache) return secretsCache
   const { data } = await supabase.rpc('get_view_sync_secrets')
   const row = (data ?? {}) as Record<string, string>
   secretsCache = {
-    instagram_sessionid: (row.instagram_sessionid ?? Deno.env.get('INSTAGRAM_SESSIONID') ?? '').trim(),
     youtube_api_key: (row.youtube_api_key ?? Deno.env.get('YOUTUBE_API_KEY') ?? '').trim(),
+    instagram_reels_doc_id: (row.instagram_reels_doc_id ?? '').trim(),
+    instagram_post_doc_id: (row.instagram_post_doc_id ?? '').trim(),
   }
   return secretsCache
 }
 
 // One browser identity for every request. TikTok serves a bot shell to anything
-// that looks automated, and Instagram is quicker to invalidate a session that
-// keeps changing user agent, so this stays fixed.
+// that looks automated, so this stays fixed and looks like a real browser.
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
 
@@ -69,9 +81,10 @@ const CHUNK = 120
 const MAX_CHUNKS_PER_CHAIN = 40 // 4,800 entries before a chain stops itself
 
 // Concurrency is per platform, not global. TikTok, YouTube and Facebook are
-// public endpoints and take the wide lane; Instagram is one signed-in session
-// and gets a narrow one, because the thing that would break it is not volume
-// per day, it is volume per second.
+// public endpoints and take the wide lane. Instagram keeps the narrow one even
+// though it is now public too: reads are batched per creator rather than per
+// video, so the lane is rarely the limit, and a polite rate is what keeps a
+// public route public.
 const LANE_PUBLIC = 8
 const LANE_INSTAGRAM = 3
 const IG_GAP_MS = 120
@@ -433,15 +446,67 @@ async function facebookViews(url: string, knownId: string | null): Promise<Resol
 }
 
 // ---------------------------------------------------------------- instagram
+//
+// NO CREDENTIAL. Instagram warned the Tryp.com UK account for "automated
+// behaviour" and threatened to disable it, so the session cookie was removed
+// on 25 Aug 2026 and nothing replaced it. What replaced the ROUTE is the same
+// data a signed-out visitor sees: the public reels tab of a public profile
+// states a view count under every reel, and Meta's own logged-out desktop query
+// is what puts it there.
+//
+// Two things make this work and neither is obvious:
+//
+//   1. The endpoint is `/api/graphql`, NOT `/graphql/query`. The same doc_id
+//      posted to `/graphql/query` answers `xig_user_by_username: null` for the
+//      reels tab, and 403s the post lookup unless a csrftoken cookie is sent.
+//   2. The one header that matters is `Sec-Fetch-Site: same-origin`. Without
+//      it Instagram hands the POST to the page router and returns the 617 kB
+//      app shell instead of JSON. No cookie, no csrftoken, no lsd, no app id is
+//      required - that was bisected, not guessed. A 600 kB HTML body is the
+//      signature of this header having gone missing.
+//
+// Cost is per CREATOR, not per video: one page carries twelve reels, so a
+// creator's whole set of entries is usually one request. That keeps the
+// programme's footprint on Instagram in single digits per sweep.
 const IG_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
+
+// Meta rotates persisted-query ids. Both are stored as comma-separated lists so
+// a rotation is a paste into the connections panel rather than a redeploy, and
+// each is tried in order until one answers.
+const IG_REELS_DOC_IDS_DEFAULT = '27838951732404191'
+const IG_POST_DOC_IDS_DEFAULT = '27128499623469141'
+
+const IG_PAGE_SIZE = 12
+const IG_MAX_PAGES = 8 // 96 reels back; older than that is not a live entry
 
 export function igShortcodeFrom(url: string): string | null {
   return url.match(/instagram\.com\/(?:[^/]+\/)?(?:reels?|p|tv)\/([A-Za-z0-9_-]{5,})/)?.[1] ?? null
 }
 
-// The shortcode IS the media id, base64'd against Instagram's own alphabet, so
-// no lookup request is needed - and asking by id is what guarantees the count
-// belongs to the entry we were handed rather than to something near it on a page.
+// A profile URL, or a post URL of the `/{username}/reel/{code}/` form, names its
+// owner - which saves a lookup. Anything in the reserved set is a route, not a
+// person, so it must not be mistaken for a handle.
+const IG_RESERVED = new Set(['p', 'reel', 'reels', 'tv', 'explore', 'stories', 'accounts', 'direct', 'api', 'graphql', 's'])
+export function igHandleFrom(url: string | null | undefined): string | null {
+  if (!url) return null
+  let path: string
+  try {
+    const u = new URL(url.trim())
+    if (!/(^|\.)instagram\.com$/i.test(u.hostname)) return null
+    path = u.pathname
+  } catch {
+    // A bare handle, with or without the @.
+    const bare = String(url).trim().replace(/^@/, '')
+    return /^[A-Za-z0-9._]{1,30}$/.test(bare) ? bare.toLowerCase() : null
+  }
+  const first = path.split('/').filter(Boolean)[0]
+  if (!first || IG_RESERVED.has(first.toLowerCase())) return null
+  return /^[A-Za-z0-9._]{1,30}$/.test(first) ? first.toLowerCase() : null
+}
+
+// The shortcode IS the media id, base64'd against Instagram's own alphabet.
+// Kept because the id is what `platform_video_id` stores and what pins an entry
+// to one post rather than to something near it on a page.
 export function igMediaId(shortcode: string): string | null {
   let n = 0n
   for (const ch of shortcode) {
@@ -452,39 +517,10 @@ export function igMediaId(shortcode: string): string | null {
   return n.toString()
 }
 
-// THE FIX THAT MADE INSTAGRAM WORK.
-//
-// A request carrying only `sessionid` gets a 302 whose Location is the URL it
-// just asked for, forever - which looks like a dead endpoint and, once the
-// redirect chain gave up, was being reported as "trial reel" on every single
-// entry. Instagram wants the cookie set a browser would have. `ds_user_id` is
-// not a second thing to paste: a sessionid is "<uid>%3A<token>%3A<...>", so the
-// user id is its first segment. csrftoken/ig_did/mid only have to be PRESENT.
-export function igCookie(stored: string): string {
-  const s = stored.trim().replace(/^Cookie:\s*/i, '')
-  // A whole Cookie header pasted from dev tools already has everything.
-  if (/(^|;)\s*sessionid=/.test(s) && /ds_user_id=/.test(s)) return s
-
-  const sessionid = s.replace(/^sessionid=/, '').split(';')[0].trim()
-  const dsUserId = decodeURIComponent(sessionid).split(':')[0]
-  return [
-    `sessionid=${sessionid}`,
-    /^\d+$/.test(dsUserId) ? `ds_user_id=${dsUserId}` : '',
-    'csrftoken=missing',
-    'ig_did=00000000-0000-0000-0000-000000000000',
-    'mid=aaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-  ].filter(Boolean).join('; ')
-}
-
 // Instagram calls the number "views" on a reel; the field behind it is the play
-// count. `video_view_count` is deliberately NOT read: it is a legacy metric
-// worth about a third of the displayed figure (1123 against a displayed 4245 on
-// a checked reel) and would quietly wreck a leaderboard.
-//
-// Note this reads counts the PUBLIC page hides: a creator with
-// `like_and_view_counts_disabled` shows nobody their numbers, and the signed-in
-// API still returns them. That is why the sync can fill in entries an admin
-// looking at the post cannot read for themselves.
+// count. `video_view_count` is deliberately NOT read anywhere: it is a legacy
+// metric worth about a third of the displayed figure (1123 against a displayed
+// 4245 on a checked reel) and would quietly wreck a leaderboard.
 function igPlayCount(item: Record<string, unknown> | null | undefined): number | null {
   if (!item) return null
   for (const key of ['play_count', 'ig_play_count']) {
@@ -494,75 +530,213 @@ function igPlayCount(item: Record<string, unknown> | null | undefined): number |
   return null
 }
 
-async function instagramViews(url: string): Promise<Resolved> {
-  const base = { platform: 'Instagram' as const, approx: false }
+class IgShellError extends Error {}
+
+// One POST, browser-shaped. Returns parsed JSON, or throws IgShellError when
+// Instagram answered with the app shell (see the Sec-Fetch-Site note above).
+//
+// BOTH queries go to `/api/graphql`. `/graphql/query` serves the same doc_ids
+// but demands a csrftoken cookie - it answered 403 to every cookieless call and
+// is what made the first deploy report a carousel as a dead link.
+async function igGraphql(
+  docId: string,
+  variables: Record<string, unknown>,
+  referer: string,
+): Promise<Record<string, unknown>> {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS)
+  try {
+    const res = await fetch('https://www.instagram.com/api/graphql', {
+      method: 'POST',
+      headers: {
+        'User-Agent': UA,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': '*/*',
+        'Accept-Language': 'en-GB,en;q=0.9',
+        // The line that makes Instagram treat this as an API call.
+        'Sec-Fetch-Site': 'same-origin',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Dest': 'empty',
+        'Origin': 'https://www.instagram.com',
+        'Referer': referer,
+        'x-ig-app-id': '936619743392459',
+      },
+      body: new URLSearchParams({ doc_id: docId, variables: JSON.stringify(variables) }),
+      signal: ctrl.signal,
+    })
+    if (!res.ok) {
+      await res.body?.cancel()
+      throw new HttpError(res.status)
+    }
+    const text = await res.text()
+    try {
+      return JSON.parse(text) as Record<string, unknown>
+    } catch {
+      throw new IgShellError(`instagram returned ${text.length} bytes of html`)
+    }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+// Per-RUN state. It must not outlive the request: an isolate is reused between
+// invocations and a cached page would serve yesterday's counts as today's.
+export type IgCache = {
+  reels: Map<string, Promise<Map<string, number>>>
+  owners: Map<string, Promise<IgOwner | null>>
+}
+export const newIgCache = (): IgCache => ({ reels: new Map(), owners: new Map() })
+
+type IgOwner = { username: string | null; mediaType: number | null; productType: string | null }
+
+async function igDocIds(which: 'reels' | 'post'): Promise<string[]> {
+  const s = await secrets()
+  const raw = which === 'reels'
+    ? (s.instagram_reels_doc_id || IG_REELS_DOC_IDS_DEFAULT)
+    : (s.instagram_post_doc_id || IG_POST_DOC_IDS_DEFAULT)
+  const ids = raw.split(',').map((x) => x.trim()).filter((x) => /^\d{6,}$/.test(x))
+  return ids.length ? ids : [which === 'reels' ? IG_REELS_DOC_IDS_DEFAULT : IG_POST_DOC_IDS_DEFAULT]
+}
+
+// Every reel on a profile's public tab, code -> play count, paging until the
+// tab runs out or IG_MAX_PAGES. Pinned reels come first, so the order is not
+// chronological and there is no early exit on "we have gone far enough back".
+async function igFetchReels(username: string): Promise<Map<string, number>> {
+  const out = new Map<string, number>()
+  const docIds = await igDocIds('reels')
+  const referer = `https://www.instagram.com/${username}/reels/`
+
+  let after: string | null = null
+  for (let page = 0; page < IG_MAX_PAGES; page++) {
+    let user: Record<string, unknown> | null = null
+    for (const docId of docIds) {
+      const json = await igGraphql(docId, { after, first: IG_PAGE_SIZE, username }, referer)
+      const data = json.data as Record<string, unknown> | undefined
+      const u = (data?.xig_user_by_username ?? null) as Record<string, unknown> | null
+      if (u) { user = u; break }
+      // A null user on the FIRST page with a working doc_id means the profile is
+      // gone or private; a null user on every doc_id means the ids have rotated.
+      // Both look the same here, so try the next id before giving up.
+    }
+    if (!user) {
+      if (page === 0) throw new IgShellError('instagram returned no profile for that handle')
+      break
+    }
+    const conn = (user.polaris_clips_connection ?? {}) as Record<string, unknown>
+    const edges = (conn.edges ?? []) as { node?: Record<string, unknown> }[]
+    for (const e of edges) {
+      const node = e?.node
+      const code = typeof node?.code === 'string' ? node.code : null
+      const views = igPlayCount(node)
+      if (code && views != null) out.set(code, views)
+    }
+    const info = (conn.page_info ?? {}) as { end_cursor?: string; has_next_page?: boolean }
+    if (!info.has_next_page || !info.end_cursor || edges.length === 0) break
+    after = info.end_cursor
+    await sleep(IG_GAP_MS)
+  }
+  return out
+}
+
+function igReels(cache: IgCache, username: string): Promise<Map<string, number>> {
+  const key = username.toLowerCase()
+  const hit = cache.reels.get(key)
+  if (hit) return hit
+  // The PROMISE is cached, not the result, so eight entries by one creator
+  // arriving at once make one request rather than eight.
+  const p = igFetchReels(key).catch((e) => { cache.reels.delete(key); throw e })
+  cache.reels.set(key, p)
+  return p
+}
+
+// Who owns this shortcode, and is it even a video. Works logged out, and is the
+// authority when the creator's saved handle is wrong or they entered somebody
+// else's post. It does NOT state a view count - Meta stripped counts from
+// single-post lookups in 2026 - which is exactly why the reels tab is the route.
+async function igFetchOwner(shortcode: string): Promise<IgOwner | null> {
+  for (const docId of await igDocIds('post')) {
+    const json = await igGraphql(docId, {
+      shortcode,
+      fetch_tagged_user_count: null,
+      hoisted_comment_id: null,
+      hoisted_reply_id: null,
+      __relay_internal__pv__PolarisAIGMMediaWebLabelEnabledrelayprovider: false,
+    }, `https://www.instagram.com/reel/${shortcode}/`)
+    const data = json.data as Record<string, unknown> | undefined
+    const info = data?.xdt_api__v1__media__shortcode__web_info as { items?: Record<string, unknown>[] } | undefined
+    const item = info?.items?.[0]
+    if (!item) continue
+    const user = (item.user ?? {}) as Record<string, unknown>
+    return {
+      username: typeof user.username === 'string' ? user.username : null,
+      mediaType: typeof item.media_type === 'number' ? item.media_type : null,
+      productType: typeof item.product_type === 'string' ? item.product_type : null,
+    }
+  }
+  return null
+}
+
+function igOwner(cache: IgCache, shortcode: string): Promise<IgOwner | null> {
+  const hit = cache.owners.get(shortcode)
+  if (hit) return hit
+  const p = igFetchOwner(shortcode).catch(() => null)
+  cache.owners.set(shortcode, p)
+  return p
+}
+
+async function instagramViews(url: string, cache: IgCache, handleHint: string | null = null): Promise<Resolved> {
   const code = igShortcodeFrom(url)
   const canonicalUrl = code ? `https://www.instagram.com/reel/${code}/` : null
-  if (!code) return fail(base, 'no_video_id', 'No Instagram post code in that link.')
+  const base = { platform: 'Instagram' as const, approx: false, videoId: code, canonicalUrl }
+  if (!code) return fail({ platform: 'Instagram', approx: false }, 'no_video_id', 'No Instagram post code in that link.')
 
-  const { instagram_sessionid: stored } = await secrets()
-  if (!stored) {
-    return fail({ ...base, videoId: code, canonicalUrl }, 'needs_session',
-      'Instagram only shows view counts to a signed-in account.')
-  }
-  const mediaId = igMediaId(code)
-  if (!mediaId) return fail({ ...base, videoId: code, canonicalUrl }, 'no_video_id', 'That is not a readable Instagram code.')
+  // Cheapest handle first: the link itself, then the creator's saved profile.
+  // Either avoids a lookup for the common case, and neither is trusted - if the
+  // code is not on that profile's tab we go and ask who really owns it.
+  const guess = igHandleFrom(url) ?? igHandleFrom(handleHint)
 
-  const headers = {
-    'x-ig-app-id': '936619743392459',
-    'X-IG-WWW-Claim': '0',
-    Cookie: igCookie(stored),
-    Accept: '*/*',
-    Referer: 'https://www.instagram.com/',
-  }
-
-  let body: string
-  try {
-    // `redirect: manual` on purpose: an unauthenticated request self-redirects,
-    // and following that chain wastes ten seconds before failing anyway.
-    body = await getText(`https://www.instagram.com/api/v1/media/${mediaId}/info/`, headers, 'manual')
-  } catch (e) {
-    if (e instanceof HttpError && (e.status === 302 || e.status === 401 || e.status === 403)) {
-      return fail({ ...base, videoId: code, canonicalUrl }, 'session_expired',
-        'Instagram would not accept the stored session. Paste a fresh one.')
+  const lookIn = async (username: string): Promise<number | null> => {
+    try {
+      return (await igReels(cache, username)).get(code) ?? null
+    } catch {
+      return null
     }
-    return fail({ ...base, videoId: code, canonicalUrl }, 'fetch_failed', 'Could not reach Instagram.')
   }
 
-  let parsed: Record<string, unknown>
-  try {
-    parsed = JSON.parse(body)
-  } catch {
-    return fail({ ...base, videoId: code, canonicalUrl }, 'session_expired',
-      'Instagram answered with a page instead of data, which means the session was not accepted.')
+  if (guess) {
+    const views = await lookIn(guess)
+    if (views != null) return { ...base, views, error: null }
   }
 
-  if (parsed?.require_login || parsed?.message === 'login_required') {
-    return fail({ ...base, videoId: code, canonicalUrl }, 'session_expired', 'Instagram rejected the stored session.')
+  const owner = await igOwner(cache, code)
+  if (!owner) {
+    return fail(base, 'no_video_id',
+      'Instagram has no post with that code. Usually deleted, or the account is private.')
+  }
+  // A photo (1) or a carousel (8) has no plays because it is not a video, which
+  // is a different thing from a video whose plays we could not read.
+  if (owner.mediaType === 1 || owner.mediaType === 8) {
+    return fail(base, 'not_a_video', 'That Instagram post is a photo or a carousel, so it has no view count.')
+  }
+  if (!owner.username) {
+    return fail(base, 'no_video_id', 'Instagram would not say who posted that.')
+  }
+  if (!guess || owner.username.toLowerCase() !== guess) {
+    const views = await lookIn(owner.username)
+    if (views != null) return { ...base, views, error: null }
   }
 
-  const item = (parsed as { items?: Record<string, unknown>[] })?.items?.[0]
-  const views = igPlayCount(item)
-  if (views != null) return { ...base, videoId: code, canonicalUrl, views, error: null }
-
-  if (item) {
-    // A photo (media_type 1) or a carousel (8) has no plays because it is not a
-    // video, which is a different thing from a video whose plays are hidden.
-    const mediaType = item.media_type
-    if (mediaType === 1 || mediaType === 8) {
-      return fail({ ...base, videoId: code, canonicalUrl }, 'not_a_video',
-        'That Instagram post is a photo or a carousel, so it has no view count.')
-    }
-    // Only NOW is "trial reel" the honest answer: we are signed in, Instagram
-    // returned a VIDEO, and it states no plays. Every transport failure above
-    // returns its own reason instead - reporting those as trial reels is exactly
-    // the bug that made all seventeen entries claim to be one.
-    return fail({ ...base, videoId: code, canonicalUrl }, 'trial_reel',
-      'No view count found (likely trial reel).')
+  // We know who posted it and we read their tab. If it is not there, it is
+  // either not a reel (a feed video does not appear on the reels tab) or the
+  // account is private. Both need a person, and neither is a "trial reel".
+  if (owner.productType && owner.productType !== 'clips') {
+    return fail(base, 'not_on_reels_tab',
+      'That is a feed video, not a reel, so Instagram does not show its views publicly. Enter the number by hand.')
   }
-  return fail({ ...base, videoId: code, canonicalUrl }, 'no_video_id',
-    'Instagram has no post with that code. Usually deleted or set to private.')
+  return fail(base, 'not_on_reels_tab',
+    `That reel is not on @${owner.username}'s public reels tab. A private account, or a reel too far back to reach.`)
 }
+
 
 // --------------------------------------------------------------- dispatcher
 // Takes a HOSTNAME, anchored at both ends. A substring test would accept
@@ -577,7 +751,11 @@ export function platformOf(host: string): Platform | null {
   return null
 }
 
-async function resolveOne(url: string, knownId: string | null = null): Promise<Resolved> {
+async function resolveOne(
+  url: string,
+  knownId: string | null = null,
+  opts: { igCache?: IgCache; igHandle?: string | null } = {},
+): Promise<Resolved> {
   let target: URL
   try {
     target = new URL(url.trim())
@@ -589,7 +767,8 @@ async function resolveOne(url: string, knownId: string | null = null): Promise<R
   }
   switch (platformOf(target.hostname)) {
     case 'TikTok': return tiktokViews(target.toString(), knownId)
-    case 'Instagram': return instagramViews(target.toString())
+    case 'Instagram':
+      return instagramViews(target.toString(), opts.igCache ?? newIgCache(), opts.igHandle ?? null)
     case 'YouTube': return youtubeViews(target.toString())
     case 'Facebook': return facebookViews(target.toString(), knownId)
     default:
@@ -605,6 +784,7 @@ type Row = {
   platform: string
   logged_views: number | null
   platform_video_id: string | null
+  creator_id: string | null
 }
 
 async function publishRun(value: Record<string, unknown>) {
@@ -632,12 +812,36 @@ type Progress = {
   chunk: number
 }
 
+// The creators behind this chunk's Instagram entries, so their saved handle can
+// point straight at the right reels tab. It is a hint and not a fact: if the
+// code is not on that tab the resolver goes and asks who really posted it.
+async function igHandles(rows: Row[]): Promise<Map<string, string>> {
+  const ids = [...new Set(rows.filter((r) => r.platform === 'Instagram' && r.creator_id).map((r) => r.creator_id!))]
+  if (!ids.length) return new Map()
+  const { data } = await supabase.from('profiles').select('id, instagram_url').in('id', ids)
+  const out = new Map<string, string>()
+  for (const row of (data ?? []) as { id: string; instagram_url: string | null }[]) {
+    const handle = igHandleFrom(row.instagram_url)
+    if (handle) out.set(row.id, handle)
+  }
+  return out
+}
+
 async function syncChunk(rows: Row[], progress: Progress): Promise<Progress> {
   const p = { ...progress }
   let sincePublish = 0
 
+  // One cache for this chunk and no longer. An isolate is reused between
+  // invocations, so a cache that outlived the run would serve yesterday's
+  // counts as today's.
+  const igCache = newIgCache()
+  const handles = await igHandles(rows)
+
   const one = async (row: Row) => {
-    const r = await resolveOne(row.video_url, row.platform_video_id)
+    const r = await resolveOne(row.video_url, row.platform_video_id, {
+      igCache,
+      igHandle: row.creator_id ? handles.get(row.creator_id) ?? null : null,
+    })
     const now = new Date().toISOString()
 
     if (r.views == null) {
@@ -705,7 +909,7 @@ async function eligibleChallengeIds(): Promise<string[]> {
   return (data ?? []).map((c: { id: string }) => c.id)
 }
 
-const ROW_COLS = 'id, video_url, platform, logged_views, platform_video_id'
+const ROW_COLS = 'id, video_url, platform, logged_views, platform_video_id, creator_id'
 
 // STALENESS BELONGS TO THE ENTRY, not to the run. Oldest reading first, so a
 // programme too big to read in one go drains evenly instead of the same first
@@ -823,7 +1027,9 @@ Deno.serve(async (req) => {
     return json(req, {
       ...r,
       ms: Date.now() - started,
-      instagram_session: have.instagram_sessionid ? 'set' : 'missing',
+      // Instagram needs nothing, on purpose. It is reported so the panel can say
+      // so out loud rather than leaving a blank where a credential used to be.
+      instagram_auth: 'none_required',
       youtube_key: have.youtube_api_key ? 'set' : 'missing',
     })
   }
