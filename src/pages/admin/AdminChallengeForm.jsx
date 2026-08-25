@@ -1,14 +1,20 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { confirm } from '../../lib/confirm'
 import { useAuth } from '../../context/AuthContext'
 import Icon from '../../components/Icon'
+import RichEditable from '../../components/RichEditable'
+import RichToolbar from '../../components/RichToolbar'
+import PlatformBadges from '../../components/PlatformBadges'
+// Two currencies, from the same list every other market control uses. The seven
+// that were here included four nothing has ever been priced in.
+import { COMMON_ZONES, CURRENCIES } from '../../lib/timezones'
 import PointRulesEditor from '../../components/network/PointRulesEditor'
 import { flagFromIso } from '../../components/network/PlaceSwitcher'
 import { PageHeader, Skeleton, Spinner, Select } from '../../components/ui'
 import { DateField, TimeField } from '../../components/DateTimeFields'
-import { SCORING_MODES, scoringMode, DEFAULT_SCORING, STARTER_POINT_RULES } from '../../lib/scoring'
+import { SCORING_MODES, DEFAULT_SCORING, STARTER_POINT_RULES } from '../../lib/scoring'
 import { cx, parseDateTime, isoToDateInput, isoToTimeInput } from '../../lib/utils'
 
 // Create / edit a challenge. Everything is customisable: which market it runs
@@ -37,7 +43,6 @@ const isoToDdmm = (iso) => {
   return m ? `${m[3]}/${m[2]}/${m[1]}` : ''
 }
 
-const CURRENCIES = ['GBP', 'EUR', 'USD', 'RON', 'SEK', 'NOK', 'DKK']
 const CURRENCY_SYMBOL = { GBP: '£', EUR: '€', USD: '$', RON: 'lei ', SEK: 'kr ', NOK: 'kr ', DKK: 'kr ' }
 
 const DEFAULT_PRIZES = [
@@ -56,6 +61,8 @@ export default function AdminChallengeForm() {
 
   const [loading, setLoading] = useState(editing)
   const [busy, setBusy] = useState(false)
+  const briefRef = useRef(null)
+  const rulesRef = useRef(null)
   const [error, setError] = useState('')
   // Markets this admin may create a challenge in. A challenge with no market is
   // the old, unscoped shape: readable by everyone, which is exactly how a
@@ -72,7 +79,6 @@ export default function AdminChallengeForm() {
     participation_prize: '',
     startDateStr: '', startTimeStr: '',
     endDateStr: '', endTimeStr: '',
-    publishDateStr: '', publishTimeStr: '',
     status: 'draft',
     // Reporting fields. None of them change what a creator sees; they are what
     // makes a challenge comparable to every other one on the analytics page
@@ -137,7 +143,6 @@ export default function AdminChallengeForm() {
           ...data,
           startDateStr: isoToDateInput(data.start_date), startTimeStr: isoToTimeInput(data.start_date),
           endDateStr: isoToDateInput(data.end_date), endTimeStr: isoToTimeInput(data.end_date),
-          publishDateStr: isoToDateInput(data.publish_at), publishTimeStr: isoToTimeInput(data.publish_at),
           prize_structure: Array.isArray(data.prize_structure) ? data.prize_structure : DEFAULT_PRIZES,
           participation_threshold: data.participation_threshold ?? '',
           participation_prize: data.participation_prize ?? '',
@@ -175,6 +180,46 @@ export default function AdminChallengeForm() {
     prizes[i] = { ...prizes[i], [key]: value }
     set({ prize_structure: prizes })
   }
+
+  // WHAT THE REPORTING FIELDS USED TO ASK, answered from what is already here.
+  //
+  // Each of these was a select somebody had to remember, sitting in a section
+  // nobody read, feeding a page that depends on them. The most-forgotten fields
+  // on the form and the ones analytics needs most is the worst combination
+  // there is, so none of them are questions any more.
+  const derivedReporting = useMemo(() => {
+    const days = (() => {
+      const a = parseDateTime(form.startDateStr, form.startTimeStr)
+      const b = parseDateTime(form.endDateStr, form.endTimeStr)
+      return a && b ? Math.round((b - a) / 86400000) : null
+    })()
+
+    // A market IS the community the brief belongs to. The old free-text box
+    // asked for "UK, ES, DE" and accepted anything, including nothing.
+    const community = markets.find((c) => c.id === form.community_id)
+    const market = community
+      ? (community.country_codes?.[0] || community.name || null)
+      : null
+
+    // Cash, vouchers, or both - readable off the prizes as written.
+    const prizeText = (form.prize_structure ?? []).map((p) => p.prize || '').join(' ').toLowerCase()
+    const participation = (form.participation_prize || '').toLowerCase()
+    const hasVoucher = /voucher|credit/.test(`${prizeText} ${participation}`)
+    const hasCash = (form.prize_structure ?? []).some((p) => Number(p.amount) > 0)
+    const prize_type = hasCash && hasVoucher ? 'cash_voucher' : hasVoucher ? 'voucher' : 'cash'
+
+    return {
+      market,
+      // Under a fortnight is an express brief; anything longer is the monthly
+      // shape. `always_on` is set by hand on the rare challenge that is.
+      format: form.format === 'always_on' ? 'always_on' : (days != null && days <= 14 ? 'express' : 'monthly'),
+      prize_type,
+      // "Objective" and "how it is won" were the same question asked twice.
+      objective: form.scoring === 'points' ? 'videos' : 'views',
+    }
+  }, [form.startDateStr, form.startTimeStr, form.endDateStr, form.endTimeStr,
+      form.community_id, form.prize_structure, form.participation_prize,
+      form.format, form.scoring, markets])
 
   async function save(e, publishNow = false) {
     e.preventDefault()
@@ -214,22 +259,25 @@ export default function AdminChallengeForm() {
       start_date: startIso,
       end_date: endIso,
       // Optional auto-publish time: a cron flips the draft live at this moment.
-      publish_at: parseDateTime(form.publishDateStr, form.publishTimeStr) || null,
+      // SCHEDULE PUBLISH IS GONE, and the start date does its job.
+      //
+      // Ethan: "if I enter a date that is 10 days ahead, it should
+      // automatically start then - there's no need to schedule it as well." He
+      // is right, and the two fields could disagree: a challenge could be set
+      // to publish on the 5th and start on the 1st, and nothing said which won.
+      // A draft with a future start date now publishes itself at that date.
+      publish_at: parseDateTime(form.startDateStr, form.startTimeStr) || null,
       // "Save & publish" flips a draft live (creators get notified by the DB trigger).
       status: publishNow ? 'active' : form.status,
-      // Reporting fields (admin-only, never shown to creators).
-      market: form.market.trim() || null,
-      format: form.format || null,
+      // DERIVED, not typed. See the note where the Reporting section used to
+      // be: /admin/analytics reads these columns and neither it nor the
+      // database needs to know they stopped being questions.
+      ...derivedReporting,
       audience: form.audience || null,
+      content_type: form.content_type || null,
       prize_currency: form.prize_currency || 'GBP',
-      // Written from the breakdown, not from a field. /admin/analytics reads
-      // these columns and neither it nor the database needs to know they became
-      // derived.
       prize_amount: derivedPot || null,
       winners_count: derivedWinners || null,
-      prize_type: form.prize_type || null,
-      content_type: form.content_type || null,
-      objective: form.objective || null,
       community_id: form.community_id,
       scoring: form.scoring || DEFAULT_SCORING,
       threshold_mode: form.threshold_mode || 'highest',
@@ -281,7 +329,7 @@ export default function AdminChallengeForm() {
   }
 
   if (loading) {
-    return <div className="page max-w-3xl space-y-6"><Skeleton className="h-10 w-72" /><Skeleton className="h-96 w-full" /></div>
+    return <div className="page max-w-5xl space-y-6"><Skeleton className="h-10 w-72" /><Skeleton className="h-96 w-full" /></div>
   }
 
   // Pot and winners come OUT of the prize breakdown rather than being typed
@@ -314,11 +362,10 @@ export default function AdminChallengeForm() {
   }
 
   return (
-    <div className="page max-w-3xl">
+    <div className="page max-w-5xl">
       <PageHeader
         back={{ to: '/admin/challenges', label: 'Challenges' }}
         title={editing ? 'Edit challenge' : 'New challenge'}
-        subtitle={editing ? 'Changes go live immediately for everyone.' : 'Set the brief, the dates and the prizes. Publish when you\'re ready.'}
       />
 
       <form onSubmit={save} className="space-y-10">
@@ -406,12 +453,7 @@ export default function AdminChallengeForm() {
 
         {/* ---------------- How it is won ---------------- */}
         <section className="card space-y-5">
-          <div>
-            <h2 className="text-lg font-semibold">How it is won</h2>
-            <p className="mt-1 text-sm text-smoke">
-              Set per challenge, not per market. The same market can run a points month and a best-video month.
-            </p>
-          </div>
+          <h2 className="text-lg font-semibold">How it is won</h2>
 
           <div className="grid gap-3 sm:grid-cols-3">
             {SCORING_MODES.map((m) => (
@@ -442,20 +484,10 @@ export default function AdminChallengeForm() {
             ))}
           </div>
 
-          {/* A challenge already run under the old prize format keeps it. The
-              option is not offered for a new one, but hiding it while editing
-              would make the form silently propose changing the rules of a
-              finished contest. */}
-          {form.scoring === 'prize' && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-              <p className="text-sm font-semibold text-amber-800">This challenge uses the original prize format</p>
-              <p className="mt-1 text-xs text-amber-700">
-                Judged by the team, ranked on final views. Picking one of the three above changes how this
-                challenge is decided, so only do it if that is what you mean.
-              </p>
-            </div>
-          )}
-
+          {/* A challenge run under the old prize format keeps it. The option is
+              not offered for a new one, and the warning that used to sit here is
+              gone at Ethan's request - it explained a format nobody is choosing
+              and made an edit screen for a finished contest look alarming. */}
           {form.scoring === 'points' && (
             <div className="rounded-xl border border-brand/20 bg-brand-tint/20 p-4">
               <p className="label">Scoring rules for this challenge</p>
@@ -471,12 +503,13 @@ export default function AdminChallengeForm() {
             </div>
           )}
 
-          {(form.scoring === 'best_video' || form.scoring === 'total_views') && (
-            <p className="rounded-xl bg-cloud/60 px-4 py-3 text-sm text-smoke">
-              {scoringMode(form.scoring).winner} Views come from the logged view count on each entry,
-              so keep those up to date as the challenge runs.
-            </p>
-          )}
+          {/* NOTHING HERE FOR THE VIEW-RANKED MODES.
+              Picking "best single video" used to print a paragraph explaining
+              what best single video means - directly under the card that had
+              just explained it, and next to a line about keeping view counts up
+              to date which has not been true since they became automatic. The
+              card is the explanation. Only points needs a box, because points
+              is the only mode with anything left to decide. */}
         </section>
 
         <section className="card space-y-6">
@@ -485,65 +518,125 @@ export default function AdminChallengeForm() {
             <label htmlFor="title" className="label">Title</label>
             <input id="title" type="text" required className="input" value={form.title} onChange={(e) => set({ title: e.target.value })} placeholder='e.g. "Summer Escapes Challenge"' />
           </div>
-          <div>
-            <label htmlFor="description" className="label">Brief / description</label>
-            <textarea id="description" rows={6} required className="input" value={form.description} onChange={(e) => set({ description: e.target.value })} placeholder="What should creators make? What's the angle? What wins?" />
-          </div>
-          <div>
-            <label htmlFor="rules" className="label">Rules</label>
-            <textarea id="rules" rows={5} className="input" value={form.rules} onChange={(e) => set({ rules: e.target.value })} placeholder={'• One entry per platform\n• Tag Tryp.com in the caption\n• …'} />
-          </div>
-        </section>
 
-        <section className="card space-y-6">
-          <h2 className="text-lg font-semibold">Dates & platforms</h2>
-          <div className="grid grid-cols-2 gap-5 sm:grid-cols-4">
-            <DateField id="start_date" label="Start date"
-              value={ddmmToIso(form.startDateStr)}
-              onChange={(iso) => set({ startDateStr: isoToDdmm(iso) })} />
-            <TimeField id="start_time" label="Start time"
-              value={form.startTimeStr}
-              onChange={(v) => set({ startTimeStr: v })} />
-            <DateField id="end_date" label="End date"
-              value={ddmmToIso(form.endDateStr)}
-              onChange={(iso) => set({ endDateStr: isoToDdmm(iso) })}
-              min={ddmmToIso(form.startDateStr) || undefined}
-              futureError="The challenge would end before it starts." />
-            <TimeField id="end_time" label="End time"
-              value={form.endTimeStr}
-              onChange={(v) => set({ endTimeStr: v })} />
-          </div>
-
-          {/* Optional: schedule the challenge to go live automatically. */}
-          <div className="rounded-xl bg-cloud/60 p-4">
-            <p className="label">Schedule publish <span className="font-normal text-smoke">(optional)</span></p>
-            <p className="mb-3 text-xs text-smoke">Save as a draft with a publish time and it goes live automatically (creators get notified). Leave blank to publish manually.</p>
-            <div className="grid grid-cols-2 gap-4">
-              <DateField id="publish_date"
-                value={ddmmToIso(form.publishDateStr)}
-                onChange={(iso) => set({ publishDateStr: isoToDdmm(iso) })} />
-              <TimeField id="publish_time"
-                value={form.publishTimeStr}
-                onChange={(v) => set({ publishTimeStr: v })} optional />
+          {/* WHEN IT RUNS SITS WITH WHAT IT IS CALLED.
+              Dates were three sections further down, past scoring and prizes,
+              which is a strange place for the second thing anybody decides. */}
+          <div>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <DateField id="start_date" label="Starts"
+                value={ddmmToIso(form.startDateStr)}
+                onChange={(iso) => set({ startDateStr: isoToDdmm(iso) })} />
+              <TimeField id="start_time" label="at"
+                value={form.startTimeStr}
+                onChange={(v) => set({ startTimeStr: v })} />
+              <DateField id="end_date" label="Ends"
+                value={ddmmToIso(form.endDateStr)}
+                onChange={(iso) => set({ endDateStr: isoToDdmm(iso) })}
+                min={ddmmToIso(form.startDateStr) || undefined}
+                futureError="The challenge would end before it starts." />
+              <TimeField id="end_time" label="at"
+                value={form.endTimeStr}
+                onChange={(v) => set({ endTimeStr: v })} />
+            </div>
+            {/* The market's own clock, guessed and changeable. A UK challenge
+                closing "at midnight" means midnight in London; the same brief in
+                Spain means midnight in Madrid. */}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="text-xs text-smoke">Times are</span>
+              <Select
+                className="w-44"
+                ariaLabel="Timezone"
+                value={form.tz || 'Europe/London'}
+                onChange={(v) => set({ tz: v })}
+                options={COMMON_ZONES}
+              />
+              <span className="text-xs text-smoke">time.</span>
             </div>
           </div>
+
+          {/* THE BRIEF IS WRITTEN, NOT CODED. Same surface as Notes and the
+              library: headings, bold and bullets look like themselves, the box
+              grows with what you write, and what is stored is the portable
+              markdown the challenge page already renders. */}
           <div>
-            <p className="label">Platforms that count</p>
+            <p className="label">Brief</p>
+            <RichToolbar editorRef={briefRef} only={['h2', 'h3', '|', 'bold', 'italic', 'link', '|', 'ul', 'ol']} />
+            <RichEditable
+              ref={briefRef}
+              docId={`brief-${editing || 'new'}`}
+              initialMd={form.description || ''}
+              onChangeMd={(md) => set({ description: md })}
+              placeholder="What should creators make? What is the angle? What wins?"
+              className="min-h-[12rem] rounded-card border border-gray-200 bg-white px-5 py-4 text-[15px] leading-relaxed focus:border-brand/40"
+            />
+          </div>
+          <div>
+            <p className="label">Rules</p>
+            <RichToolbar editorRef={rulesRef} only={['bold', 'italic', 'link', '|', 'ul', 'ol']} />
+            <RichEditable
+              ref={rulesRef}
+              docId={`rules-${editing || 'new'}`}
+              initialMd={form.rules || ''}
+              onChangeMd={(md) => set({ rules: md })}
+              placeholder="One entry per platform. Tag Tryp.com in the caption."
+              className="min-h-[9rem] rounded-card border border-gray-200 bg-white px-5 py-4 text-[15px] leading-relaxed focus:border-brand/40"
+            />
+          </div>
+
+          {/* PLATFORMS YOU CAN POST ON, with their marks. Four identical grey
+              pills reading Instagram / TikTok / YouTube / Facebook is a list you
+              read; four marks is a row you recognise. */}
+          <div>
+            {/* THE TWO THINGS NOTHING ELSE KNOWS.
+                Everything else the old Reporting section asked for is derived
+                now. Who the brief is aimed at and what kind of video it wants
+                are genuine facts with no other source, so they stay - as two
+                small selects here rather than a section of their own. */}
+            <div className="mb-6 grid gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="audience" className="label">Who it is for</label>
+                <Select id="audience" variant="field" ariaLabel="Who it is for" value={form.audience} onChange={(v) => set({ audience: v })}
+                  options={[
+                    { value: 'general', label: 'Everyone in the market' },
+                    { value: 'ugc', label: 'UGC creators' },
+                    { value: 'vip', label: 'VIP creators' },
+                  ]} />
+              </div>
+              <div>
+                <label htmlFor="content_type" className="label">What kind of video</label>
+                <Select id="content_type" variant="field" ariaLabel="What kind of video" value={form.content_type} onChange={(v) => set({ content_type: v })}
+                  options={[
+                    { value: 'free', label: 'Their own idea' },
+                    { value: 'suggested', label: 'From suggested videos' },
+                    { value: 'talking', label: 'Talking to camera' },
+                    { value: 'hooks', label: 'Built on a hook' },
+                    { value: 'other', label: 'Something else' },
+                  ]} />
+              </div>
+            </div>
+
+            <p className="label">Platforms you can post on</p>
             <div className="flex flex-wrap gap-2">
-              {ALL_PLATFORMS.map((p) => (
-                <button
-                  key={p} type="button" onClick={() => togglePlatform(p)} aria-pressed={form.platforms.includes(p)}
-                  className={cx(
-                    'rounded-full px-5 py-2 text-sm font-medium transition-colors',
-                    form.platforms.includes(p) ? 'bg-brand text-white' : 'border border-gray-200 text-smoke hover:border-brand hover:text-brand'
-                  )}
-                >
-                  {p}
-                </button>
-              ))}
+              {ALL_PLATFORMS.map((p) => {
+                const on = form.platforms.includes(p)
+                return (
+                  <button
+                    key={p} type="button" onClick={() => togglePlatform(p)} aria-pressed={on}
+                    className={cx(
+                      'inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-all duration-200',
+                      on ? 'border-brand bg-brand-tint text-brand' : 'border-gray-200 text-smoke hover:-translate-y-0.5 hover:border-brand hover:text-brand',
+                    )}
+                  >
+                    <PlatformBadges platforms={[p]} size="sm" />
+                    {p}
+                  </button>
+                )
+              })}
             </div>
           </div>
         </section>
+
 
         <section className="card space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -562,11 +655,8 @@ export default function AdminChallengeForm() {
                 className="w-28" ariaLabel="Prize currency"
                 value={form.prize_currency}
                 onChange={(v) => set({ prize_currency: v })}
-                options={CURRENCIES.map((c) => ({ value: c, label: c }))}
+                options={CURRENCIES}
               />
-              <button type="button" className="btn-secondary !py-2 text-xs" onClick={() => set({ prize_structure: [...form.prize_structure, { place: '', prize: '', amount: '' }] })}>
-                + Add prize
-              </button>
             </div>
           </div>
           {form.prize_structure.map((p, i) => (
@@ -577,7 +667,22 @@ export default function AdminChallengeForm() {
               />
               <input
                 type="text" className="input min-w-0 flex-1" placeholder="What they get (e.g. £150 cash)"
-                value={p.prize} onChange={(e) => setPrize(i, 'prize', e.target.value)} aria-label={`Prize ${i + 1} description`}
+                value={p.prize}
+                onChange={(e) => {
+                  const text = e.target.value
+                  setPrize(i, 'prize', text)
+                  // READ THE NUMBER OUT OF THE WORDS.
+                  //
+                  // Ethan: type "£105 cash" and the value box should fill in.
+                  // Only while it is still EMPTY - a guess that overwrites a
+                  // figure somebody typed is worse than no guess, because they
+                  // have no reason to look at it again.
+                  if (!String(p.amount ?? '').trim()) {
+                    const m = text.match(/(?:[£€$]\s*)?(\d[\d,]*(?:\.\d{1,2})?)/)
+                    if (m) setPrize(i, 'amount', m[1].replace(/,/g, ''))
+                  }
+                }}
+                aria-label={`Prize ${i + 1} description`}
               />
               {/* The VALUE, separate from the words. "£150 cash and a jacket" is
                   the right thing to show a creator and an impossible thing to
@@ -598,6 +703,43 @@ export default function AdminChallengeForm() {
               </button>
             </div>
           ))}
+
+          {/* THE BUTTON GOES WHERE THE LIST ENDS. It was up in the header
+              beside the currency, which reads as page furniture rather than
+              "add another row to this". */}
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-xl border border-dashed border-gray-300 px-4 py-2.5 text-sm font-medium text-smoke transition-all duration-200 hover:border-brand hover:text-brand"
+            onClick={() => set({ prize_structure: [...form.prize_structure, { place: '', prize: '', amount: '' }] })}
+          >
+            <Icon name="plus" className="h-4 w-4" /> Add a prize
+          </button>
+
+          {/* THE PARTICIPATION REWARD IS A PRIZE, so it sits with the prizes
+              and above the total rather than in a tinted box of its own at the
+              bottom. Ethan asked for exactly that, and for the explanation to
+              go: the sentence described a mechanism that is now fully automatic
+              - the badge appears on the leaderboard by itself and the voucher
+              count is derived from the entries, so there is nothing here for a
+              person to remember. */}
+          <div className="flex flex-col gap-2 rounded-xl border border-gray-100 bg-cloud/40 px-4 py-3 sm:flex-row sm:items-center">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-smoke">Post</span>
+              <input
+                type="number" min="1" inputMode="numeric" className="input !w-16 text-center"
+                value={form.participation_threshold}
+                onChange={(e) => set({ participation_threshold: e.target.value })}
+                placeholder="3" aria-label="Videos needed for the participation reward"
+              />
+              <span className="text-sm text-smoke">videos and everyone gets</span>
+            </div>
+            <input
+              type="text" className="input min-w-0 flex-1"
+              value={form.participation_prize}
+              onChange={(e) => set({ participation_prize: e.target.value })}
+              placeholder="e.g. £10 Tryp.com voucher" aria-label="Participation reward"
+            />
+          </div>
 
           {/* The totals, derived. Nothing to type and nothing to keep in sync. */}
           <div className="flex flex-wrap items-center gap-x-8 gap-y-2 rounded-xl bg-cloud/60 px-4 py-3 text-sm">
@@ -627,118 +769,25 @@ export default function AdminChallengeForm() {
           {/* Participation reward: a separate, structured prize earned by posting
               a set number of videos. The number here drives when the voucher
               badge appears on the leaderboard. */}
-          <div className="rounded-xl border border-brand/20 bg-brand-tint/40 p-4">
-            <p className="label">Participation reward <span className="font-normal text-smoke">(optional)</span></p>
-            <p className="mb-3 text-xs text-smoke">Reward every creator who posts a set number of videos. It shows on the challenge and a badge appears beside them on the leaderboard once they hit the target.</p>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-smoke">Post</span>
-                <input
-                  type="number" min="1" inputMode="numeric" className="input !w-20 text-center"
-                  value={form.participation_threshold}
-                  onChange={(e) => set({ participation_threshold: e.target.value })}
-                  placeholder="3" aria-label="Videos needed for the participation reward"
-                />
-                <span className="text-sm text-smoke">videos to earn</span>
-              </div>
-              <input
-                type="text" className="input flex-1"
-                value={form.participation_prize}
-                onChange={(e) => set({ participation_prize: e.target.value })}
-                placeholder="e.g. £10 Tryp.com voucher" aria-label="Participation reward"
-              />
-            </div>
-          </div>
         </section>
 
-        {/* Reporting. Nothing here is shown to a creator: these are the fields
-            that let /admin/analytics compare one challenge to another (cost per
-            thousand views, cost per post, performance by market and format).
-            The prize pot is a single number on purpose - the prize breakdown
-            above is copy for creators, this is the figure finance works from. */}
-        <section className="card space-y-6">
-          <div>
-            <h2 className="text-lg font-semibold">Reporting</h2>
-            <p className="mt-1 text-sm text-smoke">
-              Admin only, never shown to creators. These fields are what make this challenge
-              comparable to every other one on the analytics page.
-            </p>
-          </div>
+        {/* THE REPORTING SECTION IS GONE, and almost all of it was already
+            known. Ethan: "you obviously have all this info already and this
+            should be automated." He is right about five of the six fields:
 
-          {/* The three numbers that used to be typed here - pot, winners and
-              CPM target - are now DERIVED: the first two from the prize
-              breakdown above, the third from the market this challenge belongs
-              to. They were the most-forgotten fields on the form and the ones
-              the analytics page depends on most, which is the worst possible
-              combination. What is left here is the labelling that genuinely has
-              no other source. */}
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div>
-              <label htmlFor="market" className="label">Market</label>
-              <input
-                id="market" type="text" className="input" value={form.market}
-                onChange={(e) => set({ market: e.target.value.toUpperCase().slice(0, 4) })}
-                placeholder="UK"
-              />
-              <p className="mt-1 text-xs text-smoke">Country code, e.g. UK, ES, DE.</p>
-            </div>
-            <div>
-              <label htmlFor="format" className="label">Format</label>
-              <Select id="format" variant="field" ariaLabel="Format" value={form.format} onChange={(v) => set({ format: v })}
-                options={[
-                  { value: 'monthly', label: 'Monthly' },
-                  { value: 'express', label: 'Express' },
-                  { value: 'always_on', label: 'Always on' },
-                ]} />
-            </div>
-            <div>
-              <label htmlFor="audience" className="label">Group</label>
-              <Select id="audience" variant="field" ariaLabel="Group" value={form.audience} onChange={(v) => set({ audience: v })}
-                options={[
-                  { value: 'general', label: 'General' },
-                  { value: 'ugc', label: 'UGC' },
-                  { value: 'vip', label: 'VIP' },
-                ]} />
-            </div>
-          </div>
+              market       the challenge belongs to a community; that IS its market
+              format       a 30-day brief is monthly and a 7-day one is express
+              prize_type   readable from the prize breakdown - is there cash in it,
+                           vouchers, or both
+              objective    said the same thing as "how it is won", one section up
+              prize pot    already the sum of the prizes
+              winners      already the number of places
 
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div>
-              <label htmlFor="prize_type" className="label">Prize type</label>
-              <Select id="prize_type" variant="field" ariaLabel="Prize type" value={form.prize_type} onChange={(v) => set({ prize_type: v })}
-                options={[
-                  { value: 'cash', label: 'Cash' },
-                  { value: 'voucher', label: 'Travel voucher' },
-                  { value: 'cash_voucher', label: 'Cash & voucher' },
-                  { value: 'product', label: 'Product' },
-                  { value: 'other', label: 'Other' },
-                ]} />
-            </div>
-            <div>
-              <label htmlFor="content_type" className="label">Content type</label>
-              <Select id="content_type" variant="field" ariaLabel="Content type" value={form.content_type} onChange={(v) => set({ content_type: v })}
-                options={[
-                  { value: 'free', label: 'Free' },
-                  { value: 'suggested', label: 'Suggested videos' },
-                  { value: 'talking', label: 'Talking style' },
-                  { value: 'hooks', label: 'Hooks' },
-                  { value: 'other', label: 'Other' },
-                ]} />
-            </div>
-            {/* How the challenge is won lives in its own section above. It is a
-                product decision creators see, not a reporting field. */}
-            <div>
-              <label htmlFor="objective" className="label">Objective</label>
-              <Select id="objective" variant="field" ariaLabel="Objective" value={form.objective} onChange={(v) => set({ objective: v })}
-                options={[
-                  { value: 'views', label: 'Views' },
-                  { value: 'videos', label: 'Number of videos' },
-                  { value: 'creativity', label: 'Creativity' },
-                  { value: 'trust', label: 'Views / trust' },
-                ]} />
-            </div>
-          </div>
-        </section>
+            All six are derived on save (see `derivedReporting`), so they are
+            right by construction rather than right if somebody remembered. The
+            two that genuinely have no other source - who the brief is aimed at,
+            and what KIND of video it asks for - are two selects in the basics
+            rather than a section of their own. */}
 
         {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
 
