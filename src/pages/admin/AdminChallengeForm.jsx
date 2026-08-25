@@ -489,7 +489,13 @@ export default function AdminChallengeForm() {
               gone at Ethan's request - it explained a format nobody is choosing
               and made an edit screen for a finished contest look alarming. */}
           {form.scoring === 'points' && (
-            <div className="rounded-xl border border-brand/20 bg-brand-tint/20 p-4">
+            // A NEUTRAL PANEL. It was a brand-tinted box holding brand-tinted
+            // controls, which Ethan flagged: everything inside it was the same
+            // pale orange as everything else, so the points values - the one
+            // thing on the panel worth spotting - had nothing to stand out
+            // against. The panel is plain now and the points are the only
+            // orange thing on it.
+            <div className="rounded-xl border border-gray-200 bg-cloud/40 p-4">
               <p className="label">Scoring rules for this challenge</p>
               <p className="mb-4 text-xs text-smoke">
                 Creators see these on the brief. Editing them after the challenge is live rescores it.

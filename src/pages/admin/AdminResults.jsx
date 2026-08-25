@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Avatar, EmptyState, PageHeader, Skeleton, Spinner } from '../../components/ui'
 import Icon from '../../components/Icon'
-import { formatViews, timeAgo } from '../../lib/utils'
+import { cx, formatViews, timeAgo } from '../../lib/utils'
 import { describeSyncError } from '../../lib/viewSync'
 import WinnersPodium from '../../components/WinnersPodium'
 import ViewSyncPanel from '../../components/admin/ViewSyncPanel'
@@ -64,6 +64,37 @@ export default function AdminResults() {
   function flash(msg) {
     setToast(msg)
     setTimeout(() => setToast(''), 3500)
+  }
+
+  // The bonus rules this challenge defines, and which entries already have one.
+  const [bonusRules, setBonusRules] = useState([])
+  const [awarded, setAwarded] = useState(new Set())
+
+  const loadBonuses = useCallback(async () => {
+    const [{ data: rules }, { data: given }] = await Promise.all([
+      supabase.from('point_rules').select('id, label, points')
+        .eq('challenge_id', id).eq('kind', 'bonus').eq('is_active', true).order('position'),
+      supabase.from('point_awards').select('submission_id, rule_id')
+        .eq('challenge_id', id).eq('is_auto', false),
+    ])
+    setBonusRules(rules ?? [])
+    setAwarded(new Set((given ?? []).filter((a) => a.submission_id).map((a) => `${a.submission_id}:${a.rule_id}`)))
+  }, [id])
+  useEffect(() => { loadBonuses() }, [loadBonuses])
+
+  async function toggleBonus(sub, rule, given) {
+    // Optimistic: the standings recalculate server-side and the button has to
+    // answer immediately or it reads as having done nothing.
+    setAwarded((prev) => {
+      const next = new Set(prev)
+      const key = `${sub.id}:${rule.id}`
+      if (given) next.delete(key); else next.add(key)
+      return next
+    })
+    const { error } = await supabase.rpc(given ? 'withdraw_bonus' : 'award_bonus', {
+      p_submission: sub.id, p_rule: rule.id,
+    })
+    if (error) { flash(error.message); loadBonuses() }
   }
 
   // Save one submission's logged views (on blur or Enter).
@@ -348,6 +379,38 @@ export default function AdminResults() {
                       : '-'}
                 </span>
               </div>
+
+              {/* BONUS POINTS ARE GIVEN HERE, to this entry, by a person.
+                  A bonus rule says what it is called and what it is worth; it
+                  cannot say who earned it, because "this one was genuinely
+                  brilliant" is a judgement. The button only exists on a points
+                  challenge that HAS a bonus rule, so it is never a control
+                  looking for a purpose. */}
+              {bonusRules.length > 0 && (
+                <div className="flex w-full flex-wrap gap-1.5 pl-[52px] sm:w-auto sm:pl-0">
+                  {bonusRules.map((r) => {
+                    const given = awarded.has(`${s.id}:${r.id}`)
+                    return (
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() => toggleBonus(s, r, given)}
+                        aria-pressed={given}
+                        title={given ? `Take back ${r.label}` : `Award ${r.label}`}
+                        className={cx(
+                          'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-all duration-200',
+                          given
+                            ? 'border-brand bg-brand text-white'
+                            : 'border-gray-200 text-smoke hover:-translate-y-0.5 hover:border-brand hover:text-brand',
+                        )}
+                      >
+                        <Icon name={given ? 'check' : 'plus'} className="h-3 w-3" />
+                        {r.points} pt{r.points === 1 ? '' : 's'} · {r.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           ))}
         </div>

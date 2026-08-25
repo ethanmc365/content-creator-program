@@ -29,53 +29,85 @@ const newRule = (kind) => ({
   max_points: kind === 'per_post' ? 10 : null,
 })
 
+// ONE ROW, AND THE SAME SHAPE WHATEVER THE RULE IS.
+//
+// Ethan's report was that the three kinds looked different from each other and
+// that points and views were easy to mix up. Both were true, and they had the
+// same cause: the second number moved around. A "per video" row put its cap
+// before the points, a milestone row put its view count before the points, and
+// a bonus row had nothing there at all - so the eye never learned where to look
+// and the two numbers on a milestone row (5 and 10,000) sat in identical boxes
+// meaning completely different things.
+//
+// Now: the name is always the same width, POINTS ALWAYS COMES FIRST and always
+// looks the same, and whatever else the rule needs comes after it in a box that
+// is visibly not a points box. You read every row the same way.
 function Row({ rule, onChange, onRemove }) {
   const meta = KINDS[rule.kind] || KINDS.bonus
-  const isThreshold = rule.kind === 'views_threshold'
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-100 bg-white px-3 py-2.5">
-      <Icon name={meta.icon} className="h-4 w-4 shrink-0 text-brand" />
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-cloud text-smoke" title={meta.label}>
+        <Icon name={meta.icon} className="h-4 w-4" />
+      </span>
+
+      {/* Always the same width, whatever kind of rule this is. */}
       <input
-        className="input !w-auto min-w-0 flex-1 !py-1.5 !text-sm"
+        className="input !w-auto min-w-[8rem] flex-1 !py-1.5 !text-sm"
         value={rule.label}
         onChange={(e) => onChange({ ...rule, label: e.target.value })}
         aria-label="Rule name"
       />
-      {isThreshold && (
-        <label className="flex items-center gap-1.5 text-xs text-smoke">
-          over
-          <input
-            type="number" className="input !w-24 !py-1.5 !text-sm"
-            value={rule.threshold ?? ''}
-            onChange={(e) => onChange({ ...rule, threshold: e.target.value === '' ? null : Number(e.target.value) })}
-            aria-label="View threshold"
-          />
-          views
-        </label>
-      )}
-      {rule.kind === 'per_post' && (
-        <label className="flex items-center gap-1.5 text-xs text-smoke">
-          max
-          <input
-            type="number" className="input !w-20 !py-1.5 !text-sm"
-            value={rule.max_points ?? ''}
-            onChange={(e) => onChange({ ...rule, max_points: e.target.value === '' ? null : Number(e.target.value) })}
-            aria-label="Maximum points"
-          />
-        </label>
-      )}
-      <label className="flex items-center gap-1.5 text-xs font-semibold text-ink">
+
+      {/* POINTS. Brand-coloured and first, every time. */}
+      <label className="flex shrink-0 items-center gap-1.5 rounded-lg bg-brand-tint px-2 py-1">
         <input
-          type="number" step="0.5" className="input !w-20 !py-1.5 !text-sm"
+          type="number" step="0.5"
+          className="w-14 border-0 bg-transparent p-0 text-center text-sm font-bold text-brand outline-none focus:ring-0"
           value={rule.points}
           onChange={(e) => onChange({ ...rule, points: Number(e.target.value) })}
           aria-label="Points"
         />
-        pts
+        <span className="text-xs font-semibold text-brand">pts</span>
       </label>
+
+      {/* And what earns them. Plain, so it can never be read as a points box. */}
+      {rule.kind === 'views_threshold' && (
+        <label className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 px-2 py-1">
+          <span className="text-xs text-smoke">at</span>
+          <input
+            type="number"
+            className="w-24 border-0 bg-transparent p-0 text-center text-sm tabular-nums outline-none focus:ring-0"
+            value={rule.threshold ?? ''}
+            onChange={(e) => onChange({ ...rule, threshold: e.target.value === '' ? null : Number(e.target.value) })}
+            aria-label="View threshold"
+          />
+          <span className="text-xs text-smoke">views</span>
+        </label>
+      )}
+
+      {rule.kind === 'per_post' && (
+        <label className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 px-2 py-1">
+          <span className="text-xs text-smoke">up to</span>
+          <input
+            type="number"
+            className="w-14 border-0 bg-transparent p-0 text-center text-sm tabular-nums outline-none focus:ring-0"
+            value={rule.max_points ?? ''}
+            onChange={(e) => onChange({ ...rule, max_points: e.target.value === '' ? null : Number(e.target.value) })}
+            aria-label="Maximum points"
+          />
+          <span className="text-xs text-smoke">pts</span>
+        </label>
+      )}
+
+      {rule.kind === 'bonus' && (
+        <span className="shrink-0 rounded-lg border border-dashed border-gray-200 px-2.5 py-1.5 text-xs text-smoke">
+          given by an admin, on an entry
+        </span>
+      )}
+
       <button
         type="button" onClick={onRemove}
-        className="rounded-lg p-1.5 text-smoke transition-colors hover:bg-red-50 hover:text-red-600"
+        className="shrink-0 rounded-lg p-1.5 text-smoke transition-colors hover:bg-red-50 hover:text-red-600"
         aria-label={`Remove ${rule.label}`}
       >
         <Icon name="trash" className="h-4 w-4" />
