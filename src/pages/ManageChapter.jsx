@@ -13,7 +13,7 @@ import PeoplePicker from '../components/network/PeoplePicker'
 import { MarketHeaderSkeleton, CardGridSkeleton } from '../components/network/Skeletons'
 import { toast } from '../lib/toast'
 import Icon from '../components/Icon'
-import { Avatar, Badge, EmptyState, PageHeader } from '../components/ui'
+import { Avatar, Badge, EmptyState, PageHeader, Select } from '../components/ui'
 import { scoringMode } from '../lib/scoring'
 import { COUNTRIES } from '../lib/countries'
 import { clearScopeCache } from '../lib/scope'
@@ -552,10 +552,9 @@ export default function ManageChapter() {
               <div className="grid gap-4 sm:grid-cols-3">
                 <label className="block">
                   <span className="mb-1.5 block text-sm font-medium">Currency</span>
-                  <select className="input" value={settings.currency}
-                    onChange={(e) => setSettings({ ...settings, currency: e.target.value })}>
-                    {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                  </select>
+                  <Select variant="field" ariaLabel="Currency" value={settings.currency}
+                    onChange={(v) => setSettings({ ...settings, currency: v })}
+                    options={CURRENCIES.map((c) => ({ value: c, label: c }))} />
                 </label>
                 <label className="block">
                   <span className="mb-1.5 block text-sm font-medium">Timezone</span>

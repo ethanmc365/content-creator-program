@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { format } from 'date-fns'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { Badge, EmptyState, Skeleton, Spinner, StatCard } from '../../components/ui'
+import { Badge, EmptyState, Skeleton, Spinner, StatCard, Select } from '../../components/ui'
 import Icon from '../../components/Icon'
 import PaymentDetailsFields from '../../components/PaymentDetails'
 import { confirm, notice } from '../../lib/confirm'
@@ -475,10 +475,12 @@ export default function InvoicesPanel({ prefill }) {
 
             <div>
               <label htmlFor="inv-creator" className="label">Creator</label>
-              <select id="inv-creator" className="input" value={creatorId} onChange={(e) => selectCreator(e.target.value)}>
-                <option value="">Choose a creator…</option>
-                {creators.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <Select
+                id="inv-creator" variant="field" ariaLabel="Creator" placeholder="Choose a creator…"
+                value={creatorId}
+                onChange={selectCreator}
+                options={creators.map((c) => ({ value: c.id, label: c.name }))}
+              />
               {creatorId && !hasSaved && (
                 <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-700">
                   {creatorName} hasn’t saved payment details yet. Ask them to add them in Edit profile,

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { Avatar, Badge, CopyButton, EmptyState, Modal, PageHeader, Skeleton, Spinner, StatCard } from '../../components/ui'
+import { Avatar, Badge, CopyButton, EmptyState, Modal, PageHeader, Skeleton, Spinner, StatCard, Select } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { formatDate, formatMoney, downloadCsv } from '../../lib/utils'
 import { notice } from '../../lib/confirm'
@@ -411,25 +411,31 @@ export default function AdminRewards() {
         <form onSubmit={addReward} className="space-y-5">
           <div>
             <label htmlFor="r-creator" className="label">Creator</label>
-            <select id="r-creator" required className="input" value={newReward.creator_id} onChange={(e) => setNewReward({ ...newReward, creator_id: e.target.value })}>
-              <option value="">Choose a creator…</option>
-              {creators.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+            <Select
+              id="r-creator" variant="field" ariaLabel="Creator" placeholder="Choose a creator…"
+              value={newReward.creator_id}
+              onChange={(v) => setNewReward({ ...newReward, creator_id: v })}
+              options={creators.map((c) => ({ value: c.id, label: c.name }))}
+            />
           </div>
           <div>
             <label htmlFor="r-challenge" className="label">Challenge <span className="font-normal text-smoke">(optional)</span></label>
-            <select id="r-challenge" className="input" value={newReward.challenge_id} onChange={(e) => setNewReward({ ...newReward, challenge_id: e.target.value })}>
-              <option value="">Not tied to a challenge</option>
-              {challenges.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
-            </select>
+            <Select
+              id="r-challenge" variant="field" ariaLabel="Challenge"
+              value={newReward.challenge_id}
+              onChange={(v) => setNewReward({ ...newReward, challenge_id: v })}
+              options={[{ value: '', label: 'Not tied to a challenge' }, ...challenges.map((c) => ({ value: c.id, label: c.title }))]}
+            />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label htmlFor="r-type" className="label">Type</label>
-              <select id="r-type" className="input" value={newReward.reward_type} onChange={(e) => setNewReward({ ...newReward, reward_type: e.target.value })}>
-                <option value="cash">Cash (£)</option>
-                <option value="voucher">Tryp.com voucher</option>
-              </select>
+              <Select
+                id="r-type" variant="field" ariaLabel="Reward type"
+                value={newReward.reward_type}
+                onChange={(v) => setNewReward({ ...newReward, reward_type: v })}
+                options={[{ value: 'cash', label: 'Cash (£)' }, { value: 'voucher', label: 'Tryp.com voucher' }]}
+              />
             </div>
             <div>
               <label htmlFor="r-amount" className="label">Amount (£)</label>

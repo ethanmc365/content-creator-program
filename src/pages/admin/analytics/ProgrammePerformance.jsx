@@ -6,7 +6,7 @@ import {
 } from 'recharts'
 import { format, startOfMonth } from 'date-fns'
 import { supabase } from '../../../lib/supabase'
-import { EmptyState, Skeleton, StatCard } from '../../../components/ui'
+import { EmptyState, Skeleton, StatCard, Select } from '../../../components/ui'
 import Icon from '../../../components/Icon'
 import { downloadCsv, formatViews, cx } from '../../../lib/utils'
 import {
@@ -206,16 +206,17 @@ export default function ProgrammePerformance() {
           ))}
         </div>
         {data.markets.length > 0 && (
-          <select
+          <Select
             value={marketFilter}
-            onChange={(e) => setMarketFilter(e.target.value)}
-            className="input !w-auto !py-2 text-sm"
-            aria-label="Filter by market"
-          >
-            <option value="all">All markets</option>
-            {data.markets.map((m) => <option key={m} value={m}>{m}</option>)}
-            <option value="Unspecified">Unspecified</option>
-          </select>
+            onChange={setMarketFilter}
+            className="w-44"
+            ariaLabel="Filter by market"
+            options={[
+              { value: 'all', label: 'All markets' },
+              ...data.markets.map((m) => ({ value: m, label: m })),
+              { value: 'Unspecified', label: 'Unspecified' },
+            ]}
+          />
         )}
         <button onClick={() => downloadCsv(`challenge-log-${currency}.csv`, exportRows)} className="btn-secondary !py-2 text-xs">
           Export challenge log

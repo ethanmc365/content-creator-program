@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { confirm, notice } from '../lib/confirm'
-import { PageHeader, Toggle, Spinner } from '../components/ui'
+import { PageHeader, Toggle, Spinner, Select } from '../components/ui'
 import Icon from '../components/Icon'
 import { useTimezone, allZones, zoneCity } from '../lib/timezone'
 import Reveal from '../components/network/Reveal'
@@ -359,19 +359,19 @@ export default function Settings() {
         {tz.pinned && (
           <label className="mt-3 block">
             <span className="label">Timezone</span>
-            <select
-              className="input"
+            {/* The device's own zone first, always, even if it is also further
+                down the list: it is the one somebody is most likely to want, and
+                four hundred rows is exactly why this control has a search box. */}
+            <Select
+              variant="field"
+              ariaLabel="Timezone"
               value={tz.pinned}
-              onChange={(e) => tz.save(e.target.value, { ackDevice: false })}
-            >
-              {/* The device's own zone first, always, even if it is also further
-                  down the list: it is the one somebody is most likely to want
-                  and hunting for it in four hundred rows is not a feature. */}
-              {tz.device && <option value={tz.device}>{tz.device} (this device)</option>}
-              {allZones().filter((z) => z !== tz.device).map((z) => (
-                <option key={z} value={z}>{z}</option>
-              ))}
-            </select>
+              onChange={(v) => tz.save(v, { ackDevice: false })}
+              options={[
+                ...(tz.device ? [{ value: tz.device, label: `${tz.device} (this device)` }] : []),
+                ...allZones().filter((z) => z !== tz.device).map((z) => ({ value: z, label: z })),
+              ]}
+            />
           </label>
         )}
         <p className="mt-2 text-[11px] text-smoke">

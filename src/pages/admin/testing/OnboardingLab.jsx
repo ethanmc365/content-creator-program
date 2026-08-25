@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Badge } from '../../../components/ui'
+import { Badge, Select } from '../../../components/ui'
 import Icon from '../../../components/Icon'
 import { STEPS } from '../../Onboarding'
 import { COUNTRIES } from '../../../lib/countries'
@@ -226,14 +226,14 @@ export default function OnboardingLab() {
         <div className="grid gap-6 lg:grid-cols-2">
           <div>
             <label className="label" htmlFor="probe">A creator who lives in</label>
-            <select
+            <Select
               id="probe"
-              className="input"
+              variant="field"
+              ariaLabel="Country"
               value={probeCountry}
-              onChange={(e) => setProbeCountry(e.target.value)}
-            >
-              {COUNTRIES.map((c) => <option key={c.iso2} value={c.name}>{c.name}</option>)}
-            </select>
+              onChange={setProbeCountry}
+              options={COUNTRIES.map((c) => ({ value: c.name, label: c.name }))}
+            />
 
             <div className="mt-5">
               <MarketAnswer result={probe} country={probeCountry} />

@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import Icon from '../../components/Icon'
 import PointRulesEditor from '../../components/network/PointRulesEditor'
 import { flagFromIso } from '../../components/network/PlaceSwitcher'
-import { PageHeader, Skeleton, Spinner } from '../../components/ui'
+import { PageHeader, Skeleton, Spinner, Select } from '../../components/ui'
 import { DateField, TimeField } from '../../components/DateTimeFields'
 import { SCORING_MODES, scoringMode, DEFAULT_SCORING, STARTER_POINT_RULES } from '../../lib/scoring'
 import { cx, parseDateTime, isoToDateInput, isoToTimeInput } from '../../lib/utils'
@@ -542,13 +542,12 @@ export default function AdminChallengeForm() {
                   rather than buried in a reporting section further down. It is
                   also the thing that makes a prize legible to a creator in
                   Bucharest reading a brief written in London. */}
-              <select
-                className="input !w-24" value={form.prize_currency}
-                onChange={(e) => set({ prize_currency: e.target.value })}
-                aria-label="Prize currency"
-              >
-                {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
+              <Select
+                className="w-28" ariaLabel="Prize currency"
+                value={form.prize_currency}
+                onChange={(v) => set({ prize_currency: v })}
+                options={CURRENCIES.map((c) => ({ value: c, label: c }))}
+              />
               <button type="button" className="btn-secondary !py-2 text-xs" onClick={() => set({ prize_structure: [...form.prize_structure, { place: '', prize: '', amount: '' }] })}>
                 + Add prize
               </button>
@@ -669,53 +668,58 @@ export default function AdminChallengeForm() {
             </div>
             <div>
               <label htmlFor="format" className="label">Format</label>
-              <select id="format" className="input" value={form.format} onChange={(e) => set({ format: e.target.value })}>
-                <option value="monthly">Monthly</option>
-                <option value="express">Express</option>
-                <option value="always_on">Always on</option>
-              </select>
+              <Select id="format" variant="field" ariaLabel="Format" value={form.format} onChange={(v) => set({ format: v })}
+                options={[
+                  { value: 'monthly', label: 'Monthly' },
+                  { value: 'express', label: 'Express' },
+                  { value: 'always_on', label: 'Always on' },
+                ]} />
             </div>
             <div>
               <label htmlFor="audience" className="label">Group</label>
-              <select id="audience" className="input" value={form.audience} onChange={(e) => set({ audience: e.target.value })}>
-                <option value="general">General</option>
-                <option value="ugc">UGC</option>
-                <option value="vip">VIP</option>
-              </select>
+              <Select id="audience" variant="field" ariaLabel="Group" value={form.audience} onChange={(v) => set({ audience: v })}
+                options={[
+                  { value: 'general', label: 'General' },
+                  { value: 'ugc', label: 'UGC' },
+                  { value: 'vip', label: 'VIP' },
+                ]} />
             </div>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
               <label htmlFor="prize_type" className="label">Prize type</label>
-              <select id="prize_type" className="input" value={form.prize_type} onChange={(e) => set({ prize_type: e.target.value })}>
-                <option value="cash">Cash</option>
-                <option value="voucher">Travel voucher</option>
-                <option value="cash_voucher">Cash &amp; voucher</option>
-                <option value="product">Product</option>
-                <option value="other">Other</option>
-              </select>
+              <Select id="prize_type" variant="field" ariaLabel="Prize type" value={form.prize_type} onChange={(v) => set({ prize_type: v })}
+                options={[
+                  { value: 'cash', label: 'Cash' },
+                  { value: 'voucher', label: 'Travel voucher' },
+                  { value: 'cash_voucher', label: 'Cash & voucher' },
+                  { value: 'product', label: 'Product' },
+                  { value: 'other', label: 'Other' },
+                ]} />
             </div>
             <div>
               <label htmlFor="content_type" className="label">Content type</label>
-              <select id="content_type" className="input" value={form.content_type} onChange={(e) => set({ content_type: e.target.value })}>
-                <option value="free">Free</option>
-                <option value="suggested">Suggested videos</option>
-                <option value="talking">Talking style</option>
-                <option value="hooks">Hooks</option>
-                <option value="other">Other</option>
-              </select>
+              <Select id="content_type" variant="field" ariaLabel="Content type" value={form.content_type} onChange={(v) => set({ content_type: v })}
+                options={[
+                  { value: 'free', label: 'Free' },
+                  { value: 'suggested', label: 'Suggested videos' },
+                  { value: 'talking', label: 'Talking style' },
+                  { value: 'hooks', label: 'Hooks' },
+                  { value: 'other', label: 'Other' },
+                ]} />
             </div>
             {/* How the challenge is won lives in its own section above. It is a
                 product decision creators see, not a reporting field. */}
             <div>
               <label htmlFor="objective" className="label">Objective</label>
-              <select id="objective" className="input" value={form.objective} onChange={(e) => set({ objective: e.target.value })}>
-                <option value="views">Views</option>
-                <option value="videos">Number of videos</option>
-                <option value="creativity">Creativity</option>
-                <option value="trust">Views / trust</option>
-              </select>
+              <Select id="objective" variant="field" ariaLabel="Objective" value={form.objective} onChange={(v) => set({ objective: v })}
+                options={[
+                  { value: 'views', label: 'Views' },
+                  { value: 'videos', label: 'Number of videos' },
+                  { value: 'creativity', label: 'Creativity' },
+                  { value: 'trust', label: 'Views / trust' },
+                ]} />
             </div>
           </div>
         </section>

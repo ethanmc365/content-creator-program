@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { confirm } from '../../lib/confirm'
 import { supabase } from '../../lib/supabase'
-import { Avatar, Badge, EmptyState, PageHeader, Skeleton } from '../../components/ui'
+import { Avatar, Badge, EmptyState, PageHeader, Select, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { formatDate } from '../../lib/utils'
 
@@ -66,15 +66,24 @@ export default function AdminFeedback() {
       />
 
       <div className="mb-8 flex flex-col gap-3 sm:flex-row">
-        <select className="input sm:max-w-[180px]" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} aria-label="Filter by type">
-          <option value="">All types</option>
-          <option value="bug">Bugs</option>
-          <option value="feature">Features</option>
-        </select>
-        <select className="input sm:max-w-[200px]" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label="Filter by status">
-          <option value="">All statuses</option>
-          {STATUSES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
-        </select>
+        <Select
+          className="sm:max-w-[180px]"
+          ariaLabel="Filter by type"
+          value={typeFilter}
+          onChange={setTypeFilter}
+          options={[
+            { value: '', label: 'All types' },
+            { value: 'bug', label: 'Bugs' },
+            { value: 'feature', label: 'Features' },
+          ]}
+        />
+        <Select
+          className="sm:max-w-[200px]"
+          ariaLabel="Filter by status"
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={[{ value: '', label: 'All statuses' }, ...STATUSES.map((s) => ({ value: s.key, label: s.label }))]}
+        />
       </div>
 
       {loading ? (

@@ -341,14 +341,41 @@ export function CopyButton({ value, label = 'Copy', className = '' }) {
  * (see the modal-menu note in the design rules) because the list is short and a
  * jumping menu is worse than one that occasionally sits above the control.
  */
-export function Select({ value, onChange, options, className = '', ariaLabel }) {
+// ONE dropdown for the whole platform. A native <select> opens the operating
+// system's own menu - grey panel, blue highlight, system font - which Ethan
+// flagged as "that weird apple menu" every time one turned up. This is a
+// listbox with the same keyboard behaviour and our own type and colour, and it
+// is the only dropdown that should ever be used. Do not add a native select.
+//
+// TWO SHAPES, because a dropdown does two different jobs. `pill` is a filter or
+// a sort control that sits beside a search box and is sized to its own label.
+// `field` is a form input: full width, square-ish, and matched to `.input` so a
+// row of fields lines up. Getting this wrong is what made the currency picker
+// on the challenge form look pasted in from another page.
+export function Select({
+  value, onChange, options, className = '', ariaLabel,
+  variant = 'pill', placeholder = 'Choose', disabled = false, id,
+}) {
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(() => options.findIndex((o) => o.value === value))
   const [up, setUp] = useState(false)
+  const [query, setQuery] = useState('')
   const wrapRef = useRef(null)
   const btnRef = useRef(null)
+  const searchRef = useRef(null)
 
   const selected = options.find((o) => o.value === value)
+
+  // A NATIVE SELECT HAS TYPE-AHEAD AND THIS HAS TO EARN IT BACK.
+  //
+  // Typing "ire" in an OS menu jumps to Ireland. Replacing that with a plain
+  // listbox is an improvement for a four-item sort control and a real loss for
+  // the two hundred dialling codes, where it turns a keystroke into a scroll.
+  // So anything long enough to scroll gets a search box. Eight is where a menu
+  // stops fitting on screen in one look.
+  const searchable = options.length > 8
+  const q = query.trim().toLowerCase()
+  const shown = q ? options.filter((o) => String(o.label).toLowerCase().includes(q)) : options
 
   useEffect(() => {
     if (!open) return
@@ -362,15 +389,19 @@ export function Select({ value, onChange, options, className = '', ariaLabel }) 
     // 44px a row plus padding, capped the same way the menu itself is.
     const needed = Math.min(options.length * 44 + 12, 280)
     setUp(!!box && box.bottom + needed > window.innerHeight && box.top > needed)
+    setQuery('')
     setActive(options.findIndex((o) => o.value === value))
     setOpen(true)
+    if (searchable) requestAnimationFrame(() => searchRef.current?.focus())
   }
 
+  // Indexes are into the FILTERED list, because that is the list on screen.
   function choose(i) {
-    const opt = options[i]
+    const opt = shown[i]
     if (!opt) return
     onChange(opt.value)
     setOpen(false)
+    setQuery('')
     btnRef.current?.focus()
   }
 
@@ -380,30 +411,39 @@ export function Select({ value, onChange, options, className = '', ariaLabel }) 
       return
     }
     if (e.key === 'Escape') { e.preventDefault(); setOpen(false); btnRef.current?.focus() }
-    else if (e.key === 'ArrowDown') { e.preventDefault(); setActive((i) => Math.min(i + 1, options.length - 1)) }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); setActive((i) => Math.min(i + 1, shown.length - 1)) }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((i) => Math.max(i - 1, 0)) }
     else if (e.key === 'Home') { e.preventDefault(); setActive(0) }
-    else if (e.key === 'End') { e.preventDefault(); setActive(options.length - 1) }
-    else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(active) }
+    else if (e.key === 'End') { e.preventDefault(); setActive(shown.length - 1) }
+    else if (e.key === 'Enter') { e.preventDefault(); choose(active) }
+    // Space types a space when there is a search box to type it into.
+    else if (e.key === ' ' && !searchable) { e.preventDefault(); choose(active) }
   }
 
   return (
     <div ref={wrapRef} className={cx('relative', className)}>
       <button
         ref={btnRef}
+        id={id}
         type="button"
         role="combobox"
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={ariaLabel}
+        disabled={disabled}
         onClick={() => (open ? setOpen(false) : openMenu())}
         onKeyDown={onKeyDown}
         className={cx(
-          'flex w-full items-center justify-between gap-2 rounded-full border bg-white px-4 py-2 text-sm font-medium transition-all',
+          'flex w-full items-center justify-between gap-2 border bg-white transition-all disabled:cursor-not-allowed disabled:opacity-60',
+          variant === 'field'
+            // Matched to `.input`: same radius, same padding, and 16px on mobile
+            // so iOS does not zoom the page when it is focused.
+            ? 'rounded-xl px-4 py-3 text-base sm:text-sm'
+            : 'rounded-full px-4 py-2 text-sm font-medium',
           open ? 'border-brand text-ink shadow-card' : 'border-gray-200 text-ink hover:border-brand hover:shadow-card',
         )}
       >
-        <span className="truncate">{selected?.label ?? 'Choose'}</span>
+        <span className={cx('truncate', !selected && 'text-gray-400')}>{selected?.label ?? placeholder}</span>
         <Icon
           name="chevronRight"
           className={cx('h-4 w-4 shrink-0 text-smoke transition-transform', open ? '-rotate-90' : 'rotate-90')}
@@ -419,7 +459,24 @@ export function Select({ value, onChange, options, className = '', ariaLabel }) 
             up ? 'bottom-full mb-2' : 'top-full mt-2',
           )}
         >
-          {options.map((o, i) => {
+          {searchable && (
+            <li className="sticky top-0 z-10 -mx-1.5 -mt-1.5 mb-1 border-b border-gray-100 bg-white p-1.5">
+              <input
+                ref={searchRef}
+                type="text"
+                value={query}
+                placeholder="Search"
+                aria-label="Search options"
+                onChange={(e) => { setQuery(e.target.value); setActive(0) }}
+                onKeyDown={onKeyDown}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-brand focus:outline-none"
+              />
+            </li>
+          )}
+          {shown.length === 0 && (
+            <li className="px-3.5 py-3 text-sm text-smoke">Nothing matches “{query}”.</li>
+          )}
+          {shown.map((o, i) => {
             const isSelected = o.value === value
             return (
               <li key={o.value} role="option" aria-selected={isSelected}>

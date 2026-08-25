@@ -7,7 +7,7 @@ import NetworkLayout, { flagFromIso } from '../components/network/NetworkLayout'
 import NetworkMotion from '../components/NetworkMotion'
 import TrypPlane from '../components/network/TrypPlane'
 import Icon from '../components/Icon'
-import { Badge, EmptyState } from '../components/ui'
+import { Badge, EmptyState, Select } from '../components/ui'
 import { notice } from '../lib/confirm'
 import { COUNTRIES } from '../lib/countries'
 import { cx } from '../lib/utils'
@@ -287,9 +287,8 @@ export default function GlobalSettings() {
     <div key="locale" className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Currency" hint="Prizes and invoices in this market are quoted in it.">
-          <select className="input" value={form.currency} onChange={(e) => set({ currency: e.target.value })}>
-            {CURRENCIES.map((c) => <option key={c}>{c}</option>)}
-          </select>
+          <Select variant="field" ariaLabel="Currency" value={form.currency} onChange={(v) => set({ currency: v })}
+            options={CURRENCIES.map((c) => ({ value: c, label: c }))} />
         </Field>
         <Field label="Timezone" hint="Deadlines land at local midnight in this zone.">
           <input className="input" value={form.tz} onChange={(e) => set({ tz: e.target.value })}
@@ -305,12 +304,8 @@ export default function GlobalSettings() {
         <p className="mb-2 text-xs text-smoke">
           Becomes a manager of this market: they can edit it, run its challenges and award its points. You can add more later.
         </p>
-        <select className="input" value={form.lead} onChange={(e) => set({ lead: e.target.value })}>
-          <option value="">Nobody yet</option>
-          {admins.map((a) => (
-            <option key={a.id} value={a.id}>{a.name}</option>
-          ))}
-        </select>
+        <Select variant="field" ariaLabel="Market lead" value={form.lead} onChange={(v) => set({ lead: v })}
+          options={[{ value: '', label: 'Nobody yet' }, ...admins.map((a) => ({ value: a.id, label: a.name }))]} />
       </div>
     </div>,
 

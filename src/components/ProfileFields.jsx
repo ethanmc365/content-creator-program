@@ -10,7 +10,7 @@ import { uploadFile } from '../lib/upload'
 import { parseDob, formatDobInput, ageFromDob, cx } from '../lib/utils'
 import { DIAL_CODES, flagEmoji } from '../lib/dialCodes'
 import { COUNTRIES, normalize as normalizeCountry } from '../lib/countries'
-import { Avatar, Spinner } from './ui'
+import { Avatar, Spinner, Select } from './ui'
 import Icon from './Icon'
 
 export const LANGUAGE_OPTIONS = [
@@ -135,19 +135,18 @@ export function PhoneInput({ value, onChange, required }) {
       <label htmlFor="phone" className="label">Phone number{required && <span className="text-brand"> *</span>}</label>
       {/* Stack on mobile so the dial-code picker isn't crammed; side-by-side on larger screens. */}
       <div className="flex flex-col gap-2 sm:flex-row">
-        <select
-          aria-label="Country dialling code"
-          className="input w-full sm:w-44 sm:shrink-0"
+        <Select
+          ariaLabel="Country dialling code"
+          variant="field"
+          className="w-full sm:w-44 sm:shrink-0"
           value={country}
-          onChange={(e) => onChange({ ...value, phone_country: e.target.value })}
-        >
-          <option value="">Country code</option>
-          {DIAL_CODES.map((c) => (
-            <option key={c.iso2} value={c.code}>
-              {flagEmoji(c.iso2)} {c.name} ({c.code})
-            </option>
-          ))}
-        </select>
+          placeholder="Country code"
+          onChange={(v) => onChange({ ...value, phone_country: v })}
+          options={[
+            { value: '', label: 'Country code' },
+            ...DIAL_CODES.map((c) => ({ value: c.code, label: `${flagEmoji(c.iso2)} ${c.name} (${c.code})` })),
+          ]}
+        />
         <input
           id="phone"
           type="tel"

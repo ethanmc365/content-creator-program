@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { Modal, Skeleton, Spinner } from './ui'
 import Icon from './Icon'
 import { CONTINENTS } from '../lib/countries'
+import { Select } from './ui'
 
 // The three things the team can drop into a conversation: a poll, a game
 // challenge, a resource from the library.
@@ -134,21 +135,26 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="game-mode" className="label">Mode</label>
-              <select id="game-mode" className="input" value={game.mode}
-                onChange={(e) => setGame((g) => ({ ...g, mode: e.target.value }))}>
-                <option value="flags">Guess the flag</option>
-                <option value="map">Find on the map</option>
-                <option value="airports">Airport codes</option>
-                <option value="currencies">Currencies</option>
-              </select>
+              <Select
+                id="game-mode" variant="field" ariaLabel="Mode"
+                value={game.mode}
+                onChange={(v) => setGame((g) => ({ ...g, mode: v }))}
+                options={[
+                  { value: 'flags', label: 'Guess the flag' },
+                  { value: 'map', label: 'Find on the map' },
+                  { value: 'airports', label: 'Airport codes' },
+                  { value: 'currencies', label: 'Currencies' },
+                ]}
+              />
             </div>
             <div>
               <label htmlFor="game-region" className="label">Region</label>
-              <select id="game-region" className="input" value={game.region}
-                onChange={(e) => setGame((g) => ({ ...g, region: e.target.value }))}>
-                <option value="World">World</option>
-                {CONTINENTS.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
+              <Select
+                id="game-region" variant="field" ariaLabel="Region"
+                value={game.region}
+                onChange={(v) => setGame((g) => ({ ...g, region: v }))}
+                options={[{ value: 'World', label: 'World' }, ...CONTINENTS.map((c) => ({ value: c, label: c }))]}
+              />
             </div>
           </div>
           <button type="submit" disabled={busy} className="btn-primary w-full">

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { confirm } from '../../lib/confirm'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { Avatar, Badge, CopyButton, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../../components/ui'
+import { Avatar, Badge, CopyButton, EmptyState, Modal, PageHeader, Select, Skeleton, Spinner } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { formatDate, timeAgo } from '../../lib/utils'
 
@@ -175,14 +175,13 @@ export default function AdminJobs() {
                                 </div>
                               </button>
                               <div className="flex items-center gap-2">
-                                <select
+                                <Select
                                   value={a.status}
-                                  onChange={(e) => setAppStatus(a, e.target.value)}
-                                  aria-label={`Status for ${a.profiles?.name || 'applicant'}`}
-                                  className="input !w-auto !py-1.5 text-xs"
-                                >
-                                  {APP_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                                </select>
+                                  onChange={(v) => setAppStatus(a, v)}
+                                  ariaLabel={`Status for ${a.profiles?.name || 'applicant'}`}
+                                  className="w-36"
+                                  options={APP_STATUSES.map((s) => ({ value: s, label: s }))}
+                                />
                                 <Badge tone={STATUS_TONE[a.status]}>{a.status}</Badge>
                               </div>
                             </div>
@@ -236,9 +235,14 @@ export default function AdminJobs() {
             </div>
             <div>
               <label htmlFor="j-type" className="label">Type</label>
-              <select id="j-type" className="input" value={form.job_type} onChange={(e) => setForm({ ...form, job_type: e.target.value })}>
-                {JOB_TYPES.map((t) => <option key={t}>{t}</option>)}
-              </select>
+              <Select
+                id="j-type"
+                variant="field"
+                ariaLabel="Type"
+                value={form.job_type}
+                onChange={(v) => setForm({ ...form, job_type: v })}
+                options={JOB_TYPES.map((t) => ({ value: t, label: t }))}
+              />
             </div>
           </div>
           <div>

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { confirm } from '../../lib/confirm'
 import { supabase } from '../../lib/supabase'
-import { Avatar, Badge, EmptyState, PageHeader, Skeleton, StatCard } from '../../components/ui'
+import { Avatar, Badge, EmptyState, PageHeader, Skeleton, StatCard, Select } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { formatDate, downloadCsv } from '../../lib/utils'
 import { referralStage } from '../../lib/referrals'
@@ -197,16 +197,15 @@ export default function AdminReferrals() {
                       </p>
                       {r.note && <p className="mt-1 text-xs italic text-smoke">"{r.note}"</p>}
                     </div>
-                    <select
-                      value={r.status}
-                      onChange={(e) => setStatus(r, e.target.value)}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      onTouchStart={(e) => e.stopPropagation()}
-                      className="input !w-auto !py-2 text-xs"
-                      aria-label={`Status for ${r.referred_name}`}
-                    >
-                      {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
+                    <div onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
+                      <Select
+                        value={r.status}
+                        onChange={(v) => setStatus(r, v)}
+                        className="w-36"
+                        ariaLabel={`Status for ${r.referred_name}`}
+                        options={STATUSES.map((s) => ({ value: s, label: s }))}
+                      />
+                    </div>
                     <Badge tone={STATUS_TONE[r.status]}>{r.status}</Badge>
                   </div>
                 ))}

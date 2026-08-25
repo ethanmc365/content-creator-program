@@ -3,7 +3,7 @@ import { confirm } from '../../lib/confirm'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { Avatar, Badge, CopyButton, Modal, PageHeader, Skeleton } from '../../components/ui'
+import { Avatar, Badge, CopyButton, Modal, PageHeader, Select, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import Turnstile from '../../components/Turnstile'
 import { formatDate, timeAgo, downloadCsv } from '../../lib/utils'
@@ -401,12 +401,18 @@ export default function AdminCreators() {
           type="search" className="input sm:max-w-xs" placeholder="Search name or email…"
           value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search creators"
         />
-        <select className="input sm:max-w-[220px]" value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort creators">
-          <option value="active">Most recently active</option>
-          <option value="quiet">Quietest first</option>
-          <option value="joined">Newest members</option>
-          <option value="name">Name A to Z</option>
-        </select>
+        <Select
+          className="sm:max-w-[220px]"
+          ariaLabel="Sort creators"
+          value={sort}
+          onChange={setSort}
+          options={[
+            { value: 'active', label: 'Most recently active' },
+            { value: 'quiet', label: 'Quietest first' },
+            { value: 'joined', label: 'Newest members' },
+            { value: 'name', label: 'Name A to Z' },
+          ]}
+        />
         <span className="self-center text-xs text-smoke">
           {filtered.length} shown
         </span>

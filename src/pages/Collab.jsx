@@ -4,7 +4,7 @@ import { format } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
-import { Avatar, Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../components/ui'
+import { Avatar, Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner, Select } from '../components/ui'
 import { DateField } from '../components/DateTimeFields'
 import { confirm, notice } from '../lib/confirm'
 import { toast } from '../lib/toast'
@@ -863,14 +863,23 @@ export default function Collab() {
       {/* ---- Filters ---- */}
       {upcoming.length > 0 && (
         <div className="mb-6 flex flex-wrap items-center gap-3">
-          <select className="input !w-auto" value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)} aria-label="Filter by month">
-            <option value="">Any month</option>
-            {monthOptions.map((ym) => <option key={ym} value={ym}>{format(localDate(ym + '-01'), 'MMM yyyy')}</option>)}
-          </select>
-          <select className="input !w-auto" value={countryFilter} onChange={(e) => setCountryFilter(e.target.value)} aria-label="Filter by country">
-            <option value="">Any country</option>
-            {countryOptions.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
+          <Select
+            className="w-auto min-w-[10rem]"
+            ariaLabel="Filter by month"
+            value={monthFilter}
+            onChange={setMonthFilter}
+            options={[
+              { value: '', label: 'Any month' },
+              ...monthOptions.map((ym) => ({ value: ym, label: format(localDate(ym + '-01'), 'MMM yyyy') })),
+            ]}
+          />
+          <Select
+            className="w-auto min-w-[10rem]"
+            ariaLabel="Filter by country"
+            value={countryFilter}
+            onChange={setCountryFilter}
+            options={[{ value: '', label: 'Any country' }, ...countryOptions.map((c) => ({ value: c, label: c }))]}
+          />
           {(monthFilter || countryFilter) && (
             <button onClick={() => { setMonthFilter(''); setCountryFilter('') }} className="btn-ghost !py-2 text-sm">Clear</button>
           )}
