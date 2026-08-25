@@ -111,6 +111,7 @@ export default function AdminJobs() {
   return (
     <div className="page max-w-4xl">
       <PageHeader
+        back={{ to: '/jobs', label: 'Roles' }}
         title="Manage jobs"
         subtitle={`Post roles and review who's applied. ${totalOpen} role${totalOpen === 1 ? '' : 's'} open · ${apps.length} application${apps.length === 1 ? '' : 's'} in total.`}
         action={<button onClick={() => openEditor(null)} className="btn-primary">+ New job</button>}

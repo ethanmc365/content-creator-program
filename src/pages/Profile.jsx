@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { roleBadgeTitle } from '../lib/roles'
 import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
 import WorldMap from '../components/WorldMap'
@@ -129,19 +130,20 @@ export default function Profile() {
     return () => { cancelled = true }
   }, [id, user?.id, isMe])
 
-  // Admins (and only admins) see the creator's email + phone. The RPC and the
-  // creator_private RLS both enforce admin-only access server-side too.
+  // Admins see the creator's EMAIL here. The phone deliberately is not read.
+  //
+  // Ethan's rule: the admin-only details, their number above all, belong in the
+  // creators roster panel and nowhere else. A profile is a page you land on
+  // from a leaderboard, a chat room or a search - often with somebody looking
+  // over your shoulder - and a phone number a creator gave us for payouts is
+  // not something to put on it. Reaching for a number is now a deliberate act:
+  // /admin/creators, open the person. The RPC and creator_private's RLS still
+  // enforce admin-only access server side; this is one less place it is shown.
   useEffect(() => {
     if (!viewerIsAdmin) { setContact(null); return }
     async function loadContact() {
-      const [{ data: email }, { data: priv }] = await Promise.all([
-        supabase.rpc('admin_get_email', { target: id }),
-        supabase.from('creator_private').select('phone, phone_country').eq('id', id).maybeSingle(),
-      ])
-      setContact({
-        email: email || '',
-        phone: priv ? [priv.phone_country, priv.phone].filter(Boolean).join(' ').trim() : '',
-      })
+      const { data: email } = await supabase.rpc('admin_get_email', { target: id })
+      setContact({ email: email || '' })
     }
     loadContact()
   }, [id, viewerIsAdmin, isMe])
@@ -238,7 +240,15 @@ export default function Profile() {
         <div className="min-w-0 flex-1">
           <div className="flex flex-col items-center gap-2 sm:flex-row sm:gap-3">
             <h1 className="text-3xl font-bold tracking-tight">{creator.name}</h1>
-            {creator.is_admin && <Badge tone="light">Tryp.com Team</Badge>}
+            {/* WHAT THEY ARE ACTUALLY CALLED.
+                Every admin used to read "Tryp.com Team", which is true of all
+                of them and therefore says nothing about any of them. The title
+                is already stored per person (profiles.role_title, set on the
+                team page) and `roleTitle` falls back to the generic label only
+                when nobody has been given one - so a Spain country manager
+                reads "Spanish Country Manager" and Ethan reads
+                "Tryp.com CCC Lead". */}
+            {creator.is_admin && <Badge tone="light">{roleBadgeTitle(creator)}</Badge>}
             {isApplication && <Badge tone="amber">Pending review</Badge>}
             {(ageFromDob(creator.dob) ?? creator.age) && <span className="text-smoke">{ageFromDob(creator.dob) ?? creator.age}</span>}
           </div>
@@ -534,30 +544,24 @@ export default function Profile() {
             that server side, so this is presentation, not permission. It was a
             full-width brand-tinted block, which on a page about a person made
             their phone number the loudest thing on it. */}
-        {viewerIsAdmin && contact && (contact.email || contact.phone) && (
+        {viewerIsAdmin && contact?.email && (
           <section className="rounded-card border border-brand/25 bg-brand-tint/40 p-4">
             <h2 className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-brand">
               <Icon name="eye" className="h-4 w-4 shrink-0" />
               Team only
             </h2>
-            <div className="space-y-2">
-              {contact.email && (
-                <div className="flex items-center gap-1.5">
-                  <a href={`mailto:${contact.email}`} className="min-w-0 flex-1 truncate text-xs font-medium hover:text-brand">
-                    {contact.email}
-                  </a>
-                  <CopyButton value={contact.email} label="Copy email" />
-                </div>
-              )}
-              {contact.phone && (
-                <div className="flex items-center gap-1.5">
-                  <a href={`tel:${contact.phone}`} className="min-w-0 flex-1 truncate text-xs font-medium hover:text-brand">
-                    {contact.phone}
-                  </a>
-                  <CopyButton value={contact.phone} label="Copy phone" />
-                </div>
-              )}
+            <div className="flex items-center gap-1.5">
+              <a href={`mailto:${contact.email}`} className="min-w-0 flex-1 truncate text-xs font-medium hover:text-brand">
+                {contact.email}
+              </a>
+              <CopyButton value={contact.email} label="Copy email" />
             </div>
+            <Link
+              to="/admin/creators"
+              className="mt-2 inline-block text-[11px] font-medium text-brand hover:underline"
+            >
+              Phone and account actions in the roster →
+            </Link>
           </section>
         )}
         {/* ---------- Where I'm headed next (upcoming collab trips) ---------- */}

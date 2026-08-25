@@ -20,7 +20,8 @@ export default function AdminAuditLog() {
 
   return (
     <div className="page max-w-3xl">
-      <PageHeader title="Audit log" subtitle="A record of account actions taken by the Tryp.com Team." />
+      <PageHeader
+        back="/admin" title="Audit log" subtitle="A record of account actions taken by the Tryp.com Team." />
 
       {log === null ? (
         <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}</div>

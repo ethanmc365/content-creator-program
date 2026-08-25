@@ -2,6 +2,7 @@
 // design system easy to scan - every visual primitive lives here.
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { Link } from 'react-router-dom'
 import { cx } from '../../lib/utils'
 import { lockScroll } from '../../lib/scrollLock'
 import Icon from '../Icon'
@@ -115,14 +116,35 @@ export function EmptyState({ emoji = '🌍', icon, title, hint, action }) {
 }
 
 /** Page heading with consistent generous spacing. */
-export function PageHeader({ title, subtitle, action }) {
+// `back` puts a way out in the top left of any page that is a step inside
+// something else. Every admin page is a step inside the admin panel, and until
+// now the only route back was the browser button or the nav - which on a phone,
+// where the admin panel is not in the tab bar, meant two taps and a guess.
+//
+// It sits ABOVE the title rather than beside it, because a back link belongs to
+// the page's position in a hierarchy, not to the page's content, and putting it
+// on the title row makes the title jump left on pages that have one.
+export function PageHeader({ title, subtitle, action, back }) {
+  const backTo = typeof back === 'string' ? back : back?.to
+  const backLabel = (typeof back === 'object' && back?.label) || 'Admin'
   return (
-    <div className="mb-8 flex flex-col gap-4 sm:mb-10 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{title}</h1>
-        {subtitle && <p className="mt-2 max-w-xl text-smoke">{subtitle}</p>}
+    <div className="mb-8 sm:mb-10">
+      {backTo && (
+        <Link
+          to={backTo}
+          className="group -ml-1 mb-3 inline-flex items-center gap-1 rounded-lg px-1 py-0.5 text-sm font-medium text-smoke transition-colors hover:text-brand"
+        >
+          <Icon name="chevronLeft" className="h-4 w-4 transition-transform duration-200 group-hover:-translate-x-0.5" />
+          {backLabel}
+        </Link>
+      )}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{title}</h1>
+          {subtitle && <p className="mt-2 max-w-xl text-smoke">{subtitle}</p>}
+        </div>
+        {action && <div className="shrink-0">{action}</div>}
       </div>
-      {action && <div className="shrink-0">{action}</div>}
     </div>
   )
 }
@@ -479,7 +501,13 @@ export function Select({
           {shown.map((o, i) => {
             const isSelected = o.value === value
             return (
-              <li key={o.value} role="option" aria-selected={isSelected}>
+              // KEYED BY POSITION, NOT BY VALUE. Two options may legitimately
+              // share a value - "+1" is the United States and Canada - and a
+              // duplicate React key makes the list reuse the wrong DOM node, so
+              // filtering to "ireland" left "United States" sitting underneath
+              // it. The rendered list is rebuilt from scratch every render
+              // anyway, so the index is the honest identity here.
+              <li key={`${o.value}-${i}`} role="option" aria-selected={isSelected}>
                 <button
                   type="button"
                   onClick={() => choose(i)}

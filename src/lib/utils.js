@@ -127,19 +127,64 @@ export function detectPlatform(url = '') {
   return 'Other'
 }
 
+// WHY AN EXPORT LOOKED "VERY MESSY" WHEN IT OPENED.
+//
+// Ethan opened an admin export in Excel and got a mess. It was not the data -
+// it was three things this function did not do, and all three are invisible
+// until a spreadsheet reads the file:
+//
+//   1. NO BYTE ORDER MARK. Excel opens a .csv as the system codepage, not
+//      UTF-8, unless the file starts with a BOM. So "Denisa Hadarau" with its
+//      real diacritics, every Spanish and Romanian name, and every emoji in a
+//      market column arrived as mojibake.
+//   2. BARE NEWLINES. Excel on Windows wants CRLF between records; with LF
+//      alone a value containing a line break can run rows together.
+//   3. NO FORMULA GUARD. A cell starting with = + - or @ is evaluated as a
+//      FORMULA. Every phone number beginning "+44" opened as an error, and a
+//      value like "-3" could too. Prefixing a tab tells the spreadsheet it is
+//      text, and is also what stops a CSV export being an injection vector into
+//      whoever opens it.
+//
+// Headers are titled from the key ("countries_visited" -> "Countries visited")
+// so a column reads like a heading rather than a database field. Pass
+// `columns` to control the order and the labels exactly.
+
+/** "countries_visited" -> "Countries visited" */
+export function csvHeader(key) {
+  const words = String(key).replace(/[_-]+/g, ' ').trim()
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
+/** One CSV cell: quoted when it has to be, and never a formula. */
+export function csvCell(value) {
+  let s = value == null ? '' : String(value)
+  // A tab in front keeps the value text without changing what a human reads.
+  if (/^[=+\-@\t\r]/.test(s)) s = '\t' + s
+  return /["\n\r,]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+}
+
+/** The whole file as a string, so it can be tested without a DOM. */
+export function toCsv(rows, columns) {
+  if (!rows?.length) return ''
+  const cols = columns?.length
+    ? columns.map((c) => (typeof c === 'string' ? { key: c, label: csvHeader(c) } : c))
+    : Object.keys(rows[0]).map((k) => ({ key: k, label: csvHeader(k) }))
+  const lines = [
+    cols.map((c) => csvCell(c.label)).join(','),
+    ...rows.map((r) => cols.map((c) => csvCell(r[c.key])).join(',')),
+  ]
+  return lines.join('\r\n')
+}
+
 /**
  * Download an array of objects as a CSV file (used by admin exports).
- * Handles commas/quotes/newlines inside values safely.
+ * `columns` is optional: a list of keys, or of { key, label }.
  */
-export function downloadCsv(filename, rows) {
+export function downloadCsv(filename, rows, columns) {
   if (!rows?.length) return
-  const headers = Object.keys(rows[0])
-  const escape = (v) => {
-    const s = v == null ? '' : String(v)
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-  }
-  const csv = [headers.join(','), ...rows.map((r) => headers.map((h) => escape(r[h])).join(','))].join('\n')
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  // \uFEFF is the BOM. Without it Excel is not reading UTF-8, whatever the
+  // charset in the mime type says.
+  const blob = new Blob(['\uFEFF' + toCsv(rows, columns)], { type: 'text/csv;charset=utf-8;' })
   const link = document.createElement('a')
   link.href = URL.createObjectURL(blob)
   link.download = filename

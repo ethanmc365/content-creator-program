@@ -46,7 +46,8 @@ export default function AdminScheduledAnnouncements() {
 
   return (
     <div className="page max-w-3xl">
-      <PageHeader title="Scheduled announcements" subtitle="Write now, post automatically later. Posts to #announcements and notifies everyone." />
+      <PageHeader
+        back="/admin" title="Scheduled announcements" subtitle="Write now, post automatically later. Posts to #announcements and notifies everyone." />
 
       <form onSubmit={schedule} className="card mb-8 space-y-4">
         <div>

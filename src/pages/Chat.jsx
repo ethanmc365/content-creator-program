@@ -4,6 +4,7 @@ import { loadDraft, saveDraft, clearDraft } from '../lib/drafts'
 import { uploadChatImage, uploadChatVideo } from '../lib/chatMedia'
 import { Link, NavLink, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { roleBadgeTitle } from '../lib/roles'
 import { useAuth } from '../context/AuthContext'
 import { Avatar, Badge, Skeleton } from '../components/ui'
 import Icon from '../components/Icon'
@@ -265,7 +266,7 @@ export default function Chat() {
     setLoading(true)
     const { data: msgs } = await supabase
       .from('messages')
-      .select('*, profiles:sender_id(id, name, photo_url, is_admin)')
+      .select('*, profiles:sender_id(id, name, photo_url, is_admin, platform_role, role_title)')
       .eq('channel', channel)
       .order('created_at', { ascending: true })
       .limit(200)
@@ -641,7 +642,7 @@ export default function Chat() {
       scope: outboxScope,
       table: 'messages',
       row,
-      select: '*, profiles:sender_id(id, name, photo_url, is_admin)',
+      select: '*, profiles:sender_id(id, name, photo_url, is_admin, platform_role, role_title)',
       display,
     })
   }
@@ -970,7 +971,12 @@ export default function Chat() {
                       <span className="text-gray-400" title={`Edited ${messageTimeTitle(m.edited_at)}`}>· edited</span>
                     )}
                     <span className="font-semibold text-ink">{mine ? 'You' : m.profiles?.name}</span>
-                    {m.profiles?.is_admin && <Badge tone="light" className="shrink-0 whitespace-nowrap !px-2 !py-0.5">Tryp.com Team</Badge>}
+                    {/* The title they were given, not the generic one. See the
+                        note on the profile page: "Tryp.com Team" is true of
+                        every admin and so distinguishes none of them. */}
+                    {m.profiles?.is_admin && (
+                      <Badge tone="light" className="shrink-0 whitespace-nowrap !px-2 !py-0.5">{roleBadgeTitle(m.profiles)}</Badge>
+                    )}
                     {m.pinned && <Icon name="pin" className="h-3.5 w-3.5 shrink-0 text-brand" title="Pinned" />}
                   </div>
 

@@ -95,6 +95,7 @@ export default function AdminEmail() {
   return (
     <div className="page max-w-7xl">
       <PageHeader
+        back="/admin"
         title="Email"
         subtitle="Welcome emails wait here for your approval. Everything else the community hears about is push and the in-app bell."
       />

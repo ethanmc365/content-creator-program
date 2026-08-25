@@ -447,8 +447,8 @@ export default function AdminReports() {
   return (
     <div className="page max-w-4xl">
       <PageHeader
+        back="/admin"
         title="Reports"
-        subtitle="What creators have flagged, and what was done about it."
       />
 
       <div className="mb-5 inline-flex rounded-full bg-cloud p-1">

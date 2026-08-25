@@ -102,7 +102,7 @@ export default function AdminAnalytics() {
         { data: rewards }, { data: messages }, { data: results },
         { data: feedback }, { count: reactionCount }, { count: pollVoteCount },
         { data: gameScores }, { data: connections }, { count: tripCount },
-        { data: decisions }, { data: seenRows },
+        { data: decisions }, { data: seenRows }, { data: voucherCounts },
       ] = await Promise.all([
         supabase.from('profiles').select('id, name, created_at, status, is_admin, onboarded, referred_by, deletion_requested_at, is_test, last_seen_at'),
         supabase.from('challenges').select('id, title, status, start_date, vouchers_given').neq('status', 'draft').order('start_date'),
@@ -118,6 +118,11 @@ export default function AdminAnalytics() {
         supabase.from('collab_posts').select('id', { count: 'exact', head: true }),
         supabase.from('application_decisions').select('decision, created_at'),
         supabase.rpc('admin_list_last_seen'),
+        // Participation vouchers are COUNTED from the entries, not read off a
+        // number somebody typed. The typed one was never kept up: on the
+        // Creative Challenge it said 0 where six creators had actually earned
+        // one. See migration 115.
+        supabase.rpc('challenge_voucher_counts'),
       ])
       // Default every dataset so one failed query can never blank the page.
       // `loadedAt` is captured here (not in render) so derived time windows
@@ -130,6 +135,7 @@ export default function AdminAnalytics() {
         gameScores: gameScores || [], connections: connections || [],
         tripCount: tripCount || 0, decisions: decisions || [],
         seenRows: seenRows || [],
+        voucherCounts: voucherCounts || [],
         loadedAt: Date.now(),
       })
     }
@@ -142,7 +148,7 @@ export default function AdminAnalytics() {
     const {
       profiles, challenges, submissions, rewards, messages, results, feedback,
       reactionCount, pollVoteCount, gameScores, connections, tripCount, decisions,
-      seenRows, loadedAt,
+      seenRows, voucherCounts, loadedAt,
     } = raw
 
     const realCreators = profiles.filter((p) => !p.is_admin && !p.deletion_requested_at && !p.is_test)
@@ -326,7 +332,7 @@ export default function AdminAnalytics() {
       gamesByMode, weeklyPulse,
       engagement: {
         reactions: reactionCount, pollVotes: pollVoteCount, chatMessages: messages.length, feedbackTotal: feedback.length, openFeedback,
-        vouchersGiven: challenges.reduce((sum, c) => sum + (c.vouchers_given || 0), 0),
+        vouchersGiven: (voucherCounts ?? []).reduce((sum, v) => sum + (v.vouchers || 0), 0),
       },
       community: { active: active.length, pendingReview: pendingReview.length, notCompleted: notCompleted.length, participating, participationRate, topReferrers },
       totals: {
@@ -366,7 +372,8 @@ export default function AdminAnalytics() {
   if (tab === 'programme') {
     return (
       <div className="page">
-        <PageHeader title="Analytics" subtitle="What the programme costs and what it returns." />
+        <PageHeader
+          back="/admin" title="Analytics" subtitle="What the programme costs and what it returns." />
         {tabBar}
         <ProgrammePerformance />
       </div>

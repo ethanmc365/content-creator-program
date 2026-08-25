@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { confirm } from '../../lib/confirm'
 import { supabase } from '../../lib/supabase'
 import { Avatar, Badge, EmptyState, PageHeader, Skeleton, StatCard, Select } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { formatDate, downloadCsv } from '../../lib/utils'
+import { useMarkets, resolveMarketForCountryName } from '../../lib/markets'
+import Reveal from '../../components/network/Reveal'
 import { referralStage } from '../../lib/referrals'
 
 // Admin view of referrals. Two sources:
@@ -25,13 +27,16 @@ export default function AdminReferrals() {
   const [referrerNames, setReferrerNames] = useState({})
   const [groups, setGroups] = useState([]) // [{ referrer, people:[{...profile, stage}], counted }]
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [market, setMarket] = useState('')
+  const markets = useMarkets()
 
   async function load() {
     const [{ data: refs }, { data: joinedProfiles }] = await Promise.all([
       supabase.from('referrals').select('*').order('created_at', { ascending: false }),
       supabase
         .from('profiles')
-        .select('id, name, photo_url, created_at, status, onboarded, referred_by, referrer:referred_by(id, name, photo_url)')
+        .select('id, name, photo_url, created_at, status, onboarded, country, country_code, referred_by, referrer:referred_by(id, name, photo_url, country, country_code)')
         .not('referred_by', 'is', null)
         .order('created_at', { ascending: false }),
     ])
@@ -91,36 +96,93 @@ export default function AdminReferrals() {
   const startPress = (r) => { pressTimer.current = setTimeout(() => deleteReferral(r), 550) }
   const cancelPress = () => clearTimeout(pressTimer.current)
 
+  // A REFERRAL BELONGS TO THE MARKET OF THE PERSON WHO MADE IT.
+  //
+  // Not the person who was referred: a UK creator bringing in a friend in Spain
+  // is still a UK creator's referral, and it is the UK manager who follows it
+  // up. Both are shown on the row so the second case is never a surprise.
+  const marketName = (p) => {
+    const r = resolveMarketForCountryName(p?.country, markets)
+    return r.market?.name ?? (r.outcome === 'worldwide' ? 'Worldwide' : 'Unknown')
+  }
+
+  const tabs = useMemo(() => {
+    const tally = {}
+    for (const g of groups) tally[marketName(g.referrer)] = (tally[marketName(g.referrer)] ?? 0) + g.people.length
+    return Object.entries(tally).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groups, markets])
+
+  // Searching matches EITHER end of a referral: you look up "who did Denisa
+  // bring in" as often as "who brought this person in".
+  const shownGroups = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return groups
+      .filter((g) => !market || marketName(g.referrer) === market)
+      .map((g) => {
+        if (!q) return g
+        if ((g.referrer?.name ?? '').toLowerCase().includes(q)) return g
+        const people = g.people.filter((p) => (p.name ?? '').toLowerCase().includes(q))
+        return people.length ? { ...g, people } : null
+      })
+      .filter(Boolean)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groups, search, market, markets])
+
+  const shownLeads = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return referrals.filter((r) => {
+      if (!q) return true
+      return `${r.referred_name ?? ''} ${r.referred_contact ?? ''} ${referrerNames[r.referrer_id] ?? ''}`.toLowerCase().includes(q)
+    })
+  }, [referrals, search, referrerNames])
+
   const totalJoined = groups.reduce((n, g) => n + g.people.length, 0)
   const totalCounted = groups.reduce((n, g) => n + g.counted, 0)
   const inProgress = totalJoined - totalCounted
 
+  // AN EXPORT IS WHAT IS ON SCREEN. Filtering to Spain and then exporting the
+  // world is a quiet way to hand somebody the wrong file, so the market tab and
+  // the search box apply here too - and the filename says which slice it is.
   function exportCsv() {
-    downloadCsv('tryp-referrals.csv', [
-      ...groups.flatMap((g) =>
+    const rows = [
+      ...shownGroups.flatMap((g) =>
         g.people.map((p) => ({
           referred_name: p.name,
           referred_by: g.referrer?.name ?? '',
+          market: marketName(g.referrer),
           contact: '',
           stage: p.stage.label,
-          counts: p.stage.key === 'counted' ? 'yes' : 'no',
+          counts: p.stage.key === 'counted' ? 'Yes' : 'No',
           date: formatDate(p.created_at),
         }))
       ),
-      ...referrals.map((r) => ({
+      ...(market ? [] : shownLeads.map((r) => ({
         referred_name: r.referred_name,
         referred_by: referrerNames[r.referrer_id] ?? '',
+        market: '',
         contact: r.referred_contact,
-        stage: `lead: ${r.status}`,
-        counts: 'no',
+        stage: `Lead: ${r.status}`,
+        counts: 'No',
         date: formatDate(r.created_at),
-      })),
+      }))),
+    ]
+    const slug = market ? market.toLowerCase().replace(/[^a-z0-9]+/g, '-') : 'all'
+    downloadCsv(`tryp-referrals-${slug}-${new Date().toISOString().slice(0, 10)}.csv`, rows, [
+      { key: 'referred_name', label: 'Referred creator' },
+      { key: 'referred_by', label: 'Referred by' },
+      { key: 'market', label: "Referrer's market" },
+      { key: 'contact', label: 'Contact' },
+      { key: 'stage', label: 'Stage' },
+      { key: 'counts', label: 'Counts towards a reward' },
+      { key: 'date', label: 'Date' },
     ])
   }
 
   return (
     <div className="page">
       <PageHeader
+        back="/admin"
         title="Referrals"
         subtitle="Who your creators brought in, and exactly how far each referred creator has got. A referral only counts once they submit a video to a challenge."
         action={<button onClick={exportCsv} className="btn-secondary">Export CSV ↓</button>}
@@ -132,25 +194,61 @@ export default function AdminReferrals() {
         <StatCard label="Open leads" value={referrals.filter((r) => r.status === 'new' || r.status === 'contacted').length} />
       </div>
 
+      {/* Market first, then search. Two rows, because they answer different
+          questions and using one should not clear the other. */}
+      {!loading && (groups.length > 0 || referrals.length > 0) && (
+        <div className="mb-6 space-y-3">
+          {tabs.length > 1 && (
+            <div className="flex flex-wrap gap-2">
+              {[['', 'All', totalJoined], ...tabs.map(([m, n]) => [m, m, n])].map(([key, label, count]) => {
+                const on = market === key
+                return (
+                  <button
+                    key={key || 'all'}
+                    type="button"
+                    onClick={() => setMarket(key)}
+                    aria-pressed={on}
+                    className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                      on ? 'border-brand bg-brand text-white' : 'border-gray-200 bg-white text-smoke hover:-translate-y-0.5 hover:border-brand hover:text-brand'
+                    }`}
+                  >
+                    {label}
+                    <span className={on ? 'text-white/80' : 'text-gray-400'}>{count}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          <input
+            type="search"
+            className="input sm:max-w-xs"
+            placeholder="Search either name…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Search referrals"
+          />
+        </div>
+      )}
+
       {loading ? (
         <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-32 w-full" />)}</div>
       ) : groups.length === 0 && referrals.length === 0 ? (
         <EmptyState icon={<Icon name="share" className="h-7 w-7" />} title="No referrals yet" hint="When creators share their invite links or refer people, they'll show up here." />
       ) : (
         <div className="space-y-10">
-          {groups.length > 0 && (
+          {shownGroups.length > 0 && (
             <section>
               <h2 className="mb-4 text-lg font-semibold">Who referred who</h2>
-              <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-                {groups.map((g, gi) => (
-                  <div key={g.referrer?.id ?? `g${gi}`} className="card !p-6">
+              <Reveal className="grid grid-cols-1 gap-5 lg:grid-cols-2" stagger={0.05}>
+                {shownGroups.map((g, gi) => (
+                  <div key={g.referrer?.id ?? `g${gi}`} className="card !p-6 transition-all duration-200 hover:shadow-lift">
                     {/* Referrer header */}
                     <div className="flex items-center gap-3 border-b border-gray-50 pb-4">
                       <Avatar src={g.referrer?.photo_url} name={g.referrer?.name} size="md" />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold">{g.referrer?.name ?? 'A creator'}</p>
                         <p className="text-xs text-smoke">
-                          {g.people.length} referred · {g.counted} counted
+                          {marketName(g.referrer)} · {g.people.length} referred · {g.counted} counted
                         </p>
                       </div>
                       {g.counted > 0 && (
@@ -173,16 +271,22 @@ export default function AdminReferrals() {
                     </ul>
                   </div>
                 ))}
-              </div>
+              </Reveal>
             </section>
           )}
 
-          {referrals.length > 0 && (
+          {(groups.length > 0 && shownGroups.length === 0) && (
+            <p className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center text-sm text-smoke">
+              No referrals match that.
+            </p>
+          )}
+
+          {shownLeads.length > 0 && (
             <section>
               <h2 className="mb-1 text-lg font-semibold">Leads to follow up</h2>
               <p className="mb-4 text-xs text-smoke">People a creator flagged for the team to reach out to. Long-press a lead to delete it.</p>
               <div className="space-y-3">
-                {referrals.map((r) => (
+                {shownLeads.map((r) => (
                   <div
                     key={r.id}
                     onTouchStart={() => startPress(r)} onTouchEnd={cancelPress} onTouchMove={cancelPress}

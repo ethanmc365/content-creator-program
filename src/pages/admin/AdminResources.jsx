@@ -85,6 +85,7 @@ export default function AdminResources() {
   return (
     <div className="page max-w-3xl">
       <PageHeader
+        back={{ to: '/resources', label: 'Resources' }}
         title="Manage resources"
         subtitle="Everything you publish here lives in the creators' library permanently."
         action={<button onClick={() => openEditor(null)} className="btn-primary">+ New resource</button>}

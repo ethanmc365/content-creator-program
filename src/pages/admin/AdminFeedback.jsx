@@ -61,6 +61,7 @@ export default function AdminFeedback() {
   return (
     <div className="page max-w-4xl">
       <PageHeader
+        back="/admin"
         title="Bug reports & ideas"
         subtitle={newCount > 0 ? `${newCount} new report${newCount === 1 ? '' : 's'} waiting to be triaged.` : 'Everything creators have reported or suggested.'}
       />

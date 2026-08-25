@@ -68,7 +68,8 @@ export default function AdminNetwork() {
 
   return (
     <div className="page">
-      <PageHeader title="Community network" subtitle="How creators are connecting - totals, the best-connected members, and the latest links." />
+      <PageHeader
+        back="/admin" title="Community network" subtitle="How creators are connecting - totals, the best-connected members, and the latest links." />
 
       <div className="mb-10 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Connections" value={derived.realEdges} hint="accepted links" />

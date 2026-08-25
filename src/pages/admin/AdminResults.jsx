@@ -212,6 +212,7 @@ export default function AdminResults() {
       <Link to="/admin/challenges" className="mb-6 inline-block text-sm font-medium text-smoke hover:text-brand">← Manage challenges</Link>
 
       <PageHeader
+        back={{ to: '/admin/challenges', label: 'Challenges' }}
         title={`Results: ${challenge?.title}`}
         subtitle={
           isLive

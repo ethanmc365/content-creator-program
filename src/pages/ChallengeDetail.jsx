@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { confirm } from '../lib/confirm'
+import { confirm, notice } from '../lib/confirm'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import ChallengeLeaderboard from '../components/ChallengeLeaderboard'
 import { supabase } from '../lib/supabase'
@@ -81,6 +81,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   const id = challengeId || routeId
   const [searchParams] = useSearchParams()
   const { user, isAdmin } = useAuth()
+  const [lifecycleBusy, setLifecycleBusy] = useState(false)
 
   const [challenge, setChallenge] = useState(null)
   const [submissions, setSubmissions] = useState([])
@@ -251,6 +252,18 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // own tab.
   const shellClass = embedded ? '' : 'page'
 
+  // draft -> active -> ended -> archived. The same four states the manage list
+  // moved a challenge through, minus the list.
+  async function setChallengeStatus(status) {
+    const verb = { active: 'publish', ended: 'close entries on', archived: 'archive' }[status]
+    if (!await confirm(`Really ${verb} "${challenge.title}"?`)) return
+    setLifecycleBusy(true)
+    const { error } = await supabase.from('challenges').update({ status }).eq('id', id)
+    setLifecycleBusy(false)
+    if (error) { notice(`Could not update: ${error.message}`); return }
+    setChallenge((c) => ({ ...c, status }))
+  }
+
   if (loading) {
     return (
       <div className={cx(shellClass, 'space-y-6')}>
@@ -326,10 +339,32 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         subtitle={`${formatDate(challenge.start_date)} → ${formatDate(challenge.end_date)}`}
         action={
           <div className="flex flex-wrap items-center gap-3">
+            {/* RUNNING A CHALLENGE HAPPENS ON THE CHALLENGE.
+                Publish, close and archive used to live on a separate
+                "Manage challenges" list, which meant the page showing you a
+                challenge could not change its state and the page that could
+                change it did not show you the challenge. Ethan asked for that
+                page to go; these are the controls that were worth keeping, on
+                the page they are about. */}
             {isAdmin && (
               <>
                 <Link to={`/admin/challenges/${id}/edit`} className="btn-secondary !py-2 text-xs">Edit</Link>
-                <Link to={`/admin/challenges/${id}/results`} className="btn-secondary !py-2 text-xs">Enter results</Link>
+                <Link to={`/admin/challenges/${id}/results`} className="btn-secondary !py-2 text-xs">Results</Link>
+                {challenge.status === 'draft' && (
+                  <button onClick={() => setChallengeStatus('active')} disabled={lifecycleBusy} className="btn-primary !py-2 text-xs">
+                    Publish
+                  </button>
+                )}
+                {challenge.status === 'active' && (
+                  <button onClick={() => setChallengeStatus('ended')} disabled={lifecycleBusy} className="btn-secondary !py-2 text-xs">
+                    Close entries
+                  </button>
+                )}
+                {challenge.status === 'ended' && (
+                  <button onClick={() => setChallengeStatus('archived')} disabled={lifecycleBusy} className="btn-secondary !py-2 text-xs">
+                    Archive
+                  </button>
+                )}
               </>
             )}
             {isLive ? <Badge tone="brand">Live</Badge> : <Badge tone="grey">{challenge.status}</Badge>}

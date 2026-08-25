@@ -76,7 +76,6 @@ const Game = lazy(() => import('./pages/Game'))
 const Leaderboard = lazy(() => import('./pages/Leaderboard'))
 const AdminPanel = lazy(() => import('./pages/admin/AdminPanel'))
 const AdminCreators = lazy(() => import('./pages/admin/AdminCreators'))
-const AdminChallenges = lazy(() => import('./pages/admin/AdminChallenges'))
 const AdminChallengeForm = lazy(() => import('./pages/admin/AdminChallengeForm'))
 const AdminResults = lazy(() => import('./pages/admin/AdminResults'))
 const AdminRewards = lazy(() => import('./pages/admin/AdminRewards'))
@@ -221,7 +220,13 @@ export default function App() {
             <Route path="/admin/applications" element={<AdminApplications />} />
             <Route path="/admin/creators" element={<AdminCreators />} />
             <Route path="/admin/connections" element={<AdminConnections />} />
-            <Route path="/admin/challenges" element={<AdminChallenges />} />
+            {/* "Manage challenges" is gone. It was a second list of the same
+                challenges, whose only unique powers were publish/close/archive,
+                delete, and a box asking an admin to type how many participation
+                vouchers went out - a number the entries already answer. All
+                three now live on the challenge itself, so this is one list
+                fewer to keep in step. Old links still land somewhere sensible. */}
+            <Route path="/admin/challenges" element={<Navigate to="/challenges" replace />} />
             <Route path="/admin/challenges/new" element={<AdminChallengeForm />} />
             <Route path="/admin/challenges/:id/edit" element={<AdminChallengeForm />} />
             <Route path="/admin/challenges/:id/results" element={<AdminResults />} />

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { confirm, notice } from '../../lib/confirm'
 import { toast } from '../../lib/toast'
@@ -131,8 +130,8 @@ export default function AdminMilestones() {
 
   return (
     <div className="page">
-      <Link to="/admin" className="mb-6 inline-block text-sm font-medium text-smoke hover:text-brand">← Admin</Link>
       <PageHeader
+        back="/admin"
         title="Milestones"
         subtitle="The route every creator flies. Thresholds, rewards and order are all editable, and the route redraws itself."
         action={

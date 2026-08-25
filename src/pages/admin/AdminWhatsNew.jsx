@@ -55,6 +55,7 @@ export default function AdminWhatsNew() {
   return (
     <div className="page max-w-3xl">
       <PageHeader
+        back="/admin"
         title="What's new"
         subtitle="Announce a new feature or improvement. It posts to #announcements, lands in every creator's notification bell, and emails them too (unless they've turned off announcement emails)."
       />

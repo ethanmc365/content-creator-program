@@ -26,19 +26,6 @@ export default function AdminChallenges() {
   useEffect(() => { load() }, [])
 
   const [deleting, setDeleting] = useState(null)
-  const [savedVouchers, setSavedVouchers] = useState(null)
-
-  // Record how many participation vouchers were actually handed out for a
-  // challenge, so analytics and the books stay accurate.
-  async function saveVouchers(challenge, value) {
-    const n = Math.max(0, parseInt(value, 10) || 0)
-    if (n === (challenge.vouchers_given ?? 0)) return
-    const { error } = await supabase.from('challenges').update({ vouchers_given: n }).eq('id', challenge.id)
-    if (error) { notice(`Could not save: ${error.message}`); return }
-    setChallenges((prev) => prev.map((c) => (c.id === challenge.id ? { ...c, vouchers_given: n } : c)))
-    setSavedVouchers(challenge.id)
-    setTimeout(() => setSavedVouchers((cur) => (cur === challenge.id ? null : cur)), 2000)
-  }
 
   async function setStatus(challenge, status) {
     const messages = {
@@ -68,6 +55,7 @@ export default function AdminChallenges() {
   return (
     <div className="page">
       <PageHeader
+        back="/admin"
         title="Manage challenges"
         subtitle="Create, publish, close and archive. One live challenge at a time works best."
         action={<Link to="/admin/challenges/new" className="btn-primary">+ New challenge</Link>}
@@ -109,20 +97,6 @@ export default function AdminChallenges() {
                     <button onClick={() => setStatus(c, 'archived')} className="btn-secondary !py-2 text-xs">📦 Archive</button>
                   )}
                 </div>
-              </div>
-
-              {/* Participation vouchers actually handed out, tracked for the
-                  records + analytics. Saves on blur. */}
-              <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-gray-50 pt-5">
-                <label htmlFor={`vouchers-${c.id}`} className="text-xs font-medium text-smoke">Vouchers given out</label>
-                <input
-                  id={`vouchers-${c.id}`}
-                  type="number" min="0"
-                  className="input !w-24 !py-1.5 text-sm"
-                  defaultValue={c.vouchers_given ?? 0}
-                  onBlur={(e) => saveVouchers(c, e.target.value)}
-                />
-                {savedVouchers === c.id && <span className="text-xs font-medium text-green-600">Saved ✓</span>}
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2 border-t border-gray-50 pt-4">

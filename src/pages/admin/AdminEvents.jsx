@@ -292,6 +292,7 @@ export default function AdminEvents() {
           events is reached from the calendar and had no way back to it. */}
       <BackLink to="/events" label="Back to the calendar" />
       <PageHeader
+        back={{ to: '/events', label: 'Events' }}
         title="Manage events"
         subtitle="Q&As, content days, milestones. Challenge dates show on the calendar automatically."
         action={

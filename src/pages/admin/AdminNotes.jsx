@@ -233,6 +233,7 @@ export default function AdminNotes() {
   return (
     <div className="page">
       <PageHeader
+        back="/admin"
         title="Notes"
         subtitle="A private space for the Tryp.com Team. Keep a bank of weekly questions, plans and playbooks. Drag cards to reorder."
         action={<button onClick={createNote} className="btn-primary">+ New note</button>}

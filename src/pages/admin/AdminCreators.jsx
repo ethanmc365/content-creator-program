@@ -66,8 +66,12 @@ export default function AdminCreators() {
   const [sort, setSort] = useState('active')
   const [selected, setSelected] = useState(null) // creator detail modal
   const [detail, setDetail] = useState(null) // their submissions / activity
-  const [note, setNote] = useState('') // private admin note for the selected creator
+  const [note, setNote] = useState('') // shared admin note for the selected creator
+  const [noteMeta, setNoteMeta] = useState(null) // who last touched it, and when
   const [noteSaved, setNoteSaved] = useState(false)
+  const [priv, setPriv] = useState(null) // phone etc: admin-only, and ONLY shown here
+  const [marketOf, setMarketOf] = useState({}) // creator id -> [market name]
+  const [marketFilter, setMarketFilter] = useState('')
   const [toast, setToast] = useState('')
   // Turnstile gate for sending a password reset (Auth rejects token-less calls).
   const [pwFor, setPwFor] = useState(null) // creator id awaiting the human check
@@ -75,11 +79,23 @@ export default function AdminCreators() {
   const [pwCaptchaKey, setPwCaptchaKey] = useState(0)
 
   async function load() {
-    const [{ data: profiles }, { data: emailRows }, { data: seenRows }] = await Promise.all([
+    const [{ data: profiles }, { data: emailRows }, { data: seenRows }, { data: memberRows }] = await Promise.all([
       supabase.from('profiles').select('*').order('created_at', { ascending: false }),
       supabase.rpc('admin_list_emails'),
       supabase.rpc('admin_list_activity'),
+      // WHICH MARKET SOMEBODY IS IN IS THE FILTER THIS PAGE WAS MISSING.
+      // A country manager opening a roster of everybody worldwide has to read
+      // past four other markets to find their own, which is most of the reason
+      // the page felt like hunting.
+      supabase.from('community_members')
+        .select('profile_id, communities!inner(name, kind)')
+        .eq('status', 'active').eq('communities.kind', 'chapter'),
     ])
+    const byCreator = {}
+    for (const m of memberRows ?? []) {
+      ;(byCreator[m.profile_id] ??= []).push(m.communities.name)
+    }
+    setMarketOf(byCreator)
     // Hidden QA/test accounts never show in the roster.
     setCreators((profiles ?? []).filter((p) => !p.is_test))
     setEmails(Object.fromEntries((emailRows ?? []).map((r) => [r.id, r.email])))
@@ -104,16 +120,23 @@ export default function AdminCreators() {
 
   // Load activity + private admin note when a creator is opened.
   useEffect(() => {
-    if (!selected) { setDetail(null); setNote(''); setNoteSaved(false); return }
+    if (!selected) { setDetail(null); setNote(''); setNoteMeta(null); setPriv(null); setNoteSaved(false); return }
     async function loadDetail() {
-      const [{ data: subs }, { count: msgs }, { data: rewards }, { data: n }] = await Promise.all([
+      const [{ data: subs }, { count: msgs }, { data: rewards }, { data: n }, { data: p }] = await Promise.all([
         supabase.from('submissions').select('*, challenges(title)').eq('creator_id', selected.id).order('submitted_at', { ascending: false }),
         supabase.from('messages').select('id', { count: 'exact', head: true }).eq('sender_id', selected.id),
         supabase.from('rewards').select('*').eq('creator_id', selected.id),
-        supabase.from('creator_admin_notes').select('note').eq('creator_id', selected.id).maybeSingle(),
+        // The note carries WHO wrote it. It was always shared between admins -
+        // one row per creator, an admins-only policy - but it was labelled
+        // "Private note" with no author, so it read as your own scratchpad and
+        // nobody could tell whether a note was theirs or a colleague's.
+        supabase.from('creator_admin_notes').select('note, updated_at, updated_by').eq('creator_id', selected.id).maybeSingle(),
+        supabase.from('creator_private').select('phone, phone_country').eq('id', selected.id).maybeSingle(),
       ])
       setDetail({ submissions: subs ?? [], messageCount: msgs ?? 0, rewards: rewards ?? [] })
       setNote(n?.note ?? '')
+      setNoteMeta(n?.note ? { at: n.updated_at, by: n.updated_by } : null)
+      setPriv(p ?? {})
     }
     loadDetail()
   }, [selected])
@@ -123,6 +146,7 @@ export default function AdminCreators() {
       creator_id: selected.id, note, updated_by: user.id, updated_at: new Date().toISOString(),
     })
     if (error) return flash(`Couldn't save note: ${error.message}`)
+    setNoteMeta(note.trim() ? { at: new Date().toISOString(), by: user.id } : null)
     setNoteSaved(true)
     setTimeout(() => setNoteSaved(false), 2000)
   }
@@ -214,27 +238,55 @@ export default function AdminCreators() {
     if (created) navigate(`/messages/${created.id}`)
   }
 
+  // WHAT AN EXPORT IS FOR. It is a working file - a mail merge, a market list,
+  // a spend review - so the columns are the ones somebody actually sorts by, in
+  // that order, with headings rather than column names. Phone deliberately is
+  // NOT here: it is the one detail that lives in this page's panel and nowhere
+  // else, and a spreadsheet in an inbox is exactly the "anywhere else" that is
+  // supposed to avoid.
   function exportCreators() {
-    downloadCsv(
-      'tryp-creators.csv',
-      filtered.map((c) => ({
-        name: c.name,
-        email: emails[c.id] ?? '',
-        status: c.status,
-        admin: c.is_admin ? 'yes' : 'no',
-        age: c.age ?? '',
-        instagram: c.instagram_url ?? '',
-        tiktok: c.tiktok_url ?? '',
-        youtube: c.youtube_url ?? '',
-        facebook: c.facebook_url ?? '',
-        languages: (c.languages ?? []).join('; '),
-        countries_visited: (c.countries_visited ?? []).length,
-        joined: formatDate(c.created_at),
-      }))
-    )
+    const rows = filtered.map((c) => ({
+      name: c.name,
+      email: emails[c.id] ?? '',
+      market: (marketOf[c.id] ?? []).join('; '),
+      status: statusInfo(c).label,
+      team: c.is_admin ? 'Yes' : '',
+      last_active: lastActive(c) ? formatDate(lastActive(c)) : 'Never',
+      joined: formatDate(c.accepted_at || c.created_at),
+      age: c.age ?? '',
+      languages: (c.languages ?? []).join('; '),
+      countries: (c.countries_visited ?? []).length,
+      instagram: c.instagram_url ?? '',
+      tiktok: c.tiktok_url ?? '',
+      youtube: c.youtube_url ?? '',
+      facebook: c.facebook_url ?? '',
+    }))
+    downloadCsv(`tryp-creators-${new Date().toISOString().slice(0, 10)}.csv`, rows, [
+      { key: 'name', label: 'Name' },
+      { key: 'email', label: 'Email' },
+      { key: 'market', label: 'Market' },
+      { key: 'status', label: 'Status' },
+      { key: 'team', label: 'Tryp.com team' },
+      { key: 'last_active', label: 'Last active' },
+      { key: 'joined', label: 'Joined' },
+      { key: 'age', label: 'Age' },
+      { key: 'languages', label: 'Languages' },
+      { key: 'countries', label: 'Countries visited' },
+      { key: 'instagram', label: 'Instagram' },
+      { key: 'tiktok', label: 'TikTok' },
+      { key: 'youtube', label: 'YouTube' },
+      { key: 'facebook', label: 'Facebook' },
+    ])
   }
 
   const STATUS_TONE = { active: 'green', muted: 'amber', suspended: 'red' }
+
+  // A dial code and a number are two columns in the database and one fact to a
+  // person; joined here so nobody has to reassemble it before dialling.
+  const phoneOf = (p) => [p?.phone_country, p?.phone].filter(Boolean).join(' ').trim()
+  // A note carries the id of whoever saved it. Everybody who can write one is
+  // already in this list, so no extra query is needed to name them.
+  const creatorName = (id) => creators.find((c) => c.id === id)?.name ?? 'a colleague'
 
   // A pending creator who never submitted their profile (did page 1 only) shows
   // as "not completed profile"; one who submitted shows as "pending" (awaiting review).
@@ -323,6 +375,14 @@ export default function AdminCreators() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [creators, lastSeen, nowTick, inactiveBefore])
 
+  // Every market that has somebody in it, with its count, newest question first:
+  // "how many of mine are there".
+  const markets = useMemo(() => {
+    const tally = {}
+    for (const c of creators) for (const m of marketOf[c.id] ?? []) tally[m] = (tally[m] ?? 0) + 1
+    return Object.entries(tally).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+  }, [creators, marketOf])
+
   const filtered = useMemo(() => {
     const week = weekAgo
     const matchesSegment = (c) => {
@@ -353,18 +413,24 @@ export default function AdminCreators() {
       .filter((c) => {
         const email = emails[c.id] ?? ''
         if (search && !(c.name + email).toLowerCase().includes(search.toLowerCase())) return false
+        if (marketFilter === '__none') { if ((marketOf[c.id] ?? []).length) return false }
+        else if (marketFilter && !(marketOf[c.id] ?? []).includes(marketFilter)) return false
         return matchesSegment(c)
       })
       .sort(sorters[sort] || sorters.active)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [creators, emails, search, statusFilter, sort, lastSeen, nowTick, inactiveBefore])
+  }, [creators, emails, search, statusFilter, sort, lastSeen, nowTick, inactiveBefore, marketFilter, marketOf])
 
   return (
     <div className="page">
       <PageHeader
         title="Creators"
-        subtitle={`${creators.length} accounts in the program, most recently active first.`}
-        action={<button onClick={exportCreators} className="btn-secondary">Export CSV ↓</button>}
+        back="/admin"
+        action={
+          <button onClick={exportCreators} className="btn-secondary">
+            <Icon name="arrow-down" className="h-4 w-4" /> Export CSV
+          </button>
+        }
       />
 
       {toast && <p className="mb-6 rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-700 animate-fade-up">{toast}</p>}
@@ -395,6 +461,37 @@ export default function AdminCreators() {
           )
         })}
       </div>
+
+      {/* THE SECOND QUESTION THIS PAGE IS ASKED, and until now it could not
+          answer it: "show me mine". A country manager scanning a worldwide
+          roster reads past four other markets to reach their own. The segments
+          above are about STATE; this row is about WHERE, so they are two rows
+          and pressing one does not clear the other. */}
+      {markets.length > 1 && (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-widest text-smoke">Market</span>
+          {[{ key: '', label: 'All', count: creators.length }, ...markets.map(([m, n]) => ({ key: m, label: m, count: n })),
+            ...(creators.some((c) => !(marketOf[c.id] ?? []).length)
+              ? [{ key: '__none', label: 'No market', count: creators.filter((c) => !(marketOf[c.id] ?? []).length).length }]
+              : [])].map((m) => {
+            const on = marketFilter === m.key
+            return (
+              <button
+                key={m.key || 'all'}
+                type="button"
+                onClick={() => setMarketFilter(m.key)}
+                aria-pressed={on}
+                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-200 ${
+                  on ? 'border-brand bg-brand-tint text-brand' : 'border-gray-200 bg-white text-smoke hover:-translate-y-0.5 hover:border-brand hover:text-brand'
+                }`}
+              >
+                {m.label}
+                <span className={on ? 'text-brand/60' : 'text-gray-400'}>{m.count}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       <div className="mb-8 flex flex-col gap-3 sm:flex-row">
         <input
@@ -500,25 +597,83 @@ export default function AdminCreators() {
       <Modal open={!!selected} onClose={() => setSelected(null)} title={selected?.name ?? ''} wide>
         {selected && (
           <div className="space-y-7">
-            <div className="flex flex-wrap items-center gap-4">
+            {/* IDENTITY, then CONTACT, then everything else. The old header
+                ran the email, the join date, the age, the country count and the
+                presence chip together as four lines of small grey text, so the
+                two things you open this panel for - how do I reach them, and
+                are they all right - were the hardest to find in it. */}
+            <div className="flex flex-wrap items-start gap-4">
               <Avatar src={selected.photo_url} name={selected.name} size="lg" />
               <div className="min-w-0 flex-1">
-                <p className="flex items-center gap-1.5 text-sm font-medium">
-                  <span className="break-all">{emails[selected.id]}</span>
-                  {emails[selected.id] && <CopyButton value={emails[selected.id]} label="Copy email" />}
-                </p>
-                <p className="text-xs text-smoke">Joined {formatDate(selected.accepted_at || selected.created_at)} · {selected.age ? `${selected.age} yrs · ` : ''}{(selected.countries_visited ?? []).length} countries</p>
-                <p className="mt-0.5 text-xs">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-lg font-bold leading-tight">{selected.name}</h3>
+                  {badgeWorthShowing(selected) && <Badge tone={statusInfo(selected).tone}>{statusInfo(selected).label}</Badge>}
+                  {selected.is_admin && <Badge tone="light">Team</Badge>}
+                </div>
+                <p className="mt-1 text-xs">
                   <PresenceChip when={lastActive(selected)} online={isOnline(selected)} quiet={isInactive(selected)} detail />
                 </p>
-                <div className="mt-2 flex gap-2">
-                  {badgeWorthShowing(selected) && <Badge tone={statusInfo(selected).tone}>{statusInfo(selected).label}</Badge>}
-                  {selected.is_admin && <Badge tone="light">Admin</Badge>}
-                </div>
+                {(marketOf[selected.id] ?? []).length > 0 && (
+                  <p className="mt-1.5 flex flex-wrap gap-1.5">
+                    {(marketOf[selected.id] ?? []).map((m) => (
+                      <span key={m} className="rounded-full bg-cloud px-2.5 py-0.5 text-[11px] font-medium text-smoke">{m}</span>
+                    ))}
+                  </p>
+                )}
               </div>
-              <Link to={`/profile/${selected.id}`} className="btn-secondary !py-2 text-xs" onClick={() => setSelected(null)}>
+              <Link to={`/profile/${selected.id}`} className="btn-secondary shrink-0 !py-2 text-xs" onClick={() => setSelected(null)}>
                 View profile
               </Link>
+            </div>
+
+            {/* CONTACT DETAILS, AND THIS IS THE ONLY PLACE THEY APPEAR.
+                Ethan's rule: the admin-only details - their number above all -
+                show here and nowhere else, not on their profile. A phone number
+                is the one field on this platform a creator has not chosen to
+                publish to anybody, so it belongs behind a deliberate act (open
+                the roster, open the person) rather than on a page a colleague
+                might have open on a shared screen. */}
+            <div className="rounded-card border border-gray-100 bg-cloud/40 p-4">
+              <div className="mb-3 flex items-center gap-2">
+                <Icon name="shield" className="h-3.5 w-3.5 text-smoke" />
+                <h4 className="text-[11px] font-bold uppercase tracking-widest text-smoke">
+                  Contact · Tryp.com team only
+                </h4>
+              </div>
+              <dl className="grid gap-3 sm:grid-cols-2">
+                <div className="min-w-0">
+                  <dt className="text-[11px] text-smoke">Email</dt>
+                  <dd className="flex min-w-0 items-center gap-1">
+                    <span className="truncate text-sm font-medium">{emails[selected.id] || '—'}</span>
+                    {emails[selected.id] && <CopyButton value={emails[selected.id]} label="Copy email" className="!h-6 !w-6 shrink-0" />}
+                  </dd>
+                </div>
+                <div className="min-w-0">
+                  <dt className="text-[11px] text-smoke">Phone</dt>
+                  <dd className="flex min-w-0 items-center gap-1">
+                    {priv === null ? (
+                      <Skeleton className="h-4 w-28" />
+                    ) : phoneOf(priv) ? (
+                      <>
+                        <span className="truncate text-sm font-medium">{phoneOf(priv)}</span>
+                        <CopyButton value={phoneOf(priv)} label="Copy phone" className="!h-6 !w-6 shrink-0" />
+                      </>
+                    ) : (
+                      <span className="text-sm text-smoke">Not given</span>
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-[11px] text-smoke">Joined</dt>
+                  <dd className="text-sm font-medium">{formatDate(selected.accepted_at || selected.created_at)}</dd>
+                </div>
+                <div>
+                  <dt className="text-[11px] text-smoke">Age · countries</dt>
+                  <dd className="text-sm font-medium">
+                    {selected.age ? `${selected.age}` : '—'} · {(selected.countries_visited ?? []).length}
+                  </dd>
+                </div>
+              </dl>
             </div>
 
             {/* Activity summary */}
@@ -547,16 +702,27 @@ export default function AdminCreators() {
               </div>
             )}
 
-            {/* Private admin note (only admins ever see this) */}
+            {/* THE NOTE IS THE TEAM'S, NOT YOURS.
+                It always was - one row per creator, an admins-only policy - but
+                it was headed "Private note" with no author on it, which reads
+                as a personal scratchpad. Two country managers could overwrite
+                each other and neither would know. Same storage, honest label,
+                and it now says who wrote what is on screen. */}
             <div className="border-t border-gray-100 pt-5">
-              <div className="mb-2 flex items-center justify-between">
-                <h3 className="text-sm font-semibold">Private note</h3>
+              <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold">Team note</h3>
                 {noteSaved && <span className="text-xs font-medium text-green-600">Saved ✓</span>}
               </div>
+              <p className="mb-2 text-[11px] text-smoke">
+                Every admin sees this, and it is never shown to the creator.
+                {noteMeta && (
+                  <> Last edited by <span className="font-medium text-ink">{creatorName(noteMeta.by)}</span> {timeAgo(noteMeta.at)}.</>
+                )}
+              </p>
               <textarea
                 rows={3}
                 className="input text-sm"
-                placeholder="Notes about this creator, visible only to the Tryp.com Team…"
+                placeholder="What the rest of the team should know about this creator…"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
               />

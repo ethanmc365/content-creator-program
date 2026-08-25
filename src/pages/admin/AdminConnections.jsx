@@ -101,9 +101,9 @@ export default function AdminConnections() {
 
   return (
     <div className="page max-w-3xl">
-      <Link to="/admin" className="mb-6 inline-block text-sm font-medium text-smoke hover:text-brand">← Admin</Link>
 
       <PageHeader
+        back="/admin"
         title="Platform connections"
         subtitle="What automatic view counts needs to read each platform. Three of the four need nothing at all."
         action={<PlatformBadges platforms={['Instagram', 'TikTok', 'YouTube', 'Facebook']} size="md" />}

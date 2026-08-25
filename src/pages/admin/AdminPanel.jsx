@@ -61,7 +61,7 @@ const TOOLS = [
   { id: 'reports', to: '/admin/reports', icon: 'flag', family: 'people', title: 'Reported messages', short: 'Reports', text: 'What creators flagged in the rooms and their DMs.' },
   { id: 'team', to: '/admin/team', icon: 'shield', family: 'people', title: 'Tryp.com team', short: 'Team', text: 'Who runs the programme, and the title each of them carries.', globalOnly: true },
 
-  { id: 'challenges', to: '/admin/challenges', icon: 'flag', family: 'programme', title: 'Challenges', text: 'Write, edit, run and close briefs across every market.' },
+  { id: 'challenges', to: '/challenges', icon: 'flag', family: 'programme', title: 'Challenges', text: 'Write, edit, run and close briefs across every market.' },
   { id: 'milestones', to: '/admin/milestones', icon: 'plane', family: 'programme', title: 'Milestones', text: 'The route every creator flies, and what unlocks each stop.' },
 
   { id: 'rewards', to: '/admin/rewards', icon: 'money', family: 'money', title: 'Rewards & invoices', short: 'Rewards', text: 'Payouts, invoices, approvals and payment details.' },

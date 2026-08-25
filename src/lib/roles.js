@@ -50,6 +50,22 @@ export function roleTitle(person, marketName) {
   return 'Creator'
 }
 
+/**
+ * The same title, cut to badge length.
+ *
+ * A badge sits beside a name and has to be read in the same glance as the name.
+ * "Tryp.com Content Creator Community Lead" is 39 characters and, set next to
+ * "Ethan", it is four times the width of the thing it is describing - the title
+ * stops being an annotation and becomes the headline. So the one title we know
+ * is over-long has an agreed short form, and anything else is used as written,
+ * because a country manager's title is already short and cutting it by
+ * character count would produce nonsense like "Spanish Country Man…".
+ */
+export function roleBadgeTitle(person, marketName) {
+  const full = roleTitle(person, marketName)
+  return full === LEAD_TITLE ? LEAD_TITLE_SHORT : full
+}
+
 /** Short label for the permission itself, for the admin surfaces that set it. */
 export function permissionLabel(platformRole) {
   if (platformRole === 'owner') return 'Programme lead'

@@ -213,6 +213,7 @@ export default function AdminRewards() {
   return (
     <div className="page">
       <PageHeader
+        back="/admin"
         title="Rewards & invoices"
         subtitle="The program's money trail. Keep it tidy for accounting."
         action={tab === 'payouts' && (

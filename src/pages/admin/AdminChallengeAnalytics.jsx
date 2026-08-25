@@ -88,6 +88,7 @@ export default function AdminChallengeAnalytics() {
       <Link to="/admin/analytics" className="mb-6 inline-block text-sm font-medium text-smoke hover:text-brand">← Back to analytics</Link>
 
       <PageHeader
+        back={{ to: '/admin/analytics', label: 'Analytics' }}
         title={challenge.title}
         subtitle={`${formatDate(challenge.start_date)} → ${formatDate(challenge.end_date)} · ${challenge.status}`}
         action={

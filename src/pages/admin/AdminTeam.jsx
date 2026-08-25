@@ -216,10 +216,9 @@ export default function AdminTeam() {
 
   return (
     <div className="page">
-      <Link to="/admin" className="mb-6 inline-block text-sm font-medium text-smoke hover:text-brand">← Admin</Link>
       <PageHeader
+        back="/admin"
         title="Tryp.com team"
-        subtitle="Who runs the programme, what they can do, and what they are called."
         action={
           <button onClick={() => setAdding((v) => !v)} className="btn-primary !py-2.5">
             <Icon name="plus" className="h-4 w-4" /> Add someone
@@ -246,10 +245,7 @@ export default function AdminTeam() {
       ) : (
         <div className="space-y-10">
           <section>
-            <h2 className="mb-1 text-lg font-semibold">Programme lead</h2>
-            <p className="mb-4 text-sm text-smoke">
-              One person, always. Cannot be demoted, removed or renamed by anybody else.
-            </p>
+            <h2 className="mb-4 text-lg font-semibold">Programme lead</h2>
             {lead ? (
               <RoleRow
                 person={lead}
@@ -266,10 +262,7 @@ export default function AdminTeam() {
           </section>
 
           <section>
-            <h2 className="mb-1 text-lg font-semibold">Tryp.com team</h2>
-            <p className="mb-4 text-sm text-smoke">
-              Everything the lead can do, except touching the lead. Give each of them the title they actually use.
-            </p>
+            <h2 className="mb-4 text-lg font-semibold">Tryp.com team</h2>
             {admins.length === 0 ? (
               <EmptyState
                 icon={<Icon name="users" className="h-6 w-6" />}

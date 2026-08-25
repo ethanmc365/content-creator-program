@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { confirm } from '../../lib/confirm'
 import { useAuth } from '../../context/AuthContext'
 import Icon from '../../components/Icon'
 import PointRulesEditor from '../../components/network/PointRulesEditor'
@@ -298,9 +299,24 @@ export default function AdminChallengeForm() {
   const derivedWinners = rowWinners || Number(form.winners_count) || 0
   const potIsLegacy = !rowPot && derivedPot > 0
 
+  async function destroy() {
+    const { count } = await supabase
+      .from('submissions').select('id', { count: 'exact', head: true }).eq('challenge_id', editing)
+    const entries = count ?? 0
+    if (!await confirm(
+      `Permanently delete "${form.title || 'this challenge'}"?\n\nThis also deletes ${entries} submission${entries === 1 ? '' : 's'} and all its results. This cannot be undone.`,
+    )) return
+    setBusy(true)
+    const { error: err } = await supabase.rpc('admin_delete_challenge', { target: editing })
+    setBusy(false)
+    if (err) { setError(`Could not delete: ${err.message}`); return }
+    navigate('/challenges')
+  }
+
   return (
     <div className="page max-w-3xl">
       <PageHeader
+        back={{ to: '/admin/challenges', label: 'Challenges' }}
         title={editing ? 'Edit challenge' : 'New challenge'}
         subtitle={editing ? 'Changes go live immediately for everyone.' : 'Set the brief, the dates and the prizes. Publish when you\'re ready.'}
       />
@@ -726,18 +742,37 @@ export default function AdminChallengeForm() {
 
         {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
 
+        {/* SAVE IS THE ORANGE ONE. Ethan asked for it: "perhaps highlight the
+            save button in Tryp.com orange, make it more clear". On an edit
+            screen saving IS the action, and it was the palest of three. */}
         <div className="flex flex-wrap items-center justify-end gap-3">
-          <button type="button" onClick={() => navigate('/admin/challenges')} className="btn-ghost">Cancel</button>
-          <button type="submit" disabled={busy} className="btn-secondary">
-            {busy ? <Spinner /> : editing ? 'Save changes' : 'Save as draft'}
-          </button>
+          <button type="button" onClick={() => navigate(editing ? `/challenges/${editing}` : '/challenges')} className="btn-ghost">Cancel</button>
           {(!editing || form.status === 'draft') && (
-            <button type="button" disabled={busy} onClick={(e) => save(e, true)} className="btn-primary">
+            <button type="button" disabled={busy} onClick={(e) => save(e, true)} className="btn-secondary">
               {busy ? <Spinner /> : 'Save & publish'}
             </button>
           )}
+          <button type="submit" disabled={busy} className="btn-primary">
+            {busy ? <Spinner /> : editing ? 'Save changes' : 'Save as draft'}
+          </button>
         </div>
       </form>
+
+      {/* DELETING A CHALLENGE LIVES ON THE CHALLENGE, like publishing and
+          closing now do. It was the last thing keeping the separate
+          "Manage challenges" list alive. */}
+      {editing && (
+        <div className="mt-10 rounded-card border border-red-100 bg-red-50/50 p-5">
+          <p className="text-xs font-semibold text-red-600">Danger zone</p>
+          <p className="mb-3 mt-1 text-[11px] leading-relaxed text-smoke">
+            Permanently delete this challenge, every entry in it and all of its results. Rewards already
+            paid keep their history. This cannot be undone.
+          </p>
+          <button type="button" onClick={destroy} disabled={busy} className="btn-danger !py-2 text-xs">
+            <Icon name="trash" className="h-4 w-4" /> Delete challenge
+          </button>
+        </div>
+      )}
     </div>
   )
 }
