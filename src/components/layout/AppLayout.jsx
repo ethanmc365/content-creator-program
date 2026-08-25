@@ -89,6 +89,9 @@ export default function AppLayout() {
   // Nothing may float over it: the pill would sit exactly where the send button
   // is. The room's own back link is the way out.
   const onNetworkChat = onNetworkPage && /\/chat(\/|$)/.test(pathname)
+  // Pages that put something at the bottom of the viewport: a chat composer, a
+  // DM composer. Anything floating there lands on the send button.
+  const hasBottomBar = /^\/(chat|messages|rooms)(\/|$)/.test(pathname) || onNetworkChat
   const tabs = networkPreview ? NETWORK_TABS : TABS
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -302,12 +305,29 @@ export default function AppLayout() {
           floats above everything so they can always exit back to their admin
           account (while previewing, the logged-in identity IS the creator). */}
       {impersonating && (
-        <div className="fixed inset-x-0 bottom-24 z-50 flex justify-center px-4 lg:bottom-6">
-          <div className="flex flex-col items-center gap-1.5 rounded-2xl border border-brand/30 bg-white px-4 py-2 shadow-lift">
-            <div className="flex items-center gap-3">
+        // IT GETS OUT OF THE WAY BY ITSELF.
+        //
+        // This pill was pinned to the centre of the viewport bottom - which is
+        // exactly where a chat composer sits, and where the send button is on a
+        // phone. The network-preview pill below already docked aside on pages
+        // that have one; this one never learned. On any page with something at
+        // the bottom it now docks right, and on a phone it drops to the icon and
+        // the way out, because 260px of floating chrome over a 375px screen is
+        // most of what you were trying to read.
+        //
+        // It never hides, whatever the page: while previewing, the logged-in
+        // identity IS the creator, so this is the only route back.
+        <div className={cx(
+          'fixed z-50 flex px-4',
+          hasBottomBar
+            ? 'bottom-24 right-0 justify-end lg:bottom-6'
+            : 'inset-x-0 bottom-24 justify-center lg:bottom-6',
+        )}>
+          <div className="flex flex-col items-center gap-1.5 rounded-2xl border border-brand/30 bg-white px-3 py-2 shadow-lift sm:px-4">
+            <div className="flex items-center gap-2 sm:gap-3">
               <span className="flex items-center gap-2 text-xs font-medium text-ink">
-                <Icon name="eye" className="h-4 w-4 text-brand" />
-                Viewing as a creator
+                <Icon name="eye" className="h-4 w-4 shrink-0 text-brand" />
+                <span className="hidden sm:inline">Viewing as a creator</span>
               </span>
               <button
                 onClick={async () => {

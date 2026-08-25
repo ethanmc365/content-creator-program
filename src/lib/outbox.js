@@ -93,6 +93,13 @@ export function subscribeOutbox(fn) {
 
 /** Told when an item lands, with the real row the database gave back, so the
  *  surface can put the true message where the pending one was. */
+// Told when a message was refused because the sender is the preview sandbox.
+const blockedListeners = new Set()
+export function onOutboxBlocked(fn) {
+  blockedListeners.add(fn)
+  return () => blockedListeners.delete(fn)
+}
+
 export function onOutboxSent(fn) {
   sentListeners.add(fn)
   return () => sentListeners.delete(fn)
@@ -189,6 +196,19 @@ async function runFlush(now) {
       // too, which is the double-message this is supposed to prevent.
       write(items.filter((i) => i.id !== item.id))
       for (const fn of sentListeners) fn(item, data)
+      continue
+    }
+
+    // THE SANDBOX IS NOT ALLOWED TO SPEAK, and that is not a failure to retry.
+    //
+    // "View as creator" drops an admin into a sandbox account that the database
+    // refuses to let post, so an admin who forgets which account they are in
+    // cannot put words in an invented creator's mouth. Retrying that four times
+    // and then showing a red "failed" bubble would be the app arguing with a
+    // rule it agrees with. Drop it and say what happened.
+    if (String(error?.message || '').includes('SANDBOX_CANNOT_POST')) {
+      write(items.filter((i) => i.id !== item.id))
+      for (const fn of blockedListeners) fn(item)
       continue
     }
 

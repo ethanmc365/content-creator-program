@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from 'react'
-import { confirm } from '../lib/confirm'
+import { confirm, notice } from '../lib/confirm'
 import { loadDraft, saveDraft, clearDraft } from '../lib/drafts'
 import { uploadChatImage, uploadChatVideo } from '../lib/chatMedia'
 import { Link, NavLink, useParams } from 'react-router-dom'
@@ -33,7 +33,7 @@ import ReportMessage from '../components/ReportMessage'
 import { useNowTick, withinEditWindow } from '../lib/messageActions'
 import { playSend, playSendFail, playInbound, playReactionPop } from '../lib/appSounds'
 import OutboxNotice from '../components/OutboxNotice'
-import { enqueueMessage, queuedFor, subscribeOutbox, onOutboxSent, retryQueued, dropQueued } from '../lib/outbox'
+import { enqueueMessage, queuedFor, subscribeOutbox, onOutboxSent, onOutboxBlocked, retryQueued, dropQueued } from '../lib/outbox'
 
 // A short label for a message when it's quoted in a reply.
 function messagePreview(m) {
@@ -304,6 +304,12 @@ export default function Chat() {
   // A queued message that lands anywhere in the app tells everyone; this room
   // only cares about its own. The real row goes in exactly as the outbox drops
   // the item, so the pending bubble is replaced rather than joined.
+
+  // Refused because this is the "View as creator" sandbox. Say so plainly - the
+  // most likely reader is an admin who has forgotten which account they are in.
+  useEffect(() => onOutboxBlocked(() => {
+    notice('You are viewing as a creator, so this was not sent.\n\nExit the preview to post as yourself.')
+  }), [])
   useEffect(() => onOutboxSent((item, row) => {
     if (item.scope !== outboxScope || !row) return
     mergeIncoming(row)

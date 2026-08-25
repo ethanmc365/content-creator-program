@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'motion/react'
 import { supabase } from '../lib/supabase'
+import { notice } from '../lib/confirm'
 import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
 import { flagFromIso } from '../components/network/PlaceSwitcher'
@@ -29,7 +30,7 @@ import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
 import { cx, formatMessageTime, messageTimeTitle } from '../lib/utils'
 import { SOFT_SPRING } from '../lib/motion'
 import OutboxNotice from '../components/OutboxNotice'
-import { enqueueMessage, queuedFor, subscribeOutbox, onOutboxSent, retryQueued, dropQueued } from '../lib/outbox'
+import { enqueueMessage, queuedFor, subscribeOutbox, onOutboxSent, onOutboxBlocked, retryQueued, dropQueued } from '../lib/outbox'
 
 // Per-market chat. Spain's General, the UK's General and the Worldwide General
 // are three separate rooms that happen to share a layout.
@@ -406,6 +407,12 @@ export default function NetworkChat() {
   // A queued message landing anywhere tells every surface; this room takes its
   // own, exactly as the outbox drops the item, so the pending bubble is
   // replaced rather than joined by the real one.
+
+  // Refused because this is the "View as creator" sandbox. Say so plainly - the
+  // most likely reader is an admin who has forgotten which account they are in.
+  useEffect(() => onOutboxBlocked(() => {
+    notice('You are viewing as a creator, so this was not sent.\n\nExit the preview to post as yourself.')
+  }), [])
   useEffect(() => onOutboxSent((item, row) => {
     if (item.scope !== outboxScope || !row) return
     setMessages((prev) => (prev.some((m) => m.id === row.id) ? prev : [...prev, row]))
