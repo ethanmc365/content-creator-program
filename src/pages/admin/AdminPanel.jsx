@@ -86,8 +86,7 @@ const TOOLS = [
   // counts panel on a challenge, which links here when something is actually
   // wrong. A door you are shown at the moment you need it beats a door you walk
   // past every day.
-  { id: 'network-settings', to: '/global/settings', icon: 'globe', family: 'platform', title: 'Network settings', short: 'Network', text: 'The worldwide network itself.', globalOnly: true },
-  { id: 'markets', to: '/global/markets', icon: 'flag', family: 'platform', title: 'All markets', text: 'Every market, open and closed, and how to open another.', globalOnly: true },
+  { id: 'network-settings', to: '/global/settings', icon: 'globe', family: 'platform', title: 'Manage markets', short: 'Markets', text: 'Every market, its settings, and how to open another.', globalOnly: true },
   { id: 'audit', to: '/admin/audit', icon: 'eye', family: 'platform', title: 'Audit log', short: 'Audit', text: 'A record of account actions taken by the team.', globalOnly: true },
 ]
 

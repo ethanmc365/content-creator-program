@@ -91,7 +91,6 @@ const AdminAuditLog = lazy(() => import('./pages/admin/AdminAuditLog'))
 const AdminConnections = lazy(() => import('./pages/admin/AdminConnections'))
 const AdminTeam = lazy(() => import('./pages/admin/AdminTeam'))
 const AdminMilestones = lazy(() => import('./pages/admin/AdminMilestones'))
-const AdminWhatsNew = lazy(() => import('./pages/admin/AdminWhatsNew'))
 const AdminFeedback = lazy(() => import('./pages/admin/AdminFeedback'))
 const AdminReports = lazy(() => import('./pages/admin/AdminReports'))
 const AdminNotes = lazy(() => import('./pages/admin/AdminNotes'))
@@ -248,7 +247,11 @@ export default function App() {
                 Anything queued from the old page was for #announcements, so
                 that is where this lands and where it is still cancellable. */}
             <Route path="/admin/scheduled" element={<Navigate to="/chat/announcements" replace />} />
-            <Route path="/admin/whats-new" element={<AdminWhatsNew />} />
+            {/* "What's new" is gone. It was a form that posted a tagged message
+                into #announcements and nothing else - a second door onto the
+                announcements room, with its own admin page and its own tile.
+                Announcing a feature IS an announcement. */}
+            <Route path="/admin/whats-new" element={<Navigate to="/chat/announcements" replace />} />
             <Route path="/admin/feedback" element={<AdminFeedback />} />
             <Route path="/admin/reports" element={<AdminReports />} />
             <Route path="/admin/notes" element={<AdminNotes />} />

@@ -10,6 +10,7 @@ import TrypPlane from '../components/network/TrypPlane'
 import Icon from '../components/Icon'
 import { Badge, Skeleton } from '../components/ui'
 import { cx } from '../lib/utils'
+import { notice } from '../lib/confirm'
 import { listContainer, listItem, cardHover, pageFade } from '../lib/motion'
 
 // Every market, and whether it is yours.
@@ -64,7 +65,7 @@ function joinability(market, profile, isGlobalAdmin) {
 // during render is a NEW component type on every render, so React unmounts and
 // remounts the whole subtree each time - which here would drop the "Joining…"
 // state the instant the join finished.
-function MarketCard({ market, highlight, isMine, joinState, count, hasLive }) {
+function MarketCard({ market, highlight, isMine, joinState, count, hasLive, requestState, onRequest }) {
   const flags = (market.country_codes || []).map(flagFromIso).join(' ')
   // The whole card is the door. A card with one action in it should not make
   // you find the action.
@@ -112,17 +113,33 @@ function MarketCard({ market, highlight, isMine, joinState, count, hasLive }) {
         )}
       </div>
 
-      {/* Not a button. Whether you could join, and the one action, on one line:
-          the eligibility line is information the reader needs before spending a
-          click, and "Open" is the only thing there is to do. */}
+      {/* PUTTING YOUR HAND UP.
+          A creator looking at a market they are not in could see it and do
+          nothing about it, so the only route in was to find somebody and ask.
+          "Request to join" is that ask, made once, visible to the market's
+          leads, and answered - a decline carries a reason and both outcomes
+          reach the creator's bell. */}
       <div className="mt-5 flex items-center gap-3 border-t border-gray-50 pt-4">
         <span className="min-w-0 flex-1 truncate text-xs text-smoke">
-          {isMine ? 'You are a member' : joinState.can ? `Open to you · ${joinState.why}` : joinState.why}
+          {isMine ? 'You are a member'
+            : requestState === 'pending' ? 'Request sent'
+              : joinState.can ? `Open to you · ${joinState.why}` : joinState.why}
         </span>
-        <span className="flex shrink-0 items-center gap-1 text-sm font-semibold text-brand">
-          {isMine ? 'Open' : 'Have a look'}
-          <Icon name="chevronRight" className="h-4 w-4" />
-        </span>
+        {isMine ? (
+          <span className="flex shrink-0 items-center gap-1 text-sm font-semibold text-brand">
+            Open <Icon name="chevronRight" className="h-4 w-4" />
+          </span>
+        ) : requestState === 'pending' ? (
+          <span className="shrink-0 rounded-full bg-cloud px-3 py-1 text-xs font-medium text-smoke">Waiting</span>
+        ) : (
+          <button
+            type="button"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRequest?.(market) }}
+            className="shrink-0 rounded-full border border-brand px-3.5 py-1.5 text-xs font-semibold text-brand transition-all duration-200 hover:-translate-y-0.5 hover:bg-brand hover:text-white"
+          >
+            Request to join
+          </button>
+        )}
       </div>
     </MotionLink>
   )
@@ -144,7 +161,7 @@ function Group({ title, hint, children }) {
 }
 
 export default function ExploreMarkets() {
-  const { profile } = useAuth()
+  const { profile, user } = useAuth()
   const { network, chapters, myChapters, isGlobalAdmin, loading: ctxLoading } = useCommunity()
   const [counts, setCounts] = useState(null)
   const [live, setLive] = useState({})
@@ -171,6 +188,37 @@ export default function ExploreMarkets() {
     return () => { cancelled = true }
   }, [])
 
+  // What this creator has already asked for, so a card never offers to send a
+  // request they have already sent.
+  const [requests, setRequests] = useState({})
+  useEffect(() => {
+    if (!user?.id) return
+    let alive = true
+    supabase.from('market_join_requests')
+      .select('community_id, status')
+      .eq('profile_id', user.id)
+      .eq('status', 'pending')
+      .then(({ data }) => {
+        if (alive) setRequests(Object.fromEntries((data ?? []).map((r) => [r.community_id, r.status])))
+      })
+    return () => { alive = false }
+  }, [user])
+
+  async function requestJoin(market) {
+    if (!user?.id) return
+    // Optimistic: the button has to stop offering immediately or it reads as
+    // having done nothing and gets pressed again.
+    setRequests((r) => ({ ...r, [market.id]: 'pending' }))
+    const { error } = await supabase.from('market_join_requests')
+      .insert({ community_id: market.id, profile_id: user.id })
+    if (error) {
+      setRequests((r) => { const next = { ...r }; delete next[market.id]; return next })
+      notice(`Could not send that request: ${error.message}`)
+      return
+    }
+    notice(`Asked to join ${market.name}. The team there will let you know.`)
+  }
+
   const mineIds = new Set(myChapters.map((c) => c.id))
   const suggested = chapters.filter(
     (c) => c.is_active && !mineIds.has(c.id)
@@ -187,6 +235,8 @@ export default function ExploreMarkets() {
         market={m}
         highlight={highlight}
         isMine={mineIds.has(m.id)}
+        requestState={requests[m.id]}
+        onRequest={requestJoin}
         joinState={joinability(m, profile, isGlobalAdmin)}
         count={counts ? (counts[m.id] ?? 0) : null}
         hasLive={!!live[m.id]}
@@ -235,17 +285,6 @@ export default function ExploreMarkets() {
                 <Group title="Not open yet" hint="Visible to you because you run the platform. Creators cannot see or join these.">
                   {cards(closed)}
                 </Group>
-              )}
-              {isGlobalAdmin && (
-                <div className="rounded-card border border-dashed border-brand/30 bg-brand-tint/20 px-5 py-6 text-center">
-                  <p className="text-sm font-semibold">Opening somewhere new?</p>
-                  <p className="mx-auto mt-1 max-w-md text-sm text-smoke">
-                    The wizard creates the market, its rooms and its first settings in one go, and leaves it closed until you say otherwise.
-                  </p>
-                  <Link to="/global/settings" className="btn-primary mt-4 !py-2.5">
-                    Open a new market
-                  </Link>
-                </div>
               )}
             </>
           )}
