@@ -1,10 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { Modal, Skeleton, Spinner } from './ui'
 import Icon from './Icon'
 import { CONTINENTS } from '../lib/countries'
 import { Select } from './ui'
+import { confirm } from '../lib/confirm'
+import { zonedTimeToUtc, formatInZone, zoneLabel } from '../lib/localTime'
+import { COMMON_ZONES } from '../lib/timezones'
 
 // The three things the team can drop into a conversation: a poll, a game
 // challenge, a resource from the library.
@@ -24,12 +27,23 @@ import { Select } from './ui'
 
 const EMPTY_POLL = { question: '', options: ['', ''] }
 const EMPTY_GAME = { title: '', mode: 'flags', region: 'World' }
+const EMPTY_SCHEDULE = { body: '', date: '', time: '09:00' }
 
-export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 'this room' }) {
+export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 'this room', room = null }) {
   const [poll, setPoll] = useState(EMPTY_POLL)
   const [game, setGame] = useState(EMPTY_GAME)
   const [busy, setBusy] = useState(false)
   const [resources, setResources] = useState(null)
+  const [schedule, setSchedule] = useState(EMPTY_SCHEDULE)
+  const [zone, setZone] = useState(room?.tz || 'Europe/London')
+  const [pending, setPending] = useState(null)
+  const [resourceSearch, setResourceSearch] = useState('')
+  const [nowTick, setNowTick] = useState(0)
+
+  // The room's own clock is the default, because that is the clock the people
+  // reading it are on: 09:00 in the Spanish room means 09:00 in Madrid, whoever
+  // is typing it and wherever they are.
+  useEffect(() => { setZone(room?.tz || 'Europe/London') }, [room?.tz])
 
   // The library loads the first time somebody opens the picker, then stays.
   useEffect(() => {
@@ -40,9 +54,80 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
     return () => { alive = false }
   }, [tool, resources])
 
+  // What is already queued for THIS room. Scheduling something and then having
+  // no way to see or stop it is how you end up with a message you have changed
+  // your mind about going out anyway.
+  const loadPending = useCallback(async () => {
+    if (!room?.channel) { setPending([]); return }
+    const { data } = await supabase
+      .from('scheduled_announcements')
+      .select('id, body, scheduled_for, tz, created_by')
+      .eq('channel', room.channel)
+      .is('posted_at', null)
+      .is('cancelled_at', null)
+      .order('scheduled_for')
+    setPending(data ?? [])
+  }, [room?.channel])
+
+  useEffect(() => {
+    if (tool !== 'schedule') return
+    loadPending()
+    setNowTick(Date.now())
+    const t = setInterval(() => setNowTick(Date.now()), 20000)
+    return () => clearInterval(t)
+  }, [tool, loadPending])
+
+  // The instant the message will actually go out, recomputed as you type, so
+  // the confirmation line under the fields is never a promise the row does not
+  // keep.
+  const shownResources = useMemo(() => {
+    const q = resourceSearch.trim().toLowerCase()
+    if (!q) return resources ?? []
+    return (resources ?? []).filter((r) =>
+      `${r.title ?? ''} ${r.category ?? ''}`.toLowerCase().includes(q))
+  }, [resources, resourceSearch])
+
+  const scheduledAt = useMemo(
+    () => zonedTimeToUtc(schedule.date, schedule.time, zone),
+    [schedule.date, schedule.time, zone],
+  )
+  // `nowTick` rather than Date.now(): a render has to be a pure function of
+  // state, and this repo's lint enforces it. Ticking every 20s is plenty for
+  // "is the time you picked already gone".
+  const inThePast = scheduledAt != null && nowTick > 0 && scheduledAt.getTime() <= nowTick
+
+  async function createSchedule(e) {
+    e.preventDefault()
+    if (!schedule.body.trim() || !scheduledAt || inThePast || busy) return
+    setBusy(true)
+    const { data: me } = await supabase.auth.getUser()
+    const { error } = await supabase.from('scheduled_announcements').insert({
+      body: schedule.body.trim(),
+      scheduled_for: scheduledAt.toISOString(),
+      tz: zone,
+      channel: room.channel,
+      channel_id: room.channel_id ?? null,
+      community_id: room.community_id ?? null,
+      created_by: me.user?.id ?? null,
+    })
+    setBusy(false)
+    if (error) return
+    setSchedule({ ...EMPTY_SCHEDULE, time: schedule.time })
+    loadPending()
+  }
+
+  async function cancelSchedule(row) {
+    if (!await confirm('Cancel this scheduled message? It will not be posted.')) return
+    await supabase.from('scheduled_announcements')
+      .update({ cancelled_at: new Date().toISOString() }).eq('id', row.id)
+    loadPending()
+  }
+
   function close() {
     setPoll(EMPTY_POLL)
     setGame(EMPTY_GAME)
+    setSchedule(EMPTY_SCHEDULE)
+    setResourceSearch('')
     setBusy(false)
     onClose()
   }
@@ -124,6 +209,98 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
         </form>
       </Modal>
 
+      {/* SCHEDULE A MESSAGE, IN THIS ROOM, ON THIS ROOM'S CLOCK.
+          This used to be an admin page that could only ever post to
+          #announcements. It is a room tool now, beside the poll, because
+          "write this now and send it Monday morning" is a thing you decide
+          while you are in the conversation, not somewhere else. */}
+      <Modal open={tool === 'schedule'} onClose={close} title={`Schedule a message to ${roomLabel}`}>
+        <form onSubmit={createSchedule} className="space-y-5">
+          <div>
+            <label htmlFor="sched-body" className="label">Message</label>
+            <textarea
+              id="sched-body" rows={4} required className="input"
+              value={schedule.body}
+              onChange={(e) => setSchedule((v) => ({ ...v, body: e.target.value }))}
+              placeholder={`What should go out to ${roomLabel}?`}
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <label htmlFor="sched-date" className="label">Date</label>
+              <input
+                id="sched-date" type="date" required className="input"
+                value={schedule.date}
+                onChange={(e) => setSchedule((v) => ({ ...v, date: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label htmlFor="sched-time" className="label">Time</label>
+              <input
+                id="sched-time" type="time" required className="input"
+                value={schedule.time}
+                onChange={(e) => setSchedule((v) => ({ ...v, time: e.target.value }))}
+              />
+            </div>
+            <div>
+              <span className="label">Clock</span>
+              <Select
+                variant="field"
+                ariaLabel="Timezone"
+                value={zone}
+                onChange={setZone}
+                options={COMMON_ZONES}
+              />
+            </div>
+          </div>
+
+          {/* The instant, read back. A time typed in one zone and read in
+              another is the single easiest thing to get wrong here, so the
+              form says out loud what it is about to do. */}
+          {scheduledAt && (
+            <p className={inThePast ? 'text-sm font-medium text-red-600' : 'text-sm text-smoke'}>
+              {inThePast
+                ? 'That time has already passed. Pick a later one.'
+                : <>Goes out <span className="font-medium text-ink">{formatInZone(scheduledAt, zone)}</span> {zoneLabel(zone)} time.</>}
+            </p>
+          )}
+
+          <button type="submit" disabled={busy || !scheduledAt || inThePast || !schedule.body.trim()} className="btn-primary w-full">
+            {busy ? <Spinner /> : 'Schedule it'}
+          </button>
+        </form>
+
+        {pending === null ? (
+          <Skeleton className="mt-6 h-16 w-full" />
+        ) : pending.length > 0 ? (
+          <div className="mt-6 border-t border-gray-100 pt-5">
+            <h3 className="mb-3 text-sm font-semibold">
+              Waiting to go out ({pending.length})
+            </h3>
+            <ul className="space-y-2">
+              {pending.map((row) => (
+                <li key={row.id} className="flex items-start gap-3 rounded-xl border border-gray-100 px-4 py-3">
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm">{row.body}</span>
+                    <span className="mt-0.5 block text-xs text-smoke">
+                      {formatInZone(new Date(row.scheduled_for), row.tz || zone)} {zoneLabel(row.tz || zone)} time
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => cancelSchedule(row)}
+                    className="shrink-0 text-xs font-medium text-red-500 hover:underline"
+                  >
+                    Cancel
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </Modal>
+
       <Modal open={tool === 'game'} onClose={close} title="Post a game challenge">
         <form onSubmit={createGame} className="space-y-5">
           <div>
@@ -172,8 +349,25 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
             No resources yet. Add some in <Link to="/admin/resources" className="font-medium text-brand hover:underline">Manage resources</Link> first.
           </p>
         ) : (
+          <>
+            {/* A search box appears once the library is big enough to scroll.
+                Below that it is a control in the way of a list you can already
+                see all of. */}
+            {resources.length > 6 && (
+              <input
+                type="search"
+                className="input mb-3"
+                placeholder="Search the library…"
+                value={resourceSearch}
+                onChange={(e) => setResourceSearch(e.target.value)}
+                aria-label="Search resources"
+              />
+            )}
           <div className="max-h-[60vh] space-y-2 overflow-y-auto overscroll-contain">
-            {resources.map((r) => (
+            {shownResources.length === 0 && (
+              <p className="px-4 py-6 text-center text-sm text-smoke">Nothing matches that.</p>
+            )}
+            {shownResources.map((r) => (
               <button
                 key={r.id}
                 type="button"
@@ -190,6 +384,7 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
               </button>
             ))}
           </div>
+          </>
         )}
       </Modal>
     </>

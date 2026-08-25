@@ -92,7 +92,6 @@ const AdminAuditLog = lazy(() => import('./pages/admin/AdminAuditLog'))
 const AdminConnections = lazy(() => import('./pages/admin/AdminConnections'))
 const AdminTeam = lazy(() => import('./pages/admin/AdminTeam'))
 const AdminMilestones = lazy(() => import('./pages/admin/AdminMilestones'))
-const AdminScheduledAnnouncements = lazy(() => import('./pages/admin/AdminScheduledAnnouncements'))
 const AdminWhatsNew = lazy(() => import('./pages/admin/AdminWhatsNew'))
 const AdminFeedback = lazy(() => import('./pages/admin/AdminFeedback'))
 const AdminReports = lazy(() => import('./pages/admin/AdminReports'))
@@ -242,7 +241,12 @@ export default function App() {
             <Route path="/admin/audit" element={<AdminAuditLog />} />
             <Route path="/admin/team" element={<AdminTeam />} />
             <Route path="/admin/milestones" element={<AdminMilestones />} />
-            <Route path="/admin/scheduled" element={<AdminScheduledAnnouncements />} />
+            {/* Scheduling moved into the rooms. It lived on a page of its own
+                and could only ever post to #announcements; it is now a button
+                beside the poll in EVERY chat, posting on that market's clock.
+                Anything queued from the old page was for #announcements, so
+                that is where this lands and where it is still cancellable. */}
+            <Route path="/admin/scheduled" element={<Navigate to="/chat/announcements" replace />} />
             <Route path="/admin/whats-new" element={<AdminWhatsNew />} />
             <Route path="/admin/feedback" element={<AdminFeedback />} />
             <Route path="/admin/reports" element={<AdminReports />} />

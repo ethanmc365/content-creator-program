@@ -181,3 +181,79 @@ export function localTimeLine(profile, now = new Date()) {
     : `${Math.abs(hours) % 1 === 0 ? Math.abs(hours) : Math.abs(hours).toFixed(1)} ${Math.abs(hours) === 1 ? 'hour' : 'hours'} ${hours > 0 ? 'ahead of' : 'behind'} you`
   return { time, note, zone }
 }
+
+// ---------------------------------------------------------------------------
+// Typing a time IN a market, from anywhere.
+//
+// An admin in Belfast schedules a message for "09:00" in the Spanish room. That
+// is 09:00 in Madrid, and the instant it happens depends on the date, because
+// Madrid is +1 in January and +2 in July. Getting this wrong is invisible in
+// testing - you write it in summer, it works, and in October every scheduled
+// message goes out an hour late.
+//
+// `new Date('2026-03-15T09:00')` parses in the BROWSER's zone, which is the one
+// zone we are certain is not the answer. So the instant is found by trial: read
+// the wall clock the candidate instant produces in the target zone, and correct
+// by the difference. Twice, because a correction can step across a DST boundary
+// and change the offset that was used to make it.
+
+/** How far `zone` is from UTC, in ms, at a given instant. */
+export function zoneOffsetMs(zone, at) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: zone,
+      hour12: false,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+    })
+      .formatToParts(at)
+      .map((p) => [p.type, p.value]),
+  )
+  // hour comes back as "24" at midnight in some engines.
+  const hour = Number(parts.hour) % 24
+  const asIfUtc = Date.UTC(
+    Number(parts.year), Number(parts.month) - 1, Number(parts.day),
+    hour, Number(parts.minute), Number(parts.second),
+  )
+  return asIfUtc - at.getTime()
+}
+
+/**
+ * "2026-10-25" + "09:00" + "Europe/Madrid" -> the Date that is 09:00 there.
+ * Returns null for anything unparseable or a zone this engine does not know.
+ */
+export function zonedTimeToUtc(dateStr, timeStr, zone) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr || '')) return null
+  if (!/^\d{2}:\d{2}$/.test(timeStr || '')) return null
+  try {
+    const naive = new Date(`${dateStr}T${timeStr}:00Z`)
+    if (isNaN(naive.getTime())) return null
+    let guess = new Date(naive.getTime() - zoneOffsetMs(zone, naive))
+    const second = zoneOffsetMs(zone, guess)
+    guess = new Date(naive.getTime() - second)
+    return guess
+  } catch {
+    return null
+  }
+}
+
+/** The same instant read back as a wall clock in that zone, for confirming it. */
+export function formatInZone(at, zone) {
+  if (!at) return ''
+  try {
+    return new Intl.DateTimeFormat('en-GB', {
+      timeZone: zone,
+      weekday: 'short', day: 'numeric', month: 'short',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    }).format(at)
+  } catch {
+    return ''
+  }
+}
+
+/** A short label for a zone, e.g. "Europe/Madrid" -> "Madrid". */
+export function zoneLabel(zone) {
+  if (!zone) return ''
+  const tail = String(zone).split('/').pop() || zone
+  return tail.replace(/_/g, ' ')
+}

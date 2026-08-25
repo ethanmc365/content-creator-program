@@ -908,6 +908,7 @@ export default function NetworkChat() {
           onGame={() => setAdminTool('game')}
           onResource={() => setAdminTool('resource')}
           onPoll={() => setAdminTool('poll')}
+          onSchedule={() => setAdminTool('schedule')}
           isMobile={isMobile}
           kbOpen={kbOpen}
         >
@@ -1080,6 +1081,14 @@ export default function NetworkChat() {
 
       {/* Poll / game / resource, for admins, in this room like any other. */}
       <ChatAdminTools
+        // A market room schedules on the MARKET's clock: 09:00 in the Spanish
+        // room means 09:00 in Madrid, whoever is typing it.
+        room={{
+          channel: scopedKey(community, active.key),
+          channel_id: active.id,
+          community_id: community.id,
+          tz: community?.timezone || 'Europe/London',
+        }}
         tool={adminTool}
         onClose={() => setAdminTool(null)}
         postCard={(fields) => postMessage({ body: '', ...fields })}

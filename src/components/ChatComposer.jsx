@@ -55,6 +55,7 @@ const ChatComposer = forwardRef(function ChatComposer({
   onGame,
   onResource,
   onPoll,
+  onSchedule,
   // Layout
   isMobile = false,
   kbOpen = false,
@@ -113,6 +114,7 @@ const ChatComposer = forwardRef(function ChatComposer({
         onGame={onGame}
         onResource={onResource}
         onPoll={onPoll}
+        onSchedule={onSchedule}
         open={showFormatting}
       />
 

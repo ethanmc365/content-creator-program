@@ -72,6 +72,7 @@ export function ComposerToolbar({
   onGame,
   onResource,
   onPoll,
+  onSchedule,
   open = true,
   className,
 }) {
@@ -83,6 +84,7 @@ export function ComposerToolbar({
           {onGame && <ToolButton icon="joystick" label="Game" title="Post a game challenge" onClick={onGame} />}
           {onResource && <ToolButton icon="book" label="Resource" title="Share a resource" onClick={onResource} />}
           {onPoll && <ToolButton icon="poll" label="Poll" title="Create a poll" onClick={onPoll} />}
+          {onSchedule && <ToolButton icon="clock" label="Schedule" title="Write now, post later" onClick={onSchedule} />}
         </>
       )}
     </div>

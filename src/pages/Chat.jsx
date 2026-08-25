@@ -212,7 +212,7 @@ export default function Chat() {
   // Poll / game / resource composers (admins, EVERY channel). One piece of
   // state: which of the three is open, if any. The forms themselves live in
   // ChatAdminTools so the market rooms get exactly the same three.
-  const [adminTool, setAdminTool] = useState(null) // null | 'poll' | 'game' | 'resource'
+  const [adminTool, setAdminTool] = useState(null) // null | 'poll' | 'game' | 'resource' | 'schedule'
 
   const meta = CHANNELS.find((c) => c.key === channel) ?? CHANNELS[0]
   const canPost = channel !== 'announcements' || isAdmin
@@ -1296,6 +1296,7 @@ export default function Chat() {
               onGame={() => setAdminTool('game')}
               onResource={() => setAdminTool('resource')}
               onPoll={() => setAdminTool('poll')}
+              onSchedule={() => setAdminTool('schedule')}
               isMobile={isMobile}
               kbOpen={kbOpen}
               className="!border-t-0 !px-0 !py-0"
@@ -1347,6 +1348,8 @@ export default function Chat() {
 
       {/* Poll / game / resource, for admins, in every channel. */}
       <ChatAdminTools
+        // The legacy channels are the worldwide rooms, so they run on UK time.
+        room={{ channel, channel_id: null, community_id: null, tz: 'Europe/London' }}
         tool={adminTool}
         onClose={() => setAdminTool(null)}
         postCard={postCard}
