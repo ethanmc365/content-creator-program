@@ -8,8 +8,15 @@ import PaymentDetailsFields from '../../components/PaymentDetails'
 import { confirm, notice } from '../../lib/confirm'
 import { formatDate, formatMoney, isoToDateInput } from '../../lib/utils'
 import {
-  DEFAULT_BILL_TO, EMPTY_PAYEE, invoiceMoney, invoiceNo, invoiceRef,
-  payeeFromPrivate, validatePayee,
+  DEFAULT_BILL_TO,
+  EMPTY_PAYEE,
+  invoiceMoney,
+  invoiceNo,
+  invoiceRef,
+  payeeFromPrivate,
+  validatePayee,
+  parseEmails,
+  badEmails,
 } from '../../lib/invoice'
 import { buildInvoicePdf, downloadInvoicePdf, invoiceFilename, pdfToBase64 } from '../../lib/invoicePdf'
 // The on-screen invoice. Shared with the Testing Centre's invoice lab, so the
@@ -31,7 +38,7 @@ function dateInputToIso(v = '') {
   return format(d, 'yyyy-MM-dd')
 }
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 const firstName = (s = '') => s.trim().split(/\s+/)[0] || ''
 const nameFromEmail = (e = '') => {
   const local = e.split('@')[0].split(/[._-]/)[0]
@@ -226,8 +233,12 @@ export default function InvoicesPanel({ prefill }) {
     if (!billTo.trim()) problems.push('Fill in the Tryp.com company details (Invoice to).')
     problems.push(...validatePayee(payee))
     if (needRecipient) {
-      if (!EMAIL_RE.test(to.trim())) problems.push('Enter the email address the invoice should go to.')
-      if (cc.trim() && !EMAIL_RE.test(cc.trim())) problems.push('That CC address doesn’t look right.')
+      const toList = parseEmails(to)
+      const badTo = badEmails(to)
+      const badCc = badEmails(cc)
+      if (toList.length === 0) problems.push('Enter at least one email address the invoice should go to.')
+      if (badTo.length) problems.push(`These addresses don’t look right: ${badTo.join(', ')}.`)
+      if (badCc.length) problems.push(`These CC addresses don’t look right: ${badCc.join(', ')}.`)
     }
     return problems
   }
@@ -322,8 +333,8 @@ export default function InvoicesPanel({ prefill }) {
         billTo,
         notes,
         payment: payee,
-        to: to.trim(),
-        cc: cc.trim(),
+        to: parseEmails(to).join(', '),
+        cc: parseEmails(cc).join(', '),
         filename: invoiceFilename(inv),
         pdfBase64: pdfBase64OrNull,
       }),
@@ -337,7 +348,7 @@ export default function InvoicesPanel({ prefill }) {
     const problems = validate({ needRecipient: true })
     if (problems.length) return notice(`Almost there:\n\n${problems.join('\n')}`)
     if (!await confirm(
-      `Send invoice ${invoiceRef(number)} for ${invoiceMoney(invoiceAmount, currency)} to ${to.trim()}?` +
+      `Send invoice ${invoiceRef(number)} for ${invoiceMoney(invoiceAmount, currency)} to ${parseEmails(to).join(', ')}?` +
       (cc.trim() ? `\n\nYou'll be CC'd at ${cc.trim()} for your records.` : ''),
       { confirmLabel: 'Send invoice' },
     )) return
@@ -346,7 +357,7 @@ export default function InvoicesPanel({ prefill }) {
       const bytes = await buildInvoicePdf(inv)
       await callSendInvoice('resend', pdfToBase64(bytes))
       localStorage.setItem(LAST_RECIPIENT_KEY, to.trim())
-      notice(`Invoice ${invoiceRef(number)} is on its way to ${to.trim()}.\n\n${inv.creatorName} has been told to expect the payment within 7 days.`)
+      notice(`Invoice ${invoiceRef(number)} is on its way to ${parseEmails(to).join(', ')}.\n\n${inv.creatorName} has been told to expect the payment within 7 days.`)
       closeComposer()
       load()
     } catch (e) {
@@ -382,8 +393,9 @@ export default function InvoicesPanel({ prefill }) {
         'Thank you,',
         firstName(profile?.name) || 'The Tryp.com team',
       ].join('\n')
-      const url = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(to.trim())}` +
-        (cc.trim() && cc.trim().toLowerCase() !== user?.email?.toLowerCase() ? `&cc=${encodeURIComponent(cc.trim())}` : '') +
+      const ccList = parseEmails(cc).filter((e) => e.toLowerCase() !== user?.email?.toLowerCase())
+      const url = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(parseEmails(to).join(','))}` +
+        (ccList.length ? `&cc=${encodeURIComponent(ccList.join(','))}` : '') +
         `&su=${encodeURIComponent(`Invoice ${invoiceRef(number)} · ${inv.creatorName} · ${invoiceMoney(invoiceAmount, currency)}`)}` +
         `&body=${encodeURIComponent(body)}`
       if (win && !win.closed) win.location.replace(url)
@@ -576,21 +588,18 @@ export default function InvoicesPanel({ prefill }) {
               <div>
                 <label htmlFor="inv-to" className="label">Send to</label>
                 <input
-                  id="inv-to" type="email" className="input" placeholder="e.g. francesco@tryp.com"
+                  id="inv-to" type="text" className="input"
+                  placeholder="andre@tryp.com, francesco@tryp.com"
                   value={to} onChange={(e) => setTo(e.target.value)}
                 />
               </div>
               <div>
-                <label htmlFor="inv-cc" className="label">CC <span className="font-normal text-smoke">(your copy, for records)</span></label>
+                <label htmlFor="inv-cc" className="label">CC</label>
                 <input
-                  id="inv-cc" type="email" className="input" placeholder="you@tryp.com"
+                  id="inv-cc" type="text" className="input" placeholder="you@tryp.com"
                   value={cc} onChange={(e) => setCc(e.target.value)}
                 />
               </div>
-              <p className="text-xs leading-relaxed text-smoke">
-                Compose in Gmail opens a ready-written email in your Gmail: attach the downloaded PDF, review, send.
-                Either way, {firstName(inv.creatorName) || 'the creator'} gets a notification to expect payment within 7 days.
-              </p>
             </div>
 
             {/* SENDING IS GATED ON APPROVAL, AND THAT INCLUDES THIS FORM.

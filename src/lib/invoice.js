@@ -133,3 +133,24 @@ export function payeeComplete(p = {}) {
 export function payeeStarted(p = {}) {
   return !!(p.currency || p.name || p.sortCode || p.accountNumber || p.iban || p.bic)
 }
+
+
+// MORE THAN ONE PERSON USUALLY NEEDS THE INVOICE.
+//
+// Ethan asked to send to Andre AND Francesco. Both fields took exactly one
+// address, so the second person had to be forwarded it by hand, which is how a
+// paper trail stops being a trail. Commas, semicolons and newlines all mean
+// "and", because those are the three separators a person actually pastes.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+export function parseEmails(raw) {
+  return String(raw || '')
+    .split(/[,;\n]+/)
+    .map((e) => e.trim())
+    .filter(Boolean)
+}
+
+/** The addresses that are not valid, so an error can name them. */
+export function badEmails(raw) {
+  return parseEmails(raw).filter((e) => !EMAIL_RE.test(e))
+}

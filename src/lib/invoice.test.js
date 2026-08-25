@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import {
-  cleanIban, formatIban, formatSortCode, invoiceMoney, invoiceRef,
-  payeeFromPrivate, payeeToPrivate, paymentRows, validatePayee,
+  cleanIban,
+  formatIban,
+  formatSortCode,
+  invoiceMoney,
+  invoiceRef,
+  payeeFromPrivate,
+  payeeToPrivate,
+  paymentRows,
+  validatePayee,
+  parseEmails,
+  badEmails,
 } from './invoice'
 
 const GBP_OK = { currency: 'GBP', name: 'Amelia Wright', bank: 'Monzo', sortCode: '123456', accountNumber: '12345678', address: '12 Baker St, London' }
@@ -74,5 +83,31 @@ describe('creator_private mapping', () => {
     const back = payeeFromPrivate(cols)
     expect(back.currency).toBe('EUR')
     expect(back.name).toBe('Marco Rossi')
+  })
+})
+
+
+// SENDING AN INVOICE TO TWO PEOPLE.
+//
+// Ethan asked to send to Andre and Francesco. Both fields took exactly one
+// address, so the second person got it forwarded by hand - which is how a paper
+// trail stops being one. Commas, semicolons and newlines all mean "and",
+// because those are the three separators a person actually pastes.
+describe('more than one recipient', () => {
+  it('splits on a comma, a semicolon or a newline', () => {
+    expect(parseEmails('a@b.com, c@d.com')).toEqual(['a@b.com', 'c@d.com'])
+    expect(parseEmails('a@b.com; c@d.com')).toEqual(['a@b.com', 'c@d.com'])
+    expect(parseEmails('a@b.com\nc@d.com')).toEqual(['a@b.com', 'c@d.com'])
+  })
+
+  it('ignores stray separators and whitespace rather than making empty rows', () => {
+    expect(parseEmails('  a@b.com ,, ; c@d.com  ')).toEqual(['a@b.com', 'c@d.com'])
+    expect(parseEmails('')).toEqual([])
+    expect(parseEmails(null)).toEqual([])
+  })
+
+  it('names the addresses that are wrong, not just that something is', () => {
+    expect(badEmails('good@x.com, nope, also bad')).toEqual(['nope', 'also bad'])
+    expect(badEmails('good@x.com, fine@y.co.uk')).toEqual([])
   })
 })

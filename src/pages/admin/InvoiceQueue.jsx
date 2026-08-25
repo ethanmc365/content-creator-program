@@ -97,10 +97,14 @@ function Row({ inv, people, myId, isOwner, busy, onSubmit, onDecide, onPaid, onO
       </div>
 
       <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+        {/* A DOWNLOAD BUTTON DRAWN AS A COPY BUTTON. It is the same shape and
+            the same size as the copy buttons three rows above it on the payment
+            details tab, so it read as "copy this invoice" - which is a
+            different and much more alarming thing to press. */}
         <button type="button" onClick={() => onDownload(inv)} title="Download the PDF"
           aria-label="Download the PDF"
           className="rounded-full border border-gray-200 p-2 text-smoke transition-colors hover:border-brand hover:text-brand">
-          <Icon name="copy" className="h-4 w-4" />
+          <Icon name="arrow-down" className="h-4 w-4" />
         </button>
 
         {(inv.stage === 'draft' || inv.stage === 'rejected') && (

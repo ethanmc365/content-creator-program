@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Avatar, Badge, CopyButton, EmptyState, Modal, PageHeader, Skeleton, Spinner, StatCard, Select } from '../../components/ui'
+import { cx } from '../../lib/utils'
 import Icon from '../../components/Icon'
 import { formatDate, formatMoney, downloadCsv } from '../../lib/utils'
 import { notice } from '../../lib/confirm'
@@ -215,7 +216,6 @@ export default function AdminRewards() {
       <PageHeader
         back="/admin"
         title="Rewards & invoices"
-        subtitle="The program's money trail. Keep it tidy for accounting."
         action={tab === 'payouts' && (
           <div className="flex gap-2">
             <button onClick={exportRewards} className="btn-secondary">Export CSV ↓</button>
@@ -224,17 +224,25 @@ export default function AdminRewards() {
         )}
       />
 
-      {/* THE QUEUE LEADS, and that is the point of it. Awarding a prize now
-          writes its own draft invoice (migration 091), so the first question on
-          this page stopped being "what shall I invoice" and became "what is
-          waiting on me". */}
-      <div className="mb-8 flex flex-wrap gap-2">
-        {[['queue', 'Approval queue'], ['payouts', 'Payouts'], ['referrals', 'Referrals'], ['invoices', 'Invoices'], ['details', 'Payment details']].map(([key, label]) => (
+      {/* SECTIONS, NOT A ROW OF BUTTONS.
+          Ethan asked for the shape Analytics uses - underlined sections you
+          move between - rather than five filled buttons competing to look like
+          the action on the page. A tab is navigation; a button does something.
+
+          THE QUEUE LEADS, and that is the point of it. Publishing winners now
+          raises an invoice per cash prize by itself, so the first question here
+          stopped being "what shall I invoice" and became "what did the machine
+          raise that I have not looked at". */}
+      <div className="mb-8 flex flex-wrap gap-1 border-b border-gray-100">
+        {[['queue', 'To approve'], ['invoices', 'Invoices'], ['referrals', 'Referrals'], ['payouts', 'Payouts'], ['details', 'Payment details']].map(([key, label]) => (
           <button
             key={key}
             type="button"
             onClick={() => setTab(key)}
-            className={tab === key ? 'btn-primary !py-2 text-sm' : 'btn-secondary !py-2 text-sm'}
+            className={cx(
+              'relative -mb-px border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors',
+              tab === key ? 'border-brand text-brand' : 'border-transparent text-smoke hover:text-ink',
+            )}
           >
             {label}
           </button>
@@ -357,10 +365,6 @@ export default function AdminRewards() {
 
       {/* ---------- Payment details tab ---------- */}
       <div className={tab === 'details' ? '' : 'hidden'}>
-        <p className="mb-5 max-w-2xl text-sm text-smoke">
-          Every creator's saved bank details, ready to pay a prize. Tap any copy button to grab a field.
-          These are private - only the Tryp.com team can see them.
-        </p>
         <div className="mb-6 max-w-sm">
           <div className="relative">
             <Icon name="magnifier" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-smoke" />
