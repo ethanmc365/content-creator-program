@@ -1,181 +1,231 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useCommunity } from '../../context/CommunityContext'
-import { PageHeader, StatCard, Skeleton } from '../../components/ui'
+import { PageHeader, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import Reveal from '../../components/network/Reveal'
-import { useIsPhone } from '../../lib/useKeyboardInset'
-import { cx, formatMoney, PRIZE_BASELINE } from '../../lib/utils'
+import { cx } from '../../lib/utils'
 
 // The admin hub.
 //
-// WHAT WAS WRONG WITH IT
+// WHAT CHANGED, 25 Aug 2026, and why
 //
-// Seventeen identical tiles in one flat grid, in whatever order you had dragged
-// them into on this particular device. That is the same problem the avatar
-// dropdown had before the network hub fixed it: a list you scan by hunting
-// rather than navigation you read. Nothing on the page said which tools were
-// about people and which were about money, three separate coloured banners
-// competed to be the thing you noticed first, and there was no route at all to
-// the per-market pages - so the person who runs Germany had to know that
-// /manage/germany existed and type it.
+// Ethan's brief: keep "on your desk" but make it look like Tryp; the stat boxes
+// belong in Analytics, not here; the live-challenge banner is noise; the Testing
+// Centre does not need a full-width billboard; and "there are too many headings
+// and sub-headings, all similar things but split", with cards of different sizes
+// that make the thing you want hard to find.
 //
-// WHAT IT IS NOW
+// All four are the same complaint. The page had five named groups, each with a
+// heading AND a hint line, plus three coloured full-width bands and a stat row -
+// about eleven separate pieces of furniture in front of seventeen buttons. So:
 //
-//   1. ON YOUR DESK   - only the things actually waiting for a decision, in one
-//                       block, with counts. Empty when there is nothing, which
-//                       is the point: an empty desk is information.
-//   2. The numbers.
-//   3. YOUR MARKETS   - every market you manage, as a door to its own settings.
-//   4. The tools, GROUPED. The grouping IS the information.
+//   1. ON YOUR DESK   - the only thing that is genuinely urgent, in real Tryp
+//                       orange rather than a wash of it. Absent when empty.
+//   2. YOUR MARKETS   - one line, no hint.
+//   3. THE TOOLS      - ONE flat grid. Every card the same size. No group
+//                       headings at all: the grid is short enough now that
+//                       naming five sections costs more than it explains.
 //
-// The manual drag-to-reorder is gone with the flat grid it existed to survive.
-// Ordering seventeen things by hand is a workaround for not being able to find
-// them, and five named groups of three or four is the actual fix.
+// The grouping is not gone, it moved: each card carries a small coloured dot
+// keyed to its family, which does the same job as a heading without spending a
+// row of the page on it.
+//
+// REORDERING IS BACK, AND IT IS PER ADMIN. It was removed once, on the argument
+// that hand-ordering seventeen tiles is a workaround for not being able to find
+// them. That was right about the flat grid it existed to survive and wrong about
+// the need: the person who runs Spain opens Challenges and Rewards every day and
+// Audit log twice a year, and no fixed order I choose is right for both of them
+// and for Ethan. Grab the six dots, drag, and it saves to `profiles.admin_prefs`
+// - so it follows the person to their phone rather than living in one browser.
 
-const GROUPS = [
-  {
-    name: 'People',
-    hint: 'Who is in the community and who runs it.',
-    tools: [
-      { to: '/admin/creators', icon: 'users', title: 'Creators', text: 'The full roster: emails, activity, password resets, mute, suspend, promote.' },
-      { to: '/admin/applications', icon: 'shield', title: 'Applications', text: 'Approve or decline the people asking to join.' },
-      { to: '/admin/referrals', icon: 'share', title: 'Referrals', text: 'Who brought whom in, and which leads to follow up.' },
-      { to: '/admin/reports', icon: 'flag', title: 'Reported messages', short: 'Reports', text: 'What creators have flagged in the rooms and their DMs, and what was done.' },
-      { to: '/admin/network', icon: 'heart', title: 'Community network', short: 'Network', text: 'Who is connecting with whom, and the best-connected creators.' },
-      { to: '/admin/team', icon: 'shield', title: 'Tryp.com team', short: 'Team', text: 'Who runs the programme, what they can do, and their titles.', globalOnly: true },
-    ],
-  },
-  {
-    name: 'The programme',
-    hint: 'The work creators are here to do.',
-    tools: [
-      { to: '/admin/challenges', icon: 'flag', title: 'Challenges', text: 'Create, edit, close and archive briefs.' },
-      { to: '/admin/milestones', icon: 'plane', title: 'Milestones', text: 'The route every creator flies. Thresholds, rewards and order.' },
-      { to: '/admin/events', icon: 'calendar', title: 'Events', text: 'Q&As, content days and meetups on the calendar.' },
-      { to: '/admin/resources', icon: 'book', title: 'Resources', text: 'Guides, guidelines and downloadable assets.' },
-      { to: '/admin/jobs', icon: 'briefcase', title: 'Roles', text: 'Paid work you are hiring for. Every creator is notified.' },
-    ],
-  },
-  {
-    name: 'Money',
-    hint: 'Nothing is paid without a second pair of eyes.',
-    tools: [
-      { to: '/admin/rewards', icon: 'money', title: 'Rewards & invoices', short: 'Rewards', text: 'The approval queue, payouts, invoices and payment details.' },
-      { to: '/admin/analytics', icon: 'chart', title: 'Analytics', text: 'Growth, submissions, views and spend, with CSV export.' },
-    ],
-  },
-  {
-    name: 'Talking to everyone',
-    hint: 'Anything that lands in a creator’s inbox or notifications.',
-    tools: [
-      { to: '/admin/email', icon: 'envelope', title: 'Email', text: 'Approve welcome emails, copy the address list, see what went out.' },
-      { to: '/admin/scheduled', icon: 'clock', title: 'Scheduled announcements', short: 'Scheduled', text: 'Write now, post later.' },
-      { to: '/admin/whats-new', icon: 'bell', title: "What's new", text: 'Announce a feature. It lands in every notification bell.' },
-      { to: '/admin/feedback', icon: 'chat', title: 'Bugs & ideas', text: 'What creators have flagged, waiting to be triaged.' },
-      { to: '/admin/notes', icon: 'pencil', title: 'Notes', text: 'The team’s private space for plans, playbooks and question banks.' },
-    ],
-  },
-  {
-    name: 'The platform',
-    hint: 'Settings and records that apply to everything.',
-    globalOnly: true,
-    tools: [
-      { to: '/global/settings', icon: 'globe', title: 'Network settings', short: 'Network', text: 'The worldwide network itself.' },
-      { to: '/global/markets', icon: 'flag', title: 'All markets', text: 'Every market, open and closed, and how to open another.' },
-      { to: '/admin/connections', icon: 'link', title: 'Platform connections', short: 'Connections', text: 'What automatic view counts needs to read Instagram and YouTube.' },
-      { to: '/admin/audit', icon: 'eye', title: 'Audit log', text: 'A record of account actions taken by the team.' },
-    ],
-  },
+// ---------------------------------------------------------------- the tools
+//
+// `id` is what gets saved in a person's saved order, so it must never be reused
+// for a different tool. A tool that is removed simply stops matching, and one
+// that is added appears at the end of everybody's existing arrangement.
+const FAMILY = {
+  people: { label: 'People', dot: 'bg-sky-500' },
+  programme: { label: 'The programme', dot: 'bg-brand' },
+  money: { label: 'Money', dot: 'bg-emerald-500' },
+  comms: { label: 'Talking to everyone', dot: 'bg-violet-500' },
+  platform: { label: 'The platform', dot: 'bg-slate-400' },
+}
+
+const TOOLS = [
+  { id: 'creators', to: '/admin/creators', icon: 'users', family: 'people', title: 'Creators', text: 'The full roster: details, activity, notes and account actions.' },
+  { id: 'applications', to: '/admin/applications', icon: 'shield', family: 'people', title: 'Applications', text: 'Approve or decline the people asking to join, by market.' },
+  { id: 'referrals', to: '/admin/referrals', icon: 'share', family: 'people', title: 'Referrals', text: 'Who brought whom in, and which leads to follow up.' },
+  { id: 'reports', to: '/admin/reports', icon: 'flag', family: 'people', title: 'Reported messages', short: 'Reports', text: 'What creators flagged in the rooms and their DMs.' },
+  { id: 'team', to: '/admin/team', icon: 'shield', family: 'people', title: 'Tryp.com team', short: 'Team', text: 'Who runs the programme, and the title each of them carries.', globalOnly: true },
+
+  { id: 'challenges', to: '/admin/challenges', icon: 'flag', family: 'programme', title: 'Challenges', text: 'Write, edit, run and close briefs across every market.' },
+  { id: 'milestones', to: '/admin/milestones', icon: 'plane', family: 'programme', title: 'Milestones', text: 'The route every creator flies, and what unlocks each stop.' },
+
+  { id: 'rewards', to: '/admin/rewards', icon: 'money', family: 'money', title: 'Rewards & invoices', short: 'Rewards', text: 'Payouts, invoices, approvals and payment details.' },
+  { id: 'analytics', to: '/admin/analytics', icon: 'chart', family: 'money', title: 'Analytics', text: 'Views, spend, CPM, community health and the challenge log.' },
+
+  { id: 'email', to: '/admin/email', icon: 'envelope', family: 'comms', title: 'Email', text: 'Approve what goes out, copy address lists, read the log.' },
+  { id: 'feedback', to: '/admin/feedback', icon: 'chat', family: 'comms', title: 'Bugs & ideas', text: 'What creators have flagged, waiting to be triaged.' },
+  { id: 'notes', to: '/admin/notes', icon: 'pencil', family: 'comms', title: 'Notes', text: 'Your own space for plans and playbooks, shared or private.' },
+
+  // HELD BACK ON PURPOSE, and both come out the moment their replacement ships.
+  //
+  // Events, Resources and Roles left this grid because each already has another
+  // door: "Manage" on /events, "Manage resources" on /resources, "Manage jobs"
+  // on /jobs. These two do not yet. Scheduled announcements is moving into the
+  // chat composer beside the poll button, and Community network is folding into
+  // Analytics - until then, taking the card away would leave a live feature with
+  // no way in at all, which is worse than one extra card.
+  { id: 'scheduled', to: '/admin/scheduled', icon: 'clock', family: 'comms', title: 'Scheduled announcements', short: 'Scheduled', text: 'Write now, post later. Moving into each chat room.' },
+  { id: 'network', to: '/admin/network', icon: 'heart', family: 'people', title: 'Community network', short: 'Network', text: 'Who is connecting with whom. Folding into Analytics.' },
+
+  { id: 'testing', to: '/admin/testing', icon: 'joystick', family: 'platform', title: 'Testing Centre', short: 'Testing', text: 'Every feature and automation, running on invented people.' },
+  { id: 'connections', to: '/admin/connections', icon: 'link', family: 'platform', title: 'Platform connections', short: 'Connections', text: 'What automatic view counts needs to read each platform.' },
+  { id: 'network-settings', to: '/global/settings', icon: 'globe', family: 'platform', title: 'Network settings', short: 'Network', text: 'The worldwide network itself.', globalOnly: true },
+  { id: 'markets', to: '/global/markets', icon: 'flag', family: 'platform', title: 'All markets', text: 'Every market, open and closed, and how to open another.', globalOnly: true },
+  { id: 'audit', to: '/admin/audit', icon: 'eye', family: 'platform', title: 'Audit log', short: 'Audit', text: 'A record of account actions taken by the team.', globalOnly: true },
 ]
 
 // SOME OF THESE LIVE INSIDE THE NETWORK SHELL, WHICH IS BEHIND A FLAG.
 //
 // `/manage/:slug`, `/global/settings` and `/global/markets` are all under
 // NetworkRoute, which redirects to /home unless the device-local preview flag
-// is on. So a plain <Link> to any of them from here is a link that silently
-// bounces you to the home page - which is exactly how a market's settings came
-// to be reachable only by typing the URL. Anything network-scoped turns the
-// flag on first; it is device-local, it affects no creator, and an admin
-// pressing "market settings" has unambiguously asked to go there.
+// is on. So a plain <Link> to any of them is a link that silently bounces you to
+// the home page - which is how a market's settings came to be reachable only by
+// typing the URL. Anything network-scoped turns the flag on first; it is
+// device-local, it affects no creator, and an admin pressing it has
+// unambiguously asked to go there.
 const NETWORK_PATH = (to) => to.startsWith('/manage/') || to.startsWith('/global/')
 
-function ToolCard({ tool, onNetworkOpen }) {
-  const props = NETWORK_PATH(tool.to)
-    ? { as: 'button', onClick: () => onNetworkOpen(tool.to) }
-    : { as: 'link' }
-  const inner = (
-    <>
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand">
-        <Icon name={tool.icon} className="h-5 w-5" />
-      </span>
-      <span className="min-w-0">
-        <span className="block font-semibold transition-colors group-hover:text-brand">{tool.title}</span>
-        <span className="mt-1 block text-xs leading-relaxed text-smoke">{tool.text}</span>
-      </span>
-    </>
-  )
-  const className = 'card group flex w-full items-start gap-3 !p-5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift'
-  if (props.as === 'button') {
-    return <button type="button" onClick={props.onClick} className={className}>{inner}</button>
-  }
-  return <Link to={tool.to} className={className}>{inner}</Link>
+// --------------------------------------------------------------- the layout
+//
+// A saved order is a list of ids and nothing else, which is what makes it
+// survive this file changing. Unknown ids (a tool that has since been removed)
+// are dropped; tools with no saved position keep their shipped order and go on
+// the end. So neither adding a tool nor deleting one can leave somebody with a
+// broken or half-empty panel.
+export function applyOrder(tools, savedOrder) {
+  const order = Array.isArray(savedOrder) ? savedOrder : []
+  const rank = new Map(order.map((id, i) => [id, i]))
+  return [...tools].sort((a, b) => {
+    const ra = rank.has(a.id) ? rank.get(a.id) : Infinity
+    const rb = rank.has(b.id) ? rank.get(b.id) : Infinity
+    if (ra !== rb) return ra - rb
+    return tools.indexOf(a) - tools.indexOf(b)
+  })
 }
 
-// THE SAME TOOL, ON A PHONE.
+// Move `fromId` so that it sits where `toId` currently is.
+export function reorder(ids, fromId, toId) {
+  if (fromId === toId) return ids
+  const from = ids.indexOf(fromId)
+  const to = ids.indexOf(toId)
+  if (from < 0 || to < 0) return ids
+  const next = [...ids]
+  next.splice(from, 1)
+  next.splice(to, 0, fromId)
+  return next
+}
+
+// ----------------------------------------------------------------- one card
 //
-// Ethan: two side by side, the title is enough, drop the descriptions, and put
-// them all under one heading. He is right about all four. At 375px a described
-// card is a full-width block about 96px tall, so seventeen of them plus five
-// group headings is roughly two thousand pixels of scrolling to reach a button
-// you already knew the name of. The description is orientation, and orientation
-// is what you need the FIRST time; every time after that it is furniture.
-//
-// The icon does the work the group heading used to: a wallet, a flag and a
-// megaphone are read at a glance where "Money" had to be read, matched to a
-// tile and then read again.
-function ToolTile({ tool, onNetworkOpen }) {
-  const inner = (
+// Every card is the same height, whatever the length of its description, so the
+// grid reads as a grid. The old one sized itself to its text, which is why a row
+// of them looked ragged.
+function ToolCard({ tool, onOpen, editing, dragging, dropTarget, onGrab }) {
+  const family = FAMILY[tool.family]
+  const body = (
     <>
-      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-tint text-brand transition-transform duration-200 group-hover:scale-105">
-        <Icon name={tool.icon} className="h-5 w-5" />
+      <span className="flex items-start justify-between gap-3">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-tint text-brand transition-transform duration-200 group-hover:scale-105">
+          <Icon name={tool.icon} className="h-5 w-5" />
+        </span>
+        {editing ? (
+          // The six dots. They only exist in arrange mode, because a drag
+          // handle on a page you are not arranging is a button that does
+          // nothing but make you wonder what it does.
+          //
+          // `touch-none` is not decoration: without it the browser claims the
+          // gesture for scrolling the moment your finger moves, and the card
+          // never picks up.
+          <button
+            type="button"
+            aria-label={`Move ${tool.title}`}
+            className="-mr-1 -mt-1 cursor-grab touch-none rounded-lg p-1 text-gray-300 transition-colors hover:text-brand active:cursor-grabbing active:text-brand"
+            onPointerDown={(e) => onGrab(e, tool.id)}
+          >
+            <GripDots />
+          </button>
+        ) : (
+          <span className="-mr-1 -mt-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-smoke opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+            <span className={cx('h-1.5 w-1.5 rounded-full', family?.dot)} />
+            {family?.label}
+          </span>
+        )}
       </span>
-      {/* Two lines of room, centred, so "Scheduled announcements" and "Email"
-          both sit in a tile of the same height and the grid stays a grid. */}
-      <span className="flex min-h-[2.25rem] items-center text-center text-[13px] font-semibold leading-tight transition-colors group-hover:text-brand">
-        {tool.short || tool.title}
+      <span className="mt-4 block text-[15px] font-semibold leading-tight transition-colors group-hover:text-brand">
+        {tool.title}
       </span>
+      <span className="mt-1.5 block text-xs leading-relaxed text-smoke">{tool.text}</span>
     </>
   )
-  const className = 'card group flex h-full w-full flex-col items-center justify-start gap-2.5 !p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift active:scale-[0.98]'
+
+  const className = cx(
+    'card group relative flex h-full w-full flex-col !p-5 text-left transition-all duration-200',
+    editing
+      ? 'cursor-default select-none'
+      : 'hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift active:scale-[0.99]',
+    dragging && 'scale-[0.97] opacity-40',
+    dropTarget && 'ring-2 ring-brand',
+  )
+
+  // In arrange mode a card is furniture, not a link: tapping it should not
+  // navigate away from the layout you are in the middle of setting.
+  if (editing) {
+    return <div className={className} data-tool-id={tool.id}>{body}</div>
+  }
   if (NETWORK_PATH(tool.to)) {
-    return <button type="button" onClick={() => onNetworkOpen(tool.to)} className={className}>{inner}</button>
+    return <button type="button" onClick={() => onOpen(tool.to)} className={className}>{body}</button>
   }
-  return <Link to={tool.to} className={className}>{inner}</Link>
+  return <Link to={tool.to} className={className}>{body}</Link>
 }
 
-// ON YOUR DESK.
+function GripDots() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4" fill="currentColor">
+      {[4, 8, 12].flatMap((y) => [5, 11].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.4" />))}
+    </svg>
+  )
+}
+
+// ------------------------------------------------------------ on your desk
 //
-// One row per thing that is genuinely waiting for a person. This replaces three
-// separate full-width coloured banners that each claimed to be the most urgent
-// thing on the page - and which, between them, pushed the actual tools below
-// the fold on a laptop. A count and a verb is enough.
+// Real Tryp orange, not a wash of it: a solid brand rule down the left edge, the
+// count set in brand at a size you read from across the room, and white rows on
+// the tint so each item is its own object. The old one was a tinted box with
+// tinted rows inside it, which made the whole block one grey-orange smudge.
 function DeskRow({ to, icon, count, label, hint }) {
   return (
     <Link
       to={to}
-      className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-white"
+      className="group flex items-center gap-3 rounded-xl bg-white/70 px-3.5 py-3 transition-all duration-200 hover:bg-white hover:shadow-card"
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-brand">
-        <Icon name={icon} className="h-4 w-4" />
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white">
+        <Icon name={icon} className="h-[18px] w-[18px]" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold">{count} {label}</span>
-        <span className="block truncate text-xs text-smoke">{hint}</span>
+        <span className="block text-sm font-semibold leading-snug">
+          <span className="text-brand tabular-nums">{count}</span> {label}
+        </span>
+        <span className="mt-0.5 block truncate text-xs text-smoke">{hint}</span>
       </span>
-      <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
+      <Icon
+        name="chevronRight"
+        className="h-4 w-4 shrink-0 text-brand/40 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-brand"
+      />
     </Link>
   )
 }
@@ -189,15 +239,106 @@ export default function AdminPanel() {
   const [entering, setEntering] = useState(false)
   const [enterError, setEnterError] = useState('')
 
+  const [editing, setEditing] = useState(false)
+  const [order, setOrder] = useState(null)
+  const [dragId, setDragId] = useState(null)
+  const [overId, setOverId] = useState(null)
+  const savedOnce = useRef(false)
+
   const isGlobal = profile?.platform_role === 'global_admin' || profile?.platform_role === 'owner'
-  const isPhone = useIsPhone()
 
-  // The same tools in the same order, flattened out of their groups.
-  const phoneTools = GROUPS
-    .filter((g) => !g.globalOnly || isGlobal)
-    .flatMap((g) => g.tools.filter((t) => !t.globalOnly || isGlobal))
+  const visibleTools = useMemo(
+    () => TOOLS.filter((t) => !t.globalOnly || isGlobal),
+    [isGlobal],
+  )
 
-  // Turn the network shell on, then go. See NETWORK_PATH above.
+  // The saved order arrives with the profile, so there is no second query and no
+  // frame where the panel is in the shipped order before jumping into the
+  // person's own.
+  useEffect(() => {
+    if (order !== null) return
+    const saved = profile?.admin_prefs?.panel_order
+    setOrder(applyOrder(visibleTools, saved).map((t) => t.id))
+  }, [profile?.admin_prefs, visibleTools, order])
+
+  const tools = useMemo(() => {
+    if (!order) return visibleTools
+    const byId = new Map(visibleTools.map((t) => [t.id, t]))
+    const listed = order.map((id) => byId.get(id)).filter(Boolean)
+    const missing = visibleTools.filter((t) => !order.includes(t.id))
+    return [...listed, ...missing]
+  }, [order, visibleTools])
+
+  const persist = useCallback(async (next) => {
+    if (!profile?.id) return
+    savedOnce.current = true
+    await supabase
+      .from('profiles')
+      .update({ admin_prefs: { ...(profile.admin_prefs || {}), panel_order: next } })
+      .eq('id', profile.id)
+  }, [profile?.id, profile?.admin_prefs])
+
+  // POINTER EVENTS, NOT HTML5 DRAG-AND-DROP.
+  //
+  // The obvious implementation is `draggable` + dragstart/drop, and it is the
+  // wrong one here: HTML5 drag-and-drop does not fire on touch at all. It would
+  // have worked perfectly on a laptop and done literally nothing on the phone
+  // half the team arranges this on. Pointer events are one API for mouse,
+  // trackpad and finger, and `setPointerCapture` keeps the gesture attached to
+  // the handle even when the finger leaves the card it started on.
+  //
+  // The card under the pointer is found with elementFromPoint rather than by
+  // hit-testing rectangles ourselves, so a grid that reflows between two and
+  // four columns needs no special case.
+  const dragRef = useRef(null)
+
+  const handleGrab = useCallback((e, id) => {
+    if (!editing) return
+    e.preventDefault()
+    e.currentTarget.setPointerCapture?.(e.pointerId)
+    dragRef.current = { id, pointerId: e.pointerId, over: id }
+    setDragId(id)
+    setOverId(id)
+
+    const move = (ev) => {
+      const drag = dragRef.current
+      if (!drag || ev.pointerId !== drag.pointerId) return
+      const under = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('[data-tool-id]')
+      const id2 = under?.getAttribute('data-tool-id') ?? null
+      if (id2 && id2 !== drag.over) {
+        drag.over = id2
+        setOverId(id2)
+      }
+    }
+
+    const end = (ev) => {
+      const drag = dragRef.current
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', end)
+      window.removeEventListener('pointercancel', end)
+      dragRef.current = null
+      setDragId(null)
+      setOverId(null)
+      if (!drag || (ev && ev.pointerId !== drag.pointerId)) return
+      if (!drag.over || drag.over === drag.id) return
+      setOrder((cur) => {
+        const next = reorder(cur ?? [], drag.id, drag.over)
+        persist(next)
+        return next
+      })
+    }
+
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', end)
+    window.addEventListener('pointercancel', end)
+  }, [editing, persist])
+
+  function resetOrder() {
+    const next = visibleTools.map((t) => t.id)
+    setOrder(next)
+    persist(next)
+  }
+
   function openInNetwork(path) {
     enterPreview()
     navigate(path)
@@ -212,50 +353,32 @@ export default function AdminPanel() {
     navigate('/home')
   }
 
+  // ONLY WHAT IS WAITING ON A PERSON.
+  //
+  // The counts that used to sit in stat cards here (creators, submissions,
+  // prizes distributed) are not decisions, they are reporting, and reporting
+  // belongs on the Analytics page where it can be filtered, compared and
+  // exported. This query now asks only about work.
   useEffect(() => {
     async function load() {
       const [
-        { count: creators }, { count: pendingRewards }, { data: active }, { data: paid },
-        { count: submissions }, { count: pendingApps }, { count: newFeedback }, { count: toApprove },
-        { count: openReports }, { count: newSuggestions },
+        { count: pendingApps }, { count: toApprove }, { count: openReports },
+        { count: newFeedback }, { count: newSuggestions }, { count: pendingRewards },
       ] = await Promise.all([
-        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'active').eq('is_admin', false).eq('is_test', false).is('deletion_requested_at', null),
-        supabase.from('rewards').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-        supabase.from('challenges').select('id, title, end_date').eq('status', 'active').limit(1).maybeSingle(),
-        supabase.from('rewards').select('amount, reward_type').eq('status', 'distributed'),
-        supabase.from('submissions').select('id', { count: 'exact', head: true }),
         supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'pending').eq('onboarded', true),
-        supabase.from('feedback').select('id', { count: 'exact', head: true }).eq('status', 'new'),
-        // The queue built in migration 091. This is the number that decides
-        // whether anybody gets paid this week.
         supabase.from('invoices').select('id', { count: 'exact', head: true }).eq('stage', 'awaiting_approval'),
-        // A reported message is somebody waiting on a person, which is the only
-        // thing the desk is for.
         supabase.from('message_reports').select('id', { count: 'exact', head: true }).in('status', ['new', 'reviewing']),
-        // EVENT SUGGESTIONS LANDED NOWHERE. A creator suggesting a workshop got
-        // a "the team has been notified" confirmation, a row in
-        // `event_suggestions`, and a DB trigger writing a notification - and
-        // then the only place the list was ever rendered was at the foot of the
-        // calendar page, which is not somewhere an admin goes to find work. So
-        // the answer to "does anybody read these" was: only by accident.
-        // It is a desk row now, like every other thing waiting on somebody.
+        supabase.from('feedback').select('id', { count: 'exact', head: true }).eq('status', 'new'),
         supabase.from('event_suggestions').select('id', { count: 'exact', head: true }).eq('status', 'new'),
+        supabase.from('rewards').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
       ])
-      const cashPaid = (paid ?? []).filter((r) => r.reward_type !== 'voucher').reduce((s, r) => s + Number(r.amount), 0)
-      const voucherPaid = (paid ?? []).filter((r) => r.reward_type === 'voucher').reduce((s, r) => s + Number(r.amount), 0)
       setStats({
-        creators: creators ?? 0,
-        pendingRewards: pendingRewards ?? 0,
-        active,
-        cashPaid: PRIZE_BASELINE + cashPaid,
-        voucherPaid,
-        totalPaid: PRIZE_BASELINE + cashPaid + voucherPaid,
-        submissions: submissions ?? 0,
         pendingApps: pendingApps ?? 0,
-        newFeedback: newFeedback ?? 0,
         toApprove: toApprove ?? 0,
         openReports: openReports ?? 0,
+        newFeedback: newFeedback ?? 0,
         newSuggestions: newSuggestions ?? 0,
+        pendingRewards: pendingRewards ?? 0,
       })
     }
     load()
@@ -263,10 +386,10 @@ export default function AdminPanel() {
 
   // THE MARKETS ARE QUERIED HERE RATHER THAN READ FROM CommunityContext.
   //
-  // That context deliberately issues no queries at all unless the network
-  // preview flag is on, so on this page it is usually empty - and a "your
-  // markets" section that is blank for everybody who has not turned on a
-  // device-local flag is worse than not having one. Two small queries.
+  // That context deliberately issues no queries unless the network preview flag
+  // is on, so on this page it is usually empty - and a "your markets" section
+  // blank for everybody who has not turned on a device-local flag is worse than
+  // not having one.
   useEffect(() => {
     let alive = true
     async function load() {
@@ -302,9 +425,9 @@ export default function AdminPanel() {
     stats.pendingRewards > 0 && { to: '/admin/rewards?tab=payouts', icon: 'wallet', count: stats.pendingRewards, label: `reward${stats.pendingRewards === 1 ? '' : 's'} still to pay`, hint: 'Awarded but not yet distributed.' },
   ].filter(Boolean) : []
 
-  // Both queries in. Until then the article draws its shape in skeletons rather
-  // than drawing a SHORTER article that is about to grow two sections at the
-  // top - see the note in the markup.
+  // THE PAGE ARRIVES IN THE ORDER IT WILL STAY IN. Both queries in before
+  // anything that can change the shape of the article renders, so nothing below
+  // ever gets shoved down the screen and every entrance plays once, in place.
   const ready = !!stats && !!markets
 
   return (
@@ -312,118 +435,47 @@ export default function AdminPanel() {
       <PageHeader
         title="Admin panel"
         subtitle="What is waiting on you, then everything you need to run the programme."
+        action={
+          <button
+            type="button"
+            onClick={() => { setEditing((v) => !v); setDragId(null); setOverId(null) }}
+            className={cx(
+              'inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all duration-200',
+              editing
+                ? 'bg-brand text-white shadow-card'
+                : 'border border-gray-200 text-smoke hover:border-brand/40 hover:text-brand',
+            )}
+          >
+            <GripDots />
+            {editing ? 'Done' : 'Arrange'}
+          </button>
+        }
       />
 
-      <div className="space-y-10">
-        {/* THE PAGE ARRIVES IN THE ORDER IT WILL STAY IN.
-            THE BUG THIS FIXES. "On your desk" and "Your markets" were gated on
-            `desk.length > 0` and `markets?.length > 0` - both of which are
-            false until their queries land - while the stats skeleton and the
-            whole tool grid rendered on the first frame. So the first paint was
-            a page with two sections MISSING FROM THE TOP, and a moment later
-            they appeared and shoved everything below them down the screen,
-            each running its own entrance on the way. Ethan: "when the admin
-            page first loads it shows up something else or the cards in a
-            different order and then it plays the animation and looks correct."
-
-            The rule this page was breaking is one the rest of the app already
-            follows: an empty state is a CLAIM, and a claim needs the data
-            first. A section that might exist reserves its space with a
-            skeleton, so nothing below it ever moves and every entrance plays
-            once, in place.
-
-            `ready` is the whole condition: both queries in, nothing left that
-            can change the shape of the article. */}
-
+      <div className="space-y-8">
         {/* ---------- On your desk ---------- */}
         {!ready ? (
           <Skeleton className="h-36" />
         ) : desk.length > 0 ? (
           <Reveal from="down">
-            <section className="rounded-card border border-brand/25 bg-brand-tint/25 p-4">
-              <h2 className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-widest text-brand">On your desk</h2>
-              <div className="space-y-0.5">
+            <section className="overflow-hidden rounded-card border border-brand/20 bg-brand-tint/60 shadow-card">
+              <div className="flex items-center gap-2.5 border-b border-brand/15 px-4 py-3 sm:px-5">
+                <span className="h-4 w-1 rounded-full bg-brand" aria-hidden />
+                <h2 className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand">On your desk</h2>
+                <span className="ml-auto rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold tabular-nums text-white">
+                  {desk.length}
+                </span>
+              </div>
+              <div className="space-y-1 p-2 sm:p-2.5">
                 {desk.map((r) => <DeskRow key={r.to} {...r} />)}
               </div>
             </section>
           </Reveal>
         ) : null}
 
-        {/* ---------- The numbers ---------- */}
-        {!ready ? (
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" />
-          </div>
-        ) : (
-          <Reveal className="grid grid-cols-2 gap-4 lg:grid-cols-4" stagger={0.06}>
-            <StatCard label="Creators" value={stats.creators} />
-            <StatCard label="Total submissions" value={stats.submissions} />
-            <StatCard
-              label="Prizes distributed"
-              value={formatMoney(stats.totalPaid)}
-              hint={`${formatMoney(stats.cashPaid)} cash · ${formatMoney(stats.voucherPaid)} vouchers`}
-              accent
-            />
-            <StatCard
-              label="Rewards to pay"
-              value={stats.pendingRewards}
-              hint={stats.pendingRewards > 0 ? 'Awarded, not yet distributed' : 'All settled'}
-            />
-          </Reveal>
-        )}
-
-        {/* ---------- The live challenge ---------- */}
-        {stats?.active && (
-          <Reveal from="down">
-            <Link to={`/admin/challenges/${stats.active.id}/results`}
-              className="block rounded-card border border-brand/30 bg-brand-tint/50 p-6 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift sm:p-8">
-              <p className="text-xs font-semibold uppercase tracking-wider text-brand">Live challenge</p>
-              <p className="mt-2 text-xl font-bold">{stats.active.title}</p>
-              <p className="mt-1 text-sm text-smoke">Manage entries and log views when it closes →</p>
-            </Link>
-          </Reveal>
-        )}
-
-
-        {/* ---------- The Testing Centre ----------
-            A DEMO IS NOT A THING YOU CAN DO TO A REAL CREATOR. Most of what
-            this platform does is automatic - an invoice raises itself off a
-            cash reward, a challenge closes itself at local midnight, a birthday
-            card goes out at seven in the morning - and until now the only way
-            to show any of that to somebody was to let it happen to a real
-            person, with their real bank details and their real inbox. The
-            Testing Centre runs all of it over people who do not exist. It gets
-            a band of its own rather than a tile in a grid because it is the
-            door you open in front of an audience. */}
-        <Reveal from="down">
-          <Link
-            to="/admin/testing"
-            className="flex items-center gap-4 rounded-card border border-gray-200 bg-white p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-lift sm:p-6"
-          >
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand-tint text-brand">
-              <Icon name="joystick" className="h-6 w-6" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="flex flex-wrap items-center gap-2">
-                <span className="text-lg font-bold">Testing Centre</span>
-                <span className="rounded-full bg-brand-tint px-2 py-0.5 text-[10px] font-semibold text-brand">Admins only</span>
-              </span>
-              <span className="mt-1 block text-sm leading-relaxed text-smoke">
-                Every feature and every automation, running on invented people. Raise an invoice and
-                download the PDF, walk the whole onboarding, close a challenge and publish its podium,
-                and dry run the scheduled jobs. Nothing is written and no creator is involved.
-              </span>
-            </span>
-            <Icon name="chevronRight" className="hidden h-5 w-5 shrink-0 text-gray-300 sm:block" />
-          </Link>
-        </Reveal>
-
         {/* ---------- Your markets ----------
-            THE MISSING DOOR. Per-market settings have existed at /manage/:slug
-            for a while and nothing anywhere linked to them, so running a market
-            meant knowing the URL. A market is the unit of work for everybody
-            except the owner; it belongs above the platform-wide tools, not
-            hidden behind them. */}
+            One heading, no hint line. What a market card is for is obvious from
+            the card; the sentence under the heading was furniture. */}
         {!ready ? (
           <div>
             <Skeleton className="mb-3 h-6 w-40" />
@@ -435,14 +487,7 @@ export default function AdminPanel() {
           <Reveal from="down">
             <section>
               <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-                <div>
-                  <h2 className="text-lg font-semibold">
-                    {isGlobal ? 'Markets' : 'Your markets'}
-                  </h2>
-                  <p className="mt-0.5 text-sm text-smoke">
-                    Rooms, members, standings, join policy and the market’s own settings.
-                  </p>
-                </div>
+                <h2 className="text-lg font-semibold">{isGlobal ? 'Markets' : 'Your markets'}</h2>
                 {isGlobal && (
                   <button type="button" onClick={() => openInNetwork('/global/markets')}
                     className="shrink-0 text-sm font-medium text-brand transition-transform duration-200 hover:scale-105">
@@ -491,47 +536,44 @@ export default function AdminPanel() {
         ) : null}
 
         {/* ---------- The tools ----------
-            ONE LIST ON A PHONE, FIVE NAMED GROUPS ON A DESKTOP. The grouping is
-            genuinely useful information when there is room to lay it out; on a
-            phone it is five headings and five hints costing about a screen and a
-            half between them, in front of the tools they describe. The order is
-            preserved, so a tool is in the same relative place either way. */}
-        {isPhone ? (
-          <Reveal from="down">
-            <section>
-              <h2 className="text-lg font-semibold">Admin tools</h2>
-              <Reveal className="mt-3 grid grid-cols-2 gap-3" stagger={0.03}>
-                {phoneTools.map((t) => <ToolTile key={t.to} tool={t} onNetworkOpen={openInNetwork} />)}
-              </Reveal>
-            </section>
-          </Reveal>
-        ) : (
-          GROUPS.filter((g) => !g.globalOnly || isGlobal).map((group) => {
-            const tools = group.tools.filter((t) => !t.globalOnly || isGlobal)
-            if (!tools.length) return null
-            return (
-              <Reveal from="down" key={group.name}>
-                <section>
-                  <h2 className="text-lg font-semibold">{group.name}</h2>
-                  <p className="mb-3 mt-0.5 text-sm text-smoke">{group.hint}</p>
-                  <Reveal className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" stagger={0.05}>
-                    {tools.map((t) => <ToolCard key={t.to} tool={t} onNetworkOpen={openInNetwork} />)}
-                  </Reveal>
-                </section>
-              </Reveal>
-            )
-          })
-        )}
+            ONE grid, one heading, every card the same size, phone and desktop
+            alike. Two columns on a phone and four on a wide screen, which keeps
+            a card roughly the same physical size on both. */}
+        <Reveal from="down">
+          <section>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-lg font-semibold">Tools</h2>
+              {editing && (
+                <div className="flex items-center gap-3 text-xs">
+                  <span className="text-smoke">Drag the dots. Saved to your account.</span>
+                  <button type="button" onClick={resetOrder} className="font-medium text-brand hover:underline">
+                    Reset
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
+              {tools.map((t) => (
+                <ToolCard
+                  key={t.id}
+                  tool={t}
+                  onOpen={openInNetwork}
+                  editing={editing}
+                  dragging={dragId === t.id}
+                  dropTarget={editing && overId === t.id && dragId !== t.id}
+                  onGrab={handleGrab}
+                />
+              ))}
+            </div>
+          </section>
+        </Reveal>
 
         {/* ---------- Seeing it as somebody else ----------
-            Both of these change what YOU see and nothing about the platform, so
-            they sit together at the bottom rather than pretending to be tools. */}
+            Both change what YOU see and nothing about the platform, so they sit
+            at the bottom rather than pretending to be tools. */}
         <Reveal from="down">
           <section className="rounded-card border border-gray-200 bg-white p-5">
             <h2 className="text-sm font-semibold">See it as somebody else</h2>
-            <p className="mt-0.5 text-xs text-smoke">
-              Both are local to this device. No creator is affected and you can come back any time.
-            </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <button onClick={enterCreatorView} disabled={entering}
                 className="flex items-start gap-3 rounded-xl border border-gray-100 p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-card disabled:opacity-60">
