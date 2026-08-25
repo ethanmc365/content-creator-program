@@ -1,9 +1,10 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { Badge, EmptyState, PageHeader, SkeletonCards } from '../components/ui'
+import { Badge, EmptyState, Modal, PageHeader, SkeletonCards } from '../components/ui'
 import Icon from '../components/Icon'
+import { renderNote } from '../lib/noteMarkdown'
 import MediaAttachment from '../components/MediaAttachment'
 import { formatDate, cx } from '../lib/utils'
 import Reveal from '../components/network/Reveal'
@@ -13,10 +14,6 @@ import Reveal from '../components/network/Reveal'
 // Categories are admin-defined (free text), so the filter pills are built
 // from whatever categories actually exist in the library.
 // Custom line icons per category (no emoji anywhere in the chrome).
-const CATEGORY_ICON = {
-  Tips: 'bulb', 'Video Ideas': 'video', 'Brand Guidelines': 'book',
-  "Do's & Don'ts": 'check', Assets: 'image', Examples: 'star',
-}
 
 export default function Resources() {
   const { user, profile, isAdmin, refreshProfile } = useAuth()
@@ -26,6 +23,7 @@ export default function Resources() {
   const [category, setCategory] = useState('All')
   const [search, setSearch] = useState('')
   const [savedOnly, setSavedOnly] = useState(false)
+  const [reading, setReading] = useState(null)
   const [openId, setOpenId] = useState(null) // expanded card
   const [params] = useSearchParams()
   const cardRefs = useRef({})
@@ -70,12 +68,6 @@ export default function Resources() {
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }, [openParam, loading])
 
-  // Build the pill list from the categories actually in use.
-  const CATEGORIES = useMemo(
-    () => ['All', ...[...new Set(resources.map((r) => r.category).filter(Boolean))].sort()],
-    [resources]
-  )
-
   const filtered = useMemo(
     () =>
       resources.filter((r) => {
@@ -91,46 +83,47 @@ export default function Resources() {
     <div className="page">
       <PageHeader
         title="Resource library"
-        subtitle="Tips, briefs, brand rules and assets. Everything you need to make winning content."
         action={isAdmin && <Link to="/admin/resources" className="btn-primary">Manage resources</Link>}
       />
 
-      {/* Search + category pills */}
+      {/* ALL AND SAVED, AND NOTHING ELSE.
+          The pills were built from whatever categories happened to exist, which
+          grew a row of one-item filters nobody pressed - Ethan: "although these
+          will still show up, we're not actually gonna be clicking different
+          ones, because a lot of them will all be different". A category is still
+          worth showing ON a card, as a label; it is not worth a control. What is
+          left is the only division that means anything to a reader: everything,
+          and the ones you kept.
+
+          The search sits BELOW the two, because you narrow before you hunt. */}
       <div className="mb-10 space-y-4">
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => { setCategory('All'); setSavedOnly(false) }}
+            aria-pressed={!savedOnly}
+            className={cx(
+              'rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-200',
+              !savedOnly ? 'bg-brand text-white' : 'border border-gray-200 text-smoke hover:-translate-y-0.5 hover:border-brand hover:text-brand',
+            )}
+          >
+            All{resources?.length ? ` · ${resources.length}` : ''}
+          </button>
+          <button
+            onClick={() => { setCategory('All'); setSavedOnly(true) }}
+            aria-pressed={savedOnly}
+            className={cx(
+              'inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-200',
+              savedOnly ? 'bg-brand text-white' : 'border border-gray-200 text-smoke hover:-translate-y-0.5 hover:border-brand hover:text-brand',
+            )}
+          >
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill={savedOnly ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><path d="M6 3h12v18l-6-4-6 4z" /></svg>
+            Saved{bookmarks.size > 0 ? ` · ${bookmarks.size}` : ''}
+          </button>
+        </div>
         <input
           type="search" className="input max-w-md" placeholder="Search the library…"
           value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search resources"
         />
-        <div className="flex flex-wrap gap-2">
-          {CATEGORIES.map((c) => (
-            <Fragment key={c}>
-              <button
-                onClick={() => setCategory(c)}
-                aria-pressed={category === c}
-                className={cx(
-                  'rounded-full px-4 py-1.5 text-xs font-medium transition-colors',
-                  category === c ? 'bg-brand text-white' : 'border border-gray-200 text-smoke hover:border-brand hover:text-brand'
-                )}
-              >
-                {c !== 'All' && CATEGORY_ICON[c] && <Icon name={CATEGORY_ICON[c]} className="mr-1 inline h-3.5 w-3.5 align-text-bottom" />}{c}
-              </button>
-              {/* Your shelf sits right beside All: everything you've bookmarked */}
-              {c === 'All' && (
-                <button
-                  onClick={() => setSavedOnly((v) => !v)}
-                  aria-pressed={savedOnly}
-                  className={cx(
-                    'inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-medium transition-colors',
-                    savedOnly ? 'bg-brand text-white' : 'border border-gray-200 text-smoke hover:border-brand hover:text-brand'
-                  )}
-                >
-                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill={savedOnly ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><path d="M6 3h12v18l-6-4-6 4z" /></svg>
-                  Saved{bookmarks.size > 0 ? ` · ${bookmarks.size}` : ''}
-                </button>
-              )}
-            </Fragment>
-          ))}
-        </div>
       </div>
 
       {loading ? (
@@ -154,7 +147,7 @@ export default function Resources() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <h2 className="text-lg font-semibold leading-snug">
-                    {CATEGORY_ICON[r.category] && <Icon name={CATEGORY_ICON[r.category]} className="mr-1.5 inline h-4 w-4 align-text-bottom text-brand" />}{r.title}
+                    {r.title}
                     {new Date(r.created_at).getTime() > seenBefore && (
                       <span className="ml-2 inline-block align-middle rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase text-white">New</span>
                     )}
@@ -172,9 +165,32 @@ export default function Resources() {
                   </div>
                 </div>
 
-                <p className={cx('whitespace-pre-line text-sm leading-relaxed text-smoke', !open && long && 'line-clamp-6')}>
-                  {r.body}
-                </p>
+                {/* RENDERED, NOT RAW. This printed the stored markdown as
+                    plain text, so a resource written with headings and bullets
+                    reached the reader as a wall of # and * - the exact thing
+                    Ethan asked to stop showing up. */}
+                <div className={cx('text-sm leading-relaxed', !open && long && 'line-clamp-6')}>
+                  {renderNote(r.body || '')}
+                </div>
+
+                {/* Links a resource points at. Clickable, which they were not
+                    when they were typed into the body as bare text. */}
+                {r.links?.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {r.links.map((l) => (
+                      <a
+                        key={l.url}
+                        href={l.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1.5 text-xs font-medium transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand"
+                      >
+                        <Icon name="link" className="h-3.5 w-3.5" />
+                        {l.label || l.url}
+                      </a>
+                    ))}
+                  </div>
+                )}
 
                 {/* Attachment: images and videos preview inline (tap the video to
                     play); other files keep a download. Save routes through the
@@ -186,11 +202,9 @@ export default function Resources() {
                     {r.profiles?.name && `By ${r.profiles.name} · `}{formatDate(r.created_at)}
                   </p>
                   <div className="flex gap-2">
-                    {long && (
-                      <button onClick={() => setOpenId(open ? null : r.id)} className="text-xs font-medium text-brand hover:underline">
-                        {open ? 'Show less' : 'Read more'}
-                      </button>
-                    )}
+                    <button onClick={() => setReading(r)} className="text-xs font-medium text-brand hover:underline">
+                      Open
+                    </button>
                   </div>
                 </div>
               </article>
@@ -198,6 +212,45 @@ export default function Resources() {
           })}
         </Reveal>
       )}
+
+      {/* READING ONE TAKES THE SCREEN.
+          Ethan: a card should open "to accept most of the screen so I can view
+          it clearly". Expanding in place pushed every other card down and left
+          a long guide competing with its neighbours for attention; a resource
+          you have chosen to read should be the only thing you are reading. */}
+      <Modal open={!!reading} onClose={() => setReading(null)} title={reading?.title ?? ''} wide>
+        {reading && (
+          <div className="space-y-6">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-gray-400">
+              {reading.category && <Badge tone="light">{reading.category}</Badge>}
+              <span>{reading.profiles?.name && `By ${reading.profiles.name} · `}{formatDate(reading.created_at)}</span>
+            </div>
+
+            <div className="text-[15px] leading-relaxed">
+              {renderNote(reading.body || '')}
+            </div>
+
+            {reading.links?.length > 0 && (
+              <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-5">
+                {reading.links.map((l) => (
+                  <a
+                    key={l.url}
+                    href={l.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 px-3.5 py-2 text-sm font-medium transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand"
+                  >
+                    <Icon name="link" className="h-4 w-4" />
+                    {l.label || l.url}
+                  </a>
+                ))}
+              </div>
+            )}
+
+            {reading.file_url && <MediaAttachment url={reading.file_url} />}
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }

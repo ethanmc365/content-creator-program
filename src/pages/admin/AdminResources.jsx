@@ -1,22 +1,25 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { confirm } from '../../lib/confirm'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../../components/ui'
 import Icon from '../../components/Icon'
+import RichEditable from '../../components/RichEditable'
+import RichToolbar from '../../components/RichToolbar'
 import { formatDate } from '../../lib/utils'
 import { playableContentType } from '../../lib/media'
 import { ensureMp4Brand } from '../../lib/videoRemux'
 
 // Resource library management: publish tips/guides, optionally attach a
 // downloadable file (stored in the public "resources" bucket).
-const emptyForm = { title: '', body: '', category: '', file_url: '' }
+const emptyForm = { title: '', body: '', category: '', file_url: '', links: [] }
 
 export default function AdminResources() {
   const { user } = useAuth()
   const [resources, setResources] = useState([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(null) // null | 'new' | resource row
+  const editorRef = useRef(null)
   const [form, setForm] = useState(emptyForm)
   const [busy, setBusy] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -33,7 +36,9 @@ export default function AdminResources() {
   function openEditor(resource) {
     setError('')
     setEditing(resource ?? 'new')
-    setForm(resource ? { ...resource } : emptyForm)
+    // A row loaded from before links existed has none; the form needs an
+    // array either way or every map below throws.
+    setForm(resource ? { ...resource, links: resource.links ?? [] } : emptyForm)
   }
 
   // Optional file attachment → public resources bucket (admin-only upload).
@@ -65,6 +70,12 @@ export default function AdminResources() {
       body: form.body.trim(),
       category: form.category.trim(),
       file_url: form.file_url || null,
+      // Blank rows are what a person leaves behind after changing their mind
+      // about a link, not something they meant to save.
+      links: (form.links || []).filter((l) => l.url?.trim()).map((l) => ({
+        label: l.label?.trim() || l.url.trim(),
+        url: l.url.trim(),
+      })),
     }
     if (editing === 'new') {
       await supabase.from('resources').insert({ ...payload, created_by: user.id })
@@ -130,12 +141,69 @@ export default function AdminResources() {
               />
             </div>
           </div>
+          {/* THE SAME SURFACE AS NOTES AND THE CHAT COMPOSER.
+              This was a monospace textarea holding raw markdown, so an author
+              typed ** and # and could not see what the reader would get - and
+              Ethan's report that "it shows up a weird font" is exactly that: it
+              was set in mono because it was code, and it should never have been
+              code. Headings, bold and bullets now look like themselves, the box
+              grows with what you write, and what is stored is the same portable
+              markdown the reader already renders. */}
           <div>
-            <label htmlFor="res-body" className="label">Content</label>
-            <textarea id="res-body" rows={10} required className="input font-mono !text-xs" value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} placeholder="Write the tip, guide or instructions here. Line breaks are kept." />
+            <p className="label">Content</p>
+            <RichToolbar editorRef={editorRef} only={['h2', 'h3', '|', 'bold', 'italic', 'link', '|', 'ul', 'ol']} />
+            <RichEditable
+              ref={editorRef}
+              docId={editing === 'new' ? 'new' : editing?.id || 'new'}
+              initialMd={form.body || ''}
+              onChangeMd={(md) => setForm((f) => ({ ...f, body: md }))}
+              placeholder="Write the tip, guide or instructions here."
+              className="min-h-[16rem] rounded-card border border-gray-200 bg-white px-5 py-4 text-[15px] leading-relaxed focus:border-brand/40"
+            />
           </div>
+
+          {/* LINKS, PLURAL. A resource is often a pointer rather than a
+              document - watch this, then read that - and those addresses were
+              being typed into the body as bare text. */}
           <div>
-            <p className="label">Attachment <span className="font-normal text-smoke">(optional: logos, templates, b-roll packs)</span></p>
+            <p className="label">Links</p>
+            <div className="space-y-2">
+              {form.links.map((l, i) => (
+                <div key={i} className="flex flex-wrap gap-2">
+                  <input
+                    type="text" className="input min-w-[9rem] flex-1 !w-auto" placeholder="What is it?"
+                    value={l.label}
+                    onChange={(e) => setForm((f) => ({
+                      ...f, links: f.links.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)),
+                    }))}
+                  />
+                  <input
+                    type="url" className="input min-w-[12rem] flex-[2] !w-auto" placeholder="https://…"
+                    value={l.url}
+                    onChange={(e) => setForm((f) => ({
+                      ...f, links: f.links.map((x, j) => (j === i ? { ...x, url: e.target.value } : x)),
+                    }))}
+                  />
+                  <button
+                    type="button" aria-label="Remove link" className="btn-ghost !px-3"
+                    onClick={() => setForm((f) => ({ ...f, links: f.links.filter((_, j) => j !== i) }))}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="btn-secondary mt-2 !py-2 text-xs"
+              onClick={() => setForm((f) => ({ ...f, links: [...f.links, { label: '', url: '' }] }))}
+            >
+              + Add a link
+            </button>
+          </div>
+
+          <div>
+            <p className="label">Attachment</p>
             {form.file_url ? (
               <div className="flex items-center gap-3 rounded-xl bg-cloud px-4 py-3 text-sm">
                 <span className="min-w-0 flex-1 truncate">📎 {decodeURIComponent(form.file_url.split('/').pop())}</span>

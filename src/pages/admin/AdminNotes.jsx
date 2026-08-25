@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { confirm, promptText } from '../../lib/confirm'
+import { confirm } from '../../lib/confirm'
 import { PageHeader, Skeleton, EmptyState } from '../../components/ui'
 import Icon from '../../components/Icon'
 import RichEditable from '../../components/RichEditable'
+import RichToolbar from '../../components/RichToolbar'
 import NoteGlyph, { NOTE_GLYPH_KEYS, DEFAULT_GLYPH } from '../../components/NoteGlyph'
 import { cx, timeAgo } from '../../lib/utils'
 import { noteExcerpt } from '../../lib/noteMarkdown'
@@ -18,7 +19,7 @@ import { noteExcerpt } from '../../lib/noteMarkdown'
 // Toolbar: each button drives the contentEditable via the editor's imperative
 // handle. Kept flat and simple - the surface itself renders the formatting.
 export default function AdminNotes() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const [notes, setNotes] = useState(null)
   const [activeId, setActiveId] = useState(null)
   const [dragId, setDragId] = useState(null)
@@ -40,11 +41,25 @@ export default function AdminNotes() {
 
   const active = notes?.find((n) => n.id === activeId) || null
 
+  // Yours - shared or not - and everybody else's shared ones. RLS already means
+  // an unshared note by somebody else never arrives here at all.
+  const mine = (notes ?? []).filter((n) => n.created_by === user?.id)
+  const theirs = (notes ?? []).filter((n) => n.created_by !== user?.id)
+
+  // Who wrote a shared note. Names come from the team list rather than a join,
+  // because there are a handful of admins and this saves a query per render.
+  const [team, setTeam] = useState({})
+  useEffect(() => {
+    supabase.from('profiles').select('id, name').eq('is_admin', true)
+      .then(({ data }) => setTeam(Object.fromEntries((data ?? []).map((p) => [p.id, p.name]))))
+  }, [])
+  const authorName = (id) => team[id] ?? 'A colleague'
+
   async function createNote() {
     const maxOrder = notes?.length ? Math.max(...notes.map((n) => n.sort_order)) : 0
     const { data } = await supabase
       .from('admin_notes')
-      .insert({ title: 'Untitled', body: '', emoji: DEFAULT_GLYPH, sort_order: maxOrder + 1, created_by: user.id })
+      .insert({ title: 'Untitled', body: '', emoji: DEFAULT_GLYPH, sort_order: maxOrder + 1, created_by: user.id, shared: false })
       .select('*')
       .single()
     if (data) { setNotes((prev) => [...(prev || []), data]); setActiveId(data.id) }
@@ -61,6 +76,15 @@ export default function AdminNotes() {
       setSaveState('saved')
     }, 600)
   }, [activeId])
+
+  // ONLY THE AUTHOR, OR THE PROGRAMME LEAD.
+  //
+  // Anybody on the team can EDIT a shared note - that is what sharing it is for
+  // - but removing somebody else's work is different in kind from improving it,
+  // and there is no undo. The database enforces the same rule; this is so the
+  // button is not offered when it would only fail.
+  const isLead = profile?.platform_role === 'owner'
+  const canDelete = (n) => !!n && (n.created_by === user?.id || isLead)
 
   async function deleteNote(id) {
     if (!await confirm('Delete this note? This cannot be undone.')) return
@@ -84,64 +108,6 @@ export default function AdminNotes() {
     renumbered.forEach((n, i) => supabase.from('admin_notes').update({ sort_order: i }).eq('id', n.id).then(() => {}))
   }
 
-  // Toolbar: pure data + one stable handler. Ref access happens only inside
-  // runTool (an event handler), never during render.
-  const TOOLBAR = [
-    { label: 'H1', title: 'Heading 1', act: 'h1' },
-    { label: 'H2', title: 'Heading 2', act: 'h2' },
-    { label: 'H3', title: 'Heading 3', act: 'h3' },
-    { sep: true },
-    { label: 'B', title: 'Bold', cls: 'font-bold', act: 'bold' },
-    { label: 'I', title: 'Italic', cls: 'italic', act: 'italic' },
-    { icon: 'link', title: 'Link', act: 'link' },
-    { sep: true },
-    { label: '•', title: 'Bullet list', act: 'ul' },
-    { label: '1.', title: 'Numbered list', act: 'ol' },
-    { label: '☑', title: 'Checklist', act: 'check' },
-    { label: '❝', title: 'Quote', act: 'quote' },
-    { label: '—', title: 'Divider', act: 'divider' },
-  ]
-
-  async function runTool(act) {
-    const ed = editorRef.current
-    if (!ed) return
-    const curBlock = () => (document.queryCommandValue('formatBlock') || '').toLowerCase()
-    const setBlock = (tag) => ed.exec('formatBlock', curBlock() === tag ? 'p' : tag)
-    // A list/quote/divider applied while the caret sits in a heading would nest
-    // inside it; drop back to a paragraph first so we get clean sibling blocks.
-    const unheading = () => { if (/^h[1-3]$/.test(curBlock())) ed.exec('formatBlock', 'p') }
-    switch (act) {
-      case 'h1': case 'h2': case 'h3': return setBlock(act)
-      case 'quote': return setBlock('blockquote')
-      case 'bold': case 'italic': return ed.exec(act)
-      case 'ul': unheading(); return ed.exec('insertUnorderedList')
-      case 'ol': unheading(); return ed.exec('insertOrderedList')
-      case 'check': unheading(); return ed.insertHtml('<ul data-check="1"><li data-checked="0">To do</li></ul>')
-      case 'divider': unheading(); return ed.insertHtml('<hr><p><br></p>')
-      case 'link': {
-        // Capture the selection now, before the modal takes focus (toolbar
-        // buttons preventDefault on mousedown, so the caret is still in the note).
-        const sel = window.getSelection()
-        const saved = sel && sel.rangeCount ? sel.getRangeAt(0).cloneRange() : null
-        const hasText = saved && !saved.collapsed
-        const url = await promptText('Paste or type the web address to link.', {
-          title: 'Add a link',
-          placeholder: 'https://…',
-          confirmLabel: 'Add link',
-          inputType: 'url',
-        })
-        if (!url) return
-        const href = (/^https?:\/\//i.test(url) ? url : `https://${url}`).replace(/"/g, '%22')
-        // Put the caret/selection back into the note, then apply.
-        ed.el?.()?.focus()
-        if (saved) { const s = window.getSelection(); s.removeAllRanges(); s.addRange(saved) }
-        if (hasText) ed.exec('createLink', href)
-        else ed.insertHtml(`<a href="${href}">${href}</a>&nbsp;`)
-        return
-      }
-      default: return
-    }
-  }
 
   // ---------------------------------------------------------------- Editor
   if (active) {
@@ -155,9 +121,30 @@ export default function AdminNotes() {
             <span className="text-xs text-gray-400">
               {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved' : ''}
             </span>
-            <button onClick={() => deleteNote(active.id)} className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-smoke transition-colors hover:bg-red-50 hover:text-red-600">
-              <Icon name="trash" className="h-4 w-4" /> Delete
+
+            {/* SHARING IS A SWITCH, NOT A COPY. The note stays where it is and
+                becomes visible to the team - so the version they read is the one
+                you keep editing, rather than a snapshot that goes stale the
+                moment you change your mind. */}
+            <button
+              onClick={() => patchActive({ shared: !active.shared })}
+              aria-pressed={!!active.shared}
+              className={cx(
+                'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-200',
+                active.shared
+                  ? 'border-brand bg-brand-tint text-brand'
+                  : 'border-gray-200 text-smoke hover:border-brand hover:text-brand',
+              )}
+            >
+              <Icon name={active.shared ? 'users' : 'key'} className="h-3.5 w-3.5" />
+              {active.shared ? 'Shared with the team' : 'Private'}
             </button>
+
+            {canDelete(active) && (
+              <button onClick={() => deleteNote(active.id)} className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-smoke transition-colors hover:bg-red-50 hover:text-red-600">
+                <Icon name="trash" className="h-4 w-4" /> Delete
+              </button>
+            )}
           </div>
         </div>
 
@@ -197,24 +184,10 @@ export default function AdminNotes() {
           />
         </div>
 
-        {/* Formatting toolbar */}
-        <div className="sticky top-2 z-10 mb-3 flex flex-wrap items-center gap-1 rounded-xl border border-gray-100 bg-white/90 p-1.5 backdrop-blur">
-          {TOOLBAR.map((t, i) =>
-            t.sep ? (
-              <span key={`s${i}`} className="mx-1 h-5 w-px bg-gray-200" />
-            ) : (
-              <button
-                key={t.title}
-                title={t.title}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => runTool(t.act)}
-                className={cx('flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-sm text-ink transition-colors hover:bg-cloud', t.cls)}
-              >
-                {t.icon ? <Icon name={t.icon} className="h-4 w-4" /> : t.label}
-              </button>
-            )
-          )}
-        </div>
+        {/* The shared bar. It lights the buttons that are ON, which this page
+            never did - a toolbar with no active state tells you what you could
+            do and never what you are doing. */}
+        <RichToolbar editorRef={editorRef} sticky />
 
         {/* The one clean writing surface. */}
         <RichEditable
@@ -235,7 +208,6 @@ export default function AdminNotes() {
       <PageHeader
         back="/admin"
         title="Notes"
-        subtitle="A private space for the Tryp.com Team. Keep a bank of weekly questions, plans and playbooks. Drag cards to reorder."
         action={<button onClick={createNote} className="btn-primary">+ New note</button>}
       />
 
@@ -249,8 +221,18 @@ export default function AdminNotes() {
           action={<button onClick={createNote} className="btn-primary">+ New note</button>}
         />
       ) : (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {notes.map((n) => (
+        <>
+        {/* YOURS FIRST, THEN THE TEAM'S.
+            A shared note and a private one are not the same object: one is
+            something you are thinking about, the other is something you have put
+            in front of people. Mixing them in one grid means every card has to
+            be read to know which it is. Two sections, and the badge on a shared
+            card is a reminder rather than the only signal. */}
+        {mine.length > 0 && (
+        <div className="mb-10">
+          <h2 className="mb-4 text-lg font-semibold">Your notes</h2>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {mine.map((n) => (
             <div
               key={n.id}
               draggable
@@ -285,7 +267,41 @@ export default function AdminNotes() {
               <p className="mt-4 text-[11px] text-gray-400">Updated {timeAgo(n.updated_at)}</p>
             </div>
           ))}
+          </div>
         </div>
+        )}
+
+        {theirs.length > 0 && (
+          <div>
+            <h2 className="mb-1 text-lg font-semibold">Shared with the team</h2>
+            <p className="mb-4 text-sm text-smoke">
+              Anybody on the team can edit these. Only the person who wrote one can remove it.
+            </p>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {theirs.map((n) => (
+                <button
+                  key={n.id}
+                  type="button"
+                  onClick={() => setActiveId(n.id)}
+                  className="card group flex flex-col !p-6 text-left transition-all hover:-translate-y-0.5 hover:shadow-lift"
+                >
+                  <div className="mb-3 flex items-start justify-between gap-2">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-tint">
+                      <NoteGlyph name={n.emoji} className="h-6 w-6" />
+                    </span>
+                    <span className="rounded-full bg-cloud px-2 py-0.5 text-[10px] font-semibold text-smoke">
+                      {authorName(n.created_by)}
+                    </span>
+                  </div>
+                  <h2 className="font-semibold text-ink group-hover:text-brand">{n.title || 'Untitled'}</h2>
+                  <p className="mt-1 line-clamp-3 text-sm text-smoke">{noteExcerpt(n.body)}</p>
+                  <p className="mt-auto pt-3 text-[11px] text-gray-400">Edited {timeAgo(n.updated_at || n.created_at)}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        </>
       )}
     </div>
   )
