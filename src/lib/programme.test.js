@@ -122,3 +122,74 @@ describe('groupBy', () => {
     expect(groups[0].key).toBe('Unspecified')
   })
 })
+
+
+// CASH AND VOUCHERS ARE NOT THE SAME MONEY.
+//
+// A Tryp.com voucher is redeemed against a booking we make margin on, so it does
+// not cost what its face value says. Summing it with cash inflates spend by
+// about a third on a real challenge, and every CPM derived from that total is
+// then wrong in the same direction - which is the kind of error that looks like
+// a business problem rather than a bug.
+describe('what a challenge actually cost', () => {
+  const row = {
+    total_views: 100000, posts: 20, creators: 10, status: 'ended',
+    prize_amount: 190, prize_currency: 'GBP', reward_currency: 'GBP',
+    cash_paid: 105, cash_pending: 85, voucher_paid: 40, voucher_pending: 20,
+    cpm_target: 0.5, winners_count: 3,
+  }
+
+  it('counts awarded money, pending included, not the number in the brief', () => {
+    const e = challengeEconomics(row, { currency: 'GBP' })
+    expect(e.cashSpend).toBe(190)      // 105 paid + 85 still to pay
+    expect(e.voucherSpend).toBe(60)    // 40 + 20
+    expect(e.awarded).toBe(250)
+    expect(e.isPlanned).toBe(false)
+  })
+
+  // Two CPMs: cash on its own, and cash plus vouchers. Not a voucher-only one.
+  it('reports cash alone and cash-plus-vouchers', () => {
+    const e = challengeEconomics(row, { currency: 'GBP' })
+    expect(e.cashCpm).toBeCloseTo(1.9, 5)       // 190 / 100 thousand
+    expect(e.combinedCpm).toBeCloseTo(2.5, 5)   // (190 + 60) / 100 thousand
+    expect(e.voucherCpm).toBeUndefined()
+    // `spend` - the headline - is the CASH figure, so the headline CPM is too.
+    expect(e.spend).toBe(190)
+    expect(e.cpm).toBeCloseTo(1.9, 5)
+  })
+
+  it('falls back to the brief only while nothing has been awarded', () => {
+    const e = challengeEconomics(
+      { ...row, cash_paid: 0, cash_pending: 0, voucher_paid: 0, voucher_pending: 0 },
+      { currency: 'GBP' },
+    )
+    expect(e.spend).toBe(190)
+    expect(e.isPlanned).toBe(true)
+    expect(e.cashCpm).toBeNull()
+    expect(e.combinedCpm).toBeNull()
+  })
+
+  it('converts awarded money into the reporting currency', () => {
+    const e = challengeEconomics(row, { currency: 'EUR', rates: { GBP: 1, EUR: 2 } })
+    expect(e.cashSpend).toBe(380)
+    expect(e.voucherSpend).toBe(120)
+  })
+
+  it('gives no CPM at all when there are no views to divide by', () => {
+    const e = challengeEconomics({ ...row, total_views: 0 }, { currency: 'GBP' })
+    expect(e.cashCpm).toBeNull()
+    expect(e.combinedCpm).toBeNull()
+  })
+
+  it('blends by summing first and dividing once', () => {
+    const a = challengeEconomics(row, { currency: 'GBP' })
+    const b = challengeEconomics({ ...row, total_views: 300000 }, { currency: 'GBP' })
+    const blended = blendEconomics([a, b], { currency: 'GBP' })
+    expect(blended.cashSpend).toBe(380)
+    expect(blended.voucherSpend).toBe(120)
+    // 380 / 400 thousand, NOT the mean of 1.9 and 0.633
+    expect(blended.cashCpm).toBeCloseTo(0.95, 5)
+    // and the combined one sums both pots before dividing, the same way
+    expect(blended.combinedCpm).toBeCloseTo(1.25, 5)
+  })
+})

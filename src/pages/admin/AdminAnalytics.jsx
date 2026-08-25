@@ -9,12 +9,17 @@ import { supabase } from '../../lib/supabase'
 import { PageHeader, Skeleton, StatCard } from '../../components/ui'
 import { downloadCsv, formatMoney, formatViews, cx } from '../../lib/utils'
 import ProgrammePerformance from './analytics/ProgrammePerformance'
+import AdminNetwork from './AdminNetwork'
 import CommunityHealth from './analytics/CommunityHealth'
 
 const TABS = [
   { key: 'overview', label: 'Overview' },
   { key: 'programme', label: 'Programme performance' },
   { key: 'community', label: 'Community health' },
+  // Community network folded in from its own admin page. "How connected is the
+  // community" and "how is the community doing" were two doors onto the same
+  // question, and one of them was a tile on the panel.
+  { key: 'network', label: 'Connections' },
 ]
 
 // Admin analytics: the program's health at a glance. Recharts (free) for the
@@ -382,9 +387,18 @@ export default function AdminAnalytics() {
   if (tab === 'community') {
     return (
       <div className="page">
-        <PageHeader title="Analytics" subtitle="Who is here, who takes part, and who we can reach." />
+        <PageHeader back="/admin" title="Analytics" subtitle="Who is here, who takes part, and who we can reach." />
         {tabBar}
         <CommunityHealth />
+      </div>
+    )
+  }
+  if (tab === 'network') {
+    return (
+      <div className="page">
+        <PageHeader back="/admin" title="Analytics" subtitle="Who is connecting with whom, and who holds the community together." />
+        {tabBar}
+        <AdminNetwork />
       </div>
     )
   }
@@ -401,7 +415,7 @@ export default function AdminAnalytics() {
 
   return (
     <div className="page">
-      <PageHeader title="Analytics" subtitle="The program's pulse: growth, output, reach and spend." />
+      <PageHeader back="/admin" title="Analytics" subtitle="The programme's pulse: growth, output, reach and spend." />
       {tabBar}
 
       {/* ---- Headline numbers ---- */}

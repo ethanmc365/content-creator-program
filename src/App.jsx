@@ -81,7 +81,6 @@ const AdminResults = lazy(() => import('./pages/admin/AdminResults'))
 const AdminRewards = lazy(() => import('./pages/admin/AdminRewards'))
 const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics'))
 const AdminChallengeAnalytics = lazy(() => import('./pages/admin/AdminChallengeAnalytics'))
-const AdminNetwork = lazy(() => import('./pages/admin/AdminNetwork'))
 const AdminEvents = lazy(() => import('./pages/admin/AdminEvents'))
 const AdminResources = lazy(() => import('./pages/admin/AdminResources'))
 const AdminJobs = lazy(() => import('./pages/admin/AdminJobs'))
@@ -232,7 +231,9 @@ export default function App() {
             <Route path="/admin/rewards" element={<AdminRewards />} />
             <Route path="/admin/analytics" element={<AdminAnalytics />} />
             <Route path="/admin/analytics/:id" element={<AdminChallengeAnalytics />} />
-            <Route path="/admin/network" element={<AdminNetwork />} />
+            {/* Community network folded into Analytics as its Connections tab.
+                It was a second door onto "how is the community doing". */}
+            <Route path="/admin/network" element={<Navigate to="/admin/analytics?tab=network" replace />} />
             <Route path="/admin/events" element={<AdminEvents />} />
             <Route path="/admin/resources" element={<AdminResources />} />
             <Route path="/admin/jobs" element={<AdminJobs />} />

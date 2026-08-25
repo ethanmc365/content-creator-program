@@ -1,13 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { PageHeader, StatCard, Skeleton, Avatar, EmptyState } from '../../components/ui'
+import { StatCard, Skeleton, Avatar, EmptyState } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { timeAgo } from '../../lib/utils'
 
-// Admin view of how the community is connecting: totals, the most-connected
-// creators, and the latest links formed. Replies to a first DM auto-connect, so
-// this doubles as a picture of who's actually talking to whom.
+// How the community is connecting: totals, the most-connected creators, and the
+// latest links formed. Replies to a first DM auto-connect, so this doubles as a
+// picture of who is actually talking to whom.
+//
+// THIS IS A TAB, NOT A PAGE. It had its own entry on the admin panel and its own
+// heading, which made "how connected is the community" a separate errand from
+// "how is the community doing" - two doors onto the same question. It is a
+// section of Analytics now and owns no page chrome: no PageHeader, no back
+// link, no outer `page` wrapper. The tab it sits in provides all three.
 export default function AdminNetwork() {
   const [data, setData] = useState(null)
 
@@ -57,8 +63,7 @@ export default function AdminNetwork() {
 
   if (!derived) {
     return (
-      <div className="page space-y-6">
-        <Skeleton className="h-10 w-64" />
+      <div className="space-y-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3"><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /></div>
       </div>
     )
@@ -67,10 +72,7 @@ export default function AdminNetwork() {
   const avgPerPerson = derived.connectedPeople ? (derived.realEdges * 2 / derived.connectedPeople).toFixed(1) : '0'
 
   return (
-    <div className="page">
-      <PageHeader
-        back="/admin" title="Community network" subtitle="How creators are connecting - totals, the best-connected members, and the latest links." />
-
+    <div>
       <div className="mb-10 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Connections" value={derived.realEdges} hint="accepted links" />
         <StatCard label="Connected creators" value={derived.connectedPeople} />

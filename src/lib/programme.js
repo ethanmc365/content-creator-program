@@ -55,7 +55,33 @@ export function cpmBand(cpm, { target = 0.5, ended = true, hasViews = true } = {
  * as "£0.00" would read as the best result on the board.
  */
 export function challengeEconomics(row, { currency = 'GBP', rates = FALLBACK_RATES } = {}) {
-  const spend = convert(row.prize_amount, row.prize_currency || 'GBP', currency, rates)
+  // WHAT A CHALLENGE COST IS NOT WHAT THE BRIEF SAID IT WOULD COST.
+  //
+  // `prize_amount` is the number typed into the brief when it was written. The
+  // real figure is in `rewards`, and it differs whenever a place goes unclaimed,
+  // a prize is split differently, or - always - participation vouchers get
+  // handed out, because those are not in the brief's number at all.
+  //
+  // PENDING COUNTS. A prize that has been awarded is committed money whether or
+  // not the transfer has cleared, and Ethan wants the result readable the day a
+  // challenge closes rather than the week the bank catches up.
+  const rewardCcy = row.reward_currency || row.prize_currency || 'GBP'
+  const conv = (n) => convert(n, rewardCcy, currency, rates)
+
+  const cashPaid = conv(Number(row.cash_paid) || 0) ?? 0
+  const cashPending = conv(Number(row.cash_pending) || 0) ?? 0
+  const voucherPaid = conv(Number(row.voucher_paid) || 0) ?? 0
+  const voucherPending = conv(Number(row.voucher_pending) || 0) ?? 0
+
+  const cashSpend = cashPaid + cashPending
+  const voucherSpend = voucherPaid + voucherPending
+  const awarded = cashSpend + voucherSpend
+
+  // Fall back to the plan only where nothing has been awarded yet, so a
+  // challenge that is still running still shows the budget it set out with
+  // rather than a row of dashes.
+  const planned = convert(row.prize_amount, row.prize_currency || 'GBP', currency, rates)
+  const spend = awarded > 0 ? cashSpend : planned
   const views = Number(row.total_views) || 0
   const posts = Number(row.posts) || 0
   const creators = Number(row.creators) || 0
@@ -65,6 +91,20 @@ export function challengeEconomics(row, { currency = 'GBP', rates = FALLBACK_RAT
   const cpm = hasViews && spend != null ? spend / (views / 1000) : null
   const target = Number(row.cpm_target) || 0.5
 
+
+  // TWO CPMs, AND THEY ANSWER DIFFERENT QUESTIONS.
+  //
+  //   cashCpm      what the programme costs in money that leaves the business
+  //   combinedCpm  cash PLUS participation vouchers at face value
+  //
+  // Both are wanted, and neither is a substitute. A EUR 10 Tryp.com voucher is
+  // redeemed against a booking we make margin on, so it does not cost EUR 10 -
+  // which is why cash has to be readable on its own. But the vouchers are still
+  // value handed to creators, so the combined figure is the honest total
+  // community spend. A voucher-only CPM is the one number nobody asked a
+  // question that needs, so it is not computed.
+  const perThousand = (amount) => (hasViews && amount > 0 ? amount / (views / 1000) : null)
+
   return {
     ...row,
     spend,
@@ -72,6 +112,19 @@ export function challengeEconomics(row, { currency = 'GBP', rates = FALLBACK_RAT
     views,
     posts,
     creators,
+    cashSpend,
+    voucherSpend,
+    cashPaid,
+    cashPending,
+    voucherPaid,
+    voucherPending,
+    awarded,
+    planned,
+    // True when nothing has been awarded, so the UI can say "budget" rather
+    // than quietly presenting a plan as a result.
+    isPlanned: awarded === 0 && planned != null,
+    cashCpm: perThousand(cashSpend),
+    combinedCpm: perThousand(awarded),
     cpm,
     costPerPost: posts > 0 && spend != null ? spend / posts : null,
     costPerCreator: creators > 0 && spend != null ? spend / creators : null,
@@ -99,6 +152,8 @@ export function challengeEconomics(row, { currency = 'GBP', rates = FALLBACK_RAT
 export function blendEconomics(rows, { currency = 'GBP' } = {}) {
   const scored = rows.filter((r) => r.spend != null)
   const spend = scored.reduce((s, r) => s + r.spend, 0)
+  const cashSpend = rows.reduce((s, r) => s + (r.cashSpend || 0), 0)
+  const voucherSpend = rows.reduce((s, r) => s + (r.voucherSpend || 0), 0)
   const views = rows.reduce((s, r) => s + r.views, 0)
   const posts = rows.reduce((s, r) => s + r.posts, 0)
   // Creators are per-challenge counts, so summing them counts a repeat
@@ -115,6 +170,14 @@ export function blendEconomics(rows, { currency = 'GBP' } = {}) {
     views,
     posts,
     creatorSlots,
+    cashSpend,
+    voucherSpend,
+    combinedSpend: cashSpend + voucherSpend,
+    // Blended, not an average of averages: sum first, divide once. Averaging
+    // per-challenge CPMs weights a EUR 30 express challenge the same as a
+    // EUR 540 monthly one and quietly flatters the result.
+    cashCpm: views > 0 && cashSpend > 0 ? cashSpend / (views / 1000) : null,
+    combinedCpm: views > 0 && cashSpend + voucherSpend > 0 ? (cashSpend + voucherSpend) / (views / 1000) : null,
     cpm: views > 0 ? spend / (views / 1000) : null,
     costPerPost: posts > 0 ? spend / posts : null,
     costPerCreator: creatorSlots > 0 ? spend / creatorSlots : null,

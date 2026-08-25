@@ -65,7 +65,10 @@ function Td({ children, right, className }) {
 export default function ProgrammePerformance() {
   const [rows, setRows] = useState(null)
   const [loadError, setLoadError] = useState('')
-  const [currency, setCurrency] = useState('GBP')
+  // EUR IS THE DEFAULT. Five of the six open markets price in euro, and the
+  // programme is reported to the business in euro; sterling is the exception,
+  // not the base. Ethan asked for it explicitly and it is one keystroke back.
+  const [currency, setCurrency] = useState('EUR')
   const [rates, setRates] = useState(FALLBACK_RATES)
   const [liveRates, setLiveRates] = useState(false)
   const [marketFilter, setMarketFilter] = useState('all')
@@ -194,7 +197,7 @@ export default function ProgrammePerformance() {
       {/* ---- Controls ---- */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-1 rounded-xl border border-gray-200 p-1">
-          {['GBP', 'EUR'].map((c) => (
+          {['EUR', 'GBP'].map((c) => (
             <button
               key={c}
               onClick={() => setCurrency(c)}
@@ -230,16 +233,29 @@ export default function ProgrammePerformance() {
       <div>
         <h2 className="mb-1 text-lg font-semibold">Programme economics</h2>
         <p className="mb-4 text-xs text-smoke">
-          Blended across {b.challenges} challenge{b.challenges === 1 ? '' : 's'}: totals divided once, never an average of averages.
+          Blended across {b.challenges} challenge{b.challenges === 1 ? '' : 's'}: totals divided once, never an
+          average of averages. Money is what has actually been awarded, including prizes still to pay.
         </p>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          <StatCard label="Prize spend" value={money(b.spend, currency, 0)} hint="cash + voucher value" />
+          {/* TWO CPMs, ANSWERING DIFFERENT QUESTIONS.
+              Cash alone is what leaves the business - a Tryp.com voucher is
+              redeemed against a booking we make margin on, so it does not cost
+              its face value and folding it in makes the programme look about a
+              third more expensive than it is. The combined figure is still
+              worth having: it is the honest total value handed to creators. */}
+          <StatCard label="Cash prizes" value={money(b.cashSpend, currency, 0)} hint="awarded, pending included" />
+          <StatCard label="Voucher value" value={money(b.voucherSpend, currency, 0)} hint="face value, not cost" />
           <StatCard label="Total views" value={formatViews(b.views)} hint="as logged" />
           <StatCard
-            label="Blended CPM"
-            value={money(b.cpm, currency, 2)}
-            hint="cost per 1,000 views"
+            label="Cash CPM"
+            value={money(b.cashCpm, currency, 2)}
+            hint="cash only, per 1,000 views"
             accent
+          />
+          <StatCard
+            label="Total CPM"
+            value={money(b.combinedCpm, currency, 2)}
+            hint="cash + vouchers, per 1,000 views"
           />
           <StatCard label="Cost per post" value={money(b.costPerPost, currency, 2)} />
           <StatCard label="Cost per creator" value={money(b.costPerCreator, currency, 2)} hint="per challenge entered" />

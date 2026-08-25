@@ -71,14 +71,6 @@ const TOOLS = [
   { id: 'feedback', to: '/admin/feedback', icon: 'chat', family: 'comms', title: 'Bugs & ideas', text: 'What creators have flagged, waiting to be triaged.' },
   { id: 'notes', to: '/admin/notes', icon: 'pencil', family: 'comms', title: 'Notes', text: 'Your own space for plans and playbooks, shared or private.' },
 
-  // HELD BACK UNTIL ITS REPLACEMENT SHIPS.
-  //
-  // Every other page that left this grid had somewhere else to go first:
-  // Events to "Manage" on /events, Resources and Roles to their own pages,
-  // Scheduled announcements to the Schedule button in every chat composer.
-  // Community network is folding into Analytics and has not yet, so taking the
-  // card away now would leave a live feature with no way in at all.
-  { id: 'network', to: '/admin/network', icon: 'heart', family: 'people', title: 'Community network', short: 'Network', text: 'Who is connecting with whom. Folding into Analytics.' },
 
   { id: 'testing', to: '/admin/testing', icon: 'joystick', family: 'platform', title: 'Testing Centre', short: 'Testing', text: 'Every feature and automation, running on invented people.' },
   // PLATFORM CONNECTIONS IS NOT A CARD ANY MORE, and it is not deleted either.
