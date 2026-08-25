@@ -79,31 +79,31 @@ export default function AdminResults() {
     setSubmissions((prev) =>
       prev.map((s) => (s.id === submission.id ? { ...s, logged_views: views, views_source: 'manual', views_sync_error: null } : s)),
     )
+    // The saved leaderboard follows the entries, always. Typing a number used
+    // to change the preview on this page and leave the board creators actually
+    // see untouched until somebody remembered to press Generate.
+    await supabase.rpc('rebuild_challenge_results', { p_challenge: id })
     setSavingId(null)
   }
 
   // Build the final leaderboard from the logged views.
+  //
+  // THE RANKING IS DONE IN THE DATABASE, by `rebuild_challenge_results`, so that
+  // exactly one piece of code decides who is first. This function used to rank
+  // on a creator's best single entry no matter what the challenge said, which is
+  // right for "Best single video" and wrong for "Total views", where every entry
+  // is supposed to add up. It is also what the hourly view sync now calls, so
+  // the board cannot drift away from the numbers under it.
   async function generateLeaderboard() {
     const withViews = submissions.filter((s) => s.logged_views != null)
     if (withViews.length === 0) return flash('Log views on at least one submission first.')
     if (!await confirm(`Generate the leaderboard from ${withViews.length} reviewed submissions? This replaces any existing results for this challenge.`)) return
 
     setGenerating(true)
-    // A creator's score = their best-performing entry.
-    const bestByCreator = {}
-    for (const s of withViews) {
-      if (!bestByCreator[s.creator_id] || s.logged_views > bestByCreator[s.creator_id]) {
-        bestByCreator[s.creator_id] = s.logged_views
-      }
-    }
-    const ranked = Object.entries(bestByCreator)
-      .sort((a, b) => b[1] - a[1])
-      .map(([creator_id, final_views], i) => ({ challenge_id: id, creator_id, final_views, rank: i + 1 }))
-
-    // Replace previous results in one go.
-    await supabase.from('results').delete().eq('challenge_id', id)
-    const { error } = await supabase.from('results').insert(ranked)
+    const { data: written, error } = await supabase.rpc('rebuild_challenge_results', { p_challenge: id })
     if (error) { setGenerating(false); return flash(`Couldn't save results: ${error.message}`) }
+    const ranked = { length: written ?? 0 }
+
     // Stamp the challenge so the public page can label the standings correctly.
     const updatedAt = new Date().toISOString()
     await supabase.from('challenges').update({ results_status: phase, results_updated_at: updatedAt }).eq('id', id)

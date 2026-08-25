@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Select, Spinner } from '../ui'
 import Icon from '../Icon'
 import { timeAgo } from '../../lib/utils'
+import { supabase } from '../../lib/supabase'
 import {
   CADENCES,
   describeSyncError,
@@ -77,13 +78,21 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
       pollRef.current = null
       if (wasRunning.current) {
         wasRunning.current = false
-        onSynced?.()
+        // REBUILD THE SAVED BOARD THE INSTANT THE RUN ENDS.
+        //
+        // A minute-by-minute reconciler in the database catches every path
+        // eventually, which is what stops this drifting again. But a person who
+        // just pressed "Sync now" is looking at the podium right now, and "it
+        // said it synced and nothing changed" is exactly the bug this fixes -
+        // so the one path with a human waiting on it does not wait.
+        supabase.rpc('rebuild_challenge_results', { p_challenge: challengeId })
+          .then(() => onSynced?.())
       }
     }
     return () => {
       if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
     }
-  }, [status?.run?.running, refresh, onSynced])
+  }, [status?.run?.running, refresh, onSynced, challengeId])
 
   const settings = status?.settings ?? { interval_hours: 24 }
   const run = status?.run ?? {}
@@ -113,6 +122,21 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
   // this page is about THIS challenge.
   const credentialTrouble =
     !!status && (!connected.YouTube || !!problems.youtube_key_rejected)
+
+  // WHEN EVERY INSTAGRAM ENTRY FAILS AT ONCE, THE LINKS ARE NOT THE PROBLEM.
+  //
+  // Instagram view counts come from one of Meta's saved queries, and Meta
+  // renumbers those from time to time. When it happens every Instagram entry
+  // stops reading in the same sweep and each one reports, individually, that its
+  // link goes nowhere - which reads as forty broken links rather than one broken
+  // query, and sends an admin chasing creators for numbers that are fine.
+  //
+  // One post failing is a post. All of them failing is the query. The panel is
+  // the only place that can tell the difference, because it is the only place
+  // that sees them together.
+  const igRows = submissions.filter((s) => s.platform === 'Instagram')
+  const igFailed = igRows.filter((s) => s.views_sync_error === 'no_video_id' || s.views_sync_error === 'not_on_reels_tab')
+  const instagramLooksBroken = igRows.length >= 3 && igFailed.length === igRows.length
 
   const automatic = submissions.filter((s) => s.views_source && s.views_source !== 'manual').length
   const pct = running && run.total ? Math.round((run.done / run.total) * 100) : 0
@@ -237,6 +261,26 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
         </div>
       ) : null}
 
+      {instagramLooksBroken ? (
+        <div className="border-t border-gray-100 bg-amber-50/60 px-5 py-4 sm:px-7">
+          <p className="text-sm font-semibold text-amber-800">
+            Every Instagram entry failed to read
+          </p>
+          <p className="mt-0.5 text-xs leading-relaxed text-amber-900/80">
+            {igRows.length} of {igRows.length} could not be read in the same run. That is almost never
+            {' '}{igRows.length} bad links — it usually means Instagram has renumbered the query we read
+            view counts from. Pasting the new id fixes every entry at once.
+          </p>
+          <Link
+            to="/admin/connections"
+            className="mt-2 inline-flex items-center gap-2 text-sm font-semibold text-brand hover:underline"
+          >
+            <Icon name="link" className="h-4 w-4" />
+            Update the Instagram query id
+          </Link>
+        </div>
+      ) : null}
+
       {credentialTrouble ? (
         <div className="border-t border-gray-100 px-5 py-4 sm:px-7">
           <Link
@@ -244,7 +288,7 @@ export default function ViewSyncPanel({ challengeId, submissions = [], onSynced 
             className="inline-flex items-center gap-2 text-sm font-semibold text-brand hover:underline"
           >
             <Icon name="alert" className="h-4 w-4" />
-            Instagram or YouTube needs reconnecting
+            YouTube needs reconnecting
           </Link>
         </div>
       ) : null}

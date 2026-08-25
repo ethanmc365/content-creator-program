@@ -83,7 +83,19 @@ const TOOLS = [
   { id: 'network', to: '/admin/network', icon: 'heart', family: 'people', title: 'Community network', short: 'Network', text: 'Who is connecting with whom. Folding into Analytics.' },
 
   { id: 'testing', to: '/admin/testing', icon: 'joystick', family: 'platform', title: 'Testing Centre', short: 'Testing', text: 'Every feature and automation, running on invented people.' },
-  { id: 'connections', to: '/admin/connections', icon: 'link', family: 'platform', title: 'Platform connections', short: 'Connections', text: 'What automatic view counts needs to read each platform.' },
+  // PLATFORM CONNECTIONS IS NOT A CARD ANY MORE, and it is not deleted either.
+  //
+  // Ethan is right that it earns no space here: Instagram needs no credential
+  // at all now, and the YouTube key does not expire, so on a good day the page
+  // has nothing to say. But it is the break-glass for the two things that WILL
+  // eventually break - Meta renumbers its saved queries every so often, and a
+  // Google key can be revoked - and without it, the fix for either is a code
+  // change and a deploy instead of pasting a value into a box.
+  //
+  // So it keeps its route and loses its tile. The only way in is from the view
+  // counts panel on a challenge, which links here when something is actually
+  // wrong. A door you are shown at the moment you need it beats a door you walk
+  // past every day.
   { id: 'network-settings', to: '/global/settings', icon: 'globe', family: 'platform', title: 'Network settings', short: 'Network', text: 'The worldwide network itself.', globalOnly: true },
   { id: 'markets', to: '/global/markets', icon: 'flag', family: 'platform', title: 'All markets', text: 'Every market, open and closed, and how to open another.', globalOnly: true },
   { id: 'audit', to: '/admin/audit', icon: 'eye', family: 'platform', title: 'Audit log', short: 'Audit', text: 'A record of account actions taken by the team.', globalOnly: true },
