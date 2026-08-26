@@ -175,6 +175,14 @@ export default function App() {
           {/* Notification settings now live inline on /settings; keep the old
               path working for bookmarks/deep links by redirecting there. */}
           <Route path="/settings/notifications" element={<Navigate to="/settings" replace />} />
+          {/* THIRTY-FIVE LIVE NOTIFICATIONS POINT HERE.
+              The events page has been `/events` for a while, and something -
+              since removed - was filing event reminders against `/calendar`.
+              Every one of those taps landed on the not-found screen. Fixing
+              the writer would not have fixed the ones already sent, and a
+              redirect is the only thing that repairs a link somebody already
+              has in their pocket. */}
+          <Route path="/calendar" element={<Navigate to="/events" replace />} />
           <Route path="/feedback" element={<Feedback />} />
           <Route path="/dashboard" element={<Dashboard />} />
 

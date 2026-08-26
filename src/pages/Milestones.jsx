@@ -10,6 +10,7 @@ import { Avatar, EmptyState, PageHeader, Skeleton } from '../components/ui'
 import { cx } from '../lib/utils'
 import { pageFade } from '../lib/motion'
 import { METRICS, criterionLabel, humanDays, routeState } from '../lib/milestones'
+import { useViewAs, ViewingAsBanner } from '../components/ViewingAs'
 
 // Where a creator has got to, and what is next.
 //
@@ -33,6 +34,8 @@ const SUMMARY = ['views', 'videos', 'referrals', 'challenges', 'podiums', 'days'
 export default function Milestones() {
   const { profile } = useAuth()
   const isAdmin = !!profile?.is_admin
+  // `?as=<id>` opens one creator's own route. See components/ViewingAs.
+  const { id: whose, viewing, person } = useViewAs()
   const [rows, setRows] = useState(null)
   const [standings, setStandings] = useState([])
   const [metrics, setMetrics] = useState(null)
@@ -40,9 +43,9 @@ export default function Milestones() {
   useEffect(() => {
     let alive = true
     Promise.all([
-      supabase.rpc('milestone_progress'),
+      supabase.rpc('milestone_progress', { p_profile: whose }),
       supabase.rpc('milestone_standings'),
-      supabase.rpc('creator_metrics', { p_profile: profile?.id }),
+      supabase.rpc('creator_metrics', { p_profile: whose }),
     ]).then(([{ data: prog }, { data: stand }, { data: mets }]) => {
       if (!alive) return
       setRows(prog || [])
@@ -50,7 +53,7 @@ export default function Milestones() {
       setMetrics(Array.isArray(mets) ? mets[0] : mets)
     })
     return () => { alive = false }
-  }, [profile?.id])
+  }, [whose])
 
   if (!rows) {
     return (
@@ -72,6 +75,8 @@ export default function Milestones() {
           title="Milestones"
           subtitle="One route, flown in order. Every stop asks for a few things at once — here is what you have, and what is left."
         />
+
+        <ViewingAsBanner viewing={viewing} person={person} />
 
         {/* The numbers the whole ladder is computed from. Showing them makes the
             thresholds checkable rather than magic. */}
@@ -100,7 +105,7 @@ export default function Milestones() {
           <>
             <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
               <h2 className="text-lg font-semibold">The route</h2>
-              {isAdmin && (
+              {isAdmin && !viewing && (
                 <p className="text-xs text-smoke">
                   Showing the whole route as flown, so you can check it end to end.
                 </p>
@@ -116,7 +121,7 @@ export default function Milestones() {
                 <MilestonePath
                   milestones={rows}
                   standings={standings}
-                  preview={isAdmin}
+                  preview={isAdmin && !viewing}
                 />
               </div>
 

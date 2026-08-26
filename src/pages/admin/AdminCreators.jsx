@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext'
 import { Avatar, Badge, CopyButton, Modal, PageHeader, Select, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import Turnstile from '../../components/Turnstile'
-import { formatDate, timeAgo, downloadCsv } from '../../lib/utils'
+import { formatDate, timeAgo, downloadCsv, cx } from '../../lib/utils'
 import { isOnlineAt } from '../../lib/presence'
 
 // Creator management: the full list with emails (admin-only RPC), plus all
@@ -435,84 +435,81 @@ export default function AdminCreators() {
 
       {toast && <p className="mb-6 rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-700 animate-fade-up">{toast}</p>}
 
-      {/* THE THREE JOBS, WITH THEIR COUNTS ON THEM. Press one to filter to it.
-          A zero here is as useful as a number: it means there is nothing to do
-          in that column and you can stop reading. */}
-      <div className="mb-4 flex flex-wrap gap-2">
-        {segments.map((seg) => {
-          const on = statusFilter === seg.key
-          return (
-            <button
-              key={seg.key || 'all'}
-              type="button"
-              onClick={() => setStatusFilter(seg.key)}
-              aria-pressed={on}
-              className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 ${
-                on
-                  ? 'border-brand bg-brand text-white'
-                  : 'border-gray-200 bg-white text-smoke hover:-translate-y-0.5 hover:border-brand hover:text-brand'
-              }`}
-            >
-              {seg.tone === 'green' && !on && <span className="h-2 w-2 rounded-full bg-green-500" />}
-              {seg.tone === 'amber' && !on && seg.count > 0 && <span className="h-2 w-2 rounded-full bg-amber-400" />}
-              {seg.label}
-              <span className={on ? 'text-white/80' : 'text-gray-400'}>{seg.count}</span>
-            </button>
-          )
-        })}
-      </div>
+      {/* ONE TOOLBAR, NOT FOUR ROWS OF LOOSE BUTTONS.
+          There were four stacked bands above the list - a row of status pills,
+          a row of market pills, a search box, a sort box - each floating on the
+          page with nothing holding it together, and the market row grew a pill
+          per market so it was going to keep getting worse. That is the "bunch
+          of buttons and looks bad" report.
+          It is one panel now. Search, market and sort go on the top line
+          because they are all "narrow the list to what I mean"; the status
+          strip goes underneath because it is the one control whose COUNTS are
+          worth reading in their own right - a zero there means there is nothing
+          to do in that column. Market moved into a dropdown for the same reason
+          the sort is one: an unbounded list is not a row of buttons. */}
+      <div className="mb-6 rounded-card border border-gray-100 bg-white p-3 shadow-card">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative min-w-0 flex-1">
+            <Icon name="magnifier" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-300" />
+            <input
+              type="search" className="input !pl-9" placeholder="Search name or email…"
+              value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search creators"
+            />
+          </div>
+          {markets.length > 1 && (
+            <Select
+              className="sm:w-[190px]"
+              ariaLabel="Filter by market"
+              value={marketFilter}
+              onChange={setMarketFilter}
+              options={[
+                { value: '', label: `All markets (${creators.length})` },
+                ...markets.map(([m, n]) => ({ value: m, label: `${m} (${n})` })),
+                ...(creators.some((c) => !(marketOf[c.id] ?? []).length)
+                  ? [{ value: '__none', label: `No market (${creators.filter((c) => !(marketOf[c.id] ?? []).length).length})` }]
+                  : []),
+              ]}
+            />
+          )}
+          <Select
+            className="sm:w-[200px]"
+            ariaLabel="Sort creators"
+            value={sort}
+            onChange={setSort}
+            options={[
+              { value: 'active', label: 'Most recently active' },
+              { value: 'quiet', label: 'Quietest first' },
+              { value: 'joined', label: 'Newest members' },
+              { value: 'name', label: 'Name A to Z' },
+            ]}
+          />
+        </div>
 
-      {/* THE SECOND QUESTION THIS PAGE IS ASKED, and until now it could not
-          answer it: "show me mine". A country manager scanning a worldwide
-          roster reads past four other markets to reach their own. The segments
-          above are about STATE; this row is about WHERE, so they are two rows
-          and pressing one does not clear the other. */}
-      {markets.length > 1 && (
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-widest text-smoke">Market</span>
-          {[{ key: '', label: 'All', count: creators.length }, ...markets.map(([m, n]) => ({ key: m, label: m, count: n })),
-            ...(creators.some((c) => !(marketOf[c.id] ?? []).length)
-              ? [{ key: '__none', label: 'No market', count: creators.filter((c) => !(marketOf[c.id] ?? []).length).length }]
-              : [])].map((m) => {
-            const on = marketFilter === m.key
+        {/* The status strip. Scrolls sideways rather than wrapping to a third
+            line on a narrow window. */}
+        <div className="mt-3 flex items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {segments.map((seg) => {
+            const on = statusFilter === seg.key
             return (
               <button
-                key={m.key || 'all'}
+                key={seg.key || 'all'}
                 type="button"
-                onClick={() => setMarketFilter(m.key)}
+                onClick={() => setStatusFilter(seg.key)}
                 aria-pressed={on}
-                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-200 ${
-                  on ? 'border-brand bg-brand-tint text-brand' : 'border-gray-200 bg-white text-smoke hover:-translate-y-0.5 hover:border-brand hover:text-brand'
-                }`}
+                className={cx(
+                  'inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors',
+                  on ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink',
+                )}
               >
-                {m.label}
-                <span className={on ? 'text-brand/60' : 'text-gray-400'}>{m.count}</span>
+                {seg.tone === 'green' && !on && <span className="h-1.5 w-1.5 rounded-full bg-green-500" />}
+                {seg.tone === 'amber' && !on && seg.count > 0 && <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />}
+                {seg.label}
+                <span className={cx('tabular-nums', on ? 'text-white/70' : 'text-gray-400')}>{seg.count}</span>
               </button>
             )
           })}
+          <span className="ml-auto shrink-0 pl-3 pr-1 text-xs text-smoke">{filtered.length} shown</span>
         </div>
-      )}
-
-      <div className="mb-8 flex flex-col gap-3 sm:flex-row">
-        <input
-          type="search" className="input sm:max-w-xs" placeholder="Search name or email…"
-          value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search creators"
-        />
-        <Select
-          className="sm:max-w-[220px]"
-          ariaLabel="Sort creators"
-          value={sort}
-          onChange={setSort}
-          options={[
-            { value: 'active', label: 'Most recently active' },
-            { value: 'quiet', label: 'Quietest first' },
-            { value: 'joined', label: 'Newest members' },
-            { value: 'name', label: 'Name A to Z' },
-          ]}
-        />
-        <span className="self-center text-xs text-smoke">
-          {filtered.length} shown
-        </span>
       </div>
 
       {loading ? (
@@ -522,20 +519,30 @@ export default function AdminCreators() {
           {filtered.map((c) => {
             const s = statusInfo(c)
             return (
+              /* THE WHOLE ROW IS THE DOOR.
+                 It used to be the avatar and the name only - two small targets
+                 inside a row 700 pixels wide, so most of a deliberate click at
+                 a creator hit nothing at all. Anywhere that is not one of the
+                 row's own buttons now opens the card; the `closest` check is
+                 what keeps Accept, Email and Copy working as themselves. */
               <div
                 key={c.id}
-                className="flex w-full flex-col gap-2.5 border-b border-gray-50 px-5 py-4 transition-colors last:border-0 hover:bg-cloud/60 sm:flex-row sm:items-center sm:gap-4 sm:px-7"
+                role="button"
+                tabIndex={0}
+                onClick={(e) => { if (!e.target.closest('button,a,input')) setSelected(c) }}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelected(c) } }}
+                className="flex w-full cursor-pointer flex-col gap-2.5 border-b border-gray-50 px-5 py-4 transition-colors last:border-0 hover:bg-cloud/60 focus:outline-none focus-visible:bg-cloud sm:flex-row sm:items-center sm:gap-4 sm:px-7"
               >
                 <div className="flex min-w-0 flex-1 items-center gap-4">
-                  <button onClick={() => setSelected(c)} className="relative shrink-0" aria-label={`Open ${c.name}`}>
+                  <span className="relative shrink-0">
                     <Avatar src={c.photo_url} name={c.name} size="sm" />
                     {isOnline(c) && <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-green-500 ring-2 ring-white" title="Online now" />}
-                  </button>
+                  </span>
                   <div className="min-w-0 flex-1">
-                    <button onClick={() => setSelected(c)} className="flex min-w-0 max-w-full items-center gap-2 text-left text-sm font-semibold">
+                    <p className="flex min-w-0 max-w-full items-center gap-2 text-left text-sm font-semibold">
                       <span className="truncate">{c.name}</span>
                       {c.is_admin && <Badge tone="light">Admin</Badge>}
-                    </button>
+                    </p>
                     {/* Copy-email icon sits directly to the right of the email, not
                         pushed out to the far edge of the row. */}
                     <p className="flex min-w-0 items-center gap-1">
@@ -621,8 +628,45 @@ export default function AdminCreators() {
                   </p>
                 )}
               </div>
-              <Link to={`/profile/${selected.id}`} className="btn-secondary shrink-0 !py-2 text-xs" onClick={() => setSelected(null)}>
-                View profile
+            </div>
+
+            {/* THEIR PAGES, AS THEY SEE THEM.
+                A creator writes in asking where their voucher went, and until
+                now the only way to answer was to reconstruct their view from
+                the admin tables - which is a different page with different
+                numbers on it. These open the creator's OWN rewards page and
+                dashboard, filtered to them, read only, with a band across the
+                top saying whose they are. The sandbox does not answer this:
+                that is a blank account, and the question is always about a
+                specific person's history. */}
+            <div className="flex flex-wrap gap-2">
+              <Link
+                to={`/profile/${selected.id}`}
+                className="btn-secondary !py-2 text-xs"
+                onClick={() => setSelected(null)}
+              >
+                <Icon name="users" className="h-4 w-4" /> Their profile
+              </Link>
+              <Link
+                to={`/dashboard?as=${selected.id}`}
+                className="btn-secondary !py-2 text-xs"
+                onClick={() => setSelected(null)}
+              >
+                <Icon name="chart" className="h-4 w-4" /> Their dashboard
+              </Link>
+              <Link
+                to={`/rewards?as=${selected.id}`}
+                className="btn-secondary !py-2 text-xs"
+                onClick={() => setSelected(null)}
+              >
+                <Icon name="money" className="h-4 w-4" /> Their rewards
+              </Link>
+              <Link
+                to={`/milestones?as=${selected.id}`}
+                className="btn-secondary !py-2 text-xs"
+                onClick={() => setSelected(null)}
+              >
+                <Icon name="plane" className="h-4 w-4" /> Their milestones
               </Link>
             </div>
 
@@ -633,23 +677,31 @@ export default function AdminCreators() {
                 publish to anybody, so it belongs behind a deliberate act (open
                 the roster, open the person) rather than on a page a colleague
                 might have open on a shared screen. */}
-            <div className="rounded-card border border-gray-100 bg-cloud/40 p-4">
+            {/* ORANGE, BECAUSE OF WHAT IS IN IT.
+                Ethan asked for the team-only contact details to be highlighted,
+                and the reason is not decoration: a phone number is the one
+                field on this platform a creator has not chosen to publish to
+                anybody, and it sits in a panel a colleague might have open on a
+                shared screen. Grey-on-grey made it look like the rest of the
+                record. Brand orange makes the boundary a thing you can see
+                without reading the label. */}
+            <div className="rounded-card border border-brand/30 bg-brand-tint/40 p-4">
               <div className="mb-3 flex items-center gap-2">
-                <Icon name="shield" className="h-3.5 w-3.5 text-smoke" />
-                <h4 className="text-[11px] font-bold uppercase tracking-widest text-smoke">
+                <Icon name="shield" className="h-3.5 w-3.5 text-brand" />
+                <h4 className="text-[11px] font-bold uppercase tracking-widest text-brand">
                   Contact · Tryp.com team only
                 </h4>
               </div>
               <dl className="grid gap-3 sm:grid-cols-2">
                 <div className="min-w-0">
-                  <dt className="text-[11px] text-smoke">Email</dt>
+                  <dt className="text-[11px] font-medium text-brand/70">Email</dt>
                   <dd className="flex min-w-0 items-center gap-1">
                     <span className="truncate text-sm font-medium">{emails[selected.id] || '—'}</span>
                     {emails[selected.id] && <CopyButton value={emails[selected.id]} label="Copy email" className="!h-6 !w-6 shrink-0" />}
                   </dd>
                 </div>
                 <div className="min-w-0">
-                  <dt className="text-[11px] text-smoke">Phone</dt>
+                  <dt className="text-[11px] font-medium text-brand/70">Phone</dt>
                   <dd className="flex min-w-0 items-center gap-1">
                     {priv === null ? (
                       <Skeleton className="h-4 w-28" />
@@ -664,11 +716,11 @@ export default function AdminCreators() {
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-[11px] text-smoke">Joined</dt>
+                  <dt className="text-[11px] font-medium text-brand/70">Joined</dt>
                   <dd className="text-sm font-medium">{formatDate(selected.accepted_at || selected.created_at)}</dd>
                 </div>
                 <div>
-                  <dt className="text-[11px] text-smoke">Age · countries</dt>
+                  <dt className="text-[11px] font-medium text-brand/70">Age · countries</dt>
                   <dd className="text-sm font-medium">
                     {selected.age ? `${selected.age}` : '—'} · {(selected.countries_visited ?? []).length}
                   </dd>

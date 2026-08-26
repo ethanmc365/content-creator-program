@@ -598,9 +598,16 @@ export default function MilestonePath({ milestones = [], standings = [], preview
                   <p className="mt-0.5 text-[11px] leading-snug text-smoke">{n.description}</p>
                 )}
 
+                {/* THE REWARD WRAPS RATHER THAN TRUNCATING.
+                    "You are officially a Tryp.com Creator, welcome to the
+                    team!" is a real reward line on the live ladder, and cutting
+                    it at the card's edge threw away the half that says what
+                    happened. A pill is the wrong shape for a sentence, so a
+                    long one becomes a rounded block over two lines and a short
+                    one still reads as a chip. */}
                 {n.reward && (
                   <span className={cx(
-                    'mt-1.5 inline-block max-w-full truncate rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                    'mt-1.5 inline-block max-w-full rounded-xl px-2 py-1 text-[10px] font-semibold leading-snug',
                     done ? REWARD_TONE[n.reward_kind] || REWARD_TONE.other : 'bg-cloud text-smoke',
                   )}>
                     {n.reward}

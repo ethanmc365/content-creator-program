@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { useAuth } from '../context/AuthContext'
 import { PageHeader, Skeleton, StatCard, EmptyState } from '../components/ui'
 import Icon from '../components/Icon'
 import { formatMoney, formatViews } from '../lib/utils'
+import { useViewAs, ViewingAsBanner } from '../components/ViewingAs'
 
 // Creator-visible dashboard: their own performance + program-wide highlights.
 // (The deep analytics with charts live in the admin-only dashboard.)
 export default function Dashboard() {
-  const { user } = useAuth()
+  // `?as=<id>` lets an admin read one creator's own dashboard. Inert for
+  // everybody else - see components/ViewingAs.
+  const { id: whose, viewing, person } = useViewAs()
   const [data, setData] = useState(null)
 
   useEffect(() => {
@@ -22,9 +24,15 @@ export default function Dashboard() {
         { count: challengesRun },
         { data: allPaid },
       ] = await Promise.all([
-        supabase.from('submissions').select('id, challenge_id').eq('creator_id', user.id),
-        supabase.from('results').select('*, challenges(title)').eq('creator_id', user.id).order('created_at', { ascending: false }),
-        supabase.from('rewards').select('amount, status'),
+        supabase.from('submissions').select('id, challenge_id').eq('creator_id', whose),
+        supabase.from('results').select('*, challenges(title)').eq('creator_id', whose).order('created_at', { ascending: false }),
+        // FILTERED TO THIS PERSON, which it was not.
+        // "You have earned" summed EVERY distributed reward the reader could
+        // see. Row-level security hid that from a creator, who can only read
+        // their own - but an admin can read all of them, so every admin's
+        // dashboard reported the programme's entire prize spend as their own
+        // personal earnings.
+        supabase.from('rewards').select('amount, status').eq('creator_id', whose),
         supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'active').eq('is_admin', false).is('deletion_requested_at', null),
         supabase.from('challenges').select('id', { count: 'exact', head: true }).neq('status', 'draft'),
         supabase.from('rewards').select('amount').eq('status', 'distributed'),
@@ -43,7 +51,7 @@ export default function Dashboard() {
       })
     }
     load()
-  }, [user.id])
+  }, [whose])
 
   if (!data) {
     return (
@@ -57,6 +65,8 @@ export default function Dashboard() {
   return (
     <div className="page">
       <PageHeader title="My dashboard" subtitle="Your performance in the program, at a glance." />
+
+      <ViewingAsBanner viewing={viewing} person={person} />
 
       {/* ---------- My numbers ---------- */}
       <section className="mb-12 grid grid-cols-2 gap-4 lg:grid-cols-4">

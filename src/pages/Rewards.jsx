@@ -1,17 +1,20 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { useAuth } from '../context/AuthContext'
 import { Badge, EmptyState, PageHeader, Skeleton, StatCard } from '../components/ui'
 import Icon from '../components/Icon'
 import CertificateModal from '../components/CertificateModal'
 import { formatDate, formatMoney } from '../lib/utils'
+import { useViewAs, ViewingAsBanner } from '../components/ViewingAs'
 
 // A creator's own reward history. We filter by creator_id explicitly so that
 // admins (whose RLS lets them read every reward) still see only *their own*
 // rewards on this personal page. The all-rewards view lives in Admin → Rewards.
 export default function Rewards() {
-  const { user } = useAuth()
+  // An admin can open one creator's own rewards page with `?as=<id>`, which is
+  // how a support question about a missing voucher gets answered from the same
+  // screen the creator is describing. Inert for everybody else.
+  const { id: whose, viewing, person } = useViewAs()
   const [rewards, setRewards] = useState([])
   const [loading, setLoading] = useState(true)
   const [certificate, setCertificate] = useState(null)
@@ -23,7 +26,7 @@ export default function Rewards() {
     supabase
       .from('rewards')
       .select('*, challenges(title), milestones(title), profiles:creator_id(name)')
-      .eq('creator_id', user.id)
+      .eq('creator_id', whose)
       .order('created_at', { ascending: false })
       .then(async ({ data }) => {
         const rows = data ?? []
@@ -34,11 +37,11 @@ export default function Rewards() {
         const { data: res } = await supabase
           .from('results')
           .select('challenge_id, rank, final_views')
-          .eq('creator_id', user.id)
+          .eq('creator_id', whose)
           .in('challenge_id', ids)
         setPlacings(Object.fromEntries((res ?? []).map((r) => [r.challenge_id, r])))
       })
-  }, [user.id])
+  }, [whose])
 
   const earned = rewards.filter((r) => r.status === 'distributed').reduce((s, r) => s + Number(r.amount), 0)
   const pending = rewards.filter((r) => r.status === 'pending').reduce((s, r) => s + Number(r.amount), 0)
@@ -46,6 +49,8 @@ export default function Rewards() {
   return (
     <div className="page max-w-4xl">
       <PageHeader title="My rewards" subtitle="Everything you've earned in the program, in cash and Tryp.com vouchers." />
+
+      <ViewingAsBanner viewing={viewing} person={person} />
 
       {loading ? (
         <div className="space-y-4"><Skeleton className="h-28 w-full" /><Skeleton className="h-16 w-full" /><Skeleton className="h-16 w-full" /></div>

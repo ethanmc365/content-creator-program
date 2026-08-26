@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { roleTitle, roleBadgeTitle, LEAD_TITLE, LEAD_TITLE_SHORT } from './roles'
+import { roleLabel, roleTitle, roleBadgeTitle, LEAD_TITLE, LEAD_TITLE_SHORT } from './roles'
 
 // A title is what somebody is CALLED and never what they can DO. These pin the
 // order the fallbacks run in, because getting it wrong is not a visual bug -
@@ -22,9 +22,20 @@ describe('what somebody is called', () => {
     expect(roleTitle({ platform_role: 'global_admin' })).toBe('Tryp.com team')
   })
 
-  it('calls somebody with no title and no rank a creator', () => {
-    expect(roleTitle({})).toBe('Creator')
-    expect(roleTitle({ is_admin: false })).toBe('Creator')
+  // NOBODY STARTS WITH A BADGE. This used to return the word "Creator", which
+  // is true of every single person on the platform and so distinguishes none of
+  // them - and it also spent the title the milestone ladder is meant to award.
+  // An empty string means the badge is not drawn at all.
+  it('says nothing for somebody with no title and no rank', () => {
+    expect(roleTitle({})).toBe('')
+    expect(roleTitle({ earned_role: 'Tryp.com Senior Creator' })).toBe('Tryp.com Senior Creator')
+    // A team title still wins over an earned one.
+    expect(roleTitle({ role_title: 'Spain Country Manager', earned_role: 'Senior Creator' }))
+      .toBe('Spain Country Manager')
+    // `roleLabel` is the never-blank variant, for rosters that list by role.
+    expect(roleLabel({})).toBe('Creator')
+    expect(roleTitle({ is_admin: false })).toBe('')
+    expect(roleLabel({ is_admin: false })).toBe('Creator')
   })
 
   it('says nothing at all rather than guessing, for nobody', () => {
