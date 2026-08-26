@@ -24,7 +24,8 @@ export default function Dashboard() {
         { count: challengesRun },
         { data: allPaid },
       ] = await Promise.all([
-        supabase.from('submissions').select('id, challenge_id').eq('creator_id', whose),
+        // `logged_views` comes with the entries now. See the note on totalViews.
+        supabase.from('submissions').select('id, challenge_id, logged_views').eq('creator_id', whose),
         supabase.from('results').select('*, challenges(title)').eq('creator_id', whose).order('created_at', { ascending: false }),
         // FILTERED TO THIS PERSON, which it was not.
         // "You have earned" summed EVERY distributed reward the reader could
@@ -42,7 +43,18 @@ export default function Dashboard() {
         submissions: mySubs?.length ?? 0,
         challengesEntered: new Set((mySubs ?? []).map((s) => s.challenge_id)).size,
         results: myResults ?? [],
-        totalViews: (myResults ?? []).reduce((s, r) => s + r.final_views, 0),
+        // TOTAL VIEWS COMES FROM THE ENTRIES, NOT FROM THE LEADERBOARD.
+        //
+        // This summed `results.final_views`, and a `results` row is one RANKED
+        // entry per creator per published challenge - the single video the
+        // leaderboard scored them on. So Jacob Pulley, with fourteen videos and
+        // 23,490 views, was shown 3,635: his one ranked entry in his one
+        // finished challenge. Every creator's headline number was the same
+        // fraction of the truth, and it got worse the more they posted.
+        //
+        // `results` is still the right source for WHERE THEY FINISHED. It was
+        // never the right source for how much work they have done.
+        totalViews: (mySubs ?? []).reduce((s, r) => s + Number(r.logged_views || 0), 0),
         bestRank: (myResults ?? []).reduce((best, r) => Math.min(best, r.rank), Infinity),
         myEarned: (myRewards ?? []).filter((r) => r.status === 'distributed').reduce((s, r) => s + Number(r.amount), 0),
         creators: creators ?? 0,

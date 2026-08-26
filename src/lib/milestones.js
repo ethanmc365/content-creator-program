@@ -79,18 +79,28 @@ export const METRICS = [
 
 export const METRIC_BY_VALUE = Object.fromEntries(METRICS.map((m) => [m.value, m]))
 
+// The hints are gone on purpose. "Merch" needs no gloss, and a form that
+// explains every one of its own labels is a form nobody reads. Only `role`
+// keeps one, because it is the only kind that changes something outside this
+// page - it puts a word beside the creator's name.
 export const REWARD_KINDS = [
-  { value: 'merch', label: 'Merch', hint: 'A thing that gets posted to them.' },
-  { value: 'voucher', label: 'Voucher', hint: 'Money off a trip.' },
+  { value: 'merch', label: 'Merch' },
+  { value: 'voucher', label: 'Voucher' },
   { value: 'role', label: 'Role', hint: 'A title worn beside their name.' },
-  { value: 'other', label: 'Something else', hint: 'Described in the reward line.' },
+  { value: 'other', label: 'Something else' },
 ]
 
-export const REWARD_TONE = {
-  merch: 'bg-brand text-white',
-  voucher: 'bg-green-600 text-white',
-  role: 'bg-ink text-white',
-  other: 'bg-cloud text-smoke',
+// WHAT KIND OF REWARD IT IS, SAID IN A WORD.
+//
+// It used to be said in a COLOUR - merch orange, voucher green, role black -
+// which asked the reader to learn a key nobody published, and put a slab of
+// solid ink in the middle of an orange drawing whenever a stop granted a title.
+// A word costs six characters and needs no decoding.
+export const REWARD_NOUN = {
+  merch: 'Merch',
+  voucher: 'Voucher',
+  role: 'Role',
+  other: '',
 }
 
 // TIME IS STORED IN DAYS AND TYPED IN WHATEVER SUITS.

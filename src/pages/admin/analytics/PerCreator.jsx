@@ -211,7 +211,7 @@ export default function PerCreator({ raw, currency = 'EUR', scopeLabel }) {
                 onlyActive ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink',
               )}
             >
-              Posted only
+              Creators that posted
             </button>
             <button
               onClick={() => downloadCsv('per-creator.csv', shown.map((r) => ({
@@ -244,8 +244,13 @@ export default function PerCreator({ raw, currency = 'EUR', scopeLabel }) {
                 {COLUMNS.map((c) => head(c.key, c.label))}
                 {head('cash', `Cash (${currency})`, 'Cash prizes, paid and pending')}
                 {head('vouchers', `Vouchers (${currency})`, 'Tryp.com vouchers, paid and pending')}
-                {head('cashCpm', 'Cash CPM', 'Cash per 1,000 views')}
-                {head('combinedCpm', 'Combined CPM', 'Cash and vouchers per 1,000 views')}
+                {/* ONE CPM PER ROW. The cash/voucher split is right there in
+                    the two columns to the left, so a second CPM column was the
+                    same split said twice - and per creator the question is
+                    "what did this person cost us against what they delivered",
+                    which is the fully-loaded number. The cash-only CPM stays on
+                    the summary above, where it is a programme-level decision. */}
+                {head('combinedCpm', 'CPM', 'Everything paid, per 1,000 views')}
                 <th className="px-6 py-2 text-right font-semibold" />
               </tr>
             </thead>
@@ -256,7 +261,7 @@ export default function PerCreator({ raw, currency = 'EUR', scopeLabel }) {
                   <tr key={r.id} className="border-b border-gray-50 last:border-0 hover:bg-cloud/40">
                     <td className="px-6 py-2.5">
                       <Link to={`/dashboard?as=${r.id}`} className="flex items-center gap-2 font-medium hover:text-brand">
-                        <Avatar name={r.name} size="xs" />
+                        <Avatar src={r.photo_url} name={r.name} size="xs" />
                         <span className="truncate">{r.name}</span>
                       </Link>
                     </td>
@@ -265,9 +270,6 @@ export default function PerCreator({ raw, currency = 'EUR', scopeLabel }) {
                     ))}
                     <td className="px-3 py-2.5 text-right tabular-nums">{formatMoney(r.cash, currency)}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums">{formatMoney(r.vouchers, currency)}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">
-                      {r.cashCpm === null ? <span className="text-gray-300">—</span> : formatMoney(r.cashCpm, currency)}
-                    </td>
                     <td className="px-3 py-2.5 text-right">
                       {r.combinedCpm === null ? (
                         <span className="text-gray-300">—</span>
@@ -283,13 +285,16 @@ export default function PerCreator({ raw, currency = 'EUR', scopeLabel }) {
                         </span>
                       )}
                     </td>
+                    {/* A BUTTON THAT SAYS WHAT IT DOES.
+                        It was a bare chevron, which on a row that is already a
+                        link to the dashboard meant two destinations and no way
+                        to tell them apart without clicking one. */}
                     <td className="px-6 py-2.5 text-right">
                       <Link
                         to={`/rewards?as=${r.id}`}
-                        title={`${r.name}'s rewards`}
-                        className="inline-flex text-smoke hover:text-brand"
+                        className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-gray-200 px-2.5 py-1 text-[11px] font-semibold text-smoke transition-colors hover:border-brand hover:bg-brand-tint hover:text-brand"
                       >
-                        <Icon name="chevronRight" className="h-4 w-4" />
+                        <Icon name="money" className="h-3.5 w-3.5" /> Rewards
                       </Link>
                     </td>
                   </tr>

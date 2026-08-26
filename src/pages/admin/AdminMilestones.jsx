@@ -337,7 +337,6 @@ export default function AdminMilestones() {
       <PageHeader
         back="/admin"
         title="Milestones"
-        subtitle="One route, flown in order. A stop can ask for several things at once, and nobody reaches it until they have all of them — and until they have cleared the stop in front."
         action={
           <button onClick={() => setEditing({ ...BLANK, criteria: [...BLANK.criteria] })} className="btn-primary !py-2.5">
             <Icon name="plus" className="h-4 w-4" /> New milestone
@@ -385,7 +384,7 @@ export default function AdminMilestones() {
 
           {/* ---------- what it takes ---------- */}
           <div className="mt-6 rounded-card border border-gray-100 bg-cloud/40 p-4">
-            <p className="label !mb-1">What it takes</p>
+            <p className="label !mb-1">What you need</p>
 
             {editing.criteria.length === 0 ? (
               <p className="rounded-xl border border-dashed border-amber-300 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
@@ -426,7 +425,7 @@ export default function AdminMilestones() {
 
           {/* ---------- what they get ---------- */}
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <Field label="Reward" hint="Shown as a chip on the route. Leave blank for a stop that is its own reward.">
+            <Field label="Reward">
               <input className="input" value={editing.reward || ''} maxLength={80}
                 placeholder="Tryp.com t-shirt"
                 onChange={(e) => setEditing((m) => ({ ...m, reward: e.target.value }))} />
@@ -475,7 +474,7 @@ export default function AdminMilestones() {
                 this the reward was a sentence on a drawing and nothing else
                 happened. */}
             {editing.reward_kind === 'voucher' && (
-              <Field label="Voucher amount" hint="Paid out automatically when a creator reaches this stop.">
+              <Field label="Voucher amount">
                 <div className="flex gap-2">
                   <div className="flex shrink-0 gap-1">
                     {CURRENCIES.map((cur) => (

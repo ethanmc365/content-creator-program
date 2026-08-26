@@ -86,6 +86,8 @@ export function perCreator(raw, { currency = 'EUR', rates = FALLBACK_RATES } = {
     byId.set(p.id, {
       id: p.id,
       name: p.name || 'Unknown',
+      // Carried through so the table can show a face rather than initials.
+      photo_url: p.photo_url || null,
       joined: p.accepted_at || p.created_at,
       lastSeen: p.last_seen_at || null,
       status: p.status,

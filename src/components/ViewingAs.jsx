@@ -65,11 +65,8 @@ export function ViewingAsBanner({ viewing, person, backTo = '/admin/creators' })
     <div className="mb-5 flex flex-wrap items-center gap-3 rounded-card border border-brand/30 bg-brand-tint/50 px-4 py-3">
       <Icon name="eye" className="h-4 w-4 shrink-0 text-brand" />
       {person && <Avatar src={person.photo_url} name={person.name} size="xs" />}
-      <p className="min-w-0 flex-1 text-sm">
-        <span className="font-semibold text-brand">
-          {person ? `${person.name}'s page` : 'Someone else’s page'}
-        </span>
-        <span className="text-smoke"> — exactly as they see it. Read only.</span>
+      <p className="min-w-0 flex-1 truncate text-sm font-semibold text-brand">
+        {person ? person.name : 'Someone else'}
       </p>
       <Link to={backTo} className="btn-secondary shrink-0 !py-1.5 !px-3 text-xs">
         Back to creators

@@ -1,0 +1,16 @@
+-- THE LADDER WAS ONLY EVER RIGHT FOR WHOEVER WAS LOOKING AT IT.
+--
+-- `creator_milestones` is a cache, and the only thing that refreshed it was
+-- `milestone_progress` running for that one person - which happens when THEY
+-- open their route page. So the moment an admin edited the ladder, every
+-- creator who had not logged in since was frozen at whatever the old rules said.
+-- Shannon and Telayah were shown as having reached "Building Momentum" with no
+-- referrals and 4,000 views between them, because that stop used to be
+-- something else. Not a display bug; the stored answer was wrong.
+--
+-- READING is now live (milestone_standings computes from milestone_state), and
+-- WRITING is caught up by a cron, because reaching a stop mints a voucher and
+-- can grant a role and those are real records rather than a view.
+--
+-- See the deployed definitions of `milestone_standings` and
+-- `reconcile_milestones`, plus the `reconcile-milestones` cron on */10.

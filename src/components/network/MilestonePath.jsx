@@ -6,7 +6,7 @@ import { Avatar, Modal } from '../ui'
 import { cx } from '../../lib/utils'
 import { EASE } from '../../lib/motion'
 import { playPlaneRise, playRingReached, engineThrust, engineStop } from '../../lib/gameSounds'
-import { REWARD_TONE, criterionLabel, milestoneFraction } from '../../lib/milestones'
+import { REWARD_NOUN, criterionLabel, milestoneFraction } from '../../lib/milestones'
 
 // The milestone ladder, drawn as a flight path.
 //
@@ -150,10 +150,14 @@ function timeAtDistance(y) {
   return bezier((lo + hi) / 2, SPLINE[0], SPLINE[2])
 }
 
-// `preview` draws the whole route as flown, whatever the viewer has actually
-// done. It is how an admin checks the animation and the layout end to end
-// without waiting to earn a million views.
-export default function MilestonePath({ milestones = [], standings = [], preview = false }) {
+// THERE IS NO "PREVIEW" MODE ANY MORE.
+//
+// It drew the whole route as flown whatever the viewer had actually done, so an
+// admin opening their own milestones was congratulated for a ladder they had
+// not started. The admin editor previews by handing this component a made-up
+// list of stops, which is the honest way to preview a drawing: with fake DATA,
+// not with a flag that makes it lie about the real reader.
+export default function MilestonePath({ milestones = [], standings = [] }) {
   // Which stop's detail sheet is open. Null for none.
   const [open, setOpen] = useState(null)
 
@@ -239,11 +243,11 @@ export default function MilestonePath({ milestones = [], standings = [], preview
   // Node 0 is "you joined". Everything after it is a milestone, so a creator
   // with nothing done yet still sees a road with a start on it rather than an
   // empty state.
-  const nodes = [{ start: true }, ...(preview ? milestones.map((m) => ({ ...m, reached: true })) : milestones)]
+  const nodes = [{ start: true }, ...milestones]
   const H = TOP + (nodes.length - 1) * L.gap + TOP
   const { d, segs } = buildRoute(nodes.length, L)
 
-  const reached = preview ? milestones.length : milestones.filter((m) => m.reached).length
+  const reached = milestones.filter((m) => m.reached).length
   const next = milestones[reached] || null
   // How far into the current leg. A stop can now ask for SEVERAL things at
   // once, so this is the mean of its requirements rather than the one metric it
@@ -544,7 +548,16 @@ export default function MilestonePath({ milestones = [], standings = [], preview
         // Everybody who has got at least this far. Accurate BECAUSE the route
         // is gated: a count of stops reached is now a prefix length, so
         // "reached >= i" really does mean "has passed this stop".
-        const atStop = n.start ? [] : standings.filter((p) => p.reached >= i)
+        // EVERYBODY IS ON THE ROUTE SOMEWHERE.
+        //
+        // A stop shows everyone who has passed it. The START shows everyone who
+        // has not passed anything yet - which used to be nobody, so thirty-nine
+        // of the forty-four creators were absent from a picture they are
+        // standing in. Joining is a place on the route, and it is the place most
+        // people are.
+        const atStop = n.start
+          ? standings.filter((p) => p.reached === 0)
+          : standings.filter((p) => p.reached >= i)
         return (
           <motion.div
             key={n.id || 'start-label'}
@@ -555,18 +568,48 @@ export default function MilestonePath({ milestones = [], standings = [], preview
             transition={{ delay: arrivalDelay(i) + 0.12, duration: 0.5, ease: EASE }}
             className="absolute text-left"
             style={{
-              top: `${(y / H) * 100}%`,
+              // ALIGNED WITH THE DOT, NOT CENTRED ON IT.
+              //
+              // The card was `translateY(-50%)`, so a tall one hung half its
+              // height above the stop and covered the leg of track arriving at
+              // it - which is the "cards should be moved up slightly, rather
+              // than covering the plane track" report, and it is worse the more
+              // requirements a stop has because that is what makes it tall.
+              // Its TOP edge now sits just above the dot's centre, so the card
+              // grows downward into the empty space beside the next leg and the
+              // line is never underneath it.
+              top: `${((y - 20) / H) * 100}%`,
               left: rightSide ? `${((x + 22) / L.W) * 100}%` : undefined,
               right: rightSide ? undefined : `${((L.W - x + 22) / L.W) * 100}%`,
               width: `${L.labelPct}%`,
-              transform: 'translateY(-50%)',
             }}
           >
             {n.start ? (
-              <div className="rounded-2xl border border-brand/20 bg-brand-tint/40 px-3 py-2.5">
-                <p className="text-sm font-bold text-brand">You joined</p>
+              <button
+                type="button"
+                onClick={() => setOpen({ start: true, title: 'Just joined', criteria: [] })}
+                className="group block w-full rounded-2xl border border-brand/20 bg-brand-tint/40 px-3 py-2.5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:shadow-card"
+              >
+                <p className="text-sm font-bold text-brand">Just joined</p>
                 <p className="text-xs text-smoke">Where every route starts.</p>
-              </div>
+                {atStop.length > 0 && (
+                  <div className="mt-2 flex items-center -space-x-1.5">
+                    {atStop.slice(0, 4).map((s2, k) => (
+                      <motion.span
+                        key={s2.id}
+                        initial={{ opacity: 0, scale: 0.4, y: 4 }}
+                        animate={started ? { opacity: 1, scale: 1, y: 0 } : { opacity: 0, scale: 0.4, y: 4 }}
+                        transition={{ delay: 0.3 + k * 0.07, type: 'spring', stiffness: 460, damping: 24 }}
+                      >
+                        <Avatar src={s2.photo_url} name={s2.name} size="xs" className="ring-2 ring-white" />
+                      </motion.span>
+                    ))}
+                    <span className="flex h-6 items-center rounded-full bg-white/80 px-1.5 text-[9px] font-semibold text-brand ring-2 ring-white transition-colors group-hover:bg-brand group-hover:text-white">
+                      {atStop.length > 4 ? `+${atStop.length - 4}` : `${atStop.length}`}
+                    </span>
+                  </div>
+                )}
+              </button>
             ) : (
               <button
                 type="button"
@@ -605,11 +648,24 @@ export default function MilestonePath({ milestones = [], standings = [], preview
                     happened. A pill is the wrong shape for a sentence, so a
                     long one becomes a rounded block over two lines and a short
                     one still reads as a chip. */}
+                {/* THE REWARD, IN TRYP ORANGE, NEVER IN BLACK.
+                    Reward kinds used to pick their own colour and `role` drew
+                    solid ink - so "You are officially a Tryp.com Creator,
+                    welcome to the team!" arrived as a black slab in the middle
+                    of an orange drawing, which is the one Ethan flagged. A
+                    reward is a reward: one treatment, the brand's, and the KIND
+                    is said in a word rather than in a colour nobody can decode.
+                    Unreached stays grey, because it has not happened yet. */}
                 {n.reward && (
                   <span className={cx(
-                    'mt-1.5 inline-block max-w-full rounded-xl px-2 py-1 text-[10px] font-semibold leading-snug',
-                    done ? REWARD_TONE[n.reward_kind] || REWARD_TONE.other : 'bg-cloud text-smoke',
+                    'mt-1.5 block rounded-lg px-2 py-1.5 text-[10px] font-semibold leading-snug',
+                    done ? 'bg-brand-tint text-brand' : 'bg-cloud text-smoke',
                   )}>
+                    {REWARD_NOUN[n.reward_kind] && (
+                      <span className={cx('mr-1 uppercase tracking-wide', done ? 'text-brand/60' : 'text-gray-400')}>
+                        {REWARD_NOUN[n.reward_kind]}
+                      </span>
+                    )}
                     {n.reward}
                   </span>
                 )}
@@ -693,7 +749,7 @@ export default function MilestonePath({ milestones = [], standings = [], preview
             {open.description && <p className="text-sm text-smoke">{open.description}</p>}
 
             <div>
-              <p className="label">What it takes</p>
+              <p className="label">What you need</p>
               <ul className="space-y-1.5">
                 {(open.criteria || []).map((c) => (
                   <li key={c.metric} className="flex items-start gap-2 text-sm">
@@ -712,38 +768,60 @@ export default function MilestonePath({ milestones = [], standings = [], preview
             {open.reward && (
               <div>
                 <p className="label">Reward</p>
-                <span className={cx(
-                  'inline-block rounded-full px-3 py-1 text-xs font-semibold',
-                  REWARD_TONE[open.reward_kind] || REWARD_TONE.other,
-                )}>
-                  {open.reward}
-                </span>
+                <div className="rounded-xl border border-brand/20 bg-brand-tint/40 px-3 py-2.5">
+                  {REWARD_NOUN[open.reward_kind] && (
+                    <p className="text-[10px] font-semibold uppercase tracking-widest text-brand/70">
+                      {REWARD_NOUN[open.reward_kind]}
+                    </p>
+                  )}
+                  <p className="mt-0.5 text-sm font-semibold leading-snug text-brand">{open.reward}</p>
+                </div>
               </div>
             )}
 
             {(() => {
-              const idx = nodes.findIndex((z) => z.id === open.id)
-              const who = standings.filter((p) => p.reached >= idx)
+              // The start node has no id; everybody at it has reached nothing.
+              const idx = open.start ? 0 : nodes.findIndex((z) => z.id === open.id)
+              const who = open.start
+                ? standings.filter((p) => p.reached === 0)
+                : standings.filter((p) => p.reached >= idx)
               return (
                 <div>
                   <p className="label">
-                    {who.length === 0 ? 'Nobody has reached this yet'
-                      : `${who.length} ${who.length === 1 ? 'creator has' : 'creators have'} reached this`}
+                    {who.length === 0
+                      ? (open.start ? 'Everybody is under way' : 'Nobody has reached this yet')
+                      : open.start
+                        ? `${who.length} ${who.length === 1 ? 'creator is' : 'creators are'} at the start`
+                        : `${who.length} ${who.length === 1 ? 'creator has' : 'creators have'} reached this`}
                   </p>
-                  {who.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
+                  {who.length === 0 ? (
+                    <p className="text-sm text-smoke">{open.start ? 'Everybody has reached at least one stop.' : 'Be the first.'}</p>
+                  ) : (
+                    /* A LIST, NOT A DRIFT OF PILLS.
+                       It was a wrapped row of rounded chips, each a different
+                       width because names are different lengths, which reads as
+                       a tag cloud rather than as people - and a tag cloud is
+                       exactly the wrong shape for "who else has done this". Rows
+                       line the faces up, give every name the same starting
+                       point, and leave room to say how far along each one is. */
+                    <ul className="divide-y divide-gray-50 overflow-hidden rounded-xl border border-gray-100">
                       {who.map((p) => (
-                        <Link
-                          key={p.id}
-                          to={`/profile/${p.id}`}
-                          onClick={() => setOpen(null)}
-                          className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white py-0.5 pl-0.5 pr-2.5 transition-all duration-200 hover:scale-105 hover:border-brand"
-                        >
-                          <Avatar src={p.photo_url} name={p.name} size="xs" />
-                          <span className="text-xs font-medium">{p.name}</span>
-                        </Link>
+                        <li key={p.id}>
+                          <Link
+                            to={`/profile/${p.id}`}
+                            onClick={() => setOpen(null)}
+                            className="flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-cloud/60"
+                          >
+                            <Avatar src={p.photo_url} name={p.name} size="sm" />
+                            <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.name}</span>
+                            <span className="shrink-0 text-[11px] text-smoke">
+                              {p.reached} {p.reached === 1 ? 'stop' : 'stops'}
+                            </span>
+                            <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
+                          </Link>
+                        </li>
                       ))}
-                    </div>
+                    </ul>
                   )}
                 </div>
               )

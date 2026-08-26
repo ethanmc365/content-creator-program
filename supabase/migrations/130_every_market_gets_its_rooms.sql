@@ -1,0 +1,11 @@
+-- A MARKET WITHOUT ROOMS IS A MARKET NOBODY CAN TALK IN.
+--
+-- Rooms were created by `create_market`, the function the "open a market" form
+-- calls - so a market made any other way came up with no channels at all. The
+-- sandbox membership and the audit row are already triggers on this table for
+-- exactly that reason; rooms are part of what a market IS, not part of one way
+-- of asking for one.
+--
+-- See the deployed `market_gets_its_rooms()` and its AFTER INSERT trigger.
+-- `create_market` keeps its own insert for the optional extra rooms the form
+-- offers; both sides are `on conflict do nothing`.

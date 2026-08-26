@@ -115,7 +115,7 @@ export default function AdminAnalytics() {
         { data: decisions }, { data: seenRows }, { data: voucherCounts },
         { data: memberRows }, { data: marketRows },
       ] = await Promise.all([
-        supabase.from('profiles').select('id, name, created_at, accepted_at, status, is_admin, onboarded, referred_by, deletion_requested_at, is_test, last_seen_at'),
+        supabase.from('profiles').select('id, name, photo_url, created_at, accepted_at, status, is_admin, onboarded, referred_by, deletion_requested_at, is_test, last_seen_at'),
         // `community_id` is what makes a market's challenge list a real list.
         // Without it every market reported "0 challenges run here" while Spain
         // and the UK had one each.
@@ -402,7 +402,6 @@ export default function AdminAnalytics() {
 
   const marketPicker = markets.length > 0 && (
     <div className="mb-6 flex flex-wrap items-center gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card">
-      <span className="px-2 text-[11px] font-semibold uppercase tracking-widest text-smoke">Reading</span>
       <button
         type="button"
         onClick={() => setMarket('')}

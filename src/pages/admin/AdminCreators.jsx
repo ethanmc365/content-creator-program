@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext'
 import { Avatar, Badge, CopyButton, Modal, PageHeader, Select, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import Turnstile from '../../components/Turnstile'
-import { formatDate, timeAgo, downloadCsv, cx } from '../../lib/utils'
+import { formatDate, timeAgo, downloadCsv, cx, ageFromDob } from '../../lib/utils'
 import { isOnlineAt } from '../../lib/presence'
 
 // Creator management: the full list with emails (admin-only RPC), plus all
@@ -688,8 +688,12 @@ export default function AdminCreators() {
             <div className="rounded-card border border-brand/30 bg-brand-tint/40 p-4">
               <div className="mb-3 flex items-center gap-2">
                 <Icon name="shield" className="h-3.5 w-3.5 text-brand" />
+                {/* "Tryp.com team only" is gone: this panel is inside the
+                    admin roster, so the only people who can read it are the
+                    team. A label that states its own audience to that audience
+                    is a label doing nothing. */}
                 <h4 className="text-[11px] font-bold uppercase tracking-widest text-brand">
-                  Contact · Tryp.com team only
+                  Contact details
                 </h4>
               </div>
               <dl className="grid gap-3 sm:grid-cols-2">
@@ -719,10 +723,23 @@ export default function AdminCreators() {
                   <dt className="text-[11px] font-medium text-brand/70">Joined</dt>
                   <dd className="text-sm font-medium">{formatDate(selected.accepted_at || selected.created_at)}</dd>
                 </div>
+                {/* DATE OF BIRTH AND THE AGE IT IMPLIES.
+                    "countries visited" is on their profile, where anybody can
+                    read it, so repeating it in the team-only panel spent a slot
+                    on something already public. A birthday is the thing the
+                    team actually needs from here - and `age` on the profile is
+                    a number the creator typed once and never updates, so it is
+                    derived from the date instead. */}
                 <div>
-                  <dt className="text-[11px] font-medium text-brand/70">Age · countries</dt>
+                  <dt className="text-[11px] font-medium text-brand/70">Date of birth</dt>
                   <dd className="text-sm font-medium">
-                    {selected.age ? `${selected.age}` : '—'} · {(selected.countries_visited ?? []).length}
+                    {selected.dob ? formatDate(selected.dob) : '—'}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-[11px] font-medium text-brand/70">Age</dt>
+                  <dd className="text-sm font-medium">
+                    {ageFromDob(selected.dob) ?? selected.age ?? '—'}
                   </dd>
                 </div>
               </dl>

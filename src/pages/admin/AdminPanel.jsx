@@ -46,12 +46,20 @@ import { cx } from '../../lib/utils'
 // `id` is what gets saved in a person's saved order, so it must never be reused
 // for a different tool. A tool that is removed simply stops matching, and one
 // that is added appears at the end of everybody's existing arrangement.
+// THE COLOUR IS ON THE ICON, AND IT IS ALWAYS THERE.
+//
+// The family used to be a coloured dot with a word beside it, revealed on
+// hover. So the grouping existed - it was just invisible until you were already
+// pointing at the thing you had found, which is the one moment you no longer
+// need it. Tinting the icon tile means a glance at the grid sorts fourteen
+// cards into five groups before you have read a single label, and the flat grid
+// Ethan asked to keep is still flat.
 const FAMILY = {
-  people: { label: 'People', dot: 'bg-sky-500' },
-  programme: { label: 'The programme', dot: 'bg-brand' },
-  money: { label: 'Money', dot: 'bg-emerald-500' },
-  comms: { label: 'Talking to everyone', dot: 'bg-violet-500' },
-  platform: { label: 'The platform', dot: 'bg-slate-400' },
+  people: { label: 'People', dot: 'bg-sky-500', tile: 'bg-sky-50 text-sky-600' },
+  programme: { label: 'The programme', dot: 'bg-brand', tile: 'bg-brand-tint text-brand' },
+  money: { label: 'Money', dot: 'bg-emerald-500', tile: 'bg-emerald-50 text-emerald-600' },
+  comms: { label: 'Talking to everyone', dot: 'bg-violet-500', tile: 'bg-violet-50 text-violet-600' },
+  platform: { label: 'The platform', dot: 'bg-slate-400', tile: 'bg-slate-100 text-slate-500' },
 }
 
 const TOOLS = [
@@ -140,42 +148,51 @@ function ToolCard({ tool, onOpen, editing, dragging, dropTarget, onGrab }) {
   const family = FAMILY[tool.family]
   const body = (
     <>
-      <span className="flex items-start justify-between gap-3">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-tint text-brand transition-transform duration-200 group-hover:scale-105">
-          <Icon name={tool.icon} className="h-5 w-5" />
+      <span className={cx(
+        'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105',
+        family?.tile || 'bg-brand-tint text-brand',
+      )}>
+        <Icon name={tool.icon} className="h-[19px] w-[19px]" />
+      </span>
+
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[15px] font-semibold leading-tight transition-colors group-hover:text-brand">
+          {tool.title}
         </span>
-        {editing ? (
-          // The six dots. They only exist in arrange mode, because a drag
-          // handle on a page you are not arranging is a button that does
-          // nothing but make you wonder what it does.
-          //
-          // `touch-none` is not decoration: without it the browser claims the
-          // gesture for scrolling the moment your finger moves, and the card
-          // never picks up.
-          <button
-            type="button"
-            aria-label={`Move ${tool.title}`}
-            className="-mr-1 -mt-1 cursor-grab touch-none rounded-lg p-1 text-gray-300 transition-colors hover:text-brand active:cursor-grabbing active:text-brand"
-            onPointerDown={(e) => onGrab(e, tool.id)}
-          >
-            <GripDots />
-          </button>
-        ) : (
-          <span className="-mr-1 -mt-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-smoke opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-            <span className={cx('h-1.5 w-1.5 rounded-full', family?.dot)} />
-            {family?.label}
-          </span>
-        )}
+        {/* ONE LINE, CLAMPED. Every card carried two or three lines of
+            description, so fourteen tools were forty lines of grey text and the
+            titles - the only part you are scanning for - were islands in it.
+            The sentence still earns its place, at one line, under the name. */}
+        <span className="mt-0.5 block truncate text-xs text-smoke">{tool.text}</span>
       </span>
-      <span className="mt-4 block text-[15px] font-semibold leading-tight transition-colors group-hover:text-brand">
-        {tool.title}
-      </span>
-      <span className="mt-1.5 block text-xs leading-relaxed text-smoke">{tool.text}</span>
+
+      {editing ? (
+        // The six dots. They only exist in arrange mode, because a drag handle
+        // on a page you are not arranging is a button that does nothing but
+        // make you wonder what it does.
+        //
+        // `touch-none` is not decoration: without it the browser claims the
+        // gesture for scrolling the moment your finger moves, and the card
+        // never picks up.
+        <button
+          type="button"
+          aria-label={`Move ${tool.title}`}
+          className="shrink-0 cursor-grab touch-none rounded-lg p-1 text-gray-300 transition-colors hover:text-brand active:cursor-grabbing active:text-brand"
+          onPointerDown={(e) => onGrab(e, tool.id, 'tool')}
+        >
+          <GripDots />
+        </button>
+      ) : (
+        <Icon
+          name="chevronRight"
+          className="h-4 w-4 shrink-0 text-gray-200 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-brand"
+        />
+      )}
     </>
   )
 
   const className = cx(
-    'card group relative flex h-full w-full flex-col !p-5 text-left transition-all duration-200',
+    'card group relative flex h-full w-full items-center gap-3.5 !p-4 text-left transition-all duration-200',
     editing
       ? 'cursor-default select-none'
       : 'hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift active:scale-[0.99]',
@@ -186,7 +203,7 @@ function ToolCard({ tool, onOpen, editing, dragging, dropTarget, onGrab }) {
   // In arrange mode a card is furniture, not a link: tapping it should not
   // navigate away from the layout you are in the middle of setting.
   if (editing) {
-    return <div className={className} data-tool-id={tool.id}>{body}</div>
+    return <div className={className} data-drag-kind="tool" data-drag-id={tool.id}>{body}</div>
   }
   if (NETWORK_PATH(tool.to)) {
     return <button type="button" onClick={() => onOpen(tool.to)} className={className}>{body}</button>
@@ -270,12 +287,37 @@ export default function AdminPanel() {
     return [...listed, ...missing]
   }, [order, visibleTools])
 
-  const persist = useCallback(async (next) => {
+  // MARKETS ARE ARRANGEABLE TOO.
+  //
+  // Same reasoning as the tools, and more so: the tools list is the same for
+  // everybody, but the person who runs Spain opens Spain every day and the
+  // Nordics never. Their own order is saved beside the tool order under a key
+  // of its own, so neither can disturb the other.
+  const [marketOrder, setMarketOrder] = useState(null)
+
+  useEffect(() => {
+    if (marketOrder !== null || !markets) return
+    const saved = profile?.admin_prefs?.market_order
+    const ids = markets.map((m) => m.id)
+    const rank = new Map((Array.isArray(saved) ? saved : []).map((id, i) => [id, i]))
+    setMarketOrder([...ids].sort((a, b) => (rank.get(a) ?? Infinity) - (rank.get(b) ?? Infinity)))
+  }, [markets, profile?.admin_prefs, marketOrder])
+
+  const orderedMarkets = useMemo(() => {
+    if (!markets) return markets
+    if (!marketOrder) return markets
+    const byId = new Map(markets.map((m) => [m.id, m]))
+    const listed = marketOrder.map((id) => byId.get(id)).filter(Boolean)
+    const missing = markets.filter((m) => !marketOrder.includes(m.id))
+    return [...listed, ...missing]
+  }, [markets, marketOrder])
+
+  const persist = useCallback(async (patch) => {
     if (!profile?.id) return
     savedOnce.current = true
     await supabase
       .from('profiles')
-      .update({ admin_prefs: { ...(profile.admin_prefs || {}), panel_order: next } })
+      .update({ admin_prefs: { ...(profile.admin_prefs || {}), ...patch } })
       .eq('id', profile.id)
   }, [profile?.id, profile?.admin_prefs])
 
@@ -292,20 +334,29 @@ export default function AdminPanel() {
   // hit-testing rectangles ourselves, so a grid that reflows between two and
   // four columns needs no special case.
   const dragRef = useRef(null)
+  // The pointerup handler is registered once per gesture and closes over the
+  // orders as they were at grab time. Refs keep it reading the live ones.
+  const orderRef = useRef(null)
+  const marketOrderRef = useRef(null)
+  useEffect(() => { orderRef.current = order }, [order])
+  useEffect(() => { marketOrderRef.current = marketOrder }, [marketOrder])
 
-  const handleGrab = useCallback((e, id) => {
+  const handleGrab = useCallback((e, id, kind = 'tool') => {
     if (!editing) return
     e.preventDefault()
     e.currentTarget.setPointerCapture?.(e.pointerId)
-    dragRef.current = { id, pointerId: e.pointerId, over: id }
+    dragRef.current = { id, kind, pointerId: e.pointerId, over: id }
     setDragId(id)
     setOverId(id)
 
     const move = (ev) => {
       const drag = dragRef.current
       if (!drag || ev.pointerId !== drag.pointerId) return
-      const under = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('[data-tool-id]')
-      const id2 = under?.getAttribute('data-tool-id') ?? null
+      // Scoped to the list the drag STARTED in, so a market cannot be dropped
+      // into the tool grid or the other way round. They are two orders.
+      const under = document.elementFromPoint(ev.clientX, ev.clientY)
+        ?.closest(`[data-drag-kind="${drag.kind}"]`)
+      const id2 = under?.getAttribute('data-drag-id') ?? null
       if (id2 && id2 !== drag.over) {
         drag.over = id2
         setOverId(id2)
@@ -322,11 +373,19 @@ export default function AdminPanel() {
       setOverId(null)
       if (!drag || (ev && ev.pointerId !== drag.pointerId)) return
       if (!drag.over || drag.over === drag.id) return
-      setOrder((cur) => {
-        const next = reorder(cur ?? [], drag.id, drag.over)
-        persist(next)
-        return next
-      })
+      // THE SAVE HAPPENS OUT HERE. It used to be called from inside the
+      // `setOrder` updater, which React may run twice - so a single drag could
+      // fire two writes. An updater returns the next state and does nothing
+      // else; same rule that the DM reaction crash was about.
+      if (drag.kind === 'market') {
+        const next = reorder(marketOrderRef.current ?? [], drag.id, drag.over)
+        setMarketOrder(next)
+        persist({ market_order: next })
+      } else {
+        const next = reorder(orderRef.current ?? [], drag.id, drag.over)
+        setOrder(next)
+        persist({ panel_order: next })
+      }
     }
 
     window.addEventListener('pointermove', move)
@@ -336,8 +395,10 @@ export default function AdminPanel() {
 
   function resetOrder() {
     const next = visibleTools.map((t) => t.id)
+    const nextMarkets = (markets || []).map((m) => m.id)
     setOrder(next)
-    persist(next)
+    setMarketOrder(nextMarkets)
+    persist({ panel_order: next, market_order: nextMarkets })
   }
 
   function openInNetwork(path) {
@@ -497,15 +558,22 @@ export default function AdminPanel() {
                 )}
               </div>
               <Reveal className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" stagger={0.06}>
-                {markets.map((m) => (
-                  <button
+                {orderedMarkets.map((m) => {
+                  const cardClass = cx(
+                    'card group flex w-full items-center gap-3 !p-4 text-left transition-all duration-200',
+                    editing ? 'cursor-default select-none' : 'hover:-translate-y-0.5 hover:shadow-lift',
+                    m.retired_at && 'opacity-60',
+                    dragId === m.id && 'scale-[0.97] opacity-40',
+                    editing && overId === m.id && dragId !== m.id && 'ring-2 ring-brand',
+                  )
+                  const Tag = editing ? 'div' : 'button'
+                  return (
+                  <Tag
                     key={m.id}
-                    type="button"
-                    onClick={() => openInNetwork(`/manage/${m.slug}`)}
-                    className={cx(
-                      'card flex w-full items-center gap-3 !p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift',
-                      m.retired_at && 'opacity-60',
-                    )}
+                    {...(editing
+                      ? { 'data-drag-kind': 'market', 'data-drag-id': m.id }
+                      : { type: 'button', onClick: () => openInNetwork(`/manage/${m.slug}`) })}
+                    className={cardClass}
                   >
                     <span className="text-lg" aria-hidden>
                       {(m.country_codes || []).slice(0, 2).map((c) =>
@@ -528,9 +596,21 @@ export default function AdminPanel() {
                         )}
                       </span>
                     </span>
-                    <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
-                  </button>
-                ))}
+                    {editing ? (
+                      <button
+                        type="button"
+                        aria-label={`Move ${m.name}`}
+                        className="shrink-0 cursor-grab touch-none rounded-lg p-1 text-gray-300 transition-colors hover:text-brand active:cursor-grabbing active:text-brand"
+                        onPointerDown={(e) => handleGrab(e, m.id, 'market')}
+                      >
+                        <GripDots />
+                      </button>
+                    ) : (
+                      <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
+                    )}
+                  </Tag>
+                  )
+                })}
               </Reveal>
             </section>
           </Reveal>
@@ -546,14 +626,19 @@ export default function AdminPanel() {
               <h2 className="text-lg font-semibold">Tools</h2>
               {editing && (
                 <div className="flex items-center gap-3 text-xs">
-                  <span className="text-smoke">Drag the dots. Saved to your account.</span>
+                  <span className="text-smoke">Drag the dots on a tool or a market. Saved to your account.</span>
                   <button type="button" onClick={resetOrder} className="font-medium text-brand hover:underline">
                     Reset
                   </button>
                 </div>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
+            {/* THREE ACROSS AT MOST. Four fitted, and "Reported messages"
+                became "Reported messa…" - a card whose whole job is to be
+                recognised at a glance, truncated in the middle of the word that
+                identifies it. Three columns is fourteen tools in five rows and
+                every name readable. */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {tools.map((t) => (
                 <ToolCard
                   key={t.id}
