@@ -33,6 +33,23 @@ import { cx } from '../../lib/utils'
 // keyed to its family, which does the same job as a heading without spending a
 // row of the page on it.
 //
+// WHAT CHANGED AGAIN, 26 Aug 2026
+//
+// Two notes from Ethan, and they pull the same direction. The first: the panel
+// had stopped looking like Tryp. Five families meant five hues - sky, brand,
+// emerald, violet, slate - so the grid read as a Google product, not as a page
+// of the platform it administers. It is now five INTENSITIES of the one brand
+// orange (solid #d94407, solid #f5853f, a filled tint, an outline, and a
+// neutral for the things that are not really tools), which sorts the grid
+// exactly as well as five hues did while looking like it belongs here.
+//
+// The second: bigger titles, and the sentences under them gone. Both halves of
+// that are one idea - the description was never read. "Creators / The full
+// roster: details, activity, notes and account actions" tells an admin who
+// opens this page daily nothing they do not know, and fourteen of them buried
+// the fourteen words that actually navigate. The names are now 17px and alone.
+// Same for the desk rows' hints and the two preview cards at the bottom.
+//
 // REORDERING IS BACK, AND IT IS PER ADMIN. It was removed once, on the argument
 // that hand-ordering seventeen tiles is a workaround for not being able to find
 // them. That was right about the flat grid it existed to survive and wrong about
@@ -54,33 +71,38 @@ import { cx } from '../../lib/utils'
 // need it. Tinting the icon tile means a glance at the grid sorts fourteen
 // cards into five groups before you have read a single label, and the flat grid
 // Ethan asked to keep is still flat.
+//
+// ALL FIVE ARE THE SAME ORANGE. What separates them is weight, not hue: two
+// solids (deep, then light), a filled tint, an outline, and the neutral. Keep
+// it that way if a sixth family ever appears - reach for another step of the
+// ramp, never for a colour that is not on the Tryp palette.
 const FAMILY = {
-  people: { label: 'People', dot: 'bg-sky-500', tile: 'bg-sky-50 text-sky-600' },
-  programme: { label: 'The programme', dot: 'bg-brand', tile: 'bg-brand-tint text-brand' },
-  money: { label: 'Money', dot: 'bg-emerald-500', tile: 'bg-emerald-50 text-emerald-600' },
-  comms: { label: 'Talking to everyone', dot: 'bg-violet-500', tile: 'bg-violet-50 text-violet-600' },
-  platform: { label: 'The platform', dot: 'bg-slate-400', tile: 'bg-slate-100 text-slate-500' },
+  people: { label: 'People', tile: 'bg-brand text-white' },
+  programme: { label: 'The programme', tile: 'bg-brand-light text-white' },
+  money: { label: 'Money', tile: 'bg-brand-tint text-brand ring-1 ring-inset ring-brand/15' },
+  comms: { label: 'Talking to everyone', tile: 'border border-brand/30 bg-white text-brand' },
+  platform: { label: 'The platform', tile: 'bg-cloud text-smoke' },
 }
 
 const TOOLS = [
-  { id: 'creators', to: '/admin/creators', icon: 'users', family: 'people', title: 'Creators', text: 'The full roster: details, activity, notes and account actions.' },
-  { id: 'applications', to: '/admin/applications', icon: 'shield', family: 'people', title: 'Applications', text: 'Approve or decline the people asking to join, by market.' },
-  { id: 'referrals', to: '/admin/referrals', icon: 'share', family: 'people', title: 'Referrals', text: 'Who brought whom in, and which leads to follow up.' },
-  { id: 'reports', to: '/admin/reports', icon: 'flag', family: 'people', title: 'Reported messages', short: 'Reports', text: 'What creators flagged in the rooms and their DMs.' },
-  { id: 'team', to: '/admin/team', icon: 'shield', family: 'people', title: 'Tryp.com team', short: 'Team', text: 'Who runs the programme, and the title each of them carries.', globalOnly: true },
+  { id: 'creators', to: '/admin/creators', icon: 'users', family: 'people', title: 'Creators' },
+  { id: 'applications', to: '/admin/applications', icon: 'shield', family: 'people', title: 'Applications' },
+  { id: 'referrals', to: '/admin/referrals', icon: 'share', family: 'people', title: 'Referrals' },
+  { id: 'reports', to: '/admin/reports', icon: 'flag', family: 'people', title: 'Reported messages' },
+  { id: 'team', to: '/admin/team', icon: 'shield', family: 'people', title: 'Tryp.com team', globalOnly: true },
 
-  { id: 'challenges', to: '/challenges', icon: 'flag', family: 'programme', title: 'Challenges', text: 'Write, edit, run and close briefs across every market.' },
-  { id: 'milestones', to: '/admin/milestones', icon: 'plane', family: 'programme', title: 'Milestones', text: 'The route every creator flies, and what unlocks each stop.' },
+  { id: 'challenges', to: '/challenges', icon: 'flag', family: 'programme', title: 'Challenges' },
+  { id: 'milestones', to: '/admin/milestones', icon: 'plane', family: 'programme', title: 'Milestones' },
 
-  { id: 'rewards', to: '/admin/rewards', icon: 'money', family: 'money', title: 'Rewards & invoices', short: 'Rewards', text: 'Payouts, invoices, approvals and payment details.' },
-  { id: 'analytics', to: '/admin/analytics', icon: 'chart', family: 'money', title: 'Analytics', text: 'Views, spend, CPM, community health and the challenge log.' },
+  { id: 'rewards', to: '/admin/rewards', icon: 'money', family: 'money', title: 'Rewards & invoices' },
+  { id: 'analytics', to: '/admin/analytics', icon: 'chart', family: 'money', title: 'Analytics' },
 
-  { id: 'email', to: '/admin/email', icon: 'envelope', family: 'comms', title: 'Email', text: 'Approve what goes out, copy address lists, read the log.' },
-  { id: 'feedback', to: '/admin/feedback', icon: 'chat', family: 'comms', title: 'Bugs & ideas', text: 'What creators have flagged, waiting to be triaged.' },
-  { id: 'notes', to: '/admin/notes', icon: 'pencil', family: 'comms', title: 'Notes', text: 'Your own space for plans and playbooks, shared or private.' },
+  { id: 'email', to: '/admin/email', icon: 'envelope', family: 'comms', title: 'Email' },
+  { id: 'feedback', to: '/admin/feedback', icon: 'chat', family: 'comms', title: 'Bugs & ideas' },
+  { id: 'notes', to: '/admin/notes', icon: 'pencil', family: 'comms', title: 'Notes' },
 
 
-  { id: 'testing', to: '/admin/testing', icon: 'joystick', family: 'platform', title: 'Testing Centre', short: 'Testing', text: 'Every feature and automation, running on invented people.' },
+  { id: 'testing', to: '/admin/testing', icon: 'joystick', family: 'platform', title: 'Testing Centre' },
   // PLATFORM CONNECTIONS IS NOT A CARD ANY MORE, and it is not deleted either.
   //
   // Ethan is right that it earns no space here: Instagram needs no credential
@@ -94,8 +116,8 @@ const TOOLS = [
   // counts panel on a challenge, which links here when something is actually
   // wrong. A door you are shown at the moment you need it beats a door you walk
   // past every day.
-  { id: 'network-settings', to: '/global/settings', icon: 'globe', family: 'platform', title: 'Manage markets', short: 'Markets', text: 'Every market, its settings, and how to open another.', globalOnly: true },
-  { id: 'audit', to: '/admin/audit', icon: 'eye', family: 'platform', title: 'Audit log', short: 'Audit', text: 'A record of account actions taken by the team.', globalOnly: true },
+  { id: 'network-settings', to: '/global/settings', icon: 'globe', family: 'platform', title: 'Manage markets', globalOnly: true },
+  { id: 'audit', to: '/admin/audit', icon: 'eye', family: 'platform', title: 'Audit log', globalOnly: true },
 ]
 
 // SOME OF THESE LIVE INSIDE THE NETWORK SHELL, WHICH IS BEHIND A FLAG.
@@ -149,21 +171,21 @@ function ToolCard({ tool, onOpen, editing, dragging, dropTarget, onGrab }) {
   const body = (
     <>
       <span className={cx(
-        'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105',
+        'flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105',
         family?.tile || 'bg-brand-tint text-brand',
       )}>
-        <Icon name={tool.icon} className="h-[19px] w-[19px]" />
+        <Icon name={tool.icon} className="h-5 w-5" />
       </span>
 
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-[15px] font-semibold leading-tight transition-colors group-hover:text-brand">
-          {tool.title}
-        </span>
-        {/* ONE LINE, CLAMPED. Every card carried two or three lines of
-            description, so fourteen tools were forty lines of grey text and the
-            titles - the only part you are scanning for - were islands in it.
-            The sentence still earns its place, at one line, under the name. */}
-        <span className="mt-0.5 block truncate text-xs text-smoke">{tool.text}</span>
+      {/* THE NAME IS THE CARD.
+          Every tile used to carry a sentence under its title - "the full
+          roster: details, activity, notes and account actions" - and fourteen
+          of those is forty lines of grey text with the names, the only part
+          anybody scans for, marooned in the middle of it. Ethan asked for the
+          descriptions gone and the titles bigger, which are the same request:
+          he already knows what Creators is, he is looking for the word. */}
+      <span className="min-w-0 flex-1 truncate text-[17px] font-semibold leading-snug tracking-[-0.01em] transition-colors group-hover:text-brand">
+        {tool.title}
       </span>
 
       {editing ? (
@@ -225,7 +247,7 @@ function GripDots() {
 // count set in brand at a size you read from across the room, and white rows on
 // the tint so each item is its own object. The old one was a tinted box with
 // tinted rows inside it, which made the whole block one grey-orange smudge.
-function DeskRow({ to, icon, count, label, hint }) {
+function DeskRow({ to, icon, count, label }) {
   return (
     <Link
       to={to}
@@ -234,11 +256,8 @@ function DeskRow({ to, icon, count, label, hint }) {
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white">
         <Icon name={icon} className="h-[18px] w-[18px]" />
       </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold leading-snug">
-          <span className="text-brand tabular-nums">{count}</span> {label}
-        </span>
-        <span className="mt-0.5 block truncate text-xs text-smoke">{hint}</span>
+      <span className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-snug">
+        <span className="text-brand tabular-nums">{count}</span> {label}
       </span>
       <Icon
         name="chevronRight"
@@ -479,12 +498,12 @@ export default function AdminPanel() {
   }, [profile?.id, isGlobal])
 
   const desk = stats ? [
-    stats.pendingApps > 0 && { to: '/admin/applications', icon: 'shield', count: stats.pendingApps, label: `application${stats.pendingApps === 1 ? '' : 's'} to review`, hint: 'Nobody can post until they are approved.' },
-    stats.toApprove > 0 && { to: '/admin/rewards?tab=queue', icon: 'money', count: stats.toApprove, label: `invoice${stats.toApprove === 1 ? '' : 's'} to approve`, hint: 'Money does not go out until somebody signs these off.' },
-    stats.openReports > 0 && { to: '/admin/reports', icon: 'flag', count: stats.openReports, label: `reported message${stats.openReports === 1 ? '' : 's'}`, hint: 'Somebody flagged something in a room or a DM.' },
-    stats.newFeedback > 0 && { to: '/admin/feedback', icon: 'chat', count: stats.newFeedback, label: `bug report${stats.newFeedback === 1 ? '' : 's'} and ideas`, hint: 'Creators have flagged something.' },
-    stats.newSuggestions > 0 && { to: '/events#suggestions', icon: 'bulb', count: stats.newSuggestions, label: `event idea${stats.newSuggestions === 1 ? '' : 's'} from creators`, hint: 'Somebody asked for a workshop, Q&A or meet-up.' },
-    stats.pendingRewards > 0 && { to: '/admin/rewards?tab=payouts', icon: 'wallet', count: stats.pendingRewards, label: `reward${stats.pendingRewards === 1 ? '' : 's'} still to pay`, hint: 'Awarded but not yet distributed.' },
+    stats.pendingApps > 0 && { to: '/admin/applications', icon: 'shield', count: stats.pendingApps, label: `application${stats.pendingApps === 1 ? '' : 's'} to review` },
+    stats.toApprove > 0 && { to: '/admin/rewards?tab=queue', icon: 'money', count: stats.toApprove, label: `invoice${stats.toApprove === 1 ? '' : 's'} to approve` },
+    stats.openReports > 0 && { to: '/admin/reports', icon: 'flag', count: stats.openReports, label: `reported message${stats.openReports === 1 ? '' : 's'}` },
+    stats.newFeedback > 0 && { to: '/admin/feedback', icon: 'chat', count: stats.newFeedback, label: `bug report${stats.newFeedback === 1 ? '' : 's'} and ideas` },
+    stats.newSuggestions > 0 && { to: '/events#suggestions', icon: 'bulb', count: stats.newSuggestions, label: `event idea${stats.newSuggestions === 1 ? '' : 's'} from creators` },
+    stats.pendingRewards > 0 && { to: '/admin/rewards?tab=payouts', icon: 'wallet', count: stats.pendingRewards, label: `reward${stats.pendingRewards === 1 ? '' : 's'} still to pay` },
   ].filter(Boolean) : []
 
   // THE PAGE ARRIVES IN THE ORDER IT WILL STAY IN. Both queries in before
@@ -496,7 +515,6 @@ export default function AdminPanel() {
     <div className="page">
       <PageHeader
         title="Admin panel"
-        subtitle="What is waiting on you, then everything you need to run the programme."
         action={
           <button
             type="button"
@@ -549,7 +567,7 @@ export default function AdminPanel() {
           <Reveal from="down">
             <section>
               <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-                <h2 className="text-lg font-semibold">{isGlobal ? 'Markets' : 'Your markets'}</h2>
+                <h2 className="text-xl font-semibold tracking-[-0.01em]">{isGlobal ? 'Markets' : 'Your markets'}</h2>
                 {isGlobal && (
                   <button type="button" onClick={() => openInNetwork('/global/markets')}
                     className="shrink-0 text-sm font-medium text-brand transition-transform duration-200 hover:scale-105">
@@ -623,7 +641,7 @@ export default function AdminPanel() {
         <Reveal from="down">
           <section>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-lg font-semibold">Tools</h2>
+              <h2 className="text-xl font-semibold tracking-[-0.01em]">Tools</h2>
               {editing && (
                 <div className="flex items-center gap-3 text-xs">
                   <span className="text-smoke">Drag the dots on a tool or a market. Saved to your account.</span>
@@ -658,29 +676,29 @@ export default function AdminPanel() {
             Both change what YOU see and nothing about the platform, so they sit
             at the bottom rather than pretending to be tools. */}
         <Reveal from="down">
-          <section className="rounded-card border border-gray-200 bg-white p-5">
-            <h2 className="text-sm font-semibold">See it as somebody else</h2>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <section>
+            <h2 className="mb-3 text-xl font-semibold tracking-[-0.01em]">See it as somebody else</h2>
+            <div className="grid gap-3 sm:grid-cols-2">
               <button onClick={enterCreatorView} disabled={entering}
-                className="flex items-start gap-3 rounded-xl border border-gray-100 p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-card disabled:opacity-60">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand">
-                  <Icon name="eye" className="h-4 w-4" />
+                className="card group flex w-full items-center gap-3.5 !p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift disabled:opacity-60">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand ring-1 ring-inset ring-brand/15 transition-transform duration-200 group-hover:scale-105">
+                  <Icon name="eye" className="h-5 w-5" />
                 </span>
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold">{entering ? 'Starting preview…' : 'View as creator'}</span>
-                  <span className="mt-0.5 block text-xs text-smoke">Step into a sandbox creator account and use the platform as they do.</span>
-                  {enterError && <span className="mt-1 block text-xs font-medium text-red-500">{enterError}</span>}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[17px] font-semibold leading-snug tracking-[-0.01em] transition-colors group-hover:text-brand">
+                    {entering ? 'Starting preview…' : 'View as creator'}
+                  </span>
+                  {enterError && <span className="mt-0.5 block text-xs font-medium text-red-500">{enterError}</span>}
                 </span>
               </button>
 
               <button onClick={() => { enterPreview(); navigate('/global') }}
-                className="flex items-start gap-3 rounded-xl border border-gray-100 p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-card">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand">
-                  <Icon name="globe" className="h-4 w-4" />
+                className="card group flex w-full items-center gap-3.5 !p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand ring-1 ring-inset ring-brand/15 transition-transform duration-200 group-hover:scale-105">
+                  <Icon name="globe" className="h-5 w-5" />
                 </span>
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold">Global network preview</span>
-                  <span className="mt-0.5 block text-xs text-smoke">The worldwide shell, with the markets sitting inside it.</span>
+                <span className="min-w-0 flex-1 truncate text-[17px] font-semibold leading-snug tracking-[-0.01em] transition-colors group-hover:text-brand">
+                  Global network preview
                 </span>
               </button>
             </div>
