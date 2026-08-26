@@ -5,6 +5,7 @@ import { uploadChatImage, uploadChatVideo } from '../lib/chatMedia'
 import { Link, NavLink, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { roleBadgeTitle } from '../lib/roles'
+import PendingLabel from '../components/PendingLabel'
 import { useAuth } from '../context/AuthContext'
 import { Avatar, Badge, Skeleton } from '../components/ui'
 import Icon from '../components/Icon'
@@ -991,6 +992,17 @@ export default function Chat() {
                     {m.pinned && <Icon name="pin" className="h-3.5 w-3.5 shrink-0 text-brand" title="Pinned" />}
                   </div>
 
+                  {/* THE FLOATING ACTION ROW IS ANCHORED TO THE MESSAGE,
+                      NOT TO EVERYTHING UNDER IT.
+                      It is `absolute bottom-0`, and it used to be positioned
+                      against the whole column - which includes the reactions.
+                      So the moment anybody reacted, "reply / react" jumped a
+                      row down and hung below the emoji chips, level with
+                      nothing. This wrapper ends where the MESSAGE ends, so the
+                      row sits on the bubble's bottom edge whether or not there
+                      are reactions under it, and the chips stay directly below
+                      the bubble where they belong. */}
+                  <div className={cx('relative flex w-full flex-col', mine ? 'items-end' : 'items-start')}>
                   {(m.body || m.image_url || m.video_url) && (
                     <div
                       className={cx(
@@ -1066,9 +1078,10 @@ export default function Chat() {
                       back with nothing, the message is waiting, and the bubble
                       says so rather than spinning a lie at somebody on a train. */}
                   {m.pending && (
-                    <p className={cx('mt-0.5 text-[11px] text-gray-400', mine && 'text-right')}>
-                      {m.tries > 0 ? 'Waiting for signal' : 'Sending…'}
-                    </p>
+                    <PendingLabel
+                      tries={m.tries}
+                      className={cx('mt-0.5 block text-[11px] text-gray-400', mine && 'text-right')}
+                    />
                   )}
                   {m.failed && (
                     <p className={cx('mt-0.5 text-[11px] text-smoke', mine && 'text-right')}>
@@ -1087,24 +1100,6 @@ export default function Chat() {
                         </>
                       )}
                     </p>
-                  )}
-
-                  {/* Reactions stay IN FLOW - they are content, they belong to
-                      the message and they should push what is under them down. */}
-                  {Object.keys(summary).length > 0 && (
-                    <div className={cx('mt-1 flex flex-wrap items-center gap-1', mine && 'justify-end')}>
-                      {Object.entries(summary).map(([emoji, info]) => (
-                        <ReactionPill
-                          key={emoji}
-                          emoji={emoji}
-                          count={info.count}
-                          mine={info.mine}
-                          names={info.ids.map(memberName)}
-                          onToggle={() => toggleReaction(m.id, emoji)}
-                          align={mine ? 'right' : 'left'}
-                        />
-                      ))}
-                    </div>
                   )}
 
                   {/* THE ACTION ROW FLOATS. IT USED TO RESERVE ITS OWN HEIGHT.
@@ -1214,6 +1209,25 @@ export default function Chat() {
                         </>
                       )}
                   </div>
+                  </div>
+
+                  {/* Reactions stay IN FLOW - they are content, they belong to
+                      the message and they should push what is under them down. */}
+                  {Object.keys(summary).length > 0 && (
+                    <div className={cx('mt-1 flex flex-wrap items-center gap-1', mine && 'justify-end')}>
+                      {Object.entries(summary).map(([emoji, info]) => (
+                        <ReactionPill
+                          key={emoji}
+                          emoji={emoji}
+                          count={info.count}
+                          mine={info.mine}
+                          names={info.ids.map(memberName)}
+                          onToggle={() => toggleReaction(m.id, emoji)}
+                          align={mine ? 'right' : 'left'}
+                        />
+                      ))}
+                    </div>
+                  )}
 
                   {/* Read receipts, for EVERYONE now, not just admins.
                       They were admin-only out of caution when they shipped, and

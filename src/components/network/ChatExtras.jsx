@@ -49,7 +49,7 @@ export function ReactionRow({ messageId, reactions, myId, onToggle, revealed = f
   //
   // The parent must be `relative`; NetworkChat's message column is.
   return (
-    <div className={cx('flex flex-wrap items-center gap-1', counts.length > 0 && 'mt-1')}>
+    <div className={cx('relative flex flex-wrap items-center gap-1', counts.length > 0 && 'mt-1')}>
       <AnimatePresence initial={false}>
         {counts.map(([emoji, n]) => (
           <motion.button
@@ -73,16 +73,21 @@ export function ReactionRow({ messageId, reactions, myId, onToggle, revealed = f
         ))}
       </AnimatePresence>
 
-      {/* IT SITS ON THE BOTTOM EDGE, NOT THE TOP ONE.
-          It used to straddle the TOP of the message column, which put it beside
-          the author's name - the furthest point from where your eye actually
-          finishes reading, and on a grouped run of messages it landed on the
-          previous message's last line. Ethan: the reaction buttons should be at
-          the bottom of the message. Centred on the BOTTOM edge it is where the
-          message ends, which is where you decide to react to it, and it still
-          costs no layout at all: this is absolute, so there is no invisible
-          strip under every message the way an `opacity-0` flow row leaves. */}
-      <div className="absolute bottom-0 right-0 z-10 flex translate-y-1/2 items-center gap-1">
+      {/* IT SITS ON THE BOTTOM EDGE OF THE MESSAGE - AND THIS ROW IS THAT EDGE.
+          It used to straddle the TOP of the message column, beside the author's
+          name, which is the furthest point from where your eye actually
+          finishes reading. Moving it to `bottom-0` fixed that and introduced
+          the next one: the anchor was the whole message COLUMN, so it sat below
+          the reaction pills, the read receipts, everything - and the moment
+          anybody reacted, "react / reply" jumped a line down and hung level
+          with nothing. That is Ethan's report.
+          The fix is to anchor it here instead. This row starts exactly where
+          the message content ends, so its TOP edge is the message's bottom edge
+          whether there are pills in it or not - and when there are, the buttons
+          float just above them rather than being pushed under them. Still
+          absolute, so it costs no layout: an `opacity-0` row in the flow would
+          leave an invisible strip under every single message. */}
+      <div className="absolute right-0 top-0 z-10 flex -translate-y-1/2 items-center gap-1">
         {actions.map((a) => (
           <button
             key={a.label}

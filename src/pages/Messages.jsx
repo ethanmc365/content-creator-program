@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from 'react'
+import PendingLabel from '../components/PendingLabel'
 import { confirm, notice } from '../lib/confirm'
 import { loadDraft, saveDraft, clearDraft } from '../lib/drafts'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -1446,7 +1447,7 @@ export default function Messages() {
                               that has not left the phone has certainly not been
                               read and saying both would be nonsense. */}
                           {m.pending
-                            ? (m.tries > 0 ? ' · Waiting for signal' : ' · Sending…')
+                            ? <PendingLabel tries={m.tries} prefix=" · " />
                             : (mine && !isGroup && m.read && ' · Read')}
                         </p>
                         {m.failed && (

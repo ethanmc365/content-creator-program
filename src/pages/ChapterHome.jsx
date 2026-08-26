@@ -19,7 +19,7 @@ import Reveal from '../components/network/Reveal'
 import WhenVisible from '../components/WhenVisible'
 import { cx, timeAgo, challengeDeadline } from '../lib/utils'
 import { stripMarkup } from '../lib/richText'
-import { roleTitle } from '../lib/roles'
+import { roleLabel } from '../lib/roles'
 import { cardHover, pageFade } from '../lib/motion'
 
 // A single market's overview, seen by the people IN it.
@@ -123,7 +123,7 @@ export default function ChapterHome() {
         roster: everyone.filter((p) => !p.is_admin && p.memberRole !== 'manager'),
         team: everyone
           .filter((p) => p.is_admin || p.memberRole === 'manager')
-          .map((p) => ({ ...p, title: roleTitle(p, chapter.name) })),
+          .map((p) => ({ ...p, title: roleLabel(p, chapter.name) })),
       })
       setLoading(false)
     }

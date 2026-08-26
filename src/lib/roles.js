@@ -54,7 +54,28 @@ export function roleTitle(person, marketName) {
   // the whole contract: the milestones can name somebody who had no name, and
   // cannot rename somebody who already has one.
   if (person.earned_role) return person.earned_role
-  return 'Creator'
+  // NOBODY STARTS WITH A BADGE.
+  //
+  // The fallback used to be the word "Creator", which is true of every single
+  // person on the platform and therefore says nothing about any of them - the
+  // same objection that killed "Tryp.com Team" as a badge. It also spent the
+  // title the ladder is meant to award: if everybody already reads "Creator",
+  // then reaching the stop that grants "Tryp.com Creator" changes nothing.
+  // An empty string means the badge is not drawn at all. Callers that need a
+  // word for a role - the market roster, the admin surfaces - use
+  // `roleLabel` below, which keeps the generic fallback.
+  return ''
+}
+
+/**
+ * The same answer, but never blank.
+ *
+ * For places that are LISTING people by role rather than annotating a name:
+ * a roster row with an empty cell reads as missing data, where a badge that is
+ * simply absent reads as "no title", which is the truth.
+ */
+export function roleLabel(person, marketName) {
+  return roleTitle(person, marketName) || 'Creator'
 }
 
 /**

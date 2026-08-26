@@ -22,7 +22,7 @@ export default function Rewards() {
   useEffect(() => {
     supabase
       .from('rewards')
-      .select('*, challenges(title), profiles:creator_id(name)')
+      .select('*, challenges(title), milestones(title), profiles:creator_id(name)')
       .eq('creator_id', user.id)
       .order('created_at', { ascending: false })
       .then(async ({ data }) => {
@@ -73,7 +73,14 @@ export default function Rewards() {
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold">
                       {r.reward_type === 'cash' ? 'Cash prize' : 'Tryp.com voucher'}
+                      {/* WHERE IT CAME FROM. A voucher with no context is a
+                          line saying money exists. Challenge prizes had a
+                          title; referral and milestone vouchers had nothing,
+                          so the two rewards a creator earns OUTSIDE a
+                          challenge were the two they could not identify. */}
                       {r.challenges?.title && <span className="font-normal text-smoke"> · {r.challenges.title}</span>}
+                      {r.milestones?.title && <span className="font-normal text-smoke"> · Milestone: {r.milestones.title}</span>}
+                      {r.source === 'referral' && <span className="font-normal text-smoke"> · Referral</span>}
                     </p>
                     <p className="text-xs text-smoke">
                       {r.status === 'distributed' ? `Distributed ${formatDate(r.distributed_at)}` : `Added ${formatDate(r.created_at)}`}

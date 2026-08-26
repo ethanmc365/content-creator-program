@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { motion } from 'motion/react'
 import { Link } from 'react-router-dom'
 import Icon from '../Icon'
-import { Avatar } from '../ui'
+import { Avatar, Modal } from '../ui'
 import { cx } from '../../lib/utils'
 import { EASE } from '../../lib/motion'
 import { playPlaneRise, playRingReached, engineThrust, engineStop } from '../../lib/gameSounds'
@@ -99,16 +99,6 @@ function cubicAt(seg, t) {
   return { x, y, angle: (Math.atan2(dy, dx) * 180) / Math.PI }
 }
 
-// A point at a fraction of the whole route. Every segment is the same length by
-// construction (see the geometry note above), so the fraction maps onto segments
-// linearly and no arc-length integration is needed.
-function pointAtFraction(segs, f) {
-  if (!segs.length) return null
-  const t = Math.max(0, Math.min(1, f)) * segs.length
-  const i = Math.min(segs.length - 1, Math.floor(t))
-  return cubicAt(segs[i], t - i)
-}
-
 // The aircraft, drawn nose-up at the origin. `rotate="auto"` on animateMotion
 // aligns the local +x axis with the direction of travel, so the glyph is turned
 // a quarter turn to put its nose there. Module scope: a component defined during
@@ -164,6 +154,9 @@ function timeAtDistance(y) {
 // done. It is how an admin checks the animation and the layout end to end
 // without waiting to earn a million views.
 export default function MilestonePath({ milestones = [], standings = [], preview = false }) {
+  // Which stop's detail sheet is open. Null for none.
+  const [open, setOpen] = useState(null)
+
   // THE LAYOUT COMES FROM THIS COMPONENT'S OWN WIDTH, NOT THE WINDOW'S.
   //
   // It used to ask `useIsMobile`, which asks the WINDOW. That is right on the
@@ -337,17 +330,31 @@ export default function MilestonePath({ milestones = [], standings = [], preview
     // after the last call. Re-thrusting on a 300ms tick therefore holds it open
     // for exactly as long as we keep ticking, and one `engineStop` at the end
     // fades it out. Started a beat after the rise so the two do not stack.
+    // THE TICKER HAS TO BE STOPPED BEFORE THE ENGINE IS.
+    //
+    // THE BUG THIS FIXES. The landing timeout called `engineStop` and the
+    // 300ms ticker was left running - so 300ms later it thrust again, and the
+    // propeller came back and stayed for the rest of the session, on every
+    // page, until the tab was closed. That is the "I can constantly hear the
+    // airplane background noise" report, and it is why the interval id lives
+    // in a variable of its own rather than in the same bag as the chimes: the
+    // one thing that must happen at landing is that this stops FIRST.
+    let ticker = null
     const takeoff = setTimeout(() => {
       engineThrust()
-      timers.push(setInterval(engineThrust, 300))
+      ticker = setInterval(engineThrust, 300)
     }, 500)
-    const landed = setTimeout(engineStop, Math.round(flightSeconds * 1000) + 400)
+    const cut = () => {
+      if (ticker) { clearInterval(ticker); ticker = null }
+      engineStop()
+    }
+    const landed = setTimeout(cut, Math.round(flightSeconds * 1000) + 400)
 
     return () => {
       clearTimeout(takeoff)
       clearTimeout(landed)
-      timers.forEach((t) => { clearTimeout(t); clearInterval(t) })
-      engineStop()
+      timers.forEach(clearTimeout)
+      cut()
     }
     // `arrivalDelay` closes over flightSeconds/progress/legs, all derived from
     // props, and is rebuilt every render - depending on it would reschedule the
@@ -356,25 +363,20 @@ export default function MilestonePath({ milestones = [], standings = [], preview
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [started, reached])
 
-  // WHERE EVERYBODY ELSE IS.
+  // THE FACES USED TO BE DRAWN ON THE LINE AS WELL, AND THAT IS GONE.
   //
-  // Not stacked at the stop they last passed - queued ALONG the route just
-  // behind it, each one a little further back than the last. Two creators on
-  // the same stop are two faces on the line rather than one face with another
-  // hidden underneath it, and the shape of the queue is itself the answer to
-  // "how is the community doing": a bunch near the start and a straggler out
-  // front looks completely different from an even spread.
-  const crowd = (() => {
-    const seen = new Map()
-    return standings.map((s) => {
-      const node = Math.min(Number(s.reached) || 0, legs)
-      const rank = seen.get(node) || 0
-      seen.set(node, rank + 1)
-      const f = Math.max(0, (node - rank * 0.13) / legs)
-      const p = pointAtFraction(segs, f)
-      return p ? { ...s, x: p.x, y: p.y } : null
-    }).filter(Boolean)
-  })()
+  // There were two avatar displays: a queue of faces fanned ALONG the route,
+  // and a row under each stop's label. The queue placed each creator at
+  // `(node - rank * 0.13) / legs` - so eight people who had all reached stop
+  // one were smeared across the whole of leg one, at eight visibly different
+  // places, none of which was where any of them actually stood. That is the
+  // "creator icons seem inaccurate" report, and it was inaccurate by
+  // construction: the fan was along the axis that MEANS something.
+  //
+  // Two displays answering the same question, one of them wrong, is not worth
+  // repairing into two displays answering the same question. The row under each
+  // stop is the honest one - it is exactly the set of people who reached that
+  // stop - so that is the one that survives, and it is now clickable.
 
   return (
     <div ref={setBox0} className="relative w-full" style={{ aspectRatio: `${L.W} / ${H}` }}>
@@ -473,28 +475,6 @@ export default function MilestonePath({ milestones = [], standings = [], preview
           )
         )}
 
-        {/* EVERYONE ELSE ON THE ROAD, WHERE THEY ACTUALLY ARE.
-            Admin-only for now. The page already stacked faces AT each stop,
-            which answers "who has passed this point" and not "where is everybody
-            up to" - and with one creator ahead of the pack it looked like the
-            route only had one person on it. Each creator gets a dot at their own
-            fraction of the route, fanned sideways so a cluster at the same stop
-            is still countable. */}
-        {crowd.map((c) => (
-          <g key={c.id} transform={`translate(${c.x} ${c.y})`}>
-            <circle r="9" fill="#ffffff" stroke="#d94407" strokeWidth="1.5"
-              style={{ filter: 'drop-shadow(0 1px 2px rgba(20,20,30,0.25))' }} />
-            {c.photo_url ? (
-              <image href={c.photo_url} x="-7.5" y="-7.5" width="15" height="15"
-                clipPath="url(#milestone-face)" preserveAspectRatio="xMidYMid slice" />
-            ) : (
-              <text x="0" y="0.5" textAnchor="middle" dominantBaseline="central"
-                fontSize="7" fontWeight="700" fill="#d94407">{(c.name || '?').slice(0, 1)}</text>
-            )}
-            <title>{`${c.name} · ${c.reached} ${c.reached === 1 ? 'stop' : 'stops'}`}</title>
-          </g>
-        ))}
-
         {/* The stops. Drawn after the route so the line never crosses a dot. */}
         {nodes.map((n, i) => {
           const done = n.start || n.reached
@@ -544,61 +524,100 @@ export default function MilestonePath({ milestones = [], standings = [], preview
         })}
       </svg>
 
-      {/* ---------- Labels ---------- */}
+      {/* ---------- Stop cards ---------- */}
+      {/* THEY ARE CARDS NOW, AND THEY ARE ALWAYS LEFT-ALIGNED.
+          The old label was loose text that inherited `text-right` on every
+          other stop, so half the route was ragged-left prose wrapping under a
+          full-width reward pill - which is the screenshot Ethan sent: squashed,
+          off-centre, and with the reward shouting over the title. A card gives
+          the block an edge to sit against, one alignment for every stop
+          whichever side of the line it is on, and somewhere for the description
+          to go. */}
       {nodes.map((n, i) => {
         const done = n.start || n.reached
         const isNext = !done && i === reached + 1
         const x = nodeX(i, L)
         const y = nodeY(i, L)
-        // On a phone every label sits to the right of the lane. On desktop they
+        // On a phone every card sits to the right of the lane. On desktop they
         // alternate so the curve has room to breathe.
         const rightSide = isMobile ? true : i % 2 === 0
-        // Everybody who has got at least this far.
+        // Everybody who has got at least this far. Accurate BECAUSE the route
+        // is gated: a count of stops reached is now a prefix length, so
+        // "reached >= i" really does mean "has passed this stop".
         const atStop = n.start ? [] : standings.filter((p) => p.reached >= i)
         return (
           <motion.div
             key={n.id || 'start-label'}
-            initial={{ opacity: 0, x: rightSide ? -10 : 10 }}
-            animate={started ? { opacity: 1, x: 0 } : { opacity: 0, x: rightSide ? -10 : 10 }}
+            initial={{ opacity: 0, x: rightSide ? -14 : 14, scale: 0.96 }}
+            animate={started
+              ? { opacity: 1, x: 0, scale: 1 }
+              : { opacity: 0, x: rightSide ? -14 : 14, scale: 0.96 }}
             transition={{ delay: arrivalDelay(i) + 0.12, duration: 0.5, ease: EASE }}
-            className={cx('absolute', rightSide ? 'text-left' : 'text-right')}
+            className="absolute text-left"
             style={{
               top: `${(y / H) * 100}%`,
-              left: rightSide ? `${((x + 24) / L.W) * 100}%` : undefined,
-              right: rightSide ? undefined : `${((L.W - x + 24) / L.W) * 100}%`,
+              left: rightSide ? `${((x + 22) / L.W) * 100}%` : undefined,
+              right: rightSide ? undefined : `${((L.W - x + 22) / L.W) * 100}%`,
               width: `${L.labelPct}%`,
               transform: 'translateY(-50%)',
             }}
           >
             {n.start ? (
-              <>
+              <div className="rounded-2xl border border-brand/20 bg-brand-tint/40 px-3 py-2.5">
                 <p className="text-sm font-bold text-brand">You joined</p>
                 <p className="text-xs text-smoke">Where every route starts.</p>
-              </>
+              </div>
             ) : (
-              <>
-                <p className={cx('text-sm font-bold leading-tight', done ? 'text-ink' : isNext ? 'text-brand' : 'text-smoke')}>
+              <button
+                type="button"
+                onClick={() => setOpen(n)}
+                className={cx(
+                  'group block w-full rounded-2xl border px-3 py-2.5 text-left transition-all duration-200',
+                  'hover:-translate-y-0.5 hover:shadow-card',
+                  done
+                    ? 'border-brand/25 bg-white hover:border-brand'
+                    : isNext
+                      ? 'border-brand/40 bg-brand-tint/25 hover:border-brand'
+                      : n.blocked
+                        ? 'border-amber-200 bg-amber-50/60 hover:border-amber-400'
+                        : 'border-gray-100 bg-white/80 hover:border-gray-300',
+                )}
+              >
+                <p className={cx(
+                  'text-sm font-bold leading-snug',
+                  done ? 'text-ink' : isNext ? 'text-brand' : 'text-smoke',
+                )}>
                   {n.title}
                 </p>
+
+                {/* THE DESCRIPTION, which the admin has been able to write since
+                    the beginning and which appeared nowhere at all. Ethan's
+                    report was that he seemed to need to write several and never
+                    saw any of them. */}
+                {n.description && (
+                  <p className="mt-0.5 text-[11px] leading-snug text-smoke">{n.description}</p>
+                )}
+
                 {n.reward && (
                   <span className={cx(
-                    'mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                    'mt-1.5 inline-block max-w-full truncate rounded-full px-2 py-0.5 text-[10px] font-semibold',
                     done ? REWARD_TONE[n.reward_kind] || REWARD_TONE.other : 'bg-cloud text-smoke',
                   )}>
                     {n.reward}
                   </span>
                 )}
+
                 {/* WHAT THIS STOP ACTUALLY ASKS FOR.
                     One line per requirement, ticked or not. A stop can need
                     three things now, and "3 of 10 videos" under a milestone
                     that also wants 500k views and two referrals would be a
-                    progress line that lies by omission. Ticking them off
-                    individually is also the thing Ethan asked for directly:
-                    show what you have got and what you still need. */}
+                    progress line that lies by omission. */}
                 {done ? (
-                  <p className="mt-1 text-[11px] text-smoke">Reached</p>
+                  <p className="mt-1.5 flex items-center gap-1 text-[11px] font-medium text-brand">
+                    <Icon name="check" className="h-3 w-3" /> Reached
+                  </p>
                 ) : (
-                  <ul className="mt-1 space-y-0.5">
+                  <ul className="mt-1.5 space-y-0.5">
                     {(n.criteria || []).map((c) => (
                       <li key={c.metric} className="flex items-start gap-1 text-[11px] leading-tight">
                         <Icon
@@ -616,41 +635,115 @@ export default function MilestonePath({ milestones = [], standings = [], preview
                 {/* EARNED, BUT WAITING ON AN EARLIER STOP.
                     Without this the dot is simply unlit and the creator has no
                     way to tell "you have not done this yet" from "you did this
-                    months ago but the route runs in order". Naming it turns a
-                    dead end into a next action. */}
+                    months ago but the route runs in order". */}
                 {n.blocked && (
-                  <p className="mt-1.5 inline-flex items-start gap-1 rounded-lg bg-amber-50 px-1.5 py-1 text-[10px] font-medium leading-tight text-amber-700">
+                  <p className="mt-1.5 inline-flex items-start gap-1 rounded-lg bg-amber-100/70 px-1.5 py-1 text-[10px] font-medium leading-tight text-amber-800">
                     <Icon name="alert" className="mt-px h-3 w-3 shrink-0" />
                     Done — waiting on an earlier stop
                   </p>
                 )}
-                {/* WHO IS AT THIS STOP.
-                    Always, not behind a toggle. There were two buttons here -
-                    "Faces at each stop" and "Everyone on the road" - and
-                    neither name told you what it would do, which is the whole
-                    problem with a toggle for something that should just be
-                    true. Three faces and a count is the answer to "am I on my
-                    own out here", and it is short enough to live under every
-                    label without becoming the label. */}
+
+                {/* WHO REACHED THIS ONE. Each face lands on its own beat after
+                    the card does, so a busy stop arrives as a little run rather
+                    than as a block of heads appearing at once. */}
                 {atStop.length > 0 && (
-                  <div className="mt-1.5 flex items-center -space-x-1.5">
-                    {atStop.slice(0, 3).map((s2) => (
-                      <Link key={s2.id} to={`/profile/${s2.id}`} title={s2.name} className="transition-transform hover:z-10 hover:scale-110">
+                  <div className="mt-2 flex items-center -space-x-1.5">
+                    {atStop.slice(0, 4).map((s2, k) => (
+                      <motion.span
+                        key={s2.id}
+                        initial={{ opacity: 0, scale: 0.4, y: 4 }}
+                        animate={started ? { opacity: 1, scale: 1, y: 0 } : { opacity: 0, scale: 0.4, y: 4 }}
+                        transition={{
+                          delay: arrivalDelay(i) + 0.3 + k * 0.07,
+                          type: 'spring', stiffness: 460, damping: 24,
+                        }}
+                        className="transition-transform duration-200 group-hover:translate-y-[-2px]"
+                      >
                         <Avatar src={s2.photo_url} name={s2.name} size="xs" className="ring-2 ring-white" />
-                      </Link>
+                      </motion.span>
                     ))}
-                    {atStop.length > 3 && (
-                      <span className="flex h-6 items-center rounded-full bg-cloud px-1.5 text-[9px] font-semibold text-smoke ring-2 ring-white">
-                        +{atStop.length - 3}
-                      </span>
-                    )}
+                    <span className={cx(
+                      'flex h-6 items-center rounded-full px-1.5 text-[9px] font-semibold ring-2 ring-white transition-colors',
+                      'bg-cloud text-smoke group-hover:bg-brand group-hover:text-white',
+                    )}>
+                      {atStop.length > 4 ? `+${atStop.length - 4}` : `${atStop.length}`}
+                    </span>
                   </div>
                 )}
-              </>
+              </button>
             )}
           </motion.div>
         )
       })}
+
+      {/* EVERYTHING ABOUT ONE STOP, INCLUDING EVERY NAME.
+          Four faces and a "+5" answers "am I on my own out here" and nothing
+          else - you cannot read the five, and there was no way to. The card is
+          now a button and this is what it opens. */}
+      <Modal open={!!open} onClose={() => setOpen(null)} title={open?.title || ''}>
+        {open && (
+          <div className="space-y-4">
+            {open.description && <p className="text-sm text-smoke">{open.description}</p>}
+
+            <div>
+              <p className="label">What it takes</p>
+              <ul className="space-y-1.5">
+                {(open.criteria || []).map((c) => (
+                  <li key={c.metric} className="flex items-start gap-2 text-sm">
+                    <Icon
+                      name={c.done ? 'check' : 'clock'}
+                      className={cx('mt-0.5 h-4 w-4 shrink-0', c.done ? 'text-green-600' : 'text-gray-300')}
+                    />
+                    <span className={c.done ? 'text-smoke line-through decoration-green-600/40' : 'text-ink'}>
+                      {criterionLabel(c)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {open.reward && (
+              <div>
+                <p className="label">Reward</p>
+                <span className={cx(
+                  'inline-block rounded-full px-3 py-1 text-xs font-semibold',
+                  REWARD_TONE[open.reward_kind] || REWARD_TONE.other,
+                )}>
+                  {open.reward}
+                </span>
+              </div>
+            )}
+
+            {(() => {
+              const idx = nodes.findIndex((z) => z.id === open.id)
+              const who = standings.filter((p) => p.reached >= idx)
+              return (
+                <div>
+                  <p className="label">
+                    {who.length === 0 ? 'Nobody has reached this yet'
+                      : `${who.length} ${who.length === 1 ? 'creator has' : 'creators have'} reached this`}
+                  </p>
+                  {who.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {who.map((p) => (
+                        <Link
+                          key={p.id}
+                          to={`/profile/${p.id}`}
+                          onClick={() => setOpen(null)}
+                          className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white py-0.5 pl-0.5 pr-2.5 transition-all duration-200 hover:scale-105 hover:border-brand"
+                        >
+                          <Avatar src={p.photo_url} name={p.name} size="xs" />
+                          <span className="text-xs font-medium">{p.name}</span>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+          </div>
+        )}
+      </Modal>
 
       {milestones.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center">

@@ -290,7 +290,9 @@ export default function AdminRewards() {
                 <p className="flex items-center gap-1 truncate text-xs text-smoke">
                   <Icon name={r.reward_type === 'cash' ? 'cash' : 'ticket'} className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">
-                    {r.source === 'referral' ? 'Referral voucher' : r.reward_type === 'cash' ? 'Cash' : 'Voucher'}
+                    {r.source === 'referral' ? 'Referral voucher'
+                      : r.source === 'milestone' ? 'Milestone voucher'
+                        : r.reward_type === 'cash' ? 'Cash' : 'Voucher'}
                     {r.challenges?.title && ` · ${r.challenges.title}`}
                     {r.source === 'referral' && r.referred?.name && ` · brought in ${r.referred.name}`}
                     {r.payment_notes && r.source !== 'referral' && ` · ${r.payment_notes}`}

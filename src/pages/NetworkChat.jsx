@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import PendingLabel from '../components/PendingLabel'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'motion/react'
 import { supabase } from '../lib/supabase'
@@ -829,7 +830,7 @@ export default function NetworkChat() {
                       on its way, or waiting for a connection that has not come
                       back yet. Grey, not red - nothing has gone wrong. */}
                   {m.pending && (
-                    <p className="mt-0.5 text-[11px] text-gray-400">{m.tries > 0 ? 'Waiting for signal' : 'Sending…'}</p>
+                    <PendingLabel tries={m.tries} className="mt-0.5 block text-[11px] text-gray-400" />
                   )}
                   {m.failed && (
                     <p className="mt-0.5 text-[11px] text-smoke">
@@ -1086,7 +1087,16 @@ export default function NetworkChat() {
         </div>
       </div>
 
-      {/* Poll / game / resource, for admins, in this room like any other. */}
+      {/* Poll / game / resource, for admins, in this room like any other.
+
+          GUARDED ON THERE BEING A ROOM, which it was not - and `active` is null
+          on the first paint of every visit, because it is derived from a
+          channel list that is fetched. `scopedKey(community, active.key)` was
+          evaluated unconditionally on the way into this element, so the whole
+          page threw before it could render anything: not a dead link, a dead
+          route. It stayed dead for any community whose channel list came back
+          empty. */}
+      {active && community && (
       <ChatAdminTools
         // A market room schedules on the MARKET's clock: 09:00 in the Spanish
         // room means 09:00 in Madrid, whoever is typing it.
@@ -1101,6 +1111,7 @@ export default function NetworkChat() {
         postCard={(fields) => postMessage({ body: '', ...fields })}
         roomLabel={active?.label ? `#${active.label.toLowerCase()}` : 'this room'}
       />
+      )}
 
       <ReportMessage
         open={!!reporting}

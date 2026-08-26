@@ -20,10 +20,32 @@ export default function OutboxNotice({ scope }) {
   // and never to decide whether to attempt a send.
   const [offline, setOffline] = useState(() => !navigator.onLine)
 
+  // A SEND THAT IS ABOUT TO SUCCEED IS NOT "WAITING FOR SIGNAL".
+  //
+  // Every message goes through the outbox, so the queue is non-empty for the
+  // 200ms a normal send takes - and the banner appeared for exactly that long,
+  // on every single message, on a good connection. A warning that fires when
+  // nothing is wrong is worse than no warning: it teaches you to ignore the one
+  // time it matters.
+  //
+  // So an item has to have been sitting there for GRACE_MS before it counts.
+  // `now` is STATE rather than a `Date.now()` in the render body: reading the
+  // clock while rendering is impure, and the component has to re-render as time
+  // passes anyway - without that a message queued at t=0 with nothing else
+  // happening would never become visible at t=4s.
+  const [now, setNow] = useState(() => Date.now())
+
   useEffect(() => {
     setQueued(queuedFor(scope))
     return subscribeOutbox(() => setQueued(queuedFor(scope)))
   }, [scope])
+
+  useEffect(() => {
+    if (queued.length === 0) return undefined
+    setNow(Date.now())
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [queued.length])
 
   useEffect(() => {
     const on = () => setOffline(false)
@@ -33,10 +55,15 @@ export default function OutboxNotice({ scope }) {
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
   }, [])
 
+  // A failed item is shown at once whatever its age - that one HAS gone wrong,
+  // and it got there by exhausting its retries, which already took time.
+  const GRACE_MS = 4000
+  const slow = queued.filter((i) => i.failed || now - (i.createdAt || 0) > GRACE_MS)
+
   // Offline with an empty queue is still worth one line: it is the difference
   // between a composer that will hold what you write and a composer you are
   // about to type into for nothing.
-  if (queued.length === 0) {
+  if (slow.length === 0) {
     if (!offline) return null
     return (
       <div className="mb-2 flex items-center gap-2 rounded-xl border border-brand/15 bg-brand-tint/60 px-3 py-2">
@@ -48,8 +75,8 @@ export default function OutboxNotice({ scope }) {
     )
   }
 
-  const failed = queued.filter((i) => i.failed)
-  const waiting = queued.length - failed.length
+  const failed = slow.filter((i) => i.failed)
+  const waiting = slow.length - failed.length
 
   return (
     <div className="mb-2 space-y-1.5">

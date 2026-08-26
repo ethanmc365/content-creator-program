@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { confirm, notice } from '../../lib/confirm'
 import { toast } from '../../lib/toast'
@@ -11,6 +11,7 @@ import {
   METRICS, METRIC_BY_VALUE, REWARD_KINDS, UNITS,
   criterionNeed, fromDays, toDays,
 } from '../../lib/milestones'
+import { CURRENCIES } from '../../lib/timezones'
 
 // Editing the ladder.
 //
@@ -39,7 +40,8 @@ const ICONS = ['flag', 'video', 'eye', 'star', 'trophy', 'plane', 'chart', 'mega
 
 const BLANK = {
   title: '', description: '', reward: '', reward_kind: 'merch',
-  role_title: '', icon: 'flag', is_active: true,
+  role_title: '', voucher_amount: '', voucher_currency: 'EUR',
+  icon: 'flag', is_active: true,
   criteria: [{ metric: 'videos', threshold: 1, unit: 'days' }],
 }
 
@@ -60,6 +62,7 @@ function Field({ label, hint, children }) {
 // that also has a number in it produces the state where somebody switches
 // "views" to "videos" and leaves 100,000 sitting in the box.
 function CriterionRow({ c, onChange, onRemove }) {
+  const [draft, setDraft] = useState(null)
   const m = METRIC_BY_VALUE[c.metric]
   const isDays = c.metric === 'days'
   // Days are stored canonical and typed in whatever unit suits, so the input
@@ -73,28 +76,42 @@ function CriterionRow({ c, onChange, onRemove }) {
       </span>
       <span className="min-w-0 flex-1 text-sm font-medium">{m?.label || c.metric}</span>
 
+      {/* THE BOX HOLDS WHAT WAS TYPED, not what was stored.
+          Converting on every keystroke meant an empty box became 1 day became
+          "0.03 months" and could never be cleared to type "6". The raw string
+          is kept while the field has focus and only converted on the way out. */}
       <input
         type="number"
         min="1"
-        step={isDays ? '1' : 'any'}
-        value={shown}
+        step="any"
+        value={draft ?? shown}
         aria-label={`${m?.label} threshold`}
-        onChange={(e) => {
-          const v = e.target.value
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          const v = Number(draft)
+          setDraft(null)
+          if (draft === null || draft === '' || !(v > 0)) return
           onChange({ ...c, threshold: isDays ? toDays(v, c.unit || 'days') : v })
         }}
         className="input !w-28 !py-1.5 text-sm"
       />
 
       {/* DAYS, MONTHS OR YEARS. Nobody sets a milestone at "183 days"; they set
-          it at six months. The ladder still compares days underneath. */}
+          it at six months. The ladder still compares days underneath.
+
+          CHANGING THE UNIT KEEPS THE NUMBER, and that is the fix for a real
+          trap: switching a 1-day requirement to months used to leave the stored
+          1 alone, so the box read "0.03 months" - and typing over it was
+          hopeless, because every keystroke was being converted back through a
+          value that had already lost its meaning. Picking "months" now means
+          "the number in the box is months", so 1 day becomes 1 month. */}
       {isDays && (
         <div className="flex gap-1">
           {UNITS.map((u) => (
             <button
               key={u.value}
               type="button"
-              onClick={() => onChange({ ...c, unit: u.value })}
+              onClick={() => onChange({ ...c, unit: u.value, threshold: toDays(Math.max(1, Math.round(shown)), u.value) })}
               aria-pressed={(c.unit || 'days') === u.value}
               className={cx(
                 'rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors',
@@ -122,6 +139,7 @@ function CriterionRow({ c, onChange, onRemove }) {
 }
 
 export default function AdminMilestones() {
+  const formRef = useRef(null)
   const [rows, setRows] = useState(null)
   const [stats, setStats] = useState({})
   const [editing, setEditing] = useState(null) // a row, or BLANK for a new one
@@ -138,6 +156,28 @@ export default function AdminMilestones() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  // OPENING THE EDITOR HAS TO TAKE YOU TO IT.
+  //
+  // The form renders ABOVE the ladder, and the ladder is eleven rows long - so
+  // clicking the pencil on the ninth stop changed something eight hundred
+  // pixels off the top of the screen and left you looking at the list you just
+  // clicked in, with no sign anything had happened. Ethan's report was that he
+  // did not realise he was editing at all.
+  //
+  // Scrolled after paint, because the form does not exist in the DOM until the
+  // render that `setEditing` causes.
+  // Keyed on WHICH milestone is open, not on the object: `editing` is replaced
+  // on every keystroke, and scrolling the page on every keystroke is worse than
+  // not scrolling at all. `new` covers the blank form, which has no id.
+  const editingKey = editing ? (editing.id || 'new') : null
+  useEffect(() => {
+    if (!editingKey) return undefined
+    const id = requestAnimationFrame(() => {
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+    return () => cancelAnimationFrame(id)
+  }, [editingKey])
 
   function patchCriterion(i, next) {
     setEditing((m) => ({ ...m, criteria: m.criteria.map((c, j) => (j === i ? next : c)) }))
@@ -160,6 +200,10 @@ export default function AdminMilestones() {
     }
     const bad = m.criteria.find((c) => !(Number(c.threshold) > 0))
     if (bad) { notice(`The ${METRIC_BY_VALUE[bad.metric]?.label} requirement has to be more than zero.`); return }
+    if (m.reward_kind === 'voucher' && !(Number(m.voucher_amount) > 0)) {
+      notice('A voucher milestone needs an amount — that is what gets paid out when a creator reaches it.')
+      return
+    }
     if (m.reward_kind === 'role' && !m.role_title?.trim()) {
       notice('A role milestone needs the title it grants — that is the text worn beside the creator\'s name.')
       return
@@ -172,6 +216,8 @@ export default function AdminMilestones() {
       reward: m.reward?.trim() || null,
       reward_kind: m.reward_kind,
       role_title: m.reward_kind === 'role' ? m.role_title.trim() : null,
+      voucher_amount: m.reward_kind === 'voucher' ? Number(m.voucher_amount) || null : null,
+      voucher_currency: m.reward_kind === 'voucher' ? (m.voucher_currency || 'EUR') : null,
       icon: m.icon || 'flag',
       is_active: m.is_active !== false,
     }
@@ -250,9 +296,31 @@ export default function AdminMilestones() {
     return <div className="page space-y-4"><Skeleton className="h-12 w-64" /><Skeleton className="h-64 w-full" /></div>
   }
 
-  // A plausible mid-route creator, so the preview shows a flown leg, a current
-  // stop and the road ahead rather than eleven identical grey dots.
-  const preview = rows.filter((m) => m.is_active).map((m, i) => ({
+  // THE PREVIEW SHOWS WHAT YOU ARE TYPING, not what is saved.
+  //
+  // It used to render `rows` - the last thing loaded from the database - so
+  // while the form was open the panel beside it was showing the OLD version of
+  // the stop being edited, and a brand-new stop did not appear in it at all.
+  // A preview that cannot see the edit is a screenshot. The unsaved milestone
+  // is merged in at its own position (or appended, if it is new) so the title,
+  // the description, the reward chip and the requirement list all update as
+  // they are typed.
+  //
+  // Two stops are shown as flown, so the preview has a lit leg, a current stop
+  // and a road ahead rather than eleven identical grey dots.
+  const draftRows = (() => {
+    const base = rows.filter((m) => m.is_active)
+    if (!editing) return base
+    const live = {
+      ...editing,
+      voucher_amount: Number(editing.voucher_amount) || null,
+      criteria: editing.criteria || [],
+    }
+    if (!editing.id) return [...base, live]
+    return base.map((m) => (m.id === editing.id ? { ...m, ...live } : m))
+  })()
+
+  const preview = draftRows.map((m, i) => ({
     ...m,
     reached: i < 2,
     blocked: false,
@@ -299,7 +367,7 @@ export default function AdminMilestones() {
       )}
 
       {editing && (
-        <form onSubmit={save} className="card mb-8 !p-6">
+        <form ref={formRef} onSubmit={save} className="card mb-8 !p-6 scroll-mt-24">
           <h2 className="mb-4 text-lg font-semibold">{editing.id ? 'Edit milestone' : 'New milestone'}</h2>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -308,7 +376,7 @@ export default function AdminMilestones() {
                 placeholder="Ten videos published"
                 onChange={(e) => setEditing((m) => ({ ...m, title: e.target.value }))} />
             </Field>
-            <Field label="Description" hint="One line, shown to the creator.">
+            <Field label="Description">
               <input className="input" value={editing.description || ''} maxLength={120}
                 placeholder="Consistency is the whole game."
                 onChange={(e) => setEditing((m) => ({ ...m, description: e.target.value }))} />
@@ -318,10 +386,6 @@ export default function AdminMilestones() {
           {/* ---------- what it takes ---------- */}
           <div className="mt-6 rounded-card border border-gray-100 bg-cloud/40 p-4">
             <p className="label !mb-1">What it takes</p>
-            <p className="mb-3 text-xs text-smoke">
-              All of these, not any of them. A creator reaches this stop when every line below is true —
-              and when they have already reached the stop in front of it.
-            </p>
 
             {editing.criteria.length === 0 ? (
               <p className="rounded-xl border border-dashed border-amber-300 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
@@ -404,6 +468,46 @@ export default function AdminMilestones() {
                 which is the team's job titles and is guarded so only an admin can
                 set it. An earned role can only ever replace the generic "Creator"
                 badge - it never overwrites somebody's actual job. */}
+            {/* THE AMOUNT, because a voucher milestone now PAYS.
+                Reaching it mints a row in `rewards` - the same ledger challenge
+                prizes use - so it turns up in the creator's own rewards page,
+                in the admin payouts list and in every CPM calculation. Before
+                this the reward was a sentence on a drawing and nothing else
+                happened. */}
+            {editing.reward_kind === 'voucher' && (
+              <Field label="Voucher amount" hint="Paid out automatically when a creator reaches this stop.">
+                <div className="flex gap-2">
+                  <div className="flex shrink-0 gap-1">
+                    {CURRENCIES.map((cur) => (
+                      <button
+                        key={cur.value}
+                        type="button"
+                        aria-pressed={(editing.voucher_currency || 'EUR') === cur.value}
+                        onClick={() => setEditing((m) => ({ ...m, voucher_currency: cur.value }))}
+                        className={cx(
+                          'rounded-lg border px-3 py-2 text-sm font-semibold transition-colors',
+                          (editing.voucher_currency || 'EUR') === cur.value
+                            ? 'border-brand bg-brand text-white'
+                            : 'border-gray-200 text-smoke hover:border-brand/40',
+                        )}
+                      >
+                        {cur.value === 'GBP' ? '£' : '€'}
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    className="input"
+                    type="number"
+                    min="1"
+                    step="any"
+                    placeholder="25"
+                    value={editing.voucher_amount ?? ''}
+                    onChange={(e) => setEditing((m) => ({ ...m, voucher_amount: e.target.value }))}
+                  />
+                </div>
+              </Field>
+            )}
+
             {editing.reward_kind === 'role' && (
               <Field label="Role title" hint="Worn beside their name on their profile and in chat.">
                 <input className="input" value={editing.role_title || ''} maxLength={40}
@@ -444,12 +548,9 @@ export default function AdminMilestones() {
         </form>
       )}
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_26rem] lg:items-start">
         <section>
           <h2 className="mb-1 text-lg font-semibold">The ladder</h2>
-          <p className="mb-4 text-sm text-smoke">
-            Drag a row to change where it sits. Order matters now — a stop cannot be reached before the one above it.
-          </p>
           {rows.length === 0 ? (
             <EmptyState icon={<Icon name="flag" className="h-7 w-7" />} title="No milestones yet"
               action={<button onClick={() => setEditing({ ...BLANK, criteria: [...BLANK.criteria] })} className="btn-primary">Add the first one</button>} />
@@ -475,6 +576,14 @@ export default function AdminMilestones() {
                         <span className="truncate font-semibold">{m.title}</span>
                         {!m.is_active && <Badge tone="grey">Off the route</Badge>}
                         {m.reward_kind === 'role' && m.role_title && <Badge tone="light">{m.role_title}</Badge>}
+                        {m.reward_kind === 'voucher' && Number(m.voucher_amount) > 0 && (
+                          <Badge tone="green">
+                            {m.voucher_currency === 'GBP' ? '£' : '€'}{Number(m.voucher_amount)}
+                          </Badge>
+                        )}
+                        {m.reward_kind === 'voucher' && !(Number(m.voucher_amount) > 0) && (
+                          <Badge tone="amber">No amount set</Badge>
+                        )}
                       </p>
                       {/* EVERY REQUIREMENT, not the first one. A stop asking for
                           three things and showing one is the version of this row
@@ -514,7 +623,13 @@ export default function AdminMilestones() {
                         className="flex h-8 w-8 items-center justify-center rounded-lg text-smoke transition-colors hover:bg-cloud">
                         <Icon name={m.is_active ? 'eye' : 'ban'} className="h-4 w-4" />
                       </button>
-                      <button onClick={() => setEditing({ ...m, role_title: m.role_title || '', criteria: (m.criteria || []).map((c) => ({ ...c })) })} title="Edit"
+                      <button onClick={() => setEditing({
+                        ...m,
+                        role_title: m.role_title || '',
+                        voucher_amount: m.voucher_amount ?? '',
+                        voucher_currency: m.voucher_currency || 'EUR',
+                        criteria: (m.criteria || []).map((c) => ({ ...c })),
+                      })} title="Edit"
                         className="flex h-8 w-8 items-center justify-center rounded-lg text-smoke transition-colors hover:bg-brand-tint hover:text-brand">
                         <Icon name="pencil" className="h-4 w-4" />
                       </button>
@@ -532,10 +647,10 @@ export default function AdminMilestones() {
 
         <aside className="lg:sticky lg:top-24">
           <h2 className="mb-1 text-lg font-semibold">How it looks</h2>
-          <p className="mb-4 text-sm text-smoke">A creator two stops in.</p>
-          {/* The preview lays itself out from ITS OWN width, so a 22rem rail
-              gets the narrow lane rather than the wide serpentine squeezed into
-              a third of the room it needs. */}
+          <p className="mb-4 text-sm text-smoke">Exactly what a creator sees, two stops in.</p>
+          {/* The preview lays itself out from ITS OWN width, so the rail gets
+              the narrow lane rather than the wide serpentine squeezed into a
+              third of the room it needs. */}
           <div className="max-h-[70vh] overflow-y-auto overscroll-contain rounded-card border border-gray-100 bg-white px-2 py-5">
             <MilestonePath milestones={preview} standings={[]} />
           </div>
