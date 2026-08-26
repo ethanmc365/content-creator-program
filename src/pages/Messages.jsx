@@ -194,6 +194,9 @@ export default function Messages() {
   // `thread` is a stale closure and a setState updater is the wrong place for
   // a side effect.
   const myMessageIdsRef = useRef(new Set())
+  // AND WHICH MESSAGES ARE IN IT AT ALL, for the same reason and for a worse
+  // bug - see the reaction subscription below.
+  const threadIdsRef = useRef(new Set())
 
   // Visual-viewport tracking drives the WhatsApp-style mobile layout: the whole
   // thread becomes a fixed overlay pinned to the visible area so the composer
@@ -478,6 +481,7 @@ export default function Messages() {
 
   useEffect(() => {
     myMessageIdsRef.current = new Set(thread.filter((m) => m.sender_id === user.id).map((m) => m.id))
+    threadIdsRef.current = new Set(thread.map((m) => m.id))
   }, [thread, user.id])
 
   // ---------- Realtime: new DMs in any of my conversations ----------
@@ -527,12 +531,22 @@ export default function Messages() {
         // it twice, which would double the sound.
         if (myMessageIdsRef.current.has(payload.new.message_id)
           && payload.new.creator_id !== user.id && !document.hidden) playReactionPop()
-        setThread((cur) => {
-          if (cur.some((m) => m.id === payload.new.message_id)) {
-            setReactions((prev) => (prev.some((r) => r.id === payload.new.id) ? prev : [...prev, payload.new]))
-          }
-          return cur
-        })
+        // REACTING TO A DM USED TO TAKE THE PAGE DOWN.
+        //
+        // This read the open thread by calling `setThread` and reaching into
+        // the updater - and then called `setReactions` from inside it. A
+        // setState updater has to be a pure function of the previous state:
+        // React is allowed to call it twice, to call it while another component
+        // is rendering, and to discard the result, so scheduling a second
+        // update from inside one is exactly the thing that throws. The comment
+        // three lines above says as much, about the sound, and then the next
+        // line does it anyway. That is the "mayday mayday" on reacting to a DM.
+        //
+        // The question it was asking - "is this reaction about a message I have
+        // on screen" - is answered by a ref, which is what refs are for.
+        if (threadIdsRef.current.has(payload.new.message_id)) {
+          setReactions((prev) => (prev.some((r) => r.id === payload.new.id) ? prev : [...prev, payload.new]))
+        }
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'dm_reactions' }, (payload) => {
         setReactions((prev) => prev.filter((r) => r.id !== payload.old.id))
@@ -1471,23 +1485,13 @@ export default function Messages() {
                           ) : null
                         })()}
 
-                        {/* Reactions stay in the flow. */}
-                        {Object.keys(summary).length > 0 && (
-                          <div className={cx('mt-0.5 flex flex-wrap items-center gap-1', mine && 'justify-end')}>
-                            {Object.entries(summary).map(([emoji, info]) => (
-                              <ReactionPill
-                                key={emoji}
-                                emoji={emoji}
-                                count={info.count}
-                                mine={info.mine}
-                                names={info.ids.map(reactorName)}
-                                onToggle={() => toggleReaction(m.id, emoji)}
-                                align={mine ? 'right' : 'left'}
-                              />
-                            ))}
-                          </div>
-                        )}
-
+                        {/* THE ANCHOR THE ACTION ROW HANGS ON.
+                            Zero height, so it costs no layout, and it sits
+                            exactly where the message body ends - which is the
+                            line the reply/react row is supposed to straddle.
+                            The row itself is further down, absolutely
+                            positioned against this. */}
+                        <div className="relative h-0 w-full">
                         {/* THE ACTIONS FLOAT. As an `opacity-0` row in the flow
                             they reserved their height under every message even
                             though nobody could see them, which on a phone left a
@@ -1503,7 +1507,16 @@ export default function Messages() {
                             // you decide to reply or react, and on a phone it
                             // is the nearer half of the screen. Absolute either
                             // way, so it reserves no empty strip.
-                            'absolute bottom-0 z-10 flex translate-y-1/2 items-center gap-1 rounded-full border border-gray-100 bg-white/95 px-1 py-0.5 shadow-card backdrop-blur transition-opacity',
+                            // ANCHORED TO THE MESSAGE, NOT TO EVERYTHING UNDER IT.
+                            // `bottom-0` is measured against the message COLUMN,
+                            // which also holds the reaction chips and the read
+                            // receipt - so the moment anybody reacted, reply and
+                            // react jumped a row down and hung below the emoji,
+                            // level with nothing. `--anchor` below is a
+                            // zero-height box sitting exactly on the message's
+                            // bottom edge, so this row centres on that line
+                            // whether or not there is anything after it.
+                            'absolute bottom-0 z-10 flex -translate-y-1/2 items-center gap-1 rounded-full border border-gray-100 bg-white/95 px-1 py-0.5 shadow-card backdrop-blur transition-opacity',
                             mine ? 'left-0' : 'right-0',
                             showActions
                               ? 'opacity-100'
@@ -1571,6 +1584,25 @@ export default function Messages() {
                               </>
                             )}
                           </div>
+                        </div>
+
+                        {/* Reactions stay in the flow. */}
+                        {Object.keys(summary).length > 0 && (
+                          <div className={cx('mt-0.5 flex flex-wrap items-center gap-1', mine && 'justify-end')}>
+                            {Object.entries(summary).map(([emoji, info]) => (
+                              <ReactionPill
+                                key={emoji}
+                                emoji={emoji}
+                                count={info.count}
+                                mine={info.mine}
+                                names={info.ids.map(reactorName)}
+                                onToggle={() => toggleReaction(m.id, emoji)}
+                                align={mine ? 'right' : 'left'}
+                              />
+                            ))}
+                          </div>
+                        )}
+
                       </div>
                     </div>
                   )

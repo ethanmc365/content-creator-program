@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { QUICK_REACTIONS, REACTION_GROUPS } from '../lib/reactions'
 import { cx } from '../lib/utils'
 import Icon from './Icon'
@@ -79,26 +79,66 @@ export default function ReactionPicker({ onPick, onClose, align = 'left', prefer
   // the resulting re-render in the same commit, so the only frame that ever
   // reaches the screen is the correct one. Same on expand: pressing `+` makes
   // the panel ten times taller, which is exactly when it needs to move.
+  // IT FLIPS AT MOST ONCE, AND THAT IS NOT A TUNING CHOICE.
+  //
+  // THE CRASH THIS FIXES. The effect below both READS `placement` and SETS it,
+  // and it measures the panel where it currently is. So in a container too
+  // short for the panel on either side, the two branches disagree forever:
+  // sitting above, there is more room below, so flip; now sitting below, there
+  // is more room above, so flip back. React counts fifty of those and throws
+  // "Maximum update depth exceeded", which is the mayday screen on reacting to
+  // a DM - the thread scroller is exactly the short container that triggers it.
+  //
+  // There is no correct answer when neither side fits, so the only sane
+  // behaviour is to make one decision and live with it. The panel scrolls
+  // internally, so the worst case is a panel that needs a scroll rather than a
+  // page that dies. Reset when the panel RESIZES, because a strip that fitted
+  // and a full grid that does not deserve separate decisions.
+  const flippedRef = useRef(false)
+  useEffect(() => { flippedRef.current = false }, [expanded])
+
+  // MEASURED FROM OFFSET GEOMETRY, NOT FROM getBoundingClientRect.
+  //
+  // THE CRASH THIS FIXES, and it is the second half of the same bug. The panel
+  // opens with a 140ms `reaction-pop` keyframe that animates
+  // `translateY(4px) scale(0.94)` to none. `getBoundingClientRect` reports the
+  // box WITH that transform applied, so it returns a different rectangle on
+  // every frame of the animation - and this effect used to depend on `shiftX`
+  // and set it. Measure, correct, re-render, measure a box that has moved
+  // again, correct again: it never reaches a fixed point, and React throws
+  // "Maximum update depth exceeded" about fifty frames in. That is the mayday
+  // screen on reacting to a DM.
+  //
+  // `offsetLeft` / `offsetTop` / `offsetWidth` ignore transforms entirely, so
+  // they describe where the panel will BE once the pop has finished - which is
+  // the only position worth correcting. The effect no longer depends on
+  // `shiftX` either, so there is no feedback path left even if a measurement
+  // were unstable.
   useLayoutEffect(() => {
     if (!node) return
-    const r = node.getBoundingClientRect()
+    const host = node.offsetParent
+    const base = host ? host.getBoundingClientRect() : { left: 0, top: 0 }
+    const natural = {
+      left: base.left + node.offsetLeft,
+      top: base.top + node.offsetTop,
+      right: base.left + node.offsetLeft + node.offsetWidth,
+      bottom: base.top + node.offsetTop + node.offsetHeight,
+    }
     const limit = clipBounds(node)
     const PAD = 8
-    if (placement === 'above' && r.top < limit.top + PAD) {
+
+    if (placement === 'above' && natural.top < limit.top + PAD) {
       // Only flip if there is genuinely more room the other way. On a very
       // short scroller neither side fits and moving it achieves nothing.
-      const roomBelow = limit.bottom - r.bottom
-      const roomAbove = r.top - limit.top
-      if (roomBelow > roomAbove) setPlacement('below')
-    } else if (placement === 'below' && r.bottom > limit.bottom - PAD) {
-      const roomAbove = r.top - limit.top
-      const roomBelow = limit.bottom - r.bottom
-      if (roomAbove > roomBelow) setPlacement('above')
+      const roomBelow = limit.bottom - natural.bottom
+      const roomAbove = natural.top - limit.top
+      if (!flippedRef.current && roomBelow > roomAbove) { flippedRef.current = true; setPlacement('below') }
+    } else if (placement === 'below' && natural.bottom > limit.bottom - PAD) {
+      const roomAbove = natural.top - limit.top
+      const roomBelow = limit.bottom - natural.bottom
+      if (!flippedRef.current && roomAbove > roomBelow) { flippedRef.current = true; setPlacement('above') }
     }
 
-    // Measure the box at its UNSHIFTED position, so the correction is absolute
-    // and cannot accumulate across re-measures.
-    const natural = { left: r.left - shiftX, right: r.right - shiftX }
     let dx = 0
     if (natural.left < limit.left + PAD) dx = limit.left + PAD - natural.left
     else if (natural.right > limit.right - PAD) dx = limit.right - PAD - natural.right
@@ -106,10 +146,10 @@ export default function ReactionPicker({ onPick, onClose, align = 'left', prefer
     // narrower than the panel, hugging the left edge is the best available
     // answer and the panel scrolls internally from there.
     if (natural.left + dx < limit.left) dx = limit.left - natural.left
-    if (Math.round(dx) !== Math.round(shiftX)) setShiftX(dx)
+    setShiftX(Math.round(dx))
     // Re-measured when it grows: the six-emoji strip fits almost anywhere and
-    // the full panel is ten times taller.
-  }, [node, expanded, placement, shiftX])
+    // the full panel is ten times taller. NOT on `shiftX` - see above.
+  }, [node, expanded, placement])
 
   // Escape closes it. A popover you can only dismiss by clicking exactly the
   // right patch of backdrop is a popover people close by navigating away.

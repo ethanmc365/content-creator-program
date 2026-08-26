@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -155,6 +155,9 @@ export default function Onboarding() {
     : auth.profile
 
   const [step, setStep] = useState(0)
+  // Read by the demo-command handler, which needs to know where it is starting
+  // from without reaching inside a state updater to find out. See `onCommand`.
+  const stepRef = useRef(0)
   const [dir, setDir] = useState('fwd')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -242,15 +245,23 @@ export default function Onboarding() {
     })
   }, [demo, step, current, problems.length, complete, done, market, draft.name, draft.city, draft.country, draft.country_code])
 
+  useEffect(() => { stepRef.current = step }, [step])
+
   const onCommand = useCallback((msg) => {
     if (msg.dir !== 'down') return
     if (msg.type === 'goto' && typeof msg.step === 'number') {
       setError('')
-      setStep((cur) => {
-        const to = Math.max(0, Math.min(STEPS.length - 1, msg.step))
-        setDir(to < cur ? 'back' : 'fwd')
-        return to
-      })
+      // THE DIRECTION IS WORKED OUT BEFORE THE MOVE, not inside it.
+      // `setDir` used to be called from inside the `setStep` updater. An
+      // updater has to be a pure function of the previous state - React is
+      // allowed to run it twice and to run it while another component is
+      // rendering - so scheduling a second update from inside one is
+      // undefined behaviour, not a shortcut. Same fault as the DM reaction
+      // subscription. A ref holds the current step so the comparison can
+      // happen out here where it is allowed to.
+      const to = Math.max(0, Math.min(STEPS.length - 1, msg.step))
+      setDir(to < stepRef.current ? 'back' : 'fwd')
+      setStep(to)
       setDone(false)
     }
     if (msg.type === 'reset') { setStep(0); setDone(false); setError('') }

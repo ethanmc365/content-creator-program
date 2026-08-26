@@ -283,12 +283,15 @@ export default function Connections() {
   // back on this device, and it is nowhere near important enough to spend a
   // table and an RLS policy on.
   function dismiss(id) {
-    setDismissed((prev) => {
-      const next = new Set(prev)
-      next.add(id)
-      try { localStorage.setItem(DISMISSED_KEY, JSON.stringify([...next])) } catch { /* private mode */ }
-      return next
-    })
+    // THE WRITE HAPPENS OUT HERE, not inside the updater. React may run an
+    // updater twice, so a `localStorage.setItem` inside one is a double write -
+    // harmless today because the value is idempotent, and exactly the habit
+    // that produced the crash on DM reactions when the side effect was another
+    // setState. An updater returns the next state and does nothing else.
+    const next = new Set(dismissed)
+    next.add(id)
+    try { localStorage.setItem(DISMISSED_KEY, JSON.stringify([...next])) } catch { /* private mode */ }
+    setDismissed(next)
   }
 
   const visibleSuggestions = useMemo(
