@@ -11,9 +11,14 @@ import { downloadCsv, formatMoney, formatViews, cx } from '../../lib/utils'
 import ProgrammePerformance from './analytics/ProgrammePerformance'
 import AdminNetwork from './AdminNetwork'
 import CommunityHealth from './analytics/CommunityHealth'
+import Growth from './analytics/Growth'
+import PerCreator from './analytics/PerCreator'
+import { scopeToMarket } from '../../lib/analyticsScope'
 
 const TABS = [
   { key: 'overview', label: 'Overview' },
+  { key: 'growth', label: 'Growth' },
+  { key: 'creators', label: 'Per creator' },
   { key: 'programme', label: 'Programme performance' },
   { key: 'community', label: 'Community health' },
   // Community network folded in from its own admin page. "How connected is the
@@ -108,11 +113,19 @@ export default function AdminAnalytics() {
         { data: feedback }, { count: reactionCount }, { count: pollVoteCount },
         { data: gameScores }, { data: connections }, { count: tripCount },
         { data: decisions }, { data: seenRows }, { data: voucherCounts },
+        { data: memberRows }, { data: marketRows },
       ] = await Promise.all([
-        supabase.from('profiles').select('id, name, created_at, status, is_admin, onboarded, referred_by, deletion_requested_at, is_test, last_seen_at'),
-        supabase.from('challenges').select('id, title, status, start_date, vouchers_given').neq('status', 'draft').order('start_date'),
+        supabase.from('profiles').select('id, name, created_at, accepted_at, status, is_admin, onboarded, referred_by, deletion_requested_at, is_test, last_seen_at'),
+        // `community_id` is what makes a market's challenge list a real list.
+        // Without it every market reported "0 challenges run here" while Spain
+        // and the UK had one each.
+        supabase.from('challenges').select('id, title, status, start_date, vouchers_given, community_id, prize_amount, prize_currency, cpm_target').neq('status', 'draft').order('start_date'),
         supabase.from('submissions').select('id, challenge_id, creator_id, logged_views, submitted_at'),
-        supabase.from('rewards').select('amount, status, challenge_id, reward_type'),
+        // `creator_id` and `currency` matter now: the per-creator table cannot
+        // attribute a payout without the first, and cannot convert it without
+        // the second. Without them every creator's spend read as zero, which
+        // made every one of them look infinitely efficient.
+        supabase.from('rewards').select('amount, status, challenge_id, reward_type, creator_id, currency, source'),
         supabase.from('messages').select('id, sender_id, channel, created_at').eq('deleted', false),
         supabase.from('results').select('final_views'),
         supabase.from('feedback').select('status'),
@@ -128,6 +141,12 @@ export default function AdminAnalytics() {
         // Creative Challenge it said 0 where six creators had actually earned
         // one. See migration 115.
         supabase.rpc('challenge_voucher_counts'),
+        // WHO BELONGS WHERE, so every number on this page can be read one
+        // market at a time. Scoping is a filter over these same datasets rather
+        // than a second set of queries - there is one definition of "a view" on
+        // this page and it must not fork.
+        supabase.from('community_members').select('community_id, profile_id').eq('status', 'active'),
+        supabase.from('communities').select('id, name, kind, currency, retired_at').order('name'),
       ])
       // Default every dataset so one failed query can never blank the page.
       // `loadedAt` is captured here (not in render) so derived time windows
@@ -141,6 +160,8 @@ export default function AdminAnalytics() {
         tripCount: tripCount || 0, decisions: decisions || [],
         seenRows: seenRows || [],
         voucherCounts: voucherCounts || [],
+        memberRows: memberRows || [],
+        marketRows: marketRows || [],
         loadedAt: Date.now(),
       })
     }
@@ -355,7 +376,71 @@ export default function AdminAnalytics() {
   // whether the community is actually alive. The tab is in the URL so a link to
   // "the CPM table" lands on the CPM table.
   const tab = params.get('tab') || 'overview'
-  const setTab = (next) => setParams(next === 'overview' ? {} : { tab: next }, { replace: true })
+  const market = params.get('market') || ''
+  const setTab = (next) => {
+    const q = {}
+    if (next !== 'overview') q.tab = next
+    if (market) q.market = market
+    setParams(q, { replace: true })
+  }
+  // THE MARKET IS IN THE URL TOO, so "Spain's growth chart" is a link somebody
+  // can send. It survives a tab change on purpose: a country manager picks
+  // their market once and then reads across the tabs.
+  const setMarket = (next) => {
+    const q = {}
+    if (tab !== 'overview') q.tab = tab
+    if (next) q.market = next
+    setParams(q, { replace: true })
+  }
+
+  const markets = (raw?.marketRows || []).filter((m) => m.kind !== 'network' && !m.retired_at)
+  const marketName = markets.find((m) => m.id === market)?.name || null
+  const scopeLabel = marketName || 'Worldwide'
+  // Scoped copy of everything. `scopeToMarket` returns the ORIGINAL object when
+  // there is no market, so the global case costs nothing.
+  const scoped = scopeToMarket(raw, market, raw?.memberRows || [])
+
+  const marketPicker = markets.length > 0 && (
+    <div className="mb-6 flex flex-wrap items-center gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card">
+      <span className="px-2 text-[11px] font-semibold uppercase tracking-widest text-smoke">Reading</span>
+      <button
+        type="button"
+        onClick={() => setMarket('')}
+        aria-pressed={!market}
+        className={cx(
+          'rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors',
+          !market ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink',
+        )}
+      >
+        Worldwide
+      </button>
+      {markets.map((m) => (
+        <button
+          key={m.id}
+          type="button"
+          onClick={() => setMarket(m.id)}
+          aria-pressed={market === m.id}
+          className={cx(
+            'rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors',
+            market === m.id ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink',
+          )}
+        >
+          {m.name}
+        </button>
+      ))}
+      {/* Real creators only. Counting the raw membership put admins and test
+          accounts in the number, so a market could report MORE creators than the
+          whole programme had - which is the fastest way to make somebody stop
+          believing a page. */}
+      {market && (
+        <span className="ml-auto px-2 text-[11px] text-smoke">
+          {(scoped?.profiles || []).filter((p) => !p.is_test && !p.is_admin).length} creators
+          {' · '}
+          {(scoped?.challenges || []).length} challenges run here
+        </span>
+      )}
+    </div>
+  )
 
   const tabBar = (
     <div className="mb-8 flex flex-wrap gap-1 border-b border-gray-100">
@@ -374,6 +459,26 @@ export default function AdminAnalytics() {
     </div>
   )
 
+  if (tab === 'growth') {
+    return (
+      <div className="page">
+        <PageHeader back="/admin" title="Analytics" subtitle={`How ${scopeLabel} grew, and whether it still is.`} />
+        {tabBar}
+        {marketPicker}
+        <Growth raw={scoped} scopeLabel={scopeLabel} />
+      </div>
+    )
+  }
+  if (tab === 'creators') {
+    return (
+      <div className="page">
+        <PageHeader back="/admin" title="Analytics" subtitle={`Who delivers in ${scopeLabel}, and what they cost.`} />
+        {tabBar}
+        {marketPicker}
+        <PerCreator raw={scoped} currency="EUR" scopeLabel={scopeLabel} />
+      </div>
+    )
+  }
   if (tab === 'programme') {
     return (
       <div className="page">
