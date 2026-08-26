@@ -1,0 +1,23 @@
+-- EVERY CASH PRIZE FOR A CREATOR WITH BANK DETAILS WAS ABORTING.
+--
+-- `on_reward_draft_invoice` read `v_priv.pay_account_name`. There is no such
+-- column: it is `pay_name` (see `creator_private`, and `payeeFromPrivate` in
+-- lib/invoice, which has always read `pay_name`).
+--
+-- WHY IT SHIPPED. `v_priv` is declared `record`, and plpgsql resolves a field on
+-- a record at RUN TIME rather than at create time. So the function compiled,
+-- deployed and passed every check that does not actually insert a cash reward
+-- for somebody who has given us their bank details - and then raised
+-- `record "v_priv" has no field "pay_account_name"`, which aborts the INSERT
+-- that fired the trigger. The prize was not recorded at all.
+--
+-- The guard above it is why it hid so well: a creator with NO payment details
+-- returns early and never reaches the broken line, so it only ever failed for
+-- the creators furthest along.
+--
+-- Verified end to end after the fix: prize -> one invoice at awaiting_approval
+-- with the payee filled -> approve (reward still pending) -> send (reward
+-- distributed, distributed_at set) -> still one invoice. And the no-details
+-- path: prize recorded, no invoice, creator asked for their details.
+--
+-- See the deployed function for the body.
