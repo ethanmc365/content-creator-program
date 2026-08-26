@@ -17,6 +17,11 @@ import { cx } from '../../lib/utils'
 //
 // THERE IS NO "READING:" LABEL. It had one, and a label in front of a row of
 // market names is a word explaining a control that explains itself.
+//
+// IT IS AS WIDE AS ITS BUTTONS AND NO WIDER. It used to stretch the full width
+// of whatever page hosted it, so on a two-column page it drew a bar over BOTH
+// columns - implying it scoped the right-hand one too, which on Rewards it does
+// not. `w-fit` makes the control the size of the thing it controls.
 
 /** Loads the markets and the membership rows every scoped page needs. */
 export function useMarkets() {
@@ -51,7 +56,7 @@ export function useMarkets() {
 export default function MarketScope({ markets = [], value = '', onChange, note }) {
   if (!markets.length) return null
   return (
-    <div className="mb-6 flex flex-wrap items-center gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card">
+    <div className="mb-6 flex w-fit max-w-full flex-wrap items-center gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card">
       <button
         type="button"
         onClick={() => onChange('')}
@@ -77,7 +82,7 @@ export default function MarketScope({ markets = [], value = '', onChange, note }
           {m.name}
         </button>
       ))}
-      {note && <span className="ml-auto px-2 text-[11px] text-smoke">{note}</span>}
+      {note && <span className="px-2 text-[11px] text-smoke">{note}</span>}
     </div>
   )
 }

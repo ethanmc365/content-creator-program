@@ -10,6 +10,7 @@ import { payeeFromPrivate, payeeStarted, formatSortCode, formatIban, cleanIban, 
 import InvoicesPanel from './InvoicesPanel'
 import InvoiceQueue from './InvoiceQueue'
 import MarketScope, { useMarkets } from '../../components/admin/MarketScope'
+import { isRealMember } from '../../lib/members'
 
 // Build the label / display / copy-value rows for a creator's saved bank
 // details, per currency. Numbers copy as raw digits so they paste cleanly into
@@ -28,6 +29,32 @@ function detailRows(p) {
   }
   add('Address', p.address)
   return rows
+}
+
+// A pair of these reads better than six buttons in a row: the two questions a
+// payout list gets asked - which KIND, and what STATE - stay visibly separate.
+function Segmented({ label, value, onChange, options }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{label}</span>
+      <div className="flex gap-0.5 rounded-lg border border-gray-200 bg-white p-0.5">
+        {options.map(([v, text]) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => onChange(v)}
+            aria-pressed={value === v}
+            className={cx(
+              'rounded-md px-3 py-1.5 text-xs font-semibold transition-colors',
+              value === v ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink',
+            )}
+          >
+            {text}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 // ---------------------------------------------------- referral vouchers
@@ -118,6 +145,11 @@ export default function AdminRewards() {
   const [challenges, setChallenges] = useState([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('')
+  // CASH AND VOUCHERS ARE TWO DIFFERENT JOBS. A cash prize is paid by an
+  // invoice somebody has to approve and send; a voucher is a code somebody
+  // hands over. Reading them in one list means reading past the ones you are
+  // not doing today, which is Ethan's "clear view of what we need to do".
+  const [kindFilter, setKindFilter] = useState('')
   const [busyId, setBusyId] = useState(null)
 
   // "Add reward" modal
@@ -149,12 +181,21 @@ export default function AdminRewards() {
     if (tab !== 'details' || payLoaded) return
     let alive = true
     Promise.all([
-      supabase.from('profiles').select('id, name, photo_url').eq('status', 'active').eq('is_admin', false).order('name'),
+      // `isRealMember`'s rule, in query form: active, not an admin, not a test
+      // account, not the view-as-creator sandbox, not on the way out. The
+      // sandbox HAS bank details on file - it must, or the invoice path could
+      // never be exercised - so leaving it in put "Sam Rivera" under Payment
+      // details in every market.
+      supabase.from('profiles')
+        .select('id, name, photo_url, is_test, is_sandbox, deletion_requested_at')
+        .eq('status', 'active').eq('is_admin', false).order('name'),
       supabase.from('creator_private').select('*'),
     ]).then(([{ data: profs }, { data: privs }]) => {
       if (!alive) return
       const byId = new Map((privs ?? []).map((r) => [r.id, r]))
-      setPayDetails((profs ?? []).map((p) => ({ ...p, payee: payeeFromPrivate(byId.get(p.id)) })))
+      setPayDetails((profs ?? [])
+        .filter(isRealMember)
+        .map((p) => ({ ...p, payee: payeeFromPrivate(byId.get(p.id)) })))
       setPayLoaded(true)
     })
     return () => { alive = false }
@@ -171,7 +212,14 @@ export default function AdminRewards() {
 
   // Referral vouchers, split out. `source` is set by the trigger in migration
   // 109; anything older has the column default of 'challenge'.
-  const referralRewards = useMemo(() => rewards.filter((r) => r.source === 'referral'), [rewards])
+  //
+  // DELIBERATELY NOT SCOPED BY MARKET. A referral is one creator bringing in
+  // another and the two can be in different markets; there is no market that
+  // owns the pair. Scoping it made the market bar look like it governed the
+  // whole page when it governs the invoice queue, and Ethan read it that way
+  // immediately. When referrals do become a per-market thing, this is the line
+  // that changes.
+  const referralRewards = useMemo(() => allRewards.filter((r) => r.source === 'referral'), [allRewards])
   const referralPending = useMemo(() => referralRewards.filter((r) => r.status === 'pending'), [referralRewards])
   const referralOwed = useMemo(() => referralPending.reduce((n, r) => n + Number(r.amount || 0), 0), [referralPending])
   const referralPaid = useMemo(
@@ -265,8 +313,9 @@ export default function AdminRewards() {
   }
 
   const filtered = useMemo(
-    () => rewards.filter((r) => !statusFilter || r.status === statusFilter),
-    [rewards, statusFilter]
+    () => rewards.filter((r) => (!statusFilter || r.status === statusFilter)
+      && (!kindFilter || r.reward_type === kindFilter)),
+    [rewards, statusFilter, kindFilter]
   )
 
   const totalPaid = rewards.filter((r) => r.status === 'distributed').reduce((s, r) => s + Number(r.amount), 0)
@@ -365,13 +414,6 @@ export default function AdminRewards() {
         ))}
       </div>
 
-      <MarketScope
-        markets={markets}
-        value={market}
-        onChange={setMarket}
-        note={market ? `${rewards.length} of ${allRewards.length} rewards` : null}
-      />
-
       {/* ---------- Invoices ----------
           INVOICES LEFT, REFERRALS RIGHT, which is what Ethan asked for and also
           what the two things are worth. The invoice pipeline is where money
@@ -379,8 +421,17 @@ export default function AdminRewards() {
           ten-pound tick-off that only ever needs a glance and a button. Giving
           them a tab each meant the glance cost a page load. */}
       <div className={tab === 'invoices' ? '' : 'hidden'}>
-        <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-          <InvoiceQueue key={queueKey} onEdit={editInvoice} inMarket={inMarket} onChanged={load} />
+        <div className="grid grid-cols-1 gap-x-8 gap-y-10 xl:grid-cols-[minmax(0,1.65fr)_minmax(20rem,1fr)]">
+          <div className="min-w-0">
+            {/* The bar sits over the queue because the queue is what it
+                filters. Above both columns it claimed the referral list too. */}
+            <MarketScope
+              markets={markets}
+              value={market}
+              onChange={setMarket}
+            />
+            <InvoiceQueue key={queueKey} onEdit={editInvoice} inMarket={inMarket} onChanged={load} />
+          </div>
           <ReferralColumn
             loading={loading}
             rewards={referralRewards}
@@ -394,22 +445,35 @@ export default function AdminRewards() {
       </div>
 
       <div className={tab === 'payouts' ? '' : 'hidden'}>
+      <MarketScope
+        markets={markets}
+        value={market}
+        onChange={setMarket}
+        note={market ? `${rewards.length} of ${allRewards.length} rewards` : null}
+      />
       <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label="Total program spend" value={formatMoney(totalPaid + totalPending)} />
         <StatCard label="Distributed" value={formatMoney(totalPaid)} accent />
         <StatCard label="Pending payout" value={formatMoney(totalPending)} hint={totalPending > 0 ? "Don't keep creators waiting" : 'All settled'} />
       </div>
 
-      <div className="mb-6 flex gap-2">
-        {['', 'pending', 'distributed'].map((s) => (
-          <button
-            key={s}
-            onClick={() => setStatusFilter(s)}
-            className={statusFilter === s ? 'btn-primary !py-2 text-xs' : 'btn-secondary !py-2 text-xs'}
-          >
-            {s === '' ? 'All' : s}
-          </button>
-        ))}
+      <div className="mb-6 flex flex-wrap items-center gap-4">
+        <Segmented
+          label="Kind"
+          value={kindFilter}
+          onChange={setKindFilter}
+          options={[['', 'Everything'], ['cash', 'Cash · invoiced'], ['voucher', 'Vouchers']]}
+        />
+        <Segmented
+          label="State"
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={[['', 'All'], ['pending', 'Still to pay'], ['distributed', 'Paid']]}
+        />
+        <span className="text-xs text-smoke">
+          {filtered.length} {filtered.length === 1 ? 'reward' : 'rewards'}
+          {filtered.length > 0 && ` · ${formatMoney(filtered.reduce((n, r) => n + Number(r.amount || 0), 0))}`}
+        </span>
       </div>
 
       {loading ? (
@@ -468,6 +532,12 @@ export default function AdminRewards() {
 
       {/* ---------- Payment details tab ---------- */}
       <div className={tab === 'details' ? '' : 'hidden'}>
+        <MarketScope
+          markets={markets}
+          value={market}
+          onChange={setMarket}
+          note={market ? `${payFiltered.length} of ${payDetails.length} creators` : null}
+        />
         <div className="mb-6 max-w-sm">
           <div className="relative">
             <Icon name="magnifier" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-smoke" />
