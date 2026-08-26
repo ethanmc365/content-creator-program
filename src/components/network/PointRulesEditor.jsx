@@ -45,8 +45,8 @@ const newRule = (kind) => ({
 function Row({ rule, onChange, onRemove }) {
   const meta = KINDS[rule.kind] || KINDS.bonus
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-100 bg-white px-3 py-2.5">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-cloud text-smoke" title={meta.label}>
+    <div className="flex flex-wrap items-center gap-2.5 rounded-xl border border-gray-200 bg-white px-3 py-2.5 transition-colors hover:border-brand/30">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cloud text-smoke" title={meta.label}>
         <Icon name={meta.icon} className="h-4 w-4" />
       </span>
 
@@ -58,25 +58,31 @@ function Row({ rule, onChange, onRemove }) {
         aria-label="Rule name"
       />
 
-      {/* POINTS. Brand-coloured and first, every time. */}
-      <label className="flex shrink-0 items-center gap-1.5 rounded-lg bg-brand-tint px-2 py-1">
+      {/* POINTS. First, every time, and in SOLID Tryp orange.
+          It was a pale wash of the brand with brand-coloured digits on it -
+          the light orange Ethan has asked twice to stop seeing, and, worse,
+          barely louder than the plain bordered box beside it holding a view
+          count. The two numbers on a milestone row (5 and 10,000) mean
+          completely different things and now look completely different:
+          white on orange is the score, ink on white is the condition. */}
+      <label className="flex shrink-0 items-center gap-1.5 rounded-lg bg-brand px-2.5 py-1.5 shadow-sm">
         <input
           type="number" step="0.5"
-          className="w-14 border-0 bg-transparent p-0 text-center text-sm font-bold text-brand outline-none focus:ring-0"
+          className="w-12 border-0 bg-transparent p-0 text-center text-sm font-bold text-white outline-none placeholder:text-white/50 focus:ring-0"
           value={rule.points}
           onChange={(e) => onChange({ ...rule, points: Number(e.target.value) })}
           aria-label="Points"
         />
-        <span className="text-xs font-semibold text-brand">pts</span>
+        <span className="text-xs font-semibold text-white/90">pts</span>
       </label>
 
       {/* And what earns them. Plain, so it can never be read as a points box. */}
       {rule.kind === 'views_threshold' && (
-        <label className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 px-2 py-1">
+        <label className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5">
           <span className="text-xs text-smoke">at</span>
           <input
             type="number"
-            className="w-24 border-0 bg-transparent p-0 text-center text-sm tabular-nums outline-none focus:ring-0"
+            className="w-24 border-0 bg-transparent p-0 text-center text-sm font-medium tabular-nums outline-none focus:ring-0"
             value={rule.threshold ?? ''}
             onChange={(e) => onChange({ ...rule, threshold: e.target.value === '' ? null : Number(e.target.value) })}
             aria-label="View threshold"
@@ -86,11 +92,11 @@ function Row({ rule, onChange, onRemove }) {
       )}
 
       {rule.kind === 'per_post' && (
-        <label className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 px-2 py-1">
+        <label className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5">
           <span className="text-xs text-smoke">up to</span>
           <input
             type="number"
-            className="w-14 border-0 bg-transparent p-0 text-center text-sm tabular-nums outline-none focus:ring-0"
+            className="w-14 border-0 bg-transparent p-0 text-center text-sm font-medium tabular-nums outline-none focus:ring-0"
             value={rule.max_points ?? ''}
             onChange={(e) => onChange({ ...rule, max_points: e.target.value === '' ? null : Number(e.target.value) })}
             aria-label="Maximum points"
@@ -100,7 +106,7 @@ function Row({ rule, onChange, onRemove }) {
       )}
 
       {rule.kind === 'bonus' && (
-        <span className="shrink-0 rounded-lg border border-dashed border-gray-200 px-2.5 py-1.5 text-xs text-smoke">
+        <span className="shrink-0 rounded-lg border border-dashed border-gray-200 bg-white px-2.5 py-1.5 text-xs text-smoke">
           given by an admin, on an entry
         </span>
       )}

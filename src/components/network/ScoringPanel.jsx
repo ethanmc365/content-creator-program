@@ -88,7 +88,7 @@ export default function ScoringPanel({ challenge, submissions = [], myId }) {
                 <Icon name={r.kind === 'views_threshold' ? 'chart' : r.kind === 'bonus' ? 'star' : 'video'}
                   className="h-4 w-4 shrink-0 text-brand" />
                 <span className="min-w-0 flex-1 truncate text-sm">{r.label}</span>
-                <span className="shrink-0 text-sm font-bold text-brand">
+                <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-xs font-bold tabular-nums text-white">
                   +{Number(r.points)}
                 </span>
                 {r.max_points != null && (
@@ -106,12 +106,12 @@ export default function ScoringPanel({ challenge, submissions = [], myId }) {
       )}
 
       {challenge.scoring === 'total_views' && (
-        <p className="mt-4 rounded-xl bg-brand-tint/30 px-4 py-3 text-sm">
+        <p className="mt-4 rounded-xl bg-cloud/60 px-4 py-3 text-sm">
           Every entry counts, so posting more is worth it. Your total is all your videos added together.
         </p>
       )}
       {challenge.scoring === 'best_video' && (
-        <p className="mt-4 rounded-xl bg-brand-tint/30 px-4 py-3 text-sm">
+        <p className="mt-4 rounded-xl bg-cloud/60 px-4 py-3 text-sm">
           Enter as many times as you like. Only your strongest video counts, so a weak entry can never hurt you.
         </p>
       )}
