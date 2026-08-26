@@ -625,7 +625,11 @@ export default function AdminPanel() {
                           : !m.is_active && <span className="shrink-0 rounded-full bg-cloud px-2 py-0.5 text-[10px] font-semibold text-smoke">Closed</span>}
                       </span>
                       <span className="mt-0.5 flex items-center gap-2 text-xs text-smoke">
-                        <span>{m.members} {m.members === 1 ? 'creator' : 'creators'}</span>
+                        {/* "Members", not "creators". The count now includes the
+                            admins who run the market - Ethan asked to be in his
+                            own market's number and he is right to be, he is in
+                            its rooms - so the word has to cover both. */}
+                        <span>{m.members} {m.members === 1 ? 'member' : 'members'}</span>
                         {m.live && (
                           <>
                             <span aria-hidden>•</span>
