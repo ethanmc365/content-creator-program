@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { Avatar, Badge, CopyButton, PageHeader, Skeleton, Spinner } from '../../components/ui'
 import Icon from '../../components/Icon'
-import { formatDateTime } from '../../lib/utils'
+import { cx, formatDateTime } from '../../lib/utils'
 import { confirm, notice } from '../../lib/confirm'
 import MarketScope, { useMarkets } from '../../components/admin/MarketScope'
 import { roleBadgeTitle } from '../../lib/roles'
@@ -130,6 +130,52 @@ export default function AdminEmail() {
 // of all of it.
 const byName = (a, b) => (a.name || '').localeCompare(b.name || '')
 
+// The bulk copy. Its own component rather than a <CopyButton>, because it needs
+// to say the number out loud - "Copy all 44 emails" is a different promise from
+// a clipboard glyph, and pasting 44 addresses into a BCC field is a different
+// act from copying one.
+function CopyAll({ value, count }) {
+  const [copied, setCopied] = useState(false)
+  const timer = useRef(null)
+  useEffect(() => () => clearTimeout(timer.current), [])
+
+  async function copy() {
+    if (!value) return
+    try {
+      await navigator.clipboard.writeText(value)
+    } catch {
+      // Older or insecure contexts have no async clipboard.
+      const ta = document.createElement('textarea')
+      ta.value = value
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.select()
+      try { document.execCommand('copy') } finally { document.body.removeChild(ta) }
+    }
+    setCopied(true)
+    clearTimeout(timer.current)
+    timer.current = setTimeout(() => setCopied(false), 2200)
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      disabled={!count}
+      className={cx(
+        'inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 disabled:opacity-40',
+        copied
+          ? 'bg-green-100 text-green-700'
+          : 'bg-brand text-white hover:-translate-y-0.5 hover:shadow-card',
+      )}
+    >
+      <Icon name={copied ? 'check' : 'copy'} className="h-3.5 w-3.5" />
+      {copied ? `Copied ${count}` : count === 1 ? 'Copy their email' : `Copy all ${count} emails`}
+    </button>
+  )
+}
+
 function AddressRow({ person, subtitle }) {
   return (
     <div className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-cloud/60">
@@ -174,9 +220,12 @@ function AddressList({ title, people, empty, subtitleOf }) {
                 aria-label={`Search ${title.toLowerCase()}`}
               />
             )}
-            {/* Still the bulk copy, because pasting the lot into a BCC field is
-                a real job - it is just no longer the ONLY thing on offer. */}
-            <CopyButton value={all} label={`Copy all ${people.length} addresses`} className="!px-3 !text-xs" />
+            {/* A LABELLED BUTTON, NOT THE SAME ICON AS EVERY ROW.
+                Copying one person's address and copying the entire community
+                are very different acts, and drawing them as the identical
+                20px square meant the dangerous one was the quiet one. This
+                says what it does and how many it will do it to. */}
+            <CopyAll value={all} count={people.length} />
           </div>
         )}
       </div>

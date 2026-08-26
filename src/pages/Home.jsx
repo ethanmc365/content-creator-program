@@ -106,8 +106,14 @@ export default function Home() {
     <div className="page space-y-12">
       {/* ---------- Greeting ---------- */}
       <section>
+        {/* A FIRST NAME, UNLESS THERE IS NO PERSON.
+            The view-as-creator sandbox is called "Test Creator Account", and
+            first-naming it produced "Hey Test" - which reads like a greeting to
+            somebody called Test rather than a sign that you are not looking at
+            a real account. An admin who has stepped into the sandbox should be
+            told so by the first thing on the page. */}
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-          Hey {profile?.name?.split(' ')[0]}
+          Hey {profile?.is_sandbox ? profile.name : profile?.name?.split(' ')[0]}
         </h1>
         <p className="mt-2 text-smoke">Here's what's happening in the program right now.</p>
       </section>

@@ -74,9 +74,11 @@ export default function AdminApplications() {
 
   const tabs = useMemo(() => {
     const tally = {}
+    // Seed with every open market so one shows even at zero, then count.
+    for (const m of markets ?? []) if (m?.name) tally[m.name] = 0
     for (const a of apps ?? []) tally[marketOf[a.id]] = (tally[marketOf[a.id]] ?? 0) + 1
     return Object.entries(tally).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-  }, [apps, marketOf])
+  }, [apps, marketOf, markets])
 
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -99,17 +101,24 @@ export default function AdminApplications() {
       <PageHeader
         back="/admin"
         title="Applications"
-        subtitle="Review new creators and approve or decline their application to join the program."
       />
 
       {/* SEARCH AND MARKET, ABOVE THE LIST.
           Nobody applies TO a market - a creator gives us a country and the
           network works the rest out - so these tabs are the only place the
           answer is visible, and they are what lets the right admin approve the
-          right people instead of reading the world's applications to find two. */}
+          right people instead of reading the world's applications to find two.
+
+          EVERY OPEN MARKET IS LISTED, not only the ones with somebody waiting.
+          It hid itself whenever the applications in the queue happened to
+          resolve to a single market, which is most days - so the country
+          manager who came here to check their own queue saw no filter at all
+          and no way to tell the filter existed. A market with nobody waiting is
+          an answer ("none for you today"), and it is the answer they came for.
+          The count on each tab says so. */}
       {apps !== null && apps.length > 0 && (
         <div className="mb-6 space-y-3">
-          {tabs.length > 1 && (
+          {tabs.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {[['', 'All', apps.length], ...tabs.map(([m, n]) => [m, m, n])].map(([key, label, count]) => {
                 const on = market === key
