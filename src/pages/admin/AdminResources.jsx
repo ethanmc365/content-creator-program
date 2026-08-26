@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { confirm } from '../../lib/confirm'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
@@ -24,6 +24,7 @@ export default function AdminResources() {
   const [busy, setBusy] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
+  const [search, setSearch] = useState('')
 
   async function load() {
     const { data } = await supabase.from('resources').select('*').order('created_at', { ascending: false })
@@ -93,26 +94,70 @@ export default function AdminResources() {
     load()
   }
 
+  // A LIBRARY GETS LONG, AND THEN THIS PAGE IS A SCROLL.
+  // Fourteen resources fit on a screen; forty do not, and the one you came to
+  // edit is somewhere in the middle of them. Matching on the body as well as
+  // the title matters here - an author looking for "the one with the hooks in"
+  // is remembering its contents, not its name.
+  const shown = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return resources
+    return resources.filter((r) =>
+      `${r.title} ${r.category} ${r.body}`.toLowerCase().includes(q))
+  }, [resources, search])
+
   return (
-    <div className="page max-w-3xl">
+    <div className="page max-w-4xl">
       <PageHeader
         back={{ to: '/resources', label: 'Resources' }}
         title="Manage resources"
-        subtitle="Everything you publish here lives in the creators' library permanently."
         action={<button onClick={() => openEditor(null)} className="btn-primary">+ New resource</button>}
       />
+
+      {resources.length > 6 && (
+        <div className="mb-6 max-w-md">
+          <div className="relative">
+            <Icon name="magnifier" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-smoke" />
+            <input
+              type="search" className="input !pl-9" placeholder="Search the library…"
+              value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search resources"
+            />
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}</div>
       ) : resources.length === 0 ? (
         <EmptyState icon={<Icon name="book" className="h-7 w-7" />} title="The library is empty" hint="Start with your brand guidelines and a few video hooks." />
       ) : (
-        <div className="space-y-4">
-          {resources.map((r) => (
-            <div key={r.id} className="card flex flex-wrap items-center gap-4 !p-5">
+        <div className="space-y-3">
+          {shown.length === 0 && (
+            <p className="rounded-card border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-smoke">
+              Nothing matches &ldquo;{search}&rdquo;.
+            </p>
+          )}
+          {shown.map((r) => (
+            <div key={r.id} className="card flex flex-wrap items-center gap-4 !p-4">
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold">{r.title}</p>
-                <p className="text-xs text-smoke">{formatDate(r.created_at)}{r.file_url && ' · has attachment 📎'}</p>
+                <p className="truncate text-[15px] font-semibold">{r.title}</p>
+                <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-smoke">
+                  <span>{formatDate(r.created_at)}</span>
+                  {r.links?.length > 0 && (
+                    <span className="inline-flex items-center gap-1">
+                      <span aria-hidden>·</span>
+                      <Icon name="link" className="h-3.5 w-3.5" />
+                      {r.links.length}
+                    </span>
+                  )}
+                  {r.file_url && (
+                    <span className="inline-flex items-center gap-1">
+                      <span aria-hidden>·</span>
+                      <Icon name="image" className="h-3.5 w-3.5" />
+                      Attachment
+                    </span>
+                  )}
+                </p>
               </div>
               <Badge tone="light">{r.category}</Badge>
               <div className="flex gap-2">
@@ -206,7 +251,7 @@ export default function AdminResources() {
             <p className="label">Attachment</p>
             {form.file_url ? (
               <div className="flex items-center gap-3 rounded-xl bg-cloud px-4 py-3 text-sm">
-                <span className="min-w-0 flex-1 truncate">📎 {decodeURIComponent(form.file_url.split('/').pop())}</span>
+                <span className="flex min-w-0 flex-1 items-center gap-2 truncate"><Icon name="image" className="h-4 w-4 shrink-0 text-smoke" />{decodeURIComponent(form.file_url.split('/').pop())}</span>
                 <button type="button" onClick={() => setForm({ ...form, file_url: '' })} className="text-xs font-medium text-red-500 hover:underline">Remove</button>
               </div>
             ) : (

@@ -24,7 +24,6 @@ export default function Resources() {
   const [search, setSearch] = useState('')
   const [savedOnly, setSavedOnly] = useState(false)
   const [reading, setReading] = useState(null)
-  const [openId, setOpenId] = useState(null) // expanded card
   const [params] = useSearchParams()
   const cardRefs = useRef({})
   // What "new" means is frozen at mount: everything since the PREVIOUS visit
@@ -58,15 +57,19 @@ export default function Resources() {
     else await supabase.from('resource_bookmarks').insert({ resource_id: r.id, creator_id: user.id })
   }
 
-  // Deep link from a chat resource card (/resources?open=<id>): expand that
-  // resource and scroll it into view once the library has loaded.
+  // Deep link from a chat resource card (/resources?open=<id>).
+  //
+  // This used to expand the card in place and scroll to it - which was the
+  // right behaviour when expanding in place was how you read one. Reading now
+  // happens in a modal, so following the link from a chat card landed you on a
+  // slightly taller card and left you to press Open. Somebody who tapped "Open
+  // in library" has already said what they want.
   const openParam = params.get('open')
   useEffect(() => {
     if (!openParam || loading) return
-    setOpenId(openParam)
-    const el = cardRefs.current[openParam]
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }, [openParam, loading])
+    const r = resources.find((x) => x.id === openParam)
+    if (r) setReading(r)
+  }, [openParam, loading, resources])
 
   const filtered = useMemo(
     () =>
@@ -137,13 +140,23 @@ export default function Resources() {
       ) : (
         <Reveal className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {filtered.map((r) => {
-            const open = openId === r.id
+            // The card shows the first few lines; the reader shows the rest.
             const long = (r.body || '').length > 280
             return (
               <article
                 key={r.id}
                 ref={(el) => { cardRefs.current[r.id] = el }}
-                className={cx('card flex flex-col gap-4 scroll-mt-24', openParam === r.id && 'ring-2 ring-brand')}
+                onClick={(e) => {
+                  // Not when they were reaching for the bookmark, a link, or
+                  // the video's play button.
+                  if (e.target.closest('button, a, video, audio')) return
+                  setReading(r)
+                }}
+                className={cx(
+                  'card flex cursor-pointer flex-col gap-4 scroll-mt-24 transition-all duration-200',
+                  'hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift',
+                  openParam === r.id && 'ring-2 ring-brand',
+                )}
               >
                 <div className="flex items-start justify-between gap-3">
                   <h2 className="text-lg font-semibold leading-snug">
@@ -169,7 +182,7 @@ export default function Resources() {
                     plain text, so a resource written with headings and bullets
                     reached the reader as a wall of # and * - the exact thing
                     Ethan asked to stop showing up. */}
-                <div className={cx('text-sm leading-relaxed', !open && long && 'line-clamp-6')}>
+                <div className={cx('text-sm leading-relaxed', long && 'line-clamp-6')}>
                   {renderNote(r.body || '')}
                 </div>
 
@@ -202,9 +215,7 @@ export default function Resources() {
                     {r.profiles?.name && `By ${r.profiles.name} · `}{formatDate(r.created_at)}
                   </p>
                   <div className="flex gap-2">
-                    <button onClick={() => setReading(r)} className="text-xs font-medium text-brand hover:underline">
-                      Open
-                    </button>
+                    <span className="text-xs font-medium text-brand">Open →</span>
                   </div>
                 </div>
               </article>
