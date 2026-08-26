@@ -445,6 +445,7 @@ export default function AdminPanel() {
       const [
         { count: pendingApps }, { count: toApprove }, { count: openReports },
         { count: newFeedback }, { count: newSuggestions }, { count: pendingRewards },
+        { data: blockedRows },
       ] = await Promise.all([
         supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'pending').eq('onboarded', true),
         supabase.from('invoices').select('id', { count: 'exact', head: true }).eq('stage', 'awaiting_approval'),
@@ -452,8 +453,18 @@ export default function AdminPanel() {
         supabase.from('feedback').select('id', { count: 'exact', head: true }).eq('status', 'new'),
         supabase.from('event_suggestions').select('id', { count: 'exact', head: true }).eq('status', 'new'),
         supabase.from('rewards').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+        // A PRIZE NOBODY CAN PAY IS WORK, and it is work of a different kind:
+        // an invoice waiting for approval needs a decision from an admin, an
+        // invoice with no bank details on it needs somebody to go and ask the
+        // creator. Counted here rather than with a filter because `payment` is
+        // jsonb and PostgREST cannot express "name is a non-empty string" in a
+        // head-only count.
+        supabase.from('invoices').select('id, payment').eq('stage', 'draft'),
       ])
+      const blocked = (blockedRows ?? []).filter(
+        (i) => !(i.payment?.name && (i.payment?.iban || i.payment?.accountNumber))).length
       setStats({
+        blocked,
         pendingApps: pendingApps ?? 0,
         toApprove: toApprove ?? 0,
         openReports: openReports ?? 0,
@@ -504,6 +515,7 @@ export default function AdminPanel() {
     stats.newFeedback > 0 && { to: '/admin/feedback', icon: 'chat', count: stats.newFeedback, label: `bug report${stats.newFeedback === 1 ? '' : 's'} and ideas` },
     stats.newSuggestions > 0 && { to: '/events#suggestions', icon: 'bulb', count: stats.newSuggestions, label: `event idea${stats.newSuggestions === 1 ? '' : 's'} from creators` },
     stats.pendingRewards > 0 && { to: '/admin/rewards?tab=payouts', icon: 'wallet', count: stats.pendingRewards, label: `reward${stats.pendingRewards === 1 ? '' : 's'} still to pay` },
+    stats.blocked > 0 && { to: '/admin/rewards?tab=invoices', icon: 'alert', count: stats.blocked, label: `prize${stats.blocked === 1 ? '' : 's'} waiting on bank details` },
   ].filter(Boolean) : []
 
   // THE PAGE ARRIVES IN THE ORDER IT WILL STAY IN. Both queries in before
