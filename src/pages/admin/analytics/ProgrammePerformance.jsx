@@ -51,16 +51,6 @@ function money(n, currency, dp) {
 }
 const num = (n, dp = 1) => (n == null ? '-' : n.toLocaleString('en-GB', { maximumFractionDigits: dp }))
 
-function Th({ children, right, className }) {
-  return (
-    <th className={cx('whitespace-nowrap px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-smoke', right && 'text-right', className)}>
-      {children}
-    </th>
-  )
-}
-function Td({ children, right, className }) {
-  return <td className={cx('whitespace-nowrap px-3 py-2.5', right && 'text-right tabular-nums', className)}>{children}</td>
-}
 
 export default function ProgrammePerformance() {
   const [rows, setRows] = useState(null)
@@ -332,73 +322,148 @@ export default function ProgrammePerformance() {
       </div>
 
       {/* ---- Challenge log ---- */}
-      <section>
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold">Challenge log</h2>
-            <p className="mt-1 text-xs text-smoke">
-              Every published challenge with its full economics. Tap a row for the deep dive.
-            </p>
-          </div>
-        </div>
-        <div className="overflow-x-auto rounded-card border border-gray-100 shadow-card">
-          <table className="w-full min-w-[1100px] text-left text-sm">
-            <thead className="border-b border-gray-100 bg-cloud/60">
-              <tr>
-                <Th>Challenge</Th>
-                <Th>Market</Th>
-                <Th>Format</Th>
-                <Th>Status</Th>
-                <Th right>Prize</Th>
-                <Th right>Views</Th>
-                <Th right>Creators</Th>
-                <Th right>Posts</Th>
-                <Th right>CPM</Th>
-                <Th right>Cost / post</Th>
-                <Th right>Cost / creator</Th>
-                <Th right>Posts / creator</Th>
-                <Th right>Views / post</Th>
-                <Th>Flag</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.scoped.map((r) => (
-                <tr key={r.id} className="border-b border-gray-50 transition-colors last:border-0 hover:bg-cloud/40">
-                  <Td className="max-w-[220px] !whitespace-normal">
-                    <Link to={`/admin/analytics/${r.id}`} className="font-medium hover:text-brand">{r.title}</Link>
-                    <span className="block text-[11px] text-smoke">
-                      {r.start_date?.slice(0, 10)} · {r.days} days
-                    </span>
-                  </Td>
-                  <Td>{r.market || '-'}</Td>
-                  <Td className="text-smoke">{label('format', r.format)}</Td>
-                  <Td className="text-smoke">{label('status', r.status)}</Td>
-                  <Td right>{money(r.spend, currency, 0)}</Td>
-                  <Td right>{r.views > 0 ? r.views.toLocaleString() : '-'}</Td>
-                  <Td right>{r.creators || '-'}</Td>
-                  <Td right>{r.posts || '-'}</Td>
-                  <Td right className="font-semibold">{money(r.cpm, currency, 2)}</Td>
-                  <Td right>{money(r.costPerPost, currency, 2)}</Td>
-                  <Td right>{money(r.costPerCreator, currency, 2)}</Td>
-                  <Td right>{num(r.postsPerCreator, 1)}</Td>
-                  <Td right>{r.viewsPerPost ? Math.round(r.viewsPerPost).toLocaleString() : '-'}</Td>
-                  <Td>
-                    <span className={cx('inline-block rounded-full px-2.5 py-1 text-[11px] font-semibold', BAND_STYLE[r.band])}>
-                      {BAND_LABEL[r.band]}
-                    </span>
-                  </Td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="mt-3 text-[11px] leading-relaxed text-smoke">
-          CPM = prize spend ÷ (views ÷ 1,000). On target is at or under each challenge's own CPM target,
-          Watch is up to double it, Over target is above that. Challenges with no views logged are shown
-          but never counted in a blended figure.
-        </p>
-      </section>
+      <ChallengeLog rows={data.scoped} currency={currency} />
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// THE CHALLENGE LOG.
+//
+// It was a fourteen-column table 1,100px wide that scrolled sideways - Ethan's
+// "an Excel copy", and he is right that it was not a designed thing. The
+// trouble with it was not the width, though; it was that fourteen numbers side
+// by side have no hierarchy, so a challenge that cost £1.42 per thousand views
+// and one that cost £14.20 looked exactly alike until you found the column and
+// read the digits.
+//
+// A challenge is now a card that reads in the order somebody thinks:
+//
+//   what was it, and did it work         title, market, dates, the band
+//   the number it is judged on           CPM, big, in brand orange
+//   what produced that number            spend, views, creators, posts
+//   the ratios, quietly                  cost per post, per creator, and so on
+//
+// The same figures, all of them - nothing was dropped, and the CSV export is
+// untouched, because a spreadsheet IS the right shape for a spreadsheet.
+const SORTS = [
+  { value: 'recent', label: 'Most recent' },
+  { value: 'cpm', label: 'Cheapest CPM' },
+  { value: 'spend', label: 'Biggest spend' },
+  { value: 'views', label: 'Most views' },
+]
+
+function ChallengeLog({ rows, currency }) {
+  const [sort, setSort] = useState('recent')
+
+  const sorted = useMemo(() => {
+    const list = [...rows]
+    // A challenge with no views has no CPM, and sorting nulls to the top of
+    // "cheapest" would put every unfinished challenge above every real answer.
+    const last = (v) => (v == null || Number.isNaN(v) ? Infinity : v)
+    if (sort === 'cpm') return list.sort((a, b) => last(a.cpm) - last(b.cpm))
+    if (sort === 'spend') return list.sort((a, b) => (b.spend || 0) - (a.spend || 0))
+    if (sort === 'views') return list.sort((a, b) => (b.views || 0) - (a.views || 0))
+    return list.sort((a, b) => String(b.start_date || '').localeCompare(String(a.start_date || '')))
+  }, [rows, sort])
+
+  if (rows.length === 0) return null
+
+  return (
+    <section>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-xl font-semibold tracking-[-0.01em]">Challenge log</h2>
+        <Select
+          value={sort}
+          onChange={setSort}
+          ariaLabel="Sort the challenge log"
+          options={SORTS}
+        />
+      </div>
+
+      <div className="space-y-3">
+        {sorted.map((r) => <LogCard key={r.id} r={r} currency={currency} />)}
+      </div>
+
+      <p className="mt-3 text-[11px] leading-relaxed text-smoke">
+        CPM = prize spend ÷ (views ÷ 1,000). On target is at or under each challenge&rsquo;s own CPM target,
+        Watch is up to double it, Over target is above that. Challenges with no views logged are shown
+        but never counted in a blended figure.
+      </p>
+    </section>
+  )
+}
+
+function LogCard({ r, currency }) {
+  const figures = [
+    { label: 'Spend', value: money(r.spend, currency, 0) },
+    { label: 'Views', value: r.views > 0 ? formatViews(r.views) : '-' },
+    { label: 'Creators', value: r.creators || '-' },
+    { label: 'Posts', value: r.posts || '-' },
+  ]
+  // The derived ratios. They matter, and they are the fourth thing you look at,
+  // so they get one quiet line rather than seven columns of their own.
+  const ratios = [
+    r.costPerPost != null && `${money(r.costPerPost, currency, 2)} per post`,
+    r.costPerCreator != null && `${money(r.costPerCreator, currency, 2)} per creator`,
+    r.postsPerCreator ? `${num(r.postsPerCreator, 1)} posts each` : null,
+    r.viewsPerPost ? `${Math.round(r.viewsPerPost).toLocaleString()} views per post` : null,
+  ].filter(Boolean)
+
+  return (
+    <Link
+      to={`/admin/analytics/${r.id}`}
+      className="card group block !p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[17px] font-semibold leading-snug tracking-[-0.01em] transition-colors group-hover:text-brand">
+            {r.title}
+          </p>
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-smoke">
+            <span>{r.market || 'Unspecified'}</span>
+            <span aria-hidden>·</span>
+            <span>{r.start_date?.slice(0, 10)}</span>
+            <span aria-hidden>·</span>
+            <span>{r.days} days</span>
+            <span aria-hidden>·</span>
+            <span>{label('format', r.format)}</span>
+            <span aria-hidden>·</span>
+            <span>{label('status', r.status)}</span>
+          </p>
+        </div>
+        <span className={cx('shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold', BAND_STYLE[r.band])}>
+          {BAND_LABEL[r.band]}
+        </span>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-end gap-x-8 gap-y-4">
+        {/* THE NUMBER IT IS JUDGED ON, at a size you read from across the room. */}
+        <span className="block">
+          <span className="block text-3xl font-bold leading-none tracking-[-0.03em] text-brand tabular-nums">
+            {money(r.cpm, currency, 2)}
+          </span>
+          <span className="mt-1 block text-[11px] font-semibold uppercase tracking-wide text-smoke">
+            per 1,000 views
+          </span>
+        </span>
+
+        <span className="flex flex-wrap gap-x-7 gap-y-3">
+          {figures.map((f) => (
+            <span key={f.label} className="block">
+              <span className="block text-lg font-semibold leading-none tabular-nums">{f.value}</span>
+              <span className="mt-1 block text-[11px] font-semibold uppercase tracking-wide text-smoke">{f.label}</span>
+            </span>
+          ))}
+        </span>
+      </div>
+
+      {ratios.length > 0 && (
+        <p className="mt-4 border-t border-gray-50 pt-3 text-xs text-smoke">
+          {ratios.join(' · ')}
+        </p>
+      )}
+    </Link>
   )
 }
 
