@@ -6,7 +6,7 @@ import { cx } from '../../lib/utils'
 import Icon from '../../components/Icon'
 import { formatDate, formatMoney, downloadCsv } from '../../lib/utils'
 import { notice } from '../../lib/confirm'
-import { payeeFromPrivate, payeeStarted, formatSortCode, formatIban, cleanIban } from '../../lib/invoice'
+import { payeeFromPrivate, payeeStarted, formatSortCode, formatIban, cleanIban, invoiceRef } from '../../lib/invoice'
 import InvoicesPanel from './InvoicesPanel'
 import InvoiceQueue from './InvoiceQueue'
 import MarketScope, { useMarkets } from '../../components/admin/MarketScope'
@@ -30,17 +30,82 @@ function detailRows(p) {
   return rows
 }
 
+// ---------------------------------------------------- referral vouchers
+//
+// The narrow half of the invoices page. A referral voucher needs no document,
+// no approval and no bank details - somebody brought a creator in, the creator
+// posted, and a tenner is owed. The whole interaction is "who, and pay". It had
+// a tab of its own, which made a glance cost a page load; here it sits beside
+// the invoices where the same person is already looking.
+function ReferralColumn({ loading, rewards, owed, paid, pendingCount, busyId, onPay }) {
+  return (
+    <section className="space-y-4">
+      <div className="flex items-baseline justify-between gap-2">
+        <h2 className="text-xl font-semibold tracking-[-0.01em]">Referrals</h2>
+        {pendingCount > 0 && (
+          <span className="rounded-full bg-brand px-2.5 py-0.5 text-[11px] font-bold tabular-nums text-white">
+            {pendingCount}
+          </span>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <StatCard label="Owed" value={formatMoney(owed)} accent={owed > 0} />
+        <StatCard label="Paid" value={formatMoney(paid)} />
+      </div>
+
+      {loading ? (
+        <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}</div>
+      ) : rewards.length === 0 ? (
+        <EmptyState
+          icon={<Icon name="share" className="h-6 w-6" />}
+          title="No referral vouchers yet"
+          hint="One appears the moment a referred creator posts their first video."
+        />
+      ) : (
+        <div className="space-y-2">
+          {rewards.map((r) => (
+            <div key={r.id} className="flex items-center gap-3 rounded-card border border-gray-100 bg-white px-3.5 py-3">
+              <Avatar src={r.profiles?.photo_url} name={r.profiles?.name} size="sm" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold">{r.profiles?.name}</p>
+                <p className="truncate text-xs text-smoke">brought in {r.referred?.name || 'a creator'}</p>
+              </div>
+              <span className="shrink-0 text-sm font-bold tabular-nums">{formatMoney(r.amount, r.currency)}</span>
+              {r.status === 'pending' ? (
+                <button onClick={() => onPay(r)} disabled={busyId === r.id} className="btn-primary shrink-0 !py-1.5 !px-3 !text-xs">
+                  {busyId === r.id ? <Spinner className="h-4 w-4" /> : 'Pay'}
+                </button>
+              ) : (
+                <Badge tone="green">paid</Badge>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
 // The program's money hub: rewards (payouts) and prize invoices live
 // together. A reward row's Invoice button jumps straight into the invoice
 // composer with the creator, amount and challenge prefilled.
 export default function AdminRewards() {
   const [searchParams] = useSearchParams()
-  const TABS = ['queue', 'payouts', 'referrals', 'invoices', 'details']
+  // The old five tabs collapse to three. `queue`, `invoices` and `referrals`
+  // were three views of one question - what money is going out - so they are
+  // one page now, and every link anybody has bookmarked still lands on it.
+  const TABS = ['invoices', 'payouts', 'details']
+  const LEGACY_TAB = { queue: 'invoices', referrals: 'invoices' }
   const [tab, setTab] = useState(() => {
     const t = searchParams.get('tab')
-    return TABS.includes(t) ? t : 'queue'
+    return TABS.includes(t) ? t : (LEGACY_TAB[t] || 'invoices')
   })
+  // Non-null while somebody is writing an invoice. The composer takes the whole
+  // page while it is up: it has a live preview beside it and no room to share.
   const [invoicePrefill, setInvoicePrefill] = useState(null)
+  const [queueKey, setQueueKey] = useState(0)
+  const [liveInvoices, setLiveInvoices] = useState(new Map())
   const [allRewards, setAllRewards] = useState([])
   // WHICH MARKET'S MONEY. Same control as Analytics, same reasoning: a country
   // manager reading a worldwide payout list has to find their own creators in
@@ -115,17 +180,29 @@ export default function AdminRewards() {
   )
 
   async function load() {
-    const [{ data: r }, { data: c }, { data: ch }] = await Promise.all([
+    const [{ data: r }, { data: c }, { data: ch }, { data: inv }] = await Promise.all([
       supabase.from('rewards')
         .select('*, profiles:creator_id(id, name, photo_url), challenges(title), referred:referred_creator_id(id, name, photo_url)')
         .order('created_at', { ascending: false }),
       supabase.from('profiles').select('id, name').order('name'),
       supabase.from('challenges').select('id, title').order('created_at', { ascending: false }),
+      supabase.from('invoices').select('id, number, reward_id, stage').not('reward_id', 'is', null),
     ])
+    // WHICH PRIZES ARE ALREADY SOMEBODY ELSE'S JOB.
+    //
+    // A cash prize is paid by its invoice. Offering "Mark distributed" on the
+    // payout row as well gave two buttons for one payment, and pressing the
+    // wrong one left the payouts list saying "paid" while the invoice sat in
+    // the queue - the two disagreeing with no way to tell which was right. The
+    // database refuses that now; this is what stops the page offering it.
+    setLiveInvoices(new Map((inv ?? [])
+      .filter((i) => i.stage !== 'paid')
+      .map((i) => [i.reward_id, i])))
     setAllRewards(r ?? [])
     setCreators(c ?? [])
     setChallenges(ch ?? [])
     setLoading(false)
+    setQueueKey((k) => k + 1)
   }
 
   useEffect(() => { load() }, [])
@@ -199,6 +276,10 @@ export default function AdminRewards() {
   // (Counter ref instead of Date.now(): the purity lint bans clock reads here;
   // the key only needs to differ per click so repeat clicks re-trigger.)
   const prefillSeq = useRef(0)
+  function newInvoice() {
+    prefillSeq.current += 1
+    setInvoicePrefill({ key: `blank-${prefillSeq.current}`, creatorId: '' })
+  }
   function invoiceReward(r) {
     prefillSeq.current += 1
     setInvoicePrefill({
@@ -234,36 +315,48 @@ export default function AdminRewards() {
     setTab('invoices')
   }
 
+  // WRITING AN INVOICE TAKES THE PAGE. The composer carries a live preview of
+  // the document beside the form; squeezing it into a third of the width beside
+  // a queue helped nobody.
+  const composing = !!invoicePrefill
+
   return (
     <div className="page">
       <PageHeader
         back="/admin"
         title="Rewards & invoices"
-        action={tab === 'payouts' && (
-          <div className="flex gap-2">
-            <button onClick={exportRewards} className="btn-secondary">Export CSV ↓</button>
-            <button onClick={() => setShowAdd(true)} className="btn-primary">+ Add reward</button>
-          </div>
+        action={!composing && (
+          tab === 'payouts' ? (
+            <div className="flex gap-2">
+              <button onClick={exportRewards} className="btn-secondary">Export CSV ↓</button>
+              <button onClick={() => setShowAdd(true)} className="btn-primary">+ Add reward</button>
+            </div>
+          ) : tab === 'invoices' ? (
+            <button onClick={newInvoice} className="btn-primary">+ New invoice</button>
+          ) : null
         )}
       />
 
+      {composing ? (
+        <InvoicesPanel
+          prefill={invoicePrefill}
+          onClose={() => setInvoicePrefill(null)}
+          onSent={load}
+        />
+      ) : (
+      <>
       {/* SECTIONS, NOT A ROW OF BUTTONS.
-          Ethan asked for the shape Analytics uses - underlined sections you
-          move between - rather than five filled buttons competing to look like
-          the action on the page. A tab is navigation; a button does something.
-
-          THE QUEUE LEADS, and that is the point of it. Publishing winners now
-          raises an invoice per cash prize by itself, so the first question here
-          stopped being "what shall I invoice" and became "what did the machine
-          raise that I have not looked at". */}
+          The shape Analytics uses - underlined sections you move between -
+          rather than filled buttons competing to look like the action on the
+          page. A tab is navigation; a button does something. */}
       <div className="mb-8 flex flex-wrap gap-1 border-b border-gray-100">
-        {[['queue', 'To approve'], ['invoices', 'Invoices'], ['referrals', 'Referrals'], ['payouts', 'Payouts'], ['details', 'Payment details']].map(([key, label]) => (
+        {[['invoices', 'Invoices'], ['payouts', 'Payouts'], ['details', 'Payment details']].map(([key, label]) => (
           <button
             key={key}
             type="button"
             onClick={() => setTab(key)}
             className={cx(
-              'relative -mb-px border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors',
+              'relative -mb-px border-b-2 px-4 py-2.5 text-[15px] font-semibold transition-colors',
               tab === key ? 'border-brand text-brand' : 'border-transparent text-smoke hover:text-ink',
             )}
           >
@@ -279,12 +372,25 @@ export default function AdminRewards() {
         note={market ? `${rewards.length} of ${allRewards.length} rewards` : null}
       />
 
-      <div className={tab === 'queue' ? '' : 'hidden'}>
-        <InvoiceQueue onEdit={editInvoice} />
-      </div>
-
+      {/* ---------- Invoices ----------
+          INVOICES LEFT, REFERRALS RIGHT, which is what Ethan asked for and also
+          what the two things are worth. The invoice pipeline is where money
+          leaves the company and needs reading in order; a referral voucher is a
+          ten-pound tick-off that only ever needs a glance and a button. Giving
+          them a tab each meant the glance cost a page load. */}
       <div className={tab === 'invoices' ? '' : 'hidden'}>
-        <InvoicesPanel prefill={invoicePrefill} />
+        <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          <InvoiceQueue key={queueKey} onEdit={editInvoice} inMarket={inMarket} onChanged={load} />
+          <ReferralColumn
+            loading={loading}
+            rewards={referralRewards}
+            owed={referralOwed}
+            paid={referralPaid}
+            pendingCount={referralPending.length}
+            busyId={busyId}
+            onPay={openDistribute}
+          />
+        </div>
       </div>
 
       <div className={tab === 'payouts' ? '' : 'hidden'}>
@@ -331,69 +437,34 @@ export default function AdminRewards() {
               </div>
               <span className="font-bold tabular-nums">{formatMoney(r.amount, r.currency)}</span>
               <Badge tone={r.status === 'distributed' ? 'green' : 'amber'}>{r.status}</Badge>
-              {r.reward_type === 'cash' && (
-                <button onClick={() => invoiceReward(r)} className="btn-secondary !py-2 text-xs">Invoice</button>
-              )}
-              {r.status === 'pending' && (
-                <button onClick={() => openDistribute(r)} disabled={busyId === r.id} className="btn-primary !py-2 text-xs">
-                  {busyId === r.id ? <Spinner className="h-4 w-4" /> : 'Mark distributed'}
+              {/* ONE BUTTON PER PAYMENT.
+                  If an invoice is already carrying this prize, that invoice is
+                  the truth about whether it has been paid, and the only useful
+                  thing here is a way to go and look at it. Marking the reward
+                  by hand as well is what left the two lists disagreeing. */}
+              {liveInvoices.has(r.id) ? (
+                <button onClick={() => { setTab('invoices') }}
+                  className="btn-secondary !py-2 text-xs"
+                  title="This prize is being paid by its invoice">
+                  On invoice {invoiceRef(liveInvoices.get(r.id).number)}
                 </button>
+              ) : (
+                <>
+                  {r.reward_type === 'cash' && (
+                    <button onClick={() => invoiceReward(r)} className="btn-secondary !py-2 text-xs">Invoice</button>
+                  )}
+                  {r.status === 'pending' && (
+                    <button onClick={() => openDistribute(r)} disabled={busyId === r.id} className="btn-primary !py-2 text-xs">
+                      {busyId === r.id ? <Spinner className="h-4 w-4" /> : 'Mark distributed'}
+                    </button>
+                  )}
+                </>
               )}
             </div>
           ))}
         </div>
       )}
       </div>{/* /payouts tab */}
-
-      {/* ---------- Referrals tab ----------
-          THE REFERRAL FUNNEL NOW PAYS, AND THIS IS WHERE IT GETS PAID.
-          A counted referral - meaning the person somebody brought in has
-          actually posted a challenge video - mints a pending voucher reward
-          automatically (migration 109). It shows in Payouts with everything
-          else, and it also gets this tab, because "who is owed a referral
-          voucher" is a question somebody asks on its own and should not have to
-          filter a payout list to answer. */}
-      <div className={tab === 'referrals' ? '' : 'hidden'}>
-        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <StatCard label="Referral vouchers owed" value={formatMoney(referralOwed)} accent hint={referralPending.length ? `${referralPending.length} waiting` : 'Nothing outstanding'} />
-          <StatCard label="Paid out so far" value={formatMoney(referralPaid)} />
-          <StatCard label="Referrals that counted" value={referralRewards.length} hint="A referral counts once they post their first video" />
-        </div>
-
-        {loading ? (
-          <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
-        ) : referralRewards.length === 0 ? (
-          <EmptyState
-            icon={<Icon name="share" className="h-7 w-7" />}
-            title="No referral vouchers yet"
-            hint="One appears the moment a referred creator posts their first challenge video. Nothing has to be raised by hand."
-          />
-        ) : (
-          <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
-            {referralRewards.map((r) => (
-              <div key={r.id} className="flex flex-wrap items-center gap-4 border-b border-gray-50 px-5 py-4 last:border-0 sm:px-7">
-                <Avatar src={r.profiles?.photo_url} name={r.profiles?.name} size="sm" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold">{r.profiles?.name}</p>
-                  <p className="flex items-center gap-1.5 truncate text-xs text-smoke">
-                    <Icon name="share" className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">brought in {r.referred?.name || 'a creator'}</span>
-                  </p>
-                </div>
-                <span className="font-bold tabular-nums">{formatMoney(r.amount, r.currency)}</span>
-                <Badge tone={r.status === 'distributed' ? 'green' : 'amber'}>
-                  {r.status === 'distributed' ? 'paid' : 'owed'}
-                </Badge>
-                {r.status === 'pending' && (
-                  <button onClick={() => openDistribute(r)} disabled={busyId === r.id} className="btn-primary !py-2 text-xs">
-                    {busyId === r.id ? <Spinner className="h-4 w-4" /> : 'Mark paid'}
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>{/* /referrals tab */}
 
       {/* ---------- Payment details tab ---------- */}
       <div className={tab === 'details' ? '' : 'hidden'}>
@@ -442,6 +513,9 @@ export default function AdminRewards() {
           </div>
         )}
       </div>{/* /details tab */}
+
+      </>
+      )}
 
       {/* ---------- Add reward modal ---------- */}
       <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Add a reward">

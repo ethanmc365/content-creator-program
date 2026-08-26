@@ -2,11 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { format } from 'date-fns'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { Badge, EmptyState, Skeleton, Spinner, StatCard, Select } from '../../components/ui'
+import { Skeleton, Spinner, Select } from '../../components/ui'
 import Icon from '../../components/Icon'
 import PaymentDetailsFields from '../../components/PaymentDetails'
 import { confirm, notice } from '../../lib/confirm'
-import { formatDate, formatMoney, isoToDateInput } from '../../lib/utils'
+import { formatMoney, isoToDateInput } from '../../lib/utils'
 import {
   DEFAULT_BILL_TO,
   EMPTY_PAYEE,
@@ -50,14 +50,12 @@ const defaultNotes = (currency) => `To be paid in ${currency === 'EUR' ? 'euros'
 // pounds; if the creator wants euros the amount converts automatically at
 // today's ECB rate. `prefill` (from a reward row's Invoice button) opens the
 // composer with the creator, amount and description already filled.
-export default function InvoicesPanel({ prefill }) {
+export default function InvoicesPanel({ prefill, onClose, onSent }) {
   const { user, profile } = useAuth()
-  const [invoices, setInvoices] = useState([])
   const [creators, setCreators] = useState([])
   const [loading, setLoading] = useState(true)
 
   // ---- Composer state ----
-  const [open, setOpen] = useState(false)
   const [number, setNumber] = useState(null)
   // THE ROW THIS COMPOSER IS EDITING, if it came from the approval queue.
   //
@@ -91,17 +89,28 @@ export default function InvoicesPanel({ prefill }) {
   const [fxRate, setFxRate] = useState(null) // null = not loaded, 0 = failed
 
   async function load() {
-    const [{ data: inv }, { data: c }, { data: setting }] = await Promise.all([
-      supabase.from('invoices').select('*').order('number', { ascending: false }),
+    const [{ data: c }, { data: setting }] = await Promise.all([
       supabase.from('profiles').select('id, name').eq('status', 'active').eq('is_admin', false).order('name'),
       supabase.from('app_settings').select('value').eq('key', BILL_TO_SETTING).maybeSingle(),
     ])
-    setInvoices(inv ?? [])
     setCreators(c ?? [])
     if (setting?.value?.text) setBillTo(setting.value.text)
     setLoading(false)
   }
   useEffect(() => { load() }, [])
+
+  // MOUNTED MEANS OPEN. The composer used to hide behind a local flag while its
+  // own copy of the invoice list sat above it; the list now lives in the queue,
+  // where the rest of an invoice's life is, so this component only exists while
+  // somebody is writing one. A blank one reserves its number here; a prefilled
+  // one already has its number and is set up by the effect further down.
+  const started = useRef(false)
+  useEffect(() => {
+    if (started.current || prefill?.key) return
+    started.current = true
+    reserveNumber()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefill?.key])
 
   const currency = payee.currency || 'GBP'
 
@@ -124,8 +133,7 @@ export default function InvoicesPanel({ prefill }) {
   const autoEur = fxRate > 0 && Number(gbpAmount) > 0 ? (Number(gbpAmount) * fxRate).toFixed(2) : ''
   const invoiceAmount = currency === 'EUR' ? (eurOverride ?? autoEur) : gbpAmount
 
-  async function openComposer() {
-    setOpen(true)
+  async function reserveNumber() {
     setTo(localStorage.getItem(LAST_RECIPIENT_KEY) || '')
     setCc(user?.email || '')
     // Reserve the next sequential invoice number (gaps from abandoned
@@ -136,7 +144,7 @@ export default function InvoicesPanel({ prefill }) {
   }
 
   function closeComposer() {
-    setOpen(false)
+    onClose?.()
     setNumber(null)
     setInvoiceId(null)
     setStage(null)
@@ -180,7 +188,6 @@ export default function InvoicesPanel({ prefill }) {
       // whatever is on file now - which is the one thing an approval is
       // supposed to pin down.
       if (prefill.invoiceId) {
-        setOpen(true)
         setTo(localStorage.getItem(LAST_RECIPIENT_KEY) || '')
         setCc(user?.email || '')
         setInvoiceId(prefill.invoiceId)
@@ -200,7 +207,7 @@ export default function InvoicesPanel({ prefill }) {
         if (prefill.notes) { notesTouched.current = true; setNotes(prefill.notes) }
         return
       }
-      if (!open) await openComposer()
+      await reserveNumber()
       await selectCreator(prefill.creatorId)
       setGbpAmount(prefill.amount != null ? String(prefill.amount) : '')
       setEurOverride(null)
@@ -292,8 +299,8 @@ export default function InvoicesPanel({ prefill }) {
       const { error: subErr } = await supabase.rpc('submit_invoice', { p_id: id })
       if (subErr) throw new Error(subErr.message)
       notice(`Invoice ${invoiceRef(number)} is with an approver.\n\nIt appears under "Waiting for approval" in the queue.`)
+      onSent?.()
       closeComposer()
-      load()
     } catch (e) {
       notice(e.message)
     } finally {
@@ -358,8 +365,8 @@ export default function InvoicesPanel({ prefill }) {
       await callSendInvoice('resend', pdfToBase64(bytes))
       localStorage.setItem(LAST_RECIPIENT_KEY, to.trim())
       notice(`Invoice ${invoiceRef(number)} is on its way to ${parseEmails(to).join(', ')}.\n\n${inv.creatorName} has been told to expect the payment within 7 days.`)
+      onSent?.()
       closeComposer()
-      load()
     } catch (e) {
       notice(e.message)
     } finally {
@@ -411,8 +418,8 @@ export default function InvoicesPanel({ prefill }) {
     try {
       await callSendInvoice('gmail', null)
       notice(`Invoice ${invoiceRef(number)} recorded.\n\n${inv.creatorName} has been told to expect the payment within 7 days.`)
+      onSent?.()
       closeComposer()
-      load()
     } catch (e) {
       notice(e.message)
     } finally {
@@ -420,48 +427,12 @@ export default function InvoicesPanel({ prefill }) {
     }
   }
 
-  async function deleteInvoice(row) {
-    if (!await confirm(`Delete the record of invoice ${invoiceRef(row.number)}? This only removes it from this list, it doesn't recall the email.`)) return
-    const { error } = await supabase.from('invoices').delete().eq('id', row.id)
-    if (error) notice(`Couldn't delete: ${error.message}`)
-    else setInvoices((list) => list.filter((i) => i.id !== row.id))
-  }
 
-  function downloadExisting(row) {
-    downloadInvoicePdf({
-      number: row.number,
-      issueDate: row.issue_date,
-      creatorName: row.creator_name,
-      creatorAddress: row.payment?.address,
-      amount: row.amount,
-      currency: row.currency,
-      description: row.description,
-      notes: row.notes,
-      billTo: row.bill_to,
-      payee: row.payment || {},
-    })
-  }
-
-  const totals = useMemo(() => {
-    const sum = (cur) => invoices.filter((i) => i.currency === cur).reduce((s, i) => s + Number(i.amount || 0), 0)
-    return { gbp: sum('GBP'), eur: sum('EUR') }
-  }, [invoices])
 
   return (
     <div>
-      {!open && (
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-          <div className="grid flex-1 grid-cols-2 gap-4 sm:grid-cols-3">
-            <StatCard label="Invoices sent" value={invoices.length} />
-            <StatCard label="Total invoiced (GBP)" value={invoiceMoney(totals.gbp, 'GBP')} />
-            <StatCard label="Total invoiced (EUR)" value={invoiceMoney(totals.eur, 'EUR')} />
-          </div>
-          <button type="button" className="btn-primary" onClick={openComposer}>+ New invoice</button>
-        </div>
-      )}
-
-      {open && (
-        <div className="mb-10 grid grid-cols-1 gap-6 lg:grid-cols-2">
+      {loading ? <Skeleton className="h-96" /> : (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {/* ---- Form ---- */}
           <div className="card space-y-6">
             <div className="flex items-center justify-between">
@@ -657,40 +628,6 @@ export default function InvoicesPanel({ prefill }) {
         </div>
       )}
 
-      {/* ---- History ---- */}
-      {loading ? (
-        <div className="space-y-3"><Skeleton className="h-16" /><Skeleton className="h-16" /></div>
-      ) : invoices.length === 0 ? (
-        !open && (
-          <EmptyState
-            icon={<Icon name="cash" className="h-8 w-8 text-brand" />}
-            title="No invoices yet"
-            hint="When a creator wins a cash prize, generate their invoice here and email it straight to finance."
-          />
-        )
-      ) : (
-        <div className="space-y-3">
-          {invoices.map((row) => (
-            <div key={row.id} className="card flex flex-col gap-3 !py-4 sm:flex-row sm:items-center">
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-sm font-semibold text-brand">#{invoiceNo(row.number)}</span>
-                  <span className="text-sm font-semibold">{row.creator_name}</span>
-                  <Badge tone="light">{invoiceMoney(row.amount, row.currency)}</Badge>
-                </div>
-                <p className="mt-1 truncate text-sm text-smoke">{row.description}</p>
-                <p className="mt-0.5 text-xs text-smoke">
-                  Sent to {row.sent_to || '?'}{row.cc ? ` (cc ${row.cc})` : ''} · {formatDate(row.sent_at || row.created_at)}
-                </p>
-              </div>
-              <div className="flex shrink-0 gap-2">
-                <button type="button" className="btn-secondary !py-2 text-xs" onClick={() => downloadExisting(row)}>PDF</button>
-                <button type="button" className="btn-ghost !py-2 text-xs text-red-500" onClick={() => deleteInvoice(row)}>Delete</button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   )
 }

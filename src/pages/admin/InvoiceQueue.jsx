@@ -159,20 +159,21 @@ function Row({ inv, people, myId, isOwner, busy, onSubmit, onDecide, onPaid, onO
   )
 }
 
-function Group({ title, hint, rows, ...rest }) {
+function Group({ title, rows, ...rest }) {
   if (!rows.length) return null
   return (
     <section>
-      <h3 className="text-sm font-semibold">{title} <span className="font-normal text-smoke">{rows.length}</span></h3>
-      {hint && <p className="mb-2 mt-0.5 text-xs text-smoke">{hint}</p>}
-      <div className="mt-2 space-y-2">
+      <h3 className="text-[15px] font-semibold">
+        {title} <span className="ml-1 font-normal tabular-nums text-smoke">{rows.length}</span>
+      </h3>
+      <div className="mt-2.5 space-y-2">
         {rows.map((inv) => <Row key={inv.id} inv={inv} {...rest} />)}
       </div>
     </section>
   )
 }
 
-export default function InvoiceQueue({ onEdit }) {
+export default function InvoiceQueue({ onEdit, inMarket, onChanged }) {
   const { user, profile } = useAuth()
   const isOwner = profile?.platform_role === 'owner'
   const [rows, setRows] = useState(null)
@@ -180,20 +181,38 @@ export default function InvoiceQueue({ onEdit }) {
   const [busy, setBusy] = useState(null)
   const [rejecting, setRejecting] = useState(null)
   const [note, setNote] = useState('')
+  const [threshold, setThreshold] = useState(null)
+  const [savingPolicy, setSavingPolicy] = useState(false)
 
   const load = useCallback(async () => {
-    const [{ data: inv }, { data: profs }] = await Promise.all([
+    const [{ data: inv }, { data: profs }, { data: policy }] = await Promise.all([
       supabase.from('invoices').select('*').order('number', { ascending: false }),
       supabase.from('profiles').select('id, name, photo_url'),
+      supabase.from('app_settings').select('value').eq('key', 'invoice_approval').maybeSingle(),
     ])
     setRows(inv || [])
     setPeople(new Map((profs || []).map((p) => [p.id, p])))
+    setThreshold(String(policy?.value?.threshold ?? 0))
   }, [])
 
   useEffect(() => { load() }, [load])
 
+  async function savePolicy(e) {
+    e.preventDefault()
+    setSavingPolicy(true)
+    const { error } = await supabase.from('app_settings').upsert({
+      key: 'invoice_approval',
+      value: { threshold: Math.max(0, Number(threshold) || 0) },
+      updated_at: new Date().toISOString(),
+    })
+    setSavingPolicy(false)
+    notice(error ? `Couldn't save: ${error.message}` : 'Saved.')
+  }
+
   const groups = useMemo(() => {
-    const all = rows || []
+    // Scoped with the rest of the page. An invoice belongs to the market its
+    // creator does.
+    const all = (rows || []).filter((i) => !inMarket || inMarket.has(i.creator_id))
     return {
       blocked: all.filter((i) => i.stage === 'draft' && !payable(i)),
       ready: all.filter((i) => (i.stage === 'draft' && payable(i)) || i.stage === 'rejected'),
@@ -202,15 +221,17 @@ export default function InvoiceQueue({ onEdit }) {
       out: all.filter((i) => i.stage === 'sent'),
       paid: all.filter((i) => i.stage === 'paid'),
     }
-  }, [rows])
+  }, [rows, inMarket])
 
   // What is committed but not yet gone. The one number this page exists for.
   const outstanding = useMemo(() => {
-    const live = (rows || []).filter((i) => i.stage !== 'paid' && i.stage !== 'rejected')
+    const live = (rows || [])
+      .filter((i) => !inMarket || inMarket.has(i.creator_id))
+      .filter((i) => i.stage !== 'paid' && i.stage !== 'rejected')
     const byCcy = {}
     for (const i of live) byCcy[i.currency] = (byCcy[i.currency] || 0) + Number(i.amount || 0)
     return byCcy
-  }, [rows])
+  }, [rows, inMarket])
 
   async function call(fn, args, inv) {
     setBusy(inv.id)
@@ -218,6 +239,7 @@ export default function InvoiceQueue({ onEdit }) {
     setBusy(null)
     if (error) { notice(error.message); return false }
     await load()
+    onChanged?.()
     return true
   }
 
@@ -293,29 +315,50 @@ export default function InvoiceQueue({ onEdit }) {
         />
       ) : (
         <>
-          <Group
-            title="Waiting for approval"
-            hint="Somebody has asked for these to go out. You cannot approve one you submitted yourself unless you are the owner."
-            rows={groups.waiting} {...shared}
-          />
-          <Group
-            title="Approved, ready to send"
-            hint="Cleared. Opening one loads it into the composer with everything filled in."
-            rows={groups.approved} {...shared}
-          />
-          <Group
-            title="Ready to submit"
-            hint="Drafts the platform wrote when the prize was awarded. Check the amount and send them up."
-            rows={groups.ready} {...shared}
-          />
-          <Group
-            title="Blocked on bank details"
-            hint="These cannot be approved until the creator saves their payment details in Settings. Give them a nudge."
-            rows={groups.blocked} {...shared}
-          />
+          <Group title="Waiting for approval" rows={groups.waiting} {...shared} />
+          <Group title="Approved, ready to send" rows={groups.approved} {...shared} />
+          <Group title="Ready to submit" rows={groups.ready} {...shared} />
+          <Group title="Blocked on bank details" rows={groups.blocked} {...shared} />
           <Group title="Sent, not yet paid" rows={groups.out} {...shared} />
           <Group title="Paid" rows={groups.paid.slice(0, 12)} {...shared} />
         </>
+      )}
+
+
+      {/* IS THE APPROVAL QUEUE NEEDED AT ALL?
+          Ethan's question, and this is the answer the page gives back: it is
+          needed where a HUMAN TYPED THE NUMBER, because that is where the error
+          happens. A prize invoice reads its amount off the challenge's own
+          prize structure and is raised by publishing the winners, which is
+          already a deliberate act behind a confirm - so above some size it is
+          ceremony, and below it, it is just a delay on somebody's money.
+          Set the size here. At zero (where it ships) nothing skips approval and
+          the queue behaves exactly as it does today. */}
+      {threshold !== null && (
+        <form onSubmit={savePolicy} className="rounded-card border border-gray-100 bg-white p-5">
+          <h3 className="text-[15px] font-semibold">Approval policy</h3>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+            <span>Clear prize invoices automatically at or under</span>
+            <span className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-2 py-1 focus-within:border-brand">
+              <span className="text-smoke">£</span>
+              <input
+                type="number" min="0" step="1"
+                className="w-20 border-0 bg-transparent p-0 text-sm font-semibold tabular-nums outline-none focus:ring-0"
+                value={threshold}
+                onChange={(e) => setThreshold(e.target.value)}
+                aria-label="Automatic approval threshold"
+              />
+            </span>
+            <button type="submit" disabled={savingPolicy} className="btn-secondary !py-1.5 !px-3 !text-xs">
+              {savingPolicy ? <Spinner /> : 'Save'}
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-smoke">
+            {Number(threshold) > 0
+              ? `A prize invoice of £${Number(threshold)} or less goes straight to "ready to send". Anything larger, and every invoice written by hand, still needs a second admin.`
+              : 'Every invoice needs a second admin before it can be sent.'}
+          </p>
+        </form>
       )}
 
       <Modal open={!!rejecting} onClose={() => setRejecting(null)} title="Send it back">
