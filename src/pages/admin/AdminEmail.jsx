@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { PageHeader, Skeleton, Spinner, Badge } from '../../components/ui'
+import { Avatar, Badge, CopyButton, PageHeader, Skeleton, Spinner } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { formatDateTime } from '../../lib/utils'
 import { confirm, notice } from '../../lib/confirm'
+import MarketScope, { useMarkets } from '../../components/admin/MarketScope'
+import { roleBadgeTitle } from '../../lib/roles'
 
 // The email page, rebuilt Jul 27 2026.
 //
@@ -20,54 +22,47 @@ import { confirm, notice } from '../../lib/confirm'
 const FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-welcome`
 
 export default function AdminEmail() {
-  const [addresses, setAddresses] = useState([])
+  const [people, setPeople] = useState([])   // creators, with their address
+  const [team, setTeam] = useState([])       // the Tryp.com team, with theirs
   const [queue, setQueue] = useState([])
   const [log, setLog] = useState([])
   const [loading, setLoading] = useState(true)
-  const [copied, setCopied] = useState(false)
+  const { markets, memberRows } = useMarkets()
+  const [market, setMarket] = useState('')
 
   const load = useCallback(async () => {
     const [{ data: profiles }, { data: emailRows }, { data: pending }, { data: logRows }] = await Promise.all([
-      supabase.from('profiles').select('id, status, is_admin, is_test, deletion_requested_at'),
+      supabase.from('profiles').select('id, name, photo_url, status, is_admin, is_test, deletion_requested_at, platform_role, role_title'),
       supabase.rpc('admin_list_emails'),
       supabase.from('email_outbox').select('*').eq('status', 'pending').order('created_at', { ascending: true }),
       supabase.rpc('email_log', { p_limit: 100 }),
     ])
+    const emailOf = new Map((emailRows ?? []).map((r) => [r.id, r.email]))
+    const live = (profiles ?? []).filter(
+      (p) => p.status === 'active' && !p.is_test && !p.deletion_requested_at && emailOf.get(p.id))
+    const withEmail = (p) => ({ ...p, email: emailOf.get(p.id) })
     // Community creators only: active, never admins, never the QA test
     // accounts, never anyone on their way out.
-    const creatorIds = new Set(
-      (profiles ?? [])
-        .filter((p) => p.status === 'active' && !p.is_admin && !p.is_test && !p.deletion_requested_at)
-        .map((p) => p.id)
-    )
-    setAddresses((emailRows ?? []).filter((r) => creatorIds.has(r.id) && r.email).map((r) => r.email))
+    setPeople(live.filter((p) => !p.is_admin).map(withEmail).sort(byName))
+    setTeam(live.filter((p) => p.is_admin).map(withEmail).sort(byName))
     setQueue(pending ?? [])
     setLog(logRows ?? [])
     setLoading(false)
   }, [])
   useEffect(() => { load() }, [load])
 
-  // Copy every creator address, with a textarea fallback for browsers that
-  // block the async clipboard API. Comma separated so it pastes straight into a
-  // BCC field or an external mailing tool.
-  async function copyEmails() {
-    const list = addresses.join(', ')
-    try {
-      await navigator.clipboard.writeText(list)
-    } catch {
-      const ta = document.createElement('textarea')
-      ta.value = list
-      ta.style.position = 'fixed'
-      ta.style.opacity = '0'
-      document.body.appendChild(ta)
-      ta.focus()
-      ta.select()
-      document.execCommand('copy')
-      document.body.removeChild(ta)
-    }
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2200)
-  }
+  // A creator belongs to the market they are a member of. Same rule as
+  // Analytics and Rewards, so "the Spanish list" means the same thing on all
+  // three pages.
+  const inMarket = useMemo(() => {
+    if (!market) return null
+    return new Set(memberRows.filter((m) => m.community_id === market).map((m) => m.profile_id))
+  }, [market, memberRows])
+
+  const creators = useMemo(
+    () => (inMarket ? people.filter((p) => inMarket.has(p.id)) : people),
+    [people, inMarket],
+  )
 
   // One helper for every call to the mail function. Errors are surfaced from
   // the response body: the function always answers with JSON + CORS headers, so
@@ -94,17 +89,19 @@ export default function AdminEmail() {
 
   return (
     <div className="page max-w-7xl">
-      <PageHeader
-        back="/admin"
-        title="Email"
-        subtitle="Welcome emails wait here for your approval. Everything else the community hears about is push and the in-app bell."
-      />
+      <PageHeader back="/admin" title="Email" />
 
       {loading ? (
         <Skeleton className="h-96 w-full" />
       ) : (
-        <div className="space-y-8">
-          <AddressList count={addresses.length} copied={copied} onCopy={copyEmails} />
+        <div className="space-y-10">
+          <MarketScope
+            markets={markets}
+            value={market}
+            onChange={setMarket}
+            note={market ? `${creators.length} of ${people.length} creators` : null}
+          />
+          <AddressBook creators={creators} team={team} scoped={!!market} />
           <ReviewQueue queue={queue} setQueue={setQueue} callFn={callFn} reload={load} />
           <SentLog rows={log} />
         </div>
@@ -114,29 +111,113 @@ export default function AdminEmail() {
 }
 
 // ---------------------------------------------------------------------------
-// The address list. This is now the way to reach the whole community by email:
-// copy it, paste it into a real mailing tool. Sending from the platform is
-// deliberately limited to one person at a time.
-function AddressList({ count, copied, onCopy }) {
+// THE ADDRESS BOOK.
+//
+// This was one button that copied 45 addresses in a lump. It is the way the
+// programme reaches anybody by email - the platform deliberately sends to one
+// person at a time - and a lump is the wrong shape for most of what it gets
+// used for. Ethan asked for the three things it was missing, and they are all
+// the same complaint: you could not take a SUBSET.
+//
+//   * A copy button per creator, because the common case is mailing ONE of
+//     them and the address was not written down anywhere you could reach.
+//   * Split by market, because "the Spanish creators" is a real audience and
+//     the whole list is not.
+//   * The team's own addresses, kept apart. They were simply absent - the list
+//     excluded admins, correctly, and then offered nothing else.
+//
+// Test accounts, admins-in-the-creator-list and anybody mid-deletion stay out
+// of all of it.
+const byName = (a, b) => (a.name || '').localeCompare(b.name || '')
+
+function AddressRow({ person, subtitle }) {
   return (
-    <section className="card">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <Icon name="users" className="h-5 w-5 text-brand" />
-            <h2 className="text-lg font-semibold">Creator address list</h2>
-          </div>
-          <p className="mt-1 max-w-xl text-sm text-smoke">
-            Every active creator, comma separated. Admins and test accounts are left out.
-            Paste it into the BCC field of a mailing tool when you need to reach everybody.
-          </p>
-        </div>
-        <button onClick={onCopy} disabled={count === 0} className="btn-primary !py-2.5 inline-flex items-center gap-2 text-sm">
-          <Icon name={copied ? 'check' : 'copy'} className="h-4 w-4" />
-          {copied ? `Copied ${count} addresses` : `Copy all ${count} emails`}
-        </button>
+    <div className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-cloud/60">
+      <Avatar src={person.photo_url} name={person.name} size="xs" />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium">{person.name}</p>
+        <p className="truncate text-xs text-smoke">{person.email}</p>
       </div>
+      {subtitle && <span className="hidden shrink-0 text-[11px] text-smoke sm:block">{subtitle}</span>}
+      <CopyButton value={person.email} label={`Copy ${person.name}'s address`} />
+    </div>
+  )
+}
+
+function AddressList({ title, people, empty, subtitleOf }) {
+  const [search, setSearch] = useState('')
+  const [expanded, setExpanded] = useState(false)
+
+  const shown = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return people
+    return people.filter((p) => `${p.name} ${p.email}`.toLowerCase().includes(q))
+  }, [people, search])
+
+  // A list that is 45 rows long pushes the review queue off the page, so it
+  // opens at ten and says how many more there are.
+  const visible = expanded ? shown : shown.slice(0, 10)
+  const all = people.map((p) => p.email).join(', ')
+
+  return (
+    <section className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
+      <div className="flex flex-wrap items-center gap-3 border-b border-gray-100 px-4 py-3">
+        <h3 className="text-[15px] font-semibold">
+          {title} <span className="ml-1 font-normal tabular-nums text-smoke">{people.length}</span>
+        </h3>
+        {people.length > 0 && (
+          <div className="ml-auto flex items-center gap-2">
+            {people.length > 8 && (
+              <input
+                type="search" className="input !w-44 !py-1.5 !text-xs" placeholder="Search…"
+                value={search} onChange={(e) => setSearch(e.target.value)}
+                aria-label={`Search ${title.toLowerCase()}`}
+              />
+            )}
+            {/* Still the bulk copy, because pasting the lot into a BCC field is
+                a real job - it is just no longer the ONLY thing on offer. */}
+            <CopyButton value={all} label={`Copy all ${people.length} addresses`} className="!px-3 !text-xs" />
+          </div>
+        )}
+      </div>
+
+      {people.length === 0 ? (
+        <p className="px-4 py-8 text-center text-sm text-smoke">{empty}</p>
+      ) : shown.length === 0 ? (
+        <p className="px-4 py-8 text-center text-sm text-smoke">Nothing matches &ldquo;{search}&rdquo;.</p>
+      ) : (
+        <>
+          <div className="divide-y divide-gray-50">
+            {visible.map((p) => <AddressRow key={p.id} person={p} subtitle={subtitleOf?.(p)} />)}
+          </div>
+          {shown.length > 10 && (
+            <div className="border-t border-gray-100 px-4 py-2.5 text-center">
+              <button type="button" onClick={() => setExpanded((v) => !v)} className="btn-ghost !py-1.5 text-xs">
+                {expanded ? 'Show less' : `Show all ${shown.length}`}
+              </button>
+            </div>
+          )}
+        </>
+      )}
     </section>
+  )
+}
+
+function AddressBook({ creators, team, scoped }) {
+  return (
+    <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <AddressList
+        title={scoped ? 'Creators in this market' : 'Creators'}
+        people={creators}
+        empty={scoped ? 'No creators in this market yet.' : 'No creators yet.'}
+      />
+      <AddressList
+        title="Tryp.com team"
+        people={team}
+        empty="Nobody on the team has an account yet."
+        subtitleOf={(p) => roleBadgeTitle(p)}
+      />
+    </div>
   )
 }
 
