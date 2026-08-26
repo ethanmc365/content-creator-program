@@ -3,9 +3,10 @@ import { motion } from 'motion/react'
 import { Link } from 'react-router-dom'
 import Icon from '../Icon'
 import { Avatar } from '../ui'
-import { cx, formatViews } from '../../lib/utils'
+import { cx } from '../../lib/utils'
 import { EASE } from '../../lib/motion'
-import { playPlaneRise, playCoin } from '../../lib/gameSounds'
+import { playPlaneRise, playRingReached, engineThrust, engineStop } from '../../lib/gameSounds'
+import { REWARD_TONE, criterionLabel, milestoneFraction } from '../../lib/milestones'
 
 // The milestone ladder, drawn as a flight path.
 //
@@ -123,24 +124,40 @@ function PlaneMark() {
   )
 }
 
-const REWARD_TONE = {
-  merch: 'bg-brand text-white',
-  voucher: 'bg-green-600 text-white',
-  role: 'bg-ink text-white',
-  access: 'bg-brand-light text-white',
-  status: 'bg-brand-tint text-brand',
-  other: 'bg-cloud text-smoke',
+// WHEN THE PLANE IS AT A GIVEN POINT ON THE ROUTE.
+//
+// THE BUG THIS FIXES. The rings lit on a LINEAR clock - node i appeared at
+// `(i/legs)/progress * flightSeconds` - while the plane flew an EASED one, the
+// keySplines curve below. Those two agree at take-off and at landing and
+// nowhere in between, so through the middle of the route the aircraft was a
+// good half-second ahead of the dot it was supposedly arriving at, and the
+// chimes rang against nothing. That is the "animation speed doesn't match the
+// milestones appearing" report, and no amount of tuning the duration fixes it
+// because the shapes are different, not the lengths.
+//
+// The easing maps time -> distance. To light a ring exactly as the plane
+// touches it we need the other direction: distance -> time. There is no closed
+// form for the inverse of a cubic bezier, so it is solved numerically - twenty
+// bisections on a monotonic curve is exact to about a millionth, and it runs
+// once per node on one render.
+const SPLINE = [0.32, 0.18, 0.36, 0.86]
+
+function bezier(t, a, b) {
+  const u = 1 - t
+  return 3 * u * u * t * a + 3 * u * t * t * b + t * t * t
 }
 
-function metricLabel(metric, value, threshold) {
-  const v = Number(value || 0)
-  const t = Number(threshold || 0)
-  if (metric === 'views') return `${formatViews(v)} of ${formatViews(t)} views`
-  if (metric === 'videos') return `${Math.floor(v)} of ${t} videos`
-  if (metric === 'referrals') return `${Math.floor(v)} of ${t} brought in`
-  if (metric === 'challenges') return `${Math.floor(v)} of ${t} challenges`
-  if (metric === 'days') return `${Math.floor(v)} of ${t} days`
-  return `${Math.floor(v)} / ${t}`
+/** The normalised time at which an eased animation has covered fraction `y`. */
+function timeAtDistance(y) {
+  const target = Math.max(0, Math.min(1, y))
+  let lo = 0
+  let hi = 1
+  for (let i = 0; i < 20; i += 1) {
+    const mid = (lo + hi) / 2
+    if (bezier(mid, SPLINE[1], SPLINE[3]) < target) lo = mid
+    else hi = mid
+  }
+  return bezier((lo + hi) / 2, SPLINE[0], SPLINE[2])
 }
 
 // `preview` draws the whole route as flown, whatever the viewer has actually
@@ -235,11 +252,12 @@ export default function MilestonePath({ milestones = [], standings = [], preview
 
   const reached = preview ? milestones.length : milestones.filter((m) => m.reached).length
   const next = milestones[reached] || null
-  // How far into the current leg. Measured against the NEXT milestone's own
-  // metric, which is the only number that answers "how close am I".
-  const legFraction = next
-    ? Math.max(0, Math.min(1, Number(next.value || 0) / Number(next.threshold || 1)))
-    : 1
+  // How far into the current leg. A stop can now ask for SEVERAL things at
+  // once, so this is the mean of its requirements rather than the one metric it
+  // used to have - see `milestoneFraction`. A creator who has the views and the
+  // videos but none of the referrals is genuinely two-thirds of the way to that
+  // stop, and the plane should sit two-thirds of the way along the leg.
+  const legFraction = next ? milestoneFraction(next) : 1
   const legs = Math.max(1, nodes.length - 1)
   const progress = Math.min(1, (reached + legFraction) / legs)
 
@@ -278,8 +296,12 @@ export default function MilestonePath({ milestones = [], standings = [], preview
   const arrivalDelay = (i) => {
     const f = i / legs
     if (progress <= 0) return Math.min(i * 0.12, 1)
+    // Beyond where the creator has got to: the route ahead, arriving just after
+    // the aircraft parks. Still linear, because nothing is flying it.
     if (f >= progress) return flightSeconds + Math.min((f - progress) * legs * 0.12, 0.6)
-    return (f / progress) * flightSeconds
+    // On the flown part: ask the flight when it is HERE, rather than assuming
+    // it covers the route at a steady rate. See `timeAtDistance`.
+    return timeAtDistance(f / progress) * flightSeconds
   }
 
   // THE FLIGHT IS AUDIBLE.
@@ -300,9 +322,33 @@ export default function MilestonePath({ milestones = [], standings = [], preview
     playPlaneRise()
     const timers = []
     for (let i = 1; i <= reached; i++) {
-      timers.push(setTimeout(playCoin, Math.round(arrivalDelay(i) * 1000)))
+      timers.push(setTimeout(playRingReached, Math.round(arrivalDelay(i) * 1000)))
     }
-    return () => timers.forEach(clearTimeout)
+
+    // THE AIRCRAFT IS AUDIBLE FOR AS LONG AS IT IS MOVING.
+    //
+    // There was one ascending pass at take-off and then silence under a plane
+    // that kept flying for another eight seconds, which is the wrong way round:
+    // the take-off is the moment you are least likely to be looking, and the
+    // long middle is the part that needed something under it.
+    //
+    // `engineThrust` is the Flight Path propeller - filtered noise with a blade
+    // band on it, already built, already quiet - and it settles itself 420ms
+    // after the last call. Re-thrusting on a 300ms tick therefore holds it open
+    // for exactly as long as we keep ticking, and one `engineStop` at the end
+    // fades it out. Started a beat after the rise so the two do not stack.
+    const takeoff = setTimeout(() => {
+      engineThrust()
+      timers.push(setInterval(engineThrust, 300))
+    }, 500)
+    const landed = setTimeout(engineStop, Math.round(flightSeconds * 1000) + 400)
+
+    return () => {
+      clearTimeout(takeoff)
+      clearTimeout(landed)
+      timers.forEach((t) => { clearTimeout(t); clearInterval(t) })
+      engineStop()
+    }
     // `arrivalDelay` closes over flightSeconds/progress/legs, all derived from
     // props, and is rebuilt every render - depending on it would reschedule the
     // whole run on any unrelated re-render, which is how you get a route that
@@ -470,12 +516,23 @@ export default function MilestonePath({ milestones = [], standings = [], preview
                   <animate attributeName="opacity" values="0.35;0;0.35" dur="2.6s" repeatCount="indefinite" />
                 </circle>
               )}
+              {/* A stop whose own numbers are met but which is gated behind an
+                  earlier one is drawn as an outline in full brand orange with a
+                  dashed edge: unmistakably EARNED, unmistakably not yet
+                  yours. A plain grey dot said neither. */}
               <circle
                 cx={x} cy={y} r="13"
                 fill={done ? '#d94407' : '#ffffff'}
-                stroke={done ? '#d94407' : isNext ? '#d94407' : '#e2e2e6'}
-                strokeWidth={isNext ? 3 : 2}
+                stroke={done || n.blocked ? '#d94407' : isNext ? '#d94407' : '#e2e2e6'}
+                strokeWidth={isNext || n.blocked ? 3 : 2}
+                strokeDasharray={!done && n.blocked ? '4 3' : undefined}
               />
+              {!done && n.blocked && (
+                <path
+                  d={`M ${x - 4.5} ${y} l 3.2 3.4 L ${x + 4.8} ${y - 3.9}`}
+                  fill="none" stroke="#d94407" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                />
+              )}
               {done && (
                 <path
                   d={`M ${x - 5} ${y} l 3.6 3.8 L ${x + 5.4} ${y - 4.4}`}
@@ -531,9 +588,42 @@ export default function MilestonePath({ milestones = [], standings = [], preview
                     {n.reward}
                   </span>
                 )}
-                <p className="mt-1 text-[11px] text-smoke">
-                  {done ? 'Reached' : metricLabel(n.metric, n.value, n.threshold)}
-                </p>
+                {/* WHAT THIS STOP ACTUALLY ASKS FOR.
+                    One line per requirement, ticked or not. A stop can need
+                    three things now, and "3 of 10 videos" under a milestone
+                    that also wants 500k views and two referrals would be a
+                    progress line that lies by omission. Ticking them off
+                    individually is also the thing Ethan asked for directly:
+                    show what you have got and what you still need. */}
+                {done ? (
+                  <p className="mt-1 text-[11px] text-smoke">Reached</p>
+                ) : (
+                  <ul className="mt-1 space-y-0.5">
+                    {(n.criteria || []).map((c) => (
+                      <li key={c.metric} className="flex items-start gap-1 text-[11px] leading-tight">
+                        <Icon
+                          name={c.done ? 'check' : 'clock'}
+                          className={cx('mt-px h-3 w-3 shrink-0', c.done ? 'text-green-600' : 'text-gray-300')}
+                        />
+                        <span className={c.done ? 'text-smoke line-through decoration-green-600/40' : 'text-smoke'}>
+                          {criterionLabel(c)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {/* EARNED, BUT WAITING ON AN EARLIER STOP.
+                    Without this the dot is simply unlit and the creator has no
+                    way to tell "you have not done this yet" from "you did this
+                    months ago but the route runs in order". Naming it turns a
+                    dead end into a next action. */}
+                {n.blocked && (
+                  <p className="mt-1.5 inline-flex items-start gap-1 rounded-lg bg-amber-50 px-1.5 py-1 text-[10px] font-medium leading-tight text-amber-700">
+                    <Icon name="alert" className="mt-px h-3 w-3 shrink-0" />
+                    Done — waiting on an earlier stop
+                  </p>
+                )}
                 {/* WHO IS AT THIS STOP.
                     Always, not behind a toggle. There were two buttons here -
                     "Faces at each stop" and "Everyone on the road" - and

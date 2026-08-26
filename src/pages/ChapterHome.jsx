@@ -80,7 +80,7 @@ export default function ChapterHome() {
         // sort by presence over a slice the database chose for you. A market
         // roster is tens of rows, not thousands.
         supabase.from('community_members')
-          .select('profile_id, role, profiles!inner(id, name, photo_url, country_code, last_seen_at, is_admin, is_test, status, platform_role, role_title)')
+          .select('profile_id, role, profiles!inner(id, name, photo_url, country_code, last_seen_at, is_admin, is_test, status, platform_role, role_title, earned_role)')
           .eq('community_id', chapter.id).eq('status', 'active')
           .eq('profiles.is_test', false).eq('profiles.status', 'active'),
         // What is coming up here. Events scoped to THIS market plus the

@@ -460,7 +460,7 @@ export default function AppLayout() {
                       the directory with a role on their card, not a separate
                       page you have to know about. See Directory. */}
                   {networkPreview && (
-                    <Link to="/milestones" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">My route</Link>
+                    <Link to="/milestones" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Milestones</Link>
                   )}
 
                   {/* EVERYWHERE ELSE, ON A PHONE.

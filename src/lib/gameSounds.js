@@ -306,3 +306,20 @@ export function engineStop() {
     setTimeout(() => { for (const n of e.nodes) { try { n.stop() } catch { /* already stopped */ } } }, 300)
   } catch { /* nothing to do */ }
 }
+
+/**
+ * A MILESTONE RING, PASSED. Two soft sine notes a fifth apart, with a slow
+ * attack and a long tail.
+ *
+ * WHY NOT THE COIN. The route borrowed `playCoin` for this, and a coin is a
+ * square wave with a 55ms attack - a bright, hard, arcade sound designed to cut
+ * through a game. Eleven of them down a page, under a slow aeroplane, read as
+ * an alarm rather than as arriving somewhere. This is the same event told in
+ * the register the drawing is already in: quieter than the coin by a third, no
+ * upper harmonics to speak of, and long enough that consecutive rings overlap
+ * into a chord instead of a rattle.
+ */
+export const playRingReached = () => play((a) => {
+  tone(a, 587.33, 0, 0.42, 0.048, 'sine')      // D5
+  tone(a, 880.00, 0.07, 0.52, 0.038, 'sine')   // A5, the fifth above
+})

@@ -248,7 +248,16 @@ export default function Profile() {
                 when nobody has been given one - so a Spain country manager
                 reads "Spanish Country Manager" and Ethan reads
                 "Tryp.com CCC Lead". */}
-            {creator.is_admin && <Badge tone="light">{roleBadgeTitle(creator)}</Badge>}
+            {/* A TITLE THE LADDER GAVE THEM, in the same place as a team title
+                and deliberately not the same colour. The badge used to appear
+                only for admins, so a creator who had flown far enough to earn
+                "Tryp.com Senior Creator" was shown nothing at all - the reward
+                existed in the database and nowhere a person could see it. Grey
+                for earned, brand-tint for team: one is something you did, the
+                other is a job you hold, and they should not read alike. */}
+            {(creator.is_admin || creator.earned_role) && (
+              <Badge tone={creator.is_admin ? 'light' : 'grey'}>{roleBadgeTitle(creator)}</Badge>
+            )}
             {isApplication && <Badge tone="amber">Pending review</Badge>}
             {(ageFromDob(creator.dob) ?? creator.age) && <span className="text-smoke">{ageFromDob(creator.dob) ?? creator.age}</span>}
           </div>

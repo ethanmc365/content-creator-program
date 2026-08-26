@@ -266,7 +266,7 @@ export default function Chat() {
     setLoading(true)
     const { data: msgs } = await supabase
       .from('messages')
-      .select('*, profiles:sender_id(id, name, photo_url, is_admin, platform_role, role_title)')
+      .select('*, profiles:sender_id(id, name, photo_url, is_admin, platform_role, role_title, earned_role)')
       .eq('channel', channel)
       .order('created_at', { ascending: true })
       .limit(200)
@@ -648,7 +648,7 @@ export default function Chat() {
       scope: outboxScope,
       table: 'messages',
       row,
-      select: '*, profiles:sender_id(id, name, photo_url, is_admin, platform_role, role_title)',
+      select: '*, profiles:sender_id(id, name, photo_url, is_admin, platform_role, role_title, earned_role)',
       display,
     })
   }
@@ -980,8 +980,13 @@ export default function Chat() {
                     {/* The title they were given, not the generic one. See the
                         note on the profile page: "Tryp.com Team" is true of
                         every admin and so distinguishes none of them. */}
-                    {m.profiles?.is_admin && (
-                      <Badge tone="light" className="shrink-0 whitespace-nowrap !px-2 !py-0.5">{roleBadgeTitle(m.profiles)}</Badge>
+                    {(m.profiles?.is_admin || m.profiles?.earned_role) && (
+                      <Badge
+                        tone={m.profiles?.is_admin ? 'light' : 'grey'}
+                        className="shrink-0 whitespace-nowrap !px-2 !py-0.5"
+                      >
+                        {roleBadgeTitle(m.profiles)}
+                      </Badge>
                     )}
                     {m.pinned && <Icon name="pin" className="h-3.5 w-3.5 shrink-0 text-brand" title="Pinned" />}
                   </div>

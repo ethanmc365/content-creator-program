@@ -7,8 +7,9 @@ import BackLink from '../components/BackLink'
 import MilestonePath from '../components/network/MilestonePath'
 import Icon from '../components/Icon'
 import { Avatar, EmptyState, PageHeader, Skeleton } from '../components/ui'
-import { formatViews } from '../lib/utils'
+import { cx } from '../lib/utils'
 import { pageFade } from '../lib/motion'
+import { METRICS, criterionLabel, humanDays, routeState } from '../lib/milestones'
 
 // Where a creator has got to, and what is next.
 //
@@ -17,16 +18,17 @@ import { pageFade } from '../lib/motion'
 // The old profile badges were effort tiers that nobody could name a reason to
 // want: they appeared, they were grey, and reaching one changed nothing. A
 // milestone is the same idea with the two missing halves attached - a threshold
-// you can see coming, and something real on the other side of it. One page that
-// says "four down, the next one is a t-shirt at ten videos" does more for
-// retention than nine badges saying "Level 3".
+// you can see coming, and something real on the other side of it.
+//
+// AND IT IS A ROUTE NOW, NOT A CHECKLIST
+//
+// Every stop used to test one number, so eleven stops tested eleven unrelated
+// things and a creator could clear the fourth without the second. Drawn on a
+// line that was nonsense. Each stop now carries a SET of requirements and the
+// stops are gated in order, which is what makes the picture mean something: the
+// lit part of the line is always the part behind you.
 
-const SUMMARY = [
-  { key: 'videos', label: 'Total videos', icon: 'video' },
-  { key: 'views', label: 'Total views', icon: 'eye', fmt: formatViews },
-  { key: 'referrals', label: 'Creators referred', icon: 'share' },
-  { key: 'days', label: 'Days in the community', icon: 'clock', fmt: (v) => Math.floor(v) },
-]
+const SUMMARY = ['views', 'videos', 'referrals', 'challenges', 'podiums', 'days']
 
 export default function Milestones() {
   const { profile } = useAuth()
@@ -60,39 +62,34 @@ export default function Milestones() {
     )
   }
 
-  const reached = rows.filter((r) => r.reached).length
-  const next = rows.find((r) => !r.reached) || null
+  const { reached, total, next, blocked } = routeState(rows)
 
   return (
     <div className="page max-w-6xl">
       <BackLink />
       <motion.div {...pageFade}>
         <PageHeader
-          title="Your route"
-          subtitle="Every stop on the way, what it takes to get there, and what is waiting when you do."
+          title="Milestones"
+          subtitle="One route, flown in order. Every stop asks for a few things at once — here is what you have, and what is left."
         />
 
-        {/* THE BANNER THAT USED TO BE HERE IS GONE.
-            It said "0 / 11 stops reached · Next up: first video published" - and
-            so does the "Where you are" card in the rail, in the same words,
-            about four hundred pixels lower. Two cards answering one question is
-            not emphasis, it is a page that repeats itself before it has said
-            anything. The rail keeps it, because that column is where the
-            reading lives. */}
-
-        {/* The four numbers the whole ladder is computed from. Showing them
-            makes the thresholds checkable rather than magic. */}
+        {/* The numbers the whole ladder is computed from. Showing them makes the
+            thresholds checkable rather than magic. */}
         {metrics && (
-          <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {SUMMARY.map((s) => (
-              <div key={s.key} className="rounded-card border border-gray-100 bg-white px-4 py-3">
-                <Icon name={s.icon} className="h-4 w-4 text-brand" />
-                <p className="mt-1.5 text-lg font-bold tabular-nums">
-                  {s.fmt ? s.fmt(Number(metrics[s.key] || 0)) : Math.floor(Number(metrics[s.key] || 0))}
-                </p>
-                <p className="text-[11px] text-smoke">{s.label}</p>
-              </div>
-            ))}
+          <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {SUMMARY.map((key) => {
+              const m = METRICS.find((x) => x.value === key)
+              const raw = Number(metrics[key] || 0)
+              return (
+                <div key={key} className="rounded-card border border-gray-100 bg-white px-4 py-3">
+                  <Icon name={m.icon} className="h-4 w-4 text-brand" />
+                  <p className="mt-1.5 text-lg font-bold tabular-nums">
+                    {key === 'days' ? humanDays(raw) : m.fmt(raw)}
+                  </p>
+                  <p className="text-[11px] text-smoke">{m.label}</p>
+                </div>
+              )
+            })}
           </div>
         )}
 
@@ -112,10 +109,8 @@ export default function Milestones() {
 
             {/* NO CARD ROUND THE ROUTE.
                 A white panel inside a white page is a border drawn for its own
-                sake: it added an inset, a shadow and a hard edge around a
-                drawing that already has all the structure it needs. The route
-                sits on the page. The reading beside it keeps its card, because
-                that one IS a distinct object. */}
+                sake. The route sits on the page. The reading beside it keeps
+                its card, because that one IS a distinct object. */}
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
               <div className="px-1 py-2">
                 <MilestonePath
@@ -129,34 +124,61 @@ export default function Milestones() {
                 <div className="rounded-card border border-gray-100 bg-white p-5 shadow-card">
                   <p className="text-[11px] font-semibold uppercase tracking-widest text-smoke">Where you are</p>
                   <p className="mt-2 text-3xl font-bold text-brand">
-                    {reached}<span className="text-lg text-smoke"> / {rows.length}</span>
+                    {reached}<span className="text-lg text-smoke"> / {total}</span>
                   </p>
                   <p className="text-xs text-smoke">stops reached</p>
                   {next && (
                     <div className="mt-4 border-t border-gray-100 pt-4">
                       <p className="text-[11px] font-semibold uppercase tracking-widest text-smoke">Next stop</p>
                       <p className="mt-1 text-sm font-semibold">{next.title}</p>
-                      <p className="mt-0.5 text-xs text-smoke">
-                        {next.metric === 'views'
-                          ? `${formatViews(Number(next.value))} of ${formatViews(Number(next.threshold))} views`
-                          : `${Math.floor(Number(next.value))} of ${Number(next.threshold)}`}
-                      </p>
+                      {/* EVERY REQUIREMENT, TICKED OR NOT.
+                          This was one line reading "3 of 10" - the stop's
+                          single metric. A stop can ask for three things now,
+                          and the whole reason for that change was so a creator
+                          can see which of them they are short on. */}
+                      <ul className="mt-2 space-y-1.5">
+                        {(next.criteria || []).map((c) => (
+                          <li key={c.metric} className="flex items-start gap-1.5 text-xs">
+                            <Icon
+                              name={c.done ? 'check' : 'clock'}
+                              className={cx('mt-0.5 h-3.5 w-3.5 shrink-0', c.done ? 'text-green-600' : 'text-gray-300')}
+                            />
+                            <span className={c.done ? 'text-smoke line-through decoration-green-600/40' : 'text-ink'}>
+                              {criterionLabel(c)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
                       {next.reward && (
-                        <span className="mt-2 inline-block rounded-full bg-brand-tint px-2.5 py-1 text-[11px] font-semibold text-brand">
+                        <span className="mt-3 inline-block rounded-full bg-brand-tint px-2.5 py-1 text-[11px] font-semibold text-brand">
                           {next.reward}
                         </span>
                       )}
                     </div>
                   )}
+
+                  {/* WORK ALREADY DONE THAT IS WAITING ON THE ORDER.
+                      Somebody past 100,000 views who has never referred anybody
+                      has genuinely earned three stops further down and cannot
+                      have any of them yet. Silence there reads as the ladder
+                      being broken; saying it reads as a reason to go and refer
+                      somebody, which is the point of putting it in the way. */}
+                  {blocked.length > 0 && (
+                    <div className="mt-4 rounded-xl bg-amber-50 px-3 py-2.5">
+                      <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-800">
+                        <Icon name="alert" className="h-3.5 w-3.5" />
+                        {blocked.length} {blocked.length === 1 ? 'stop is' : 'stops are'} already earned
+                      </p>
+                      <p className="mt-1 text-[11px] leading-relaxed text-amber-700">
+                        You have the numbers for {blocked.map((b) => b.title).slice(0, 2).join(' and ')}
+                        {blocked.length > 2 ? ` and ${blocked.length - 2} more` : ''}. They unlock as soon as you
+                        clear {next ? next.title : 'the stop in front of them'}.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* WHO ELSE IS ON THE ROAD, BESIDE THE ROUTE RATHER THAN UNDER IT.
-                    This was a full-width section at the very bottom of the
-                    page, which on a desktop meant it sat below a drawing over
-                    a thousand pixels tall - so the answer to "am I out here on
-                    my own" was three scrolls away from the picture that raises
-                    the question. It belongs next to "where you are": those are
-                    the same question asked about you and about everybody else.
                     Not a leaderboard - no ranks, no scores, nothing to win. */}
                 {standings.filter((s) => s.reached > 0).length > 0 && (
                   <div className="rounded-card border border-gray-100 bg-white p-5 shadow-card">
@@ -181,22 +203,13 @@ export default function Milestones() {
                   </div>
                 )}
 
-                {/* THE WAY IN. There was no route from this page to the editor
-                    at all, so the person who decides what the stops ARE had to
-                    know /admin/milestones existed and type it. */}
-                {isAdmin && (
-                  <div className="rounded-card border border-brand/25 bg-brand-tint/20 p-5">
-                    <p className="flex items-center gap-2 text-sm font-semibold text-brand">
-                      <Icon name="shield" className="h-4 w-4" /> Running the route
-                    </p>
-                    <p className="mt-1 text-xs text-smoke">
-                      Add, retitle, reorder or retire a stop, and set what each one is worth.
-                    </p>
-                    <Link to="/admin/milestones" className="btn-primary mt-3 inline-flex !py-2 !px-4 text-xs">
-                      Edit the milestones
-                    </Link>
-                  </div>
-                )}
+                {/* THE "RUNNING THE ROUTE" CARD IS GONE.
+                    It was an admin-only panel on a creator's page whose whole
+                    job was to link to /admin/milestones - a page the admin
+                    panel already lists, under the same name, one tap away.
+                    Ethan asked for it off, and it was the only thing on this
+                    page that existed for somebody other than the person
+                    reading it. */}
               </aside>
             </div>
           </>

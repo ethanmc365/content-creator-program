@@ -34,7 +34,7 @@ export const TITLE_PRESETS = [
 
 /**
  * The badge to show under somebody's name.
- * @param {{ role_title?: string, platform_role?: string, is_admin?: boolean, memberRole?: string }} person
+ * @param {{ role_title?: string, earned_role?: string, platform_role?: string, is_admin?: boolean, memberRole?: string }} person
  * @param {string} [marketName] the market being looked at, if any
  */
 export function roleTitle(person, marketName) {
@@ -47,6 +47,13 @@ export function roleTitle(person, marketName) {
     return marketName ? `${marketName} manager` : 'Market manager'
   }
   if (person.is_admin || person.platform_role === 'global_admin') return 'Tryp.com team'
+  // A TITLE THE LADDER HANDED OUT, rather than one a person typed.
+  //
+  // It sits here, immediately above the generic fallback, so it can only ever
+  // replace "Creator" - never a team title, never the programme lead's. That is
+  // the whole contract: the milestones can name somebody who had no name, and
+  // cannot rename somebody who already has one.
+  if (person.earned_role) return person.earned_role
   return 'Creator'
 }
 
