@@ -9,6 +9,7 @@ import { notice } from '../../lib/confirm'
 import { payeeFromPrivate, payeeStarted, formatSortCode, formatIban, cleanIban } from '../../lib/invoice'
 import InvoicesPanel from './InvoicesPanel'
 import InvoiceQueue from './InvoiceQueue'
+import MarketScope, { useMarkets } from '../../components/admin/MarketScope'
 
 // Build the label / display / copy-value rows for a creator's saved bank
 // details, per currency. Numbers copy as raw digits so they paste cleanly into
@@ -40,7 +41,14 @@ export default function AdminRewards() {
     return TABS.includes(t) ? t : 'queue'
   })
   const [invoicePrefill, setInvoicePrefill] = useState(null)
-  const [rewards, setRewards] = useState([])
+  const [allRewards, setAllRewards] = useState([])
+  // WHICH MARKET'S MONEY. Same control as Analytics, same reasoning: a country
+  // manager reading a worldwide payout list has to find their own creators in
+  // it first. A reward belongs to the market its CREATOR belongs to - the
+  // reward's own `community_id` is only set on some rows and never on the older
+  // ones, so membership is the honest source.
+  const { markets, memberRows } = useMarkets()
+  const [market, setMarket] = useState('')
   const [creators, setCreators] = useState([])
   const [challenges, setChallenges] = useState([])
   const [loading, setLoading] = useState(true)
@@ -55,6 +63,17 @@ export default function AdminRewards() {
   // "Mark distributed" modal (replaces a flaky window.prompt).
   const [distributing, setDistributing] = useState(null) // the reward being marked
   const [distNotes, setDistNotes] = useState('')
+
+  const inMarket = useMemo(() => {
+    if (!market) return null
+    const ids = new Set(memberRows.filter((m) => m.community_id === market).map((m) => m.profile_id))
+    return ids
+  }, [market, memberRows])
+
+  const rewards = useMemo(
+    () => (inMarket ? allRewards.filter((r) => inMarket.has(r.creator_id)) : allRewards),
+    [allRewards, inMarket],
+  )
 
   // Payment-details tab: creators + their private bank details (admins can read
   // creator_private via RLS). Loaded lazily the first time the tab is opened.
@@ -78,8 +97,12 @@ export default function AdminRewards() {
 
   const payFiltered = useMemo(() => {
     const q = paySearch.trim().toLowerCase()
-    return q ? payDetails.filter((p) => (p.name || '').toLowerCase().includes(q)) : payDetails
-  }, [payDetails, paySearch])
+    // Scoped with everything else: "who in Spain has not given us their bank
+    // details" is the question this tab gets asked, and a worldwide list makes
+    // somebody read past five markets to answer it.
+    const scoped = inMarket ? payDetails.filter((p) => inMarket.has(p.id)) : payDetails
+    return q ? scoped.filter((p) => (p.name || '').toLowerCase().includes(q)) : scoped
+  }, [payDetails, paySearch, inMarket])
 
   // Referral vouchers, split out. `source` is set by the trigger in migration
   // 109; anything older has the column default of 'challenge'.
@@ -99,7 +122,7 @@ export default function AdminRewards() {
       supabase.from('profiles').select('id, name').order('name'),
       supabase.from('challenges').select('id, title').order('created_at', { ascending: false }),
     ])
-    setRewards(r ?? [])
+    setAllRewards(r ?? [])
     setCreators(c ?? [])
     setChallenges(ch ?? [])
     setLoading(false)
@@ -248,6 +271,13 @@ export default function AdminRewards() {
           </button>
         ))}
       </div>
+
+      <MarketScope
+        markets={markets}
+        value={market}
+        onChange={setMarket}
+        note={market ? `${rewards.length} of ${allRewards.length} rewards` : null}
+      />
 
       <div className={tab === 'queue' ? '' : 'hidden'}>
         <InvoiceQueue onEdit={editInvoice} />

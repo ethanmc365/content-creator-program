@@ -113,7 +113,9 @@ export default function AdminJobs() {
       <PageHeader
         back={{ to: '/jobs', label: 'Roles' }}
         title="Manage jobs"
-        subtitle={`Post roles and review who's applied. ${totalOpen} role${totalOpen === 1 ? '' : 's'} open · ${apps.length} application${apps.length === 1 ? '' : 's'} in total.`}
+        // The counts stay, the sentence in front of them goes: "post roles and
+        // review who's applied" describes the page you are already looking at.
+        subtitle={`${totalOpen} role${totalOpen === 1 ? '' : 's'} open · ${apps.length} application${apps.length === 1 ? '' : 's'} in total.`}
         action={<button onClick={() => openEditor(null)} className="btn-primary">+ New job</button>}
       />
 

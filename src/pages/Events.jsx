@@ -423,7 +423,6 @@ export default function Events() {
     <div className="page">
       <PageHeader
         title="Events & calendar"
-        subtitle="Challenge deadlines, Q&As, your own trips and content days. Never miss a date."
         action={
           <div className="flex flex-wrap gap-2">
             <button onClick={() => { setEditingPersonal(null); setPersonalOpen(true) }} className="btn-secondary !py-2.5 text-sm">

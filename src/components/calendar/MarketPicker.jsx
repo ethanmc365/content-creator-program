@@ -140,7 +140,11 @@ export default function MarketPicker({ chapters = [], value = [], onChange, id =
                 <span className="flex h-4 w-4 shrink-0 items-center justify-center">
                   {on && <Icon name="check" className="h-4 w-4" strokeWidth={2.6} />}
                 </span>
-                {c.name}
+                {/* One line, always. "UK & Ireland" is the longest market name
+                    and it was the one that wrapped, breaking after the
+                    ampersand and pushing the row to double height in a list
+                    where every other row was single. */}
+                <span className="min-w-0 flex-1 truncate">{c.name}</span>
               </button>
             )
           })}

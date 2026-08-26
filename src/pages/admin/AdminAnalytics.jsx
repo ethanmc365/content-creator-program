@@ -14,6 +14,7 @@ import CommunityHealth from './analytics/CommunityHealth'
 import Growth from './analytics/Growth'
 import PerCreator from './analytics/PerCreator'
 import { scopeToMarket } from '../../lib/analyticsScope'
+import MarketScope from '../../components/admin/MarketScope'
 
 const TABS = [
   { key: 'overview', label: 'Overview' },
@@ -400,45 +401,15 @@ export default function AdminAnalytics() {
   // there is no market, so the global case costs nothing.
   const scoped = scopeToMarket(raw, market, raw?.memberRows || [])
 
-  const marketPicker = markets.length > 0 && (
-    <div className="mb-6 flex flex-wrap items-center gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card">
-      <button
-        type="button"
-        onClick={() => setMarket('')}
-        aria-pressed={!market}
-        className={cx(
-          'rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors',
-          !market ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink',
-        )}
-      >
-        Worldwide
-      </button>
-      {markets.map((m) => (
-        <button
-          key={m.id}
-          type="button"
-          onClick={() => setMarket(m.id)}
-          aria-pressed={market === m.id}
-          className={cx(
-            'rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors',
-            market === m.id ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink',
-          )}
-        >
-          {m.name}
-        </button>
-      ))}
-      {/* Real creators only. Counting the raw membership put admins and test
-          accounts in the number, so a market could report MORE creators than the
-          whole programme had - which is the fastest way to make somebody stop
-          believing a page. */}
-      {market && (
-        <span className="ml-auto px-2 text-[11px] text-smoke">
-          {(scoped?.profiles || []).filter((p) => !p.is_test && !p.is_admin).length} creators
-          {' · '}
-          {(scoped?.challenges || []).length} challenges run here
-        </span>
-      )}
-    </div>
+  const marketPicker = (
+    <MarketScope
+      markets={markets}
+      value={market}
+      onChange={setMarket}
+      note={market
+        ? `${(scoped?.profiles || []).filter((p) => !p.is_test && !p.is_admin).length} creators · ${(scoped?.challenges || []).length} challenges run here`
+        : null}
+    />
   )
 
   const tabBar = (
