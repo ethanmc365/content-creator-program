@@ -81,3 +81,26 @@ export const STARTER_POINT_RULES = [
   { kind: 'views_threshold', label: 'Passed 10,000 views', points: 5, threshold: 10000, max_points: null },
   { kind: 'views_threshold', label: 'Passed 50,000 views', points: 10, threshold: 50000, max_points: null },
 ]
+
+
+// WHICH FIELDS EACH POINT RULE ACTUALLY USES.
+//
+// Two files needed to know this and each had its own answer written as an
+// inline conditional: the editor decided which box to draw, and the challenge
+// form decided which columns to save. They agreed while there were three
+// kinds, and the moment a fourth appeared the form silently nulled its
+// threshold on the way to the database - a rule that looked right on screen
+// and scored nothing.
+export const RULE_USES_THRESHOLD = new Set(['views_threshold', 'total_views_threshold'])
+export const RULE_USES_MAX = new Set(['per_post', 'platform_spread'])
+
+/** A rule trimmed to the columns its kind actually means. */
+export function normalisePointRule(r) {
+  return {
+    kind: r.kind,
+    label: r.label,
+    points: r.points,
+    threshold: RULE_USES_THRESHOLD.has(r.kind) ? r.threshold : null,
+    max_points: RULE_USES_MAX.has(r.kind) ? r.max_points : null,
+  }
+}

@@ -1,0 +1,26 @@
+-- TWO NEW SCORING RULES.
+--
+-- The points engine knew three kinds: a point per video, a milestone on ONE
+-- video's views, and a bonus a human hands out. Everything automatic was
+-- therefore about a single video, which quietly says "post a lot" and says
+-- nothing about the two things the programme actually wants.
+--
+--   total_views_threshold  points when a creator's COMBINED views across the
+--                          challenge pass a number. A creator with five videos
+--                          at 4k each out-reaches one with a single 15k video
+--                          and, until now, scored nothing for it.
+--
+--   platform_spread        points for EACH distinct platform they posted on,
+--                          capped. Cross-posting is the cheapest reach in the
+--                          programme and nothing rewarded it.
+--
+-- Both follow the shapes already here: the first obeys the challenge's own
+-- `threshold_mode` exactly as `views_threshold` does, and the second uses
+-- `max_points` as a cap exactly as `per_post` does. No new columns.
+--
+-- WORKED EXAMPLE, verified in a self-rolling-back transaction:
+--   kiera   5 videos x 4,000 on one platform  -> past-10k 0, total-15k 8, platforms 2  = 10
+--   Jayden  15,000 + 500 + 500 on three       -> past-10k 5, total-15k 8, platforms 6  = 19
+-- kiera scored nothing at all for 20,000 views before this existed.
+--
+-- See the deployed function for the body (applied 26 Aug 2026).

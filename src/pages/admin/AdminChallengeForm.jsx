@@ -14,7 +14,7 @@ import PointRulesEditor from '../../components/network/PointRulesEditor'
 import { flagFromIso } from '../../components/network/PlaceSwitcher'
 import { PageHeader, Skeleton, Spinner, Select } from '../../components/ui'
 import { DateField, TimeField } from '../../components/DateTimeFields'
-import { SCORING_MODES, DEFAULT_SCORING, STARTER_POINT_RULES } from '../../lib/scoring'
+import { SCORING_MODES, DEFAULT_SCORING, STARTER_POINT_RULES, normalisePointRule } from '../../lib/scoring'
 import { cx, parseDateTime, isoToDateInput, isoToTimeInput } from '../../lib/utils'
 
 // Create / edit a challenge. Everything is customisable: which market it runs
@@ -305,11 +305,7 @@ export default function AdminChallengeForm() {
           rules.map((r, i) => ({
             community_id: form.community_id,
             challenge_id: challengeId,
-            kind: r.kind,
-            label: r.label,
-            points: r.points,
-            threshold: r.kind === 'views_threshold' ? r.threshold : null,
-            max_points: r.kind === 'per_post' ? r.max_points : null,
+            ...normalisePointRule(r),
             position: i,
             is_active: true,
           })),

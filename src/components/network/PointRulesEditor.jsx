@@ -1,5 +1,5 @@
 import Icon from '../Icon'
-import { STARTER_POINT_RULES } from '../../lib/scoring'
+import { STARTER_POINT_RULES, RULE_USES_THRESHOLD } from '../../lib/scoring'
 import { cx } from '../../lib/utils'
 
 // The scoring rules for ONE challenge.
@@ -13,21 +13,34 @@ import { cx } from '../../lib/utils'
 // So the rules belong to the challenge, are copied in at creation, and are
 // frozen the moment it goes live unless someone deliberately edits it.
 
+// FIVE KINDS, AND WHAT EACH ONE IS ACTUALLY FOR.
+//
+// The first three were all about ONE video, which quietly says "post a lot"
+// and says nothing about the two things the programme wants. The two new ones
+// say them:
+//
+//   Total views  - a creator with five videos at 4k out-reaches one with a
+//                  single 15k video, and used to score nothing for it.
+//   Platforms    - cross-posting is the cheapest reach there is, and nothing
+//                  rewarded it.
 const KINDS = {
   per_post: { icon: 'video', label: 'Per video posted' },
   views_threshold: { icon: 'chart', label: 'View milestone' },
+  total_views_threshold: { icon: 'trophy', label: 'Total views milestone' },
+  platform_spread: { icon: 'share', label: 'Per platform posted on' },
   bonus: { icon: 'star', label: 'Bonus' },
 }
 
 let tempId = 0
-const newRule = (kind) => ({
-  id: `new-${tempId++}`,
-  kind,
-  label: kind === 'per_post' ? 'Video posted' : kind === 'views_threshold' ? 'Passed 10,000 views' : 'Bonus',
-  points: kind === 'views_threshold' ? 5 : 1,
-  threshold: kind === 'views_threshold' ? 10000 : null,
-  max_points: kind === 'per_post' ? 10 : null,
-})
+const DEFAULTS = {
+  per_post: { label: 'Video posted', points: 1, threshold: null, max_points: 10 },
+  views_threshold: { label: 'Passed 10,000 views', points: 5, threshold: 10000, max_points: null },
+  total_views_threshold: { label: 'Passed 25,000 views in total', points: 8, threshold: 25000, max_points: null },
+  platform_spread: { label: 'Posted on another platform', points: 2, threshold: null, max_points: 8 },
+  bonus: { label: 'Bonus', points: 1, threshold: null, max_points: null },
+}
+
+const newRule = (kind) => ({ id: `new-${tempId++}`, kind, ...(DEFAULTS[kind] || DEFAULTS.bonus) })
 
 // ONE ROW, AND THE SAME SHAPE WHATEVER THE RULE IS.
 //
@@ -88,6 +101,34 @@ function Row({ rule, onChange, onRemove }) {
             aria-label="View threshold"
           />
           <span className="text-xs text-smoke">views</span>
+        </label>
+      )}
+
+      {rule.kind === 'total_views_threshold' && (
+        <label className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5">
+          <span className="text-xs text-smoke">at</span>
+          <input
+            type="number"
+            className="w-24 border-0 bg-transparent p-0 text-center text-sm font-medium tabular-nums outline-none focus:ring-0"
+            value={rule.threshold ?? ''}
+            onChange={(e) => onChange({ ...rule, threshold: e.target.value === '' ? null : Number(e.target.value) })}
+            aria-label="Total view threshold"
+          />
+          <span className="text-xs text-smoke">views in total</span>
+        </label>
+      )}
+
+      {rule.kind === 'platform_spread' && (
+        <label className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5">
+          <span className="text-xs text-smoke">each, up to</span>
+          <input
+            type="number"
+            className="w-14 border-0 bg-transparent p-0 text-center text-sm font-medium tabular-nums outline-none focus:ring-0"
+            value={rule.max_points ?? ''}
+            onChange={(e) => onChange({ ...rule, max_points: e.target.value === '' ? null : Number(e.target.value) })}
+            aria-label="Maximum points"
+          />
+          <span className="text-xs text-smoke">pts</span>
         </label>
       )}
 
@@ -161,7 +202,7 @@ export default function PointRulesEditor({ rules, onChange, thresholdMode, onThr
 
       {/* Only meaningful once there is more than one milestone, so it hides
           itself rather than asking a question with one possible answer. */}
-      {rules.filter((r) => r.kind === 'views_threshold').length > 1 && (
+      {rules.filter((r) => RULE_USES_THRESHOLD.has(r.kind)).length > 1 && (
         <div className="rounded-xl bg-cloud/60 p-4">
           <p className="label">When a video passes several milestones</p>
           <div className="mt-2 flex flex-wrap gap-2">
@@ -184,7 +225,7 @@ export default function PointRulesEditor({ rules, onChange, thresholdMode, onThr
           </div>
           <p className="mt-2 text-xs text-smoke">
             {(() => {
-              const tiers = rules.filter((r) => r.kind === 'views_threshold' && r.threshold)
+              const tiers = rules.filter((r) => RULE_USES_THRESHOLD.has(r.kind) && r.threshold)
                 .sort((a, b) => a.threshold - b.threshold)
               const top = tiers[tiers.length - 1]
               if (!top) return null
