@@ -2,6 +2,13 @@
 -- A prize raises an invoice that can actually be paid
 -- ===========================================================================
 --
+-- OVERLAPS WITH 132, DELIBERATELY. 132 fixed the one broken identifier
+-- (`pay_account_name` -> `pay_name`) and nothing else, from a session running in
+-- parallel with this one. This was applied after it and rewrites the whole
+-- function, so 132's fix is contained in this one - the two are not in conflict
+-- and 132 should stay in the repo as the record of when the bug was found.
+-- Everything below the payee line is only in this file.
+--
 -- Ethan: "the payment thing is not working correctly". It was not, and the
 -- reason is worth writing down, because the shape of the mistake will happen
 -- again.
@@ -47,21 +54,18 @@
 --     awaiting_approval left the two disagreeing forever. One of them has to be
 --     the truth; for cash, it is the invoice.
 
--- ------------------------------------------------------- the approval policy
+-- ------------------------------------------------------------- one path only
 --
--- Ethan asked whether the approval queue is needed at all. The answer this
--- encodes: it is needed where a HUMAN TYPED THE NUMBER, which is where the
--- error actually happens. A machine-raised prize invoice reads its amount off
--- the challenge's own prize structure, and publishing the winners was already a
--- deliberate act behind a confirm.
+-- An earlier draft of this file had an approval THRESHOLD - small invoices
+-- clearing themselves, large ones queueing. Ethan's answer: do not overcomplicate
+-- it. There is exactly one path and it has three steps.
 --
--- So: an auto-raised invoice at or under `threshold` clears itself; anything
--- above it, and everything a person composed, still needs a second pair of
--- eyes. THE THRESHOLD SHIPS AT 0, which is exactly today's behaviour - nothing
--- clears itself until Ethan decides otherwise on the Rewards page.
-insert into public.app_settings (key, value)
-values ('invoice_approval', jsonb_build_object('threshold', 0))
-on conflict (key) do nothing;
+--   a creator wins a cash prize
+--     -> the invoice is raised automatically, from their saved bank details
+--     -> it appears in the queue for an admin to APPROVE
+--     -> an admin SENDS it
+--
+-- Nothing else, no settings, no branch.
 
 -- Somewhere for the money to go. Used in three places below, so it is one
 -- definition rather than three that can drift apart.
@@ -98,8 +102,6 @@ declare
   v_desc      text;
   v_bill      text;
   v_pay       jsonb;
-  v_threshold numeric;
-  v_stage     text;
 begin
   if new.reward_type is distinct from 'cash' or coalesce(new.amount, 0) <= 0 then
     return new;
@@ -138,24 +140,16 @@ begin
     select coalesce(value ->> 'text', '') into v_bill
       from public.app_settings where key = 'invoice_bill_to';
 
-    select coalesce((value ->> 'threshold')::numeric, 0) into v_threshold
-      from public.app_settings where key = 'invoice_approval';
-    v_stage := case when new.amount <= coalesce(v_threshold, 0)
-                    then 'approved' else 'awaiting_approval' end;
-
     perform set_config('tryp.system_invoice', 'on', true);
     insert into public.invoices (
       number, reward_id, creator_id, creator_name, amount, currency, description,
       bill_to, payment, stage, status, auto_generated, community_id, created_by,
-      submitted_at, decided_at, decision_note
+      submitted_at
     ) values (
       public.next_invoice_number(), new.id, new.creator_id, coalesce(v_name, 'Creator'),
       new.amount, coalesce(new.currency, 'GBP'), v_desc,
-      coalesce(v_bill, ''), v_pay, v_stage, v_stage, true,
-      new.community_id, auth.uid(), now(),
-      case when v_stage = 'approved' then now() end,
-      case when v_stage = 'approved'
-           then 'Cleared automatically: at or under the approval threshold.' end
+      coalesce(v_bill, ''), v_pay, 'awaiting_approval', 'awaiting_approval', true,
+      new.community_id, auth.uid(), now()
     );
     perform set_config('tryp.system_invoice', 'off', true);
   exception when others then

@@ -64,46 +64,40 @@ import { cx } from '../../lib/utils'
 // `id` is what gets saved in a person's saved order, so it must never be reused
 // for a different tool. A tool that is removed simply stops matching, and one
 // that is added appears at the end of everybody's existing arrangement.
-// THE COLOUR IS ON THE ICON, AND IT IS ALWAYS THERE.
+// ONE ORANGE, AND A DIFFERENT ICON FOR EVERY DOOR.
 //
-// The family used to be a coloured dot with a word beside it, revealed on
-// hover. So the grouping existed - it was just invisible until you were already
-// pointing at the thing you had found, which is the one moment you no longer
-// need it. Tinting the icon tile means a glance at the grid sorts fourteen
-// cards into five groups before you have read a single label, and the flat grid
-// Ethan asked to keep is still flat.
+// The tiles were tinted by family - five hues once, then five INTENSITIES of
+// brand orange. Ethan's read on the second version: the ramp was still five
+// different-looking things, and the one he liked was the solid deep orange on
+// Creators, Applications and Referrals. So there is no ramp. Every tile is
+// `bg-brand text-white`, and the grid reads as one set of controls belonging to
+// one product.
 //
-// ALL FIVE ARE THE SAME ORANGE. What separates them is weight, not hue: two
-// solids (deep, then light), a filled tint, an outline, and the neutral. Keep
-// it that way if a sixth family ever appears - reach for another step of the
-// ramp, never for a colour that is not on the Tryp palette.
-const FAMILY = {
-  people: { label: 'People', tile: 'bg-brand text-white' },
-  programme: { label: 'The programme', tile: 'bg-brand-light text-white' },
-  money: { label: 'Money', tile: 'bg-brand-tint text-brand ring-1 ring-inset ring-brand/15' },
-  comms: { label: 'Talking to everyone', tile: 'border border-brand/30 bg-white text-brand' },
-  platform: { label: 'The platform', tile: 'bg-cloud text-smoke' },
-}
+// WHICH MAKES THE ICON THE ONLY THING THAT DISTINGUISHES A TILE, and three of
+// them were duplicated: Applications and Tryp.com team both drew a shield,
+// Reported messages and Challenges both drew a flag. With the colour gone that
+// is two pairs of tiles that look identical apart from their names, which is
+// the whole thing the icon exists to prevent. Every icon below is now used
+// exactly once - keep it that way.
 
 const TOOLS = [
-  { id: 'creators', to: '/admin/creators', icon: 'users', family: 'people', title: 'Creators' },
-  { id: 'applications', to: '/admin/applications', icon: 'shield', family: 'people', title: 'Applications' },
-  { id: 'referrals', to: '/admin/referrals', icon: 'share', family: 'people', title: 'Referrals' },
-  { id: 'reports', to: '/admin/reports', icon: 'flag', family: 'people', title: 'Reported messages' },
-  { id: 'team', to: '/admin/team', icon: 'shield', family: 'people', title: 'Tryp.com team', globalOnly: true },
+  { id: 'creators', to: '/admin/creators', icon: 'users', title: 'Creators' },
+  { id: 'applications', to: '/admin/applications', icon: 'check', title: 'Applications' },
+  { id: 'referrals', to: '/admin/referrals', icon: 'share', title: 'Referrals' },
+  { id: 'reports', to: '/admin/reports', icon: 'flag', title: 'Reported Messages' },
+  { id: 'team', to: '/admin/team', icon: 'shield', title: 'Tryp.com Team', globalOnly: true },
 
-  { id: 'challenges', to: '/challenges', icon: 'flag', family: 'programme', title: 'Challenges' },
-  { id: 'milestones', to: '/admin/milestones', icon: 'plane', family: 'programme', title: 'Milestones' },
+  { id: 'challenges', to: '/challenges', icon: 'trophy', title: 'Challenges' },
+  { id: 'milestones', to: '/admin/milestones', icon: 'plane', title: 'Milestones' },
 
-  { id: 'rewards', to: '/admin/rewards', icon: 'money', family: 'money', title: 'Rewards & invoices' },
-  { id: 'analytics', to: '/admin/analytics', icon: 'chart', family: 'money', title: 'Analytics' },
+  { id: 'rewards', to: '/admin/rewards', icon: 'money', title: 'Rewards & Invoices' },
+  { id: 'analytics', to: '/admin/analytics', icon: 'chart', title: 'Analytics' },
 
-  { id: 'email', to: '/admin/email', icon: 'envelope', family: 'comms', title: 'Email' },
-  { id: 'feedback', to: '/admin/feedback', icon: 'chat', family: 'comms', title: 'Bugs & ideas' },
-  { id: 'notes', to: '/admin/notes', icon: 'pencil', family: 'comms', title: 'Notes' },
+  { id: 'email', to: '/admin/email', icon: 'envelope', title: 'Email' },
+  { id: 'feedback', to: '/admin/feedback', icon: 'bug', title: 'Bugs & Ideas' },
+  { id: 'notes', to: '/admin/notes', icon: 'pencil', title: 'Notes' },
 
-
-  { id: 'testing', to: '/admin/testing', icon: 'joystick', family: 'platform', title: 'Testing Centre' },
+  { id: 'testing', to: '/admin/testing', icon: 'joystick', title: 'Testing Centre' },
   // PLATFORM CONNECTIONS IS NOT A CARD ANY MORE, and it is not deleted either.
   //
   // Ethan is right that it earns no space here: Instagram needs no credential
@@ -117,8 +111,8 @@ const TOOLS = [
   // counts panel on a challenge, which links here when something is actually
   // wrong. A door you are shown at the moment you need it beats a door you walk
   // past every day.
-  { id: 'network-settings', to: '/global/settings', icon: 'globe', family: 'platform', title: 'Manage markets', globalOnly: true },
-  { id: 'audit', to: '/admin/audit', icon: 'eye', family: 'platform', title: 'Audit log', globalOnly: true },
+  { id: 'network-settings', to: '/global/settings', icon: 'globe', title: 'Manage Markets', globalOnly: true },
+  { id: 'audit', to: '/admin/audit', icon: 'eye', title: 'Audit Log', globalOnly: true },
 ]
 
 // SOME OF THESE LIVE INSIDE THE NETWORK SHELL, WHICH IS BEHIND A FLAG.
@@ -168,13 +162,9 @@ export function reorder(ids, fromId, toId) {
 // grid reads as a grid. The old one sized itself to its text, which is why a row
 // of them looked ragged.
 function ToolCard({ tool, onOpen, editing, dragging, dropTarget, onGrab }) {
-  const family = FAMILY[tool.family]
   const body = (
     <>
-      <span className={cx(
-        'flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105',
-        family?.tile || 'bg-brand-tint text-brand',
-      )}>
+      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand text-white transition-transform duration-200 group-hover:scale-105">
         <Icon name={tool.icon} className="h-5 w-5" />
       </span>
 
@@ -517,10 +507,10 @@ export default function AdminPanel() {
   }, [profile?.id, isGlobal])
 
   const desk = stats ? [
-    stats.pendingApps > 0 && { to: '/admin/applications', icon: 'shield', count: stats.pendingApps, label: `application${stats.pendingApps === 1 ? '' : 's'} to review` },
+    stats.pendingApps > 0 && { to: '/admin/applications', icon: 'check', count: stats.pendingApps, label: `application${stats.pendingApps === 1 ? '' : 's'} to review` },
     stats.toApprove > 0 && { to: '/admin/rewards?tab=queue', icon: 'money', count: stats.toApprove, label: `invoice${stats.toApprove === 1 ? '' : 's'} to approve` },
     stats.openReports > 0 && { to: '/admin/reports', icon: 'flag', count: stats.openReports, label: `reported message${stats.openReports === 1 ? '' : 's'}` },
-    stats.newFeedback > 0 && { to: '/admin/feedback', icon: 'chat', count: stats.newFeedback, label: `bug report${stats.newFeedback === 1 ? '' : 's'} and ideas` },
+    stats.newFeedback > 0 && { to: '/admin/feedback', icon: 'bug', count: stats.newFeedback, label: `bug report${stats.newFeedback === 1 ? '' : 's'} and ideas` },
     stats.newSuggestions > 0 && { to: '/events#suggestions', icon: 'bulb', count: stats.newSuggestions, label: `event idea${stats.newSuggestions === 1 ? '' : 's'} from creators` },
     stats.pendingRewards > 0 && { to: '/admin/rewards?tab=payouts', icon: 'wallet', count: stats.pendingRewards, label: `reward${stats.pendingRewards === 1 ? '' : 's'} still to pay` },
     stats.blocked > 0 && { to: '/admin/rewards?tab=invoices', icon: 'alert', count: stats.blocked, label: `prize${stats.blocked === 1 ? '' : 's'} waiting on bank details` },
@@ -705,12 +695,12 @@ export default function AdminPanel() {
             <div className="grid gap-3 sm:grid-cols-2">
               <button onClick={enterCreatorView} disabled={entering}
                 className="card group flex w-full items-center gap-3.5 !p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift disabled:opacity-60">
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand ring-1 ring-inset ring-brand/15 transition-transform duration-200 group-hover:scale-105">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand text-white transition-transform duration-200 group-hover:scale-105">
                   <Icon name="eye" className="h-5 w-5" />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[17px] font-semibold leading-snug tracking-[-0.01em] transition-colors group-hover:text-brand">
-                    {entering ? 'Starting preview…' : 'View as creator'}
+                    {entering ? 'Starting preview…' : 'View as Creator'}
                   </span>
                   {enterError && <span className="mt-0.5 block text-xs font-medium text-red-500">{enterError}</span>}
                 </span>
@@ -718,11 +708,11 @@ export default function AdminPanel() {
 
               <button onClick={() => { enterPreview(); navigate('/global') }}
                 className="card group flex w-full items-center gap-3.5 !p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift">
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand ring-1 ring-inset ring-brand/15 transition-transform duration-200 group-hover:scale-105">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand text-white transition-transform duration-200 group-hover:scale-105">
                   <Icon name="globe" className="h-5 w-5" />
                 </span>
                 <span className="min-w-0 flex-1 truncate text-[17px] font-semibold leading-snug tracking-[-0.01em] transition-colors group-hover:text-brand">
-                  Global network preview
+                  Global Network Preview
                 </span>
               </button>
             </div>
