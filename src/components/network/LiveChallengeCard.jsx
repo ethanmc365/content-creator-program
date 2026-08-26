@@ -166,7 +166,7 @@ export function NoLiveChallenge({ market, canCreate = false, slug, hint }) {
         No challenge running in {market || 'this market'} right now
       </p>
       <p className="mx-auto mt-1.5 max-w-md text-sm text-smoke">
-        {hint || 'The next brief lands here. Keep posting in the meantime, and your rooms stay open.'}
+        {hint || 'The next challenge is landing here soon.'}
       </p>
       {canCreate && (
         <Link to={`/admin/challenges/new?market=${slug || ''}`} className="btn-primary mt-5 !py-2.5">

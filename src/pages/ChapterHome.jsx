@@ -17,7 +17,7 @@ import Icon from '../components/Icon'
 import { Avatar, EmptyState } from '../components/ui'
 import Reveal from '../components/network/Reveal'
 import WhenVisible from '../components/WhenVisible'
-import { cx, timeAgo, challengeDeadline } from '../lib/utils'
+import { cx, timeAgo, challengeDeadline, formatViews } from '../lib/utils'
 import { stripMarkup } from '../lib/richText'
 import { roleLabel } from '../lib/roles'
 import { cardHover, pageFade } from '../lib/motion'
@@ -65,9 +65,12 @@ export default function ChapterHome() {
           .eq('profiles.is_admin', false).eq('profiles.is_test', false).eq('profiles.status', 'active'),
         supabase.from('challenges').select('id, title, status, end_date, scoring, description, submissions(count)')
           .eq('community_id', chapter.id).order('end_date', { ascending: false }).limit(6),
-        supabase.from('community_standings')
-          .select('creator_id, points, profiles!inner(id, name, photo_url, is_test)')
-          .eq('community_id', chapter.id).order('points', { ascending: false }).limit(8),
+        // VIEWS, NOT POINTS. Points are a per-challenge scoring mode - only a
+        // brief scored that way writes any - so this board was ranking the
+        // market on the score of whichever challenges happened to use it, and
+        // a creator who had never entered one was absent with no explanation.
+        // Views is the number everybody has, in every challenge.
+        supabase.rpc('views_leaderboard', { p_community: chapter.id }),
         // THIS market's announcements, not the network's. The two are different
         // rooms and mixing them is what made the markets feel like views onto
         // one shared feed.
@@ -169,23 +172,26 @@ export default function ChapterHome() {
         )}
       </RailCard>
 
-      {data?.standings?.length > 0 && (
+      {data?.standings?.some((x) => Number(x.views) > 0) && (
         <RailCard
           icon={<Icon name="chart" className="h-3.5 w-3.5 text-brand" />}
           title={`${chapter.name} standings`}
         >
           <div className="space-y-1">
-            {data.standings.slice(0, 5).map((s, i) => (
+            {data.standings.filter((x) => Number(x.views) > 0).slice(0, 5).map((s, i) => (
               <div key={s.creator_id} className="flex items-center gap-2.5 px-1 py-1">
                 <span className={cx('w-4 shrink-0 text-xs font-bold', i === 0 ? 'text-brand' : 'text-smoke')}>{i + 1}</span>
-                <Avatar src={s.profiles.photo_url} name={s.profiles.name} size="xs" />
+                <Avatar src={s.photo_url} name={s.name} size="xs" />
                 <Link to={`/profile/${s.creator_id}`} className="min-w-0 flex-1 truncate text-xs font-medium hover:text-brand">
-                  {s.profiles.name}
+                  {s.name}
                 </Link>
-                <span className="shrink-0 text-xs font-bold text-brand">{Number(s.points)}</span>
+                <span className="shrink-0 text-xs font-bold text-brand tabular-nums">{formatViews(Number(s.views))}</span>
               </div>
             ))}
           </div>
+          <Link to="/leaderboard" className="mt-2 flex items-center gap-1 px-1 text-[11px] font-semibold text-brand transition-transform duration-200 hover:translate-x-0.5">
+            Full leaderboard <Icon name="chevronRight" className="h-3 w-3" />
+          </Link>
         </RailCard>
       )}
 

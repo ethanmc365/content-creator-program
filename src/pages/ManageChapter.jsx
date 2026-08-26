@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { isRealMember } from '../lib/members'
 import { Link, useParams } from 'react-router-dom'
 import { motion } from 'motion/react'
 import { supabase } from '../lib/supabase'
@@ -13,7 +14,7 @@ import PeoplePicker from '../components/network/PeoplePicker'
 import { MarketHeaderSkeleton, CardGridSkeleton } from '../components/network/Skeletons'
 import { toast } from '../lib/toast'
 import Icon from '../components/Icon'
-import { Avatar, Badge, EmptyState, PageHeader, Select } from '../components/ui'
+import { Avatar, Badge, EmptyState, Modal, PageHeader, Select } from '../components/ui'
 import { scoringMode } from '../lib/scoring'
 import { COUNTRIES } from '../lib/countries'
 import { clearScopeCache } from '../lib/scope'
@@ -81,6 +82,8 @@ export default function ManageChapter() {
   const [loading, setLoading] = useState(true)
   const [settings, setSettings] = useState(null)
   const [saving, setSaving] = useState('')
+  // { member, to, options } while the move-market dialog is open.
+  const [moving, setMoving] = useState(null)
   const [countryQuery, setCountryQuery] = useState('')
   const [pickerOpen, setPickerOpen] = useState(false)
   const [adding, setAdding] = useState(false)
@@ -92,8 +95,13 @@ export default function ManageChapter() {
     setLoading(true)
     const [{ data: members }, { data: chans }, { data: challenges }, { data: standings }, { data: everyone }] =
       await Promise.all([
+        // `is_sandbox` and `deletion_requested_at` come along so the shared
+        // membership predicate can do its job - see lib/members. This query
+        // used to have no profile filter at all, which is why this page said
+        // 51 members where the market page said 44: it was counting six
+        // pending applicants, the QA account and the view-as sandbox.
         supabase.from('community_members')
-          .select('profile_id, role, is_home, status, profiles!inner(id, name, photo_url, country_code, is_admin, is_test, status)')
+          .select('profile_id, role, is_home, status, profiles!inner(id, name, photo_url, country_code, is_admin, is_test, is_sandbox, status, deletion_requested_at)')
           .eq('community_id', chapter.id).eq('status', 'active'),
         supabase.from('channels').select('id, key, label, hint, icon, visibility, post_policy, position')
           .eq('community_id', chapter.id).order('position'),
@@ -108,7 +116,8 @@ export default function ManageChapter() {
           .eq('status', 'active').eq('is_test', false).order('name').limit(500),
       ])
     setD({
-      members: members || [],
+      // ONE DEFINITION OF A MEMBER, shared with the market page.
+      members: (members || []).filter((m) => isRealMember(m.profiles)),
       channels: chans || [],
       challenges: challenges || [],
       standings: standings || [],
@@ -167,22 +176,34 @@ export default function ManageChapter() {
   // blinks out of existence between the two writes. Their points stay with the
   // market they earned them in: those were awarded under that market's rules,
   // and carrying them over would rewrite a leaderboard other people are on.
-  async function moveCreator(m) {
+  // PICK THE MARKET, DO NOT TYPE IT.
+  //
+  // This used to be a text box: it listed the open markets in the prompt and
+  // then string-matched whatever you typed against their names. A typo, a
+  // stray space or a market since renamed and the move silently did nothing
+  // except tell you no market was called that - and the one operation on this
+  // page that MOVES A PERSON BETWEEN COMMUNITIES is not the place for a
+  // free-text field. The list is short, known and already loaded, so the only
+  // honest control is a list of it.
+  function moveCreator(m) {
     const others = (chapters || []).filter((c) => c.id !== chapter.id && !c.retired_at)
     if (!others.length) { notice('There is nowhere else to move them to yet.'); return }
-    const name = await promptText(
-      `Move ${m.profiles.name} to which market?\n\nOpen right now: ${others.map((c) => c.name).join(', ')}.`,
-      { title: 'Move creator', placeholder: others[0].name, confirmLabel: 'Move' },
-    )
-    if (!name) return
-    const target = others.find((c) => c.name.toLowerCase() === name.trim().toLowerCase())
-    if (!target) { notice(`No open market is called "${name}".`); return }
+    setMoving({ member: m, to: others[0].id, options: others })
+  }
+
+  async function confirmMove() {
+    if (!moving) return
+    const target = moving.options.find((c) => c.id === moving.to)
+    if (!target) return
+    setSaving('move')
     const { error } = await supabase.rpc('move_creator_market', {
-      p_profile: m.profile_id, p_from: chapter.id, p_to: target.id,
+      p_profile: moving.member.profile_id, p_from: chapter.id, p_to: target.id,
     })
+    setSaving('')
     if (error) { notice(error.message); return }
+    setMoving(null)
     await load()
-    toast(`${m.profiles.name} is now in ${target.name}.`)
+    toast(`${moving.member.profiles.name} is now in ${target.name}.`)
   }
 
   // Retiring keeps everything. `is_active = false` already hides a market from
@@ -811,6 +832,46 @@ export default function ManageChapter() {
         hint="Search by name or city. Pick as many as you like."
         confirmLabel="Add"
       />
+
+      {/* MOVING SOMEBODY BETWEEN MARKETS. A list, not a text box - see the note
+          on `moveCreator`. */}
+      <Modal open={!!moving} onClose={() => setMoving(null)} title="Move creator">
+        {moving && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 rounded-card border border-gray-100 bg-cloud/40 p-3">
+              <Avatar src={moving.member.profiles.photo_url} name={moving.member.profiles.name} size="sm" />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">{moving.member.profiles.name}</p>
+                <p className="text-xs text-smoke">Currently in {chapter.name}</p>
+              </div>
+            </div>
+
+            <label className="block">
+              <span className="label">Move them to</span>
+              <Select
+                value={moving.to}
+                onChange={(v) => setMoving((cur) => ({ ...cur, to: v }))}
+                ariaLabel="Market to move them to"
+                options={moving.options.map((c) => ({ value: c.id, label: c.name }))}
+              />
+            </label>
+
+            <p className="text-xs leading-relaxed text-smoke">
+              They keep every video, reward and connection. Points earned in {chapter.name} stay there —
+              they were awarded under this market's rules, and moving them would rewrite a leaderboard
+              other people are on.
+            </p>
+
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={confirmMove} disabled={saving === 'move'} className="btn-primary">
+                {saving === 'move' ? 'Moving…' : 'Move creator'}
+              </button>
+              <button type="button" onClick={() => setMoving(null)} className="btn-ghost">Cancel</button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       </NetworkLayout>
     </NetworkMotion>
   )

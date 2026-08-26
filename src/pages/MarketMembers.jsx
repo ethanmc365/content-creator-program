@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { isRealMember } from '../lib/members'
 import { Link, useParams } from 'react-router-dom'
 import { motion } from 'motion/react'
 import { supabase } from '../lib/supabase'
@@ -37,16 +38,17 @@ export default function MarketMembers() {
     async function load() {
       setLoading(true)
       const [{ data: members }, { data: standings }] = await Promise.all([
+        // The same fields the shared membership predicate needs. See lib/members
+        // for why the filtering happens in one place rather than in each query.
         supabase.from('community_members')
-          .select('profile_id, role, is_home, joined_at, profiles!inner(id, name, photo_url, bio, country_code, is_admin, is_test, status)')
-          .eq('community_id', market.id).eq('status', 'active')
-          .eq('profiles.status', 'active').eq('profiles.is_test', false),
+          .select('profile_id, role, is_home, joined_at, profiles!inner(id, name, photo_url, bio, country_code, is_admin, is_test, is_sandbox, status, deletion_requested_at)')
+          .eq('community_id', market.id).eq('status', 'active'),
         supabase.from('community_standings')
           .select('creator_id, points').eq('community_id', market.id),
       ])
       if (cancelled) return
       setD({
-        members: members || [],
+        members: (members || []).filter((m) => isRealMember(m.profiles)),
         points: new Map((standings || []).map((s) => [s.creator_id, Number(s.points)])),
       })
       setLoading(false)

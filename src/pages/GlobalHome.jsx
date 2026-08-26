@@ -264,7 +264,7 @@ export default function GlobalHome() {
       const [
         { data: mems }, { count: creators }, { data: challenges },
         { data: ann }, { data: trips }, { data: fresh }, { data: visited },
-        { data: netStandings }, { count: connCount }, { data: latestRes },
+        { count: connCount }, { data: latestRes },
         { data: mapPeople }, { data: mapTrips },
       ] = await Promise.all([
         supabase.from('community_members')
@@ -289,9 +289,6 @@ export default function GlobalHome() {
           .eq('status', 'active').eq('is_admin', false).eq('is_test', false)
           .is('deletion_requested_at', null).order('created_at', { ascending: false }).limit(6),
         supabase.from('profiles').select('countries_visited'),
-        supabase.from('network_standings')
-          .select('creator_id, points, markets, profiles!inner(id, name, photo_url, is_test)')
-          .order('points', { ascending: false }).limit(8),
         // Badge counts for the rail. They were in the avatar menu; the menu no
         // longer holds these links, so the signal has to move with them or a
         // pending connection request becomes invisible.
@@ -348,7 +345,6 @@ export default function GlobalHome() {
       setD({
         counts: tally, creators, live, ann, trips: trips || [], fresh: fresh || [],
         visited: [...new Set((visited || []).flatMap((p) => p.countries_visited || []))],
-        network: (netStandings || []).filter((s) => !s.profiles.is_test),
         connReqs: connCount ?? 0,
         newResources: latestResource > seenResources,
         mapPeople: mapPeople || [],
@@ -403,27 +399,21 @@ export default function GlobalHome() {
     Promise.all([
       supabase.from('submissions').select('id', { count: 'exact', head: true }),
       supabase.from('submissions').select('id', { count: 'exact', head: true }).eq('creator_id', uid),
-      // The whole board, which is one row per creator who has ever scored - a
-      // few dozen. Asking the server for "my rank" would be a window function
-      // in a new RPC to save downloading two kilobytes.
-      supabase.from('network_standings').select('creator_id, points').order('points', { ascending: false }),
       // Connections are DIRECTIONAL rows, so being connected to somebody is a
       // row in one direction or the other. Counting only `creator_id = me`
       // would show roughly half of anybody's real network.
       supabase.from('connections').select('id', { count: 'exact', head: true })
         .eq('status', 'accepted').or(`creator_id.eq.${uid},connected_creator_id.eq.${uid}`),
-    ]).then(([{ count: videos }, { count: myVideos }, { data: standings }, { count: myConns }]) => {
+    ]).then(([{ count: videos }, { count: myVideos }, { count: myConns }]) => {
       if (cancelled) return
-      const idx = (standings || []).findIndex((s) => s.creator_id === uid)
+      // POINTS AND RANK ARE NO LONGER READ HERE. Nothing on this page renders
+      // them - the chips were cut to connections and videos a while back - and
+      // the board they came from was retired with the points leaderboard. See
+      // the note where that section used to be.
       setMe({
         videos: videos ?? 0,
         myVideos: myVideos ?? 0,
         connections: myConns ?? 0,
-        points: idx >= 0 ? Math.round(Number(standings[idx].points) || 0) : 0,
-        // Rank is only honest once you are ON the board. Somebody with no
-        // points is not last, they have not started - so they get no rank.
-        rank: idx >= 0 ? idx + 1 : null,
-        ranked: (standings || []).length,
       })
     })
     return () => { cancelled = true }
@@ -952,33 +942,18 @@ export default function GlobalHome() {
               network, so this is the one leaderboard that belongs at network
               level. A creator who moves from Spain to the UK keeps their
               standing here. */}
-          {d?.network?.length > 0 && (
-            <Reveal from="down" delay={stepDelay()}>
-              <section>
-                <SectionHead icon="trophy" title="Explore the community"
-                  hint="Points earned in any market, added up. Your standing follows you if you move." />
-                <Reveal className="space-y-2" stagger={0.05}>
-                  {d.network.map((s, i) => (
-                    <div key={s.creator_id}
-                      className={cx('flex items-center gap-3 rounded-card border bg-white px-5 py-3.5',
-                        i === 0 ? 'border-brand/30 bg-brand-tint/20' : 'border-gray-100')}>
-                      <span className={cx('w-5 shrink-0 text-sm font-bold', i === 0 ? 'text-brand' : 'text-smoke')}>{i + 1}</span>
-                      <Avatar src={s.profiles.photo_url} name={s.profiles.name} size="sm" />
-                      <Link to={`/profile/${s.creator_id}`} className="min-w-0 flex-1 truncate text-sm font-medium hover:text-brand">
-                        {s.profiles.name}
-                      </Link>
-                      {s.markets > 1 && (
-                        <span className="hidden shrink-0 rounded-full bg-cloud px-2 py-0.5 text-[10px] font-medium text-smoke sm:inline">
-                          {s.markets} markets
-                        </span>
-                      )}
-                      <span className="shrink-0 text-sm font-bold text-brand">{Number(s.points)} pts</span>
-                    </div>
-                  ))}
-                </Reveal>
-              </section>
-            </Reveal>
-          )}
+          {/* THE POINTS BOARD IS GONE FROM HERE.
+              It said "Points earned in any market, added up" and ranked the
+              whole network on them - but points are a per-CHALLENGE scoring
+              mode. A brief can be scored by total views, by best video, or by
+              points, and only the last writes any. So this was the running
+              score of whichever challenges happened to use that mode,
+              presented as a standing in the community: a creator who had never
+              entered one was simply absent, through no fault of their own, and
+              nothing on the page explained the number.
+              Views is the thing every creator has under every scoring mode, so
+              the board that survives is /leaderboard - worldwide, filterable by
+              market, with everybody on it. */}
 
           {/* ---------- Latest announcement ---------- */}
           {d?.ann && (

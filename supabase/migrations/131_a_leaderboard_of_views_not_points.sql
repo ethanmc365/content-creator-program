@@ -1,0 +1,14 @@
+-- RANKED BY WHAT THE PROGRAMME IS FOR.
+--
+-- The community leaderboards ranked by POINTS, and points are a per-challenge
+-- scoring mode: a brief can be scored by total views, by best video, or by
+-- points, and only the last one writes to `point_awards`. So the worldwide
+-- board was showing the accumulated score of whichever challenges happened to
+-- use that mode, presented as a standing in the community - and a creator who
+-- had never entered one was simply absent, through no fault of their own, with
+-- nothing on the page to explain the number.
+--
+-- Views is the thing every creator has, in every challenge, under every scoring
+-- mode. See the deployed `views_leaderboard(p_community uuid)`: null is the
+-- whole programme, a community id narrows it to that market's members, and
+-- everybody is on it including the creators sitting on zero.

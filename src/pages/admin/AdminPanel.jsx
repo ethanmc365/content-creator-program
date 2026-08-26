@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { isRealMember } from '../../lib/members'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
@@ -488,15 +489,22 @@ export default function AdminPanel() {
       const [{ data: comms }, { data: mine }, { data: counts }, { data: live }] = await Promise.all([
         supabase.from('communities').select('id, name, slug, kind, country_codes, is_active, retired_at').eq('kind', 'chapter').order('name'),
         supabase.from('community_members').select('community_id, role').eq('profile_id', profile?.id ?? '00000000-0000-0000-0000-000000000000').eq('status', 'active'),
+        // A THIRD SPELLING OF "MEMBER", now the same one as everywhere else.
+        // This one excluded admins, the market page did not, and the manage
+        // page filtered nothing at all - so one market had three different
+        // sizes depending on which screen you asked. See lib/members.
         supabase.from('community_members')
-          .select('community_id, profiles!inner(is_admin, is_test, status)')
-          .eq('status', 'active').eq('profiles.is_admin', false).eq('profiles.is_test', false).eq('profiles.status', 'active'),
+          .select('community_id, profiles!inner(is_admin, is_test, is_sandbox, status, deletion_requested_at)')
+          .eq('status', 'active'),
         supabase.from('challenges').select('id, community_id').eq('status', 'active'),
       ])
       if (!alive) return
       const managed = new Set((mine || []).filter((m) => m.role === 'manager').map((m) => m.community_id))
       const tally = {}
-      for (const c of counts || []) tally[c.community_id] = (tally[c.community_id] || 0) + 1
+      for (const c of counts || []) {
+        if (!isRealMember(c.profiles)) continue
+        tally[c.community_id] = (tally[c.community_id] || 0) + 1
+      }
       const liveIn = new Set((live || []).map((c) => c.community_id))
       setMarkets(
         (comms || [])

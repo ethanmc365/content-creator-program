@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useCommunity } from '../../context/CommunityContext'
-import { confirm, notice, promptText } from '../../lib/confirm'
+import { notice } from '../../lib/confirm'
 import { clearScopeCache } from '../../lib/scope'
 import { toast } from '../../lib/toast'
 import Icon from '../Icon'
@@ -47,61 +47,6 @@ const TABS = [
   { to: '/members', label: 'Creators', icon: 'users' },
 ]
 
-function OverflowMenu({ items, label = 'More' }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef(null)
-
-  useEffect(() => {
-    if (!open) return
-    const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
-    const onKey = (e) => e.key === 'Escape' && setOpen(false)
-    document.addEventListener('pointerdown', onDown)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('pointerdown', onDown)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [open])
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label={label}
-        className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 text-smoke transition-transform duration-200 hover:scale-105 hover:border-brand hover:text-brand"
-      >
-        <Icon name="dots" className="h-4 w-4" />
-      </button>
-      {open && (
-        <div
-          role="menu"
-          className="absolute right-0 top-12 z-30 w-60 overflow-hidden rounded-2xl border border-gray-100 bg-white py-1.5 shadow-lift"
-        >
-          {items.map((it) => (
-            <button
-              key={it.label}
-              type="button"
-              role="menuitem"
-              disabled={it.disabled}
-              onClick={() => { setOpen(false); it.onClick() }}
-              className={cx(
-                'flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm transition-colors disabled:opacity-40',
-                it.danger ? 'text-red-600 hover:bg-red-50' : 'hover:bg-cloud',
-              )}
-            >
-              <Icon name={it.icon} className="h-4 w-4 shrink-0" />
-              {it.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
 export default function MarketHeader({ market, memberCount, canManage, tab }) {
   const { myChapters, reload } = useCommunity()
   const [busy, setBusy] = useState(false)
@@ -119,32 +64,6 @@ export default function MarketHeader({ market, memberCount, canManage, tab }) {
     toast(`You are in ${market.name}. Its briefs and rooms are yours now.`)
   }
 
-  async function leave() {
-    const ok = await confirm(
-      `Leaving ${market.name} takes its challenges, its rooms and its standings off your account.\n\n`
-      + 'You keep every point you have earned, every connection you have made and every message you have sent. '
-      + 'Your place on the worldwide network does not change.',
-      { title: `Leave ${market.name}?`, confirmLabel: 'Continue', danger: true },
-    )
-    if (!ok) return
-    // A second, deliberately awkward step. The first dialog explains; this one
-    // makes it impossible to do by reflex.
-    const typed = await promptText(
-      `Type ${market.name} to confirm.`,
-      { title: 'Are you sure?', placeholder: market.name, confirmLabel: 'Leave the market' },
-    )
-    if (!typed || typed.toLowerCase() !== market.name.toLowerCase()) {
-      if (typed) notice(`That did not match "${market.name}", so nothing has changed.`)
-      return
-    }
-    setBusy(true)
-    const { error } = await supabase.rpc('leave_market', { p_slug: market.slug })
-    setBusy(false)
-    if (error) { notice(error.message); return }
-    clearScopeCache()
-    await reload()
-    toast(`You have left ${market.name}.`)
-  }
 
 
   return (
@@ -202,14 +121,15 @@ export default function MarketHeader({ market, memberCount, canManage, tab }) {
               <Icon name="shield" className="h-4 w-4" /> Manage
             </Link>
           )}
-          {isMember && (
-            <OverflowMenu
-              label={`${market.name} membership`}
-              items={[
-                { label: `Leave ${market.name}`, icon: 'exit', onClick: leave, danger: true, disabled: busy },
-              ]}
-            />
-          )}
+          {/* THE "LEAVE THIS MARKET" MENU IS GONE.
+              Which market somebody is in is not a preference, it is a
+              placement: it decides which briefs they can enter, which rooms
+              they read, whose leaderboard they are on and which currency they
+              are paid in. A creator who taps it out of curiosity has removed
+              themselves from the programme's working unit, and the only way
+              back is to ask. Ethan's rule, and the right one: adding and
+              removing people from a market is an admin action, done from
+              Manage market where it is deliberate and audited. */}
         </div>
       </div>
 
