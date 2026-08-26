@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { Modal, Skeleton, Spinner } from './ui'
-import Icon from './Icon'
+import ResourcePicker from './ResourcePicker'
 import { CONTINENTS } from '../lib/countries'
 import { Select } from './ui'
 import { confirm } from '../lib/confirm'
@@ -33,26 +32,15 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
   const [poll, setPoll] = useState(EMPTY_POLL)
   const [game, setGame] = useState(EMPTY_GAME)
   const [busy, setBusy] = useState(false)
-  const [resources, setResources] = useState(null)
   const [schedule, setSchedule] = useState(EMPTY_SCHEDULE)
   const [zone, setZone] = useState(room?.tz || 'Europe/London')
   const [pending, setPending] = useState(null)
-  const [resourceSearch, setResourceSearch] = useState('')
   const [nowTick, setNowTick] = useState(0)
 
   // The room's own clock is the default, because that is the clock the people
   // reading it are on: 09:00 in the Spanish room means 09:00 in Madrid, whoever
   // is typing it and wherever they are.
   useEffect(() => { setZone(room?.tz || 'Europe/London') }, [room?.tz])
-
-  // The library loads the first time somebody opens the picker, then stays.
-  useEffect(() => {
-    if (tool !== 'resource' || resources !== null) return
-    let alive = true
-    supabase.from('resources').select('id, title, category').order('created_at', { ascending: false })
-      .then(({ data }) => { if (alive) setResources(data ?? []) })
-    return () => { alive = false }
-  }, [tool, resources])
 
   // What is already queued for THIS room. Scheduling something and then having
   // no way to see or stop it is how you end up with a message you have changed
@@ -80,13 +68,6 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
   // The instant the message will actually go out, recomputed as you type, so
   // the confirmation line under the fields is never a promise the row does not
   // keep.
-  const shownResources = useMemo(() => {
-    const q = resourceSearch.trim().toLowerCase()
-    if (!q) return resources ?? []
-    return (resources ?? []).filter((r) =>
-      `${r.title ?? ''} ${r.category ?? ''}`.toLowerCase().includes(q))
-  }, [resources, resourceSearch])
-
   const scheduledAt = useMemo(
     () => zonedTimeToUtc(schedule.date, schedule.time, zone),
     [schedule.date, schedule.time, zone],
@@ -127,7 +108,6 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
     setPoll(EMPTY_POLL)
     setGame(EMPTY_GAME)
     setSchedule(EMPTY_SCHEDULE)
-    setResourceSearch('')
     setBusy(false)
     onClose()
   }
@@ -340,53 +320,16 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
         </form>
       </Modal>
 
-      <Modal open={tool === 'resource'} onClose={close} title="Share a resource">
-        <p className="mb-4 text-sm text-smoke">Pick a library resource to post as a card in {roomLabel}.</p>
-        {resources === null ? (
-          <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}</div>
-        ) : resources.length === 0 ? (
-          <p className="rounded-xl bg-cloud px-4 py-6 text-center text-sm text-smoke">
-            No resources yet. Add some in <Link to="/admin/resources" className="font-medium text-brand hover:underline">Manage resources</Link> first.
-          </p>
-        ) : (
-          <>
-            {/* A search box appears once the library is big enough to scroll.
-                Below that it is a control in the way of a list you can already
-                see all of. */}
-            {resources.length > 6 && (
-              <input
-                type="search"
-                className="input mb-3"
-                placeholder="Search the library…"
-                value={resourceSearch}
-                onChange={(e) => setResourceSearch(e.target.value)}
-                aria-label="Search resources"
-              />
-            )}
-          <div className="max-h-[60vh] space-y-2 overflow-y-auto overscroll-contain">
-            {shownResources.length === 0 && (
-              <p className="px-4 py-6 text-center text-sm text-smoke">Nothing matches that.</p>
-            )}
-            {shownResources.map((r) => (
-              <button
-                key={r.id}
-                type="button"
-                disabled={busy}
-                onClick={() => shareResource(r.id)}
-                className="flex w-full items-center gap-3 rounded-xl border border-gray-100 px-4 py-3 text-left transition-colors hover:border-brand hover:bg-brand-tint/40 disabled:opacity-50"
-              >
-                <Icon name="book" className="h-5 w-5 shrink-0 text-brand" />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold">{r.title}</span>
-                  {r.category && <span className="block truncate text-xs text-smoke">{r.category}</span>}
-                </span>
-                <span className="shrink-0 text-xs font-medium text-brand">Post →</span>
-              </button>
-            ))}
-          </div>
-          </>
-        )}
-      </Modal>
+      {/* The same picker the DMs use. It was inline here, which is why a DM
+          could not share a resource at all. */}
+      <ResourcePicker
+        open={tool === 'resource'}
+        onClose={close}
+        onPick={shareResource}
+        busy={busy}
+        where="Post"
+      />
+
     </>
   )
 }

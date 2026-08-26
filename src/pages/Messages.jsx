@@ -29,6 +29,8 @@ import { useNowTick, withinEditWindow } from '../lib/messageActions'
 import { playSend, playSendFail, playDmArrival, playReactionPop } from '../lib/appSounds'
 import { renderMessageBody } from '../lib/richText'
 import { EntryReferenceCard, loadEntryRefs } from '../components/EntryFeedback'
+import ResourceCard from '../components/ResourceCard'
+import ResourcePicker from '../components/ResourcePicker'
 import { GroupAvatar, NewGroupModal, GroupSettingsModal } from '../components/GroupPanels'
 import {
   groupName, acceptInvite, declineInvite, leaveGroup,
@@ -59,6 +61,10 @@ function dmPreview(m) {
   if (!m) return 'Message unavailable'
   if (m.body) return m.body
   if (m.image_url) return mediaType(m.image_url) === 'video' ? 'Video' : 'Photo'
+  // A card-only message has an empty body, and a conversation list showing a
+  // blank line for one is the bug that turns up the day after it ships.
+  if (m.resource_id) return 'Shared a resource'
+  if (m.submission_id) return 'Shared an entry'
   return 'Message'
 }
 
@@ -887,6 +893,18 @@ export default function Messages() {
   // caption). Both land in the private dm-media bucket; the storage PATH is
   // stored in image_url and rendered back through a signed URL (video paths end
   // in .mp4 etc, so the renderer picks the right player from the extension).
+  // SHARING A RESOURCE INTO A DM.
+  //
+  // Admins only, same as in the rooms: a creator can paste a link, but an
+  // admin pointing somebody at the brand rules does it several times a week.
+  // It goes through the same outbox as every other message, so it survives a
+  // dead tunnel and appears optimistically like anything else.
+  const [pickingResource, setPickingResource] = useState(false)
+  function shareResource(resourceId) {
+    setPickingResource(false)
+    queueDm({ resource_id: resourceId })
+  }
+
   async function sendAttachment(file) {
     if (!file || !active || dmLocked) return
     const isVideo = file.type.startsWith('video/') || /\.(mp4|webm|mov|m4v|ogv)$/i.test(file.name)
@@ -1422,6 +1440,12 @@ export default function Messages() {
                           )}
                           {/* Feedback from the team arrives with the entry it
                               is about attached. */}
+                          {m.resource_id && (
+                            <span className={cx('block', m.image_url && 'px-2.5 pt-1.5')}>
+                              <ResourceCard resourceId={m.resource_id} />
+                            </span>
+                          )}
+
                           {m.submission_id && (
                             <span className={cx('block', m.image_url && 'px-2.5 pt-1.5')}>
                               <EntryReferenceCard entry={entryRefs[m.submission_id]} onDark={mine} />
@@ -1685,6 +1709,8 @@ export default function Messages() {
                   canSend={!!body.trim()}
                   sending={sending}
                   onAttach={sendAttachment}
+                  isAdmin={isAdmin}
+                  onResource={isAdmin ? () => setPickingResource(true) : undefined}
                   isMobile={isMobile}
                   kbOpen={kbOpen}
                   className="!border-t-0 !px-0 !py-0"
@@ -1696,6 +1722,13 @@ export default function Messages() {
           )}
         </section>
       </div>
+
+      <ResourcePicker
+        open={pickingResource}
+        onClose={() => setPickingResource(false)}
+        onPick={shareResource}
+        where="Send"
+      />
 
       <NewGroupModal
         open={showNewGroup}
