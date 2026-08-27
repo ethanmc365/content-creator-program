@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useAuth } from '../../context/AuthContext'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Avatar, Badge, CopyButton, EmptyState, Modal, PageHeader, Skeleton, Spinner, StatCard, Select } from '../../components/ui'
@@ -152,14 +151,9 @@ export default function AdminRewards() {
   // it first. A reward belongs to the market its CREATOR belongs to - the
   // reward's own `community_id` is only set on some rows and never on the older
   // ones, so membership is the honest source.
-  const { user, profile } = useAuth()
   const { markets, memberRows } = useMarkets()
   // The same invoice document the queue opens, opened from a payout row.
-  const viewer = useInvoiceViewer({
-    myId: user?.id,
-    isOwner: profile?.platform_role === 'owner',
-    onChanged: () => load(),
-  })
+  const viewer = useInvoiceViewer({ onChanged: () => load() })
   const [market, setMarket] = useState('')
   const [creators, setCreators] = useState([])
   const [challenges, setChallenges] = useState([])

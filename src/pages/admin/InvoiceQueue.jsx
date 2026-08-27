@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { useAuth } from '../../context/AuthContext'
 import { Avatar, Badge, EmptyState, Skeleton, Spinner, StatCard } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { formatDate, formatMoney } from '../../lib/utils'
@@ -31,9 +30,9 @@ import { StageChip, payable, useInvoiceViewer } from '../../components/admin/Inv
 //   Out                - sent, waiting to be paid.
 // A single table with a status column makes all five look like the same job.
 
-function Row({ inv, people, myId, isOwner, busy, onDecide, onView }) {
+function Row({ inv, people, busy, onDecide, onView }) {
   const who = people.get(inv.creator_id)
-  const mineToApprove = inv.stage === 'awaiting_approval' && (isOwner || inv.submitted_by !== myId)
+  const mineToApprove = inv.stage === 'awaiting_approval'
   return (
     <button
       type="button"
@@ -104,8 +103,6 @@ function Group({ title, rows, ...rest }) {
 }
 
 export default function InvoiceQueue({ onEdit, inMarket, onChanged }) {
-  const { user, profile } = useAuth()
-  const isOwner = profile?.platform_role === 'owner'
   const [rows, setRows] = useState(null)
   const [people, setPeople] = useState(new Map())
 
@@ -157,15 +154,13 @@ export default function InvoiceQueue({ onEdit, inMarket, onChanged }) {
   // has to say which one you clicked. `onChanged` refreshes this list; the
   // viewer refreshes the row inside itself.
   const viewer = useInvoiceViewer({
-    myId: user.id,
-    isOwner,
     onEdit,
     onChanged: () => { load(); onChanged?.() },
   })
 
   if (!rows) return <div className="space-y-3"><Skeleton className="h-20" /><Skeleton className="h-20" /></div>
 
-  const shared = { people, myId: user.id, isOwner, busy: viewer.busy, onDecide: viewer.approve, onView: viewer.open }
+  const shared = { people, busy: viewer.busy, onDecide: viewer.approve, onView: viewer.open }
   const nothing = rows.length === 0
 
   return (

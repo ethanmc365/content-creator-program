@@ -28,7 +28,6 @@ import { CREATORS, PAYEE_GBP, PAYEE_EUR, PAYEE_EMPTY, CHALLENGE, iso } from './f
 
 const STAGES = [
   { key: 'none', label: 'Not raised', tone: 'grey' },
-  { key: 'draft', label: 'Draft', tone: 'grey' },
   { key: 'awaiting_approval', label: 'Awaiting approval', tone: 'amber' },
   { key: 'approved', label: 'Approved', tone: 'light' },
   { key: 'sent', label: 'Sent', tone: 'brand' },
@@ -38,7 +37,7 @@ const STAGES = [
 // Which stage the invoice is in after N steps of the runner have completed.
 // The index is the automation's own state machine, which is why the preview and
 // the chips can never disagree with the timeline.
-const STAGE_AT = ['none', 'none', 'draft', 'draft', 'awaiting_approval', 'awaiting_approval', 'approved', 'approved', 'approved', 'sent', 'paid']
+const STAGE_AT = ['none', 'none', 'awaiting_approval', 'awaiting_approval', 'approved', 'approved', 'approved', 'sent', 'paid']
 
 // Three test accounts, and the currency is in the label because "which one is
 // the euro one" is the first thing anybody asks looking at this.
@@ -78,8 +77,6 @@ function StageChips({ stage }) {
 export default function InvoiceLab() {
   const now = useNow()
   const [scenarioKey, setScenarioKey] = useState('gbp')
-  const [approver, setApprover] = useState('other') // 'self' | 'other'
-  const [role, setRole] = useState('global_admin')  // the approver's platform_role
   const [step, setStep] = useState(0)
   const [busy, setBusy] = useState(false)
 
@@ -93,7 +90,6 @@ export default function InvoiceLab() {
   // The person who raised an invoice cannot be the person who approves it,
   // unless they are the platform owner - somebody has to be able to unblock a
   // one-person day. This is enforced in the database as well as here.
-  const selfBlocked = approver === 'self' && role !== 'owner'
 
   const invoice = useMemo(() => ({
     number: 47,
@@ -138,9 +134,9 @@ export default function InvoiceLab() {
     },
     {
       key: 'draft', actor: 'system',
-      title: `Draft invoice ${invoiceRef(invoice.number)} writes itself`,
-      detail: 'Numbered from the running sequence, dated today, payable in seven days, described from the challenge it came out of.',
-      tech: `stage: 'draft'\nnumber: ${invoice.number}   ->  "${invoiceRef(invoice.number)}"\namount: ${invoiceMoney(invoice.amount, invoice.currency)}\ndescription: "${invoice.description}"`,
+      title: `Invoice ${invoiceRef(invoice.number)} writes itself, straight into the queue`,
+      detail: 'Numbered from the running sequence, dated today, payable in seven days, described from the challenge it came out of. It does NOT pass through a draft stage: a draft is something a person is still writing, and nobody is writing this one.',
+      tech: `stage: 'awaiting_approval'\nnumber: ${invoice.number}   ->  "${invoiceRef(invoice.number)}"\namount: ${invoiceMoney(invoice.amount, invoice.currency)}\ndescription: "${invoice.description}"`,
     },
     complete ? {
       key: 'snapshot', actor: 'system',
@@ -150,7 +146,7 @@ export default function InvoiceLab() {
     } : {
       key: 'snapshot', actor: 'guard', blocked: true,
       title: 'Stopped: this creator has no payment details on file',
-      detail: 'The invoice stays a draft and the creator is asked for their bank details instead. Nothing is sent, nothing is approved, and nobody has to notice it by hand.',
+      detail: 'No invoice is raised, and the creator is asked for their bank details instead. The moment they save them the invoice raises itself and joins the queue - nobody has to come back and remember this one.',
       tech: problems.map((p) => `- ${p}`).join('\n'),
       output: (
         <div className="rounded-card border border-amber-200 bg-amber-50 px-4 py-3">
@@ -163,28 +159,21 @@ export default function InvoiceLab() {
     },
     {
       key: 'queue', actor: 'admin',
-      title: 'Sent to the approval queue',
-      detail: 'It appears on every admin’s desk as "1 invoice to approve". Money does not go out until somebody signs it off.',
-      tech: "stage: 'draft' -> 'awaiting_approval'",
+      title: 'It appears on every admin’s desk',
+      detail: '"1 invoice to approve" on the panel. Money does not go out until somebody has opened the document, read it, and signed it off.',
+      tech: "notify_user(type: 'reward', link: '/admin/rewards')",
     },
-    selfBlocked ? {
-      key: 'guard', actor: 'guard', blocked: true,
-      title: 'Refused: you cannot approve your own invoice',
-      detail: 'The person who raised it is the person trying to approve it, and they are not the platform owner. The button is disabled in the interface and the rule is enforced again in the database, because a disabled button is not a control.',
-      tech: "platform_role = 'global_admin'\nraised_by = approver_id  ->  refused",
-    } : {
+    {
       key: 'guard', actor: 'guard',
-      title: role === 'owner' && approver === 'self'
-        ? 'Allowed: the platform owner can approve their own'
-        : 'Second pair of eyes confirmed',
-      detail: role === 'owner' && approver === 'self'
-        ? 'The owner is the one exception, so a one-person day is not a blocked day. Everybody else needs somebody else.'
-        : 'A different admin is approving it, which is what the queue exists to require.',
+      title: 'The only thing that can stop it here is having nowhere to send the money',
+      detail: 'There used to be a two-person rule - the person who raised an invoice could not approve it. It is gone: an auto-raised invoice has nobody who raised it, so the rule only ever bit the rarer hand-written case, and the ceremony was costing more than it caught. What the database still refuses is approving an invoice with an empty bank block, which is the part that was actually protecting money.',
+      tech: "invoice_is_payable(payment)  ->  " + (complete ? 'true' : 'FALSE, refused'),
+      blocked: !complete,
     },
     {
       key: 'approve', actor: 'admin',
-      title: selfBlocked ? 'Approved by a second admin instead' : 'Approved',
-      detail: 'The approval is recorded against a person and a time, and it is what unlocks every step after this one.',
+      title: 'Approved',
+      detail: 'Recorded against a person and a time, and it is what unlocks every step after this one. An admin opens the document, reads it, and presses Approve.',
       tech: "stage: 'awaiting_approval' -> 'approved'\napproved_by, approved_at recorded",
     },
     {
@@ -234,13 +223,12 @@ export default function InvoiceLab() {
     <LabPage
       title="Automatic invoicing"
       icon="money"
-      subtitle="A cash prize raises its own invoice, snapshots the bank details as they were at that moment, queues for a second pair of eyes, and generates a real PDF. Ten steps, one human decision."
+      subtitle="A cash prize raises its own invoice, snapshots the bank details as they were at that moment, and waits in the queue. An admin opens it, approves it, sends it."
       aside={<StageChips stage={stage} />}
     >
       <Panel
         i={0}
         title="Pick a scenario"
-        hint="Three cases worth showing: a UK creator paid in pounds, a Portuguese creator paid in euros over SEPA, and a creator who has never filled in their bank details."
       >
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="space-y-5">
@@ -272,26 +260,6 @@ export default function InvoiceLab() {
                 </p>
               )}
             </div>
-            <Field label="Who is approving it">
-              <div className="mt-1 flex flex-wrap gap-2">
-                <Choice
-                  options={[{ value: 'other', label: 'A different admin' }, { value: 'self', label: 'The person who raised it' }]}
-                  value={approver}
-                  onChange={(v) => { setApprover(v); setStep(0) }}
-                />
-                <Choice
-                  options={[{ value: 'global_admin', label: 'Admin' }, { value: 'owner', label: 'Owner' }]}
-                  value={role}
-                  onChange={(v) => { setRole(v); setStep(0) }}
-                />
-              </div>
-            </Field>
-            {selfBlocked && (
-              <Note tone="warn" icon="ban">
-                <p className="font-semibold">This combination is refused.</p>
-                <p>An admin approving their own invoice is exactly what the queue exists to prevent. Switch the second control to Owner to see the one exception.</p>
-              </Note>
-            )}
           </div>
 
           <div className="space-y-4">
@@ -319,7 +287,6 @@ export default function InvoiceLab() {
       <Panel
         i={1}
         title="Run it"
-        hint="Press play and watch, or press Step to talk over each one. Nothing below leaves this browser tab."
       >
         <Runner steps={steps} onIndexChange={setStep} />
       </Panel>
@@ -327,7 +294,6 @@ export default function InvoiceLab() {
       <Panel
         i={2}
         title="The invoice itself"
-        hint="This is the same component the admin composer draws, with the same formatter and the same per currency bank rows as the PDF."
         action={
           <button type="button" onClick={download} disabled={busy} className="btn-secondary text-sm disabled:opacity-50">
             {busy ? 'Building…' : 'Download the PDF'}
@@ -348,7 +314,6 @@ export default function InvoiceLab() {
       <Panel
         i={3}
         title="What stops this going wrong"
-        hint="Four rules, each of which exists because the alternative is a real problem. These are notes, not doors."
       >
         <InfoList
           items={[

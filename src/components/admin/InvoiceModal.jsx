@@ -61,7 +61,7 @@ export function StageChip({ stage }) {
 // invoice actually travels: approve, then send, then mark paid. Sending opens
 // the addresses inline rather than throwing you into the composer - an
 // auto-raised invoice has nothing left to compose.
-export function InvoiceModal({ inv, open, onClose, myId, isOwner, onDecide, onSend, onPaid, onDownload, onSubmit, onEdit, busy }) {
+export function InvoiceModal({ inv, open, onClose, onDecide, onSend, onPaid, onDownload, onSubmit, onEdit, busy }) {
   const [mode, setMode] = useState(null)   // null | 'send'
   const [to, setTo] = useState('')
   const [cc, setCc] = useState('')
@@ -73,7 +73,6 @@ export function InvoiceModal({ inv, open, onClose, myId, isOwner, onDecide, onSe
   }, [open, inv?.id])
 
   if (!inv) return null
-  const canApprove = inv.stage === 'awaiting_approval' && (isOwner || inv.submitted_by !== myId)
   const payableNow = payable(inv)
 
   function startSend() {
@@ -155,22 +154,26 @@ export function InvoiceModal({ inv, open, onClose, myId, isOwner, onDecide, onSe
             </>
           )}
 
+          {/* ANY ADMIN CAN APPROVE, INCLUDING THE ONE WHO RAISED IT.
+              There was a two-person rule here and in `decide_invoice`, and it
+              went when Ethan said not to overcomplicate approving: one path,
+              raise -> approve -> send. It had also stopped meaning anything -
+              an auto-raised invoice has no `submitted_by`, so the rule only
+              ever bit the hand-written ones, which are the rarer case. What
+              still holds is the part that was actually protecting money: an
+              invoice with nowhere to send it cannot be approved at all. */}
           {inv.stage === 'awaiting_approval' && (
-            canApprove ? (
-              <>
-                <button type="button" onClick={() => onDecide(inv, false)} disabled={busy === inv.id}
-                  className="btn-secondary !py-2 !text-sm disabled:opacity-40">
-                  Send back
-                </button>
-                <button type="button" onClick={() => onDecide(inv, true)} disabled={busy === inv.id || !payableNow}
-                  title={payableNow ? '' : 'No bank details on this invoice yet'}
-                  className="btn-primary !py-2 !text-sm disabled:opacity-40">
-                  {busy === inv.id ? <Spinner /> : 'Approve'}
-                </button>
-              </>
-            ) : (
-              <span className="text-sm text-smoke">Waiting on another admin</span>
-            )
+            <>
+              <button type="button" onClick={() => onDecide(inv, false)} disabled={busy === inv.id}
+                className="btn-secondary !py-2 !text-sm disabled:opacity-40">
+                Send back
+              </button>
+              <button type="button" onClick={() => onDecide(inv, true)} disabled={busy === inv.id || !payableNow}
+                title={payableNow ? '' : 'No bank details on this invoice yet'}
+                className="btn-primary !py-2 !text-sm disabled:opacity-40">
+                {busy === inv.id ? <Spinner /> : 'Approve'}
+              </button>
+            </>
           )}
 
           {inv.stage === 'approved' && (
@@ -210,7 +213,7 @@ export function InvoiceModal({ inv, open, onClose, myId, isOwner, onDecide, onSe
 //
 // Mount `viewer.modal` once, call `viewer.open(row)` from wherever, and pass
 // `onChanged` if the page around it counts invoices.
-export function useInvoiceViewer({ onChanged, myId, isOwner, onEdit } = {}) {
+export function useInvoiceViewer({ onChanged, onEdit } = {}) {
   const [row, setRow] = useState(null)
   const [busy, setBusy] = useState(null)
   const [rejecting, setRejecting] = useState(null)
@@ -277,8 +280,6 @@ export function useInvoiceViewer({ onChanged, myId, isOwner, onEdit } = {}) {
         inv={row}
         open={!!row}
         onClose={() => setRow(null)}
-        myId={myId}
-        isOwner={isOwner}
         busy={busy}
         onDecide={onDecide}
         onSend={onSend}
