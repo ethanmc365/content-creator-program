@@ -32,7 +32,7 @@ const TRYP_URL = 'https://www.tryp.com'
 // signed in, so the public front page can be shown inside the Testing Centre.
 // Without it the guard below does exactly what it should and sends them home.
 export default function Landing() {
-  const { on: demo, asked: demoAsked } = useDemoMode()
+  const { asked: demoAsked } = useDemoMode()
   const { user, loading } = useAuth()
   const [stats, setStats] = useState({ creators: 40, challenges: 6, prizes: 500 })
   const [featured, setFeatured] = useState([])
