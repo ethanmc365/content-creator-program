@@ -29,7 +29,7 @@ const tooltipStyle = {
   fontSize: 12, boxShadow: '0 4px 16px rgba(26,26,26,0.08)',
 }
 
-function Card({ title, subtitle, onExport, children, tall = false }) {
+function Card({ title, subtitle, onExport, onDrill, children, tall = false }) {
   return (
     <section className="card">
       <div className="mb-6 flex items-start justify-between gap-3">
@@ -37,7 +37,16 @@ function Card({ title, subtitle, onExport, children, tall = false }) {
           <h2 className="font-semibold">{title}</h2>
           {subtitle && <p className="mt-1 text-xs text-smoke">{subtitle}</p>}
         </div>
-        {onExport && <button onClick={onExport} className="btn-ghost !py-1.5 !px-3 text-xs">CSV ↓</button>}
+        <span className="flex items-center gap-1.5">
+          {/* A CHART ANSWERS "WHEN". The next question is always "who", and
+              until now there was nowhere to go and ask it. */}
+          {onDrill && (
+            <button onClick={onDrill} className="btn-ghost !py-1.5 !px-3 text-xs">
+              See the creators →
+            </button>
+          )}
+          {onExport && <button onClick={onExport} className="btn-ghost !py-1.5 !px-3 text-xs">CSV ↓</button>}
+        </span>
       </div>
       <div className={tall ? 'h-80' : 'h-64'}>{children}</div>
     </section>
@@ -54,7 +63,7 @@ function Stat({ label, value, hint, tone }) {
   )
 }
 
-export default function Growth({ raw, scopeLabel }) {
+export default function Growth({ raw, scopeLabel, onDrill }) {
   const months = useMemo(() => growthByMonth(raw?.profiles || []), [raw])
 
   const chart = useMemo(
@@ -132,6 +141,7 @@ export default function Growth({ raw, scopeLabel }) {
       </div>
 
       <Card
+        onDrill={onDrill && (() => onDrill('creators'))}
         title="How the community grew"
         subtitle="The running total is the size of the programme. The bars are each month's intake — a community can be growing and still have stopped recruiting."
         tall
@@ -157,6 +167,7 @@ export default function Growth({ raw, scopeLabel }) {
       {output.length > 0 && (
         <>
           <Card
+            onDrill={onDrill && (() => onDrill('creators'))}
             title="Views delivered each month"
             subtitle="Read this against the chart above. More creators and flat views is a different problem from fewer creators and flat views."
             onExport={() => downloadCsv('views-by-month.csv',
@@ -180,6 +191,7 @@ export default function Growth({ raw, scopeLabel }) {
           </Card>
 
           <Card
+            onDrill={onDrill && (() => onDrill('creators'))}
             title="Who was actually posting"
             subtitle="Distinct creators who put up at least one video that month, against the videos themselves."
             onExport={() => downloadCsv('active-creators-by-month.csv',

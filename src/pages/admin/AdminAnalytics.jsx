@@ -20,7 +20,7 @@ const TABS = [
   { key: 'overview', label: 'Overview' },
   { key: 'growth', label: 'Growth' },
   { key: 'creators', label: 'Per creator' },
-  { key: 'programme', label: 'Programme performance' },
+  { key: 'programme', label: 'Challenge performance' },
   { key: 'community', label: 'Community health' },
   // Community network folded in from its own admin page. "How connected is the
   // community" and "how is the community doing" were two doors onto the same
@@ -258,6 +258,10 @@ export default function AdminAnalytics() {
     const totalViews = perChallenge.reduce((s, c) => s + c.totalViews, 0)
     const verifiedViews = results.reduce((s, r) => s + (r.final_views || 0), 0)
     const costPer1k = totalViews > 0 && cashPaid > 0 ? cashPaid / (totalViews / 1000) : null
+    // Two CPMs, deliberately, and never one blended average of averages: cash is
+    // what left the bank, vouchers are face value we granted. Reporting only the
+    // first understates the programme and only the second overstates the cost.
+    const combinedCpm = totalViews > 0 && totalPaid > 0 ? totalPaid / (totalViews / 1000) : null
 
     // ---- Community health ----
     const active = realCreators.filter((p) => p.status === 'active')
@@ -353,7 +357,7 @@ export default function AdminAnalytics() {
 
     return {
       growth, momentum, perChallenge, perChallengeRecent, mostActive, chat,
-      totalPaid, cashPaid, voucherPaid, totalViews, verifiedViews, costPer1k, funnel,
+      totalPaid, cashPaid, voucherPaid, totalViews, verifiedViews, costPer1k, combinedCpm, funnel,
       applications: { declined, approvedEver },
       activity7d: { activeThisWeek, connectionsMade, tripsPosted: tripCount, gamesPlayed: realGameScores.length },
       gamesByMode, weeklyPulse,
@@ -378,19 +382,36 @@ export default function AdminAnalytics() {
   // "the CPM table" lands on the CPM table.
   const tab = params.get('tab') || 'overview'
   const market = params.get('market') || ''
+  // In the URL with everything else, so "Spain's per-creator table in pounds"
+  // is a link somebody can send.
+  const currency = params.get('ccy') === 'GBP' ? 'GBP' : 'EUR'
+  const setCurrency = (next) => {
+    const q = { ...Object.fromEntries(params) }
+    if (next === 'EUR') delete q.ccy; else q.ccy = next
+    setParams(q, { replace: true })
+  }
+
+  // A DRILL-DOWN FROM A CHART.
+  //
+  // The growth charts answer "when", and the next question is always "who" -
+  // which month was that, and which creators. Clicking a month takes you to the
+  // per-creator table for the same scope, which is where that answer lives.
+  const drillTo = (nextTab) => {
+    const q = { ...Object.fromEntries(params) }
+    q.tab = nextTab
+    setParams(q, { replace: true })
+  }
   const setTab = (next) => {
-    const q = {}
-    if (next !== 'overview') q.tab = next
-    if (market) q.market = market
+    const q = { ...Object.fromEntries(params) }
+    if (next === 'overview') delete q.tab; else q.tab = next
     setParams(q, { replace: true })
   }
   // THE MARKET IS IN THE URL TOO, so "Spain's growth chart" is a link somebody
   // can send. It survives a tab change on purpose: a country manager picks
   // their market once and then reads across the tabs.
   const setMarket = (next) => {
-    const q = {}
-    if (tab !== 'overview') q.tab = tab
-    if (next) q.market = next
+    const q = { ...Object.fromEntries(params) }
+    if (next) q.market = next; else delete q.market
     setParams(q, { replace: true })
   }
 
@@ -429,13 +450,36 @@ export default function AdminAnalytics() {
     </div>
   )
 
+  // THE REPORTING CURRENCY. Half the markets are in euros and half in pounds,
+  // and a figure that does not say which is not a figure. EUR is the default
+  // because it is what the programme reports in; the toggle converts rather
+  // than re-reads, so the two views are always the same money.
+  const currencyToggle = (
+    <div className="mb-6 flex w-fit gap-0.5 rounded-lg border border-gray-200 bg-white p-0.5">
+      {['EUR', 'GBP'].map((c) => (
+        <button
+          key={c}
+          type="button"
+          onClick={() => setCurrency(c)}
+          aria-pressed={currency === c}
+          className={cx(
+            'rounded-md px-3.5 py-1.5 text-xs font-semibold transition-colors',
+            currency === c ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink',
+          )}
+        >
+          {c === 'EUR' ? '€ EUR' : '£ GBP'}
+        </button>
+      ))}
+    </div>
+  )
+
   if (tab === 'growth') {
     return (
       <div className="page">
         <PageHeader back="/admin" title="Analytics" subtitle={`How ${scopeLabel} grew, and whether it still is.`} />
         {tabBar}
         {marketPicker}
-        <Growth raw={scoped} scopeLabel={scopeLabel} />
+        <Growth raw={scoped} scopeLabel={scopeLabel} onDrill={drillTo} />
       </div>
     )
   }
@@ -445,7 +489,8 @@ export default function AdminAnalytics() {
         <PageHeader back="/admin" title="Analytics" subtitle={`Who delivers in ${scopeLabel}, and what they cost.`} />
         {tabBar}
         {marketPicker}
-        <PerCreator raw={scoped} currency="EUR" scopeLabel={scopeLabel} />
+        {currencyToggle}
+        <PerCreator raw={scoped} currency={currency} scopeLabel={scopeLabel} />
       </div>
     )
   }
@@ -506,9 +551,19 @@ export default function AdminAnalytics() {
         <StatCard label="Cash prizes paid" value={formatMoney(derived.cashPaid)} accent onClick={() => navigate('/admin/rewards')} />
         <StatCard label="Voucher value given" value={formatMoney(derived.voucherPaid)} hint="Tryp.com vouchers" onClick={() => navigate('/admin/rewards')} />
         <StatCard
-          label="Cost per 1K views"
+          label="Cash CPM"
           value={derived.costPer1k != null ? formatMoney(derived.costPer1k) : '·'}
           hint="cash spend per 1,000 views"
+        />
+        {/* THE FOURTH CARD, which the row was missing - seven tiles in a
+            four-column grid left a hole on the right, and a hole in a grid
+            reads as something that failed to load. It is also the number the
+            brief actually asked for: what a thousand views costs once the
+            vouchers are counted as spend, not just the cash. */}
+        <StatCard
+          label="Total CPM"
+          value={derived.combinedCpm != null ? formatMoney(derived.combinedCpm) : '·'}
+          hint="cash and vouchers per 1,000 views"
         />
       </div>
 

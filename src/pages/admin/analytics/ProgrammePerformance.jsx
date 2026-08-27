@@ -232,7 +232,7 @@ export default function ProgrammePerformance() {
           Blended across {b.challenges} challenge{b.challenges === 1 ? '' : 's'}: totals divided once, never an
           average of averages. Money is what has actually been awarded, including prizes still to pay.
         </p>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
           {/* TWO CPMs, ANSWERING DIFFERENT QUESTIONS.
               Cash alone is what leaves the business - a Tryp.com voucher is
               redeemed against a booking we make margin on, so it does not cost
@@ -403,9 +403,12 @@ function ChallengeLog({ rows, currency }) {
 function LogCard({ r, currency }) {
   const figures = [
     { label: 'Spend', value: money(r.spend, currency, 0) },
+    // `formatViews` shortens: 4,200,000 -> 4.2m. A challenge with real reach
+    // prints eight digits otherwise, which is the number nobody can read at a
+    // glance and the one most worth reading.
     { label: 'Views', value: r.views > 0 ? formatViews(r.views) : '-' },
-    { label: 'Creators', value: r.creators || '-' },
-    { label: 'Posts', value: r.posts || '-' },
+    { label: 'Creators', value: r.creators ? r.creators.toLocaleString() : '-' },
+    { label: 'Posts', value: r.posts ? r.posts.toLocaleString() : '-' },
   ]
   // The derived ratios. They matter, and they are the fourth thing you look at,
   // so they get one quiet line rather than seven columns of their own.
@@ -443,30 +446,34 @@ function LogCard({ r, currency }) {
         </span>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-end gap-x-8 gap-y-4">
-        {/* THE NUMBER IT IS JUDGED ON, at a size you read from across the room. */}
-        <span className="block">
-          <span className="block text-3xl font-bold leading-none tracking-[-0.03em] text-brand tabular-nums">
+      {/* THE NUMBERS GET ROOM, AND A COLUMN EACH.
+          They were a flex row that bunched against the left edge with the CPM
+          jammed into the four figures beside it, and at eight digits - which a
+          real challenge reaches, 4.2m views is not unusual - they ran together.
+          A five-column grid gives each one a lane it keeps at any width, the
+          CPM is separated by a rule rather than by a gap, and every figure is
+          tabular so the columns line up down a list of challenges. */}
+      <div className="mt-5 grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3 lg:grid-cols-5">
+        <span className="block border-l-2 border-brand pl-3.5">
+          <span className="block whitespace-nowrap text-[26px] font-bold leading-none tracking-[-0.03em] text-brand tabular-nums">
             {money(r.cpm, currency, 2)}
           </span>
-          <span className="mt-1 block text-[11px] font-semibold uppercase tracking-wide text-smoke">
+          <span className="mt-1.5 block text-[11px] font-semibold uppercase tracking-wide text-smoke">
             per 1,000 views
           </span>
         </span>
 
-        <span className="flex flex-wrap gap-x-7 gap-y-3">
-          {figures.map((f) => (
-            <span key={f.label} className="block">
-              <span className="block text-lg font-semibold leading-none tabular-nums">{f.value}</span>
-              <span className="mt-1 block text-[11px] font-semibold uppercase tracking-wide text-smoke">{f.label}</span>
-            </span>
-          ))}
-        </span>
+        {figures.map((f) => (
+          <span key={f.label} className="block">
+            <span className="block whitespace-nowrap text-xl font-semibold leading-none tabular-nums">{f.value}</span>
+            <span className="mt-1.5 block text-[11px] font-semibold uppercase tracking-wide text-smoke">{f.label}</span>
+          </span>
+        ))}
       </div>
 
       {ratios.length > 0 && (
-        <p className="mt-4 border-t border-gray-50 pt-3 text-xs text-smoke">
-          {ratios.join(' · ')}
+        <p className="mt-5 flex flex-wrap gap-x-5 gap-y-1 border-t border-gray-50 pt-3.5 text-xs text-smoke">
+          {ratios.map((t) => <span key={t} className="tabular-nums">{t}</span>)}
         </p>
       )}
     </Link>

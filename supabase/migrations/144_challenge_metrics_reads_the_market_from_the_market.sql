@@ -1,0 +1,16 @@
+-- EVERY CHALLENGE READ "UNSPECIFIED" IN ANALYTICS.
+--
+-- `admin_challenge_metrics` returned `c.market` - a legacy free-text column
+-- from before markets were rows. It is NULL on every challenge that exists,
+-- because the real market has been `community_id` for months. So the market
+-- column of the challenge log, the "By market" breakdown and the market filter
+-- on that tab were all reporting on a column nothing writes.
+--
+-- The Spanish challenge is in Spain and the creative challenge was in UK &
+-- Ireland; both said Unspecified, and "By market" was one bar called Unspecified
+-- holding the entire programme.
+--
+-- Resolved from the community now, with the legacy text kept as a fallback so
+-- any old row that DID carry one still reads the same.
+--
+-- See the deployed function for the body (applied 27 Aug 2026).
