@@ -219,3 +219,28 @@ export const LABELS = {
 }
 
 export const label = (field, value) => LABELS[field]?.[value] ?? value ?? '-'
+
+// KEEPING THE DATABASE'S RATE FRESH.
+//
+// Invoices are denominated in the currency the creator actually banks in, and
+// the conversion happens in Postgres (`fx_convert`) because it has to work when
+// nobody is looking - a prize awarded by a cron job still needs a number. The
+// database cannot call a third party, so it reads a rate out of `app_settings`.
+//
+// This is what keeps that rate honest. Any admin screen that has just fetched a
+// live ECB rate hands it over; the write is admin-only by RLS, costs one
+// upsert, and nothing depends on it succeeding - the stored fallback is always
+// a usable answer.
+export async function publishFxRates(supabase, rates) {
+  const clean = Object.fromEntries(
+    Object.entries(rates || {}).filter(([, v]) => Number.isFinite(v) && v > 0),
+  )
+  if (!Object.keys(clean).length) return
+  try {
+    await supabase.from('app_settings').upsert({
+      key: 'fx_rates',
+      value: { base: 'GBP', ...clean },
+      updated_at: new Date().toISOString(),
+    })
+  } catch { /* a stale rate is fine; a broken page is not */ }
+}

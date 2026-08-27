@@ -1,0 +1,29 @@
+-- A POUNDS INVOICE WITH A EURO IBAN ON IT.
+--
+-- Invoice 002 was £55.00 with MIRSU's Latvian IBAN in the payment block: a
+-- document instructing a euro transfer of a sterling figure. Nobody typed that.
+-- It happened because `refresh_pending_invoice_payment` copied the payee block
+-- in when a creator saved their details, and never reconsidered the invoice's
+-- own `currency` or `amount`. The prize was set in pounds, the creator banks in
+-- euros, and the two halves of the document disagreed.
+--
+-- Ethan hit it twice, fixed Denisa's by sending it back and redoing it by hand,
+-- and could NOT fix Mirsu's because it was already approved and the only button
+-- left was Send. Hence `reopen_invoice` below: there must always be a way back.
+--
+-- THE RULE FROM NOW ON: an invoice is denominated in the currency it will
+-- actually be paid in - the creator's payout currency - converted from the
+-- prize currency at a rate recorded ON the invoice, so a year from now it is
+-- possible to say why €64.35 was the right number for a £55 prize.
+--
+-- The rate lives in `app_settings.fx_rates` because Postgres cannot call a
+-- third party and a prize awarded by a cron job still needs a number. Any admin
+-- screen that fetches a live ECB rate publishes it back (see `publishFxRates`
+-- in lib/programme.js); the seeded value is always a usable fallback.
+--
+-- Applied 27 Aug 2026. Repaired 002 (£55 -> €64.35, back to the queue) and
+-- re-derived 003 in the same pass.
+--
+-- See the deployed functions for the bodies: fx_convert, invoice_terms,
+-- resnapshot_invoice, raise_invoice_for_reward, refresh_pending_invoice_payment,
+-- reopen_invoice; plus `invoices.fx_rate`.

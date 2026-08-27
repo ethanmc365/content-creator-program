@@ -10,7 +10,7 @@ import { EmptyState, Skeleton, StatCard, Select } from '../../../components/ui'
 import Icon from '../../../components/Icon'
 import { downloadCsv, formatViews, cx } from '../../../lib/utils'
 import {
-  challengeEconomics, blendEconomics, groupBy, label, FALLBACK_RATES,
+  challengeEconomics, blendEconomics, groupBy, label, FALLBACK_RATES, publishFxRates,
 } from '../../../lib/programme'
 
 // Programme performance: what the prize money actually bought.
@@ -76,7 +76,13 @@ export default function ProgrammePerformance() {
     fetch('https://api.frankfurter.dev/v1/latest?base=GBP&symbols=EUR,USD')
       .then((r) => r.json())
       .then((j) => {
-        if (j?.rates?.EUR) { setRates({ GBP: 1, ...j.rates }); setLiveRates(true) }
+        if (j?.rates?.EUR) {
+          setRates({ GBP: 1, ...j.rates })
+          setLiveRates(true)
+          // Hand it to the database, which denominates invoices in the currency
+          // a creator actually banks in and cannot fetch a rate itself.
+          publishFxRates(supabase, j.rates)
+        }
       })
       .catch(() => {})
   }, [])

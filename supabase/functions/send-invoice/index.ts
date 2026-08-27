@@ -68,6 +68,19 @@ const json = (req: Request, obj: unknown, status = 200) =>
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+// SEVERAL RECIPIENTS, WHICH THE CLIENT HAS OFFERED FOR A WHILE AND THIS NEVER
+// ACCEPTED. The composer lets an admin type "andre@tryp.com, francesco@tryp.com"
+// and joins them with ", " - and the check here was `EMAIL_RE.test(to.trim())`
+// against the WHOLE string, so any second address failed as "invalid recipient
+// email". The addresses were fine; the validator was reading a list as one
+// address. Same for cc.
+function parseEmails(raw: unknown): string[] {
+  return String(raw ?? '')
+    .split(/[,;\n]+/)
+    .map((e) => e.trim())
+    .filter(Boolean)
+}
+
 function money(amount: number, currency: string) {
   return new Intl.NumberFormat('en-GB', {
     style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2,
@@ -106,8 +119,13 @@ Deno.serve(async (req) => {
   if (!(Number(amount) > 0)) return json(req, { error: 'missing amount' }, 400)
   if (currency !== 'GBP' && currency !== 'EUR') return json(req, { error: 'currency must be GBP or EUR' }, 400)
   if (!description || typeof description !== 'string') return json(req, { error: 'missing description' }, 400)
-  if (typeof to !== 'string' || !EMAIL_RE.test(to.trim())) return json(req, { error: 'invalid recipient email' }, 400)
-  if (cc && (typeof cc !== 'string' || !EMAIL_RE.test(cc.trim()))) return json(req, { error: 'invalid cc email' }, 400)
+  const toList = parseEmails(to)
+  const ccList = parseEmails(cc)
+  if (toList.length === 0) return json(req, { error: 'no recipient email' }, 400)
+  const badTo = toList.filter((e) => !EMAIL_RE.test(e))
+  if (badTo.length) return json(req, { error: `these addresses do not look right: ${badTo.join(', ')}` }, 400)
+  const badCc = ccList.filter((e) => !EMAIL_RE.test(e))
+  if (badCc.length) return json(req, { error: `these CC addresses do not look right: ${badCc.join(', ')}` }, 400)
   if (channel === 'resend') {
     if (typeof pdfBase64 !== 'string' || pdfBase64.length < 100) return json(req, { error: 'missing invoice PDF' }, 400)
     if (pdfBase64.length > 4_000_000) return json(req, { error: 'invoice PDF too large' }, 400)
@@ -139,13 +157,12 @@ Deno.serve(async (req) => {
   const replyTo = sender?.user?.email
 
   // 3) Send the email with the PDF attached (platform channel only).
-  const ccList = cc?.trim() ? [cc.trim()] : []
   const emailRes = channel === 'gmail' ? null : await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       from: 'Tryp.com <onboarding@resend.dev>',
-      to: to.trim(),
+      to: toList,
       ...(ccList.length ? { cc: ccList } : {}),
       ...(replyTo ? { reply_to: replyTo } : {}),
       subject: `Invoice ${ref} · ${creatorName} · ${amountStr}`,
@@ -188,8 +205,8 @@ Deno.serve(async (req) => {
     bill_to: billTo || '',
     payment: payment || {},
     notes: notes || null,
-    sent_to: to.trim(),
-    cc: cc?.trim() || null,
+    sent_to: toList.join(', '),
+    cc: ccList.length ? ccList.join(', ') : null,
     stage: 'sent',
     status: 'sent',
     sent_at: new Date().toISOString(),
