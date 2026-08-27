@@ -78,7 +78,11 @@ import { cx } from '../../lib/utils'
 // Reported messages and Challenges both drew a flag. With the colour gone that
 // is two pairs of tiles that look identical apart from their names, which is
 // the whole thing the icon exists to prevent. Every icon below is now used
-// exactly once - keep it that way.
+// exactly once - keep it that way. Two that changed after the tiles lost their
+// filled squares: `eye` now belongs to View as Creator (looking through
+// somebody's eyes) and the audit log took `book`, which is what a log is; and
+// the Testing Centre swapped the joystick for the gamepad, because at 22px an
+// unfilled joystick reads as an arrow dropping into a tray.
 
 const TOOLS = [
   { id: 'creators', to: '/admin/creators', icon: 'users', title: 'Creators' },
@@ -87,7 +91,6 @@ const TOOLS = [
   { id: 'reports', to: '/admin/reports', icon: 'flag', title: 'Reported Messages' },
   { id: 'team', to: '/admin/team', icon: 'shield', title: 'Tryp.com Team', globalOnly: true },
 
-  { id: 'challenges', to: '/challenges', icon: 'trophy', title: 'Challenges' },
   { id: 'milestones', to: '/admin/milestones', icon: 'plane', title: 'Milestones' },
 
   { id: 'rewards', to: '/admin/rewards', icon: 'money', title: 'Rewards & Invoices' },
@@ -97,7 +100,13 @@ const TOOLS = [
   { id: 'feedback', to: '/admin/feedback', icon: 'bug', title: 'Bugs & Ideas' },
   { id: 'notes', to: '/admin/notes', icon: 'pencil', title: 'Notes' },
 
-  { id: 'testing', to: '/admin/testing', icon: 'joystick', title: 'Testing Centre' },
+  { id: 'testing', to: '/admin/testing', icon: 'gamepad', title: 'Testing Centre' },
+
+  // NOT A LINK - it mints a session in the sandbox account and moves you into
+  // it. It sits in the grid anyway because from where an admin stands it is
+  // one more door on the same wall, and keeping it out cost the grid an even
+  // row for the sake of a distinction only the code cares about.
+  { id: 'view-as', action: 'creator', icon: 'eye', title: 'View as Creator' },
   // PLATFORM CONNECTIONS IS NOT A CARD ANY MORE, and it is not deleted either.
   //
   // Ethan is right that it earns no space here: Instagram needs no credential
@@ -112,7 +121,7 @@ const TOOLS = [
   // wrong. A door you are shown at the moment you need it beats a door you walk
   // past every day.
   { id: 'network-settings', to: '/global/settings', icon: 'globe', title: 'Manage Markets', globalOnly: true },
-  { id: 'audit', to: '/admin/audit', icon: 'eye', title: 'Audit Log', globalOnly: true },
+  { id: 'audit', to: '/admin/audit', icon: 'book', title: 'Audit Log', globalOnly: true },
 ]
 
 // SOME OF THESE LIVE INSIDE THE NETWORK SHELL, WHICH IS BEHIND A FLAG.
@@ -124,7 +133,7 @@ const TOOLS = [
 // typing the URL. Anything network-scoped turns the flag on first; it is
 // device-local, it affects no creator, and an admin pressing it has
 // unambiguously asked to go there.
-const NETWORK_PATH = (to) => to.startsWith('/manage/') || to.startsWith('/global/')
+const NETWORK_PATH = (to) => !!to && (to.startsWith('/manage/') || to.startsWith('/global/'))
 
 // --------------------------------------------------------------- the layout
 //
@@ -161,11 +170,18 @@ export function reorder(ids, fromId, toId) {
 // Every card is the same height, whatever the length of its description, so the
 // grid reads as a grid. The old one sized itself to its text, which is why a row
 // of them looked ragged.
-function ToolCard({ tool, onOpen, editing, dragging, dropTarget, onGrab }) {
+function ToolCard({ tool, onOpen, onAct, busy, editing, dragging, dropTarget, onGrab }) {
   const body = (
     <>
-      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand text-white transition-transform duration-200 group-hover:scale-105">
-        <Icon name={tool.icon} className="h-5 w-5" />
+      {/* NO TILE. Just the icon.
+          The filled square was doing the work a colour used to do - marking
+          the family - and once every tile was the same orange it was fourteen
+          identical orange squares carrying fourteen different glyphs, which
+          made the glyph harder to read rather than easier. Ethan: "we don't
+          really need that big square box... just the icon in Tryp.com orange,
+          I think this design will look cleaner". It does. */}
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center text-brand transition-transform duration-200 group-hover:scale-110">
+        <Icon name={tool.icon} className="h-[22px] w-[22px]" />
       </span>
 
       {/* THE NAME IS THE CARD.
@@ -176,7 +192,7 @@ function ToolCard({ tool, onOpen, editing, dragging, dropTarget, onGrab }) {
           descriptions gone and the titles bigger, which are the same request:
           he already knows what Creators is, he is looking for the word. */}
       <span className="min-w-0 flex-1 truncate text-[17px] font-semibold leading-snug tracking-[-0.01em] transition-colors group-hover:text-brand">
-        {tool.title}
+        {busy ? 'Starting preview…' : tool.title}
       </span>
 
       {editing ? (
@@ -217,6 +233,9 @@ function ToolCard({ tool, onOpen, editing, dragging, dropTarget, onGrab }) {
   // navigate away from the layout you are in the middle of setting.
   if (editing) {
     return <div className={className} data-drag-kind="tool" data-drag-id={tool.id}>{body}</div>
+  }
+  if (tool.action) {
+    return <button type="button" onClick={onAct} disabled={busy} className={className}>{body}</button>
   }
   if (NETWORK_PATH(tool.to)) {
     return <button type="button" onClick={() => onOpen(tool.to)} className={className}>{body}</button>
@@ -547,7 +566,7 @@ export default function AdminPanel() {
         {!ready ? (
           <Skeleton className="h-36" />
         ) : desk.length > 0 ? (
-          <Reveal from="down">
+          <Reveal from="down" delay={0}>
             <section className="overflow-hidden rounded-card border border-brand/20 bg-brand-tint/60 shadow-card">
               <div className="flex items-center gap-2.5 border-b border-brand/15 px-4 py-3 sm:px-5">
                 <span className="h-4 w-1 rounded-full bg-brand" aria-hidden />
@@ -574,7 +593,7 @@ export default function AdminPanel() {
             </div>
           </div>
         ) : markets?.length > 0 ? (
-          <Reveal from="down">
+          <Reveal from="down" delay={0.07}>
             <section>
               <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="text-xl font-semibold tracking-[-0.01em]">{isGlobal ? 'Markets' : 'Your markets'}</h2>
@@ -652,7 +671,7 @@ export default function AdminPanel() {
             ONE grid, one heading, every card the same size, phone and desktop
             alike. Two columns on a phone and four on a wide screen, which keeps
             a card roughly the same physical size on both. */}
-        <Reveal from="down">
+        <Reveal from="down" delay={0.14}>
           <section>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-xl font-semibold tracking-[-0.01em]">Tools</h2>
@@ -670,52 +689,47 @@ export default function AdminPanel() {
                 recognised at a glance, truncated in the middle of the word that
                 identifies it. Three columns is fourteen tools in five rows and
                 every name readable. */}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {/* THE CARDS ARRIVE ONE AFTER ANOTHER.
+                This was a plain grid inside a Reveal, so the whole block faded
+                as one - which next to the markets grid above it (which does
+                stagger) read as the animation being broken below the fold.
+                Tight stagger: fifteen cards at 45ms would still be drawing
+                after two thirds of a second. */}
+            <Reveal className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" stagger={0.03}>
               {tools.map((t) => (
                 <ToolCard
                   key={t.id}
                   tool={t}
                   onOpen={openInNetwork}
+                  onAct={t.action === 'creator' ? enterCreatorView : undefined}
+                  busy={t.action === 'creator' && entering}
                   editing={editing}
                   dragging={dragId === t.id}
                   dropTarget={editing && overId === t.id && dragId !== t.id}
                   onGrab={handleGrab}
                 />
               ))}
-            </div>
+            </Reveal>
           </section>
         </Reveal>
 
-        {/* ---------- Seeing it as somebody else ----------
-            Both change what YOU see and nothing about the platform, so they sit
-            at the bottom rather than pretending to be tools. */}
-        <Reveal from="down">
+        {/* ---------- The global network preview ----------
+            The last thing left down here. "View as creator" moved up into the
+            grid (it is one more door on the same wall, and keeping it out cost
+            the grid an even row); this one is on its way out with the old UK
+            view, so it waits alone rather than earning a heading. */}
+        <Reveal from="down" delay={0.18}>
           <section>
-            <h2 className="mb-3 text-xl font-semibold tracking-[-0.01em]">See it as somebody else</h2>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <button onClick={enterCreatorView} disabled={entering}
-                className="card group flex w-full items-center gap-3.5 !p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift disabled:opacity-60">
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand text-white transition-transform duration-200 group-hover:scale-105">
-                  <Icon name="eye" className="h-5 w-5" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[17px] font-semibold leading-snug tracking-[-0.01em] transition-colors group-hover:text-brand">
-                    {entering ? 'Starting preview…' : 'View as Creator'}
-                  </span>
-                  {enterError && <span className="mt-0.5 block text-xs font-medium text-red-500">{enterError}</span>}
-                </span>
-              </button>
-
-              <button onClick={() => { enterPreview(); navigate('/global') }}
-                className="card group flex w-full items-center gap-3.5 !p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift">
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand text-white transition-transform duration-200 group-hover:scale-105">
-                  <Icon name="globe" className="h-5 w-5" />
-                </span>
-                <span className="min-w-0 flex-1 truncate text-[17px] font-semibold leading-snug tracking-[-0.01em] transition-colors group-hover:text-brand">
-                  Global Network Preview
-                </span>
-              </button>
-            </div>
+            <button onClick={() => { enterPreview(); navigate('/global') }}
+              className="card group flex w-full items-center gap-3.5 !p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift sm:w-1/2">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center text-brand transition-transform duration-200 group-hover:scale-110">
+                <Icon name="globe" className="h-[22px] w-[22px]" />
+              </span>
+              <span className="min-w-0 flex-1 truncate text-[17px] font-semibold leading-snug tracking-[-0.01em] transition-colors group-hover:text-brand">
+                Global Network Preview
+              </span>
+            </button>
+            {enterError && <p className="mt-2 text-xs font-medium text-red-500">{enterError}</p>}
           </section>
         </Reveal>
       </div>

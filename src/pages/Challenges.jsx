@@ -6,7 +6,7 @@ import { useMyScopes, inScope } from '../lib/scope'
 import CountdownTimer from '../components/CountdownTimer'
 import Icon from '../components/Icon'
 import { PageHeader, Badge, SkeletonCards, EmptyState } from '../components/ui'
-import { formatDate, formatMoney, challengeDeadline, PRIZE_BASELINE } from '../lib/utils'
+import { formatDate, formatMoney, challengeDeadline } from '../lib/utils'
 import Reveal from '../components/network/Reveal'
 import ParticipationBar from '../components/network/ParticipationBar'
 import WinnersPodium from '../components/WinnersPodium'
@@ -23,7 +23,8 @@ export default function Challenges() {
   // second market opened, "the live challenge" stopped being a single thing,
   // and a lone object silently attached the UK bar to Spain's numbers.
   const [participation, setParticipation] = useState({})
-  const [prizesAwarded, setPrizesAwarded] = useState(null) // total distributed across the program
+  // { GBP: 250, EUR: 40 } - kept per currency, never added together.
+  const [prizesAwarded, setPrizesAwarded] = useState(null)
   const [loading, setLoading] = useState(true)
   // Captured once at mount (lazy initialiser, not read during render) so the
   // "is this challenge past its deadline" check stays pure per the lint rules.
@@ -39,11 +40,29 @@ export default function Challenges() {
       setChallenges(all)
       setLoading(false)
 
-      // Total prizes awarded across the program (moved here from the home page).
-      // Includes the pre-platform WhatsApp-era baseline so it reads honestly.
-      supabase.from('rewards').select('amount').eq('status', 'distributed').then(({ data: paid }) => {
-        setPrizesAwarded(PRIZE_BASELINE + (paid ?? []).reduce((sum, r) => sum + Number(r.amount), 0))
-      })
+      // WHAT THIS NUMBER IS, AND THE THREE THINGS WRONG WITH IT BEFORE.
+      //
+      // It read "£665 awarded in prizes so far", which was wrong three ways at
+      // once. (1) It added a hardcoded £500 "pre-platform baseline" nobody can
+      // check, to a figure presented as a fact. (2) It summed `amount` ACROSS
+      // CURRENCIES, so a €30 voucher added 30 to a pounds total. (3) It counted
+      // only `distributed`, so a prize somebody had won and was waiting to be
+      // paid was not "awarded" - which is the opposite of what the word means.
+      //
+      // Now: everything a creator has actually won, pending included, kept per
+      // currency and shown per currency. No baseline, no conversion, nothing
+      // invented. Test accounts excluded, because they win things constantly.
+      supabase.from('rewards')
+        .select('amount, currency, profiles:creator_id(is_test)')
+        .then(({ data: won }) => {
+          const byCurrency = {}
+          for (const r of won ?? []) {
+            if (r.profiles?.is_test) continue
+            const c = r.currency || 'GBP'
+            byCurrency[c] = (byCurrency[c] || 0) + Number(r.amount || 0)
+          }
+          setPrizesAwarded(byCurrency)
+        })
 
       // The winners block, but only for challenges an admin has actually
       // PUBLISHED. Results rows exist from the moment views are first logged -
@@ -158,6 +177,11 @@ export default function Challenges() {
   // narrows it for a creator; an admin can read every market, so without this
   // they get Spain's live card stacked above the UK's with no way to tell which
   // is which. Every market's board is at /c/<slug>/challenges.
+  // Biggest currency first, so the headline number is the one that matters.
+  const prizeTotals = Object.entries(prizesAwarded ?? {})
+    .filter(([, v]) => v > 0)
+    .sort((a, b) => b[1] - a[1])
+
   const mine = challenges.filter((c) => inScope(scopeIds, c.community_id))
   const live = mine.filter(isLive)
   const past = mine.filter((c) => !isLive(c))
@@ -177,13 +201,21 @@ export default function Challenges() {
         />
       </Reveal>
 
-      {prizesAwarded != null && (
+      {prizeTotals.length > 0 && (
         <Reveal from="down" delay={0.06} className="mb-8">
-          <div className="inline-flex items-center gap-2.5 rounded-full border border-brand/20 bg-brand-tint/40 px-4 py-2 text-sm">
-            <Icon name="trophy" className="h-4 w-4 shrink-0 text-brand" />
-            <span className="font-semibold text-brand">{formatMoney(prizesAwarded)}</span>
-            <span className="text-smoke">awarded in prizes so far</span>
-          </div>
+          {/* A pill inside a tinted pill inside a bordered pill was three
+              containers for six words. One line: the trophy, the money, what
+              the money is. */}
+          <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[15px]">
+            <Icon name="trophy" className="h-[18px] w-[18px] shrink-0 translate-y-0.5 text-brand" />
+            {prizeTotals.map(([currency, total], i) => (
+              <span key={currency} className="font-bold tabular-nums text-brand">
+                {i > 0 && <span className="mr-2 font-normal text-gray-300">+</span>}
+                {formatMoney(total, currency)}
+              </span>
+            ))}
+            <span className="text-smoke">won by creators so far</span>
+          </p>
         </Reveal>
       )}
 

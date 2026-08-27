@@ -189,8 +189,8 @@ export default function TestingCentre() {
 
       <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex items-start gap-4">
-          <span className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-tint text-brand">
-            <Icon name="joystick" className="h-5 w-5" />
+          <span className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center text-brand">
+            <Icon name="gamepad" className="h-7 w-7" />
           </span>
           <div>
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Testing Centre</h1>
