@@ -473,16 +473,25 @@ export function Select({
       </button>
 
       {open && (
-        <ul
-          role="listbox"
-          aria-label={ariaLabel}
+        // THE SEARCH BOX IS NOT IN THE SCROLLING LIST.
+        //
+        // It was: a `sticky top-0` <li> inside the scrolling <ul>, pulled up
+        // with a negative margin to cover the list's own padding. Sticky offsets
+        // resolve against the scrollport, so the 6px of padding above it stayed
+        // visible - and options scrolled UP THROUGH that strip, which is Ethan's
+        // "I can see part of the name scrolling up just above the search bar".
+        //
+        // A header that does not scroll should not live inside the thing that
+        // scrolls. The menu is a column now: a fixed search row, then the list.
+        // It is better ARIA too - a listbox should not contain a textbox.
+        <div
           className={cx(
-            'absolute z-40 max-h-[280px] w-full min-w-max overflow-auto rounded-card border border-gray-100 bg-white p-1.5 shadow-lift',
+            'absolute z-40 flex w-full min-w-max flex-col overflow-hidden rounded-card border border-gray-100 bg-white shadow-lift',
             up ? 'bottom-full mb-2' : 'top-full mt-2',
           )}
         >
           {searchable && (
-            <li className="sticky top-0 z-10 -mx-1.5 -mt-1.5 mb-1 border-b border-gray-100 bg-white p-1.5">
+            <div className="shrink-0 border-b border-gray-100 p-1.5">
               <input
                 ref={searchRef}
                 type="text"
@@ -493,8 +502,13 @@ export function Select({
                 onKeyDown={onKeyDown}
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-brand focus:outline-none"
               />
-            </li>
+            </div>
           )}
+          <ul
+            role="listbox"
+            aria-label={ariaLabel}
+            className="max-h-[280px] overflow-auto p-1.5"
+          >
           {shown.length === 0 && (
             <li className="px-3.5 py-3 text-sm text-smoke">Nothing matches “{query}”.</li>
           )}
@@ -524,7 +538,8 @@ export function Select({
               </li>
             )
           })}
-        </ul>
+          </ul>
+        </div>
       )}
     </div>
   )
