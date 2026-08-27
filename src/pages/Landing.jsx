@@ -32,7 +32,7 @@ const TRYP_URL = 'https://www.tryp.com'
 // signed in, so the public front page can be shown inside the Testing Centre.
 // Without it the guard below does exactly what it should and sends them home.
 export default function Landing() {
-  const { on: demo } = useDemoMode()
+  const { on: demo, asked: demoAsked } = useDemoMode()
   const { user, loading } = useAuth()
   const [stats, setStats] = useState({ creators: 40, challenges: 6, prizes: 500 })
   const [featured, setFeatured] = useState([])
@@ -61,7 +61,13 @@ export default function Landing() {
   }, [])
 
   // Already signed in? Straight to the app.
-  if (!demo && !loading && user) return <Navigate to="/home" replace />
+  // `asked`, not `on`: `on` waits for `isAdmin`, which arrives with the PROFILE
+  // while `user` arrives with the SESSION - so an admin previewing this page in
+  // the Testing Centre was bounced to /home a beat before it knew it was a
+  // preview, and the "landing page" showed them the platform instead of what a
+  // stranger sees. Same bug as /signup had. The parameter alone stops the
+  // redirect; it unlocks nothing.
+  if (!demoAsked && !loading && user) return <Navigate to="/home" replace />
 
   return (
     <div className="bg-white">

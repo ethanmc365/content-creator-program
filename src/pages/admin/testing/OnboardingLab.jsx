@@ -136,7 +136,6 @@ export default function OnboardingLab() {
     <LabPage
       title="Onboarding flow"
       icon="users"
-      subtitle="All nine screens of the real onboarding, running in a frame at a true phone, tablet or desktop width. Jump to any screen, switch the prefill off to watch the gating work, and see the market it would assign before it assigns it."
       aside={live && (
         <div className="rounded-card border border-gray-200 bg-white px-4 py-2.5 text-center">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-smoke">{live.part}</p>

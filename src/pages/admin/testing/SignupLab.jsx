@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { LabPage, Panel, Note, Stage, useStage, Choice, KeyVal, Code, InfoList } from './kit'
+import { LabPage, Panel, Note, Stage, useStage, Choice, KeyVal, Code } from './kit'
 
 // THE FRONT DOOR, LIVE, AT A REAL WIDTH.
 //
@@ -56,14 +56,40 @@ export default function SignupLab() {
     stage.onDevice(SCREENS.find((s) => s.value === v)?.device || 'phone')
   }
 
+  const idx = SCREENS.findIndex((s) => s.value === screen)
+  const step = (d) => {
+    const next = SCREENS[idx + d]
+    if (next) pick(next.value)
+  }
+
   return (
     <LabPage
       title="The public pages"
       icon="globe"
-      subtitle="Everything a stranger can reach without an account, running here rather than pictured. Switch between phone, tablet and desktop to show the whole thing is built for a phone first."
     >
-      <Panel i={0} title="Which screen" hint="Each is the real component, made inert so nothing can be created, signed in or reset from inside the Testing Centre.">
-        <Choice options={SCREENS} value={screen} onChange={pick} />
+      <Panel i={0} title="Which screen">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Choice options={SCREENS} value={screen} onChange={pick} />
+          {/* WALK IT, DO NOT HUNT FOR IT. Showing somebody the front door is a
+              sequence - here is the page, here is where they sign up, here is
+              where they come back - and hunting for the right pill between each
+              one breaks the telling of it. */}
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              type="button" onClick={() => step(-1)} disabled={idx === 0}
+              className="rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold text-smoke transition-colors hover:border-brand hover:text-brand disabled:opacity-40"
+            >
+              ← Back
+            </button>
+            <button
+              type="button" onClick={() => step(1)} disabled={idx === SCREENS.length - 1}
+              className="rounded-full bg-brand px-3.5 py-1.5 text-xs font-semibold text-white transition-transform hover:-translate-y-0.5 disabled:opacity-40"
+            >
+              Next screen →
+            </button>
+            <span className="ml-1 text-[11px] tabular-nums text-smoke">{idx + 1} of {SCREENS.length}</span>
+          </div>
+        </div>
         <div className="mt-5">
           <p className="text-sm font-semibold">{current.title}</p>
           <p className="mt-1.5 max-w-3xl text-xs leading-relaxed text-smoke">{current.blurb}</p>
@@ -107,18 +133,7 @@ anything else -> review screen`}</Code>
         </div>
       </Panel>
 
-      <Panel i={2} title="What a new account can actually do" hint="Nothing, is the answer, and that is the whole design.">
-        <InfoList
-          items={[
-            { icon: 'ban', t: 'It cannot read a room', d: 'Row level security gates every read on being an active member, in a security definer function. There is no client-side check to bypass.' },
-            { icon: 'ban', t: 'It cannot post anything', d: 'Writes are gated separately on whether you are allowed to post, which a pending account is not.' },
-            { icon: 'ban', t: 'It cannot reach any page but onboarding', d: 'And after that, the review screen. The route guard fails closed: a status it does not recognise is refused, not allowed.' },
-            { icon: 'check', t: 'It can be deleted by the person who made it', d: 'Thirty day grace period, then the account and its files go together.' },
-          ]}
-        />
-      </Panel>
-
-      <Panel i={3} title="Referral links" hint="Every creator has one. It is the same sign-up page with a code on the end.">
+      <Panel i={2} title="Referral links" hint="Every creator has one. It is the same sign-up page with a code on the end.">
         <Code>{`https://trypcreators.vercel.app/signup?ref=MAYA7K
 
 1. The click is counted once per browser, per code.

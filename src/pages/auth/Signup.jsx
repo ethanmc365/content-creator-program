@@ -13,6 +13,13 @@ import { useDemoMode } from '../../lib/demoMode'
 // account created, and a placeholder where the captcha goes. See lib/demoMode.
 export default function Signup() {
   const { on: demo, asked: demoAsked } = useDemoMode()
+  // A `type="password"` field makes macOS offer to fill or save a password. In
+  // the Testing Centre that is a system dialog thrown over a demo that cannot
+  // accept a password anyway, on every single screen. The field is inert in demo
+  // mode, so it does not need to be a password field.
+  const pwProps = demoAsked
+    ? { type: 'text', autoComplete: 'off', name: 'demo-field', 'data-1p-ignore': 'true', 'data-lpignore': 'true' }
+    : { type: 'password', autoComplete: 'new-password' }
   const { signUp, user } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -108,7 +115,7 @@ export default function Signup() {
         </div>
         <div>
           <label htmlFor="password" className="label">Password</label>
-          <input id="password" type="password" required autoComplete="new-password" minLength={8} className="input" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" />
+          <input id="password" {...pwProps} required minLength={8} className="input" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" />
         </div>
 
         {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}

@@ -42,7 +42,7 @@ export const LABS = [
     element: <SignupLab />,
   },
   {
-    key: 'onboarding', title: 'Onboarding flow', icon: 'users', group: 'Joining the programme',
+    key: 'onboarding', title: 'Onboarding flow', icon: 'pencil', group: 'Joining the programme',
     blurb: 'All nine screens a new creator fills in after signing up, and everything the platform writes when they finish.',
     tags: ['9 screens', 'Live components'],
     element: <OnboardingLab />,
@@ -54,7 +54,7 @@ export const LABS = [
     element: <InvoiceLab />,
   },
   {
-    key: 'views', title: 'View counts', icon: 'chart', group: 'The programme',
+    key: 'views', title: 'View counts', icon: 'eye', group: 'The programme',
     blurb: 'Paste any post link and see exactly what the automatic sync reads from it, platform by platform.',
     tags: ['Live', 'Reads nothing'],
     element: <ViewsLab />,
@@ -96,15 +96,8 @@ export default function TestingCentre() {
           </span>
           <div>
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Testing Centre</h1>
-            <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-smoke">
-              The parts worth showing somebody, running on people who do not exist. Walk a stranger
-              through signing up, watch a prize raise its own invoice, and read a view count off any link.
-            </p>
           </div>
         </div>
-        <p className="shrink-0 text-xs text-smoke">
-          <span className="font-semibold text-ink">{LABS.length}</span> areas
-        </p>
       </div>
 
       <SandboxLine />
@@ -116,7 +109,7 @@ export default function TestingCentre() {
           tall. The grouping was orientation, and orientation is what you need
           the first time; every time after that it is furniture between you and
           the thing you came for. The group is a word on the card now. */}
-      <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
         {LABS.map((l, i) => (
           <Link
             key={l.key}
@@ -124,8 +117,8 @@ export default function TestingCentre() {
             style={{ '--lab-i': i }}
             className="lab-card group relative flex items-start gap-3.5 overflow-hidden rounded-card border border-gray-100 bg-white p-4 text-left shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift"
           >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand transition-transform duration-200 group-hover:scale-110">
-              <Icon name={l.icon} className="h-[18px] w-[18px]" />
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center text-brand transition-transform duration-200 group-hover:scale-110">
+              <Icon name={l.icon} className="h-[22px] w-[22px]" />
             </span>
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-2">

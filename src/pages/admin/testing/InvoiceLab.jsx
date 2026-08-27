@@ -223,7 +223,6 @@ export default function InvoiceLab() {
     <LabPage
       title="Automatic invoicing"
       icon="money"
-      subtitle="A cash prize raises its own invoice, snapshots the bank details as they were at that moment, and waits in the queue. An admin opens it, approves it, sends it."
       aside={<StageChips stage={stage} />}
     >
       <Panel
