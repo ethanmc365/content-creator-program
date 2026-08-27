@@ -29,133 +29,35 @@ import { SandboxLine } from './testing/kit'
 // /admin, the whole tree is lazy so a creator never downloads a byte of it, and
 // there is no link to it from any creator surface. See App.jsx.
 
-const DemoScript = lazy(() => import('./testing/ScriptLab'))
 const SignupLab = lazy(() => import('./testing/SignupLab'))
 const OnboardingLab = lazy(() => import('./testing/OnboardingLab'))
-const JourneyLab = lazy(() => import('./testing/JourneyLab'))
 const InvoiceLab = lazy(() => import('./testing/InvoiceLab'))
-const ChallengeLab = lazy(() => import('./testing/ChallengeLab'))
-const ProgrammeLab = lazy(() => import('./testing/ProgrammeLab'))
-const NotificationLab = lazy(() => import('./testing/NotificationLab'))
-const EmailLab = lazy(() => import('./testing/EmailLab'))
-const CronLab = lazy(() => import('./testing/CronLab'))
-const FlightLab = lazy(() => import('./testing/FlightLab'))
-const ToolkitLab = lazy(() => import('./testing/ToolkitLab'))
-const HealthLab = lazy(() => import('./testing/HealthLab'))
 const ViewsLab = lazy(() => import('./testing/ViewsLab'))
-const ResultsLab = lazy(() => import('./testing/ResultsLab'))
-const ProfileLab = lazy(() => import('./testing/ProfileLab'))
-const SecurityLab = lazy(() => import('./testing/SecurityLab'))
-const WalkthroughLab = lazy(() => import('./testing/WalkthroughLab'))
 
 export const LABS = [
   {
-    key: 'script', title: 'Demo run of show', icon: 'book', group: 'Start here',
-    blurb: 'The order to show things in, what to say, and roughly how long each part takes.',
-    tags: ['30 minutes'],
-    element: <DemoScript />,
-  },
-  {
-    key: 'signup', title: 'Sign up and log in', icon: 'key', group: 'Joining the programme',
-    blurb: 'The real public sign-up page, the log-in page and the password reset, live at any screen size.',
-    tags: ['Live screens'],
+    key: 'signup', title: 'The public pages', icon: 'globe', group: 'Joining the programme',
+    blurb: 'What a stranger sees: the landing page, sign up, log in and the password reset, live at any screen size.',
+    tags: ['5 screens', 'Inert'],
     element: <SignupLab />,
   },
   {
     key: 'onboarding', title: 'Onboarding flow', icon: 'users', group: 'Joining the programme',
-    blurb: 'All eight steps of the real onboarding, prefilled, with the required-field gating working.',
-    tags: ['Live screens', '8 steps'],
+    blurb: 'All nine screens a new creator fills in after signing up, and everything the platform writes when they finish.',
+    tags: ['9 screens', 'Live components'],
     element: <OnboardingLab />,
   },
   {
-    key: 'walkthrough', title: 'The first five minutes', icon: 'sparkles', group: 'Joining the programme',
-    blurb: 'The guided walk round the platform a new creator gets once, and the ask to put it on their home screen.',
-    tags: ['Interactive', 'Runs live'],
-    element: <WalkthroughLab />,
-  },
-  {
-    key: 'journey', title: 'A creator, end to end', icon: 'plane', group: 'Joining the programme',
-    blurb: 'Application to approval to first video: the review queue, the welcome email, the connect gate, the referral counting.',
-    tags: ['Automation'],
-    element: <JourneyLab />,
-  },
-  {
     key: 'invoice', title: 'Automatic invoicing', icon: 'money', group: 'Money',
-    blurb: 'A cash reward raises its own invoice, snapshots the payee, queues for a second pair of eyes and generates a real PDF.',
-    tags: ['Automation', 'Real PDF'],
+    blurb: 'A prize is won and its invoice raises itself. Walk the whole chain, from the reward row to the sent PDF.',
+    tags: ['Real functions'],
     element: <InvoiceLab />,
   },
   {
-    key: 'programme', title: 'Scoring and cost per view', icon: 'chart', group: 'Money',
-    blurb: 'The three scoring modes ranking live entries, the points ledger, and what a challenge costs per thousand views.',
-    tags: ['Live maths'],
-    element: <ProgrammeLab />,
-  },
-  {
-    key: 'results', title: 'Results and the podium', icon: 'trophy', group: 'The programme',
-    blurb: 'Log the final views, look at standings that are still private, then publish and watch the podium and the £10 vouchers land.',
-    tags: ['Interactive', 'The podium'],
-    element: <ResultsLab />,
-  },
-  {
-    key: 'challenge', title: 'Challenge lifecycle', icon: 'flag', group: 'The programme',
-    blurb: 'Scheduled, published, reminded, closed, scored, published to a podium and archived. With a clock you can drag.',
-    tags: ['Automation', 'Time travel'],
-    element: <ChallengeLab />,
-  },
-  {
-    key: 'notifications', title: 'Notifications', icon: 'bell', group: 'Automations',
-    blurb: 'Every one of the nineteen kinds the platform sends, drawn as a creator sees it, plus where each one is routed.',
-    tags: ['19 types'],
-    element: <NotificationLab />,
-  },
-  {
-    key: 'email', title: 'Email', icon: 'envelope', group: 'Automations',
-    blurb: 'The welcome email, the invoice email, the birthday card and the nudges, rendered as they arrive.',
-    tags: ['Templates'],
-    element: <EmailLab />,
-  },
-  {
-    key: 'cron', title: 'Jobs that run themselves', icon: 'clock', group: 'Automations',
-    blurb: 'The seven scheduled jobs, what each one checks, and a dry run of every one of them against the demo data.',
-    tags: ['Automation', 'Dry run'],
-    element: <CronLab />,
-  },
-  {
-    key: 'flight', title: 'Flight log', icon: 'plane', group: 'Toolkit',
-    blurb: 'Two airport codes and a date become a boarding pass: distance, block time, time zones crossed, carbon, who flies it.',
-    tags: ['Live maths'],
-    element: <FlightLab />,
-  },
-  {
-    key: 'toolkit', title: 'Text, time and media', icon: 'pencil', group: 'Toolkit',
-    blurb: 'The message formatter, local time for any creator, deadline maths, and what happens to a photo or a video on upload.',
-    tags: ['Live maths'],
-    element: <ToolkitLab />,
-  },
-  {
-    key: 'profile', title: 'What a profile is for', icon: 'users', group: 'Joining the programme',
-    blurb: 'Every field onboarding asks for and the exact feature that breaks without it. The argument for what is required.',
-    tags: ['Reference'],
-    element: <ProfileLab />,
-  },
-  {
-    key: 'security', title: 'Who can see what', icon: 'shield', group: 'Toolkit',
-    blurb: 'Twelve questions about privacy, asked of five kinds of account. Every no is enforced by the database, not the interface.',
-    tags: ['Reference'],
-    element: <SecurityLab />,
-  },
-  {
-    key: 'views', title: 'View counts, off the link', icon: 'eye', group: 'Toolkit',
-    blurb: 'Paste a TikTok, Instagram, YouTube or Facebook link and see what the automatic sync reads from it. Real posts, live numbers, writes nothing.',
-    tags: ['Real data', 'Read only'],
+    key: 'views', title: 'View counts', icon: 'chart', group: 'The programme',
+    blurb: 'Paste any post link and see exactly what the automatic sync reads from it, platform by platform.',
+    tags: ['Live', 'Reads nothing'],
     element: <ViewsLab />,
-  },
-  {
-    key: 'health', title: 'Live platform health', icon: 'chartPie', group: 'Toolkit',
-    blurb: 'The one page here that reads real data. Row counts, storage, the scheduled jobs and the edge functions, read only.',
-    tags: ['Real data', 'Read only'],
-    element: <HealthLab />,
   },
 ]
 
@@ -190,13 +92,13 @@ export default function TestingCentre() {
       <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex items-start gap-4">
           <span className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center text-brand">
-            <Icon name="gamepad" className="h-7 w-7" />
+            <Icon name="device" className="h-7 w-7" />
           </span>
           <div>
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Testing Centre</h1>
             <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-smoke">
-              Every feature and every automation, running on people who do not exist. Press the buttons:
-              raise an invoice, walk the onboarding, close a challenge and publish its podium.
+              The parts worth showing somebody, running on people who do not exist. Walk a stranger
+              through signing up, watch a prize raise its own invoice, and read a view count off any link.
             </p>
           </div>
         </div>

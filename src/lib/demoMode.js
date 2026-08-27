@@ -21,11 +21,29 @@ import { useAuth } from '../context/AuthContext'
 // AND IT IS GATED ON BEING AN ADMIN, not on the parameter alone. A creator who
 // is handed that link gets the ordinary page. The parameter can only ever make
 // a page inert; there is nothing it unlocks.
+//
+// `on` VERSUS `asked`, AND THE BUG THAT NEEDED BOTH.
+//
+// `on` is the gated answer: the parameter AND an admin. That is the right gate
+// for anything a demo page DOES - staying inert, prefilling, skipping writes -
+// because a creator handed the link must get the ordinary page.
+//
+// It is the wrong gate for "should I redirect away from here", because
+// `isAdmin` arrives with the PROFILE and `user` arrives with the SESSION, and
+// the session is there first. So /signup?demo=1 in the Testing Centre frame
+// looked at `user`, found one, and bounced to /onboarding a beat before it
+// learned it was a demo - which is why the "Sign up" screen of the public-pages
+// lab was showing the onboarding flow, and why that lab and the onboarding lab
+// appeared to be the same thing.
+//
+// `asked` is the parameter alone. It unlocks nothing and grants nothing; all it
+// can do is stop a redirect, which is safe for anybody.
 export function useDemoMode() {
   const [params] = useSearchParams()
   const { isAdmin } = useAuth()
-  const on = params.get('demo') === '1' && !!isAdmin
-  return { on, params }
+  const asked = params.get('demo') === '1'
+  const on = asked && !!isAdmin
+  return { on, asked, params }
 }
 
 const CHANNEL = 'tryp-demo'

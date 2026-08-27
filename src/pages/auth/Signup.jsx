@@ -12,7 +12,7 @@ import { useDemoMode } from '../../lib/demoMode'
 // Centre: no redirect when somebody who is already signed in looks at it, no
 // account created, and a placeholder where the captcha goes. See lib/demoMode.
 export default function Signup() {
-  const { on: demo } = useDemoMode()
+  const { on: demo, asked: demoAsked } = useDemoMode()
   const { signUp, user } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -43,9 +43,9 @@ export default function Signup() {
   // could bounce back through /login. Onboarding is guarded, so we only move once
   // `user` exists (email confirmation is off, so a session always follows signup).
   useEffect(() => {
-    if (demo) return
+    if (demoAsked) return
     if (user) navigate('/onboarding', { replace: true })
-  }, [user, navigate, demo])
+  }, [user, navigate, demoAsked])
 
   async function handleSubmit(e) {
     e.preventDefault()

@@ -43,9 +43,9 @@ const SCREENS = [
 ]
 
 export default function SignupLab() {
-  const stage = useStage('phone')
-  const [screen, setScreen] = useState('signup')
-  const current = SCREENS.find((s) => s.value === screen) || SCREENS[1]
+  const stage = useStage('desktop')
+  const [screen, setScreen] = useState('landing')
+  const current = SCREENS.find((s) => s.value === screen) || SCREENS[0]
 
   // Switching screens also switches to the width that screen is FOR. The
   // landing page is a desktop page that works on a phone; the auth pages are
@@ -58,9 +58,9 @@ export default function SignupLab() {
 
   return (
     <LabPage
-      title="Sign up and log in"
-      icon="key"
-      subtitle="The five public pages, running here rather than pictured. Switch between them, and switch between phone, tablet and desktop to show the whole thing is built for a phone first."
+      title="The public pages"
+      icon="globe"
+      subtitle="Everything a stranger can reach without an account, running here rather than pictured. Switch between phone, tablet and desktop to show the whole thing is built for a phone first."
     >
       <Panel i={0} title="Which screen" hint="Each is the real component, made inert so nothing can be created, signed in or reset from inside the Testing Centre.">
         <Choice options={SCREENS} value={screen} onChange={pick} />

@@ -80,9 +80,11 @@ import { cx } from '../../lib/utils'
 // the whole thing the icon exists to prevent. Every icon below is now used
 // exactly once - keep it that way. Two that changed after the tiles lost their
 // filled squares: `eye` now belongs to View as Creator (looking through
-// somebody's eyes) and the audit log took `book`, which is what a log is; and
-// the Testing Centre swapped the joystick for the gamepad, because at 22px an
-// unfilled joystick reads as an arrow dropping into a tray.
+// somebody's eyes) and the audit log took `book`, which is what a log is. The
+// Testing Centre went joystick -> gamepad -> `device`: unfilled at 22px a
+// joystick reads as an arrow dropping into a tray and a gamepad reads as a plus
+// sign, while a phone is unmistakable - and it is what those labs actually do,
+// which is run the real components at real device widths.
 
 const TOOLS = [
   { id: 'creators', to: '/admin/creators', icon: 'users', title: 'Creators' },
@@ -100,7 +102,7 @@ const TOOLS = [
   { id: 'feedback', to: '/admin/feedback', icon: 'bug', title: 'Bugs & Ideas' },
   { id: 'notes', to: '/admin/notes', icon: 'pencil', title: 'Notes' },
 
-  { id: 'testing', to: '/admin/testing', icon: 'gamepad', title: 'Testing Centre' },
+  { id: 'testing', to: '/admin/testing', icon: 'device', title: 'Testing Centre' },
 
   // NOT A LINK - it mints a session in the sandbox account and moves you into
   // it. It sits in the grid anyway because from where an admin stands it is

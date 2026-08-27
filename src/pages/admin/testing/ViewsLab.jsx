@@ -16,30 +16,35 @@ import { describeSyncError, probeLink } from '../../../lib/viewSync'
 // generic "everyone here is invented" banner would be a lie on a page whose
 // whole purpose is real numbers off real posts.
 //
-const HOW = [
+// HOW EACH PLATFORM IS ACTUALLY READ.
+//
+// One row per platform, and the same three questions answered for each, so they
+// can be compared down a column instead of read as four paragraphs. "Exact"
+// matters more than it sounds: a leaderboard ranks on these numbers.
+const PLATFORMS = [
   {
-    t: 'TikTok, exact, no sign-in',
-    d: 'The share link is followed to its canonical form and the id read off the embed endpoint, which carries the same stats as the video page in a third of the bytes. The id is cached on the entry, so every later read is one request.',
+    name: 'TikTok',
+    how: 'The share link is followed to its canonical form and the video id read off TikTok\u2019s own oEmbed endpoint, which states the same stats as the video page in a third of the bytes.',
+    exact: 'Exact',
+    cost: 'One request per entry, and the id is cached on the entry so every later read is a single call. No account, no key.',
   },
   {
-    t: 'YouTube, exact, via its own API',
-    d: 'Watch links, youtu.be links, Shorts and embeds all reduce to the same eleven-character id. YouTube bot-blocks servers from reading its pages, so the count comes from the free Data API v3: one unit of a 10,000 a day quota per entry.',
+    name: 'YouTube',
+    how: 'Watch links, youtu.be links, Shorts and embeds all reduce to the same eleven-character id, then the count comes from the official Data API v3. YouTube bot-blocks servers from reading its pages, so there is no scraping here at all.',
+    exact: 'Exact',
+    cost: 'One unit of a 10,000-a-day free quota per entry. A 500-video challenge is 5% of one day.',
   },
   {
-    t: 'Facebook, exact under a thousand and close above it',
-    d: 'The page title is the only place Facebook states a count. Below a thousand it gives a plain number and that is exact. Above it, it rounds to two figures: "5.7K" means somewhere between 5,650 and 5,749, so the number is within about 1% and never more than fifty out at that size. Good enough to rank on; the row still says it is rounded.',
+    name: 'Instagram',
+    how: 'Read off the creator\u2019s PUBLIC reels tab - which states a view count under every reel to anybody signed out - and matched to the entry by its shortcode. This is the scraper: it fetches a public page and reads a number out of it.',
+    exact: 'Exact',
+    cost: 'One request per CREATOR, not per video: a page of the reels tab carries twelve reels, so a creator with eight entries costs one call.',
   },
   {
-    t: 'Instagram, exact, no account at all',
-    d: 'Read off the creator\u2019s public reels tab, which states a view count under every reel to anybody signed out, and matched to the entry by its shortcode. This used to need a session cookie from a Tryp-owned account; Instagram warned that account for suspected automated behaviour, so the cookie was deleted and this replaced it. Nothing here can get a Tryp.com account flagged.',
-  },
-  {
-    t: 'One request per creator, not per video',
-    d: 'A page of the reels tab carries twelve reels, so a creator with eight entries costs one request, not eight. A whole month of a market is usually single digits.',
-  },
-  {
-    t: 'It still reads what the post hides',
-    d: 'A creator who has turned off like and view counts shows nobody their numbers on the post itself \u2014 and the reels tab still states them. So the sync fills in entries you cannot read by opening the post yourself.',
+    name: 'Facebook',
+    how: 'The page title is the only place Facebook states a count, so that is what is read.',
+    exact: 'Exact below 1,000; rounded above it',
+    cost: 'One request per entry. Above a thousand Facebook rounds to two figures - "5.7K" is somewhere between 5,650 and 5,749 - so it is within about 1%, and the row says it is rounded.',
   },
 ]
 
@@ -69,10 +74,9 @@ export default function ViewsLab() {
 
   return (
     <LabPage
-      title="View counts, off the link"
+      title="View counts"
       icon="eye"
       sandbox={false}
-      subtitle="Paste a TikTok, Instagram, YouTube or Facebook link and see exactly what the automatic sync would read from it. This calls the live function against the live post, and writes nothing."
       aside={<PlatformBadges platforms={['Instagram', 'TikTok', 'YouTube', 'Facebook']} size="md" />}
     >
       <Panel title="Read a link" hint="The same code path the scheduled sweep uses, in probe mode." i={0}>
@@ -171,7 +175,33 @@ export default function ViewsLab() {
       </Panel>
 
       <Panel title="How each platform is read" i={1}>
-        <InfoList columns={2} items={HOW} />
+        <div className="space-y-3">
+          {PLATFORMS.map((p) => (
+            <div key={p.name} className="rounded-card border border-gray-100 bg-white p-4">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <span className="text-[15px] font-semibold">{p.name}</span>
+                <span className={
+                  p.exact === 'Exact'
+                    ? 'rounded-full bg-green-50 px-2.5 py-0.5 text-[11px] font-semibold text-green-700'
+                    : 'rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700'
+                }>
+                  {p.exact}
+                </span>
+              </div>
+              <p className="mt-2 text-sm leading-relaxed text-smoke">{p.how}</p>
+              <p className="mt-2 border-t border-gray-50 pt-2 text-xs leading-relaxed text-smoke">
+                <span className="font-semibold text-ink">What it costs · </span>{p.cost}
+              </p>
+            </div>
+          ))}
+        </div>
+        <Note icon="shield" className="mt-3">
+          Only Instagram involves anything like a scraper, and it reads a page any signed-out visitor can
+          open. It used to need a session cookie from a Tryp-owned account; Instagram warned that account
+          for suspected automated behaviour, so the cookie was deleted and this replaced it. Nothing here
+          can get a Tryp.com account flagged. It also reads what the post itself hides - a creator who has
+          turned view counts off still shows them on their reels tab.
+        </Note>
       </Panel>
 
       <Panel title="The rules that keep a number honest" i={2}>

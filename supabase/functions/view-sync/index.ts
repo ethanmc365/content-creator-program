@@ -897,15 +897,28 @@ async function syncChunk(rows: Row[], progress: Progress): Promise<Progress> {
   return p
 }
 
-// Which entries are worth reading: every challenge whose winners have not been
-// published and which has not been finished for a month. That is every live one,
-// every future one, and everything still being judged - no per-challenge opt in,
-// now or ever. A challenge whose winners ARE published is done, and its numbers
-// are the ones it was judged on, so re-reading them would rewrite history.
+// Which entries the SCHEDULED sweep reads: challenges that are still running.
+//
+// THE DEADLINE ENDS THE AUTOMATIC READING. It used to keep sweeping for a month
+// after a challenge finished, on the reasoning that entries posted near the
+// deadline keep accruing views while the result is judged. Ethan's call, and it
+// is the right one: once the deadline has passed the numbers that matter are
+// the ones at the deadline, and a sweep that keeps moving them means the figure
+// somebody screenshotted on Monday is not the figure they are judged on by
+// Wednesday.
+//
+// THIS DOES NOT AFFECT "SYNC NOW". A run that names a challenge never comes
+// through here - see `staleRows`, which filters by `challenge_id` directly - so
+// an admin closing an ended challenge can still read every entry one last time,
+// which is exactly when they should.
+//
+// A challenge whose winners are already published is done either way: its
+// numbers are the ones it was judged on, and re-reading them rewrites history.
 async function eligibleChallengeIds(): Promise<string[]> {
-  const cutoff = new Date(Date.now() - 30 * 864e5).toISOString()
+  // Date, not timestamp: a challenge ending today is still running today.
+  const today = new Date().toISOString().slice(0, 10)
   const { data } = await supabase
-    .from('challenges').select('id').is('winners_published_at', null).gte('end_date', cutoff)
+    .from('challenges').select('id').is('winners_published_at', null).gte('end_date', today)
   return (data ?? []).map((c: { id: string }) => c.id)
 }
 

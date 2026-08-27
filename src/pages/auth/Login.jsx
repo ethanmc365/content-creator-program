@@ -8,7 +8,7 @@ import { useDemoMode } from '../../lib/demoMode'
 
 // `?demo=1`, admins only, renders this page inertly for the Testing Centre.
 export default function Login() {
-  const { on: demo } = useDemoMode()
+  const { on: demo, asked: demoAsked } = useDemoMode()
   const { signIn, user } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
@@ -25,9 +25,9 @@ export default function Login() {
   // the "have to enter my details twice" bug. Waiting for `user` to appear
   // removes the window entirely: we only leave /login once we're truly signed in.
   useEffect(() => {
-    if (demo) return
+    if (demoAsked) return
     if (user) navigate('/home', { replace: true })
-  }, [user, navigate, demo])
+  }, [user, navigate, demoAsked])
 
   async function handleSubmit(e) {
     e.preventDefault()
