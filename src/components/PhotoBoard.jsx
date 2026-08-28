@@ -75,6 +75,16 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
   // whose rows predate the `aspect` column (all of them, today) lays out
   // correctly without waiting for a write to land.
   const [aspects, setAspects] = useState({})
+  // Photos whose file is no longer in storage. There are six of these in
+  // production right now, all belonging to one creator, and they were rendering
+  // as the browser's broken-image icon - which is what "it's not showing all
+  // the photos added" looks like from the outside.
+  //
+  // A VISITOR SEES NOTHING; THE OWNER SEES THE TRUTH. Hiding a missing photo
+  // from everybody would mean the person who uploaded it never finds out it is
+  // gone, and they are the only one who can do anything about it. Hiding it
+  // from a stranger is simply not showing them somebody else's broken data.
+  const [broken, setBroken] = useState({})
   const boardRef = useRef(null)
   const [width, setWidth] = useState(0)
 
@@ -120,6 +130,9 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
           supabase.from('creator_photos').update({ aspect: a }).eq('id', p.id).then(() => {})
         }
       }
+      // The same probe that measures also tells us the file is gone, so a
+      // missing photo is known BEFORE it has a chance to paint a broken icon.
+      img.onerror = () => { if (alive) setBroken((cur) => ({ ...cur, [p.id]: true })) }
       img.src = p.photo_url
     }
     return () => { alive = false }
@@ -128,12 +141,12 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
   const cols = colsFor(width || 900)
   const colWidth = width ? (width - GAP * (cols - 1)) / cols : 0
 
-  const tiles = useMemo(() => (photos ?? []).map((p) => {
+  const tiles = useMemo(() => (photos ?? []).filter((p) => editable || !broken[p.id]).map((p) => {
     // A span of 2 on a two-column phone is a full-width photo, which is fine
     // and deliberate; it is never allowed to exceed the column count.
     const span = Math.min(cols, Math.max(1, Number(p.pos_w) || 1))
-    return { ...p, span, aspect: p.aspect || aspects[p.id] || null }
-  }), [photos, aspects, cols])
+    return { ...p, span, aspect: p.aspect || aspects[p.id] || null, missing: !!broken[p.id] }
+  }), [photos, aspects, cols, broken, editable])
 
   // ------------------------------------------------------------------ drag
   //
@@ -337,17 +350,26 @@ function PhotoTile({
       // mode the tile opens the lightbox instead and nothing drags.
       onPointerDown={(e) => arranging && onDragStart(e, photo)}
     >
-      <img
-        src={photo.photo_url}
-        alt={photo.caption || 'Travel photo'}
-        loading="lazy"
-        draggable={false}
-        className="h-full w-full select-none object-cover"
-        style={{
-          objectPosition: `${(photo.focal_x ?? 0.5) * 100}% ${(photo.focal_y ?? 0.5) * 100}%`,
-          transform: `scale(${photo.zoom ?? 1})`,
-        }}
-      />
+      {photo.missing ? (
+        <span className="flex h-full w-full flex-col items-center justify-center gap-1.5 bg-cloud px-3 text-center">
+          <Icon name="image" className="h-5 w-5 text-gray-300" />
+          <span className="text-[11px] font-medium leading-tight text-smoke">
+            This photo is no longer in storage. Remove it and upload it again.
+          </span>
+        </span>
+      ) : (
+        <img
+          src={photo.photo_url}
+          alt={photo.caption || 'Travel photo'}
+          loading="lazy"
+          draggable={false}
+          className="h-full w-full select-none object-cover"
+          style={{
+            objectPosition: `${(photo.focal_x ?? 0.5) * 100}% ${(photo.focal_y ?? 0.5) * 100}%`,
+            transform: `scale(${photo.zoom ?? 1})`,
+          }}
+        />
+      )}
 
       {photo.caption && !arranging && (
         <figcaption className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-3 pb-2.5 pt-8">

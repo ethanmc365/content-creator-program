@@ -26,7 +26,10 @@ import { cx } from '../../lib/utils'
 function RailCard({ icon, title, to, linkLabel, children }) {
   return (
     <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card">
-      <div className="mb-3 flex items-baseline justify-between gap-2">
+      {/* `items-center`. The heading carries an icon, so baseline alignment
+          lines the link up with a text baseline inside a taller box and the
+          link sits visibly low. */}
+      <div className="mb-3 flex items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-sm font-semibold">
           <Icon name={icon} className="h-4 w-4 shrink-0 text-brand" />
           {title}

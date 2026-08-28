@@ -16,13 +16,14 @@ import { loadRelationship, mutualCreators } from '../lib/connections'
 import { openConversation } from '../lib/dm'
 import { confirm, notice } from '../lib/confirm'
 import { flagForCountry } from '../lib/flags'
+import { useIsMobile } from '../lib/useKeyboardInset'
 import { airport } from '../lib/airports'
 import SocialMark, { brandForUrl } from '../components/SocialMark'
 import { Avatar, Badge, Skeleton, EmptyState } from '../components/ui'
 import Icon from '../components/Icon'
 import { format } from 'date-fns'
 import { loadMapCentroids } from '../lib/mapCountries'
-import { formatDate, timeAgo, ageFromDob, cx } from '../lib/utils'
+import { formatDate, postedOn, ageFromDob, cx } from '../lib/utils'
 
 // A creator's public profile: photo, bio, socials, the orange country map,
 // languages, stats and their content showcase (submitted video links).
@@ -43,6 +44,10 @@ export default function Profile() {
   const [mutual, setMutual] = useState({ people: [], total: 0 })
   const [reporting, setReporting] = useState(false)
   const [bucketOpen, setBucketOpen] = useState(false)
+  // Which of the two layouts to MOUNT. `lg` is 1024px, matching the grid the
+  // desktop version uses, so the swap happens exactly where the two-column
+  // layout would have taken over anyway.
+  const isMobile = useIsMobile()
   // Which showcase card has its caption open. One at a time: two open cards in
   // a three-across grid pushes the row below them down twice.
   const [openCaption, setOpenCaption] = useState(null)
@@ -264,6 +269,363 @@ export default function Profile() {
       : []),
   ].filter((x) => x.url)
 
+  // ================= THE PAGE, AS NAMED SECTIONS =================
+  // Ethan gave a mobile reading order that INTERLEAVES the two desktop
+  // columns: about, local time, at a glance, the map, where they are
+  // headed, photos, languages and bucket list, milestones, games, and the
+  // content showcase last of all.
+  // CSS `order` cannot do that. Order only sorts SIBLINGS, and on desktop
+  // these live in two different parents, so anything in the rail can never
+  // be ordered between two things in the main column.
+  // So each section is named once here and the two layouts below are
+  // nothing but running orders. The markup exists exactly once, which is
+  // the property that matters: the old page rendered its whole body twice
+  // and the two copies drifted for weeks. Same trick as the Settings
+  // page's BODIES map.
+  const about = (
+        <>
+{/* ---------- About (bio) ---------- */}
+        {creator.about && (
+          <section className="card">
+            <h2 className="mb-3 text-lg font-semibold">About {creator.name.split(' ')[0]}</h2>
+            <p className="whitespace-pre-line leading-relaxed text-smoke">{creator.about}</p>
+          </section>
+        )}
+        </>
+      )
+  const worldMap = (
+        <>
+{/* ---------- World map (countries visited) ---------- */}
+        <section>
+          <div className="mb-4 flex items-baseline justify-between">
+            <h2 className="text-lg font-semibold">
+              {creator.countries_visited?.length || 0} {creator.countries_visited?.length === 1 ? 'country' : 'countries'} visited
+            </h2>
+            {isMe && <Link to="/profile/edit" className="text-sm font-medium text-brand hover:underline">Update map</Link>}
+          </div>
+            {/* `owner` makes the countries tappable: what the place is known for,
+              and a way to ask the one person whose map this is about it. */}
+          {/* THE LIST OF EVERY COUNTRY UNDER THE MAP IS GONE. Somebody with
+              forty countries got forty grey chips, which is six rows of text
+              restating what the map above had just drawn - and none of them
+              did anything. The map is the list; the heading is the count.
+              Ethan: "there is no need to list all the countries, it takes up
+              space and looks bad." */}
+          <WorldMap selected={creator.countries_visited || []} owner={creator} here={here} />
+        </section>
+        </>
+      )
+  const photos = (
+        <>
+{/* ---------- Travel photos ---------- */}
+        <ProfileGallery creatorId={creator.id} isMe={isMe} creatorName={creator.name} />
+        {/* THE FLIGHT LOG MOVED TO THE RAIL. It was a full-width band here,
+            directly above a full-width country map, which put two different
+            answers to "where has this person been" at the same weight one after
+            the other. It is a set of numbers and three small photographs, which
+            is a rail card, and the map keeps the width. See the aside. */}
+        </>
+      )
+  const showcase = (
+        <>
+{/* ---------- Content showcase (creators only; admins don't submit) ---------- */}
+        {/* EVERY CARD IS THE SAME HEIGHT, AND THE CAPTION IS WHY IT WASN'T.
+            The caption sat in normal flow, so one creator writing three lines
+            about their video made that card taller than the two beside it and
+            the whole row went ragged. It is clamped to two lines now, with the
+            card opening in place when there is more to read - which also gives
+            the caption somewhere to go, rather than being cut off forever.
+            THE VIEWS ARE ON THE CARD. `logged_views` is read automatically off
+            the posted link (see the view sync), so this number keeps itself up
+            to date and is the single most interesting thing about an entry.
+            THREE TARGETS, THREE JOBS. The thumbnail and the platform mark open
+            the video; the caption expands it; the card itself does neither, so
+            nothing is a surprise. */}
+        {!creator.is_admin && (
+        <section>
+          <h2 className="mb-4 text-lg font-semibold">Content showcase</h2>
+          {submissions.length === 0 ? (
+            <EmptyState
+              icon={<Icon name="video" className="h-7 w-7" />}
+              title={isMe ? 'No submissions yet' : `${creator.name.split(' ')[0]} hasn't submitted yet`}
+              hint={isMe ? 'Enter the current challenge and your videos will show up here.' : 'Their challenge entries will appear here.'}
+              action={isMe && <Link to="/challenges" className="btn-primary">View challenges</Link>}
+            />
+          ) : (
+            /* BEST FIRST. It was newest first, which buries the video that
+               actually did the numbers under whatever was posted last. Ethan:
+               "always filter the content showcase by views from highest to
+               lowest, want the best videos showing first." Ties fall back to
+               newest, so a wall of un-synced zeroes still reads in a sane
+               order. */
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {[...submissions]
+                .sort((a, b) => (Number(b.logged_views) || 0) - (Number(a.logged_views) || 0)
+                  || new Date(b.submitted_at) - new Date(a.submitted_at))
+                .map((sub) => (
+                <ShowcaseCard
+                  key={sub.id}
+                  submission={sub}
+                  expanded={openCaption === sub.id}
+                  onToggle={() => setOpenCaption((cur) => (cur === sub.id ? null : sub.id))}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+        )}
+        </>
+      )
+  const clock = (
+        <>
+{/* WHERE THEY ARE RIGHT NOW, AND IT LEADS THE RAIL.
+            It used to sit above the map, which is where somebody looks when
+            they wonder - but it is a one-line fact about a person, not a
+            caption for a picture, and at the top of the rail it is the first
+            thing read on the whole page after the name. */}
+        {here && (
+          <section className={cx(
+            'rounded-card border p-4',
+            here.travelling ? 'border-brand/25 bg-brand-tint/50' : 'border-gray-100 bg-white shadow-card',
+          )}>
+            <div className="flex items-center gap-3">
+              {/* A CLOCK, NOT A PIN. Ethan: "I don't want it to say 'you are
+                  home in Belfast', this is almost too creepy, instead just
+                  show the time for you or for them. And change the icon from
+                  that pin."
+                  He is right, and the reason is worth writing down: a pin over
+                  "Maddie is at home in Belfast" is a sentence about where
+                  somebody LIVES, volunteered by the app to a stranger. The time
+                  where they are is the same fact turned into something useful -
+                  it answers "can I message them now" instead of "where do they
+                  sleep". A travelling creator still says where, because they
+                  published that themselves on the collab board. */}
+              <span className={cx(
+                'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
+                here.travelling ? 'bg-brand text-white' : 'bg-cloud text-smoke',
+              )}>
+                <Icon name={here.travelling ? 'plane' : 'clock'} className="h-4 w-4" />
+              </span>
+              <p className="min-w-0 text-sm">
+                {here.travelling ? (
+                  <>
+                    <span className="block font-semibold text-ink">
+                      {/* "You ARE", "Maddie IS". Getting this wrong is the sort
+                          of thing that makes a product feel machine-written. */}
+                      {`${here.who} ${isMe ? 'are' : 'is'} in ${here.place}`}
+                    </span>
+                    {currentTrip && <span className="block text-xs text-smoke">Back {formatDate(currentTrip.end_date)}</span>}
+                  </>
+                ) : (
+                  <>
+                    <span className="block font-semibold text-ink">
+                      <LocalTime profile={creator} bare />
+                    </span>
+                    <span className="block text-xs text-smoke">
+                      {isMe ? 'Your local time' : `${here.who}'s local time`}
+                    </span>
+                  </>
+                )}
+              </p>
+            </div>
+          </section>
+        )}
+        </>
+      )
+  const glance = (
+        <>
+{/* AT A GLANCE. Four numbers that used to be four full-width boxes in
+            a row across the page, which is a lot of furniture for four facts.
+            As rows in one rail card they take a quarter of the space and read
+            faster, because the labels line up and the eye goes down a column
+            rather than across a band. "Member since" stays - Ethan: "to hear
+            since March 2026, I think we might have something similar to that,
+            it says member since, so yeah that's good, we should keep that." */}
+        <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+            <Icon name="chart" className="h-4 w-4 shrink-0 text-brand" />
+            At a glance
+          </h2>
+          <dl className="space-y-2">
+            {[
+              ['Member since', formatDate(creator.accepted_at || creator.created_at)],
+              ['Countries visited', creator.countries_visited?.length || 0],
+              ['Challenges entered', challengeCount],
+              ['Videos submitted', submissions.length],
+            ].map(([k, v]) => (
+              <div key={k} className="flex items-baseline justify-between gap-3">
+                <dt className="text-xs text-smoke">{k}</dt>
+                <dd className="shrink-0 text-sm font-semibold tabular-nums">{v}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+        </>
+      )
+  const headedNextSection = (
+        <>
+{/* ---------- Where I'm headed next ---------- */}
+        {/* THE "COLLAB BOARD" LINK BESIDE THE HEADING IS GONE, and the cards
+            are the link instead. A heading with a destination next to it is a
+            second way to do what the thing underneath it already does, and it
+            sent you to the board's front page rather than to the trip you were
+            looking at. Ethan: "it shouldn't show collab board beside the title,
+            although clicking on one of cards should correctly open to the
+            collab board."
+            EACH CARD GOES WHERE ITS TRIP LIVES. A collab post opens the collab
+            board; a flight with no collab post behind it opens the community
+            flight log, because that is the page that trip actually exists on.
+            EVERY CARD IS THE SAME SIZE. They were shrink-to-fit, so
+            "Namibia, Namibia" and "Cape Town, South Africa" came out as two
+            different widths sitting raggedly beside each other. */}
+        {(headedNext.length > 0 || isMe) && (
+          <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card">
+            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+              <Icon name="plane" className="h-4 w-4 shrink-0 text-brand" />
+              {isMe ? "Where I'm headed next" : `Where ${creator.name.split(' ')[0]}'s headed next`}
+            </h2>
+            {headedNext.length === 0 ? (
+              <p className="text-xs leading-relaxed text-smoke">
+                Nothing coming up. Post a trip on the collab board or log an upcoming flight and it shows here.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {headedNext.map((t) => (
+                  <li key={t.key}>
+                    {/* NO BORDER PER ROW. Every trip was a bordered box inside
+                        a bordered card, which is two frames around one thing.
+                        Ethan: "no need to have a border around each trip as
+                        they're already inside a card." The hover tint is what
+                        says a row is a target now. */}
+                    <Link
+                      to={t.to}
+                      className="-mx-1.5 flex h-[58px] w-[calc(100%+0.75rem)] items-center gap-3 rounded-xl px-1.5 transition-colors duration-150 hover:bg-cloud/70"
+                    >
+                      <span className="w-7 shrink-0 text-center text-xl leading-none" aria-hidden>{t.flag || '📍'}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold leading-tight">{t.place}</span>
+                        <span className="block truncate text-xs leading-tight text-smoke">{t.when}</span>
+                      </span>
+                      <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
+        </>
+      )
+  const languages = (
+        <>
+{/* LANGUAGES AND THE BUCKET LIST, IN ONE CARD AND MUCH SMALLER.
+            Ethan: "we have the languages that show up, the travel bucket list,
+            but the way they show up is really small, taking up a lot of space,
+            and it just doesn't look good."
+            Both were their own full-width section with an 18px heading over a
+            row of pills - so two facts that fit on one line each were spending
+            a third of a screen between them. One card, two labelled rows, and
+            the pills are now plain text separated by dots: a chip around a
+            single word is a button that does nothing. */}
+        {(creator.languages?.length > 0 || creator.bucket_list?.length > 0) && (
+          <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card">
+            {creator.languages?.length > 0 && (
+              <div>
+                <h2 className="flex items-center gap-2 text-sm font-semibold">
+                  <Icon name="chat" className="h-4 w-4 shrink-0 text-brand" />
+                  Languages
+                </h2>
+                <p className="mt-1.5 text-sm leading-relaxed text-smoke">
+                  {creator.languages.join(' · ')}
+                </p>
+              </div>
+            )}
+            {/* BUCKET LIST, and it opens. It was headed "Still to go", which
+                is a description rather than the name of the thing - creators
+                call it a bucket list and so does the edit form that fills it
+                in. Five, then a control: "+4 more" used to be a full stop, a
+                line of grey text telling you there was something you could not
+                see. */}
+            {creator.bucket_list?.length > 0 && (
+              <div className={creator.languages?.length > 0 ? 'mt-4 border-t border-gray-100 pt-4' : undefined}>
+                <h2 className="flex items-center gap-2 text-sm font-semibold">
+                  <Icon name="bucket" className="h-4 w-4 shrink-0 text-brand" />
+                  Bucket list
+                </h2>
+                <ul className="mt-2 space-y-1.5">
+                  {(bucketOpen ? creator.bucket_list : creator.bucket_list.slice(0, 5)).map((b, i) => (
+                    <li key={i} className="flex items-center gap-2 text-sm">
+                      <span aria-hidden className="shrink-0 text-base leading-none">{flagForCountry(b.country) || '📍'}</span>
+                      <span className="min-w-0 truncate text-smoke">
+                        {b.city ? `${b.city}, ${b.country}` : b.country}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                {creator.bucket_list.length > 5 && (
+                  <button
+                    type="button"
+                    onClick={() => setBucketOpen((o) => !o)}
+                    className="mt-2 text-xs font-medium text-brand transition-transform duration-200 hover:scale-105"
+                  >
+                    {bucketOpen ? 'Show fewer' : `+${creator.bucket_list.length - 5} more`}
+                  </button>
+                )}
+              </div>
+            )}
+          </section>
+        )}
+        {/* ---------- Where they are on the route ----------
+            THIS REPLACES THE ACHIEVEMENT BADGES. Those were effort tiers with
+            nothing on the other side of them: they appeared, they were grey, and
+            reaching one changed nothing, which is why nobody chased them. A
+            milestone is the same idea with the two missing halves attached - a
+            threshold you can see coming and a real reward behind it - so one line
+            here does more than nine icons did. */}
+          {/* BEHIND THE PREVIEW FLAG, like the page it links to. This snippet was
+            the one part of the milestone build with no gate on it, so it drew on
+            every UK creator's profile and its "See the whole route" link took
+            them into the unreleased network. Milestones ship with the network,
+            not before it. */}
+        </>
+      )
+  const milestones = (
+        <>
+{/* MILESTONES SIT ABOVE THE FLIGHT LOG. They are the thing with a
+            next step in it - a threshold you can see coming and a reward behind
+            it - and the flight log underneath is the evidence of the distance
+            already covered. Read in that order it is a route; read the other
+            way round it is two sets of numbers. */}
+        {!creator.is_admin && (
+          <section>
+            <MilestoneSnippet profileId={creator.id} own={isMe} />
+          </section>
+        )}
+        </>
+      )
+  const flightLog = (
+        <>
+{/* THE FLIGHT LOG, WHICH IS ALSO THE AIRCRAFT COLLECTION NOW. Lifetime
+            distance, flights, airports and countries, then the three types
+            flown most with their photographs. There used to be a separate
+            "Aircraft collection" card drawing the same aeroplanes at a
+            different size two cards further down. */}
+        <ProfileFlights creatorId={creator.id} isMe={isMe} name={creator.name} rail />
+        </>
+      )
+  const challengeWall = (
+        <>
+        <ChallengeHistoryCard creatorId={creator.id} isMe={isMe} firstName={creator.name.split(' ')[0]} />
+        </>
+      )
+  const puzzles = (
+        <>
+        <PuzzleCard creatorId={creator.id} isMe={isMe} firstName={creator.name.split(' ')[0]} />
+        </>
+      )
+
+
+
   return (
     <div className="page space-y-10">
       {/* ---------- Header ---------- */}
@@ -275,7 +637,16 @@ export default function Profile() {
           <Avatar src={creator.photo_url} name={creator.name} size="xl" className="!h-32 !w-32 sm:!h-36 sm:!w-36" />
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="text-3xl font-bold tracking-tight sm:text-[34px]">{creator.name}</h1>
+          {/* THE ROLE SITS BESIDE THE NAME. It had its own line under it,
+              which read as a second heading; beside the name it reads as what
+              it is - who this person is, in four words. Ethan: "the role beside
+              their name like Jacob and then Creator in the tryp.com orange." */}
+          <div className="flex flex-wrap items-baseline justify-center gap-x-3 gap-y-1 sm:justify-start">
+            <h1 className="text-3xl font-bold tracking-tight sm:text-[34px]">{creator.name}</h1>
+            <span className="text-[15px] font-semibold tracking-[-0.01em] text-brand sm:text-base">
+              {roleBadgeTitle(creator) || 'Creator'}
+            </span>
+          </div>
 
           {/* WHAT THEY ARE CALLED, AND IT IS THE SECOND THING YOU READ.
               This was a small grey pill sharing a line with the name and an
@@ -290,20 +661,19 @@ export default function Profile() {
               "Tryp.com CCC Lead". A creator who has flown far enough to earn
               "Tryp.com Senior Creator" reads that. Everybody else reads
               "Creator", which is a job, not a blank. */}
-          <p className="mt-1 flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1.5 sm:justify-start">
-            <span className="text-[15px] font-semibold tracking-[-0.01em] text-brand sm:text-base">
-              {roleBadgeTitle(creator) || 'Creator'}
-            </span>
-            {/* AGE, WITH THE WORD ON IT. It was a bare number floating after
-                the name, which could have been anything - a rank, a count of
-                something, a badge. */}
-            {(ageFromDob(creator.dob) ?? creator.age) && (
-              <span className="text-sm text-smoke">
-                <span className="tabular-nums">{ageFromDob(creator.dob) ?? creator.age}</span> years old
-              </span>
-            )}
-            {isApplication && <Badge tone="amber">Pending review</Badge>}
-          </p>
+          {/* AGE, WITH THE WORD ON IT, on its own line under the name. It was
+              a bare number floating after the name, which could have been
+              anything - a rank, a count, a badge. */}
+          {((ageFromDob(creator.dob) ?? creator.age) || isApplication) && (
+            <p className="mt-1 flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1.5 sm:justify-start">
+              {(ageFromDob(creator.dob) ?? creator.age) && (
+                <span className="text-sm text-smoke">
+                  <span className="tabular-nums">{ageFromDob(creator.dob) ?? creator.age}</span> years old
+                </span>
+              )}
+              {isApplication && <Badge tone="amber">Pending review</Badge>}
+            </p>
+          )}
 
           {(creator.city || creator.country || currentTrip) && (
             <p className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-sm text-smoke sm:justify-start">
@@ -330,8 +700,20 @@ export default function Profile() {
           )}
           {creator.bio && <p className="mt-2 text-lg text-smoke">{creator.bio}</p>}
           {creator.favourite_quote && (
-            <p className="mt-3 border-l-2 border-brand pl-3 text-sm italic text-smoke">“{creator.favourite_quote}”</p>
+            /* BIGGER, because it was 14px grey italic and genuinely hard to
+               read - a quote somebody chose to put on their profile should not
+               be the faintest thing on it. */
+            <p className="mt-3 border-l-[3px] border-brand pl-3.5 text-[17px] italic leading-relaxed text-ink/80">
+              &ldquo;{creator.favourite_quote}&rdquo;
+            </p>
           )}
+          {/* NAMED, AND IN THE PLATFORM'S OWN COLOURS. These were six
+              identical grey circles, so the row that is entirely ABOUT other
+              platforms was the least recognisable thing on the page, and you
+              had to hover to find out which was which. Ethan: "the links should
+              have better UI and the actual colourful social media logos, not
+              greyed, in each card have the icon and write the name TikTok etc,
+              make it clearer." */}
           {socials.length > 0 && (
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
               {socials.map((x) => (
@@ -340,11 +722,10 @@ export default function Profile() {
                   href={x.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  title={x.label}
-                  aria-label={x.label}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 text-smoke transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand hover:shadow-card"
+                  className="flex items-center gap-2 rounded-full border border-gray-200 py-1.5 pl-2 pr-3.5 text-sm font-medium text-ink transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-card"
                 >
-                  <SocialMark brand={x.brand} className="h-[18px] w-[18px]" />
+                  <SocialMark brand={x.brand} colored className="h-[18px] w-[18px] shrink-0" />
+                  {x.label}
                 </a>
               ))}
             </div>
@@ -448,301 +829,51 @@ export default function Profile() {
           stack of full-width bands for everyone else - which meant every change
           had to be made in both or the two drifted. The network is live, so the
           old one is gone. */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:gap-8">
+      {/* ---------------- ONE COLUMN, BELOW `lg` ----------------
+          CHOSEN IN JAVASCRIPT, NOT WITH `hidden`. A `hidden lg:grid` twin still
+          RENDERS: both trees mount, so the photo board fetched its rows twice,
+          measured every image twice and loaded the world atlas twice, all to
+          paint one of them. Cheap for a settings panel, not for this page. */}
+      {isMobile ? (
+      <div className="flex flex-col gap-6">
+        {about}
+        {clock}
+        {glance}
+        {worldMap}
+        {headedNextSection}
+        {photos}
+        {languages}
+        {milestones}
+        {puzzles}
+        {showcase}
+        {/* The flight log and the challenge wall come after the games on a
+            phone: they are the two densest cards and they are the ones a
+            visitor is least likely to have scrolled this far for. */}
+        {flightLog}
+        {challengeWall}
+      </div>
+
+      ) : (
+      /* ---------------- TWO COLUMNS, FROM `lg` ---------------- */
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <div className="min-w-0 space-y-8">
-        {/* ---------- About (bio) ---------- */}
-        {creator.about && (
-          <section className="card">
-            <h2 className="mb-3 text-lg font-semibold">About {creator.name.split(' ')[0]}</h2>
-            <p className="whitespace-pre-line leading-relaxed text-smoke">{creator.about}</p>
-          </section>
-        )}
-        {/* ---------- World map (countries visited) ---------- */}
-        <section>
-          <div className="mb-4 flex items-baseline justify-between">
-            <h2 className="text-lg font-semibold">
-              {creator.countries_visited?.length || 0} {creator.countries_visited?.length === 1 ? 'country' : 'countries'} visited
-            </h2>
-            {isMe && <Link to="/profile/edit" className="text-sm font-medium text-brand hover:underline">Update map</Link>}
-          </div>
-            {/* `owner` makes the countries tappable: what the place is known for,
-              and a way to ask the one person whose map this is about it. */}
-          {/* THE LIST OF EVERY COUNTRY UNDER THE MAP IS GONE. Somebody with
-              forty countries got forty grey chips, which is six rows of text
-              restating what the map above had just drawn - and none of them
-              did anything. The map is the list; the heading is the count.
-              Ethan: "there is no need to list all the countries, it takes up
-              space and looks bad." */}
-          <WorldMap selected={creator.countries_visited || []} owner={creator} here={here} />
-        </section>
-        {/* ---------- Travel photos ---------- */}
-        <ProfileGallery creatorId={creator.id} isMe={isMe} creatorName={creator.name} />
-        {/* THE FLIGHT LOG MOVED TO THE RAIL. It was a full-width band here,
-            directly above a full-width country map, which put two different
-            answers to "where has this person been" at the same weight one after
-            the other. It is a set of numbers and three small photographs, which
-            is a rail card, and the map keeps the width. See the aside. */}
-        {/* ---------- Content showcase (creators only; admins don't submit) ---------- */}
-        {/* EVERY CARD IS THE SAME HEIGHT, AND THE CAPTION IS WHY IT WASN'T.
-            The caption sat in normal flow, so one creator writing three lines
-            about their video made that card taller than the two beside it and
-            the whole row went ragged. It is clamped to two lines now, with the
-            card opening in place when there is more to read - which also gives
-            the caption somewhere to go, rather than being cut off forever.
-            THE VIEWS ARE ON THE CARD. `logged_views` is read automatically off
-            the posted link (see the view sync), so this number keeps itself up
-            to date and is the single most interesting thing about an entry.
-            THREE TARGETS, THREE JOBS. The thumbnail and the platform mark open
-            the video; the caption expands it; the card itself does neither, so
-            nothing is a surprise. */}
-        {!creator.is_admin && (
-        <section>
-          <h2 className="mb-4 text-lg font-semibold">Content showcase</h2>
-          {submissions.length === 0 ? (
-            <EmptyState
-              icon={<Icon name="video" className="h-7 w-7" />}
-              title={isMe ? 'No submissions yet' : `${creator.name.split(' ')[0]} hasn't submitted yet`}
-              hint={isMe ? 'Enter the current challenge and your videos will show up here.' : 'Their challenge entries will appear here.'}
-              action={isMe && <Link to="/challenges" className="btn-primary">View challenges</Link>}
-            />
-          ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {submissions.map((sub) => (
-                <ShowcaseCard
-                  key={sub.id}
-                  submission={sub}
-                  expanded={openCaption === sub.id}
-                  onToggle={() => setOpenCaption((cur) => (cur === sub.id ? null : sub.id))}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-        )}
+          {about}
+          {worldMap}
+          {photos}
+          {showcase}
         </div>
         <aside className="min-w-0 space-y-4">
-        {/* WHERE THEY ARE RIGHT NOW, AND IT LEADS THE RAIL.
-            It used to sit above the map, which is where somebody looks when
-            they wonder - but it is a one-line fact about a person, not a
-            caption for a picture, and at the top of the rail it is the first
-            thing read on the whole page after the name. */}
-        {here && (
-          <section className={cx(
-            'rounded-card border p-4',
-            here.travelling ? 'border-brand/25 bg-brand-tint/50' : 'border-gray-100 bg-white shadow-card',
-          )}>
-            <div className="flex items-center gap-3">
-              {/* A CLOCK, NOT A PIN. Ethan: "I don't want it to say 'you are
-                  home in Belfast', this is almost too creepy, instead just
-                  show the time for you or for them. And change the icon from
-                  that pin."
-                  He is right, and the reason is worth writing down: a pin over
-                  "Maddie is at home in Belfast" is a sentence about where
-                  somebody LIVES, volunteered by the app to a stranger. The time
-                  where they are is the same fact turned into something useful -
-                  it answers "can I message them now" instead of "where do they
-                  sleep". A travelling creator still says where, because they
-                  published that themselves on the collab board. */}
-              <span className={cx(
-                'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
-                here.travelling ? 'bg-brand text-white' : 'bg-cloud text-smoke',
-              )}>
-                <Icon name={here.travelling ? 'plane' : 'clock'} className="h-4 w-4" />
-              </span>
-              <p className="min-w-0 text-sm">
-                {here.travelling ? (
-                  <>
-                    <span className="block font-semibold text-ink">
-                      {/* "You ARE", "Maddie IS". Getting this wrong is the sort
-                          of thing that makes a product feel machine-written. */}
-                      {`${here.who} ${isMe ? 'are' : 'is'} in ${here.place}`}
-                    </span>
-                    {currentTrip && <span className="block text-xs text-smoke">Back {formatDate(currentTrip.end_date)}</span>}
-                  </>
-                ) : (
-                  <>
-                    <span className="block font-semibold text-ink">
-                      <LocalTime profile={creator} bare />
-                    </span>
-                    <span className="block text-xs text-smoke">
-                      {isMe ? 'Your local time' : `${here.who}'s local time`}
-                    </span>
-                  </>
-                )}
-              </p>
-            </div>
-          </section>
-        )}
-        {/* AT A GLANCE. Four numbers that used to be four full-width boxes in
-            a row across the page, which is a lot of furniture for four facts.
-            As rows in one rail card they take a quarter of the space and read
-            faster, because the labels line up and the eye goes down a column
-            rather than across a band. "Member since" stays - Ethan: "to hear
-            since March 2026, I think we might have something similar to that,
-            it says member since, so yeah that's good, we should keep that." */}
-        <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card">
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-            <Icon name="chart" className="h-4 w-4 shrink-0 text-brand" />
-            At a glance
-          </h2>
-          <dl className="space-y-2">
-            {[
-              ['Member since', formatDate(creator.accepted_at || creator.created_at)],
-              ['Countries visited', creator.countries_visited?.length || 0],
-              ['Challenges entered', challengeCount],
-              ['Videos submitted', submissions.length],
-            ].map(([k, v]) => (
-              <div key={k} className="flex items-baseline justify-between gap-3">
-                <dt className="text-xs text-smoke">{k}</dt>
-                <dd className="shrink-0 text-sm font-semibold tabular-nums">{v}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-        {/* THE "TEAM ONLY" CONTACT CARD IS GONE FROM THE PROFILE.
-            It showed a creator's email to any admin looking at their page, and
-            Ethan asked for it off the main profile views. Nothing is lost: the
-            roster at /admin/creators is the surface built for contacting
-            somebody, it holds the phone number too, and it is behind
-            AdminRoute rather than on a page every creator can open. Keeping a
-            copy here meant private contact details rendering on the most-linked
-            page in the product and one `viewerIsAdmin` typo away from leaking.
-            The RPC and creator_private's RLS are unchanged, so this is one
-            fewer surface, not one fewer permission. */}
-        {/* ---------- Where I'm headed next ---------- */}
-        {/* THE "COLLAB BOARD" LINK BESIDE THE HEADING IS GONE, and the cards
-            are the link instead. A heading with a destination next to it is a
-            second way to do what the thing underneath it already does, and it
-            sent you to the board's front page rather than to the trip you were
-            looking at. Ethan: "it shouldn't show collab board beside the title,
-            although clicking on one of cards should correctly open to the
-            collab board."
-            EACH CARD GOES WHERE ITS TRIP LIVES. A collab post opens the collab
-            board; a flight with no collab post behind it opens the community
-            flight log, because that is the page that trip actually exists on.
-            EVERY CARD IS THE SAME SIZE. They were shrink-to-fit, so
-            "Namibia, Namibia" and "Cape Town, South Africa" came out as two
-            different widths sitting raggedly beside each other. */}
-        {(headedNext.length > 0 || isMe) && (
-          <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card">
-            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-              <Icon name="plane" className="h-4 w-4 shrink-0 text-brand" />
-              {isMe ? "Where I'm headed next" : `Where ${creator.name.split(' ')[0]}'s headed next`}
-            </h2>
-            {headedNext.length === 0 ? (
-              <p className="text-xs leading-relaxed text-smoke">
-                Nothing coming up. Post a trip on the collab board or log an upcoming flight and it shows here.
-              </p>
-            ) : (
-              <ul className="space-y-2">
-                {headedNext.map((t) => (
-                  <li key={t.key}>
-                    <Link
-                      to={t.to}
-                      className="flex h-[62px] w-full items-center gap-3 rounded-xl border border-gray-100 px-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-card"
-                    >
-                      <span className="w-7 shrink-0 text-center text-xl leading-none" aria-hidden>{t.flag || '📍'}</span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold leading-tight">{t.place}</span>
-                        <span className="block truncate text-xs leading-tight text-smoke">{t.when}</span>
-                      </span>
-                      <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        )}
-        {/* LANGUAGES AND THE BUCKET LIST, IN ONE CARD AND MUCH SMALLER.
-            Ethan: "we have the languages that show up, the travel bucket list,
-            but the way they show up is really small, taking up a lot of space,
-            and it just doesn't look good."
-            Both were their own full-width section with an 18px heading over a
-            row of pills - so two facts that fit on one line each were spending
-            a third of a screen between them. One card, two labelled rows, and
-            the pills are now plain text separated by dots: a chip around a
-            single word is a button that does nothing. */}
-        {(creator.languages?.length > 0 || creator.bucket_list?.length > 0) && (
-          <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card">
-            {creator.languages?.length > 0 && (
-              <div>
-                <h2 className="flex items-center gap-2 text-sm font-semibold">
-                  <Icon name="chat" className="h-4 w-4 shrink-0 text-brand" />
-                  Speaks
-                </h2>
-                <p className="mt-1.5 text-sm leading-relaxed text-smoke">
-                  {creator.languages.join(' · ')}
-                </p>
-              </div>
-            )}
-            {/* BUCKET LIST, and it opens. It was headed "Still to go", which
-                is a description rather than the name of the thing - creators
-                call it a bucket list and so does the edit form that fills it
-                in. Five, then a control: "+4 more" used to be a full stop, a
-                line of grey text telling you there was something you could not
-                see. */}
-            {creator.bucket_list?.length > 0 && (
-              <div className={creator.languages?.length > 0 ? 'mt-4 border-t border-gray-100 pt-4' : undefined}>
-                <h2 className="flex items-center gap-2 text-sm font-semibold">
-                  <Icon name="flag" className="h-4 w-4 shrink-0 text-brand" />
-                  Bucket list
-                </h2>
-                <ul className="mt-2 space-y-1.5">
-                  {(bucketOpen ? creator.bucket_list : creator.bucket_list.slice(0, 5)).map((b, i) => (
-                    <li key={i} className="flex items-center gap-2 text-sm">
-                      <span aria-hidden className="shrink-0 text-base leading-none">{flagForCountry(b.country) || '📍'}</span>
-                      <span className="min-w-0 truncate text-smoke">
-                        {b.city ? `${b.city}, ${b.country}` : b.country}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-                {creator.bucket_list.length > 5 && (
-                  <button
-                    type="button"
-                    onClick={() => setBucketOpen((o) => !o)}
-                    className="mt-2 text-xs font-medium text-brand transition-transform duration-200 hover:scale-105"
-                  >
-                    {bucketOpen ? 'Show fewer' : `+${creator.bucket_list.length - 5} more`}
-                  </button>
-                )}
-              </div>
-            )}
-          </section>
-        )}
-        {/* ---------- Where they are on the route ----------
-            THIS REPLACES THE ACHIEVEMENT BADGES. Those were effort tiers with
-            nothing on the other side of them: they appeared, they were grey, and
-            reaching one changed nothing, which is why nobody chased them. A
-            milestone is the same idea with the two missing halves attached - a
-            threshold you can see coming and a real reward behind it - so one line
-            here does more than nine icons did. */}
-          {/* BEHIND THE PREVIEW FLAG, like the page it links to. This snippet was
-            the one part of the milestone build with no gate on it, so it drew on
-            every UK creator's profile and its "See the whole route" link took
-            them into the unreleased network. Milestones ship with the network,
-            not before it. */}
-        {/* MILESTONES SIT ABOVE THE FLIGHT LOG. They are the thing with a
-            next step in it - a threshold you can see coming and a reward behind
-            it - and the flight log underneath is the evidence of the distance
-            already covered. Read in that order it is a route; read the other
-            way round it is two sets of numbers. */}
-        {!creator.is_admin && (
-          <section>
-            <MilestoneSnippet profileId={creator.id} own={isMe} />
-          </section>
-        )}
-        {/* THE FLIGHT LOG, WHICH IS ALSO THE AIRCRAFT COLLECTION NOW. Lifetime
-            distance, flights, airports and countries, then the three types
-            flown most with their photographs. There used to be a separate
-            "Aircraft collection" card drawing the same aeroplanes at a
-            different size two cards further down. */}
-        <ProfileFlights creatorId={creator.id} isMe={isMe} name={creator.name} rail />
-        <ChallengeHistoryCard creatorId={creator.id} isMe={isMe} firstName={creator.name.split(' ')[0]} />
-        <PuzzleCard creatorId={creator.id} isMe={isMe} firstName={creator.name.split(' ')[0]} />
+          {clock}
+          {glance}
+          {headedNextSection}
+          {languages}
+          {milestones}
+          {flightLog}
+          {challengeWall}
+          {puzzles}
         </aside>
       </div>
+      )}
       {/* Mounted at the page root rather than beside the button: Modal portals
           to the body anyway, and keeping it out of the header section means the
           header's flex layout never has to account for a child that renders
@@ -772,7 +903,12 @@ function ShowcaseCard({ submission: s, expanded, onToggle }) {
 
   return (
     <div className="card group flex flex-col overflow-hidden !p-0">
-      {/* The picture is the link to the video, and it says so on hover. */}
+      {/* The picture is the link to the video. THE PLATFORM BADGE THAT USED TO
+          FLOAT IN THE TOP-RIGHT IS GONE: VideoThumb already draws the platform
+          across the thumbnail, so the card said "Instagram" twice, once as a
+          word and once as a mark six millimetres away. Ethan: "on the actual
+          card it should already say Instagram, TikTok, Facebook etc, so you can
+          remove the additional icon." */}
       <a
         href={s.video_url}
         target="_blank"
@@ -781,32 +917,33 @@ function ShowcaseCard({ submission: s, expanded, onToggle }) {
         aria-label={`Watch this ${s.platform || ''} video`.trim()}
       >
         <VideoThumb url={s.video_url} platform={s.platform} className="rounded-b-none" />
-        {/* VIEWS, ON THE PICTURE. `logged_views` is read automatically off the
-            posted link, so this keeps itself current with no one touching it.
-            `views_approx` is set when the platform only gives us a rounded
-            figure, and saying "1.2K" as though it were exact would be a small
-            lie repeated on every card. */}
-        {views > 0 && (
-          <span className="absolute bottom-2 left-2 inline-flex items-center gap-1.5 rounded-full bg-ink/75 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-[2px]">
-            <Icon name="eye" className="h-3.5 w-3.5" />
-            <span className="tabular-nums">{s.views_approx ? '~' : ''}{views.toLocaleString('en-GB')}</span>
-            views
-          </span>
-        )}
-        {/* The platform mark is its own target for the same link, because it is
-            the thing that looks most like "open this on TikTok". */}
-        {s.platform && (
-          <span className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-ink shadow-card transition-transform duration-200 group-hover:scale-110">
-            <SocialMark brand={String(s.platform).toLowerCase()} className="h-4 w-4" />
-          </span>
-        )}
       </a>
 
       <div className="flex min-w-0 flex-1 flex-col p-4">
-        <div className="flex items-center justify-between gap-3 text-xs text-smoke">
-          <span className="min-w-0 truncate">{s.challenges?.title}</span>
-          <span className="shrink-0">{timeAgo(s.submitted_at)}</span>
+        {/* VIEWS LEAD THE CARD. They were a dark pill floating on the bottom
+            left of the thumbnail, sitting on whatever happened to be in the
+            picture there and competing with the platform name beside it. They
+            are the most interesting number on the card and the only one that
+            keeps updating by itself, so they get the first line, in brand
+            orange, with the challenge and the date as the quiet half.
+            `views_approx` is set when the platform only gives us a rounded
+            figure, and saying "1.2K" as though it were exact would be a small
+            lie repeated on every card. */}
+        <div className="flex items-baseline justify-between gap-3">
+          {views > 0 ? (
+            <span className="flex items-baseline gap-1.5 text-brand">
+              <span className="text-[17px] font-bold tabular-nums leading-none">
+                {s.views_approx ? '~' : ''}{views.toLocaleString('en-GB')}
+              </span>
+              <span className="text-[11px] font-semibold uppercase tracking-wide">views</span>
+            </span>
+          ) : (
+            <span className="text-[11px] font-medium uppercase tracking-wide text-gray-400">No views yet</span>
+          )}
+          <span className="shrink-0 text-[11px] text-smoke">{postedOn(s.submitted_at)}</span>
         </div>
+
+        <p className="mt-1 truncate text-xs text-smoke">{s.challenges?.title}</p>
 
         {hasCaption ? (
           <>

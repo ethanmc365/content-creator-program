@@ -55,6 +55,10 @@ const PATHS = {
   // Plain X, for clearing a field or dismissing a chip (`ban` is the circle-slash
   // "not allowed" mark and reads wrong as a clear button).
   close: 'M6 18L18 6M6 6l12 12',
+  // A bucket, for the travel bucket list. A tapered body under a rim, with the
+  // handle arcing over it - the handle is the whole recognition, because a
+  // tapered box on its own is a plant pot.
+  bucket: 'M4.2 8.2h15.6l-1.5 11.1a2 2 0 0 1-2 1.7H7.7a2 2 0 0 1-2-1.7L4.2 8.2Zm3.6 0a4.2 4.2 0 0 1 8.4 0',
   check: 'M9 12.75 11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
   // Circle-exclamation, for inline form errors and warnings.
   alert: 'M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z',

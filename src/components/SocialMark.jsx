@@ -39,6 +39,38 @@ export function brandForUrl(url) {
   return 'link'
 }
 
+// THE BRAND COLOURS, for the surfaces that want the real logo rather than a
+// line icon. Ethan: "the links should have better UI and the actual colourful
+// social media logos, not greyed."
+//
+// One colour per platform, except Instagram, which nobody recognises in a flat
+// colour - its whole identity is the gradient, so it gets one. The gradient id
+// is fixed and every instance draws the same stops, so repeated ids resolve
+// identically.
+//
+// These are the platforms' own colours used to identify the platform, which is
+// what a link to it is for. Everything else on this page stays inside the
+// house palette; a row of six identical grey glyphs was the alternative, and it
+// made the one part of a creator profile that is ABOUT other platforms the
+// least recognisable thing on it.
+export const BRAND_COLOR = {
+  // Instagram is the exception: its identity IS the gradient, so it is drawn
+  // from its own paths below rather than tinted through `color`. A CSS `color`
+  // cannot hold a `url(#gradient)` - only `fill` and `stroke` can - and the
+  // glyph paths bind both of those to `currentColor`, so tinting and
+  // gradient-filling are two different mechanisms and this map is the tinting
+  // one. The value here is the flat fallback.
+  instagram: '#D62976',
+  tiktok: '#000000',
+  youtube: '#FF0000',
+  facebook: '#1877F2',
+  linkedin: '#0A66C2',
+  x: '#000000',
+  pinterest: '#E60023',
+  threads: '#000000',
+  link: 'currentColor',
+}
+
 // Every path is drawn on a 24x24 grid so they sit at one optical weight.
 const PATHS = {
   instagram: (
@@ -115,10 +147,42 @@ const PATHS = {
   ),
 }
 
-export default function SocialMark({ brand, className }) {
+export default function SocialMark({ brand, className, colored = false }) {
+  const key = PATHS[brand] ? brand : 'link'
+  const isGradient = colored && key === 'instagram'
   return (
-    <svg viewBox="0 0 24 24" className={className} aria-hidden focusable="false">
-      {PATHS[brand] || PATHS.link}
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      aria-hidden
+      focusable="false"
+      // The glyphs bind both fill and stroke to `currentColor`, so tinting them
+      // is ONE property on the root rather than a second set of paths. `color`
+      // and not `fill`, because several of these are stroked outlines
+      // (Instagram, YouTube, LinkedIn) and a fill would never reach them.
+      style={colored && !isGradient ? { color: BRAND_COLOR[key] ?? 'currentColor' } : undefined}
+    >
+      {isGradient ? (
+        <>
+          <defs>
+            <linearGradient id="tryp-ig-grad" x1="0" y1="1" x2="1" y2="0">
+              <stop offset="0%" stopColor="#FEDA75" />
+              <stop offset="25%" stopColor="#FA7E1E" />
+              <stop offset="50%" stopColor="#D62976" />
+              <stop offset="75%" stopColor="#962FBF" />
+              <stop offset="100%" stopColor="#4F5BD5" />
+            </linearGradient>
+          </defs>
+          {/* Its own paths, painted with the gradient. The shared ones cannot
+              be reused here: they hard-code `currentColor`, and an inherited
+              fill loses to an explicit attribute on the child. */}
+          <rect x="3" y="3" width="18" height="18" rx="5" ry="5" fill="none" stroke="url(#tryp-ig-grad)" strokeWidth="1.8" />
+          <circle cx="12" cy="12" r="4" fill="none" stroke="url(#tryp-ig-grad)" strokeWidth="1.8" />
+          <circle cx="17.4" cy="6.6" r="1.15" fill="url(#tryp-ig-grad)" />
+        </>
+      ) : (
+        PATHS[key]
+      )}
     </svg>
   )
 }

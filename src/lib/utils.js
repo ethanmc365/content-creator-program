@@ -85,6 +85,23 @@ export function formatChatTime(date) {
 }
 
 /** "3 days ago" */
+// "3 days ago" up to three days, then a plain date.
+//
+// Ethan: "rather than 9 days ago, or 1 month ago, if it was over 3 days ago
+// always just show the date in date format dd/mm/yyyy." He is right about where
+// the line is. Relative time is useful exactly while it is still a mental
+// shortcut - today, yesterday, a couple of days - and past that it becomes work:
+// "1 month ago" is a number you have to convert back into a date before it
+// means anything, and it is wrong by up to a month while you do it.
+export function postedOn(date) {
+  if (!date) return ''
+  const d = new Date(date)
+  const days = (Date.now() - d.getTime()) / 86400000
+  if (days < 3) return timeAgo(date)
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`
+}
+
 export function timeAgo(date) {
   if (!date) return ''
   return formatDistanceToNow(new Date(date), { addSuffix: true })
