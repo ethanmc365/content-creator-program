@@ -186,7 +186,19 @@ export default function Reveal({
   // rail arrived as a single block and the stagger did nothing. Unwrapping a
   // lone fragment costs nothing and removes a trap nobody would think to look
   // for.
-  const raw = Array.isArray(children) ? children : [children]
+  //
+  // AND A `.map()` IS AN ARRAY, WHICH IS THE SAME TRAP WEARING A DIFFERENT HAT.
+  // `Array.isArray(children)` is true for `[list, maybeExtra]`, so `raw` came
+  // out length 2 and the whole mapped LIST became ONE `.reveal-item`. On a flex
+  // or block container that only cost the stagger; on a GRID it cost the
+  // layout, because the grid then had two cells and put every mapped card in
+  // the first one. That is exactly what the settings menu did: six section
+  // cards stacked down column one with the admin card alone in column two.
+  //
+  // `Children.toArray` flattens nested arrays and drops nullish children, which
+  // is also what makes `{cond && <Card/>}` count correctly instead of
+  // reserving a cell for `false`.
+  const raw = Children.toArray(children)
   const unwrapped = raw.length === 1 && raw[0]?.type === Fragment
     ? Children.toArray(raw[0].props.children)
     : raw

@@ -285,98 +285,102 @@ function AskModal({ open, onClose, onAsked, existing = null }) {
 // the coloured top band, the "waiting for an answer" line with its pinging dot,
 // and the separate answers chip - three signals saying one thing.
 
+// ONE QUESTION.
+//
+// THE "OPEN" TILE IS GONE, AND IT DESERVED TO. A 56px square holding a pulsing
+// dot over the word "Open" was the first thing on every card and the least
+// legible - Ethan: "I don't get the 'open' thing". It was carrying two ideas at
+// once (how many answers, and whether anybody has replied) in a shape that
+// could only really say one, and when the answer was zero it fell back on a
+// word that means nothing here: open as opposed to what? Closed? Locked?
+//
+// The state is a SENTENCE now, in the meta row, in the reader's own language:
+// "3 answers", or "Waiting for an answer". Same information, no decoding, and
+// it frees the whole left column - which is what lets three of these sit on a
+// row instead of two.
 function QuestionCard({ q }) {
   const t = tagInfo(q.tag)
   const answers = Number(q.answer_count || 0)
   const shown = q.answers || []
-  const open = answers === 0
 
   return (
     <Link
       to={`/board/${q.id}`}
       className={cx(
-        'group flex w-full gap-3.5 rounded-card border border-gray-100 bg-white p-4 text-left shadow-card',
-        'transition-all duration-200 hover:-translate-y-1 hover:border-brand/40 hover:shadow-lift sm:gap-4 sm:p-5',
+        'group flex w-full flex-col rounded-card border border-gray-100 bg-white p-4 text-left shadow-card',
+        'transition-all duration-200 hover:-translate-y-1 hover:border-brand/40 hover:shadow-lift',
       )}
     >
-      {/* THE ANSWER COUNT. Fixed width so every row in a column lines up, and
-          the one element on the card that changes colour with the state. */}
-      <span
-        className={cx(
-          'flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl transition-colors sm:h-14 sm:w-14',
-          open ? 'bg-brand-tint text-brand' : 'bg-green-50 text-green-700',
-        )}
-      >
-        {open ? (
-          <>
-            {/* A pulse, not a number. Zero in a box reads as a score of nought
-                rather than as an invitation. */}
-            <span className="relative flex h-2 w-2" aria-hidden>
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/60 motion-reduce:hidden" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-brand" />
-            </span>
-            <span className="mt-1.5 text-[9px] font-bold uppercase tracking-wider">Open</span>
-          </>
-        ) : (
-          <>
-            <span className="text-lg font-bold leading-none tabular-nums sm:text-xl">{answers}</span>
-            <span className="mt-0.5 text-[9px] font-bold uppercase tracking-wider">
+      <span className="flex flex-wrap items-center gap-1.5">
+        <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-cloud px-2 py-0.5 text-[10px] font-semibold text-smoke">
+          <Icon name={t.icon} className="h-3 w-3 shrink-0" />
+          <span className="truncate">{q.tag === 'country' && q.country ? q.country : t.short}</span>
+        </span>
+        {/* THE STATE, IN WORDS. Orange for a question nobody has answered
+            (it is a small ask, not an error) and green once somebody has. */}
+        <span
+          className={cx(
+            'inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold',
+            answers === 0 ? 'bg-brand-tint text-brand' : 'bg-green-50 text-green-700',
+          )}
+        >
+          {answers === 0 ? (
+            <>
+              <span className="relative flex h-1.5 w-1.5" aria-hidden>
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/60 motion-reduce:hidden" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand" />
+              </span>
+              Waiting for an answer
+            </>
+          ) : (
+            <>
+              <span className="tabular-nums">{answers}</span>
               {answers === 1 ? 'answer' : 'answers'}
-            </span>
-          </>
-        )}
+            </>
+          )}
+        </span>
+        <span className="ml-auto shrink-0 text-[10px] font-medium uppercase tracking-wide text-gray-400">
+          {formatMessageTime(q.created_at)}
+        </span>
       </span>
 
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className="flex flex-wrap items-center gap-1.5">
-          <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-cloud px-2 py-0.5 text-[10px] font-semibold text-smoke">
-            <Icon name={t.icon} className="h-3 w-3 shrink-0" />
-            <span className="truncate">{q.tag === 'country' && q.country ? q.country : t.short}</span>
+      {/* THE QUESTION IS THE HEADING AND IT READS LIKE ONE. It was 15px sitting
+          under a 56px tile that outweighed it; at three across it is the thing
+          the card is for, so it takes the size. `line-clamp-3` is a safety net
+          against somebody pasting an essay into the title, not the thing
+          setting the height. */}
+      <h3 className="mt-2 line-clamp-3 text-base font-semibold leading-snug tracking-[-0.01em] text-ink transition-colors group-hover:text-brand">
+        {q.title}
+      </h3>
+      {q.body && <p className="mt-1 line-clamp-2 text-[13px] leading-snug text-smoke">{q.body}</p>}
+
+      {/* ---- WHAT SOMEBODY SAID ----
+          One answer previewed, not two: a card three across carries less
+          vertical budget than the old note did, and the second preview was
+          always the first thing to be scrolled past. */}
+      {shown.length > 0 && (
+        <span className="mt-2.5 flex gap-2 rounded-xl bg-cloud/60 p-2.5">
+          <span className="mt-0.5 shrink-0">
+            <Avatar src={shown[0].author_photo} name={shown[0].author_name} size="xs" />
           </span>
-          <span className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
-            {formatMessageTime(q.created_at)}
+          <span className="min-w-0 flex-1">
+            <span className="block text-[11px] font-semibold text-ink">{shown[0].author_name}</span>
+            <span className="line-clamp-2 block text-[12px] leading-snug text-smoke">{shown[0].body}</span>
           </span>
         </span>
+      )}
 
-        {/* The question leads. `line-clamp-3` is a safety net against somebody
-            pasting an essay into the title, not the thing setting the height -
-            in a list the row is simply as tall as it needs to be. */}
-        <h3 className="mt-1.5 line-clamp-3 text-[15px] font-semibold leading-snug text-ink transition-colors group-hover:text-brand">
-          {q.title}
-        </h3>
-        {q.body && <p className="mt-1 line-clamp-2 text-[13px] leading-snug text-smoke">{q.body}</p>}
-
-        {/* ---- WHAT PEOPLE SAID ----
-            Ethan, on the old notes: "the answers show below them, but if
-            there's tons of answers or a message is too long you can make it so
-            that you have to click to see it all." Unchanged in substance: ONE
-            answer previewed rather than two, because a list row carries less
-            vertical budget than a note did and the second one was always the
-            first thing to be scrolled past. */}
-        {shown.length > 0 && (
-          <span className="mt-2.5 flex gap-2 rounded-xl bg-cloud/60 p-2.5">
-            <span className="mt-0.5 shrink-0">
-              <Avatar src={shown[0].author_photo} name={shown[0].author_name} size="xs" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-[11px] font-semibold text-ink">{shown[0].author_name}</span>
-              <span className="line-clamp-2 block text-[12px] leading-snug text-smoke">{shown[0].body}</span>
-            </span>
+      {/* `mt-auto` pins the byline to the bottom, so a row of cards lines up on
+          this line however long the questions above it ran. */}
+      <span className="mt-auto flex items-center gap-2 pt-3">
+        <Avatar src={q.author_photo} name={q.author_name} size="xs" />
+        <span className="min-w-0 flex-1 truncate text-[11px] text-smoke">{q.author_name}</span>
+        {(answers > 1 || shown.some((a) => a.truncated)) && (
+          <span className="shrink-0 text-[11px] font-semibold text-brand">
+            {answers > 1 ? `All ${answers}` : 'Read it'}
           </span>
         )}
-
-        <span className="mt-2.5 flex items-center gap-2">
-          <Avatar src={q.author_photo} name={q.author_name} size="xs" />
-          <span className="min-w-0 flex-1 truncate text-[11px] text-smoke">
-            {q.author_name}
-          </span>
-          {(answers > 1 || shown.some((a) => a.truncated)) && (
-            <span className="shrink-0 text-[11px] font-semibold text-brand">
-              {answers > 1 ? `All ${answers} answers` : 'Read it'}
-            </span>
-          )}
-          <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-brand" />
-        </span>
+        <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-brand" />
       </span>
     </Link>
   )
@@ -421,14 +425,17 @@ export default function Board() {
 
   return (
     <NetworkMotion>
-      {/* A WIDE PAGE, because a board is a wall. `narrow` gave the notes two
-          columns at any screen size, which is a list with square cards in it. */}
-      <NetworkLayout width="full" switcher={false}>
+      {/* NOT FULL BLEED ANY MORE. `full` was right when this was a WALL of
+          pinned notes and the wall was the idea; it is a card grid now, and a
+          grid stretched edge to edge on a 1440px screen puts the first and last
+          question a foot apart with nothing between them. Ethan: "maybe the
+          board doesn't have to be so wide, slightly more narrow." */}
+      <NetworkLayout width="default" switcher={false}>
         <div className="space-y-6">
           <header className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight sm:text-3xl">
-                <Icon name="chat" className="h-7 w-7 shrink-0 text-brand" />
+              <h1 className="flex items-center gap-2.5 text-3xl font-bold tracking-tight sm:text-4xl">
+                <Icon name="chat" className="h-8 w-8 shrink-0 text-brand" />
                 Community board
               </h1>
               {/* NO STRAPLINE. It read "Ask the whole network something. Anyone
@@ -539,7 +546,7 @@ export default function Board() {
               // The skeleton is the shape of what arrives, or the page visibly
               // re-lays itself the moment the query lands. Rows, not a ragged
               // wall of nine different heights.
-              <div className="grid items-start gap-3 sm:gap-4 lg:grid-cols-2">
+              <div className="grid items-start gap-3 sm:gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {[132, 108, 108, 156, 108, 132].map((h, i) => (
                   <Skeleton key={i} className="block rounded-card" style={{ height: h }} />
                 ))}
@@ -596,7 +603,12 @@ export default function Board() {
               // Reveal can wrap this directly now. It could not before: it puts
               // each child in its own div, and that wrapper is precisely what
               // `break-inside-avoid` had to sit on.
-              <Reveal className="grid items-start gap-3 sm:gap-4 lg:grid-cols-2" stagger={0.04}>
+              // THREE ACROSS FROM `xl`. Two columns of wide cards on a 1440px
+              // screen meant each question sat in 600px of card holding forty
+              // characters of question, so the board read as a short list of
+              // very large rows. `items-start` keeps each card its own height
+              // rather than stretching it to match its neighbour.
+              <Reveal className="grid items-start gap-3 sm:gap-4 sm:grid-cols-2 xl:grid-cols-3" stagger={0.04}>
                 {rows.map((q) => <QuestionCard key={q.id} q={q} />)}
               </Reveal>
             )}

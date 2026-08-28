@@ -27,9 +27,9 @@ const THEME_MODES = [
   { key: 'dark', label: 'Dark', icon: 'moon' },
 ]
 
-// On phones the settings page is a menu of sections rather than one very long
-// scroll: tap a section, get just that section with a Back button. Desktop shows
-// everything at once across three columns.
+// The settings page is a MENU of sections at every width: tap one, get just
+// that section with a back arrow. There is no second desktop layout - see the
+// note on the render below for why the wide screen wants the same thing.
 const SECTIONS = [
   { key: 'display', label: 'Display', icon: 'bulb', hint: 'Theme and motion' },
   { key: 'appicon', label: 'Home screen icon', icon: 'device', hint: 'Which icon your phone installs' },
@@ -39,32 +39,12 @@ const SECTIONS = [
   { key: 'payment', label: 'Payment details', icon: 'wallet', hint: 'Where your prizes get paid' },
 ]
 
-function useIsMobile() {
-  const [mobile, setMobile] = useState(() => {
-    try { return window.matchMedia('(max-width: 1023px)').matches } catch { return false }
-  })
-  useEffect(() => {
-    let mq
-    try { mq = window.matchMedia('(max-width: 1023px)') } catch { return }
-    const on = () => setMobile(mq.matches)
-    on()
-    if (mq.addEventListener) mq.addEventListener('change', on)
-    else mq.addListener?.(on)
-    return () => {
-      if (mq.removeEventListener) mq.removeEventListener('change', on)
-      else mq.removeListener?.(on)
-    }
-  }, [])
-  return mobile
-}
-
 // The creator-facing Settings hub. Everything saves on change - no Save button
 // (payment details are the exception: they're validated as a set before saving).
 export default function Settings() {
   const { user, profile, refreshProfile, isAdmin, sendPasswordReset, signOutEverywhere } = useAuth()
   const navigate = useNavigate()
-  const isMobile = useIsMobile()
-  const [section, setSection] = useState(null) // mobile only: which section is open
+  const [section, setSection] = useState(null) // which section is open, or null for the menu
   // See the Timezone block in the Display section.
   const tz = useTimezone(profile)
 
@@ -579,111 +559,96 @@ export default function Settings() {
     admin: AdminSection,
   }
 
-  // ---------------- Mobile: menu, then one section at a time ---------------
-  if (isMobile) {
-    const open = section ? (SECTIONS.find((s) => s.key === section) || { key: 'admin', label: 'Admin settings' }) : null
-    if (open) {
-      return (
-        <div className="page max-w-3xl">
-          {/* THE ARROW SITS BESIDE THE TITLE, NOT ABOVE IT.
-              A labelled "All settings" row above the heading cost a whole line
-              of a phone screen to say something the arrow already says, and it
-              pushed the actual settings further down on the one device where
-              vertical space is scarcest. Inline, it costs nothing: the row was
-              going to exist for the heading anyway. The label lives on as the
-              accessible name. */}
-          <div className="mb-6 flex items-center gap-1.5">
-            <button
-              onClick={() => setSection(null)}
-              aria-label="All settings"
-              className="-ml-2.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-smoke transition-all hover:bg-cloud hover:text-ink active:scale-95"
-            >
-              <Icon name="chevronLeft" className="h-5 w-5" />
-            </button>
-            <h1 className="min-w-0 truncate text-2xl font-bold tracking-tight">{open.label}</h1>
-          </div>
-          <Reveal from="down">{BODIES[open.key]}</Reveal>
-        </div>
-      )
-    }
+  // ---------------- ONE SETTINGS PAGE, AT EVERY WIDTH ---------------------
+  //
+  // This used to be two: a menu of section cards that opened one section at a
+  // time on a phone, and a three-column wall of every card at once on a desktop.
+  // Ethan: "I prefer the design on mobile where it shows an initial page of the
+  // settings and you click in for what you actually want, build this for the
+  // desktop view too."
+  //
+  // He is right, and the reason is not screen size. A settings page is not read,
+  // it is VISITED - you arrive knowing the one thing you came to change. Six
+  // cards side by side makes you scan all six to find it; a menu names all six
+  // in one glance and then gets out of the way. The width a desktop has spare is
+  // better spent on breathing room around the thing you actually opened than on
+  // showing you five things you did not.
+  //
+  // It also deletes the second implementation, which is the real prize: every
+  // setting added from here on is added once.
+  const open = section ? (SECTIONS.find((s) => s.key === section) || { key: 'admin', label: 'Admin settings' }) : null
+
+  if (open) {
     return (
       <div className="page max-w-3xl">
-        <Reveal from="down"><PageHeader title="Settings" subtitle="Manage how the community looks, what you share, how you get paid, and what you hear about." /></Reveal>
-        <Reveal className="space-y-3" stagger={0.05} delay={0.06}>
-          {SECTIONS.map((s) => (
-            <button
-              key={s.key}
-              onClick={() => setSection(s.key)}
-              className="card flex w-full items-center gap-4 !p-5 text-left transition-all hover:-translate-y-0.5 hover:shadow-lift active:translate-y-0"
-            >
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand">
-                <Icon name={s.icon} className="h-5 w-5" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block font-semibold">{s.label}</span>
-                <span className="block text-xs text-smoke">{s.hint}</span>
-              </span>
-              <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-smoke" />
-            </button>
-          ))}
-          {isAdmin && (
-            <button
-              onClick={() => setSection('admin')}
-              className="card flex w-full items-center gap-4 border-brand/20 bg-brand-tint/30 !p-5 text-left transition-all hover:-translate-y-0.5 hover:shadow-lift active:translate-y-0"
-            >
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand">
-                <Icon name="shield" className="h-5 w-5" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block font-semibold">Admin settings</span>
-                <span className="block text-xs text-smoke">Team alerts and admin tools</span>
-              </span>
-              <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-smoke" />
-            </button>
-          )}
-        </Reveal>
-        <p className="mt-6 text-xs text-smoke">
-          Have an idea for another setting? Let us know via{' '}
-          <Link to="/feedback" className="font-medium text-brand hover:underline">Help us improve</Link>.
-        </p>
+        {/* THE ARROW SITS BESIDE THE TITLE, NOT ABOVE IT.
+            A labelled "All settings" row above the heading cost a whole line of
+            a phone screen to say something the arrow already says, and it pushed
+            the actual settings further down on the one device where vertical
+            space is scarcest. Inline, it costs nothing: the row was going to
+            exist for the heading anyway. The label lives on as the accessible
+            name. */}
+        <div className="mb-6 flex items-center gap-1.5">
+          <button
+            onClick={() => setSection(null)}
+            aria-label="All settings"
+            className="-ml-2.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-smoke transition-all hover:bg-cloud hover:text-ink active:scale-95"
+          >
+            <Icon name="chevronLeft" className="h-5 w-5" />
+          </button>
+          <h1 className="min-w-0 truncate text-2xl font-bold tracking-tight sm:text-3xl">{open.label}</h1>
+        </div>
+        <Reveal from="down">{BODIES[open.key]}</Reveal>
       </div>
     )
   }
 
-  // ---------------- Desktop: wide, three columns, minimal scrolling --------
   return (
-    <div className="page max-w-7xl">
-      <Reveal from="down"><PageHeader title="Settings" subtitle="Manage how the community looks, what you share, how you get paid, and what you hear about. Changes save automatically." /></Reveal>
-
-      {/* THREE COLUMNS THAT ARRIVE AS THREE COLUMNS.
-          One Reveal per column, each with its own small head start, so the page
-          assembles left to right rather than blinking on as a wall of six
-          cards. The cards inside a column stagger against each other, which is
-          what makes a column read as a column. */}
-      <div className="grid items-start gap-6 xl:grid-cols-3">
-        {/* Column 1: display + payment */}
-        <Reveal className="space-y-6" from="down" stagger={0.06}>
-          {DisplaySection}
-          {AppIconSection}
-          {SoundSection}
-          {PaymentSection}
-        </Reveal>
-
-        {/* Column 2: account + privacy */}
-        <Reveal className="space-y-6" from="down" stagger={0.06} delay={0.07}>
-          {AccountSection}
-        </Reveal>
-
-        {/* Column 3: notifications, with the reminder cards directly beneath */}
-        <Reveal className="space-y-6" from="down" stagger={0.06} delay={0.14}>
-          {NotificationsSection}
-        </Reveal>
-      </div>
-
-      {isAdmin && <Reveal from="down" className="mt-6">{AdminSection}</Reveal>}
-
+    <div className="page max-w-4xl">
+      <Reveal from="down">
+        <PageHeader
+          title="Settings"
+          subtitle="Manage how the community looks, what you share, how you get paid, and what you hear about."
+        />
+      </Reveal>
+      {/* One across on a phone, two from `sm`. Three would make each card
+          narrower than its own hint line, which is the point at which a menu
+          stops being scannable and becomes a grid you have to read. */}
+      <Reveal className="grid grid-cols-1 gap-3 sm:grid-cols-2" stagger={0.05} delay={0.06}>
+        {SECTIONS.map((s) => (
+          <button
+            key={s.key}
+            onClick={() => setSection(s.key)}
+            className="card flex w-full items-center gap-4 !p-5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift active:translate-y-0"
+          >
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand transition-transform duration-200 group-hover:scale-110">
+              <Icon name={s.icon} className="h-5 w-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-semibold">{s.label}</span>
+              <span className="block text-xs text-smoke">{s.hint}</span>
+            </span>
+            <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
+          </button>
+        ))}
+        {isAdmin && (
+          <button
+            onClick={() => setSection('admin')}
+            className="card flex w-full items-center gap-4 border-brand/20 bg-brand-tint/30 !p-5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift active:translate-y-0"
+          >
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand">
+              <Icon name="shield" className="h-5 w-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-semibold">Admin settings</span>
+              <span className="block text-xs text-smoke">Team alerts and admin tools</span>
+            </span>
+            <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
+          </button>
+        )}
+      </Reveal>
       <p className="mt-6 text-xs text-smoke">
-        More settings will appear here over time. Have an idea for one? Let us know via{' '}
+        Have an idea for another setting? Let us know via{' '}
         <Link to="/feedback" className="font-medium text-brand hover:underline">Help us improve</Link>.
       </p>
     </div>

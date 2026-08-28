@@ -139,14 +139,18 @@ export default function BoardCard({ className }) {
                     <Icon name={t.icon} className="h-3 w-3 shrink-0" />
                     <span className="truncate">{q.tag === 'country' && q.country ? q.country : t.short}</span>
                   </span>
-                  {/* The state, as the one coloured thing on the card. It is
-                      the same chip the board's own rows carry, laid flat -
-                      there is no room for the 56px counting square here. */}
+                  {/* The state, as the one coloured thing on the card, and it
+                      says what it means. It used to read "Open" for a question
+                      nobody had answered and a bare number otherwise - so the
+                      two states were a word and a digit in the same chip, and
+                      neither said what it was counting. "Open" is also
+                      genuinely ambiguous: open as opposed to closed? Locked?
+                      Ethan: "I don't get the 'open' thing." */}
                   <span className={cx(
-                    'ml-auto shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold',
+                    'ml-auto shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold',
                     open ? 'bg-brand-tint text-brand' : 'bg-green-50 text-green-700',
                   )}>
-                    {open ? 'Open' : answers}
+                    {open ? 'No answers yet' : `${answers} ${answers === 1 ? 'answer' : 'answers'}`}
                   </span>
                 </span>
 

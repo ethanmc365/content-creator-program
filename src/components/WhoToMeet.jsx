@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -7,6 +7,7 @@ import { Avatar } from './ui'
 import Icon from './Icon'
 import LocalTime from './LocalTime'
 import { pickWhoToMeet } from '../lib/whoToMeet'
+import { openConversation } from '../lib/dm'
 import { cx } from '../lib/utils'
 
 // WHO TO MEET THIS WEEK.
@@ -30,6 +31,10 @@ import { cx } from '../lib/utils'
 
 export default function WhoToMeet({ className }) {
   const { user, profile } = useAuth()
+  const navigate = useNavigate()
+  // Which suggestion's Message button is mid-round-trip, so one spinner does not
+  // freeze all three.
+  const [opening, setOpening] = useState(null)
   const [picks, setPicks] = useState(null)
 
   useEffect(() => {
@@ -93,6 +98,18 @@ export default function WhoToMeet({ className }) {
     return () => { alive = false }
   }, [user?.id, profile])
 
+  // Opening a conversation is a round trip (it finds or creates the thread), so
+  // the button says which one it is working on rather than freezing all three.
+  async function message(id) {
+    setOpening(id)
+    try {
+      const convId = await openConversation(user.id, id)
+      navigate(convId ? `/messages/${convId}` : '/messages')
+    } finally {
+      setOpening(null)
+    }
+  }
+
   // Nothing at all to suggest: everybody is already a connection, or the
   // community is three people. Render nothing rather than an empty heading.
   if (!picks?.length) return null
@@ -113,40 +130,77 @@ export default function WhoToMeet({ className }) {
         </Link>
       </div>
 
+      {/* THE CARD IS NO LONGER ONE BIG LINK.
+          It was a single <a> around everything, which is why there was nothing
+          to DO with a suggestion except look at it - anything you put inside a
+          link either becomes part of the link or breaks the HTML. Ethan: "design
+          them better and have an action button to message them or something."
+          He is right that it was the missing half: the reason text is written
+          to be an opening line, and there was no way to open with it.
+          So: a card with a STRETCHED link underneath the content (the whole
+          card still opens the profile from any dead space) and two real
+          controls on top of it. Same pattern the past-challenge cards use. */}
       <div className="grid gap-3 sm:grid-cols-3">
         {picks.map(({ creator, reason }, i) => (
-          <Link
+          <div
             key={creator.id}
-            to={`/profile/${creator.id}`}
             style={{ animationDelay: `${i * 70}ms` }}
-            className="group flex animate-fade-up flex-col items-center rounded-card border border-gray-100 bg-white p-5 text-center shadow-card transition-all duration-200 hover:-translate-y-1 hover:border-brand/40 hover:shadow-lift"
+            className="group relative flex animate-fade-up flex-col rounded-card border border-gray-100 bg-white p-5 text-center shadow-card transition-all duration-200 hover:-translate-y-1 hover:border-brand/40 hover:shadow-lift"
           >
-            <span className="transition-transform duration-200 group-hover:scale-105">
-              <Avatar src={creator.photo_url} name={creator.name} size="lg" />
-            </span>
-            <p className="mt-3 truncate text-sm font-semibold transition-colors group-hover:text-brand">
-              {creator.name}
-            </p>
-            {(creator.city || creator.country) && (
-              <p className="mt-0.5 truncate text-xs text-smoke">
-                {[creator.city, creator.country].filter(Boolean).join(', ')}
+            <Link
+              to={`/profile/${creator.id}`}
+              className="absolute inset-0 z-0 rounded-card"
+              aria-label={`${creator.name}'s profile`}
+            />
+
+            {/* z-10 so the content sits above the stretched link; the buttons
+                inside it get their own pointer events back, everything else
+                stays click-through to the profile. */}
+            <div className="pointer-events-none relative z-10 flex flex-1 flex-col items-center">
+              <span className="transition-transform duration-200 group-hover:scale-105">
+                <Avatar src={creator.photo_url} name={creator.name} size="lg" />
+              </span>
+              <p className="mt-3 w-full truncate text-sm font-semibold transition-colors group-hover:text-brand">
+                {creator.name}
               </p>
-            )}
+              <p className="mt-0.5 flex w-full items-center justify-center gap-1.5 truncate text-xs text-smoke">
+                {(creator.city || creator.country) && (
+                  <span className="truncate">{[creator.city, creator.country].filter(Boolean).join(', ')}</span>
+                )}
+                {(creator.city || creator.country) && <span aria-hidden className="text-gray-300">&middot;</span>}
+                <LocalTime profile={creator} bare className="shrink-0 tabular-nums" />
+              </p>
 
-            {/* THE REASON. It is the reason this component exists, so it gets
-                the emphasis: its own tinted panel rather than a grey caption
-                under the name. */}
-            <p className={cx(
-              'mt-3 w-full rounded-xl px-3 py-2.5 text-xs leading-relaxed',
-              reason.kind === 'chance' ? 'bg-cloud text-smoke' : 'bg-brand-tint/50 text-ink',
-            )}>
-              {reason.text}
-            </p>
+              {/* THE REASON. It is the reason this component exists, so it gets
+                  the emphasis: its own tinted panel rather than a grey caption
+                  under the name. `flex-1` pushes the buttons to the bottom, so
+                  three cards with reasons of different lengths still line their
+                  controls up. */}
+              <p className={cx(
+                'mt-3 w-full flex-1 rounded-xl px-3 py-2.5 text-xs leading-relaxed',
+                reason.kind === 'chance' ? 'bg-cloud text-smoke' : 'bg-brand-tint/50 text-ink',
+              )}>
+                {reason.text}
+              </p>
+            </div>
 
-            <span className="mt-3 flex items-center gap-2 text-[11px] text-smoke">
-              <LocalTime profile={creator} showNote={false} />
-            </span>
-          </Link>
+            <div className="relative z-10 mt-3 flex gap-2">
+              <Link
+                to={`/profile/${creator.id}`}
+                className="btn-secondary flex-1 !py-2 text-xs"
+              >
+                Profile
+              </Link>
+              <button
+                type="button"
+                onClick={() => message(creator.id)}
+                disabled={opening === creator.id}
+                className="btn-primary flex-1 !py-2 text-xs"
+              >
+                {opening === creator.id ? 'Opening…' : 'Message'}
+              </button>
+            </div>
+          </div>
         ))}
       </div>
     </section>
