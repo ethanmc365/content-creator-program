@@ -236,16 +236,21 @@
   .rt-editor li { @apply my-1 pl-1; }
   .rt-editor blockquote { @apply my-2 border-l-2 border-brand pl-3 italic text-smoke; }
   .rt-editor hr { @apply my-5 border-gray-200; }
-  /* WHAT YOU TYPE IS THE SIZE OF WHAT YOU SEND. The sizes above belong to a
-     note, which is a page; a chat composer is four lines tall and a 24px
-     heading with 20px of margin above it eats most of that, then the sent
-     message arrives at 16px bold and looks like a different thing altogether.
-     `renderMessageBody` draws h1/h2/h3 as text-base bold / text-sm bold /
-     text-sm semibold, so the composer does too. `.rt-scroll` is only ever on a
-     chat composer, which is what makes it the right hook. */
-  .rt-editor.rt-scroll h1 { @apply my-0 text-base font-bold tracking-normal; }
-  .rt-editor.rt-scroll h2 { @apply my-0 text-sm font-bold tracking-normal; }
-  .rt-editor.rt-scroll h3 { @apply my-0 text-sm font-semibold; }
+  /* WHAT YOU TYPE IS THE SIZE OF WHAT YOU SEND, and both got bigger.
+     The sizes above belong to a note, which is a page; a chat composer is four
+     lines tall, so it uses the sizes `renderMessageBody` actually draws rather
+     than the note's. `.rt-scroll` is only ever on a chat composer, which is
+     what makes it the right hook.
+     THE LADDER WAS BROKEN. It was 16 / 14 / 14 against a 14px body - an H2 was
+     the same SIZE as a paragraph and differed only in weight, so pressing the
+     heading button appeared to do almost nothing. Ethan: "there's barely a
+     difference in me pressing a heading and just body text." It is 20 / 17 / 15
+     now, matching richText.jsx exactly, with a little space above so a heading
+     reads as a new section rather than as one emphasised line. */
+  .rt-editor.rt-scroll h1 { @apply mb-0 mt-3 text-xl font-bold leading-tight tracking-[-0.01em]; }
+  .rt-editor.rt-scroll h2 { @apply mb-0 mt-2.5 text-[17px] font-bold leading-snug tracking-normal; }
+  .rt-editor.rt-scroll h3 { @apply mb-0 mt-2 text-[15px] font-bold leading-snug; }
+  .rt-editor.rt-scroll > *:first-child { @apply mt-0; }
   .rt-editor.rt-scroll p { @apply my-0; }
   /* THE COMMUNITY BOARD HAS NO SURFACE ANY MORE.
      There was a `.board-surface` here - a brand-tinted panel with a fine

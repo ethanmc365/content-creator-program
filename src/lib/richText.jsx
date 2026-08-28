@@ -119,7 +119,25 @@ export function renderMessageBody(body, { rich = false, members = [], onDark = f
     const h = line.match(/^(#{1,3})\s+(.*)$/)
     if (h) {
       const level = h[1].length
-      const cls = level === 1 ? 'block text-base font-bold' : level === 2 ? 'block text-sm font-bold' : 'block text-sm font-semibold'
+      // A HEADING HAS TO LOOK LIKE A HEADING.
+      //
+      // Body copy in a message is 14px. This ladder used to be 16 / 14 / 14 -
+      // so an H2 was the SAME SIZE as the paragraph under it and differed only
+      // in weight, and an H3 differed only in weight by one step. Ethan:
+      // "there's barely a difference in me pressing a heading and just body
+      // text." He is right, and a heading that has to be looked for is not
+      // doing the one job a heading has.
+      //
+      // 20 / 17 / 15 against a 14px body. Each step is visible on its own, and
+      // the top margin is what actually separates a section from the paragraph
+      // before it - size alone reads as emphasis, size plus space reads as a
+      // new section. `first:mt-0` so a message that OPENS with a heading does
+      // not start with a gap.
+      const cls = level === 1
+        ? 'mt-3 block text-xl font-bold leading-tight tracking-[-0.01em] first:mt-0'
+        : level === 2
+          ? 'mt-2.5 block text-[17px] font-bold leading-snug first:mt-0'
+          : 'mt-2 block text-[15px] font-bold leading-snug first:mt-0'
       return <span key={`h${i}`} className={cls}>{renderInline(h[2], opts, `h${i}`)}</span>
     }
     return <span key={`l${i}`} className="block">{renderInline(line, opts, `l${i}`) ?? ' '}</span>

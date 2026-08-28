@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
 import { flagFromIso } from '../components/network/PlaceSwitcher'
 import NetworkMotion from '../components/NetworkMotion'
-import { ReactionRow, useReactions, RoomSearch, Highlight, MentionMenu } from '../components/network/ChatExtras'
+import { useReactions, RoomSearch, Highlight, MentionMenu } from '../components/network/ChatExtras'
 import { ChatSkeleton } from '../components/network/Skeletons'
 import Icon from '../components/Icon'
 import ChatMedia from '../components/ChatMedia'
@@ -30,6 +30,7 @@ import { Avatar, EmptyState } from '../components/ui'
 import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
 import { cx, formatMessageTime, messageTimeTitle } from '../lib/utils'
 import { SOFT_SPRING } from '../lib/motion'
+import MessageActions from '../components/chat/MessageActions'
 import OutboxNotice from '../components/OutboxNotice'
 import { enqueueMessage, queuedFor, subscribeOutbox, onOutboxSent, onOutboxBlocked, retryQueued, dropQueued } from '../lib/outbox'
 
@@ -107,7 +108,7 @@ const hasContent = (m) =>
 // A room holds 200 messages, so the parent of an old reply may genuinely not be
 // in memory. That says "message no longer here" rather than drawing an empty
 // bar, because a blank quote looks like a bug and a missing one is a fact.
-function QuotedParent({ id, lookup, members }) {
+function QuotedParent({ id, lookup, onDark = false }) {
   const parent = lookup.get(id)
 
   const jump = () => {
@@ -126,7 +127,10 @@ function QuotedParent({ id, lookup, members }) {
 
   if (!parent) {
     return (
-      <p className="mb-1 flex items-center gap-1.5 border-l-2 border-gray-200 pl-2 text-[11px] italic text-gray-400">
+      <p className={cx(
+        'mb-1.5 flex items-center gap-1.5 rounded-lg border-l-2 px-2.5 py-1 text-[11px] italic',
+        onDark ? 'border-white/60 bg-white/15 text-white/75' : 'border-gray-200 bg-black/[0.04] text-gray-400',
+      )}>
         <Icon name="reply" className="h-3 w-3 shrink-0" />
         The message this replies to is no longer here
       </p>
@@ -140,33 +144,49 @@ function QuotedParent({ id, lookup, members }) {
     <button
       type="button"
       onClick={jump}
-      className="mb-1 flex w-full max-w-full items-baseline gap-1.5 border-l-2 border-brand/40 pl-2 text-left transition-colors hover:border-brand"
+      className={cx(
+        'mb-1.5 block w-full max-w-full overflow-hidden rounded-lg border-l-2 px-2.5 py-1 text-left transition-colors',
+        onDark ? 'border-white/70 bg-white/15 hover:bg-white/25' : 'border-brand/60 bg-black/[0.04] hover:bg-black/[0.07]',
+      )}
     >
-      <span className="shrink-0 text-[11px] font-semibold text-brand">{parent.profiles?.name || 'Someone'}</span>
-      <span className="min-w-0 truncate text-[11px] text-smoke">
-        {renderMessageBody(preview, { rich: false, members })}
+      <span className={cx('block truncate text-[11px] font-semibold', onDark ? 'text-white' : 'text-brand')}>
+        {parent.profiles?.name || 'Someone'}
+      </span>
+      {/* line-clamp, NOT truncate: nowrap made this preview's min-content width
+          the whole quoted line, and a shrink-to-fit bubble grew to match, so
+          replying to a long message ran off the screen. */}
+      <span className={cx('line-clamp-1 text-[11px] [overflow-wrap:anywhere]', onDark ? 'text-white/80' : 'text-smoke')}>
+        {preview}
       </span>
     </button>
   )
 }
 
-function AttachedCard({ message, titles }) {
+function AttachedCard({ message, titles, onDark = false }) {
   const spec = CARD_KINDS.find((c) => message[c.idKey])
   if (!spec) return null
   const title = titles.get(`${spec.table}:${message[spec.idKey]}`)
   return (
     <Link
       to={spec.to()}
-      className="mt-1 flex items-center gap-2.5 rounded-xl border border-gray-200 bg-white px-3 py-2 transition-colors hover:border-brand/40 hover:bg-brand-tint/20"
+      className={cx(
+        'mt-1 flex items-center gap-2.5 rounded-xl border px-3 py-2 transition-colors',
+        onDark
+          ? 'border-white/25 bg-white/10 hover:bg-white/20'
+          : 'border-gray-200 bg-white hover:border-brand/40 hover:bg-brand-tint/20',
+      )}
     >
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-tint text-brand">
+      <span className={cx(
+        'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+        onDark ? 'bg-white/20 text-white' : 'bg-brand-tint text-brand',
+      )}>
         <Icon name={spec.icon} className="h-4 w-4" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[10px] font-semibold uppercase tracking-wider text-smoke">{spec.kind}</span>
-        <span className="block truncate text-sm font-medium">{title || 'Open it'}</span>
+        <span className={cx('block text-[10px] font-semibold uppercase tracking-wider', onDark ? 'text-white/70' : 'text-smoke')}>{spec.kind}</span>
+        <span className={cx('block truncate text-sm font-medium', onDark && 'text-white')}>{title || 'Open it'}</span>
       </span>
-      <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
+      <Icon name="chevronRight" className={cx('h-4 w-4 shrink-0', onDark ? 'text-white/50' : 'text-gray-300')} />
     </Link>
   )
 }
@@ -247,23 +267,24 @@ export default function NetworkChat() {
     [channels, channelKey],
   )
 
-  // Which Worldwide rooms are genuinely live to every creator on the platform.
+  // WHO CAN POST HERE. Two rules and no third.
   //
-  // This used to be "all of them", which was right when the network was a week
-  // old and wrong now. The live Chat.jsx has a HARD-CODED channel list of
-  // general, announcements and content_tips; those three are what 43 creators
-  // read every day, and a test message in one reaches all of them. Every other
-  // worldwide room is invisible to that app, so posting in it can reach nobody
-  // by accident.
+  // THE THIRD RULE WAS THE BUG. There used to be an `isLiveWorldwide` guard
+  // that made Worldwide's General, Announcements and Content tips READ ONLY,
+  // with a panel explaining that "this is a room every creator is already in
+  // today, so it is read only here in case a test message reaches all of them".
+  // That was correct while the network was an admin-only preview sitting
+  // underneath a live UK chat. The network IS the app now, those three rooms
+  // are the main conversation, and the guard was locking everybody out of the
+  // busiest rooms on the platform. Ethan: "I'm unable to actually post in the
+  // worldwide rooms."
   //
-  // Keyed on the legacy list rather than on kind, because "is this room live"
-  // is a fact about the room, not about the community.
-  const LEGACY_LIVE_ROOMS = ['general', 'announcements', 'content_tips']
-  const isNetwork = community?.kind === 'network'
-  const isLiveWorldwide = isNetwork && active && LEGACY_LIVE_ROOMS.includes(active.key)
-  const canPost =
-    active && !isLiveWorldwide &&
-    (active.post_policy === 'all' || manages(community.id))
+  // What is left is the room's own `post_policy`: 'all' means everybody,
+  // 'staff' means the people who manage this community. Announcements is
+  // 'staff' everywhere, which is exactly the "only admins post announcements,
+  // everyone can read them" rule. Reading is enforced separately and for real
+  // by RLS - see migration 149.
+  const canPost = !!active && (active.post_policy === 'all' || manages(community.id))
 
   useEffect(() => {
     if (!community) return
@@ -852,10 +873,23 @@ export default function NetworkChat() {
         ) : (
           visible.map((m, i) => {
             const prev = visible[i - 1]
+            const mine = m.sender_id === user?.id
             // Grouping is suppressed while searching: consecutive results are
             // not consecutive messages, so hiding the second author is a lie.
             const grouped = !search && prev && prev.sender_id === m.sender_id
             const reactions = reactionsByMessage.get(m.id) || []
+            // [[emoji, count, isMine]] - the shape MessageActions draws.
+            const chips = (() => {
+              const byEmoji = new Map()
+              for (const r of reactions) {
+                const row = byEmoji.get(r.emoji) || [r.emoji, 0, false]
+                row[1] += 1
+                if (r.creator_id === user?.id) row[2] = true
+                byEmoji.set(r.emoji, row)
+              }
+              return [...byEmoji.values()]
+            })()
+            const seen = (isAdmin || mine) ? seenBy(m) : []
             return (
               <motion.div
                 key={m.id}
@@ -863,23 +897,35 @@ export default function NetworkChat() {
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={SOFT_SPRING}
-                // Tap a message on a phone to reveal its reaction button, the
-                // same bargain the DMs make. Taps on a link, a button or a video
-                // are left alone so the tap-to-reveal never eats a real one.
+                // Tap a message on a phone to reveal its actions, the same
+                // bargain the DMs make. Taps on a link, a button or a video are
+                // left alone so tap-to-reveal never eats a real one.
                 onClick={(e) => {
                   if (!isMobile) return
                   if (e.target.closest?.('a,button,video,input')) return
                   setActionsFor((cur) => (cur === m.id ? null : m.id))
                 }}
-                // `relative z-20` when this row has its actions open. Every row
+                // `relative z-20` when this row has something open. Every row
                 // here is a motion.div carrying a transform, so each is its own
                 // stacking context and a later message paints over an earlier
                 // one's popover whatever z-index the popover has.
                 className={cx(
-                  'group/msg relative flex gap-3 hover:z-20 focus-within:z-20',
-                  // A 2px rule down the left of your own messages, drawn in the
-                  // negative margin so it costs no width and nothing reflows.
-                  m.sender_id === user?.id && 'before:absolute before:-left-2.5 before:bottom-0 before:top-0 before:w-[2px] before:rounded-full before:bg-brand/25 before:content-[\'\']',
+                  'group/msg relative flex gap-2.5 hover:z-20 focus-within:z-20',
+                  // YOUR OWN MESSAGES SIT ON THE RIGHT.
+                  //
+                  // THE REPORTED BUG: "whenever I send a message in any of
+                  // these rooms it shows up on the left side, which is weird
+                  // because normally mine shows on the right and everyone
+                  // else's on the left. It's like I'm sending a message and it
+                  // appears as if someone else sent it."
+                  //
+                  // Nothing was ever wrong on the way to the database. This was
+                  // a flat Slack-style log where every row was drawn
+                  // identically, and the DMs three tabs away bubble your side -
+                  // so the rooms looked broken by comparison. Marking the
+                  // author "You" (the previous attempt) was not enough: the
+                  // SHAPE is what people read, not the label.
+                  mine && 'flex-row-reverse',
                   grouped && '!mt-1',
                   // Quiet, not alarming: a queued message is a message, just
                   // one the world has not seen yet.
@@ -887,100 +933,27 @@ export default function NetworkChat() {
                   actionsFor === m.id && 'z-20',
                 )}
               >
-                {/* YOUR OWN MESSAGES ARE MARKED, AND THIS IS THE REPORTED BUG.
-                    Ethan: "sending messages in the uk chat is making my text
-                    appear as if someone else sent it." Nothing was going wrong
-                    on the way to the database - every row here was drawn
-                    identically, a flat left-aligned line with an avatar and a
-                    name, so your own message in a room of forty five people
-                    looked exactly like everybody else's and there was no way to
-                    pick it out. The DMs bubble your side; a room this wide
-                    should not, because right-aligning half a busy room turns it
-                    into two ragged columns. So: the author reads "You", and a
-                    hairline runs down the left of the row. */}
-                <div className="w-9 shrink-0">
-                  {!grouped && <Avatar src={m.profiles?.photo_url} name={m.profiles?.name} size="sm" />}
+                {/* The face column, reserved even on rows that do not draw one
+                    so a run from one person stays aligned under the first. */}
+                <div className="w-9 shrink-0 self-end pb-5">
+                  {!grouped && !mine && <Avatar src={m.profiles?.photo_url} name={m.profiles?.name} size="sm" />}
                 </div>
-                {/* `relative`: the add-reaction affordance floats over this
-                    column's top-right corner rather than reserving a row of
-                    empty space under every message. */}
-                <div className="relative min-w-0 flex-1">
-                  {!grouped && (
-                    <p className="mb-0.5 flex flex-wrap items-baseline gap-x-2">
-                      <span className={cx('text-sm font-semibold', m.sender_id === user?.id && 'text-brand')}>
-                        {m.sender_id === user?.id ? 'You' : (m.profiles?.name || 'Someone')}
-                      </span>
-                      {m.profiles?.is_admin && (
-                        <span className="rounded-full bg-brand-tint px-1.5 py-0.5 text-[10px] font-semibold text-brand">Team</span>
-                      )}
-                      <span className="text-[11px] text-smoke" title={messageTimeTitle(m.created_at)}>{formatMessageTime(m.created_at)}</span>
-                      {m.edited_at && (
-                        <span className="text-[11px] text-smoke" title={`Edited ${messageTimeTitle(m.edited_at)}`}>· edited</span>
-                      )}
-                    </p>
-                  )}
-                  {/* MARKDOWN, LIKE EVERY OTHER ROOM.
-                      This rendered the raw body with nothing but mention
-                      highlighting, so a message written with the formatting
-                      buttons arrived as literal asterisks and hashes. The
-                      legacy chat has parsed this since it shipped; there was
-                      never a reason for a market room to be the one place that
-                      shows you your own markup. `rich` is unconditional -
-                      formatting is open to every creator now, so gating the
-                      RENDERER on is_admin would mean a creator's bold text
-                      looked broken to everyone including themselves. */}
-                  {/* WHAT THIS IS ANSWERING. A reply with no quote is a
-                      non-sequitur three messages later, which is why replies
-                      were the first thing the rooms felt short of. The quote
-                      is a BUTTON: pressing it scrolls to the original and
-                      flashes it, so a thread can be walked backwards. */}
-                  {m.reply_to && <QuotedParent id={m.reply_to} lookup={byId} members={members} />}
-                  {m.image_url && <ChatMedia url={m.image_url} kind="image" alt={m.body || 'Shared image'} />}
-                  {m.video_url && <ChatMedia url={m.video_url} kind="video" />}
-                  {editingId === m.id ? (
-                    <MessageEditor
-                      kind="channel"
-                      message={m}
-                      onCancel={() => setEditingId(null)}
-                      onSaved={(next) => {
-                        setMessages((cur) => cur.map((x) => (x.id === next.id ? { ...x, body: next.body, edited_at: next.edited_at } : x)))
-                        setEditingId(null)
-                      }}
-                    />
-                  ) : (
-                    m.body && (
-                      <p className="whitespace-pre-wrap break-words text-sm text-ink">
-                        {search
-                          ? <Highlight text={m.body} term={search} />
-                          : renderMessageBody(m.body, { rich: true, members })}
-                      </p>
-                    )
-                  )}
-                  <AttachedCard message={m} titles={cardTitles} />
 
-                  {/* A message still in the outbox says which of the two it is:
-                      on its way, or waiting for a connection that has not come
-                      back yet. Grey, not red - nothing has gone wrong. */}
-                  {m.pending && (
-                    <PendingLabel tries={m.tries} className="mt-0.5 block text-[11px] text-gray-400" />
-                  )}
-                  {m.failed && (
-                    <p className="mt-0.5 text-[11px] text-smoke">
-                      Not sent yet.{' '}
-                      <button type="button" onClick={() => retryQueued(m.queuedId)} className="font-semibold text-brand underline">Retry</button>
-                      {' · '}
-                      <button type="button" onClick={() => dropQueued(m.queuedId)} className="font-semibold underline">Discard</button>
-                    </p>
-                  )}
-
-                  <ReactionRow
-                    messageId={m.id}
-                    reactions={reactions}
-                    myId={user?.id}
-                    onToggle={toggleReaction}
+                <div className={cx('flex min-w-0 max-w-[82%] flex-col sm:max-w-[68%]', mine && 'items-end')}>
+                  {/* THE META LINE IS INSIDE MessageActions, and that is the
+                      point. The pill hangs off the TOP of whatever this wraps;
+                      wrapping the bubble alone put it exactly where "You ·
+                      just now" is, so hovering your own message hid who sent it
+                      and when. Wrapping the meta line too lifts it clear of
+                      everything belonging to this message. It still cannot move
+                      when somebody reacts, because the chips are added at the
+                      BOTTOM of the wrapper and the pill is anchored to the top. */}
+                  <MessageActions
+                    className="w-full"
+                    side={mine ? 'right' : 'left'}
+                    reactions={chips}
+                    onToggleReaction={(emoji) => toggleReaction(m.id, emoji)}
                     revealed={actionsFor === m.id}
-                    // Edit yours for five minutes, report anybody else's. Same
-                    // rules and the same window as every other chat here.
                     // Reply to anything, edit yours for five minutes, delete
                     // yours (or anybody's, as an admin), report somebody
                     // else's. A pending message has no id on the server yet, so
@@ -989,30 +962,106 @@ export default function NetworkChat() {
                       ...(canPost
                         ? [{ icon: 'reply', label: 'Reply', title: 'Reply to this message', onClick: () => { setReplyTo(m); setActionsFor(null); composerRef.current?.focus() } }]
                         : []),
-                      ...(m.sender_id === user?.id && withinEditWindow(m.created_at, nowTick)
+                      ...(mine && withinEditWindow(m.created_at, nowTick)
                         ? [{ icon: 'pencil', label: 'Edit message', title: 'Edit (5 minutes)', onClick: () => { setEditingId(m.id); setActionsFor(null) } }]
                         : []),
-                      ...(m.sender_id === user?.id || isAdmin
+                      ...(mine || isAdmin
                         ? [{ icon: 'trash', label: 'Delete message', title: 'Delete for everyone', danger: true, onClick: () => removeMessage(m) }]
                         : []),
-                      ...(m.sender_id !== user?.id
+                      ...(!mine
                         ? [{ icon: 'flag', label: 'Report message', title: 'Report to the team', danger: true, onClick: () => { setReporting(m); setActionsFor(null) } }]
                         : []),
                     ]}
-                  />
-                  {/* Read receipts, in the market rooms too. Own messages only
-                      (plus the team's full view), exactly as the legacy chat
-                      does it: knowing your question landed is the value, and a
+                  >
+                    {!grouped && (
+                      <p className={cx('mb-1 flex flex-wrap items-baseline gap-x-2 px-1', mine && 'flex-row-reverse')}>
+                        <span className={cx('text-sm font-semibold', mine && 'text-brand')}>
+                          {mine ? 'You' : (m.profiles?.name || 'Someone')}
+                        </span>
+                        {!mine && m.profiles?.is_admin && (
+                          <span className="rounded-full bg-brand-tint px-1.5 py-0.5 text-[10px] font-semibold text-brand">Team</span>
+                        )}
+                        <span className="text-[11px] text-smoke" title={messageTimeTitle(m.created_at)}>{formatMessageTime(m.created_at)}</span>
+                      </p>
+                    )}
+                    {/* THE BUBBLE. Shrink-to-fit, so a two-word message is a
+                        two-word bubble; the column above caps it at 82% of the
+                        thread so a paragraph still wraps. */}
+                    <div
+                      className={cx(
+                        'w-fit max-w-full rounded-2xl text-sm leading-relaxed',
+                        mine ? 'ml-auto rounded-br-md bg-brand text-white' : 'rounded-bl-md bg-cloud text-ink',
+                        (m.image_url || m.video_url) ? 'overflow-hidden p-1.5' : 'px-3.5 py-2',
+                      )}
+                    >
+                      {/* WHAT THIS IS ANSWERING. A reply with no quote is a
+                          non-sequitur three messages later. The quote is a
+                          BUTTON: pressing it scrolls to the original and
+                          flashes it, so a thread can be walked backwards. */}
+                      {m.reply_to && (
+                        <div className={cx((m.image_url || m.video_url) && 'px-2 pt-1.5')}>
+                          <QuotedParent id={m.reply_to} lookup={byId} onDark={mine} />
+                        </div>
+                      )}
+                      {m.image_url && <ChatMedia url={m.image_url} kind="image" alt={m.body || 'Shared image'} />}
+                      {m.video_url && <ChatMedia url={m.video_url} kind="video" />}
+                      {editingId === m.id ? (
+                        <div className={cx((m.image_url || m.video_url) && 'px-2 py-1.5')}>
+                          <MessageEditor
+                            kind="channel"
+                            message={m}
+                            onDark={mine}
+                            onCancel={() => setEditingId(null)}
+                            onSaved={(next) => {
+                              setMessages((cur) => cur.map((x) => (x.id === next.id ? { ...x, body: next.body, edited_at: next.edited_at } : x)))
+                              setEditingId(null)
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        m.body && (
+                          <div className={cx('whitespace-pre-wrap break-words', (m.image_url || m.video_url) && 'px-2 py-1.5')}>
+                            {search
+                              ? <Highlight text={m.body} term={search} />
+                              : renderMessageBody(m.body, { rich: true, members, onDark: mine })}
+                          </div>
+                        )
+                      )}
+                      <div className={cx((m.image_url || m.video_url) && 'px-2 pb-1.5')}>
+                        <AttachedCard message={m} titles={cardTitles} onDark={mine} />
+                      </div>
+                    </div>
+                  </MessageActions>
+
+                  {/* An edited message says so, here as everywhere. */}
+                  {m.edited_at && !m.pending && (
+                    <p className="mt-0.5 px-1 text-[10px] text-gray-400">edited</p>
+                  )}
+
+                  {/* A message still in the outbox says which of the two it is:
+                      on its way, or waiting for a connection that has not come
+                      back yet. Grey, not red - nothing has gone wrong. */}
+                  {m.pending && (
+                    <PendingLabel tries={m.tries} className="mt-0.5 block px-1 text-[11px] text-gray-400" />
+                  )}
+                  {m.failed && (
+                    <p className="mt-0.5 px-1 text-[11px] text-smoke">
+                      Not sent yet.{' '}
+                      <button type="button" onClick={() => retryQueued(m.queuedId)} className="font-semibold text-brand underline">Retry</button>
+                      {' · '}
+                      <button type="button" onClick={() => dropQueued(m.queuedId)} className="font-semibold underline">Discard</button>
+                    </p>
+                  )}
+
+                  {/* Read receipts. Own messages only (plus the team's full
+                      view): knowing your question landed is the value, and a
                       room where everyone can audit everyone's reading is a room
                       people stop opening. */}
-                  {(isAdmin || m.sender_id === user?.id) && (() => {
-                    const seen = seenBy(m)
-                    return seen.length ? (
-                      <div className="mt-0.5 flex">
-                        <SeenBy readers={seen} />
-                      </div>
-                    ) : null
-                  })()}
+                  {seen.length > 0 && (
+                    <div className={cx('mt-0.5 flex', mine && 'justify-end')}>
+                      <SeenBy readers={seen} align={mine ? 'right' : 'left'} />
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )
@@ -1020,17 +1069,11 @@ export default function NetworkChat() {
         )}
       </div>
 
-      {isLiveWorldwide ? (
+      {!canPost ? (
         <div className="shrink-0 border-t border-gray-100 p-3">
-          <p className="rounded-xl bg-cloud px-4 py-3 text-center text-xs text-smoke">
-            {active?.label} is a room every creator is already in today. It is read only here so a test
-            message cannot reach all of them by accident. The other rooms are open.
-          </p>
-        </div>
-      ) : !canPost ? (
-        <div className="shrink-0 border-t border-gray-100 p-3">
-          <p className="rounded-xl bg-cloud px-4 py-3 text-center text-xs text-smoke">
-            Only the team posts in {active?.label}.
+          <p className="flex items-center justify-center gap-2 rounded-xl bg-cloud px-4 py-3 text-center text-xs text-smoke">
+            <Icon name="bell" className="h-4 w-4 shrink-0" />
+            Only the team posts in {active?.label}. Everyone can read it.
           </p>
         </div>
       ) : (

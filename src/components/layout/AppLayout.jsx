@@ -33,7 +33,12 @@ import { applyMotion, getStoredMotion, setShellActive, syncTheme } from '../../l
 // grouped index rather than whichever room the router picked, and Calendar
 // comes back into the slot Worldwide vacated.
 const TABS = [
-  { to: '/global', label: 'Home', icon: 'globe' },
+  // WORLDWIDE, NOT HOME. It was renamed to Home on the cutover, on the argument
+  // that "Home is what a creator calls the page they land on". Ethan tried it
+  // and disagreed: the page IS the worldwide network, the icon is a globe, and
+  // calling it Home made the label the only part of the tab that was not about
+  // the world. Reverted at his request.
+  { to: '/global', label: 'Worldwide', icon: 'globe' },
   { to: '/challenges', label: 'Challenges', icon: 'flag' },
   // /rooms, not /chat. On desktop it forwards straight into the worldwide
   // General; on a phone it is the index, because a phone cannot show a sidebar
@@ -348,7 +353,7 @@ export default function AppLayout() {
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-5 sm:px-8">
           <Link to="/global" className="flex items-center gap-3">
             <img src="/brand/tryp-logo.png" alt="Tryp.com" className="h-9 rounded-lg" />
-            <span className="hidden text-sm font-semibold text-smoke md:block">Content Creator Program</span>
+            <span className="hidden text-sm font-semibold text-smoke md:block">Content Creator Community</span>
           </Link>
 
           <nav className="hidden items-center gap-2 lg:flex" aria-label="Main">

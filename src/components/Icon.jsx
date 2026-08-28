@@ -112,7 +112,52 @@ const FILLED_PATHS = {
   'plane-flight': 'M12 2 C12.62 2 13.06 3.15 13.06 4.7 L13.06 8.5 L21.6 13.5 L21.6 15.2 L13.06 12.7 L13.06 17.4 L15.7 19.5 L15.7 20.9 L12 19.8 L8.3 20.9 L8.3 19.5 L10.94 17.4 L10.94 12.7 L2.4 15.2 L2.4 13.5 L10.94 8.5 L10.94 4.7 C10.94 3.15 11.38 2 12 2 Z',
 }
 
+// THE WORLD, NOT A WIREFRAME.
+//
+// `globe` was Heroicons' globe-alt: a circle with three meridians and two
+// parallels. Ethan: "I don't like how it currently is with all the lines, but
+// rather actually show the world with the countries" - and he is right that a
+// nav tab labelled Worldwide reading as a wireframe sphere says "geometry"
+// where it should say "the planet".
+//
+// So: a stroked ring with the landmasses filled inside it. Two masses, the
+// Americas on the left and Europe-Africa on the right, with the Atlantic
+// between them - which is the arrangement everybody reads as "world" and the
+// one the reference image uses. Simplified hard, because the whole thing is
+// twenty pixels across and any more coastline is mud.
+//
+// CLIPPED TO THE RING, so no matter how the shapes are tweaked a coastline can
+// never poke out through the edge of the planet. The clip id is fixed and every
+// instance draws the same geometry, so repeated ids resolve identically.
+function WorldIcon({ className, strokeWidth }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <defs>
+        <clipPath id="tryp-world-clip">
+          <circle cx="12" cy="12" r="9.1" />
+        </clipPath>
+      </defs>
+      <g clipPath="url(#tryp-world-clip)" fill="currentColor">
+        {/* The Americas. One mass, because they are one mass: a wide north,
+            the pinch at Panama, and the taper to Cape Horn. Drawn as straight
+            runs rather than fitted coastline - at twenty pixels a bezier and a
+            polygon look identical and only one of them can be reasoned about.
+            THEY DO NOT TOUCH THE RIM. The first attempt ran both masses out to
+            the clip edge, so the disc filled in and at 20px the whole icon read
+            as a solid blob. Ocean around the outside and a wide Atlantic down
+            the middle are what make it read as a planet rather than a shape. */}
+        <path d="M5.0 6.2 10.1 4.9 11.3 6.9 9.8 8.6 10.9 10.2 10.2 11.8 12.0 12.8 12.9 15.5 11.7 19.2 10.5 16.0 9.7 13.2 7.9 11.5 6.1 10.1 4.8 8.2Z" />
+        {/* Europe over Africa. The shoulder at the top is Europe, the wide part
+            below it is the Sahara, and it tapers to the Cape. */}
+        <path d="M14.2 5.4 17.3 5.0 19.0 7.0 19.4 9.6 18.1 12.6 16.9 15.5 15.8 18.6 14.9 15.3 14.5 12.3 15.6 10.0 14.3 8.1Z" />
+      </g>
+      <circle cx="12" cy="12" r="9.1" stroke="currentColor" strokeWidth={strokeWidth} />
+    </svg>
+  )
+}
+
 export default function Icon({ name, className = 'h-5 w-5', strokeWidth = 1.7 }) {
+  if (name === 'globe') return <WorldIcon className={className} strokeWidth={strokeWidth} />
   const layered = LAYERED_PATHS[name]
   if (layered) {
     return (

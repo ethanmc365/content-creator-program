@@ -6,6 +6,7 @@ import { useCommunity } from '../context/CommunityContext'
 import NetworkLayout from '../components/network/NetworkLayout'
 import NetworkMotion from '../components/NetworkMotion'
 import Reveal from '../components/network/Reveal'
+import Reorderable from '../components/network/Reorderable'
 import FlagStack from '../components/network/FlagStack'
 import Icon from '../components/Icon'
 import { Avatar, EmptyState, Skeleton } from '../components/ui'
@@ -13,6 +14,13 @@ import { stripMarkup } from '../lib/richText'
 import { cx, timeAgo } from '../lib/utils'
 import { useIsMobile } from '../lib/useKeyboardInset'
 import { pageFade } from '../lib/motion'
+
+// Shared with the chat page's sidebar, so an order dragged in either place is
+// the order in both.
+const ROOM_ORDER_KEY = 'rooms-market-order'
+const loadRoomOrder = () => {
+  try { return JSON.parse(localStorage.getItem(ROOM_ORDER_KEY)) || [] } catch { return [] }
+}
 
 // Every room you can post in, grouped by the place it belongs to.
 //
@@ -73,12 +81,13 @@ function RoomRow({ to, room, last }) {
   )
 }
 
-function PlaceCard({ place, rooms, lastByChannel, isNetwork }) {
+function PlaceCard({ place, rooms, lastByChannel, isNetwork, handleProps, dragging }) {
   const base = isNetwork ? '/global/chat' : `/c/${place.slug}/chat`
   return (
     <section className={cx(
-      'rounded-card border bg-white p-4 shadow-card',
+      'rounded-card border bg-white p-4 transition-shadow duration-150',
       isNetwork ? 'border-brand/25' : 'border-gray-100',
+      dragging ? 'shadow-lift' : 'shadow-card',
     )}>
       <div className="mb-2 flex items-center gap-2.5 px-1">
         {isNetwork
@@ -91,6 +100,18 @@ function PlaceCard({ place, rooms, lastByChannel, isNetwork }) {
         <span className="shrink-0 text-[11px] text-smoke">
           {rooms.length} {rooms.length === 1 ? 'room' : 'rooms'}
         </span>
+        {/* The grip. A real affordance rather than a hidden long-press: on a
+            phone a hold gesture is indistinguishable from a slow tap until it
+            is too late, and this card is a stack of links. */}
+        {handleProps && (
+          <button
+            type="button"
+            {...handleProps}
+            className="-mr-1 flex h-7 w-7 shrink-0 cursor-grab touch-none items-center justify-center rounded-lg text-gray-300 transition-colors hover:bg-cloud hover:text-smoke active:cursor-grabbing"
+          >
+            <Icon name="grip" className="h-4 w-4" />
+          </button>
+        )}
       </div>
       <div className="space-y-0.5">
         {rooms.map((r) => (
@@ -102,7 +123,7 @@ function PlaceCard({ place, rooms, lastByChannel, isNetwork }) {
 }
 
 export default function Rooms() {
-  const { myCommunities, network, loading: ctxLoading } = useCommunity()
+  const { myCommunities, loading: ctxLoading } = useCommunity()
   const isMobile = useIsMobile()
   const [rooms, setRooms] = useState(null)
   const [lastByChannel, setLastByChannel] = useState(new Map())
@@ -157,6 +178,21 @@ export default function Rooms() {
         || a.place.name.localeCompare(b.place.name))
   }, [rooms, myCommunities])
 
+  // The reader's own order, shared with the chat page's sidebar. Per device on
+  // purpose: it is a preference about a layout, not a fact about the person.
+  const [roomOrder, setRoomOrder] = useState(loadRoomOrder)
+  function saveRoomOrder(next) {
+    const ids = next.map((p) => p.place.id)
+    setRoomOrder(ids)
+    try { localStorage.setItem(ROOM_ORDER_KEY, JSON.stringify(ids)) } catch { /* private mode */ }
+  }
+  // Anything never dragged falls in behind at its natural place rather than
+  // disappearing, so a market added next month simply appears at the end.
+  const rank = new Map(roomOrder.map((id, i) => [id, i]))
+  const orderedPlaces = [...places].sort(
+    (a, b) => (rank.has(a.place.id) ? rank.get(a.place.id) : 1e9) - (rank.has(b.place.id) ? rank.get(b.place.id) : 1e9),
+  )
+
   // ON A DESKTOP, ROOMS IS A CONVERSATION.
   //
   // Pressing Rooms used to land on this index and nothing else: a page listing
@@ -179,13 +215,13 @@ export default function Rooms() {
               the cards under it animate in - a title that is already still
               while everything below it moves reads as two pages, not one. */}
           <Reveal from="down" className="mb-6">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Rooms</h1>
-              <p className="mt-1.5 text-sm text-smoke">
-                {network?.name || 'Worldwide'} is shared by everybody. Each market has its own rooms, and
-                nothing posted in one reaches another.
-              </p>
-            </div>
+            {/* NO STRAPLINE. It read "Worldwide is shared by everybody. Each
+                market has its own rooms, and nothing posted in one reaches
+                another" - a description of how the product is built, told to
+                somebody who came here to open a room, on the screen with the
+                least room to spare. The cards underneath say all of it by being
+                grouped the way they are. */}
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Rooms</h1>
           </Reveal>
 
           {ctxLoading && !rooms ? (
@@ -198,17 +234,33 @@ export default function Rooms() {
               action={<Link to="/global/markets" className="btn-primary">Explore markets</Link>}
             />
           ) : (
-            <Reveal className="space-y-4" stagger={0.06} delay={0.06}>
-              {places.map(({ place, rooms: rs }) => (
+            /* DRAGGABLE ON A PHONE TOO, and in the SAME order as the desktop
+               sidebar - both read `rooms-market-order` from localStorage, so
+               dragging UK under Worldwide here is dragging it there. Ethan: "I
+               want to be able to drag and reorder cards on mobile too, for
+               example for the rooms page, I should be able to drag the UK page
+               to the top, below worldwide."
+               Reorderable drags from the GRIP only. That is not a limitation
+               here, it is the point: every card is also a stack of links, and a
+               whole-card drag has to guess between "open this room" and "move
+               this market" on every single press. */
+            <Reorderable
+              items={orderedPlaces}
+              getId={(p) => p.place.id}
+              onReorder={saveRoomOrder}
+              handleLabel="Reorder this market"
+              className="flex flex-col gap-4"
+              renderItem={({ place, rooms: rs }, { handleProps, dragging }) => (
                 <PlaceCard
-                  key={place.id}
                   place={place}
                   rooms={rs}
                   lastByChannel={lastByChannel}
                   isNetwork={place.kind === 'network'}
+                  handleProps={handleProps}
+                  dragging={dragging}
                 />
-              ))}
-            </Reveal>
+              )}
+            />
           )}
         </motion.div>
       </NetworkLayout>
