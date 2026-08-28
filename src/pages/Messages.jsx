@@ -12,11 +12,10 @@ import { Avatar, Badge, EmptyState, Skeleton, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
 import { jumpThreshold, distanceFromBottom } from '../lib/scrollJump'
 import ChatMedia from '../components/ChatMedia'
-import ReactionPill from '../components/ReactionPill'
+import MessageActions from '../components/chat/MessageActions'
 import { mediaType } from '../lib/media'
 import { formatChatTime, formatMessageTime, messageTimeTitle, otherParticipant, cx } from '../lib/utils'
 import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
-import ReactionPicker from '../components/ReactionPicker'
 import { RoomSearch } from '../components/ChatSearch'
 import Reveal from '../components/network/Reveal'
 import SeenBy from '../components/SeenBy'
@@ -91,7 +90,6 @@ export default function Messages() {
   const [thread, setThread] = useState([])
   const [reactions, setReactions] = useState([]) // dm_reactions for the open thread
   const [entryRefs, setEntryRefs] = useState({}) // submission id -> the entry a feedback DM is about
-  const [pickerFor, setPickerFor] = useState(null)
   // The composer serialises to markdown on every keystroke, so `body` is still
   // exactly what send/drafts/previews have always read.
   const onComposerChange = (md) => {
@@ -619,7 +617,6 @@ export default function Messages() {
   // ---------- Reactions ----------
   // Add / remove my reaction to a DM (same UX as #general).
   async function toggleReaction(messageId, emoji) {
-    setPickerFor(null)
     setActionsFor(null)
     const mine = reactions.find((r) => r.message_id === messageId && r.creator_id === user.id && r.emoji === emoji)
     if (mine) {
@@ -723,7 +720,6 @@ export default function Messages() {
     setAtBottom(true)
     setNewBelow(0)
     setReplyTo(null)
-    setPickerFor(null)
     setActionsFor(null)
   }, [conversationId])
 
@@ -1365,7 +1361,12 @@ export default function Messages() {
                       id={`dm-${m.id}`}
                       data-msg
                       className={cx(
-                        'group flex gap-2',
+                        // `group/msg` is the NAMED group MessageActions hangs
+                        // its hover state on. The plain `group` stays because
+                        // other things inside the row use it; an unnamed
+                        // `group-hover:` cannot see a named group and vice
+                        // versa, which is why the pill never appeared here.
+                        'group/msg group flex gap-2',
                         mine && 'justify-end',
                         entering && 'animate-fade-up',
                         // THE ROW THAT HAS SOMETHING OPEN HAS TO COME FORWARD.
@@ -1375,7 +1376,7 @@ export default function Messages() {
                         // therefore paints over an earlier row's popover
                         // whatever z-index the popover carries - which is why
                         // the emoji panel opened underneath the next message.
-                        (showActions || pickerFor === m.id) && 'relative z-20',
+                        showActions && 'relative z-20',
                       )}
                       style={entering ? { animationDelay: `${Math.min(i, 12) * 24}ms` } : undefined}
                     >
@@ -1392,13 +1393,40 @@ export default function Messages() {
                         </span>
                       )}
                       <div
-                        // `relative`: the action toolbar is absolutely
-                        // positioned against this column so it costs no layout.
                         // A queued message fades back a little: still yours,
                         // still there, just not out in the world yet.
-                        className={cx('relative min-w-0 max-w-[80%] sm:max-w-[65%]', m.pending && 'opacity-60')}
+                        className={cx('min-w-0 max-w-[80%] sm:max-w-[65%]', m.pending && 'opacity-60')}
                         // Tap a message on mobile to reveal its reply / react actions.
                         onClick={(e) => { if (isMobile && !e.target.closest('a,button,video,input')) setActionsFor(showActions ? null : m.id) }}
+                      >
+                      {/* THE SAME ACTION PILL THE ROOMS USE.
+                          The DMs and the rooms had two hand-written copies of
+                          this, and both had drifted into the same three faults:
+                          the pill straddled the message so a short one was
+                          covered entirely, it was anchored to the message COLUMN
+                          so it jumped a row the moment anybody reacted, and it
+                          hung off the outer edge, which is the edge of the
+                          screen. One component now, so a fix lands in both. */}
+                      <MessageActions
+                        side={mine ? 'right' : 'left'}
+                        revealed={showActions}
+                        reactions={Object.entries(summary).map(([emoji, info]) => [emoji, info.count, info.mine])}
+                        onToggleReaction={(emoji) => toggleReaction(m.id, emoji)}
+                        actions={m.pending || m.failed ? [] : [
+                          { icon: 'reply', label: 'Reply', title: 'Reply to this message', onClick: () => { setReplyTo(m); setActionsFor(null); dmComposerRef.current?.focus() } },
+                          ...(mine && withinEditWindow(m.created_at, nowTick)
+                            ? [{ icon: 'pencil', label: 'Edit message', title: 'Edit (5 minutes)', onClick: () => { setEditingId(m.id); setActionsFor(null) } }]
+                            : []),
+                          ...(mine
+                            ? [{ icon: 'trash', label: 'Delete message', title: 'Delete for everyone', danger: true, onClick: () => deleteDm(m) }]
+                            : []),
+                          // A DM is the one place a creator is most exposed and
+                          // has the least recourse: a stranger gets one message
+                          // through before you have agreed to talk at all.
+                          ...(!mine
+                            ? [{ icon: 'flag', label: 'Report message', title: 'Report to the team', danger: true, onClick: () => { setReporting(m); setActionsFor(null) } }]
+                            : []),
+                        ]}
                       >
                         {isGroup && !mine && startsRun && (
                           <p className="mb-0.5 truncate pl-1 text-[11px] font-semibold text-smoke">
@@ -1508,125 +1536,7 @@ export default function Messages() {
                             </div>
                           ) : null
                         })()}
-
-                        {/* THE ANCHOR THE ACTION ROW HANGS ON.
-                            Zero height, so it costs no layout, and it sits
-                            exactly where the message body ends - which is the
-                            line the reply/react row is supposed to straddle.
-                            The row itself is further down, absolutely
-                            positioned against this. */}
-                        <div className="relative h-0 w-full">
-                        {/* THE ACTIONS FLOAT. As an `opacity-0` row in the flow
-                            they reserved their height under every message even
-                            though nobody could see them, which on a phone left a
-                            visible gap between a bubble and its timestamp. */}
-                          <div className={cx(
-                            // CENTRED ON THE BOTTOM EDGE, NOT THE TOP ONE.
-                            // A DM has no meta line above it - the timestamp is
-                            // underneath - so `top-0` put this pill straight on
-                            // top of the first line of the message, and even
-                            // straddling the top edge it sat above the words
-                            // you had not read yet. On the bottom edge it lands
-                            // where the message finishes, which is the moment
-                            // you decide to reply or react, and on a phone it
-                            // is the nearer half of the screen. Absolute either
-                            // way, so it reserves no empty strip.
-                            // ANCHORED TO THE MESSAGE, NOT TO EVERYTHING UNDER IT.
-                            // `bottom-0` is measured against the message COLUMN,
-                            // which also holds the reaction chips and the read
-                            // receipt - so the moment anybody reacted, reply and
-                            // react jumped a row down and hung below the emoji,
-                            // level with nothing. `--anchor` below is a
-                            // zero-height box sitting exactly on the message's
-                            // bottom edge, so this row centres on that line
-                            // whether or not there is anything after it.
-                            'absolute bottom-0 z-10 flex -translate-y-1/2 items-center gap-1 rounded-full border border-gray-100 bg-white/95 px-1 py-0.5 shadow-card backdrop-blur transition-opacity',
-                            mine ? 'left-0' : 'right-0',
-                            showActions
-                              ? 'opacity-100'
-                              : 'pointer-events-none opacity-0 focus-within:pointer-events-auto focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100',
-                          )}>
-                            <button
-                              onClick={() => { setReplyTo(m); setActionsFor(null); dmComposerRef.current?.focus() }}
-                              aria-label="Reply"
-                              title="Reply"
-                              className="rounded-full border border-gray-200 bg-white p-1 text-smoke hover:border-brand hover:text-brand"
-                            >
-                              <Icon name="reply" className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => setPickerFor(pickerFor === m.id ? null : m.id)}
-                              aria-label="Add reaction"
-                              className="rounded-full border border-gray-200 bg-white p-1 text-smoke hover:border-brand hover:text-brand"
-                            >
-                              <Icon name="smile" className="h-4 w-4" />
-                            </button>
-                            {mine && withinEditWindow(m.created_at, nowTick) && (
-                              <button
-                                onClick={() => { setEditingId(m.id); setActionsFor(null) }}
-                                aria-label="Edit message"
-                                title="Edit (5 minutes)"
-                                className="rounded-full border border-gray-200 bg-white p-1 text-smoke hover:border-brand hover:text-brand"
-                              >
-                                <Icon name="pencil" className="h-4 w-4" />
-                              </button>
-                            )}
-                            {/* A DM is the one place a creator was most exposed
-                                and had the least recourse: a stranger gets one
-                                message through before you have agreed to talk
-                                at all. */}
-                            {!mine && (
-                              <button
-                                onClick={() => { setReporting(m); setActionsFor(null) }}
-                                aria-label="Report message"
-                                title="Report to the team"
-                                className="rounded-full border border-gray-200 bg-white p-1 text-smoke hover:border-red-300 hover:text-red-500"
-                              >
-                                <Icon name="flag" className="h-4 w-4" />
-                              </button>
-                            )}
-                            {isAdmin && (
-                              <button
-                                onClick={() => deleteDm(m)}
-                                aria-label="Delete message"
-                                title="Delete for everyone"
-                                className="rounded-full border border-gray-200 bg-white p-1 text-smoke hover:border-red-300 hover:text-red-500"
-                              >
-                                <Icon name="trash" className="h-4 w-4" />
-                              </button>
-                            )}
-                            {pickerFor === m.id && (
-                              <>
-                                <div className="fixed inset-0 z-20" onClick={() => setPickerFor(null)} />
-                                <ReactionPicker
-                                  // The ROW's side, not the message's - see the
-                                  // note on the row above.
-                                  align={mine ? 'left' : 'right'}
-                                  onPick={(e) => toggleReaction(m.id, e)}
-                                  onClose={() => setPickerFor(null)}
-                                />
-                              </>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Reactions stay in the flow. */}
-                        {Object.keys(summary).length > 0 && (
-                          <div className={cx('mt-0.5 flex flex-wrap items-center gap-1', mine && 'justify-end')}>
-                            {Object.entries(summary).map(([emoji, info]) => (
-                              <ReactionPill
-                                key={emoji}
-                                emoji={emoji}
-                                count={info.count}
-                                mine={info.mine}
-                                names={info.ids.map(reactorName)}
-                                onToggle={() => toggleReaction(m.id, emoji)}
-                                align={mine ? 'right' : 'left'}
-                              />
-                            ))}
-                          </div>
-                        )}
-
+                      </MessageActions>
                       </div>
                     </div>
                   )
