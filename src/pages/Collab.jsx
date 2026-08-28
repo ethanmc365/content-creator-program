@@ -766,15 +766,15 @@ export default function Collab() {
               </WhenVisible>
             </>
           )}
-          {boardCountries.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {boardCountries.sort((a, b) => a.localeCompare(b)).map((c) => (
-                <button key={c} onClick={() => setCountryFilter(c)} className="inline-flex items-center gap-1.5 rounded-full bg-brand-tint px-3 py-1 text-xs font-medium text-brand transition-transform hover:scale-105">
-                  <Icon name="pin" className="h-3.5 w-3.5" />{c}
-                </button>
-              ))}
-            </div>
-          )}
+          {/* THE COUNTRY CHIPS UNDER THE MAP ARE GONE, on every width.
+              They listed every country on the board as a row of orange pills -
+              which on a busy board is four lines of text restating what the map
+              directly above had just drawn in orange. Ethan: "we can all
+              visually see the countries on the map, remove those countries from
+              mobile and desktop."
+              Nothing is lost: they were a country FILTER, and there is a
+              proper "Filter by country" select further down the page that does
+              the same job with none of the height. */}
         </section>
       )}
 

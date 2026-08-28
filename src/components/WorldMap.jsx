@@ -356,11 +356,10 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
           </p>
         )}
 
-        {owner && !selectable && !country && (
-          <p className="pointer-events-none absolute bottom-2 left-3 rounded-full bg-white/85 px-3 py-1 text-[11px] text-smoke backdrop-blur-sm">
-            Tap a country to see what it is known for
-          </p>
-        )}
+        {/* THE "TAP A COUNTRY" HINT IS GONE. A coloured country on a map you
+            can tap is already an affordance; a label explaining it sat over the
+            map on every profile in the product, permanently, to say something
+            most people find out by tapping once. Ethan asked for it off. */}
 
         {/* Desktop: over the map. Phones get it UNDER the map instead - see
             below - because the map box is only about 180px tall at 375px and an

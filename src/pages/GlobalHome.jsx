@@ -916,8 +916,11 @@ export default function GlobalHome() {
           {/* ---------- Markets ---------- */}
           <Reveal from="down" delay={stepDelay()}>
             <section>
+              {/* A PIN, NOT A FLAG. The flag is the Challenges tab's icon, so
+                  a flag over "Your markets" was the same symbol meaning two
+                  different things on one screen. A market is a place. */}
               <SectionHead
-                icon="flag"
+                icon="pin"
                 title={myMarkets.length ? 'Your markets' : 'Markets'}
                 to="/global/markets"
                 toLabel={isGlobalAdmin ? 'All markets' : 'Explore'}

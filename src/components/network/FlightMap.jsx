@@ -1017,15 +1017,14 @@ function FlightMap({ routes = [], airports = [] }) {
           </p>
         )}
       </div>
-      {/* THE LICENCE, WHICH IS NOT OPTIONAL. The six thousand faint dots are
+      {/* THE OPENFLIGHTS LINE HAS MOVED, NOT GONE.
+          Ethan asked for it off both map pages, and it is off them. It could
+          not simply be deleted: the six thousand faint airport dots are
           OpenFlights data under the Open Database Licence, and ODbL requires
-          attribution wherever the data is used. The aircraft collection carries
-          its photo credits for the same reason. Outside the map box rather than
-          floating on it: a legal notice that overlaps the thing it is about is
-          a notice nobody can read and a map somebody has to work around. */}
-      <p className="mt-2 text-right text-[10px] leading-tight text-smoke/70">
-        Airport locations from OpenFlights, Open Database Licence
-      </p>
+          attribution wherever that data is used - so it now lives once, in the
+          credits on /flights/aircraft, next to the photo credits that are there
+          for the same reason. If it should sit somewhere more prominent that is
+          a decision to take deliberately, not by dropping it. */}
     </>
   )
 }

@@ -1649,8 +1649,13 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           the travel view on hid the controls that turned it off. Top-left is
           the only free corner: the tooltip is top-centre, the zoom stack and
           hint are top-right, and the town card owns the bottom. */}
+      {/* NOT ON A PHONE, unless the map is full screen. The map box is about
+          180px tall at 375px and this key is 56 of them - a third of the map
+          spent explaining two symbols. Ethan: "on mobile I would remove the key
+          from the map because it takes up a lot of space and it's not needed."
+          Full screen it costs nothing and still earns its place. */}
       {travelView && !focusJourney && journeys.some((j) => j.current) && journeys.some((j) => !j.current) && (
-        <div className={`absolute left-3 z-20 flex flex-col gap-1.5 rounded-xl bg-white/95 px-3 py-2 text-[11px] shadow-card ring-1 ring-black/5 backdrop-blur ${fullscreen ? 'top-16' : 'top-3'}`}>
+        <div className={`absolute left-3 z-20 ${fullscreen ? 'flex' : 'hidden sm:flex'} flex-col gap-1.5 rounded-xl bg-white/95 px-3 py-2 text-[11px] shadow-card ring-1 ring-black/5 backdrop-blur ${fullscreen ? 'top-16' : 'top-3'}`}>
           <span className="flex items-center gap-2">
             <svg viewBox="0 0 24 24" className="h-3 w-3 shrink-0" fill={BRAND} aria-hidden><path d={PLANE_D} transform="translate(12 12) scale(0.9)" /></svg>
             <span className="font-medium text-ink">There now</span>

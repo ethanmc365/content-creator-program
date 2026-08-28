@@ -169,7 +169,14 @@ export default function AdminRewards() {
   // "Add reward" modal
   const [showAdd, setShowAdd] = useState(false)
   const [adding, setAdding] = useState(false)
-  const [newReward, setNewReward] = useState({ creator_id: '', challenge_id: '', reward_type: 'cash', currency: 'GBP', amount: '', payment_notes: '' })
+  // EUROS BY DEFAULT. Five of the six open markets settle in euros and the
+  // programme's own reporting is in euros, so pounds as the default meant every
+  // new payout outside the UK started wrong and had to be corrected by hand.
+  // Ethan: "payouts is actually in pounds, it should be in euros now too as
+  // most markets will be operating in euros."
+  // A DEFAULT, NOT A CONVERSION: rewards already raised keep the currency they
+  // were raised in, because that is what the invoice says and what was paid.
+  const [newReward, setNewReward] = useState({ creator_id: '', challenge_id: '', reward_type: 'cash', currency: 'EUR', amount: '', payment_notes: '' })
 
   // "Mark distributed" modal (replaces a flaky window.prompt).
   const [distributing, setDistributing] = useState(null) // the reward being marked
@@ -345,7 +352,7 @@ export default function AdminRewards() {
     setAdding(false)
     if (!error) {
       setShowAdd(false)
-      setNewReward({ creator_id: '', challenge_id: '', reward_type: 'cash', currency: 'GBP', amount: '', payment_notes: '' })
+      setNewReward({ creator_id: '', challenge_id: '', reward_type: 'cash', currency: 'EUR', amount: '', payment_notes: '' })
       load()
     }
   }
@@ -712,7 +719,7 @@ export default function AdminRewards() {
                 id="r-ccy" variant="field" ariaLabel="Currency"
                 value={newReward.currency}
                 onChange={(v) => setNewReward({ ...newReward, currency: v })}
-                options={[{ value: 'GBP', label: 'Pounds (£)' }, { value: 'EUR', label: 'Euros (€)' }]}
+                options={[{ value: 'EUR', label: 'Euros (€)' }, { value: 'GBP', label: 'Pounds (£)' }]}
               />
             </div>
             <div>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -6,6 +6,7 @@ import { useMyScopes, inScope } from '../lib/scope'
 import Icon from '../components/Icon'
 import { PageHeader, Badge, SkeletonCards, EmptyState } from '../components/ui'
 import { formatDate, formatMoney, challengeDeadline } from '../lib/utils'
+import { convert } from '../lib/programme'
 import Reveal from '../components/network/Reveal'
 import LiveChallengeCard from '../components/LiveChallengeCard'
 import WinnersPodium from '../components/WinnersPodium'
@@ -205,9 +206,24 @@ export default function Challenges() {
   // they get Spain's live card stacked above the UK's with no way to tell which
   // is which. Every market's board is at /c/<slug>/challenges.
   // Biggest currency first, so the headline number is the one that matters.
-  const prizeTotals = Object.entries(prizesAwarded ?? {})
-    .filter(([, v]) => v > 0)
-    .sort((a, b) => b[1] - a[1])
+  // ONE NUMBER, IN EUROS, ROUNDED TO THE NEAREST TEN.
+  //
+  // It was one figure per currency side by side ("£250 + €40"), which is honest
+  // and unreadable: a creator wants to know what this programme has paid out,
+  // not to do currency arithmetic in their head. Most markets settle in euros
+  // now, so euros is the number.
+  //
+  // ROUNDED, and deliberately so. Converting £250 at a rate that moves daily
+  // and printing "€292" claims a precision that does not exist - it would be a
+  // different number tomorrow with nothing having happened. Ethan: "don't give
+  // the exact figure if you're converting, always round it to the nearest ten."
+  // Under ten it is left alone, because rounding €4 to €0 says nothing was won.
+  const prizeTotalEur = useMemo(() => {
+    const total = Object.entries(prizesAwarded ?? {})
+      .reduce((sum, [currency, amount]) => sum + (convert(amount, currency, 'EUR') || 0), 0)
+    if (total <= 0) return 0
+    return total < 10 ? Math.round(total) : Math.round(total / 10) * 10
+  }, [prizesAwarded])
 
   const mine = challenges.filter((c) => inScope(scopeIds, c.community_id))
   // A GLOBAL BRIEF LEADS THE BOARD.
@@ -235,19 +251,16 @@ export default function Challenges() {
         />
       </Reveal>
 
-      {prizeTotals.length > 0 && (
+      {prizeTotalEur > 0 && (
         <Reveal from="down" delay={0.06} className="mb-8">
           {/* A pill inside a tinted pill inside a bordered pill was three
               containers for six words. One line: the trophy, the money, what
               the money is. */}
           <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[15px]">
             <Icon name="trophy" className="h-[18px] w-[18px] shrink-0 translate-y-0.5 text-brand" />
-            {prizeTotals.map(([currency, total], i) => (
-              <span key={currency} className="font-bold tabular-nums text-brand">
-                {i > 0 && <span className="mr-2 font-normal text-gray-300">+</span>}
-                {formatMoney(total, currency)}
-              </span>
-            ))}
+            <span className="font-bold tabular-nums text-brand">
+              {formatMoney(prizeTotalEur, 'EUR')}
+            </span>
             <span className="text-smoke">won by creators so far</span>
           </p>
         </Reveal>

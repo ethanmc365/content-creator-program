@@ -606,10 +606,9 @@ export default function Settings() {
   return (
     <div className="page max-w-4xl">
       <Reveal from="down">
-        <PageHeader
-          title="Settings"
-          subtitle="Manage how the community looks, what you share, how you get paid, and what you hear about."
-        />
+        {/* NO STRAPLINE. It listed the four sections that are already listed
+            underneath it as cards. */}
+        <PageHeader title="Settings" />
       </Reveal>
       {/* One across on a phone, two from `sm`. Three would make each card
           narrower than its own hint line, which is the point at which a menu

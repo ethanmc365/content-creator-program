@@ -442,7 +442,7 @@ export default function AircraftCollection() {
               behind it. */}
           <details className="group/credits pt-2">
             <summary className="flex cursor-pointer list-none items-center gap-1 text-[11px] text-gray-400 transition-colors hover:text-smoke">
-              Photo credits
+              Photo and data credits
               <Icon name="chevronRight" className="h-3 w-3 transition-transform duration-200 group-open/credits:rotate-90" />
             </summary>
             <div className="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-2">
@@ -462,6 +462,13 @@ export default function AircraftCollection() {
                 </a>
               ))}
             </div>
+            {/* The airport data behind every map in the flight log. It used to
+                sit under the maps themselves; Ethan asked for it off those
+                pages, and ODbL requires it to appear somewhere, so it appears
+                here once rather than on two pages twice. */}
+            <p className="mt-3 border-t border-gray-100 pt-3 text-[11px] leading-relaxed text-gray-400">
+              Airport locations from OpenFlights, used under the Open Database Licence.
+            </p>
           </details>
         </div>
       )}
