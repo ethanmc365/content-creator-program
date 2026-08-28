@@ -89,6 +89,44 @@ export default function Reveal({
   // rendered grid leaked an observer. State is also what makes the effect
   // re-run when a grid unmounts and comes back.
   const [node, setNode] = useState(null)
+  // HAS THE HIDDEN STATE BEEN PAINTED YET?
+  //
+  // THE BUG THIS FIXES. A CSS transition needs the browser to have painted the
+  // FROM state before the TO state arrives; if both land in the same frame it
+  // coalesces them and there is no animation at all, just the finished result.
+  // An IntersectionObserver on an element that is already on screen delivers
+  // its first entry almost immediately, so the topmost section on a page could
+  // get `is-in` before its opacity-0 state had ever been drawn - and simply
+  // appeared, while everything further down (which gets its entry after a
+  // scroll, long after the first paint) animated normally.
+  //
+  // Ethan: "the hey Ethan appears in immediately, whereas the other things
+  // smoothly animate in." That is the greeting, which is always the first
+  // element on the hub and therefore always the one this could hit.
+  //
+  // Two frames, because one is not a guarantee: the first rAF callback runs
+  // BEFORE that frame's paint, so the second is the first moment the hidden
+  // state is definitely on screen.
+  // A TIMER BACKS THE FRAMES UP, AND THAT IS NOT BELT AND BRACES - IT IS THE
+  // DIFFERENCE BETWEEN A MISSING ANIMATION AND MISSING CONTENT.
+  //
+  // requestAnimationFrame DOES NOT RUN in a background tab, and it is throttled
+  // to nothing in some embedded panes. Gating `is-in` on rAF alone therefore
+  // means a page opened in a background tab has every section at opacity 0
+  // permanently, with no way to wake them. (Caught exactly that way: this
+  // component rendered `reveal is-done` with no `is-in` in a preview pane,
+  // which is content that will never be seen.)
+  //
+  // So whichever arrives first wins. The frames are the accurate signal; the
+  // timer is the guarantee.
+  const [painted, setPainted] = useState(false)
+  useEffect(() => {
+    let a = 0
+    let b = 0
+    a = requestAnimationFrame(() => { b = requestAnimationFrame(() => setPainted(true)) })
+    const t = setTimeout(() => setPainted(true), 80)
+    return () => { cancelAnimationFrame(a); cancelAnimationFrame(b); clearTimeout(t) }
+  }, [])
 
   useEffect(() => {
     if (!node || shown) return undefined
@@ -232,7 +270,7 @@ export default function Reveal({
     <Tag
       ref={setNode}
       data-from={from}
-      className={`reveal${shown ? ' is-in' : ''}${done ? ' is-done' : ''}${className ? ` ${className}` : ''}`}
+      className={`reveal${shown && painted ? ' is-in' : ''}${done ? ' is-done' : ''}${className ? ` ${className}` : ''}`}
       style={{
         '--reveal-stagger': `${Math.round(stagger * 1000)}ms`,
         '--reveal-base': `${Math.round(delay * 1000)}ms`,
