@@ -438,7 +438,7 @@ export default function ManageChapter() {
 
         <PageHeader
           title={`Manage ${chapter.name}`}
-          subtitle="Everything this market owns. Nothing here reaches another market."
+          subtitle="Everything this market owns."
           action={<Badge tone={chapter.is_active ? 'green' : 'grey'}>{chapter.is_active ? 'Open' : 'Closed'}</Badge>}
         />
 

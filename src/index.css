@@ -1356,3 +1356,33 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   .challenge-sheen { animation: none; opacity: 0; }
   .challenge-orbit { animation: none; }
 }
+
+/* ---------------------------------------------------------------------------
+   JUMPING TO THE MESSAGE A REPLY IS ANSWERING.
+
+   Pressing the quote scrolls the original into view, and the scroll alone is
+   not enough: on a busy screen you arrive somewhere and cannot tell which of
+   the six visible messages you were sent to. A brief tint says which.
+
+   Restarting it is why QuotedParent removes the class, reads offsetWidth and
+   re-adds it - a CSS animation does not replay just because its class was set
+   again. Box-shadow rather than background so a message with media in it
+   flashes as one object rather than lighting up only the gaps.
+   ------------------------------------------------------------------------- */
+
+@keyframes msg-flash {
+  0%   { box-shadow: 0 0 0 6px rgba(217, 68, 7, 0.16); background-color: rgba(217, 68, 7, 0.07); }
+  100% { box-shadow: 0 0 0 6px rgba(217, 68, 7, 0);    background-color: transparent; }
+}
+
+.msg-flash {
+  border-radius: 0.75rem;
+  animation: msg-flash 1.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Still SAY which message, just without the fade: the whole point of the
+     flash is answering "which one", and removing it entirely would leave a
+     reduced-motion reader scrolled to an unmarked spot. */
+  .msg-flash { animation: none; box-shadow: 0 0 0 6px rgba(217, 68, 7, 0.16); }
+}

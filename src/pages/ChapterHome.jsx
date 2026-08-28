@@ -357,7 +357,7 @@ export default function ChapterHome() {
                 <Icon name="chat" className="h-5 w-5 text-brand" /> Rooms
               </h2>
               <p className="mt-1 text-sm text-smoke">
-                {chapter.name}&rsquo;s own rooms. Nothing posted here reaches another market.
+                {chapter.name}&rsquo;s own rooms.
               </p>
             </div>
             {loading ? (

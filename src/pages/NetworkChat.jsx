@@ -3,7 +3,7 @@ import PendingLabel from '../components/PendingLabel'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'motion/react'
 import { supabase } from '../lib/supabase'
-import { notice } from '../lib/confirm'
+import { confirm, notice } from '../lib/confirm'
 import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
 import { flagFromIso } from '../components/network/PlaceSwitcher'
@@ -98,6 +98,58 @@ const CARD_KINDS = [
 const hasContent = (m) =>
   !!(m.body?.trim() || m.image_url || m.video_url || m.poll_id || m.game_event_id || m.resource_id)
 
+// WHAT A REPLY IS ANSWERING.
+//
+// One line, in the message it belongs to, and it is a button: pressing it
+// scrolls the original into view and flashes it, which is what makes a thread
+// walkable backwards rather than just labelled.
+//
+// A room holds 200 messages, so the parent of an old reply may genuinely not be
+// in memory. That says "message no longer here" rather than drawing an empty
+// bar, because a blank quote looks like a bug and a missing one is a fact.
+function QuotedParent({ id, lookup, members }) {
+  const parent = lookup.get(id)
+
+  const jump = () => {
+    const el = document.getElementById(`msg-${id}`)
+    if (!el) return
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    // A class rather than an inline style, so the flash is one CSS animation
+    // that cleans up after itself instead of a timer holding a ref.
+    el.classList.remove('msg-flash')
+    // Reading offsetWidth forces a reflow, which is what makes removing and
+    // re-adding the class restart the animation. Without it, flashing the same
+    // message twice in a row does nothing the second time.
+    void el.offsetWidth
+    el.classList.add('msg-flash')
+  }
+
+  if (!parent) {
+    return (
+      <p className="mb-1 flex items-center gap-1.5 border-l-2 border-gray-200 pl-2 text-[11px] italic text-gray-400">
+        <Icon name="reply" className="h-3 w-3 shrink-0" />
+        The message this replies to is no longer here
+      </p>
+    )
+  }
+
+  const preview = (parent.body || '').replace(/\s+/g, ' ').trim()
+    || (parent.image_url ? 'Photo' : parent.video_url ? 'Video' : 'Message')
+
+  return (
+    <button
+      type="button"
+      onClick={jump}
+      className="mb-1 flex w-full max-w-full items-baseline gap-1.5 border-l-2 border-brand/40 pl-2 text-left transition-colors hover:border-brand"
+    >
+      <span className="shrink-0 text-[11px] font-semibold text-brand">{parent.profiles?.name || 'Someone'}</span>
+      <span className="min-w-0 truncate text-[11px] text-smoke">
+        {renderMessageBody(preview, { rich: false, members })}
+      </span>
+    </button>
+  )
+}
+
 function AttachedCard({ message, titles }) {
   const spec = CARD_KINDS.find((c) => message[c.idKey])
   if (!spec) return null
@@ -145,6 +197,11 @@ export default function NetworkChat() {
   const [actionsFor, setActionsFor] = useState(null)
   const [editingId, setEditingId] = useState(null)
   const [reporting, setReporting] = useState(null)
+  // The message the composer is answering, or null. Held as the whole row
+  // rather than an id so the strip above the composer can show the author and
+  // a line of the body without a second lookup - and so it keeps working if
+  // the original scrolls out of the 200 this room holds.
+  const [replyTo, setReplyTo] = useState(null)
   const nowTick = useNowTick()
   // Who has read how far in this room: profile id -> last_read_at. Same
   // `channel_reads` table the legacy chat uses, keyed by the same namespaced
@@ -305,6 +362,24 @@ export default function NetworkChat() {
     const key = scopedKey(community, active.key)
     const ch = supabase
       .channel(`net-chat-${key}`)
+      // EDITS AND DELETES PROPAGATE TOO.
+      //
+      // This listened for INSERT only, so a message somebody edited kept its
+      // old text on every other screen until a reload, and one they deleted
+      // stayed readable in the room it had been removed from. A soft delete IS
+      // an update, so without this the delete button appeared to work for the
+      // person pressing it and for nobody else.
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'messages', filter: `channel=eq.${key}` },
+        (payload) => {
+          const row = payload.new
+          if (!row?.id) return
+          if (row.deleted) { setMessages((prev) => prev.filter((m) => m.id !== row.id)); return }
+          // Merge rather than replace: the payload is the raw row and carries
+          // no embedded `profiles`, so replacing would strip the author off
+          // every message anybody edits.
+          setMessages((prev) => prev.map((m) => (m.id === row.id ? { ...m, ...row, profiles: m.profiles } : m)))
+        })
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `channel=eq.${key}` },
         async (payload) => {
@@ -378,6 +453,10 @@ export default function NetworkChat() {
 
   const messageIds = useMemo(() => messages.map((m) => m.id), [messages])
   const { byMessage: reactionsByMessage, toggle: toggleReaction } = useReactions(messageIds, user?.id)
+  // id -> message, for drawing what a reply is answering without a second read.
+  // A reply whose parent has scrolled out of the 200 this room holds resolves
+  // to nothing, and QuotedParent says so rather than rendering an empty bar.
+  const byId = useMemo(() => new Map(messages.map((m) => [m.id, m])), [messages])
 
   // ---- Read receipts ----------------------------------------------------
   //
@@ -524,6 +603,34 @@ export default function NetworkChat() {
     atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
   }
 
+  // DELETE, WHICH THE ROOMS SIMPLY DID NOT HAVE.
+  //
+  // Your own at any time, anybody's if you are an admin - the RPC (migration
+  // 147) decides, not this. A soft delete, so the reactions, the replies
+  // pointing at it and any report attached to it survive for a moderator to
+  // read; `deleted = false` is already in this page's read filter, so it
+  // disappears everywhere on the next load and immediately here.
+  //
+  // The row is removed from state BEFORE the round trip and put back if the
+  // call fails. A delete that appears to do nothing for two seconds gets
+  // pressed again.
+  async function removeMessage(m) {
+    if (!await confirm(
+      m.sender_id === user?.id
+        ? 'Delete this message? It disappears for everyone in the room.'
+        : `Delete ${m.profiles?.name || 'this creator'}'s message? It disappears for everyone in the room.`,
+      { confirmLabel: 'Delete', danger: true },
+    )) return
+    setActionsFor(null)
+    const snapshot = messages
+    setMessages((cur) => cur.filter((x) => x.id !== m.id))
+    const { error } = await supabase.rpc('delete_message', { p_id: m.id })
+    if (error) {
+      setMessages(snapshot)
+      await notice(`Could not delete that message: ${error.message}`)
+    }
+  }
+
   // Post a row into this room. Nothing here awaits the network any more: the
   // message is queued, drawn, and sent by the outbox, which is the only part of
   // the app that has to care whether there is any signal.
@@ -548,6 +655,7 @@ export default function NetworkChat() {
         body: '',
         image_url: null,
         video_url: null,
+        reply_to: null,
         created_at: new Date().toISOString(),
         profiles: { id: user.id, name: profile?.name, photo_url: profile?.photo_url, is_admin: isAdmin },
         ...fields,
@@ -563,7 +671,8 @@ export default function NetworkChat() {
     composerRef.current?.clear()
     clearDraft(draftKey)
     atBottomRef.current = true
-    postMessage({ body: text })
+    postMessage({ body: text, reply_to: replyTo?.id ?? null })
+    setReplyTo(null)
   }
 
   // PHOTOS AND VIDEO, IN EVERY ROOM.
@@ -750,6 +859,7 @@ export default function NetworkChat() {
             return (
               <motion.div
                 key={m.id}
+                id={`msg-${m.id}`}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={SOFT_SPRING}
@@ -767,6 +877,9 @@ export default function NetworkChat() {
                 // one's popover whatever z-index the popover has.
                 className={cx(
                   'group/msg relative flex gap-3 hover:z-20 focus-within:z-20',
+                  // A 2px rule down the left of your own messages, drawn in the
+                  // negative margin so it costs no width and nothing reflows.
+                  m.sender_id === user?.id && 'before:absolute before:-left-2.5 before:bottom-0 before:top-0 before:w-[2px] before:rounded-full before:bg-brand/25 before:content-[\'\']',
                   grouped && '!mt-1',
                   // Quiet, not alarming: a queued message is a message, just
                   // one the world has not seen yet.
@@ -774,6 +887,17 @@ export default function NetworkChat() {
                   actionsFor === m.id && 'z-20',
                 )}
               >
+                {/* YOUR OWN MESSAGES ARE MARKED, AND THIS IS THE REPORTED BUG.
+                    Ethan: "sending messages in the uk chat is making my text
+                    appear as if someone else sent it." Nothing was going wrong
+                    on the way to the database - every row here was drawn
+                    identically, a flat left-aligned line with an avatar and a
+                    name, so your own message in a room of forty five people
+                    looked exactly like everybody else's and there was no way to
+                    pick it out. The DMs bubble your side; a room this wide
+                    should not, because right-aligning half a busy room turns it
+                    into two ragged columns. So: the author reads "You", and a
+                    hairline runs down the left of the row. */}
                 <div className="w-9 shrink-0">
                   {!grouped && <Avatar src={m.profiles?.photo_url} name={m.profiles?.name} size="sm" />}
                 </div>
@@ -783,7 +907,9 @@ export default function NetworkChat() {
                 <div className="relative min-w-0 flex-1">
                   {!grouped && (
                     <p className="mb-0.5 flex flex-wrap items-baseline gap-x-2">
-                      <span className="text-sm font-semibold">{m.profiles?.name || 'Someone'}</span>
+                      <span className={cx('text-sm font-semibold', m.sender_id === user?.id && 'text-brand')}>
+                        {m.sender_id === user?.id ? 'You' : (m.profiles?.name || 'Someone')}
+                      </span>
                       {m.profiles?.is_admin && (
                         <span className="rounded-full bg-brand-tint px-1.5 py-0.5 text-[10px] font-semibold text-brand">Team</span>
                       )}
@@ -803,6 +929,12 @@ export default function NetworkChat() {
                       formatting is open to every creator now, so gating the
                       RENDERER on is_admin would mean a creator's bold text
                       looked broken to everyone including themselves. */}
+                  {/* WHAT THIS IS ANSWERING. A reply with no quote is a
+                      non-sequitur three messages later, which is why replies
+                      were the first thing the rooms felt short of. The quote
+                      is a BUTTON: pressing it scrolls to the original and
+                      flashes it, so a thread can be walked backwards. */}
+                  {m.reply_to && <QuotedParent id={m.reply_to} lookup={byId} members={members} />}
                   {m.image_url && <ChatMedia url={m.image_url} kind="image" alt={m.body || 'Shared image'} />}
                   {m.video_url && <ChatMedia url={m.video_url} kind="video" />}
                   {editingId === m.id ? (
@@ -849,9 +981,19 @@ export default function NetworkChat() {
                     revealed={actionsFor === m.id}
                     // Edit yours for five minutes, report anybody else's. Same
                     // rules and the same window as every other chat here.
-                    actions={[
+                    // Reply to anything, edit yours for five minutes, delete
+                    // yours (or anybody's, as an admin), report somebody
+                    // else's. A pending message has no id on the server yet, so
+                    // none of them apply to it.
+                    actions={m.pending || m.failed ? [] : [
+                      ...(canPost
+                        ? [{ icon: 'reply', label: 'Reply', title: 'Reply to this message', onClick: () => { setReplyTo(m); setActionsFor(null); composerRef.current?.focus() } }]
+                        : []),
                       ...(m.sender_id === user?.id && withinEditWindow(m.created_at, nowTick)
                         ? [{ icon: 'pencil', label: 'Edit message', title: 'Edit (5 minutes)', onClick: () => { setEditingId(m.id); setActionsFor(null) } }]
+                        : []),
+                      ...(m.sender_id === user?.id || isAdmin
+                        ? [{ icon: 'trash', label: 'Delete message', title: 'Delete for everyone', danger: true, onClick: () => removeMessage(m) }]
                         : []),
                       ...(m.sender_id !== user?.id
                         ? [{ icon: 'flag', label: 'Report message', title: 'Report to the team', danger: true, onClick: () => { setReporting(m); setActionsFor(null) } }]
@@ -920,6 +1062,33 @@ export default function NetworkChat() {
           isMobile={isMobile}
           kbOpen={kbOpen}
         >
+          {/* WHAT YOU ARE REPLYING TO, WHILE YOU TYPE IT.
+              Above the composer and inside it, so it moves with the composer on
+              a phone where the whole thing is pinned to the visual viewport.
+              Escape and the X both clear it; sending clears it too. */}
+          {replyTo && (
+            <div className="mb-2 flex items-center gap-2 rounded-xl border border-brand/25 bg-brand-tint/40 py-2 pl-3 pr-2">
+              <Icon name="reply" className="h-4 w-4 shrink-0 text-brand" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-[11px] font-semibold text-brand">
+                  Replying to {replyTo.sender_id === user?.id ? 'yourself' : (replyTo.profiles?.name || 'someone')}
+                </span>
+                <span className="block truncate text-xs text-smoke">
+                  {(replyTo.body || '').replace(/\s+/g, ' ').trim()
+                    || (replyTo.image_url ? 'Photo' : replyTo.video_url ? 'Video' : 'Message')}
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setReplyTo(null)}
+                aria-label="Cancel reply"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-smoke transition-colors hover:bg-white hover:text-ink"
+              >
+                <Icon name="close" className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
           {/* THE INTRO INVITATION, IN THE ROOM ITS ANSWER GOES TO.
               It renders nothing anywhere else and nothing once the creator has
               posted an introduction. It opens itself once a session as a card
@@ -963,11 +1132,12 @@ export default function NetworkChat() {
           {flags && <span aria-hidden>{flags}</span>}
           {community.name}
         </h1>
-        <p className="mt-1 text-sm text-smoke">
-          {isLiveWorldwide
-            ? 'The rooms every creator in every market shares.'
-            : `Only ${community.name}. Nothing posted here reaches another market.`}
-        </p>
+        {/* THE SCOPE LINE IS GONE. Every market page carried "Only Spain.
+            Nothing posted here reaches another market." under its own title,
+            which is a disclaimer where a room name should be: it repeats what
+            the flag, the market name and the place switcher directly above it
+            all already say, and it reads as a warning about something that has
+            not happened. Ethan asked for it off. */}
       </div>
 
       <div

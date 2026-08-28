@@ -462,7 +462,7 @@ export default function GlobalSettings() {
     // 3 Rooms
     <div key="rooms" className="space-y-3">
       <p className="text-sm text-smoke">
-        Rooms are this market&rsquo;s own. Nothing posted in one reaches another market. You can add and rename them later.
+        Rooms are this market&rsquo;s own. You can add and rename them later.
       </p>
       {ROOM_CHOICES.map((r) => {
         const on = r.locked || form.rooms.includes(r.key)
