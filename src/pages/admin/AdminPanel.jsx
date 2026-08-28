@@ -3,7 +3,6 @@ import { isRealMember } from '../../lib/members'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { useCommunity } from '../../context/CommunityContext'
 import { PageHeader, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import Reveal from '../../components/network/Reveal'
@@ -281,7 +280,6 @@ function DeskRow({ to, icon, count, label }) {
 
 export default function AdminPanel() {
   const { enterCreatorPreview, profile } = useAuth()
-  const { enterPreview } = useCommunity()
   const navigate = useNavigate()
   const [stats, setStats] = useState(null)
   const [markets, setMarkets] = useState(null)
@@ -432,8 +430,11 @@ export default function AdminPanel() {
     persist({ panel_order: next, market_order: nextMarkets })
   }
 
+  // The network shell used to sit behind a device-local flag, so a plain Link
+  // from here bounced straight back to /home and these had to be buttons that
+  // set the flag first. The gate is gone; this stays only because the call
+  // sites read better as one named action than as a bare navigate.
   function openInNetwork(path) {
-    enterPreview()
     navigate(path)
   }
 
@@ -712,28 +713,14 @@ export default function AdminPanel() {
                 />
               ))}
             </Reveal>
+            {/* "View as creator" mints a sandbox session server-side and can
+                fail (an expired admin session, a rate limit). The message used
+                to sit under the network-preview card at the foot of the page,
+                which was nowhere near the button that caused it. */}
+            {enterError && <p className="mt-3 text-xs font-medium text-red-500">{enterError}</p>}
           </section>
         </Reveal>
 
-        {/* ---------- The global network preview ----------
-            The last thing left down here. "View as creator" moved up into the
-            grid (it is one more door on the same wall, and keeping it out cost
-            the grid an even row); this one is on its way out with the old UK
-            view, so it waits alone rather than earning a heading. */}
-        <Reveal from="down" delay={0.18}>
-          <section>
-            <button onClick={() => { enterPreview(); navigate('/global') }}
-              className="card group flex w-full items-center gap-3.5 !p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift sm:w-1/2">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center text-brand transition-transform duration-200 group-hover:scale-110">
-                <Icon name="globe" className="h-[22px] w-[22px]" />
-              </span>
-              <span className="min-w-0 flex-1 truncate text-[17px] font-semibold leading-snug tracking-[-0.01em] transition-colors group-hover:text-brand">
-                Global Network Preview
-              </span>
-            </button>
-            {enterError && <p className="mt-2 text-xs font-medium text-red-500">{enterError}</p>}
-          </section>
-        </Reveal>
       </div>
     </div>
   )

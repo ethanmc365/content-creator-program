@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react'
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom'
 import { warmMapAtlas } from './lib/mapCountries'
 import { ProtectedRoute, AdminRoute } from './components/ProtectedRoute'
 import NetworkRoute from './components/NetworkRoute'
@@ -23,11 +23,9 @@ import Terms from './pages/legal/Terms'
 
 // Creator pages
 import Onboarding from './pages/Onboarding'
-import Home from './pages/Home'
 import Profile from './pages/Profile'
 import EditProfile from './pages/EditProfile'
 import Directory from './pages/Directory'
-import Chat from './pages/Chat'
 import Messages from './pages/Messages'
 import Challenges from './pages/Challenges'
 import ChallengeDetail from './pages/ChallengeDetail'
@@ -107,6 +105,19 @@ function LazyFallback() {
   )
 }
 
+
+// A /chat/:channel link from a notification, a bookmark or an old message.
+//
+// The worldwide rooms carry the BARE channel keys (general, announcements,
+// content_tips) precisely because they inherited the UK conversation, so an old
+// link maps one-to-one onto the room that now holds those messages. Anything
+// unrecognised goes to the index rather than a 404.
+const LEGACY_ROOMS = new Set(['general', 'announcements', 'content_tips', 'introductions'])
+function LegacyChatRedirect() {
+  const { channel } = useParams()
+  return <Navigate to={LEGACY_ROOMS.has(channel) ? `/global/chat/${channel}` : '/rooms'} replace />
+}
+
 export default function App() {
   // The route is the boundary's reset key: without it one broken page poisons
   // the session, because the boundary stays in its error state and shows the
@@ -151,12 +162,21 @@ export default function App() {
         <Route path="/onboarding" element={<Onboarding />} />
 
         <Route element={<AppLayout />}>
-          <Route path="/home" element={<Home />} />
+          {/* HOME IS THE WORLDWIDE HUB NOW. The old personal dashboard could
+              not answer "what is happening across the network", which is the
+              question the landing page of a six-market community has to answer.
+              The path stays alive because hundreds of sent notifications, the
+              logo link and every "back to home" in the product point at it. */}
+          <Route path="/home" element={<Navigate to="/global" replace />} />
           <Route path="/profile/edit" element={<EditProfile />} />
           <Route path="/profile/:id" element={<Profile />} />
           <Route path="/creators" element={<Directory />} />
-          <Route path="/chat" element={<Navigate to="/chat/general" replace />} />
-          <Route path="/chat/:channel" element={<Chat />} />
+          {/* The single hard-coded UK conversation is gone. Its messages are
+              the worldwide rooms' history (they carry the bare channel keys),
+              so every old /chat link lands on the room holding the thread it
+              was pointing at rather than on a dead end. */}
+          <Route path="/chat" element={<Navigate to="/rooms" replace />} />
+          <Route path="/chat/:channel" element={<LegacyChatRedirect />} />
           <Route path="/messages" element={<Messages />} />
           <Route path="/messages/:conversationId" element={<Messages />} />
           <Route path="/challenges" element={<Challenges />} />

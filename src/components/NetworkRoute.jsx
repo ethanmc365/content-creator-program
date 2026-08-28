@@ -1,39 +1,29 @@
 import { useEffect } from 'react'
-import { Navigate, Outlet, useLocation } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { useCommunity } from '../context/CommunityContext'
 
-// Gate for every global-network route. TWO conditions, both required.
+// The network shell is THE app now. This route used to gate every global-network
+// path behind a device-local preview flag AND admin, because the build was being
+// assembled underneath a running UK challenge. That challenge is over and the
+// worldwide network is live for every creator, so the gate is gone.
 //
-//   1. The preview flag is on for this device.
-//   2. You are an admin.
+// What is left is the scroll reset, which is not ceremony: React Router keeps
+// scroll position across navigations, so arriving at /global from a scrolled
+// page lands you part-way down the hero and reads as a broken page.
 //
-// The flag alone is not a security boundary: it lives in localStorage, so a
-// creator who set it by hand would otherwise walk straight in. While a UK
-// challenge is running, nothing about this build should be reachable by the 44
-// creators using the app, so admin is checked as well.
-//
-// Neither check is the REAL boundary, which is RLS. If someone patched the
-// client past both of these, the policies added in 074 still limit them to the
-// communities they belong to: no other creator's data, no DMs, no emails, and
-// no staff channels. This gate is what keeps the build out of sight; the
-// database is what keeps it safe.
+// The REAL boundary was never this component, it is RLS. The policies added in
+// 074 limit every creator to the communities they actually belong to: a UK
+// creator can open the worldwide hub and cannot read Spain's rooms, standings
+// or challenges, because they are not a member of Spain.
 export default function NetworkRoute() {
-  const { isAdmin, profileLoaded } = useAuth()
-  const { preview } = useCommunity()
+  const { profileLoaded } = useAuth()
   const { pathname } = useLocation()
 
-  // React Router keeps the scroll position across navigations and this app has
-  // no global scroll restoration. Arriving at /global from a scrolled /admin
-  // therefore lands you part-way down the hero, which reads as a broken page.
-  // Scoped to the network routes deliberately: adding it app-wide would change
-  // behaviour on pages creators use today, which is out of bounds while a
-  // challenge is running.
   useEffect(() => { window.scrollTo(0, 0) }, [pathname])
 
-  // Wait for the profile before deciding. Treating "not loaded yet" as "not an
-  // admin" would bounce a genuine admin to Home on every hard refresh.
+  // Still wait for the profile. CommunityContext keys its whole load off the
+  // session, and rendering the shell before the profile lands flashes an empty
+  // network at somebody who is in six markets.
   if (!profileLoaded) return null
-  if (!preview || !isAdmin) return <Navigate to="/home" replace />
   return <Outlet />
 }

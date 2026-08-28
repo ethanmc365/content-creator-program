@@ -24,20 +24,16 @@ import { supabase } from './supabase'
 // AN EMPTY MARKET LIST MEANS THE NETWORK, which is the same convention
 // `events.community_ids` uses: nothing named means everybody.
 //
-// THE UK IS STILL ON THE LEGACY CHAT AND THAT CHAT READS THE BARE KEY.
-// NetworkRoute gates the whole network shell behind `preview && isAdmin`, so
-// every one of the UK's creators opens Chat.jsx, which filters messages on
-// `channel = 'announcements'` with no namespace at all. Writing the correct,
-// tidy `uk:announcements` would therefore post a UK announcement into a room
-// that no UK creator can currently open - it would look like it worked and be
-// read by nobody. Until the UK moves onto the network shell, its announcements
-// keep the bare key.
-const LEGACY_CHAT_SLUGS = new Set(['uk'])
-
-/** The channel string a room's messages must carry to be readable today. */
+// THE UK EXCEPTION IS GONE. While the UK was on the legacy single-conversation
+// chat, its announcements had to be written with the BARE key, because that
+// chat filtered on `channel = 'announcements'` with no namespace and a tidy
+// `uk:announcements` would have posted into a room no UK creator could open.
+// The UK is on the network shell now, so it namespaces like every other market
+// and the bare keys belong to Worldwide alone, which is where the whole
+// pre-network conversation lives.
+/** The channel string a room's messages must carry. */
 function channelKeyFor(community, base = 'announcements') {
   if (community?.kind === 'network') return base
-  if (LEGACY_CHAT_SLUGS.has(community?.slug)) return base
   return `${community?.slug}:${base}`
 }
 

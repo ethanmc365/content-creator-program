@@ -1,14 +1,15 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './AuthContext'
-import { isNetworkPreviewOn, setNetworkPreview, subscribeToFlags } from '../lib/featureFlags'
 
 // Who am I, in which communities, and which one am I looking at right now.
 //
-// This provider is DELIBERATELY INERT until the network preview flag is on. With
-// the flag off it does not issue a single query, so mounting it around the whole
-// app costs a live UK creator nothing at all and cannot introduce a new failure
-// mode on a page they use today.
+// This provider used to be inert until a device-local preview flag was set,
+// because the network was being built underneath a running UK challenge. The
+// network is live for everyone now, so it loads for every signed-in creator and
+// `preview` is simply "is the shell up", which it always is once there is a
+// session. The name is kept because a dozen call sites read it; what it means
+// now is "the network data is loaded", not "you are in a preview".
 const CommunityContext = createContext(null)
 
 // The two platform roles that can run the network. Kept as a function rather
@@ -18,18 +19,12 @@ export function isGlobalRole(role) {
 }
 
 export function CommunityProvider({ children }) {
-  const { session, profile, isAdmin } = useAuth()
-  // The flag AND admin, matching NetworkRoute. A creator with a hand-set
-  // localStorage key gets an inert provider that issues no queries and shows no
-  // preview pill, rather than a half-rendered shell.
-  const [flag, setFlag] = useState(isNetworkPreviewOn)
-  const preview = flag && isAdmin
+  const { session, profile } = useAuth()
+  const preview = !!session?.user
   const [memberships, setMemberships] = useState([])
   const [communities, setCommunities] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-
-  useEffect(() => subscribeToFlags(() => setFlag(isNetworkPreviewOn())), [])
 
   const load = useCallback(async () => {
     if (!session?.user || !preview) {
@@ -90,8 +85,11 @@ export function CommunityProvider({ children }) {
 
   const value = {
     preview,
-    enterPreview: () => setNetworkPreview(true),
-    exitPreview: () => setNetworkPreview(false),
+    // Kept as no-ops so the handful of admin surfaces that called them before
+    // navigating into /manage or /global keep working. There is nothing to
+    // enter or leave any more.
+    enterPreview: () => {},
+    exitPreview: () => {},
     loading,
     error,
     reload: load,

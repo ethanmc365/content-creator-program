@@ -1,7 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { useCommunity } from '../../context/CommunityContext'
 import { loadLinkOrder, orderedLinks } from '../../lib/networkLinks'
 import { supabase } from '../../lib/supabase'
 import { Avatar } from '../ui'
@@ -18,43 +17,35 @@ import { applyMotion, getStoredMotion, setShellActive, syncTheme } from '../../l
 
 // The signed-in app shell. One shared set of icon tabs powers BOTH the
 // desktop top bar and the mobile bottom bar, so they look identical.
-// Secondary destinations (Creators, roles, etc.) live in the avatar dropdown.
-// Five primary tabs keep the bottom bar uncramped on phones. Secondary
-// destinations (Creators, Library, roles, refer) live in the avatar dropdown.
+//
+// FIVE TABS, AND WHY THESE FIVE.
+//
+// The UK-only build had Home / Challenges / Chat / DMs / Calendar, where Home
+// was a personal dashboard and Chat was one hard-coded conversation. Neither
+// survives contact with six markets: the dashboard could not answer "what is
+// happening across the network", and a single chat cannot answer "where is
+// everyone talking".
+//
+// So Home IS the worldwide hub now. It keeps the name, because that is what a
+// creator calls the page they land on, and takes the globe, because that is
+// what the page actually is. There is no separate "Worldwide" tab any more -
+// having both was two doors into one room. Chat becomes Rooms, which is a
+// grouped index rather than whichever room the router picked, and Calendar
+// comes back into the slot Worldwide vacated.
 const TABS = [
-  { to: '/home', label: 'Home', icon: 'home' },
+  { to: '/global', label: 'Home', icon: 'globe' },
   { to: '/challenges', label: 'Challenges', icon: 'flag' },
-  { to: '/chat', label: 'Chat', icon: 'chat' },
+  // /rooms, not /chat. On desktop it forwards straight into the worldwide
+  // General; on a phone it is the index, because a phone cannot show a sidebar
+  // and a conversation at once.
+  { to: '/rooms', label: 'Rooms', icon: 'chat' },
   { to: '/messages', label: 'DMs', icon: 'envelope' },
   { to: '/events', label: 'Calendar', icon: 'calendar' },
 ]
 
-// The same five slots, re-cut for the network.
-//
-// The old set plus the network's own chrome meant three overlapping ways to
-// reach the same handful of pages: a Calendar tab nobody opened daily, a place
-// switcher, and an avatar menu holding fourteen links. Calendar moves into
-// "Across the network" on the Worldwide hub, and the slot it frees becomes the
-// door to that hub, so the whole people layer is one tap from anywhere.
-//
-// Swapped, never appended: six items is one too many for a phone's bottom bar,
-// and this set is only used when the network preview is on, so a UK creator's
-// bar is byte-for-byte what it was.
-// Lazy, and never rendered with the flag off. It imports `motion`, so a static
-// import here would put the animation runtime back in the bundle every UK
-// creator downloads. Same reason the network pages are code-split.
+// Lazy, and imported only here. It pulls in `motion`, so a static import would
+// put the animation runtime into the eagerly-loaded shell bundle.
 const CommandPalette = lazy(() => import('../network/CommandPalette'))
-
-const NETWORK_TABS = [
-  { to: '/home', label: 'Home', icon: 'home' },
-  { to: '/challenges', label: 'Challenges', icon: 'flag' },
-  // /rooms, not /chat. The legacy chat is one hard-coded conversation; this
-  // tab has to answer "where is everyone talking", which across six markets is
-  // a grouped index rather than whichever room the router happened to pick.
-  { to: '/rooms', label: 'Rooms', icon: 'chat' },
-  { to: '/messages', label: 'DMs', icon: 'envelope' },
-  { to: '/global', label: 'Worldwide', icon: 'globe' },
-]
 
 // WHERE THE WALKTHROUGH POINTS.
 //
@@ -65,19 +56,18 @@ const NETWORK_TABS = [
 // `/chat` are the same idea wearing different names depending on whether the
 // network shell is on, so they share an anchor. See lib/tour.js.
 const TOUR_ANCHORS = {
+  '/global': 'nav-home',
   '/home': 'nav-home',
   '/challenges': 'nav-challenges',
   '/chat': 'nav-chat',
   '/rooms': 'nav-chat',
   '/messages': 'nav-messages',
   '/events': 'nav-calendar',
-  '/global': 'nav-worldwide',
 }
 const tourAnchor = (to) => TOUR_ANCHORS[to] || undefined
 
 export default function AppLayout() {
   const { profile, isAdmin, impersonating, exitCreatorPreview, user, signOut } = useAuth()
-  const { preview: networkPreview, exitPreview } = useCommunity()
   const { pathname } = useLocation()
   // The pill is fixed to the viewport bottom, which is exactly where a chat
   // composer sits. Padding cannot solve that (the pill is not in the flow), so
@@ -92,7 +82,7 @@ export default function AppLayout() {
   // Pages that put something at the bottom of the viewport: a chat composer, a
   // DM composer. Anything floating there lands on the send button.
   const hasBottomBar = /^\/(chat|messages|rooms)(\/|$)/.test(pathname) || onNetworkChat
-  const tabs = networkPreview ? NETWORK_TABS : TABS
+  const tabs = TABS
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   // Same ten links, and the same order the reader dragged them into on the hub.
@@ -133,7 +123,6 @@ export default function AppLayout() {
   // not already typing. The typing check matters: without it, `/` in a chat
   // composer would open a search box instead of a slash.
   useEffect(() => {
-    if (!networkPreview) return
     const onKey = (e) => {
       const typing = /^(INPUT|TEXTAREA)$/.test(e.target?.tagName) || e.target?.isContentEditable
       if ((e.key === 'k' || e.key === 'K') && (e.metaKey || e.ctrlKey)) {
@@ -146,7 +135,7 @@ export default function AppLayout() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [networkPreview])
+  }, [])
   // When the software keyboard is open (e.g. typing a message) the bottom tab
   // bar slides away so the composer can sit right above the keyboard. Uses the
   // focus-driven signal so it collapses instantly (iOS often doesn't fire the
@@ -347,42 +336,6 @@ export default function AppLayout() {
           </div>
         </div>
       )}
-      {/* Same pattern as the creator preview pill above, deliberately: an admin
-          testing the network build should always have one obvious way out, in
-          the same place, whichever preview they are in. Sits slightly higher so
-          the two never overlap if both are somehow on. */}
-      {networkPreview && !impersonating && !onNetworkChat && (
-        <div className={cx(
-          'fixed z-50 flex px-4',
-          onNetworkPage
-            ? 'bottom-24 right-0 justify-end lg:bottom-6'
-            : 'inset-x-0 bottom-24 justify-center lg:bottom-6',
-        )}>
-          {/* Compact on a phone. The full pill is 260px of floating chrome over
-              whatever you were reading; on a 375px screen that is most of the
-              width, and the only part anyone needs on the move is the way out. */}
-          <div className="flex items-center gap-2 rounded-2xl border border-brand/30 bg-white px-3 py-2 shadow-lift sm:gap-3 sm:px-4">
-            <span className="flex items-center gap-2 text-xs font-medium text-ink">
-              <Icon name="globe" className="h-4 w-4 text-brand" />
-              <span className="hidden sm:inline">Global network preview</span>
-              <span className="sm:hidden">Preview</span>
-            </span>
-            <Link
-              to="/global"
-              className="hidden text-xs font-medium text-smoke transition-colors hover:text-brand sm:block"
-            >
-              Worldwide
-            </Link>
-            <button
-              onClick={() => { exitPreview(); navigate('/admin') }}
-              className="rounded-full bg-brand px-3 py-1 text-xs font-semibold text-white transition-transform hover:scale-105 active:scale-95"
-            >
-              Exit
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* ------- Top navbar ------- */}
       {/* data-ptr-handle: the only place a pull-to-refresh gesture arms, so
           scrolling chats never triggers a reload (see PullToRefresh). */}
@@ -393,7 +346,7 @@ export default function AppLayout() {
             the bar. Moves with the header, so it always covers the gap. */}
         <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-full h-screen bg-white" />
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-5 sm:px-8">
-          <Link to="/home" className="flex items-center gap-3">
+          <Link to="/global" className="flex items-center gap-3">
             <img src="/brand/tryp-logo.png" alt="Tryp.com" className="h-9 rounded-lg" />
             <span className="hidden text-sm font-semibold text-smoke md:block">Content Creator Program</span>
           </Link>
@@ -415,7 +368,7 @@ export default function AppLayout() {
           <div className="flex items-center gap-2">
             {/* Search. A visible affordance for the palette: a keyboard shortcut
                 nobody is told about is a feature that does not exist. */}
-            {networkPreview && (
+            {(
               <button
                 onClick={() => setPaletteOpen(true)}
                 aria-label="Search"
@@ -459,9 +412,7 @@ export default function AppLayout() {
                   {/* The Tryp.com team link is gone: the team are creators in
                       the directory with a role on their card, not a separate
                       page you have to know about. See Directory. */}
-                  {networkPreview && (
-                    <Link to="/milestones" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Milestones</Link>
-                  )}
+                  <Link to="/milestones" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Milestones</Link>
 
                   {/* EVERYWHERE ELSE, ON A PHONE.
                       These ten used to be a grid near the top of the Worldwide
@@ -488,8 +439,7 @@ export default function AppLayout() {
                       The rail and the menu read the same list from
                       lib/networkLinks, in the reader's own saved order, so the
                       two can never drift apart. */}
-                  {networkPreview && (
-                    <div>
+                  <div>
                       <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Explore the community</p>
                       {menuLinks.map((l) => (
                         <Link
@@ -510,38 +460,7 @@ export default function AppLayout() {
                           )}
                         </Link>
                       ))}
-                    </div>
-                  )}
-
-                  {/* Secondary destinations.
-                      With the network on, all of these live in one place on the
-                      Worldwide hub instead of a fourteen-item menu that nobody
-                      could scan: the menu keeps only what is genuinely about
-                      YOU (profile, settings, money) and points at the rest.
-                      With it off, this is the menu the UK has today. */}
-                  {/* The "Across the network" link that used to sit here is
-                      gone: the Worldwide tab in the nav goes to the same page,
-                      and two doors to one room in a menu this small is one door
-                      too many. Its unread badge moved to the tab. */}
-                  {networkPreview ? null : (
-                    <>
-                      <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Explore</p>
-                      <Link to="/creators" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Creators</Link>
-                      <Link to="/connections" onClick={() => setMenuOpen(false)} className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">
-                        <span>Connections</span>
-                        {connReqs > 0 && <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-semibold text-white">{connReqs > 9 ? '9+' : connReqs}</span>}
-                      </Link>
-                      <Link to="/collab" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Travel collab board</Link>
-                      <Link to="/leaderboard" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Leaderboard</Link>
-                      <Link to="/resources" onClick={() => setMenuOpen(false)} className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">
-                        <span>Resource library</span>
-                        {newResources && <span className="rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase text-white">New</span>}
-                      </Link>
-                      <Link to="/jobs" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Search roles</Link>
-                      <Link to="/refer" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Refer a creator</Link>
-                      <Link to="/game" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Travel games</Link>
-                    </>
-                  )}
+                  </div>
 
                   <div className="my-1 border-t border-gray-100" />
                   <Link to="/feedback" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Help us improve</Link>
@@ -568,7 +487,7 @@ export default function AppLayout() {
           NetworkChat now (`IntroInvite`) and only over the worldwide
           introductions room. */}
 
-      {networkPreview && paletteOpen && (
+      {paletteOpen && (
         <Suspense fallback={null}>
           <CommandPalette open onClose={() => setPaletteOpen(false)} />
         </Suspense>

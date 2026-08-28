@@ -3,12 +3,11 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useMyScopes, inScope } from '../lib/scope'
-import CountdownTimer from '../components/CountdownTimer'
 import Icon from '../components/Icon'
 import { PageHeader, Badge, SkeletonCards, EmptyState } from '../components/ui'
 import { formatDate, formatMoney, challengeDeadline } from '../lib/utils'
 import Reveal from '../components/network/Reveal'
-import ParticipationBar from '../components/network/ParticipationBar'
+import LiveChallengeCard from '../components/LiveChallengeCard'
 import WinnersPodium from '../components/WinnersPodium'
 
 const STATUS_TONE = { active: 'brand', ended: 'amber', archived: 'grey', draft: 'red' }
@@ -183,7 +182,15 @@ export default function Challenges() {
     .sort((a, b) => b[1] - a[1])
 
   const mine = challenges.filter((c) => inScope(scopeIds, c.community_id))
-  const live = mine.filter(isLive)
+  // A GLOBAL BRIEF LEADS THE BOARD.
+  //
+  // Everyone is a member of Worldwide, so a challenge on the network row is the
+  // one brief on this page that every creator in every market can enter. It is
+  // not "one more live challenge" and stacking it in date order with a market
+  // brief said it was. It goes first, and it gets a card that looks like the
+  // bigger thing it is.
+  const isGlobal = (c) => !!networkId && c.community_id === networkId
+  const live = mine.filter(isLive).sort((a, b) => Number(isGlobal(b)) - Number(isGlobal(a)))
   const past = mine.filter((c) => !isLive(c))
 
   return (
@@ -196,7 +203,6 @@ export default function Challenges() {
       <Reveal from="down">
         <PageHeader
           title="Challenges"
-          subtitle="One brief, one deadline, real prizes. Enter with your best video."
           action={isAdmin && <Link to="/admin/challenges/new" className="btn-primary">+ New challenge</Link>}
         />
       </Reveal>
@@ -253,69 +259,12 @@ export default function Challenges() {
           {/* ---------- Live ---------- */}
           {live.map((c) => (
             <Reveal key={c.id} from="down" delay={0.12} as="div" data-tour="challenge-card">
-              <div className="relative block overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-6 text-white shadow-lift sm:p-10">
-                {/* Soft light bloom for depth, matching the home hero. */}
-                <div className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-white/10 blur-2xl" />
-                <div className="pointer-events-none absolute -bottom-24 -left-10 h-72 w-72 rounded-full bg-black/5 blur-2xl" />
-                <div className="relative">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider">
-                      <span className="relative flex h-2 w-2">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/80" />
-                        <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
-                      </span>
-                      Live now
-                    </span>
-                    {/* A global brief sits on every creator's board in every
-                        country, so it has to say so or it reads as one more
-                        local challenge that happens to be in English. */}
-                    {networkId && c.community_id === networkId && (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-brand">
-                        <Icon name="globe" className="h-3.5 w-3.5" />
-                        Open to everyone
-                      </span>
-                    )}
-                    <span className="text-xs text-white/75">{formatDate(c.start_date)} → {formatDate(c.end_date)}</span>
-                  </div>
-                  {/* The title grows slightly on hover rather than underlining.
-                      An underline reads as "this is a link in a paragraph"; a
-                      heading that swells reads as "this whole thing is the
-                      target", which is what it actually is. origin-left keeps
-                      it anchored to the text's start instead of drifting. */}
-                  <Link to={`/challenges/${c.id}`} className="group block">
-                    <h2 className="mt-4 inline-block origin-left text-2xl font-bold transition-transform duration-200 ease-out group-hover:scale-[1.03] sm:text-3xl">
-                      {c.title}
-                    </h2>
-                    <p className="mt-2 max-w-2xl text-white/85 line-clamp-2">{c.description}</p>
-                  </Link>
-                  <div className="mt-8 flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
-                    <div>
-                      <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-white/75">Closes in</p>
-                      <CountdownTimer endDate={c.end_date} hero />
-                    </div>
-                    <div className="flex flex-col gap-2.5 lg:items-end">
-                      <div className="flex flex-wrap gap-3">
-                        <Link to={`/challenges/${c.id}`} className="btn border border-white/40 text-white hover:bg-white/10">Read the brief →</Link>
-                        <Link to={`/challenges/${c.id}?submit=1`} className="btn bg-white !text-brand hover:bg-white/90">Submit your video</Link>
-                      </div>
-                      <p className="text-sm text-white/80">{c.submissions?.[0]?.count ?? 0} {(c.submissions?.[0]?.count ?? 0) === 1 ? 'entry' : 'entries'} so far</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Participation pace: nudges the quiet majority, names no one.
-                  The shared component, not a fourth hand-rolled copy of it -
-                  this one had drifted into `Math.max(pct, 2)`, which paints a
-                  sliver of orange under "0 of 43 have posted" and is the exact
-                  bug ParticipationBar was written to avoid. */}
-              {participation[c.id] && (
-                <ParticipationBar
-                  participation={participation[c.id]}
-                  where=""
-                  className="mt-4"
-                />
-              )}
+              <LiveChallengeCard
+                challenge={c}
+                global={isGlobal(c)}
+                entries={c.submissions?.[0]?.count ?? 0}
+                participation={participation[c.id]}
+              />
             </Reveal>
           ))}
 

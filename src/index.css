@@ -1307,3 +1307,52 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
 @media (prefers-reduced-motion: reduce) {
   .lab-card { animation: none; }
 }
+
+/* ---------------------------------------------------------------------------
+   THE LIVE CHALLENGE CARD.
+
+   Two pieces of motion, both slow enough to read as light rather than as
+   animation. This is a page a creator opens weekly; anything that draws the eye
+   twice is a page that gets tiring, so the sheen runs ONCE on arrival and the
+   meridians turn at a speed you only notice if you stare.
+
+   Both are decoration on an aria-hidden layer, so switching them off for
+   reduced motion costs nothing at all.
+   ------------------------------------------------------------------------- */
+
+@keyframes challenge-sheen {
+  from { transform: translateX(-120%) skewX(-18deg); }
+  to   { transform: translateX(220%)  skewX(-18deg); }
+}
+
+.challenge-sheen {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.13) 45%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0.13) 55%,
+    transparent 100%
+  );
+  width: 45%;
+  animation: challenge-sheen 1.5s cubic-bezier(0.4, 0, 0.2, 1) 0.35s both;
+}
+
+/* The globe turns about its own centre. `transform-box: fill-box` matters:
+   without it the rotation is about the viewBox origin and the whole graphic
+   swings across the card instead of spinning in place. */
+@keyframes challenge-orbit {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.challenge-orbit {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: challenge-orbit 140s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .challenge-sheen { animation: none; opacity: 0; }
+  .challenge-orbit { animation: none; }
+}

@@ -1,15 +1,21 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { Badge, EmptyState, PageHeader, Skeleton, Spinner } from '../components/ui'
+import { Badge, EmptyState, PageHeader, Skeleton } from '../components/ui'
 import Icon from '../components/Icon'
 import { formatDate } from '../lib/utils'
 import { referralStage } from '../lib/referrals'
-import Reveal from '../components/network/Reveal'
 
-// Creators refer other creators two ways:
-//  1. Share their personal invite link (/signup?ref=CODE) - auto-credited.
-//  2. Submit a name/contact for the team to reach out to.
+// Creators refer other creators ONE way: they share their personal invite link
+// (/signup?ref=CODE), which credits them automatically.
+//
+// There used to be a second path, a form for handing the team somebody's name
+// and handle to chase up. It is gone. It produced a referral nobody could
+// track, it needed a human to act on it, and it competed with the link for
+// attention on the one page whose whole job is to get the link shared. The
+// `referrals` table still holds the rows it wrote, so the history below keeps
+// showing them.
+//
 // A referral only counts once the person they referred submits a video to a
 // challenge (see lib/referrals.js) - that is what the reward is tied to.
 const STATUS_TONE = { new: 'amber', contacted: 'light', joined: 'green', declined: 'grey' }
@@ -20,9 +26,6 @@ export default function Refer() {
   const [joined, setJoined] = useState([])
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
-  const [form, setForm] = useState({ referred_name: '', referred_contact: '', note: '' })
-  const [busy, setBusy] = useState(false)
-  const [sent, setSent] = useState(false)
 
   const inviteLink = `${window.location.origin}/signup?ref=${profile?.referral_code ?? ''}`
 
@@ -39,7 +42,7 @@ export default function Refer() {
     setLinkClicks(me?.referral_clicks ?? 0)
 
     // Which referred creators have actually submitted a challenge video? That is
-    // what counts towards the £20 voucher reward. Tag each person with their
+    // what counts towards the €20 voucher reward. Tag each person with their
     // stage so the history list can show exactly where they've got to.
     const list = joinedProfiles ?? []
     const joinedIds = list.map((p) => p.id)
@@ -63,35 +66,17 @@ export default function Refer() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  async function submit(e) {
-    e.preventDefault()
-    if (!form.referred_name.trim()) return
-    setBusy(true)
-    await supabase.from('referrals').insert({
-      referrer_id: user.id,
-      referred_name: form.referred_name.trim(),
-      referred_contact: form.referred_contact.trim(),
-      note: form.note.trim(),
-    })
-    setBusy(false)
-    setSent(true)
-    setForm({ referred_name: '', referred_contact: '', note: '' })
-    load()
-    setTimeout(() => setSent(false), 2500)
-  }
-
   return (
     <div className="page max-w-3xl">
       <PageHeader
         title="Refer a creator"
-        subtitle="Know someone who'd be perfect for the program? Bring them in. A bigger community means better collabs for everyone."
       />
 
       {/* Reward incentive + progress */}
       <section className="mb-8 overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-7 text-white shadow-lift sm:p-8">
-        <p className="text-xl font-bold sm:text-2xl">Refer 3 creators, earn a £20 Tryp.com voucher</p>
+        <p className="text-xl font-bold sm:text-2xl">Refer 3 creators, earn a €20 Tryp.com voucher</p>
         <p className="mt-2 max-w-2xl text-sm text-white/85">
-          When 3 creators you refer join and take part in a challenge, you earn a £20 Tryp.com voucher.
+          When 3 creators you refer join and take part in a challenge, you earn a €20 Tryp.com voucher.
           All referrals are verified by the Tryp.com team to make sure they're genuine, active creators.
         </p>
         <div className="mt-5 max-w-sm">
@@ -157,32 +142,6 @@ export default function Refer() {
         )}
       </section>
 
-      {/* Refer by name */}
-      <section className="card mb-10">
-        <h2 className="text-lg font-semibold">Or refer someone directly</h2>
-        <p className="mt-1 text-sm text-smoke">Give us their details and the team will reach out.</p>
-        <form onSubmit={submit} className="mt-5 space-y-4">
-          <Reveal className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label htmlFor="r-name" className="label">Their name</label>
-              <input id="r-name" type="text" required className="input" value={form.referred_name} onChange={(e) => setForm({ ...form, referred_name: e.target.value })} placeholder="e.g. Leo Fairbanks" />
-            </div>
-            <div>
-              <label htmlFor="r-contact" className="label">Contact <span className="font-normal text-smoke">(handle or email)</span></label>
-              <input id="r-contact" type="text" className="input" value={form.referred_contact} onChange={(e) => setForm({ ...form, referred_contact: e.target.value })} placeholder="@handle or email" />
-            </div>
-          </Reveal>
-          <div>
-            <label htmlFor="r-note" className="label">Why them? <span className="font-normal text-smoke">(optional)</span></label>
-            <textarea id="r-note" rows={2} className="input" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="A line on their content and following…" />
-          </div>
-          <div className="flex items-center justify-end gap-3">
-            {sent && <span className="text-sm font-medium text-green-600">Thanks! Referral sent ✓</span>}
-            <button type="submit" disabled={busy} className="btn-primary">{busy ? <Spinner /> : 'Submit referral'}</button>
-          </div>
-        </form>
-      </section>
-
       {/* History */}
       <section>
         <h2 className="mb-1 text-lg font-semibold">Your referrals</h2>
@@ -190,7 +149,7 @@ export default function Refer() {
         {loading ? (
           <div className="space-y-3"><Skeleton className="h-14 w-full" /><Skeleton className="h-14 w-full" /></div>
         ) : referrals.length === 0 && joined.length === 0 ? (
-          <EmptyState icon={<Icon name="share" className="h-7 w-7" />} title="No referrals yet" hint="Share your link or refer someone above to get started." />
+          <EmptyState icon={<Icon name="share" className="h-7 w-7" />} title="No referrals yet" hint="Share your link to get started." />
         ) : (
           <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
             {joined.map((p) => (
