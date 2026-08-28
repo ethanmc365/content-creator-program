@@ -241,7 +241,22 @@ const Countries = memo(function Countries({ features, land, separator, visited, 
 // must never paint. Their radius divides by the zoom so it stays a constant
 // finger-sized target at every magnification - the opposite rule to the dots,
 // and correct for the opposite reason.
-function WorldAirports({ placed, zoom, center, onPick, selected }) {
+//
+// AND THE HIT TARGETS ARE DRAWN IN A SEPARATE PASS, ABOVE THE ROUTES.
+//
+// THE BUG: "if I click on an airport dot near a flight trail, it clicks on the
+// flight trail instead." SVG has no z-index - the last thing painted is the
+// thing on top and the thing that gets the press - and this whole component was
+// rendered BEFORE the arcs. Each arc carries an invisible 14px stroke so a
+// two-pixel line can be tapped with a thumb, and that fat stroke was therefore
+// lying across every airport dot within seven pixels of a route. On a map whose
+// dots ARE the ends of those routes, that is most of them.
+//
+// The two layers want opposite orders and cannot both be satisfied by moving
+// the component: the visible dots belong UNDER the routes (they are scenery you
+// read through), and the hit circles belong OVER them. So `layer` renders one or
+// the other and FlightMap draws it twice, once on each side of the arcs.
+function WorldAirports({ placed, zoom, center, onPick, selected, layer = 'dots' }) {
   const shown = useMemo(() => {
     if (!placed.length) return []
     const deepest = tierAt(zoom)
@@ -256,6 +271,28 @@ function WorldAirports({ placed, zoom, center, onPick, selected }) {
 
   if (!shown.length) return null
   const hit = Math.max(1.2, 9 / zoom)
+
+  if (layer === 'hits') {
+    return (
+      <g>
+        {shown.map((a) => (
+          <circle
+            key={a.iata}
+            cx={a.x}
+            cy={a.y}
+            r={hit}
+            fill="transparent"
+            style={{ cursor: 'pointer' }}
+            onClick={(e) => { e.stopPropagation(); onPick(a.iata) }}
+          >
+            {/* A native tooltip on the hit target, so hovering a dot on a
+                laptop names it without opening anything. */}
+            <title>{`${a.iata} - ${a.name}`}</title>
+          </circle>
+        ))}
+      </g>
+    )
+  }
 
   return (
     <>
@@ -273,23 +310,6 @@ function WorldAirports({ placed, zoom, center, onPick, selected }) {
             // at a radius where a size difference is under a pixel.
             opacity={a.iata === selected ? 1 : a.tier === 0 ? 0.62 : a.tier === 3 ? 0.3 : 0.44}
           />
-        ))}
-      </g>
-      <g>
-        {shown.map((a) => (
-          <circle
-            key={a.iata}
-            cx={a.x}
-            cy={a.y}
-            r={hit}
-            fill="transparent"
-            style={{ cursor: 'pointer' }}
-            onClick={(e) => { e.stopPropagation(); onPick(a.iata) }}
-          >
-            {/* A native tooltip on the hit target, so hovering a dot on a
-                laptop names it without opening anything. */}
-            <title>{`${a.iata} - ${a.name}`}</title>
-          </circle>
         ))}
       </g>
     </>
@@ -619,6 +639,7 @@ function FlightMap({ routes = [], airports = [] }) {
           center={position.coordinates}
           onPick={pickAirport}
           selected={pickedAirport}
+          layer="dots"
         />
 
         {/* THE ROUTES DRAW THEMSELVES IN.
@@ -662,6 +683,22 @@ function FlightMap({ routes = [], airports = [] }) {
             </g>
           )
         })}
+
+        {/* THE AIRPORT PRESS TARGETS, ABOVE THE ROUTES.
+            Their dots are painted under the routes, twenty lines up, because
+            they are scenery you read through. The invisible circles that
+            actually receive a press have to be here instead: an arc carries a
+            14px transparent stroke so a two-pixel line can be tapped, and
+            underneath that stroke an airport dot was unreachable. Nothing is
+            drawn twice - the two passes render different elements. */}
+        <WorldAirports
+          placed={worldPlaced}
+          zoom={liveZoom}
+          center={position.coordinates}
+          onPick={pickAirport}
+          selected={pickedAirport}
+          layer="hits"
+        />
 
         {/* THE TRAFFIC. Always moving, one aircraft per long route, plus one on
             whatever route is open even if it was not long enough to make the
@@ -760,6 +797,13 @@ function FlightMap({ routes = [], airports = [] }) {
   // small enough that reading it was work. `max-w-md`, a size up on every line
   // and room for four rows before it scrolls; still a popover, but one you can
   // read at arm's length.
+  // A route's rows, with anything that is not a real flight object dropped.
+  // Belt and braces on top of the FlightCommunity fix: a caller that hands this
+  // map a sparse array should get a shorter list, never a crash inside a
+  // popover.
+  const activeRows = (active?.flights || []).filter((f) => f && f.id)
+  const activeCount = active ? (active.count ?? active.flights?.length ?? 0) : 0
+
   const card = active && (
     <div className="pointer-events-auto absolute inset-x-3 bottom-3 z-20 mx-auto max-w-md overflow-hidden rounded-card border border-gray-100 bg-white/97 shadow-lift backdrop-blur animate-map-in">
       <div className="flex items-start gap-3 border-b border-gray-100 px-5 py-4">
@@ -779,8 +823,11 @@ function FlightMap({ routes = [], airports = [] }) {
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-semibold">{active.from.city} to {active.to.city}</span>
           <span className="block text-xs text-smoke">
-            {active.flights.length} {active.flights.length === 1 ? 'flight' : 'flights'}
-            {active.flights[0]?.dist ? ` · ${fmtKm(active.flights[0].dist)} km each way` : ''}
+            {/* `count` when the caller gave one (the community map knows how
+                many flights a route carries but is not allowed to know whose or
+                when), otherwise the length of the rows we actually hold. */}
+            {activeCount} {activeCount === 1 ? 'flight' : 'flights'}
+            {activeRows[0]?.dist ? ` · ${fmtKm(activeRows[0].dist)} km each way` : ''}
           </span>
         </span>
         <button type="button" onClick={() => setSelected(null)} aria-label="Close"
@@ -788,10 +835,20 @@ function FlightMap({ routes = [], airports = [] }) {
           <Icon name="close" className="h-4 w-4" />
         </button>
       </div>
-      {/* Five, then a count. A route somebody commutes could be forty rows and
-          this is a popover on a map, not the log. */}
+      {/* NO ROWS IS A LEGITIMATE STATE, not an empty list.
+          On the community map a route is a count and nothing else - who flew it
+          and when is deliberately not readable (migration 103) - so the card
+          says what it can say instead of drawing an empty scroller. */}
+      {activeRows.length === 0 ? (
+        <p className="px-5 py-3.5 text-xs text-smoke">
+          Dates and airlines stay private to whoever logged the flight. This is
+          how many times the community has flown the route.
+        </p>
+      ) : (
+      /* Five, then a count. A route somebody commutes could be forty rows and
+         this is a popover on a map, not the log. */
       <ul className="max-h-56 divide-y divide-gray-50 overflow-y-auto overscroll-contain">
-        {active.flights.slice(0, 5).map((f) => (
+        {activeRows.slice(0, 5).map((f) => (
           <li key={f.id} className="flex items-baseline gap-2.5 px-5 py-2.5 text-xs">
             <span className="shrink-0 font-semibold tabular-nums text-ink">{f.flown_on}</span>
             <span className="min-w-0 flex-1 truncate text-smoke">
@@ -801,9 +858,10 @@ function FlightMap({ routes = [], airports = [] }) {
           </li>
         ))}
       </ul>
-      {active.flights.length > 5 && (
+      )}
+      {activeRows.length > 5 && (
         <p className="border-t border-gray-50 px-5 py-2.5 text-[11px] text-smoke">
-          and {active.flights.length - 5} more on this route
+          and {activeRows.length - 5} more on this route
         </p>
       )}
     </div>

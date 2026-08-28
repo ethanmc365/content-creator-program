@@ -719,7 +719,13 @@ export default function ManageChapter() {
                           <Icon name={mode.icon} className="h-3 w-3" /> {mode.short}
                         </Badge>
                         <Badge tone={c.status === 'active' ? 'green' : 'grey'} className="shrink-0">{c.status}</Badge>
-                        <Link to={`/admin/challenges/${c.id}`}
+                        {/* /edit, and this was a 404. `/admin/challenges/:id`
+                            is not a route - the challenge form lives at
+                            `/admin/challenges/:id/edit`, and `/admin/challenges`
+                            itself redirects to `/challenges` - so every Edit
+                            button on a market's challenge list landed on the
+                            not-found screen. */}
+                        <Link to={`/admin/challenges/${c.id}/edit`}
                           className="shrink-0 rounded-full border border-gray-200 px-3 py-1 text-xs font-medium transition-transform duration-200 hover:scale-105 hover:border-brand hover:text-brand">
                           Edit
                         </Link>

@@ -310,7 +310,22 @@ export default function FlightCommunity() {
       const to = airport(r.b)
       if (!from || !to) continue
       const n = Number(r.flights) || 1
-      arcs.push({ key: `${r.a}-${r.b}`, from, to, flights: new Array(n).fill(null) })
+      // `count`, NOT AN ARRAY OF NULLS - AND THIS WAS A CRASH.
+      //
+      // This used to push `flights: new Array(n).fill(null)` purely so the map
+      // could read `.length` for the route's weight. The route card then did
+      // `active.flights.slice(0, 5).map((f) => <li key={f.id}>)` and threw on
+      // the first null: "clicking on a flight trail across the community is
+      // causing errors."
+      //
+      // The array was always a lie. `route_flyers` returns airports and counts
+      // ONLY - never a date, an airline or a flight number - and that is
+      // deliberate (migration 103): those fields are what turn a travel record
+      // into somebody's movement history, and this is other people's data. So
+      // there are no per-flight rows to show here, and the honest shape is a
+      // number. FlightMap prefers `count` when it is given one and only lists
+      // rows it actually has.
+      arcs.push({ key: `${r.a}-${r.b}`, from, to, count: n, flights: [] })
       weight.set(r.a, (weight.get(r.a) || 0) + n)
       weight.set(r.b, (weight.get(r.b) || 0) + n)
     }

@@ -98,18 +98,54 @@ export default function ScanBoardingPass({ open, onClose, onFilled, now }) {
         video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 } },
       })
       streamRef.current = stream
+      // The <video> does not exist yet - it renders when `mode` becomes
+      // 'camera'. Attaching the stream is done in the effect below, AFTER the
+      // commit, rather than here. See the note there: doing it from a bare
+      // requestAnimationFrame is what produced a black box.
       setMode('camera')
-      // The element only exists once `camera` has rendered.
-      requestAnimationFrame(() => {
-        const v = videoRef.current
-        if (!v) return
-        v.srcObject = stream
-        v.play?.().catch(() => {})
-      })
     } catch {
       setMode('nocamera')
     }
   }
+
+  // ATTACHING THE STREAM, AND WHY THIS IS AN EFFECT.
+  //
+  // THE BUG: "trying to scan a physical boarding pass shows up the camera
+  // screen but then just pure black." The stream was attached inside a single
+  // `requestAnimationFrame` fired immediately after `setMode('camera')`. That
+  // is a race. React batches the state update and commits when it is ready;
+  // one animation frame is not a promise that the commit has happened, and on a
+  // phone - slower, and often mid-scroll or mid-transition - it frequently had
+  // not. `videoRef.current` was then still null, the callback hit its
+  // `if (!v) return` guard, and nothing ever attached the stream to anything.
+  // The element rendered, the modal looked right, and the box stayed black
+  // forever with no error anywhere.
+  //
+  // An effect cannot lose that race: it runs after the commit, so the ref is
+  // populated by definition. Keying it on `mode` also means it re-attaches if
+  // the camera is stopped and started again, which the rAF version did not.
+  //
+  // `play()` is called AND `autoplay` is set on the element. Belt and braces on
+  // purpose: iOS only autoplays a video that is `muted` and `playsinline`
+  // (both set), and Safari has historically wanted the explicit call as well.
+  // The promise is caught because a play interrupted by an immediate unmount
+  // rejects, and that is not an error worth surfacing.
+  useEffect(() => {
+    if (mode !== 'camera') return undefined
+    const v = videoRef.current
+    const stream = streamRef.current
+    if (!v || !stream) return undefined
+    v.srcObject = stream
+    const tryPlay = () => { v.play?.().catch(() => {}) }
+    tryPlay()
+    // Some browsers are not ready to play on the frame the source is set.
+    v.addEventListener('loadedmetadata', tryPlay)
+    return () => {
+      v.removeEventListener('loadedmetadata', tryPlay)
+      // Detach so a stopped stream is not left held by a hidden element.
+      if (v.srcObject === stream) v.srcObject = null
+    }
+  }, [mode])
 
   // The live loop. An interval rather than rAF: decoding is expensive and there
   // is nothing to gain from trying sixty times a second when a hand holding a
@@ -180,7 +216,7 @@ export default function ScanBoardingPass({ open, onClose, onFilled, now }) {
         {mode === 'camera' && (
           <>
             <div className="relative overflow-hidden rounded-card bg-ink">
-              <video ref={videoRef} playsInline muted className="h-64 w-full object-cover" />
+              <video ref={videoRef} playsInline muted autoPlay className="h-64 w-full object-cover" />
               {/* A frame to aim with. The barcode is a wide short strip along
                   the bottom of a boarding pass, so the guide is that shape
                   rather than a square. */}
