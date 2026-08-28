@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { format } from 'date-fns'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -8,20 +8,44 @@ import WorldMap from '../components/WorldMap'
 import Icon from '../components/Icon'
 import { cx } from '../lib/utils'
 import TravelGallery from '../components/TravelGallery'
+import PhotoBoard from '../components/PhotoBoard'
+import SocialMark, { brandForUrl } from '../components/SocialMark'
+import AutoTextarea from '../components/AutoTextarea'
 import { flagForCountry } from '../lib/flags'
 import { geocodeCity } from '../lib/geocode'
 import { PageHeader, Spinner } from '../components/ui'
 
 // Edit every part of your own profile on one calm page.
+//
+// FOUR NAMES, NO EXPLANATIONS. Each tab carried a line of hint text underneath
+// it ("Photo, name and the lines people read first"), which is four sentences
+// of furniture explaining four words that do not need explaining. Ethan: "each
+// of these has a little description under that is not needed, just have the
+// title."
 const TABS = [
-  { key: 'you', label: 'You', icon: 'user', hint: 'Photo, name and the lines people read first' },
-  { key: 'links', label: 'Links', icon: 'link', hint: 'Where your work lives' },
-  { key: 'travel', label: 'Travel', icon: 'globe', hint: 'Trips, languages, the map' },
-  { key: 'photos', label: 'Photos', icon: 'image', hint: 'Up to ten from your trips' },
+  { key: 'you', label: 'You', icon: 'user' },
+  { key: 'links', label: 'Links', icon: 'link' },
+  { key: 'travel', label: 'Travel', icon: 'globe' },
+  { key: 'photos', label: 'Photos', icon: 'image' },
 ]
 
+const TAB_KEYS = new Set(TABS.map((t) => t.key))
+
 export default function EditProfile() {
-  const [tab, setTab] = useState('you')
+  // WHICH PANEL YOU LAND ON IS IN THE URL.
+  //
+  // "Manage photos" on the profile used to link at /profile/edit, which opens
+  // on "You" - so pressing a control labelled Manage photos put you in front of
+  // a form about your name and date of birth with the photos three tabs away.
+  // Read ONCE into state rather than driven from the URL on every render: the
+  // tabs are a local view preference after you arrive, and rewriting the query
+  // string on every click would fill the back stack with four entries that all
+  // look like the same page.
+  const [params] = useSearchParams()
+  const [tab, setTab] = useState(() => {
+    const asked = params.get('tab')
+    return asked && TAB_KEYS.has(asked) ? asked : 'you'
+  })
   const { user, profile, refreshProfile } = useAuth()
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
@@ -40,6 +64,7 @@ export default function EditProfile() {
     tiktok_url: profile?.tiktok_url || '',
     youtube_url: profile?.youtube_url || '',
     facebook_url: profile?.facebook_url || '',
+    linkedin_url: profile?.linkedin_url || '',
     other_links: Array.isArray(profile?.other_links) ? profile.other_links : [],
     languages: profile?.languages || [],
     countries_visited: profile?.countries_visited || [],
@@ -115,7 +140,7 @@ export default function EditProfile() {
 
   return (
     <div className="page max-w-5xl">
-      <PageHeader title="Edit profile" subtitle="Make it a profile you're proud to share." />
+      <PageHeader title="Edit profile" />
 
       {/* ================= FOUR PANELS, NOT ONE LONG FORM =================
           Ethan: "the edit profile page currently opens up, seems like a lot of
@@ -148,12 +173,7 @@ export default function EditProfile() {
                 )}
               >
                 <Icon name={t.icon} className="h-4 w-4 shrink-0" />
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold">{t.label}</span>
-                  <span className={cx('hidden text-[11px] leading-tight lg:block', on ? 'text-white/75' : 'text-smoke')}>
-                    {t.hint}
-                  </span>
-                </span>
+                <span className="min-w-0 text-sm font-semibold">{t.label}</span>
               </button>
             )
           })}
@@ -187,7 +207,10 @@ export default function EditProfile() {
             </div>
             <div>
               <label htmlFor="about" className="label">About you</label>
-              <textarea id="about" rows={5} className="input" value={form.about} onChange={(e) => set({ about: e.target.value })} />
+              {/* IT GROWS. A fixed five rows meant anybody writing a real
+                  paragraph was editing it through a letterbox, scrolling a box
+                  inside a page that also scrolls. See AutoTextarea. */}
+              <AutoTextarea id="about" minRows={5} className="input" value={form.about} onChange={(e) => set({ about: e.target.value })} />
             </div>
             <QuoteField value={form.favourite_quote} onChange={(favourite_quote) => set({ favourite_quote })} />
             <PhoneInput value={contact} onChange={setContact} />
@@ -198,13 +221,20 @@ export default function EditProfile() {
             <h2 className="text-lg font-semibold">Social links</h2>
             <SocialInputs values={form} onChange={(v) => set(v)} />
 
-            {/* Extra links (blog, Linktree, etc.) stored as JSON */}
+            {/* ANYTHING ELSE: a blog, a Linktree, a press kit. Stored as JSON.
+                Each row shows the mark its URL resolves to, so pasting an X or
+                a Pinterest link visibly becomes that platform as you type and
+                you can see it will not come out as a generic chain link. */}
             <div>
               <p className="label">Other links</p>
               {form.other_links.map((l, i) => (
-                <div key={i} className="mb-3 flex gap-2">
+                <div key={i} className="mb-3 flex items-center gap-2">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-cloud text-smoke" aria-hidden>
+                    <SocialMark brand={brandForUrl(l.url || '')} className="h-5 w-5" />
+                  </span>
                   <input
-                    type="text" placeholder="Label (e.g. Blog)" className="input !w-36"
+                    type="text" placeholder="Label (e.g. Blog)" className="input !w-32 shrink-0"
+                    aria-label={`Label for link ${i + 1}`}
                     value={l.label}
                     onChange={(e) => {
                       const links = [...form.other_links]
@@ -213,7 +243,8 @@ export default function EditProfile() {
                     }}
                   />
                   <input
-                    type="url" placeholder="https://…" className="input flex-1"
+                    type="url" placeholder="https://…" className="input min-w-0 flex-1"
+                    aria-label={`URL for link ${i + 1}`}
                     value={l.url}
                     onChange={(e) => {
                       const links = [...form.other_links]
@@ -299,18 +330,69 @@ export default function EditProfile() {
                 })
               }
             />
-            <p className="text-sm font-semibold text-brand">{form.countries_visited.length} {form.countries_visited.length === 1 ? 'country' : 'countries'} selected</p>
+            {/* THE LIST IS BACK UNDER THE MAP, AND IT IS THE WAY OUT.
+                This was a bare count: "47 countries selected". Fine as a
+                total, useless as a control - the only way to un-pick a country
+                was to find it again on the map, which for anything smaller than
+                France is a real hunt. Ethan: "improve the UI here but it should
+                still be showing up the names of the country here so you can
+                easily see and x any."
+                (The public profile has the opposite answer and for the opposite
+                reason: there the map IS the list and nothing is removable, so
+                forty grey chips were six rows of nothing.) */}
+            <div className="space-y-2.5">
+              <p className="text-sm font-semibold text-brand">
+                {form.countries_visited.length} {form.countries_visited.length === 1 ? 'country' : 'countries'} selected
+              </p>
+              {form.countries_visited.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {[...form.countries_visited].sort().map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => set({ countries_visited: form.countries_visited.filter((x) => x !== c) })}
+                      title={`Remove ${c}`}
+                      aria-label={`Remove ${c}`}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-cloud py-1.5 pl-2.5 pr-2 text-xs font-medium text-ink transition-colors hover:bg-red-50 hover:text-red-600"
+                    >
+                      <span aria-hidden className="text-sm leading-none">{flagForCountry(c) || '📍'}</span>
+                      {c}
+                      <Icon name="close" className="h-3 w-3 shrink-0 opacity-50" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </section>
 
           {/* Travel photos last, matching the public profile's section order. */}
           </div>
+          {/* ---------- Photos ----------
+              THIS IS THE BOARD, NOT A SECOND GRID. There used to be two ways to
+              manage the same photographs: a plain uploader grid here, and an
+              "Arrange the board" mode on the public profile. Two editors for
+              one thing, and the one you got depended on which page you happened
+              to be on. Ethan: "we have arrange the board and we have manage
+              photos which is weird, it should just be manage photos with that
+              clean design and functionality and it should then appear correctly
+              on the profile as it shows in the preview."
+              So the uploader and the board are stacked in one panel, and the
+              board is the SAME component the profile renders. What you arrange
+              here is what lands there, because it is not a preview of the
+              profile, it is the profile's own board. */}
           <div className={tab === 'photos' ? 'space-y-6' : 'hidden'}>
           <section className="card space-y-5">
+            <h2 className="text-lg font-semibold">Travel photos</h2>
+            <TravelGallery creatorId={user.id} editable uploadOnly />
+          </section>
+          <section className="card space-y-4">
             <div>
-              <h2 className="text-lg font-semibold">Travel photos</h2>
-              <p className="mt-1 text-sm text-smoke">Share up to 10 shots from your trips. They appear on your public profile.</p>
+              <h2 className="text-lg font-semibold">Arrange your board</h2>
+              <p className="mt-1 text-sm text-smoke">
+                Drag to move, pull a corner to resize, tap a photo to set where it crops from. It saves itself, and this is exactly how it appears on your profile.
+              </p>
             </div>
-            <TravelGallery creatorId={user.id} editable />
+            <PhotoBoard creatorId={user.id} editable alwaysArranging />
           </section>
           </div>
 
@@ -320,19 +402,28 @@ export default function EditProfile() {
               the answer to "have I saved this" is always on screen.
               `bottom-20` on a phone clears the tab bar, which wins the paint
               order against anything that is not fixed. */}
-          <div className="sticky bottom-20 z-20 mt-6 flex items-center justify-end gap-3 rounded-card border border-gray-100 bg-white/95 p-3 shadow-lift backdrop-blur sm:bottom-4">
-            {saved && <span className="mr-auto text-sm font-medium text-green-600">Saved ✓</span>}
-            <button type="button" onClick={() => navigate(-1)} className="btn-ghost">Cancel</button>
-            <button type="submit" disabled={busy} className="btn-primary">
-              {busy ? <Spinner /> : 'Save profile'}
+          {/* THE "SAVED ✓" ON THE LEFT IS GONE. Saving already navigates
+              straight to the profile, so the tick appeared for a fraction of a
+              second on a bar that was about to disappear - and while it was
+              there it shoved the two buttons sideways, which is the one thing a
+              fixed control must never do. The button says what happened
+              instead, in the place you were already looking. */}
+          <div className="sticky bottom-20 z-20 mt-6 flex items-center justify-end gap-2.5 rounded-card border border-gray-100 bg-white/95 px-3 py-2.5 shadow-lift backdrop-blur sm:bottom-4">
+            <button type="button" onClick={() => navigate(-1)} className="btn-ghost !py-2 text-sm">Cancel</button>
+            <button
+              type="submit"
+              disabled={busy || saved}
+              className={cx('btn-primary !py-2 text-sm', saved && '!bg-green-600')}
+            >
+              {busy ? <Spinner /> : saved ? 'Saved' : 'Save profile'}
             </button>
           </div>
         </div>
       </form>
 
       <p className="mt-8 text-center text-xs text-smoke">
-        Looking for payment details, data download or account deletion? They now live on your{' '}
-        <Link to="/settings" className="font-medium text-brand hover:underline">Settings</Link> page.
+        Looking for payment details, data download or account deletion? They are on the{' '}
+        <Link to="/settings" className="font-medium text-brand hover:underline">settings page</Link>.
       </p>
     </div>
   )

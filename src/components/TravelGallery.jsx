@@ -28,7 +28,13 @@ const MAX_PHOTOS = 10
 //  * editable=false → read-only grid on someone's profile.
 //  * editable=true  → owner can upload, caption and delete (used in Edit Profile).
 // Photos live in the public "gallery" bucket under gallery/<user id>/...
-export default function TravelGallery({ creatorId, editable = false }) {
+// `uploadOnly` is the Edit profile → Photos panel. There, this component is
+// just the film strip: add, caption, delete. ARRANGING BELONGS TO THE BOARD -
+// PhotoBoard sits directly underneath it in that panel and owns position, size
+// and crop, so leaving the drag-to-reorder and make-larger controls here would
+// be two different arrangement models for one set of photographs, and whichever
+// one you touched last would win.
+export default function TravelGallery({ creatorId, editable = false, uploadOnly = false }) {
   const { user } = useAuth()
   const [photos, setPhotos] = useState([])
   const [loading, setLoading] = useState(true)
@@ -178,7 +184,10 @@ export default function TravelGallery({ creatorId, editable = false }) {
     <div>
       {editable && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-smoke">{photos.length} / {MAX_PHOTOS} photos&ensp;Drag the grip handle to reorder and tap the expand button to make a photo larger.</p>
+          <p className="text-sm text-smoke">
+            {photos.length} / {MAX_PHOTOS} photos
+            {!uploadOnly && <>&ensp;Drag the grip handle to reorder and tap the expand button to make a photo larger.</>}
+          </p>
           <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFiles} />
           <button
             type="button" onClick={() => fileRef.current?.click()}
@@ -192,9 +201,17 @@ export default function TravelGallery({ creatorId, editable = false }) {
       {error && <p className="mb-3 text-xs text-red-600">{error}</p>}
 
       {/* A masonry-style travel board: large photos span 2x2, dense flow fills gaps. */}
-      <div className="grid auto-rows-[110px] grid-cols-2 gap-2 [grid-auto-flow:dense] sm:auto-rows-[150px] sm:grid-cols-4 sm:gap-3">
+      <div className={cx(
+        'grid gap-2 sm:gap-3',
+        uploadOnly
+          // A film strip of equal squares. Shape does not matter here, because
+          // this is the list of what you HAVE; the board below is what it looks
+          // like.
+          ? 'auto-rows-[104px] grid-cols-3 sm:grid-cols-5 lg:grid-cols-6'
+          : 'auto-rows-[110px] grid-cols-2 [grid-auto-flow:dense] sm:auto-rows-[150px] sm:grid-cols-4',
+      )}>
         {photos.map((p) => (
-          <figure key={p.id} data-pid={p.id} className={cx('group relative overflow-hidden rounded-xl bg-cloud', p.size === 'large' && 'col-span-2 row-span-2', dragId === p.id && 'opacity-50 ring-2 ring-brand')}>
+          <figure key={p.id} data-pid={p.id} className={cx('group relative overflow-hidden rounded-xl bg-cloud', !uploadOnly && p.size === 'large' && 'col-span-2 row-span-2', dragId === p.id && 'opacity-50 ring-2 ring-brand')}>
             <button type="button" onClick={() => setLightbox(p)} className="block h-full w-full">
               <img src={p.photo_url} alt={p.caption || 'Travel photo'} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
             </button>
@@ -203,10 +220,14 @@ export default function TravelGallery({ creatorId, editable = false }) {
               <>
                 {/* Control bar (always visible so it works on touch) */}
                 <div className="absolute inset-x-1 top-1 flex items-center justify-between gap-1">
-                  {/* Drag handle: press and drag to reorder. touch-none stops the page scrolling while dragging. */}
-                  <button type="button" onPointerDown={(e) => beginDrag(e, p)} className="cursor-grab touch-none rounded-full bg-white/90 p-1 text-ink shadow-card active:cursor-grabbing" aria-label="Drag to reorder"><Icon name="grip" className="h-3.5 w-3.5" strokeWidth={2.2} /></button>
-                  <div className="flex gap-1">
-                    <button type="button" onClick={() => toggleSize(p)} className="rounded-full bg-white/90 p-1 text-brand shadow-card" aria-label={p.size === 'large' ? 'Make smaller' : 'Make larger'} title={p.size === 'large' ? 'Make smaller' : 'Make larger'}><Icon name="expand" className="h-3.5 w-3.5" strokeWidth={2.2} /></button>
+                  {!uploadOnly && (
+                    /* Drag handle: press and drag to reorder. touch-none stops the page scrolling while dragging. */
+                    <button type="button" onPointerDown={(e) => beginDrag(e, p)} className="cursor-grab touch-none rounded-full bg-white/90 p-1 text-ink shadow-card active:cursor-grabbing" aria-label="Drag to reorder"><Icon name="grip" className="h-3.5 w-3.5" strokeWidth={2.2} /></button>
+                  )}
+                  <div className="ml-auto flex gap-1">
+                    {!uploadOnly && (
+                      <button type="button" onClick={() => toggleSize(p)} className="rounded-full bg-white/90 p-1 text-brand shadow-card" aria-label={p.size === 'large' ? 'Make smaller' : 'Make larger'} title={p.size === 'large' ? 'Make smaller' : 'Make larger'}><Icon name="expand" className="h-3.5 w-3.5" strokeWidth={2.2} /></button>
+                    )}
                     <button type="button" onClick={() => remove(p)} className="rounded-full bg-white/90 p-1 text-red-500 shadow-card" aria-label="Remove photo"><svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"><path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" /></svg></button>
                   </div>
                 </div>

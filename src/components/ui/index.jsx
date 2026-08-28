@@ -397,7 +397,11 @@ export function Select({
   // stops fitting on screen in one look.
   const searchable = options.length > 8
   const q = query.trim().toLowerCase()
-  const shown = q ? options.filter((o) => String(o.label).toLowerCase().includes(q)) : options
+  // Matches the label OR the hint, so typing "353" finds Ireland by its dial
+  // code and not only by its name.
+  const shown = q
+    ? options.filter((o) => `${o.label} ${o.hint ?? ''}`.toLowerCase().includes(q))
+    : options
 
   useEffect(() => {
     if (!open) return
@@ -490,8 +494,14 @@ export function Select({
             up ? 'bottom-full mb-2' : 'top-full mt-2',
           )}
         >
+          {/* The search row is the menu's HEADER, so it is flush with the menu's
+              own edges rather than a bordered field floating inside a padded
+              strip - which read as a second, smaller popup sitting on top of the
+              list. The magnifier is what says "type here"; a box around it as
+              well is one affordance too many. */}
           {searchable && (
-            <div className="shrink-0 border-b border-gray-100 p-1.5">
+            <div className="flex shrink-0 items-center gap-2 border-b border-gray-100 px-3.5 py-2.5">
+              <Icon name="magnifier" className="h-4 w-4 shrink-0 text-gray-300" />
               <input
                 ref={searchRef}
                 type="text"
@@ -500,7 +510,7 @@ export function Select({
                 aria-label="Search options"
                 onChange={(e) => { setQuery(e.target.value); setActive(0) }}
                 onKeyDown={onKeyDown}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-brand focus:outline-none"
+                className="w-full border-0 bg-transparent p-0 text-sm placeholder:text-gray-400 focus:outline-none"
               />
             </div>
           )}
@@ -527,12 +537,29 @@ export function Select({
                   onClick={() => choose(i)}
                   onMouseEnter={() => setActive(i)}
                   className={cx(
-                    'flex w-full items-center justify-between gap-4 rounded-xl px-3.5 py-2.5 text-left text-sm transition-colors',
+                    'flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm transition-colors',
                     i === active ? 'bg-brand-tint text-brand' : 'text-ink',
                     isSelected && i !== active && 'text-brand',
                   )}
                 >
-                  <span className="whitespace-nowrap">{o.label}</span>
+                  {/* A LEADING GLYPH GETS ITS OWN COLUMN.
+                      Concatenating a flag into the label - `${flag} ${name}` -
+                      renders as one run of text, and an emoji's own side
+                      bearings swallow the space, so it came out as
+                      "🇬🇧United Kingdom". A fixed column also means the names
+                      line up down the list instead of starting wherever the
+                      previous flag happened to end. */}
+                  {o.icon && (
+                    <span aria-hidden className="w-5 shrink-0 text-center text-base leading-none">{o.icon}</span>
+                  )}
+                  <span className="min-w-0 flex-1 whitespace-nowrap">{o.label}</span>
+                  {/* A secondary value, right-aligned and tabular so a column of
+                      dial codes reads as a column. */}
+                  {o.hint && (
+                    <span className={cx('shrink-0 tabular-nums', i === active || isSelected ? 'text-brand/70' : 'text-smoke')}>
+                      {o.hint}
+                    </span>
+                  )}
                   {isSelected && <Icon name="check" className="h-4 w-4 shrink-0" />}
                 </button>
               </li>

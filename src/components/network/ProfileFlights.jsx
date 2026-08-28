@@ -33,7 +33,13 @@ import { cx } from '../../lib/utils'
 //
 // AND IT RESPECTS THE OPT-IN. Somebody else's profile shows only flights they
 // share with the community. Your own shows everything, because it is yours.
-export default function ProfileFlights({ creatorId, isMe, name }) {
+//
+// IT LIVES IN THE RAIL NOW (`rail`). It was a full-width band in the left
+// column and the aircraft collection was a separate rail card above it, which
+// meant the same aeroplanes were drawn twice on one page in two different
+// sizes. One card: the four lifetime numbers, then the three types flown most,
+// with their photographs. The wide variant is kept for the flight log page.
+export default function ProfileFlights({ creatorId, isMe, name, rail = false }) {
   const [rows, setRows] = useState(null)
 
   useEffect(() => {
@@ -77,16 +83,30 @@ export default function ProfileFlights({ creatorId, isMe, name }) {
     }
     const top = [...types.entries()]
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 4)
+      .slice(0, rail ? 3 : 4)
       .map(([key, n]) => ({ key: AIRCRAFT[key] ? key : null, name: AIRCRAFT[key]?.name || key, type: AIRCRAFT[key], n }))
     return { km, flights: flown.length, ports: ports.size, countries: countries.size, top }
-  }, [rows])
+  }, [rows, rail])
 
-  if (rows === null) return <Skeleton className="h-40 w-full" />
+  if (rows === null) return <Skeleton className={rail ? 'h-52 w-full rounded-card' : 'h-40 w-full'} />
   // NOTHING TO SAY IS SAID BY SAYING NOTHING, on somebody else's page. On your
   // own it is an invitation, because you are the one who can fix it.
   if (!stat || stat.flights === 0) {
     if (!isMe) return null
+    if (rail) {
+      return (
+        <section className="rounded-card border border-dashed border-gray-200 p-4 text-center">
+          <span className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-brand-tint text-brand">
+            <Icon name="plane-tryp" className="h-4 w-4" />
+          </span>
+          <p className="text-sm font-semibold text-ink">Your flight log is empty</p>
+          <p className="mt-1 text-xs leading-relaxed text-smoke">
+            Log one flight and this fills in. Scan the boarding pass and it does the rest.
+          </p>
+          <Link to="/flights" className="btn-primary mt-3 !py-1.5 text-xs">Open the flight log</Link>
+        </section>
+      )
+    }
     return (
       <div className="rounded-card border border-dashed border-gray-200 px-6 py-10 text-center">
         <span className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-tint text-brand">
@@ -102,6 +122,67 @@ export default function ProfileFlights({ creatorId, isMe, name }) {
   }
 
   const first = name?.split(' ')[0]
+
+  // ---------------------------------------------------------------- the rail
+  //
+  // Two by two rather than one by four: the rail is a third of the page wide,
+  // and four numbers across it puts each of them in about forty pixels.
+  if (rail) {
+    return (
+      <section className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
+        <div className="flex items-baseline justify-between gap-2 px-4 pb-1 pt-4">
+          <h2 className="flex items-center gap-2 text-sm font-semibold">
+            <Icon name="plane-tryp" className="h-4 w-4 shrink-0 text-brand" />
+            Flight Log
+          </h2>
+          <Link to={isMe ? '/flights' : '/flights/community'} className="shrink-0 text-xs font-medium text-brand transition-transform duration-200 hover:scale-105">
+            {isMe ? 'Open' : 'Community'}
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 gap-px bg-gray-50 px-4 py-3">
+          {[
+            { v: Math.round(stat.km).toLocaleString('en-GB'), unit: 'km', label: 'Flown' },
+            { v: stat.flights, label: stat.flights === 1 ? 'Flight' : 'Flights' },
+            { v: stat.ports, label: 'Airports' },
+            { v: stat.countries, label: 'Countries' },
+          ].map((sBox) => (
+            <div key={sBox.label} className="bg-white py-1.5">
+              <p className="text-lg font-bold leading-none tabular-nums text-ink">
+                {sBox.v}
+                {sBox.unit && <span className="ml-1 text-[11px] font-semibold text-smoke">{sBox.unit}</span>}
+              </p>
+              <p className="mt-1 text-[11px] text-smoke">{sBox.label}</p>
+            </div>
+          ))}
+        </div>
+        {/* THE THREE TYPES FLOWN MOST, WITH THEIR PHOTOGRAPHS. A row of numbers
+            is a record; three aeroplanes somebody has actually sat on is a
+            conversation, and it is the half of a flight log worth showing to
+            another person. */}
+        {stat.top.length > 0 && (
+          <div className="border-t border-gray-50 px-4 py-3.5">
+            <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-widest text-smoke">
+              {isMe ? 'Flown most' : `${first} flies most`}
+            </p>
+            <div className="space-y-2">
+              {stat.top.map((t) => (
+                <div key={t.name} className="flex items-center gap-2.5">
+                  <span className="block h-10 w-16 shrink-0 overflow-hidden rounded-lg bg-cloud">
+                    <AircraftPhoto typeKey={t.key} type={t.type} owned />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-xs font-semibold text-ink">{t.name}</span>
+                    <span className="block text-[11px] text-smoke">{t.n} {t.n === 1 ? 'flight' : 'flights'}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
+    )
+  }
+
   return (
     <div className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
       <div className="grid grid-cols-2 divide-x divide-gray-50 sm:grid-cols-4">

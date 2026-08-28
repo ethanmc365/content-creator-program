@@ -48,11 +48,20 @@ const CELL_RATIO = 0.82
 export function defaultBox(aspect, i = 0) {
   // A photo's FIRST appearance matches the shape it was uploaded at, so nothing
   // is cropped until somebody chooses to crop it.
+  //
+  // TWO ACROSS, NOT THREE. The default width was 4 of 12 columns, so an
+  // un-arranged board came out as rows of three small tiles - and since the
+  // photo section shares the page with a rail, that is about 250px each, which
+  // is a thumbnail. Ethan asked for the photos to be a bigger section. Six
+  // columns is half the width, the shape is still the shape it was uploaded at,
+  // and anybody who wants three across can drag it there.
   const a = Number.isFinite(aspect) && aspect > 0 ? aspect : 1
-  let w = 4
-  let h = Math.max(2, Math.min(8, Math.round((w / a) / CELL_RATIO)))
-  if (a < 0.85) { h = 6; w = Math.max(2, Math.min(6, Math.round((h * CELL_RATIO) * a))) }
-  return { pos_x: (i % 3) * 4, pos_y: Math.floor(i / 3) * 5, pos_w: w, pos_h: h }
+  let w = 6
+  let h = Math.max(3, Math.min(11, Math.round((w / a) / CELL_RATIO)))
+  // A portrait photo is driven from its HEIGHT instead, or a 6-wide portrait
+  // would be eleven cells tall and push everything else off the screen.
+  if (a < 0.85) { h = 8; w = Math.max(3, Math.min(7, Math.round((h * CELL_RATIO) * a))) }
+  return { pos_x: (i % 2) * 6, pos_y: Math.floor(i / 2) * 7, pos_w: w, pos_h: h }
 }
 
 function boxOf(p, i) {
@@ -98,14 +107,24 @@ function useCellSize(ref) {
   return { boardWidth: w, cellW: cw, cellH: cw * CELL_RATIO }
 }
 
-export default function PhotoBoard({ creatorId, editable = false, onCount }) {
+// `alwaysArranging` is the Edit profile → Photos panel: the whole point of that
+// panel is arranging, so making somebody press "Arrange the board" first is a
+// mode toggle in front of the only mode. On the public profile the board is
+// read-only (`editable` false), which is why the toggle exists at all.
+export default function PhotoBoard({ creatorId, editable = false, alwaysArranging = false, onCount }) {
   const [photos, setPhotos] = useState(null)
-  const [arranging, setArranging] = useState(false)
+  const [arrangingSelf, setArranging] = useState(false)
   const [dragId, setDragId] = useState(null)
   const [cropping, setCropping] = useState(null)
   const [lightbox, setLightbox] = useState(null)
   const boardRef = useRef(null)
   const wide = useWideEnough()
+  // On the Edit profile panel the board is always in arrange mode; on a narrow
+  // screen it is never in arrange mode, because a 31px cell and a thumb is
+  // worse than no board at all. Declared AFTER `wide` - a const cannot be read
+  // before its own line, and putting this at the top of the component threw a
+  // ReferenceError the moment the panel mounted.
+  const arranging = wide && (alwaysArranging || arrangingSelf)
   const { cellW, cellH } = useCellSize(boardRef)
   // The live drag lives in a ref: it updates on every pointer move, and a
   // re-render per frame is what makes a drag feel like treacle.
@@ -221,7 +240,7 @@ export default function PhotoBoard({ creatorId, editable = false, onCount }) {
 
   return (
     <>
-      {editable && wide && (
+      {editable && wide && !alwaysArranging && (
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <button
             type="button"

@@ -2,8 +2,6 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import Icon from '../Icon'
-import AircraftPhoto from './AircraftPhoto'
-import { AIRCRAFT, aircraftTypeByName } from '../../lib/airlines'
 import { cx } from '../../lib/utils'
 
 // THE REST OF THE PLATFORM, ON THE PROFILE.
@@ -44,86 +42,43 @@ function RailCard({ icon, title, to, linkLabel, children }) {
   )
 }
 
-// ------------------------------------------------------------ the aircraft
-//
-// THE PHOTOGRAPHS, NOT A NUMBER. "Six aircraft" is a statistic; four
-// photographs of aeroplanes with a "+2" is a collection, and a collection is
-// the thing somebody clicks. They are the same 640px files the collection page
-// uses, already in the browser cache for anybody who has been there.
-export function AircraftCard({ creatorId, isMe, firstName }) {
-  const [types, setTypes] = useState(null)
-
-  useEffect(() => {
-    let alive = true
-    supabase.from('flights').select('aircraft').eq('creator_id', creatorId)
-      .not('aircraft', 'is', null)
-      .then(({ data }) => {
-        if (!alive) return
-        const seen = new Map()
-        for (const f of data || []) {
-          const name = (f.aircraft || '').trim()
-          if (!name) continue
-          seen.set(name.toLowerCase(), name)
-        }
-        setTypes([...seen.values()])
-      })
-    return () => { alive = false }
-  }, [creatorId])
-
-  if (types === null) return null
-  if (!types.length) return null
-
-  const total = Object.keys(AIRCRAFT).length
-  const shown = types.slice(0, 4)
-
-  return (
-    <RailCard icon="plane-tryp" title="Aircraft collection" to="/flights/aircraft" linkLabel="The collection">
-      <div className="grid grid-cols-2 gap-1.5">
-        {shown.map((name) => {
-          const t = aircraftTypeByName(name)
-          return (
-            <span key={name} className="relative block aspect-[16/9] overflow-hidden rounded-lg bg-cloud" title={name}>
-              <AircraftPhoto typeKey={t?.key} type={t} owned />
-            </span>
-          )
-        })}
-      </div>
-      <p className="mt-2.5 text-xs text-smoke">
-        <span className="font-semibold text-ink">{types.length}</span>
-        {` of ${total} aircrafts `}
-        {isMe ? 'you have been on' : `${firstName} has been on`}
-      </p>
-    </RailCard>
-  )
-}
+// THE AIRCRAFT CARD IS GONE. It drew the four types somebody had flown as
+// photographs, which was the right idea in the wrong place: ProfileFlights now
+// carries the same aeroplanes inside the Flight Log rail card, alongside the
+// distance and the airports they belong to. Two cards on one rail drawing the
+// same photographs at two different sizes was the duplication, not the idea.
+// The collection page itself (/flights/aircraft) is unchanged.
 
 // -------------------------------------------------------------- the puzzles
 //
-// WHAT A PUZZLE RECORD ACTUALLY IS. `game_scores` holds one row per attempt
-// with `correct` out of `total`, so a "record" is the best ratio somebody has
-// managed - and `day_key` counts the days they turned up, which is the number
-// that says whether this is a habit. Both are read from the rows rather than
-// from the streak RPC, because that one WRITES (it spends freezes as a side
-// effect) and a profile view must never change somebody's streak.
+// PLAYED, ON A RUN, AND THE BEST RUN THEY HAVE EVER HAD.
+//
+// This used to show "puzzles played", "days turned up" and a best ROUND -
+// the best correct/total ratio somebody had ever scored. That last one was the
+// weakest number on the card: a 1/1 on a one-question mode reads as a perfect
+// record, it is not comparable between modes, and nobody plays for it. Ethan
+// asked for the streaks instead, which are the numbers the games themselves are
+// built around.
+//
+// THE STREAK COMES FROM THE DATABASE, NOT FROM HERE. `profile_game_stats`
+// (migration 145) is a pure STABLE read that counts a day as played OR frozen,
+// exactly as the games page and the streak leaderboard do. Computing it in the
+// browser from `game_scores` would have been two lines and would have quietly
+// ignored freezes, so a profile would say 4 while the games page said 9.
+//
+// It is also the reason this cannot call `my_game_streak`: that one WRITES. It
+// spends freezes as a side effect, so drawing somebody's profile with it would
+// burn their freezes because a stranger looked at them.
 export function PuzzleCard({ creatorId, isMe, firstName }) {
   const [stats, setStats] = useState(null)
 
   useEffect(() => {
     let alive = true
-    supabase.from('game_scores').select('mode, correct, total, day_key')
-      .eq('player_id', creatorId).limit(2000)
+    supabase.rpc('profile_game_stats', { p_profile: creatorId })
       .then(({ data }) => {
         if (!alive) return
-        const rows = data || []
-        if (!rows.length) { setStats({ plays: 0 }); return }
-        const days = new Set(rows.map((r) => r.day_key).filter(Boolean))
-        let best = null
-        for (const r of rows) {
-          if (!r.total) continue
-          const pct = r.correct / r.total
-          if (!best || pct > best.pct) best = { pct, correct: r.correct, total: r.total, mode: r.mode }
-        }
-        setStats({ plays: rows.length, days: days.size, best })
+        // The RPC returns a one-row table, so supabase-js hands back an array.
+        setStats(Array.isArray(data) ? data[0] ?? null : data ?? null)
       })
     return () => { alive = false }
   }, [creatorId])
@@ -132,22 +87,31 @@ export function PuzzleCard({ creatorId, isMe, firstName }) {
 
   return (
     <RailCard icon="joystick" title="Travel games" to="/game" linkLabel="Play">
-      <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-xl bg-cloud/60 px-3 py-2.5">
-          <p className="text-lg font-bold leading-none tabular-nums">{stats.plays}</p>
-          <p className="mt-1 text-[11px] text-smoke">puzzles played</p>
-        </div>
-        <div className="rounded-xl bg-cloud/60 px-3 py-2.5">
-          <p className="text-lg font-bold leading-none tabular-nums">{stats.days}</p>
-          <p className="mt-1 text-[11px] text-smoke">days turned up</p>
-        </div>
+      <div className="grid grid-cols-3 gap-1.5">
+        {[
+          { v: stats.plays, label: 'played' },
+          { v: stats.current_streak, label: 'day streak', live: stats.current_streak > 0 },
+          { v: stats.best_streak, label: 'best ever' },
+        ].map((s) => (
+          <div
+            key={s.label}
+            className={cx(
+              'rounded-xl px-2.5 py-2.5',
+              s.live ? 'bg-brand-tint' : 'bg-cloud/60',
+            )}
+          >
+            <p className={cx('text-lg font-bold leading-none tabular-nums', s.live && 'text-brand')}>{s.v}</p>
+            <p className="mt-1 text-[11px] leading-tight text-smoke">{s.label}</p>
+          </div>
+        ))}
       </div>
-      {stats.best && (
-        <p className="mt-2.5 text-xs text-smoke">
-          Best round: <span className="font-semibold text-ink">{stats.best.correct}/{stats.best.total}</span>
-          {` · ${isMe ? 'your' : `${firstName}'s`} record`}
-        </p>
-      )}
+      {/* One line of plain English under three bare numbers, because "12 / 4 /
+          9" on its own is a scoreboard with no subject. */}
+      <p className="mt-2.5 text-xs text-smoke">
+        {stats.current_streak > 0
+          ? `${isMe ? 'You have' : `${firstName} has`} played ${stats.current_streak} ${stats.current_streak === 1 ? 'day' : 'days'} in a row.`
+          : `${isMe ? 'Your' : `${firstName}'s`} longest run is ${stats.best_streak} ${stats.best_streak === 1 ? 'day' : 'days'}.`}
+      </p>
     </RailCard>
   )
 }

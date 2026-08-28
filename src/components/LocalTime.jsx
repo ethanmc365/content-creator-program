@@ -16,7 +16,12 @@ import { cx } from '../lib/utils'
 // It renders NOTHING when the profile cannot be placed - see the note in
 // localTime about the countries we refuse to guess at. A wrong time here would
 // be read as a fact and acted on.
-export default function LocalTime({ profile, className, showNote = true }) {
+// `bare` strips the icon and the "for them" tail and renders the clock alone.
+// The profile rail card supplies both of those itself - it has its own icon in
+// a tinted circle and its own caption line underneath - so the full version
+// there produced a clock next to a clock over "12:32pm for them, same as you"
+// above "Jacob's local time", which is the same sentence three times.
+export default function LocalTime({ profile, className, showNote = true, bare = false }) {
   const [now, setNow] = useState(() => new Date())
 
   useEffect(() => {
@@ -28,6 +33,14 @@ export default function LocalTime({ profile, className, showNote = true }) {
   if (!line) return null
 
   const isSame = line.note === 'same time as you'
+
+  if (bare) {
+    return (
+      <span className={className} title={line.zone}>
+        {line.time}
+      </span>
+    )
+  }
 
   return (
     <span

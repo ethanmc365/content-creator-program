@@ -46,13 +46,15 @@ describe('defaultBox', () => {
     }
   })
 
-  it('flows unarranged photos across the board in rows of three', () => {
+  // TWO across, not three. The default tile went from 4 columns to 6 so an
+  // un-arranged board reads as photographs rather than as thumbnails; anybody
+  // who wants three across can still drag them there.
+  it('flows unarranged photos across the board in rows of two', () => {
     expect(defaultBox(1, 0).pos_x).toBe(0)
-    expect(defaultBox(1, 1).pos_x).toBe(4)
-    expect(defaultBox(1, 2).pos_x).toBe(8)
+    expect(defaultBox(1, 1).pos_x).toBe(6)
     // and wraps rather than running off the right-hand edge
-    expect(defaultBox(1, 3).pos_x).toBe(0)
-    expect(defaultBox(1, 3).pos_y).toBeGreaterThan(defaultBox(1, 0).pos_y)
+    expect(defaultBox(1, 2).pos_x).toBe(0)
+    expect(defaultBox(1, 2).pos_y).toBeGreaterThan(defaultBox(1, 0).pos_y)
   })
 
   it('survives a missing or nonsense aspect', () => {

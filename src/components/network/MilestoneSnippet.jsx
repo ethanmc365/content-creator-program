@@ -29,7 +29,11 @@ export default function MilestoneSnippet({ profileId, own = false, className }) 
   if (!rows || rows.length === 0) return null
 
   const { reached, total, next, last, blocked } = routeState(rows)
-  const pct = Math.round((reached / total) * 100)
+  // The "N% of the route so far" line is gone. The dot row directly above it
+  // already draws exactly that fraction, at a glance and without arithmetic,
+  // and "36%" has to be converted back into something meaningful before it
+  // means anything. Ethan: "it's not needed, we can visually see the progress
+  // bar."
   // How far into the NEXT stop, across all of its requirements rather than the
   // one metric a milestone used to carry.
   const nextPct = next ? Math.round(milestoneFraction(next) * 100) : 100
@@ -39,7 +43,7 @@ export default function MilestoneSnippet({ profileId, own = false, className }) 
       <div className="mb-3 flex items-center justify-between gap-3">
         <h3 className="flex items-center gap-2 text-sm font-semibold">
           <Icon name="plane" className="h-4 w-4 text-brand" />
-          {own ? 'Your milestones' : 'On the route'}
+          {own ? 'Your milestones' : 'Milestones'}
         </h3>
         <span className="text-xs font-semibold text-brand">{reached} / {total}</span>
       </div>
@@ -116,7 +120,6 @@ export default function MilestoneSnippet({ profileId, own = false, className }) 
           See the whole route <Icon name="chevronRight" className="h-3.5 w-3.5" />
         </Link>
       )}
-      {!own && <p className="mt-2 text-[11px] text-smoke">{pct}% of the route so far.</p>}
     </div>
   )
 }

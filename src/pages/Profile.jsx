@@ -3,23 +3,22 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { roleBadgeTitle } from '../lib/roles'
 import { useAuth } from '../context/AuthContext'
-import { useCommunity } from '../context/CommunityContext'
 import WorldMap from '../components/WorldMap'
-import TravelGallery from '../components/TravelGallery'
 import PhotoBoard from '../components/PhotoBoard'
 import VideoThumb from '../components/VideoThumb'
 import MilestoneSnippet from '../components/network/MilestoneSnippet'
 import ProfileFlights from '../components/network/ProfileFlights'
-import { AircraftCard, ChallengeHistoryCard, PuzzleCard } from '../components/network/ProfileRailCards'
+import { ChallengeHistoryCard, PuzzleCard } from '../components/network/ProfileRailCards'
 import ConnectButton from '../components/ConnectButton'
 import ReportCreator from '../components/ReportCreator'
 import LocalTime from '../components/LocalTime'
 import { loadRelationship, mutualCreators } from '../lib/connections'
 import { openConversation } from '../lib/dm'
 import { confirm, notice } from '../lib/confirm'
-import { downloadShareCard } from '../lib/shareCard'
 import { flagForCountry } from '../lib/flags'
-import { Avatar, Badge, Skeleton, EmptyState, CopyButton } from '../components/ui'
+import { airport } from '../lib/airports'
+import SocialMark, { brandForUrl } from '../components/SocialMark'
+import { Avatar, Badge, Skeleton, EmptyState } from '../components/ui'
 import Icon from '../components/Icon'
 import { format } from 'date-fns'
 import { loadMapCentroids } from '../lib/mapCountries'
@@ -30,7 +29,6 @@ import { formatDate, timeAgo, ageFromDob, cx } from '../lib/utils'
 export default function Profile() {
   const { id } = useParams()
   const { user, profile } = useAuth()
-  const { preview: networkPreview } = useCommunity()
   const navigate = useNavigate()
   const isMe = id === user?.id
   const viewerIsAdmin = !!profile?.is_admin
@@ -40,15 +38,15 @@ export default function Profile() {
   const [challengeCount, setChallengeCount] = useState(0)
   const [relation, setRelation] = useState(null)
   const [trips, setTrips] = useState([])
+  const [upcoming, setUpcoming] = useState([])
   const [todayStr] = useState(() => format(new Date(), 'yyyy-MM-dd'))
   const [mutual, setMutual] = useState({ people: [], total: 0 })
   const [reporting, setReporting] = useState(false)
+  const [bucketOpen, setBucketOpen] = useState(false)
+  // Which showcase card has its caption open. One at a time: two open cards in
+  // a three-across grid pushes the row below them down twice.
+  const [openCaption, setOpenCaption] = useState(null)
   const [loading, setLoading] = useState(true)
-  // Private contact details (email + phone), only fetched for admin viewers.
-  const [contact, setContact] = useState(null)
-  // Aggregated stats that drive the achievement badges.
-  const [badgeStats, setBadgeStats] = useState(null)
-  const [sharing, setSharing] = useState(false)
   const [deciding, setDeciding] = useState(false)
 
   // This is an application profile if an admin is viewing a creator still
@@ -69,27 +67,31 @@ export default function Profile() {
     navigate('/admin/applications')
   }
 
-  async function shareCard() {
-    setSharing(true)
-    await downloadShareCard({
-      name: creator.name,
-      photoUrl: creator.photo_url,
-      city: creator.city,
-      country: creator.country,
-      joinedYear: (creator.accepted_at || creator.created_at) ? new Date(creator.accepted_at || creator.created_at).getFullYear() : null,
-      stats: {
-        countries: creator.countries_visited?.length || 0,
-        videos: submissions.length,
-        totalViews: badgeStats?.totalViews || 0,
-      },
-    })
-    setSharing(false)
-  }
-
   useEffect(() => {
     async function load() {
       setLoading(true)
-      const [{ data: p }, { data: subs }, rel, { data: results }, { count: referralCount }, { data: tripsData }] = await Promise.all([
+      const today = format(new Date(), 'yyyy-MM-dd')
+      // WHAT IS COMING UP COMES FROM TWO PLACES, NOT ONE.
+      //
+      // "Where I'm headed next" only ever read `collab_posts`, so a creator who
+      // had logged four future flights and posted no collab trips had an empty
+      // section on a profile that plainly knew where they were going. A booked
+      // flight is a plan in exactly the way a collab post is; the difference is
+      // only what you can do about it, which is what the card links to.
+      //
+      // Somebody else's upcoming flights are filtered to the ones they share
+      // with the community, the same line migration 103 drew for the flight
+      // leaderboards. Your own profile shows all of yours.
+      let upcomingFlights = supabase
+        .from('flights')
+        .select('id, to_iata, flown_on, share_with_community')
+        .eq('creator_id', id)
+        .gt('flown_on', today)
+        .order('flown_on', { ascending: true })
+        .limit(12)
+      if (!isMe) upcomingFlights = upcomingFlights.eq('share_with_community', true)
+
+      const [{ data: p }, { data: subs }, rel, { data: tripsData }, { data: flightsData }] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', id).single(),
         supabase
           .from('submissions')
@@ -97,26 +99,15 @@ export default function Profile() {
           .eq('creator_id', id)
           .order('submitted_at', { ascending: false }),
         isMe ? Promise.resolve(null) : loadRelationship(user.id, id),
-        supabase.from('results').select('final_views, rank').eq('creator_id', id),
-        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('referred_by', id),
-        supabase.from('collab_posts').select('id, city, country, start_date, end_date').eq('creator_id', id).gte('end_date', format(new Date(), 'yyyy-MM-dd')).order('start_date', { ascending: true }),
+        supabase.from('collab_posts').select('id, city, country, start_date, end_date').eq('creator_id', id).gte('end_date', today).order('start_date', { ascending: true }),
+        upcomingFlights,
       ])
       setCreator(p)
       setSubmissions(subs ?? [])
       setChallengeCount(new Set((subs ?? []).map((s) => s.challenge_id)).size)
       setRelation(rel)
       setTrips(tripsData ?? [])
-      const r = results ?? []
-      setBadgeStats({
-        submissions: (subs ?? []).length,
-        challenges: new Set((subs ?? []).map((s) => s.challenge_id)).size,
-        totalViews: r.reduce((sum, x) => sum + (x.final_views || 0), 0),
-        bestRank: r.length ? Math.min(...r.map((x) => x.rank)) : 0,
-        wins: r.filter((x) => x.rank === 1).length,
-        countries: (p?.countries_visited ?? []).length,
-        languages: (p?.languages ?? []).length,
-        referrals: referralCount ?? 0,
-      })
+      setUpcoming(flightsData ?? [])
       setLoading(false)
     }
     load()
@@ -139,14 +130,8 @@ export default function Profile() {
   // not something to put on it. Reaching for a number is now a deliberate act:
   // /admin/creators, open the person. The RPC and creator_private's RLS still
   // enforce admin-only access server side; this is one less place it is shown.
-  useEffect(() => {
-    if (!viewerIsAdmin) { setContact(null); return }
-    async function loadContact() {
-      const { data: email } = await supabase.rpc('admin_get_email', { target: id })
-      setContact({ email: email || '' })
-    }
-    loadContact()
-  }, [id, viewerIsAdmin, isMe])
+  // The admin email fetch that used to live here is gone with the card it fed.
+  // Nothing on this page reads a creator's private contact details any more.
 
   async function startMessage() {
     const convId = await openConversation(user.id, id)
@@ -204,6 +189,46 @@ export default function Profile() {
     return null
   }, [creator, currentTrip, centroids, isMe])
 
+  // WHERE THEY ARE HEADED, FROM BOTH SOURCES, IN ONE ORDER.
+  //
+  // Collab posts and upcoming flights are two records of the same thing, so
+  // they are merged, sorted by date and de-duplicated: a creator who posts a
+  // Lisbon trip AND logs the flight to Lisbon should get one row, not two.
+  // The collab post wins that tie, because it is the one with a conversation
+  // attached and therefore the more useful destination.
+  const headedNext = useMemo(() => {
+    const rows = trips.map((t) => ({
+      key: `trip-${t.id}`,
+      // Country repeated as the city ("Namibia, Namibia") is what the collab
+      // form produces when somebody names a country with no town. Say it once.
+      place: t.city && t.city !== t.country ? `${t.city}, ${t.country}` : (t.city || t.country || 'Somewhere'),
+      country: t.country,
+      flag: flagForCountry(t.country),
+      start: t.start_date,
+      when: `${format(new Date(t.start_date), 'd MMM')} – ${format(new Date(t.end_date), 'd MMM yyyy')}`,
+      to: '/collab',
+    }))
+    const claimed = new Set(rows.map((r) => (r.country || '').toLowerCase()))
+    for (const f of upcoming) {
+      const a = airport(f.to_iata)
+      if (!a) continue
+      if (claimed.has((a.country || '').toLowerCase())) continue
+      claimed.add((a.country || '').toLowerCase())
+      rows.push({
+        key: `flight-${f.id}`,
+        place: a.city ? `${a.city}, ${a.country}` : a.country,
+        country: a.country,
+        flag: flagForCountry(a.country),
+        start: f.flown_on,
+        when: `Flying in ${format(new Date(f.flown_on), 'd MMM yyyy')}`,
+        // No collab post behind it, so the collab board has nothing to show.
+        // The community flight log is where this trip actually exists.
+        to: '/flights/community',
+      })
+    }
+    return rows.sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0)).slice(0, 6)
+  }, [trips, upcoming])
+
   if (loading) {
     return (
       <div className="page space-y-8">
@@ -224,48 +249,67 @@ export default function Profile() {
     )
   }
 
+  // A NAMED PLATFORM GETS ITS OWN MARK; ANYTHING ELSE GETS THE CHAIN LINK.
+  // These were four identical grey buttons reading "Instagram ↗", "TikTok ↗"
+  // and so on, so the row was four words where it should have been four
+  // recognisable shapes. See components/SocialMark.
   const socials = [
-    { url: creator.instagram_url, label: 'Instagram' },
-    { url: creator.tiktok_url, label: 'TikTok' },
-    { url: creator.youtube_url, label: 'YouTube' },
-    { url: creator.facebook_url, label: 'Facebook' },
-    ...(Array.isArray(creator.other_links) ? creator.other_links.map((l) => ({ url: l.url, label: l.label || 'Link' })) : []),
-  ].filter((s) => s.url)
+    { url: creator.instagram_url, brand: 'instagram', label: 'Instagram' },
+    { url: creator.tiktok_url, brand: 'tiktok', label: 'TikTok' },
+    { url: creator.youtube_url, brand: 'youtube', label: 'YouTube' },
+    { url: creator.facebook_url, brand: 'facebook', label: 'Facebook' },
+    { url: creator.linkedin_url, brand: 'linkedin', label: 'LinkedIn' },
+    ...(Array.isArray(creator.other_links)
+      ? creator.other_links.map((l) => ({ url: l.url, brand: brandForUrl(l.url), label: l.label || 'Link' }))
+      : []),
+  ].filter((x) => x.url)
 
   return (
     <div className="page space-y-10">
       {/* ---------- Header ---------- */}
       <section className="flex flex-col items-center gap-6 text-center sm:flex-row sm:items-start sm:text-left">
-        <Avatar src={creator.photo_url} name={creator.name} size="xl" />
+        {/* BIGGER. The avatar is the only picture in the header and it was the
+            same size as the one on a directory card, so the page opened with
+            the name doing all the work. */}
+        <div className="shrink-0">
+          <Avatar src={creator.photo_url} name={creator.name} size="xl" className="!h-32 !w-32 sm:!h-36 sm:!w-36" />
+        </div>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-col items-center gap-2 sm:flex-row sm:gap-3">
-            <h1 className="text-3xl font-bold tracking-tight">{creator.name}</h1>
-            {/* WHAT THEY ARE ACTUALLY CALLED.
-                Every admin used to read "Tryp.com Team", which is true of all
-                of them and therefore says nothing about any of them. The title
-                is already stored per person (profiles.role_title, set on the
-                team page) and `roleTitle` falls back to the generic label only
-                when nobody has been given one - so a Spain country manager
-                reads "Spanish Country Manager" and Ethan reads
-                "Tryp.com CCC Lead". */}
-            {/* A TITLE THE LADDER GAVE THEM, in the same place as a team title
-                and deliberately not the same colour. The badge used to appear
-                only for admins, so a creator who had flown far enough to earn
-                "Tryp.com Senior Creator" was shown nothing at all - the reward
-                existed in the database and nowhere a person could see it. Grey
-                for earned, brand-tint for team: one is something you did, the
-                other is a job you hold, and they should not read alike. */}
-            {(creator.is_admin || creator.earned_role) && (
-              <Badge tone={creator.is_admin ? 'light' : 'grey'}>{roleBadgeTitle(creator)}</Badge>
+          <h1 className="text-3xl font-bold tracking-tight sm:text-[34px]">{creator.name}</h1>
+
+          {/* WHAT THEY ARE CALLED, AND IT IS THE SECOND THING YOU READ.
+              This was a small grey pill sharing a line with the name and an
+              unlabelled number. Every person on this platform holds a role -
+              "Creator" if nothing else - and that role is the single most
+              useful fact about them, so it gets its own line, in brand orange,
+              at a size you read rather than notice.
+              The per-person title is already stored (profiles.role_title, set
+              on the team page) and `roleBadgeTitle` falls back to the generic
+              label only when nobody has been given one, so a Spain country
+              manager reads "Spanish Country Manager" and Ethan reads
+              "Tryp.com CCC Lead". A creator who has flown far enough to earn
+              "Tryp.com Senior Creator" reads that. Everybody else reads
+              "Creator", which is a job, not a blank. */}
+          <p className="mt-1 flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1.5 sm:justify-start">
+            <span className="text-[15px] font-semibold tracking-[-0.01em] text-brand sm:text-base">
+              {roleBadgeTitle(creator) || 'Creator'}
+            </span>
+            {/* AGE, WITH THE WORD ON IT. It was a bare number floating after
+                the name, which could have been anything - a rank, a count of
+                something, a badge. */}
+            {(ageFromDob(creator.dob) ?? creator.age) && (
+              <span className="text-sm text-smoke">
+                <span className="tabular-nums">{ageFromDob(creator.dob) ?? creator.age}</span> years old
+              </span>
             )}
             {isApplication && <Badge tone="amber">Pending review</Badge>}
-            {(ageFromDob(creator.dob) ?? creator.age) && <span className="text-smoke">{ageFromDob(creator.dob) ?? creator.age}</span>}
-          </div>
+          </p>
+
           {(creator.city || creator.country || currentTrip) && (
-            <p className="mt-1 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-sm text-smoke sm:justify-start">
+            <p className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-sm text-smoke sm:justify-start">
               {(creator.city || creator.country) && (
-                <span className="flex items-center gap-1">
-                  <svg className="h-4 w-4 text-brand" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /></svg>
+                <span className="flex items-center gap-1.5">
+                  <Icon name="home" className="h-4 w-4 shrink-0 text-brand" />
                   {[creator.city, creator.country].filter(Boolean).join(', ')}
                 </span>
               )}
@@ -278,23 +322,33 @@ export default function Profile() {
                   Currently in {currentTrip.city || currentTrip.country}
                 </span>
               )}
-              {/* What time it is where they are. Renders nothing when the
-                  profile cannot be placed confidently - a wrong clock here
-                  would be read as a fact and messaged on. */}
-              {!isMe && <LocalTime profile={creator} />}
+              {/* THE CLOCK IS NOT HERE ANY MORE. It is the first card in the
+                  rail, which is where somebody looks for a fact about where
+                  this person is; having it in both places meant the same
+                  sentence twice on one screen. */}
             </p>
           )}
           {creator.bio && <p className="mt-2 text-lg text-smoke">{creator.bio}</p>}
           {creator.favourite_quote && (
             <p className="mt-3 border-l-2 border-brand pl-3 text-sm italic text-smoke">“{creator.favourite_quote}”</p>
           )}
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-            {socials.map((s) => (
-              <a key={s.label} href={s.url} target="_blank" rel="noopener noreferrer" className="btn-secondary !px-4 !py-2 text-xs">
-                {s.label} ↗
-              </a>
-            ))}
-          </div>
+          {socials.length > 0 && (
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+              {socials.map((x) => (
+                <a
+                  key={`${x.brand}-${x.url}`}
+                  href={x.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={x.label}
+                  aria-label={x.label}
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 text-smoke transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand hover:shadow-card"
+                >
+                  <SocialMark brand={x.brand} className="h-[18px] w-[18px]" />
+                </a>
+              ))}
+            </div>
+          )}
           {/* MUTUALS, AS FACES. It was a count: "3 mutual connections". A number
               answers "do we overlap"; the faces answer "should I say hello",
               which is the question somebody is actually asking on a profile -
@@ -324,15 +378,14 @@ export default function Profile() {
           )}
         </div>
         <div className="flex shrink-0 flex-col items-stretch gap-3">
+          {/* THE SHARE CARD IS GONE. It rendered a canvas PNG of your own
+              profile to download and post elsewhere, and it was the second
+              thing on your own header competing with the one control that
+              matters here. Removed at Ethan's request; lib/shareCard.js is
+              still in the repo if it comes back. */}
           {isMe ? (
             <div className="flex gap-3">
               <Link to="/profile/edit" className="btn-primary">Edit profile</Link>
-              <div className="group relative">
-                <button onClick={shareCard} disabled={sharing} className="btn-secondary">{sharing ? 'Creating…' : 'Share card'}</button>
-                <div className="pointer-events-none absolute right-0 top-full z-20 mt-2 hidden w-60 rounded-lg bg-ink px-3 py-2 text-left text-xs font-medium leading-snug text-white shadow-lift group-hover:block">
-                  Download a polished card to share on LinkedIn, Instagram or your portfolio.
-                </div>
-              </div>
             </div>
           ) : (
             <>
@@ -390,9 +443,11 @@ export default function Profile() {
           rather than a picture, at a quarter of the size.
           ONE COLUMN BELOW `lg`, main first. A rail stacked above the content on
           a phone is just the old page with smaller headings.
-          UK CREATORS SEE THE OLD PAGE UNTIL THE NETWORK SHIPS - the split, the
-          board and the new cards are all behind `networkPreview`. */}
-      {networkPreview ? (
+          THERE IS NO SECOND LAYOUT ANY MORE. This whole page used to render
+          twice - a split version behind the network preview flag and the old
+          stack of full-width bands for everyone else - which meant every change
+          had to be made in both or the two drifted. The network is live, so the
+          old one is gone. */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:gap-8">
         <div className="min-w-0 space-y-8">
         {/* ---------- About (bio) ---------- */}
@@ -412,41 +467,34 @@ export default function Profile() {
           </div>
             {/* `owner` makes the countries tappable: what the place is known for,
               and a way to ask the one person whose map this is about it. */}
+          {/* THE LIST OF EVERY COUNTRY UNDER THE MAP IS GONE. Somebody with
+              forty countries got forty grey chips, which is six rows of text
+              restating what the map above had just drawn - and none of them
+              did anything. The map is the list; the heading is the count.
+              Ethan: "there is no need to list all the countries, it takes up
+              space and looks bad." */}
           <WorldMap selected={creator.countries_visited || []} owner={creator} here={here} />
-          {creator.countries_visited?.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {[...creator.countries_visited].sort().map((c) => (
-                <Badge key={c} tone="grey">{c}</Badge>
-              ))}
-            </div>
-          )}
         </section>
         {/* ---------- Travel photos ---------- */}
-        <ProfileGallery creatorId={creator.id} isMe={isMe} creatorName={creator.name} board />
-        {/* ---------- The flight log ----------
-            ABOVE THE COUNTRIES MAP, and deliberately not a second map. "Been to
-            34 countries" and "flown 180,000 km" are the same claim from two
-            directions and they read best together; two world maps on one page is
-            a page that cannot decide what it is about. See ProfileFlights.
-
-            BEHIND THE PREVIEW FLAG, like the log it comes from. `/flights` is
-            inside NetworkRoute, so a UK creator seeing this section would get a
-            panel of numbers with a link that bounces them to /home - and the
-            owner asked specifically that the profile changes stay invisible to
-            the community for now. */}
-        {networkPreview && (
-          <section>
-            <div className="mb-4 flex items-baseline justify-between">
-              <h2 className="flex items-center gap-2 text-lg font-semibold">
-                <Icon name="plane-tryp" className="h-5 w-5 text-brand" />
-                {isMe ? 'Your flying' : `${creator.name.split(' ')[0]}'s flying`}
-              </h2>
-              {isMe && <Link to="/flights" className="text-sm font-medium text-brand hover:underline">Flight log</Link>}
-            </div>
-            <ProfileFlights creatorId={creator.id} isMe={isMe} name={creator.name} />
-          </section>
-        )}
+        <ProfileGallery creatorId={creator.id} isMe={isMe} creatorName={creator.name} />
+        {/* THE FLIGHT LOG MOVED TO THE RAIL. It was a full-width band here,
+            directly above a full-width country map, which put two different
+            answers to "where has this person been" at the same weight one after
+            the other. It is a set of numbers and three small photographs, which
+            is a rail card, and the map keeps the width. See the aside. */}
         {/* ---------- Content showcase (creators only; admins don't submit) ---------- */}
+        {/* EVERY CARD IS THE SAME HEIGHT, AND THE CAPTION IS WHY IT WASN'T.
+            The caption sat in normal flow, so one creator writing three lines
+            about their video made that card taller than the two beside it and
+            the whole row went ragged. It is clamped to two lines now, with the
+            card opening in place when there is more to read - which also gives
+            the caption somewhere to go, rather than being cut off forever.
+            THE VIEWS ARE ON THE CARD. `logged_views` is read automatically off
+            the posted link (see the view sync), so this number keeps itself up
+            to date and is the single most interesting thing about an entry.
+            THREE TARGETS, THREE JOBS. The thumbnail and the platform mark open
+            the video; the caption expands it; the card itself does neither, so
+            nothing is a surprise. */}
         {!creator.is_admin && (
         <section>
           <h2 className="mb-4 text-lg font-semibold">Content showcase</h2>
@@ -458,26 +506,14 @@ export default function Profile() {
               action={isMe && <Link to="/challenges" className="btn-primary">View challenges</Link>}
             />
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {submissions.map((s) => (
-                <a
-                  key={s.id}
-                  href={s.video_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="card group overflow-hidden !p-0 transition-all hover:-translate-y-0.5 hover:shadow-lift"
-                >
-                  <VideoThumb url={s.video_url} platform={s.platform} className="rounded-b-none" />
-                  <div className="p-5">
-                    <div className="flex items-center justify-between gap-3 text-xs text-smoke">
-                      <span className="truncate">{s.challenges?.title}</span>
-                      <span className="shrink-0">{timeAgo(s.submitted_at)}</span>
-                    </div>
-                    <p className={cx('mt-2 text-sm font-medium group-hover:text-brand', !s.caption && 'text-smoke')}>
-                      {s.caption || 'View the video ↗'}
-                    </p>
-                  </div>
-                </a>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {submissions.map((sub) => (
+                <ShowcaseCard
+                  key={sub.id}
+                  submission={sub}
+                  expanded={openCaption === sub.id}
+                  onToggle={() => setOpenCaption((cur) => (cur === sub.id ? null : sub.id))}
+                />
               ))}
             </div>
           )}
@@ -496,23 +532,43 @@ export default function Profile() {
             here.travelling ? 'border-brand/25 bg-brand-tint/50' : 'border-gray-100 bg-white shadow-card',
           )}>
             <div className="flex items-center gap-3">
+              {/* A CLOCK, NOT A PIN. Ethan: "I don't want it to say 'you are
+                  home in Belfast', this is almost too creepy, instead just
+                  show the time for you or for them. And change the icon from
+                  that pin."
+                  He is right, and the reason is worth writing down: a pin over
+                  "Maddie is at home in Belfast" is a sentence about where
+                  somebody LIVES, volunteered by the app to a stranger. The time
+                  where they are is the same fact turned into something useful -
+                  it answers "can I message them now" instead of "where do they
+                  sleep". A travelling creator still says where, because they
+                  published that themselves on the collab board. */}
               <span className={cx(
                 'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
                 here.travelling ? 'bg-brand text-white' : 'bg-cloud text-smoke',
               )}>
-                <Icon name={here.travelling ? 'plane' : 'pin'} className="h-4 w-4" />
+                <Icon name={here.travelling ? 'plane' : 'clock'} className="h-4 w-4" />
               </span>
               <p className="min-w-0 text-sm">
-                <span className="block font-semibold text-ink">
-                  {/* "You ARE", "Maddie IS". Getting this wrong is the sort of
-                      thing that makes a product feel machine-written. */}
-                  {here.travelling
-                    ? `${here.who} ${isMe ? 'are' : 'is'} in ${here.place}`
-                    : `${here.who} ${isMe ? 'are' : 'is'} at home in ${here.place}`}
-                </span>
-                {here.travelling && currentTrip
-                  ? <span className="block text-xs text-smoke">Back {formatDate(currentTrip.end_date)}</span>
-                  : <span className="block text-xs text-smoke"><LocalTime profile={creator} showNote={false} /></span>}
+                {here.travelling ? (
+                  <>
+                    <span className="block font-semibold text-ink">
+                      {/* "You ARE", "Maddie IS". Getting this wrong is the sort
+                          of thing that makes a product feel machine-written. */}
+                      {`${here.who} ${isMe ? 'are' : 'is'} in ${here.place}`}
+                    </span>
+                    {currentTrip && <span className="block text-xs text-smoke">Back {formatDate(currentTrip.end_date)}</span>}
+                  </>
+                ) : (
+                  <>
+                    <span className="block font-semibold text-ink">
+                      <LocalTime profile={creator} bare />
+                    </span>
+                    <span className="block text-xs text-smoke">
+                      {isMe ? 'Your local time' : `${here.who}'s local time`}
+                    </span>
+                  </>
+                )}
               </p>
             </div>
           </section>
@@ -543,62 +599,58 @@ export default function Profile() {
             ))}
           </dl>
         </section>
-        {/* CONTACT, AS A RAIL CARD RATHER THAN A BAND ACROSS THE PAGE.
-            Ethan: "the custom contact details that show up on the profile, I
-            think they should be like maybe just a button under the creators
-            somewhere, and maybe improve the design of it better too. Remember
-            it is only visible to the Tryp.com admins and team, ensure creators
-            can't see those details."
-            Still admin-only - the RPC and `creator_private`'s RLS both enforce
-            that server side, so this is presentation, not permission. It was a
-            full-width brand-tinted block, which on a page about a person made
-            their phone number the loudest thing on it. */}
-        {viewerIsAdmin && contact?.email && (
-          <section className="rounded-card border border-brand/25 bg-brand-tint/40 p-4">
-            <h2 className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-brand">
-              <Icon name="eye" className="h-4 w-4 shrink-0" />
-              Team only
+        {/* THE "TEAM ONLY" CONTACT CARD IS GONE FROM THE PROFILE.
+            It showed a creator's email to any admin looking at their page, and
+            Ethan asked for it off the main profile views. Nothing is lost: the
+            roster at /admin/creators is the surface built for contacting
+            somebody, it holds the phone number too, and it is behind
+            AdminRoute rather than on a page every creator can open. Keeping a
+            copy here meant private contact details rendering on the most-linked
+            page in the product and one `viewerIsAdmin` typo away from leaking.
+            The RPC and creator_private's RLS are unchanged, so this is one
+            fewer surface, not one fewer permission. */}
+        {/* ---------- Where I'm headed next ---------- */}
+        {/* THE "COLLAB BOARD" LINK BESIDE THE HEADING IS GONE, and the cards
+            are the link instead. A heading with a destination next to it is a
+            second way to do what the thing underneath it already does, and it
+            sent you to the board's front page rather than to the trip you were
+            looking at. Ethan: "it shouldn't show collab board beside the title,
+            although clicking on one of cards should correctly open to the
+            collab board."
+            EACH CARD GOES WHERE ITS TRIP LIVES. A collab post opens the collab
+            board; a flight with no collab post behind it opens the community
+            flight log, because that is the page that trip actually exists on.
+            EVERY CARD IS THE SAME SIZE. They were shrink-to-fit, so
+            "Namibia, Namibia" and "Cape Town, South Africa" came out as two
+            different widths sitting raggedly beside each other. */}
+        {(headedNext.length > 0 || isMe) && (
+          <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card">
+            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+              <Icon name="plane" className="h-4 w-4 shrink-0 text-brand" />
+              {isMe ? "Where I'm headed next" : `Where ${creator.name.split(' ')[0]}'s headed next`}
             </h2>
-            <div className="flex items-center gap-1.5">
-              <a href={`mailto:${contact.email}`} className="min-w-0 flex-1 truncate text-xs font-medium hover:text-brand">
-                {contact.email}
-              </a>
-              <CopyButton value={contact.email} label="Copy email" />
-            </div>
-            <Link
-              to="/admin/creators"
-              className="mt-2 inline-block text-[11px] font-medium text-brand hover:underline"
-            >
-              Phone and account actions in the roster →
-            </Link>
-          </section>
-        )}
-        {/* ---------- Where I'm headed next (upcoming collab trips) ---------- */}
-        {(trips.length > 0 || isMe) && (
-          <section>
-            <div className="mb-4 flex items-baseline justify-between">
-              <h2 className="text-lg font-semibold">
-                {isMe ? "Where I'm headed next" : `Where ${creator.name.split(' ')[0]}'s headed next`}
-              </h2>
-              <Link to="/collab" className="text-sm font-medium text-brand hover:underline">{isMe ? 'Post a trip' : 'Collab board'}</Link>
-            </div>
-            {trips.length === 0 ? (
-              <p className="text-sm text-smoke">No upcoming trips posted. Share where you’re headed on the collab board so nearby creators can meet up.</p>
+            {headedNext.length === 0 ? (
+              <p className="text-xs leading-relaxed text-smoke">
+                Nothing coming up. Post a trip on the collab board or log an upcoming flight and it shows here.
+              </p>
             ) : (
-              <div className="flex flex-wrap gap-3">
-                {trips.map((t) => {
-                  const flag = flagForCountry(t.country)
-                  return (
-                    <Link key={t.id} to="/collab" className="flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-lift">
-                      <span className="text-2xl leading-none" aria-hidden>{flag || '📍'}</span>
-                      <span>
-                        <span className="block text-sm font-semibold">{t.city}{t.country ? `, ${t.country}` : ''}</span>
-                        <span className="block text-xs text-smoke">{format(new Date(t.start_date), 'd MMM')} – {format(new Date(t.end_date), 'd MMM yyyy')}</span>
+              <ul className="space-y-2">
+                {headedNext.map((t) => (
+                  <li key={t.key}>
+                    <Link
+                      to={t.to}
+                      className="flex h-[62px] w-full items-center gap-3 rounded-xl border border-gray-100 px-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-card"
+                    >
+                      <span className="w-7 shrink-0 text-center text-xl leading-none" aria-hidden>{t.flag || '📍'}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold leading-tight">{t.place}</span>
+                        <span className="block truncate text-xs leading-tight text-smoke">{t.when}</span>
                       </span>
+                      <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
                     </Link>
-                  )
-                })}
-              </div>
+                  </li>
+                ))}
+              </ul>
             )}
           </section>
         )}
@@ -624,14 +676,20 @@ export default function Profile() {
                 </p>
               </div>
             )}
+            {/* BUCKET LIST, and it opens. It was headed "Still to go", which
+                is a description rather than the name of the thing - creators
+                call it a bucket list and so does the edit form that fills it
+                in. Five, then a control: "+4 more" used to be a full stop, a
+                line of grey text telling you there was something you could not
+                see. */}
             {creator.bucket_list?.length > 0 && (
               <div className={creator.languages?.length > 0 ? 'mt-4 border-t border-gray-100 pt-4' : undefined}>
                 <h2 className="flex items-center gap-2 text-sm font-semibold">
-                  <Icon name="pin" className="h-4 w-4 shrink-0 text-brand" />
-                  {isMe ? 'Still to go' : 'Still to go'}
+                  <Icon name="flag" className="h-4 w-4 shrink-0 text-brand" />
+                  Bucket list
                 </h2>
                 <ul className="mt-2 space-y-1.5">
-                  {creator.bucket_list.slice(0, 6).map((b, i) => (
+                  {(bucketOpen ? creator.bucket_list : creator.bucket_list.slice(0, 5)).map((b, i) => (
                     <li key={i} className="flex items-center gap-2 text-sm">
                       <span aria-hidden className="shrink-0 text-base leading-none">{flagForCountry(b.country) || '📍'}</span>
                       <span className="min-w-0 truncate text-smoke">
@@ -640,8 +698,14 @@ export default function Profile() {
                     </li>
                   ))}
                 </ul>
-                {creator.bucket_list.length > 6 && (
-                  <p className="mt-1.5 text-xs text-smoke">and {creator.bucket_list.length - 6} more</p>
+                {creator.bucket_list.length > 5 && (
+                  <button
+                    type="button"
+                    onClick={() => setBucketOpen((o) => !o)}
+                    className="mt-2 text-xs font-medium text-brand transition-transform duration-200 hover:scale-105"
+                  >
+                    {bucketOpen ? 'Show fewer' : `+${creator.bucket_list.length - 5} more`}
+                  </button>
                 )}
               </div>
             )}
@@ -659,231 +723,125 @@ export default function Profile() {
             every UK creator's profile and its "See the whole route" link took
             them into the unreleased network. Milestones ship with the network,
             not before it. */}
-        {networkPreview && !creator.is_admin && (
+        {/* MILESTONES SIT ABOVE THE FLIGHT LOG. They are the thing with a
+            next step in it - a threshold you can see coming and a reward behind
+            it - and the flight log underneath is the evidence of the distance
+            already covered. Read in that order it is a route; read the other
+            way round it is two sets of numbers. */}
+        {!creator.is_admin && (
           <section>
             <MilestoneSnippet profileId={creator.id} own={isMe} />
           </section>
         )}
-        {networkPreview && (
-          <>
-            <AircraftCard creatorId={creator.id} isMe={isMe} firstName={creator.name.split(' ')[0]} />
-            <ChallengeHistoryCard creatorId={creator.id} isMe={isMe} firstName={creator.name.split(' ')[0]} />
-            <PuzzleCard creatorId={creator.id} isMe={isMe} firstName={creator.name.split(' ')[0]} />
-          </>
-        )}
+        {/* THE FLIGHT LOG, WHICH IS ALSO THE AIRCRAFT COLLECTION NOW. Lifetime
+            distance, flights, airports and countries, then the three types
+            flown most with their photographs. There used to be a separate
+            "Aircraft collection" card drawing the same aeroplanes at a
+            different size two cards further down. */}
+        <ProfileFlights creatorId={creator.id} isMe={isMe} name={creator.name} rail />
+        <ChallengeHistoryCard creatorId={creator.id} isMe={isMe} firstName={creator.name.split(' ')[0]} />
+        <PuzzleCard creatorId={creator.id} isMe={isMe} firstName={creator.name.split(' ')[0]} />
         </aside>
       </div>
-      ) : (
-      <>
-      {/* ---------- Admin-only contact (email + phone) ---------- */}
-      {viewerIsAdmin && contact && (contact.email || contact.phone) && (
-        <section className="rounded-card border border-brand/20 bg-brand-tint/40 p-5">
-          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-brand">
-            <Icon name="eye" className="h-4 w-4" />
-            Contact details
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {contact.email && (
-              <div>
-                <p className="text-xs font-medium text-smoke">Email</p>
-                <div className="flex items-center gap-1.5">
-                  <a href={`mailto:${contact.email}`} className="break-all text-sm font-medium hover:text-brand">{contact.email}</a>
-                  <CopyButton value={contact.email} label="Copy email" />
-                </div>
-              </div>
-            )}
-            {contact.phone && (
-              <div>
-                <p className="text-xs font-medium text-smoke">Phone</p>
-                <div className="flex items-center gap-1.5">
-                  <a href={`tel:${contact.phone.replace(/\s+/g, '')}`} className="text-sm font-medium hover:text-brand">{contact.phone}</a>
-                  <CopyButton value={contact.phone} label="Copy phone number" />
-                </div>
-              </div>
-            )}
-          </div>
-          <p className="mt-3 text-xs text-smoke">Only visible to the Tryp.com Team.</p>
-        </section>
-      )}
-      {/* ---------- Stats strip ---------- */}
-      <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {[
-          { label: 'Member since', value: formatDate(creator.accepted_at || creator.created_at) },
-          { label: 'Countries visited', value: creator.countries_visited?.length || 0 },
-          { label: 'Challenges entered', value: challengeCount },
-          { label: 'Submissions', value: submissions.length },
-        ].map((s) => (
-          <div key={s.label} className="rounded-card bg-cloud px-5 py-4 text-center">
-            <p className="text-xl font-bold">{s.value}</p>
-            <p className="mt-0.5 text-xs font-medium text-smoke">{s.label}</p>
-          </div>
-        ))}
-      </section>
-      {/* ---------- About (bio) ---------- */}
-      {creator.about && (
-        <section className="card">
-          <h2 className="mb-3 text-lg font-semibold">About {creator.name.split(' ')[0]}</h2>
-          <p className="whitespace-pre-line leading-relaxed text-smoke">{creator.about}</p>
-        </section>
-      )}
-      {/* ---------- Where they are on the route ----------
-          THIS REPLACES THE ACHIEVEMENT BADGES. Those were effort tiers with
-          nothing on the other side of them: they appeared, they were grey, and
-          reaching one changed nothing, which is why nobody chased them. A
-          milestone is the same idea with the two missing halves attached - a
-          threshold you can see coming and a real reward behind it - so one line
-          here does more than nine icons did. */}
-      {/* BEHIND THE PREVIEW FLAG, like the page it links to. This snippet was
-          the one part of the milestone build with no gate on it, so it drew on
-          every UK creator's profile and its "See the whole route" link took
-          them into the unreleased network. Milestones ship with the network,
-          not before it. */}
-      {networkPreview && !creator.is_admin && (
-        <section>
-          <MilestoneSnippet profileId={creator.id} own={isMe} />
-        </section>
-      )}
-      {/* ---------- Where I'm headed next (upcoming collab trips) ---------- */}
-      {(trips.length > 0 || isMe) && (
-        <section>
-          <div className="mb-4 flex items-baseline justify-between">
-            <h2 className="text-lg font-semibold">
-              {isMe ? "Where I'm headed next" : `Where ${creator.name.split(' ')[0]}'s headed next`}
-            </h2>
-            <Link to="/collab" className="text-sm font-medium text-brand hover:underline">{isMe ? 'Post a trip' : 'Collab board'}</Link>
-          </div>
-          {trips.length === 0 ? (
-            <p className="text-sm text-smoke">No upcoming trips posted. Share where you’re headed on the collab board so nearby creators can meet up.</p>
-          ) : (
-            <div className="flex flex-wrap gap-3">
-              {trips.map((t) => {
-                const flag = flagForCountry(t.country)
-                return (
-                  <Link key={t.id} to="/collab" className="flex items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-lift">
-                    <span className="text-2xl leading-none" aria-hidden>{flag || '📍'}</span>
-                    <span>
-                      <span className="block text-sm font-semibold">{t.city}{t.country ? `, ${t.country}` : ''}</span>
-                      <span className="block text-xs text-smoke">{format(new Date(t.start_date), 'd MMM')} – {format(new Date(t.end_date), 'd MMM yyyy')}</span>
-                    </span>
-                  </Link>
-                )
-              })}
-            </div>
-          )}
-        </section>
-      )}
-      {/* ---------- Languages ---------- */}
-      {creator.languages?.length > 0 && (
-        <section>
-          <h2 className="mb-3 text-lg font-semibold">Languages</h2>
-          <div className="flex flex-wrap gap-2">
-            {creator.languages.map((l) => <Badge key={l} tone="light">{l}</Badge>)}
-          </div>
-        </section>
-      )}
-      {/* ---------- Travel bucket list ---------- */}
-      {creator.bucket_list?.length > 0 && (
-        <section>
-          <h2 className="mb-3 text-lg font-semibold">
-            {isMe ? 'My travel bucket list' : `${creator.name.split(' ')[0]}'s travel bucket list`}
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            {creator.bucket_list.map((b, i) => (
-              <Badge key={i} tone="light">
-                {flagForCountry(b.country)} {b.city ? `${b.city}, ${b.country}` : b.country}
-              </Badge>
-            ))}
-          </div>
-        </section>
-      )}
-      {/* ---------- The flight log ----------
-          ABOVE THE COUNTRIES MAP, and deliberately not a second map. "Been to
-          34 countries" and "flown 180,000 km" are the same claim from two
-          directions and they read best together; two world maps on one page is
-          a page that cannot decide what it is about. See ProfileFlights.
-
-          BEHIND THE PREVIEW FLAG, like the log it comes from. `/flights` is
-          inside NetworkRoute, so a UK creator seeing this section would get a
-          panel of numbers with a link that bounces them to /home - and the
-          owner asked specifically that the profile changes stay invisible to
-          the community for now. */}
-      {networkPreview && (
-        <section>
-          <div className="mb-4 flex items-baseline justify-between">
-            <h2 className="flex items-center gap-2 text-lg font-semibold">
-              <Icon name="plane-tryp" className="h-5 w-5 text-brand" />
-              {isMe ? 'Your flying' : `${creator.name.split(' ')[0]}'s flying`}
-            </h2>
-            {isMe && <Link to="/flights" className="text-sm font-medium text-brand hover:underline">Flight log</Link>}
-          </div>
-          <ProfileFlights creatorId={creator.id} isMe={isMe} name={creator.name} />
-        </section>
-      )}
-      {/* ---------- World map (countries visited) ---------- */}
-      <section>
-        <div className="mb-4 flex items-baseline justify-between">
-          <h2 className="text-lg font-semibold">
-            {creator.countries_visited?.length || 0} {creator.countries_visited?.length === 1 ? 'country' : 'countries'} visited
-          </h2>
-          {isMe && <Link to="/profile/edit" className="text-sm font-medium text-brand hover:underline">Update map</Link>}
-        </div>
-        {/* `owner` makes the countries tappable: what the place is known for,
-            and a way to ask the one person whose map this is about it. */}
-        <WorldMap selected={creator.countries_visited || []} owner={creator} here={here} />
-        {creator.countries_visited?.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {[...creator.countries_visited].sort().map((c) => (
-              <Badge key={c} tone="grey">{c}</Badge>
-            ))}
-          </div>
-        )}
-      </section>
-      {/* ---------- Travel photos ---------- */}
-      <ProfileGallery creatorId={creator.id} isMe={isMe} creatorName={creator.name} />
-      {/* ---------- Content showcase (creators only; admins don't submit) ---------- */}
-      {!creator.is_admin && (
-      <section>
-        <h2 className="mb-4 text-lg font-semibold">Content showcase</h2>
-        {submissions.length === 0 ? (
-          <EmptyState
-            icon={<Icon name="video" className="h-7 w-7" />}
-            title={isMe ? 'No submissions yet' : `${creator.name.split(' ')[0]} hasn't submitted yet`}
-            hint={isMe ? 'Enter the current challenge and your videos will show up here.' : 'Their challenge entries will appear here.'}
-            action={isMe && <Link to="/challenges" className="btn-primary">View challenges</Link>}
-          />
-        ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {submissions.map((s) => (
-              <a
-                key={s.id}
-                href={s.video_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="card group overflow-hidden !p-0 transition-all hover:-translate-y-0.5 hover:shadow-lift"
-              >
-                <VideoThumb url={s.video_url} platform={s.platform} className="rounded-b-none" />
-                <div className="p-5">
-                  <div className="flex items-center justify-between gap-3 text-xs text-smoke">
-                    <span className="truncate">{s.challenges?.title}</span>
-                    <span className="shrink-0">{timeAgo(s.submitted_at)}</span>
-                  </div>
-                  <p className={cx('mt-2 text-sm font-medium group-hover:text-brand', !s.caption && 'text-smoke')}>
-                    {s.caption || 'View the video ↗'}
-                  </p>
-                </div>
-              </a>
-            ))}
-          </div>
-        )}
-      </section>
-      )}
-      </>
-      )}
       {/* Mounted at the page root rather than beside the button: Modal portals
           to the body anyway, and keeping it out of the header section means the
           header's flex layout never has to account for a child that renders
           nothing 99% of the time. */}
       <ReportCreator open={reporting} onClose={() => setReporting(false)} creator={creator} />
+    </div>
+  )
+}
+
+// ------------------------------------------------------- one showcase entry
+//
+// A challenge entry, as a card that is always the same height as the card
+// beside it.
+//
+// THE THREE THINGS THAT BROKE THE OLD ONE. (1) The whole card was one <a>, so
+// nothing inside it could ever be its own target. (2) The caption sat in normal
+// flow, so a creator who wrote a paragraph made their card twice the height of
+// everyone else's and the grid went ragged. (3) It showed no view count at all,
+// which is the number the entry is actually judged on and the one thing that
+// keeps updating by itself after it is posted.
+//
+// So: fixed geometry, a caption clamped to two lines that opens in place, and
+// the views on the thumbnail where the eye already is.
+function ShowcaseCard({ submission: s, expanded, onToggle }) {
+  const views = Number(s.logged_views) || 0
+  const hasCaption = !!s.caption?.trim()
+
+  return (
+    <div className="card group flex flex-col overflow-hidden !p-0">
+      {/* The picture is the link to the video, and it says so on hover. */}
+      <a
+        href={s.video_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="relative block"
+        aria-label={`Watch this ${s.platform || ''} video`.trim()}
+      >
+        <VideoThumb url={s.video_url} platform={s.platform} className="rounded-b-none" />
+        {/* VIEWS, ON THE PICTURE. `logged_views` is read automatically off the
+            posted link, so this keeps itself current with no one touching it.
+            `views_approx` is set when the platform only gives us a rounded
+            figure, and saying "1.2K" as though it were exact would be a small
+            lie repeated on every card. */}
+        {views > 0 && (
+          <span className="absolute bottom-2 left-2 inline-flex items-center gap-1.5 rounded-full bg-ink/75 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-[2px]">
+            <Icon name="eye" className="h-3.5 w-3.5" />
+            <span className="tabular-nums">{s.views_approx ? '~' : ''}{views.toLocaleString('en-GB')}</span>
+            views
+          </span>
+        )}
+        {/* The platform mark is its own target for the same link, because it is
+            the thing that looks most like "open this on TikTok". */}
+        {s.platform && (
+          <span className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-ink shadow-card transition-transform duration-200 group-hover:scale-110">
+            <SocialMark brand={String(s.platform).toLowerCase()} className="h-4 w-4" />
+          </span>
+        )}
+      </a>
+
+      <div className="flex min-w-0 flex-1 flex-col p-4">
+        <div className="flex items-center justify-between gap-3 text-xs text-smoke">
+          <span className="min-w-0 truncate">{s.challenges?.title}</span>
+          <span className="shrink-0">{timeAgo(s.submitted_at)}</span>
+        </div>
+
+        {hasCaption ? (
+          <>
+            <p className={cx('mt-2 whitespace-pre-line text-sm leading-5 text-ink', !expanded && 'line-clamp-2 h-10')}>
+              {s.caption}
+            </p>
+            {/* The control only appears when there is genuinely something
+                hidden. Measuring the text is the honest test, but a clamp of
+                two lines at this size is about 110 characters and measuring on
+                every render to save one button is not a trade worth making. */}
+            {(expanded || s.caption.trim().length > 90 || s.caption.includes('\n')) && (
+              <button
+                type="button"
+                onClick={onToggle}
+                className="mt-1.5 self-start text-xs font-medium text-brand transition-transform duration-200 hover:scale-105"
+              >
+                {expanded ? 'Show less' : 'Read more'}
+              </button>
+            )}
+          </>
+        ) : (
+          <p className="mt-2 h-10 text-sm leading-5 text-smoke">No caption</p>
+        )}
+
+        {/* Pushed to the bottom so the row of cards lines up on this line
+            whatever the caption above it did. */}
+        <a
+          href={s.video_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-auto pt-3 text-sm font-semibold text-brand transition-transform duration-200 hover:scale-[1.02]"
+        >
+          Watch the video ↗
+        </a>
+      </div>
     </div>
   )
 }
@@ -901,7 +859,7 @@ export default function Profile() {
 // photo into place while looking at a settings form is arranging something you
 // cannot see; the board is editable in situ, on the page it will be read on,
 // which is the only place the result means anything.
-function ProfileGallery({ creatorId, isMe, creatorName, board = false }) {
+function ProfileGallery({ creatorId, isMe, creatorName }) {
   const [count, setCount] = useState(null)
   useEffect(() => {
     supabase
@@ -920,7 +878,10 @@ function ProfileGallery({ creatorId, isMe, creatorName, board = false }) {
     <section>
       <div className="mb-4 flex items-baseline justify-between">
         <h2 className="flex items-center gap-2 text-lg font-semibold"><Icon name="image" className="h-5 w-5 text-brand" /> Travel photos</h2>
-        {isMe && count > 0 && <Link to="/profile/edit" className="text-sm font-medium text-brand hover:underline">Manage photos</Link>}
+        {/* STRAIGHT TO THE PHOTOS. This went to /profile/edit, which opens on
+            the "You" step, so "Manage photos" landed you on a form about your
+            name and date of birth with the photos three tabs away. */}
+        {isMe && count > 0 && <Link to="/profile/edit?tab=photos" className="text-sm font-medium text-brand transition-transform duration-200 hover:scale-105">Manage photos</Link>}
       </div>
       {count === 0 ? (
         isMe ? (
@@ -937,10 +898,16 @@ function ProfileGallery({ creatorId, isMe, creatorName, board = false }) {
             hint={`${firstName} hasn't added any travel photos yet.`}
           />
         )
-      ) : board ? (
-        <PhotoBoard creatorId={creatorId} editable={isMe} />
       ) : (
-        <TravelGallery creatorId={creatorId} />
+        /* READ ONLY HERE. The board used to be editable in place, with an
+           "Arrange the board" toggle sitting on your own public profile - so
+           the page had two modes and the one you were shown depended on who
+           you were. Ethan: "we have arrange the board and we have manage
+           photos which is weird, it should just be manage photos."
+           Arranging, cropping, captioning and deleting all live in one place
+           now: Edit profile → Photos, which shows the same board with the same
+           component, so what you arrange is exactly what lands here. */
+        <PhotoBoard creatorId={creatorId} editable={false} />
       )}
     </section>
   )
