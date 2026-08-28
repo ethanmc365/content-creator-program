@@ -35,7 +35,7 @@ const EMPTY_GEO = { type: 'FeatureCollection', features: [] }
 // `here` puts ONE person on the map, where they are today. See the note above
 // the marker at the foot of this file for what it draws and why it is a face
 // rather than a pin.
-function WorldMap({ selected = [], onToggle, selectable = false, focusCountry = null, fitSelected = false, owner = null, here = null }) {
+function WorldMap({ selected = [], onToggle, selectable = false, chips = false, focusCountry = null, fitSelected = false, owner = null, here = null }) {
   const dark = useIsDark()
   const [country, setCountry] = useState(null)
   // Unvisited land + the hairline between countries darken in dark mode so the
@@ -166,8 +166,19 @@ function WorldMap({ selected = [], onToggle, selectable = false, focusCountry = 
             )}
           </div>
 
-          {/* Selected countries as removable chips */}
-          {selected.length > 0 && (
+          {/* THE CHIP LIST USED TO BE HERE TOO, and that is why the countries
+              appeared twice on Edit profile - once above the map and once
+              below. Ethan: "it's now showing up every country listed above the
+              map and below the map, remove the ones that appear above."
+              He is right about which one to keep: above the map they sat
+              between the search box and the map itself, pushing the map down
+              the screen by however many countries you had visited, so somebody
+              with forty had to scroll past their own list to reach the thing
+              they were selecting from. Below, the map is the control and the
+              list is the receipt.
+              `chips` lets a caller ask for them back if a surface ever wants
+              them here; nothing does today. */}
+          {chips && selected.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2">
               {[...selected].sort((a, b) => a.localeCompare(b)).map((name) => (
                 <button

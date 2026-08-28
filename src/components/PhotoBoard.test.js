@@ -1,67 +1,50 @@
 import { describe, it, expect } from 'vitest'
-import { defaultBox } from './PhotoBoard'
+import { spanFor, colsFor } from './PhotoBoard'
 
-// THE ONE RULE THIS HAS TO KEEP: a photo's first appearance on the board is the
-// shape it was uploaded at. Ethan: "they should always start by being the aspect
-// ratio you posted." Everything else about the board is a drag handler; this is
-// arithmetic, so it gets a test.
-//
-// Cells are 0.82 as tall as they are wide, so a tile's on-screen ratio is
-// (w / (h * 0.82)) - which is what these assertions compare against.
-const CELL_RATIO = 0.82
-const shown = (box) => box.pos_w / (box.pos_h * CELL_RATIO)
+// The board is a masonry grid: a photo's height comes from its own aspect, so
+// `spanFor` is the one piece of arithmetic that decides whether a photo keeps
+// the shape it was uploaded at. The old `defaultBox` tests went with the free
+// 2-D placement they described - see the note at the top of PhotoBoard.
+describe('spanFor', () => {
+  const COL = 300
+  const ROW = 8
+  const GAP = 10
 
-describe('defaultBox', () => {
-  it('gives a landscape photo a landscape box', () => {
-    const box = defaultBox(16 / 9)
-    expect(box.pos_w).toBeGreaterThan(box.pos_h)
-    expect(shown(box)).toBeGreaterThan(1)
+  it('gives a landscape photo a shorter box than a portrait one', () => {
+    expect(spanFor(16 / 9, COL)).toBeLessThan(spanFor(9 / 16, COL))
   })
 
-  it('gives a portrait photo a portrait box', () => {
-    const box = defaultBox(2 / 3)
-    expect(box.pos_h).toBeGreaterThan(box.pos_w)
-    expect(shown(box)).toBeLessThan(1)
-  })
-
-  it('gives a square photo a roughly square box', () => {
-    expect(shown(defaultBox(1))).toBeCloseTo(1, 0)
-  })
-
-  it('lands within about 25% of the photo it was given', () => {
-    // The box is in whole cells, so it can never match exactly - but it has to
-    // be close enough that nothing is visibly letterboxed or sliced.
-    for (const a of [16 / 9, 3 / 2, 4 / 3, 1, 3 / 4, 2 / 3, 9 / 16]) {
-      const ratio = shown(defaultBox(a))
-      expect(Math.abs(ratio - a) / a).toBeLessThan(0.25)
+  it('matches the photo aspect within a row unit', () => {
+    for (const a of [16 / 9, 4 / 3, 1, 3 / 4, 9 / 16]) {
+      const spans = spanFor(a, COL)
+      const drawn = spans * ROW - GAP
+      const wanted = COL / a
+      // Half a row unit of rounding either way is the most a span can be out.
+      expect(Math.abs(drawn - wanted)).toBeLessThanOrEqual(ROW / 2 + 0.5)
     }
   })
 
-  it('never exceeds the twelve columns it has to fit in', () => {
-    for (const a of [0.2, 0.5, 1, 2, 5]) {
-      const box = defaultBox(a)
-      expect(box.pos_x + box.pos_w).toBeLessThanOrEqual(12)
-      expect(box.pos_w).toBeGreaterThanOrEqual(2)
-      expect(box.pos_h).toBeGreaterThanOrEqual(2)
-    }
-  })
-
-  // TWO across, not three. The default tile went from 4 columns to 6 so an
-  // un-arranged board reads as photographs rather than as thumbnails; anybody
-  // who wants three across can still drag them there.
-  it('flows unarranged photos across the board in rows of two', () => {
-    expect(defaultBox(1, 0).pos_x).toBe(0)
-    expect(defaultBox(1, 1).pos_x).toBe(6)
-    // and wraps rather than running off the right-hand edge
-    expect(defaultBox(1, 2).pos_x).toBe(0)
-    expect(defaultBox(1, 2).pos_y).toBeGreaterThan(defaultBox(1, 0).pos_y)
+  it('a two column photo is taller than the same photo in one column', () => {
+    expect(spanFor(1, COL, 2)).toBeGreaterThan(spanFor(1, COL, 1))
   })
 
   it('survives a missing or nonsense aspect', () => {
-    for (const a of [null, undefined, 0, -1, NaN]) {
-      const box = defaultBox(a)
-      expect(box.pos_w).toBeGreaterThanOrEqual(2)
-      expect(box.pos_h).toBeGreaterThanOrEqual(2)
+    for (const a of [null, undefined, 0, -1, NaN, Infinity]) {
+      expect(spanFor(a, COL)).toBeGreaterThanOrEqual(4)
+      expect(Number.isFinite(spanFor(a, COL))).toBe(true)
     }
+  })
+
+  it('never returns a span so small the photo has no height', () => {
+    expect(spanFor(20, COL)).toBeGreaterThanOrEqual(4)
+  })
+})
+
+describe('colsFor', () => {
+  it('is two on a phone and three above it', () => {
+    expect(colsFor(375)).toBe(2)
+    expect(colsFor(414)).toBe(2)
+    expect(colsFor(768)).toBe(3)
+    expect(colsFor(1440)).toBe(3)
   })
 })

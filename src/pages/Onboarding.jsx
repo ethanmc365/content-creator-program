@@ -509,6 +509,7 @@ export default function Onboarding() {
               <div className="space-y-5">
                 <WorldMap
                   selectable
+                  chips
                   selected={draft.countries_visited}
                   onToggle={(name) =>
                     set({

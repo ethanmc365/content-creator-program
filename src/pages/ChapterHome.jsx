@@ -43,6 +43,11 @@ const MotionLink = motion.create(Link)
 export default function ChapterHome() {
   const { slug } = useParams()
   const { bySlug, manages, error, loading: ctxLoading } = useCommunity()
+  // The CONTEXT's error is "the communities themselves would not load". This is
+  // "this market's own data would not load", which is a different failure with
+  // a different cause, so it gets its own state rather than being folded into
+  // one message that could mean either.
+  const [loadError, setLoadError] = useState('')
   const chapter = bySlug(slug)
   const canManage = chapter ? manages(chapter.id) : false
   const [data, setData] = useState(null)
@@ -53,6 +58,7 @@ export default function ChapterHome() {
     let cancelled = false
     async function load() {
       setLoading(true)
+      setLoadError('')
       const [
         { data: channels }, { count: members }, { data: challenges },
         { data: standings }, { data: ann }, { data: roster }, { data: events },
@@ -120,7 +126,22 @@ export default function ChapterHome() {
       const everyone = (roster || []).map((r) => ({ ...r.profiles, memberRole: r.role }))
       setData({
         channels: channels || [], members, challenges: challenges || [],
-        standings: (standings || []).filter((s) => !s.profiles.is_test),
+        // NO `.filter(s => !s.profiles.is_test)` HERE, AND THAT LINE IS WHY
+        // THIS PAGE NEVER LOADED FOR THE UK.
+        //
+        // `views_leaderboard` returns FLAT columns - creator_id, name,
+        // photo_url, views, posts, wins, markets. There is no `profiles`
+        // object on a row, so reading `s.profiles.is_test` threw a TypeError,
+        // the whole `load()` rejected, `setLoading(false)` never ran, and the
+        // page sat on its skeletons forever. Ethan: "for the overview page,
+        // absolutely nothing loads" - and only for the UK, because every other
+        // market returns ZERO rows today, so `.filter` never invoked the
+        // callback and the bug stayed invisible. Spain would have hit it the
+        // day its first creator posted a video.
+        //
+        // The filter was also redundant: the RPC already excludes test and
+        // admin accounts, which is why it returns 44 for a market of 44.
+        standings: standings || [],
         ann, live, participation,
         events: events || [],
         roster: everyone.filter((p) => !p.is_admin && p.memberRole !== 'manager'),
@@ -130,12 +151,23 @@ export default function ChapterHome() {
       })
       setLoading(false)
     }
-    load()
+    // A THROW MUST NOT LEAVE THE PAGE ON ITS SKELETONS FOREVER.
+    //
+    // This was a bare `load()`. Anything that threw inside it - a shape that
+    // did not match, a null where an object was expected - rejected silently
+    // and left `loading` true with no error and nothing in the console except
+    // an unhandled rejection. A market page that says nothing is worse than one
+    // that says it could not load, because nobody knows to report it.
+    load().catch((e) => {
+      if (cancelled) return
+      setLoadError(e?.message || 'Something went wrong loading this market.')
+      setLoading(false)
+    })
     return () => { cancelled = true }
   }, [chapter])
 
-  if (error) {
-    return <NetworkLayout><EmptyState icon={<Icon name="alert" className="h-6 w-6" />} title="Not readable yet" hint={error} /></NetworkLayout>
+  if (error || loadError) {
+    return <NetworkLayout><EmptyState icon={<Icon name="alert" className="h-6 w-6" />} title="Not readable yet" hint={error || loadError} /></NetworkLayout>
   }
   if (ctxLoading && !chapter) {
     return <NetworkLayout><MarketOverviewSkeleton /></NetworkLayout>

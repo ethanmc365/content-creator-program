@@ -83,11 +83,33 @@ export default function Challenges() {
       const bestVideo = new Map()   // `${challenge}:${creator}` -> best submission
       const subCount = new Map()    // `${challenge}:${creator}` -> how many they posted
       const person = new Map()      // creator id -> profile, for the voucher faces
+      // VIEWS COME FROM THE SUBMISSIONS, NOT FROM `results.final_views`.
+      //
+      // THE BUG: the archive said Lisa had 15.2k views and the challenge had
+      // 43.4k in total, while the leaderboard on the very next page said 16.8k
+      // and 76.6k. Two numbers for the same thing, and Ethan reported it as
+      // "the challenge archive is showing the incorrect view counts again".
+      //
+      // `results.final_views` is a SNAPSHOT, written when an admin saves the
+      // results (see AdminResults). Views are read automatically off each
+      // entry's link forever after that, so `submissions.logged_views` keeps
+      // climbing and the snapshot does not: on this challenge one creator had
+      // drifted by nearly twenty thousand views. Every other surface in the
+      // product reads the live number, so the archive was the odd one out.
+      //
+      // The RANK is left exactly as published. This challenge is `best_video`,
+      // so its order is a human decision that was made, announced and paid out;
+      // views are the reach, not the verdict, and re-ranking a settled result
+      // because a video kept being watched would be wrong.
+      const liveViews = new Map() // `${challenge}:${creator}` -> summed live views
+      const totalViews = new Map() // challenge -> summed live views
       for (const s of subs ?? []) {
         const k = `${s.challenge_id}:${s.creator_id}`
         const cur = bestVideo.get(k)
         if (!cur || (s.logged_views ?? 0) > (cur.logged_views ?? 0)) bestVideo.set(k, s)
         subCount.set(k, (subCount.get(k) || 0) + 1)
+        liveViews.set(k, (liveViews.get(k) || 0) + (Number(s.logged_views) || 0))
+        totalViews.set(s.challenge_id, (totalViews.get(s.challenge_id) || 0) + (Number(s.logged_views) || 0))
         if (s.profiles) person.set(s.creator_id, s.profiles)
       }
 
@@ -106,6 +128,9 @@ export default function Challenges() {
           .map((r, i) => ({
             ...r,
             rank: i + 1,
+            // The live figure, falling back to the snapshot only if this
+            // creator somehow has no submission rows left to read.
+            final_views: liveViews.get(`${c.id}:${r.creator_id}`) ?? r.final_views ?? 0,
             videoUrl: bestVideo.get(`${c.id}:${r.creator_id}`)?.video_url ?? null,
             platform: bestVideo.get(`${c.id}:${r.creator_id}`)?.platform ?? null,
           }))
@@ -123,7 +148,10 @@ export default function Challenges() {
           : []
         built[c.id] = {
           winners: ranked,
-          totalScore: rows.reduce((sum, r) => sum + (r.final_views || 0), 0),
+          // The whole challenge's reach, over EVERY entry rather than only the
+          // ranked ones - `results` holds one row per ranked creator, so
+          // summing it counted eleven people out of thirty-nine entries.
+          totalScore: totalViews.get(c.id) ?? rows.reduce((sum, r) => sum + (r.final_views || 0), 0),
           voucherWinners,
         }
       }

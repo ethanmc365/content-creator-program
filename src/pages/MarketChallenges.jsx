@@ -74,12 +74,33 @@ export default function MarketChallenges() {
       // Podium for finished challenges in this market only.
       const done = all.filter((c) => c.id !== live?.id).map((c) => c.id)
       if (done.length) {
-        const { data: results } = await supabase.from('results')
-          .select('challenge_id, creator_id, final_views, rank, profiles:creator_id(id, name, photo_url)')
-          .in('challenge_id', done)
-          .order('rank', { ascending: true })
+        // THE VIEW COUNT COMES FROM THE SUBMISSIONS, NOT FROM `results`.
+        // Same reason as the archive on /challenges: `results.final_views` is a
+        // snapshot taken when an admin saved the results, and views keep being
+        // read off each entry's link long afterwards, so the snapshot drifts
+        // and this card ends up disagreeing with every leaderboard in the app.
+        // The RANK still comes from `results`, because that is the decision.
+        const [{ data: results }, { data: subs }] = await Promise.all([
+          supabase.from('results')
+            .select('challenge_id, creator_id, final_views, rank, profiles:creator_id(id, name, photo_url)')
+            .in('challenge_id', done)
+            .order('rank', { ascending: true }),
+          supabase.from('submissions')
+            .select('challenge_id, creator_id, logged_views')
+            .in('challenge_id', done),
+        ])
         if (cancelled) return
-        for (const r of results || []) (winners[r.challenge_id] ||= []).push(r)
+        const liveViews = new Map()
+        for (const sub of subs || []) {
+          const k = `${sub.challenge_id}:${sub.creator_id}`
+          liveViews.set(k, (liveViews.get(k) || 0) + (Number(sub.logged_views) || 0))
+        }
+        for (const r of results || []) {
+          (winners[r.challenge_id] ||= []).push({
+            ...r,
+            final_views: liveViews.get(`${r.challenge_id}:${r.creator_id}`) ?? r.final_views ?? 0,
+          })
+        }
       }
 
       setD({ all, live, members, participation, winners })
