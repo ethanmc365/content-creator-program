@@ -38,12 +38,13 @@ export default function Rewards() {
       })
   }, [whose])
 
-  // Totals go through rewardsTotal, which respects the currency each reward was
-  // actually paid in. The old sum added amounts across currencies and printed
-  // the result with formatMoney's GBP default, so any euro reward was silently
-  // relabelled as pounds. "~" only appears when currencies genuinely had to be
-  // mixed down to one - a converted figure moves with the FX rate and should
-  // not be read as the exact amount that landed in somebody's account.
+  // Totals go through rewardsTotal: one figure, in euros, whole. The old sum
+  // added amounts across currencies and printed the result with formatMoney's
+  // GBP default, so a creator paid EUR 40 and GBP 50 saw "GBP 90". The
+  // programme settles in euros, so euros is the number - and "~" marks it
+  // whenever a conversion was involved, because that figure moves with the FX
+  // rate and is not the exact amount that landed in anybody's account. The
+  // rows below still show what was actually paid, in the currency it was paid.
   const earned = rewardsTotal(rewards.filter((r) => r.status === 'distributed'))
   const pending = rewardsTotal(rewards.filter((r) => r.status === 'pending'))
   const showTotal = (t) => `${t.converted ? '≈ ' : ''}${formatMoney(t.amount, t.currency)}`

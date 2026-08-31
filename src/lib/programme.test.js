@@ -195,24 +195,37 @@ describe('what a challenge actually cost', () => {
 })
 
 describe('rewardsTotal', () => {
-  it('reports a single-currency set in the currency it was paid in', () => {
+  // Always euros, always whole. The rows under the total still show what was
+  // actually paid; this figure is the one-number answer.
+  it('converts a pounds-only set into whole euros', () => {
     const t = rewardsTotal([{ amount: 100, currency: 'GBP' }, { amount: 150, currency: 'GBP' }])
-    expect(t).toEqual({ amount: 250, currency: 'GBP', converted: false })
+    // 250 GBP at the 1.17 fallback rate is 292.50, reported as 293.
+    expect(t).toEqual({ amount: 293, currency: 'EUR', converted: true })
   })
 
-  it('does not convert when the rewards are already in the reporting currency', () => {
-    const t = rewardsTotal([{ amount: 40, currency: 'EUR' }], 'EUR')
-    expect(t).toEqual({ amount: 40, currency: 'EUR', converted: false })
+  it('leaves euros alone and does not flag them as converted', () => {
+    const t = rewardsTotal([{ amount: 40, currency: 'EUR' }, { amount: 5, currency: 'EUR' }])
+    expect(t).toEqual({ amount: 45, currency: 'EUR', converted: false })
   })
 
   // The bug this exists to stop: pounds added to euros and printed as pounds.
-  it('converts a mixed set to one currency and says that it did', () => {
-    const t = rewardsTotal([{ amount: 50, currency: 'GBP' }, { amount: 40, currency: 'EUR' }], 'EUR')
-    expect(t.converted).toBe(true)
+  it('never simply adds across currencies', () => {
+    const t = rewardsTotal([{ amount: 50, currency: 'GBP' }, { amount: 40, currency: 'EUR' }])
     expect(t.currency).toBe('EUR')
-    // 50 GBP -> 58.50 EUR at the fallback rate, plus the 40 already in euros
-    expect(t.amount).toBeCloseTo(98.5, 5)
+    expect(t.converted).toBe(true)
+    // 50 GBP -> 58.50 EUR, plus 40 already in euros, rounded.
+    expect(t.amount).toBe(99)
     expect(t.amount).not.toBe(90)
+  })
+
+  it('never reports cents', () => {
+    for (const rows of [
+      [{ amount: 33.33, currency: 'EUR' }],
+      [{ amount: 10.5, currency: 'GBP' }],
+      [{ amount: 1, currency: 'GBP' }, { amount: 0.4, currency: 'EUR' }],
+    ]) {
+      expect(Number.isInteger(rewardsTotal(rows).amount)).toBe(true)
+    }
   })
 
   it('treats a missing currency as the reporting currency rather than guessing', () => {

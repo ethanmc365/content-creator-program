@@ -266,18 +266,20 @@ export function rewardsTotal(rows, to = 'EUR', rates = FALLBACK_RATES) {
   if (!list.length) return { amount: 0, currency: to, converted: false }
 
   const currencies = new Set(list.map((r) => r.currency || to))
-  if (currencies.size === 1) {
-    const [only] = [...currencies]
-    return {
-      amount: list.reduce((sum, r) => sum + Number(r.amount), 0),
-      currency: only,
-      converted: false,
-    }
-  }
+  const total = list.reduce((sum, r) => sum + (convert(r.amount, r.currency || to, to, rates) || 0), 0)
+  const converted = !(currencies.size === 1 && currencies.has(to))
 
-  return {
-    amount: list.reduce((sum, r) => sum + (convert(r.amount, r.currency || to, to, rates) || 0), 0),
-    currency: to,
-    converted: true,
-  }
+  // ALWAYS REPORTED IN THE ONE CURRENCY, AND NEVER IN CENTS.
+  //
+  // The programme settles in euros, so the euro figure is the one a creator is
+  // being asked to recognise even when the row behind it was paid in pounds.
+  // Ethan: "force-converted to euros regardless, but round it to nearest euro,
+  // never give cents for this."
+  //
+  // Rounding is not cosmetic. A converted total moves with the FX rate, so
+  // "EUR 292.50" claims a precision that would be a different number tomorrow
+  // with nothing having happened. Whole euros say the size of the thing and
+  // stop pretending to be a bank statement. The per-reward rows below the
+  // total still show exactly what was paid, in the currency it was paid in.
+  return { amount: Math.round(total), currency: to, converted }
 }

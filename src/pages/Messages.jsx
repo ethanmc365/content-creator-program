@@ -660,6 +660,16 @@ export default function Messages() {
     return grouped
   }
 
+  // WHO REACTED, for the chip's hover tooltip. `ids` on a summary are
+  // creator_ids; the names come from the people already loaded for this thread.
+  // Anybody not among them - a group member whose profile has not come back
+  // yet - is "Someone", which still beats a naked number.
+  function dmReactorNames(info) {
+    return (info?.ids || []).map((id) => (
+      id === user?.id ? 'You' : (people.find((p) => p.id === id)?.name || 'Someone')
+    ))
+  }
+
   // Flash-highlight and scroll to a quoted original message when its reply is tapped.
   const scrollToMessage = useCallback((id) => {
     const el = document.getElementById(`dm-${id}`)
@@ -1403,7 +1413,7 @@ export default function Messages() {
                       <div
                         // A queued message fades back a little: still yours,
                         // still there, just not out in the world yet.
-                        className={cx('min-w-0 max-w-[80%] sm:max-w-[65%]', m.pending && 'opacity-60')}
+                        className={cx('w-full min-w-0 max-w-[80%] sm:max-w-[65%]', m.pending && 'opacity-60')}
                         // Tap a message on mobile to reveal its reply / react actions.
                         onClick={(e) => { if (isMobile && !e.target.closest('a,button,video,input')) setActionsFor(showActions ? null : m.id) }}
                       >
@@ -1418,8 +1428,42 @@ export default function Messages() {
                       <MessageActions
                         side={mine ? 'right' : 'left'}
                         revealed={showActions}
-                        reactions={Object.entries(summary).map(([emoji, info]) => [emoji, info.count, info.mine])}
+                        reactions={Object.entries(summary).map(([emoji, info]) => [emoji, info.count, info.mine, dmReactorNames(info)])}
                         onToggleReaction={(emoji) => toggleReaction(m.id, emoji)}
+                        // SAME SLOT AS THE ROOMS. These used to sit inside
+                        // `children`, which put the timestamp and "Seen by"
+                        // ABOVE the reaction chips here and BELOW them in a
+                        // room - the same message furniture in two different
+                        // orders on two surfaces that are meant to be
+                        // identical. In the footer they are in one place, and
+                        // the pill stays out of their way on both.
+                        footer={(
+                          <>
+                            <p className={cx('mt-1 text-[10px] text-gray-400', mine && 'text-right')}>
+                              <span title={messageTimeTitle(m.created_at)}>{formatMessageTime(m.created_at)}</span>
+                              {m.edited_at && <span title={`Edited ${messageTimeTitle(m.edited_at)}`}> · edited</span>}
+                              {m.pending
+                                ? <PendingLabel tries={m.tries} prefix=" · " />
+                                : (mine && !isGroup && m.read && ' · Read')}
+                            </p>
+                            {m.failed && (
+                              <p className={cx('mt-0.5 text-[10px] text-smoke', mine && 'text-right')}>
+                                Not sent yet.{' '}
+                                <button type="button" onClick={() => retryQueued(m.queuedId)} className="font-semibold text-brand underline">Retry</button>
+                                {' · '}
+                                <button type="button" onClick={() => dropQueued(m.queuedId)} className="font-semibold underline">Discard</button>
+                              </p>
+                            )}
+                            {mine && isGroup && (() => {
+                              const seen = seenBy(m)
+                              return seen.length ? (
+                                <div className="mt-0.5 flex justify-end">
+                                  <SeenBy readers={seen} align="right" />
+                                </div>
+                              ) : null
+                            })()}
+                          </>
+                        )}
                         actions={m.pending || m.failed ? [] : [
                           { icon: 'reply', label: 'Reply', title: 'Reply to this message', onClick: () => { setReplyTo(m); setActionsFor(null); dmComposerRef.current?.focus() } },
                           ...(mine && withinEditWindow(m.created_at, nowTick)
@@ -1512,38 +1556,6 @@ export default function Messages() {
                             )
                           )}
                         </div>
-                        <p className={cx('mt-1 text-[10px] text-gray-400', mine && 'text-right')}>
-                          <span title={messageTimeTitle(m.created_at)}>{formatMessageTime(m.created_at)}</span>
-                          {/* An edited message says so, here as everywhere. */}
-                          {m.edited_at && <span title={`Edited ${messageTimeTitle(m.edited_at)}`}> · edited</span>}
-                          {/* Sent, waiting, or given up. It replaces "Read"
-                              rather than sitting beside it, because a message
-                              that has not left the phone has certainly not been
-                              read and saying both would be nonsense. */}
-                          {m.pending
-                            ? <PendingLabel tries={m.tries} prefix=" · " />
-                            : (mine && !isGroup && m.read && ' · Read')}
-                        </p>
-                        {m.failed && (
-                          <p className={cx('mt-0.5 text-[10px] text-smoke', mine && 'text-right')}>
-                            Not sent yet.{' '}
-                            <button type="button" onClick={() => retryQueued(m.queuedId)} className="font-semibold text-brand underline">Retry</button>
-                            {' · '}
-                            <button type="button" onClick={() => dropQueued(m.queuedId)} className="font-semibold underline">Discard</button>
-                          </p>
-                        )}
-
-                        {/* Seen by, in groups. A 1:1 says "Read" on the line
-                            above; a group needs names, and eight of them will
-                            not fit on a timestamp. */}
-                        {mine && isGroup && (() => {
-                          const seen = seenBy(m)
-                          return seen.length ? (
-                            <div className="mt-0.5 flex justify-end">
-                              <SeenBy readers={seen} align="right" />
-                            </div>
-                          ) : null
-                        })()}
                       </MessageActions>
                       </div>
                     </div>

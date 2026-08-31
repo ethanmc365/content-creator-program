@@ -71,9 +71,34 @@ const TOUR_ANCHORS = {
 }
 const tourAnchor = (to) => TOUR_ANCHORS[to] || undefined
 
+// WHICH TAB OWNS THE PAGE YOU ARE ON.
+//
+// NavLink's own `isActive` is a path-prefix test, and the rooms do not live
+// under /rooms: on a desktop that tab forwards straight into the worldwide
+// General, so the address becomes /global/chat/general - which /global matches
+// and /rooms does not. Press Rooms, land in a room, and the globe lights up
+// while the rooms icon stays grey. Ethan: "clicking the rooms button still
+// shows it in a way that I'm on worldwide, it doesn't highlight the rooms
+// icon."
+//
+// A chat path belongs to Rooms wherever it is mounted, and Worldwide keeps
+// everything else under /global and /c. Exported for the test.
+export function activeTab(pathname) {
+  if (/^\/(rooms|chat)(\/|$)/.test(pathname)) return '/rooms'
+  // /global/chat/general, /c/uk/chat/announcements - a room, not the hub.
+  if (/^\/(global|c|manage)(\/|$)/.test(pathname) && /\/chat(\/|$)/.test(pathname)) return '/rooms'
+  if (/^\/messages(\/|$)/.test(pathname)) return '/messages'
+  if (/^\/events(\/|$)/.test(pathname)) return '/events'
+  if (/^\/challenges(\/|$)/.test(pathname)) return '/challenges'
+  if (/^\/(global|c|manage)(\/|$)/.test(pathname)) return '/global'
+  return null
+}
+
 export default function AppLayout() {
   const { profile, isAdmin, impersonating, exitCreatorPreview, user, signOut } = useAuth()
   const { pathname } = useLocation()
+  // Which of the five tabs the current URL belongs to. See activeTab above.
+  const currentTab = activeTab(pathname)
   // The pill is fixed to the viewport bottom, which is exactly where a chat
   // composer sits. Padding cannot solve that (the pill is not in the flow), so
   // on the network pages it docks out of the way on the right instead. Docking
@@ -285,10 +310,10 @@ export default function AppLayout() {
   }
 
   // Desktop nav item: icon on top of label, matching the mobile tab bar.
-  const navLinkClass = ({ isActive }) =>
+  const navLinkClass = (to) =>
     cx(
       'relative flex flex-col items-center gap-0.5 rounded-xl px-4 py-1.5 text-[11px] font-medium transition-colors',
-      isActive ? 'text-brand' : 'text-smoke hover:text-ink'
+      currentTab === to ? 'text-brand' : 'text-smoke hover:text-ink'
     )
 
   return (
@@ -358,7 +383,7 @@ export default function AppLayout() {
 
           <nav className="hidden items-center gap-2 lg:flex" aria-label="Main">
             {tabs.map((item) => (
-              <NavLink key={item.to} to={item.to} className={navLinkClass} data-tour={tourAnchor(item.to)}>
+              <NavLink key={item.to} to={item.to} className={navLinkClass(item.to)} data-tour={tourAnchor(item.to)}>
                 <Icon name={item.icon} className="h-5 w-5" />
                 {item.label}
                 {item.to === '/messages' && dmUnread > 0 && (
@@ -519,9 +544,10 @@ export default function AppLayout() {
               key={tab.to}
               to={tab.to}
               data-tour={tourAnchor(tab.to)}
-              className={({ isActive }) =>
-                cx('relative flex flex-1 flex-col items-center gap-1 rounded-xl px-1 py-1 text-[10px] font-medium', isActive ? 'text-brand' : 'text-smoke')
-              }
+              className={cx(
+                'relative flex flex-1 flex-col items-center gap-1 rounded-xl px-1 py-1 text-[10px] font-medium',
+                currentTab === tab.to ? 'text-brand' : 'text-smoke',
+              )}
             >
               <span className="relative">
                 <Icon name={tab.icon} className="h-6 w-6" />

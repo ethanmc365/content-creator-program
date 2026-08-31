@@ -477,6 +477,15 @@ export default function NetworkChat() {
 
   const messageIds = useMemo(() => messages.map((m) => m.id), [messages])
   const { byMessage: reactionsByMessage, toggle: toggleReaction } = useReactions(messageIds, user?.id)
+  // WHO REACTED. `reactions` rows carry a creator_id and nothing else, so the
+  // names for a chip's tooltip come from the room's member list. Somebody who
+  // has since left the market is not in it; "Someone" is the honest answer
+  // there and still better than a bare number.
+  const nameById = useMemo(
+    () => new Map((members || []).filter(Boolean).map((p) => [p.id, p.name])),
+    [members],
+  )
+  const nameFor = useCallback((id) => nameById.get(id) || 'Someone', [nameById])
   // id -> message, for drawing what a reply is answering without a second read.
   // A reply whose parent has scrolled out of the 200 this room holds resolves
   // to nothing, and QuotedParent says so rather than rendering an empty bar.
@@ -885,9 +894,12 @@ export default function NetworkChat() {
             const chips = (() => {
               const byEmoji = new Map()
               for (const r of reactions) {
-                const row = byEmoji.get(r.emoji) || [r.emoji, 0, false]
+                // [emoji, count, isMine, names] - the names are what the chip's
+                // hover tooltip says, so a count always has people behind it.
+                const row = byEmoji.get(r.emoji) || [r.emoji, 0, false, []]
                 row[1] += 1
-                if (r.creator_id === user?.id) row[2] = true
+                if (r.creator_id === user?.id) { row[2] = true; row[3].push('You') }
+                else row[3].push(nameFor(r.creator_id))
                 byEmoji.set(r.emoji, row)
               }
               return [...byEmoji.values()]
@@ -942,7 +954,7 @@ export default function NetworkChat() {
                   {!grouped && !mine && <Avatar src={m.profiles?.photo_url} name={m.profiles?.name} size="sm" />}
                 </div>
 
-                <div className={cx('flex min-w-0 max-w-[82%] flex-col sm:max-w-[68%]', mine && 'items-end')}>
+                <div className={cx('flex w-full min-w-0 max-w-[82%] flex-col sm:max-w-[68%]', mine && 'items-end')}>
                   {/* THE META LINE IS INSIDE MessageActions, and that is the
                       point. The pill hangs off the TOP of whatever this wraps;
                       wrapping the bubble alone put it exactly where "You ·
@@ -957,6 +969,36 @@ export default function NetworkChat() {
                     reactions={chips}
                     onToggleReaction={(emoji) => toggleReaction(m.id, emoji)}
                     revealed={actionsFor === m.id}
+                    // THE EDITED NOTE, THE OUTBOX STATE AND "SEEN BY" GO IN
+                    // HERE rather than after the component. They used to be
+                    // siblings underneath it, which is exactly where the pill
+                    // now lives - so the control you were reaching for landed
+                    // on top of the receipt you were trying to read. Passed in,
+                    // they share the bottom row with the pill and MessageActions
+                    // keeps the two at opposite ends of it.
+                    footer={(
+                      <>
+                        {m.edited_at && !m.pending && (
+                          <p className={cx('mt-0.5 px-1 text-[10px] text-gray-400', mine && 'text-right')}>edited</p>
+                        )}
+                        {m.pending && (
+                          <PendingLabel tries={m.tries} className="mt-0.5 block px-1 text-[11px] text-gray-400" />
+                        )}
+                        {m.failed && (
+                          <p className="mt-0.5 px-1 text-[11px] text-smoke">
+                            Not sent yet.{' '}
+                            <button type="button" onClick={() => retryQueued(m.queuedId)} className="font-semibold text-brand underline">Retry</button>
+                            {' · '}
+                            <button type="button" onClick={() => dropQueued(m.queuedId)} className="font-semibold underline">Discard</button>
+                          </p>
+                        )}
+                        {seen.length > 0 && (
+                          <div className={cx('mt-0.5 flex', mine && 'justify-end')}>
+                            <SeenBy readers={seen} align={mine ? 'right' : 'left'} />
+                          </div>
+                        )}
+                      </>
+                    )}
                     // Reply to anything, edit yours for five minutes, delete
                     // yours (or anybody's, as an admin), report somebody
                     // else's. A pending message has no id on the server yet, so
@@ -1035,36 +1077,6 @@ export default function NetworkChat() {
                       </div>
                     </div>
                   </MessageActions>
-
-                  {/* An edited message says so, here as everywhere. */}
-                  {m.edited_at && !m.pending && (
-                    <p className="mt-0.5 px-1 text-[10px] text-gray-400">edited</p>
-                  )}
-
-                  {/* A message still in the outbox says which of the two it is:
-                      on its way, or waiting for a connection that has not come
-                      back yet. Grey, not red - nothing has gone wrong. */}
-                  {m.pending && (
-                    <PendingLabel tries={m.tries} className="mt-0.5 block px-1 text-[11px] text-gray-400" />
-                  )}
-                  {m.failed && (
-                    <p className="mt-0.5 px-1 text-[11px] text-smoke">
-                      Not sent yet.{' '}
-                      <button type="button" onClick={() => retryQueued(m.queuedId)} className="font-semibold text-brand underline">Retry</button>
-                      {' · '}
-                      <button type="button" onClick={() => dropQueued(m.queuedId)} className="font-semibold underline">Discard</button>
-                    </p>
-                  )}
-
-                  {/* Read receipts. Own messages only (plus the team's full
-                      view): knowing your question landed is the value, and a
-                      room where everyone can audit everyone's reading is a room
-                      people stop opening. */}
-                  {seen.length > 0 && (
-                    <div className={cx('mt-0.5 flex', mine && 'justify-end')}>
-                      <SeenBy readers={seen} align={mine ? 'right' : 'left'} />
-                    </div>
-                  )}
                 </div>
               </motion.div>
             )

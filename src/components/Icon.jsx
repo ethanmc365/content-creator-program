@@ -142,26 +142,29 @@ function WorldIcon({ className, strokeWidth }) {
         </clipPath>
       </defs>
       <g clipPath="url(#tryp-world-clip)" fill="currentColor">
-        {/* THE AMERICAS. Second attempt: the first was two straight-edged
-            wedges that read as "some land" rather than as anywhere. What makes
-            this shape recognisable at 20px is four things and no more - North
-            America wide across the TOP and slanting down to the right, the
-            PINCH at Panama, South America hanging BELOW AND RIGHT of that pinch
-            (not underneath it, which is the mistake that makes it look like one
-            long smear), and a taper to a point at the bottom.
-            Curves, not straight runs: a coastline drawn with corners reads as a
-            crystal, and the corners are the first thing the eye picks up. */}
-        <path d="M9.9 3.5c-1.6.15-3.2.75-4.4 1.75-.75.65-.6 1.5.15 2 .7.45 1.6.5 2.15 1.05.6.6.5 1.5.95 2.2.5.8 1.45 1.1 2.1 1.75.5.5.55 1.2.5 1.85-.05.75-.35 1.5-.15 2.25.35 1.35 1.05 2.65 1.75 3.85.3.5.85.55 1.15.05.5-.85.55-1.9.5-2.85-.05-1.15-.35-2.3-.35-3.45 0-.85.25-1.75-.15-2.5-.4-.75-1.3-1-1.9-1.55-.65-.6-.85-1.55-.6-2.4.2-.7.75-1.35.6-2.1-.1-.5-.6-.85-1.3-.9Z" />
-        {/* EUROPE AND AFRICA. The shoulder at the top left is Iberia and the
-            Mediterranean coast; the wide part is the Sahara; then the long
-            taper to the Cape, swinging slightly LEFT as it goes down, which is
-            the line that stops it reading as a rectangle. */}
-        <path d="M14.6 4.9c-.85.1-1.15.95-.8 1.65.3.6 1 .8 1.65.85.85.05 1.75-.15 2.5.3.85.5.95 1.7.6 2.6-.35.9-1.05 1.6-1.4 2.5-.45 1.15-.35 2.5-.15 3.7.15.9.4 1.9 1.05 2.5.45.4 1.05.2 1.4-.25.95-1.25 1.35-2.85 1.5-4.4.2-2.15-.05-4.4-.95-6.35-.6-1.3-1.6-2.5-2.95-3-.75-.3-1.6-.2-2.45-.1Z" />
-        {/* NO ASIA, NO AUSTRALIA. They were drawn and removed: at r=9.1 the
-            only room left for them is the last millimetre of the rim, so the
-            clip cut them into slivers that read as chips out of the edge of the
-            planet rather than as land. Two masses and an ocean is what every
-            globe icon settles on, and it is what the reference is. */}
+        {/* THREE MASSES AND A VISIBLE OCEAN.
+            The previous draw joined North and South America into one shape
+            through a "pinch" at Panama, and at icon size the pinch closed up:
+            the two halves read as a single vertical smear, the Atlantic
+            disappeared under it, and Africa sat so close that the whole thing
+            became one blot. Ethan: "the map on it looks distorted."
+            Separate shapes with real water between them is what makes a globe
+            legible at 20px. The channel runs from x=11.6 to x=12.9 top to
+            bottom and nothing crosses it. */}
+        {/* NORTH AMERICA. Wide along the top, falling away to the south-east. */}
+        <path d="M5.0 6.5c1.5-1.4 4.5-1.5 6.0-.4.7.5.3 1.7-.5 2.7-.7.9-1.3 1.9-2.0 2.3-.9.5-2.0-.5-2.7-1.6-.7-1.1-1.4-2.4-.8-3.0Z" />
+        {/* SOUTH AMERICA. Below the gap and to the RIGHT of North America's
+            centre, which is the relationship that stops the pair reading as one
+            column, then tapering to a point at the bottom. */}
+        <path d="M9.2 12.0c1.5-.4 2.6.4 2.6 1.9 0 1.4-.5 3.1-1.2 4.4-.4.9-1.2 1.5-1.6.6-.5-1.2-.7-2.8-.7-4.2 0-1.1.2-2.4.9-2.7Z" />
+        {/* EUROPE AND AFRICA. One mass: the shoulder at the top is Iberia and
+            the Mediterranean, the wide middle is the Sahara, and the taper
+            swings LEFT to the Cape so it never reads as a rectangle. */}
+        <path d="M13.9 5.8c1.7-.6 3.9-.1 4.8 1.2.7 1.1.4 2.5-.2 3.6-.5.9-1.1 1.8-1.5 2.7-.5 1.3-.8 2.9-1.6 4-.5.7-1.3.6-1.5-.3-.3-1.4-.1-2.9-.3-4.3-.2-1.4-.7-2.6-.5-4 .1-1.1.1-2.6.8-2.9Z" />
+        {/* NO ASIA, NO AUSTRALIA. They were drawn and removed: at r=9.1 the only
+            room left for them is the last millimetre of the rim, so the clip cut
+            them into slivers that read as chips out of the edge of the planet
+            rather than as land. */}
       </g>
       <circle cx="12" cy="12" r="9.1" stroke="currentColor" strokeWidth={strokeWidth} />
     </svg>
