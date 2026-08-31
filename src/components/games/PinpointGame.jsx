@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import { Badge, StreakChip } from '../ui'
 import Icon from '../Icon'
 import { flagEmoji } from '../../lib/countries'
+import { useOpenOnGame, useKeepAboveKeyboard } from '../../lib/gameFocus'
 import { pinpointForDay, pinpointMatches } from '../../lib/pinpoint'
 import { ukDayIndex, ukDayStartIso, untilNextUkMidnight, dailyStreak } from '../../lib/daily'
 import { cx } from '../../lib/utils'
@@ -39,6 +40,12 @@ export default function PinpointGame({ onExit }) {
   const [clues, setClues] = useState(stored ? MAX_CLUES : 1) // revealed count
   const [guesses, setGuesses] = useState(stored?.guesses ?? [])
   const [typed, setTyped] = useState('')
+  // Opening on the puzzle, and keeping the guess field clear of the keyboard.
+  // See lib/gameFocus for why `scrollIntoView` alone does not do the second.
+  const cardRef = useRef(null)
+  const formRef = useRef(null)
+  useOpenOnGame(cardRef)
+  const keepInView = useKeepAboveKeyboard(formRef)
   const [outcome, setOutcome] = useState(stored?.outcome ?? null) // 'won' | 'lost'
   const [wonOnClue, setWonOnClue] = useState(stored?.wonOnClue ?? null)
   const [checking, setChecking] = useState(!stored) // true while we ask the server
@@ -124,6 +131,8 @@ export default function PinpointGame({ onExit }) {
     } else {
       playWrong()
       const next = [...guesses, guess]
+      // The list of wrong guesses grows below the field, so re-centre it.
+      keepInView()
       setGuesses(next)
       setTyped('')
       setShake(true)
@@ -157,7 +166,7 @@ export default function PinpointGame({ onExit }) {
         </div>
       </div>
 
-      <div className="card flex flex-col items-center gap-6 !py-10 text-center">
+      <div ref={cardRef} className="card flex flex-col items-center gap-6 !py-10 text-center">
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-smoke">Guess the country</p>
           <p className="mt-1 text-sm text-smoke">Five clues, one guess per clue. The earlier you get it, the more points.</p>
@@ -181,9 +190,13 @@ export default function PinpointGame({ onExit }) {
         </div>
 
         {!done && !checking && (
-          <form onSubmit={submit} className={cx('flex w-full max-w-sm flex-col items-center gap-3', shake && 'animate-shake')}>
+          <form ref={formRef} onSubmit={submit} className={cx('flex w-full max-w-sm flex-col items-center gap-3', shake && 'animate-shake')}>
             <input
               type="search" inputMode="text" enterKeyHint="go" value={typed} onChange={(e) => setTyped(e.target.value)}
+              // The keyboard must never be over the thing you are typing into,
+              // and a wrong guess grows the list below this and pushes it down.
+              // See lib/gameFocus.
+              onFocus={keepInView}
               // NO BLINKING CARET. Ethan: "I don't want it to show the flashing
               // text bar, I just want the ability to write there without it,
               // because it ruins the aesthetic." `caret-transparent` hides only

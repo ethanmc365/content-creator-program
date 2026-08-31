@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import { dailyLanguageRound, DAILY_LANGUAGE_ROUNDS } from '../../lib/languages'
 import { ukDayIndex, ukDayStartIso, untilNextUkMidnight, dailyStreak } from '../../lib/daily'
 import { cx } from '../../lib/utils'
+import { useOpenOnGame } from '../../lib/gameFocus'
 import Icon from '../Icon'
 import { Badge, Confetti, StreakChip } from '../ui'
 import GameChrome, { AnswerFlash } from './GameChrome'
@@ -92,6 +93,19 @@ export default function LanguageGame({ onExit }) {
   const stored = useState(() => loadStored(day))[0]
   const [i, setI] = useState(0)
   const [picked, setPicked] = useState(null)
+  // Open on the puzzle, and bring the explanation into view when it appears -
+  // it is what you answered FOR, and it lands below the fold otherwise.
+  const cardRef = useRef(null)
+  const answerRef = useRef(null)
+  useOpenOnGame(cardRef)
+  useEffect(() => {
+    if (!picked || !answerRef.current) return
+    const t = setTimeout(
+      () => answerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }),
+      160,
+    )
+    return () => clearTimeout(t)
+  }, [picked])
   const [correct, setCorrect] = useState(0)
   const [done, setDone] = useState(stored ? { correct: stored.correct, total: stored.total, timeMs: stored.timeMs } : null)
   const [checking, setChecking] = useState(!stored)
@@ -256,7 +270,7 @@ export default function LanguageGame({ onExit }) {
   const right = picked?.code === q.answer.code
 
   return (
-    <div className="space-y-5">
+    <div ref={cardRef} className="space-y-5">
       {/* The same header every other mode has. This game's own progress bar was
           the one Ethan liked, so it became the shared one rather than staying
           the exception. */}
@@ -273,17 +287,22 @@ export default function LanguageGame({ onExit }) {
       <AnswerFlash
         key={`l${i}`}
         state={picked ? (right ? 'right' : 'wrong') : null}
-        className="card flex flex-col items-center gap-7 !py-10 text-center"
+        // TIGHTER ON A PHONE. Ethan: "the languages game, making a phrase and
+        // reading it needs a scroll each way." A 40px-padded card holding a
+        // large phrase block, four stacked answers and then an explanation is
+        // well over one screen at 375px, so playing a single question meant
+        // scrolling down to answer and scrolling again to read what it meant.
+        className="card flex flex-col items-center gap-5 !py-6 text-center sm:gap-7 sm:!py-10"
       >
         <div className="w-full">
-          <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-smoke">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-smoke sm:mb-4">
             What language is this?
           </p>
           {/* The phrase card. `key` on the animation wrapper so each new phrase
               plays the entrance again rather than swapping in place. */}
           <div
             key={`${i}-${q.phrase.text}`}
-            className="mx-auto inline-block max-w-full animate-fade-up rounded-2xl bg-gradient-to-br from-brand to-brand-light px-7 py-6 text-white shadow-lift sm:px-10 sm:py-8"
+            className="mx-auto inline-block max-w-full animate-fade-up rounded-2xl bg-gradient-to-br from-brand to-brand-light px-5 py-4 text-white shadow-lift sm:px-10 sm:py-8"
           >
             <p
               dir={RTL.has(q.answer.script) ? 'rtl' : 'ltr'}
@@ -298,7 +317,10 @@ export default function LanguageGame({ onExit }) {
         {/* ALWAYS FOUR, IN A 2x2. `buildQuestion` guarantees the four; the grid
             is fixed at two columns so the block is the same shape on every
             question and nothing below it moves as you play. */}
-        <div className="grid w-full max-w-lg grid-cols-1 gap-2.5 sm:grid-cols-2">
+        {/* TWO COLUMNS AT EVERY WIDTH. A language name is one short word, so
+            four of them stacked in a single column spent four rows saying what
+            fits in two - and those two rows are most of the scroll. */}
+        <div className="grid w-full max-w-lg grid-cols-2 gap-2.5">
           {q.choices.map((c) => {
             const isAnswer = c.code === q.answer.code
             const isPicked = picked?.code === c.code
@@ -327,7 +349,7 @@ export default function LanguageGame({ onExit }) {
             only scores you teaches nothing; this is the part a traveller in a
             community of travellers actually keeps. */}
         {picked && (
-          <div className="w-full max-w-lg animate-fade-up space-y-3 border-t border-gray-100 pt-6">
+          <div ref={answerRef} className="w-full max-w-lg animate-fade-up space-y-3 border-t border-gray-100 pt-5 sm:pt-6">
             <p className={cx('text-sm font-bold', right ? 'text-green-600' : 'text-red-500')}>
               {right ? 'Correct' : `It was ${q.answer.name}`}
             </p>
