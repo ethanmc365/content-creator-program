@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Icon from '../Icon'
 import ReactionPicker from '../ReactionPicker'
 import { cx } from '../../lib/utils'
@@ -50,8 +50,52 @@ export default function MessageActions({
   const mine = side === 'right'
   const canReact = !!onToggleReaction
 
+  // WHICH SIDE OF THE MESSAGE THE PILL SITS ON, decided by measurement.
+  //
+  // Above was right for an ordinary message and wrong in two cases Ethan hit:
+  //
+  //   * A MESSAGE AT THE TOP OF THE THREAD. `bottom-full` put the pill above
+  //     the scroll container's own top edge, which clips it - "it's cut off at
+  //     the top, so I'm not able to see it".
+  //   * A TALL MESSAGE. On a paragraph the pill ends up level with the first
+  //     line, an inch or more from where your eye actually finishes reading -
+  //     "if there's a really big message the reaction and reply button
+  //     appearing at the top is quite weird, it might be better at the bottom".
+  //
+  // Both resolve to the same answer, so there is one rule: go BELOW when there
+  // is not room above, or when the message is tall enough that the top is the
+  // wrong end of it. Measured against the nearest scrolling ancestor, because
+  // that is what does the clipping - the window is not the constraint here.
+  const wrapRef = useRef(null)
+  const [below, setBelow] = useState(false)
+
+  const measure = useCallback(() => {
+    const el = wrapRef.current
+    if (!el) return
+    const box = el.getBoundingClientRect()
+    let scroller = el.parentElement
+    while (scroller && scroller !== document.body) {
+      const oy = getComputedStyle(scroller).overflowY
+      if (oy === 'auto' || oy === 'scroll') break
+      scroller = scroller.parentElement
+    }
+    const top = scroller && scroller !== document.body
+      ? scroller.getBoundingClientRect().top
+      : 0
+    // 44px is the pill plus its gap. Tall is 160px, which is about five lines.
+    setBelow(box.top - top < 44 || box.height > 160)
+  }, [])
+
+  // Measured when the pill is about to be needed rather than on every render:
+  // a thread is 200 messages and this is a layout read.
+  useEffect(() => { if (revealed) measure() }, [revealed, measure])
+
   return (
-    <div className={cx('relative', className)}>
+    <div
+      ref={wrapRef}
+      className={cx('relative', className)}
+      onPointerEnter={measure}
+    >
       {/* ---------------------------------------------------------- the pill
           `bottom-full` is measured against THIS wrapper, whose top edge is the
           top of the bubble, so the pill lands fully above the message and
@@ -62,8 +106,22 @@ export default function MessageActions({
           bottom. That was bug (2). */}
       {(actions.length > 0 || canReact) && (
         <div
+          // THE GAP IS PADDING, NOT MARGIN, AND THAT IS THE HOVER FIX.
+          //
+          // `mb-1` put four transparent pixels between the message and the
+          // pill, and a gap is a hole: moving the pointer from the message to
+          // the emoji button crossed it, `group-hover` dropped, and the pill
+          // vanished under the cursor mid-reach. Ethan: "if I hover over a
+          // message and then try to hover over the emoji button, I find it
+          // quite difficult, it seems to disappear immediately."
+          // As PADDING on this positioned wrapper the same four pixels are part
+          // of the hoverable element, so the pointer never leaves anything.
+          //
+          // z-30, over the picker's own catcher and over any neighbouring row:
+          // "it should always pop out above everything".
           className={cx(
-            'absolute bottom-full z-20 mb-1 flex items-center gap-0.5 rounded-full border border-gray-100 bg-white/95 px-1 py-0.5 shadow-card backdrop-blur',
+            'absolute z-30 flex items-center gap-0.5',
+            below ? 'top-full pt-1' : 'bottom-full pb-1',
             // The INNER edge. A bubble sits against the outer edge of the
             // thread, so anchoring the pill there is what pushed it off screen.
             mine ? 'right-0' : 'left-0',
@@ -73,6 +131,7 @@ export default function MessageActions({
               : 'pointer-events-none translate-y-1 opacity-0 focus-within:pointer-events-auto focus-within:translate-y-0 focus-within:opacity-100 group-hover/msg:pointer-events-auto group-hover/msg:translate-y-0 group-hover/msg:opacity-100',
           )}
         >
+        <div className="flex items-center gap-0.5 rounded-full border border-gray-100 bg-white/95 px-1 py-0.5 shadow-lift backdrop-blur">
           {canReact && (
             // The picker anchors to THIS button, so it stays first: the panel
             // is 17rem wide and opening it from the far end of the pill is what
@@ -91,7 +150,11 @@ export default function MessageActions({
                   <div className="fixed inset-0 z-30" onClick={() => setPicking(false)} />
                   <ReactionPicker
                     align={mine ? 'right' : 'left'}
-                    prefer="above"
+                    // The panel opens away from the message: with the pill
+                    // above it opens further up, with the pill below it opens
+                    // further down. ReactionPicker still overrules either when
+                    // the side it was asked for does not fit.
+                    prefer={below ? 'below' : 'above'}
                     onPick={(emoji) => { onToggleReaction(emoji); setPicking(false) }}
                     onClose={() => setPicking(false)}
                   />
@@ -109,6 +172,7 @@ export default function MessageActions({
               onClick={a.onClick}
             />
           ))}
+        </div>
         </div>
       )}
 

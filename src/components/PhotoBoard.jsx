@@ -2,67 +2,79 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import Icon from './Icon'
 import { cx } from '../lib/utils'
+import { onPhotosChanged } from '../lib/photoEvents'
 
-// THE TRAVEL PHOTO BOARD, REBUILT.
+// THE TRAVEL PHOTO BOARD. FREE PLACEMENT, DONE PROPERLY THIS TIME.
 //
-// WHAT THE OLD ONE DID AND WHY IT HAD TO GO.
+// THREE ATTEMPTS, AND WHY THIS ONE IS DIFFERENT.
 //
-// It was free 2-D placement on a 12-column grid: every photo carried pos_x,
-// pos_y, pos_w and pos_h, you dragged a tile anywhere and it landed on a cell.
-// On paper that is "a board you can arrange". Measured against production it
-// was worse than that: NOBODY HAD EVER SUCCESSFULLY ARRANGED ONE. Every
-// creator_photos row in the database had `pos_x = null` - all 250-odd of them -
-// and not one had a stored aspect either. Ethan: "it's not showing all the
-// photos added, and dragging, moving, resizing, none of those functions are
-// working. Please completely rebuild it."
+// The original was free 2-D placement on a 12-column grid. It failed, and the
+// proof was in production: every creator_photos row had `pos_x = null`, so
+// nobody had ever completed a single arrangement. The reasons were structural -
+// unbounded `pos_y` let a board grow taller than the screen, and twelve columns
+// at 375px is a 31px cell, so the whole feature was switched off on phones.
 //
-// The reasons it could not work were structural, not bugs to patch:
+// The second was a masonry grid: drag to REORDER, press to widen. It works, and
+// it is not what was asked for. Ethan: "the tool just consists of drag and a
+// narrower button, I want the ability to fully resize each one to any size I
+// want by dragging from the corner, I want the move function to be able to move
+// and drop it anywhere and it stays there, not snapping in place."
 //
-//   * OVERLAP WAS LEGAL. Two photos could hold the same cells - that was called
-//     a feature - so the untouched default stacked tiles on top of each other
-//     and the board looked broken before anybody dragged anything.
-//   * NOTHING BOUNDED THE HEIGHT. `pos_y` was unclamped, so one downward drag
-//     left a board several screens tall with a photo at the bottom of it.
-//   * IT WAS DESKTOP-ONLY BY CONSTRUCTION. Twelve columns on a 375px screen is
-//     a 31px cell, so the feature was switched off on the device these photos
-//     are mostly looked at on.
-//   * ASPECT WAS DECORATIVE. The stored box drove the shape, so a portrait
-//     photo in a landscape box was cropped whatever the crop tool said.
+// So this is free placement again, with the two things that actually broke it
+// fixed:
 //
-// WHAT IT IS NOW: a masonry grid. Every photo keeps THE SHAPE IT WAS UPLOADED
-// AT, always, because its row span is computed from its own measured aspect.
-// Arranging is ORDER plus WIDTH - drag a photo to a new place in the run, press
-// the button to let it span two columns - which is the arranging people
-// actually do, cannot produce an overlap or a hole, and works the same with a
-// thumb as with a mouse. Two columns on a phone, three above that, so a board
-// of ten photos is a screen and a half rather than the six screens the old
-// default produced.
+//   1. EVERYTHING IS STORED AS A FRACTION OF THE BOARD'S WIDTH, in per-mille,
+//      not as grid cells and not as pixels. x, y, w and h are all in the same
+//      unit, so a board arranged on a 1400px desktop renders as the SAME
+//      ARRANGEMENT, scaled, at 375px. That single decision is what makes free
+//      placement survive a phone at all - the old grid could not, which is why
+//      it was desktop-only, which is why nobody used it.
+//      `smallint` holds 0..32767, so per-mille has plenty of room for a board
+//      several screens tall.
+//   2. THE BOARD'S HEIGHT IS DERIVED FROM ITS CONTENTS, every render. A photo
+//      dragged to the bottom extends the board and the page grows with it; it
+//      can never be dropped into space that does not exist.
 //
-// `sort_order` carries the order and `pos_w` carries the span (1 or 2). The
-// other pos_* columns are left alone: they hold nothing anywhere, and dropping
-// them is a migration for another day.
+// Overlap is allowed, deliberately - "move it anywhere and it stays there"
+// means exactly that, and photographs overlapping at the corners is what a real
+// board of prints looks like. Depth is source order, and picking a photo up
+// brings it to the front.
 
-// A masonry row unit. Small enough that a span lands within a pixel or two of
-// the true height, large enough that a 400px tile is 50 spans and not 400.
-const ROW = 8
-const GAP = 10
+const MILLE = 1000
+// A photo has to stay big enough to grab and small enough to arrange. 8% of the
+// board is about 110px on a desktop and 30px on a phone.
+const MIN_W = 80
 
-/** How many columns the board runs at this width. */
-export function colsFor(width) {
-  if (width < 420) return 2
-  return 3
-}
+const toFrac = (n, fallback = null) => (Number.isFinite(Number(n)) && n !== null ? Number(n) / MILLE : fallback)
+const toMille = (f) => Math.round(f * MILLE)
 
 /**
- * How many ROW units a photo of this aspect needs at this column width.
- * Exported for the tests: this is the one piece of arithmetic that decides
- * whether a photo keeps its shape.
+ * Where photos sit before anybody has arranged them: a packed masonry layout at
+ * each photo's own aspect, in the same fractional units the drags use.
+ *
+ * IT TRACKS COLUMN HEIGHTS, and it has to. The first version placed row N at
+ * `N * h` using ONE photo's height, so a tall portrait in column 0 was overlapped
+ * by whatever landed under it - the untouched board looked broken before anybody
+ * touched it, which is exactly what sank the original grid.
+ * Shortest column wins, which is the standard masonry rule and keeps the board
+ * as short as it can be.
+ *
+ * Takes the whole list rather than one index, because packing is a question
+ * about the set. Exported for the tests.
  */
-export function spanFor(aspect, colWidth, span = 1) {
-  const a = Number.isFinite(aspect) && aspect > 0 ? aspect : 1
-  const w = colWidth * span + GAP * (span - 1)
-  const h = w / a
-  return Math.max(4, Math.round((h + GAP) / ROW))
+export function defaultLayout(aspects, cols) {
+  const gap = 0.02
+  const w = (1 - gap * (cols - 1)) / cols
+  const heights = new Array(cols).fill(0)
+  return aspects.map((raw) => {
+    const a = Number.isFinite(raw) && raw > 0 ? raw : 1
+    const h = w / a
+    let col = 0
+    for (let c = 1; c < cols; c += 1) if (heights[c] < heights[col]) col = c
+    const y = heights[col]
+    heights[col] = y + h + gap
+    return { x: col * (w + gap), y, w, h }
+  })
 }
 
 export default function PhotoBoard({ creatorId, editable = false, alwaysArranging = false, onCount }) {
@@ -70,25 +82,31 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
   const [arrangingSelf, setArranging] = useState(false)
   const [cropping, setCropping] = useState(null)
   const [lightbox, setLightbox] = useState(null)
-  // id -> measured aspect. Held here rather than only in the database so the
-  // FIRST render after an upload is already the right shape, and so a board
-  // whose rows predate the `aspect` column (all of them, today) lays out
-  // correctly without waiting for a write to land.
   const [aspects, setAspects] = useState({})
-  // Photos whose file is no longer in storage. There are six of these in
-  // production right now, all belonging to one creator, and they were rendering
-  // as the browser's broken-image icon - which is what "it's not showing all
-  // the photos added" looks like from the outside.
-  //
-  // A VISITOR SEES NOTHING; THE OWNER SEES THE TRUTH. Hiding a missing photo
-  // from everybody would mean the person who uploaded it never finds out it is
-  // gone, and they are the only one who can do anything about it. Hiding it
-  // from a stranger is simply not showing them somebody else's broken data.
   const [broken, setBroken] = useState({})
-  const boardRef = useRef(null)
   const [width, setWidth] = useState(0)
+  const boardRef = useRef(null)
 
   const arranging = editable && (alwaysArranging || arrangingSelf)
+
+  const load = useCallback(async () => {
+    const { data } = await supabase.from('creator_photos').select('*')
+      .eq('creator_id', creatorId).order('sort_order')
+    setPhotos(data ?? [])
+    onCount?.((data ?? []).length)
+  }, [creatorId, onCount])
+  useEffect(() => { load() }, [load])
+
+  // ADDING OR DELETING A PHOTO UPDATES THE BOARD IMMEDIATELY.
+  //
+  // The uploader (TravelGallery) and the board are siblings that both read
+  // `creator_photos`, and neither knew about the other - so uploading a photo
+  // left the board a photo short until the next full page load, and deleting
+  // one left a tile pointing at a row that was gone. Ethan noticed both.
+  // A tiny module-level event is the honest fix here: they are peers, not
+  // parent and child, and threading a callback through Edit profile to join
+  // them would put this plumbing in a page that has no interest in it.
+  useEffect(() => onPhotosChanged((id) => { if (id === creatorId) load() }), [creatorId, load])
 
   useEffect(() => {
     const el = boardRef.current
@@ -99,22 +117,10 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
     return () => ro.disconnect()
   }, [photos])
 
-  const load = useCallback(async () => {
-    const { data } = await supabase.from('creator_photos').select('*')
-      .eq('creator_id', creatorId).order('sort_order')
-    setPhotos(data ?? [])
-    onCount?.((data ?? []).length)
-  }, [creatorId, onCount])
-  useEffect(() => { load() }, [load])
-
-  // MEASURE EVERY PHOTO ONCE, and write back the ones the database is missing.
-  //
-  // `new Image()` rather than an onLoad on the rendered <img>: the layout needs
-  // the aspect BEFORE it can decide the tile's height, and an onLoad fires
-  // after the browser has already laid the wrong height out once, which is a
-  // visible jump on every board. The write-back is best effort - it is a cache
-  // warm, not something anything waits for - and only the owner does it,
-  // because a visitor has no business writing to somebody else's rows.
+  // Measure each photo once, and write back what the database is missing.
+  // `new Image()` rather than an onLoad on the rendered tile: the layout needs
+  // the aspect BEFORE it can place anything, and an onLoad fires after the
+  // browser has already laid the wrong shape out once.
   useEffect(() => {
     if (!photos?.length) return undefined
     let alive = true
@@ -126,111 +132,125 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
         if (!alive || !img.naturalWidth || !img.naturalHeight) return
         const a = img.naturalWidth / img.naturalHeight
         setAspects((cur) => (cur[p.id] ? cur : { ...cur, [p.id]: a }))
-        if (editable) {
-          supabase.from('creator_photos').update({ aspect: a }).eq('id', p.id).then(() => {})
-        }
+        if (editable) supabase.from('creator_photos').update({ aspect: a }).eq('id', p.id).then(() => {})
       }
-      // The same probe that measures also tells us the file is gone, so a
-      // missing photo is known BEFORE it has a chance to paint a broken icon.
+      // The same probe that measures also reports a file that is gone, so a
+      // missing photo is known before it can paint a broken-image icon.
       img.onerror = () => { if (alive) setBroken((cur) => ({ ...cur, [p.id]: true })) }
       img.src = p.photo_url
     }
     return () => { alive = false }
   }, [photos, aspects, editable])
 
-  const cols = colsFor(width || 900)
-  const colWidth = width ? (width - GAP * (cols - 1)) / cols : 0
+  const cols = width && width < 520 ? 2 : 3
 
-  const tiles = useMemo(() => (photos ?? []).filter((p) => editable || !broken[p.id]).map((p) => {
-    // A span of 2 on a two-column phone is a full-width photo, which is fine
-    // and deliberate; it is never allowed to exceed the column count.
-    const span = Math.min(cols, Math.max(1, Number(p.pos_w) || 1))
-    return { ...p, span, aspect: p.aspect || aspects[p.id] || null, missing: !!broken[p.id] }
-  }), [photos, aspects, cols, broken, editable])
+  // Every tile, in fractions. A row that has never been arranged falls back to
+  // the flowed default at its own aspect.
+  const tiles = useMemo(() => {
+    const rows = (photos ?? []).filter((p) => editable || !broken[p.id])
+    // The fallback layout is computed over the photos that NEED one, so a board
+    // where three of five have been arranged still packs the other two sensibly
+    // instead of stacking them at the origin.
+    const unplaced = rows.filter((p) => p.pos_x == null || p.pos_y == null || p.pos_w == null || p.pos_h == null)
+    const fallback = defaultLayout(unplaced.map((p) => p.aspect || aspects[p.id] || 1), cols)
+    const byId = new Map(unplaced.map((p, i) => [p.id, fallback[i]]))
+    return rows.map((p) => {
+      const aspect = p.aspect || aspects[p.id] || 1
+      const placed = p.pos_x != null && p.pos_y != null && p.pos_w != null && p.pos_h != null
+      const box = placed
+        ? { x: toFrac(p.pos_x, 0), y: toFrac(p.pos_y, 0), w: toFrac(p.pos_w, 0.3), h: toFrac(p.pos_h, 0.3) }
+        : byId.get(p.id)
+      return { ...p, ...box, aspect, missing: !!broken[p.id] }
+    })
+  }, [photos, aspects, cols, broken, editable])
+
+  // THE BOARD IS AS TALL AS ITS CONTENTS. Derived every render rather than
+  // stored, so a photo dragged downwards extends the board instead of hanging
+  // off the end of a fixed-height box - which is how the first version lost
+  // photographs entirely.
+  const bottom = tiles.reduce((m, t) => Math.max(m, t.y + t.h), 0)
+  const boardHeight = width ? Math.max(width * 0.4, width * bottom + 8) : 320
 
   // ------------------------------------------------------------------ drag
   //
-  // ONE DIMENSION, NOT TWO. Reordering a run is a drag with exactly one correct
-  // answer at every moment - which tile am I over - so it cannot produce an
-  // overlap, cannot leave a hole, and needs no snapping pass. The old free
-  // placement had to guess, and guessed wrong often enough that nobody ever
-  // finished a drag.
-  //
-  // Document-level listeners: a pointer leaves the tile constantly (the tile is
-  // moving under it), and every ending has to be heard or a card is left stuck.
-  const [drag, setDrag] = useState(null) // { id, overIndex }
-  const dragRef = useRef(null)
-
-  const order = useMemo(() => tiles.map((t) => t.id), [tiles])
-
-  const endDragRef = useRef(null)
-
-  const endDrag = useCallback(async () => {
-    const d = dragRef.current
-    dragRef.current = null
-    setDrag(null)
-    if (!d || d.overIndex == null) return
-    const from = order.indexOf(d.id)
-    if (from < 0 || from === d.overIndex) return
-    const next = [...order]
-    next.splice(from, 1)
-    next.splice(d.overIndex, 0, d.id)
-    // Optimistic: the board settles on the frame the finger lifts and the
-    // writes catch up. A board that waits for six round trips before it moves
-    // reads as a board that ignored you.
-    setPhotos((cur) => next.map((id) => (cur || []).find((p) => p.id === id)).filter(Boolean))
-    await Promise.all(next.map((id, i) =>
-      supabase.from('creator_photos').update({ sort_order: i }).eq('id', id)))
-  }, [order])
-
-  // The handler closed over at pointerdown must call the CURRENT endDrag, not
-  // the one that existed when the drag started - `order` changes underneath it.
-  // Written in an effect rather than during render: a ref assignment in the
-  // render body is a side effect, and React can render without committing.
-  useEffect(() => { endDragRef.current = endDrag }, [endDrag])
-
-  // THE LISTENERS GO ON AT POINTERDOWN, NOT IN AN EFFECT.
-  //
-  // They used to be attached by an effect keyed on `drag`, which means they are
-  // not live until React has committed the state change that starts the drag.
-  // A pointermove or pointerup that arrives before that commit is simply lost.
-  // With a human hand the first move is tens of milliseconds later so it
-  // usually works; with a fast flick, a slow frame, or a synthetic event it
-  // does not, and the tile is left stuck to the finger with no way to drop it.
-  // Same race, and the same fix, as the boarding-pass camera: do the work in
-  // the handler rather than hoping a commit has already happened.
+  // NO SNAPPING. The pointer delta is applied straight to the stored fraction,
+  // so a photo goes exactly where it is put. The only clamps are the board's
+  // own edges, because a photo dragged off the left is a photo nobody can get
+  // back.
+  const [drag, setDrag] = useState(null)   // { id, mode }
+  const dragState = useRef(null)
   const detach = useRef(null)
+  const commitRef = useRef(null)
 
+  const commit = useCallback(async (id, box) => {
+    await supabase.from('creator_photos').update({
+      pos_x: toMille(box.x), pos_y: toMille(box.y),
+      pos_w: toMille(box.w), pos_h: toMille(box.h),
+    }).eq('id', id)
+  }, [])
+  useEffect(() => { commitRef.current = commit }, [commit])
   useEffect(() => () => detach.current?.(), [])
 
-  function beginDrag(e, photo) {
-    if (!arranging) return
+  function beginDrag(e, tile, mode) {
+    if (!arranging || !width) return
     e.preventDefault()
     e.stopPropagation()
-    dragRef.current = { id: photo.id, overIndex: null }
-    setDrag({ id: photo.id, overIndex: null })
+    dragState.current = {
+      id: tile.id, mode,
+      startX: e.clientX, startY: e.clientY,
+      from: { x: tile.x, y: tile.y, w: tile.w, h: tile.h },
+      box: { x: tile.x, y: tile.y, w: tile.w, h: tile.h },
+    }
+    setDrag({ id: tile.id, mode, box: { x: tile.x, y: tile.y, w: tile.w, h: tile.h } })
 
     const move = (ev) => {
-      const el = boardRef.current
-      if (!el || !dragRef.current) return
-      // Hit-test the rendered boxes. That is the honest question - which photo
-      // is under my finger - and it is the same question on every device.
-      const nodes = [...el.querySelectorAll('[data-tile]')]
-      for (let i = 0; i < nodes.length; i += 1) {
-        const r = nodes[i].getBoundingClientRect()
-        if (ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom) {
-          if (dragRef.current.overIndex !== i) {
-            dragRef.current.overIndex = i
-            setDrag((d) => (d ? { ...d, overIndex: i } : d))
-          }
-          return
+      const d = dragState.current
+      if (!d) return
+      const dx = (ev.clientX - d.startX) / width
+      const dy = (ev.clientY - d.startY) / width
+      let box
+      if (d.mode === 'move') {
+        box = {
+          ...d.from,
+          x: Math.min(1 - d.from.w, Math.max(0, d.from.x + dx)),
+          y: Math.max(0, d.from.y + dy),
+        }
+      } else {
+        // FREE RESIZE FROM THE CORNER. Width and height move independently, so
+        // a photo can be made any shape; `object-cover` plus the crop tool
+        // decides what stays in frame. The minimum is in PIXELS converted to a
+        // fraction, so a tile can never become ungrabbable at any board width.
+        const min = MIN_W / width
+        box = {
+          x: d.from.x, y: d.from.y,
+          w: Math.min(1 - d.from.x, Math.max(min, d.from.w + dx)),
+          h: Math.max(min, d.from.h + dy),
         }
       }
+      d.box = box
+      // THE LIVE BOX LIVES IN STATE, not only in the ref. Reading a ref during
+      // render is both a lint error here and genuinely unsound - React can
+      // render without committing, so a ref read is not guaranteed to match
+      // what is on screen. One setState per pointermove is the honest cost of
+      // drawing a drag.
+      setDrag((cur) => (cur ? { ...cur, box } : cur))
     }
     const up = () => {
+      const d = dragState.current
       detach.current?.()
-      endDragRef.current?.()
+      dragState.current = null
+      setDrag(null)
+      if (!d) return
+      setPhotos((cur) => (cur || []).map((p) => (p.id === d.id ? {
+        ...p,
+        pos_x: toMille(d.box.x), pos_y: toMille(d.box.y),
+        pos_w: toMille(d.box.w), pos_h: toMille(d.box.h),
+      } : p)))
+      commitRef.current?.(d.id, d.box)
     }
+    // Attached HERE, not in an effect keyed on `drag`: an effect's listeners
+    // are not live until React commits, so the first move and sometimes the
+    // pointerup are simply lost. Same race as the boarding-pass camera.
     document.addEventListener('pointermove', move)
     document.addEventListener('pointerup', up)
     document.addEventListener('pointercancel', up)
@@ -242,10 +262,11 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
     }
   }
 
-  async function toggleSpan(photo) {
-    const next = photo.span >= 2 ? 1 : 2
-    setPhotos((cur) => (cur || []).map((p) => (p.id === photo.id ? { ...p, pos_w: next } : p)))
-    await supabase.from('creator_photos').update({ pos_w: next }).eq('id', photo.id)
+  async function resetOne(tile) {
+    setPhotos((cur) => (cur || []).map((p) => (
+      p.id === tile.id ? { ...p, pos_x: null, pos_y: null, pos_w: null, pos_h: null } : p)))
+    await supabase.from('creator_photos')
+      .update({ pos_x: null, pos_y: null, pos_w: null, pos_h: null }).eq('id', tile.id)
   }
 
   async function saveCrop(photo, focal, zoom) {
@@ -253,13 +274,10 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
       p.id === photo.id ? { ...p, focal_x: focal.x, focal_y: focal.y, zoom } : p)))
     setCropping(null)
     await supabase.from('creator_photos')
-      .update({ focal_x: focal.x, focal_y: focal.y, zoom })
-      .eq('id', photo.id)
+      .update({ focal_x: focal.x, focal_y: focal.y, zoom }).eq('id', photo.id)
   }
 
-  if (photos === null) {
-    return <div className="h-64 w-full animate-pulse rounded-card bg-cloud" />
-  }
+  if (photos === null) return <div className="h-64 w-full animate-pulse rounded-card bg-cloud" />
   if (!photos.length) return null
 
   return (
@@ -280,75 +298,69 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
 
       <div
         ref={boardRef}
-        // `touch-action: none` while arranging, or the browser claims the drag
-        // as a page scroll on the first pixel and the tile never moves. Only
-        // while arranging: the rest of the time this board must scroll normally.
         style={{
-          display: 'grid',
-          gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-          gridAutoRows: `${ROW}px`,
-          columnGap: `${GAP}px`,
+          position: 'relative',
+          height: boardHeight,
+          // `touch-action: none` only while arranging, or the browser claims
+          // the first pixel of a drag as a page scroll and the tile never moves.
           touchAction: arranging ? 'none' : undefined,
         }}
-        className="w-full"
+        className={cx('w-full', arranging && 'rounded-card ring-1 ring-inset ring-brand/20')}
       >
-        {tiles.map((p, i) => (
-          <PhotoTile
-            key={p.id}
-            photo={p}
-            index={i}
-            colWidth={colWidth}
-            arranging={arranging}
-            editable={editable}
-            dragging={drag?.id === p.id}
-            dropTarget={!!drag && drag.overIndex === i && drag.id !== p.id}
-            onOpen={() => !arranging && setLightbox(p)}
-            onCrop={() => setCropping(p)}
-            onToggleSpan={() => toggleSpan(p)}
-            onDragStart={beginDrag}
-          />
-        ))}
+        {tiles.map((t) => {
+          const live = drag?.id === t.id && drag.box ? drag.box : t
+          return (
+            <PhotoTile
+              key={t.id}
+              photo={t}
+              box={live}
+              width={width}
+              arranging={arranging}
+              editable={editable}
+              dragging={drag?.id === t.id}
+              onOpen={() => !arranging && setLightbox(t)}
+              onCrop={() => setCropping(t)}
+              onReset={() => resetOne(t)}
+              onDragStart={beginDrag}
+            />
+          )
+        })}
       </div>
 
       {cropping && (
-        <CropDialog
-          photo={cropping}
-          onCancel={() => setCropping(null)}
-          onSave={(focal, zoom) => saveCrop(cropping, focal, zoom)}
-        />
+        <CropDialog photo={cropping} onCancel={() => setCropping(null)}
+          onSave={(focal, zoom) => saveCrop(cropping, focal, zoom)} />
       )}
-
       {lightbox && <Lightbox photo={lightbox} onClose={() => setLightbox(null)} />}
     </>
   )
 }
 
 // ---------------------------------------------------------------- one photo
-function PhotoTile({
-  photo, index, colWidth, arranging, editable, dragging, dropTarget,
-  onOpen, onCrop, onToggleSpan, onDragStart,
-}) {
-  const span = spanFor(photo.aspect, colWidth || 300, photo.span)
+function PhotoTile({ photo, box, width, arranging, editable, dragging, onOpen, onCrop, onReset, onDragStart }) {
   return (
     <figure
       data-tile
-      data-index={index}
       style={{
-        gridColumn: `span ${photo.span}`,
-        gridRow: `span ${span}`,
-        marginBottom: `${GAP}px`,
+        position: 'absolute',
+        left: box.x * width,
+        top: box.y * width,
+        width: box.w * width,
+        height: box.h * width,
+        // Picking a photo up brings it to the front, which is what a pile of
+        // prints does and what makes overlap usable rather than confusing.
+        zIndex: dragging ? 30 : 1,
       }}
       className={cx(
-        'group relative overflow-hidden rounded-xl bg-cloud transition-all duration-150',
-        dragging && 'scale-[0.97] opacity-50',
-        dropTarget && 'ring-2 ring-brand ring-offset-2',
-        arranging && 'cursor-grab touch-none active:cursor-grabbing',
+        'group overflow-hidden rounded-xl bg-cloud',
+        dragging ? 'shadow-lift ring-2 ring-brand' : 'shadow-card',
+        // No transition while dragging: a 150ms ease on `left` means the tile
+        // lags the finger, which reads as the board being slow rather than
+        // smooth.
+        !dragging && 'transition-shadow duration-150',
+        arranging && 'cursor-grab active:cursor-grabbing',
       )}
-      // THE WHOLE TILE IS THE HANDLE WHILE ARRANGING, and that is safe here in
-      // a way it was not on the old board: in arrange mode a tile has no other
-      // job, so there is nothing to disambiguate a press from. Outside arrange
-      // mode the tile opens the lightbox instead and nothing drags.
-      onPointerDown={(e) => arranging && onDragStart(e, photo)}
+      onPointerDown={(e) => arranging && onDragStart(e, photo, 'move')}
     >
       {photo.missing ? (
         <span className="flex h-full w-full flex-col items-center justify-center gap-1.5 bg-cloud px-3 text-center">
@@ -396,19 +408,25 @@ function PhotoTile({
 
       {arranging && (
         <>
-          <span className="pointer-events-none absolute left-2 top-2 z-10 flex items-center gap-1 rounded-full bg-white/95 px-2 py-1 text-[10px] font-semibold text-smoke shadow-card">
-            <Icon name="grip" className="h-3 w-3" />
-            Drag
-          </span>
+          {/* THE RESIZE GRIP. Bottom-right, which is where every window corner
+              in every operating system is, and big enough for a thumb. It stops
+              the press reaching the tile underneath, or resizing would also
+              start a move. */}
+          <button
+            type="button"
+            onPointerDown={(e) => { e.stopPropagation(); onDragStart(e, photo, 'resize') }}
+            className="absolute bottom-1 right-1 z-20 flex h-8 w-8 cursor-nwse-resize items-center justify-center rounded-lg bg-white/95 text-smoke shadow-card"
+            aria-label="Drag to resize this photo"
+          >
+            <Icon name="expand" className="h-4 w-4" />
+          </button>
           <button
             type="button"
             onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => { e.stopPropagation(); onToggleSpan() }}
-            className="absolute bottom-2 right-2 z-10 flex h-8 items-center gap-1.5 rounded-full bg-white/95 px-2.5 text-[11px] font-semibold text-smoke shadow-card transition-colors hover:text-brand"
-            aria-label={photo.span >= 2 ? 'Make this photo narrower' : 'Make this photo wider'}
+            onClick={(e) => { e.stopPropagation(); onReset() }}
+            className="absolute left-1 top-1 z-20 rounded-lg bg-white/95 px-2 py-1 text-[10px] font-semibold text-smoke shadow-card transition-colors hover:text-brand"
           >
-            <Icon name="expand" className="h-3.5 w-3.5" />
-            {photo.span >= 2 ? 'Narrower' : 'Wider'}
+            Reset
           </button>
         </>
       )}
@@ -432,9 +450,7 @@ function Lightbox({ photo, onClose }) {
     >
       <figure className="max-h-full max-w-4xl">
         <img src={photo.photo_url} alt={photo.caption || ''} className="max-h-[80vh] w-auto rounded-card object-contain" />
-        {photo.caption && (
-          <figcaption className="mt-3 text-center text-sm text-white/90">{photo.caption}</figcaption>
-        )}
+        {photo.caption && <figcaption className="mt-3 text-center text-sm text-white/90">{photo.caption}</figcaption>}
       </figure>
     </button>
   )
@@ -442,11 +458,11 @@ function Lightbox({ photo, onClose }) {
 
 // ------------------------------------------------------------------- crop
 //
-// THE CROP IS A FOCAL POINT AND A ZOOM, NOT A RECTANGLE (migration 108). The
-// complaint it answers is that `object-cover` crops from the CENTRE, so a face
-// or a horizon gets sliced off. Moving where the crop is taken from fixes
-// exactly that, and it costs two numbers, no canvas re-encode and no second
-// copy in storage.
+// THE CROP IS A FOCAL POINT AND A ZOOM, NOT A RECTANGLE (migration 108).
+// `object-cover` crops from the CENTRE, so a face or a horizon gets sliced off;
+// moving where the crop is taken from fixes exactly that, and it costs two
+// numbers, no canvas re-encode and no second copy in storage. It matters more
+// now than it did, because a freely resized tile can be any shape at all.
 function CropDialog({ photo, onCancel, onSave }) {
   const [focal, setFocal] = useState({ x: photo.focal_x ?? 0.5, y: photo.focal_y ?? 0.5 })
   const [zoom, setZoom] = useState(photo.zoom ?? 1)
@@ -485,33 +501,23 @@ function CropDialog({ photo, onCancel, onSave }) {
           </button>
         </div>
         <div className="p-5">
-          <p className="mb-3 text-xs text-smoke">
-            Drag to choose what stays in the middle when the photo is cropped.
-          </p>
+          <p className="mb-3 text-xs text-smoke">Drag to choose what stays in the middle when the photo is cropped.</p>
           <div
             ref={boxRef}
             onPointerDown={(e) => { dragging.current = true; place(e) }}
             className="relative aspect-[4/3] w-full cursor-crosshair touch-none overflow-hidden rounded-xl bg-cloud"
           >
-            <img
-              src={photo.photo_url}
-              alt=""
-              draggable={false}
+            <img src={photo.photo_url} alt="" draggable={false}
               className="h-full w-full select-none object-cover"
-              style={{ objectPosition: `${focal.x * 100}% ${focal.y * 100}%`, transform: `scale(${zoom})` }}
-            />
-            <span
-              className="pointer-events-none absolute h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-lift"
-              style={{ left: `${focal.x * 100}%`, top: `${focal.y * 100}%` }}
-            />
+              style={{ objectPosition: `${focal.x * 100}% ${focal.y * 100}%`, transform: `scale(${zoom})` }} />
+            <span className="pointer-events-none absolute h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-lift"
+              style={{ left: `${focal.x * 100}%`, top: `${focal.y * 100}%` }} />
           </div>
           <label className="mt-4 block text-xs font-medium text-smoke">
             Zoom
-            <input
-              type="range" min="1" max="2.5" step="0.05" value={zoom}
+            <input type="range" min="1" max="2.5" step="0.05" value={zoom}
               onChange={(e) => setZoom(Number(e.target.value))}
-              className="mt-1.5 w-full accent-[#d94407]"
-            />
+              className="mt-1.5 w-full accent-[#d94407]" />
           </label>
         </div>
         <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-3.5">

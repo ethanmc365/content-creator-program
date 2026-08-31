@@ -26,7 +26,7 @@ import MessageEditor from '../components/MessageEditor'
 import ReportMessage from '../components/ReportMessage'
 import { useNowTick, withinEditWindow } from '../lib/messageActions'
 import { playSend, playSendFail, playDmArrival, playReactionPop } from '../lib/appSounds'
-import { renderMessageBody } from '../lib/richText'
+import { renderMessageBody, stripMarkup } from '../lib/richText'
 import { EntryReferenceCard, loadEntryRefs } from '../components/EntryFeedback'
 import ResourceCard from '../components/ResourceCard'
 import ResourcePicker from '../components/ResourcePicker'
@@ -56,9 +56,17 @@ function savePinnedConversations(ids) {
 }
 
 // A short label for a DM when it's quoted in a reply.
+// A PREVIEW IS PLAIN TEXT, NOT MARKDOWN.
+//
+// Replying to a message written with the formatting buttons put the RAW body in
+// the quote strip, so a reply to a heading read "## Content tips" and a reply to
+// bold text read "**this**". Ethan: "when you reply to a message it doesn't show
+// the correct bold message headings, but rather it shows hashtags and stars."
+// `stripMarkup` is the one place that knows how to undo the markers, and it
+// keeps @names intact, which is what a one-line quote actually needs.
 function dmPreview(m) {
   if (!m) return 'Message unavailable'
-  if (m.body) return m.body
+  if (m.body) return stripMarkup(m.body)
   if (m.image_url) return mediaType(m.image_url) === 'video' ? 'Video' : 'Photo'
   // A card-only message has an empty body, and a conversation list showing a
   // blank line for one is the bug that turns up the day after it ships.

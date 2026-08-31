@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { compressImage } from '../lib/image'
 import { uploadFile } from '../lib/upload'
+import { photosChanged } from '../lib/photoEvents'
 import { Spinner } from './ui'
 import Icon from './Icon'
 import { cx } from '../lib/utils'
@@ -103,6 +104,9 @@ export default function TravelGallery({ creatorId, editable = false, uploadOnly 
     }
     setUploading(false)
     load()
+    // The board on the same page is a sibling, not a child, so it has to be
+    // told. See lib/photoEvents.
+    photosChanged(creatorId)
   }
 
   async function remove(photo) {
@@ -114,6 +118,7 @@ export default function TravelGallery({ creatorId, editable = false, uploadOnly 
     const key = photo.photo_url?.split('/gallery/')[1]
     if (key) await supabase.storage.from('gallery').remove([decodeURIComponent(key)])
     load()
+    photosChanged(creatorId)
   }
 
   async function saveCaption(photo, caption) {

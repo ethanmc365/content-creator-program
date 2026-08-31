@@ -13,7 +13,7 @@ import { ChatSkeleton } from '../components/network/Skeletons'
 import Icon from '../components/Icon'
 import ChatMedia from '../components/ChatMedia'
 import { uploadChatImage, uploadChatVideo } from '../lib/chatMedia'
-import { renderMessageBody } from '../lib/richText'
+import { renderMessageBody, stripMarkup } from '../lib/richText'
 import { broadcastNames } from '../lib/broadcastMentions'
 import Reorderable from '../components/network/Reorderable'
 import ChatAdminTools from '../components/ChatAdminTools'
@@ -137,7 +137,10 @@ function QuotedParent({ id, lookup, onDark = false }) {
     )
   }
 
-  const preview = (parent.body || '').replace(/\s+/g, ' ').trim()
+  // PLAIN TEXT. The raw body put the markers in the quote - a reply to a
+  // heading read "## Content tips" - and `stripMarkup` is the one place that
+  // knows how to take them out while leaving @names alone.
+  const preview = stripMarkup((parent.body || '')).replace(/\s+/g, ' ').trim()
     || (parent.image_url ? 'Photo' : parent.video_url ? 'Video' : 'Message')
 
   return (

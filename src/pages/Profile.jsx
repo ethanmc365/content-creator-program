@@ -400,9 +400,15 @@ export default function Profile() {
                   it answers "can I message them now" instead of "where do they
                   sleep". A travelling creator still says where, because they
                   published that themselves on the collab board. */}
+              {/* ORANGE, LIKE EVERY OTHER RAIL CARD'S ICON. This one was grey
+                  on grey while At a glance, Headed next, Languages and the rest
+                  all lead with a brand-orange mark, so the first card in the
+                  rail was the only one that did not look like it belonged.
+                  Ethan: "make the your local time icon an orange icon that
+                  matches the others." */}
               <span className={cx(
                 'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
-                here.travelling ? 'bg-brand text-white' : 'bg-cloud text-smoke',
+                here.travelling ? 'bg-brand text-white' : 'bg-brand-tint text-brand',
               )}>
                 <Icon name={here.travelling ? 'plane' : 'clock'} className="h-4 w-4" />
               </span>
