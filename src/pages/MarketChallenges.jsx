@@ -12,7 +12,9 @@ import ChallengeDetail from './ChallengeDetail'
 import Icon from '../components/Icon'
 import { Avatar, Badge, EmptyState } from '../components/ui'
 import { scoringMode } from '../lib/scoring'
-import { cx, formatDate, formatViews, challengeDeadline } from '../lib/utils'
+import WinnersPodium from '../components/WinnersPodium'
+import { loadWinnerGalleries } from '../lib/winners'
+import { cx, formatDate, challengeDeadline } from '../lib/utils'
 import { listContainer, listItem, cardHover, pageFade } from '../lib/motion'
 
 // A market's own challenge board.
@@ -37,6 +39,8 @@ export default function MarketChallenges() {
   const market = bySlug(slug)
   const canManage = market ? manages(market.id) : false
   const [d, setD] = useState(null)
+  // The published podiums, from the same builder the main board uses.
+  const [galleries, setGalleries] = useState({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -104,6 +108,8 @@ export default function MarketChallenges() {
       }
 
       setD({ all, live, members, participation, winners })
+      const built = await loadWinnerGalleries(all)
+      if (!cancelled) setGalleries(built)
       setLoading(false)
     }
     load()
@@ -192,7 +198,26 @@ export default function MarketChallenges() {
                         <span aria-hidden>•</span>
                         <span>{c.submissions?.[0]?.count ?? 0} entries</span>
                       </p>
-                      {podium.length > 0 && (
+                      {/* THE REAL PODIUM, the same one the main challenges
+                          board draws. This was a "Won by" strip: three small
+                          faces, the first name of whoever came first and a
+                          view count. Ethan: "for the past challenges it should
+                          show the same view it does for the normal challenges
+                          page, the actual podium graphic." The assembly lives
+                          in lib/winners now so the two boards cannot drift.
+                          `pointer-events-auto` because the whole card is a
+                          link and the podium has its own targets inside it. */}
+                      {galleries[c.id] ? (
+                        <WinnersPodium
+                          className="pointer-events-auto mt-5"
+                          winners={galleries[c.id].winners}
+                          entries={c.submissions?.[0]?.count ?? 0}
+                          totalScore={galleries[c.id].totalScore}
+                          scoring={c.scoring}
+                          voucherWinners={galleries[c.id].voucherWinners}
+                          voucherPrize={c.participation_prize}
+                        />
+                      ) : podium.length > 0 ? (
                         <div className="mt-4 flex items-center gap-3 rounded-xl bg-cloud/60 px-3 py-2.5">
                           <span className="text-[10px] font-semibold uppercase tracking-widest text-smoke">Won by</span>
                           <div className="flex min-w-0 items-center gap-2">
@@ -208,13 +233,8 @@ export default function MarketChallenges() {
                               </span>
                             ))}
                           </div>
-                          {podium[0]?.final_views > 0 && (
-                            <span className="ml-auto shrink-0 text-xs tabular-nums text-smoke">
-                              {formatViews(podium[0].final_views)}
-                            </span>
-                          )}
                         </div>
-                      )}
+                      ) : null}
                     </MotionLink>
                   )
                 })}
