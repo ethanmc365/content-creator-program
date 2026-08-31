@@ -1,9 +1,11 @@
 import { memo, useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from 'react-simple-maps'
 import { loadMapFeatures, loadMapCountryNames, loadMapCentroids } from '../lib/mapCountries'
 import { useIsDark } from '../lib/theme'
 import { sameCountry } from '../lib/countryFacts'
 import CountryPanel from './CountryPanel'
+import { lockScroll } from '../lib/scrollLock'
 
 // Interactive world map for "countries visited".
 //  * Free & open source: react-simple-maps + the world-atlas TopoJSON from
@@ -48,6 +50,8 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
   const [fitPos, setFitPos] = useState(null)
   const [query, setQuery] = useState('')
   const [allNames, setAllNames] = useState([])
+  // Filling the screen with the map. See the note on the map box below.
+  const [full, setFull] = useState(false)
   // The map's geometry, from the ONE shared parse (see lib/mapCountries). Handing
   // `<Geographies>` an object rather than a URL is what stops every instance on
   // the page fetching and decoding the atlas for itself.
@@ -59,6 +63,32 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
     loadMapFeatures().then((fc) => { if (!cancelled) setFeatures(fc) })
     return () => { cancelled = true }
   }, [])
+
+  // WHILE THE MAP FILLS THE SCREEN: the page behind it must not scroll, and
+  // Escape must get you out. A full-screen overlay you can only leave by
+  // finding one small button is a trap on a phone.
+  useEffect(() => {
+    if (!full) return undefined
+    const release = lockScroll()
+    const onKey = (e) => { if (e.key === 'Escape') setFull(false) }
+    document.addEventListener('keydown', onKey)
+    return () => { release(); document.removeEventListener('keydown', onKey) }
+  }, [full])
+
+  // AND IT OPENS BIGGER THAN IT WAS.
+  //
+  // The map is 880x440 and it fits to the WIDTH, so on a 375px phone it draws
+  // 187px tall whether it is in a card or filling the screen - "full screen"
+  // that changes nothing but the surroundings is a button that lies. The world
+  // cannot fill a portrait screen without being cropped, so opening zoomed is
+  // the trade: you see less of the map at once and far more of what you are
+  // looking at, and the - button is right there. Closing puts the frame back.
+  useEffect(() => {
+    if (!full) return
+    setFocusPos(null)
+    setFitPos(null)
+    setPosition((p) => ({ ...p, zoom: clampZoom(Math.max(p.zoom, 2)) }))
+  }, [full])
 
   // The full country-name list for the search box, shared with the collab board.
   useEffect(() => {
@@ -145,76 +175,31 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
     />
   ) : null
 
-  return (
-    <div>
-      {/* ---- Type-to-add search (the reliable path on phones) ---- */}
-      {selectable && (
-        <div className="mb-3">
-          <div className="relative">
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search a country to add it…"
-              className="input"
-              aria-label="Search for a country to add"
-              autoComplete="off"
-            />
-            {matches.length > 0 && (
-              <ul className="absolute z-20 mt-1 w-full overflow-hidden rounded-card border border-gray-100 bg-white shadow-lift">
-                {matches.map((name) => {
-                  const isSel = selectedSet.has(name)
-                  return (
-                    <li key={name}>
-                      <button
-                        type="button"
-                        onClick={() => { onToggle?.(name); setQuery('') }}
-                        className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm hover:bg-cloud"
-                      >
-                        <span>{name}</span>
-                        <span className={isSel ? 'text-xs font-medium text-brand' : 'text-xs text-smoke'}>
-                          {isSel ? 'Added ✓ tap to remove' : 'Add +'}
-                        </span>
-                      </button>
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-          </div>
-
-          {/* THE CHIP LIST USED TO BE HERE TOO, and that is why the countries
-              appeared twice on Edit profile - once above the map and once
-              below. Ethan: "it's now showing up every country listed above the
-              map and below the map, remove the ones that appear above."
-              He is right about which one to keep: above the map they sat
-              between the search box and the map itself, pushing the map down
-              the screen by however many countries you had visited, so somebody
-              with forty had to scroll past their own list to reach the thing
-              they were selecting from. Below, the map is the control and the
-              list is the receipt.
-              `chips` lets a caller ask for them back if a surface ever wants
-              them here; nothing does today. */}
-          {chips && selected.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {[...selected].sort((a, b) => a.localeCompare(b)).map((name) => (
-                <button
-                  key={name}
-                  type="button"
-                  onClick={() => onToggle?.(name)}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-brand-tint px-3 py-1 text-xs font-medium text-brand transition-colors hover:bg-brand hover:text-white"
-                  aria-label={`Remove ${name}`}
-                >
-                  {name}
-                  <span aria-hidden className="text-sm leading-none">×</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="relative w-full overflow-hidden rounded-card bg-cloud/60">
+  // THE MAP BOX. Rendered in place normally, and THROUGH A PORTAL when it is
+  // filling the screen.
+  //
+  // A portal and not just `position: fixed`, because this map sits deep inside
+  // a profile whose sections are wrapped in `Reveal` - and `Reveal` animates a
+  // transform, which makes every one of those wrappers a containing block. A
+  // fixed overlay inside one is positioned and STACKED against that wrapper
+  // rather than the viewport, so the app header and the bottom tab bar drew on
+  // top of a "full screen" map. The community map learned this already; this is
+  // the same lesson.
+  //
+  // Not the Fullscreen API: on a phone that path also wants an orientation
+  // lock, which is the transition Ethan reports as laggy, and iOS Safari
+  // refuses it on an arbitrary element anyway. A portalled fixed layer is
+  // instant everywhere and has nothing to animate.
+  const mapBox = (
+    // Full screen means the BOX fills the screen, not just the page behind it.
+    // The map fits to width (880x440), so on a 375px phone it draws 187px tall
+    // wherever it is - a "full screen" that left a 187px strip floating in the
+    // middle of a white page was a button that changed the surroundings and not
+    // the map. Full height plus the opening zoom above is what actually makes
+    // it bigger, and panning then has somewhere to go.
+    <div className={full
+      ? 'relative h-full w-full overflow-hidden rounded-card bg-cloud/60'
+      : 'relative w-full overflow-hidden rounded-card bg-cloud/60'}>
         {/* Country name tooltip on hover */}
         {tooltip && (
           <div className="pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded-full bg-ink px-3 py-1 text-xs font-medium text-white">
@@ -236,6 +221,22 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
             className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-smoke shadow-card transition-transform hover:scale-105 active:scale-95">
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.7 3M3 4v4h4"/></svg>
         </button>
+          {/* OPEN IT BIG. The profile map had zoom buttons and no way to fill
+              the screen, which on a 180px-tall box means zooming into a
+              letterbox. Ethan: "creator maps on profiles need zoom and full
+              screen buttons." */}
+          <button
+            type="button"
+            onClick={() => setFull((v) => !v)}
+            aria-label={full ? 'Close full screen map' : 'Open the map full screen'}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-smoke shadow-card transition-transform hover:scale-105 active:scale-95"
+          >
+            {full ? (
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+            ) : (
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m8 0h3a2 2 0 0 0 2-2v-3" /></svg>
+            )}
+          </button>
         </div>
 
         {/* width/height set the SVG viewBox; the projection is scaled and
@@ -245,7 +246,7 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
           width={880}
           height={440}
           projectionConfig={{ scale: 160, center: [12, 8] }}
-          style={{ width: '100%', height: 'auto', display: 'block' }}
+          style={{ width: '100%', height: full ? '100%' : 'auto', display: 'block' }}
           aria-label="World map of countries visited"
         >
           <ZoomableGroup
@@ -388,7 +389,86 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
             {countryPanel}
           </div>
         )}
-      </div>
+    </div>
+  )
+
+  return (
+    <div>
+      {/* ---- Type-to-add search (the reliable path on phones) ---- */}
+      {selectable && (
+        <div className="mb-3">
+          <div className="relative">
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search a country to add it…"
+              className="input"
+              aria-label="Search for a country to add"
+              autoComplete="off"
+            />
+            {matches.length > 0 && (
+              <ul className="absolute z-20 mt-1 w-full overflow-hidden rounded-card border border-gray-100 bg-white shadow-lift">
+                {matches.map((name) => {
+                  const isSel = selectedSet.has(name)
+                  return (
+                    <li key={name}>
+                      <button
+                        type="button"
+                        onClick={() => { onToggle?.(name); setQuery('') }}
+                        className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm hover:bg-cloud"
+                      >
+                        <span>{name}</span>
+                        <span className={isSel ? 'text-xs font-medium text-brand' : 'text-xs text-smoke'}>
+                          {isSel ? 'Added ✓ tap to remove' : 'Add +'}
+                        </span>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+
+          {/* THE CHIP LIST USED TO BE HERE TOO, and that is why the countries
+              appeared twice on Edit profile - once above the map and once
+              below. Ethan: "it's now showing up every country listed above the
+              map and below the map, remove the ones that appear above."
+              He is right about which one to keep: above the map they sat
+              between the search box and the map itself, pushing the map down
+              the screen by however many countries you had visited, so somebody
+              with forty had to scroll past their own list to reach the thing
+              they were selecting from. Below, the map is the control and the
+              list is the receipt.
+              `chips` lets a caller ask for them back if a surface ever wants
+              them here; nothing does today. */}
+          {chips && selected.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {[...selected].sort((a, b) => a.localeCompare(b)).map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => onToggle?.(name)}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-brand-tint px-3 py-1 text-xs font-medium text-brand transition-colors hover:bg-brand hover:text-white"
+                  aria-label={`Remove ${name}`}
+                >
+                  {name}
+                  <span aria-hidden className="text-sm leading-none">×</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {full ? (
+        createPortal(
+          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-white p-2">
+            {mapBox}
+          </div>,
+          document.body,
+        )
+      ) : mapBox}
 
       {countryPanel && <div className="mt-3 sm:hidden">{countryPanel}</div>}
     </div>
