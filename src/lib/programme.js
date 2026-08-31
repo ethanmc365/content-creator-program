@@ -65,7 +65,7 @@ export function challengeEconomics(row, { currency = 'GBP', rates = FALLBACK_RAT
   // PENDING COUNTS. A prize that has been awarded is committed money whether or
   // not the transfer has cleared, and Ethan wants the result readable the day a
   // challenge closes rather than the week the bank catches up.
-  const rewardCcy = row.reward_currency || row.prize_currency || 'GBP'
+  const rewardCcy = row.reward_currency || row.prize_currency || 'EUR'
   const conv = (n) => convert(n, rewardCcy, currency, rates)
 
   const cashPaid = conv(Number(row.cash_paid) || 0) ?? 0

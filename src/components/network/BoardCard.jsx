@@ -66,8 +66,6 @@ export default function BoardCard({ className }) {
     )
   }
 
-  const waiting = rows.filter((q) => Number(q.answer_count || 0) === 0).length
-
   if (!rows.length) {
     return (
       <section className={className}>
@@ -102,11 +100,10 @@ export default function BoardCard({ className }) {
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <Icon name="chat" className="h-5 w-5 shrink-0 text-brand" /> Community board
           </h2>
-          <p className="mt-1 text-sm text-smoke">
-            {waiting
-              ? `The latest questions. ${waiting === 1 ? 'One is' : `${waiting} are`} still waiting for somebody who knows.`
-              : 'The latest questions, and every one of them has an answer.'}
-          </p>
+          {/* NO COUNT OF WHAT IS UNANSWERED. "3 are still waiting for somebody
+              who knows" reads as a chore list on a hub whose job is to invite
+              you in, and the notes themselves already say "No answers yet". */}
+          <p className="mt-1 text-sm text-smoke">The latest questions.</p>
         </div>
         <Link to="/board" className="shrink-0 text-sm font-medium text-brand transition-transform duration-200 hover:scale-105">
           Open the board →

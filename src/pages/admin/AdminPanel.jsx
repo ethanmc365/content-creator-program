@@ -547,12 +547,14 @@ export default function AdminPanel() {
     <div className="page">
       <PageHeader
         title="Admin panel"
+        inlineAction
         action={
           <button
             type="button"
             onClick={() => { setEditing((v) => !v); setDragId(null); setOverId(null) }}
             className={cx(
-              'inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all duration-200',
+              // Smaller on a phone, where it shares the line with the heading.
+              'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-200 sm:gap-2 sm:px-4 sm:py-2 sm:text-sm',
               editing
                 ? 'bg-brand text-white shadow-card'
                 : 'border border-gray-200 text-smoke hover:border-brand/40 hover:text-brand',

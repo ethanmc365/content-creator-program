@@ -113,7 +113,7 @@ export function perCreator(raw, { currency = 'EUR', rates = FALLBACK_RATES } = {
   for (const r of raw.rewards || []) {
     const row = byId.get(r.creator_id)
     if (!row) continue
-    const amt = convert(Number(r.amount || 0), r.currency || 'GBP', currency, rates)
+    const amt = convert(Number(r.amount || 0), r.currency || 'EUR', currency, rates)
     const pending = r.status !== 'distributed'
     if (r.reward_type === 'cash') {
       row.cash += amt

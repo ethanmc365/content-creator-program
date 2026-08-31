@@ -6,6 +6,13 @@
       "runtimeExecutable": "./dev.sh",
       "runtimeArgs": [],
       "port": 5173
+    },
+    {
+      "name": "tryp-dev-alt",
+      "runtimeExecutable": "./dev.sh",
+      "runtimeArgs": [],
+      "port": 5183,
+      "autoPort": true
     }
   ]
 }

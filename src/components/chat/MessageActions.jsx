@@ -41,9 +41,31 @@ import { cx } from '../../lib/utils'
 // what you came for while hovering; the receipt is the thing you must be able
 // to press, so nothing is ever drawn on top of it.
 //
-// CSS, NOT MOTION. Both chat surfaces are reachable without a route split and
-// the DMs are eagerly routed, so pulling the animation runtime in for a hover
-// state would cost every creator on their first paint.
+// IT WAITS FOR YOU TO MEAN IT.
+//
+// The first version opened the moment the pointer crossed a row, which is fine
+// when you are reaching for one message and awful when you are reading. Ethan:
+// "when I'm scrolling up through the chat it's automatically appearing on every
+// message... everything's struggling about the place". Every row the cursor
+// passed over opened by thirty pixels and closed again, and each of those
+// re-flows moved the thread under the cursor, which opened the next one.
+//
+// So the bar has HOVER INTENT: it only opens once the pointer has rested on the
+// same message for OPEN_DELAY. Scrolling past a row never holds it long enough,
+// so a scroll is now completely quiet.
+//
+// CSS, NOT MOTION, AND NO TIMERS EITHER. `transition-delay` only applies while
+// the state that set it holds, so a hovered row waits out the delay before it
+// starts opening, and a row you leave reverts to a zero delay and closes at
+// once - which is the exact asymmetry hover intent needs, in one property. Both
+// chat surfaces are reachable without a route split and the DMs are eagerly
+// routed, so pulling the animation runtime in for a hover state would cost
+// every creator on their first paint.
+// How long the pointer has to sit still on a message before its actions open.
+// Long enough that scrolling never trips it, short enough that reaching for a
+// message you have decided to reply to does not feel like waiting.
+const OPEN_DELAY = 1000
+
 export default function MessageActions({
   children,
   // 'right' for your own messages, 'left' for everybody else's. Decides which
@@ -81,21 +103,44 @@ export default function MessageActions({
             // 0fr -> 1fr is the height animation that needs no fixed height,
             // which matters because the bar wraps to two rows on a narrow
             // phone when a message has five actions on it.
-            'grid transition-[grid-template-rows,opacity] duration-200 ease-out',
+            'grid transition-[grid-template-rows] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]',
             mine && 'justify-items-end',
             pinned
-              ? 'grid-rows-[1fr] opacity-100'
+              ? 'grid-rows-[1fr]'
               : cx(
-                'grid-rows-[0fr] opacity-0',
-                'group-hover/msg:grid-rows-[1fr] group-hover/msg:opacity-100',
-                'focus-within:grid-rows-[1fr] focus-within:opacity-100',
+                'grid-rows-[0fr]',
+                // The delay IS the hover intent - see the note at the top.
+                'hoverable:group-hover/msg:grid-rows-[1fr] hoverable:group-hover/msg:delay-[var(--msg-bar-delay)]',
+                // A keyboard has already committed by the time it gets here,
+                // so tabbing in opens the bar with no wait at all.
+                'focus-within:grid-rows-[1fr] focus-within:delay-0',
               ),
           )}
+          style={{ '--msg-bar-delay': `${OPEN_DELAY}ms` }}
         >
           {/* The overflow hider is what makes 0fr actually hide something. */}
           <div className="overflow-hidden">
             <div className="pt-1.5">
-              <div className={cx('flex w-fit items-center gap-0.5 rounded-full border border-gray-100 bg-white px-1 py-0.5 shadow-card', mine && 'ml-auto')}>
+              {/* THE PILL HAS NO SHADOW, and that is deliberate. `shadow-card`
+                  is a 16px blur, and the clip box above it is exactly the pill's
+                  own height - so three of its four sides were sliced off square
+                  and what you actually saw was a grey rectangle behind a white
+                  oval: "I can see a grey box around the current oval card". A
+                  border on white does the same lifting job and cannot be
+                  clipped into a corner. It rises and fades the last few pixels
+                  into place, which is what reads as depth here. */}
+              <div className={cx(
+                'flex w-fit items-center gap-0.5 rounded-full border border-gray-200 bg-white px-1 py-0.5',
+                'transition-[opacity,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]',
+                mine ? 'ml-auto origin-top-right' : 'origin-top-left',
+                pinned
+                  ? 'translate-y-0 scale-100 opacity-100'
+                  : cx(
+                    '-translate-y-1 scale-95 opacity-0',
+                    'hoverable:group-hover/msg:translate-y-0 hoverable:group-hover/msg:scale-100 hoverable:group-hover/msg:opacity-100 hoverable:group-hover/msg:delay-[var(--msg-bar-delay)]',
+                    'focus-within:translate-y-0 focus-within:scale-100 focus-within:opacity-100 focus-within:delay-0',
+                  ),
+              )}>
                 {canReact && (
                   // The picker anchors to THIS button, so it stays first: the
                   // panel is 17rem wide and opening it from the far end of the

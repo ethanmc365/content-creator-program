@@ -38,9 +38,17 @@ describe('parseDob', () => {
 
 describe('formatMoney', () => {
   it('drops decimals for whole amounts and keeps pennies otherwise', () => {
-    expect(formatMoney(600)).toBe('£600')
-    expect(formatMoney(12.5)).toBe('£12.50')
-    expect(formatMoney(0)).toBe('£0')
+    expect(formatMoney(600, 'GBP')).toBe('£600')
+    expect(formatMoney(12.5, 'GBP')).toBe('£12.50')
+    expect(formatMoney(0, 'GBP')).toBe('£0')
+  })
+
+  // The programme reports in euros, so a caller that names no currency gets
+  // euros. It used to get pounds, which mislabelled every already-converted
+  // total on the admin pages.
+  it('defaults to euros', () => {
+    expect(formatMoney(600)).toBe('€600')
+    expect(formatMoney(12.5)).toBe('€12.50')
   })
 })
 

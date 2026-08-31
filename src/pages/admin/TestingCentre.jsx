@@ -129,8 +129,13 @@ export default function TestingCentre() {
                   </span>
                 )}
               </span>
-              <span className="mt-1 block text-[11px] leading-relaxed text-smoke">{l.blurb}</span>
-              <span className="mt-2 block text-[10px] font-semibold uppercase tracking-[0.1em] text-gray-400">
+              {/* NO BLURB. Four cards, four titles you already understand, and
+                  three lines of prose under each one explaining what "View
+                  counts" means. Ethan: "titles only, drop the card
+                  descriptions." The group word stays - that is orientation, not
+                  a description - and `blurb` stays on LABS because the lab pages
+                  themselves introduce with it. */}
+              <span className="mt-1.5 block text-[10px] font-semibold uppercase tracking-[0.1em] text-gray-400">
                 {l.group}
               </span>
             </span>

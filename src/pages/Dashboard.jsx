@@ -4,6 +4,10 @@ import { supabase } from '../lib/supabase'
 import { PageHeader, Skeleton, StatCard, EmptyState } from '../components/ui'
 import Icon from '../components/Icon'
 import { formatMoney, formatViews } from '../lib/utils'
+import { rewardsTotal } from '../lib/programme'
+
+// A `rewardsTotal` result, printed. "≈" whenever a conversion was involved.
+const money = (t) => `${t?.converted ? '≈ ' : ''}${formatMoney(t?.amount ?? 0, t?.currency ?? 'EUR')}`
 import { useViewAs, ViewingAsBanner } from '../components/ViewingAs'
 
 // Creator-visible dashboard: their own performance + program-wide highlights.
@@ -33,10 +37,12 @@ export default function Dashboard() {
         // their own - but an admin can read all of them, so every admin's
         // dashboard reported the programme's entire prize spend as their own
         // personal earnings.
-        supabase.from('rewards').select('amount, status').eq('creator_id', whose),
+        // `currency` COMES WITH THE AMOUNT. Without it these two totals were
+        // plain sums across pounds and euros printed under one symbol.
+        supabase.from('rewards').select('amount, status, currency').eq('creator_id', whose),
         supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'active').eq('is_admin', false).is('deletion_requested_at', null),
         supabase.from('challenges').select('id', { count: 'exact', head: true }).neq('status', 'draft'),
-        supabase.from('rewards').select('amount').eq('status', 'distributed'),
+        supabase.from('rewards').select('amount, currency').eq('status', 'distributed'),
       ])
 
       setData({
@@ -56,10 +62,13 @@ export default function Dashboard() {
         // never the right source for how much work they have done.
         totalViews: (mySubs ?? []).reduce((s, r) => s + Number(r.logged_views || 0), 0),
         bestRank: (myResults ?? []).reduce((best, r) => Math.min(best, r.rank), Infinity),
-        myEarned: (myRewards ?? []).filter((r) => r.status === 'distributed').reduce((s, r) => s + Number(r.amount), 0),
+        // In euros, whole, marked "≈" if anything had to be converted - the
+        // same figure `rewardsTotal` gives the creator on /rewards. These two
+        // used to be raw cross-currency sums.
+        myEarned: rewardsTotal((myRewards ?? []).filter((r) => r.status === 'distributed')),
         creators: creators ?? 0,
         challengesRun: challengesRun ?? 0,
-        prizesPaid: (allPaid ?? []).reduce((s, r) => s + Number(r.amount), 0),
+        prizesPaid: rewardsTotal(allPaid ?? []),
       })
     }
     load()
@@ -120,8 +129,8 @@ export default function Dashboard() {
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <StatCard label="Creators" value={data.creators} />
           <StatCard label="Challenges run" value={data.challengesRun} />
-          <StatCard label="Prizes distributed" value={formatMoney(data.prizesPaid)} accent />
-          <StatCard label="You've earned" value={formatMoney(data.myEarned)} />
+          <StatCard label="Prizes distributed" value={money(data.prizesPaid)} accent />
+          <StatCard label="You've earned" value={money(data.myEarned)} />
         </div>
       </section>
     </div>

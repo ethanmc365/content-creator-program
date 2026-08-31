@@ -13,6 +13,12 @@ import InvoiceQueue from './InvoiceQueue'
 import MarketScope, { useMarkets } from '../../components/admin/MarketScope'
 import { useInvoiceViewer } from '../../components/admin/InvoiceModal'
 import { isRealMember } from '../../lib/members'
+import { rewardsTotal } from '../../lib/programme'
+
+// A `rewardsTotal` result, printed. "≈" whenever a conversion was involved,
+// because that figure moves with the FX rate and is not the exact amount that
+// left anybody's account.
+const money = (t) => `${t.converted ? '≈ ' : ''}${formatMoney(t.amount, t.currency)}`
 
 // Build the label / display / copy-value rows for a creator's saved bank
 // details, per currency. Numbers copy as raw digits so they paste cleanly into
@@ -85,8 +91,8 @@ function ReferralSection({ loading, rewards, owed, paid, pendingCount, busyId, o
         <span className="min-w-0 flex-1">
           <span className="block text-[15px] font-semibold">Referral vouchers</span>
           <span className="mt-0.5 block text-xs text-smoke">
-            {pendingCount > 0 ? `${formatMoney(owed)} owed` : 'Nothing outstanding'}
-            {paid > 0 && ` · ${formatMoney(paid)} paid`}
+            {pendingCount > 0 ? `${money(owed)} owed` : 'Nothing outstanding'}
+            {paid.amount > 0 && ` · ${money(paid)} paid`}
           </span>
         </span>
         {pendingCount > 0 && (
@@ -282,9 +288,12 @@ export default function AdminRewards() {
   // that changes.
   const referralRewards = useMemo(() => allRewards.filter((r) => r.source === 'referral'), [allRewards])
   const referralPending = useMemo(() => referralRewards.filter((r) => r.status === 'pending'), [referralRewards])
-  const referralOwed = useMemo(() => referralPending.reduce((n, r) => n + Number(r.amount || 0), 0), [referralPending])
+  // Same story as the stat cards above: euros, converted, whole. A referral
+  // voucher raised in pounds and one raised in euros cannot be added as plain
+  // numbers and then given one currency symbol.
+  const referralOwed = useMemo(() => rewardsTotal(referralPending), [referralPending])
   const referralPaid = useMemo(
-    () => referralRewards.filter((r) => r.status === 'distributed').reduce((n, r) => n + Number(r.amount || 0), 0),
+    () => rewardsTotal(referralRewards.filter((r) => r.status === 'distributed')),
     [referralRewards],
   )
 
@@ -380,8 +389,22 @@ export default function AdminRewards() {
     [rewards, statusFilter, kindFilter]
   )
 
-  const totalPaid = rewards.filter((r) => r.status === 'distributed').reduce((s, r) => s + Number(r.amount), 0)
-  const totalPending = rewards.filter((r) => r.status === 'pending').reduce((s, r) => s + Number(r.amount), 0)
+  // EUROS, AND ADDED UP THE WAY THE CREATOR'S OWN PAGE ADDS THEM UP.
+  //
+  // THE BUG THIS FIXES: these were raw `reduce`s over `r.amount` across every
+  // currency in the table, printed through `formatMoney` with no currency at
+  // all - so nine GBP rows and a EUR one were summed as if pounds and euros
+  // were the same number, and the result was labelled in whichever currency
+  // formatMoney happened to default to. Ethan: "rewards/invoices payouts are
+  // in pounds and should be euros."
+  //
+  // `rewardsTotal` is the function Rewards.jsx already uses for exactly this:
+  // it converts every row into euros, rounds to whole euros (a converted total
+  // moves with the FX rate and has no business showing cents), and reports
+  // whether a conversion was involved so the figure can be marked "≈".
+  const paidTotal = rewardsTotal(rewards.filter((r) => r.status === 'distributed'))
+  const pendingTotal = rewardsTotal(rewards.filter((r) => r.status === 'pending'))
+  const spendTotal = rewardsTotal(rewards.filter((r) => r.status === 'distributed' || r.status === 'pending'))
 
   // Jump from a reward straight into the invoice composer, prefilled.
   // (Counter ref instead of Date.now(): the purity lint bans clock reads here;
@@ -499,9 +522,9 @@ export default function AdminRewards() {
         onChange={setMarket}
       />
       <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Total program spend" value={formatMoney(totalPaid + totalPending)} />
-        <StatCard label="Distributed" value={formatMoney(totalPaid)} accent />
-        <StatCard label="Pending payout" value={formatMoney(totalPending)} hint={totalPending > 0 ? "Don't keep creators waiting" : 'All settled'} />
+        <StatCard label="Total program spend" value={money(spendTotal)} />
+        <StatCard label="Distributed" value={money(paidTotal)} accent />
+        <StatCard label="Pending payout" value={money(pendingTotal)} hint={pendingTotal.amount > 0 ? "Don't keep creators waiting" : 'All settled'} />
       </div>
 
       {/* Two questions, two controls, and no words explaining what a row of

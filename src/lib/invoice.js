@@ -81,7 +81,11 @@ export function invoiceNo(number) {
 export function invoiceMoney(amount, currency) {
   return new Intl.NumberFormat('en-GB', {
     style: 'currency',
-    currency: currency || 'GBP',
+    // EUROS WHEN NOTHING SAYS OTHERWISE. The programme settles in euros; pounds
+    // are the exception a UK payee's own record asks for. Every invoice in prod
+    // carries an explicit currency, so this is only what a NEW one falls back
+    // to - nothing already paid is restated.
+    currency: currency || 'EUR',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(Number(amount) || 0)

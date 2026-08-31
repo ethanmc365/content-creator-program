@@ -76,7 +76,7 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
   const [description, setDescription] = useState('')
   const [issueDate, setIssueDate] = useState(isoToDateInput(new Date().toISOString()))
   const [billTo, setBillTo] = useState(DEFAULT_BILL_TO)
-  const [notes, setNotes] = useState(defaultNotes('GBP'))
+  const [notes, setNotes] = useState(defaultNotes('EUR'))
   const notesTouched = useRef(false)
   const [to, setTo] = useState('')
   const [cc, setCc] = useState('')
@@ -112,7 +112,10 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefill?.key])
 
-  const currency = payee.currency || 'GBP'
+  // EUROS UNLESS THE PAYEE'S OWN RECORD ASKS FOR POUNDS. The programme settles
+  // in euros; a payee who has chosen GBP still gets GBP, and every invoice
+  // already raised keeps the currency it was raised in.
+  const currency = payee.currency || 'EUR'
 
   // Keep the default note in step with the currency until the admin edits it.
   useEffect(() => {

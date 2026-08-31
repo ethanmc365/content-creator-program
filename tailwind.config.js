@@ -262,5 +262,15 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // REAL POINTERS ONLY.
+    //
+    // A tap on a phone latches `:hover` on whatever was tapped until you tap
+    // something else, so anything revealed on hover sticks open on touch. The
+    // phones get an explicit tap-to-reveal (`revealed`) instead, and this
+    // variant keeps the two from fighting each other.
+    function hoverable({ addVariant }) {
+      addVariant('hoverable', '@media (hover: hover) and (pointer: fine)')
+    },
+  ],
 }

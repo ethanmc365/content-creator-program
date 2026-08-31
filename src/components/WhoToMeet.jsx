@@ -121,9 +121,10 @@ export default function WhoToMeet({ className }) {
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <Icon name="users" className="h-5 w-5 shrink-0 text-brand" /> Who to meet this week
           </h2>
-          <p className="mt-1 text-sm text-smoke">
-            Three creators picked for you, and why. Same three all week.
-          </p>
+          {/* Not "three creators picked for you" - you can see how many there
+              are, and counting them out is the kind of line a page says when it
+              has nothing else to say. */}
+          <p className="mt-1 text-sm text-smoke">Same all week, and why each one.</p>
         </div>
         <Link to="/creators" className="shrink-0 text-sm font-medium text-brand transition-transform duration-200 hover:scale-105">
           Everyone →

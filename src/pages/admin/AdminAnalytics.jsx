@@ -14,6 +14,7 @@ import CommunityHealth from './analytics/CommunityHealth'
 import Growth from './analytics/Growth'
 import PerCreator from './analytics/PerCreator'
 import { scopeToMarket } from '../../lib/analyticsScope'
+import { convert } from '../../lib/programme'
 import MarketScope from '../../components/admin/MarketScope'
 
 const TABS = [
@@ -170,8 +171,25 @@ export default function AdminAnalytics() {
   }, [])
 
   // ---------- Derived datasets ----------
+  // THE REPORTING CURRENCY, READ BEFORE THE FIGURES ARE BUILT.
+  //
+  // In the URL with everything else, so "Spain's per-creator table in pounds"
+  // is a link somebody can send. It has to be in scope ABOVE `derived`, because
+  // every money figure on this page is now converted into it rather than being
+  // a plain sum over rows in whatever currency each one happens to carry.
+  const currency = params.get('ccy') === 'GBP' ? 'GBP' : 'EUR'
+
   const derived = useMemo(() => {
     if (!raw) return null
+    // EVERY AMOUNT COMES THROUGH HERE.
+    //
+    // THE BUG THIS FIXES: the overview's money tiles were raw `reduce`s over
+    // `r.amount` across a table holding both pounds and euros, and the currency
+    // toggle changed only the SYMBOL in front of the result - so "£190" and
+    // "€190" were the same number, and neither of them was right. Ethan:
+    // "rewards/invoices payouts are in pounds and should be euros." Being in
+    // euros means being converted into euros, not relabelled.
+    const money = (n, from) => convert(Number(n) || 0, from || 'EUR', currency) || 0
     const {
       profiles, challenges, submissions, rewards, messages, results, feedback,
       reactionCount, pollVoteCount, gameScores, connections, tripCount, decisions,
@@ -218,7 +236,7 @@ export default function AdminAnalytics() {
         avgViews: viewed.length ? Math.round(totalViews / viewed.length) : 0,
         prizesPaid: rewards
           .filter((r) => r.challenge_id === c.id && r.status === 'distributed')
-          .reduce((sum, r) => sum + Number(r.amount), 0),
+          .reduce((sum, r) => sum + money(r.amount, r.currency), 0),
       }
     })
     // Charts stay readable by showing only the most recent 8 challenges;
@@ -252,8 +270,8 @@ export default function AdminAnalytics() {
     // Keep cash prizes and Tryp.com voucher value separate so the split between
     // real cash paid out and vouchers gifted is obvious at a glance.
     const distributed = rewards.filter((r) => r.status === 'distributed')
-    const cashPaid = distributed.filter((r) => r.reward_type !== 'voucher').reduce((s, r) => s + Number(r.amount), 0)
-    const voucherPaid = distributed.filter((r) => r.reward_type === 'voucher').reduce((s, r) => s + Number(r.amount), 0)
+    const cashPaid = distributed.filter((r) => r.reward_type !== 'voucher').reduce((s, r) => s + money(r.amount, r.currency), 0)
+    const voucherPaid = distributed.filter((r) => r.reward_type === 'voucher').reduce((s, r) => s + money(r.amount, r.currency), 0)
     const totalPaid = cashPaid + voucherPaid
     const totalViews = perChallenge.reduce((s, c) => s + c.totalViews, 0)
     const verifiedViews = results.reduce((s, r) => s + (r.final_views || 0), 0)
@@ -374,7 +392,7 @@ export default function AdminAnalytics() {
         avgViewsPerEntry,
       },
     }
-  }, [raw])
+  }, [raw, currency])
 
   // The three tabs answer three different questions, and each is a page's worth
   // of material on its own: what is happening, what the money bought, and
@@ -382,9 +400,6 @@ export default function AdminAnalytics() {
   // "the CPM table" lands on the CPM table.
   const tab = params.get('tab') || 'overview'
   const market = params.get('market') || ''
-  // In the URL with everything else, so "Spain's per-creator table in pounds"
-  // is a link somebody can send.
-  const currency = params.get('ccy') === 'GBP' ? 'GBP' : 'EUR'
   const setCurrency = (next) => {
     const q = { ...Object.fromEntries(params) }
     if (next === 'EUR') delete q.ccy; else q.ccy = next
@@ -433,20 +448,34 @@ export default function AdminAnalytics() {
     />
   )
 
+  // IT SCROLLS SIDEWAYS, IT DOES NOT WRAP.
+  //
+  // THE BUG THIS FIXES: five tabs, two of them called "Challenge performance"
+  // and "Community health", inside `flex-wrap` with the underline rule on the
+  // same element. On a phone that is three rows of tabs, and only the LAST row
+  // sits on the rule - the other two float above it with their active
+  // underline drawn in mid-air, over a heading's worth of vertical space.
+  // Ethan: "analytics: page switching is stacked and broken."
+  //
+  // The rule belongs to the wrapper and the tabs scroll under it, which is one
+  // row at every width. `-mb-px` is on the ROW now rather than each button, so
+  // the active tab's underline lands on the rule wherever it has scrolled to.
   const tabBar = (
-    <div className="mb-8 flex flex-wrap gap-1 border-b border-gray-100">
-      {TABS.map((t) => (
-        <button
-          key={t.key}
-          onClick={() => setTab(t.key)}
-          className={cx(
-            'relative -mb-px border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors',
-            tab === t.key ? 'border-brand text-brand' : 'border-transparent text-smoke hover:text-ink'
-          )}
-        >
-          {t.label}
-        </button>
-      ))}
+    <div className="mb-8 border-b border-gray-100">
+      <div className="-mb-px flex gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={cx(
+              'relative shrink-0 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-semibold transition-colors sm:px-4',
+              tab === t.key ? 'border-brand text-brand' : 'border-transparent text-smoke hover:text-ink'
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
     </div>
   )
 
@@ -548,11 +577,11 @@ export default function AdminAnalytics() {
           value={formatViews(derived.totalViews)}
           hint={derived.verifiedViews > 0 ? `${formatViews(derived.verifiedViews)} verified` : 'logged by creators'}
         />
-        <StatCard label="Cash prizes paid" value={formatMoney(derived.cashPaid)} accent onClick={() => navigate('/admin/rewards')} />
-        <StatCard label="Voucher value given" value={formatMoney(derived.voucherPaid)} hint="Tryp.com vouchers" onClick={() => navigate('/admin/rewards')} />
+        <StatCard label="Cash prizes paid" value={formatMoney(derived.cashPaid, currency)} accent onClick={() => navigate('/admin/rewards')} />
+        <StatCard label="Voucher value given" value={formatMoney(derived.voucherPaid, currency)} hint="Tryp.com vouchers" onClick={() => navigate('/admin/rewards')} />
         <StatCard
           label="Cash CPM"
-          value={derived.costPer1k != null ? formatMoney(derived.costPer1k) : '·'}
+          value={derived.costPer1k != null ? formatMoney(derived.costPer1k, currency) : '·'}
           hint="cash spend per 1,000 views"
         />
         {/* THE FOURTH CARD, which the row was missing - seven tiles in a
@@ -562,7 +591,7 @@ export default function AdminAnalytics() {
             vouchers are counted as spend, not just the cash. */}
         <StatCard
           label="Total CPM"
-          value={derived.combinedCpm != null ? formatMoney(derived.combinedCpm) : '·'}
+          value={derived.combinedCpm != null ? formatMoney(derived.combinedCpm, currency) : '·'}
           hint="cash and vouchers per 1,000 views"
         />
       </div>
@@ -749,17 +778,23 @@ export default function AdminAnalytics() {
           </ResponsiveContainer>
         </ChartCard>
 
+        {/* The CSV column is named after the currency actually in it. It was
+            hard-coded `prizes_paid_gbp` over figures in the reporting currency,
+            which is a spreadsheet that lies about its own units. */}
         <ChartCard
           title="Prize money per challenge"
           subtitle="Recent challenges · tap a bar for the full breakdown"
-          onExport={() => downloadCsv('prizes-per-challenge.csv', derived.perChallenge.map(({ fullTitle, prizesPaid }) => ({ challenge: fullTitle, prizes_paid_gbp: prizesPaid })))}
+          onExport={() => downloadCsv('prizes-per-challenge.csv', derived.perChallenge.map(({ fullTitle, prizesPaid }) => ({ challenge: fullTitle, [`prizes_paid_${currency.toLowerCase()}`]: prizesPaid })))}
         >
           <ResponsiveContainer>
             <BarChart data={derived.perChallengeRecent} onClick={openChallenge} style={{ cursor: 'pointer' }} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#F1F1F2" />
               <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6B7280' }} />
-              <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={(v) => `£${v}`} />
-              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} formatter={(v) => formatMoney(v)} />
+              {/* The axis followed the currency toggle nowhere: it was a
+                  hard-coded "£" over figures this page had already converted
+                  into the reporting currency. */}
+              <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={(v) => `${currency === 'GBP' ? '£' : '€'}${v}`} />
+              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(217,68,7,0.06)' }} formatter={(v) => formatMoney(v, currency)} />
               <Bar dataKey="prizesPaid" name="Paid out" fill={BRAND} radius={[8, 8, 0, 0]} maxBarSize={48} />
             </BarChart>
           </ResponsiveContainer>
@@ -823,7 +858,7 @@ export default function AdminAnalytics() {
               <span className="text-right text-sm tabular-nums sm:block"><span className="text-xs text-smoke sm:hidden">Creators </span>{c.creators}</span>
               <span className="hidden text-right text-sm tabular-nums sm:block">{c.submissions}</span>
               <span className="hidden text-right text-sm tabular-nums sm:block">{formatViews(c.totalViews)}</span>
-              <span className="hidden text-right text-sm font-medium tabular-nums sm:block">{formatMoney(c.prizesPaid)}</span>
+              <span className="hidden text-right text-sm font-medium tabular-nums sm:block">{formatMoney(c.prizesPaid, currency)}</span>
             </button>
           ))}
           {derived.perChallenge.length === 0 && <p className="px-5 py-10 text-center text-sm text-smoke">No challenges yet.</p>}

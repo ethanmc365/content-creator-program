@@ -100,27 +100,32 @@ export default function PlaceSwitcher() {
 
   return (
     <>
-      {/* ---------- Phone: one button, one sheet ----------
-          A PILL, NOT A CARD. This was a full-width two-line card 68px tall,
-          sitting above the greeting on every network page, spending a tenth of
-          a 812px screen restating something the bottom tab bar already says.
-          It is a control you press about once a session. It now takes one line,
-          sits inline so anything short can share the row with it, and gives the
-          ~40px back to the content. */}
-      <div className="mb-4 flex items-center lg:hidden">
+      {/* ---------- Phone: one bar, one sheet ----------
+          FULL WIDTH, BUT STILL ONE LINE.
+          The first version was a full-width two-line card 68px tall, spending a
+          tenth of an 812px screen restating what the bottom tab bar says, so it
+          was cut down to a small inline pill. It is a bar again now, because it
+          took on a second job: "Your markets" is gone from the hub on a phone
+          and this is the only way to a market from there, so it has to read as
+          the door it is rather than as a label you might not press. The height
+          lesson survives - one line, ~44px, not the 68px card. */}
+      <div className="mb-4 lg:hidden">
         <button
           type="button"
           onClick={() => setSheet(true)}
           aria-haspopup="dialog"
           aria-expanded={sheet}
-          className="flex max-w-full items-center gap-2 rounded-full border border-gray-200 bg-white py-1.5 pl-3 pr-2.5 text-left transition-transform duration-200 active:scale-95"
+          className="flex w-full items-center gap-2.5 rounded-2xl border border-gray-200 bg-white py-2.5 pl-3.5 pr-3 text-left transition-transform duration-200 active:scale-[0.98]"
         >
-          <span className="shrink-0 text-sm leading-none" aria-hidden>
+          <span className="shrink-0 text-base leading-none" aria-hidden>
             {onGlobal || !current ? '🌍' : currentFlags || '📍'}
           </span>
-          <span className="min-w-0 truncate text-sm font-semibold">
+          <span className="min-w-0 flex-1 truncate text-sm font-semibold">
             {onGlobal || !current ? (network?.name || 'Worldwide') : current.name}
           </span>
+          {/* The word, not just the chevron. A bare arrow on a bar this wide
+              reads as "open this page", which is the one thing it does not do. */}
+          <span className="shrink-0 text-xs font-semibold text-brand">Switch</span>
           <Icon name="chevronRight" className="h-3.5 w-3.5 shrink-0 rotate-90 text-gray-400" />
         </button>
       </div>

@@ -1499,11 +1499,20 @@ export default function Messages() {
                             {sender?.name ?? 'Someone'}
                           </p>
                         )}
+                        {/* THE BUBBLE IS SHRINK-TO-FIT, like the rooms'.
+                            It was a plain block inside a `w-full` column, so
+                            every bubble was drawn at the full 80%/65% of the
+                            thread whatever was in it: "whenever I send a short
+                            message the text box is still super long". `w-fit`
+                            takes the bubble down to its content and `max-w-full`
+                            keeps a paragraph wrapping at the column's cap;
+                            `ml-auto` puts yours back against the right edge,
+                            since a shrunk bubble no longer reaches it. */}
                         <div
                           className={cx(
-                          'max-w-full whitespace-pre-line break-words rounded-2xl text-sm leading-relaxed',
+                          'w-fit max-w-full whitespace-pre-line break-words rounded-2xl text-sm leading-relaxed',
                           m.image_url ? 'overflow-hidden p-1.5' : 'px-4 py-2.5',
-                          mine ? 'rounded-br-md bg-brand text-white' : 'rounded-bl-md bg-cloud text-ink'
+                          mine ? 'ml-auto rounded-br-md bg-brand text-white' : 'rounded-bl-md bg-cloud text-ink'
                         )}>
                           {/* Quoted reply */}
                           {m.reply_to && (

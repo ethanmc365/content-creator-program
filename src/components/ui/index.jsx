@@ -124,7 +124,16 @@ export function EmptyState({ emoji = '🌍', icon, title, hint, action }) {
 // It sits ABOVE the title rather than beside it, because a back link belongs to
 // the page's position in a hierarchy, not to the page's content, and putting it
 // on the title row makes the title jump left on pages that have one.
-export function PageHeader({ title, subtitle, action, back }) {
+// `inlineAction` KEEPS THE ACTION ON THE TITLE'S ROW AT EVERY WIDTH.
+//
+// The default stacks it underneath on a phone, which is right for the actions
+// most pages pass - "Submit your video", "Ask a question" - full-width primary
+// buttons you are meant to reach for. It is wrong for a small secondary control
+// like the admin panel's Arrange, which stacked into a wide pill of its own on
+// a line of its own, under a 30px heading, for a thing you press once. Ethan:
+// "Arrange button smaller, to the right of the heading." So the page says which
+// kind of action it is handing over; PageHeader does not guess.
+export function PageHeader({ title, subtitle, action, back, inlineAction = false }) {
   const backTo = typeof back === 'string' ? back : back?.to
   const backLabel = (typeof back === 'object' && back?.label) || 'Admin'
   return (
@@ -138,8 +147,11 @@ export function PageHeader({ title, subtitle, action, back }) {
           {backLabel}
         </Link>
       )}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
+      <div className={cx(
+        'flex gap-4 sm:flex-row sm:items-end sm:justify-between',
+        inlineAction ? 'flex-row items-center justify-between gap-3' : 'flex-col',
+      )}>
+        <div className="min-w-0">
           <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{title}</h1>
           {subtitle && <p className="mt-2 max-w-xl text-smoke">{subtitle}</p>}
         </div>

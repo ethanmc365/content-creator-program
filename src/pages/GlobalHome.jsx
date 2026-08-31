@@ -963,6 +963,15 @@ export default function GlobalHome() {
           )}
 
           {/* ---------- Markets ---------- */}
+          {/* NOT ON A PHONE. The switcher bar at the top of the page is the
+              market surface there: it names where you are and opens a sheet
+              listing every market you belong to, which is what this section
+              says a second time in cards that push everything else down a
+              screen. `!isMobile` and not `lg:hidden`, because a section hidden
+              by CSS still MOUNTS - it would take a step off the `stepDelay()`
+              ladder and leave a gap in the reveal sequence for a section
+              nobody can see. */}
+          {!isMobile && (
           <Reveal from="down" delay={stepDelay()}>
             <section>
               {/* A PIN, NOT A FLAG. The flag is the Challenges tab's icon, so
@@ -985,6 +994,7 @@ export default function GlobalHome() {
               </Reveal>
             </section>
           </Reveal>
+          )}
 
           {/* ---------- Network standings ---------- */}
           {/* Reveal, not a stagger: these sections are below the fold, and a

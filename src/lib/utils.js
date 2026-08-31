@@ -120,7 +120,15 @@ export function formatViews(n) {
 // and add everything distributed on-platform. Keep in sync with the same literal
 
 /** "£150" for whole amounts, "£12.50" when there are pennies. */
-export function formatMoney(amount, currency = 'GBP') {
+// EUROS BY DEFAULT, because that is what the programme reports in.
+//
+// THE BUG THIS FIXES: the default was GBP, and half a dozen surfaces called
+// this with no currency at all over figures that had ALREADY been converted
+// into euros - so the admin panel's "Cash prizes paid" showed €190 of spend
+// wearing a pound sign. Ethan: "rewards/invoices payouts are in pounds and
+// should be euros." Anything that genuinely is pounds passes 'GBP' and always
+// did; nothing that is actually a per-row amount relies on this default.
+export function formatMoney(amount, currency = 'EUR') {
   const whole = Number.isInteger(Number(amount))
   return new Intl.NumberFormat('en-GB', {
     style: 'currency',
