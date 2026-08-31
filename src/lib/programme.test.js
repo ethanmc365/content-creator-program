@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { challengeEconomics, blendEconomics, cpmBand, convert, groupBy } from './programme'
+import { challengeEconomics, blendEconomics, cpmBand, convert, groupBy, rewardsTotal } from './programme'
 
 // A challenge row shaped like admin_challenge_metrics() returns.
 const row = (over = {}) => ({
@@ -191,5 +191,38 @@ describe('what a challenge actually cost', () => {
     expect(blended.cashCpm).toBeCloseTo(0.95, 5)
     // and the combined one sums both pots before dividing, the same way
     expect(blended.combinedCpm).toBeCloseTo(1.25, 5)
+  })
+})
+
+describe('rewardsTotal', () => {
+  it('reports a single-currency set in the currency it was paid in', () => {
+    const t = rewardsTotal([{ amount: 100, currency: 'GBP' }, { amount: 150, currency: 'GBP' }])
+    expect(t).toEqual({ amount: 250, currency: 'GBP', converted: false })
+  })
+
+  it('does not convert when the rewards are already in the reporting currency', () => {
+    const t = rewardsTotal([{ amount: 40, currency: 'EUR' }], 'EUR')
+    expect(t).toEqual({ amount: 40, currency: 'EUR', converted: false })
+  })
+
+  // The bug this exists to stop: pounds added to euros and printed as pounds.
+  it('converts a mixed set to one currency and says that it did', () => {
+    const t = rewardsTotal([{ amount: 50, currency: 'GBP' }, { amount: 40, currency: 'EUR' }], 'EUR')
+    expect(t.converted).toBe(true)
+    expect(t.currency).toBe('EUR')
+    // 50 GBP -> 58.50 EUR at the fallback rate, plus the 40 already in euros
+    expect(t.amount).toBeCloseTo(98.5, 5)
+    expect(t.amount).not.toBe(90)
+  })
+
+  it('treats a missing currency as the reporting currency rather than guessing', () => {
+    const t = rewardsTotal([{ amount: 10 }, { amount: 5 }], 'EUR')
+    expect(t).toEqual({ amount: 15, currency: 'EUR', converted: false })
+  })
+
+  it('is zero, not NaN, for no rows or unusable amounts', () => {
+    expect(rewardsTotal([])).toEqual({ amount: 0, currency: 'EUR', converted: false })
+    expect(rewardsTotal(null)).toEqual({ amount: 0, currency: 'EUR', converted: false })
+    expect(rewardsTotal([{ amount: null, currency: 'EUR' }, { amount: 'x', currency: 'EUR' }]).amount).toBe(0)
   })
 })

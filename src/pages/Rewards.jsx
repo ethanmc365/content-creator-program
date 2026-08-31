@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { Badge, EmptyState, PageHeader, Skeleton, StatCard } from '../components/ui'
 import Icon from '../components/Icon'
 import { formatDate, formatMoney } from '../lib/utils'
+import { rewardsTotal } from '../lib/programme'
 import { useViewAs, ViewingAsBanner } from '../components/ViewingAs'
 
 // A creator's own reward history. We filter by creator_id explicitly so that
@@ -37,8 +38,15 @@ export default function Rewards() {
       })
   }, [whose])
 
-  const earned = rewards.filter((r) => r.status === 'distributed').reduce((s, r) => s + Number(r.amount), 0)
-  const pending = rewards.filter((r) => r.status === 'pending').reduce((s, r) => s + Number(r.amount), 0)
+  // Totals go through rewardsTotal, which respects the currency each reward was
+  // actually paid in. The old sum added amounts across currencies and printed
+  // the result with formatMoney's GBP default, so any euro reward was silently
+  // relabelled as pounds. "~" only appears when currencies genuinely had to be
+  // mixed down to one - a converted figure moves with the FX rate and should
+  // not be read as the exact amount that landed in somebody's account.
+  const earned = rewardsTotal(rewards.filter((r) => r.status === 'distributed'))
+  const pending = rewardsTotal(rewards.filter((r) => r.status === 'pending'))
+  const showTotal = (t) => `${t.converted ? '≈ ' : ''}${formatMoney(t.amount, t.currency)}`
 
   return (
     <div className="page max-w-4xl">
@@ -51,8 +59,8 @@ export default function Rewards() {
       ) : (
         <>
           <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <StatCard label="Total received" value={formatMoney(earned)} accent />
-            <StatCard label="Pending" value={formatMoney(pending)} hint={pending > 0 ? 'On its way. The team is processing it.' : 'Nothing pending right now.'} />
+            <StatCard label="Total received" value={showTotal(earned)} accent />
+            <StatCard label="Pending" value={showTotal(pending)} hint={pending.amount > 0 ? 'On its way. The team is processing it.' : 'Nothing pending right now.'} />
           </div>
 
           {rewards.length === 0 ? (

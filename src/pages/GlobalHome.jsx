@@ -652,8 +652,16 @@ export default function GlobalHome() {
               <h1 className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">
                 Hey {profile?.name?.split(' ')[0]}
               </h1>
+              {/* ONE LINE ON A PHONE.
+                  "Here is what is happening across the network right now" is
+                  53 characters; at 14px inside a 343px column it wraps to two
+                  lines every time, which is a two-line subtitle under a name
+                  before any content has been reached. There is no type size
+                  that fixes that, so the phone gets the shorter sentence and
+                  the full one returns at `sm`, where it fits. */}
               <p className="mt-1.5 text-sm text-smoke sm:text-base">
-                Here is what is happening across the network right now.
+                <span className="sm:hidden">Here is what is happening right now.</span>
+                <span className="hidden sm:inline">Here is what is happening across the network right now.</span>
               </p>
             </section>
           </Reveal>
@@ -734,6 +742,20 @@ export default function GlobalHome() {
               that is always above the fold was also the one card that animated
               on a different clock. The Reveal owns it now, like every other
               section. */}
+          {/* DESKTOP ONLY (31 Aug 2026).
+              On a phone this card is the whole first screen - four counters,
+              two chips and a hero plane - and every one of those figures is
+              about the community rather than about today. A creator opening the
+              hub on a phone wants the brief that is running, not the roster
+              size, so the live challenge above leads and this drops out
+              entirely. It keeps its place from `lg` up, where it sits beside a
+              rail and costs nothing.
+
+              `!isMobile`, not `hidden lg:block`, for the reason the live-now
+              block gives above: a CSS-hidden section still renders and still
+              takes its step off the `stepDelay()` ladder, which would leave a
+              720ms hole in the phone's reveal sequence where this used to be. */}
+          {!isMobile && (
           <Reveal from="down" delay={stepDelay()}>
           <section
             className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-6 text-white shadow-lift sm:p-10"
@@ -892,6 +914,7 @@ export default function GlobalHome() {
             </div>
           </section>
           </Reveal>
+          )}
 
           {/* ---------- Global challenge ---------- */}
           {/* Above the markets on purpose. A global challenge is the one thing
@@ -1002,8 +1025,12 @@ export default function GlobalHome() {
               of where that community has been. */}
           <Reveal from="down" delay={stepDelay()}>
             <section>
+              {/* The hint is desktop-only. On a phone it is two lines of
+                  instructions above a map whose pins and countries are
+                  obviously tappable, on the page where vertical space is
+                  scarcest. Full screen still carries its own affordances. */}
               <SectionHead icon="globe" title="Everyone, right now"
-                hint="Tap a pin for who is there, or tap a country to find who has been."
+                hint={isMobile ? undefined : 'Tap a pin for who is there, or tap a country to find who has been.'}
                 to="/creators" toLabel="Creator Network" />
               {/* The map is the most expensive thing on this page - a megabyte
                   of TopoJSON, parsed, then a few hundred SVG paths - and doing

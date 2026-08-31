@@ -71,10 +71,18 @@ export default function Milestones() {
 
         <ViewingAsBanner viewing={viewing} person={person} />
 
+        {/* THE PHONE READS ROUTE FIRST, THE DESKTOP READS NUMBERS FIRST.
+            On a phone the six stat tiles filled the entire first screen, so the
+            page opened on a wall of figures and the route - the thing the page
+            is about - started below the fold. Ordering only: `flex-col` with an
+            explicit order on a phone, plain block flow from `lg` up, where the
+            stats are a thin strip above a two-column layout and were never in
+            the way. */}
+        <div className="flex flex-col lg:block">
         {/* The numbers the whole ladder is computed from. Showing them makes the
             thresholds checkable rather than magic. */}
         {metrics && (
-          <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="order-2 mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:order-none lg:grid-cols-6">
             {SUMMARY.map((key) => {
               const m = METRICS.find((x) => x.value === key)
               const raw = Number(metrics[key] || 0)
@@ -95,7 +103,7 @@ export default function Milestones() {
           <EmptyState icon={<Icon name="flag" className="h-7 w-7" />} title="No milestones yet"
             hint="The team is still setting these up." />
         ) : (
-          <>
+          <div className="order-1 lg:order-none">
             <h2 className="mb-4 text-lg font-semibold">The route</h2>
 
             {/* NO CARD ROUND THE ROUTE.
@@ -211,8 +219,9 @@ export default function Milestones() {
 
               </aside>
             </div>
-          </>
+          </div>
         )}
+        </div>
 
       </motion.div>
     </div>

@@ -56,8 +56,17 @@ const TOP = 62           // where the first node sits
 // nodes are in a column - so it reads as a flight path rather than a list.
 const LAYOUT = {
   wide: { W: 340, left: 76, right: 264, gap: 150, wave: 0, labelPct: 38 },
+  // `gap` here is only the fallback for the very first paint, before the
+  // container has been measured; the real phone gap is derived from
+  // NARROW_SLOT_PX below so that a slot is the same height on every screen.
   narrow: { W: 320, left: 34, right: 34, gap: 122, wave: 26, labelPct: 74 },
 }
+
+// How much vertical room every stop card gets on a phone, in CSS pixels. The
+// tallest card the live ladder produces is 170px - "On a roll", which carries a
+// description, a voucher line and three requirements - so this leaves a little
+// air under the worst case rather than being tuned to the average one.
+const NARROW_SLOT_PX = 186
 
 function nodeX(i, L) {
   return i % 2 === 0 ? L.left : L.right
@@ -175,7 +184,21 @@ export default function MilestonePath({ milestones = [], standings = [] }) {
   const [box0, setBox0] = useState(null)   // the element
   const [box, setBox] = useState(null)     // its width
   const narrow = box == null ? false : box < 520
-  const L = narrow ? LAYOUT.narrow : LAYOUT.wide
+  // THE PHONE GAP IS MEASURED IN PIXELS, NOT IN VIEWBOX UNITS.
+  //
+  // The drawing is sized with `aspectRatio: W / H`, so one viewBox unit is
+  // `box / W` pixels - it shrinks with the screen. The cards stacked beside it
+  // do not: their height comes from their text, and the tallest real one on the
+  // live ladder is 170px whatever the width. With a fixed 122-unit gap that
+  // bought a 146px slot on a 414px phone and 109px on a 320px one, so every
+  // card ran into the one below it. That is "cards overlap and are unreadable".
+  //
+  // Solving `slotPx = (box / W) * gap` for the gap instead pins the slot at a
+  // constant NARROW_SLOT_PX on every phone, which is the thing that actually
+  // has to stay bigger than a card.
+  const L = narrow
+    ? { ...LAYOUT.narrow, gap: Math.round((NARROW_SLOT_PX * LAYOUT.narrow.W) / Math.max(box || LAYOUT.narrow.W, 240)) }
+    : LAYOUT.wide
   const isMobile = narrow
 
   useEffect(() => {
@@ -566,6 +589,7 @@ export default function MilestonePath({ milestones = [], standings = [] }) {
               ? { opacity: 1, x: 0, scale: 1 }
               : { opacity: 0, x: rightSide ? -14 : 14, scale: 0.96 }}
             transition={{ delay: arrivalDelay(i) + 0.12, duration: 0.5, ease: EASE }}
+            data-stop-card=""
             className="absolute text-left"
             style={{
               // ALIGNED WITH THE DOT, NOT CENTRED ON IT.

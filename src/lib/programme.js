@@ -244,3 +244,40 @@ export async function publishFxRates(supabase, rates) {
     })
   } catch { /* a stale rate is fine; a broken page is not */ }
 }
+
+/**
+ * Total a set of reward rows into one figure.
+ *
+ * `rewards.amount` is a bare number and `rewards.currency` says what it is, so
+ * summing amounts alone adds pounds to euros. The old Rewards page did exactly
+ * that and then printed the result with a hardcoded GBP default, so a creator
+ * paid EUR 40 and GBP 50 was shown "GBP 90" - wrong twice over.
+ *
+ * When every row settles in the same currency that currency is reported back
+ * untouched: a creator checking what they were paid should see the figure that
+ * actually landed, not a conversion of it. Only a genuinely mixed set needs a
+ * common currency, and that result is marked `converted` so the caller can say
+ * so rather than claiming a precision the FX rate does not have.
+ *
+ * @returns {{amount:number, currency:string, converted:boolean}}
+ */
+export function rewardsTotal(rows, to = 'EUR', rates = FALLBACK_RATES) {
+  const list = (rows || []).filter((r) => r && r.amount != null && Number.isFinite(Number(r.amount)))
+  if (!list.length) return { amount: 0, currency: to, converted: false }
+
+  const currencies = new Set(list.map((r) => r.currency || to))
+  if (currencies.size === 1) {
+    const [only] = [...currencies]
+    return {
+      amount: list.reduce((sum, r) => sum + Number(r.amount), 0),
+      currency: only,
+      converted: false,
+    }
+  }
+
+  return {
+    amount: list.reduce((sum, r) => sum + (convert(r.amount, r.currency || to, to, rates) || 0), 0),
+    currency: to,
+    converted: true,
+  }
+}

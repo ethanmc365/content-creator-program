@@ -397,7 +397,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   // "Where we have been, together": the set of country names anybody in the
   // network has filmed in, and a toggle to paint them. It replaces the second
   // WorldMap that used to sit at the foot of the directory - see the note on
-  // the button in `filterButtons`.
+  // the button in `renderFilterButtons`.
   exploredCountries = null, exploredActive = null, onToggleExplored = null }) {
   const dark = useIsDark()
   // Dark-mode map palette: deep land on near-black sea, so the light-grey map
@@ -1133,7 +1133,15 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
       on ? 'bg-brand text-white ring-1 ring-brand' : 'bg-white/95 text-ink ring-1 ring-black/5'
     }`
 
-  const filterButtons = !controls ? null : (
+  // WHY THIS IS A FUNCTION AND NOT A VALUE.
+  //
+  // The same set of filters renders in two places: overlaid on the map (desktop
+  // card, and full screen on any device) and as a wrapping row underneath it on
+  // a phone. "On the move" is wanted in the first and not the second - on a
+  // phone the row sits under an already-tall map and pushes the rest of the hub
+  // down, and the journeys view is a thing you go full screen to read anyway.
+  // So the caller says which variant it wants rather than the button guessing.
+  const renderFilterButtons = ({ omitTravel = false } = {}) => !controls ? null : (
     <>
       {onToggleConnections && (
         <button
@@ -1164,7 +1172,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           <span className="truncate">Been together{exploredView ? ` · ${exploredSet.size}` : ''}</span>
         </button>
       )}
-      {journeys.length > 0 && (
+      {journeys.length > 0 && !omitTravel && (
         <button
           type="button"
           onClick={toggleTravel}
@@ -1711,7 +1719,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
       {/* Filter toggles overlay the map on desktop only - on phones they'd cover
           most of it, so there they render in a row UNDER the map instead. */}
       <div className={`absolute bottom-3 left-3 z-10 flex-col items-start gap-2 ${overlayCls} ${travelOnlyView ? '!hidden' : ''}`}>
-        {filterButtons}
+        {renderFilterButtons()}
       </div>
 
       {/* THE "TAP A PIN FOR WHO'S THERE" HINT IS GONE.
@@ -1805,7 +1813,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
       {/* Mobile: the same filters in a wrapping row below the map. */}
       {!travelOnlyView && (
         <div className="mt-3 flex flex-wrap gap-2 sm:hidden">
-          {filterButtons}
+          {renderFilterButtons({ omitTravel: true })}
         </div>
       )}
     </div>

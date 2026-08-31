@@ -14,6 +14,7 @@ import { PlaneLoader } from './components/ui'
 
 // Public pages
 import Landing from './pages/Landing'
+import Preview from './pages/dev/Preview'
 import Login from './pages/auth/Login'
 import Signup from './pages/auth/Signup'
 import ForgotPassword from './pages/auth/ForgotPassword'
@@ -148,6 +149,10 @@ export default function App() {
       <Suspense fallback={<LazyFallback />}>
       <Routes>
       {/* ---------- Public ---------- */}
+      {/* Dev-only component bench. See pages/dev/Preview.jsx - it exists so
+          signed-in layout work can be measured without a login. Tree-shaken out
+          of production builds by the DEV guard. */}
+      {import.meta.env.DEV && <Route path="/__preview" element={<Preview />} />}
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
