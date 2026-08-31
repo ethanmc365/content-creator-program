@@ -46,6 +46,22 @@ const MILLE = 1000
 // board is about 110px on a desktop and 30px on a phone.
 const MIN_W = 80
 
+// THE GRID EVERYTHING LANDS ON.
+//
+// Free placement to the pixel was the whole problem with the last version:
+// nothing lined up with anything, so a board of ten photographs read as ten
+// accidents rather than as an arrangement. Ethan: "the free drag isn't really
+// great, it looks messy, better if they snap to place in a nice collage."
+//
+// A twelfth of the board is coarse enough that edges agree with each other and
+// fine enough that it is still a collage rather than a table. Note that only
+// x, y and WIDTH snap - height is always width/aspect, so a photograph is never
+// squeezed onto the grid and never cropped to fit it.
+const STEP = 1 / 12
+// Two columns is the floor: below that a tile is too small to grab on a phone.
+const MIN_COLS = 2
+const snap = (v) => Math.round(v / STEP) * STEP
+
 // BELOW THIS, A STORED POSITION IS NOT A POSITION.
 //
 // These four columns used to hold 12-COLUMN GRID CELLS - `pos_w = 4` meant four
@@ -263,12 +279,22 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
   useEffect(() => { commitRef.current = commit }, [commit])
   useEffect(() => () => detach.current?.(), [])
 
-  function beginDrag(e, tile, mode) {
+  // WHICH CORNER YOU GRABBED. `ax`/`ay` are the ANCHOR: 0 means that edge stays
+  // put, 1 means the opposite one does. Dragging the top-left corner has to
+  // hold the bottom-right still, or the photo swims away from the hand.
+  const CORNERS = {
+    nw: { ax: 1, ay: 1, cls: 'left-0 top-0 cursor-nwse-resize' },
+    ne: { ax: 0, ay: 1, cls: 'right-0 top-0 cursor-nesw-resize' },
+    sw: { ax: 1, ay: 0, cls: 'left-0 bottom-0 cursor-nesw-resize' },
+    se: { ax: 0, ay: 0, cls: 'right-0 bottom-0 cursor-nwse-resize' },
+  }
+
+  function beginDrag(e, tile, mode, corner = 'se') {
     if (!arranging || !width) return
     e.preventDefault()
     e.stopPropagation()
     dragState.current = {
-      id: tile.id, mode,
+      id: tile.id, mode, corner,
       // The photo's own shape, so a resize can hold it.
       aspect: tile.aspect > 0 ? tile.aspect : 1,
       // What the ROW held before this drag - nulls included, for a photo that
@@ -292,27 +318,46 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
       if (d.mode === 'move') {
         box = {
           ...d.from,
-          x: Math.min(1 - d.from.w, Math.max(0, d.from.x + dx)),
-          y: Math.max(0, d.from.y + dy),
+          x: snap(Math.min(1 - d.from.w, Math.max(0, d.from.x + dx))),
+          y: snap(Math.max(0, d.from.y + dy)),
         }
       } else {
-        // RESIZE KEEPS THE PHOTO'S OWN SHAPE.
+        // RESIZE FROM ANY CORNER, ON A GRID, WITHOUT EVER CROPPING.
         //
-        // Width and height used to move independently, so dragging the corner
-        // reshaped the frame and `object-cover` quietly cropped whatever no
-        // longer fitted. That is a second cropping tool nobody asked for, and
-        // it is the opposite of what was wanted. Ethan: "I want to be able to
-        // drag to resize them, but they'll stay in the original size we
-        // uploaded it in... maintaining what, how it was." So resizing SCALES:
-        // the photo gets bigger or smaller and never distorts or loses an edge.
-        // Reframing stays where it belongs, in the crop tool.
+        // Three rules, and they are the whole feature:
         //
-        // Both axes of the drag drive it, averaged through the aspect, so
-        // pulling the corner right or down does the same intuitive thing.
-        const min = MIN_W / width
+        //  * THE SHAPE IS THE PHOTO'S. Height is always width / aspect, so a
+        //    frame can never be dragged into a shape the photograph is not and
+        //    `object-cover` never gets the chance to slice an edge off. Ethan:
+        //    "ensure the photos are not automatically getting cropped."
+        //    Reframing lives in the crop tool, which is where it belongs.
+        //  * IT SNAPS. Free placement to the pixel is what made the board look
+        //    "messy": nothing ever lined up with anything, so ten photographs
+        //    read as ten accidents. Widths and positions land on a twelfth of
+        //    the board, which is enough of a grid to make edges agree and loose
+        //    enough to still be a collage rather than a table.
+        //  * THE CORNER YOU GRABBED IS THE ONE THAT MOVES. The opposite corner
+        //    is the anchor, so the photo grows towards your finger instead of
+        //    away from it.
+        const c = CORNERS[d.corner] || CORNERS.se
+        const right = d.from.x + d.from.w
+        const bottom = d.from.y + d.from.h
         const a = d.aspect > 0 ? d.aspect : 1
-        const w = Math.min(1 - d.from.x, Math.max(min, d.from.w + (dx + dy * a) / 2))
-        box = { x: d.from.x, y: d.from.y, w, h: w / a }
+        // Growth is positive when you pull AWAY from the anchored corner.
+        const gx = c.ax === 0 ? dx : -dx
+        const gy = c.ay === 0 ? dy : -dy
+        const minW = Math.max(MIN_COLS * STEP, MIN_W / width)
+        // Both axes drive it, averaged through the aspect, so dragging a corner
+        // sideways or downwards does the same intuitive thing.
+        let w = snap(d.from.w + (gx + gy * a) / 2)
+        w = Math.max(minW, Math.min(1, w))
+        let h = w / a
+        let x = c.ax === 0 ? d.from.x : right - w
+        let y = c.ay === 0 ? d.from.y : bottom - h
+        // Never off the board. Clamping x can shrink nothing; it just slides.
+        x = Math.max(0, Math.min(1 - w, snap(x)))
+        y = Math.max(0, y)
+        box = { x, y, w, h }
       }
       d.box = box
       // THE LIVE BOX LIVES IN STATE, not only in the ref. Reading a ref during
@@ -351,11 +396,28 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
     }
   }
 
-  async function resetOne(tile) {
+  // EVERY PHOTO BACK TO THE AUTOMATIC LAYOUT, in one write.
+  //
+  // Clearing the four position columns is what "original" means here: an
+  // unplaced row falls through to `defaultLayout`, which is a masonry packer -
+  // so the result is side by side and below, at each photo's own shape, with
+  // nothing overlapping anything. Optimistic, then written; a failure says so
+  // and reloads rather than leaving the screen disagreeing with the table.
+  const [resetting, setResetting] = useState(false)
+  async function resetAll() {
+    if (resetting) return
+    setResetting(true)
+    const before = photos
     setPhotos((cur) => (cur || []).map((p) => (
-      p.id === tile.id ? { ...p, pos_x: null, pos_y: null, pos_w: null, pos_h: null } : p)))
-    await supabase.from('creator_photos')
-      .update({ pos_x: null, pos_y: null, pos_w: null, pos_h: null }).eq('id', tile.id)
+      { ...p, pos_x: null, pos_y: null, pos_w: null, pos_h: null })))
+    const { error } = await supabase.from('creator_photos')
+      .update({ pos_x: null, pos_y: null, pos_w: null, pos_h: null })
+      .eq('creator_id', creatorId)
+    setResetting(false)
+    if (error) {
+      setPhotos(before)
+      await notice(`The board could not be tidied: ${error.message}`)
+    }
   }
 
   async function saveCrop(photo, focal, zoom) {
@@ -371,17 +433,39 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
 
   return (
     <>
-      {editable && !alwaysArranging && (
+      {editable && (
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setArranging((v) => !v)}
-            className={cx('inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all duration-200',
-              arranging ? 'bg-brand text-white shadow-card' : 'bg-cloud text-smoke hover:text-ink')}
-          >
-            <Icon name={arranging ? 'check' : 'pencil'} className="h-3.5 w-3.5" />
-            {arranging ? 'Done' : 'Arrange the board'}
-          </button>
+          {!alwaysArranging && (
+            <button
+              type="button"
+              onClick={() => setArranging((v) => !v)}
+              className={cx('inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all duration-200',
+                arranging ? 'bg-brand text-white shadow-card' : 'bg-cloud text-smoke hover:text-ink')}
+            >
+              <Icon name={arranging ? 'check' : 'pencil'} className="h-3.5 w-3.5" />
+              {arranging ? 'Done' : 'Arrange the board'}
+            </button>
+          )}
+          {/* A WAY BACK. Any arrangement tool needs one, and this one needed it
+              badly: there was no undo, no reset, and a board you have shuffled
+              into a mess is a board you cannot recover without dragging every
+              photograph back by hand. Ethan: "there should be a button at the
+              top to reset all the photos back to how they originally were, the
+              original way should just arrange the photos nicely, side by side
+              and below each other, none of them getting covered."
+              Clearing every position is exactly that: the automatic layout is a
+              masonry packer, so nothing overlaps by construction. */}
+          {arranging && (
+            <button
+              type="button"
+              onClick={resetAll}
+              disabled={resetting}
+              className="inline-flex items-center gap-1.5 rounded-full bg-cloud px-3.5 py-1.5 text-xs font-semibold text-smoke transition-all duration-200 hover:text-ink disabled:opacity-50"
+            >
+              <Icon name="reorder" className="h-3.5 w-3.5" />
+              {resetting ? 'Tidying…' : 'Tidy them up'}
+            </button>
+          )}
         </div>
       )}
 
@@ -409,7 +493,6 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
               dragging={drag?.id === t.id}
               onOpen={() => !arranging && setLightbox(t)}
               onCrop={() => setCropping(t)}
-              onReset={() => resetOne(t)}
               onBroken={() => markBroken(t.id)}
               onDragStart={beginDrag}
             />
@@ -426,8 +509,19 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
   )
 }
 
+// Where each grip sits, and how it is described. `cursor-*` matters on a
+// desktop and costs a phone nothing.
+const CORNER_KEYS = ['nw', 'ne', 'sw', 'se']
+const CORNER_POS = {
+  nw: '-left-1 -top-1 cursor-nwse-resize',
+  ne: '-right-1 -top-1 cursor-nesw-resize',
+  sw: '-bottom-1 -left-1 cursor-nesw-resize',
+  se: '-bottom-1 -right-1 cursor-nwse-resize',
+}
+const CORNER_LABEL = { nw: 'top left', ne: 'top right', sw: 'bottom left', se: 'bottom right' }
+
 // ---------------------------------------------------------------- one photo
-function PhotoTile({ photo, box, width, arranging, editable, dragging, onOpen, onCrop, onReset, onBroken, onDragStart }) {
+function PhotoTile({ photo, box, width, arranging, editable, dragging, onOpen, onCrop, onBroken, onDragStart }) {
   return (
     <figure
       data-tile
@@ -511,26 +605,34 @@ function PhotoTile({ photo, box, width, arranging, editable, dragging, onOpen, o
 
       {arranging && (
         <>
-          {/* THE RESIZE GRIP. Bottom-right, which is where every window corner
-              in every operating system is, and big enough for a thumb. It stops
-              the press reaching the tile underneath, or resizing would also
-              start a move. */}
-          <button
-            type="button"
-            onPointerDown={(e) => { e.stopPropagation(); onDragStart(e, photo, 'resize') }}
-            className="absolute bottom-1 right-1 z-20 flex h-8 w-8 cursor-nwse-resize items-center justify-center rounded-lg bg-white/95 text-smoke shadow-card"
-            aria-label="Drag to resize this photo"
-          >
-            <Icon name="expand" className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => { e.stopPropagation(); onReset() }}
-            className="absolute left-1 top-1 z-20 rounded-lg bg-white/95 px-2 py-1 text-[10px] font-semibold text-smoke shadow-card transition-colors hover:text-brand"
-          >
-            Reset
-          </button>
+          {/* A GRIP ON ALL FOUR CORNERS, AND NO BUTTON ANYWHERE.
+              There used to be one grip, bottom-right, plus a "Reset" chip in
+              the opposite corner - so resizing was a thing you could only do in
+              one direction, and a photo at the right edge of the board could
+              only be made smaller. Ethan: "to resize them I don't want a
+              specific button, I want to be able to just drag to resize from any
+              of the four corners, and keep the same easy way of holding down to
+              move them about."
+              Each grip stops the press reaching the tile, or a resize would
+              start a move as well. The per-tile Reset is gone: "Tidy them up"
+              at the top of the board does the whole thing at once. */}
+          {CORNER_KEYS.map((k) => (
+            <span
+              key={k}
+              role="button"
+              tabIndex={-1}
+              aria-label={`Drag to resize this photo from the ${CORNER_LABEL[k]} corner`}
+              onPointerDown={(e) => { e.stopPropagation(); onDragStart(e, photo, 'resize', k) }}
+              className={cx(
+                'absolute z-20 flex h-9 w-9 items-center justify-center',
+                CORNER_POS[k],
+              )}
+            >
+              <span className={cx(
+                'h-4 w-4 rounded-[3px] border-2 border-brand bg-white shadow-card',
+              )} />
+            </span>
+          ))}
         </>
       )}
     </figure>
