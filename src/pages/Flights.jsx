@@ -15,10 +15,10 @@ import MapSkeleton from '../components/network/MapSkeleton'
 import AircraftArt from '../components/network/AircraftArt'
 import { confirm, notice } from '../lib/confirm'
 import { toast } from '../lib/toast'
-import { airport, searchAirports, distanceKm, estimateMinutes, bearing, compass, haul, co2Kg } from '../lib/airports'
+import { airport, searchAirports, distanceKm, estimateMinutes, bearing, compass, haul, co2Kg, homeAirport } from '../lib/airports'
 import { NO_AUTOFILL, NO_AUTOFILL_SEARCH } from '../lib/noAutofill'
 import { routeAirlines, aircraftFor, anyAircraftFor, airlineByName, continentOf, AIRCRAFT } from '../lib/airlines'
-import { buildFlightStats, humanHours, clockShift, MONTHS } from '../lib/flightStats'
+import { tripsFromFlights, buildFlightStats, humanHours, clockShift, MONTHS } from '../lib/flightStats'
 import { compressImage } from '../lib/image'
 import { uploadFile } from '../lib/upload'
 import { flagFromIso } from '../lib/flags'
@@ -537,7 +537,7 @@ function LoyaltyRow({ a, max }) {
 }
 
 export default function Flights() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const [rows, setRows] = useState(null)
   const [adding, setAdding] = useState(false)
   // THE SAME FORM OPENS THREE WAYS, and which one it is decides three things:
@@ -598,6 +598,12 @@ export default function Flights() {
   useEffect(() => { load() }, [load])
 
   const stats = useMemo(() => buildFlightStats(rows, today), [rows, today])
+  // Their home airport, for the form's default. Derived from the log first and
+  // from their town second - see lib/airports.
+  const homeIata = useMemo(
+    () => homeAirport(rows || [], { lat: profile?.city_lat, lng: profile?.city_lng }),
+    [rows, profile?.city_lat, profile?.city_lng],
+  )
 
   // Only for flights not yet taken: "somebody was on your flight last March" is
   // a fact, and "somebody is on your flight on Tuesday" is a plan.
@@ -662,7 +668,11 @@ export default function Flights() {
   // airline-picker flags, which used to survive from the previous open and left
   // somebody editing a flight staring at a text box they had not asked for.
   function openNew() {
-    setForm(BLANK_FORM)
+    // PREFILLED WITH WHERE YOU FLY FROM. See `homeAirport`: an empty "from"
+    // field meant a Dublin creator typed DUB before every flight they have ever
+    // logged. It is a default, not a lock - the field is a type-ahead and
+    // clearing it is one gesture.
+    setForm({ ...BLANK_FORM, from_iata: homeIata })
     setEditing(null)
     setError('')
     setCustomAirline(false)
@@ -987,7 +997,15 @@ export default function Flights() {
 
   const laps = stats.distance / EARTH_CIRCUMFERENCE_KM
   const moonPct = (stats.distance / MOON_KM) * 100
-  const visible = showAll ? stats.list : stats.list.slice(0, 12)
+  // ONE ROW PER TRIP. A return is a second `flights` row pointing at the first,
+  // and drawing them both made a week away look like two flights, the second of
+  // them photo-less. See `tripsFromFlights`.
+  const trips = useMemo(() => tripsFromFlights(stats.list), [stats.list])
+  const visible = showAll ? trips : trips.slice(0, 12)
+  // The trip whose details are open, if any.
+  const [detail, setDetail] = useState(null)
+  // The photograph, blown up over everything.
+  const [photo, setPhoto] = useState(null)
   const r = stats.records
 
   return (
@@ -1527,39 +1545,47 @@ export default function Flights() {
                 <p className="text-xs text-smoke">{stats.flights} logged</p>
               </div>
               <Reveal className="space-y-2.5" stagger={0.03}>
-                {visible.map((f) => (
-                  <div key={f.id} className="card group flex flex-wrap items-center gap-x-4 gap-y-2 !p-4">
-                    {/* THE PHOTOGRAPH IS THE FIRST THING ON THE ROW.
-                        One image per trip, and it is the only part of a flight
-                        anybody wants to look at again - so it leads, and a row
-                        without one simply starts at the codes rather than
-                        holding an empty frame open. */}
-                    {f.photo_url && (
+                {visible.map((t) => {
+                  const f = t.out
+                  const back = t.back
+                  return (
+                  // THE WHOLE ROW OPENS THE TRIP.
+                  // It carried an Edit and a Remove button and nothing else,
+                  // so the only thing you could do to a flight you had logged
+                  // was change it or destroy it - there was no way to simply
+                  // look at one. Ethan: "clicking a logged flight should open
+                  // that trip's details." The buttons stop the press so they
+                  // still do their own jobs.
+                  <div
+                    key={t.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setDetail(t)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetail(t) } }}
+                    className="card group flex cursor-pointer flex-wrap items-center gap-x-4 gap-y-2 !p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift"
+                  >
+                    {/* THE PHOTOGRAPH IS THE FIRST THING ON THE ROW, and it is
+                        big enough to be one. It was a 56px square - a thumbnail
+                        of a thumbnail, on the only part of a flight anybody
+                        wants to look at again. Ethan: "the trip photo renders
+                        tiny, clicking it should open a large view." It opens
+                        full size from the detail sheet the row leads to. */}
+                    {t.photo_url && (
                       <img
-                        src={f.photo_url}
+                        src={t.photo_url}
                         alt=""
                         loading="lazy"
-                        className="h-14 w-14 shrink-0 rounded-xl object-cover ring-1 ring-black/5"
+                        className="h-20 w-20 shrink-0 rounded-xl object-cover ring-1 ring-black/5 transition-transform duration-200 group-hover:scale-[1.03] sm:h-24 sm:w-24"
                       />
                     )}
                     <div className="flex min-w-0 flex-1 items-center gap-3">
                       <span className="flex shrink-0 items-center gap-1.5 text-sm font-bold tracking-wider text-brand">
                         {f.from.iata}
                         {/* THE SAME GLYPH THE COMING UP CARDS USE, IN THE
-                            LIGHTER ORANGE. It was `plane` in `text-gray-300`,
-                            which at 14px on white is very nearly invisible; the
-                            first fix swapped it for `plane-tryp` in full brand,
-                            and the owner corrected that too: "I actually wanted
-                            it to be the same, the icon should be the one shown
-                            on the coming up section and it should be that light
-                            coloured orange."
-                            He is right that it should MATCH rather than merely
-                            be visible - the same route, drawn two ways on one
-                            page, reads as two different things. `plane` at
-                            `text-brand-light` is exactly what the upcoming cards
-                            carry, and it also sits back from the two full-brand
-                            codes either side of it instead of competing. */}
-                        <Icon name="plane" className="h-3.5 w-3.5 text-brand-light" />
+                            LIGHTER ORANGE - and a DOUBLE-HEADED one when the
+                            trip has a return, because that arrow is now the
+                            only thing saying two legs are one trip. */}
+                        <Icon name={back ? 'reorder' : 'plane'} className="h-3.5 w-3.5 text-brand-light" />
                         {f.to.iata}
                       </span>
                       <span className="min-w-0">
@@ -1567,42 +1593,39 @@ export default function Flights() {
                           {f.from.city} to {f.to.city}
                         </span>
                         <span className="block truncate text-xs text-smoke">
-                          {formatDate(f.flown_on)}
+                          {/* A trip with a return is a RANGE. Two dates say
+                              "you were away from here to here", which is what
+                              a week in Madrid actually was. */}
+                          {back ? `${formatDate(f.flown_on)} – ${formatDate(back.flown_on)}` : formatDate(f.flown_on)}
                           {f.airline ? ` · ${f.airline}` : ''}
                           {f.flight_number ? ` ${f.flight_number}` : ''}
                           {f.aircraft ? ` · ${f.aircraft}` : ''}
                           {f.seat ? ` · seat ${f.seat}` : ''}
-                          {/* "Other" says what it was, where there is
-                              something to say. See the form. */}
                           {f.purpose ? ` · ${f.purpose === 'other' && f.purpose_note ? f.purpose_note : (PURPOSE_LABEL[f.purpose] || f.purpose)}` : ''}
                         </span>
                       </span>
                     </div>
                     <div className="flex shrink-0 items-center gap-3">
-                      {/* A return leg says so. It is the only way to tell, on a
-                          list sorted by date, that two rows were one trip. */}
-                      {f.return_of && <Badge tone="light" className="!px-2 !py-0.5">Return</Badge>}
-                      {/* THE "SHARED" GLYPH IS GONE with the tick box that set
-                          it: a marker that is on every single row is not a
-                          marker, it is decoration. */}
+                      {/* "Return" is not a badge on a second row any more, it
+                          is a property of the one row. */}
+                      {back && <Badge tone="light" className="!px-2 !py-0.5">Return</Badge>}
                       <Badge tone="grey" className="!px-2 !py-0.5">{haul(f.dist)}</Badge>
                       <span className="text-right text-xs tabular-nums text-smoke">
-                        <span className="block font-semibold text-ink">{km(f.dist)} km</span>
-                        <span className="block">{humanHours(f.mins)}</span>
+                        <span className="block font-semibold text-ink">{km(t.dist)} km</span>
+                        <span className="block">{humanHours(t.mins)}</span>
                       </span>
                       {/* EDIT BEFORE REMOVE, and nearer to hand. Deleting is
                           the irreversible one, so the gentler option comes
-                          first - the same order the community board's thread
-                          settled on. */}
+                          first. Both stop the press reaching the row. */}
                       <button
-                        onClick={() => openEdit(f)}
+                        onClick={(e) => { e.stopPropagation(); openEdit(f) }}
                         aria-label="Edit this flight"
                         className="rounded-lg p-1.5 text-gray-300 transition-colors hover:bg-brand-tint hover:text-brand"
                       >
                         <Icon name="pencil" className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => remove(f)}
+                        onClick={(e) => { e.stopPropagation(); remove(f) }}
                         aria-label="Remove this flight"
                         className="rounded-lg p-1.5 text-gray-300 transition-colors hover:bg-red-50 hover:text-red-500"
                       >
@@ -1610,7 +1633,8 @@ export default function Flights() {
                       </button>
                     </div>
                   </div>
-                ))}
+                  )
+                })}
               </Reveal>
               {stats.flights > 12 && (
                 <button
@@ -2091,6 +2115,108 @@ export default function Flights() {
       />
 
       {/* ---- The collab board offer ---- */}
+      {/* ---- One trip, opened ----
+          The log used to be a list you could only edit or delete from. This is
+          the third thing: looking at it. The photograph leads at a size worth
+          looking at and opens full screen from here, and a return trip shows
+          BOTH legs rather than pretending to be one flight with a long
+          distance. */}
+      <Modal
+        open={!!detail}
+        onClose={() => setDetail(null)}
+        title={detail ? `${detail.out.from.city} to ${detail.out.to.city}` : ''}
+      >
+        {detail && (
+          <div className="space-y-5">
+            {detail.photo_url && (
+              <button
+                type="button"
+                onClick={() => setPhoto(detail.photo_url)}
+                className="group relative block w-full overflow-hidden rounded-card"
+                aria-label="Open the photo full size"
+              >
+                <img
+                  src={detail.photo_url}
+                  alt=""
+                  className="h-56 w-full object-cover transition-transform duration-300 group-hover:scale-[1.02] sm:h-72"
+                />
+                <span className="absolute bottom-2 right-2 flex items-center gap-1.5 rounded-full bg-ink/70 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-sm">
+                  <Icon name="expand" className="h-3.5 w-3.5" /> Full size
+                </span>
+              </button>
+            )}
+
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-xl bg-cloud px-3 py-2.5">
+                <p className="text-lg font-bold tabular-nums text-brand">{km(detail.dist)}</p>
+                <p className="text-[11px] text-smoke">km flown</p>
+              </div>
+              <div className="rounded-xl bg-cloud px-3 py-2.5">
+                <p className="text-lg font-bold tabular-nums text-brand">{humanHours(detail.mins)}</p>
+                <p className="text-[11px] text-smoke">in the air</p>
+              </div>
+              <div className="rounded-xl bg-cloud px-3 py-2.5">
+                <p className="text-lg font-bold tabular-nums text-brand">{detail.legs.length}</p>
+                <p className="text-[11px] text-smoke">{detail.legs.length === 1 ? 'leg' : 'legs'}</p>
+              </div>
+            </div>
+
+            {/* EVERY LEG, NAMED. A return trip is two flights and the detail
+                sheet is the one place that should say so plainly. */}
+            <div className="space-y-2">
+              {detail.legs.map((leg, i) => (
+                <div key={leg.id} className="rounded-xl border border-gray-100 px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className="flex items-center gap-1.5 text-sm font-bold tracking-wider text-brand">
+                      {leg.from.iata}
+                      <Icon name="plane" className="h-3.5 w-3.5 text-brand-light" />
+                      {leg.to.iata}
+                    </span>
+                    {detail.legs.length > 1 && (
+                      <Badge tone="light" className="!px-2 !py-0.5">{i === 0 ? 'Out' : 'Back'}</Badge>
+                    )}
+                    <span className="ml-auto text-xs text-smoke">{formatDate(leg.flown_on)}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-smoke">
+                    {leg.from.city} to {leg.to.city}
+                    {leg.airline ? ` · ${leg.airline}` : ''}
+                    {leg.flight_number ? ` ${leg.flight_number}` : ''}
+                    {leg.aircraft ? ` · ${leg.aircraft}` : ''}
+                    {leg.seat ? ` · seat ${leg.seat}` : ''}
+                  </p>
+                  <p className="mt-1 text-xs tabular-nums text-smoke">
+                    {km(leg.dist)} km · {humanHours(leg.mins)} · {haul(leg.dist)}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => { const f = detail.out; setDetail(null); openEdit(f) }} className="btn-secondary !py-2.5 text-sm">
+                <Icon name="pencil" className="h-4 w-4" /> Edit
+              </button>
+              <button onClick={() => { const f = detail.out; setDetail(null); offerTrip(f) }} className="btn-ghost !py-2.5 text-sm">
+                <Icon name="share" className="h-4 w-4" /> Post to the collab board
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* The photograph, full size. Deliberately its own layer rather than a
+          bigger image inside the sheet: a trip photo is portrait as often as
+          not and the sheet is not the shape of a photograph. */}
+      {photo && (
+        <button
+          type="button"
+          onClick={() => setPhoto(null)}
+          aria-label="Close photo"
+          className="animate-fade-up fixed inset-0 z-[90] flex items-center justify-center bg-ink/90 p-4 backdrop-blur-sm"
+        >
+          <img src={photo} alt="" className="max-h-full max-w-full rounded-card object-contain" />
+        </button>
+      )}
+
       <Modal open={!!offer} onClose={() => setOffer(null)} title="Tell the community?">
         {offer && (
           <div className="space-y-4">

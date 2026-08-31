@@ -975,3 +975,52 @@ export function co2Kg(km) {
   const perKm = km < 1500 ? 0.156 : km < 4000 ? 0.13 : 0.11
   return Math.round(11 + km * perKm)
 }
+
+/**
+ * THE AIRPORT SOMEBODY ACTUALLY FLIES FROM.
+ *
+ * The log's form opened with an empty "from" every time, so a Dublin creator
+ * typed DUB before every single flight they have ever logged. Ethan: "always
+ * show flights from the home airport (Dublin for a Dublin creator)."
+ *
+ * Two sources, in this order, because they answer the question with different
+ * confidence:
+ *
+ *  1. THE LOG ITSELF. The airport you have departed from most often is your
+ *     home airport, by definition and without anybody having to tell us. It
+ *     beats geography: somebody living between two cities flies from whichever
+ *     one they actually use.
+ *  2. THE NEAREST AIRPORT TO THEIR TOWN, for a creator with nothing logged yet
+ *     - which is exactly the person the empty field costs the most. Capped at
+ *     250km so that somebody in a place with no airport gets no guess rather
+ *     than a wrong one two countries away, and restricted to the sizeable
+ *     fields so it never proposes an airstrip.
+ *
+ * @param flights rows with `from_iata`
+ * @param coords  { lat, lng } of their town, or null
+ * @returns an IATA code, or '' when neither source can answer
+ */
+export function homeAirport(flights = [], coords = null) {
+  const counts = new Map()
+  for (const f of flights) {
+    const code = f?.from_iata
+    if (!code) continue
+    counts.set(code, (counts.get(code) || 0) + 1)
+  }
+  if (counts.size) {
+    // Ties break on the code so the answer is stable between renders rather
+    // than depending on Map insertion order after an edit.
+    return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0]
+  }
+
+  const lat = Number(coords?.lat)
+  const lng = Number(coords?.lng)
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return ''
+  let best = null
+  let bestKm = Infinity
+  for (const a of AIRPORTS) {
+    const d = distanceKm({ lat, lng }, a)
+    if (d < bestKm) { bestKm = d; best = a }
+  }
+  return best && bestKm <= 250 ? best.iata : ''
+}

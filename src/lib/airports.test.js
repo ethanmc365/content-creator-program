@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { AIRPORTS, airport, searchAirports, distanceKm, estimateMinutes } from './airports'
+import { AIRPORTS, airport, searchAirports, distanceKm, estimateMinutes, homeAirport } from './airports'
 
 // The flight log's every number comes out of these three functions, so they get
 // the tests. A stats page that is subtly wrong is worse than no stats page:
@@ -99,5 +99,45 @@ describe('estimated block time', () => {
 
   it('is zero for no distance', () => {
     expect(estimateMinutes(0)).toBe(0)
+  })
+})
+
+// The form's "from" field opened empty every time, so a Dublin creator typed
+// DUB before every flight they had ever logged.
+describe('homeAirport', () => {
+  it('takes the airport you have departed from most often', () => {
+    const flights = [
+      { from_iata: 'DUB' }, { from_iata: 'DUB' }, { from_iata: 'DUB' },
+      { from_iata: 'LHR' }, { from_iata: 'MAD' },
+    ]
+    expect(homeAirport(flights)).toBe('DUB')
+  })
+
+  // Geography loses to behaviour: somebody living between two cities flies
+  // from whichever one they actually use.
+  it('prefers the log over the nearest airport', () => {
+    // Coordinates of Dublin, but a log full of Madrid departures.
+    const flights = [{ from_iata: 'MAD' }, { from_iata: 'MAD' }]
+    expect(homeAirport(flights, { lat: 53.35, lng: -6.26 })).toBe('MAD')
+  })
+
+  it('falls back to the nearest airport when nothing is logged', () => {
+    expect(homeAirport([], { lat: 53.35, lng: -6.26 })).toBe('DUB')
+  })
+
+  // No guess is better than a guess two countries away.
+  it('gives up rather than reaching across a continent', () => {
+    expect(homeAirport([], { lat: -75, lng: 0 })).toBe('')
+  })
+
+  it('answers nothing when it knows nothing', () => {
+    expect(homeAirport([], null)).toBe('')
+    expect(homeAirport([{ from_iata: null }], null)).toBe('')
+  })
+
+  it('breaks a tie the same way every time', () => {
+    const a = homeAirport([{ from_iata: 'LHR' }, { from_iata: 'DUB' }])
+    const b = homeAirport([{ from_iata: 'DUB' }, { from_iata: 'LHR' }])
+    expect(a).toBe(b)
   })
 })

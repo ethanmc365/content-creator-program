@@ -414,3 +414,53 @@ export function aircraftSeen(list) {
     .map((a) => ({ ...a, airlines: [...a.airlines], type: aircraftTypeByName(a.name) }))
     .sort((a, b) => b.flights - a.flights || a.name.localeCompare(b.name))
 }
+
+/**
+ * ONE TRIP PER ROW, NOT ONE FLIGHT.
+ *
+ * A return is stored as a second `flights` row pointing at the first through
+ * `return_of`, which is right for the data and wrong for the log: a week in
+ * Madrid showed up as two entries, the second of them DUB-less, photo-less and
+ * captioned "Return" - Ethan: "return trips should be one entry, not two, the
+ * second has no photo and looks broken."
+ *
+ * So the list is grouped before it is drawn. An outbound with a return becomes
+ * one trip carrying both legs, the summed distance and time, and whichever leg
+ * actually has the photograph. A one-way stays a one-leg trip, and a return
+ * whose outbound has been deleted is a one-leg trip too rather than vanishing.
+ *
+ * Pure, and exported for the tests: the pairing is the kind of thing that looks
+ * obviously right and silently drops a row.
+ *
+ * @param list decorated flights, newest-first order preserved
+ * @returns [{ id, out, back|null, legs, dist, mins, photo_url, flown_on }]
+ */
+export function tripsFromFlights(list) {
+  const byId = new Map(list.map((f) => [f.id, f]))
+  // Only pair with a return whose outbound is actually in this list. A return
+  // pointing at a deleted flight has to stand on its own or it disappears.
+  const returnFor = new Map()
+  for (const f of list) {
+    if (f.return_of && byId.has(f.return_of)) returnFor.set(f.return_of, f)
+  }
+  const consumed = new Set([...returnFor.values()].map((f) => f.id))
+
+  const trips = []
+  for (const f of list) {
+    if (consumed.has(f.id)) continue
+    const back = returnFor.get(f.id) || null
+    trips.push({
+      id: f.id,
+      out: f,
+      back,
+      legs: back ? [f, back] : [f],
+      dist: (f.dist || 0) + (back?.dist || 0),
+      mins: (f.mins || 0) + (back?.mins || 0),
+      // Either leg's photograph. The return is the one people forget to add
+      // one to, so falling back the other way round would be the common case.
+      photo_url: f.photo_url || back?.photo_url || null,
+      flown_on: f.flown_on,
+    })
+  }
+  return trips
+}

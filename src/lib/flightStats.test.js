@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   decorate, totals, airlineLoyalty, byYear, travelStreak, records,
-  buildFlightStats, aircraftSeen, humanHours,
+  buildFlightStats, aircraftSeen, humanHours, tripsFromFlights,
 } from './flightStats'
 
 // A flight, as the database hands one over. Only the columns the maths reads.
@@ -275,5 +275,61 @@ describe('buildFlightStats and flights that have not happened yet', () => {
 
   it('says nothing is coming up when nothing is', () => {
     expect(buildFlightStats([flown], '2026-08-16').upcoming).toEqual([])
+  })
+})
+
+// ONE TRIP PER ROW. A return is a second `flights` row pointing at the first,
+// which is right for the data and wrong for the log: a week away showed up as
+// two entries, the second photo-less and captioned "Return".
+describe('tripsFromFlights', () => {
+  const f = (id, over = {}) => ({
+    id, flown_on: '2026-06-01', dist: 1000, mins: 120, photo_url: null, return_of: null, ...over,
+  })
+
+  it('pairs a return with its outbound and sums the legs', () => {
+    const trips = tripsFromFlights([
+      f('out', { dist: 1500, mins: 150, photo_url: 'a.jpg' }),
+      f('back', { return_of: 'out', dist: 1500, mins: 155, flown_on: '2026-06-08' }),
+    ])
+    expect(trips).toHaveLength(1)
+    expect(trips[0].legs).toHaveLength(2)
+    expect(trips[0].dist).toBe(3000)
+    expect(trips[0].mins).toBe(305)
+    expect(trips[0].photo_url).toBe('a.jpg')
+  })
+
+  it('takes the photo off whichever leg has one', () => {
+    const trips = tripsFromFlights([
+      f('out'),
+      f('back', { return_of: 'out', photo_url: 'b.jpg' }),
+    ])
+    expect(trips[0].photo_url).toBe('b.jpg')
+  })
+
+  it('leaves a one-way alone', () => {
+    const trips = tripsFromFlights([f('solo')])
+    expect(trips).toHaveLength(1)
+    expect(trips[0].back).toBeNull()
+    expect(trips[0].legs).toHaveLength(1)
+  })
+
+  // The row that would otherwise disappear: a return whose outbound has been
+  // deleted still points at an id, and it has to stand on its own.
+  it('keeps an orphaned return', () => {
+    const trips = tripsFromFlights([f('back', { return_of: 'gone-away' })])
+    expect(trips).toHaveLength(1)
+    expect(trips[0].out.id).toBe('back')
+  })
+
+  it('never drops or duplicates a flight', () => {
+    const list = [
+      f('a'), f('a-back', { return_of: 'a' }),
+      f('b'),
+      f('c'), f('c-back', { return_of: 'c' }),
+      f('d-back', { return_of: 'missing' }),
+    ]
+    const trips = tripsFromFlights(list)
+    const ids = trips.flatMap((t) => t.legs.map((l) => l.id)).sort()
+    expect(ids).toEqual(list.map((x) => x.id).sort())
   })
 })
