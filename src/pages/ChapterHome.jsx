@@ -21,6 +21,7 @@ import { cx, timeAgo, challengeDeadline, formatViews } from '../lib/utils'
 import { stripMarkup } from '../lib/richText'
 import { roleLabel } from '../lib/roles'
 import { cardHover, pageFade } from '../lib/motion'
+import { useIsMobile } from '../lib/useKeyboardInset'
 
 // A single market's overview, seen by the people IN it.
 //
@@ -50,6 +51,8 @@ export default function ChapterHome() {
   const [loadError, setLoadError] = useState('')
   const chapter = bySlug(slug)
   const canManage = chapter ? manages(chapter.id) : false
+  // Which of the two running orders to MOUNT. See the note on the sections.
+  const isMobile = useIsMobile()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -185,7 +188,16 @@ export default function ChapterHome() {
   const flags = (chapter.country_codes || []).map(flagFromIso).join(' ')
   const past = (data?.challenges || []).filter((c) => c.id !== data?.live?.id)
 
-  const rail = (
+  // THE RAIL'S CARDS, NAMED, SO THE PHONE CAN PUT THEM WHERE THEY BELONG.
+  //
+  // On a desktop these are the right-hand rail. On a phone `NetworkLayout`
+  // renders the rail BELOW the article - which is several screens down, past a
+  // map - so the market's standings, the faces of the people in it and the team
+  // running it all arrived after the least urgent thing on the page. Ethan gave
+  // the order he wants and it interleaves the two columns, which CSS `order`
+  // cannot do across two parents. Same trick as the profile page: name each
+  // block once, then write two running orders over the names.
+  const roomsCard = (
     <>
       <RailCard icon={<Icon name="chat" className="h-3.5 w-3.5 text-brand" />} title="Rooms">
         {loading ? <RailCardSkeleton rows={3} /> : (
@@ -204,6 +216,11 @@ export default function ChapterHome() {
         )}
       </RailCard>
 
+    </>
+  )
+
+  const standingsCard = (
+    <>
       {data?.standings?.some((x) => Number(x.views) > 0) && (
         <RailCard
           icon={<Icon name="chart" className="h-3.5 w-3.5 text-brand" />}
@@ -227,6 +244,11 @@ export default function ChapterHome() {
         </RailCard>
       )}
 
+    </>
+  )
+
+  const eventsCard = (
+    <>
       {data?.events?.length > 0 && (
         <RailCard
           icon={<Icon name="calendar" className="h-3.5 w-3.5 text-brand" />}
@@ -258,6 +280,11 @@ export default function ChapterHome() {
         </RailCard>
       )}
 
+    </>
+  )
+
+  const whoIsHereCard = (
+    <>
       {data?.roster?.length > 0 && (
         <RailCard
           icon={<Icon name="users" className="h-3.5 w-3.5 text-brand" />}
@@ -309,6 +336,11 @@ export default function ChapterHome() {
         </RailCard>
       )}
 
+    </>
+  )
+
+  const teamHereCard = (
+    <>
       {/* Who runs this place. A market with a named manager reads as a market
           somebody is accountable for; the same market without one reads as
           automated. Titles come from `profiles.role_title` so a Spain lead can
@@ -332,9 +364,19 @@ export default function ChapterHome() {
     </>
   )
 
+  const rail = (
+    <>
+      {roomsCard}
+      {standingsCard}
+      {eventsCard}
+      {whoIsHereCard}
+      {teamHereCard}
+    </>
+  )
+
   return (
     <NetworkMotion>
-      <NetworkLayout rail={rail}>
+      <NetworkLayout rail={isMobile ? null : rail}>
         {/* EVERY SECTION WATCHES ITSELF INTO VIEW.
             The room tiles and the recent-challenge rows used to run
             `listContainer`/`listItem` with `initial="hidden" animate="show"`,
@@ -345,6 +387,121 @@ export default function ChapterHome() {
         <motion.div {...pageFade} className="space-y-10">
           <Reveal from="down"><MarketHeader market={chapter} memberCount={loading ? null : data?.members} canManage={canManage} tab="Overview" /></Reveal>
 
+          {isMobile ? (
+            /* ---------------- ONE COLUMN, BELOW `lg` ----------------
+               Ethan's order, and every line of it is a removal or a promotion:
+               the live brief leads, then the market's own numbers, then its
+               people, then its team, THEN the map - the most expensive thing
+               on the page and the least urgent - then the recent challenges,
+               and what has happened lately at the very bottom.
+               BOTH Rooms blocks are gone: the Rooms TAB is two centimetres
+               above this, and the rail's copy of the same list sat below the
+               map. `isMobile` and not `hidden`, because a hidden twin still
+               MOUNTS - and this page's map parses a megabyte of atlas. */
+            <>
+          {/* ---------- Live challenge ---------- */}
+          <Reveal from="down" delay={0.06} as="section">
+            {loading ? (
+              <LiveChallengeSkeleton />
+            ) : data.live ? (
+              <LiveChallengeCard
+                challenge={data.live}
+                market={chapter.name}
+                flags={flags}
+                entries={data.live.submissions?.[0]?.count ?? 0}
+                participation={data.participation}
+              />
+            ) : (
+              <NoLiveChallenge market={chapter.name} canCreate={canManage} slug={chapter.slug} />
+            )}
+          </Reveal>
+
+          {/* ---------- This market's latest announcement ---------- */}
+          {data?.ann && (
+            <Reveal from="down" delay={0.12} as="section">
+              <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
+                <Icon name="megaphone" className="h-5 w-5 text-brand" /> Latest from {chapter.name}
+              </h2>
+              <MotionLink to={`/c/${chapter.slug}/chat/announcements`} {...cardHover}
+                className="card block border-l-4 !border-l-brand hover:shadow-lift">
+                <div className="flex items-center gap-3">
+                  <Avatar src={data.ann.profiles?.photo_url} name={data.ann.profiles?.name} size="sm" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold">{data.ann.profiles?.name}</p>
+                    <p className="text-xs text-smoke">{timeAgo(data.ann.created_at)}</p>
+                  </div>
+                </div>
+                <p className="mt-3 line-clamp-3 text-sm">{stripMarkup(data.ann.body)}</p>
+              </MotionLink>
+            </Reveal>
+          )}
+
+              <Reveal from="down" as="section">{standingsCard}</Reveal>
+              <Reveal from="down" as="section">{whoIsHereCard}</Reveal>
+              <Reveal from="down" as="section">{teamHereCard}</Reveal>
+          {/* ---------- Where this market is ---------- */}
+          {/* Zoomed to the market, not the world. It also does real layout
+              work: a market with no challenge and no announcement used to end
+              after two room tiles, leaving the page visibly unfinished. */}
+          <Reveal from="down" as="section">
+            <div className="mb-4">
+              <h2 className="flex items-center gap-2 text-lg font-semibold">
+                <Icon name="pin" className="h-5 w-5 text-brand" /> Where we are in {chapter.name}
+              </h2>
+              {/* NO STRAPLINE. "Every creator here, in the town they filmed
+                  this morning" is a caption for a map that draws exactly that.
+                  Ethan asked for it gone. */}
+            </div>
+            {/* Deferred until it is nearly on screen: parsing a megabyte of
+                TopoJSON while the sections above are still sliding is what makes
+                a page hitch. */}
+            <WhenVisible fallback={<MapSkeleton />}>
+              <MarketMap marketId={chapter.id} marketName={chapter.name} />
+            </WhenVisible>
+          </Reveal>
+
+          {/* ---------- Recent challenges ---------- */}
+          {past.length > 0 && (
+            <Reveal from="down" as="section">
+              <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="flex items-center gap-2 text-lg font-semibold">
+                  <Icon name="flag" className="h-5 w-5 text-brand" /> Recent challenges
+                </h2>
+                <Link to={`/c/${chapter.slug}/challenges`} className="text-sm font-medium text-brand transition-transform duration-200 hover:scale-105">
+                  All challenges →
+                </Link>
+              </div>
+              <Reveal className="space-y-2" stagger={0.05}>
+                {past.slice(0, 4).map((c) => (
+                  <MotionLink key={c.id} to={`/challenges/${c.id}`} {...cardHover}
+                    className="flex items-center gap-3 rounded-card border border-gray-100 bg-white px-5 py-4">
+                    <span className="min-w-0 flex-1 truncate font-medium">{c.title}</span>
+                    <span className="shrink-0 text-xs text-smoke">
+                      {c.submissions?.[0]?.count ?? 0} {(c.submissions?.[0]?.count ?? 0) === 1 ? 'entry' : 'entries'}
+                    </span>
+                    <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
+                  </MotionLink>
+                ))}
+              </Reveal>
+            </Reveal>
+          )}
+          {/* ---------- Recent activity ---------- */}
+          {/* A market can be entirely correct and still read as abandoned. This
+              is the cheapest possible proof that it is not. */}
+          <Reveal from="down" as="section">
+            <div className="mb-4">
+              <h2 className="flex items-center gap-2 text-lg font-semibold">
+                <Icon name="clock" className="h-5 w-5 text-brand" /> Lately in {chapter.name}
+              </h2>
+              <p className="mt-1 text-sm text-smoke">Who joined, who posted, who entered.</p>
+            </div>
+            <MarketActivity market={chapter} />
+          </Reveal>
+
+            </>
+          ) : (
+            /* ---------------- TWO COLUMNS, FROM `lg` ---------------- */
+            <>
           {/* ---------- Live challenge ---------- */}
           <Reveal from="down" delay={0.06} as="section">
             {loading ? (
@@ -433,9 +590,9 @@ export default function ChapterHome() {
               <h2 className="flex items-center gap-2 text-lg font-semibold">
                 <Icon name="pin" className="h-5 w-5 text-brand" /> Where we are in {chapter.name}
               </h2>
-              <p className="mt-1 text-sm text-smoke">
-                Every creator here, in the town they filmed this morning.
-              </p>
+              {/* NO STRAPLINE. "Every creator here, in the town they filmed
+                  this morning" is a caption for a map that draws exactly that.
+                  Ethan asked for it gone. */}
             </div>
             {/* Deferred until it is nearly on screen: parsing a megabyte of
                 TopoJSON while the sections above are still sliding is what makes
@@ -482,6 +639,8 @@ export default function ChapterHome() {
                 ))}
               </Reveal>
             </Reveal>
+          )}
+            </>
           )}
         </motion.div>
       </NetworkLayout>

@@ -68,9 +68,18 @@ export default function MarketHeader({ market, memberCount, canManage, tab }) {
 
   return (
     <div>
+      {/* ON A PHONE THE PLACE SWITCHER ALREADY SAYS WHERE YOU ARE.
+          The bar at the top of every network page names the market and opens a
+          sheet to change it, so a 36px heading repeating that name, plus a
+          paragraph explaining what a market is, was the first two thirds of a
+          375px screen spent before anything happened. Ethan: "because we have
+          the bar at the top that shows the market name, you don't need to say
+          it again directly below, and you can remove this description and the
+          other descriptions." Both are kept from `sm` up, where there is room
+          and no switcher bar. */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="flex flex-wrap items-center gap-x-3 gap-y-1 text-3xl font-bold tracking-tight sm:text-4xl">
+          <h1 className="hidden flex-wrap items-center gap-x-3 gap-y-1 text-3xl font-bold tracking-tight sm:flex sm:text-4xl">
             {flags && <span aria-hidden>{flags}</span>}
             <span>{market.name}</span>
             {!market.is_active && (
@@ -79,7 +88,7 @@ export default function MarketHeader({ market, memberCount, canManage, tab }) {
               </span>
             )}
           </h1>
-          <p className="mt-2 max-w-2xl text-smoke">
+          <p className="mt-2 hidden max-w-2xl text-smoke sm:block">
             {market.tagline
               || (market.is_active
                 ? `Challenges, briefs and rooms for ${market.name}. Your connections and messages stay worldwide.`
@@ -98,16 +107,31 @@ export default function MarketHeader({ market, memberCount, canManage, tab }) {
               `is_home` survives in the database as the ordering hint join_market
               already sets for the first chapter somebody joins - nothing reads
               it as a preference and nothing writes it. */}
-          <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-smoke">
-            <span className="flex items-center gap-1.5">
-              <Icon name="users" className="h-4 w-4" />
+          {/* THE FACTS, AS CHIPS. Two grey icon-and-word pairs on a line read
+              as a caption under a heading that is no longer there on a phone.
+              As chips they read as the market's own numbers, and Manage sits in
+              the same row rather than off in a corner of a header that has been
+              cut away. */}
+          <p className="flex flex-wrap items-center gap-2 sm:mt-3 sm:gap-x-4 sm:gap-y-1">
+            <span className="flex items-center gap-1.5 rounded-full bg-cloud px-3 py-1.5 text-[13px] font-medium text-ink sm:bg-transparent sm:px-0 sm:py-0 sm:text-sm sm:text-smoke">
+              <Icon name="users" className="h-4 w-4 text-brand sm:text-current" />
               {memberCount == null ? '—' : memberCount} {memberCount === 1 ? 'creator' : 'creators'}
             </span>
             {market.currency && (
-              <span className="flex items-center gap-1.5">
-                <Icon name="money" className="h-4 w-4" />
+              <span className="flex items-center gap-1.5 rounded-full bg-cloud px-3 py-1.5 text-[13px] font-medium text-ink sm:bg-transparent sm:px-0 sm:py-0 sm:text-sm sm:text-smoke">
+                <Icon name="money" className="h-4 w-4 text-brand sm:text-current" />
                 {market.currency}
               </span>
+            )}
+            {/* Admins only, and only on a phone - the desktop header keeps its
+                own Manage button over on the right. */}
+            {canManage && (
+              <Link
+                to={`/manage/${market.slug}`}
+                className="flex items-center gap-1.5 rounded-full bg-brand-tint px-3 py-1.5 text-[13px] font-semibold text-brand sm:hidden"
+              >
+                <Icon name="shield" className="h-4 w-4" /> Manage
+              </Link>
             )}
           </p>
         </div>
@@ -117,7 +141,7 @@ export default function MarketHeader({ market, memberCount, canManage, tab }) {
             membership actions nobody needs twice a day. */}
         <div className="flex shrink-0 items-center gap-2">
           {canManage && (
-            <Link to={`/manage/${market.slug}`} className="btn-secondary !py-2.5">
+            <Link to={`/manage/${market.slug}`} className="btn-secondary hidden !py-2.5 sm:inline-flex">
               <Icon name="shield" className="h-4 w-4" /> Manage
             </Link>
           )}
@@ -158,6 +182,10 @@ export default function MarketHeader({ market, memberCount, canManage, tab }) {
         className="-mx-4 mt-6 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden"
       >
         <div className="flex min-w-max items-center gap-1 border-b border-gray-100">
+          {/* THREE TABS ON A PHONE, FOUR FROM `sm`. "Creators" is the fourth,
+              and the overview already carries a "Who is here" section on a
+              phone - so on the one screen where a fourth tab costs a scroll it
+              is a second door to something two thumb-lengths below. */}
           {TABS.map((t) => (
             <NavLink
               key={t.label}
@@ -166,6 +194,7 @@ export default function MarketHeader({ market, memberCount, canManage, tab }) {
               className={({ isActive }) =>
                 cx(
                   'relative flex items-center gap-2 whitespace-nowrap px-4 py-3 text-sm font-medium transition-colors',
+                  t.label === 'Creators' && 'hidden sm:flex',
                   (tab ? tab === t.label : isActive)
                     ? 'text-brand after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:bg-brand'
                     : 'text-smoke hover:text-ink',

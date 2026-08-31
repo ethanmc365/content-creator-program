@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { challengeDeadline } from '../lib/utils'
+import { cx } from '../lib/utils'
 
 // Live countdown to a challenge deadline, updating every second.
 // Shown prominently on the home page and challenge pages.
@@ -32,7 +33,7 @@ function Digits({ value }) {
   )
 }
 
-export default function CountdownTimer({ endDate, compact = false, hero = false }) {
+export default function CountdownTimer({ endDate, compact = false, hero = false, onDark = false }) {
   const [left, setLeft] = useState(() => getTimeLeft(endDate))
 
   useEffect(() => {
@@ -51,8 +52,12 @@ export default function CountdownTimer({ endDate, compact = false, hero = false 
   }
 
   if (compact) {
+    // `onDark` because this row is used on white panels AND, since the phone
+    // layout of the live challenge card, on the orange card itself - where
+    // brand-on-brand was legible only in the sense that it was technically
+    // present.
     return (
-      <span className="text-sm font-semibold text-brand">
+      <span className={cx('text-base font-semibold tabular-nums', onDark ? 'text-white' : 'text-brand')}>
         {left.days}d {left.hours}h {left.minutes}m left
       </span>
     )

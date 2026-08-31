@@ -87,9 +87,15 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
           'challenge-card relative block overflow-hidden rounded-card text-white shadow-lift',
           // The global card is physically bigger as well as darker. Half of
           // "this is the important one" is the room it takes up.
+          // MUCH TIGHTER ON A PHONE. This card was 44px of padding round a
+          // 30px title, a paragraph, a row of prize chips, a hero countdown and
+          // two buttons - well over a screen on a 375px display for one
+          // challenge. Ethan: "when you click on challenges the current card is
+          // super big, can you change the UI of it, make it smaller, simpler,
+          // easier to read." The desktop card is untouched.
           isGlobal
-            ? 'bg-gradient-to-br from-[#8f2a04] via-brand to-brand-light p-7 sm:p-11'
-            : 'bg-gradient-to-br from-brand to-brand-light p-6 sm:p-10',
+            ? 'bg-gradient-to-br from-[#8f2a04] via-brand to-brand-light p-5 sm:p-11'
+            : 'bg-gradient-to-br from-brand to-brand-light p-5 sm:p-10',
         )}
       >
         {/* Soft light bloom for depth, matching the home hero. */}
@@ -128,8 +134,8 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
           <Link to={`/challenges/${c.id}`} className="group block">
             <h2
               className={cx(
-                'mt-4 inline-block origin-left font-bold leading-[1.1] tracking-[-0.02em] transition-transform duration-200 ease-out group-hover:scale-[1.03]',
-                isGlobal ? 'text-[28px] sm:text-[40px]' : 'text-2xl sm:text-3xl',
+                'mt-3 inline-block origin-left font-bold leading-[1.15] tracking-[-0.02em] transition-transform duration-200 ease-out sm:mt-4 group-hover:scale-[1.03]',
+                isGlobal ? 'text-[22px] sm:text-[40px]' : 'text-xl sm:text-3xl',
               )}
             >
               {c.title}
@@ -141,26 +147,34 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
                 Every market, every creator. One brief, one leaderboard.
               </p>
             )}
-            <p className="mt-2 max-w-2xl leading-relaxed text-white/85 line-clamp-2">{c.description}</p>
+            {/* The blurb is desktop-only. On a phone the whole card is a link
+                to the brief, which is the same words with room to read them. */}
+            <p className="mt-2 hidden max-w-2xl leading-relaxed text-white/85 line-clamp-2 sm:block">{c.description}</p>
           </Link>
 
           <PrizeChips prizes={c.prize_structure} />
 
-          <div className="mt-8 flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
+          <div className="mt-5 flex flex-col gap-5 sm:mt-8 sm:gap-7 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-white/75">Closes in</p>
-              <CountdownTimer endDate={c.end_date} hero />
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/75 sm:mb-3 sm:text-xs">Closes in</p>
+              {/* The hero clock is four big tiles. On a phone that is most of
+                  what is left of the card, so it gets the compact row instead
+                  and the card gets its height back. */}
+              <span className="hidden sm:block"><CountdownTimer endDate={c.end_date} hero /></span>
+              <span className="block sm:hidden"><CountdownTimer endDate={c.end_date} compact onDark /></span>
             </div>
             <div className="flex flex-col gap-2.5 lg:items-end">
+              {/* ONE BUTTON ON A PHONE, and it is the one you came for. "Read
+                  the brief" is what the rest of the card already does. */}
               <div className="flex flex-wrap gap-3">
-                <Link to={`/challenges/${c.id}`} className="btn border border-white/40 text-white hover:bg-white/10">
+                <Link to={`/challenges/${c.id}`} className="btn hidden border border-white/40 text-white hover:bg-white/10 sm:inline-flex">
                   Read the brief →
                 </Link>
-                <Link to={`/challenges/${c.id}?submit=1`} className="btn bg-white !text-brand hover:bg-white/90">
+                <Link to={`/challenges/${c.id}?submit=1`} className="btn w-full justify-center bg-white !text-brand hover:bg-white/90 sm:w-auto">
                   Submit your video
                 </Link>
               </div>
-              <p className="text-sm text-white/80">
+              <p className="text-[13px] text-white/80 sm:text-sm">
                 {entries} {entries === 1 ? 'entry' : 'entries'} so far
               </p>
             </div>
