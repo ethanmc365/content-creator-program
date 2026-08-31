@@ -1025,6 +1025,12 @@ function ShowcaseCard({ submission: s, expanded, onToggle }) {
 // which is the only place the result means anything.
 function ProfileGallery({ creatorId, isMe, creatorName }) {
   const [count, setCount] = useState(null)
+  // WHAT THE BOARD CAN ACTUALLY DRAW, which is not the same as how many rows
+  // there are. One creator's ten photo files are gone from storage; the rows
+  // survive. Counting rows put a "Travel photos" heading over ten dead tiles,
+  // and once the board learned to hide them it put the heading over nothing at
+  // all. The board reports what it drew, and this believes the board.
+  const [drawable, setDrawable] = useState(null)
   useEffect(() => {
     supabase
       .from('creator_photos')
@@ -1035,6 +1041,7 @@ function ProfileGallery({ creatorId, isMe, creatorName }) {
 
   // Hold the section until we know the count, so the empty state doesn't flash.
   if (count === null) return null
+  const shown = drawable ?? count
 
   const firstName = creatorName?.split(' ')[0] || 'This creator'
 
@@ -1045,9 +1052,9 @@ function ProfileGallery({ creatorId, isMe, creatorName }) {
         {/* STRAIGHT TO THE PHOTOS. This went to /profile/edit, which opens on
             the "You" step, so "Manage photos" landed you on a form about your
             name and date of birth with the photos three tabs away. */}
-        {isMe && count > 0 && <Link to="/profile/edit?tab=photos" className="text-sm font-medium text-brand transition-transform duration-200 hover:scale-105">Manage photos</Link>}
+        {isMe && shown > 0 && <Link to="/profile/edit?tab=photos" className="text-sm font-medium text-brand transition-transform duration-200 hover:scale-105">Manage photos</Link>}
       </div>
-      {count === 0 ? (
+      {shown === 0 ? (
         isMe ? (
           <EmptyState
             icon={<Icon name="image" className="h-7 w-7" />}
@@ -1071,7 +1078,7 @@ function ProfileGallery({ creatorId, isMe, creatorName }) {
            Arranging, cropping, captioning and deleting all live in one place
            now: Edit profile → Photos, which shows the same board with the same
            component, so what you arrange is exactly what lands here. */
-        <PhotoBoard creatorId={creatorId} editable={false} />
+        <PhotoBoard creatorId={creatorId} editable={false} onCount={setDrawable} />
       )}
     </section>
   )

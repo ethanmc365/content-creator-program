@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import Icon from './Icon'
 import { cx } from '../lib/utils'
 import { onPhotosChanged } from '../lib/photoEvents'
+import { notice } from '../lib/confirm'
 
 // THE TRAVEL PHOTO BOARD. FREE PLACEMENT, DONE PROPERLY THIS TIME.
 //
@@ -44,6 +45,31 @@ const MILLE = 1000
 // A photo has to stay big enough to grab and small enough to arrange. 8% of the
 // board is about 110px on a desktop and 30px on a phone.
 const MIN_W = 80
+
+// BELOW THIS, A STORED POSITION IS NOT A POSITION.
+//
+// These four columns used to hold 12-COLUMN GRID CELLS - `pos_w = 4` meant four
+// columns wide - and they hold per-mille fractions now. Both are smallint, so
+// nothing complained, and the new board read a leftover `4` as four thousandths
+// of the board: every arranged photo collapsed into an invisible sliver at the
+// top-left corner. Ethan: "I've got nine out of ten photos on it, but only one
+// of them is showing up on the arrange board" - the one that showed was the
+// single row nobody had ever arranged.
+//
+// Migration 150 clears those rows. This is the guard that means a straggler -
+// an old row restored from a backup, a client that never reloaded - degrades to
+// the automatic layout instead of vanishing. MIN_W already makes a tile below
+// about 6% of the board impossible to save, so anything under 4% was written by
+// code that no longer exists.
+export const MIN_PLACED_MILLE = 40
+
+/** Has this row been arranged with coordinates this board can actually read? */
+export function isPlaced(p) {
+  return p != null
+    && p.pos_x != null && p.pos_y != null && p.pos_w != null && p.pos_h != null
+    && Number(p.pos_w) >= MIN_PLACED_MILLE
+    && Number(p.pos_h) >= MIN_PLACED_MILLE
+}
 
 const toFrac = (n, fallback = null) => (Number.isFinite(Number(n)) && n !== null ? Number(n) / MILLE : fallback)
 const toMille = (f) => Math.round(f * MILLE)
@@ -93,8 +119,9 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
     const { data } = await supabase.from('creator_photos').select('*')
       .eq('creator_id', creatorId).order('sort_order')
     setPhotos(data ?? [])
-    onCount?.((data ?? []).length)
-  }, [creatorId, onCount])
+    // The count is reported from the DRAWABLE tiles, not from the row count -
+    // see the effect below.
+  }, [creatorId])
   useEffect(() => { load() }, [load])
 
   // ADDING OR DELETING A PHOTO UPDATES THE BOARD IMMEDIATELY.
@@ -142,6 +169,26 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
     return () => { alive = false }
   }, [photos, aspects, editable])
 
+  // A FILE CAN GO MISSING AFTER ITS ASPECT WAS MEASURED, and that is the
+  // common case rather than the rare one.
+  //
+  // THE BUG THIS FIXES. The probe above is the only thing that ever set
+  // `broken`, and it only runs for a photo whose aspect is still UNKNOWN. Every
+  // one of one creator's ten photos had been measured back when the files
+  // existed, so none of them was ever probed again, `broken` stayed empty, and
+  // the board rendered ten <img> tags at dead URLs - ten grey boxes with the
+  // browser's broken-image glyph and the word "Travel photo". Ethan: "the
+  // travel photo section on mobile seems to not be working at all, I'll just
+  // check for Jacob's and it's not working." It looks the same at every width;
+  // the files are gone from storage and nothing had noticed.
+  //
+  // The rendered tile reports its own failure now, which catches every case the
+  // probe cannot: a file deleted after upload, a bucket permission change, a
+  // URL that was rewritten. Costs nothing until something actually fails.
+  const markBroken = useCallback((id) => {
+    setBroken((cur) => (cur[id] ? cur : { ...cur, [id]: true }))
+  }, [])
+
   const cols = width && width < 520 ? 2 : 3
 
   // Every tile, in fractions. A row that has never been arranged falls back to
@@ -151,13 +198,12 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
     // The fallback layout is computed over the photos that NEED one, so a board
     // where three of five have been arranged still packs the other two sensibly
     // instead of stacking them at the origin.
-    const unplaced = rows.filter((p) => p.pos_x == null || p.pos_y == null || p.pos_w == null || p.pos_h == null)
+    const unplaced = rows.filter((p) => !isPlaced(p))
     const fallback = defaultLayout(unplaced.map((p) => p.aspect || aspects[p.id] || 1), cols)
     const byId = new Map(unplaced.map((p, i) => [p.id, fallback[i]]))
     return rows.map((p) => {
       const aspect = p.aspect || aspects[p.id] || 1
-      const placed = p.pos_x != null && p.pos_y != null && p.pos_w != null && p.pos_h != null
-      const box = placed
+      const box = isPlaced(p)
         ? { x: toFrac(p.pos_x, 0), y: toFrac(p.pos_y, 0), w: toFrac(p.pos_w, 0.3), h: toFrac(p.pos_h, 0.3) }
         : byId.get(p.id)
       return { ...p, ...box, aspect, missing: !!broken[p.id] }
@@ -171,6 +217,18 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
   const bottom = tiles.reduce((m, t) => Math.max(m, t.y + t.h), 0)
   const boardHeight = width ? Math.max(width * 0.4, width * bottom + 8) : 320
 
+  // THE COUNT THE SECTION HEADER USES IS WHAT IS ACTUALLY DRAWABLE.
+  //
+  // It used to be the row count, which is how a creator whose ten files had
+  // gone from storage got a "Travel photos" heading over ten dead tiles. A
+  // visitor sees none of them, so for a visitor this reports zero and the
+  // section says nobody has added any - which is the honest thing to say about
+  // photographs that no longer exist. The owner still sees the rows, marked, so
+  // they can clear them out.
+  // Not before the rows are in: `tiles` is empty while `photos` is still null,
+  // and reporting that zero would flash "no photos yet" on every load.
+  useEffect(() => { if (photos !== null) onCount?.(tiles.length) }, [photos, tiles.length, onCount])
+
   // ------------------------------------------------------------------ drag
   //
   // NO SNAPPING. The pointer delta is applied straight to the stored fraction,
@@ -182,11 +240,25 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
   const detach = useRef(null)
   const commitRef = useRef(null)
 
-  const commit = useCallback(async (id, box) => {
-    await supabase.from('creator_photos').update({
+  // A REJECTED SAVE HAS TO SAY SO.
+  //
+  // This threw the result away, and that silence is the whole reason the board
+  // looked like a usability problem for three rewrites. A CHECK constraint left
+  // over from the 12-column grid (`pos_w between 2 and 12`) rejected every
+  // per-mille write Postgres was ever offered - so a creator dragged a photo,
+  // watched it move, and found it back where it started on the next load, with
+  // nothing anywhere saying the save had failed. Migration 151 fixes the
+  // constraint; this makes sure the next such fault is visible in seconds
+  // rather than in weeks. The tile is put back so the board never shows an
+  // arrangement the database does not have.
+  const commit = useCallback(async (id, box, previous) => {
+    const { error } = await supabase.from('creator_photos').update({
       pos_x: toMille(box.x), pos_y: toMille(box.y),
       pos_w: toMille(box.w), pos_h: toMille(box.h),
     }).eq('id', id)
+    if (!error) return
+    setPhotos((cur) => (cur || []).map((p) => (p.id === id ? { ...p, ...previous } : p)))
+    await notice(`That photo could not be saved: ${error.message}`)
   }, [])
   useEffect(() => { commitRef.current = commit }, [commit])
   useEffect(() => () => detach.current?.(), [])
@@ -197,6 +269,14 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
     e.stopPropagation()
     dragState.current = {
       id: tile.id, mode,
+      // The photo's own shape, so a resize can hold it.
+      aspect: tile.aspect > 0 ? tile.aspect : 1,
+      // What the ROW held before this drag - nulls included, for a photo that
+      // has never been arranged. Restored if the save is rejected.
+      wasStored: {
+        pos_x: tile.pos_x ?? null, pos_y: tile.pos_y ?? null,
+        pos_w: tile.pos_w ?? null, pos_h: tile.pos_h ?? null,
+      },
       startX: e.clientX, startY: e.clientY,
       from: { x: tile.x, y: tile.y, w: tile.w, h: tile.h },
       box: { x: tile.x, y: tile.y, w: tile.w, h: tile.h },
@@ -216,16 +296,23 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
           y: Math.max(0, d.from.y + dy),
         }
       } else {
-        // FREE RESIZE FROM THE CORNER. Width and height move independently, so
-        // a photo can be made any shape; `object-cover` plus the crop tool
-        // decides what stays in frame. The minimum is in PIXELS converted to a
-        // fraction, so a tile can never become ungrabbable at any board width.
+        // RESIZE KEEPS THE PHOTO'S OWN SHAPE.
+        //
+        // Width and height used to move independently, so dragging the corner
+        // reshaped the frame and `object-cover` quietly cropped whatever no
+        // longer fitted. That is a second cropping tool nobody asked for, and
+        // it is the opposite of what was wanted. Ethan: "I want to be able to
+        // drag to resize them, but they'll stay in the original size we
+        // uploaded it in... maintaining what, how it was." So resizing SCALES:
+        // the photo gets bigger or smaller and never distorts or loses an edge.
+        // Reframing stays where it belongs, in the crop tool.
+        //
+        // Both axes of the drag drive it, averaged through the aspect, so
+        // pulling the corner right or down does the same intuitive thing.
         const min = MIN_W / width
-        box = {
-          x: d.from.x, y: d.from.y,
-          w: Math.min(1 - d.from.x, Math.max(min, d.from.w + dx)),
-          h: Math.max(min, d.from.h + dy),
-        }
+        const a = d.aspect > 0 ? d.aspect : 1
+        const w = Math.min(1 - d.from.x, Math.max(min, d.from.w + (dx + dy * a) / 2))
+        box = { x: d.from.x, y: d.from.y, w, h: w / a }
       }
       d.box = box
       // THE LIVE BOX LIVES IN STATE, not only in the ref. Reading a ref during
@@ -246,7 +333,9 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
         pos_x: toMille(d.box.x), pos_y: toMille(d.box.y),
         pos_w: toMille(d.box.w), pos_h: toMille(d.box.h),
       } : p)))
-      commitRef.current?.(d.id, d.box)
+      // What the ROW held before this drag, so a rejected save can put it back
+      // exactly - including back to null for a photo that had never been moved.
+      commitRef.current?.(d.id, d.box, d.wasStored)
     }
     // Attached HERE, not in an effect keyed on `drag`: an effect's listeners
     // are not live until React commits, so the first move and sometimes the
@@ -321,6 +410,7 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
               onOpen={() => !arranging && setLightbox(t)}
               onCrop={() => setCropping(t)}
               onReset={() => resetOne(t)}
+              onBroken={() => markBroken(t.id)}
               onDragStart={beginDrag}
             />
           )
@@ -337,7 +427,7 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
 }
 
 // ---------------------------------------------------------------- one photo
-function PhotoTile({ photo, box, width, arranging, editable, dragging, onOpen, onCrop, onReset, onDragStart }) {
+function PhotoTile({ photo, box, width, arranging, editable, dragging, onOpen, onCrop, onReset, onBroken, onDragStart }) {
   return (
     <figure
       data-tile
@@ -375,6 +465,7 @@ function PhotoTile({ photo, box, width, arranging, editable, dragging, onOpen, o
           alt={photo.caption || 'Travel photo'}
           loading="lazy"
           draggable={false}
+          onError={onBroken}
           className="h-full w-full select-none object-cover"
           style={{
             objectPosition: `${(photo.focal_x ?? 0.5) * 100}% ${(photo.focal_y ?? 0.5) * 100}%`,
@@ -383,8 +474,20 @@ function PhotoTile({ photo, box, width, arranging, editable, dragging, onOpen, o
         />
       )}
 
-      {photo.caption && !arranging && (
-        <figcaption className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-3 pb-2.5 pt-8">
+      {/* THE CAPTION IS ON THE ARRANGE BOARD TOO.
+          It used to be hidden while arranging, which meant you laid the board
+          out against a set of tiles that did not look like the board anybody
+          would see - and a caption is a third of the height of a small tile, so
+          the arrangement that looked right came out wrong. Ethan: "the caption
+          should appear on the arranged board as well if I've added a caption in
+          the travel photos section." It is `pointer-events-none`, so it has
+          never been in the way of a drag. The bottom-right corner is left clear
+          for the resize grip while arranging. */}
+      {photo.caption && (
+        <figcaption className={cx(
+          'pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-3 pb-2.5 pt-8',
+          arranging && 'pr-11',
+        )}>
           <span className="line-clamp-2 text-[13px] font-medium leading-snug text-white">{photo.caption}</span>
         </figcaption>
       )}

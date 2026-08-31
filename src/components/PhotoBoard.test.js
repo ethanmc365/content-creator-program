@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { defaultLayout } from './PhotoBoard'
+import { defaultLayout, isPlaced } from './PhotoBoard'
 
 // The board is FREE placement stored in fractions of its own width, so the one
 // piece of arithmetic worth pinning down is where an un-arranged photo starts:
@@ -68,5 +68,38 @@ describe('defaultLayout', () => {
       expect(Number.isFinite(b.h)).toBe(true)
       expect(b.h).toBeGreaterThan(0)
     }
+  })
+})
+
+// THE UNIT CHANGE THAT LOST EIGHT PHOTOGRAPHS.
+//
+// These four columns held 12-column grid cells before they held per-mille
+// fractions, and both are smallint. A leftover `pos_w = 4` read as four
+// thousandths of the board, so every arranged photo became an invisible sliver
+// in the corner and only the one row nobody had touched still drew.
+describe('isPlaced', () => {
+  const at = (x, y, w, h) => ({ pos_x: x, pos_y: y, pos_w: w, pos_h: h })
+
+  it('accepts a real per-mille arrangement', () => {
+    expect(isPlaced(at(0, 0, 480, 640))).toBe(true)
+    expect(isPlaced(at(120, 900, 300, 200))).toBe(true)
+  })
+
+  it('rejects leftover grid cells from the old board', () => {
+    expect(isPlaced(at(0, 0, 4, 6))).toBe(false)
+    expect(isPlaced(at(0, 0, 6, 5))).toBe(false)
+    expect(isPlaced(at(0, 0, 12, 8))).toBe(false)
+  })
+
+  it('rejects a row that was never arranged', () => {
+    expect(isPlaced(at(null, null, null, null))).toBe(false)
+    expect(isPlaced(at(0, 0, 480, null))).toBe(false)
+    expect(isPlaced(null)).toBe(false)
+  })
+
+  // x and y are legitimately zero for the top-left photo, so they must not be
+  // held to the same floor as the dimensions.
+  it('allows a photo placed at the origin', () => {
+    expect(isPlaced(at(0, 0, 500, 500))).toBe(true)
   })
 })
