@@ -48,7 +48,7 @@ function NotificationRow({ n, leaving, onOpen, onDismiss, i }) {
       <button
         onClick={() => onOpen(n)}
         className={cx(
-          'flex min-w-0 flex-1 items-start gap-3 rounded-xl py-2.5 pl-2.5 pr-9 text-left transition-colors duration-150',
+          'flex min-w-0 flex-1 items-start gap-3 rounded-xl py-2.5 pl-6 pr-9 text-left transition-colors duration-150',
           n.read ? 'hover:bg-cloud' : 'bg-brand-tint/45 hover:bg-brand-tint/70',
         )}
       >
@@ -87,7 +87,14 @@ function NotificationRow({ n, leaving, onOpen, onDismiss, i }) {
           desktop gets the clean list. */}
       {!n.read && (
         <span
-          className="pointer-events-none absolute right-3 top-4 h-2 w-2 rounded-full bg-brand transition-opacity duration-150 group-hover/row:opacity-0"
+          /* THE UNREAD DOT IS ON THE LEFT, AWAY FROM THE DISMISS BUTTON.
+             It was at right-3 top-4 and the X occupies right-1.5 top-2 in a
+             28px box, so the dot sat inside the button - "the live dot and
+             the X overlap". They were also two different meanings stacked in
+             one corner: one says this is new, the other throws it away.
+             Unread belongs at the start of the row, which is where every
+             other list in the app puts it. */
+          className="pointer-events-none absolute left-1.5 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-brand transition-opacity duration-150 group-hover/row:opacity-0"
           aria-label="Unread"
         />
       )}
@@ -205,8 +212,15 @@ export default function NotificationBell() {
           bell is. It used to be `animate-fade-up`, which rises from BELOW - so
           a panel hanging off a bell in the top bar arrived by travelling
           upwards, away from the button that opened it. */}
+      {/* FULL WIDTH ON A PHONE. A 21rem card hanging off the right of a 375px
+          screen is a column with a margin on one side and nothing on the other,
+          and the notification text - a sentence with a name and a room in it -
+          wrapped to four lines inside it. Ethan: "the panel should be a
+          full-width card rather than a narrow one on the right." It keeps its
+          anchored width from `sm` up, where it is a dropdown under a bell
+          rather than the whole screen. */}
       {open && (
-        <div className="absolute right-0 z-40 mt-2 w-[21rem] origin-top-right overflow-hidden rounded-card border border-gray-100 bg-white shadow-lift animate-menu-in sm:w-[23rem]">
+        <div className="absolute right-0 z-40 mt-2 w-[calc(100vw-1.5rem)] origin-top-right overflow-hidden rounded-card border border-gray-100 bg-white shadow-lift animate-menu-in sm:w-[23rem]">
           <div className="flex items-center justify-between gap-2 px-4 pb-2.5 pt-3.5">
             <p className="text-sm font-semibold">
               Notifications

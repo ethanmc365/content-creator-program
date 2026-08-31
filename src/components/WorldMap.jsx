@@ -107,9 +107,26 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
     return allNames.filter((n) => n.toLowerCase().includes(q)).slice(0, 6)
   }, [query, allNames])
 
-  const zoomBy = (factor) =>
-    setPosition((p) => ({ ...p, zoom: Math.min(8, Math.max(1, p.zoom * factor)) }))
-  const resetView = () => setPosition({ coordinates: [12, 8], zoom: 1 })
+  // ZOOMING HAS TO TAKE THE VIEW OVER, not just edit the one it is not using.
+  //
+  // `view` is `focusPos || fitPos || position`, and a profile map is opened
+  // framed on the countries somebody has visited - so `fitPos` is set and
+  // `position` is what nothing is looking at. The + button edited `position`,
+  // the map went on drawing `fitPos`, and the control did nothing at all. Both
+  // overrides are dropped the moment you touch the zoom, taking the frame you
+  // can currently see as the starting point so nothing jumps.
+  const clampZoom = (z) => Math.min(8, Math.max(1, z))
+  const zoomBy = (factor) => {
+    const base = focusPos || fitPos || position
+    setFocusPos(null)
+    setFitPos(null)
+    setPosition({ ...base, zoom: clampZoom(base.zoom * factor) })
+  }
+  const resetView = () => {
+    setFocusPos(null)
+    setFitPos(null)
+    setPosition({ coordinates: [12, 8], zoom: 1 })
+  }
 
   const countryPanel = owner && country ? (
     <CountryPanel
@@ -205,19 +222,21 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
           </div>
         )}
 
-        {/* On-screen zoom controls: work everywhere, no pinch needed. */}
-        {selectable && (
-          <div className="absolute right-2 top-2 z-10 flex flex-col gap-1">
-            <button type="button" onClick={() => zoomBy(1.6)} aria-label="Zoom in"
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg font-semibold text-ink shadow-card transition-transform hover:scale-105 active:scale-95">+</button>
-            <button type="button" onClick={() => zoomBy(1 / 1.6)} aria-label="Zoom out"
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg font-semibold text-ink shadow-card transition-transform hover:scale-105 active:scale-95">−</button>
-            <button type="button" onClick={resetView} aria-label="Reset map view"
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-smoke shadow-card transition-transform hover:scale-105 active:scale-95">
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.7 3M3 4v4h4"/></svg>
-            </button>
-          </div>
-        )}
+        {/* On-screen zoom controls: work everywhere, no pinch needed.
+            NOT `selectable` any more. These were drawn only on the editable map
+            in Edit profile, so the read-only creator map on a profile - the one
+            most people actually look at - had no way to zoom in on a continent
+            at all. Ethan: "creator maps on profiles need zoom buttons." */}
+        <div className="absolute right-2 top-2 z-10 flex flex-col gap-1">
+          <button type="button" onClick={() => zoomBy(1.6)} aria-label="Zoom in"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg font-semibold text-ink shadow-card transition-transform hover:scale-105 active:scale-95">+</button>
+          <button type="button" onClick={() => zoomBy(1 / 1.6)} aria-label="Zoom out"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg font-semibold text-ink shadow-card transition-transform hover:scale-105 active:scale-95">−</button>
+          <button type="button" onClick={resetView} aria-label="Reset map view"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-smoke shadow-card transition-transform hover:scale-105 active:scale-95">
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.7 3M3 4v4h4"/></svg>
+        </button>
+        </div>
 
         {/* width/height set the SVG viewBox; the projection is scaled and
             re-centred so the world fills the frame without the huge empty

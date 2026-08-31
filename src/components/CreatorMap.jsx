@@ -378,6 +378,17 @@ const TRIP_HORIZON_DAYS = 90
 const EMPTY_GEO = { type: 'FeatureCollection', features: [] }
 
 function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = false, nearCount = 0, nearMeDisabled = false, onToggleNearMe = null, travelActive = null, onToggleTravel = null, onTravellersChange = null, onCreatorClick = null, connectionsActive = null, onToggleConnections = null, connectionIds = null, travelOnlyView = false, myId = null, maxFitZoom = 6, controls = true,
+  // FULL SCREEN IS NOT ONE OF "THE CONTROLS".
+  //
+  // `controls={false}` was doing two unrelated jobs: dropping the filter pills
+  // (right, for an embedded market map - "creators near me" on a map that is
+  // already one country is a filter with nothing to filter) and, incidentally,
+  // dropping the full-screen button with them. So every market page had a map
+  // you could not open. Ethan: "market pages have no full-screen map button -
+  // add for every market." Wanting to see a small map bigger has nothing to do
+  // with whether it has filters, so it is its own prop, defaulting to the old
+  // behaviour for every caller that does not care.
+  allowFullscreen = controls,
   // A CAPTION THAT BELONGS TO THE MAP, DRAWN BY THE MAP.
   //
   // The creator directory wants a "45 creators from around the world" bar
@@ -1384,9 +1395,8 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.7 3M3 4v4h4"/></svg>
         </button>
         {/* Under the zoom stack, because it belongs to the same "how am I
-            looking at this" group. Not offered on the embedded market maps
-            (`controls={false}`), which are a fixed illustration of one place. */}
-        {controls && (
+            looking at this" group. */}
+        {allowFullscreen && (
           <button
             type="button"
             onClick={fullscreen ? exitFullscreen : enterFullscreen}

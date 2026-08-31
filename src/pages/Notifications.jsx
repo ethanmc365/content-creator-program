@@ -38,7 +38,7 @@ function Row({ n, leaving, onOpen, onDismiss, i }) {
       <button
         onClick={() => onOpen(n)}
         className={cx(
-          'flex w-full items-start gap-4 px-5 py-4 pr-14 text-left transition-colors duration-150 sm:px-7',
+          'flex w-full items-start gap-4 py-4 pl-10 pr-14 text-left transition-colors duration-150 sm:pl-12',
           n.read ? 'hover:bg-cloud/60' : 'bg-brand-tint/40 hover:bg-brand-tint/60',
         )}
       >
@@ -68,10 +68,13 @@ function Row({ n, leaving, onOpen, onDismiss, i }) {
         </span>
       </button>
 
-      {/* The dot and the cross share one corner - see the note in
-          NotificationBell for why neither of them ever moves the layout. */}
+      {/* THE UNREAD DOT IS ON THE LEFT, clear of the dismiss button. It used
+          to sit at right-6 top-6, inside the 32px box of the X at right-4
+          top-4 - "the live dot and the X overlap" - and the two were saying
+          opposite things from the same corner: one that this is new, the other
+          that it should go away. */}
       {!n.read && (
-        <span className="pointer-events-none absolute right-6 top-6 h-2.5 w-2.5 rounded-full bg-brand transition-opacity duration-150 group-hover/row:opacity-0" aria-label="Unread" />
+        <span className="pointer-events-none absolute left-4 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full bg-brand transition-opacity duration-150 group-hover/row:opacity-0" aria-label="Unread" />
       )}
       <button
         onClick={(e) => { e.stopPropagation(); onDismiss(n.id) }}

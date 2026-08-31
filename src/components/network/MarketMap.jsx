@@ -73,6 +73,9 @@ export default function MarketMap({ marketId, marketName, showOnMapOnly = true }
       // city separation, not continent shape.
       maxFitZoom={22}
       controls={false}
+      // ...but it still opens full screen. A market map is the smallest map in
+      // the app and the one most likely to be a single city's worth of pins.
+      allowFullscreen
     />
   )
 }
