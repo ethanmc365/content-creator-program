@@ -13,13 +13,27 @@
 
 export const ANNOUNCEMENT_MAX_AGE_DAYS = 15
 
+// TWO, AT MOST, ON THE HUB.
+//
+// One per room is the right RULE - it stops a chatty market burying a quiet one
+// - but it is not a limit, and an admin in seven markets would get seven cards
+// where a creator gets one. Ethan: "if they're in two markets it should show
+// the two last announcements from the market, and if they're in two plus
+// markets they still only show the two most recent ones."
+export const ANNOUNCEMENT_LIMIT = 2
+
 /**
- * @param rows    messages from the announcements channel, any order
+ * @param rows    messages from any announcements channel, any order
  * @param now     ms timestamp to measure age against
  * @param maxAgeDays  older than this and it is not news any more
- * @returns newest-first, at most one per community
+ * @param limit   how many to return at most
+ * @returns newest-first, at most one per community, at most `limit` of them
  */
-export function recentAnnouncements(rows, { now = 0, maxAgeDays = ANNOUNCEMENT_MAX_AGE_DAYS } = {}) {
+export function recentAnnouncements(rows, {
+  now = 0,
+  maxAgeDays = ANNOUNCEMENT_MAX_AGE_DAYS,
+  limit = Infinity,
+} = {}) {
   const cutoff = now - maxAgeDays * 24 * 60 * 60 * 1000
   const byCommunity = new Map()
 
@@ -36,7 +50,7 @@ export function recentAnnouncements(rows, { now = 0, maxAgeDays = ANNOUNCEMENT_M
     if (!held || at > new Date(held.created_at).getTime()) byCommunity.set(key, r)
   }
 
-  return [...byCommunity.values()].sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-  )
+  return [...byCommunity.values()]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, limit)
 }

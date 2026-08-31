@@ -1428,8 +1428,19 @@ export default function Messages() {
                         // A queued message fades back a little: still yours,
                         // still there, just not out in the world yet.
                         className={cx('w-full min-w-0 max-w-[80%] sm:max-w-[65%]', m.pending && 'opacity-60')}
-                        // Tap a message on mobile to reveal its reply / react actions.
-                        onClick={(e) => { if (isMobile && !e.target.closest('a,button,video,input')) setActionsFor(showActions ? null : m.id) }}
+                        // PRESS A MESSAGE TO OPEN ITS ACTIONS. AT EVERY WIDTH.
+                        // THE BUG THIS FIXES: this was gated on `isMobile`, and
+                        // a laptop was meant to get the actions on hover
+                        // instead - which nobody could make appear. Ethan: "a
+                        // problem with the DMs is that it's not showing at all,
+                        // whenever I'm hovering over a message". One behaviour
+                        // now, the same one the rooms use. A press that ended a
+                        // text selection is not a press.
+                        onClick={(e) => {
+                          if (e.target.closest('a,button,video,input')) return
+                          if (!window.getSelection?.()?.isCollapsed) return
+                          setActionsFor(showActions ? null : m.id)
+                        }}
                       >
                       {/* THE SAME ACTION PILL THE ROOMS USE.
                           The DMs and the rooms had two hand-written copies of
@@ -1441,7 +1452,8 @@ export default function Messages() {
                           screen. One component now, so a fix lands in both. */}
                       <MessageActions
                         side={mine ? 'right' : 'left'}
-                        revealed={showActions}
+                        open={showActions}
+                        onClose={() => setActionsFor(null)}
                         reactions={Object.entries(summary).map(([emoji, info]) => [emoji, info.count, info.mine, dmReactorNames(info)])}
                         onToggleReaction={(emoji) => toggleReaction(m.id, emoji)}
                         // SAME SLOT AS THE ROOMS. These used to sit inside

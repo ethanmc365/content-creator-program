@@ -81,8 +81,15 @@ export default function Milestones() {
         <div className="flex flex-col lg:block">
         {/* The numbers the whole ladder is computed from. Showing them makes the
             thresholds checkable rather than magic. */}
+        {/* THE MARGIN FOLLOWS THE ORDER, and it did not.
+            `mb-8` alone is right from `lg` up, where this strip is FIRST and
+            the space belongs under it. On a phone `order-2` moves it to the
+            BOTTOM, so the only margin it had was on the far side from the card
+            it now sits beneath - Ethan: "the views and video posted card is
+            really squashed up to the card above it". The space has to move with
+            the strip. */}
         {metrics && (
-          <div className="order-2 mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:order-none lg:grid-cols-6">
+          <div className="order-2 mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:order-none lg:mb-8 lg:mt-0 lg:grid-cols-6">
             {SUMMARY.map((key) => {
               const m = METRICS.find((x) => x.value === key)
               const raw = Number(metrics[key] || 0)

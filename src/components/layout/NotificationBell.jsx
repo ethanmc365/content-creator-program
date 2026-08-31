@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import Icon from '../Icon'
@@ -166,6 +166,16 @@ export default function NotificationBell() {
   // long forgotten, with an empty state that looks like a bug.
   useEffect(() => { if (!open) setFilter('all') }, [open])
 
+  // WHERE THE BOTTOM OF THE BELL IS, for the phone layout above. Measured
+  // rather than hard-coded, because the header is a different height once it
+  // carries the safe-area inset of an installed app.
+  const [sheetTop, setSheetTop] = useState(56)
+  useLayoutEffect(() => {
+    if (!open) return
+    const r = panelRef.current?.getBoundingClientRect()
+    if (r) setSheetTop(Math.round(r.bottom + 8))
+  }, [open])
+
   function openNotification(n) {
     setOpen(false)
     if (!n.read) markRead(n.id)
@@ -220,7 +230,32 @@ export default function NotificationBell() {
           anchored width from `sm` up, where it is a dropdown under a bell
           rather than the whole screen. */}
       {open && (
-        <div className="absolute right-0 z-40 mt-2 w-[calc(100vw-1.5rem)] origin-top-right overflow-hidden rounded-card border border-gray-100 bg-white shadow-lift animate-menu-in sm:w-[23rem]">
+        // ON A PHONE IT IS PINNED TO THE VIEWPORT, NOT HUNG OFF THE BELL.
+        //
+        // THE BUG THIS FIXES. It was made full-width (`w-[calc(100vw-1.5rem)]`)
+        // but left anchored to the bell with `right-0` - and the bell is not at
+        // the right edge of the header, the avatar is. So a 351px panel hanging
+        // off a button 64px in from the edge started at x = -5 and ran off the
+        // LEFT of the screen, with a band of empty space on the right. Ethan:
+        // "it's cut off on the left side. I mentioned I wanted it moved
+        // centered, but you didn't actually center it."
+        //
+        // A full-width card cannot be positioned relative to a button that is
+        // not centred; it has to be positioned relative to the thing it is
+        // full-width OF. So below `sm` it is `fixed` with an even inset on both
+        // sides, and from `sm` up it goes back to being the dropdown under a
+        // bell that it always was.
+        // The offset goes through a CUSTOM PROPERTY rather than an inline
+        // `top`, so that `sm:top-auto` can still win above the breakpoint - an
+        // inline style beats every class and would have pinned the desktop
+        // dropdown to a measured phone offset.
+        <div
+          style={{ '--bell-top': `${sheetTop}px` }}
+          className={cx(
+            'z-40 overflow-hidden rounded-card border border-gray-100 bg-white shadow-lift animate-menu-in',
+            'fixed inset-x-3 top-[var(--bell-top)] origin-top',
+            'sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[23rem] sm:origin-top-right',
+          )}>
           <div className="flex items-center justify-between gap-2 px-4 pb-2.5 pt-3.5">
             <p className="text-sm font-semibold">
               Notifications

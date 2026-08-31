@@ -23,7 +23,7 @@ import Icon from '../components/Icon'
 import { Avatar, EmptyState, Skeleton } from '../components/ui'
 import { flagForCountry } from '../lib/flags'
 import { stripMarkup } from '../lib/richText'
-import { ANNOUNCEMENT_MAX_AGE_DAYS, recentAnnouncements } from '../lib/announcements'
+import { ANNOUNCEMENT_LIMIT, ANNOUNCEMENT_MAX_AGE_DAYS, recentAnnouncements } from '../lib/announcements'
 import { cx, timeAgo } from '../lib/utils'
 import { useIsMobile } from '../lib/useKeyboardInset'
 import { cardHover } from '../lib/motion'
@@ -283,9 +283,22 @@ export default function GlobalHome() {
         // them returns exactly the right set. Fetch a window wider than the
         // cutoff and let recentAnnouncements() do the trimming, so the rule
         // lives in one tested place.
+        // A MARKET'S ANNOUNCEMENT ROOM IS NAMESPACED, AND THAT IS WHY THIS
+        // ONLY EVER SHOWED WORLDWIDE.
+        //
+        // THE BUG THIS FIXES. The filter was `.eq('channel', 'announcements')`,
+        // an exact match - but a market room's key carries its market:
+        // `germany:announcements`, `nordics:announcements`. Only the worldwide
+        // room uses the bare word. So the query that was written to gather
+        // "every room this creator can read" could structurally never return a
+        // market's announcement, and the hub showed the same worldwide post to
+        // everybody. Ethan: "I posted a test announcement in [other markets]
+        // but it's not showing up here." Both of those test posts are in the
+        // table; nothing ever asked for them.
         supabase.from('messages')
           .select('*, profiles:sender_id(name, photo_url)')
-          .eq('channel', 'announcements').eq('deleted', false)
+          .or('channel.eq.announcements,channel.like.*:announcements')
+          .eq('deleted', false)
           .gte('created_at', new Date(Date.now() - ANNOUNCEMENT_MAX_AGE_DAYS * 86400000).toISOString())
           .order('created_at', { ascending: false }).limit(40),
         supabase.from('collab_posts')
@@ -351,7 +364,7 @@ export default function GlobalHome() {
       const latestResource = latestRes?.[0]?.created_at ? new Date(latestRes[0].created_at).getTime() : 0
       const seenResources = profile?.resources_seen_at ? new Date(profile.resources_seen_at).getTime() : 0
       setD({
-        counts: tally, creators, live, anns: recentAnnouncements(ann), trips: trips || [], fresh: fresh || [],
+        counts: tally, creators, live, anns: recentAnnouncements(ann, { now: Date.now(), limit: ANNOUNCEMENT_LIMIT }), trips: trips || [], fresh: fresh || [],
         visited: [...new Set((visited || []).flatMap((p) => p.countries_visited || []))],
         connReqs: connCount ?? 0,
         newResources: latestResource > seenResources,
@@ -1031,7 +1044,18 @@ export default function GlobalHome() {
                   to="/global/chat/announcements"
                   toLabel="All announcements"
                 />
-                <Reveal className="grid gap-3 sm:grid-cols-2" stagger={0.07}>
+                {/* ONE ANNOUNCEMENT GETS THE WHOLE WIDTH.
+                    `sm:grid-cols-2` unconditionally meant a creator in a single
+                    market - which is most creators - got one card sitting in
+                    the left-hand column with an empty column beside it. Ethan:
+                    "the current one is showing on the left hand side... if
+                    they're in one market it should show up just the normal
+                    announcement going the full way across." The columns follow
+                    the count, and the count is capped at two. */}
+                <Reveal
+                  className={cx('grid gap-3', d.anns.length > 1 && 'sm:grid-cols-2')}
+                  stagger={0.07}
+                >
                   {d.anns.map((a) => {
                     // The worldwide room carries a real community_id (every
                     // announcement on the live site today is in it), so it has

@@ -133,37 +133,48 @@ const FILLED_PATHS = {
 // CLIPPED TO THE RING, so no matter how the shapes are tweaked a coastline can
 // never poke out through the edge of the planet. The clip id is fixed and every
 // instance draws the same geometry, so repeated ids resolve identically.
-function WorldIcon({ className, strokeWidth }) {
+function WorldIcon({ className }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <defs>
         <clipPath id="tryp-world-clip">
-          <circle cx="12" cy="12" r="9.1" />
+          <circle cx="12" cy="12" r="8.9" />
         </clipPath>
       </defs>
-      <g clipPath="url(#tryp-world-clip)" fill="currentColor">
-        {/* THE REAL COASTLINES, NOT A DRAWING OF SOME.
-            Every previous version of this was hand-drawn blobs, and they read
-            as blobs - Ethan: "the map on it looks distorted... it should
-            replicate the actual globe, not just random."
-            So the geometry is generated from the same world atlas the app's
-            maps use (public/geo/countries-50m.json), projected
-            orthographically - a real globe, seen from 30W 18N, which puts the
-            Americas on the left and Europe and Africa on the right with the
-            Atlantic down the middle. Country outlines are filled in one colour
-            so neighbours merge into continents; anything too small to read at
-            24px is dropped, and the rest is simplified until the whole world
-            fits in about 2kB of path. See scripts/gen-world-icon.py to change
-            the view or the level of detail - do not hand-edit the `d`. */}
-        <path d="M6.5 14.1L7.4 13.6L7.6 14.3L8.7 14L8.9 14.5L8.5 14.8L11.2 15.6L10.4 17.8L9.4 18.1L9 19L8.4 18.5L8.7 18.1L7.5 16.4L5.9 15.4L6.2 13.9L6.5 14.1ZM7.5 7.3L8.2 7.2L6 8.9L5.6 9.9L5.4 8.9L4.4 9.2L4.3 7.5L6 5.4L6.8 6.5L6.6 7.5L7.5 7.3ZM7 4.6L9 3.5L8.4 4.3L9.5 4.1L9 4.6L9.5 4.5L7.8 5.2L7.6 6.4L8.9 5.2L9 5.8L9.4 5.6L9.6 6.7L6.6 7.5L6.9 6.5L6 5.4L7 4.6ZM16.5 8.6L17.6 10.5L16.7 11.4L14.9 10.1L15.7 9.5L15.5 9.1L16.5 8.6ZM19.9 14.6L19.6 15.4L19.1 15.4L19.1 14.8L18.1 14.9L18.9 13.1L19.6 12.7L20 13L19.9 14.6ZM14.8 12.7L14.8 12.2L15.6 12.2L15.3 10.7L16.8 11.4L16.8 12L15.7 13L14.8 12.7ZM12 3.7L12.4 3.8L12.1 4.5L12.4 4.8L12 4.8L12.4 4.8L10.6 5.8L10.7 4L12 3.7ZM14.7 12.4L14 12.3L13.9 11.5L14.5 11.4L14.9 10.4L15.5 10.6L15.6 12.2L14.7 12.4ZM17 9.5L17 9L17.9 9.2L18.3 8.8L19 10.6L17.4 10.4L17 9.5ZM8.4 18.5L8.7 19.2L8 19.4L8.5 20.2L7.3 19.1L7 17.4L8.1 18.2L8.7 18.1L8.4 18.5ZM18.1 11.9L16.9 12.5L16.4 12.2L17.6 10.5L18.1 10.8L18.1 11.9ZM20.1 11.8L19.9 11.4L19.2 12.3L19 11.8L18.9 10.3L19.8 9.8L20.1 11.8ZM6.1 12.3L5.8 12.6L6.5 13.3L6.5 14.1L6.2 13.9L6.2 14.8L5.1 13.6L5.4 12.6L6.1 12.3ZM18.9 10.7L19.1 12L18.4 12.8L17.9 10.5L18.9 10.7ZM19.2 15.3L19 16.2L17.8 16.6L18.1 15L19.1 14.8L19.2 15.3ZM6.5 16.7L6.3 15.8L6.8 15.7L8 17.3L6.9 17.4L6.5 16.7ZM7.5 13.1L6.7 14.2L5.8 12.6L6.3 12.3L7.5 13.1ZM18.1 11.9L18 13.1L17.4 13.6L16.9 13.4L17 12.2L18.1 11.9ZM20.5 9.6L20.3 10.4L19.3 9L19.2 8.2L20.4 8.9L20.5 9.6ZM6.2 14.8L5.7 15.1L6.4 16L6.4 16.8L4.9 14.4L5.5 14L6.2 14.8ZM19.8 9.8L18.9 10.3L18.4 8.8L19 8.5L19.8 9.8ZM15.5 9.1L15.7 9.5L13.9 11.4L15 9L15.5 9.1ZM4.3 7.5L4.1 10.3L4.9 10.3L4.2 11.1L3.7 9.8L4.3 7.5ZM19.3 12.3L19.6 12.7L18.6 13.6L18.4 12.8L19.1 12L19.3 12.3ZM15.7 7.1L16 7.6L15.6 7.9L14.6 7.2L15.1 6.8L15.7 7.1ZM15.1 7.9L15.7 8L15 9L14.4 8L15.1 7.9ZM19 16.2L17.8 17.8L17.8 16.6L19 16.2ZM17.7 13.5L18.2 12L18.6 13.7L17.7 13.5ZM9.5 4.3L10 4.2L10.1 5L9.5 5.4L9.1 5L9.9 4.1L9.5 4.3ZM18.5 6.9L19 7.4L18.1 8L17.8 7.6L18.5 6.9ZM20.2 12.6L19.7 12.8L19.3 12.3L19.9 11.4L20.2 12.6ZM20.2 12.3L20.3 10.8L20.8 11.4L20.6 12.3L20.2 12.3ZM15.4 13L16.1 13L16.1 13.7L15.5 13.9L15.4 13ZM17.8 6.4L17.5 6.9L16.5 6.3L17 5.9L17.8 6.4ZM15 13.3L14.3 13L14.5 12.7L15.2 12.7L15.4 13.3L15 13.3ZM20.2 13.4L20.2 12.3L20.6 12.3L20.5 13.7L20.2 13.4ZM16.5 12.7L16.7 13.5L16.1 13.7L16.1 12.8L16.5 12.7ZM19.2 16.6L18.7 17.7L17.6 18.4L19.2 16.6Z" />
+      {/* THE REAL COASTLINES, NOT A DRAWING OF SOME.
+          Generated from the same world atlas the app's maps use
+          (public/geo/countries-50m.json), projected orthographically - a real
+          globe seen from 40W 15N, which puts the Americas on the left and
+          Europe and Africa on the right with the Atlantic down the middle. See
+          scripts/gen-world-icon.py to change the view or the detail; do not
+          hand-edit the `d`.
+
+          THE LAND IS STROKED AS WELL AS FILLED, and that is what makes it read
+          as continents rather than as confetti. The atlas is COUNTRIES, so
+          Africa arrives as fifty separate polygons, each simplified on its own
+          - which leaves hairline white cracks along every shared border at the
+          size this is actually drawn. Half a unit of stroke in the same colour
+          closes the cracks and thickens the coast, so neighbours merge into the
+          landmass they belong to. */}
+      <g clipPath="url(#tryp-world-clip)">
+        <path
+          fill="currentColor"
+          stroke="currentColor"
+          strokeWidth="0.8"
+          strokeLinejoin="round"
+          d="M7.9 13.9L8.4 13.8L8.2 13.5L8.8 13.4L9.1 14L10 13.9L10.2 13.6L10.4 14.1L10 14.5L10.5 14.7L10.9 14.4L11.3 14.8L12.7 15.2L11.9 17.4L10.8 17.8L10.3 18.8L9.6 18.3L10.1 17.9L9.4 17.4L8.9 16.2L8.2 15.6L7.5 15.7L7.1 15.4L7.5 13.8L7.9 13.9ZM8.4 7.2L9.1 7L7 8.8L6.7 9.9L6.6 9.1L6.2 8.9L6 9.1L5.6 8.8L5.1 9.3L4.6 7.4L6 5.6L5.9 5.8L6.1 5.6L7.5 6.5L7.7 7L7.4 7.5L8.4 7.2ZM6.9 4.8L8.9 3.6L8.7 4.4L9 4.2L9 4.5L9.7 4.1L9.4 4.6L9.9 4.5L8.2 5.2L8.1 5.4L8.5 5.8L8.3 6.3L9.5 5.1L9.8 5.3L9.7 5.7L10.1 5.5L10.4 6.2L10.1 6.3L10.5 6.5L7.4 7.5L7.7 7L7.5 6.5L6.1 5.6L6.9 4.8ZM17.4 8L18.5 9.8L17.9 10.8L16.1 9.6L16.8 8.9L16.5 8.5L17.4 8ZM9.6 18.3L9.9 19L9.1 19.3L9.4 20.2L9.1 20.1L8.1 18.3L8.2 17.3L8.7 17.3L9.4 18L10 17.8L9.6 18.3ZM20.5 14L20.2 14.8L19.9 14.8L19.9 14.2L19.6 14.5L19.5 14.2L19.1 14.3L19.8 12.4L20.3 12.1L20.6 12.4L20.5 14ZM16.1 11.8L15.5 11.7L15.3 10.9L15.8 10.8L15.8 10L16.2 9.8L16.7 10L16.9 11.5L16.1 11.8ZM12.2 3.6L12.6 3.7L12.9 4.2L12.6 4.3L13 4.5L12.6 4.4L12.9 4.5L11.9 5.1L11.7 5.6L11.3 5.3L11.4 4.5L10.9 3.9L12.2 3.6ZM7.4 12.2L7.1 12.5L7.8 13.1L7.9 13.9L7.5 13.8L7.5 14.7L6.3 13.6L6.6 12.5L7.4 12.2ZM16.2 12.1L16.2 11.6L16.9 11.5L16.5 10.1L18 10.7L18 11.3L17.3 11.7L17 12.3L16.2 12.1ZM16.9 4.4L18.8 6.3L15 4.2L15.9 4.4L15.2 3.6L14.5 3.4L15.4 3.6L13 3L15 3.5ZM7.5 14.7L7 15.1L7.8 15.9L7.7 16.7L6.9 16L6 14.4L6.3 14.6L6.8 13.9L7.5 14.7ZM4.6 7.7L5.1 8.6L4.9 10.4L5.3 10.6L5.9 10.3L5.1 11.2L4.3 10L4.6 7.7ZM17.9 8.9L17.9 8.4L18.7 8.6L18.7 8.2L19 8.2L19.7 10.1L18.3 9.7L17.9 8.9ZM7.7 16.6L7.6 15.7L8.2 15.6L9.4 17.1L8.1 17.3L7.7 16.6ZM19.1 11.3L18.2 11.5L18.1 11.9L17.7 11.5L18.5 9.8L19 10.2L19.1 11.3ZM8.9 12.9L8.8 13.4L8.2 13.5L8.4 13.8L8.1 14L7.8 13.1L7.1 12.5L7.6 12.1L8.9 12.9ZM19.7 10.1L19.9 11.4L19.4 12.2L18.8 9.8L19.7 10.1ZM20 14.7L19.7 15.6L18.8 16L19.1 14.4L19.9 14.2L20 14.7ZM20.6 11.2L20.5 10.8L20 11.7L19.8 11.1L19.6 9.6L20.2 9.2L20.6 11.2ZM19.1 11.3L19 12.4L18.5 13L18.1 12.7L18.1 11.6L19.1 11.3ZM16.5 8.5L16.8 8.9L15.3 10.8L16.1 8.5L16.5 8.5ZM20.2 9.2L19.6 9.6L19 8.3L19.4 8L20.2 9.2ZM7.7 16.7L8.2 17.3L8.1 18.2L8.4 19.2L9.2 20.2L8.4 19.7L8 18.9L7.7 16.7ZM16.1 7.3L16.6 7.4L16.5 8.1L16.1 8.4L15.4 7.5L16.1 7.3ZM16.5 6.6L16.8 7.1L16.5 7.4L15.5 6.7L15.8 6.3L16.5 6.6ZM20.1 11.7L20.3 12.1L19.5 13L19.4 12.2L19.9 11.4L20.1 11.7ZM18.8 12.8L19.2 11.4L19.5 13L18.9 13.2L18.8 12.8ZM19.7 15.6L18.6 17.3L18.8 16L19.7 15.6ZM9.4 17.1L10 17.6L9.8 18L8.8 17.3L8.8 17L9.4 17.1ZM9.9 4.3L10.3 4.1L10.7 4.8L10.2 4.8L10.1 5.3L9.6 4.9L10.1 4.7L9.7 4.3L10.2 4.1L9.9 4.3ZM20.6 9.1L20.6 9.8L19.5 7.7L19.9 7.9L20.6 9.1ZM16.7 12.4L17.4 12.4L17.4 13.1L16.8 13.3L16.7 12.4Z"
+        />
       </g>
-      <circle cx="12" cy="12" r="9.1" stroke="currentColor" strokeWidth={strokeWidth} />
+      {/* A HEAVY RING. The planet's edge is the one line that has to survive
+          being 20px wide in a tab bar; at the 1.7 the rest of the icon set uses
+          it read as a hairline round a busy middle. */}
+      <circle cx="12" cy="12" r="8.9" stroke="currentColor" strokeWidth="2.1" />
     </svg>
   )
 }
 
 export default function Icon({ name, className = 'h-5 w-5', strokeWidth = 1.7 }) {
-  if (name === 'globe') return <WorldIcon className={className} strokeWidth={strokeWidth} />
+  if (name === 'globe') return <WorldIcon className={className} />
   const layered = LAYERED_PATHS[name]
   if (layered) {
     return (

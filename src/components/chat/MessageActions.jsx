@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Icon from '../Icon'
 import ReactionPicker from '../ReactionPicker'
 import { cx } from '../../lib/utils'
@@ -6,6 +6,23 @@ import { cx } from '../../lib/utils'
 // EVERYTHING YOU CAN DO TO A MESSAGE, IN ONE PLACE, FOR EVERY CHAT.
 //
 // One component for the rooms and the DMs, so the two cannot drift apart.
+//
+// YOU OPEN IT BY PRESSING THE MESSAGE. THERE IS NO HOVER.
+//
+// This is the third answer to "when should the bar be visible", and it is the
+// one the phones had all along. Hover-on-contact opened every message a cursor
+// crossed while scrolling, and each of those re-flows moved the thread under the
+// cursor, which opened the next one. Hover-with-a-delay fixed the scrolling but
+// left a control that appears because you paused, disappears because you moved,
+// and can never be relied on to still be there when you reach for it. Ethan:
+// "I prefer how it is on mobile, and I want this to be implemented for desktop
+// too... rather than just hovering over a message it shouldn't show up. Only
+// clicking on the actual message."
+//
+// So: press a message, the bar opens under it and STAYS. Press the message
+// again, or do anything with the bar, and it closes. One rule, one code path,
+// identical on a laptop and a phone - and a control that is only ever on screen
+// because somebody asked for it.
 //
 // THE BAR OPENS THE MESSAGE, IT DOES NOT FLOAT OVER IT.
 //
@@ -27,45 +44,18 @@ import { cx } from '../../lib/utils'
 // There is no free space under a message, because that is where the reaction
 // chips, the edited note and "Seen by" already live. So the bar stops competing
 // for space and MAKES space: the row is a grid that animates from 0fr to 1fr,
-// so the message opens by about thirty pixels while you are pointing at it and
-// closes again when you leave. Nothing is ever overlapped, at any message
-// length, and the bar is always immediately under the bubble it belongs to and
-// on the same side as it - so it is never further from the message than the
-// message's own width.
-//
-// That works for every kind of message without a special case: a two-word
-// reply, a paragraph, a photo, a video, an attached resource card. None of them
-// need room beside or inside them, which is what every previous design needed.
+// so the message opens by about thirty pixels when you press it and closes
+// again after. Nothing is ever overlapped, at any message length, and the bar
+// is always immediately under the bubble it belongs to and on the same side as
+// it - so it is never further from the message than the message's own width.
 //
 // ORDER UNDER THE BUBBLE: actions, then chips, then "Seen by". The actions are
-// what you came for while hovering; the receipt is the thing you must be able
-// to press, so nothing is ever drawn on top of it.
+// what you came for; the receipt is the thing you must be able to press, so
+// nothing is ever drawn on top of it.
 //
-// IT WAITS FOR YOU TO MEAN IT.
-//
-// The first version opened the moment the pointer crossed a row, which is fine
-// when you are reaching for one message and awful when you are reading. Ethan:
-// "when I'm scrolling up through the chat it's automatically appearing on every
-// message... everything's struggling about the place". Every row the cursor
-// passed over opened by thirty pixels and closed again, and each of those
-// re-flows moved the thread under the cursor, which opened the next one.
-//
-// So the bar has HOVER INTENT: it only opens once the pointer has rested on the
-// same message for OPEN_DELAY. Scrolling past a row never holds it long enough,
-// so a scroll is now completely quiet.
-//
-// CSS, NOT MOTION, AND NO TIMERS EITHER. `transition-delay` only applies while
-// the state that set it holds, so a hovered row waits out the delay before it
-// starts opening, and a row you leave reverts to a zero delay and closes at
-// once - which is the exact asymmetry hover intent needs, in one property. Both
-// chat surfaces are reachable without a route split and the DMs are eagerly
-// routed, so pulling the animation runtime in for a hover state would cost
-// every creator on their first paint.
-// How long the pointer has to sit still on a message before its actions open.
-// Long enough that scrolling never trips it, short enough that reaching for a
-// message you have decided to reply to does not feel like waiting.
-const OPEN_DELAY = 1000
-
+// CSS, NOT MOTION. Both chat surfaces are reachable without a route split and
+// the DMs are eagerly routed, so pulling the animation runtime in for an
+// open/close state would cost every creator on their first paint.
 export default function MessageActions({
   children,
   // 'right' for your own messages, 'left' for everybody else's. Decides which
@@ -76,8 +66,12 @@ export default function MessageActions({
   // [[emoji, count, mine, names]] - `names` is who reacted, for the tooltip.
   reactions = [],
   onToggleReaction,
-  // The phone's answer to hover: the parent sets this when the row is tapped.
-  revealed = false,
+  // Is this message's bar open. The parent owns it, because only one message's
+  // bar may be open at a time and only the parent knows about the others.
+  open = false,
+  // Called when the bar has finished its job: an action was pressed, or a
+  // reaction was picked, or Escape. The parent clears its own state.
+  onClose,
   // "Seen by", the edited note - anything that belongs under this message.
   // Passed in rather than rendered as a sibling so that this component owns the
   // order of everything below the bubble and can keep the bar clear of it.
@@ -88,9 +82,29 @@ export default function MessageActions({
   const mine = side === 'right'
   const canReact = !!onToggleReaction
   const hasBar = actions.length > 0 || canReact
-  // While the picker is open the bar must stay put even if the pointer has
-  // wandered off the message - otherwise the panel closes under your hand.
-  const pinned = revealed || picking
+
+  // The picker cannot outlive the bar. Closing the message while the panel is
+  // up would otherwise leave `picking` true, so the panel would be waiting
+  // inside the collapsed box the next time the message was opened.
+  useEffect(() => { if (!open) setPicking(false) }, [open])
+
+  // Escape closes the message, not just the picker. ReactionPicker already
+  // stops the event when IT is the thing open, so this only ever fires for a
+  // bar with no panel over it.
+  useEffect(() => {
+    if (!open) return undefined
+    const onKey = (e) => { if (e.key === 'Escape') onClose?.() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, onClose])
+
+  // DOING THE THING CLOSES THE BAR. Replying, editing, deleting, reporting or
+  // reacting are all "I am finished with this message", and leaving a bar open
+  // under a message you have just replied to means the next thing you press is
+  // a control you had forgotten was there. Wrapped here rather than asked of
+  // every caller, because the two chat pages had already drifted on exactly
+  // this - some of their handlers cleared the state and some did not.
+  const run = (fn) => (...args) => { fn?.(...args); onClose?.() }
 
   return (
     <div className={cx('relative', className)}>
@@ -99,47 +113,39 @@ export default function MessageActions({
       {hasBar && (
         <div
           data-msg-bar
+          data-open={open ? 'true' : 'false'}
           className={cx(
             // 0fr -> 1fr is the height animation that needs no fixed height,
             // which matters because the bar wraps to two rows on a narrow
             // phone when a message has five actions on it.
-            'grid transition-[grid-template-rows] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]',
-            mine && 'justify-items-end',
-            pinned
-              ? 'grid-rows-[1fr]'
-              : cx(
-                'grid-rows-[0fr]',
-                // The delay IS the hover intent - see the note at the top.
-                'hoverable:group-hover/msg:grid-rows-[1fr] hoverable:group-hover/msg:delay-[var(--msg-bar-delay)]',
-                // A keyboard has already committed by the time it gets here,
-                // so tabbing in opens the bar with no wait at all.
-                'focus-within:grid-rows-[1fr] focus-within:delay-0',
-              ),
+            'grid transition-[grid-template-rows] duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)]',
+            open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
           )}
-          style={{ '--msg-bar-delay': `${OPEN_DELAY}ms` }}
         >
-          {/* The overflow hider is what makes 0fr actually hide something. */}
-          <div className="overflow-hidden">
-            <div className="pt-1.5">
+          {/* THE CLIP IS RELEASED WHILE THE EMOJI PANEL IS UP, AND THAT IS THE
+              WHOLE REACTION BUG.
+              The overflow hider is what makes 0fr actually hide something - but
+              the panel is rendered inside the bar, so it was also clipping a
+              17rem popover to the bar's own 40px. You pressed the smiley and got
+              a two-pixel strip of its top edge. Ethan: "whenever I click it
+              nothing happens, it does show up like a faint gray box". The
+              handler was never broken. Clipping is only needed while the height
+              is animating, and the panel can only be opened once the bar has
+              finished opening, so the two never need to be true at once. */}
+          <div style={{ overflow: picking ? 'visible' : 'hidden' }}>
+            <div className={cx('pt-1.5', mine && 'flex justify-end')}>
               {/* THE PILL HAS NO SHADOW, and that is deliberate. `shadow-card`
                   is a 16px blur, and the clip box above it is exactly the pill's
                   own height - so three of its four sides were sliced off square
                   and what you actually saw was a grey rectangle behind a white
-                  oval: "I can see a grey box around the current oval card". A
-                  border on white does the same lifting job and cannot be
+                  oval. A border on white does the same lifting job and cannot be
                   clipped into a corner. It rises and fades the last few pixels
                   into place, which is what reads as depth here. */}
               <div className={cx(
                 'flex w-fit items-center gap-0.5 rounded-full border border-gray-200 bg-white px-1 py-0.5',
-                'transition-[opacity,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]',
+                'transition-[opacity,transform] duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)]',
                 mine ? 'ml-auto origin-top-right' : 'origin-top-left',
-                pinned
-                  ? 'translate-y-0 scale-100 opacity-100'
-                  : cx(
-                    '-translate-y-1 scale-95 opacity-0',
-                    'hoverable:group-hover/msg:translate-y-0 hoverable:group-hover/msg:scale-100 hoverable:group-hover/msg:opacity-100 hoverable:group-hover/msg:delay-[var(--msg-bar-delay)]',
-                    'focus-within:translate-y-0 focus-within:scale-100 focus-within:opacity-100 focus-within:delay-0',
-                  ),
+                open ? 'translate-y-0 scale-100 opacity-100' : '-translate-y-1 scale-95 opacity-0',
               )}>
                 {canReact && (
                   // The picker anchors to THIS button, so it stays first: the
@@ -165,7 +171,7 @@ export default function MessageActions({
                         <ReactionPicker
                           align={mine ? 'right' : 'left'}
                           prefer="above"
-                          onPick={(emoji) => { onToggleReaction(emoji); setPicking(false) }}
+                          onPick={(emoji) => { setPicking(false); run(onToggleReaction)(emoji) }}
                           onClose={() => setPicking(false)}
                         />
                       </>
@@ -179,7 +185,7 @@ export default function MessageActions({
                     label={a.label}
                     title={a.title}
                     danger={a.danger}
-                    onClick={a.onClick}
+                    onClick={run(a.onClick)}
                   />
                 ))}
               </div>

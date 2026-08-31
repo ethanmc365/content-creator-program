@@ -282,6 +282,16 @@ export default function Profile() {
   // the property that matters: the old page rendered its whole body twice
   // and the two copies drifted for weeks. Same trick as the Settings
   // page's BODIES map.
+  // Somebody's chosen words. Bigger than it was, because at 14px grey italic it
+  // was genuinely hard to read - a quote somebody put on their profile should
+  // not be the faintest thing on it. Named here so the two running orders can
+  // place it: beside the header on a desktop, under About on a phone.
+  const quote = creator.favourite_quote ? (
+    <p className="mt-3 border-l-[3px] border-brand pl-3.5 text-left text-[17px] italic leading-relaxed text-ink/80">
+      &ldquo;{creator.favourite_quote}&rdquo;
+    </p>
+  ) : null
+
   const about = (
         <>
 {/* ---------- About (bio) ---------- */}
@@ -643,11 +653,15 @@ export default function Profile() {
           <Avatar src={creator.photo_url} name={creator.name} size="xl" className="!h-32 !w-32 sm:!h-36 sm:!w-36" />
         </div>
         <div className="min-w-0 flex-1">
-          {/* THE ROLE SITS BESIDE THE NAME. It had its own line under it,
-              which read as a second heading; beside the name it reads as what
-              it is - who this person is, in four words. Ethan: "the role beside
-              their name like Jacob and then Creator in the tryp.com orange." */}
-          <div className="flex flex-wrap items-baseline justify-center gap-x-3 gap-y-1 sm:justify-start">
+          {/* BESIDE THE NAME ON A DESKTOP, UNDER IT ON A PHONE.
+              Beside the name is right where there is room: it reads as who this
+              person is, in four words, rather than as a second heading. On a
+              375px phone the header is centred and the two do not fit on one
+              line, so "Spanish Country Manager" either wrapped raggedly beside
+              a centred name or pushed it off centre. Ethan: "on mobile it
+              should show up just below their name... so everything's centred
+              and looks good." A column below `sm`, a baseline row above it. */}
+          <div className="flex flex-col items-center gap-y-1 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-start sm:gap-x-3">
             <h1 className="text-3xl font-bold tracking-tight sm:text-[34px]">{creator.name}</h1>
             <span className="text-[15px] font-semibold tracking-[-0.01em] text-brand sm:text-base">
               {roleBadgeTitle(creator) || 'Creator'}
@@ -705,14 +719,15 @@ export default function Profile() {
             </p>
           )}
           {creator.bio && <p className="mt-2 text-lg text-smoke">{creator.bio}</p>}
-          {creator.favourite_quote && (
-            /* BIGGER, because it was 14px grey italic and genuinely hard to
-               read - a quote somebody chose to put on their profile should not
-               be the faintest thing on it. */
-            <p className="mt-3 border-l-[3px] border-brand pl-3.5 text-[17px] italic leading-relaxed text-ink/80">
-              &ldquo;{creator.favourite_quote}&rdquo;
-            </p>
-          )}
+          {/* THE QUOTE IS ONLY IN THE HEADER ON A DESKTOP.
+              On a phone the header is already the avatar, the name, the role,
+              the age and the town stacked and centred, and a three-line pull
+              quote on top of that pushed everything a creator came to read off
+              the first screen. Ethan: "the quote, rather than being squashed
+              down at the top, should go below the about section." It renders
+              exactly once either way - `isMobile` chooses WHERE, it does not
+              draw a second copy. */}
+          {!isMobile && quote}
           {/* NAMED, AND IN THE PLATFORM'S OWN COLOURS. These were six
               identical grey circles, so the row that is entirely ABOUT other
               platforms was the least recognisable thing on the page, and you
@@ -843,6 +858,9 @@ export default function Profile() {
       {isMobile ? (
       <div className="flex flex-col gap-6">
         {about}
+        {/* Right under About, which is the other thing this person wrote about
+            themselves - and off the top of the page, where it was squashed. */}
+        {quote}
         {clock}
         {glance}
         {worldMap}
@@ -851,12 +869,15 @@ export default function Profile() {
         {languages}
         {milestones}
         {puzzles}
-        {showcase}
-        {/* The flight log and the challenge wall come after the games on a
-            phone: they are the two densest cards and they are the ones a
-            visitor is least likely to have scrolled this far for. */}
+        {/* The flight log and the challenge wall are the two densest cards and
+            the ones a visitor is least likely to have scrolled this far for. */}
         {flightLog}
         {challengeWall}
+        {/* THE CONTENT SHOWCASE IS LAST. Always, at every width. It is the one
+            section that is a grid of media rather than a fact about somebody,
+            so it ends the page instead of interrupting it - and it used to have
+            the flight log and the challenge wall stacked underneath it here. */}
+        {showcase}
       </div>
 
       ) : (

@@ -924,12 +924,17 @@ export default function NetworkChat() {
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={SOFT_SPRING}
-                // Tap a message on a phone to reveal its actions, the same
-                // bargain the DMs make. Taps on a link, a button or a video are
-                // left alone so tap-to-reveal never eats a real one.
+                // PRESS A MESSAGE TO OPEN ITS ACTIONS. AT EVERY WIDTH.
+                // This used to be `if (!isMobile) return`, with a laptop given
+                // a hover state instead - two behaviours for one control, and
+                // the hover one was the worse of them. Presses on a link, a
+                // button or a video are left alone so this never eats a real
+                // one, and a press that ENDED A TEXT SELECTION is not a press:
+                // dragging across a message to copy it would otherwise open the
+                // bar every time.
                 onClick={(e) => {
-                  if (!isMobile) return
                   if (e.target.closest?.('a,button,video,input')) return
+                  if (!window.getSelection?.()?.isCollapsed) return
                   setActionsFor((cur) => (cur === m.id ? null : m.id))
                 }}
                 // `relative z-20` when this row has something open. Every row
@@ -980,7 +985,8 @@ export default function NetworkChat() {
                     side={mine ? 'right' : 'left'}
                     reactions={chips}
                     onToggleReaction={(emoji) => toggleReaction(m.id, emoji)}
-                    revealed={actionsFor === m.id}
+                    open={actionsFor === m.id}
+                    onClose={() => setActionsFor(null)}
                     // THE EDITED NOTE, THE OUTBOX STATE AND "SEEN BY" GO IN
                     // HERE rather than after the component. They used to be
                     // siblings underneath it, which is exactly where the pill

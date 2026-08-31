@@ -70,3 +70,30 @@ describe('recentAnnouncements', () => {
     expect(ANNOUNCEMENT_MAX_AGE_DAYS).toBe(15)
   })
 })
+
+// TWO AT MOST ON THE HUB. One-per-room is the rule that stops a chatty market
+// burying a quiet one; the cap is what stops an admin in seven markets getting
+// a wall of cards where a creator gets a card.
+describe('recentAnnouncements limit', () => {
+  const at = (days) => new Date(Date.now() - days * 86400000).toISOString()
+  const rows = [
+    { id: 'a', community_id: 'uk', created_at: at(1) },
+    { id: 'b', community_id: 'es', created_at: at(2) },
+    { id: 'c', community_id: 'de', created_at: at(3) },
+    { id: 'd', community_id: 'no', created_at: at(4) },
+  ]
+
+  it('returns the newest `limit` of them, newest first', () => {
+    const out = recentAnnouncements(rows, { now: Date.now(), limit: 2 })
+    expect(out.map((r) => r.id)).toEqual(['a', 'b'])
+  })
+
+  it('returns everything when no limit is asked for', () => {
+    expect(recentAnnouncements(rows, { now: Date.now() })).toHaveLength(4)
+  })
+
+  it('does not pad up to the limit', () => {
+    const one = [{ id: 'a', community_id: 'uk', created_at: at(1) }]
+    expect(recentAnnouncements(one, { now: Date.now(), limit: 2 })).toHaveLength(1)
+  })
+})
