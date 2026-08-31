@@ -73,13 +73,29 @@ export function SuggestEvent() {
     // AdminPanel: these used to be visible only by scrolling to the foot of the
     // calendar, which is not somewhere anybody goes looking for work.
     <section id="suggestions" className="mt-10 scroll-mt-24">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-lg font-semibold"><Icon name="pencil" className="h-5 w-5 text-brand" /> Event ideas</h2>
-        <button onClick={() => setOpen(true)} className="btn-secondary !py-2 text-xs">+ Suggest an event</button>
-      </div>
-      <p className="mb-4 text-sm text-smoke">
+      {/* THE ASK COMES AFTER THE ASKING, AND IT IS THE LOUDEST THING HERE.
+          This was a heading on the left with a small grey `btn-secondary`
+          pushed against the right edge of the page, and the sentence explaining
+          what to suggest UNDERNEATH both - so the button sat a long way from
+          its own reason, competed with the heading for the top line, and was
+          styled as the least important control on a section whose entire
+          purpose it is. Ethan: "the event ideas section and suggest an event
+          button has an odd layout, maybe a bigger button below event ideas and
+          in Tryp.com orange colour."
+          Heading, then why, then the button - full width on a phone, sized to
+          its words from `sm`. */}
+      <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold">
+        <Icon name="pencil" className="h-5 w-5 text-brand" /> Event ideas
+      </h2>
+      <p className="text-sm text-smoke">
         Want a workshop, Q&A or meet-up on something specific? Suggest it and the team will try to make it happen.
       </p>
+      <button
+        onClick={() => setOpen(true)}
+        className="btn-primary mb-6 mt-4 w-full justify-center sm:w-auto"
+      >
+        <Icon name="plus" className="h-4 w-4" /> Suggest an event
+      </button>
 
       {suggestions.length > 0 && (
         <div className="space-y-2">

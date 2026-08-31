@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Modal, PlaneLoader, CopyButton } from '../ui'
-import Icon from '../Icon'
+import { Modal, PlaneLoader } from '../ui'
 import { AppleMark, GoogleMark, OutlookMark } from './CalendarBrandMarks'
 import { confirm } from '../../lib/confirm'
 import { toast } from '../../lib/toast'
@@ -173,25 +172,19 @@ export default function SubscribeCalendar({ open, onClose }) {
             </a>
           </div>
 
-          <div>
-            <p className="label">Or paste this link into any calendar app</p>
-            <div className="flex items-center gap-2 rounded-xl border border-gray-100 bg-cloud/50 p-2">
-              <code className="min-w-0 flex-1 truncate px-1 text-[11px] text-smoke">{https}</code>
-              <CopyButton value={https} label="Copy" />
-            </div>
-            <p className="mt-2 flex items-start gap-1.5 text-xs text-smoke">
-              <Icon name="shield" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              <span>
-                This link is yours alone and anyone who has it can read your calendar. Keep it private.
-              </span>
-            </p>
-          </div>
-
+          {/* NO RAW LINK. Three buttons that just work, and a fourth option
+              that was a URL to copy, a warning about who could read it if you
+              copied it into the wrong place, and a code block. Ethan: "we only
+              need Apple, Google and Outlook options."
+              Resetting stays, because it is the one thing you cannot do from
+              inside a calendar app - it is what you press when a device you no
+              longer have is still subscribed. It says what it does now that
+              there is no visible link for it to refer to. */}
           <button
             type="button" onClick={reset} disabled={busy}
             className="text-xs font-semibold text-smoke transition-colors hover:text-ink"
           >
-            {busy ? 'Resetting…' : 'Reset the link'}
+            {busy ? 'Disconnecting…' : 'Disconnect every calendar'}
           </button>
         </div>
       )}
