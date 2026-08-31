@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
 import { flagFromIso } from '../components/network/PlaceSwitcher'
 import NetworkMotion from '../components/NetworkMotion'
-import { useReactions, RoomSearch, Highlight, MentionMenu } from '../components/network/ChatExtras'
+import { useProfileNames, useReactions, RoomSearch, Highlight, MentionMenu } from '../components/network/ChatExtras'
 import { ChatSkeleton } from '../components/network/Skeletons'
 import Icon from '../components/Icon'
 import ChatMedia from '../components/ChatMedia'
@@ -485,7 +485,19 @@ export default function NetworkChat() {
     () => new Map((members || []).filter(Boolean).map((p) => [p.id, p.name])),
     [members],
   )
-  const nameFor = useCallback((id) => nameById.get(id) || 'Someone', [nameById])
+  // Whoever the member list cannot name gets looked up. `members` filters out
+  // test profiles and anybody who has left the market, and those were exactly
+  // the reactions whose tooltip read "Someone".
+  const reactorIds = useMemo(() => {
+    const ids = new Set()
+    for (const rows of reactionsByMessage.values()) for (const r of rows) ids.add(r.creator_id)
+    return [...ids].filter((id) => id && id !== user?.id && !nameById.has(id))
+  }, [reactionsByMessage, nameById, user?.id])
+  const fetchedNames = useProfileNames(reactorIds)
+  const nameFor = useCallback(
+    (id) => nameById.get(id) || fetchedNames.get(id) || 'Someone',
+    [nameById, fetchedNames],
+  )
   // id -> message, for drawing what a reply is answering without a second read.
   // A reply whose parent has scrolled out of the 200 this room holds resolves
   // to nothing, and QuotedParent says so rather than rendering an empty bar.

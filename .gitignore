@@ -26,6 +26,8 @@ dev.sh
 
 # local secrets
 .env
+.env.qa
+.qa-session.json
 .vercel
 
 # graphify knowledge graph (regenerated locally)

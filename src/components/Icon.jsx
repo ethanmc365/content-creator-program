@@ -142,29 +142,20 @@ function WorldIcon({ className, strokeWidth }) {
         </clipPath>
       </defs>
       <g clipPath="url(#tryp-world-clip)" fill="currentColor">
-        {/* THREE MASSES AND A VISIBLE OCEAN.
-            The previous draw joined North and South America into one shape
-            through a "pinch" at Panama, and at icon size the pinch closed up:
-            the two halves read as a single vertical smear, the Atlantic
-            disappeared under it, and Africa sat so close that the whole thing
-            became one blot. Ethan: "the map on it looks distorted."
-            Separate shapes with real water between them is what makes a globe
-            legible at 20px. The channel runs from x=11.6 to x=12.9 top to
-            bottom and nothing crosses it. */}
-        {/* NORTH AMERICA. Wide along the top, falling away to the south-east. */}
-        <path d="M5.0 6.5c1.5-1.4 4.5-1.5 6.0-.4.7.5.3 1.7-.5 2.7-.7.9-1.3 1.9-2.0 2.3-.9.5-2.0-.5-2.7-1.6-.7-1.1-1.4-2.4-.8-3.0Z" />
-        {/* SOUTH AMERICA. Below the gap and to the RIGHT of North America's
-            centre, which is the relationship that stops the pair reading as one
-            column, then tapering to a point at the bottom. */}
-        <path d="M9.2 12.0c1.5-.4 2.6.4 2.6 1.9 0 1.4-.5 3.1-1.2 4.4-.4.9-1.2 1.5-1.6.6-.5-1.2-.7-2.8-.7-4.2 0-1.1.2-2.4.9-2.7Z" />
-        {/* EUROPE AND AFRICA. One mass: the shoulder at the top is Iberia and
-            the Mediterranean, the wide middle is the Sahara, and the taper
-            swings LEFT to the Cape so it never reads as a rectangle. */}
-        <path d="M13.9 5.8c1.7-.6 3.9-.1 4.8 1.2.7 1.1.4 2.5-.2 3.6-.5.9-1.1 1.8-1.5 2.7-.5 1.3-.8 2.9-1.6 4-.5.7-1.3.6-1.5-.3-.3-1.4-.1-2.9-.3-4.3-.2-1.4-.7-2.6-.5-4 .1-1.1.1-2.6.8-2.9Z" />
-        {/* NO ASIA, NO AUSTRALIA. They were drawn and removed: at r=9.1 the only
-            room left for them is the last millimetre of the rim, so the clip cut
-            them into slivers that read as chips out of the edge of the planet
-            rather than as land. */}
+        {/* THE REAL COASTLINES, NOT A DRAWING OF SOME.
+            Every previous version of this was hand-drawn blobs, and they read
+            as blobs - Ethan: "the map on it looks distorted... it should
+            replicate the actual globe, not just random."
+            So the geometry is generated from the same world atlas the app's
+            maps use (public/geo/countries-50m.json), projected
+            orthographically - a real globe, seen from 30W 18N, which puts the
+            Americas on the left and Europe and Africa on the right with the
+            Atlantic down the middle. Country outlines are filled in one colour
+            so neighbours merge into continents; anything too small to read at
+            24px is dropped, and the rest is simplified until the whole world
+            fits in about 2kB of path. See scripts/gen-world-icon.py to change
+            the view or the level of detail - do not hand-edit the `d`. */}
+        <path d="M6.5 14.1L7.4 13.6L7.6 14.3L8.7 14L8.9 14.5L8.5 14.8L11.2 15.6L10.4 17.8L9.4 18.1L9 19L8.4 18.5L8.7 18.1L7.5 16.4L5.9 15.4L6.2 13.9L6.5 14.1ZM7.5 7.3L8.2 7.2L6 8.9L5.6 9.9L5.4 8.9L4.4 9.2L4.3 7.5L6 5.4L6.8 6.5L6.6 7.5L7.5 7.3ZM7 4.6L9 3.5L8.4 4.3L9.5 4.1L9 4.6L9.5 4.5L7.8 5.2L7.6 6.4L8.9 5.2L9 5.8L9.4 5.6L9.6 6.7L6.6 7.5L6.9 6.5L6 5.4L7 4.6ZM16.5 8.6L17.6 10.5L16.7 11.4L14.9 10.1L15.7 9.5L15.5 9.1L16.5 8.6ZM19.9 14.6L19.6 15.4L19.1 15.4L19.1 14.8L18.1 14.9L18.9 13.1L19.6 12.7L20 13L19.9 14.6ZM14.8 12.7L14.8 12.2L15.6 12.2L15.3 10.7L16.8 11.4L16.8 12L15.7 13L14.8 12.7ZM12 3.7L12.4 3.8L12.1 4.5L12.4 4.8L12 4.8L12.4 4.8L10.6 5.8L10.7 4L12 3.7ZM14.7 12.4L14 12.3L13.9 11.5L14.5 11.4L14.9 10.4L15.5 10.6L15.6 12.2L14.7 12.4ZM17 9.5L17 9L17.9 9.2L18.3 8.8L19 10.6L17.4 10.4L17 9.5ZM8.4 18.5L8.7 19.2L8 19.4L8.5 20.2L7.3 19.1L7 17.4L8.1 18.2L8.7 18.1L8.4 18.5ZM18.1 11.9L16.9 12.5L16.4 12.2L17.6 10.5L18.1 10.8L18.1 11.9ZM20.1 11.8L19.9 11.4L19.2 12.3L19 11.8L18.9 10.3L19.8 9.8L20.1 11.8ZM6.1 12.3L5.8 12.6L6.5 13.3L6.5 14.1L6.2 13.9L6.2 14.8L5.1 13.6L5.4 12.6L6.1 12.3ZM18.9 10.7L19.1 12L18.4 12.8L17.9 10.5L18.9 10.7ZM19.2 15.3L19 16.2L17.8 16.6L18.1 15L19.1 14.8L19.2 15.3ZM6.5 16.7L6.3 15.8L6.8 15.7L8 17.3L6.9 17.4L6.5 16.7ZM7.5 13.1L6.7 14.2L5.8 12.6L6.3 12.3L7.5 13.1ZM18.1 11.9L18 13.1L17.4 13.6L16.9 13.4L17 12.2L18.1 11.9ZM20.5 9.6L20.3 10.4L19.3 9L19.2 8.2L20.4 8.9L20.5 9.6ZM6.2 14.8L5.7 15.1L6.4 16L6.4 16.8L4.9 14.4L5.5 14L6.2 14.8ZM19.8 9.8L18.9 10.3L18.4 8.8L19 8.5L19.8 9.8ZM15.5 9.1L15.7 9.5L13.9 11.4L15 9L15.5 9.1ZM4.3 7.5L4.1 10.3L4.9 10.3L4.2 11.1L3.7 9.8L4.3 7.5ZM19.3 12.3L19.6 12.7L18.6 13.6L18.4 12.8L19.1 12L19.3 12.3ZM15.7 7.1L16 7.6L15.6 7.9L14.6 7.2L15.1 6.8L15.7 7.1ZM15.1 7.9L15.7 8L15 9L14.4 8L15.1 7.9ZM19 16.2L17.8 17.8L17.8 16.6L19 16.2ZM17.7 13.5L18.2 12L18.6 13.7L17.7 13.5ZM9.5 4.3L10 4.2L10.1 5L9.5 5.4L9.1 5L9.9 4.1L9.5 4.3ZM18.5 6.9L19 7.4L18.1 8L17.8 7.6L18.5 6.9ZM20.2 12.6L19.7 12.8L19.3 12.3L19.9 11.4L20.2 12.6ZM20.2 12.3L20.3 10.8L20.8 11.4L20.6 12.3L20.2 12.3ZM15.4 13L16.1 13L16.1 13.7L15.5 13.9L15.4 13ZM17.8 6.4L17.5 6.9L16.5 6.3L17 5.9L17.8 6.4ZM15 13.3L14.3 13L14.5 12.7L15.2 12.7L15.4 13.3L15 13.3ZM20.2 13.4L20.2 12.3L20.6 12.3L20.5 13.7L20.2 13.4ZM16.5 12.7L16.7 13.5L16.1 13.7L16.1 12.8L16.5 12.7ZM19.2 16.6L18.7 17.7L17.6 18.4L19.2 16.6Z" />
       </g>
       <circle cx="12" cy="12" r="9.1" stroke="currentColor" strokeWidth={strokeWidth} />
     </svg>

@@ -121,55 +121,63 @@ function Bench({ width }) {
   )
 }
 
-// Does the action pill overlap the chips or the footer on any message? That
-// is the whole of "when I try click on seen ... it just shows up the reaction
-// button and I can't see", expressed as a rectangle intersection.
+// The action bar now takes its own row rather than floating, so an overlap is
+// a regression rather than a design trade-off. Three things are checked:
+//   * does the bar intersect the bubble, the chips or the footer? (it must not)
+//   * how far is it, horizontally, from the message it belongs to? That is the
+//     "it's floating away over on the side away from the message" report, and
+//     it is a number: the gap between the bar's near edge and the bubble's.
+//   * is it clipped by the scroller on a message that is actually in view?
 function chatCollisions() {
-  const rows = [...document.querySelectorAll('[data-msg-pill]')].map((pill, i) => {
-    const row = pill.parentElement
+  return [...document.querySelectorAll('[data-msg-bar]')].map((bar, i) => {
+    const row = bar.parentElement
+    const a = bar.getBoundingClientRect()
     const hit = (sel) => {
       const el = row.querySelector(sel)
       if (!el) return null
-      const a = pill.getBoundingClientRect()
       const b = el.getBoundingClientRect()
-      const overlap = !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom)
-      return overlap ? `${Math.round(Math.min(a.right, b.right) - Math.max(a.left, b.left))}x${Math.round(Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top))}` : null
+      const over = !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom)
+      return over ? `${Math.round(Math.min(a.right, b.right) - Math.max(a.left, b.left))}x${Math.round(Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top))}` : null
     }
-    const scroller = pill.closest('[data-chat-scroller]')
+    // The visible control inside the animated row, not the full-width grid.
+    const pill = bar.querySelector('.rounded-full.border') || bar
     const p = pill.getBoundingClientRect()
+    const bub = row.querySelector('[data-msg-bubble]')?.getBoundingClientRect()
+    // Positive = the bar starts beyond where the message ends on that side.
+    const drift = bub
+      ? Math.round(Math.max(0, Math.max(bub.left - p.right, p.left - bub.right)))
+      : null
+    const scroller = bar.closest('[data-chat-scroller]')
     const s = scroller?.getBoundingClientRect()
-    // Only meaningful when the MESSAGE is in view. A message further down the
-    // thread is outside the scroller because it has not been scrolled to, which
-    // is not the bug - the bug was a pill being cut off by the scroller's edge
-    // on a message you were actually looking at.
-    const b = pill.parentElement.getBoundingClientRect()
-    const inView = s ? (b.top >= s.top - 1 && b.bottom <= s.bottom + 1) : true
+    const inView = s && bub ? (bub.top >= s.top - 1 && bub.bottom <= s.bottom + 1) : true
     return {
       i,
+      bubble: hit('[data-msg-bubble]'),
       chips: hit('[data-msg-chips]'),
       footer: hit('[data-msg-footer]'),
-      // How much of the message itself the pill covers. Some overlap on a long
-      // paragraph is fine and expected; swallowing a short bubble is not.
-      bubble: hit('[data-msg-bubble]'),
+      drift,
       clipped: s && inView ? (p.top < s.top - 1 || p.bottom > s.bottom + 1) : false,
       offscreen: !inView,
     }
   })
-  return rows
 }
 
 function ChatReport() {
   const [rows, setRows] = useState(null)
-  useEffect(() => { const t = setTimeout(() => setRows(chatCollisions()), 1200); return () => clearTimeout(t) }, [])
+  useEffect(() => { const t = setTimeout(() => setRows(chatCollisions()), 1400); return () => clearTimeout(t) }, [])
   if (!rows) return <p style={{ font: '12px ui-monospace' }}>measuring…</p>
-  const bad = rows.filter((r) => r.chips || r.footer || r.clipped)
+  // 24px of drift is a hair of rounding; anything more is the bar sitting away
+  // from its own message.
+  const bad = rows.filter((r) => r.bubble || r.chips || r.footer || r.clipped || (r.drift ?? 0) > 24)
   return (
     <div style={{ marginBottom: 12 }}>
       <p data-chat-verdict style={{ font: '600 13px system-ui', color: bad.length ? '#b91c1c' : '#15803d' }}>
-        {bad.length ? `${bad.length} message(s) with the pill over something` : 'pill clear of chips, footer and scroller on every message'}
+        {bad.length
+          ? `${bad.length} message(s) with the bar overlapping or adrift`
+          : 'bar clear of bubble, chips, footer and scroller on every message, and beside its own message'}
       </p>
       <pre style={{ font: '11px ui-monospace', color: '#555', margin: '4px 0 0' }}>
-        {rows.map((r) => `msg ${r.i}: chips=${r.chips || 'clear'} footer=${r.footer || 'clear'} bubble=${r.bubble || 'clear'} clipped=${r.clipped}${r.offscreen ? ' (scrolled out)' : ''}`).join('\n')}
+        {rows.map((r) => `msg ${r.i}: bubble=${r.bubble || 'clear'} chips=${r.chips || 'clear'} footer=${r.footer || 'clear'} drift=${r.drift}px clipped=${r.clipped}${r.offscreen ? ' (scrolled out)' : ''}`).join('\n')}
       </pre>
     </div>
   )

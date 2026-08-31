@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { supabase } from '../../lib/supabase'
 import Icon from '../Icon'
@@ -141,6 +141,45 @@ export function ReactionRow({ messageId, reactions, myId, onToggle, revealed = f
       </div>
     </div>
   )
+}
+
+// NAMES FOR A SET OF PROFILE IDS, fetched once and cached.
+//
+// A reaction row carries a creator_id and nothing else, and the lists each chat
+// page already has are the wrong shape to resolve it: the rooms' `members`
+// query filters out `is_test` profiles, and neither page holds anybody who has
+// since left. Every id it cannot name came out as "Someone", which is what made
+// the reaction tooltip look broken even after it was drawing.
+//
+// So anything still unnamed is looked up directly, once per id, and kept. The
+// pages pass their own list in first, so this usually fetches nothing at all.
+export function useProfileNames(ids) {
+  const [map, setMap] = useState(() => new Map())
+  // A ref of what has been asked for, so a fetch in flight is never repeated
+  // and `map` does not have to be a dependency (which would re-run on its own
+  // result, forever).
+  const asked = useRef(new Set())
+  const key = [...new Set((ids || []).filter(Boolean))].sort().join(',')
+
+  useEffect(() => {
+    const want = key ? key.split(',') : []
+    const missing = want.filter((id) => !asked.current.has(id))
+    if (!missing.length) return undefined
+    missing.forEach((id) => asked.current.add(id))
+    let alive = true
+    supabase.from('profiles').select('id, name').in('id', missing)
+      .then(({ data }) => {
+        if (!alive || !data?.length) return
+        setMap((cur) => {
+          const next = new Map(cur)
+          for (const p of data) next.set(p.id, p.name)
+          return next
+        })
+      })
+    return () => { alive = false }
+  }, [key])
+
+  return map
 }
 
 export function useReactions(messageIds, myId) {

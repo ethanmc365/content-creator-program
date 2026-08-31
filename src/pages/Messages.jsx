@@ -13,6 +13,7 @@ import Icon from '../components/Icon'
 import { jumpThreshold, distanceFromBottom } from '../lib/scrollJump'
 import ChatMedia from '../components/ChatMedia'
 import MessageActions from '../components/chat/MessageActions'
+import { useProfileNames } from '../components/network/ChatExtras'
 import { mediaType } from '../lib/media'
 import { formatChatTime, formatMessageTime, messageTimeTitle, otherParticipant, cx } from '../lib/utils'
 import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
@@ -660,13 +661,26 @@ export default function Messages() {
     return grouped
   }
 
+  // Anybody reacting who is not in `people` - a group member whose profile has
+  // not come back yet, or somebody who has left - is looked up by id so the
+  // tooltip names them instead of saying "Someone".
+  const dmFetchedNames = useProfileNames(
+    useMemo(
+      () => [...new Set(reactions.map((r) => r.creator_id))]
+        .filter((id) => id && id !== user?.id && !people.some((p) => p.id === id)),
+      [reactions, people, user?.id],
+    ),
+  )
+
   // WHO REACTED, for the chip's hover tooltip. `ids` on a summary are
   // creator_ids; the names come from the people already loaded for this thread.
   // Anybody not among them - a group member whose profile has not come back
   // yet - is "Someone", which still beats a naked number.
   function dmReactorNames(info) {
     return (info?.ids || []).map((id) => (
-      id === user?.id ? 'You' : (people.find((p) => p.id === id)?.name || 'Someone')
+      id === user?.id
+        ? 'You'
+        : (people.find((p) => p.id === id)?.name || dmFetchedNames.get(id) || 'Someone')
     ))
   }
 

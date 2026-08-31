@@ -33,6 +33,15 @@ const CASES = [
   { key: 'tall-mine-seen', label: 'TALL, mine, Seen by 3', mine: true, body: TALL, chips: [], seen: READERS },
   { key: 'short-other-many', label: 'short, someone else, 4 chips', mine: false, body: SHORT, seen: [],
     chips: [['❤️', 1, false, ['Ana Duarte']], ['🔥', 1, false, ['Ben Olsen']], ['👏', 1, false, ['Chi Nwosu']], ['😂', 1, false, ['Dee Ray']]] },
+  // The two kinds Ethan called out as worst: an image, where the bubble is a
+  // picture with no text to sit beside, and an attached card.
+  { key: 'photo-other', label: 'PHOTO, someone else, 1 chip', mine: false, kind: 'photo', body: '', seen: [],
+    chips: [['😍', 2, false, ['Ana Duarte', 'Ben Olsen']]] },
+  { key: 'photo-mine-seen', label: 'PHOTO, mine, Seen by 3', mine: true, kind: 'photo', body: '', seen: READERS, chips: [] },
+  { key: 'card-other', label: 'RESOURCE CARD, someone else', mine: false, kind: 'card', body: '', seen: [], chips: [] },
+  { key: 'card-mine-chips', label: 'RESOURCE CARD, mine, chips + Seen by', mine: true, kind: 'card', body: '', seen: READERS,
+    chips: [['🔥', 3, true, ['You', 'Ana Duarte', 'Chi Nwosu']]] },
+  { key: 'oneword-mine', label: 'ONE WORD, mine, no chips', mine: true, body: 'ok', chips: [], seen: [] },
 ]
 
 const ACTIONS = [
@@ -69,10 +78,23 @@ function Row({ c, revealed }) {
             <span className="text-[11px] text-smoke">09:41</span>
           </p>
           <div data-msg-bubble className={cx(
-            'w-fit max-w-full rounded-2xl px-3.5 py-2 text-sm leading-relaxed',
+            'w-fit max-w-full rounded-2xl text-sm leading-relaxed',
             c.mine ? 'ml-auto rounded-br-md bg-brand text-white' : 'rounded-bl-md bg-cloud text-ink',
+            c.kind ? 'overflow-hidden p-1.5' : 'px-3.5 py-2',
           )}>
-            <span className="whitespace-pre-wrap break-words">{c.body}</span>
+            {/* Stand-ins for ChatMedia and AttachedCard: the same box shape at
+                the same sizes, without needing a signed storage URL. */}
+            {c.kind === 'photo' && (
+              <div className="h-40 w-52 rounded-xl bg-gradient-to-br from-gray-200 to-gray-300" />
+            )}
+            {c.kind === 'card' && (
+              <div className="w-60 rounded-xl border border-black/10 bg-white/90 p-2.5 text-ink">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-smoke">Resource</p>
+                <p className="text-sm font-semibold leading-snug">Filming a city in one morning</p>
+                <p className="text-xs text-smoke">A checklist for a half-day shoot.</p>
+              </div>
+            )}
+            {c.body && <span className="whitespace-pre-wrap break-words">{c.body}</span>}
           </div>
         </MessageActions>
       </div>
