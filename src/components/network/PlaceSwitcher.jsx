@@ -210,21 +210,34 @@ export default function PlaceSwitcher() {
                   />
                 ))}
 
-                {joinable.length > 0 && (
-                  <>
-                    <p className="px-4 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-widest text-smoke">
-                      Somewhere else
-                    </p>
-                    <Row
-                      to="/global/markets"
-                      onPick={() => setSheet(false)}
-                      active={false}
-                      flags="🔎"
-                      name="Explore markets"
-                      hint={`${joinable.length} more ${joinable.length === 1 ? 'market' : 'markets'} open`}
-                    />
-                  </>
-                )}
+              </div>
+
+              {/* ALL MARKETS, ALWAYS, AND PINNED TO THE BOTTOM OF THE SHEET.
+                  This used to be a row in the list, and only when there was
+                  something joinable - so an admin already in every market had
+                  no door to the markets page at all, and everyone else had to
+                  scroll past their own markets to find it. The hub's "Your
+                  markets" section is gone on a phone, which makes this sheet
+                  the only route to the rest of the network: it cannot be
+                  conditional and it cannot be somewhere you have to look for.
+                  Ethan: "at the bottom of this popup it should show an all
+                  markets button, and clicking that brings you to the all
+                  markets page where you can see the other markets and request
+                  to join them." */}
+              <div className="shrink-0 border-t border-gray-100 px-3 pt-2">
+                <Link
+                  to="/global/markets"
+                  onClick={() => setSheet(false)}
+                  className="flex items-center justify-center gap-2 rounded-2xl bg-brand-tint px-4 py-3 text-sm font-semibold text-brand transition-transform duration-200 active:scale-[0.98]"
+                >
+                  <Icon name="globe" className="h-4 w-4 shrink-0" />
+                  All markets
+                  {joinable.length > 0 && (
+                    <span className="rounded-full bg-brand px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                      {joinable.length} to join
+                    </span>
+                  )}
+                </Link>
               </div>
             </motion.div>
           </div>

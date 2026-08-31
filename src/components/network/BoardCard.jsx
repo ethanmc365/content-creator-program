@@ -103,7 +103,6 @@ export default function BoardCard({ className }) {
           {/* NO COUNT OF WHAT IS UNANSWERED. "3 are still waiting for somebody
               who knows" reads as a chore list on a hub whose job is to invite
               you in, and the notes themselves already say "No answers yet". */}
-          <p className="mt-1 text-sm text-smoke">The latest questions.</p>
         </div>
         <Link to="/board" className="shrink-0 text-sm font-medium text-brand transition-transform duration-200 hover:scale-105">
           Open the board →
@@ -132,7 +131,7 @@ export default function BoardCard({ className }) {
                 )}
               >
                 <span className="mb-2 flex items-center gap-1.5">
-                  <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-cloud px-2 py-0.5 text-[10px] font-semibold text-smoke">
+                  <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-brand-tint px-2 py-0.5 text-[10px] font-semibold text-brand">
                     <Icon name={t.icon} className="h-3 w-3 shrink-0" />
                     <span className="truncate">{q.tag === 'country' && q.country ? q.country : t.short}</span>
                   </span>

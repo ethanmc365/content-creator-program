@@ -34,11 +34,14 @@ sc, tr = topo['transform']['scale'], topo['transform']['translate']
 
 # Orthographic globe, Atlantic-centred: Americas left, Europe/Africa right.
 LON0, LAT0, R, CX, CY = -40.0, 15.0, 9.05, 12.0, 12.0
-# Coarse on purpose. This is a 20px glyph; every extra vertex is noise that
-# reads as a ragged edge rather than as coastline.
-SIMPLIFY = 0.22
-# Square viewBox units. Iceland is about 1.5; Great Britain about 4.
-MIN_AREA = 0.5
+# Coarse on purpose, and coarser than it was. This is a 20px glyph; every
+# extra vertex is noise that reads as a ragged edge rather than as coastline,
+# and the reference Ethan matched it against is four bold masses, not a
+# coastline survey.
+SIMPLIFY = 0.38
+# Square viewBox units. Iceland is about 1.5; Great Britain about 4. At 1.0
+# the specks go and what is left reads as continents.
+MIN_AREA = 1.0
 
 r0, p0 = math.radians(LON0), math.radians(LAT0)
 

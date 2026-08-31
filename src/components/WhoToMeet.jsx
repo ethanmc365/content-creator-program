@@ -124,7 +124,6 @@ export default function WhoToMeet({ className }) {
           {/* Not "three creators picked for you" - you can see how many there
               are, and counting them out is the kind of line a page says when it
               has nothing else to say. */}
-          <p className="mt-1 text-sm text-smoke">Same all week, and why each one.</p>
         </div>
         <Link to="/creators" className="shrink-0 text-sm font-medium text-brand transition-transform duration-200 hover:scale-105">
           Everyone →

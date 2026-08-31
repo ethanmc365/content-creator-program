@@ -74,7 +74,12 @@ function RoomRow({ to, room, last }) {
       to={to}
       className="group flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-cloud active:bg-cloud"
     >
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand">
+      {/* SOLID BRAND, not the pale tint. The tint was chosen when General was
+          the one solid tile and everything else had to sit behind it; with that
+          false "selected" state gone, a whole list of pale tiles reads as
+          disabled. Ethan: "the icons are nice but it might be better to have the
+          Tryp.com orange rather than the light orange colour." */}
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white">
         <Icon name={room.icon || 'chat'} className="h-[18px] w-[18px]" />
       </span>
       <span className="min-w-0 flex-1">

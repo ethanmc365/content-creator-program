@@ -312,7 +312,7 @@ function QuestionCard({ q }) {
       )}
     >
       <span className="flex flex-wrap items-center gap-1.5">
-        <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-cloud px-2 py-0.5 text-[10px] font-semibold text-smoke">
+        <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-brand-tint px-2 py-0.5 text-[10px] font-semibold text-brand">
           <Icon name={t.icon} className="h-3 w-3 shrink-0" />
           <span className="truncate">{q.tag === 'country' && q.country ? q.country : t.short}</span>
         </span>

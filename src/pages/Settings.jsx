@@ -231,15 +231,18 @@ export default function Settings() {
 
   // ---------------- Section bodies (shared by mobile + desktop) -------------
 
+  // NO CARD AND NO SECOND HEADING, HERE OR IN ANY SECTION BELOW.
+  //
+  // The settings page is a MENU now: you press "Display" and land on a page
+  // whose own heading is "Display". Every section then drew a card with a
+  // brand icon and an <h2> saying "Display" again, plus a line explaining what
+  // Display means - a title, a subtitle and a border, all restating the button
+  // you had just pressed. Ethan: "we now have specific buttons for display,
+  // sound etc, we don't need to have a card inside them or another heading."
+  // What is left is the settings themselves, on the page, with air around them.
   const DisplaySection = (
-    <section className="card">
-      <div className="mb-1 flex items-center gap-2">
-        <Icon name="bulb" className="h-5 w-5 text-brand" />
-        <h2 className="text-lg font-semibold">Display</h2>
-      </div>
-      <p className="text-sm text-smoke">Personalise how the community looks on your devices.</p>
-
-      <div className="mt-5 border-t border-gray-100 pt-5">
+    <section>
+      <div>
         <p className="text-sm font-semibold">Theme</p>
         <p className="text-xs text-smoke">Choose how the community looks on this device.</p>
         <div className="mt-3 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Theme">
@@ -374,11 +377,7 @@ export default function Settings() {
   // Both are per DEVICE, not per account, and the card says so. Phone in a
   // pocket and laptop in an office are not the same room.
   const SoundSection = (
-    <section className="card">
-      <div className="mb-1 flex items-center gap-2">
-        <Icon name="megaphone" className="h-5 w-5 text-brand" />
-        <h2 className="text-lg font-semibold">Sound</h2>
-      </div>
+    <section>
       {/* NO DESCRIPTIONS ON THIS CARD AT ALL.
           There were three: one under the heading and one under each switch,
           the longest of them forty words listing every individual sound the
@@ -406,13 +405,8 @@ export default function Settings() {
 
   const AccountSection = (
     <div className="space-y-6">
-      <section className="card">
-        <div className="mb-1 flex items-center gap-2">
-          <Icon name="users" className="h-5 w-5 text-brand" />
-          <h2 className="text-lg font-semibold">Account</h2>
-        </div>
-        <p className="text-sm text-smoke">Manage your profile, password and sign-in, plus your data.</p>
-        <div className="mt-4 flex flex-wrap gap-3">
+      <section>
+        <div className="flex flex-wrap gap-3">
           <Link to="/profile/edit" className="btn-secondary !py-2.5 text-sm">Edit profile</Link>
           <Link to={`/profile/${user?.id}`} className="btn-ghost !py-2.5 text-sm">View my profile</Link>
           <button
@@ -476,14 +470,12 @@ export default function Settings() {
       </section>
 
       {/* Privacy now lives under Account. */}
-      <section className="card">
-        <div className="mb-1 flex items-center gap-2">
-          <Icon name="globe" className="h-5 w-5 text-brand" />
-          <h2 className="text-lg font-semibold">Privacy</h2>
-        </div>
-        <p className="text-sm text-smoke">Control where your profile appears.</p>
-
-        <div className="mt-5 flex items-center gap-4 border-t border-gray-100 pt-5">
+      {/* Privacy KEEPS a heading, and only Privacy. It is a second subject on
+          the Account page rather than the page's own subject, so without a name
+          it would read as more account settings. */}
+      <section className="border-t border-gray-100 pt-6">
+        <h2 className="mb-4 text-base font-semibold">Privacy</h2>
+        <div className="flex items-center gap-4">
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold">Show my profile on the community map</p>
             <p className="text-xs text-smoke">
@@ -504,13 +496,11 @@ export default function Settings() {
   )
 
   const PaymentSection = (
-    <section className="card">
-      <div className="mb-1 flex items-center gap-2">
-        <Icon name="wallet" className="h-5 w-5 text-brand" />
-        <h2 className="text-lg font-semibold">Payment details</h2>
-      </div>
-      <p className="text-sm text-smoke">Where we send your cash prizes when you win a challenge. These are used automatically on your invoices, so double-check every digit.</p>
-      <div className="mt-5 border-t border-gray-100 pt-5">
+    <section>
+      {/* The one strapline that survives, because it is a WARNING rather than a
+          restatement of the heading: these digits go straight onto an invoice. */}
+      <p className="mb-5 text-sm text-smoke">Where we send your cash prizes when you win a challenge. These are used automatically on your invoices, so double-check every digit.</p>
+      <div>
         {!payLoaded ? (
           <div className="flex justify-center py-6"><Spinner /></div>
         ) : (
@@ -529,12 +519,8 @@ export default function Settings() {
   )
 
   const AdminSection = isAdmin && (
-    <section className="card border-brand/20 bg-brand-tint/30">
-      <div className="mb-1 flex items-center gap-2">
-        <Icon name="shield" className="h-5 w-5 text-brand" />
-        <h2 className="text-lg font-semibold">Admin settings</h2>
-      </div>
-      <p className="mb-4 text-sm text-smoke">
+    <section>
+      <p className="mb-5 text-sm text-smoke">
         Only the Tryp.com Team sees this. Choose which admin alerts you want to receive, and jump into the admin tools.
       </p>
       <AdminNotifications state={notif} />

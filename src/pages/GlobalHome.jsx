@@ -548,22 +548,36 @@ export default function GlobalHome() {
             </p>
           </div>
         ) : (
+          // SOLID, like the phone's. This was `bg-brand-tint/25` inside a card
+          // whose own empty state is also brand-tint - a wash on a wash, for
+          // the one thing in the rail with a deadline on it. Ethan: "that
+          // desktop card shouldn't be the faded orange, it should be the
+          // Tryp.com orange that stands out and is very clickable, as the live
+          // challenges are important." Same card as mobile, same countdown.
           <div className="space-y-2">
-            {myLive.map(({ market, challenge, global: isGlobal }) => (
-              <Link key={challenge.id} to={`/challenges/${challenge.id}`}
-                className="block rounded-xl border border-brand/25 bg-brand-tint/25 px-3 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card">
-                <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-brand">
-                  <span className="relative flex h-1.5 w-1.5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/60" />
-                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand" />
+            {myLive.map(({ market, challenge, global: isGlobal }) => {
+              const closes = challengeDeadline(challenge.end_date)
+              const days = Math.max(0, Math.ceil((closes - nowMs) / 86400000))
+              return (
+                <Link key={challenge.id} to={`/challenges/${challenge.id}`}
+                  className="flex items-center gap-2 rounded-xl bg-brand px-3 py-2.5 text-white shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift">
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/80">
+                      <span className="relative flex h-1.5 w-1.5">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/70" />
+                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
+                      </span>
+                      {isGlobal ? 'Global · everyone' : market.name}
+                    </span>
+                    <span className="mt-1 block line-clamp-2 text-sm font-semibold leading-snug">{challenge.title}</span>
+                    <span className="mt-0.5 block text-[11px] text-white/75">
+                      {days === 0 ? 'Closes today' : days === 1 ? 'Closes tomorrow' : `${days} days left`}
+                    </span>
                   </span>
-                  {isGlobal
-                    ? 'Global · everyone'
-                    : market.name}
-                </p>
-                <p className="mt-1 line-clamp-2 text-sm font-medium">{challenge.title}</p>
-              </Link>
-            ))}
+                  <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-white/70" />
+                </Link>
+              )
+            })}
           </div>
         )}
       </RailCard>
@@ -1098,7 +1112,14 @@ export default function GlobalHome() {
                       <Link
                         key={a.id}
                         to={from ? `/c/${from.slug}/chat/announcements` : '/global/chat/announcements'}
-                        className="card block border-l-4 !border-l-brand transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift"
+                        // `h-full` + a column, so two cards side by side are
+                        // the same height whatever is in them. The grid already
+                        // stretches its items; the card was `block`, so it
+                        // ignored that and sized to its own text - one card
+                        // three lines tall beside one card one line tall.
+                        // Ethan: "on desktop those cards should be the same size
+                        // even if just one message is bigger."
+                        className="card flex h-full flex-col border-l-4 !border-l-brand transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift"
                       >
                         <div className="flex items-center gap-3">
                           <Avatar src={a.profiles?.photo_url} name={a.profiles?.name} size="sm" />
@@ -1147,7 +1168,6 @@ export default function GlobalHome() {
                   obviously tappable, on the page where vertical space is
                   scarcest. Full screen still carries its own affordances. */}
               <SectionHead icon="globe" title="Everyone, right now"
-                hint={isMobile ? undefined : 'Tap a pin for who is there, or tap a country to find who has been.'}
                 to="/creators" toLabel="Creator Network" />
               {/* The map is the most expensive thing on this page - a megabyte
                   of TopoJSON, parsed, then a few hundred SVG paths - and doing

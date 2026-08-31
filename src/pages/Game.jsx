@@ -46,7 +46,12 @@ const MODES = [
   // Plain and factual. The old line ("Some you will know instantly. Some are
   // three stripes and a prayer.") was trying too hard next to three sentences
   // that simply say what the game is, and it read as the odd one out.
-  { key: 'flags', icon: 'flag', title: 'Guess the flag', text: 'See the flag, name the country.', regions: true },
+  // TWO LINES, like the other three. The box reserves two lines so the cards
+  // stay the same height, and a one-line blurb therefore sat in a card with an
+  // empty line under it - which is what read as "the Guess the flag card is not
+  // the same as the others". It says something true it was not saying anyway:
+  // this is the one mode you can narrow to a continent.
+  { key: 'flags', icon: 'flag', title: 'Guess the flag', text: 'See the flag, name the country. Pick a continent or take the whole world.', regions: true },
   { key: 'map', icon: 'pin', title: 'Find it on the map', text: 'You know where it is. Now put your finger on it.', regions: true },
   { key: 'airports', icon: 'plane', title: 'Airport codes', text: 'Three letters on a boarding pass. Which city?', regions: true },
   { key: 'currencies', icon: 'cash', title: 'What do they spend?', text: 'Match the country to the money in its tills.', regions: true },
@@ -415,7 +420,9 @@ function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle, 
                 }}
                 aria-pressed={on}
                 className={cx(
-                  'group flex h-full items-start gap-3.5 rounded-card border bg-white p-4 text-left transition-all duration-200 active:scale-[0.99] hover:-translate-y-1 hover:shadow-lift',
+                  // `items-center`, so a blurb shorter than its reserved box
+                  // reads as centred rather than as a card with a hole in it.
+                  'group flex h-full items-center gap-3.5 rounded-card border bg-white p-4 text-left transition-all duration-200 active:scale-[0.99] hover:-translate-y-1 hover:shadow-lift',
                   on ? 'border-brand ring-2 ring-brand/25' : 'border-gray-100 shadow-card hover:border-brand/40',
                 )}
               >

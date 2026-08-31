@@ -1645,17 +1645,31 @@ export default function Messages() {
                 {!connected && !isAdmin && iSentCount === 0 && !theyReplied && (
                   <p className="mb-2 text-xs text-smoke">You can send one message. If {active?.other?.name?.split(' ')[0]} replies, you’ll be connected.</p>
                 )}
-                {/* Reply preview: what you're replying to, with a cancel button. */}
+                {/* WHAT YOU ARE REPLYING TO. CHARACTER FOR CHARACTER THE ROOMS'.
+                    The two had drifted into different chips doing the same job:
+                    this one was a grey bar with a left rule and a BAN icon to
+                    cancel - a no-entry sign, which reads as "you may not do
+                    this" rather than "drop this reply". Ethan: "it shows up the
+                    reply with a circle, like a no entry icon, it should be an x
+                    to exit out of the reply, the same as it shows on the rooms."
+                    So it is the rooms' markup: tinted, a reply arrow to say what
+                    the bar is, and a close cross to leave. */}
                 {replyTo && (
-                  <div className="mb-2 flex items-center gap-2 rounded-xl border-l-2 border-brand bg-cloud/70 px-3 py-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[11px] font-semibold text-brand">
+                  <div className="mb-2 flex items-center gap-2 rounded-xl border border-brand/25 bg-brand-tint/40 py-2 pl-3 pr-2">
+                    <Icon name="reply" className="h-4 w-4 shrink-0 text-brand" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[11px] font-semibold text-brand">
                         Replying to {replyTo.sender_id === user.id ? 'yourself' : reactorName(replyTo.sender_id).split(' ')[0]}
-                      </p>
-                      <p className="truncate text-xs text-smoke">{dmPreview(replyTo)}</p>
-                    </div>
-                    <button type="button" onClick={() => setReplyTo(null)} aria-label="Cancel reply" className="rounded-full p-1 text-smoke hover:bg-white hover:text-ink">
-                      <Icon name="ban" className="h-4 w-4" />
+                      </span>
+                      <span className="block truncate text-xs text-smoke">{dmPreview(replyTo)}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setReplyTo(null)}
+                      aria-label="Cancel reply"
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-smoke transition-colors hover:bg-white hover:text-ink"
+                    >
+                      <Icon name="close" className="h-4 w-4" />
                     </button>
                   </div>
                 )}
