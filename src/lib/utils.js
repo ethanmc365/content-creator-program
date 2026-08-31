@@ -107,6 +107,31 @@ export function timeAgo(date) {
   return formatDistanceToNow(new Date(date), { addSuffix: true })
 }
 
+/**
+ * "2h", "3d", "5w" - the timestamp a CHAT LIST uses.
+ *
+ * `timeAgo` writes a sentence ("about 2 hours ago"), which is right beside a
+ * notification and wrong at the end of a room row: on a 375px phone it took a
+ * third of the line and squeezed the room's own name down to "Announce…". A
+ * list of rooms wants the shape of the time, not a reading of it.
+ */
+export function shortAgo(date) {
+  if (!date) return ''
+  const then = new Date(date).getTime()
+  if (!Number.isFinite(then)) return ''
+  const secs = Math.max(0, Math.round((Date.now() - then) / 1000))
+  if (secs < 60) return 'now'
+  const mins = Math.round(secs / 60)
+  if (mins < 60) return `${mins}m`
+  const hours = Math.round(mins / 60)
+  if (hours < 24) return `${hours}h`
+  const days = Math.round(hours / 24)
+  if (days < 7) return `${days}d`
+  const weeks = Math.round(days / 7)
+  if (weeks < 53) return `${weeks}w`
+  return `${Math.round(days / 365)}y`
+}
+
 /** 184230 → "184.2k" - used for logged view counts. */
 export function formatViews(n) {
   if (n == null) return '-'

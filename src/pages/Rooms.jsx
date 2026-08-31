@@ -9,9 +9,9 @@ import Reveal from '../components/network/Reveal'
 import Reorderable from '../components/network/Reorderable'
 import FlagStack from '../components/network/FlagStack'
 import Icon from '../components/Icon'
-import { Avatar, EmptyState, Skeleton } from '../components/ui'
+import { EmptyState, Skeleton } from '../components/ui'
 import { stripMarkup } from '../lib/richText'
-import { cx, timeAgo } from '../lib/utils'
+import { cx, shortAgo } from '../lib/utils'
 import { useIsMobile } from '../lib/useKeyboardInset'
 import { pageFade } from '../lib/motion'
 
@@ -44,39 +44,58 @@ const loadRoomOrder = () => {
 
 const scopedKey = (place, key) => (place.kind === 'network' ? key : `${place.slug}:${key}`)
 
+// ONE ROOM, LAID OUT LIKE A CHAT LIST AND NOT LIKE A TABLE.
+//
+// THE TWO THINGS THAT WERE WRONG.
+//
+// 1. GENERAL WAS PAINTED AS IF IT WERE SELECTED. Its icon tile was
+//    `bg-brand text-white` while every other room's was a pale tint - not
+//    because you were in it, but because its key is the string 'general'. On a
+//    page listing eight rooms across two markets that is two solid orange
+//    badges saying "you are here" about rooms you are not in. Ethan: "for some
+//    reason it always shows like you're clicked in in General even if you're
+//    not, that one's orange and all the rest are a lighter colour." Nothing on
+//    this page is ever the current room - it is an index, and you are on it
+//    precisely because you are not in a room yet.
+//
+// 2. FIVE THINGS COMPETED FOR ONE LINE. Name, preview, "about 2 hours ago", a
+//    face and a chevron, on a 375px screen. The name is the only one of those
+//    you navigate by and it was the one that lost: "Announce…", "Gener…".
+//
+// So it is the layout every chat list has settled on, for the reason they all
+// settled on it: the name and the time share the top line, because the time is
+// short and the name needs the rest; the preview gets a whole line to itself.
+// The face and the chevron are gone - the preview already names the speaker,
+// and a full-width row in a list of links does not need to be told it is
+// tappable.
 function RoomRow({ to, room, last }) {
   return (
     <Link
       to={to}
-      className="group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-cloud"
+      className="group flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-cloud active:bg-cloud"
     >
-      <span className={cx(
-        'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
-        room.key === 'general' ? 'bg-brand text-white' : 'bg-brand-tint text-brand',
-      )}>
-        <Icon name={room.icon || 'chat'} className="h-4 w-4" />
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-tint text-brand">
+        <Icon name={room.icon || 'chat'} className="h-[18px] w-[18px]" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-2">
-          <span className="truncate text-sm font-semibold">{room.label}</span>
+        <span className="flex items-baseline gap-2">
+          <span className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-tight">{room.label}</span>
           {room.visibility === 'staff' && (
             <span className="shrink-0 rounded-full bg-cloud px-1.5 py-0.5 text-[10px] font-medium text-smoke">Staff</span>
+          )}
+          {last && (
+            <span className="shrink-0 text-[11px] tabular-nums text-gray-400">{shortAgo(last.created_at)}</span>
           )}
         </span>
         {/* The last thing said, or what the room is for if nothing has been.
             An empty room that explains itself is an invitation; an empty room
             that says nothing is a dead end. */}
-        <span className="mt-0.5 block truncate text-xs text-smoke">
+        <span className="mt-1 block truncate text-[13px] leading-snug text-smoke">
           {last
             ? `${last.profiles?.name?.split(' ')[0] || 'Someone'}: ${stripMarkup(last.body || '')}`
             : room.hint || 'Nothing posted yet'}
         </span>
       </span>
-      {last && (
-        <span className="shrink-0 text-[11px] text-gray-400">{timeAgo(last.created_at)}</span>
-      )}
-      {last?.profiles && <Avatar src={last.profiles.photo_url} name={last.profiles.name} size="xs" className="shrink-0" />}
-      <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300 transition-transform duration-200 group-hover:translate-x-0.5" />
     </Link>
   )
 }

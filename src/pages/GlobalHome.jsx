@@ -24,7 +24,7 @@ import { Avatar, EmptyState, Skeleton } from '../components/ui'
 import { flagForCountry } from '../lib/flags'
 import { stripMarkup } from '../lib/richText'
 import { ANNOUNCEMENT_LIMIT, ANNOUNCEMENT_MAX_AGE_DAYS, recentAnnouncements } from '../lib/announcements'
-import { cx, timeAgo } from '../lib/utils'
+import { challengeDeadline, cx, timeAgo } from '../lib/utils'
 import { useIsMobile } from '../lib/useKeyboardInset'
 import { cardHover } from '../lib/motion'
 import { NETWORK_LINKS, loadLinkOrder as loadOrder, ORDER_KEY } from '../lib/networkLinks'
@@ -243,6 +243,12 @@ export default function GlobalHome() {
   const [order, setOrder] = useState(loadOrder)
   const [marketOrder, setMarketOrder] = useState(loadMarketOrder)
   const isMobile = useIsMobile()
+  // ONE CLOCK READING PER MOUNT, for the live challenge card's countdown.
+  // `react-hooks/purity` bans a clock read during render, and rightly: a
+  // countdown that recomputes on every unrelated re-render is a component that
+  // cannot be reasoned about. A day boundary crossed while somebody stares at
+  // the hub is not worth a timer.
+  const [nowMs] = useState(() => Date.now())
   const links = useMemo(() => orderLinks(order), [order])
   const networkId = network?.id ?? null
 
@@ -464,6 +470,7 @@ export default function GlobalHome() {
   // read but have not joined is not "their" live challenge. The network's own
   // challenge is everybody's, so it leads.
   const globalLive = network ? d?.live?.[network.id] : null
+
   const myLive = [
     ...(globalLive ? [{ market: network, challenge: globalLive, global: true }] : []),
     ...myMarkets.map((m) => (d?.live?.[m.id] ? { market: m, challenge: d.live[m.id] } : null)).filter(Boolean),
@@ -737,23 +744,42 @@ export default function GlobalHome() {
           {isMobile && myLive.length > 0 && (
             <Reveal from="down" delay={stepDelay()}>
               <section>
+                {/* SOLID, AND SHORTER BY A THIRD.
+                    It was a pale tint panel with a hairline orange border, a
+                    title, and a full-size pill button on a line of its own -
+                    about 190px of the first screen for two facts. Ethan: "I
+                    don't like the current design of it, the light coloured
+                    thing... improve the UI and even make it slightly smaller."
+                    The one card on this page you can act on today should not be
+                    the faintest thing on it, so it is the brand colour outright.
+                    The button becomes a chevron - the whole card is the link and
+                    always was - and the space that buys goes to the fact the old
+                    card was missing entirely: WHEN IT CLOSES. */}
                 <div className="space-y-2">
-                  {myLive.map(({ market, challenge, global: isGlobal }) => (
-                    <Link key={challenge.id} to={`/challenges/${challenge.id}`}
-                      className="block rounded-card border border-brand/30 bg-brand-tint/30 p-4 transition-transform duration-200 active:scale-[0.99]">
-                      <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-brand">
-                        <span className="relative flex h-1.5 w-1.5">
-                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/60" />
-                          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand" />
+                  {myLive.map(({ market, challenge, global: isGlobal }) => {
+                    const closes = challengeDeadline(challenge.end_date)
+                    const days = Math.max(0, Math.ceil((closes - nowMs) / 86400000))
+                    return (
+                      <Link key={challenge.id} to={`/challenges/${challenge.id}`}
+                        className="flex items-center gap-3 rounded-card bg-brand px-4 py-3.5 text-white shadow-card transition-transform duration-200 active:scale-[0.99]">
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/80">
+                            <span className="relative flex h-1.5 w-1.5">
+                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/70" />
+                              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
+                            </span>
+                            {isGlobal ? 'Live · everyone' : `Live in ${market.name}`}
+                          </span>
+                          <span className="mt-1 block truncate text-[15px] font-semibold leading-snug">{challenge.title}</span>
+                          <span className="mt-0.5 block text-xs text-white/75">
+                            {days === 0 ? 'Closes today' : days === 1 ? 'Closes tomorrow' : `${days} days left`}
+                            {' · Submit your video'}
+                          </span>
                         </span>
-                        {isGlobal ? 'Live · everyone' : `Live in ${market.name}`}
-                      </p>
-                      <p className="mt-1.5 font-semibold leading-snug">{challenge.title}</p>
-                      <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white">
-                        Submit your video
-                      </span>
-                    </Link>
-                  ))}
+                        <Icon name="chevronRight" className="h-5 w-5 shrink-0 text-white/70" />
+                      </Link>
+                    )
+                  })}
                 </div>
               </section>
             </Reveal>
