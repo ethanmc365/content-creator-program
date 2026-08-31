@@ -9,6 +9,8 @@ import { useCommunity } from '../context/CommunityContext'
 import { flagFromIso } from '../components/network/PlaceSwitcher'
 import NetworkMotion from '../components/NetworkMotion'
 import { useProfileNames, useReactions, RoomSearch, Highlight, MentionMenu } from '../components/network/ChatExtras'
+import { registerChatSearch } from '../lib/chatSearch'
+import { setChatChromeHidden } from '../lib/chatChrome'
 import { ChatSkeleton } from '../components/network/Skeletons'
 import Icon from '../components/Icon'
 import ChatMedia from '../components/ChatMedia'
@@ -248,14 +250,37 @@ export default function NetworkChat() {
   // has hidden itself. offsetTop is clamped to >= 0 because iOS reports a
   // negative one during a rubber-band pull, which would ride the overlay up over
   // the header.
+  // HIDING THE APP HEADER WHILE YOU READ.
+  //
+  // The rules, and they are deliberately blunt because a header that argues
+  // with you is worse than one that never moves:
+  //   * scrolling the conversation at all hides it
+  //   * so does putting the caret in the composer
+  //   * a press anywhere in the top strip - the tabs, or the sliver beside
+  //     them - brings it back
+  //   * so does reaching the very top of the conversation, because that is
+  //     where you have run out of messages and are looking for something else
+  //   * and it is always released on the way out of the room
+  const [chromeHidden, setChromeHidden] = useState(false)
+  useEffect(() => { setChatChromeHidden(isMobile && chromeHidden) }, [isMobile, chromeHidden])
+  useEffect(() => () => setChatChromeHidden(false), [])
+  const showChrome = useCallback(() => setChromeHidden(false), [])
+  const hideChrome = useCallback(() => { if (isMobile) setChromeHidden(true) }, [isMobile])
+
+  // THE OVERLAY GROWS INTO THE HEADER'S SPACE WHEN THE HEADER LEAVES.
+  // `chromeHidden` and `kbOpen` do the same thing to the top edge for different
+  // reasons - one because the header slid away, one because the keyboard
+  // replaced everything - so they share a branch.
+  const topGone = kbOpen || chromeHidden
   const mobileStyle = isMobile
     ? {
-        top: kbOpen ? 0 : '4rem',
+        top: topGone ? 0 : '4rem',
         height: kbOpen
           ? `${vpHeight}px`
-          : `calc(${vpHeight}px - 4rem - 4.5rem - env(safe-area-inset-bottom))`,
+          : `calc(${vpHeight}px - ${chromeHidden ? '0rem' : '4rem'} - 4.5rem - env(safe-area-inset-bottom))`,
         transform: `translateY(${Math.max(0, vpOffset)}px)`,
-        paddingTop: kbOpen ? 'env(safe-area-inset-top)' : undefined,
+        paddingTop: topGone ? 'env(safe-area-inset-top)' : undefined,
+        transition: 'top 300ms cubic-bezier(0.22,1,0.36,1), height 300ms cubic-bezier(0.22,1,0.36,1)',
       }
     : undefined
 
@@ -268,6 +293,14 @@ export default function NetworkChat() {
   const active = useMemo(
     () => channels.find((c) => c.key === channelKey) || channels[0] || null,
     [channels, channelKey],
+  )
+
+  // THE HEADER'S SEARCH BUTTON SEARCHES THIS ROOM WHILE IT IS OPEN.
+  // See lib/chatSearch for why this is a module-level channel rather than a
+  // prop threaded through the shell.
+  useEffect(
+    () => registerChatSearch({ label: active?.label || 'this room', value: search, onChange: setSearch }),
+    [active?.label, search],
   )
 
   // WHO CAN POST HERE. Two rules and no third.
@@ -646,6 +679,10 @@ export default function NetworkChat() {
   function onScroll(e) {
     const el = e.currentTarget
     atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+    // Reading hides the chrome; running out of messages at the top brings it
+    // back, because that is the moment you are looking for something else.
+    if (el.scrollTop < 12) showChrome()
+    else hideChrome()
   }
 
   // DELETE, WHICH THE ROOMS SIMPLY DID NOT HAVE.
@@ -816,6 +853,9 @@ export default function NetworkChat() {
           desktop-only shape and a stack of full-width room buttons above a
           conversation pushes the conversation off the screen. */}
       <div
+        // A press anywhere along this strip is "give me the chrome back", and
+        // it does not fight the tab underneath it: both happen.
+        onPointerDown={showChrome}
         className="flex shrink-0 items-stretch gap-1 overflow-x-auto border-b border-gray-100 px-2 pt-2 [scrollbar-width:none] lg:hidden [&::-webkit-scrollbar]:hidden"
         role="tablist"
         aria-label={`${community.name} rooms`}
@@ -827,7 +867,9 @@ export default function NetworkChat() {
             aria-selected={active?.key === c.key}
             onClick={() => navigate(`${base}/${c.key}`)}
             className={cx(
-              'flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-xl px-3.5 py-2 text-sm font-semibold transition-colors',
+              // Smaller than they were. Every pixel this strip gives back is a
+              // pixel of conversation, which is what the screen is for.
+              'flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-lg px-3 py-1.5 text-[13px] font-semibold transition-colors',
               active?.key === c.key ? 'bg-brand-tint text-brand' : 'text-smoke hover:bg-cloud hover:text-ink',
             )}
           >
@@ -836,22 +878,12 @@ export default function NetworkChat() {
           </button>
         ))}
 
-        {/* ALL YOUR ROOMS IS A DESTINATION, NOT MORE TABS.
-            This strip briefly continued into every other market's rooms, which
-            on a 375px screen turned the one piece of navigation above a
-            conversation into a horizontal scroller of a dozen near-identical
-            names - and the room you were IN scrolled off the left. The other
-            markets live on /rooms, which is a page built to group them. One
-            tap, and the tab strip stays about the place you are standing in. */}
-        {orderedPlaces.length > 1 && (
-          <Link
-            to="/rooms"
-            className="ml-auto flex shrink-0 items-center gap-1.5 self-center rounded-full border border-gray-200 px-3 py-1.5 text-xs font-medium text-smoke transition-colors active:bg-cloud"
-          >
-            <Icon name="globe" className="h-3.5 w-3.5" />
-            All rooms
-          </Link>
-        )}
+        {/* NO "ALL ROOMS" BUTTON. It sat at the end of a horizontal scroller,
+            which is the one place on the strip you cannot see without scrolling
+            to it - and the Rooms tab in the bottom bar is one tap from
+            anywhere and goes to the same page. Ethan: "I would remove the 'all
+            rooms' button way to the right as it's not needed and it's quicker
+            to just click on the rooms icon at the bottom." */}
       </div>
 
       {/* The hint bar doubles as the room's identity on mobile, where the page
@@ -863,9 +895,16 @@ export default function NetworkChat() {
           thread header gives its search real height and reads properly, so this
           matches it: enough room for a 36px field with air round it, and the
           hint text steps up to the same size. */}
+      {/* DESKTOP ONLY. On a phone this bar was ~40px of permanent chrome saying
+          the room's name - which the highlighted tab directly above it already
+          says - with a search field in it. Ethan: "it shouldn't show up the
+          second bar below the tabs saying announcements or general with the
+          search bar, this takes up too much space, we should be able to see
+          messages here." Search moved into the header's own search button,
+          which points at whichever chat is open (see lib/chatSearch). */}
       {active && (
         <div className={cx(
-          'flex shrink-0 items-center gap-2.5 px-3 py-1.5 text-xs sm:px-4 sm:py-2',
+          'hidden shrink-0 items-center gap-2.5 px-3 py-1.5 text-xs sm:px-4 sm:py-2 lg:flex',
           active.key === 'announcements' ? 'bg-brand-tint font-medium text-brand' : 'bg-cloud/60 text-smoke',
         )}>
           <RoomSearch value={search} onChange={setSearch} count={visible.length} total={messages.length} />
@@ -965,11 +1004,19 @@ export default function NetworkChat() {
                   actionsFor === m.id && 'z-20',
                 )}
               >
-                {/* The face column, reserved even on rows that do not draw one
-                    so a run from one person stays aligned under the first. */}
-                <div className="w-9 shrink-0 self-end pb-5">
-                  {!grouped && !mine && <Avatar src={m.profiles?.photo_url} name={m.profiles?.name} size="sm" />}
-                </div>
+                {/* THE FACE COLUMN, AND ONLY WHERE A FACE CAN GO.
+                    It is reserved on everybody ELSE's rows so a run from one
+                    person stays aligned under the first. It is not reserved on
+                    yours: your messages never draw an avatar, and the row is
+                    `flex-row-reverse`, so an empty 36px column plus its gap sat
+                    against the right edge of every message you sent. Ethan:
+                    "when I send a message there's a lot of unnecessary white
+                    space on the right side." */}
+                {!mine && (
+                  <div className="w-9 shrink-0 self-end pb-5">
+                    {!grouped && <Avatar src={m.profiles?.photo_url} name={m.profiles?.name} size="sm" />}
+                  </div>
+                )}
 
                 <div className={cx('flex w-full min-w-0 max-w-[82%] flex-col sm:max-w-[68%]', mine && 'items-end')}>
                   {/* THE META LINE IS INSIDE MessageActions, and that is the
@@ -1126,6 +1173,8 @@ export default function NetworkChat() {
           mentionNames={mentionNames}
           onChangeMd={onComposerChange}
           onInput={onComposerInput}
+          // Typing is reading's twin here: both want the screen.
+          onFocus={hideChrome}
           onSend={send}
           canSend={!!body.trim()}
           sending={sending}
@@ -1137,6 +1186,7 @@ export default function NetworkChat() {
           onSchedule={() => setAdminTool('schedule')}
           isMobile={isMobile}
           kbOpen={kbOpen}
+          bottomInsetHandled={isMobile}
         >
           {/* WHAT YOU ARE REPLYING TO, WHILE YOU TYPE IT.
               Above the composer and inside it, so it moves with the composer on

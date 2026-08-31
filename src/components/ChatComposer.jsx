@@ -43,6 +43,7 @@ const ChatComposer = forwardRef(function ChatComposer({
   onChangeMd,
   onInput,
   onBlur,
+  onFocus,
   onKeyDown,
   onSend,
   canSend = false,
@@ -59,6 +60,8 @@ const ChatComposer = forwardRef(function ChatComposer({
   // Layout
   isMobile = false,
   kbOpen = false,
+  // The parent already reserves the safe-area inset below this composer.
+  bottomInsetHandled = false,
   className,
   // Anything that belongs between the toolbar and the input row: the reply
   // preview, the @-mention menu, an upload error.
@@ -104,7 +107,14 @@ const ChatComposer = forwardRef(function ChatComposer({
         // is covering that strip, which leaves a 34px band of white between the
         // composer and the keys. That band is the reported "not sitting snugly
         // above the keyboard".
-        !kbOpen && 'pb-[max(0.625rem,env(safe-area-inset-bottom))]',
+        // ...UNLESS THE CONTAINER HAS ALREADY PAID FOR IT. The rooms' mobile
+        // overlay sizes itself to
+        // `vpHeight - header - tabbar - env(safe-area-inset-bottom)`, so its
+        // bottom edge is ALREADY clear of the home indicator. Adding the inset
+        // again here counted it twice, which is the band of dead white under
+        // the message bar with the keyboard down: "there's a lot of unused
+        // white space below it, there's too much."
+        !kbOpen && !bottomInsetHandled && 'pb-[max(0.625rem,env(safe-area-inset-bottom))]',
         className,
       )}
     >
@@ -174,6 +184,7 @@ const ChatComposer = forwardRef(function ChatComposer({
           onChangeMd={onChangeMd}
           onInput={onInput}
           onBlur={onBlur}
+          onFocus={onFocus}
           onKeyDown={(e) => {
             // Enter sends on a real keyboard; Shift+Enter is a new line. On a
             // phone Enter is the newline key and there is a send button right

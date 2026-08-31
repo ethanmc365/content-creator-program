@@ -8,6 +8,8 @@ import Icon from '../Icon'
 import NotificationBell from './NotificationBell'
 import TourGate from '../tour/TourGate'
 import PullToRefresh from '../PullToRefresh'
+import { useChatSearchTarget } from '../../lib/chatSearch'
+import { useChatChromeHidden } from '../../lib/chatChrome'
 import { showLocalNotification } from '../../lib/push'
 import { startHeartbeat } from '../../lib/presence'
 import { stripMarkup } from '../../lib/richText'
@@ -94,7 +96,69 @@ export function activeTab(pathname) {
   return null
 }
 
+// The header's search, while a chat room is open. Collapsed it is the same
+// round button the palette uses; pressed, it becomes a field over the header's
+// own row, because a phone header has no room for a permanent input beside a
+// logo, an admin pill, a bell and an avatar.
+function ChatSearchField({ target }) {
+  const [open, setOpen] = useState(false)
+  const inputRef = useRef(null)
+
+  useEffect(() => { if (open) inputRef.current?.focus() }, [open])
+
+  // LEAVING THE ROOM CLEARS WHATEVER WAS TYPED, so a filter can never outlive
+  // the screen that explains it - but ONLY on the way out.
+  //
+  // THE BUG THIS FIXES: this was `useEffect(() => () => target.onChange(''),
+  // [target])`, and `target` is rebuilt every time the search value changes.
+  // So every keystroke changed the identity, React ran the cleanup, and the
+  // cleanup wiped the search that had just been typed. The field worked and
+  // filtered nothing. The callback goes through a ref so the unmount effect can
+  // have an empty dependency list and still call the current one.
+  const onChangeRef = useRef(target.onChange)
+  useEffect(() => { onChangeRef.current = target.onChange })
+  useEffect(() => () => onChangeRef.current(''), [])
+
+  const close = () => { target.onChange(''); setOpen(false) }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        aria-label={`Search ${target.label}`}
+        data-tour="search"
+        className="flex items-center gap-2 rounded-full border border-gray-200 px-2.5 py-1.5 text-smoke transition-colors hover:border-brand hover:text-brand"
+      >
+        <Icon name="magnifier" className="h-4 w-4" />
+      </button>
+    )
+  }
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded-full border border-brand/40 bg-white pl-3 pr-1">
+      <Icon name="magnifier" className="h-4 w-4 shrink-0 text-brand" />
+      <input
+        ref={inputRef}
+        value={target.value}
+        onChange={(e) => target.onChange(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Escape') close() }}
+        placeholder={`Search ${target.label}`}
+        aria-label={`Search ${target.label}`}
+        className="min-w-0 flex-1 bg-transparent py-1.5 text-sm outline-none placeholder:text-gray-400"
+      />
+      <button
+        onClick={close}
+        aria-label="Close search"
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-smoke transition-colors hover:bg-cloud hover:text-ink"
+      >
+        <Icon name="close" className="h-4 w-4" />
+      </button>
+    </div>
+  )
+}
+
 export default function AppLayout() {
+  const chatSearch = useChatSearchTarget()
+  const chromeHidden = useChatChromeHidden()
   const { profile, isAdmin, impersonating, exitCreatorPreview, user, signOut } = useAuth()
   const { pathname } = useLocation()
   // Which of the five tabs the current URL belongs to. See activeTab above.
@@ -369,7 +433,18 @@ export default function AppLayout() {
       {/* ------- Top navbar ------- */}
       {/* data-ptr-handle: the only place a pull-to-refresh gesture arms, so
           scrolling chats never triggers a reload (see PullToRefresh). */}
-      <header data-ptr-handle className="sticky top-0 z-40 border-b border-gray-100 bg-white/90 backdrop-blur">
+      {/* IT SLIDES AWAY WHILE YOU ARE READING A CHAT. See lib/chatChrome: the
+          room asks, the shell obeys, and every other page is untouched. The
+          transform is on the header itself so it composites, and the chat
+          overlay grows into the space in the same 300ms. */}
+      <header
+        data-ptr-handle
+        className={cx(
+          'sticky top-0 z-40 border-b border-gray-100 bg-white/90 backdrop-blur',
+          'transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+          chromeHidden && '-translate-y-full',
+        )}
+      >
         {/* White shield directly ABOVE the header. Normally off-screen; if iOS
             rubber-bands the page down at the top it fills that gap with clean
             white instead of letting the fixed chat overlay's tabs peek above
@@ -395,10 +470,18 @@ export default function AppLayout() {
             ))}
           </nav>
 
-          <div className="flex items-center gap-2">
-            {/* Search. A visible affordance for the palette: a keyboard shortcut
-                nobody is told about is a feature that does not exist. */}
-            {(
+          <div className="flex min-w-0 items-center gap-2">
+            {/* SEARCH. THE SAME BUTTON, POINTED AT WHATEVER IS OPEN.
+                Everywhere else it opens the command palette, which is what a
+                keyboard shortcut nobody is told about needs. Inside a chat room
+                it searches THAT ROOM instead - because the room's own search bar
+                is gone from the phone layout, where a permanent 40px band of
+                chrome above a conversation was costing more than it earned. See
+                lib/chatSearch: the room registers itself while it is open, so
+                this is a chat search only while there is a chat to search. */}
+            {chatSearch ? (
+              <ChatSearchField target={chatSearch} />
+            ) : (
               <button
                 onClick={() => setPaletteOpen(true)}
                 aria-label="Search"
