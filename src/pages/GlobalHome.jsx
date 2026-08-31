@@ -647,6 +647,20 @@ export default function GlobalHome() {
               happening across the network right now" already wraps to two lines
               under a 3xl name, and the pair was eating 140px of an 812px screen
               before a single piece of content. */}
+          {/* IT WAITS FOR THE DATA TOO, and that is what finally fixed the
+              timing. The greeting depends on nothing, so it used to render on
+              the first paint and reveal itself about 80ms later - while every
+              section under it was still behind `!d`, waiting on the network,
+              and only started animating once the query landed. So the greeting
+              was not arriving early by a frame or two; it was arriving a whole
+              round trip before anything else, which is the "hey Ethan appears
+              in immediately, whereas the other things smoothly animate in"
+              report. Adding delay to the greeting alone could never close a gap
+              whose size is the latency of a query.
+              It joins the same gate as the rest, and the ladder then does what
+              it was written to do: greeting, then the first sections, 50ms
+              apart, all off one moment. */}
+          {d && (
           <Reveal from="down" delay={stepDelay()} className="-mb-3">
             <section>
               <h1 className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">
@@ -665,6 +679,7 @@ export default function GlobalHome() {
               </p>
             </section>
           </Reveal>
+          )}
 
           {/* NOTHING BELOW THE GREETING RENDERS UNTIL THE DATA IS IN.
               THE BUG THIS FIXES: five of the sections here are conditional on
@@ -675,9 +690,12 @@ export default function GlobalHome() {
               reported "the order isn't right, and then it corrects itself after
               a split second". You cannot stagger your way out of that; the only
               fix is to not draw a list you are about to reorder. The greeting
-              stays instant because it depends on nothing. */}
+              is inside the gate too now - see the note above it. */}
           {!d ? (
             <div className="space-y-9" aria-hidden>
+              {/* The first one is the greeting's own line, so the page does not
+                  reflow when the name arrives. */}
+              <Skeleton className="h-10 w-56" />
               <Skeleton className="h-32" />
               <Skeleton className="h-56" />
               <Skeleton className="h-40" />
