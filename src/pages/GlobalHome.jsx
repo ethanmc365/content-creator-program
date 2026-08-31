@@ -23,6 +23,7 @@ import Icon from '../components/Icon'
 import { Avatar, EmptyState, Skeleton } from '../components/ui'
 import { flagForCountry } from '../lib/flags'
 import { stripMarkup } from '../lib/richText'
+import { ANNOUNCEMENT_MAX_AGE_DAYS, recentAnnouncements } from '../lib/announcements'
 import { cx, timeAgo } from '../lib/utils'
 import { useIsMobile } from '../lib/useKeyboardInset'
 import { cardHover } from '../lib/motion'
@@ -274,12 +275,19 @@ export default function GlobalHome() {
         supabase.from('profiles').select('id', { count: 'exact', head: true })
           .eq('status', 'active').eq('is_admin', false).eq('is_test', false),
         supabase.from('challenges').select('id, title, community_id, status, end_date, scoring').eq('status', 'active'),
-        // The worldwide announcement thread. Chapter announcements live in the
-        // market's own room and are shown there, not mixed in here.
+        // ANNOUNCEMENTS FROM EVERY ROOM THIS CREATOR CAN READ, not just the
+        // worldwide one. Somebody in the UK and Spain had no way to see either
+        // market's announcements from the hub, which is what a hub is for.
+        // No market filter is needed or wanted: migration 149's RLS already
+        // decides which announcement rooms are readable, so asking for all of
+        // them returns exactly the right set. Fetch a window wider than the
+        // cutoff and let recentAnnouncements() do the trimming, so the rule
+        // lives in one tested place.
         supabase.from('messages')
           .select('*, profiles:sender_id(name, photo_url)')
           .eq('channel', 'announcements').eq('deleted', false)
-          .order('created_at', { ascending: false }).limit(1).maybeSingle(),
+          .gte('created_at', new Date(Date.now() - ANNOUNCEMENT_MAX_AGE_DAYS * 86400000).toISOString())
+          .order('created_at', { ascending: false }).limit(40),
         supabase.from('collab_posts')
           .select('id, city, country, start_date, end_date, profiles:creator_id(name, photo_url)')
           .gte('end_date', today).order('start_date', { ascending: true }).limit(6),
@@ -343,7 +351,7 @@ export default function GlobalHome() {
       const latestResource = latestRes?.[0]?.created_at ? new Date(latestRes[0].created_at).getTime() : 0
       const seenResources = profile?.resources_seen_at ? new Date(profile.resources_seen_at).getTime() : 0
       setD({
-        counts: tally, creators, live, ann, trips: trips || [], fresh: fresh || [],
+        counts: tally, creators, live, anns: recentAnnouncements(ann), trips: trips || [], fresh: fresh || [],
         visited: [...new Set((visited || []).flatMap((p) => p.countries_visited || []))],
         connReqs: connCount ?? 0,
         newResources: latestResource > seenResources,
@@ -999,22 +1007,53 @@ export default function GlobalHome() {
               the board that survives is /leaderboard - worldwide, filterable by
               market, with everybody on it. */}
 
-          {/* ---------- Latest announcement ---------- */}
-          {d?.ann && (
+          {/* ---------- Latest announcements ---------- */}
+          {/* One card per room the creator can read, newest first, nothing
+              older than fifteen days - see lib/announcements. The card says
+              WHICH market it came from, because "Latest announcements" over an
+              unlabelled stack of three is three announcements from nowhere. */}
+          {d?.anns?.length > 0 && (
             <Reveal from="down" delay={stepDelay()}>
               <section>
-                <SectionHead icon="megaphone" title="Latest announcement" to="/global/chat/announcements" toLabel="All announcements" />
-                <Link to="/global/chat/announcements"
-                  className="card block border-l-4 !border-l-brand transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift">
-                  <div className="flex items-center gap-3">
-                    <Avatar src={d.ann.profiles?.photo_url} name={d.ann.profiles?.name} size="sm" />
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold">{d.ann.profiles?.name}</p>
-                      <p className="text-xs text-smoke">{timeAgo(d.ann.created_at)}</p>
-                    </div>
-                  </div>
-                  <p className="mt-3 line-clamp-3 text-sm text-ink">{stripMarkup(d.ann.body)}</p>
-                </Link>
+                <SectionHead
+                  icon="megaphone"
+                  title={d.anns.length === 1 ? 'Latest announcement' : 'Latest announcements'}
+                  to="/global/chat/announcements"
+                  toLabel="All announcements"
+                />
+                <Reveal className="grid gap-3 sm:grid-cols-2" stagger={0.07}>
+                  {d.anns.map((a) => {
+                    // The worldwide room carries a real community_id (every
+                    // announcement on the live site today is in it), so it has
+                    // to be recognised by id rather than by a null - otherwise
+                    // it gets hunted for in the market list, is not found, and
+                    // falls through to the same label by luck rather than
+                    // design. `chapters`, not `openMarkets`, for the rest: an
+                    // announcement can come from a market that is paused, and
+                    // calling that one "Worldwide" would be a lie.
+                    const from = a.community_id && a.community_id !== network?.id
+                      ? (chapters.find((m) => m.id === a.community_id) || null)
+                      : null
+                    return (
+                      <Link
+                        key={a.id}
+                        to={from ? `/c/${from.slug}/chat/announcements` : '/global/chat/announcements'}
+                        className="card block border-l-4 !border-l-brand transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Avatar src={a.profiles?.photo_url} name={a.profiles?.name} size="sm" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold">{a.profiles?.name}</p>
+                            <p className="text-xs text-smoke">
+                              {from ? from.name : network?.name || 'Worldwide'} · {timeAgo(a.created_at)}
+                            </p>
+                          </div>
+                        </div>
+                        <p className="mt-3 line-clamp-3 text-sm text-ink">{stripMarkup(a.body)}</p>
+                      </Link>
+                    )
+                  })}
+                </Reveal>
               </section>
             </Reveal>
           )}
