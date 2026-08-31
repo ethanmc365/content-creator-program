@@ -55,6 +55,88 @@
     <title>Tryp.com Creator Program</title>
   </head>
   <body>
+    <!-- THE FIRST FRAME IS ORANGE, NOT WHITE.
+         Everything below this line is inline on purpose. Between the browser
+         painting the document and React mounting there is a gap - the bundle
+         has to arrive and parse - and for that gap `#root` is empty, so the
+         app opened on a white screen and then jumped to a plane on a white
+         screen and then to the platform. Ethan: "when you first open it, it
+         briefly shows a blank screen then the line with the airplane icon
+         animation... rather than the white screen, a full Tryp.com orange
+         screen showing the airplane animation on it in a nice design, and then
+         it opens the platform in a smooth animation."
+         An external stylesheet or a script would be another round trip and
+         would defeat the point: this has to be paintable from the HTML alone,
+         on the very first frame, with nothing fetched. It is removed by
+         main.jsx once React has rendered. -->
+    <style>
+      #boot {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483647;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1.75rem;
+        background: linear-gradient(150deg, #d94407 0%, #d94407 45%, #f5853f 100%);
+        /* The fade out. `visibility` rides along so the layer stops taking
+           presses the instant it starts leaving, rather than 420ms later. */
+        transition: opacity 420ms ease-out, visibility 420ms ease-out;
+      }
+      #boot.gone { opacity: 0; visibility: hidden; }
+      /* The runway: a dashed line the plane crosses, the same shape the
+         in-app PlaneLoader uses, in white on the brand instead of brand on
+         white. */
+      #boot .strip {
+        position: relative;
+        display: flex;
+        align-items: center;
+        width: 190px;
+        height: 44px;
+        overflow: hidden;
+      }
+      #boot .line {
+        position: absolute;
+        left: 0; right: 0; top: 50%;
+        border-top: 2px dashed rgba(255, 255, 255, 0.4);
+      }
+      #boot svg {
+        position: relative;
+        width: 34px;
+        height: 34px;
+        color: #fff;
+        animation: boot-fly 2.1s cubic-bezier(0.4, 0, 0.35, 1) infinite;
+      }
+      #boot .word {
+        font: 600 15px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.85);
+      }
+      @keyframes boot-fly {
+        0%   { transform: translateX(-46px) translateY(0); opacity: 0; }
+        14%  { opacity: 1; }
+        50%  { transform: translateX(72px) translateY(-4px); }
+        86%  { opacity: 1; }
+        100% { transform: translateX(190px) translateY(0); opacity: 0; }
+      }
+      /* Somebody who has asked for less motion gets the plane parked on the
+         runway rather than no splash at all - the colour is the point. */
+      @media (prefers-reduced-motion: reduce) {
+        #boot svg { animation: none; transform: translateX(72px); }
+      }
+    </style>
+    <div id="boot" role="status" aria-label="Loading Tryp.com">
+      <div class="strip">
+        <div class="line"></div>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+        </svg>
+      </div>
+      <span class="word">Tryp.com</span>
+    </div>
+
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

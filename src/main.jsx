@@ -39,6 +39,42 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   </React.StrictMode>
 )
 
+// THE ORANGE SPLASH LEAVES ONCE THERE IS SOMETHING BEHIND IT.
+//
+// index.html paints `#boot` on the first frame so the app never opens on white
+// (see the note there). It has to be dismissed from here, and it has to wait
+// for a PAINT rather than for `render()` to return: `createRoot().render` only
+// schedules the work, so fading on the next line would uncover a root that is
+// still empty and put the white frame back, one step later.
+//
+// Two animation frames is the reliable signal - the first is scheduled from
+// this task, the second runs after React has committed and the browser has
+// drawn. The class starts a 420ms CSS fade; the element is removed after it,
+// so nothing is left holding a full-screen layer over the app.
+{
+  const boot = document.getElementById('boot')
+  if (boot) {
+    let done = false
+    const dismiss = () => {
+      if (done) return
+      done = true
+      boot.classList.add('gone')
+      setTimeout(() => boot.remove(), 500)
+    }
+    // AND A TIMER BEHIND THE rAF, which is not belt and braces - it is the
+    // whole difference between this working and this being a bug.
+    //
+    // requestAnimationFrame DOES NOT RUN IN A BACKGROUND TAB. Somebody who
+    // opens the app in a tab they are not looking at would have the frames
+    // never fire, and would come back to a full-screen orange layer over their
+    // app until the moment they focused it. This codebase has been bitten by
+    // exactly this before, in `Reveal`, and the rule written down there is the
+    // rule here: never gate content on rAF alone. Whichever fires first wins.
+    requestAnimationFrame(() => requestAnimationFrame(dismiss))
+    setTimeout(dismiss, 400)
+  }
+}
+
 // Register the service worker, then cache the app's actual loaded assets so the
 // app can boot with no connection. The SW only precaches the HTML shell (it
 // can't know the content-hashed JS/CSS filenames); the page CAN see them in the
