@@ -774,9 +774,25 @@ export default function GlobalHome() {
                     const closes = challengeDeadline(challenge.end_date)
                     const days = Math.max(0, Math.ceil((closes - nowMs) / 86400000))
                     return (
+                      // A GRADIENT AND A HORIZON, NOT A SLAB OF ORANGE.
+                      // Solid brand was right about the weight and wrong about
+                      // the finish: 340x86 of one flat colour is a lot of paint
+                      // on a white page. Ethan: "I like the Tryp.com orange, it
+                      // really stands out but it's almost too much, maybe need
+                      // something else there to make the UI better." So it is
+                      // the same gradient the desktop hero card uses, with a
+                      // soft bloom in the corner and the market's own flags on
+                      // it - which also answers "which of my markets is this"
+                      // without spending a line on it.
                       <Link key={challenge.id} to={`/challenges/${challenge.id}`}
-                        className="flex items-center gap-3 rounded-card bg-brand px-4 py-3.5 text-white shadow-card transition-transform duration-200 active:scale-[0.99]">
-                        <span className="min-w-0 flex-1">
+                        className="relative flex items-center gap-3 overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light px-4 py-3.5 text-white shadow-card transition-transform duration-200 active:scale-[0.99]">
+                        <span aria-hidden className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-white/15 blur-2xl" />
+                        {!isGlobal && market?.country_codes?.length > 0 && (
+                          <span aria-hidden className="relative shrink-0 text-lg leading-none">
+                            <FlagStack codes={market.country_codes} className="text-lg" />
+                          </span>
+                        )}
+                        <span className="relative min-w-0 flex-1">
                           <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/80">
                             <span className="relative flex h-1.5 w-1.5">
                               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/70" />
@@ -790,7 +806,7 @@ export default function GlobalHome() {
                             {' · Submit your video'}
                           </span>
                         </span>
-                        <Icon name="chevronRight" className="h-5 w-5 shrink-0 text-white/70" />
+                        <Icon name="chevronRight" className="relative h-5 w-5 shrink-0 text-white/70" />
                       </Link>
                     )
                   })}

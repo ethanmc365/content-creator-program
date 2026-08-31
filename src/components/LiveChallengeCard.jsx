@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom'
 import CountdownTimer from './CountdownTimer'
 import Icon from './Icon'
+import { Avatar } from './ui'
 import ParticipationBar from './network/ParticipationBar'
-import { cx, formatDate } from '../lib/utils'
+import { cx, formatDate, formatViews } from '../lib/utils'
 
 // THE CARD FOR A CHALLENGE THAT IS ACTUALLY RUNNING.
 //
@@ -79,7 +80,47 @@ function PrizeChips({ prizes }) {
   )
 }
 
-export default function LiveChallengeCard({ challenge: c, global: isGlobal, entries, participation }) {
+// WHO IS AHEAD, RIGHT NOW.
+//
+// A live challenge card said what the brief was and when it closed, and nothing
+// at all about how it was going - so the one card on the platform whose whole
+// job is to get somebody to enter had no reason in it. Ethan: "perhaps on the
+// actual card under challenges show something about the prizes, or a top 3
+// leaderboard, as we have automatic view tracking this could work, I just think
+// it needs a better design to encourage people to participate."
+//
+// View counts are read off every entry's link automatically, so this costs one
+// query and is never stale by more than a sync. It is deliberately SMALL: three
+// rows, first names, no ranks beyond the position itself. A leaderboard that
+// dominates the card would tell the ninety percent not in the top three that
+// they have already lost, which is the opposite of the point - what it is for
+// is showing that entering is a thing people are doing.
+//
+// Desktop only. The phone's card was cut to a title, a clock and a button on
+// purpose, and this would put most of it back.
+function Leaders({ leaders }) {
+  if (!leaders?.length) return null
+  const place = ['1st', '2nd', '3rd']
+  return (
+    <div className="mt-6 hidden rounded-2xl bg-white/12 p-4 backdrop-blur-[2px] lg:block">
+      <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-widest text-white/75">
+        Leading right now
+      </p>
+      <div className="space-y-1.5">
+        {leaders.slice(0, 3).map((l, i) => (
+          <div key={l.creator_id} className="flex items-center gap-2.5">
+            <span className="w-7 shrink-0 text-[11px] font-bold tabular-nums text-white/70">{place[i]}</span>
+            <Avatar src={l.photo_url} name={l.name} size="xs" />
+            <span className="min-w-0 flex-1 truncate text-sm font-medium">{l.name?.split(' ')[0]}</span>
+            <span className="shrink-0 text-sm font-bold tabular-nums">{formatViews(l.views)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export default function LiveChallengeCard({ challenge: c, global: isGlobal, entries, participation, leaders }) {
   return (
     <div>
       <div
@@ -153,6 +194,8 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
           </Link>
 
           <PrizeChips prizes={c.prize_structure} />
+
+          <Leaders leaders={leaders} />
 
           <div className="mt-5 flex flex-col gap-5 sm:mt-8 sm:gap-7 lg:flex-row lg:items-end lg:justify-between">
             <div>

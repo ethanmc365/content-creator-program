@@ -59,28 +59,40 @@ export function MarketHeaderSkeleton() {
 
 // Matches LiveChallengeCard's hero: badge row, title, two lines, countdown
 // tiles on the left and buttons on the right.
+//
+// AND IT MATCHES THE PHONE'S CARD TOO, which is a different shape since that
+// card was cut down: no blurb, a one-line clock instead of four tiles, one
+// button instead of two. A skeleton that promises a paragraph and four tiles
+// and then hands over a card two hundred pixels shorter is the jump it exists
+// to prevent. Ethan: "the loading previews of cards across the platform, I've
+// noticed sometimes the preview shows 3 small cards when it's actually loading
+// a big card." The rule at the top of this file cuts both ways: the skeleton
+// and the component change together.
 export function LiveChallengeSkeleton() {
   return (
-    <div className="rounded-card border border-gray-100 bg-white p-6 shadow-card sm:p-10">
+    <div className="rounded-card border border-gray-100 bg-white p-5 shadow-card sm:p-10">
       <div className="flex flex-wrap gap-3">
         <Skeleton className="h-7 w-40 rounded-full" />
-        <Skeleton className="h-7 w-32 rounded-full" />
+        <Skeleton className="hidden h-7 w-32 rounded-full sm:block" />
       </div>
-      <Skeleton className="mt-5 h-9 w-2/3 rounded-lg" />
-      <div className="mt-3 space-y-2">
+      <Skeleton className="mt-3 h-7 w-2/3 rounded-lg sm:mt-5 sm:h-9" />
+      <div className="mt-3 hidden space-y-2 sm:block">
         <Line w="w-full" />
         <Line w="w-3/4" />
       </div>
-      <div className="mt-8 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+      <div className="mt-5 flex flex-col gap-5 sm:mt-8 sm:gap-6 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <Line w="w-20" h="h-3" className="mb-3" />
-          <div className="flex gap-2.5">
+          <Line w="w-20" h="h-3" className="mb-2 sm:mb-3" />
+          {/* Four tiles from `sm`, one line below it - the two clocks the card
+              actually draws. */}
+          <div className="hidden gap-2.5 sm:flex">
             {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-16 rounded-xl" />)}
           </div>
+          <Skeleton className="h-6 w-40 rounded-md sm:hidden" />
         </div>
         <div className="flex gap-3">
-          <Skeleton className="h-11 w-36 rounded-full" />
-          <Skeleton className="h-11 w-40 rounded-full" />
+          <Skeleton className="hidden h-11 w-36 rounded-full sm:block" />
+          <Skeleton className="h-11 w-full rounded-full sm:w-40" />
         </div>
       </div>
     </div>

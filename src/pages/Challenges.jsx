@@ -4,7 +4,8 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useMyScopes, inScope } from '../lib/scope'
 import Icon from '../components/Icon'
-import { PageHeader, Badge, SkeletonCards, EmptyState } from '../components/ui'
+import { PageHeader, Badge, Skeleton, EmptyState } from '../components/ui'
+import { LiveChallengeSkeleton } from '../components/network/Skeletons'
 import { formatDate, formatMoney, challengeDeadline } from '../lib/utils'
 import { convert } from '../lib/programme'
 import Reveal from '../components/network/Reveal'
@@ -69,6 +70,42 @@ export default function Challenges() {
     }
     load()
   }, [])
+
+  // WHO IS AHEAD IN EACH LIVE CHALLENGE. See the Leaders block in
+  // LiveChallengeCard for why a live card carries a top three at all.
+  //
+  // Summed per creator, because somebody can post more than one entry and the
+  // board ranks people rather than videos. Test accounts are dropped: a sandbox
+  // profile at the top of a live leaderboard is not encouraging, it is a bug
+  // report waiting to be written.
+  const [leaders, setLeaders] = useState({})
+  useEffect(() => {
+    const liveIds = challenges
+      .filter((c) => c.status === 'active' && challengeDeadline(c.end_date).getTime() > Date.now())
+      .map((c) => c.id)
+    if (!liveIds.length) return undefined
+    let cancelled = false
+    supabase.from('submissions')
+      .select('challenge_id, creator_id, logged_views, profiles:creator_id(name, photo_url, is_test)')
+      .in('challenge_id', liveIds)
+      .then(({ data }) => {
+        if (cancelled) return
+        const byChallenge = {}
+        for (const s of data || []) {
+          if (s.profiles?.is_test) continue
+          const bucket = (byChallenge[s.challenge_id] ||= new Map())
+          const cur = bucket.get(s.creator_id) || { creator_id: s.creator_id, name: s.profiles?.name, photo_url: s.profiles?.photo_url, views: 0 }
+          cur.views += Number(s.logged_views) || 0
+          bucket.set(s.creator_id, cur)
+        }
+        const out = {}
+        for (const [id, bucket] of Object.entries(byChallenge)) {
+          out[id] = [...bucket.values()].filter((x) => x.views > 0).sort((a, b) => b.views - a.views).slice(0, 3)
+        }
+        setLeaders(out)
+      })
+    return () => { cancelled = true }
+  }, [challenges])
 
   // Participation, computed per live challenge and against the RIGHT crowd.
   //
@@ -176,7 +213,30 @@ export default function Challenges() {
       )}
 
       {loading || scopesLoading ? (
-        <SkeletonCards count={3} />
+        // THE SKELETON IS THE SHAPE OF WHAT IS COMING, not three small cards.
+        // This page loads ONE big live challenge card and then a two-column
+        // grid of past ones; `SkeletonCards` drew a three-column grid of little
+        // avatar-and-two-lines tiles, so the placeholder and the page had
+        // nothing in common and everything moved when the data landed.
+        <div className="space-y-12">
+          <LiveChallengeSkeleton />
+          <div>
+            <Skeleton className="mb-5 h-6 w-40 rounded-md" />
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              {[0, 1].map((i) => (
+                <div key={i} className="card space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <Skeleton className="h-6 w-20 rounded-full" />
+                    <Skeleton className="h-4 w-40 rounded-md" />
+                  </div>
+                  <Skeleton className="h-6 w-3/4 rounded-md" />
+                  <Skeleton className="h-4 w-full rounded-md" />
+                  <Skeleton className="h-24 w-full rounded-xl" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       ) : mine.length === 0 ? (
         <EmptyState icon={<Icon name="flag" className="h-7 w-7" />} title="No challenges yet" hint="The first challenge will appear here once the team posts it." />
       ) : (
@@ -214,6 +274,7 @@ export default function Challenges() {
                 global={isGlobal(c)}
                 entries={c.submissions?.[0]?.count ?? 0}
                 participation={participation[c.id]}
+                leaders={leaders[c.id]}
               />
             </Reveal>
           ))}
