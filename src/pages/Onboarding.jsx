@@ -8,7 +8,7 @@ import {
   AvatarUpload, CountrySelect, LanguageSelect, SocialInputs, DobField, PhoneInput, QuoteField,
 } from '../components/ProfileFields'
 import WorldMap from '../components/WorldMap'
-import TravelGallery from '../components/TravelGallery'
+import PhotoBoard from '../components/PhotoBoard'
 import Icon from '../components/Icon'
 import TrypPlaneScene from '../components/TrypPlaneScene'
 import { geocodeCity } from '../lib/geocode'
@@ -530,7 +530,12 @@ export default function Onboarding() {
               <div className="space-y-9">
                 <div>
                   <p className="label">{tr("Travel photos")}</p>
-                  {demo ? <DemoGallery /> : <TravelGallery creatorId={user.id} editable />}
+                  {/* The board, not a second uploader. TravelGallery was the
+                      one other place a creator could add a photo and it drew a
+                      different grid with a different set of controls; the board
+                      owns adding, captioning, sizing and ordering now, and it
+                      is the same component the profile renders. */}
+                  {demo ? <DemoGallery /> : <PhotoBoard creatorId={user.id} editable alwaysArranging />}
                 </div>
                 <BucketList rows={draft.bucket_list} onChange={(bucket_list) => set({ bucket_list })} />
               </div>

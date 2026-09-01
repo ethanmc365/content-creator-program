@@ -37,6 +37,10 @@ const EMPTY_GEO = { type: 'FeatureCollection', features: [] }
 // `here` puts ONE person on the map, where they are today. See the note above
 // the marker at the foot of this file for what it draws and why it is a face
 // rather than a pin.
+// The zoom range this map allows. Module scope so every reader of it - the
+// full-screen open, the + / - buttons - is looking at the same two numbers.
+const clampZoom = (z) => Math.min(8, Math.max(1, z))
+
 function WorldMap({ selected = [], onToggle, selectable = false, chips = false, focusCountry = null, fitSelected = false, owner = null, here = null }) {
   const dark = useIsDark()
   const [country, setCountry] = useState(null)
@@ -75,19 +79,41 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
     return () => { release(); document.removeEventListener('keydown', onKey) }
   }, [full])
 
-  // AND IT OPENS BIGGER THAN IT WAS.
+  // IT OPENS ON THE FRAME YOU WERE ALREADY LOOKING AT (fixed 1 Sep 2026).
   //
-  // The map is 880x440 and it fits to the WIDTH, so on a 375px phone it draws
-  // 187px tall whether it is in a card or filling the screen - "full screen"
-  // that changes nothing but the surroundings is a button that lies. The world
-  // cannot fill a portrait screen without being cropped, so opening zoomed is
-  // the trade: you see less of the map at once and far more of what you are
-  // looking at, and the - button is right there. Closing puts the frame back.
+  // Ethan: "when you click the full screen mode on the map, it starts with the
+  // map zoomed in a bit, rather than just showing it normally first."
+  //
+  // It used to force `zoom >= 2` AND drop `fitPos`/`focusPos` on the way in. So
+  // pressing full screen did two things nobody asked for: it threw away the
+  // frame fitted to this creator's own countries - the entire point of the map
+  // on a profile - and then zoomed into whatever happened to be in the middle
+  // afterwards. Opening full screen is a request for MORE of the same picture,
+  // never a different one.
+  //
+  // WHAT THE FORCED ZOOM WAS FOR, and why it is not needed. The map is 880x440
+  // and fits to WIDTH, so it used to draw a 187px strip in the middle of a
+  // white screen and "full screen" changed only the surroundings. That is fixed
+  // by the BOX (`h-full` below plus `preserveAspectRatio="xMidYMid slice"`),
+  // which is a layout answer to a layout problem - the camera was never the
+  // right place to solve it, and moving the camera is what somebody notices.
+  //
+  // The fit is carried across as the position rather than left as an override,
+  // because `zoomBy` and the map's own gestures write `position` and the
+  // overrides would be dropped on the first pinch anyway - so this keeps the
+  // frame AND makes it editable, which is what full screen is for.
   useEffect(() => {
     if (!full) return
+    setPosition((p) => {
+      const base = focusPos || fitPos || p
+      return { coordinates: base.coordinates, zoom: clampZoom(base.zoom) }
+    })
     setFocusPos(null)
     setFitPos(null)
-    setPosition((p) => ({ ...p, zoom: clampZoom(Math.max(p.zoom, 2)) }))
+    // `focusPos` / `fitPos` are read once, on the frame full screen opens; they
+    // are deliberately not dependencies, or re-fitting mid-view would re-frame
+    // a map somebody is already panning.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [full])
 
   // The full country-name list for the search box, shared with the collab board.
@@ -145,7 +171,6 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
   // the map went on drawing `fitPos`, and the control did nothing at all. Both
   // overrides are dropped the moment you touch the zoom, taking the frame you
   // can currently see as the starting point so nothing jumps.
-  const clampZoom = (z) => Math.min(8, Math.max(1, z))
   const zoomBy = (factor) => {
     const base = focusPos || fitPos || position
     setFocusPos(null)
@@ -247,6 +272,13 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
           height={440}
           projectionConfig={{ scale: 160, center: [12, 8] }}
           style={{ width: '100%', height: full ? '100%' : 'auto', display: 'block' }}
+          // FILL THE SCREEN, DO NOT LETTERBOX IT. The default `meet` fits the
+          // whole 880x440 viewBox inside the box, so on a portrait phone full
+          // screen drew the same 187px strip it drew in the card and only the
+          // white around it changed. `slice` fills the box and crops the
+          // overflow instead, which is what makes the map actually bigger - and
+          // it is why the camera no longer has to be moved to fake it.
+          preserveAspectRatio={full ? 'xMidYMid slice' : 'xMidYMid meet'}
           aria-label="World map of countries visited"
         >
           <ZoomableGroup

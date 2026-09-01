@@ -5,6 +5,7 @@ import { roleBadgeTitle } from '../lib/roles'
 import { useAuth } from '../context/AuthContext'
 import WorldMap from '../components/WorldMap'
 import PhotoBoard from '../components/PhotoBoard'
+import PhotoLightbox from '../components/PhotoLightbox'
 import VideoThumb from '../components/VideoThumb'
 import MilestoneSnippet from '../components/network/MilestoneSnippet'
 import ProfileFlights from '../components/network/ProfileFlights'
@@ -195,6 +196,15 @@ export default function Profile() {
     }
     return null
   }, [creator, currentTrip, centroids, isMe])
+
+  // The header avatar opens full size, round. See the note beside it.
+  const [avatarOpen, setAvatarOpen] = useState(false)
+
+  // THE TWO FACTS THE HEADER USED TO CARRY, now read by the clock card.
+  // Derived once so the header and the card cannot disagree about whether
+  // there is anything to show.
+  const homeLine = [creator?.city, creator?.country].filter(Boolean).join(', ') || ''
+  const shownAge = (creator ? (ageFromDob(creator.dob) ?? creator.age) : null) || null
 
   // WHERE THEY ARE HEADED, FROM BOTH SOURCES, IN ONE ORDER.
   //
@@ -390,62 +400,111 @@ export default function Profile() {
       )
   const clock = (
         <>
-{/* WHERE THEY ARE RIGHT NOW, AND IT LEADS THE RAIL.
-            It used to sit above the map, which is where somebody looks when
-            they wonder - but it is a one-line fact about a person, not a
-            caption for a picture, and at the top of the rail it is the first
-            thing read on the whole page after the name. */}
-        {here && (
+{/* WHERE THEY ARE, WHAT TIME IT IS THERE, AND WHO THEY ARE. IT LEADS THE RAIL.
+            (Reworked 1 Sep 2026.)
+
+            Ethan: "I would like the role name like creator or Tryp.com CCC Lead
+            to be below the name and for the home 'Belfast UK' to be moved into
+            the card with the local time, and also 20 years old or the age moved
+            there aswell in a nice ui design."
+
+            The header was carrying four unlike facts in four stacked centred
+            lines - name, role, age, home town - and the rail card underneath it
+            was carrying a fifth, the clock, which is about the same place the
+            home town names. Two of those belong together and did not sit
+            together. Home and local time ARE one fact ("it is 3:41pm in
+            Belfast"), and age is a fact about the person rather than about the
+            page, so it reads better beside them than under their name.
+
+            WHAT SURVIVES FROM THE OLD CARD, and must: it is a CLOCK, NOT A PIN,
+            and it never writes a sentence about where somebody sleeps. Ethan,
+            earlier: "I don't want it to say 'you are home in Belfast', this is
+            almost too creepy, instead just show the time for you or for them."
+            The town is a LABELLED FACT in a two-column footer - the same shape
+            as any other stat on this page - not prose the app volunteers about
+            a stranger. A travelling creator still leads with where they are,
+            because they published that themselves on the collab board.
+
+            THE CARD NOW DRAWS WITHOUT A CLOCK. It used to be gated entirely on
+            `here`, and `here` is null for any profile lib/localTime refuses to
+            place (see the note there about the countries we will not guess at).
+            Moving the town and the age in here would have deleted them from
+            those profiles altogether. */}
+        {(here || homeLine || shownAge) && (
           <section className={cx(
-            'rounded-card border p-4',
-            here.travelling ? 'border-brand/25 bg-brand-tint/50' : 'border-gray-100 bg-white shadow-card',
+            'overflow-hidden rounded-card border',
+            here?.travelling ? 'border-brand/25 bg-brand-tint/50' : 'border-gray-100 bg-white shadow-card',
           )}>
-            <div className="flex items-center gap-3">
-              {/* A CLOCK, NOT A PIN. Ethan: "I don't want it to say 'you are
-                  home in Belfast', this is almost too creepy, instead just
-                  show the time for you or for them. And change the icon from
-                  that pin."
-                  He is right, and the reason is worth writing down: a pin over
-                  "Maddie is at home in Belfast" is a sentence about where
-                  somebody LIVES, volunteered by the app to a stranger. The time
-                  where they are is the same fact turned into something useful -
-                  it answers "can I message them now" instead of "where do they
-                  sleep". A travelling creator still says where, because they
-                  published that themselves on the collab board. */}
-              {/* ORANGE, LIKE EVERY OTHER RAIL CARD'S ICON. This one was grey
-                  on grey while At a glance, Headed next, Languages and the rest
-                  all lead with a brand-orange mark, so the first card in the
-                  rail was the only one that did not look like it belonged.
-                  Ethan: "make the your local time icon an orange icon that
-                  matches the others." */}
-              <span className={cx(
-                'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
-                here.travelling ? 'bg-brand text-white' : 'bg-brand-tint text-brand',
+            {here && (
+              <div className="flex items-center gap-3 p-4">
+                {/* ORANGE, LIKE EVERY OTHER RAIL CARD'S ICON. This one was grey
+                    on grey while At a glance, Headed next, Languages and the
+                    rest all lead with a brand-orange mark, so the first card in
+                    the rail was the only one that did not look like it
+                    belonged. */}
+                <span className={cx(
+                  'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
+                  here.travelling ? 'bg-brand text-white' : 'bg-brand-tint text-brand',
+                )}>
+                  <Icon name={here.travelling ? 'plane' : 'clock'} className="h-4 w-4" />
+                </span>
+                <p className="min-w-0 text-sm">
+                  {here.travelling ? (
+                    <>
+                      <span className="block font-semibold text-ink">
+                        {/* "You ARE", "Maddie IS". Getting this wrong is the
+                            sort of thing that makes a product feel
+                            machine-written. */}
+                        {`${here.who} ${isMe ? 'are' : 'is'} in ${here.place}`}
+                      </span>
+                      {currentTrip && <span className="block text-xs text-smoke">{tr('Back')} {formatDate(currentTrip.end_date)}</span>}
+                    </>
+                  ) : (
+                    <>
+                      <span className="block text-lg font-bold leading-tight text-ink">
+                        <LocalTime profile={creator} bare />
+                      </span>
+                      <span className="block text-xs text-smoke">
+                        {isMe ? tr('Your local time') : tr("{name}'s local time", { name: here.who })}
+                      </span>
+                    </>
+                  )}
+                </p>
+              </div>
+            )}
+
+            {/* HOME AND AGE, AS TWO LABELLED CELLS. A divider rather than a
+                second card: they are the rest of the answer to "where and who",
+                not a new subject. Each cell only exists if there is something in
+                it, and a lone cell spans the row rather than leaving a hole. */}
+            {(homeLine || shownAge) && (
+              <div className={cx(
+                'grid divide-x divide-gray-100 border-gray-100 text-sm',
+                here && 'border-t',
+                homeLine && shownAge ? 'grid-cols-2' : 'grid-cols-1',
               )}>
-                <Icon name={here.travelling ? 'plane' : 'clock'} className="h-4 w-4" />
-              </span>
-              <p className="min-w-0 text-sm">
-                {here.travelling ? (
-                  <>
-                    <span className="block font-semibold text-ink">
-                      {/* "You ARE", "Maddie IS". Getting this wrong is the sort
-                          of thing that makes a product feel machine-written. */}
-                      {`${here.who} ${isMe ? 'are' : 'is'} in ${here.place}`}
-                    </span>
-                    {currentTrip && <span className="block text-xs text-smoke">Back {formatDate(currentTrip.end_date)}</span>}
-                  </>
-                ) : (
-                  <>
-                    <span className="block font-semibold text-ink">
-                      <LocalTime profile={creator} bare />
-                    </span>
-                    <span className="block text-xs text-smoke">
-                      {isMe ? 'Your local time' : `${here.who}'s local time`}
-                    </span>
-                  </>
+                {homeLine && (
+                  <div className="min-w-0 px-4 py-3">
+                    <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-smoke">
+                      <Icon name="home" className="h-3.5 w-3.5 shrink-0 text-brand" />
+                      {tr('Home')}
+                    </p>
+                    <p className="mt-1 truncate font-semibold text-ink" title={homeLine}>{homeLine}</p>
+                  </div>
                 )}
-              </p>
-            </div>
+                {shownAge && (
+                  <div className="min-w-0 px-4 py-3">
+                    <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-smoke">
+                      <Icon name="user" className="h-3.5 w-3.5 shrink-0 text-brand" />
+                      {tr('Age')}
+                    </p>
+                    <p className="mt-1 font-semibold text-ink">
+                      <span className="tabular-nums">{shownAge}</span> {tr('years old')}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </section>
         )}
         </>
@@ -651,8 +710,27 @@ export default function Profile() {
         {/* BIGGER. The avatar is the only picture in the header and it was the
             same size as the one on a directory card, so the page opened with
             the name doing all the work. */}
+        {/* PRESSING THE FACE OPENS THE FACE (1 Sep 2026).
+            Ethan: "when clicking on a profile photo on the profile page, it
+            should open up the photo in a big view but still the same circle
+            shape." Round, because that is the crop the picture was chosen
+            against - opening it square shows the corners the avatar has been
+            hiding, which is usually a stranger's ceiling.
+            Only when there IS a photograph: enlarging a set of initials is a
+            control that does nothing. */}
         <div className="shrink-0">
-          <Avatar src={creator.photo_url} name={creator.name} size="xl" className="!h-32 !w-32 sm:!h-36 sm:!w-36" />
+          {creator.photo_url ? (
+            <button
+              type="button"
+              onClick={() => setAvatarOpen(true)}
+              className="rounded-full transition-transform duration-200 hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/30"
+              aria-label={tr("See this photo full size")}
+            >
+              <Avatar src={creator.photo_url} name={creator.name} size="xl" className="!h-32 !w-32 sm:!h-36 sm:!w-36" />
+            </button>
+          ) : (
+            <Avatar src={creator.photo_url} name={creator.name} size="xl" className="!h-32 !w-32 sm:!h-36 sm:!w-36" />
+          )}
         </div>
         <div className="min-w-0 flex-1">
           {/* BESIDE THE NAME ON A DESKTOP, UNDER IT ON A PHONE.
@@ -663,63 +741,43 @@ export default function Profile() {
               a centred name or pushed it off centre. Ethan: "on mobile it
               should show up just below their name... so everything's centred
               and looks good." A column below `sm`, a baseline row above it. */}
-          <div className="flex flex-col items-center gap-y-1 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-start sm:gap-x-3">
-            <h1 className="text-3xl font-bold tracking-tight sm:text-[34px]">{creator.name}</h1>
-            <span className="text-[15px] font-semibold tracking-[-0.01em] text-brand sm:text-base">
-              {roleBadgeTitle(creator) || 'Creator'}
-            </span>
-          </div>
+          {/* THE ROLE GOES UNDER THE NAME AT EVERY WIDTH (1 Sep 2026).
 
-          {/* WHAT THEY ARE CALLED, AND IT IS THE SECOND THING YOU READ.
-              This was a small grey pill sharing a line with the name and an
-              unlabelled number. Every person on this platform holds a role -
-              "Creator" if nothing else - and that role is the single most
-              useful fact about them, so it gets its own line, in brand orange,
-              at a size you read rather than notice.
+              Ethan: "I would like the role name like creator or Tryp.com CCC
+              Lead to be below the name... this way with the role under the name
+              i think the design will be better."
+
+              It was beside the name on a desktop and under it on a phone, which
+              is two headers to keep in step and a role that changes altitude
+              when you rotate the device. Under it always: a name is a heading,
+              a role is its subtitle, and a subtitle sits under its heading.
+              With the age and the town moved into the clock card, the header is
+              now exactly two lines - who they are, and what they do.
+
               The per-person title is already stored (profiles.role_title, set
               on the team page) and `roleBadgeTitle` falls back to the generic
               label only when nobody has been given one, so a Spain country
-              manager reads "Spanish Country Manager" and Ethan reads
-              "Tryp.com CCC Lead". A creator who has flown far enough to earn
-              "Tryp.com Senior Creator" reads that. Everybody else reads
-              "Creator", which is a job, not a blank. */}
-          {/* AGE, WITH THE WORD ON IT, on its own line under the name. It was
-              a bare number floating after the name, which could have been
-              anything - a rank, a count, a badge. */}
-          {((ageFromDob(creator.dob) ?? creator.age) || isApplication) && (
-            <p className="mt-1 flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1.5 sm:justify-start">
-              {(ageFromDob(creator.dob) ?? creator.age) && (
-                <span className="text-sm text-smoke">
-                  <span className="tabular-nums">{ageFromDob(creator.dob) ?? creator.age}</span> {tr("years old")}
-                </span>
-              )}
-              {isApplication && <Badge tone="amber">{tr("Pending review")}</Badge>}
-            </p>
-          )}
+              manager reads "Spanish Country Manager" and Ethan reads "Tryp.com
+              CCC Lead". Everybody else reads "Creator", which is a job, not a
+              blank. */}
+          <h1 className="text-3xl font-bold tracking-tight sm:text-[34px]">{creator.name}</h1>
+          <p className="mt-1 flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1.5 sm:justify-start">
+            <span className="text-[15px] font-semibold tracking-[-0.01em] text-brand sm:text-base">
+              {roleBadgeTitle(creator) || tr('Creator')}
+            </span>
+            {isApplication && <Badge tone="amber">{tr("Pending review")}</Badge>}
+          </p>
 
-          {(creator.city || creator.country || currentTrip) && (
-            <p className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-sm text-smoke sm:justify-start">
-              {(creator.city || creator.country) && (
-                <span className="flex items-center gap-1.5">
-                  <Icon name="home" className="h-4 w-4 shrink-0 text-brand" />
-                  {[creator.city, creator.country].filter(Boolean).join(', ')}
-                </span>
-              )}
-              {/* On a collab-board trip right now → live chip beside the base town */}
-              {currentTrip && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-brand-tint px-2.5 py-0.5 text-[11px] font-semibold text-brand">
-                  <svg viewBox="0 0 24 24" className="h-3 w-3" fill="currentColor" aria-hidden>
-                    <path d="M21.5 15.5v-2l-8.5-5V3.25a1.5 1.5 0 0 0-3 0V8.5l-8.5 5v2l8.5-2.5v5.25L7.75 20v1.5L12 20.25l4.25 1.25V20L14 18.25V13z" />
-                  </svg>
-                  Currently in {currentTrip.city || currentTrip.country}
-                </span>
-              )}
-              {/* THE CLOCK IS NOT HERE ANY MORE. It is the first card in the
-                  rail, which is where somebody looks for a fact about where
-                  this person is; having it in both places meant the same
-                  sentence twice on one screen. */}
-            </p>
-          )}
+          {/* THE AGE AND THE HOME TOWN ARE NOT HERE ANY MORE. Both moved
+              into the clock card in the rail, where the town belongs beside the
+              time it is there and the age reads as a fact about the person
+              rather than a number floating under their name. Search for
+              `homeLine` / `shownAge`. The "currently in X" chip went with them:
+              the same card leads with it, larger, when somebody is travelling.
+
+              Keeping either here as well would be the same sentence twice on
+              one screen, which is exactly why the clock was taken OUT of this
+              header when the rail card was built. */}
           {creator.bio && <p className="mt-2 text-lg text-smoke">{creator.bio}</p>}
           {/* THE QUOTE IS ONLY IN THE HEADER ON A DESKTOP.
               On a phone the header is already the avatar, the name, the role,
@@ -908,6 +966,17 @@ export default function Profile() {
           header's flex layout never has to account for a child that renders
           nothing 99% of the time. */}
       <ReportCreator open={reporting} onClose={() => setReporting(false)} creator={creator} />
+
+      {/* The header photograph, big and still round. Same reasoning as the
+          ReportCreator above: it portals to the body, so it costs the header's
+          layout nothing to keep it here. */}
+      <PhotoLightbox
+        src={avatarOpen ? creator.photo_url : null}
+        alt={creator.name}
+        shape="circle"
+        canSave
+        onClose={() => setAvatarOpen(false)}
+      />
     </div>
   )
 }

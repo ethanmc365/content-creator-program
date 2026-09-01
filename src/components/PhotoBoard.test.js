@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { packBoard, dropIndex, spanOf, colsFor, isPlaced, MIN_PLACED_MILLE } from './PhotoBoard'
+import { packBoard, dropIndex, spanOf, colsFor, isPlaced, nextSize, SIZES, MIN_PLACED_MILLE } from './PhotoBoard'
 
 // THE BOARD IS ONE PACKED LAYOUT, AND THESE ARE THE PROPERTIES IT HAS TO HAVE.
 //
@@ -172,5 +172,58 @@ describe('isPlaced', () => {
 
   it('allows a photo placed at the origin', () => {
     expect(isPlaced(row({ pos_x: 0, pos_y: 0 }))).toBe(true)
+  })
+})
+
+// THE SIZE LADDER (1 Sep 2026). Drag-to-resize is gone; a photo carries a
+// stored level and a button in its corner steps up it. The two properties that
+// matter are that the cycle always comes back round (so a creator can never get
+// a photo stuck at a size) and that `large` is genuinely the widest thing on
+// the board at EVERY width - which is the whole reason the level is stored
+// rather than the column count.
+describe('the size ladder', () => {
+  it('cycles small -> medium -> large -> small', () => {
+    expect(nextSize('small')).toBe('medium')
+    expect(nextSize('medium')).toBe('large')
+    expect(nextSize('large')).toBe('small')
+  })
+
+  it('treats an unknown or missing size as small', () => {
+    expect(nextSize(undefined)).toBe('medium')
+    expect(nextSize('enormous')).toBe('medium')
+  })
+
+  it('never leaves the three sizes', () => {
+    let size = 'small'
+    for (let i = 0; i < 20; i += 1) {
+      size = nextSize(size)
+      expect(SIZES).toContain(size)
+    }
+  })
+
+  it('spans wider for a bigger size, at any column count', () => {
+    for (const cols of [2, 3]) {
+      const small = spanOf({ size: 'small' }, cols)
+      const medium = spanOf({ size: 'medium' }, cols)
+      const large = spanOf({ size: 'large' }, cols)
+      expect(small).toBe(1)
+      expect(medium).toBeGreaterThanOrEqual(small)
+      expect(large).toBeGreaterThanOrEqual(medium)
+      expect(large).toBeLessThanOrEqual(cols)
+    }
+  })
+
+  // A phone has two columns, so large and medium both fill the row there - but
+  // large must still be the widest, never narrower than medium.
+  it('large fills the board on a phone', () => {
+    expect(spanOf({ size: 'large' }, 2)).toBe(2)
+  })
+
+  // The 285 rows that predate the stored level have to keep the width they were
+  // arranged at, which is derived from pos_w. Migration 162 backfills `size`,
+  // but a row that somehow misses it must still not collapse to one column.
+  it('falls back to the stored width when there is no size', () => {
+    const [b] = packBoard([{ aspect: 1, span: 2 }], 3)
+    expect(spanOf({ pos_x: 0, pos_y: 0, pos_h: 300, pos_w: Math.round(b.w * 1000) }, 3)).toBe(2)
   })
 })

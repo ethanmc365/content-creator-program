@@ -1,9 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { compressImage } from '../lib/image'
+import { uploadFile } from '../lib/upload'
 import Icon from './Icon'
+import { Spinner } from './ui'
 import { cx } from '../lib/utils'
-import { onPhotosChanged } from '../lib/photoEvents'
-import { notice } from '../lib/confirm'
+import { onPhotosChanged, photosChanged } from '../lib/photoEvents'
+import { confirm, notice } from '../lib/confirm'
 import { useT } from '../lib/i18n'
 
 // THE TRAVEL PHOTO BOARD: A PACKED COLLAGE YOU REARRANGE.
@@ -52,13 +55,35 @@ import { useT } from '../lib/i18n'
 //     packer with every span at 1, which is exactly what "Tidy them up" resets
 //     to. There is no second code path to drift.
 //
-// RESIZING HAS NO HANDLES. Ethan: "you can change the size, but I don't want
-// any of these squares in each corner. I just want the functionality to resize
-// them without the squares." The bottom-right corner of a tile is a hit zone
-// while arranging, with a cursor and a faint corner mark that only appears
-// under the pointer - no square sitting on the artwork. Dragging it changes how
-// many COLUMNS the photo spans, which is the only size that can exist on a
-// packed board and the only one that can never overlap.
+//  4. The packed collage with a corner hit zone for resizing. The packing is
+//     right and stays; the resize was not. An invisible 36px zone in the
+//     bottom-right of a tile, marked only by a hairline that fades in under the
+//     pointer, is a control you have to be told about - and on a phone there is
+//     no pointer to fade it in with, so on the device most of this board is
+//     looked at, resizing was undiscoverable and effectively absent.
+//
+// SO SIZE IS A BUTTON NOW, AND IT IS THE FIFTH DESIGN (1 Sep 2026).
+//
+// Ethan: "rather than the ability to drag to resize, we should have a simple
+// button in top right of each photo and clicking it alters the size, there
+// should be three sizes, every photo should start at the small size then one
+// click makes it the middle size, and another the big size, then we just need
+// the ability to drag the photos to rearrange them."
+//
+// One gesture per job: DRAG MOVES, BUTTON SIZES. That is the whole change, and
+// it removes a real ambiguity as well as an invisible control - a press near
+// the corner of a tile used to mean one of two things depending on 36 pixels,
+// and on a touch screen you cannot see which one you are about to get.
+//
+// THE SIZE IS A STORED LEVEL, NOT A DERIVED SPAN. `creator_photos.size` is
+// small | medium | large (migration 162 widened the CHECK, which only had two
+// values and would have silently rejected the third). The span it draws at is
+// `min(level, cols)`, so the same board reads as 1/2/3 of three columns on a
+// desktop and 1/2/2 of two on a phone: a photo you made large is still the
+// widest thing on the board at any width, which is what "large" has to mean.
+// The old span-out-of-pos_w derivation is kept as the FALLBACK for the 285
+// rows in production that predate this, so nobody's board is reset by the
+// change.
 //
 // STILL PER-MILLE, STILL IN THE SAME FOUR COLUMNS. x, y, w and h are written as
 // thousandths of the board's width, so the profile renders the identical
@@ -97,6 +122,30 @@ export function colsFor(width) {
   return width < 520 ? 2 : 3
 }
 
+// THE THREE SIZES, AND WHAT EACH ONE IS WORTH IN COLUMNS.
+//
+// A level, not a column count, because the board runs at two columns on a phone
+// and three above it: storing "2 columns" would mean a photo that fills half a
+// desktop board fills the whole of a phone one and a photo that fills the whole
+// desktop board cannot be distinguished from it. Storing the INTENT and
+// clamping at draw time keeps "large is the biggest" true at every width.
+export const SIZES = ['small', 'medium', 'large']
+export const SIZE_LEVEL = { small: 1, medium: 2, large: 3 }
+const SIZE_TITLE = { small: 'Small - press to make it medium', medium: 'Medium - press to make it large', large: 'Large - press to make it small again' }
+
+/**
+ * The next size in the cycle, wrapping large -> small.
+ *
+ * An unrecognised size counts as SMALL and therefore steps up to medium. The
+ * first version returned 'small' for it, so pressing the button on a row whose
+ * size was missing or misspelt drew exactly what was already on screen and the
+ * control read as dead.
+ */
+export function nextSize(size) {
+  const i = Math.max(0, SIZES.indexOf(size))
+  return SIZES[(i + 1) % SIZES.length]
+}
+
 /**
  * HOW MANY COLUMNS A PHOTO SPANS, read back out of its stored width.
  *
@@ -107,6 +156,11 @@ export function colsFor(width) {
  * than a compromise.
  */
 export function spanOf(p, cols) {
+  // THE STORED SIZE WINS WHERE THERE IS ONE. Every row has a `size` (the column
+  // defaults to 'small'), so this is the normal path; the width derivation
+  // below only runs for a row whose size is missing or unrecognised.
+  const level = SIZE_LEVEL[p?.size]
+  if (level) return Math.max(1, Math.min(cols, level))
   const w = isPlaced(p) ? toFrac(p.pos_w, null) : null
   if (w == null) return 1
   const colW = (1 - GAP * (cols - 1)) / cols
@@ -181,7 +235,27 @@ export function dropIndex(boxes, px, py) {
   return idx
 }
 
+// THE MOST PHOTOS ANYBODY CAN PUT ON A BOARD. Lived in TravelGallery until the
+// uploader moved in here.
+export const MAX_PHOTOS = 10
+
+/** Width / height of an image blob, or null, so the board can lay a photo out
+ *  in the shape it was taken. Measured from the COMPRESSED blob: compressImage
+ *  caps the long edge, so the two can differ by a rounding, and the number that
+ *  matters is the one describing the file that actually got stored. */
+async function imageAspect(blob) {
+  try {
+    const bmp = await createImageBitmap(blob)
+    const a = bmp.width && bmp.height ? bmp.width / bmp.height : null
+    bmp.close?.()
+    return a
+  } catch {
+    return null
+  }
+}
+
 export default function PhotoBoard({ creatorId, editable = false, alwaysArranging = false, onCount }) {
+  const tr = useT()
   const [photos, setPhotos] = useState(null)
   const [arrangingSelf, setArranging] = useState(false)
   const [cropping, setCropping] = useState(null)
@@ -213,14 +287,43 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
   // them would put this plumbing in a page that has no interest in it.
   useEffect(() => onPhotosChanged((id) => { if (id === creatorId) load() }), [creatorId, load])
 
+  // MEASURING THE BOARD, AND WHY ONE MEASUREMENT IS NOT ENOUGH.
+  //
+  // Every tile is positioned in FRACTIONS of the board's width, so a width of
+  // zero draws eight 0x0 tiles - the board is there, the rows are loaded, and
+  // the screen is blank. It has to be right, and it has to become right on its
+  // own from any starting point.
+  //
+  // The single mount-time measurement it replaces was measuring the wrong thing
+  // more often than it looks: EditProfile mounts ALL FOUR of its panels and
+  // hides three of them with `hidden` (deliberately - see the note there about
+  // unmounted fields posting stale values), so a board reached by pressing the
+  // Photos tab has already run its effect at clientWidth 0. It recovered
+  // because the ResizeObserver fires when an element stops being
+  // `display: none`, which makes the whole thing depend on one browser
+  // behaviour with no fallback - and there are environments where RO does not
+  // deliver at all.
+  //
+  // So: the observer for live resizes, a window listener as a backstop, and a
+  // LAYOUT EFFECT ON EVERY RENDER that reconciles the two. The layout effect
+  // only calls setState when the number actually differs, so it converges in
+  // one extra render and never loops.
+  const measure = useCallback(() => {
+    const el = boardRef.current
+    if (el) setWidth((cur) => (el.clientWidth && el.clientWidth !== cur ? el.clientWidth : cur))
+  }, [])
+
+  useLayoutEffect(measure)
+
   useEffect(() => {
     const el = boardRef.current
     if (!el) return undefined
-    const ro = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width))
+    const ro = new ResizeObserver(measure)
     ro.observe(el)
-    setWidth(el.clientWidth)
-    return () => ro.disconnect()
-  }, [photos])
+    measure()
+    window.addEventListener('resize', measure)
+    return () => { ro.disconnect(); window.removeEventListener('resize', measure) }
+  }, [photos, measure])
 
   // Measure each photo once, and write back what the database is missing.
   // `new Image()` rather than an onLoad on the rendered tile: the layout needs
@@ -270,10 +373,10 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
   const cols = colsFor(width)
 
   // WHAT IS IN THE HAND, IF ANYTHING.
-  //  { id, mode, order?, spans?, pointer? }
-  // `order` and `spans` are the PREVIEW: the layout memo below packs those
-  // instead of the committed ones, so the board shows the result of the drag
-  // while it is still happening. Declared up here because the layout reads it.
+  //  { id, order?, pointer? }
+  // `order` is the PREVIEW: the layout memo below packs it instead of the
+  // committed order, so the board shows the result of the drag while it is
+  // still happening. Declared up here because the layout reads it.
   const [drag, setDrag] = useState(null)
   const dragState = useRef(null)
   const detach = useRef(null)
@@ -300,7 +403,7 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
   const layout = useMemo(() => {
     const items = ordered.map((p) => ({
       aspect: p.aspect || aspects[p.id] || 1,
-      span: drag?.spans?.[p.id] ?? spanOf(p, cols),
+      span: spanOf(p, cols),
     }))
     let list = ordered
     let sizes = items
@@ -340,11 +443,11 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
 
   // ------------------------------------------------------------------ drag
   //
-  // TWO GESTURES, ONE ENGINE. A press on the tile MOVES it (which means
-  // reordering it); a press in the bottom-right corner RESIZES it (which means
-  // changing how many columns it spans). Both work by rewriting the preview and
-  // letting the packer do the rest - neither one positions anything itself,
-  // which is why neither one can produce an overlap.
+  // ONE GESTURE. A press on the tile MOVES it, which on a packed board means
+  // REORDERING it: the drag rewrites the preview order and the packer does the
+  // rest. Nothing here positions anything itself, which is why a drag cannot
+  // produce an overlap. Size is a button and writes one column (see the size
+  // cycle below).
 
   // WRITING THE WHOLE BOARD, NOT ONE TILE.
   //
@@ -360,10 +463,10 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
   // photo, watched it move, and found it back where it started on the next
   // load with nothing anywhere saying so. Migration 151 fixed the constraint;
   // this makes the next such fault visible in seconds rather than in weeks.
-  const commit = useCallback(async (order, spans) => {
+  const commit = useCallback(async (order) => {
     const items = order.map((p) => ({
       aspect: p.aspect || aspects[p.id] || 1,
-      span: spans?.[p.id] ?? spanOf(p, cols),
+      span: spanOf(p, cols),
     }))
     const boxes = packBoard(items, cols)
     const before = photos
@@ -393,26 +496,25 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
   useEffect(() => { commitRef.current = commit }, [commit])
   useEffect(() => () => detach.current?.(), [])
 
-  function beginDrag(e, tile, mode) {
+  // ONE GESTURE: A DRAG MOVES A PHOTO. Size is a button now (see PhotoTile),
+  // so there is no longer a second thing a press can mean depending on which
+  // 36 pixels of the tile it landed on - which was unreadable on a touch
+  // screen, where nothing hovers to show you the corner is live.
+  function beginDrag(e, tile) {
     if (!arranging || !width) return
     e.preventDefault()
     e.stopPropagation()
-    const colW = (1 - GAP * (cols - 1)) / cols
-    const startSpan = spanOf(tile, cols)
     dragState.current = {
-      id: tile.id, mode,
+      id: tile.id,
       startX: e.clientX, startY: e.clientY,
-      startSpan,
       // Where inside the tile the finger landed, so a moved tile does not jump
       // its own top-left corner under the pointer.
       grabX: (e.clientX - (boardRef.current?.getBoundingClientRect().left ?? 0)) / width - tile.x,
       grabY: (e.clientY - (boardRef.current?.getBoundingClientRect().top ?? 0)) / width - tile.y,
-      colW,
       order: layout.order,
-      spans: {},
       moved: false,
     }
-    setDrag({ id: tile.id, mode, order: layout.order, spans: {}, pointer: { x: tile.x, y: tile.y } })
+    setDrag({ id: tile.id, order: layout.order, pointer: { x: tile.x, y: tile.y } })
 
     const move = (ev) => {
       const d = dragState.current
@@ -424,20 +526,6 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
       if (!d.moved && Math.hypot(ev.clientX - d.startX, ev.clientY - d.startY) < 4) return
       d.moved = true
 
-      if (d.mode === 'resize') {
-        // HOW MANY COLUMNS, not how many pixels. A packed board has no other
-        // kind of width, and a width measured in columns is the reason nothing
-        // can ever overlap after a resize.
-        const left = layout.byId.get(d.id)?.x ?? 0
-        const wanted = Math.max(0, px - left)
-        const span = Math.max(1, Math.min(cols, Math.round((wanted + GAP) / (d.colW + GAP))))
-        if (span !== (d.spans[d.id] ?? d.startSpan)) {
-          d.spans = { ...d.spans, [d.id]: span }
-          setDrag((cur) => (cur ? { ...cur, spans: d.spans } : cur))
-        }
-        return
-      }
-
       // MOVE = REORDER. The dragged tile is lifted out of the list, the drop
       // index is read off where the finger is, and it goes back in there. The
       // packer then lays everything out, so the other tiles slide to show you
@@ -445,7 +533,7 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
       const others = d.order.filter((p) => p.id !== d.id)
       const items = others.map((p) => ({
         aspect: p.aspect || aspects[p.id] || 1,
-        span: d.spans[p.id] ?? spanOf(p, cols),
+        span: spanOf(p, cols),
       }))
       const boxes = packBoard(items, cols)
       const at = dropIndex(boxes, px, py)
@@ -468,7 +556,7 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
       dragState.current = null
       setDrag(null)
       if (!d || !d.moved) return
-      commitRef.current?.(d.order, d.spans)
+      commitRef.current?.(d.order)
     }
 
     // Attached HERE, not in an effect keyed on `drag`: an effect's listeners
@@ -496,6 +584,69 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
   //
   // Optimistic, then written; a failure says so and puts the board back rather
   // than leaving the screen disagreeing with the table.
+  // ADDING PHOTOS HAPPENS ON THE BOARD (1 Sep 2026).
+  //
+  // Ethan: "i think rather than seperating the upload section and the board
+  // section they should be integrated so you upload them and rather than having
+  // to press x there, there should be a button to x it on the actual board."
+  //
+  // It was two cards: a film strip of 104px squares with the add / caption /
+  // delete controls, and the board underneath it with the arrangement. Two
+  // grids of the same ten photographs, and the one you captioned was never the
+  // one you were looking at. The board is the only surface now - it already
+  // knows every row, it already writes to the same table, and it is the thing
+  // the caption and the size are ABOUT.
+  const fileRef = useRef(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+
+  async function addFiles(e) {
+    const files = Array.from(e.target.files || [])
+    e.target.value = ''
+    if (!files.length) return
+    const have = (photos || []).length
+    if (have + files.length > MAX_PHOTOS) {
+      setUploadError(`You can share up to ${MAX_PHOTOS} photos. Remove some first.`)
+      return
+    }
+    setUploadError('')
+    setUploading(true)
+    let order = have
+    for (const file of files) {
+      const looksImage = file.type.startsWith('image/') || /\.(heic|heif|jpe?g|png|webp|gif)$/i.test(file.name)
+      if (!looksImage || file.size > 15 * 1024 * 1024) {
+        setUploadError('Each photo must be an image under 15MB.')
+        continue
+      }
+      let compressed
+      try {
+        // A travel tile is at most ~600 CSS px wide, so 1200 keeps the retina
+        // headroom, and WebP at 0.8 is visually cleaner than the JPEG it
+        // replaces while landing about a third smaller. Ten photos a creator on
+        // a free 1GB tier is why this matters.
+        compressed = await compressImage(file, { maxDim: 1200, quality: 0.8 })
+      } catch (err) { setUploadError(err.message); continue }
+      const ext = (compressed.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg')
+      const path = `${creatorId}/${Date.now()}-${order}.${ext}`
+      let url
+      try {
+        url = await uploadFile('gallery', path, compressed, compressed.type || 'image/jpeg')
+      } catch (err) { setUploadError(err.message); continue }
+      const aspect = await imageAspect(compressed)
+      // EVERY PHOTO STARTS SMALL. Ethan: "every photo should start at the small
+      // size then one click makes it the middle size, and another the big
+      // size." The column defaults to it; stating it here means a change to the
+      // default cannot silently change what a new upload looks like.
+      const { error } = await supabase.from('creator_photos').insert({
+        creator_id: creatorId, photo_url: url, sort_order: order++, aspect, size: 'small',
+      })
+      if (error) setUploadError(error.message)
+    }
+    setUploading(false)
+    await load()
+    photosChanged(creatorId)
+  }
+
   const [resetting, setResetting] = useState(false)
   async function resetAll() {
     if (resetting) return
@@ -513,6 +664,71 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
     }
   }
 
+  // ONE PRESS, ONE STEP UP THE LADDER, WRAPPING AT THE TOP.
+  //
+  // Optimistic and then written, like every other change on this board: the
+  // tile has to answer the press immediately or the button reads as dead, and
+  // the packer re-flows everything around it in the same frame. The write also
+  // re-commits the whole board, because a wider photo moves its neighbours and
+  // `pos_*` is what the profile renders from - leaving those stale would make
+  // the profile and the editor disagree until the next drag.
+  async function cycleSize(photo) {
+    const size = nextSize(photo.size || 'small')
+    const before = photos
+    const after = (photos || []).map((p) => (p.id === photo.id ? { ...p, size } : p))
+    setPhotos(after)
+    const { error } = await supabase.from('creator_photos').update({ size }).eq('id', photo.id)
+    if (error) {
+      setPhotos(before)
+      await notice(`That size could not be saved: ${error.message}`)
+      return
+    }
+    // Re-pack from the list we just set, in the same order the board is in.
+    const order = [...after].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)
+      || String(a.id).localeCompare(String(b.id)))
+    commitRef.current?.(order)
+  }
+
+  // REMOVING A PHOTO ASKS FIRST, AND IT ASKS ON THE BOARD.
+  //
+  // Ethan: "there should be a button to x it on the actual board, pressing this
+  // should show a popup asking if you're sure you want to remove this photo, to
+  // stop any accidental deletions."
+  //
+  // `confirm` here is the app's own dialog from lib/confirm - NOT the browser
+  // global. A missing import silently falls through to `window.confirm`, which
+  // Chrome can suppress permanently, and the button then does nothing for ever
+  // with no error anywhere. That has bitten this codebase before.
+  //
+  // The storage object goes too, or a deleted photo keeps eating the free
+  // tier's gigabyte for ever. RLS only lets somebody delete inside their own
+  // folder, so a failure here is not worth blocking the row delete over.
+  async function removePhoto(photo) {
+    const ok = await confirm(
+      'It comes off your board and is deleted from your gallery. This cannot be undone.',
+      { title: 'Remove this photo?', confirmLabel: 'Remove it', danger: true },
+    )
+    if (!ok) return
+    const before = photos
+    setPhotos((cur) => (cur || []).filter((p) => p.id !== photo.id))
+    const { error } = await supabase.from('creator_photos').delete().eq('id', photo.id)
+    if (error) {
+      setPhotos(before)
+      await notice(`That photo could not be removed: ${error.message}`)
+      return
+    }
+    const key = photo.photo_url?.split('/gallery/')[1]
+    if (key) await supabase.storage.from('gallery').remove([decodeURIComponent(key)])
+    photosChanged(creatorId)
+  }
+
+  async function saveCaption(photo, caption) {
+    if ((caption || '') === (photo.caption || '')) return
+    setPhotos((cur) => (cur || []).map((p) => (p.id === photo.id ? { ...p, caption } : p)))
+    const { error } = await supabase.from('creator_photos').update({ caption }).eq('id', photo.id)
+    if (error) await notice(`That caption could not be saved: ${error.message}`)
+  }
+
   async function saveCrop(photo, focal, zoom) {
     setPhotos((cur) => (cur || []).map((p) => (
       p.id === photo.id ? { ...p, focal_x: focal.x, focal_y: focal.y, zoom } : p)))
@@ -522,12 +738,28 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
   }
 
   if (photos === null) return <div className="h-64 w-full animate-pulse rounded-card bg-cloud" />
-  if (!photos.length) return null
+  // A VISITOR'S EMPTY BOARD IS NOTHING; THE OWNER'S IS THE ADD BUTTON.
+  // It used to be nothing either way, which was correct while the uploader was
+  // a separate card above it and is a dead end now that it is not.
+  if (!photos.length && !editable) return null
 
   return (
     <>
       {editable && (
         <div className="mb-3 flex flex-wrap items-center gap-2">
+          {/* ADD, FIRST AND IN THE BRAND. It is the only thing to do on an
+              empty board and the most common thing to do on a full one. */}
+          <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={addFiles} />
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading || photos.length >= MAX_PHOTOS}
+            className="inline-flex items-center gap-1.5 rounded-full bg-brand px-3.5 py-1.5 text-xs font-semibold text-white shadow-card transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0"
+          >
+            {uploading ? <Spinner className="h-3.5 w-3.5" /> : <Icon name="plus" className="h-3.5 w-3.5" strokeWidth={2.4} />}
+            {uploading ? tr('Adding…') : tr('Add photos')}
+          </button>
+          <span className="text-xs tabular-nums text-smoke">{photos.length} / {MAX_PHOTOS}</span>
           {!alwaysArranging && (
             <button
               type="button"
@@ -562,6 +794,23 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
         </div>
       )}
 
+      {uploadError && <p className="mb-3 text-xs text-red-600">{uploadError}</p>}
+
+      {editable && photos.length === 0 ? (
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          className="flex w-full flex-col items-center justify-center gap-2 rounded-card border-2 border-dashed border-gray-200 px-6 py-12 text-center transition-colors duration-200 hover:border-brand/40 hover:bg-brand-tint/20"
+        >
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-tint text-brand">
+            <Icon name="image" className="h-5 w-5" />
+          </span>
+          <span className="text-sm font-semibold">{tr('Add your first travel photo')}</span>
+          <span className="max-w-xs text-xs text-smoke">
+            {tr('Up to {n} photos. Drag them into any order, press the corner button to make one bigger, and type the caption straight onto it.', { n: MAX_PHOTOS })}
+          </span>
+        </button>
+      ) : (
       <div
         ref={boardRef}
         style={{
@@ -577,7 +826,7 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
           // The tile in the hand is drawn at the POINTER, at its packed size,
           // so it follows the finger exactly while everything else slides into
           // the arrangement it is about to join.
-          const held = drag?.id === t.id && drag.mode === 'move' && drag.pointer
+          const held = drag?.id === t.id && drag.pointer
           const live = held ? { ...t, x: drag.pointer.x, y: drag.pointer.y } : t
           return (
             <PhotoTile
@@ -592,10 +841,14 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
               onCrop={() => setCropping(t)}
               onBroken={() => markBroken(t.id)}
               onDragStart={beginDrag}
+              onResize={() => cycleSize(t)}
+              onRemove={() => removePhoto(t)}
+              onCaption={(text) => saveCaption(t, text)}
             />
           )
         })}
       </div>
+      )}
 
       {cropping && (
         <CropDialog photo={cropping} onCancel={() => setCropping(null)}
@@ -607,7 +860,7 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
 }
 
 // ---------------------------------------------------------------- one photo
-function PhotoTile({ photo, box, width, arranging, editable, dragging, onOpen, onCrop, onBroken, onDragStart }) {
+function PhotoTile({ photo, box, width, arranging, editable, dragging, onOpen, onCrop, onBroken, onDragStart, onResize, onRemove, onCaption }) {
   const tr = useT()
   return (
     <figure
@@ -640,7 +893,7 @@ function PhotoTile({ photo, box, width, arranging, editable, dragging, onOpen, o
           : 'transition-[left,top,width,height,box-shadow] duration-200 ease-out motion-reduce:transition-none',
         arranging && 'cursor-grab touch-none active:cursor-grabbing',
       )}
-      onPointerDown={(e) => arranging && onDragStart(e, photo, 'move')}
+      onPointerDown={(e) => arranging && onDragStart(e, photo)}
     >
       {photo.missing ? (
         <span className="flex h-full w-full flex-col items-center justify-center gap-1.5 bg-cloud px-3 text-center">
@@ -664,23 +917,39 @@ function PhotoTile({ photo, box, width, arranging, editable, dragging, onOpen, o
         />
       )}
 
-      {/* THE CAPTION IS ON THE ARRANGE BOARD TOO.
-          It used to be hidden while arranging, which meant you laid the board
-          out against a set of tiles that did not look like the board anybody
-          would see - and a caption is a third of the height of a small tile, so
-          the arrangement that looked right came out wrong. Ethan: "the caption
-          should appear on the arranged board as well if I've added a caption in
-          the travel photos section." It is `pointer-events-none`, so it has
-          never been in the way of a drag. The bottom-right corner is left clear
-          for the resize grip while arranging. */}
-      {photo.caption && (
-        <figcaption className={cx(
-          'pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-3 pb-2.5 pt-8',
-          arranging && 'pr-11',
-        )}>
+      {/* THE CAPTION IS TYPED ON THE PHOTO ITSELF (1 Sep 2026).
+
+          Ethan: "also should have the option to type the caption directly onto
+          the photo."
+
+          It used to be a separate text input under a thumbnail in a separate
+          uploader grid on a separate card, so writing a caption meant looking
+          at a 104px square that was not the tile the caption would appear on.
+          Now the caption IS the caption: same place, same gradient, same two
+          lines, and while you are arranging it is an input sitting exactly
+          where the text will be.
+
+          It is `pointer-events-none` when it is not editable, so it has never
+          been in the way of a drag, and the INPUT stops a pointerdown from
+          starting one - otherwise clicking into it would pick the photo up. */}
+      {editable && arranging ? (
+        <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/80 via-black/45 to-transparent px-2 pb-2 pt-8">
+          <input
+            type="text"
+            defaultValue={photo.caption || ''}
+            placeholder={tr('Add a caption…')}
+            maxLength={140}
+            onPointerDown={(e) => e.stopPropagation()}
+            onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
+            onBlur={(e) => onCaption(e.target.value.trim())}
+            className="w-full rounded-lg border border-white/25 bg-black/35 px-2 py-1 text-[13px] font-medium text-white placeholder:text-white/55 focus:border-white/60 focus:bg-black/55 focus:outline-none"
+          />
+        </div>
+      ) : photo.caption ? (
+        <figcaption className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-3 pb-2.5 pt-8">
           <span className="line-clamp-2 text-[13px] font-medium leading-snug text-white">{photo.caption}</span>
         </figcaption>
-      )}
+      ) : null}
 
       {!arranging && (
         <button type="button" onClick={onOpen} className="absolute inset-0" aria-label={tr("Open photo")}>
@@ -699,38 +968,55 @@ function PhotoTile({ photo, box, width, arranging, editable, dragging, onOpen, o
         </button>
       )}
 
-      {arranging && (
-        // RESIZE WITH NO SQUARES ON THE ARTWORK.
+      {editable && arranging && (
+        // THE TILE'S OWN CONTROLS, ON THE TILE, WHERE THE PHOTO IS.
         //
-        // Ethan: "you can change the size, but I don't want any of these
-        // squares in each corner. I just want the functionality to resize them
-        // without the squares." There were four 16px white-and-orange blocks
-        // sitting on every photograph, which on a board of ten is forty pieces
-        // of furniture over the thing you are trying to look at.
+        // Size top right (Ethan named the corner), remove top left, and both are
+        // real buttons rather than hit zones - the corner-drag resize they
+        // replace could not be found on a phone, because nothing hovers there to
+        // reveal it.
         //
-        // So the bottom-right corner is a HIT ZONE rather than a control: 36px
-        // of tile that takes a drag, with the resize cursor on a desktop and a
-        // faint corner rule that only fades in under the pointer. Nothing sits
-        // on the picture until you go looking for it.
-        //
-        // ONE CORNER, NOT FOUR. On a packed board a resize changes how many
-        // COLUMNS a photo spans, and a span grows to the right by definition -
-        // there is no meaningful "resize from the top left" when the packer
-        // decides where the tile starts. Four corners was an affordance for a
-        // freely-placed board that no longer exists.
-        // `stopPropagation` so a resize does not also start a move.
-        <span
-          role="button"
-          tabIndex={-1}
-          aria-label={tr("Drag to resize this photo")}
-          onPointerDown={(e) => { e.stopPropagation(); onDragStart(e, photo, 'resize') }}
-          className="group/grip absolute bottom-0 right-0 z-20 h-9 w-9 cursor-nwse-resize"
-        >
-          <span
-            aria-hidden
-            className="pointer-events-none absolute bottom-1.5 right-1.5 h-3.5 w-3.5 rounded-br-[5px] border-b-2 border-r-2 border-white/90 opacity-0 drop-shadow transition-opacity duration-150 group-hover/grip:opacity-100 group-hover:opacity-70"
-          />
-        </span>
+        // `stopPropagation` on pointerDown as well as click: the figure takes a
+        // pointerdown to start a drag, and without this pressing either button
+        // would also pick the photograph up.
+        <>
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onRemove() }}
+            className="absolute left-2 top-2 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-red-500 shadow-card backdrop-blur transition-transform duration-150 hover:scale-110"
+            aria-label={tr('Remove this photo')}
+            title={tr('Remove this photo')}
+          >
+            <Icon name="close" className="h-4 w-4" strokeWidth={2.4} />
+          </button>
+
+          {/* WHAT SIZE IT IS AND WHAT PRESSING IT DOES, both readable without
+              pressing it. Three bars, filled up to the current level, so the
+              button is a state as well as a control - which is what makes a
+              cycling button legible instead of a mystery you press three times
+              to understand. */}
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onResize() }}
+            className="absolute right-2 top-2 z-20 flex h-8 items-center gap-[3px] rounded-full bg-white/95 px-2.5 text-brand shadow-card backdrop-blur transition-transform duration-150 hover:scale-110"
+            aria-label={tr('Change the size of this photo')}
+            title={SIZE_TITLE[photo.size] || SIZE_TITLE.small}
+          >
+            {[1, 2, 3].map((n) => (
+              <span
+                key={n}
+                aria-hidden
+                className={cx(
+                  'w-[3px] rounded-full transition-all duration-200',
+                  n <= (SIZE_LEVEL[photo.size] || 1) ? 'bg-brand' : 'bg-brand/25',
+                  n === 1 ? 'h-2' : n === 2 ? 'h-3' : 'h-4',
+                )}
+              />
+            ))}
+          </button>
+        </>
       )}
     </figure>
   )

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { format } from 'date-fns'
 import { useAuth } from '../context/AuthContext'
@@ -7,7 +7,6 @@ import { AvatarUpload, LanguageSelect, SocialInputs, DobField, PhoneInput, Quote
 import WorldMap from '../components/WorldMap'
 import Icon from '../components/Icon'
 import { cx } from '../lib/utils'
-import TravelGallery from '../components/TravelGallery'
 import PhotoBoard from '../components/PhotoBoard'
 import SocialMark, { brandForUrl } from '../components/SocialMark'
 import AutoTextarea from '../components/AutoTextarea'
@@ -73,6 +72,43 @@ export default function EditProfile() {
     bucket_list: Array.isArray(profile?.bucket_list) ? profile.bucket_list : [],
   })
 
+  // THE FORM RE-SEEDS ITSELF IF THE PROFILE ARRIVES AFTER IT MOUNTS.
+  //
+  // `useState({...profile})` is an INITIALISER, not a subscription: on a hard
+  // reload of /profile/edit the AuthContext profile is still null on the first
+  // render, so every field was seeded blank and no later fetch could put
+  // anything in them. It usually looked fine because you normally arrive here
+  // from a page that had already loaded the profile.
+  //
+  // It re-seeds ONCE, and only while the form is still untouched (`dirtyRef`),
+  // so a fetch landing mid-edit can never overwrite what somebody has typed.
+  const seededRef = useRef(!!profile)
+  const dirtyRef = useRef(false)
+  useEffect(() => {
+    if (seededRef.current || dirtyRef.current || !profile) return
+    seededRef.current = true
+    setForm((f) => ({
+      ...f,
+      name: profile.name || '',
+      dob: profile.dob || null,
+      city: profile.city || '',
+      country: profile.country || '',
+      bio: profile.bio || '',
+      about: profile.about || '',
+      favourite_quote: profile.favourite_quote || '',
+      photo_url: profile.photo_url || '',
+      instagram_url: profile.instagram_url || '',
+      tiktok_url: profile.tiktok_url || '',
+      youtube_url: profile.youtube_url || '',
+      facebook_url: profile.facebook_url || '',
+      linkedin_url: profile.linkedin_url || '',
+      other_links: Array.isArray(profile.other_links) ? profile.other_links : [],
+      languages: profile.languages || [],
+      countries_visited: profile.countries_visited || [],
+      bucket_list: Array.isArray(profile.bucket_list) ? profile.bucket_list : [],
+    }))
+  }, [profile])
+
   // Phone is stored separately (private: only the creator and admins can read
   // it). Payment details live on the Settings page now. Load the private row.
   const [contact, setContact] = useState({ phone: '', phone_country: '' })
@@ -100,7 +136,10 @@ export default function EditProfile() {
       .then(({ data }) => setTrips(data ?? []))
   }, [user.id])
 
-  const set = (patch) => setForm((f) => ({ ...f, ...patch }))
+  const set = (patch) => {
+    dirtyRef.current = true
+    setForm((f) => ({ ...f, ...patch }))
+  }
   // Data export & account deletion moved to the Settings page (Account section).
 
   async function save(e) {
@@ -191,7 +230,7 @@ export default function EditProfile() {
                 <label htmlFor="name" className="label">{tr("Display name")}</label>
                 <input id="name" type="text" required className="input" value={form.name} onChange={(e) => set({ name: e.target.value })} />
               </div>
-              <DobField value={form.dob} onChange={(dob) => set({ dob })} />
+              <DobField value={form.dob} onChange={(dob) => set({ dob })} fallbackAge={profile?.age ?? null} />
             </div>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div>
@@ -370,28 +409,28 @@ export default function EditProfile() {
           {/* Travel photos last, matching the public profile's section order. */}
           </div>
           {/* ---------- Photos ----------
-              THIS IS THE BOARD, NOT A SECOND GRID. There used to be two ways to
-              manage the same photographs: a plain uploader grid here, and an
-              "Arrange the board" mode on the public profile. Two editors for
-              one thing, and the one you got depended on which page you happened
-              to be on. Ethan: "we have arrange the board and we have manage
-              photos which is weird, it should just be manage photos with that
-              clean design and functionality and it should then appear correctly
-              on the profile as it shows in the preview."
-              So the uploader and the board are stacked in one panel, and the
-              board is the SAME component the profile renders. What you arrange
-              here is what lands there, because it is not a preview of the
-              profile, it is the profile's own board. */}
+              ONE SURFACE (1 Sep 2026).
+
+              Ethan: "i think rather than seperating the upload section and the
+              board section they should be integrated so you upload them and
+              rather than having to press x there, there should be a button to
+              x it on the actual board... and also should have the option to
+              type the caption directly onto the photo."
+
+              This was two cards: a "Travel photos" film strip of 104px squares
+              carrying add / caption / remove, and "Arrange your board"
+              underneath it carrying position, size and crop. Two grids of the
+              same ten photographs, and the tile you captioned was never the
+              tile the caption would appear on. TravelGallery is deleted; the
+              board owns all of it, and it is the SAME component the profile
+              renders, so what you arrange here is not a preview of the profile,
+              it is the profile's own board. */}
           <div className={tab === 'photos' ? 'space-y-6' : 'hidden'}>
-          <section className="card space-y-5">
-            <h2 className="text-lg font-semibold">{tr("Travel photos")}</h2>
-            <TravelGallery creatorId={user.id} editable uploadOnly />
-          </section>
           <section className="card space-y-4">
             <div>
-              <h2 className="text-lg font-semibold">{tr("Arrange your board")}</h2>
+              <h2 className="text-lg font-semibold">{tr("Travel photos")}</h2>
               <p className="mt-1 text-sm text-smoke">
-                {tr("Drag to move, pull a corner to resize, tap a photo to set where it crops from. It saves itself, and this is exactly how it appears on your profile.")}
+                {tr("Drag to rearrange, press the button in a photo's corner to change its size, and type the caption straight onto it. It saves itself, and this is exactly how it appears on your profile.")}
               </p>
             </div>
             <PhotoBoard creatorId={user.id} editable alwaysArranging />

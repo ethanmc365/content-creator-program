@@ -84,9 +84,33 @@ export function AvatarUpload({ photoUrl, name, onUploaded }) {
  * Shows the derived age once a valid date is entered. We only ever surface age
  * publicly, never the full date of birth.
  */
-export function DobField({ value, onChange, required }) {
+export function DobField({ value, onChange, required, fallbackAge = null }) {
   const tr = useT()
-  const [text, setText] = useState(formatDobInput(value))
+  const [text, setText] = useState(() => formatDobInput(value))
+
+  // THE BOX NEVER FILLED ITSELF IN, AND THIS IS WHY (1 Sep 2026).
+  //
+  // Ethan: "I noticed an issue where everytime i click edit profile the date of
+  // birth section isnt filled in."
+  //
+  // Every other field on the edit form is controlled straight off `form`, so it
+  // catches up the moment the profile lands. This one keeps its own copy of the
+  // text - it has to, because "22/12/20" is a state the ISO value cannot hold -
+  // and that copy was seeded ONCE, with `useState(...)`. On any render where the
+  // profile had not arrived yet the seed was `''`, and no later value could
+  // dislodge it: an initialiser is not a subscription.
+  //
+  // It follows the value now, but ONLY WHEN THE VALUE IS ONE THIS FIELD DID NOT
+  // JUST PRODUCE. `lastSent` holds what we last handed upwards, so a parent
+  // echoing our own change back cannot re-format the half-typed date under the
+  // caret ("22/12/2" -> a re-render -> "" because it does not parse yet).
+  const lastSent = useRef(value)
+  useEffect(() => {
+    if (value === lastSent.current) return
+    lastSent.current = value
+    setText(formatDobInput(value))
+  }, [value])
+
   const iso = parseDob(text)
   const showError = text.trim().length >= 10 && !iso
   const age = ageFromDob(iso)
@@ -99,7 +123,9 @@ export function DobField({ value, onChange, required }) {
     if (digits.length > 2) next += '/' + digits.slice(2, 4)
     if (digits.length > 4) next += '/' + digits.slice(4, 8)
     setText(next)
-    onChange(parseDob(next)) // null until it's a complete, valid date
+    const parsed = parseDob(next) // null until it's a complete, valid date
+    lastSent.current = parsed
+    onChange(parsed)
   }
 
   return (
@@ -124,7 +150,18 @@ export function DobField({ value, onChange, required }) {
       {showError ? (
         <p className="mt-1 text-xs text-red-600">{tr("Enter a real date as DD/MM/YYYY, e.g. 25/01/2005.")}</p>
       ) : age != null ? (
-        <p className="mt-1 text-xs text-smoke">You'll show as {age} years old. Only your age is shown publicly, never your date of birth.</p>
+        <p className="mt-1 text-xs text-smoke">
+          {tr("You'll show as {n} years old. Only your age is shown publicly, never your date of birth.", { n: age })}
+        </p>
+      ) : fallbackAge != null ? (
+        // A PROFILE CAN CARRY AN AGE WITH NO DATE. `profiles.age` is the number
+        // the older sign-up asked for outright, and every account made before
+        // the dob field existed still has one and no date - so this box was
+        // legitimately empty for somebody the page had just called 20 years old,
+        // which reads as the form having lost it. Say what we hold instead.
+        <p className="mt-1 text-xs text-smoke">
+          {tr("We have your age as {n}. Add your date of birth and it will stay right on your birthday.", { n: fallbackAge })}
+        </p>
       ) : null}
     </div>
   )
