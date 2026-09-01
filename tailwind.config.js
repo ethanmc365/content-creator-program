@@ -29,6 +29,10 @@ export default {
         lift: '0 4px 12px rgba(26, 26, 26, 0.08), 0 12px 32px rgba(26, 26, 26, 0.06)',
       },
       keyframes: {
+        'cta-glow': {
+          '0%, 100%': { opacity: '0.35' },
+          '50%': { opacity: '0.7' },
+        },
         'fade-up': {
           from: { opacity: '0', transform: 'translateY(12px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
@@ -236,6 +240,13 @@ export default {
         // flash reads as an error state. Slower, and easing in as well as out,
         // is what makes it read as a heartbeat.
         'ping-slow': 'ping-slow 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        // A SLOW BREATH BEHIND THE ONE BUTTON THAT MATTERS ON A PAGE.
+        // Used behind "Submit your video" on a live challenge: a blurred copy
+        // of the button's own orange, fading in and out under it. Six seconds,
+        // because anything faster on a control you are meant to read reads as
+        // an alert. Opacity only - a scaling glow moves the button's optical
+        // centre and makes the label look unsteady.
+        'cta-glow': 'cta-glow 6s ease-in-out infinite',
         'fade-up': 'fade-up 0.4s ease-out both',
         'pop-in': 'pop-in 0.35s ease-out both',
         'page-in': 'page-in 0.35s ease-out both',

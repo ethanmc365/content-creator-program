@@ -281,6 +281,18 @@ export default function AdminResults() {
         winners: ranking.slice(0, seats),
         entries: groupSubs.length,
         views: groupSubs.reduce((sum, sub) => sum + (sub.logged_views ?? 0), 0),
+        // A GROUP'S OWN PRIZE AND ITS OWN VOUCHER, both through the same
+        // fall-through the payout applies in SQL (`prizeForGroup`). The shared
+        // picture reads these, so a board's picture can no longer promise the
+        // other board's money.
+        prizes: Array.isArray(prize.prize_structure) ? prize.prize_structure : [],
+        voucherPrize: prize.participation_prize || '',
+        voucherWinners: prize.participation_threshold
+          ? groupSubs
+            .filter((sub) => subCountByCreator[sub.creator_id] >= prize.participation_threshold)
+            .map((sub) => sub.profiles)
+            .filter((prof, i, arr) => prof && arr.findIndex((o) => o?.id === prof.id) === i)
+          : [],
       }
     })
     : [{
@@ -289,6 +301,14 @@ export default function AdminResults() {
       winners: liveRanking.slice(0, places),
       entries: submissions.length,
       views: submissions.reduce((sum, sub) => sum + (sub.logged_views ?? 0), 0),
+      prizes: Array.isArray(challenge?.prize_structure) ? challenge.prize_structure : [],
+      voucherPrize: challenge?.participation_prize || '',
+      voucherWinners: challenge?.participation_threshold
+        ? submissions
+          .filter((sub) => subCountByCreator[sub.creator_id] >= challenge.participation_threshold)
+          .map((sub) => sub.profiles)
+          .filter((prof, i, arr) => prof && arr.findIndex((o) => o?.id === prof.id) === i)
+        : [],
     }]
 
   const podiumWinners = liveRanking.slice(0, places)
@@ -300,9 +320,6 @@ export default function AdminResults() {
   }, {})
   const platformsFor = (creatorId) =>
     PLATFORM_ORDER.filter((p) => platformsByCreator[creatorId]?.has(p))
-  // Every entry counts toward the total, not just the best one per creator:
-  // "final views" is what the challenge produced.
-  const liveTotalViews = submissions.reduce((sum, sub) => sum + (sub.logged_views ?? 0), 0)
   // EVERYONE who cleared the participation threshold, podium included. Podium
   // creators used to be filtered out, which made a row headed "for everyone
   // here" leave out the three people most obviously here. Placing first does not
@@ -378,16 +395,16 @@ export default function AdminResults() {
               {publishing ? <Spinner /> : challenge?.winners_published_at ? 'Unpublish' : 'Publish the winners'}
             </button>
           </div>
+          {/* THE SHARE DIALOG TAKES THE BOARDS, NOT ONE FLAT RANKING. A split
+              challenge produces one entry per group here, each carrying its own
+              prizes and its own voucher, so the admin picks which board they
+              are publishing rather than sending a picture of a contest nobody
+              competed in. */}
           <ShareLeaderboard
             open={sharing}
             onClose={() => setSharing(false)}
             challenge={challenge}
-            winners={podiumWinners}
-            ranking={liveRanking}
-            entries={submissions.length}
-            totalViews={liveTotalViews}
-            voucherWinners={voucherWinners}
-            voucherPrize={challenge?.participation_prize}
+            boards={podiums}
             subCountByCreator={subCountByCreator}
             platformsFor={platformsFor}
             onDone={flash}

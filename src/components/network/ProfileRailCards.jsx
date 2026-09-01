@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import Icon from '../Icon'
 import { cx } from '../../lib/utils'
+import { rankInk, ordinalFor } from '../../lib/podiumTiers'
 
 // THE REST OF THE PLATFORM, ON THE PROFILE.
 //
@@ -145,7 +146,6 @@ export function ChallengeHistoryCard({ creatorId, isMe, firstName }) {
   if (!rows?.length) return null
   const wins = rows.filter((r) => r.rank === 1).length
 
-  const MEDAL = { 1: 'text-amber-500', 2: 'text-gray-400', 3: 'text-orange-700' }
 
   return (
     <RailCard icon="trophy" title="On the podium" to="/challenges" linkLabel="Challenges">
@@ -158,10 +158,12 @@ export function ChallengeHistoryCard({ creatorId, isMe, firstName }) {
       <ul className="space-y-1.5">
         {rows.map((r, i) => (
           <li key={`${r.challenges?.id}-${i}`} className="flex items-center gap-2">
-            <Icon name="trophy" className={cx('h-3.5 w-3.5 shrink-0', MEDAL[r.rank] || 'text-gray-300')} />
+            {/* Brand ladder, not gold/silver/bronze - lib/podiumTiers is the
+                one definition of what a place looks like here. */}
+            <Icon name="trophy" className={cx('h-3.5 w-3.5 shrink-0', rankInk(r.rank))} />
             <span className="min-w-0 flex-1 truncate text-xs text-ink">{r.challenges?.title}</span>
             <span className="shrink-0 text-[11px] font-bold tabular-nums text-smoke">
-              {r.rank === 1 ? '1st' : r.rank === 2 ? '2nd' : '3rd'}
+              {ordinalFor(r.rank)}
             </span>
           </li>
         ))}

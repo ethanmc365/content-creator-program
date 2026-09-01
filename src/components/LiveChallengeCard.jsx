@@ -4,6 +4,7 @@ import Icon from './Icon'
 import { Avatar } from './ui'
 import ParticipationBar from './network/ParticipationBar'
 import { cx, formatDate, formatViews } from '../lib/utils'
+import { ordinalFor, rankInk } from '../lib/podiumTiers'
 import { useT } from '../lib/i18n'
 
 // THE CARD FOR A CHALLENGE THAT IS ACTUALLY RUNNING.
@@ -62,7 +63,6 @@ const placeNumber = (v, fallback) => {
   const n = typeof v === 'number' ? v : parseInt(String(v ?? ''), 10)
   return Number.isFinite(n) && n > 0 ? n : fallback
 }
-const ordinal = (n) => (n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`)
 
 /** The prize attached to a place, from the structure, or '' if there is none. */
 function prizeForPlace(prizes, place) {
@@ -139,8 +139,11 @@ function Leaderboard({ leaders, prizes, className }) {
               place === 1 ? 'bg-brand-tint/70' : '',
             )}
           >
-            <span className={cx('w-6 shrink-0 text-[11px] font-bold tabular-nums', place === 1 ? 'text-brand' : 'text-gray-400')}>
-              {ordinal(place)}
+            {/* The same orange ladder as the podium and every leaderboard on
+                the platform (lib/podiumTiers), so a place looks like that place
+                wherever you meet it. */}
+            <span className={cx('w-6 shrink-0 text-[11px] font-bold tabular-nums', rankInk(place))}>
+              {ordinalFor(place)}
             </span>
             {leader ? (
               <Avatar src={leader.photo_url} name={leader.name} size="xs" />
@@ -239,7 +242,14 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
                 Global challenge
               </span>
             )}
-            <span className="text-xs text-white/75">
+            {/* THE DATE RANGE IS DESKTOP-ONLY IN THIS ROW (1 Sep 2026).
+                Ethan, of the phone card: "everything just seems jumbled and not
+                right". At 375px "Live now" + "Global challenge" + "12 Sep -> 30
+                Sep" is three unlike things competing for one line, and they
+                wrap into a ragged two-and-a-half rows of mixed weights before
+                the title has even started. Two pills is a row; a sentence of
+                dates is not a pill. It reappears under the title below. */}
+            <span className="hidden text-xs text-white/75 sm:inline">
               {formatDate(c.start_date)} → {formatDate(c.end_date)}
             </span>
           </div>
@@ -264,6 +274,12 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
                 {tr('Every market, every creator. One brief, one leaderboard.')}
               </p>
             )}
+            {/* Where the dates went on a phone: their own quiet line, with the
+                glyph doing the labelling, under the thing they are about. */}
+            <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-white/75 sm:hidden">
+              <Icon name="calendar" className="h-3.5 w-3.5 shrink-0" />
+              {formatDate(c.start_date)} → {formatDate(c.end_date)}
+            </p>
             {/* The blurb is desktop-only. On a phone the whole card is a link
                 to the brief, which is the same words with room to read them. */}
             <p className="mt-2 hidden max-w-2xl leading-relaxed text-white/85 line-clamp-2 sm:block">{c.description}</p>
@@ -275,8 +291,19 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
             className="hidden lg:col-start-2 lg:row-start-1 lg:row-end-3 lg:block lg:self-start"
           />
 
-          <div className="mt-5 sm:mt-8 lg:col-start-1 lg:row-start-3 lg:mt-7 lg:self-end">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/75 sm:mb-3 sm:text-xs">{tr('Closes in')}</p>
+          <div className="mt-5 border-t border-white/15 pt-4 sm:mt-8 sm:border-0 sm:pt-0 lg:col-start-1 lg:row-start-3 lg:mt-7 lg:self-end">
+            {/* ONE LINE OF LABELS ABOVE THE CLOCK ON A PHONE. "Closes in" and
+                "6 entries so far" were two separate stacked lines forty pixels
+                apart, one above the clock and one below the button, which is
+                what made the bottom half of the card read as loose parts. They
+                are the same KIND of fact - the state of the contest - so they
+                share a row and the space between them does the separating. */}
+            <div className="mb-2 flex items-baseline justify-between gap-3 sm:mb-3 sm:block">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-white/75 sm:text-xs">{tr('Closes in')}</p>
+              <p className="text-[11px] font-semibold tabular-nums text-white/75 sm:hidden">
+                {entries === 1 ? tr('1 entry so far') : tr('{n} entries so far', { n: entries })}
+              </p>
+            </div>
             {/* The hero clock is four big tiles. On a phone that is most of
                 what is left of the card, so it gets the compact row instead
                 and the card gets its height back. */}
@@ -284,7 +311,7 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
             <span className="block sm:hidden"><CountdownTimer endDate={c.end_date} compact onDark /></span>
           </div>
 
-          <div className="mt-5 flex flex-col gap-2.5 sm:mt-7 lg:col-start-2 lg:row-start-3 lg:mt-7 lg:items-end lg:self-end">
+          <div className="mt-4 flex flex-col gap-2.5 sm:mt-7 lg:col-start-2 lg:row-start-3 lg:mt-7 lg:items-end lg:self-end">
             {/* ONE BUTTON ON A PHONE, and it is the one you came for. "Read
                 the brief" is what the rest of the card already does. */}
             <div className="flex flex-wrap gap-3 lg:justify-end">
@@ -295,8 +322,8 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
                 {tr('Submit your video')}
               </Link>
             </div>
-            <p className="text-[13px] text-white/80 sm:text-sm">
-              {entries} {entries === 1 ? 'entry' : 'entries'} so far
+            <p className="hidden text-[13px] text-white/80 sm:block sm:text-sm">
+              {entries === 1 ? tr('1 entry so far') : tr('{n} entries so far', { n: entries })}
             </p>
           </div>
         </div>

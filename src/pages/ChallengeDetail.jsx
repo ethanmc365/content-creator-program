@@ -6,7 +6,8 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import CountdownTimer from '../components/CountdownTimer'
 import Icon from '../components/Icon'
-import PlatformBadges, { PLATFORM_ORDER } from '../components/PlatformBadges'
+import { PLATFORM_ORDER } from '../components/PlatformBadges'
+import SocialMark from '../components/SocialMark'
 import VideoThumb from '../components/VideoThumb'
 import VideoEmbedModal from '../components/VideoEmbedModal'
 import SubmissionSuccess from '../components/SubmissionSuccess'
@@ -16,9 +17,15 @@ import { EntryFeedbackNote, EntryFeedbackEditor, loadFeedback } from '../compone
 import { Avatar, Badge, Modal, PageHeader, Skeleton, EmptyState, Spinner } from '../components/ui'
 import { formatDate, formatDateTimeTz, timeAgo, formatViews, formatMoney, detectPlatform, cx, challengeDeadline } from '../lib/utils'
 import { groupByCreator, boardsFor, prizeForGroup } from '../lib/challengeGroups'
+import { podiumTier } from '../lib/podiumTiers'
 import { mdToHtml } from '../lib/richEditor'
 import { useT } from '../lib/i18n'
 
+
+// The platform's own key in SocialMark's table. Two spellings of one list is
+// how a Facebook pill ends up with a broken glyph, so the map is explicit - and
+// it is the SAME map AdminChallengeForm uses to draw the picker these come from.
+const SOCIAL_BRAND = { Instagram: 'instagram', TikTok: 'tiktok', YouTube: 'youtube', Facebook: 'facebook' }
 
 // The submit form does its own validation so problems are shown in the branded
 // card, never in Chrome's grey "Please enter a URL" speech bubble (which sits
@@ -409,6 +416,13 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // shipping.
   const prizes = Array.isArray(myPrize?.prize_structure) ? myPrize.prize_structure : []
 
+  // THE HEADLINE NUMBER ON THE PRIZES CARD, and it is the admin's own figure,
+  // never a sum of the prize strings. A prize is free text ("EUR 105 cash", "a
+  // weekend in Lisbon"), so adding them up is guesswork; `prize_amount` is the
+  // column the payout reads and the one the form makes an admin state.
+  const prizePot = Number(myPrize?.prize_amount) || 0
+  const prizePotLabel = prizePot > 0 ? formatMoney(prizePot, myPrize?.prize_currency || 'EUR') : ''
+
   // Which platforms each creator actually SUBMITTED on (for real platform icons)
   // and how many videos they posted (for the participation voucher).
   const platformsByCreator = {}
@@ -431,6 +445,13 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // people who are earning something else.
   // And the same answer for whichever board is being LOOKED at, which is only
   // different from mine while somebody is reading another group's tab.
+  // The prize breakdown for the board being LOOKED at, which on a split
+  // challenge is that group's own and not the challenge's. This is what lays
+  // the leaderboard out (every paid place is a row, taken or open), so getting
+  // it wrong would show one group the other group's money.
+  const boardPrizes = shownPrize
+    ? (Array.isArray(shownPrize.prize_structure) ? shownPrize.prize_structure : [])
+    : prizes
   const boardParticipation = shownPrize
     ? (shownPrize.participation_threshold && shownPrize.participation_prize
       ? { threshold: shownPrize.participation_threshold, prize: shownPrize.participation_prize }
@@ -451,10 +472,20 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   }
   const bonusById = new Map(bonusRules.map((r) => [r.id, r]))
 
+  // THE LEADERBOARD TAB IS ALWAYS THERE (1 Sep 2026).
+  //
+  // Ethan: "I would improve the leaderboard and have that as a tab that is
+  // permanently there, even when no one has entered yet."
+  //
+  // It used to appear only once a result row existed, so the board a creator
+  // most wants to see - the empty one, on day one, with every prize still up
+  // for grabs - was the one board the page refused to draw. The component fills
+  // itself from the prize structure now (see ChallengeLeaderboard), so there is
+  // always something to show.
   const TABS = [
-    { key: 'brief', label: 'The brief' },
-    { key: 'entries', label: `Entries (${submissions.length})` },
-    ...(results.length > 0 ? [{ key: 'leaderboard', label: '🏆 Leaderboard' }] : []),
+    { key: 'brief', label: tr('The brief') },
+    { key: 'entries', label: `${tr('Entries')} (${submissions.length})` },
+    { key: 'leaderboard', label: tr('Leaderboard') },
   ]
 
   return (
@@ -501,16 +532,64 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         }
       />
 
-      {/* Countdown + enter CTA for live challenges */}
+      {/* THE DEADLINE CARD, WHICH IS THE ONE THING ON THIS PAGE THAT MOVES.
+          (1 Sep 2026.)
+
+          Ethan: "the closes in 'time' card with the submit your video button
+          should be improved and i dont want that apple icon, it should be a
+          normal button without it... make it stand out more and have
+          animations."
+
+          THE EMOJI IS GONE. It was a clapperboard, which renders as Apple's own
+          artwork on an iPhone - a piece of somebody else's icon set inside our
+          only orange button. The house rule already says line icons, never
+          emoji, in chrome; this button now says what it does and nothing else.
+
+          WHAT MAKES IT STAND OUT is that it is the only INK-DARK block on a
+          white page: the old version was brand-tint on white, which is the same
+          card as everything under it with a wash over it. Solid, the clock is
+          white-on-dark and reads from across the room.
+
+          THE ANIMATION IS ONE PASS OF LIGHT (`challenge-sheen`, index.css - the
+          live challenge card already carries it) plus a slow breathing glow
+          behind the button. Both are decoration on a static layout, so
+          `prefers-reduced-motion` can drop them and nothing moves position. */}
       {isLive && (
-        <div className="mb-10 flex flex-col items-start gap-6 rounded-card bg-brand-tint/60 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-brand">{tr("Closes in")}</p>
-            <CountdownTimer endDate={challenge.end_date} />
+        <div className="relative mb-10 overflow-hidden rounded-card bg-ink p-6 shadow-[0_18px_45px_-18px_rgba(0,0,0,0.55)] sm:p-8">
+          <span aria-hidden className="challenge-sheen pointer-events-none absolute inset-y-0" />
+          {/* The warmth behind it. Two soft brand blooms, clipped by the card,
+              so the black is never flat black. */}
+          <span aria-hidden className="pointer-events-none absolute -right-16 -top-20 hidden h-64 w-64 rounded-full bg-brand/35 blur-3xl sm:block" />
+          <span aria-hidden className="pointer-events-none absolute -bottom-24 -left-10 hidden h-56 w-56 rounded-full bg-brand-light/20 blur-3xl sm:block" />
+
+          <div className="relative flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="w-full sm:w-auto">
+              <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-brand-light">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-light opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-brand-light" />
+                </span>
+                {tr('Closes in')}
+              </p>
+              <CountdownTimer endDate={challenge.end_date} />
+            </div>
+
+            <div className="relative w-full sm:w-auto">
+              <span aria-hidden className="absolute inset-0 -z-10 animate-cta-glow rounded-xl bg-brand blur-lg" />
+              <button
+                onClick={() => setShowSubmit(true)}
+                className="btn-primary w-full justify-center !px-7 !py-3.5 text-base shadow-[0_10px_30px_-8px_rgba(217,68,7,0.9)] sm:w-auto"
+              >
+                <Icon name="video" className="h-5 w-5" />
+                {myEntries.length > 0 ? tr('Add another entry') : tr('Submit your video')}
+              </button>
+              {myEntries.length > 0 && (
+                <p className="mt-2 text-center text-xs text-white/60 sm:text-right">
+                  {myEntries.length === 1 ? tr('1 entry in') : tr('{n} entries in', { n: myEntries.length })}
+                </p>
+              )}
+            </div>
           </div>
-          <button onClick={() => setShowSubmit(true)} className="btn-primary">
-            {myEntries.length > 0 ? '+ Add another entry' : 'Submit your video 🎬'}
-          </button>
         </div>
       )}
 
@@ -627,31 +706,142 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           </div>
 
           <div className="space-y-6">
-            <section className="card !p-6">
-              <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-smoke">{tr("Prizes")}</h2>
-              <ul className="space-y-3">
-                {prizes.map((p, i) => (
-                  <li key={i} className="flex items-center justify-between gap-3 text-sm">
-                    <span className={cx('font-medium', i === 0 && 'text-brand')}>
-                      {i === 0 && '🥇 '}{i === 1 && '🥈 '}{i === 2 && '🥉 '}{p.place}
-                    </span>
-                    <span className="text-smoke">{p.prize}</span>
-                  </li>
-                ))}
-                {prizes.length === 0 && <li className="text-sm text-smoke">{tr("Prize details coming soon.")}</li>}
-              </ul>
+            {/* THE PRIZES ARE THE POINT OF THE PAGE, SO THEY ARE THE LOUDEST
+                THING ON IT (1 Sep 2026).
+
+                Ethan: "the actual Prizes section should be improved and stand
+                out more because it's super important."
+
+                It was a `text-sm text-smoke` definition list under a grey
+                caption - typographically the quietest card in the rail, holding
+                the one fact that decides whether somebody enters. Now: a brand
+                header strip, the top place given a whole row of its own with the
+                money at heading size, and the rest as ranked rows on the same
+                orange ladder the podium and the leaderboard use, so a place
+                looks the same everywhere on the platform.
+
+                THE PARTICIPATION PRIZE IS ITS OWN BLOCK, not a footnote. "Post
+                3 videos and everybody gets a Tryp.com voucher" is the offer
+                that reaches the creators who will never come first, which is
+                most of them, and it was set in 11px grey under a hairline. */}
+            <section className="overflow-hidden rounded-card border border-brand/15 bg-white shadow-card">
+              <div className="flex items-center gap-2.5 bg-gradient-to-r from-brand to-brand-light px-5 py-3.5 text-white">
+                <Icon name="trophy" className="h-5 w-5 shrink-0" />
+                <h2 className="text-sm font-bold uppercase tracking-wider">{tr("Prizes")}</h2>
+                {prizePot > 0 && (
+                  <span className="ml-auto rounded-full bg-white/20 px-2.5 py-1 text-xs font-bold tabular-nums">
+                    {tr("{n} to win", { n: prizePotLabel })}
+                  </span>
+                )}
+              </div>
+
+              {prizes.length === 0 ? (
+                <p className="px-5 py-6 text-sm text-smoke">{tr("Prize details coming soon.")}</p>
+              ) : (
+                <div className="p-4 sm:p-5">
+                  {/* First place, at full size. Everything else is a row. */}
+                  {prizes[0] && (
+                    <div className="mb-3 flex items-center gap-3 rounded-xl bg-brand-tint/60 p-4">
+                      <span
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+                        style={{ background: podiumTier(1).disc, color: podiumTier(1).ink }}
+                      >
+                        1
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-[11px] font-semibold uppercase tracking-wider text-brand">{prizes[0].place}</span>
+                        <span className="block text-lg font-bold leading-tight text-ink">{prizes[0].prize}</span>
+                      </span>
+                    </div>
+                  )}
+                  <ul className="space-y-2">
+                    {prizes.slice(1).map((p, i) => {
+                      const tier = podiumTier(i + 2)
+                      return (
+                        <li key={i} className="flex items-center gap-3 rounded-xl border border-gray-100 px-3.5 py-2.5">
+                          <span
+                            className={cx(
+                              'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold',
+                              i + 2 > 3 && 'bg-cloud text-smoke',
+                            )}
+                            style={i + 2 <= 3 ? { background: tier.disc, color: tier.ink } : undefined}
+                          >
+                            {i + 2}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-xs font-semibold uppercase tracking-wide text-smoke">{p.place}</span>
+                          <span className="shrink-0 text-sm font-bold text-ink">{p.prize}</span>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
+              )}
+
               {participation && (
-                <p className="mt-4 flex flex-wrap items-center gap-1.5 border-t border-gray-50 pt-3 text-xs text-smoke">
-                  <Icon name="ticket" className="h-4 w-4 shrink-0 text-brand" />
-                  Post {participation.threshold}+ videos to earn {participation.prize}.
-                  {earnedVoucherCount > 0 && <span className="font-semibold text-green-700">{earnedVoucherCount} earned so far.</span>}
-                </p>
+                <div className="border-t border-brand/10 bg-brand-tint/30 px-5 py-4">
+                  <div className="flex items-start gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-brand shadow-card">
+                      <Icon name="ticket" className="h-4.5 w-4.5" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-brand">{tr("Everyone can win this")}</p>
+                      <p className="text-sm font-semibold text-ink">
+                        {tr("Post {n}+ videos and earn {prize}", { n: participation.threshold, prize: participation.prize })}
+                      </p>
+                      {/* HOW CLOSE *YOU* ARE, not just how many other people got
+                          there. The old line counted everybody else's vouchers
+                          at the reader, which is the least motivating true fact
+                          available. */}
+                      {isLive && (
+                        <div className="mt-2">
+                          <div className="h-1.5 overflow-hidden rounded-full bg-white">
+                            <div
+                              className="h-full rounded-full bg-brand transition-[width] duration-500"
+                              style={{ width: `${Math.min(100, Math.round((myEntries.length / participation.threshold) * 100))}%` }}
+                            />
+                          </div>
+                          <p className="mt-1.5 text-xs text-smoke">
+                            {myEntries.length >= participation.threshold
+                              ? tr("You have earned it.")
+                              : tr("{n} more to go.", { n: participation.threshold - myEntries.length })}
+                            {earnedVoucherCount > 0 && ` · ${tr("{n} earned so far", { n: earnedVoucherCount })}`}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               )}
             </section>
 
+            {/* "PLATFORMS YOU CAN POST ON", IN THE PLATFORMS' OWN COLOURS.
+
+                Ethan: "for the 'platforms that count' rename it to 'platforms
+                you can post on' and rather than a greyed out social media icon,
+                have the actual colourful social media icon for each."
+
+                `PlatformBadges` draws a grey glyph on a grey disc, which is the
+                universal look of a DISABLED control - so the row listing the
+                four places you are allowed to post read as four places you are
+                not. `SocialMark colored` is the set the challenge FORM already
+                uses for exactly this choice, so the admin picking them and the
+                creator reading them now see the same marks. */}
             <section className="card !p-6">
-              <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-smoke">{tr("Platforms that count")}</h2>
-              <PlatformBadges platforms={challenge.platforms} size="md" />
+              <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-smoke">{tr("Platforms you can post on")}</h2>
+              <div className="flex flex-wrap gap-2.5">
+                {(challenge.platforms || []).map((p) => (
+                  <span
+                    key={p}
+                    className="inline-flex items-center gap-2 rounded-full border border-gray-100 bg-white py-1.5 pl-2 pr-3.5 text-xs font-semibold shadow-card transition-transform duration-200 hover:-translate-y-0.5"
+                  >
+                    <SocialMark brand={SOCIAL_BRAND[p] || 'link'} colored className="h-5 w-5 shrink-0" />
+                    {p}
+                  </span>
+                ))}
+                {(challenge.platforms || []).length === 0 && (
+                  <p className="text-sm text-smoke">{tr("Any platform.")}</p>
+                )}
+              </div>
             </section>
 
           </div>
@@ -792,15 +982,19 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
 
       {/* ---------- Tab: leaderboard ---------- */}
       {tab === 'leaderboard' && (
-        <div className="space-y-4">
-          {/* Interim vs final banner so creators know if these standings are live. */}
+        <div className="space-y-5">
+          {/* WHERE THE BOARD CAME FROM, IN ONE LINE, ALWAYS.
+              Three states, and the third one is the one that used to be nothing
+              at all: a challenge that has opened and has no logged views yet is
+              not an error, it is the starting line, and saying so is what makes
+              the empty board readable. */}
           {challenge.results_status === 'interim' ? (
             <div className="flex items-start gap-3 rounded-card border border-brand/20 bg-brand-tint/60 px-5 py-4">
               <Icon name="clock" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
               <div>
                 <p className="text-sm font-semibold text-brand">{tr("Current leaderboard")}</p>
                 <p className="text-xs text-smoke">
-                  Views logged so far{challenge.results_updated_at ? ` · updated ${timeAgo(challenge.results_updated_at)}` : ''}. These can still change. Final results are counted after the challenge closes.
+                  {tr("Views logged so far")}{challenge.results_updated_at ? ` · ${tr("updated")} ${timeAgo(challenge.results_updated_at)}` : ''}. {tr("These can still change. Final results are counted after the challenge closes.")}
                 </p>
               </div>
             </div>
@@ -812,7 +1006,21 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                 <p className="text-xs text-green-700/80">{tr("The challenge has closed and these standings are final.")}</p>
               </div>
             </div>
-          ) : null}
+          ) : (
+            <div className="flex items-start gap-3 rounded-card border border-dashed border-brand/25 bg-brand-tint/25 px-5 py-4">
+              <Icon name="sparkles" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
+              <div>
+                <p className="text-sm font-semibold text-brand">
+                  {results.length === 0 ? tr("Every place is still open") : tr("Standings so far")}
+                </p>
+                <p className="text-xs text-smoke">
+                  {results.length === 0
+                    ? tr("Nobody has a logged view count yet. Post a video and you take the top spot.")
+                    : tr("Views are counted automatically off each entry's link, a few times a day.")}
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* ONE TAB PER BOARD, AND IT OPENS ON YOURS.
               A challenge with groups has more than one leaderboard and they are
@@ -820,9 +1028,12 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
               prizes. Stacking them would make the second one look like the
               bottom of the first. It opens on the creator's own board because
               "how am I doing" is the question a leaderboard is opened to
-              answer; the others are one press away. */}
+              answer; the others are one press away.
+
+              THE TAB CARRIES THE BOARD'S SIZE, so switching to another group is
+              a decision made with the number visible rather than a guess. */}
           {boards.length > 1 && (
-            <div className="flex flex-wrap gap-2">
+            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
               {boards.map((g) => (
                 <button
                   key={g.id ?? 'ungrouped'}
@@ -830,41 +1041,73 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                   onClick={() => setBoard(g.id)}
                   aria-pressed={shownBoard === g.id}
                   className={cx(
-                    'rounded-full px-4 py-2 text-sm font-semibold transition-all duration-200',
+                    'flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all duration-200',
                     shownBoard === g.id
                       ? 'bg-brand text-white shadow-card'
                       : 'bg-cloud text-smoke hover:-translate-y-0.5 hover:text-ink',
                   )}
                 >
                   {g.name}
-                  {g.id === myGroupId && <span className="ml-1.5 text-xs font-medium opacity-80">you</span>}
+                  <span className={cx('rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums',
+                    shownBoard === g.id ? 'bg-white/25' : 'bg-white text-smoke')}>
+                    {boardCounts.get(g.id) || 0}
+                  </span>
+                  {g.id === myGroupId && (
+                    <span className={cx('text-[10px] font-bold uppercase tracking-wider',
+                      shownBoard === g.id ? 'text-white/80' : 'text-brand')}>{tr("you")}</span>
+                  )}
                 </button>
               ))}
             </div>
           )}
 
+          {/* WHAT THE BOARD ON SHOW IS PLAYING FOR. On a split challenge this is
+              the group's own pot, which is not the challenge's - reading the
+              brief's figure against another group's board is the single
+              easiest mistake this page can invite. */}
           {boards.length > 1 && shownPrize?.prize_amount != null && (
-            <p className="text-xs text-smoke">
-              {boards.find((g) => g.id === shownBoard)?.name} is playing for{' '}
-              <span className="font-semibold text-brand">{formatMoney(shownPrize.prize_amount, shownPrize.prize_currency)}</span>
-              {shownPrize.winners_count ? ` across ${shownPrize.winners_count} ${shownPrize.winners_count === 1 ? 'place' : 'places'}` : ''}.
-            </p>
+            <div className="flex flex-wrap items-center gap-2 rounded-card bg-cloud/50 px-4 py-3 text-sm">
+              <Icon name="trophy" className="h-4 w-4 shrink-0 text-brand" />
+              <span className="font-semibold">{boards.find((g) => g.id === shownBoard)?.name}</span>
+              <span className="text-smoke">{tr("is playing for")}</span>
+              <span className="font-bold text-brand">{formatMoney(shownPrize.prize_amount, shownPrize.prize_currency)}</span>
+              {shownPrize.winners_count ? (
+                <span className="text-smoke">
+                  {tr("across {n} places", { n: shownPrize.winners_count })}
+                </span>
+              ) : null}
+            </div>
           )}
 
           {/* THE BOARD ON SHOW, WHICH IS NOT ALWAYS MINE. The voucher badge on
               a leaderboard row means "this creator earned the reward", and on
-              another group's tab that reward is that group's. */}
+              another group's tab that reward is that group's - so is the prize
+              on each place, which is why `boardPrizes` and not `prizes`. */}
           <ChallengeLeaderboard
             rows={boardRows}
+            prizes={boardPrizes}
             meId={user.id}
             participation={boardParticipation}
             subCountByCreator={subCountByCreator}
             platformsFor={submittedPlatforms}
+            scoreLabel={challenge.scoring === 'points' ? 'points' : 'views'}
           />
-          {boardRows.length === 0 && (
+
+          {/* A challenge with no prize breakdown at all has no places to lay
+              out, so the component draws nothing and this says why. */}
+          {boardRows.length === 0 && boardPrizes.length === 0 && (
             <p className="rounded-card border border-dashed border-gray-200 px-5 py-6 text-center text-sm text-smoke">
               {tr("Nobody on this board has a logged view count yet.")}
             </p>
+          )}
+
+          {isLive && (
+            <div className="flex justify-center pt-1">
+              <button onClick={() => setShowSubmit(true)} className="btn-primary">
+                <Icon name="video" className="h-5 w-5" />
+                {myEntries.length > 0 ? tr('Add another entry') : tr('Submit your video')}
+              </button>
+            </div>
           )}
         </div>
       )}

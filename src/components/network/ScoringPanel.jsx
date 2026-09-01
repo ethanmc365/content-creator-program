@@ -5,6 +5,7 @@ import Icon from '../Icon'
 import { Avatar } from '../ui'
 import { scoringMode, isViewRanked, scoreForEntries } from '../../lib/scoring'
 import { cx, formatViews } from '../../lib/utils'
+import { useT } from '../../lib/i18n'
 
 // "How this one is won", on the challenge itself.
 //
@@ -20,6 +21,7 @@ import { cx, formatViews } from '../../lib/utils'
 // what the logged view counts say right now.
 
 export default function ScoringPanel({ challenge, submissions = [], myId }) {
+  const tr = useT()
   const mode = scoringMode(challenge.scoring)
   const [rules, setRules] = useState([])
 
@@ -82,18 +84,40 @@ export default function ScoringPanel({ challenge, submissions = [], myId }) {
       {challenge.scoring === 'points' && rules.length > 0 && (
         <div className="mt-5">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-smoke">What scores</p>
+          {/* THE POINTS PILL IS THE LAST THING IN EVERY ROW, ALWAYS.
+              (1 Sep 2026.)
+
+              Ethan: "+1 is currently misaligned because of the max 10, i want
+              it to be aligned with +2 etc."
+
+              `max 10` was a SIBLING of the pill in the same flex row, so a rule
+              that had a cap pushed its own pill left by the width of those five
+              characters and a rule that did not left it flush right. Two rows,
+              two different right edges, in a list whose whole job is comparing
+              the numbers down that edge.
+
+              The cap is a caption UNDER THE LABEL now - which is also where it
+              belongs, because "max 10" qualifies the rule, not the score - and
+              the pill sits in a fixed-width column so `+1` and `+10` are
+              centred on the same axis too. */}
           <ul className="space-y-1.5">
             {rules.map((r) => (
               <li key={r.id} className="flex items-center gap-3 rounded-xl bg-cloud/60 px-3.5 py-2.5">
                 <Icon name={r.kind === 'views_threshold' ? 'chart' : r.kind === 'bonus' ? 'star' : 'video'}
                   className="h-4 w-4 shrink-0 text-brand" />
-                <span className="min-w-0 flex-1 truncate text-sm">{r.label}</span>
-                <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-xs font-bold tabular-nums text-white">
-                  +{Number(r.points)}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm">{r.label}</span>
+                  {r.max_points != null && (
+                    <span className="block text-[11px] text-smoke">
+                      {tr('Up to {n} points from this', { n: Number(r.max_points) })}
+                    </span>
+                  )}
                 </span>
-                {r.max_points != null && (
-                  <span className="shrink-0 text-[11px] text-smoke">max {Number(r.max_points)}</span>
-                )}
+                <span className="flex w-11 shrink-0 justify-end">
+                  <span className="rounded-full bg-brand px-2 py-0.5 text-xs font-bold tabular-nums text-white">
+                    +{Number(r.points)}
+                  </span>
+                </span>
               </li>
             ))}
           </ul>

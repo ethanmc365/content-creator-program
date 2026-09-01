@@ -23,11 +23,12 @@ export const SHARE_LAYOUT = {
 }
 
 export default function ShareCard({
-  cardRef, what, challenge, winners = [], ranking = [], entries = 0, totalViews = 0,
-  voucherWinners = [], voucherPrize = '', subCountByCreator = {}, platformsFor = () => [],
+  cardRef, what, challenge, boardName = null, prizes = [], winners = [], ranking = [],
+  entries = 0, totalViews = 0, voucherWinners = [], voucherPrize = '',
+  subCountByCreator = {}, platformsFor = () => [],
 }) {
-  const participation = challenge?.participation_threshold && challenge?.participation_prize
-    ? { threshold: challenge.participation_threshold, prize: challenge.participation_prize }
+  const participation = voucherPrize
+    ? { threshold: challenge?.participation_threshold || 1, prize: voucherPrize }
     : null
   const isFinal = challenge?.results_status === 'final'
 
@@ -39,6 +40,10 @@ export default function ShareCard({
       <div className="bg-gradient-to-br from-brand to-brand-light px-10 py-7 text-center text-white">
         <p className="text-[30px] font-extrabold leading-tight tracking-tight">{challenge?.title || 'Challenge'}</p>
         <p className="mt-1 text-sm font-medium text-white/85">
+          {/* THE BOARD'S OWN NAME, when there is more than one. A picture of
+              Group B's podium captioned only "Final winners" is a picture that
+              says the wrong thing to every creator in Group A. */}
+          {boardName ? `${boardName} · ` : ''}
           {what === 'podium'
             ? (isFinal ? 'Final winners' : 'Current winners')
             : (isFinal ? 'Final leaderboard' : 'Current leaderboard')}
@@ -59,6 +64,8 @@ export default function ShareCard({
           <>
             <ChallengeLeaderboard
               rows={ranking}
+              prizes={prizes}
+              scoreLabel={challenge?.scoring === 'points' ? 'points' : 'views'}
               participation={participation}
               subCountByCreator={subCountByCreator}
               platformsFor={platformsFor}

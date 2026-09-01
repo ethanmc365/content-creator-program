@@ -1406,6 +1406,9 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
 @media (prefers-reduced-motion: reduce) {
   .challenge-sheen { animation: none; opacity: 0; }
   .challenge-orbit { animation: none; }
+  /* The breathing glow behind "Submit your video". It is decoration on a
+     static layout, so stopping it holds the button exactly where it is. */
+  .animate-cta-glow { animation: none; opacity: 0.4; }
 }
 
 /* ---------------------------------------------------------------------------

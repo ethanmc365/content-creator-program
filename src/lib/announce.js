@@ -37,14 +37,18 @@ function channelKeyFor(community, base = 'announcements') {
   return `${community?.slug}:${base}`
 }
 
-// The rooms something can be shared into. `announcements` broadcasts (posting
-// there notifies everyone); `general` is the ordinary room, which is sometimes
-// the better place for a leaderboard nobody needs a push about.
-export const SHAREABLE_ROOMS = [
-  { key: 'announcements', label: 'Announcements', hint: 'Notifies everyone in the market' },
-  { key: 'general', label: 'General chat', hint: 'Posts without a notification' },
-  { key: 'content_tips', label: 'Content Tips', hint: 'For anything creators can learn from' },
-]
+// WHAT EACH ROOM MEANS WHEN YOU POST INTO IT, keyed by the room's own `key`.
+//
+// The dialog that shares a leaderboard asks the DATABASE which rooms a market
+// actually has (a market that never opened `content_tips` was previously still
+// offered it, and the share then silently posted nothing), and looks the
+// consequence up here. A key that is not on this list is a room nothing is
+// broadcast into - the list is the allow-list as well as the labels.
+export const ROOM_LABELS = {
+  announcements: { label: 'Announcements', hint: 'Notifies everyone in the market' },
+  general: { label: 'General chat', hint: 'Posts without a notification' },
+  content_tips: { label: 'Content Tips', hint: 'For anything creators can learn from' },
+}
 
 /**
  * @param {object} opts

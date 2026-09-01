@@ -3,13 +3,17 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Icon from './Icon'
 import { Avatar } from './ui'
-import { formatViews } from '../lib/utils'
+import { formatViews, cx } from '../lib/utils'
+import { podiumTier } from '../lib/podiumTiers'
 
 // An inline challenge-leaderboard card inside a chat message. Admins post these
 // to #announcements from the results page as a mid-challenge (interim) or final
 // standings update. Shows the current top 3 + a link to the full board.
 // (Mirrors ResourceCard / GameEventCard / PollCard.)
-const MEDAL = ['🥇', '🥈', '🥉']
+//
+// THE PLACES ARE THE PLATFORM'S OWN ORANGE DISCS, not medal emoji. Three
+// emoji rendered at 14px in a chat bubble is three pieces of Apple's artwork
+// inside our card, and it was the last surface still doing it.
 
 export default function LeaderboardCard({ challengeId }) {
   const [challenge, setChallenge] = useState(null)
@@ -49,7 +53,13 @@ export default function LeaderboardCard({ challengeId }) {
           <ul className="mb-3 space-y-2">
             {rows.map((r) => (
               <li key={r.rank} className="flex items-center gap-2.5">
-                <span className="w-5 text-center text-sm">{MEDAL[r.rank - 1] ?? r.rank}</span>
+                <span
+                  className={cx('flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold tabular-nums',
+                    r.rank > 3 && 'bg-cloud text-smoke')}
+                  style={r.rank <= 3 ? { background: podiumTier(r.rank).disc, color: podiumTier(r.rank).ink } : undefined}
+                >
+                  {r.rank}
+                </span>
                 <Avatar src={r.profiles?.photo_url} name={r.profiles?.name} size="xs" />
                 <span className="min-w-0 flex-1 truncate text-xs font-semibold">{r.profiles?.name}</span>
                 <span className="shrink-0 text-xs font-bold tabular-nums text-brand">{formatViews(r.final_views)}</span>

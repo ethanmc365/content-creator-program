@@ -3,6 +3,7 @@ import { Avatar } from './ui'
 import { TIKTOK_PATH, FACEBOOK_PATH } from './PlatformBadges'
 import { detectPlatformFromUrl } from '../lib/videoPreview'
 import { formatViews, cx } from '../lib/utils'
+import { podiumTier, ordinalFor } from '../lib/podiumTiers'
 import { useT } from '../lib/i18n'
 
 // The closing graphic for a finished challenge.
@@ -17,43 +18,6 @@ import { useT } from '../lib/i18n'
 // belongs to the challenge. Nothing is an anchor inside an anchor: the caller
 // lays a stretched link UNDER this block and every control here stops the click
 // from reaching it.
-
-// Real metal, not three Tailwind ambers a shade apart. Each is a two-stop
-// gradient with a lighter top edge, which is what reads as "polished" at this
-// size - a flat fill just reads as a coloured box.
-const MEDALS = {
-  1: {
-    label: '1st',
-    ring: '#e0a92b',
-    bar: 'linear-gradient(180deg,#fbdd7e 0%,#eebd45 45%,#cf9312 100%)',
-    text: '#5b410a',
-    height: 'h-14',
-  },
-  2: {
-    label: '2nd',
-    ring: '#b8c1cc',
-    bar: 'linear-gradient(180deg,#eef1f5 0%,#cdd5de 45%,#a3adb9 100%)',
-    text: '#404a56',
-    height: 'h-10',
-  },
-  3: {
-    label: '3rd',
-    ring: '#bf7c46',
-    bar: 'linear-gradient(180deg,#e2a774 0%,#c9814a 45%,#9d5f2e 100%)',
-    text: '#4d2f14',
-    height: 'h-7',
-  },
-}
-
-// Beyond bronze there is no metal, so places 4+ get the brand instead of a
-// fourth invented colour. Keeps a five-winner podium on-brand.
-const PLAIN = {
-  label: null,
-  ring: '#f0c3ab',
-  bar: 'linear-gradient(180deg,#fbd9c7 0%,#f5b795 45%,#e08a4e 100%)',
-  text: '#7a3406',
-  height: 'h-5',
-}
 
 const PLATFORM_ICON = {
   TikTok: <path d={TIKTOK_PATH} />,
@@ -114,14 +78,14 @@ export default function WinnersPodium({
   const scoreOf = (w) => (isPoints ? (w.points ?? w.final_views ?? 0) : (w.final_views ?? 0))
   const fmt = (n) => (isPoints ? Number(n).toLocaleString() : formatViews(n))
 
-  // Classic podium shape for the medals (2 | 1 | 3); anyone past bronze lines up
-  // to the right in plain order rather than pretending to be a fourth step.
+  // Classic podium shape for the top three (2 | 1 | 3); anyone past third lines
+  // up to the right in plain order rather than pretending to be a fourth step.
   const top = winners.filter((w) => w.rank <= 3)
   const rest = winners.filter((w) => w.rank > 3)
   const order = [top.find((w) => w.rank === 2), top.find((w) => w.rank === 1), top.find((w) => w.rank === 3)].filter(Boolean)
 
   const step = (w) => {
-    const m = MEDALS[w.rank] || PLAIN
+    const m = podiumTier(w.rank)
     const first = w.rank === 1
     return (
       <div key={w.rank} className="flex w-[5.5rem] flex-col items-center sm:w-24">
@@ -131,7 +95,7 @@ export default function WinnersPodium({
           className="block rounded-full transition-transform duration-150 hover:scale-105"
           title={`${w.profiles?.name || 'Creator'} - view profile`}
         >
-          <span className="block rounded-full p-[3px]" style={{ background: m.ring }}>
+          <span className="block rounded-full p-[3px]" style={{ background: m.disc }}>
             <Avatar src={w.profiles?.photo_url} name={w.profiles?.name} size={first ? 'lg' : 'md'} />
           </span>
         </Link>
@@ -144,7 +108,7 @@ export default function WinnersPodium({
           className={cx('mt-2 flex w-full items-start justify-center rounded-t-lg', m.height)}
           style={{ background: m.bar }}
         >
-          <span className="pt-1 text-[11px] font-bold" style={{ color: m.text }}>{m.label || `${w.rank}th`}</span>
+          <span className="pt-1 text-[11px] font-bold" style={{ color: m.ink }}>{m.label}</span>
         </div>
       </div>
     )
@@ -161,7 +125,7 @@ export default function WinnersPodium({
         <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-gray-200/70 pt-3">
           {rest.map((w) => (
             <div key={w.rank} className="flex items-center gap-2">
-              <span className="w-5 text-right text-[11px] font-bold tabular-nums text-smoke">{w.rank}</span>
+              <span className="w-6 text-right text-[11px] font-bold text-brand/70">{ordinalFor(w.rank)}</span>
               <Link to={`/profile/${w.profiles?.id}`} onClick={own} className="transition-transform duration-150 hover:scale-105">
                 <Avatar src={w.profiles?.photo_url} name={w.profiles?.name} size="xs" />
               </Link>
