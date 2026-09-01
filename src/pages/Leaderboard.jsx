@@ -59,16 +59,15 @@ function Podium({ top, meId }) {
                     place === 1 ? 'ring-brand' : place === 2 ? 'ring-brand-light' : 'ring-brand-tint',
                   )}
                 />
-                {/* A STAR, NOT A TROPHY. The trophy glyph is a stroked outline
-                    with a base, a stem and two handles; at fourteen pixels
-                    those collapse into each other and it reads as a small red
-                    X on somebody's face. A star survives being tiny, which is
-                    the only requirement a badge this size has. */}
-                {place === 1 && (
-                  <span className="absolute -right-1 -top-1 flex h-7 w-7 items-center justify-center rounded-full bg-brand text-white shadow-card ring-2 ring-white">
-                    <Icon name="star" className="h-4 w-4" />
-                  </span>
-                )}
+                {/* NO BADGE ON THE FACE. There was a star here - and before
+                    that a trophy, which at fourteen pixels collapsed into a
+                    small red X on somebody's photograph. The star fixed that
+                    and it was still one thing too many: the winner is already
+                    the biggest avatar, on the tallest block, in the middle, in
+                    full brand orange, with a "1" under it. Ethan: "I would
+                    remove the star that shows up on top of Jacob's profile
+                    picture - we don't need another star. The podium is already
+                    a nice graphic, and I like it." */}
               </span>
               <p className={cx(
                 'mt-2 max-w-full truncate text-center text-sm font-semibold transition-colors group-hover:text-brand',
@@ -125,9 +124,21 @@ export default function Leaderboard() {
     return () => { supabase.removeChannel(channel) }
   }, [load])
 
+  const [expanded, setExpanded] = useState(false)
+  useEffect(() => { setExpanded(false) }, [market])
+
   const posted = useMemo(() => (rows || []).filter((r) => r.views > 0), [rows])
   const top = posted.slice(0, 3)
-  const rest = posted.slice(3)
+  // Everybody below the podium, in order, with the creators on nought views at
+  // the end - they ARE in the programme and they are ranked last, which is both
+  // true and the only honest place to put them.
+  const everyone = useMemo(
+    () => [...posted.slice(3), ...(rows || []).filter((r) => r.views === 0)],
+    [posted, rows],
+  )
+  const COLLAPSED = 9
+  const shown = expanded ? everyone : everyone.slice(0, COLLAPSED)
+  const hiddenCount = everyone.length - shown.length
   // The people who have not posted yet, counted rather than listed. They belong
   // on the board - they are in the programme - but forty names on nought views
   // under the top ten reads as a wall of failure rather than as a standing.
@@ -184,17 +195,39 @@ export default function Leaderboard() {
         <>
           <Podium top={top} meId={profile?.id} />
 
-          {rest.length > 0 && (
+          {shown.length > 0 && (
             <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
-              {rest.map((c, i) => {
+              {shown.map((c, i) => {
                 const place = i + 4
                 const isMe = c.creator_id === profile?.id
                 return (
-                  <Link
+                  /* THE BOARD ARRIVES IN ORDER: THE PODIUM, THEN THE REST.
+                     Ethan: "improve the animation of this - first the podium
+                     shows up, and then the other ones, four, five, six, seven."
+                     The podium's own ladder finishes at about 240ms, so the
+                     rows start after it rather than alongside it, and each is
+                     one 45ms step behind the last. THE LADDER IS CAPPED AT
+                     EIGHT: an uncapped stagger over forty rows would take two
+                     seconds to finish, and a list that is still assembling
+                     after two seconds reads as a slow page, not as a flourish.
+                     Everything past the eighth simply arrives with the eighth. */
+                  /* THE DIVIDER MOVES TO THE WRAPPER. `last:border-0` picks the
+                     last element among its SIBLINGS, and once every row is
+                     wrapped, each Link is the only child of its own wrapper -
+                     so every single row would have counted as "last" and the
+                     list would have lost all of its dividers. The wrappers are
+                     the siblings now, so the rule means what it says. */
+                  <motion.div
                     key={c.creator_id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.34 + Math.min(i, 8) * 0.045, duration: 0.32, ease: EASE }}
+                    className="border-b border-gray-50 last:border-0"
+                  >
+                  <Link
                     to={`/profile/${c.creator_id}`}
                     className={cx(
-                      'flex items-center gap-4 border-b border-gray-50 px-4 py-3.5 transition-colors last:border-0 sm:px-6',
+                      'flex items-center gap-4 px-4 py-3.5 transition-colors sm:px-6',
                       isMe ? 'bg-brand-tint/50 hover:bg-brand-tint' : 'hover:bg-cloud/60',
                     )}
                   >
@@ -220,16 +253,42 @@ export default function Leaderboard() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-bold text-brand tabular-nums">{formatViews(c.views)}</p>
+                      <p className={cx('text-sm font-bold tabular-nums', c.views > 0 ? 'text-brand' : 'text-gray-300')}>
+                        {formatViews(c.views)}
+                      </p>
                       <p className="text-[11px] text-smoke">views</p>
                     </div>
                   </Link>
+                  </motion.div>
                 )
               })}
             </div>
           )}
 
-          {yetToPost > 0 && (
+          {/* EXPANDING SHOWS EVERYONE, INCLUDING THE PEOPLE ON NOUGHT.
+              Ethan: "it should show up absolutely everyone here whenever you
+              click to expand it."
+              Two things were hiding people. The board only ever drew the
+              creators with views above zero, and counted the rest in a line at
+              the foot - which was a deliberate call ("forty names on nought
+              views reads as a wall of failure rather than as a standing") and
+              is the right DEFAULT, not the right only option. And a long board
+              is a long scroll before you reach anything else.
+              So the default is the podium plus nine, the button says how many
+              more there are, and opening it lists every single creator in the
+              programme in order, the zeroes included and drawn quietly. */}
+          {hiddenCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="mx-auto mt-4 flex items-center gap-2 rounded-full border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-smoke transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand"
+            >
+              <Icon name={expanded ? 'chevronUp' : 'chevronDown'} className="h-4 w-4" />
+              {expanded ? 'Show fewer' : `Show all ${everyone.length + 3} creators`}
+            </button>
+          )}
+
+          {!expanded && yetToPost > 0 && (
             <p className="mt-4 text-center text-xs text-smoke">
               {yetToPost} {yetToPost === 1 ? 'creator has' : 'creators have'} not posted yet.
               {mine >= 0 && rows[mine]?.views === 0 && ' Your first video puts you on the board.'}

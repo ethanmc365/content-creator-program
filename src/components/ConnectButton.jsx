@@ -84,14 +84,28 @@ export default function ConnectButton({
   // three colours, and the fourth (a request waiting for YOU) stays full brand
   // because it is the only one of the four that actually wants a press.
   //
-  // Green is the same green "answered" uses on the board and "played" uses on
-  // the daily puzzles. It already means done in this product.
+  // AND THEN "CONNECTED" WENT QUIET AGAIN, WHICH IS NOT A REVERSAL.
+  //
+  // Green was the same green "answered" uses on the board and "played" uses on
+  // the daily puzzles, and on ONE card it read exactly right. On a grid of
+  // people you already know it read as a wall: Ethan, on the network page,
+  // "when you're connected it looks misaligned with the palette, because it's
+  // just very green - if you're connected with a lot of creators we still need
+  // some Tryp.com orange somewhere."
+  //
+  // The fix is not a different green. `Connected` is the one state of the four
+  // that is NOT asking for anything - the button only exists there to be
+  // disconnected from - so it should be the quietest thing on the card, and the
+  // brand should go to the thing you actually want to do next, which is send
+  // them a message. See CreatorCard: Message becomes the brand button once you
+  // are connected. The tick stays green, because the tick is the bit that means
+  // done and it is four pixels of it.
   const label = { none: 'Connect', pending_sent: 'Pending', pending_received: 'Accept request', connected: 'Connected' }[rel]
   const tone = {
     none: 'bg-brand text-white ring-1 ring-brand hover:shadow-card',
     pending_sent: 'bg-brand-light/25 text-brand ring-1 ring-brand-light/60 hover:bg-brand-light/40',
     pending_received: 'bg-brand text-white ring-1 ring-brand hover:shadow-card',
-    connected: 'bg-green-50 text-green-700 ring-1 ring-green-500/40 hover:bg-green-100',
+    connected: 'bg-white text-smoke ring-1 ring-gray-200 hover:bg-cloud hover:text-ink',
   }[rel]
   const title = rel === 'pending_sent' ? 'Cancel request' : rel === 'connected' ? 'Disconnect' : ''
 
@@ -106,7 +120,7 @@ export default function ConnectButton({
       className={`inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 ${tone} ${className}`}
     >
       {rel === 'connected' && (
-        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 text-green-600" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <path d="M4 12l5 5L20 6" />
         </svg>
       )}

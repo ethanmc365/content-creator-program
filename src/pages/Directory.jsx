@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import CreatorCard from '../components/CreatorCard'
@@ -210,21 +209,19 @@ export default function Directory() {
   return (
     <div className="page">
       <BackLink />
-      {/* MY CONNECTIONS IS A DOOR IN THE HEADER, NOT A PAGE YOU HAVE TO KNOW
-          ABOUT. Ethan: "I don't see why anyone would click on it over the
-          Creator Network." Part of that is that nothing on this page pointed at
-          it. The map's "My connections" filter narrows THIS page to the people
-          you know; this goes to the page that manages them - requests, mutuals,
-          suggestions, and which of them is about to be somewhere. */}
+      {/* NO "MY CONNECTIONS" BUTTON. It was put here as a door to a page
+          nothing pointed at, which was a real problem at the time and is not
+          one any more: Connections is its own page in its own right, reachable
+          from the avatar menu and from every empty state that has a reason to
+          send you there. Ethan: "we can remove the My connections button at the
+          top - we have its own page for it, we don't need it at the top of the
+          map." A header button that duplicates navigation is a second answer to
+          a question the nav already answers. The map's own "My connections"
+          FILTER stays; that is a different thing, and it narrows this page
+          rather than leaving it. */}
       <PageHeader
         title="Creator Network"
         subtitle="Discover the community. Connect with creators, start conversations, make friends, plan trips together and collab."
-        action={
-          <Link to="/connections" className="btn-secondary !py-2.5 text-sm">
-            <Icon name="users" className="h-4 w-4" />
-            My connections
-          </Link>
-        }
       />
 
       {/* THE MAP HAS NO HEADING OF ITS OWN.
@@ -342,7 +339,7 @@ export default function Directory() {
               We are in the community too. Connect or message any of us.
             </p>
           </div>
-          <Reveal className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" stagger={0.05}>
+          <Reveal className="grid grid-cols-1 gap-4 sm:grid-cols-2" stagger={0.05}>
             {team.map((c) => (
               <CreatorCard
                 key={c.id}
@@ -375,7 +372,11 @@ export default function Directory() {
           }
         />
       ) : (
-        <Reveal className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        /* TWO ACROSS, NOT FOUR. See the long note in CreatorCard: at four
+           across a card is 260px wide and everything in it is a compression.
+           `sm:grid-cols-2` and nothing above it, so the card gets the width at
+           every size where there is width to give. */
+        <Reveal className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {/* The FIRST card carries the walkthrough anchor. Highlighting the
               whole card rather than the Connect button inside it is deliberate:
               the button is three components deep and threading an attribute

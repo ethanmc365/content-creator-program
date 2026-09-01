@@ -32,9 +32,20 @@ import { cx } from '../lib/utils'
 //     where it is usually the first one you see. It renders a quiet "This is
 //     you" strip instead, which costs the same height and says something true.
 //
-// SMALLER, TOO. `!p-4` and a `md` avatar rather than `lg`, so four fit across a
-// desktop where three did - the grid is a directory you scan, and scanning is
-// helped by seeing more of it at once.
+// AND THEN IT WENT THE OTHER WAY, ON PURPOSE. It was `!p-4` with an `md`
+// avatar so FOUR fitted across a desktop, on the argument that a directory is
+// something you scan. Four across is 260px a card, and at 260px a name, a
+// place, two lines of bio, a row of platform marks, a countries chip and two
+// buttons are not a card, they are a compression. Ethan: "when you scroll down
+// the creator cards I don't like how they look - it looks extremely crowded,
+// the connected button, the message button, everything looks really compact...
+// I think go for two cards and really improve the design of the information
+// they show."
+//
+// So: two across (see Directory), and the extra 240px is spent on the two
+// things that were suffering - the person at the top of the card, and the
+// actions at the foot. The fixed heights all stay, because the reason for them
+// (a grid of cards that are not the same size) has not changed.
 export default function CreatorCard({ creator, relation, onRelationChange, currentTrip = null, ...rest }) {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -50,19 +61,20 @@ export default function CreatorCard({ creator, relation, onRelationChange, curre
   return (
     <Link
       to={`/profile/${creator.id}`}
-      className="card group flex h-full flex-col gap-3 !p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift active:-translate-y-0.5 active:shadow-lift"
+      className="card group flex h-full flex-col gap-3.5 !p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/25 hover:shadow-lift active:-translate-y-0.5 active:shadow-lift"
       {...rest}
     >
-      <div className="flex items-start gap-3">
-        <Avatar src={creator.photo_url} name={creator.name} size="md" />
+      <div className="flex items-start gap-3.5">
+        <Avatar src={creator.photo_url} name={creator.name} size="lg" />
         <div className="min-w-0 flex-1">
           {/* One line, always. `truncate` rather than wrap: a two-line name on
               one card and a one-line name on the next is the difference the
               whole grid was suffering from. */}
-          <h3 className="truncate text-[15px] font-semibold leading-snug group-hover:text-brand">
+          <h3 className="truncate text-base font-semibold leading-snug group-hover:text-brand">
             {creator.name}
           </h3>
-          <p className="mt-0.5 truncate text-xs text-smoke">
+          <p className="mt-0.5 flex items-center gap-1.5 truncate text-[13px] text-smoke">
+            <Icon24Pin />
             {[creator.city, creator.country].filter(Boolean).join(', ') || 'Somewhere out there'}
           </p>
         </div>
@@ -91,7 +103,7 @@ export default function CreatorCard({ creator, relation, onRelationChange, curre
           bio as four short lines would otherwise lay out as four lines and the
           clamp would show the first two with no ellipsis, which reads as the
           card having eaten the rest rather than as a summary. */}
-      <p className="line-clamp-2 h-10 overflow-hidden text-[13px] leading-5 text-smoke">
+      <p className="line-clamp-2 h-10 overflow-hidden text-[13.5px] leading-5 text-smoke">
         {(creator.bio || 'New to the programme.').replace(/\s+/g, ' ').trim()}
       </p>
 
@@ -135,24 +147,37 @@ export default function CreatorCard({ creator, relation, onRelationChange, curre
 
       {/* `mt-auto` pins the foot to the bottom whatever is above it, which is
           what makes `h-full` produce a genuinely uniform card rather than a
-          uniform box with the buttons floating at different heights inside. */}
-      <div className="mt-auto border-t border-gray-100 pt-3">
+          uniform box with the buttons floating at different heights inside.
+
+          THE BRAND MOVES TO MESSAGE ONCE YOU ARE CONNECTED, and that is the
+          answer to "if you're connected with a lot of creators we still need
+          some Tryp.com orange somewhere". Connected is a finished state - the
+          button is only there to undo it - so it goes quiet (see ConnectButton)
+          and the loud one becomes the thing there is actually left to do. On a
+          grid of people you have not met yet, Connect is orange and Message is
+          the quiet one; on a grid of people you know, it is the other way
+          round. Either way exactly one button on the card is orange. */}
+      <div className="mt-auto border-t border-gray-100 pt-3.5">
         {isMe ? (
-          <p className="py-1 text-center text-xs font-medium text-gray-400">This is you</p>
+          <p className="py-1.5 text-center text-xs font-medium text-gray-400">This is you</p>
         ) : (
-          <div className="flex gap-2">
+          <div className="flex gap-2.5">
             <ConnectButton
               myId={user.id}
               targetId={creator.id}
+              targetName={creator.name}
               relation={relation}
               onChange={(next) => onRelationChange?.(creator.id, next)}
-              className="flex-1"
+              className="flex-1 !py-2.5 text-[13px]"
             />
             <button
               onClick={message}
               className={cx(
-                'inline-flex flex-1 items-center justify-center rounded-full bg-cloud px-4 py-2 text-xs font-semibold text-ink',
-                'transition-all duration-200 hover:-translate-y-0.5 hover:bg-gray-200 active:translate-y-0',
+                'inline-flex flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-2.5 text-[13px] font-semibold',
+                'transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0',
+                relation?.relation === 'connected'
+                  ? 'bg-brand text-white ring-1 ring-brand hover:shadow-card'
+                  : 'bg-cloud text-ink hover:bg-gray-200',
               )}
             >
               Message
@@ -161,6 +186,18 @@ export default function CreatorCard({ creator, relation, onRelationChange, curre
         )}
       </div>
     </Link>
+  )
+}
+
+// A pin, inline, for the same reason as the globe below: an emoji renders at a
+// different size on every platform, and this one sits on a baseline beside 13px
+// text.
+function Icon24Pin() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 text-gray-300" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path d="M12 21s7-5.686 7-11a7 7 0 10-14 0c0 5.314 7 11 7 11z" />
+      <circle cx="12" cy="10" r="2.5" />
+    </svg>
   )
 }
 

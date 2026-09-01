@@ -383,41 +383,6 @@ export default function Connections() {
         </section>
       )}
 
-      {/* ---- Your people, on the move ----
-          See the note in `load`: this is the section that gives the page a
-          reason to exist next to the Creator Network. The directory tells you
-          who is out there; this tells you which of the people you already know
-          is about to be somewhere, which is the one that turns a connection
-          into a coffee. Above the tabs because it EXPIRES - a trip you find out
-          about after it has happened is not information. */}
-      {d.travelling?.length > 0 && (
-        <section className="mb-10">
-          <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-            <Icon name="plane" className="h-5 w-5 text-brand" />
-            Your connections on the move
-            <span className="text-brand">({d.travelling.length})</span>
-          </h2>
-          <Reveal className="space-y-3" stagger={0.05}>
-            {d.travelling.slice(0, 6).map((t) => (
-              <PersonCard
-                key={t.creator_id}
-                person={t.person}
-                mutuals={d.mutualsWith(t.creator_id)}
-                subtitle={`${t.current ? 'In' : 'Going to'} ${[t.city, t.country].filter(Boolean).join(', ')} · ${fmtTripRange(t.start_date, t.end_date)}`}
-                right={
-                  <Link to="/collab" className="btn-ghost !px-3 !py-2 text-xs">See the trip</Link>
-                }
-              />
-            ))}
-          </Reveal>
-          {d.travelling.length > 6 && (
-            <Link to="/collab" className="mt-3 inline-block text-sm font-medium text-brand hover:underline">
-              All {d.travelling.length} on the collab board →
-            </Link>
-          )}
-        </section>
-      )}
-
       {/* ---- Tabs ---- */}
       <div className="mb-6 flex gap-1 border-b border-gray-100" role="tablist">
         {TABS.map((t) => (
@@ -442,6 +407,62 @@ export default function Connections() {
 
       {tab === 'network' ? (
         <section>
+          {/* ---- Your people, on the move ----
+              THIS USED TO BE SIX FULL-WIDTH ROWS ABOVE THE TABS, and it was the
+              first thing on the page after the counters. Ethan: "the bit that
+              shows your connections on the move takes up a lot of space, and I
+              can't actually see my network."
+              He is right about the cost and the section is still worth having:
+              the directory tells you who is out there, this tells you which of
+              the people you already know is about to be somewhere, which is the
+              one that turns a connection into a coffee. So it keeps its job and
+              gives back the page - a single scrolling rail of small cards
+              instead of a stack, inside YOUR NETWORK, because that is whose
+              trips these are. It is still near the top of its tab because it
+              EXPIRES: a trip you find out about after it has happened is not
+              information.
+              "See the trip" is on every card rather than at the end of the
+              section - Ethan liked that button, and a rail you have to scroll
+              to the end of to act on is a rail nobody acts on. */}
+          {d.travelling?.length > 0 && (
+            <div className="mb-6">
+              <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-smoke">
+                <Icon name="plane" className="h-4 w-4 text-brand" />
+                On the move
+                <span className="text-brand">{d.travelling.length}</span>
+              </h2>
+              <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {d.travelling.map((t) => (
+                  <Link
+                    key={t.creator_id}
+                    to="/collab"
+                    className="flex w-[15rem] shrink-0 items-center gap-3 rounded-card border border-gray-100 bg-white p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-card"
+                  >
+                    <span className="relative shrink-0">
+                      <Avatar src={t.person.photo_url} name={t.person.name} size="sm" />
+                      {/* A dot for somebody who is THERE NOW rather than going.
+                          It is the difference between "message them today" and
+                          "put it in the diary", and it was a word in a sentence. */}
+                      {t.current && (
+                        <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-brand ring-2 ring-white" title="There now" />
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold">{t.person.name}</span>
+                      <span className="block truncate text-[11px] text-smoke">
+                        {t.current ? 'In' : 'Going to'} {[t.city, t.country].filter(Boolean).join(', ')}
+                      </span>
+                      <span className="block truncate text-[11px] tabular-nums text-gray-400">
+                        {fmtTripRange(t.start_date, t.end_date)}
+                      </span>
+                    </span>
+                    <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
           {d.connections.length === 0 ? (
             <EmptyState
               icon={<Icon name="users" className="h-7 w-7" />}
@@ -483,13 +504,20 @@ export default function Connections() {
                       mutuals={d.mutualsWith(c.id)}
                       subtitle={presenceLabel(c.last_seen_at) || c.bio || 'Creator'}
                       right={
+                        /* A LABELLED BUTTON, NOT A BARE ENVELOPE.
+                           The page exists to get people talking to each other,
+                           and a 36px icon with no word on it is the quietest
+                           possible invitation to do that - it reads as chrome
+                           on a card rather than as the thing to press. Ethan:
+                           "we want to actually create better connections,
+                           encourage people to reach out to each other." */
                         <Link
                           to={`/messages?to=${c.id}`}
                           aria-label={`Message ${c.name}`}
-                          title={`Message ${c.name}`}
-                          className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-smoke transition-transform duration-200 hover:scale-110 hover:border-brand hover:text-brand"
+                          className="btn-secondary shrink-0 !px-3.5 !py-2 text-xs"
                         >
                           <Icon name="envelope" className="h-4 w-4" />
+                          <span className="hidden sm:inline">Message</span>
                         </Link>
                       }
                     />
