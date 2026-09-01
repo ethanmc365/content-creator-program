@@ -5,78 +5,78 @@ import { cx } from '../lib/utils'
 import { onPhotosChanged } from '../lib/photoEvents'
 import { notice } from '../lib/confirm'
 
-// THE TRAVEL PHOTO BOARD. FREE PLACEMENT, DONE PROPERLY THIS TIME.
+// THE TRAVEL PHOTO BOARD: A PACKED COLLAGE YOU REARRANGE.
 //
-// THREE ATTEMPTS, AND WHY THIS ONE IS DIFFERENT.
+// FOUR ATTEMPTS. WHAT EACH ONE GOT WRONG, SO THE NEXT PERSON DOES NOT REPEAT IT.
 //
-// The original was free 2-D placement on a 12-column grid. It failed, and the
-// proof was in production: every creator_photos row had `pos_x = null`, so
-// nobody had ever completed a single arrangement. The reasons were structural -
-// unbounded `pos_y` let a board grow taller than the screen, and twelve columns
-// at 375px is a 31px cell, so the whole feature was switched off on phones.
+//  1. A 12-column grid with free 2-D placement. Every `creator_photos` row in
+//     production had `pos_x = null`: nobody ever completed an arrangement.
+//     Unbounded `pos_y` let the board grow taller than the screen, and twelve
+//     columns at 375px is a 31px cell, so it was switched off on phones.
+//  2. Masonry with drag-to-REORDER and a "narrower" button. It worked. Ethan
+//     wanted to resize by dragging, not by pressing a button.
+//  3. Free placement again, snapped to a twelfth, overlap allowed, four corner
+//     grips. This is the one Ethan is reporting on now, and the report names
+//     all three faults exactly:
+//       "I don't like the current shuffliness when moving them around, and I
+//        don't like that you're able to overlap photos. Whenever you overlap
+//        photos, the other ones are suddenly moving... I tried to move one of
+//        the landscape ones up to the middle and the vertical one down, and it
+//        caused the other ones to all rejumble."
 //
-// The second was a masonry grid: drag to REORDER, press to widen. It works, and
-// it is not what was asked for. Ethan: "the tool just consists of drag and a
-// narrower button, I want the ability to fully resize each one to any size I
-// want by dragging from the corner, I want the move function to be able to move
-// and drop it anywhere and it stays there, not snapping in place."
+// THE REJUMBLE WAS NOT A BUG IN THE DRAG. It was structural, and it is worth
+// writing down because it is invisible from the outside: the board drew
+// ARRANGED photos from their stored coordinates and UNARRANGED ones from a
+// masonry packer run over *only the unarranged ones*. So the moment you moved
+// your first photo it left that set, the packer re-ran over a different list,
+// and every photo you had not touched jumped somewhere else. Every drag
+// rearranged the whole board. No amount of smoothing the pointer maths could
+// have fixed that.
 //
-// So this is free placement again, with the two things that actually broke it
-// fixed:
+// SO THE BOARD IS ONE LAYOUT NOW, ALWAYS. `packBoard` is a pure function of
+// (order, spans, aspects) run over EVERY photo on every render - there is no
+// placed/unplaced split left to disagree with itself. Which means:
 //
-//   1. EVERYTHING IS STORED AS A FRACTION OF THE BOARD'S WIDTH, in per-mille,
-//      not as grid cells and not as pixels. x, y, w and h are all in the same
-//      unit, so a board arranged on a 1400px desktop renders as the SAME
-//      ARRANGEMENT, scaled, at 375px. That single decision is what makes free
-//      placement survive a phone at all - the old grid could not, which is why
-//      it was desktop-only, which is why nobody used it.
-//      `smallint` holds 0..32767, so per-mille has plenty of room for a board
-//      several screens tall.
-//   2. THE BOARD'S HEIGHT IS DERIVED FROM ITS CONTENTS, every render. A photo
-//      dragged to the bottom extends the board and the page grows with it; it
-//      can never be dropped into space that does not exist.
+//   * NOTHING OVERLAPS, by construction rather than by clamping. A masonry
+//     packer cannot produce an overlap; it is not a rule being enforced.
+//   * NOTHING JITTERS. The layout is deterministic, so a photo only moves when
+//     the order or a span actually changes, and then it TRANSITIONS there.
+//   * A DRAG IS A REORDER. You pick a photo up, the rest re-flow live to show
+//     you where it will land, and it snaps into that place when you let go.
+//     Ethan: "creators can rearrange it, but the photos always snap in place,
+//     so they're not overlapping each other."
+//   * THE UNARRANGED BOARD AND THE ARRANGED ONE ARE THE SAME LAYOUT. "It should
+//     always start, whenever they upload, just as 'tidy them up' - the way it
+//     looks there, in a clean collage format." A fresh board is simply this
+//     packer with every span at 1, which is exactly what "Tidy them up" resets
+//     to. There is no second code path to drift.
 //
-// Overlap is allowed, deliberately - "move it anywhere and it stays there"
-// means exactly that, and photographs overlapping at the corners is what a real
-// board of prints looks like. Depth is source order, and picking a photo up
-// brings it to the front.
+// RESIZING HAS NO HANDLES. Ethan: "you can change the size, but I don't want
+// any of these squares in each corner. I just want the functionality to resize
+// them without the squares." The bottom-right corner of a tile is a hit zone
+// while arranging, with a cursor and a faint corner mark that only appears
+// under the pointer - no square sitting on the artwork. Dragging it changes how
+// many COLUMNS the photo spans, which is the only size that can exist on a
+// packed board and the only one that can never overlap.
+//
+// STILL PER-MILLE, STILL IN THE SAME FOUR COLUMNS. x, y, w and h are written as
+// thousandths of the board's width, so the profile renders the identical
+// arrangement, scaled, at any width - and the read-only path is unchanged.
+// `smallint` holds 0..32767, which is plenty.
 
 const MILLE = 1000
-// A photo has to stay big enough to grab and small enough to arrange. 8% of the
-// board is about 110px on a desktop and 30px on a phone.
-const MIN_W = 80
 
-// THE GRID EVERYTHING LANDS ON.
-//
-// Free placement to the pixel was the whole problem with the last version:
-// nothing lined up with anything, so a board of ten photographs read as ten
-// accidents rather than as an arrangement. Ethan: "the free drag isn't really
-// great, it looks messy, better if they snap to place in a nice collage."
-//
-// A twelfth of the board is coarse enough that edges agree with each other and
-// fine enough that it is still a collage rather than a table. Note that only
-// x, y and WIDTH snap - height is always width/aspect, so a photograph is never
-// squeezed onto the grid and never cropped to fit it.
-const STEP = 1 / 12
-// Two columns is the floor: below that a tile is too small to grab on a phone.
-const MIN_COLS = 2
-const snap = (v) => Math.round(v / STEP) * STEP
+// The gap between tiles, as a fraction of the board's width. One number, used
+// by the packer and by nothing else.
+const GAP = 0.02
 
 // BELOW THIS, A STORED POSITION IS NOT A POSITION.
 //
 // These four columns used to hold 12-COLUMN GRID CELLS - `pos_w = 4` meant four
 // columns wide - and they hold per-mille fractions now. Both are smallint, so
-// nothing complained, and the new board read a leftover `4` as four thousandths
-// of the board: every arranged photo collapsed into an invisible sliver at the
-// top-left corner. Ethan: "I've got nine out of ten photos on it, but only one
-// of them is showing up on the arrange board" - the one that showed was the
-// single row nobody had ever arranged.
-//
-// Migration 150 clears those rows. This is the guard that means a straggler -
-// an old row restored from a backup, a client that never reloaded - degrades to
-// the automatic layout instead of vanishing. MIN_W already makes a tile below
-// about 6% of the board impossible to save, so anything under 4% was written by
-// code that no longer exists.
+// nothing complained, and the board read a leftover `4` as four thousandths of
+// the board. Migration 150 cleared those rows; this is the guard that means a
+// straggler degrades to a default span instead of vanishing.
 export const MIN_PLACED_MILLE = 40
 
 /** Has this row been arranged with coordinates this board can actually read? */
@@ -90,33 +90,94 @@ export function isPlaced(p) {
 const toFrac = (n, fallback = null) => (Number.isFinite(Number(n)) && n !== null ? Number(n) / MILLE : fallback)
 const toMille = (f) => Math.round(f * MILLE)
 
+/** How many columns the board runs at this width. Two on a phone. */
+export function colsFor(width) {
+  if (!width) return 3
+  return width < 520 ? 2 : 3
+}
+
 /**
- * Where photos sit before anybody has arranged them: a packed masonry layout at
- * each photo's own aspect, in the same fractional units the drags use.
+ * HOW MANY COLUMNS A PHOTO SPANS, read back out of its stored width.
  *
- * IT TRACKS COLUMN HEIGHTS, and it has to. The first version placed row N at
- * `N * h` using ONE photo's height, so a tall portrait in column 0 was overlapped
- * by whatever landed under it - the untouched board looked broken before anybody
- * touched it, which is exactly what sank the original grid.
- * Shortest column wins, which is the standard masonry rule and keeps the board
- * as short as it can be.
- *
- * Takes the whole list rather than one index, because packing is a question
- * about the set. Exported for the tests.
+ * The span is not its own column in the table: it is implied by `pos_w`, which
+ * is what the profile already renders from. That keeps one source of truth and
+ * needs no migration - and it means a photo widened to two of three columns on
+ * a desktop reads as one of two on a phone, which is the right answer rather
+ * than a compromise.
  */
-export function defaultLayout(aspects, cols) {
-  const gap = 0.02
-  const w = (1 - gap * (cols - 1)) / cols
-  const heights = new Array(cols).fill(0)
-  return aspects.map((raw) => {
-    const a = Number.isFinite(raw) && raw > 0 ? raw : 1
+export function spanOf(p, cols) {
+  const w = isPlaced(p) ? toFrac(p.pos_w, null) : null
+  if (w == null) return 1
+  const colW = (1 - GAP * (cols - 1)) / cols
+  const span = Math.round((w + GAP) / (colW + GAP))
+  return Math.max(1, Math.min(cols, span))
+}
+
+/**
+ * THE WHOLE LAYOUT, AND THE ONLY THING THAT DECIDES WHERE ANYTHING GOES.
+ *
+ * Masonry with spans: each photo takes `span` adjacent columns and drops into
+ * the run of columns whose tallest member is lowest, leftmost winning ties.
+ * Height is always width / aspect, so a photograph is never squeezed into a
+ * shape it is not and `object-cover` never gets the chance to crop it.
+ *
+ * Two properties matter more than the arithmetic:
+ *   - OVERLAP IS IMPOSSIBLE. A tile is placed at the current top of its columns
+ *     and then raises them; there is nowhere for a second tile to land on it.
+ *   - IT IS PURE. Same order, same spans, same aspects, same board - always.
+ *     That is what makes a drag preview honest and stops the board moving on
+ *     its own.
+ *
+ * @param items [{ aspect, span }] in board order
+ * @param cols  how many columns the board runs at
+ * @returns [{ x, y, w, h }] as fractions of the board's WIDTH
+ */
+export function packBoard(items, cols) {
+  const n = Math.max(1, cols)
+  const colW = (1 - GAP * (n - 1)) / n
+  const heights = new Array(n).fill(0)
+  return items.map((it) => {
+    const span = Math.max(1, Math.min(n, Math.round(it?.span) || 1))
+    let start = 0
+    let top = Infinity
+    for (let c = 0; c + span <= n; c += 1) {
+      let t = 0
+      for (let k = c; k < c + span; k += 1) t = Math.max(t, heights[k])
+      // A strict `<` is what makes leftmost win a tie, which keeps the board
+      // reading left to right instead of drifting.
+      if (t < top - 1e-9) { top = t; start = c }
+    }
+    if (!Number.isFinite(top)) top = 0
+    const a = Number.isFinite(it?.aspect) && it.aspect > 0 ? it.aspect : 1
+    const w = span * colW + GAP * (span - 1)
     const h = w / a
-    let col = 0
-    for (let c = 1; c < cols; c += 1) if (heights[c] < heights[col]) col = c
-    const y = heights[col]
-    heights[col] = y + h + gap
-    return { x: col * (w + gap), y, w, h }
+    const x = start * (colW + GAP)
+    for (let k = start; k < start + span; k += 1) heights[k] = top + h + GAP
+    return { x, y: top, w, h }
   })
+}
+
+/**
+ * Where a photo being dragged would be dropped, as an index into the list of
+ * the OTHER photos.
+ *
+ * Nearest centre, then before or after it depending on which side of that
+ * centre the pointer is. Predictable is the whole requirement here: a drop
+ * target you cannot guess is a board you rearrange by trial and error.
+ *
+ * @param boxes the other tiles' packed rects, in order
+ */
+export function dropIndex(boxes, px, py) {
+  let idx = boxes.length
+  let best = Infinity
+  for (let i = 0; i < boxes.length; i += 1) {
+    const b = boxes[i]
+    const cx = b.x + b.w / 2
+    const cy = b.y + b.h / 2
+    const d = Math.hypot(px - cx, py - cy)
+    if (d < best) { best = d; idx = px < cx ? i : i + 1 }
+  }
+  return idx
 }
 
 export default function PhotoBoard({ creatorId, editable = false, alwaysArranging = false, onCount }) {
@@ -205,31 +266,62 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
     setBroken((cur) => (cur[id] ? cur : { ...cur, [id]: true }))
   }, [])
 
-  const cols = width && width < 520 ? 2 : 3
+  const cols = colsFor(width)
 
-  // Every tile, in fractions. A row that has never been arranged falls back to
-  // the flowed default at its own aspect.
-  const tiles = useMemo(() => {
+  // WHAT IS IN THE HAND, IF ANYTHING.
+  //  { id, mode, order?, spans?, pointer? }
+  // `order` and `spans` are the PREVIEW: the layout memo below packs those
+  // instead of the committed ones, so the board shows the result of the drag
+  // while it is still happening. Declared up here because the layout reads it.
+  const [drag, setDrag] = useState(null)
+  const dragState = useRef(null)
+  const detach = useRef(null)
+  const commitRef = useRef(null)
+
+  // THE BOARD'S ORDER. `sort_order` is the running order; the packer turns it
+  // into coordinates. A drag rewrites this list and nothing else.
+  const ordered = useMemo(() => {
     const rows = (photos ?? []).filter((p) => editable || !broken[p.id])
-    // The fallback layout is computed over the photos that NEED one, so a board
-    // where three of five have been arranged still packs the other two sensibly
-    // instead of stacking them at the origin.
-    const unplaced = rows.filter((p) => !isPlaced(p))
-    const fallback = defaultLayout(unplaced.map((p) => p.aspect || aspects[p.id] || 1), cols)
-    const byId = new Map(unplaced.map((p, i) => [p.id, fallback[i]]))
-    return rows.map((p) => {
-      const aspect = p.aspect || aspects[p.id] || 1
-      const box = isPlaced(p)
-        ? { x: toFrac(p.pos_x, 0), y: toFrac(p.pos_y, 0), w: toFrac(p.pos_w, 0.3), h: toFrac(p.pos_h, 0.3) }
-        : byId.get(p.id)
-      return { ...p, ...box, aspect, missing: !!broken[p.id] }
-    })
-  }, [photos, aspects, cols, broken, editable])
+    return [...rows].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)
+      || String(a.id).localeCompare(String(b.id)))
+  }, [photos, broken, editable])
+
+  // ONE LAYOUT, OVER EVERY PHOTO, EVERY RENDER.
+  //
+  // The placed/unplaced split that used to live here is the rejumble - see the
+  // note at the top of this file. There is no split any more: a photo that has
+  // never been arranged is a photo with a span of 1, in its upload position, in
+  // the same packer as everything else.
+  //
+  // While a drag is in flight the list is the PREVIEW list (the dragged photo
+  // moved to where it would land, or resized), so the other tiles show you the
+  // result before you commit to it.
+  const layout = useMemo(() => {
+    const items = ordered.map((p) => ({
+      aspect: p.aspect || aspects[p.id] || 1,
+      span: drag?.spans?.[p.id] ?? spanOf(p, cols),
+    }))
+    let list = ordered
+    let sizes = items
+    if (drag?.order) {
+      const index = new Map(ordered.map((p, i) => [p.id, i]))
+      list = drag.order
+      sizes = drag.order.map((p) => items[index.get(p.id)])
+    }
+    const boxes = packBoard(sizes, cols)
+    const byId = new Map(list.map((p, i) => [p.id, boxes[i]]))
+    return { byId, order: list }
+  }, [ordered, aspects, cols, drag])
+
+  const tiles = useMemo(() => ordered.map((p) => ({
+    ...p,
+    ...(layout.byId.get(p.id) || { x: 0, y: 0, w: 0.3, h: 0.3 }),
+    aspect: p.aspect || aspects[p.id] || 1,
+    missing: !!broken[p.id],
+  })), [ordered, layout, aspects, broken])
 
   // THE BOARD IS AS TALL AS ITS CONTENTS. Derived every render rather than
-  // stored, so a photo dragged downwards extends the board instead of hanging
-  // off the end of a fixed-height box - which is how the first version lost
-  // photographs entirely.
+  // stored, so the page grows with the collage instead of clipping it.
   const bottom = tiles.reduce((m, t) => Math.max(m, t.y + t.h), 0)
   const boardHeight = width ? Math.max(width * 0.4, width * bottom + 8) : 320
 
@@ -247,141 +339,137 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
 
   // ------------------------------------------------------------------ drag
   //
-  // NO SNAPPING. The pointer delta is applied straight to the stored fraction,
-  // so a photo goes exactly where it is put. The only clamps are the board's
-  // own edges, because a photo dragged off the left is a photo nobody can get
-  // back.
-  const [drag, setDrag] = useState(null)   // { id, mode }
-  const dragState = useRef(null)
-  const detach = useRef(null)
-  const commitRef = useRef(null)
+  // TWO GESTURES, ONE ENGINE. A press on the tile MOVES it (which means
+  // reordering it); a press in the bottom-right corner RESIZES it (which means
+  // changing how many columns it spans). Both work by rewriting the preview and
+  // letting the packer do the rest - neither one positions anything itself,
+  // which is why neither one can produce an overlap.
 
-  // A REJECTED SAVE HAS TO SAY SO.
+  // WRITING THE WHOLE BOARD, NOT ONE TILE.
   //
-  // This threw the result away, and that silence is the whole reason the board
-  // looked like a usability problem for three rewrites. A CHECK constraint left
-  // over from the 12-column grid (`pos_w between 2 and 12`) rejected every
-  // per-mille write Postgres was ever offered - so a creator dragged a photo,
-  // watched it move, and found it back where it started on the next load, with
-  // nothing anywhere saying the save had failed. Migration 151 fixes the
-  // constraint; this makes sure the next such fault is visible in seconds
-  // rather than in weeks. The tile is put back so the board never shows an
-  // arrangement the database does not have.
-  const commit = useCallback(async (id, box, previous) => {
-    const { error } = await supabase.from('creator_photos').update({
-      pos_x: toMille(box.x), pos_y: toMille(box.y),
-      pos_w: toMille(box.w), pos_h: toMille(box.h),
-    }).eq('id', id)
-    if (!error) return
-    setPhotos((cur) => (cur || []).map((p) => (p.id === id ? { ...p, ...previous } : p)))
-    await notice(`That photo could not be saved: ${error.message}`)
-  }, [])
+  // A packed layout means moving one photo moves others, so a commit is every
+  // row whose coordinates or order actually changed. Rows that did not change
+  // are not written: a board of thirty photographs should not issue thirty
+  // updates because one moved to the end of a row.
+  //
+  // A REJECTED SAVE HAS TO SAY SO. This used to throw the result away, and that
+  // silence is why the board looked like a usability problem for three
+  // rewrites: a CHECK constraint left over from the 12-column grid rejected
+  // every per-mille write Postgres was ever offered, so a creator dragged a
+  // photo, watched it move, and found it back where it started on the next
+  // load with nothing anywhere saying so. Migration 151 fixed the constraint;
+  // this makes the next such fault visible in seconds rather than in weeks.
+  const commit = useCallback(async (order, spans) => {
+    const items = order.map((p) => ({
+      aspect: p.aspect || aspects[p.id] || 1,
+      span: spans?.[p.id] ?? spanOf(p, cols),
+    }))
+    const boxes = packBoard(items, cols)
+    const before = photos
+    const patches = []
+    order.forEach((p, i) => {
+      const b = boxes[i]
+      const next = {
+        sort_order: i,
+        pos_x: toMille(b.x), pos_y: toMille(b.y),
+        pos_w: toMille(b.w), pos_h: toMille(b.h),
+      }
+      const changed = next.sort_order !== (p.sort_order ?? null)
+        || next.pos_x !== (p.pos_x ?? null) || next.pos_y !== (p.pos_y ?? null)
+        || next.pos_w !== (p.pos_w ?? null) || next.pos_h !== (p.pos_h ?? null)
+      if (changed) patches.push({ id: p.id, next })
+    })
+    if (!patches.length) return
+    const byId = new Map(patches.map((x) => [x.id, x.next]))
+    setPhotos((cur) => (cur || []).map((p) => (byId.has(p.id) ? { ...p, ...byId.get(p.id) } : p)))
+    const results = await Promise.all(patches.map(({ id, next }) =>
+      supabase.from('creator_photos').update(next).eq('id', id)))
+    const failed = results.find((r) => r.error)
+    if (!failed) return
+    setPhotos(before)
+    await notice(`The board could not be saved: ${failed.error.message}`)
+  }, [photos, aspects, cols])
   useEffect(() => { commitRef.current = commit }, [commit])
   useEffect(() => () => detach.current?.(), [])
 
-  // WHICH CORNER YOU GRABBED. `ax`/`ay` are the ANCHOR: 0 means that edge stays
-  // put, 1 means the opposite one does. Dragging the top-left corner has to
-  // hold the bottom-right still, or the photo swims away from the hand.
-  const CORNERS = {
-    nw: { ax: 1, ay: 1, cls: 'left-0 top-0 cursor-nwse-resize' },
-    ne: { ax: 0, ay: 1, cls: 'right-0 top-0 cursor-nesw-resize' },
-    sw: { ax: 1, ay: 0, cls: 'left-0 bottom-0 cursor-nesw-resize' },
-    se: { ax: 0, ay: 0, cls: 'right-0 bottom-0 cursor-nwse-resize' },
-  }
-
-  function beginDrag(e, tile, mode, corner = 'se') {
+  function beginDrag(e, tile, mode) {
     if (!arranging || !width) return
     e.preventDefault()
     e.stopPropagation()
+    const colW = (1 - GAP * (cols - 1)) / cols
+    const startSpan = spanOf(tile, cols)
     dragState.current = {
-      id: tile.id, mode, corner,
-      // The photo's own shape, so a resize can hold it.
-      aspect: tile.aspect > 0 ? tile.aspect : 1,
-      // What the ROW held before this drag - nulls included, for a photo that
-      // has never been arranged. Restored if the save is rejected.
-      wasStored: {
-        pos_x: tile.pos_x ?? null, pos_y: tile.pos_y ?? null,
-        pos_w: tile.pos_w ?? null, pos_h: tile.pos_h ?? null,
-      },
+      id: tile.id, mode,
       startX: e.clientX, startY: e.clientY,
-      from: { x: tile.x, y: tile.y, w: tile.w, h: tile.h },
-      box: { x: tile.x, y: tile.y, w: tile.w, h: tile.h },
+      startSpan,
+      // Where inside the tile the finger landed, so a moved tile does not jump
+      // its own top-left corner under the pointer.
+      grabX: (e.clientX - (boardRef.current?.getBoundingClientRect().left ?? 0)) / width - tile.x,
+      grabY: (e.clientY - (boardRef.current?.getBoundingClientRect().top ?? 0)) / width - tile.y,
+      colW,
+      order: layout.order,
+      spans: {},
+      moved: false,
     }
-    setDrag({ id: tile.id, mode, box: { x: tile.x, y: tile.y, w: tile.w, h: tile.h } })
+    setDrag({ id: tile.id, mode, order: layout.order, spans: {}, pointer: { x: tile.x, y: tile.y } })
 
     const move = (ev) => {
       const d = dragState.current
       if (!d) return
-      const dx = (ev.clientX - d.startX) / width
-      const dy = (ev.clientY - d.startY) / width
-      let box
-      if (d.mode === 'move') {
-        box = {
-          ...d.from,
-          x: snap(Math.min(1 - d.from.w, Math.max(0, d.from.x + dx))),
-          y: snap(Math.max(0, d.from.y + dy)),
+      const rect = boardRef.current?.getBoundingClientRect()
+      if (!rect) return
+      const px = (ev.clientX - rect.left) / width
+      const py = (ev.clientY - rect.top) / width
+      if (!d.moved && Math.hypot(ev.clientX - d.startX, ev.clientY - d.startY) < 4) return
+      d.moved = true
+
+      if (d.mode === 'resize') {
+        // HOW MANY COLUMNS, not how many pixels. A packed board has no other
+        // kind of width, and a width measured in columns is the reason nothing
+        // can ever overlap after a resize.
+        const left = layout.byId.get(d.id)?.x ?? 0
+        const wanted = Math.max(0, px - left)
+        const span = Math.max(1, Math.min(cols, Math.round((wanted + GAP) / (d.colW + GAP))))
+        if (span !== (d.spans[d.id] ?? d.startSpan)) {
+          d.spans = { ...d.spans, [d.id]: span }
+          setDrag((cur) => (cur ? { ...cur, spans: d.spans } : cur))
         }
-      } else {
-        // RESIZE FROM ANY CORNER, ON A GRID, WITHOUT EVER CROPPING.
-        //
-        // Three rules, and they are the whole feature:
-        //
-        //  * THE SHAPE IS THE PHOTO'S. Height is always width / aspect, so a
-        //    frame can never be dragged into a shape the photograph is not and
-        //    `object-cover` never gets the chance to slice an edge off. Ethan:
-        //    "ensure the photos are not automatically getting cropped."
-        //    Reframing lives in the crop tool, which is where it belongs.
-        //  * IT SNAPS. Free placement to the pixel is what made the board look
-        //    "messy": nothing ever lined up with anything, so ten photographs
-        //    read as ten accidents. Widths and positions land on a twelfth of
-        //    the board, which is enough of a grid to make edges agree and loose
-        //    enough to still be a collage rather than a table.
-        //  * THE CORNER YOU GRABBED IS THE ONE THAT MOVES. The opposite corner
-        //    is the anchor, so the photo grows towards your finger instead of
-        //    away from it.
-        const c = CORNERS[d.corner] || CORNERS.se
-        const right = d.from.x + d.from.w
-        const bottom = d.from.y + d.from.h
-        const a = d.aspect > 0 ? d.aspect : 1
-        // Growth is positive when you pull AWAY from the anchored corner.
-        const gx = c.ax === 0 ? dx : -dx
-        const gy = c.ay === 0 ? dy : -dy
-        const minW = Math.max(MIN_COLS * STEP, MIN_W / width)
-        // Both axes drive it, averaged through the aspect, so dragging a corner
-        // sideways or downwards does the same intuitive thing.
-        let w = snap(d.from.w + (gx + gy * a) / 2)
-        w = Math.max(minW, Math.min(1, w))
-        let h = w / a
-        let x = c.ax === 0 ? d.from.x : right - w
-        let y = c.ay === 0 ? d.from.y : bottom - h
-        // Never off the board. Clamping x can shrink nothing; it just slides.
-        x = Math.max(0, Math.min(1 - w, snap(x)))
-        y = Math.max(0, y)
-        box = { x, y, w, h }
+        return
       }
-      d.box = box
-      // THE LIVE BOX LIVES IN STATE, not only in the ref. Reading a ref during
-      // render is both a lint error here and genuinely unsound - React can
-      // render without committing, so a ref read is not guaranteed to match
-      // what is on screen. One setState per pointermove is the honest cost of
-      // drawing a drag.
-      setDrag((cur) => (cur ? { ...cur, box } : cur))
+
+      // MOVE = REORDER. The dragged tile is lifted out of the list, the drop
+      // index is read off where the finger is, and it goes back in there. The
+      // packer then lays everything out, so the other tiles slide to show you
+      // the answer before you let go.
+      const others = d.order.filter((p) => p.id !== d.id)
+      const items = others.map((p) => ({
+        aspect: p.aspect || aspects[p.id] || 1,
+        span: d.spans[p.id] ?? spanOf(p, cols),
+      }))
+      const boxes = packBoard(items, cols)
+      const at = dropIndex(boxes, px, py)
+      const me = d.order.find((p) => p.id === d.id)
+      const next = [...others.slice(0, at), me, ...others.slice(at)]
+      const same = next.length === d.order.length && next.every((p, i) => p.id === d.order[i].id)
+      if (!same) d.order = next
+      setDrag((cur) => (cur ? {
+        ...cur,
+        order: d.order,
+        // The tile under the finger is drawn free, at the pointer, so the hand
+        // never lags the drag. Everything else is packed.
+        pointer: { x: px - d.grabX, y: py - d.grabY },
+      } : cur))
     }
+
     const up = () => {
       const d = dragState.current
       detach.current?.()
       dragState.current = null
       setDrag(null)
-      if (!d) return
-      setPhotos((cur) => (cur || []).map((p) => (p.id === d.id ? {
-        ...p,
-        pos_x: toMille(d.box.x), pos_y: toMille(d.box.y),
-        pos_w: toMille(d.box.w), pos_h: toMille(d.box.h),
-      } : p)))
-      // What the ROW held before this drag, so a rejected save can put it back
-      // exactly - including back to null for a photo that had never been moved.
-      commitRef.current?.(d.id, d.box, d.wasStored)
+      if (!d || !d.moved) return
+      commitRef.current?.(d.order, d.spans)
     }
+
     // Attached HERE, not in an effect keyed on `drag`: an effect's listeners
     // are not live until React commits, so the first move and sometimes the
     // pointerup are simply lost. Same race as the boarding-pass camera.
@@ -396,13 +484,17 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
     }
   }
 
-  // EVERY PHOTO BACK TO THE AUTOMATIC LAYOUT, in one write.
+  // EVERY PHOTO BACK TO THE CLEAN COLLAGE, in one write.
   //
-  // Clearing the four position columns is what "original" means here: an
-  // unplaced row falls through to `defaultLayout`, which is a masonry packer -
-  // so the result is side by side and below, at each photo's own shape, with
-  // nothing overlapping anything. Optimistic, then written; a failure says so
-  // and reloads rather than leaving the screen disagreeing with the table.
+  // "Tidy them up" clears the four position columns, which sets every span back
+  // to one and drops the whole board through the packer in upload order - side
+  // by side and below, each at its own shape, nothing overlapping. That is the
+  // same layout a brand new board has, which is the point: Ethan asked that the
+  // board "should always start, whenever they upload, just as tidy them up",
+  // and the only way to guarantee that is for the two to be the same code path.
+  //
+  // Optimistic, then written; a failure says so and puts the board back rather
+  // than leaving the screen disagreeing with the table.
   const [resetting, setResetting] = useState(false)
   async function resetAll() {
     if (resetting) return
@@ -481,7 +573,11 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
         className={cx('w-full', arranging && 'rounded-card ring-1 ring-inset ring-brand/20')}
       >
         {tiles.map((t) => {
-          const live = drag?.id === t.id && drag.box ? drag.box : t
+          // The tile in the hand is drawn at the POINTER, at its packed size,
+          // so it follows the finger exactly while everything else slides into
+          // the arrangement it is about to join.
+          const held = drag?.id === t.id && drag.mode === 'move' && drag.pointer
+          const live = held ? { ...t, x: drag.pointer.x, y: drag.pointer.y } : t
           return (
             <PhotoTile
               key={t.id}
@@ -509,17 +605,6 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
   )
 }
 
-// Where each grip sits, and how it is described. `cursor-*` matters on a
-// desktop and costs a phone nothing.
-const CORNER_KEYS = ['nw', 'ne', 'sw', 'se']
-const CORNER_POS = {
-  nw: '-left-1 -top-1 cursor-nwse-resize',
-  ne: '-right-1 -top-1 cursor-nesw-resize',
-  sw: '-bottom-1 -left-1 cursor-nesw-resize',
-  se: '-bottom-1 -right-1 cursor-nwse-resize',
-}
-const CORNER_LABEL = { nw: 'top left', ne: 'top right', sw: 'bottom left', se: 'bottom right' }
-
 // ---------------------------------------------------------------- one photo
 function PhotoTile({ photo, box, width, arranging, editable, dragging, onOpen, onCrop, onBroken, onDragStart }) {
   return (
@@ -538,11 +623,20 @@ function PhotoTile({ photo, box, width, arranging, editable, dragging, onOpen, o
       className={cx(
         'group overflow-hidden rounded-xl bg-cloud',
         dragging ? 'shadow-lift ring-2 ring-brand' : 'shadow-card',
-        // No transition while dragging: a 150ms ease on `left` means the tile
-        // lags the finger, which reads as the board being slow rather than
-        // smooth.
-        !dragging && 'transition-shadow duration-150',
-        arranging && 'cursor-grab active:cursor-grabbing',
+        // THE OTHER TILES GLIDE; THE ONE IN YOUR HAND DOES NOT.
+        //
+        // This is the difference between "shuffliness" and a board that reads
+        // as a board. Every tile except the one being dragged eases to its new
+        // packed position over 200ms, so a reorder is something you WATCH
+        // happen rather than a set of photographs that were somewhere else the
+        // last time you blinked. The dragged tile has no transition at all,
+        // because a 200ms ease on `left` means the tile lags the finger - which
+        // reads as the board being slow, and is the other half of what Ethan
+        // called jittery.
+        dragging
+          ? 'transition-none'
+          : 'transition-[left,top,width,height,box-shadow] duration-200 ease-out motion-reduce:transition-none',
+        arranging && 'cursor-grab touch-none active:cursor-grabbing',
       )}
       onPointerDown={(e) => arranging && onDragStart(e, photo, 'move')}
     >
@@ -604,36 +698,37 @@ function PhotoTile({ photo, box, width, arranging, editable, dragging, onOpen, o
       )}
 
       {arranging && (
-        <>
-          {/* A GRIP ON ALL FOUR CORNERS, AND NO BUTTON ANYWHERE.
-              There used to be one grip, bottom-right, plus a "Reset" chip in
-              the opposite corner - so resizing was a thing you could only do in
-              one direction, and a photo at the right edge of the board could
-              only be made smaller. Ethan: "to resize them I don't want a
-              specific button, I want to be able to just drag to resize from any
-              of the four corners, and keep the same easy way of holding down to
-              move them about."
-              Each grip stops the press reaching the tile, or a resize would
-              start a move as well. The per-tile Reset is gone: "Tidy them up"
-              at the top of the board does the whole thing at once. */}
-          {CORNER_KEYS.map((k) => (
-            <span
-              key={k}
-              role="button"
-              tabIndex={-1}
-              aria-label={`Drag to resize this photo from the ${CORNER_LABEL[k]} corner`}
-              onPointerDown={(e) => { e.stopPropagation(); onDragStart(e, photo, 'resize', k) }}
-              className={cx(
-                'absolute z-20 flex h-9 w-9 items-center justify-center',
-                CORNER_POS[k],
-              )}
-            >
-              <span className={cx(
-                'h-4 w-4 rounded-[3px] border-2 border-brand bg-white shadow-card',
-              )} />
-            </span>
-          ))}
-        </>
+        // RESIZE WITH NO SQUARES ON THE ARTWORK.
+        //
+        // Ethan: "you can change the size, but I don't want any of these
+        // squares in each corner. I just want the functionality to resize them
+        // without the squares." There were four 16px white-and-orange blocks
+        // sitting on every photograph, which on a board of ten is forty pieces
+        // of furniture over the thing you are trying to look at.
+        //
+        // So the bottom-right corner is a HIT ZONE rather than a control: 36px
+        // of tile that takes a drag, with the resize cursor on a desktop and a
+        // faint corner rule that only fades in under the pointer. Nothing sits
+        // on the picture until you go looking for it.
+        //
+        // ONE CORNER, NOT FOUR. On a packed board a resize changes how many
+        // COLUMNS a photo spans, and a span grows to the right by definition -
+        // there is no meaningful "resize from the top left" when the packer
+        // decides where the tile starts. Four corners was an affordance for a
+        // freely-placed board that no longer exists.
+        // `stopPropagation` so a resize does not also start a move.
+        <span
+          role="button"
+          tabIndex={-1}
+          aria-label="Drag to resize this photo"
+          onPointerDown={(e) => { e.stopPropagation(); onDragStart(e, photo, 'resize') }}
+          className="group/grip absolute bottom-0 right-0 z-20 h-9 w-9 cursor-nwse-resize"
+        >
+          <span
+            aria-hidden
+            className="pointer-events-none absolute bottom-1.5 right-1.5 h-3.5 w-3.5 rounded-br-[5px] border-b-2 border-r-2 border-white/90 opacity-0 drop-shadow transition-opacity duration-150 group-hover/grip:opacity-100 group-hover:opacity-70"
+          />
+        </span>
       )}
     </figure>
   )

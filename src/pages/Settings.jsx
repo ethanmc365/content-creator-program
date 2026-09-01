@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { confirm, notice } from '../lib/confirm'
-import { Panel, PageHeader, Toggle, Spinner, Select } from '../components/ui'
+import { Panel, PageHeader, Toggle, Spinner, Select, CopyButton } from '../components/ui'
 import Icon from '../components/Icon'
 import { useTimezone, allZones, zoneCity } from '../lib/timezone'
 import Reveal from '../components/network/Reveal'
@@ -403,19 +403,75 @@ export default function Settings() {
 
   const NotificationsSection = <CreatorNotifications state={notif} />
 
+  // THE ACCOUNT PAGE, WHICH WAS THREE MISMATCHED BUTTONS AND A RED BOX.
+  //
+  // Ethan: "on account, the change password buttons, view my profile buttons,
+  // edit profile - they're like, really weird the way they are. So just
+  // improving that UI... everything seems a bit clustered there."
+  //
+  // What was wrong is that three DIFFERENT kinds of control were drawn in a
+  // row as though they were the same kind: two links that go somewhere else, a
+  // button that starts a flow ON this page, and all three in three different
+  // button weights (secondary, ghost, ghost) so the row read as one important
+  // thing and two afterthoughts. None of them is more important than the
+  // others.
+  //
+  // They are rows now, which is what every other setting on this page is: a
+  // name, a line saying what it does, and one control on the right. The page
+  // reads down a single column instead of starting with a huddle.
+  //
+  // AND IT OPENS WITH WHO YOU ARE. Ethan asked for "the actual email they used
+  // to sign up, so they can view it" - it was nowhere on the platform, and it
+  // is the one fact that makes "change password" and "sign out everywhere"
+  // mean anything.
+  const accountRow = (title, hint, control, key) => (
+    <div key={key} className="flex flex-wrap items-center gap-3 border-t border-gray-100 pt-5 first:border-t-0 first:pt-0">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold">{title}</p>
+        <p className="text-xs text-smoke">{hint}</p>
+      </div>
+      <div className="shrink-0">{control}</div>
+    </div>
+  )
+
   const AccountSection = (
     <div className="space-y-6">
       <Panel>
-        <div className="flex flex-wrap gap-3">
-          <Link to="/profile/edit" className="btn-secondary !py-2.5 text-sm">Edit profile</Link>
-          <Link to={`/profile/${user?.id}`} className="btn-ghost !py-2.5 text-sm">View my profile</Link>
-          <button
-            onClick={() => { setPwVerifying(true); setPwMsg('') }}
-            disabled={pwVerifying}
-            className="btn-ghost !py-2.5 text-sm"
-          >
-            Change password
-          </button>
+        {/* WHO YOU ARE SIGNED IN AS. Not a row with a control - there is
+            nothing to press, because an email address on this platform is the
+            login and changing it is a support job. It is a fact, so it is drawn
+            as one, at the top, where identity belongs. */}
+        <div className="mb-5 flex items-center gap-3 rounded-xl bg-cloud/50 px-4 py-3">
+          <Icon name="envelope" className="h-5 w-5 shrink-0 text-brand" />
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-smoke">Signed in as</p>
+            <p className="truncate text-sm font-semibold text-ink">{user?.email || '—'}</p>
+          </div>
+          <CopyButton value={user?.email || ''} label="Copy" className="ml-auto shrink-0" />
+        </div>
+
+        <div className="space-y-5">
+          {accountRow(
+            'Your profile',
+            'How the rest of the community sees you.',
+            <div className="flex gap-2">
+              <Link to="/profile/edit" className="btn-secondary !py-2 text-xs">Edit</Link>
+              <Link to={`/profile/${user?.id}`} className="btn-ghost !py-2 text-xs">View</Link>
+            </div>,
+            'profile',
+          )}
+          {accountRow(
+            'Password',
+            'We email a reset link to the address above.',
+            <button
+              onClick={() => { setPwVerifying(true); setPwMsg('') }}
+              disabled={pwVerifying}
+              className="btn-secondary !py-2 text-xs"
+            >
+              Change password
+            </button>,
+            'password',
+          )}
         </div>
 
         {/* Human check, then send. Mirrors the public forgot-password page. */}
@@ -440,7 +496,7 @@ export default function Settings() {
             <p className="text-sm font-semibold">Sign out everywhere</p>
             <p className="text-xs text-smoke">Log out of Tryp.com on every device, including this one. Handy if you lost a device.</p>
           </div>
-          <button onClick={signOutAll} disabled={signingOutAll} className="btn-secondary !py-2.5 text-sm shrink-0">
+          <button onClick={signOutAll} disabled={signingOutAll} className="btn-secondary shrink-0 !py-2 text-xs">
             {signingOutAll ? 'Signing out…' : 'Sign out everywhere'}
           </button>
         </div>
@@ -451,22 +507,11 @@ export default function Settings() {
             <p className="text-sm font-semibold">Download my data</p>
             <p className="text-xs text-smoke">Get a JSON file of everything we hold about you.</p>
           </div>
-          <button type="button" onClick={exportData} disabled={exporting} className="btn-secondary !py-2.5 text-sm shrink-0">
+          <button type="button" onClick={exportData} disabled={exporting} className="btn-secondary shrink-0 !py-2 text-xs">
             {exporting ? <Spinner /> : 'Download my data'}
           </button>
         </div>
 
-        {/* Delete account (destructive - kept visually distinct at the bottom) */}
-        <div className="mt-5 rounded-xl border border-red-100 bg-red-50/50 p-4">
-          <p className="text-sm font-semibold text-red-600">Delete account</p>
-          <p className="mb-3 mt-1 text-xs leading-relaxed text-smoke">
-            Your profile and content are hidden right away and permanently deleted after 30 days.
-            You can restore your account by logging back in within those 30 days.
-          </p>
-          <button type="button" onClick={deleteAccount} disabled={deleting} className="btn-danger !py-2 text-xs">
-            {deleting ? <Spinner /> : 'Delete my account'}
-          </button>
-        </div>
       </Panel>
 
       {/* Privacy now lives under Account. */}
@@ -493,6 +538,36 @@ export default function Settings() {
             You're hidden from the public landing-page map. Fellow creators can still find you in the app.
           </p>
         )}
+      </Panel>
+
+      {/* DELETING YOUR ACCOUNT IS ITS OWN CARD, AT THE VERY BOTTOM.
+          Ethan: "the delete account section, I would move it to a card at the
+          very bottom below the privacy thing. And I don't really like the way
+          it's a red colour, which is still not matched to the Tryp.com
+          platform."
+          Both are right. It was a red inset box in the MIDDLE of the account
+          card, above Privacy - so the most destructive thing on the platform
+          sat between "download my data" and a toggle about a map, shouting.
+          Last is where an ending belongs, and a card of its own is what stops
+          it reading as one more account setting.
+          NOT RED. Red is nowhere else in this product's palette, and a warning
+          colour used for a thing nobody has done yet is an alarm with no event
+          behind it. The weight comes from the words and from the confirmation
+          that follows; the button is quiet until you mean it. */}
+      <Panel>
+        <h2 className="mb-1 text-base font-semibold">Delete account</h2>
+        <p className="mb-4 text-xs leading-relaxed text-smoke">
+          Your profile and content are hidden right away and permanently deleted after 30 days.
+          You can restore your account by logging back in within those 30 days.
+        </p>
+        <button
+          type="button"
+          onClick={deleteAccount}
+          disabled={deleting}
+          className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-xs font-semibold text-smoke transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand"
+        >
+          {deleting ? <Spinner className="h-4 w-4" /> : <><Icon name="trash" className="h-4 w-4" /> Delete my account</>}
+        </button>
       </Panel>
     </div>
   )

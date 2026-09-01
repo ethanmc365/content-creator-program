@@ -137,8 +137,16 @@ function PrefRow({ c, state }) {
 // own edge and this is just the title.
 function BlockTitle({ title, hint }) {
   return (
-    <div>
-      <h3 className="text-sm font-semibold text-ink">{title}</h3>
+    <div className="mb-1">
+      {/* HEAVIER THAN THE ROWS UNDER IT. Ethan: "notification settings,
+          everything seems a bit clustered there." On a desktop each block is a
+          card and the card's edge does the separating; on a PHONE a Panel draws
+          nothing at all, so a `text-sm font-semibold` block title sat at exactly
+          the same weight as the `text-sm font-semibold` name of every setting
+          below it - four headings and eighteen rows, all the same size, with no
+          edges. It read as one undifferentiated wall of switches, which is the
+          clustering. */}
+      <h3 className="text-base font-bold text-ink">{title}</h3>
       {hint && <p className="mt-0.5 text-xs leading-relaxed text-smoke">{hint}</p>}
     </div>
   )
@@ -163,7 +171,10 @@ function BlockTitle({ title, hint }) {
 export function CreatorNotifications({ state }) {
   const supported = pushSupported()
   return (
-    <div className="space-y-5">
+    // `divide-y` under `sm` is the card edge a Panel does not draw on a phone.
+    // Above `sm` every block IS a card, so the rule would be a line inside a
+    // border - hence the breakpoint on both halves.
+    <div className="max-sm:divide-y max-sm:divide-gray-100 max-sm:[&>*:not(:first-child)]:pt-6 max-sm:[&>*:not(:last-child)]:pb-6 sm:space-y-5">
       {/* ---- This device ---- */}
       <Panel className="space-y-4">
         <BlockTitle

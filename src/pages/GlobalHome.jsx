@@ -63,48 +63,6 @@ function SectionHead({ icon, title, hint, to, toLabel }) {
   )
 }
 
-// A market as a DOOR, not a summary.
-//
-// This card used to print the market's live challenge title, which is what made
-// Worldwide and Spain feel intertwined: you would be reading the network hub and
-// half of what you saw belonged to one market. A challenge belongs on its
-// market's page. What survives is only what helps you decide where to go.
-function MarketCard({ chapter, mine, isHome, memberCount, hasLive }) {
-  return (
-    <MotionLink
-      to={`/c/${chapter.slug}`}
-      {...cardHover}
-      className={cx(
-        'flex items-center gap-3 rounded-card border bg-white px-5 py-4 hover:shadow-lift',
-        mine ? 'border-brand/30 bg-brand-tint/20' : 'border-gray-100',
-      )}
-    >
-      <FlagStack codes={chapter.country_codes} className="text-lg" />
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-2">
-          <span className="truncate font-semibold">{chapter.name}</span>
-          {isHome && <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-[10px] font-semibold text-white">Home</span>}
-        </span>
-        <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-smoke">
-          <span>{memberCount == null ? '—' : memberCount} {memberCount === 1 ? 'creator' : 'creators'}</span>
-          {hasLive && (
-            <>
-              <span aria-hidden>•</span>
-              <span className="flex items-center gap-1.5 font-medium text-brand">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/60" />
-                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand" />
-                </span>
-                Challenge running
-              </span>
-            </>
-          )}
-        </span>
-      </span>
-      <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
-    </MotionLink>
-  )
-}
 
 // The people layer, as one block: the rail's own list, shared with the avatar
 // menu via lib/networkLinks so the two can never drift apart.
@@ -239,7 +197,7 @@ function MineChip({ to, icon, value, label }) {
 
 export default function GlobalHome() {
   const { profile, session } = useAuth()
-  const { network, chapters, myChapters, myCommunities, isGlobalAdmin, error } = useCommunity()
+  const { network, chapters, myChapters, error } = useCommunity()
   const [d, setD] = useState(null)
   const [order, setOrder] = useState(loadOrder)
   const [marketOrder, setMarketOrder] = useState(loadMarketOrder)
@@ -526,7 +484,7 @@ export default function GlobalHome() {
           On a phone the rail renders BELOW the article, and every card in it
           repeats something the page has already said: the live challenge now
           leads the page, the quick-action grid near the top IS "Across the
-          network", "Your places" is the Your markets section, and the rooms are
+          network", "Your markets" is the rail's own market list, and the rooms are
           a tab in the nav. Rendering them anyway added roughly 1,200px of
           duplicate navigation to the bottom of an already long page - which is
           most of what "there is too much scrolling" was. */}
@@ -567,7 +525,10 @@ export default function GlobalHome() {
       <RailCard
         className="hidden lg:block"
         icon={<Icon name="globe" className="h-3.5 w-3.5 text-brand" />}
-        title="Your places"
+        // "Your places" was the name from before markets had a name. The
+        // switcher, the command palette and the hub's own removed section all
+        // said "markets"; only this one said "places".
+        title="Your markets"
         action={
           <Link to="/global/markets" className="text-[11px] font-medium text-brand transition-transform duration-200 hover:scale-105">
             Explore
@@ -975,39 +936,20 @@ export default function GlobalHome() {
             </Reveal>
           )}
 
-          {/* ---------- Markets ---------- */}
-          {/* NOT ON A PHONE. The switcher bar at the top of the page is the
-              market surface there: it names where you are and opens a sheet
-              listing every market you belong to, which is what this section
-              says a second time in cards that push everything else down a
-              screen. `!isMobile` and not `lg:hidden`, because a section hidden
-              by CSS still MOUNTS - it would take a step off the `stepDelay()`
-              ladder and leave a gap in the reveal sequence for a section
-              nobody can see. */}
-          {!isMobile && (
-          <Reveal from="down" delay={stepDelay()}>
-            <section>
-              {/* A PIN, NOT A FLAG. The flag is the Challenges tab's icon, so
-                  a flag over "Your markets" was the same symbol meaning two
-                  different things on one screen. A market is a place. */}
-              <SectionHead
-                icon="pin"
-                title={myMarkets.length ? 'Your markets' : 'Markets'}
-                to="/global/markets"
-                toLabel={isGlobalAdmin ? 'All markets' : 'Explore'}
-              />
-              <Reveal className="grid gap-3 sm:grid-cols-2" stagger={0.07}>
-                {(myMarkets.length ? myMarkets : openMarkets).map((c) => (
-                  <MarketCard key={c.id} chapter={c}
-                    mine={myCommunities.some((m) => m.id === c.id)}
-                    isHome={c.id === home?.id}
-                    memberCount={d ? (d.counts[c.id] ?? 0) : null}
-                    hasLive={!!d?.live?.[c.id]} />
-                ))}
-              </Reveal>
-            </section>
-          </Reveal>
-          )}
+          {/* ---------- Markets: NOT HERE ANY MORE ----------
+              It was a two-column grid of market cards, desktop only, saying
+              exactly what the rail on the right of the same page already says.
+              Ethan: "for desktop, I noticed that we don't need the Your Market
+              section on the Worldwide page any more, because we already have
+              Your Places on the right sidebar - which I would rename as Your
+              Markets. I would then get rid of the big section on the Worldwide
+              page, because that gives more space for the other stuff."
+              He is right that it was the same list twice. The rail is the
+              better of the two: it is always in view, it reorders, and it
+              shows which market has something running. On a PHONE the section
+              was already suppressed (the switcher bar at the top is the market
+              surface there), so this removes the last copy rather than the
+              only one - `MarketCard` and `openMarkets` go with it. */}
 
           {/* ---------- Network standings ---------- */}
           {/* Reveal, not a stagger: these sections are below the fold, and a

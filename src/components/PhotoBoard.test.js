@@ -1,69 +1,94 @@
 import { describe, it, expect } from 'vitest'
-import { defaultLayout, isPlaced } from './PhotoBoard'
+import { packBoard, dropIndex, spanOf, colsFor, isPlaced, MIN_PLACED_MILLE } from './PhotoBoard'
 
-// The board is FREE placement stored in fractions of its own width, so the one
-// piece of arithmetic worth pinning down is where an un-arranged photo starts:
-// it has to be inside the board, at the photo's own shape, and it has to tile
-// without two photos landing on the same spot.
-const box = (aspect, index, cols, all = null) =>
-  defaultLayout(all || new Array(index + 1).fill(aspect), cols)[index]
+// THE BOARD IS ONE PACKED LAYOUT, AND THESE ARE THE PROPERTIES IT HAS TO HAVE.
+//
+// The whole point of the rewrite is that overlap is impossible by construction
+// rather than prevented by clamping, and that the layout is a pure function of
+// (order, spans, aspects) so a drag preview is honest and the board never moves
+// on its own. Both of those are properties, so they are tested as properties
+// over a lot of boards rather than as one example each.
 
-describe('defaultLayout', () => {
+const overlaps = (a, b) => (
+  a.x < b.x + b.w - 1e-9 && b.x < a.x + a.w - 1e-9
+  && a.y < b.y + b.h - 1e-9 && b.y < a.y + a.h - 1e-9
+)
+
+const item = (aspect, span = 1) => ({ aspect, span })
+
+describe('packBoard', () => {
   it('keeps every photo inside the board horizontally', () => {
     for (const cols of [2, 3]) {
-      for (let i = 0; i < 10; i += 1) {
-        const b = box(16 / 9, i, cols)
+      const boxes = packBoard(new Array(10).fill(item(16 / 9)), cols)
+      for (const b of boxes) {
         expect(b.x).toBeGreaterThanOrEqual(0)
-        expect(b.x + b.w).toBeLessThanOrEqual(1.0001)
+        expect(b.x + b.w).toBeLessThanOrEqual(1 + 1e-9)
       }
     }
   })
 
   it('gives a photo the shape it was uploaded at', () => {
-    const wide = box(16 / 9, 0, 3)
-    const tall = box(9 / 16, 0, 3)
-    expect(wide.w).toBeCloseTo(tall.w)          // same column width
-    expect(wide.h).toBeLessThan(tall.h)          // landscape is shorter
-    expect(wide.w / wide.h).toBeCloseTo(16 / 9, 5)
-    expect(tall.w / tall.h).toBeCloseTo(9 / 16, 5)
+    const [portrait] = packBoard([item(3 / 4)], 3)
+    expect(portrait.w / portrait.h).toBeCloseTo(3 / 4, 6)
+    const [landscape] = packBoard([item(16 / 9)], 3)
+    expect(landscape.w / landscape.h).toBeCloseTo(16 / 9, 6)
   })
 
-  it('starts a new row rather than running off the right edge', () => {
-    const cols = 3
-    const laid = defaultLayout(new Array(4).fill(1), cols)
-    expect(laid[0].y).toBe(0)
-    expect(laid[2].y).toBe(0)
-    expect(laid[3].y).toBeGreaterThan(0)
-    expect(laid[3].x).toBe(0)
-  })
-
-  it('packs into the shortest column so nothing overlaps', () => {
-    // A tall portrait first, then landscapes: the portrait's column must not be
-    // reused until the others have caught up with it.
-    const laid = defaultLayout([9 / 16, 16 / 9, 16 / 9, 16 / 9], 3)
-    const overlaps = (a, b) =>
-      a.x < b.x + b.w - 1e-9 && b.x < a.x + a.w - 1e-9 &&
-      a.y < b.y + b.h - 1e-9 && b.y < a.y + a.h - 1e-9
-    for (let i = 0; i < laid.length; i += 1) {
-      for (let j = i + 1; j < laid.length; j += 1) {
-        expect(overlaps(laid[i], laid[j])).toBe(false)
+  // The fault that sank the first two boards, asserted directly.
+  it('never overlaps, at any mix of spans and shapes', () => {
+    const aspects = [16 / 9, 3 / 4, 1, 4 / 5, 2, 9 / 16, 1.5, 0.7]
+    for (const cols of [2, 3]) {
+      for (let seed = 0; seed < 40; seed += 1) {
+        const items = Array.from({ length: 9 }, (_, i) => item(
+          aspects[(i * 7 + seed) % aspects.length],
+          ((i + seed) % cols) + 1,
+        ))
+        const boxes = packBoard(items, cols)
+        for (let i = 0; i < boxes.length; i += 1) {
+          for (let j = i + 1; j < boxes.length; j += 1) {
+            expect(overlaps(boxes[i], boxes[j])).toBe(false)
+          }
+        }
       }
     }
   })
 
-  it('never puts two photos in the same place', () => {
-    const seen = new Set()
-    for (let i = 0; i < 12; i += 1) {
-      const b = defaultLayout(new Array(12).fill(1), 3)[i]
-      const key = `${b.x.toFixed(4)}:${b.y.toFixed(4)}`
-      expect(seen.has(key)).toBe(false)
-      seen.add(key)
-    }
+  it('is pure: the same board packs the same way every time', () => {
+    const items = [item(16 / 9, 2), item(3 / 4), item(1), item(2, 3)]
+    expect(packBoard(items, 3)).toEqual(packBoard(items, 3))
+  })
+
+  it('starts a new row rather than running off the right edge', () => {
+    const boxes = packBoard(new Array(4).fill(item(1)), 3)
+    expect(boxes[3].y).toBeGreaterThan(0)
+  })
+
+  it('fills the shortest column, so the board stays as short as it can', () => {
+    // A tall portrait first, then two landscapes: the third must go under the
+    // SECOND one (the short column), not under the tall one.
+    const boxes = packBoard([item(0.5), item(2), item(2)], 2)
+    expect(boxes[2].x).toBeCloseTo(boxes[1].x, 6)
+    expect(boxes[2].y).toBeGreaterThan(boxes[1].y)
+  })
+
+  it('a wider span really is wider, and still fits', () => {
+    const [one] = packBoard([item(1, 1)], 3)
+    const [two] = packBoard([item(1, 2)], 3)
+    const [three] = packBoard([item(1, 3)], 3)
+    expect(two.w).toBeGreaterThan(one.w)
+    expect(three.w).toBeCloseTo(1, 6)
+  })
+
+  it('clamps a nonsense span rather than drawing off the board', () => {
+    const [wild] = packBoard([{ aspect: 1, span: 99 }], 3)
+    expect(wild.x + wild.w).toBeLessThanOrEqual(1 + 1e-9)
+    const [none] = packBoard([{ aspect: 1 }], 3)
+    expect(none.w).toBeGreaterThan(0)
   })
 
   it('survives a missing or nonsense aspect', () => {
-    for (const a of [null, undefined, 0, -1, NaN, Infinity]) {
-      const b = box(a, 0, 3)
+    for (const a of [undefined, null, 0, -3, NaN, 'wide']) {
+      const [b] = packBoard([{ aspect: a, span: 1 }], 3)
       expect(Number.isFinite(b.w)).toBe(true)
       expect(Number.isFinite(b.h)).toBe(true)
       expect(b.h).toBeGreaterThan(0)
@@ -71,35 +96,81 @@ describe('defaultLayout', () => {
   })
 })
 
-// THE UNIT CHANGE THAT LOST EIGHT PHOTOGRAPHS.
-//
-// These four columns held 12-column grid cells before they held per-mille
-// fractions, and both are smallint. A leftover `pos_w = 4` read as four
-// thousandths of the board, so every arranged photo became an invisible sliver
-// in the corner and only the one row nobody had touched still drew.
+describe('dropIndex', () => {
+  const boxes = packBoard(new Array(4).fill(item(1)), 2)
+
+  it('drops before a tile when the pointer is on its left', () => {
+    const b = boxes[1]
+    expect(dropIndex(boxes, b.x + 0.01, b.y + b.h / 2)).toBe(1)
+  })
+
+  it('drops after a tile when the pointer is on its right', () => {
+    const b = boxes[1]
+    expect(dropIndex(boxes, b.x + b.w - 0.01, b.y + b.h / 2)).toBe(2)
+  })
+
+  it('drops at the end for a pointer past the last tile', () => {
+    const last = boxes[boxes.length - 1]
+    expect(dropIndex(boxes, last.x + last.w + 0.2, last.y + last.h + 0.2)).toBe(boxes.length)
+  })
+
+  it('an empty board takes the first photo', () => {
+    expect(dropIndex([], 0.5, 0.5)).toBe(0)
+  })
+})
+
+describe('spanOf', () => {
+  const placed = (w) => ({ pos_x: 0, pos_y: 0, pos_w: w, pos_h: 300 })
+
+  it('reads one column back out of a one-column width', () => {
+    const [b] = packBoard([item(1, 1)], 3)
+    expect(spanOf(placed(Math.round(b.w * 1000)), 3)).toBe(1)
+  })
+
+  it('reads two columns back out of a two-column width', () => {
+    const [b] = packBoard([item(1, 2)], 3)
+    expect(spanOf(placed(Math.round(b.w * 1000)), 3)).toBe(2)
+  })
+
+  it('a photo nobody has arranged spans one column', () => {
+    expect(spanOf({ pos_x: null, pos_y: null, pos_w: null, pos_h: null }, 3)).toBe(1)
+  })
+
+  // A board widened on a desktop has to be readable on a phone, where there
+  // are only two columns to span.
+  it('never returns more columns than the board has', () => {
+    expect(spanOf(placed(1000), 2)).toBeLessThanOrEqual(2)
+    expect(spanOf(placed(1000), 3)).toBeLessThanOrEqual(3)
+  })
+})
+
+describe('colsFor', () => {
+  it('is two columns on a phone and three above it', () => {
+    expect(colsFor(375)).toBe(2)
+    expect(colsFor(519)).toBe(2)
+    expect(colsFor(520)).toBe(3)
+    expect(colsFor(1200)).toBe(3)
+  })
+})
+
 describe('isPlaced', () => {
-  const at = (x, y, w, h) => ({ pos_x: x, pos_y: y, pos_w: w, pos_h: h })
+  const row = (over) => ({ pos_x: 100, pos_y: 200, pos_w: 300, pos_h: 220, ...over })
 
   it('accepts a real per-mille arrangement', () => {
-    expect(isPlaced(at(0, 0, 480, 640))).toBe(true)
-    expect(isPlaced(at(120, 900, 300, 200))).toBe(true)
+    expect(isPlaced(row())).toBe(true)
   })
 
   it('rejects leftover grid cells from the old board', () => {
-    expect(isPlaced(at(0, 0, 4, 6))).toBe(false)
-    expect(isPlaced(at(0, 0, 6, 5))).toBe(false)
-    expect(isPlaced(at(0, 0, 12, 8))).toBe(false)
+    expect(isPlaced(row({ pos_w: 4, pos_h: 3 }))).toBe(false)
+    expect(isPlaced(row({ pos_w: MIN_PLACED_MILLE - 1 }))).toBe(false)
   })
 
   it('rejects a row that was never arranged', () => {
-    expect(isPlaced(at(null, null, null, null))).toBe(false)
-    expect(isPlaced(at(0, 0, 480, null))).toBe(false)
+    expect(isPlaced(row({ pos_x: null }))).toBe(false)
     expect(isPlaced(null)).toBe(false)
   })
 
-  // x and y are legitimately zero for the top-left photo, so they must not be
-  // held to the same floor as the dimensions.
   it('allows a photo placed at the origin', () => {
-    expect(isPlaced(at(0, 0, 500, 500))).toBe(true)
+    expect(isPlaced(row({ pos_x: 0, pos_y: 0 }))).toBe(true)
   })
 })

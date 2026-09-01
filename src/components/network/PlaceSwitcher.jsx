@@ -33,6 +33,20 @@ export { flagFromIso }
 // where you are, opening a sheet, is one tap and always legible.
 
 
+// One row of the sheet, arriving. Its own element rather than props on `Row`
+// so the row itself stays a plain link that the desktop rail can reuse.
+function SheetRow({ i, children }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.22, delay: 0.06 + i * 0.04, ease: 'easeOut' }}
+    >
+      {children}
+    </motion.div>
+  )
+}
+
 function Row({ to, onPick, active, flags, name, badge, hint }) {
   return (
     <Link
@@ -109,7 +123,18 @@ export default function PlaceSwitcher() {
           and this is the only way to a market from there, so it has to read as
           the door it is rather than as a label you might not press. The height
           lesson survives - one line, ~44px, not the 68px card. */}
-      <div className="mb-4 lg:hidden">
+      {/* IT ARRIVES, LIKE EVERYTHING ELSE ON THE PAGE.
+          Ethan: "for mobile, I noticed that the worldwide and the switcher
+          thing at the top doesn't have any animations, so please add them in."
+          Every section of the hub below this bar comes in on a `Reveal`, and
+          the bar - which is above all of them and therefore the first thing you
+          look at - was simply present from frame one. That reads as the page
+          starting halfway through.
+          `animate-fade-up` is the platform's own CSS entrance (index.css), not
+          a motion component: this bar renders on every network page including
+          the eagerly-routed ones, and it is one element. It respects
+          prefers-reduced-motion with everything else in that file. */}
+      <div className="animate-fade-up mb-4 lg:hidden">
         <button
           type="button"
           onClick={() => setSheet(true)}
@@ -117,12 +142,29 @@ export default function PlaceSwitcher() {
           aria-expanded={sheet}
           className="flex w-full items-center gap-2.5 rounded-2xl border border-gray-200 bg-white py-2.5 pl-3.5 pr-3 text-left transition-transform duration-200 active:scale-[0.98]"
         >
-          <span className="shrink-0 text-base leading-none" aria-hidden>
+          {/* KEYED ON WHERE YOU ARE, so switching market crossfades the flag
+              and the name instead of swapping them between two frames. The
+              switch is the one thing this control does; watching it happen is
+              what tells you it worked. */}
+          <motion.span
+            key={`flag-${current?.id || 'global'}`}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.2 }}
+            className="shrink-0 text-base leading-none"
+            aria-hidden
+          >
             {onGlobal || !current ? '🌍' : currentFlags || '📍'}
-          </span>
-          <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+          </motion.span>
+          <motion.span
+            key={`name-${current?.id || 'global'}`}
+            initial={{ opacity: 0, x: -6 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.22 }}
+            className="min-w-0 flex-1 truncate text-sm font-semibold"
+          >
             {onGlobal || !current ? (network?.name || 'Worldwide') : current.name}
-          </span>
+          </motion.span>
           {/* The word, not just the chevron. A bare arrow on a bar this wide
               reads as "open this page", which is the one thing it does not do. */}
           <span className="shrink-0 text-xs font-semibold text-brand">Switch</span>
@@ -183,31 +225,40 @@ export default function PlaceSwitcher() {
                 <p className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-widest text-smoke">
                   The network
                 </p>
-                <Row
-                  to="/global"
-                  onPick={() => setSheet(false)}
-                  active={onGlobal}
-                  flags="🌍"
-                  name={network?.name || 'Worldwide'}
-                  hint="Everyone, everywhere. Your people layer."
-                />
+                {/* The rows come in one after another rather than arriving
+                    as a block with the sheet. The sheet's own spring is the
+                    container moving; this is its contents settling into it,
+                    which is what makes a bottom sheet feel like it opened
+                    rather than appeared. 40ms apart, capped by the fact that
+                    nobody is in more than a handful of markets. */}
+                <SheetRow i={0}>
+                  <Row
+                    to="/global"
+                    onPick={() => setSheet(false)}
+                    active={onGlobal}
+                    flags="🌍"
+                    name={network?.name || 'Worldwide'}
+                    hint="Everyone, everywhere. Your people layer."
+                  />
+                </SheetRow>
 
                 {mine.length > 0 && (
                   <p className="px-4 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-widest text-smoke">
                     Your markets
                   </p>
                 )}
-                {mine.map((c) => (
-                  <Row
-                    key={c.id}
-                    to={`/c/${c.slug}`}
-                    onPick={() => setSheet(false)}
-                    active={c.slug === currentSlug}
-                    flags={(c.country_codes || []).map(flagFromIso).join('')}
-                    name={c.name}
-                    badge={c.id === home?.id ? 'Home' : null}
-                    hint={c.tagline}
-                  />
+                {mine.map((c, i) => (
+                  <SheetRow key={c.id} i={i + 1}>
+                    <Row
+                      to={`/c/${c.slug}`}
+                      onPick={() => setSheet(false)}
+                      active={c.slug === currentSlug}
+                      flags={(c.country_codes || []).map(flagFromIso).join('')}
+                      name={c.name}
+                      badge={c.id === home?.id ? 'Home' : null}
+                      hint={c.tagline}
+                    />
+                  </SheetRow>
                 ))}
 
               </div>

@@ -9,7 +9,7 @@
 import { useState } from 'react'
 import Icon from './Icon'
 import { toastSuccess } from '../lib/toast'
-import { CopyButton } from './ui'
+import { CopyButton, Panel } from './ui'
 import { APP_ICONS, APP_ICON_PARAM, getAppIcon, setAppIcon } from '../lib/appIcon'
 
 // 60px is roughly what an app icon measures on an iPhone home screen, and the
@@ -33,11 +33,16 @@ export default function AppIconPicker() {
   const installUrl = `${origin}/home?${APP_ICON_PARAM}=${active.key}`
 
   return (
-    <section className="card">
-      <div className="mb-1 flex items-center gap-2">
-        <Icon name="device" className="h-5 w-5 text-brand" />
-        <h2 className="text-lg font-semibold">Home screen icon</h2>
-      </div>
+    // `Panel`, NOT a hard-coded `card`. Ethan: "I said for every one of them
+    // there should be no more card any more. For display this is correct - for
+    // home screen icon they're still showing the card, so that needs to be
+    // fixed." Every other settings section moved to `Panel` (a card on a
+    // desktop, a plain block on a phone) and this one was left behind, so it
+    // was the single bordered box in a page of borderless ones.
+    // The heading went with it: you press "Home screen icon" in the menu and
+    // land on a page whose own title says "Home screen icon", so a third one
+    // inside a card was the same word three times.
+    <Panel>
       <p className="text-sm text-smoke">
         Choose the icon this device uses when you add Tryp.com to your home screen.
       </p>
@@ -136,6 +141,6 @@ export default function AppIconPicker() {
           </li>
         </ol>
       </div>
-    </section>
+    </Panel>
   )
 }

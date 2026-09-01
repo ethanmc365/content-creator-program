@@ -67,6 +67,22 @@ export const DEFAULT_APP_ICON = APP_ICONS[0].key
 // So the link the card hands over names the icon: `?icon=plane`. Read once on
 // boot, it re-selects that icon and stores it, which makes the pasted URL
 // self-contained.
+// AND THE INSTALLED APP'S OWN start_url CARRIES IT TOO.
+//
+// THE BUG THIS FIXES. Ethan: "it should show the correct icons - for example
+// I'm currently on the minimal icon, but it's showing that the classic one is
+// selected for me."
+//
+// The choice lives in localStorage, and an installed home-screen web app gets
+// its OWN storage container - it does not share Safari's. So somebody who
+// picked Minimal in the browser, installed the app and then opened Settings
+// inside the app was reading an empty container and being told, correctly for
+// that container and wrongly for their phone, that they were on Classic.
+//
+// Every variant manifest now has `"start_url": "/home?icon=<key>"`, so the
+// installed app announces which icon it was installed with on every launch and
+// `main.jsx` stores it. The picker then agrees with the home screen, because
+// the home screen is what told it.
 export const APP_ICON_PARAM = 'icon'
 
 /** The icon named in the current URL, if it names a real one. */

@@ -2,7 +2,7 @@
   "name": "Content Creator Program",
   "short_name": "Tryp.com",
   "description": "The official Tryp.com Content Creator Program.",
-  "start_url": "/home",
+  "start_url": "/home?icon=midnight",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
