@@ -1,6 +1,7 @@
 import { Modal } from '../ui'
 import Icon from '../Icon'
 import { zoneCity, zoneOffsetLabel, hoursBetween } from '../../lib/timezone'
+import { useT } from '../../lib/i18n'
 
 // "YOU ARE SOMEWHERE ELSE NOW."
 //
@@ -20,12 +21,13 @@ import { zoneCity, zoneOffsetLabel, hoursBetween } from '../../lib/timezone'
 // is a question nobody can answer without doing arithmetic. "Oslo is 1 hour
 // ahead of Dublin" is the whole decision.
 export default function TimezonePrompt({ open, device, previous, onChange, onKeep }) {
+  const tr = useT()
   const shift = hoursBetween(device, previous)
   const there = zoneCity(device)
   const home = zoneCity(previous)
 
   return (
-    <Modal open={open} onClose={onKeep} title="Looks like you have moved">
+    <Modal open={open} onClose={onKeep} title={tr("Looks like you have moved")}>
       <div className="space-y-5">
         <div className="flex items-center gap-4 rounded-card border border-brand/25 bg-brand-tint/40 p-4">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand text-white">
@@ -62,7 +64,7 @@ export default function TimezonePrompt({ open, device, previous, onChange, onKee
         </div>
 
         <p className="text-center text-[11px] text-smoke">
-          You can set this permanently in Settings.
+          {tr("You can set this permanently in Settings.")}
         </p>
       </div>
     </Modal>

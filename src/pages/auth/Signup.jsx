@@ -6,12 +6,14 @@ import { Spinner } from '../../components/ui'
 import Turnstile from '../../components/Turnstile'
 import AuthShell, { DemoCaptcha } from './AuthShell'
 import { useDemoMode } from '../../lib/demoMode'
+import { useT } from '../../lib/i18n'
 
 // Public creator signup. New accounts are creators by default - // admins are promoted later (see README → "Making an account an admin").
 // `?demo=1`, for an admin only, renders this page inertly inside the Testing
 // Centre: no redirect when somebody who is already signed in looks at it, no
 // account created, and a placeholder where the captcha goes. See lib/demoMode.
 export default function Signup() {
+  const tr = useT()
   const { on: demo, asked: demoAsked } = useDemoMode()
   // A `type="password"` field makes macOS offer to fill or save a password. In
   // the Testing Centre that is a system dialog thrown over a demo that cannot
@@ -87,35 +89,35 @@ export default function Signup() {
 
   if (error === 'CHECK_EMAIL') {
     return (
-      <AuthShell title="Check your inbox 📬" subtitle="We've sent you a confirmation link. Click it, then log in to start your onboarding.">
-        <Link to="/login" className="btn-primary w-full">Go to log in</Link>
+      <AuthShell title={tr("Check your inbox 📬")} subtitle="We've sent you a confirmation link. Click it, then log in to start your onboarding.">
+        <Link to="/login" className="btn-primary w-full">{tr("Go to log in")}</Link>
       </AuthShell>
     )
   }
 
   return (
     <AuthShell
-      title="Join the community"
+      title={tr("Join the community")}
       subtitle="Create your creator account. It takes a minute."
-      footer={<span>Already a member? <Link to="/login" className="font-medium text-brand hover:underline">Log in</Link></span>}
+      footer={<span>{tr("Already a member?")} <Link to="/login" className="font-medium text-brand hover:underline">{tr("Log in")}</Link></span>}
     >
       {ref && (
         <p className="mb-5 rounded-xl bg-brand-tint px-4 py-3 text-center text-sm font-medium text-brand">
-          You were invited by a Tryp.com creator. Welcome aboard!
+          {tr("You were invited by a Tryp.com creator. Welcome aboard!")}
         </p>
       )}
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
-          <label htmlFor="name" className="label">Your name</label>
-          <input id="name" type="text" required className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Amelia Hart" />
+          <label htmlFor="name" className="label">{tr("Your name")}</label>
+          <input id="name" type="text" required className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr("e.g. Amelia Hart")} />
         </div>
         <div>
-          <label htmlFor="email" className="label">Email</label>
-          <input id="email" type="email" required autoComplete="email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+          <label htmlFor="email" className="label">{tr("Email")}</label>
+          <input id="email" type="email" required autoComplete="email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={tr("you@example.com")} />
         </div>
         <div>
-          <label htmlFor="password" className="label">Password</label>
-          <input id="password" {...pwProps} required minLength={8} className="input" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" />
+          <label htmlFor="password" className="label">{tr("Password")}</label>
+          <input id="password" {...pwProps} required minLength={8} className="input" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={tr("At least 8 characters")} />
         </div>
 
         {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
@@ -129,9 +131,9 @@ export default function Signup() {
           />
           <span>
             I agree to the{' '}
-            <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-medium text-brand hover:underline">Terms of Service</a>{' '}
+            <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-medium text-brand hover:underline">{tr("Terms of Service")}</a>{' '}
             and{' '}
-            <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-medium text-brand hover:underline">Privacy Policy</a>,
+            <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-medium text-brand hover:underline">{tr("Privacy Policy")}</a>,
             and to represent Tryp.com honestly in my content.
           </span>
         </label>

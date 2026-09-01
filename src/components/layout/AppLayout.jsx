@@ -158,7 +158,7 @@ function ChatSearchField({ target }) {
       />
       <button
         onClick={close}
-        aria-label="Close search"
+        aria-label={tr("Close search")}
         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-smoke transition-colors hover:bg-cloud hover:text-ink"
       >
         <Icon name="close" className="h-4 w-4" />
@@ -422,7 +422,7 @@ export default function AppLayout() {
             <div className="flex items-center gap-2 sm:gap-3">
               <span className="flex items-center gap-2 text-xs font-medium text-ink">
                 <Icon name="eye" className="h-4 w-4 shrink-0 text-brand" />
-                <span className="hidden sm:inline">Viewing as a creator</span>
+                <span className="hidden sm:inline">{tr("Viewing as a creator")}</span>
               </span>
               <button
                 onClick={async () => {
@@ -474,7 +474,7 @@ export default function AppLayout() {
             <span className="hidden text-sm font-semibold text-smoke md:block">{tr('Content Creator Community')}</span>
           </Link>
 
-          <nav className="hidden items-center gap-2 lg:flex" aria-label="Main">
+          <nav className="hidden items-center gap-2 lg:flex" aria-label={tr("Main")}>
             {tabs.map((item) => (
               <NavLink key={item.to} to={item.to} className={navLinkClass(item.to)} data-tour={tourAnchor(item.to)}>
                 <Icon name={item.icon} className="h-5 w-5" />
@@ -507,7 +507,7 @@ export default function AppLayout() {
             ) : (
               <button
                 onClick={() => setPaletteOpen(true)}
-                aria-label="Search"
+                aria-label={tr("Search")}
                 data-tour="search"
                 className="flex items-center gap-2 rounded-full border border-gray-200 px-2.5 py-1.5 text-smoke transition-colors hover:border-brand hover:text-brand sm:pr-2"
               >
@@ -520,14 +520,14 @@ export default function AppLayout() {
             {isAdmin && (
               <Link to="/admin" className="flex items-center gap-1.5 rounded-full border border-brand px-3 py-1.5 text-xs font-semibold text-brand transition-colors hover:bg-brand hover:text-white sm:px-4">
                 <Icon name="shield" className="h-4 w-4" />
-                <span>Admin</span>
+                <span>{tr("Admin")}</span>
               </Link>
             )}
             <span data-tour="bell"><NotificationBell /></span>
 
             {/* Avatar dropdown */}
             <div className="relative" ref={menuRef}>
-              <button onClick={() => setMenuOpen((o) => !o)} aria-label="Account menu" data-tour="avatar-menu" className="relative rounded-full">
+              <button onClick={() => setMenuOpen((o) => !o)} aria-label={tr("Account menu")} data-tour="avatar-menu" className="relative rounded-full">
                 <Avatar src={profile?.photo_url} name={profile?.name} size="sm" />
                 {(connReqs > 0 || newResources) && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-brand ring-2 ring-white" aria-label={connReqs > 0 ? `${connReqs} connection requests` : 'New resources in the library'} />}
               </button>
@@ -537,10 +537,10 @@ export default function AppLayout() {
                     <p className="truncate text-sm font-semibold">{profile?.name}</p>
                     <p className="truncate text-xs text-smoke">{user?.email}</p>
                   </div>
-                  <Link to={`/profile/${user?.id}`} onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">My profile</Link>
-                  <Link to="/settings" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Settings</Link>
-                  <Link to="/rewards" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">My rewards</Link>
-                  <Link to="/dashboard" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">My dashboard</Link>
+                  <Link to={`/profile/${user?.id}`} onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("My profile")}</Link>
+                  <Link to="/settings" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("Settings")}</Link>
+                  <Link to="/rewards" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("My rewards")}</Link>
+                  <Link to="/dashboard" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("My dashboard")}</Link>
                   {/* Two things that ARE about you and have no home in the nav:
                       how far along the route you are, and who to ask when
                       something goes wrong. Both belong in the menu that already
@@ -548,7 +548,7 @@ export default function AppLayout() {
                   {/* The Tryp.com team link is gone: the team are creators in
                       the directory with a role on their card, not a separate
                       page you have to know about. See Directory. */}
-                  <Link to="/milestones" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Milestones</Link>
+                  <Link to="/milestones" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("Milestones")}</Link>
 
                   {/* EVERYWHERE ELSE, ON A PHONE.
                       These ten used to be a grid near the top of the Worldwide
@@ -576,7 +576,7 @@ export default function AppLayout() {
                       lib/networkLinks, in the reader's own saved order, so the
                       two can never drift apart. */}
                   <div>
-                      <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Explore the community</p>
+                      <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{tr("Explore the community")}</p>
                       {menuLinks.map((l) => (
                         <Link
                           key={l.to}
@@ -592,17 +592,17 @@ export default function AppLayout() {
                             </span>
                           )}
                           {l.badge === 'resources' && newResources && (
-                            <span className="h-2 w-2 shrink-0 rounded-full bg-brand" aria-label="New" />
+                            <span className="h-2 w-2 shrink-0 rounded-full bg-brand" aria-label={tr("New")} />
                           )}
                         </Link>
                       ))}
                   </div>
 
                   <div className="my-1 border-t border-gray-100" />
-                  <Link to="/feedback" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">Help us improve</Link>
+                  <Link to="/feedback" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm hover:bg-cloud">{tr("Help us improve")}</Link>
                   <div className="my-1 border-t border-gray-100" />
-                  {isAdmin && <Link to="/admin" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm font-medium text-brand hover:bg-cloud">Admin panel</Link>}
-                  <button onClick={handleSignOut} className="block w-full rounded-xl px-3 py-2.5 text-left text-sm text-red-600 hover:bg-red-50">Log out</button>
+                  {isAdmin && <Link to="/admin" onClick={() => setMenuOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm font-medium text-brand hover:bg-cloud">{tr("Admin panel")}</Link>}
+                  <button onClick={handleSignOut} className="block w-full rounded-xl px-3 py-2.5 text-left text-sm text-red-600 hover:bg-red-50">{tr("Log out")}</button>
                 </div>
               )}
             </div>
@@ -642,7 +642,7 @@ export default function AppLayout() {
           keyboardOpen && 'pointer-events-none translate-y-full'
         )}
         aria-hidden={keyboardOpen}
-        aria-label="Mobile"
+        aria-label={tr("Mobile")}
       >
         <div className="mx-auto flex max-w-lg items-center justify-around px-0.5 pb-1.5 pt-2">
           {tabs.map((tab) => (

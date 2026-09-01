@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { videoEmbed, resolveVideoEmbed } from '../lib/videoPreview'
 import { cx } from '../lib/utils'
 import { lockScroll } from '../lib/scrollLock'
+import { useT } from '../lib/i18n'
 
 // A media-focused lightbox that plays a submitted entry INSIDE the platform:
 // YouTube / TikTok / Instagram all embed via their tokenless iframe players, so
@@ -10,6 +11,7 @@ import { lockScroll } from '../lib/scrollLock'
 // TikTok links are resolved to their player via oEmbed; anything we still can't
 // embed shows a clean "Open on <platform>" fallback.
 export default function VideoEmbedModal({ url, platform, title, onClose }) {
+  const tr = useT()
   // Try a synchronous embed first (YouTube/Instagram/full TikTok); fall back to
   // an async resolve (shortened TikTok links) with a brief loading state.
   const [embed, setEmbed] = useState(() => videoEmbed(url))
@@ -38,18 +40,18 @@ export default function VideoEmbedModal({ url, platform, title, onClose }) {
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={title || 'Video'}>
-      <button aria-label="Close" className="absolute inset-0 bg-ink/70 backdrop-blur-sm" onClick={onClose} />
+      <button aria-label={tr("Close")} className="absolute inset-0 bg-ink/70 backdrop-blur-sm" onClick={onClose} />
       <div className="relative z-10 flex w-full max-w-md flex-col">
         <div className="mb-3 flex items-center justify-between gap-3 text-white">
           <span className="min-w-0 truncate text-sm font-medium">{title}</span>
-          <button onClick={onClose} aria-label="Close" className="shrink-0 rounded-full bg-white/15 p-2 text-white transition-colors hover:bg-white/25">
+          <button onClick={onClose} aria-label={tr("Close")} className="shrink-0 rounded-full bg-white/15 p-2 text-white transition-colors hover:bg-white/25">
             <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" /></svg>
           </button>
         </div>
 
         {resolving ? (
           <div className="mx-auto flex aspect-[9/16] w-full max-w-[380px] items-center justify-center rounded-2xl bg-black/60">
-            <span className="h-8 w-8 animate-spin rounded-full border-2 border-white/30 border-t-white" aria-label="Loading video" />
+            <span className="h-8 w-8 animate-spin rounded-full border-2 border-white/30 border-t-white" aria-label={tr("Loading video")} />
           </div>
         ) : embed ? (
           <div className={cx(

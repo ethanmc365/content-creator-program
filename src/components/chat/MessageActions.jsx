@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Icon from '../Icon'
 import ReactionPicker from '../ReactionPicker'
 import { cx } from '../../lib/utils'
+import { useT } from '../../lib/i18n'
 
 // EVERYTHING YOU CAN DO TO A MESSAGE, IN ONE PLACE, FOR EVERY CHAT.
 //
@@ -78,6 +79,7 @@ export default function MessageActions({
   footer = null,
   className,
 }) {
+  const tr = useT()
   const [picking, setPicking] = useState(false)
   const mine = side === 'right'
   const canReact = !!onToggleReaction
@@ -154,7 +156,7 @@ export default function MessageActions({
                   <div className="relative">
                     <ActionButton
                       icon="smile"
-                      label="Add a reaction"
+                      label={tr("Add a reaction")}
                       onClick={() => setPicking((p) => !p)}
                       active={picking}
                     />

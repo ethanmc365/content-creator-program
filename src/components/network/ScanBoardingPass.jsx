@@ -179,8 +179,7 @@ export default function ScanBoardingPass({ open, onClose, onFilled, now }) {
         {mode === 'idle' && (
           <>
             <p className="text-sm text-smoke">
-              Point the camera at the barcode, or pick a photo. A screenshot of the pass in Apple
-              Wallet works just as well as a paper one.
+              {tr("Point the camera at the barcode, or pick a photo. A screenshot of the pass in Apple Wallet works just as well as a paper one.")}
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <button onClick={() => fileRef.current?.click()} className="group flex items-center gap-3 rounded-card border border-gray-100 bg-white p-4 text-left shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/50 hover:shadow-lift">
@@ -247,9 +246,7 @@ export default function ScanBoardingPass({ open, onClose, onFilled, now }) {
               {tr("Make sure the whole barcode is in the picture, in focus, and not cut off at the edges.")}
             </p>
             <p className="mx-auto mt-2 max-w-sm text-sm text-smoke">
-              If it still will not read, try the digital pass instead: a screenshot straight from
-              Apple Wallet or the airline app scans far more reliably than a photo of a printed one.
-              Otherwise close this and type the flight in.
+              {tr("If it still will not read, try the digital pass instead: a screenshot straight from Apple Wallet or the airline app scans far more reliably than a photo of a printed one. Otherwise close this and type the flight in.")}
             </p>
             <div className="mt-4 flex justify-center gap-3">
               <button onClick={() => fileRef.current?.click()} className="btn-primary text-sm">{tr("Choose a photo")}</button>
@@ -301,8 +298,7 @@ export default function ScanBoardingPass({ open, onClose, onFilled, now }) {
               ))}
             </ol>
             <p className="mx-auto mt-4 max-w-sm text-sm text-smoke">
-              On a computer you can still choose a photo of the pass, or a screenshot of it from
-              Apple Wallet.
+              {tr("On a computer you can still choose a photo of the pass, or a screenshot of it from Apple Wallet.")}
             </p>
             <div className="mt-4 flex justify-center gap-3">
               <button onClick={() => fileRef.current?.click()} className="btn-primary text-sm">{tr("Choose a photo")}</button>
@@ -351,8 +347,7 @@ export default function ScanBoardingPass({ open, onClose, onFilled, now }) {
             </div>
             <p className="flex items-start gap-2 text-xs text-smoke">
               <Icon name="alert" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand" />
-              A boarding pass barcode carries the day of the year but not the year, so check the
-              date. Everything else came straight off the pass.
+              {tr("A boarding pass barcode carries the day of the year but not the year, so check the date. Everything else came straight off the pass.")}
             </p>
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button onClick={() => setMode('idle')} className="btn-ghost w-full justify-center sm:w-auto">{tr("Scan another")}</button>

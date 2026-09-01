@@ -106,7 +106,7 @@ export default function InstallGate({ onSkip }) {
           onClick={() => { skipInstall(); onSkip?.() }}
           className="mx-auto mt-8 text-sm font-medium text-smoke underline-offset-4 transition-colors hover:text-brand hover:underline"
         >
-          Continue in the browser for now
+          {tr("Continue in the browser for now")}
         </button>
         <p className="mt-2 text-center text-xs text-smoke">
           {tr("You can add it later from Settings.")}

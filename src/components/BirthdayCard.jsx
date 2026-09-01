@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { Avatar } from './ui'
+import { useT } from '../lib/i18n'
 
 // An inline birthday card: posted automatically into #general on a creator's
 // birthday. Shows their photo and invites everyone to wish them well.
 export default function BirthdayCard({ creatorId }) {
+  const tr = useT()
   const [creator, setCreator] = useState(null)
 
   useEffect(() => {
@@ -29,7 +31,7 @@ export default function BirthdayCard({ creatorId }) {
       </div>
       <div className="p-4 text-center">
         <p className="text-sm text-smoke">
-          It's <Link to={`/profile/${creator.id}`} className="font-semibold text-brand hover:underline">{creator.name}</Link>'s
+          {tr("It's")} <Link to={`/profile/${creator.id}`} className="font-semibold text-brand hover:underline">{creator.name}</Link>'s
           birthday today. Drop a message below and help us wish them a brilliant one!
         </p>
       </div>

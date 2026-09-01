@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { QUICK_REACTIONS, REACTION_GROUPS } from '../lib/reactions'
 import { cx } from '../lib/utils'
 import Icon from './Icon'
+import { useT } from '../lib/i18n'
 
 // The reaction popover, shared by the legacy chat and the network rooms.
 //
@@ -34,6 +35,7 @@ function clipBounds(node) {
 }
 
 export default function ReactionPicker({ onPick, onClose, align = 'left', prefer = 'above' }) {
+  const tr = useT()
   const [expanded, setExpanded] = useState(false)
   // WHICH WAY IT OPENS.
   //
@@ -166,7 +168,7 @@ export default function ReactionPicker({ onPick, onClose, align = 'left', prefer
     <div
       ref={setNode}
       role="dialog"
-      aria-label="Pick a reaction"
+      aria-label={tr("Pick a reaction")}
       style={shiftX ? { transform: `translateX(${Math.round(shiftX)}px)` } : undefined}
       className={cx(
         'absolute z-30 rounded-2xl border border-gray-100 bg-white shadow-lift',
@@ -194,7 +196,7 @@ export default function ReactionPicker({ onPick, onClose, align = 'left', prefer
           <button
             type="button"
             onClick={() => setExpanded(true)}
-            aria-label="More reactions"
+            aria-label={tr("More reactions")}
             className="ml-0.5 flex h-6 w-6 items-center justify-center rounded-full text-smoke transition-colors hover:bg-cloud hover:text-brand"
           >
             <Icon name="plus" className="h-3.5 w-3.5" />

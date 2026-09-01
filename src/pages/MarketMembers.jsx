@@ -13,6 +13,7 @@ import { flagFromIso } from '../components/network/PlaceSwitcher'
 import { Avatar, Badge, EmptyState } from '../components/ui'
 import { cx } from '../lib/utils'
 import { listContainer, listItem, cardHover, pageFade } from '../lib/motion'
+import { useT } from '../lib/i18n'
 
 // Who is in this market.
 //
@@ -25,6 +26,7 @@ import { listContainer, listItem, cardHover, pageFade } from '../lib/motion'
 const MotionLink = motion.create(Link)
 
 export default function MarketMembers() {
+  const tr = useT()
   const { slug } = useParams()
   const { bySlug, manages, loading: ctxLoading } = useCommunity()
   const market = bySlug(slug)
@@ -63,8 +65,8 @@ export default function MarketMembers() {
   if (!market) {
     return (
       <NetworkLayout>
-        <EmptyState icon={<Icon name="pin" className="h-6 w-6" />} title="No such market"
-          action={<Link to="/global" className="btn-secondary">Back to Worldwide</Link>} />
+        <EmptyState icon={<Icon name="pin" className="h-6 w-6" />} title={tr("No such market")}
+          action={<Link to="/global" className="btn-secondary">{tr("Back to Worldwide")}</Link>} />
       </NetworkLayout>
     )
   }
@@ -88,8 +90,8 @@ export default function MarketMembers() {
             <EmptyState
               icon={<Icon name="users" className="h-7 w-7" />}
               title={`Nobody has joined ${market.name} yet`}
-              hint="Creators are suggested this market at signup when their country matches. Until then it is quiet in here."
-              action={<Link to="/global/markets" className="btn-secondary">See every market</Link>}
+              hint={tr("Creators are suggested this market at signup when their country matches. Until then it is quiet in here.")}
+              action={<Link to="/global/markets" className="btn-secondary">{tr("See every market")}</Link>}
             />
           ) : (
             <>
@@ -104,7 +106,7 @@ export default function MarketMembers() {
               {team.length > 0 && (
                 <section>
                   <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-                    <Icon name="shield" className="h-5 w-5 text-brand" /> The team here
+                    <Icon name="shield" className="h-5 w-5 text-brand" /> {tr("The team here")}
                   </h2>
                   <div className="flex flex-wrap gap-2">
                     {team.map((m) => (
@@ -113,7 +115,7 @@ export default function MarketMembers() {
                           'transition-transform duration-200 hover:scale-105 hover:border-brand')}>
                         <Avatar src={m.profiles.photo_url} name={m.profiles.name} size="xs" />
                         <span className="text-sm font-medium">{m.profiles.name}</span>
-                        {m.role === 'manager' && <Badge tone="light">Manager</Badge>}
+                        {m.role === 'manager' && <Badge tone="light">{tr("Manager")}</Badge>}
                       </Link>
                     ))}
                   </div>

@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom'
 import Icon from './Icon'
 import { cx } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 // Back, at the top left, on every page you can arrive at from somewhere else.
 //
@@ -16,6 +17,7 @@ import { cx } from '../lib/utils'
 // shared link, where it would take the creator out of the app entirely. The
 // length check is how you tell the two apart.
 export default function BackLink({ to = '/global', label = 'Back', className }) {
+  const tr = useT()
   const navigate = useNavigate()
   const canGoBack = typeof window !== 'undefined' && window.history.length > 1
 
@@ -36,17 +38,22 @@ export default function BackLink({ to = '/global', label = 'Back', className }) 
       <span className="flex h-6 w-6 items-center justify-center rounded-full transition-transform duration-200 group-hover:-translate-x-0.5">
         <Icon name="chevronLeft" className="h-4 w-4" />
       </span>
-      <span className="hidden sm:inline">{label}</span>
+      {/* Translated HERE, not at the call site: the default ("Back") is set in
+          this signature, so a caller that passes nothing has no string to wrap.
+          `tr` on a value that is already Spanish is a lookup that misses and
+          returns what it was given, so a caller passing its own translated
+          label is unaffected. */}
+      <span className="hidden sm:inline">{tr(label)}</span>
     </>
   )
 
   if (canGoBack) {
     return (
-      <button type="button" onClick={() => navigate(-1)} className={classes} aria-label="Go back">
+      <button type="button" onClick={() => navigate(-1)} className={classes} aria-label={tr("Go back")}>
         {inner}
       </button>
     )
   }
   // aria-label, not just the text, because below `sm` there IS no text.
-  return <Link to={to} className={classes} aria-label={label}>{inner}</Link>
+  return <Link to={to} className={classes} aria-label={tr(label)}>{inner}</Link>
 }

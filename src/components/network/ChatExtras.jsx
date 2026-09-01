@@ -7,6 +7,7 @@ import { Avatar } from '../ui'
 import { cx } from '../../lib/utils'
 import { matchBroadcasts } from '../../lib/broadcastMentions'
 import { SNAPPY, overlay } from '../../lib/motion'
+import { useT } from '../../lib/i18n'
 
 // The three things a room needs before it is a room rather than a log:
 // something to react with, a way to find what was said, and a way to point at
@@ -26,6 +27,7 @@ import { SNAPPY, overlay } from '../../lib/motion'
 // hover clusters over one message corner is how you end up pressing the wrong
 // one; the legacy chat and the DMs already put all of them in one pill.
 export function ReactionRow({ messageId, reactions, myId, onToggle, revealed = false, actions = [] }) {
+  const tr = useT()
   const mine = useMemo(
     () => new Set(reactions.filter((r) => r.creator_id === myId).map((r) => r.emoji)),
     [reactions, myId],
@@ -108,7 +110,7 @@ export function ReactionRow({ messageId, reactions, myId, onToggle, revealed = f
         <div className="relative">
         <button
           onClick={() => setPicking((p) => !p)}
-          aria-label="Add a reaction"
+          aria-label={tr("Add a reaction")}
           className={cx(
             // `revealed` is the phone's answer to hover. Without it the only
             // way to open this picker was `group-hover/msg`, which never fires

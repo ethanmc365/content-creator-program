@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import Icon from '../Icon'
 import { timeAgo, cx } from '../../lib/utils'
 import { FILTERS, groupByAge, matchesFilter, metaFor, useNotifications } from '../../lib/notifications'
+import { useT } from '../../lib/i18n'
 
 // THE NOTIFICATION CENTRE.
 //
@@ -36,6 +37,7 @@ import { FILTERS, groupByAge, matchesFilter, metaFor, useNotifications } from '.
 
 /** One row. Whole row opens it; the cross on the right takes it away. */
 function NotificationRow({ n, leaving, onOpen, onDismiss, i }) {
+  const tr = useT()
   const meta = metaFor(n.type)
   return (
     <div
@@ -95,12 +97,12 @@ function NotificationRow({ n, leaving, onOpen, onDismiss, i }) {
              Unread belongs at the start of the row, which is where every
              other list in the app puts it. */
           className="pointer-events-none absolute left-1.5 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-brand transition-opacity duration-150 group-hover/row:opacity-0"
-          aria-label="Unread"
+          aria-label={tr("Unread")}
         />
       )}
       <button
         onClick={(e) => { e.stopPropagation(); onDismiss(n.id) }}
-        aria-label="Dismiss this notification"
+        aria-label={tr("Dismiss this notification")}
         className={cx(
           'absolute right-1.5 top-2 flex h-7 w-7 items-center justify-center rounded-full text-gray-400',
           'transition-all duration-150 hover:bg-white hover:text-ink hover:shadow-card active:scale-90',
@@ -115,6 +117,7 @@ function NotificationRow({ n, leaving, onOpen, onDismiss, i }) {
 }
 
 export default function NotificationBell() {
+  const tr = useT()
   const { user, profile } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -263,7 +266,7 @@ export default function NotificationBell() {
             </p>
             {unread > 0 && (
               <button onClick={markAllRead} className="shrink-0 text-xs font-medium text-brand transition-transform duration-150 hover:scale-105">
-                Mark all read
+                {tr("Mark all read")}
               </button>
             )}
           </div>
@@ -309,7 +312,7 @@ export default function NotificationBell() {
                 </p>
                 {filter !== 'all' && (
                   <button onClick={() => setFilter('all')} className="text-xs font-medium text-brand hover:underline">
-                    Show everything
+                    {tr("Show everything")}
                   </button>
                 )}
               </div>
@@ -334,7 +337,7 @@ export default function NotificationBell() {
 
           <div className="flex items-center justify-between gap-2 border-t border-gray-100 px-3 py-2">
             <Link to="/notifications" onClick={() => setOpen(false)} className="rounded-lg px-2 py-1.5 text-sm font-medium text-brand transition-colors hover:bg-cloud">
-              View all
+              {tr("View all")}
             </Link>
             {/* CLEARING WHAT YOU HAVE READ, NOT CLEARING EVERYTHING - the unread
                 ones are the entire point of the panel, and a button whose most

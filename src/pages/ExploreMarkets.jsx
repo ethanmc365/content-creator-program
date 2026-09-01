@@ -259,8 +259,7 @@ export default function ExploreMarkets() {
               </Link>
               <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{tr("Markets")}</h1>
               <p className="mt-2 max-w-2xl text-white/85">
-                A market is where the work happens: its own briefs, its own challenges, its own rooms.
-                Everything social stays worldwide, so joining one never cuts you off from anybody.
+                {tr("A market is where the work happens: its own briefs, its own challenges, its own rooms. Everything social stays worldwide, so joining one never cuts you off from anybody.")}
               </p>
             </div>
           </section>

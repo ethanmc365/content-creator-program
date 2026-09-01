@@ -5,6 +5,7 @@ import Icon from './Icon'
 import { Avatar } from './ui'
 import { formatViews, cx } from '../lib/utils'
 import { podiumTier } from '../lib/podiumTiers'
+import { useT } from '../lib/i18n'
 
 // An inline challenge-leaderboard card inside a chat message. Admins post these
 // to #announcements from the results page as a mid-challenge (interim) or final
@@ -16,6 +17,7 @@ import { podiumTier } from '../lib/podiumTiers'
 // inside our card, and it was the last surface still doing it.
 
 export default function LeaderboardCard({ challengeId }) {
+  const tr = useT()
   const [challenge, setChallenge] = useState(null)
   const [rows, setRows] = useState(null)
 
@@ -67,11 +69,11 @@ export default function LeaderboardCard({ challengeId }) {
             ))}
           </ul>
         ) : (
-          <p className="mb-3 text-center text-xs text-smoke">Standings coming soon.</p>
+          <p className="mb-3 text-center text-xs text-smoke">{tr("Standings coming soon.")}</p>
         )}
-        {!isFinal && <p className="mb-2 text-center text-[10px] text-smoke">Current leaderboard, still changing.</p>}
+        {!isFinal && <p className="mb-2 text-center text-[10px] text-smoke">{tr("Current leaderboard, still changing.")}</p>}
         <Link to={`/challenges/${challengeId}`} className="btn-primary block w-full !py-2 text-center text-xs">
-          View full leaderboard →
+          {tr("View full leaderboard →")}
         </Link>
       </div>
     </div>

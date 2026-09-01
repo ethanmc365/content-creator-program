@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import { toast } from '../../lib/toast'
 import Icon from '../Icon'
 import { cx } from '../../lib/utils'
+import { useT } from '../../lib/i18n'
 
 // "REMIND ME BEFORE THIS."
 //
@@ -43,6 +44,7 @@ const FLIGHT_CHOICES = [
 // call during render, and the calendar page already keeps one slow-ticking
 // clock so that every "in 3 days" on the page agrees with every other one.
 export default function ReminderBell({ item, now, className = '', onOpenDeadlinePrefs }) {
+  const tr = useT()
   const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const [set, setSet] = useState(null)   // the saved minutes_before, or null
@@ -111,8 +113,8 @@ export default function ReminderBell({ item, now, className = '', onOpenDeadline
       <button
         type="button"
         onClick={() => onOpenDeadlinePrefs?.()}
-        aria-label="Choose when to be reminded about deadlines"
-        title="Choose when to be reminded about deadlines"
+        aria-label={tr("Choose when to be reminded about deadlines")}
+        title={tr("Choose when to be reminded about deadlines")}
         className={cx(
           'flex h-8 w-8 items-center justify-center rounded-full text-smoke transition-all duration-200 hover:bg-brand-tint hover:text-brand active:scale-90',
           className,
@@ -177,9 +179,9 @@ export default function ReminderBell({ item, now, className = '', onOpenDeadline
 
       {open && (
         <div className="absolute right-0 top-9 z-40 w-52 overflow-hidden rounded-card border border-gray-100 bg-white p-1 shadow-lift animate-menu-in">
-          <p className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-smoke">Remind me</p>
+          <p className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-smoke">{tr("Remind me")}</p>
           {usable.length === 0 && (
-            <p className="px-3 pb-2 text-xs text-smoke">This one is too close to set a reminder for.</p>
+            <p className="px-3 pb-2 text-xs text-smoke">{tr("This one is too close to set a reminder for.")}</p>
           )}
           {usable.map((c) => (
             <button
@@ -202,7 +204,7 @@ export default function ReminderBell({ item, now, className = '', onOpenDeadline
               className="mt-1 flex w-full items-center gap-2 rounded-lg border-t border-gray-50 px-3 py-2 text-left text-sm text-smoke transition-colors hover:bg-cloud hover:text-ink"
             >
               <Icon name="close" className="h-3.5 w-3.5" />
-              Turn it off
+              {tr("Turn it off")}
             </button>
           )}
         </div>

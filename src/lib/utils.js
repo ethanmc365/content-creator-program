@@ -1,16 +1,34 @@
 // Small shared helpers used across the app.
 import { format, formatDistanceToNow, isToday, isYesterday } from 'date-fns'
+import { es } from 'date-fns/locale'
+import { getLocale, t } from './i18n'
+
+// DATES ARE PART OF THE LANGUAGE, and they were the one part left in English.
+//
+// A Spanish creator reading a fully translated announcement card followed by
+// "4 days ago" is reading two languages in one sentence, and date-fns has the
+// locale sitting in the package already. `getLocale()` is the same source of
+// truth the `tr()` calls read, so there is one answer to "what language is
+// this" and nothing to keep in step.
+//
+// `undefined` and not `enUS` for English: date-fns defaults to English, and
+// naming it would mean importing a second locale bundle to say what it already
+// does. Only the Spanish one costs anything, and only when Spanish is on.
+const DATE_LOCALES = { es }
+function dateLocale() {
+  return DATE_LOCALES[getLocale()]
+}
 
 /** "12 Jun 2026" */
 export function formatDate(date) {
   if (!date) return '-'
-  return format(new Date(date), 'd MMM yyyy')
+  return format(new Date(date), 'd MMM yyyy', { locale: dateLocale() })
 }
 
 /** "12 Jun, 14:30" */
 export function formatDateTime(date) {
   if (!date) return '-'
-  return format(new Date(date), 'd MMM, HH:mm')
+  return format(new Date(date), 'd MMM, HH:mm', { locale: dateLocale() })
 }
 
 /** The viewer's short timezone label, e.g. "GMT+1". Empty string if unknown. */
@@ -28,7 +46,7 @@ export function tzLabel(date = new Date()) {
  *  (Times are stored in UTC and rendered in the browser's zone automatically.) */
 export function formatDateTimeTz(date) {
   if (!date) return '-'
-  const base = format(new Date(date), 'd MMM, HH:mm')
+  const base = format(new Date(date), 'd MMM, HH:mm', { locale: dateLocale() })
   const tz = tzLabel(date)
   return tz ? `${base} ${tz}` : base
 }
@@ -59,15 +77,18 @@ export function formatMessageTime(date) {
 
   // Clock skew, or a message that arrived a moment ago and is optimistically
   // rendered before the server stamps it. Either way "in 4 seconds" is wrong.
-  if (mins < 1) return 'Just now'
+  // THE WORDS ARE SENTENCES, THE MONTHS COME FROM THE LOCALE. `t` here rather
+  // than the `tr` a component would use - this is a plain function, not a hook,
+  // so it reads the current locale directly (see lib/i18n).
+  if (mins < 1) return t('Just now')
   if (isToday(d)) {
-    if (mins < 60) return `${mins} min ago`
+    if (mins < 60) return t('{n} min ago', { n: mins })
     const hrs = Math.round(mins / 60)
-    return `${hrs} ${hrs === 1 ? 'hour' : 'hours'} ago`
+    return hrs === 1 ? t('1 hour ago') : t('{n} hours ago', { n: hrs })
   }
-  if (isYesterday(d)) return `Yesterday at ${format(d, 'HH:mm')}`
+  if (isYesterday(d)) return t('Yesterday at {time}', { time: format(d, 'HH:mm') })
   const sameYear = d.getFullYear() === new Date().getFullYear()
-  return format(d, sameYear ? "d MMM 'at' HH:mm" : "d MMM yyyy 'at' HH:mm")
+  return format(d, sameYear ? "d MMM 'at' HH:mm" : "d MMM yyyy 'at' HH:mm", { locale: dateLocale() })
 }
 
 /** The unabbreviated stamp, for a `title` tooltip next to the short one. */
@@ -80,8 +101,8 @@ export function messageTimeTitle(date) {
 export function formatChatTime(date) {
   const d = new Date(date)
   if (isToday(d)) return format(d, 'HH:mm')
-  if (isYesterday(d)) return 'Yesterday'
-  return format(d, 'd MMM')
+  if (isYesterday(d)) return t('Yesterday')
+  return format(d, 'd MMM', { locale: dateLocale() })
 }
 
 /** "3 days ago" */
@@ -104,7 +125,7 @@ export function postedOn(date) {
 
 export function timeAgo(date) {
   if (!date) return ''
-  return formatDistanceToNow(new Date(date), { addSuffix: true })
+  return formatDistanceToNow(new Date(date), { addSuffix: true, locale: dateLocale() })
 }
 
 /**

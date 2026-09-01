@@ -5,6 +5,7 @@ import Icon from '../Icon'
 import { Skeleton } from '../ui'
 import AircraftPhoto from './AircraftPhoto'
 import { airport } from '../../lib/airports'
+import { useT } from '../../lib/i18n'
 import { AIRCRAFT } from '../../lib/airlines'
 import { cx } from '../../lib/utils'
 
@@ -40,6 +41,7 @@ import { cx } from '../../lib/utils'
 // sizes. One card: the four lifetime numbers, then the three types flown most,
 // with their photographs. The wide variant is kept for the flight log page.
 export default function ProfileFlights({ creatorId, isMe, name, rail = false }) {
+  const tr = useT()
   const [rows, setRows] = useState(null)
 
   useEffect(() => {
@@ -99,11 +101,11 @@ export default function ProfileFlights({ creatorId, isMe, name, rail = false }) 
           <span className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-brand-tint text-brand">
             <Icon name="plane-tryp" className="h-4 w-4" />
           </span>
-          <p className="text-sm font-semibold text-ink">Your flight log is empty</p>
+          <p className="text-sm font-semibold text-ink">{tr('Your flight log is empty')}</p>
           <p className="mt-1 text-xs leading-relaxed text-smoke">
-            Log one flight and this fills in. Scan the boarding pass and it does the rest.
+            {tr('Log one flight and this fills in. Scan the boarding pass and it does the rest.')}
           </p>
-          <Link to="/flights" className="btn-primary mt-3 !py-1.5 text-xs">Open the flight log</Link>
+          <Link to="/flights" className="btn-primary mt-3 !py-1.5 text-xs">{tr('Open the flight log')}</Link>
         </section>
       )
     }
@@ -112,11 +114,11 @@ export default function ProfileFlights({ creatorId, isMe, name, rail = false }) 
         <span className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-tint text-brand">
           <Icon name="plane-tryp" className="h-5 w-5" />
         </span>
-        <p className="text-sm font-semibold text-ink">Your flight log is empty</p>
+        <p className="text-sm font-semibold text-ink">{tr('Your flight log is empty')}</p>
         <p className="mx-auto mt-1 max-w-sm text-sm text-smoke">
-          Log one flight and this fills in. Scan the boarding pass and it takes a photo.
+          {tr('Log one flight and this fills in. Scan the boarding pass and it takes a photo.')}
         </p>
-        <Link to="/flights" className="btn-primary mt-4 text-sm">Open the flight log</Link>
+        <Link to="/flights" className="btn-primary mt-4 text-sm">{tr('Open the flight log')}</Link>
       </div>
     )
   }
@@ -138,10 +140,10 @@ export default function ProfileFlights({ creatorId, isMe, name, rail = false }) 
         <div className="flex items-center justify-between gap-2 px-4 pb-1 pt-4">
           <h2 className="flex items-center gap-2 text-sm font-semibold">
             <Icon name="plane-tryp" className="h-4 w-4 shrink-0 text-brand" />
-            Flight Log
+            {tr('Flight Log')}
           </h2>
           <Link to={isMe ? '/flights' : '/flights/community'} className="shrink-0 text-xs font-medium text-brand transition-transform duration-200 hover:scale-105">
-            {isMe ? 'Open' : 'Community'}
+            {isMe ? tr('Open') : tr('Community')}
           </Link>
         </div>
         {/* A PLAIN GRID, NOT A HAIRLINE TRICK.
@@ -154,10 +156,10 @@ export default function ProfileFlights({ creatorId, isMe, name, rail = false }) 
             Four numbers do not need rules between them at all. */}
         <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 px-4 py-3">
           {[
-            { v: Math.round(stat.km).toLocaleString('en-GB'), unit: 'km', label: 'Flown' },
-            { v: stat.flights, label: stat.flights === 1 ? 'Flight' : 'Flights' },
-            { v: stat.ports, label: 'Airports' },
-            { v: stat.countries, label: 'Countries' },
+            { v: Math.round(stat.km).toLocaleString('en-GB'), unit: 'km', label: tr('Flown') },
+            { v: stat.flights, label: stat.flights === 1 ? tr('Flight') : tr('Flights') },
+            { v: stat.ports, label: tr('Airports') },
+            { v: stat.countries, label: tr('Countries') },
           ].map((sBox) => (
             <div key={sBox.label}>
               <p className="text-lg font-bold leading-none tabular-nums text-ink">
@@ -175,7 +177,8 @@ export default function ProfileFlights({ creatorId, isMe, name, rail = false }) 
         {stat.top.length > 0 && (
           <div className="border-t border-gray-50 px-4 py-3.5">
             <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-widest text-smoke">
-              {isMe ? 'Flown most' : `${first} flies most`}
+              {/* The name goes IN the sentence, so Spanish can reorder it. */}
+              {isMe ? tr('Flown most') : tr('{name} flies most', { name: first })}
             </p>
             <div className="space-y-2">
               {stat.top.map((t) => (
@@ -185,7 +188,14 @@ export default function ProfileFlights({ creatorId, isMe, name, rail = false }) 
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-xs font-semibold text-ink">{t.name}</span>
-                    <span className="block text-[11px] text-smoke">{t.n} {t.n === 1 ? 'flight' : 'flights'}</span>
+                    {/* ONE STRING, NOT A NUMBER GLUED TO A WORD. `{n} {word}`
+                        cannot be translated: Spanish is "1 vuelo" / "3 vuelos"
+                        here but plenty of languages put the count elsewhere in
+                        the phrase entirely, and a translator handed the word
+                        "flights" on its own has no sentence to put it in. */}
+                    <span className="block text-[11px] text-smoke">
+                      {t.n === 1 ? tr('1 flight') : tr('{n} flights', { n: t.n })}
+                    </span>
                   </span>
                 </div>
               ))}
@@ -200,10 +210,10 @@ export default function ProfileFlights({ creatorId, isMe, name, rail = false }) 
     <div className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
       <div className="grid grid-cols-2 divide-x divide-gray-50 sm:grid-cols-4">
         {[
-          { v: Math.round(stat.km).toLocaleString('en-GB'), unit: 'km', label: 'Flown' },
-          { v: stat.flights, label: stat.flights === 1 ? 'Flight' : 'Flights' },
-          { v: stat.ports, label: 'Airports' },
-          { v: stat.countries, label: 'Countries' },
+          { v: Math.round(stat.km).toLocaleString('en-GB'), unit: 'km', label: tr('Flown') },
+          { v: stat.flights, label: stat.flights === 1 ? tr('Flight') : tr('Flights') },
+          { v: stat.ports, label: tr('Airports') },
+          { v: stat.countries, label: tr('Countries') },
         ].map((s, i) => (
           <div key={s.label} className={cx('px-4 py-4 text-center', i > 1 && 'border-t border-gray-50 sm:border-t-0')}>
             <p className="text-xl font-bold tabular-nums text-ink sm:text-2xl">
@@ -230,7 +240,9 @@ export default function ProfileFlights({ creatorId, isMe, name, rail = false }) 
                   <AircraftPhoto typeKey={t.key} type={t.type} />
                 </span>
                 <span className="mt-1.5 block truncate text-[11px] font-semibold text-ink">{t.name}</span>
-                <span className="block text-[10px] text-smoke">{t.n} {t.n === 1 ? 'flight' : 'flights'}</span>
+                <span className="block text-[10px] text-smoke">
+                  {t.n === 1 ? tr('1 flight') : tr('{n} flights', { n: t.n })}
+                </span>
               </span>
             ))}
           </div>
@@ -242,7 +254,7 @@ export default function ProfileFlights({ creatorId, isMe, name, rail = false }) 
           to="/flights"
           className="flex items-center justify-center gap-1.5 border-t border-gray-50 bg-cloud/40 py-2.5 text-xs font-semibold text-smoke transition-colors hover:text-brand"
         >
-          Your whole flight log
+          {tr('Your whole flight log')}
           <Icon name="chevronRight" className="h-3.5 w-3.5" />
         </Link>
       )}

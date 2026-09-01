@@ -828,9 +828,9 @@ export default function GlobalHome() {
                   individually and makes no claim in the meantime. */}
               <div className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 sm:mt-7 sm:flex sm:flex-wrap sm:items-start sm:gap-x-10">
                 {[
-                  { n: d?.creators, label: 'Creators worldwide', hint: 'across every market' },
-                  { n: openMarkets.length, label: 'Markets open', hint: 'and more on the way' },
-                  { n: me?.videos, label: 'Videos posted', hint: 'to challenges so far' },
+                  { n: d?.creators, label: tr('Creators worldwide'), hint: tr('across every market') },
+                  { n: openMarkets.length, label: tr('Markets open'), hint: tr('and more on the way') },
+                  { n: me?.videos, label: tr('Videos posted'), hint: tr('to challenges so far') },
                   // KILOMETRES FLOWN, NOT COUNTRIES REACHED.
                   //
                   // "Countries reached" counted distinct entries in
@@ -846,7 +846,7 @@ export default function GlobalHome() {
                   // comes from `community_flight_totals()` - see migration 100
                   // for why an aggregate over private rows is safe and how anon
                   // is kept off it.
-                  { n: flights?.km ?? null, label: 'Kilometres flown', hint: 'logged by all of us' },
+                  { n: flights?.km ?? null, label: tr('Kilometres flown'), hint: tr('logged by all of us') },
                 ].map((s, _i, all) => (
                   <div key={s.label}>
                     <p className="text-2xl font-bold sm:text-3xl">
@@ -909,10 +909,10 @@ export default function GlobalHome() {
                 <div className="flex flex-wrap gap-2 lg:max-w-[calc(100%-21.5rem)] xl:max-w-[calc(100%-23.5rem)]">
                   <MineChip to="/connections" icon="users"
                     value={me ? me.connections : null}
-                    label={me?.connections === 1 ? 'connection' : 'connections'} />
+                    label={me?.connections === 1 ? tr('connection') : tr('connections')} />
                   <MineChip to="/challenges" icon="video"
                     value={me ? me.myVideos : null}
-                    label={me?.myVideos === 1 ? 'video posted' : 'videos posted'} />
+                    label={me?.myVideos === 1 ? tr('video posted') : tr('videos posted')} />
                 </div>
               </div>
             </div>
@@ -986,9 +986,9 @@ export default function GlobalHome() {
               <section>
                 <SectionHead
                   icon="megaphone"
-                  title={d.anns.length === 1 ? 'Latest announcement' : 'Latest announcements'}
+                  title={d.anns.length === 1 ? tr('Latest announcement') : tr('Latest announcements')}
                   to="/global/chat/announcements"
-                  toLabel="All announcements"
+                  toLabel={tr('All announcements')}
                 />
                 {/* ONE ANNOUNCEMENT GETS THE WHOLE WIDTH.
                     `sm:grid-cols-2` unconditionally meant a creator in a single

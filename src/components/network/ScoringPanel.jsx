@@ -74,7 +74,7 @@ export default function ScoringPanel({ challenge, submissions = [], myId }) {
           <Icon name={mode.icon} className="h-5 w-5" />
         </span>
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-widest text-smoke">How this is won</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-smoke">{tr("How this is won")}</p>
           <p className="mt-0.5 text-lg font-semibold">{mode.label}</p>
           <p className="mt-1 text-sm text-smoke">{mode.winner}</p>
         </div>
@@ -83,7 +83,7 @@ export default function ScoringPanel({ challenge, submissions = [], myId }) {
       {/* Points: the rules, in the creator's words rather than the admin's. */}
       {challenge.scoring === 'points' && rules.length > 0 && (
         <div className="mt-5">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-smoke">What scores</p>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-smoke">{tr("What scores")}</p>
           {/* THE POINTS PILL IS THE LAST THING IN EVERY ROW, ALWAYS.
               (1 Sep 2026.)
 
@@ -123,7 +123,7 @@ export default function ScoringPanel({ challenge, submissions = [], myId }) {
           </ul>
           {challenge.threshold_mode === 'cumulative' && (
             <p className="mt-2 text-xs text-smoke">
-              A video that passes several milestones scores every one of them.
+              {tr("A video that passes several milestones scores every one of them.")}
             </p>
           )}
         </div>
@@ -131,12 +131,12 @@ export default function ScoringPanel({ challenge, submissions = [], myId }) {
 
       {challenge.scoring === 'total_views' && (
         <p className="mt-4 rounded-xl bg-cloud/60 px-4 py-3 text-sm">
-          Every entry counts, so posting more is worth it. Your total is all your videos added together.
+          {tr("Every entry counts, so posting more is worth it. Your total is all your videos added together.")}
         </p>
       )}
       {challenge.scoring === 'best_video' && (
         <p className="mt-4 rounded-xl bg-cloud/60 px-4 py-3 text-sm">
-          Enter as many times as you like. Only your strongest video counts, so a weak entry can never hurt you.
+          {tr("Enter as many times as you like. Only your strongest video counts, so a weak entry can never hurt you.")}
         </p>
       )}
 
@@ -144,7 +144,7 @@ export default function ScoringPanel({ challenge, submissions = [], myId }) {
       {(points.length > 0 || viewBoard.length > 0) && (
         <div className="mt-5">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-smoke">
-            Where it stands right now
+            {tr("Where it stands right now")}
           </p>
           <div className="space-y-1.5">
             {(challenge.scoring === 'points' ? points : viewBoard).map((row, i) => {
@@ -173,7 +173,7 @@ export default function ScoringPanel({ challenge, submissions = [], myId }) {
             })}
           </div>
           <p className="mt-2 text-xs text-smoke">
-            Provisional, from the view counts logged so far. Final placings are confirmed when the challenge closes.
+            {tr("Provisional, from the view counts logged so far. Final placings are confirmed when the challenge closes.")}
           </p>
         </div>
       )}

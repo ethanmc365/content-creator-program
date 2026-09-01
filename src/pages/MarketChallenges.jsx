@@ -16,6 +16,7 @@ import WinnersPodium from '../components/WinnersPodium'
 import { loadWinnerGalleries } from '../lib/winners'
 import { cx, formatDate, challengeDeadline } from '../lib/utils'
 import { listContainer, listItem, cardHover, pageFade } from '../lib/motion'
+import { useT } from '../lib/i18n'
 
 // A market's own challenge board.
 //
@@ -34,6 +35,7 @@ import { listContainer, listItem, cardHover, pageFade } from '../lib/motion'
 const MotionLink = motion.create(Link)
 
 export default function MarketChallenges() {
+  const tr = useT()
   const { slug } = useParams()
   const { bySlug, manages, loading: ctxLoading } = useCommunity()
   const market = bySlug(slug)
@@ -122,8 +124,8 @@ export default function MarketChallenges() {
   if (!market) {
     return (
       <NetworkLayout>
-        <EmptyState icon={<Icon name="pin" className="h-6 w-6" />} title="No such market"
-          action={<Link to="/global" className="btn-secondary">Back to Worldwide</Link>} />
+        <EmptyState icon={<Icon name="pin" className="h-6 w-6" />} title={tr("No such market")}
+          action={<Link to="/global" className="btn-secondary">{tr("Back to Worldwide")}</Link>} />
       </NetworkLayout>
     )
   }
@@ -151,7 +153,7 @@ export default function MarketChallenges() {
                   <Icon name="flag" className="h-5 w-5 text-brand" /> Challenges in {market.name}
                 </h2>
                 <p className="mt-1 text-sm text-smoke">
-                  Every brief run here, and how each one was won.
+                  {tr("Every brief run here, and how each one was won.")}
                 </p>
               </div>
               {canManage && (
@@ -172,7 +174,7 @@ export default function MarketChallenges() {
 
           {past.length > 0 && (
             <section>
-              <h2 className="mb-5 text-lg font-semibold text-smoke">Past challenges</h2>
+              <h2 className="mb-5 text-lg font-semibold text-smoke">{tr("Past challenges")}</h2>
               <motion.div variants={listContainer} initial="hidden" animate="show" className="grid gap-5 sm:grid-cols-2">
                 {past.map((c) => {
                   const mode = scoringMode(c.scoring)
@@ -242,7 +244,7 @@ export default function MarketChallenges() {
                         )
                       ) : podium.length > 0 ? (
                         <div className="mt-4 flex items-center gap-3 rounded-xl bg-cloud/60 px-3 py-2.5">
-                          <span className="text-[10px] font-semibold uppercase tracking-widest text-smoke">Won by</span>
+                          <span className="text-[10px] font-semibold uppercase tracking-widest text-smoke">{tr("Won by")}</span>
                           <div className="flex min-w-0 items-center gap-2">
                             {podium.map((w, i) => (
                               <span key={w.creator_id} className="flex min-w-0 items-center gap-1.5">
@@ -269,7 +271,7 @@ export default function MarketChallenges() {
             <EmptyState
               icon={<Icon name="flag" className="h-7 w-7" />}
               title={`No challenges in ${market.name} yet`}
-              hint="The first brief for this market will appear here."
+              hint={tr("The first brief for this market will appear here.")}
               action={canManage
                 ? <Link to={`/admin/challenges/new?market=${market.slug}`} className="btn-primary">+ Create the first one</Link>
                 : undefined}

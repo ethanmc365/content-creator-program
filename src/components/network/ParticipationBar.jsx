@@ -1,4 +1,5 @@
 import { cx } from '../../lib/utils'
+import { useT } from '../../lib/i18n'
 
 // How much of a market has actually entered the challenge that is running.
 //
@@ -17,6 +18,7 @@ import { cx } from '../../lib/utils'
 // roster of ONE place, so an empty market says "0 of 0" rather than borrowing
 // another market's creator count.
 export default function ParticipationBar({ participation, where = 'in this market', className }) {
+  const tr = useT()
   if (!participation) return null
   const total = Number(participation.total) || 0
   const posted = Number(participation.posted) || 0
@@ -30,7 +32,7 @@ export default function ParticipationBar({ participation, where = 'in this marke
   if (total === 0) {
     return (
       <div className={cx('rounded-card border border-gray-100 bg-white px-5 py-4 shadow-card', className)}>
-        <p className="text-sm font-semibold text-ink">Creator participation</p>
+        <p className="text-sm font-semibold text-ink">{tr("Creator participation")}</p>
         <p className="mt-1 text-xs text-smoke">
           No creators have joined this market yet, so there is nobody to count.
           {posted > 0 ? ` ${posted} ${posted === 1 ? 'entry has' : 'entries have'} come in anyway.` : ''}
@@ -43,7 +45,7 @@ export default function ParticipationBar({ participation, where = 'in this marke
   return (
     <div className={cx('rounded-card border border-gray-100 bg-white px-5 py-4 shadow-card', className)}>
       <div className="mb-2 flex items-baseline justify-between gap-3">
-        <p className="text-sm font-semibold text-ink">Creator participation</p>
+        <p className="text-sm font-semibold text-ink">{tr("Creator participation")}</p>
         <p className="text-sm font-bold tabular-nums text-brand">{pct}%</p>
       </div>
       <div className="h-2.5 overflow-hidden rounded-full bg-cloud">

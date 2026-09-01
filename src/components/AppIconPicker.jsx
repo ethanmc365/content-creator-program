@@ -11,6 +11,7 @@ import Icon from './Icon'
 import { toastSuccess } from '../lib/toast'
 import { CopyButton, Panel } from './ui'
 import { APP_ICONS, APP_ICON_PARAM, getAppIcon, setAppIcon } from '../lib/appIcon'
+import { useT } from '../lib/i18n'
 
 // 60px is roughly what an app icon measures on an iPhone home screen, and the
 // corner radius is the same fraction iOS uses. A preview at some other size is
@@ -18,6 +19,7 @@ import { APP_ICONS, APP_ICON_PARAM, getAppIcon, setAppIcon } from '../lib/appIco
 const TILE = 'h-[60px] w-[60px] rounded-[22.5%]'
 
 export default function AppIconPicker() {
+  const tr = useT()
   const [chosen, setChosen] = useState(getAppIcon)
 
   function choose(key) {
@@ -44,7 +46,7 @@ export default function AppIconPicker() {
     // inside a card was the same word three times.
     <Panel>
       <p className="text-sm text-smoke">
-        Choose the icon this device uses when you add Tryp.com to your home screen.
+        {tr("Choose the icon this device uses when you add Tryp.com to your home screen.")}
       </p>
 
       <div className="mt-5 border-t border-gray-100 pt-5">
@@ -53,7 +55,7 @@ export default function AppIconPicker() {
             a single orphan, which reads as an afterthought rather than a
             choice. Two columns gives two even rows at every width this card is
             ever drawn at. */}
-        <div className="mx-auto grid max-w-[15rem] grid-cols-2 justify-items-center gap-5" role="radiogroup" aria-label="Home screen icon">
+        <div className="mx-auto grid max-w-[15rem] grid-cols-2 justify-items-center gap-5" role="radiogroup" aria-label={tr("Home screen icon")}>
           {APP_ICONS.map((v) => {
             const on = v.key === chosen
             return (
@@ -111,33 +113,33 @@ export default function AppIconPicker() {
       <div className="mt-5 rounded-xl border border-gray-100 bg-cloud/40 p-4">
         <p className="flex items-start gap-2 text-xs font-semibold text-ink">
           <Icon name="alert" className="mt-px h-4 w-4 shrink-0 text-brand" />
-          An icon already on your home screen cannot be changed automatically
+          {tr("An icon already on your home screen cannot be changed automatically")}
         </p>
         <p className="mt-1.5 text-xs leading-relaxed text-smoke">
-          Your phone uses the icon it copied when you added the website, and keeps that copy. To swap it:
+          {tr("Your phone uses the icon it copied when you added the website, and keeps that copy. To swap it:")}
         </p>
         <ol className="mt-2.5 space-y-2.5 text-xs leading-relaxed text-smoke">
           <li className="flex gap-2.5">
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-bold text-brand shadow-sm">1</span>
-            <span>Pick an icon above. You have chosen <strong className="font-semibold text-ink">{active.label}</strong>.</span>
+            <span>{tr("Pick an icon above. You have chosen")} <strong className="font-semibold text-ink">{active.label}</strong>.</span>
           </li>
           <li className="flex gap-2.5">
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-bold text-brand shadow-sm">2</span>
             <span className="min-w-0 flex-1">
-              Copy this link.
+              {tr("Copy this link.")}
               <span className="mt-1.5 flex items-center gap-2 rounded-lg border border-gray-100 bg-white p-1.5">
                 <code className="min-w-0 flex-1 truncate px-1 text-[11px] text-smoke">{installUrl}</code>
-                <CopyButton value={installUrl} label="Copy" />
+                <CopyButton value={installUrl} label={tr("Copy")} />
               </span>
             </span>
           </li>
           <li className="flex gap-2.5">
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-bold text-brand shadow-sm">3</span>
-            <span>Press and hold the current icon on your home screen, then remove it.</span>
+            <span>{tr("Press and hold the current icon on your home screen, then remove it.")}</span>
           </li>
           <li className="flex gap-2.5">
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-bold text-brand shadow-sm">4</span>
-            <span>Paste the link into your browser, press the share button, and add it to your home screen again.</span>
+            <span>{tr("Paste the link into your browser, press the share button, and add it to your home screen again.")}</span>
           </li>
         </ol>
       </div>

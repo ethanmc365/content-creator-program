@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { cx } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 // TYPED DATES AND TIMES, WITHOUT THE NATIVE CONTROL.
 //
@@ -120,6 +121,7 @@ const Frame = ({ children, invalid, id, label, hint, error, onMouseDown }) => (
  * result is a real date, and '' at every other moment.
  */
 export function DateField({ id, label, value, onChange, max, min, hint, futureError }) {
+  const tr = useT()
   // The parts are LOCAL state, not derived from `value` on every render - see
   // the note above about reformatting mid-typing.
   const [d, setD] = useState(() => (value ? value.slice(8, 10) : ''))
@@ -182,7 +184,7 @@ export function DateField({ id, label, value, onChange, max, min, hint, futureEr
       <Part id={`${id}-m`} inputRef={mRef} label="MM" max={2} width="w-8" value={m}
         onChange={setM} onOverflow={() => yRef.current?.focus()} onBack={() => dRef.current?.focus()} />
       <span className="text-gray-300">/</span>
-      <Part id={`${id}-y`} inputRef={yRef} label="YYYY" max={4} width="w-12" value={y}
+      <Part id={`${id}-y`} inputRef={yRef} label={tr("YYYY")} max={4} width="w-12" value={y}
         onChange={setY} onBack={() => mRef.current?.focus()} />
     </Frame>
   )

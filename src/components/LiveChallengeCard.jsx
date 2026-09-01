@@ -239,7 +239,7 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
             {isGlobal && (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-brand">
                 <Icon name="globe" className="h-3.5 w-3.5" />
-                Global challenge
+                {tr("Global challenge")}
               </span>
             )}
             {/* THE DATE RANGE IS DESKTOP-ONLY IN THIS ROW (1 Sep 2026).

@@ -8,6 +8,7 @@ import { toast } from '../../lib/toast'
 import { isoToTimeInput, cx } from '../../lib/utils'
 import { DateField, TimeField } from '../DateTimeFields'
 import { viewerZone } from '../../lib/eventTime'
+import { useT } from '../../lib/i18n'
 
 // YOUR OWN DATES, ON THE SAME CALENDAR.
 //
@@ -36,6 +37,7 @@ const DURATIONS = [
 const empty = { title: '', description: '', dateStr: '', timeStr: '', duration: 60 }
 
 export default function PersonalEventModal({ open, onClose, editing, onSaved }) {
+  const tr = useT()
   const { user } = useAuth()
   const [form, setForm] = useState(empty)
   const [busy, setBusy] = useState(false)
@@ -117,31 +119,30 @@ export default function PersonalEventModal({ open, onClose, editing, onSaved }) 
         <p className="flex items-start gap-2.5 rounded-xl bg-brand-tint/60 p-3 text-xs text-ink">
           <Icon name="eye" className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
           <span>
-            Only you can see this. It rides along in your calendar subscription, so it lands in
-            Apple or Google Calendar with everything else.
+            {tr("Only you can see this. It rides along in your calendar subscription, so it lands in Apple or Google Calendar with everything else.")}
           </span>
         </p>
 
         <div>
-          <label htmlFor="pe-title" className="label">What is it</label>
+          <label htmlFor="pe-title" className="label">{tr("What is it")}</label>
           <input
             id="pe-title" className="input" required value={form.title}
             onChange={(e) => setForm({ ...form, title: e.target.value })}
-            placeholder="Edit the video from Paris"
+            placeholder={tr("Edit the video from Paris")}
           />
         </div>
 
         {/* The same typed fields as everywhere else. See
             components/DateTimeFields. */}
         <div className="grid grid-cols-2 gap-4">
-          <DateField id="pe-date" label="Date" value={form.dateStr}
+          <DateField id="pe-date" label={tr("Date")} value={form.dateStr}
             onChange={(v) => setForm((f) => ({ ...f, dateStr: v }))} />
-          <TimeField id="pe-time" label="Start" value={form.timeStr}
+          <TimeField id="pe-time" label={tr("Start")} value={form.timeStr}
             onChange={(v) => setForm((f) => ({ ...f, timeStr: v }))} />
         </div>
 
         <div>
-          <span className="label">How long</span>
+          <span className="label">{tr("How long")}</span>
           <div className="flex flex-wrap gap-2">
             {DURATIONS.map((d) => (
               <button
@@ -162,19 +163,19 @@ export default function PersonalEventModal({ open, onClose, editing, onSaved }) 
 
         <div>
           <label htmlFor="pe-desc" className="label">
-            Note <span className="font-normal text-smoke">(optional)</span>
+            {tr("Note")} <span className="font-normal text-smoke">(optional)</span>
           </label>
           <textarea
             id="pe-desc" rows={2} className="input" value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
-            placeholder="B-roll first, then the voiceover"
+            placeholder={tr("B-roll first, then the voiceover")}
           />
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           {editing ? (
             <button type="button" onClick={remove} disabled={busy} className="btn-ghost text-sm text-red-500 hover:text-red-600">
-              Delete
+              {tr("Delete")}
             </button>
           ) : <span />}
           <button type="submit" disabled={busy} className="btn-primary">

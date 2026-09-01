@@ -2,11 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Modal, Spinner } from './ui'
 import Certificate, { CERTIFICATE_W } from './Certificate'
 import { snapshotNode, downloadBlob, slugForFile } from '../lib/domSnapshot'
+import { useT } from '../lib/i18n'
 
 // The certificate, previewed exactly as it will save, with the two things a
 // creator actually wants to do with it. Share first on a phone (it opens
 // Instagram, WhatsApp, the lot); download everywhere else.
 export default function CertificateModal({ open, onClose, reward, result }) {
+  const tr = useT()
   const cardRef = useRef(null)
   const [preview, setPreview] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -77,21 +79,21 @@ export default function CertificateModal({ open, onClose, reward, result }) {
         </div>
       )}
 
-      <Modal open={open} onClose={onClose} title="Your certificate">
+      <Modal open={open} onClose={onClose} title={tr("Your certificate")}>
         <div className="space-y-5">
           <div className="overflow-hidden rounded-card border border-gray-100 bg-cloud/40 p-3">
             {preview ? (
               <img src={preview} alt="Your certificate" className="mx-auto block w-full rounded-lg" />
             ) : (
               <div className="flex h-48 items-center justify-center text-sm text-smoke">
-                <Spinner className="mr-2 h-4 w-4" /> Making it…
+                <Spinner className="mr-2 h-4 w-4" /> {tr("Making it…")}
               </div>
             )}
           </div>
           {error ? <p className="text-sm text-brand">{error}</p> : null}
-          <p className="text-xs text-smoke">Post it, print it, put it on your story. It is yours.</p>
+          <p className="text-xs text-smoke">{tr("Post it, print it, put it on your story. It is yours.")}</p>
           <div className="flex justify-end gap-2">
-            <button type="button" className="btn-secondary !py-2 text-sm" onClick={onClose}>Close</button>
+            <button type="button" className="btn-secondary !py-2 text-sm" onClick={onClose}>{tr("Close")}</button>
             <button type="button" className="btn-primary !py-2 text-sm" onClick={save} disabled={busy || !preview}>
               {busy ? <Spinner className="h-4 w-4" /> : null} Save it
             </button>

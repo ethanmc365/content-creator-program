@@ -73,9 +73,16 @@ export default function DailyGamesCard() {
                   )}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">{p.title}</p>
+                  {/* The puzzle table is static English in lib/dailyPuzzles,
+                      so its titles and one-liners are translated where they are
+                      printed. And "N played today" is ONE sentence, not a
+                      number glued to two words - see the note about `{n}
+                      flights` in ProfileFlights. */}
+                  <p className="truncate text-sm font-semibold">{tr(p.title)}</p>
                   <p className="truncate text-xs text-smoke">
-                    {count == null || count === 0 ? p.short : `${count} played today`}
+                    {count == null || count === 0
+                      ? tr(p.short)
+                      : (count === 1 ? tr('1 played today') : tr('{n} played today', { n: count }))}
                   </p>
                 </div>
                 <Link

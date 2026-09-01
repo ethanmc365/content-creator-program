@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import Icon from '../Icon'
 import { cx } from '../../lib/utils'
 import { criterionLabel, criterionNeed, milestoneFraction, routeState } from '../../lib/milestones'
+import { useT } from '../../lib/i18n'
 
 // Where somebody is on the route, small enough for a profile or a rail card.
 //
@@ -16,6 +17,7 @@ import { criterionLabel, criterionNeed, milestoneFraction, routeState } from '..
 // belonging to OTHER people, where the parent has no reason to have loaded a
 // milestone list. One RPC, cached by the browser for the length of the visit.
 export default function MilestoneSnippet({ profileId, own = false, className }) {
+  const tr = useT()
   const [rows, setRows] = useState(null)
 
   useEffect(() => {
@@ -68,7 +70,7 @@ export default function MilestoneSnippet({ profileId, own = false, className }) 
       </div>
 
       <p className="mt-3 text-xs text-smoke">
-        {last ? <>Last stop: <span className="font-medium text-ink">{last.title}</span></> : 'Not started yet'}
+        {last ? <>{tr("Last stop:")} <span className="font-medium text-ink">{last.title}</span></> : 'Not started yet'}
       </p>
 
       {next && (
@@ -117,7 +119,7 @@ export default function MilestoneSnippet({ profileId, own = false, className }) 
 
       {own && (
         <Link to="/milestones" className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-brand transition-transform duration-200 hover:translate-x-0.5">
-          See the whole route <Icon name="chevronRight" className="h-3.5 w-3.5" />
+          {tr("See the whole route")} <Icon name="chevronRight" className="h-3.5 w-3.5" />
         </Link>
       )}
     </div>

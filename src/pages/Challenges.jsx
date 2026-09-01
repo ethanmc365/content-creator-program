@@ -12,11 +12,13 @@ import Reveal from '../components/network/Reveal'
 import LiveChallengeCard from '../components/LiveChallengeCard'
 import WinnersPodium from '../components/WinnersPodium'
 import { loadWinnerGalleries } from '../lib/winners'
+import { useT } from '../lib/i18n'
 
 const STATUS_TONE = { active: 'brand', ended: 'amber', archived: 'grey', draft: 'red' }
 
 // All challenges: the live one up top, past challenges browsable below.
 export default function Challenges() {
+  const tr = useT()
   const { isAdmin } = useAuth()
   const { ids: scopeIds, networkId, loading: scopesLoading } = useMyScopes()
   const [challenges, setChallenges] = useState([])
@@ -192,7 +194,7 @@ export default function Challenges() {
           is led down the page in the order the page wants to be read. */}
       <Reveal from="down">
         <PageHeader
-          title="Challenges"
+          title={tr("Challenges")}
           action={isAdmin && <Link to="/admin/challenges/new" className="btn-primary">+ New challenge</Link>}
         />
       </Reveal>
@@ -207,7 +209,7 @@ export default function Challenges() {
             <span className="font-bold tabular-nums text-brand">
               {formatMoney(prizeTotalEur, 'EUR')}
             </span>
-            <span className="text-smoke">won by creators so far</span>
+            <span className="text-smoke">{tr("won by creators so far")}</span>
           </p>
         </Reveal>
       )}
@@ -238,7 +240,7 @@ export default function Challenges() {
           </div>
         </div>
       ) : mine.length === 0 ? (
-        <EmptyState icon={<Icon name="flag" className="h-7 w-7" />} title="No challenges yet" hint="The first challenge will appear here once the team posts it." />
+        <EmptyState icon={<Icon name="flag" className="h-7 w-7" />} title={tr("No challenges yet")} hint={tr("The first challenge will appear here once the team posts it.")} />
       ) : (
         <div className="space-y-12">
           {/* ---------- Nothing live ----------
@@ -252,14 +254,13 @@ export default function Challenges() {
                 <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-tint text-brand">
                   <Icon name="flag" className="h-5 w-5" />
                 </span>
-                <h2 className="text-lg font-semibold">No challenge running right now</h2>
+                <h2 className="text-lg font-semibold">{tr("No challenge running right now")}</h2>
                 <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-smoke">
-                  The next brief lands here as soon as the team posts it, and you will get a notification when
-                  it does. Past challenges and their winners are below.
+                  {tr("The next brief lands here as soon as the team posts it, and you will get a notification when it does. Past challenges and their winners are below.")}
                 </p>
                 {isAdmin && (
                   <Link to="/admin/challenges/new" className="btn-secondary mt-5 inline-flex !py-2 text-sm">
-                    Post a challenge
+                    {tr("Post a challenge")}
                   </Link>
                 )}
               </div>
@@ -282,7 +283,7 @@ export default function Challenges() {
           {/* ---------- Past ---------- */}
           {past.length > 0 && (
             <section>
-              <h2 className="mb-5 text-lg font-semibold text-smoke">Past challenges</h2>
+              <h2 className="mb-5 text-lg font-semibold text-smoke">{tr("Past challenges")}</h2>
               <Reveal className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                 {past.map((c) => (
                   /* The card used to BE a <Link>, which is why nothing inside it

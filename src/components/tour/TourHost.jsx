@@ -9,6 +9,7 @@ import { enablePush, pushPermission, pushSupported } from '../../lib/push'
 import { partOf, stepAt, stepGoal, stepsFor } from '../../lib/tour'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
+import { useT } from '../../lib/i18n'
 
 // THE WALKTHROUGH, DRAWN AND DRIVEN.
 //
@@ -49,6 +50,7 @@ function findAnchor(name) {
 }
 
 export default function TourHost({ onFinish, network = false }) {
+  const tr = useT()
   const isPhone = useIsPhone()
   const navigate = useNavigate()
   const location = useLocation()
@@ -311,7 +313,7 @@ export default function TourHost({ onFinish, network = false }) {
         className={cx('tour-card', isPhone ? 'tour-card--sheet' : 'tour-card--float')}
         style={isPhone ? undefined : { width: CARD_W }}
         role="dialog"
-        aria-label="Guided walkthrough"
+        aria-label={tr("Guided walkthrough")}
       >
         {/* ONE PROGRESS BAR. There used to be two - a percentage bar and a
             five-segment part strip underneath it - which is two things asking
@@ -326,7 +328,7 @@ export default function TourHost({ onFinish, network = false }) {
               <span className="text-[11px] font-semibold tabular-nums text-smoke">{pct}%</span>
               <button
                 onClick={close}
-                aria-label="Close the walkthrough"
+                aria-label={tr("Close the walkthrough")}
                 className="-mr-1 rounded-full p-1 text-gray-300 transition-colors hover:text-ink"
               >
                 <Icon name="close" className="h-4 w-4" />
@@ -355,7 +357,7 @@ export default function TourHost({ onFinish, network = false }) {
         {hit && (
           <p className="tour-hit mt-3 flex items-center gap-2 rounded-xl bg-green-50 px-3 py-2.5 text-[13px] font-semibold text-green-800">
             <Icon name="check" className="h-4 w-4 shrink-0" />
-            <span>Nice one</span>
+            <span>{tr("Nice one")}</span>
           </p>
         )}
 
@@ -366,7 +368,7 @@ export default function TourHost({ onFinish, network = false }) {
         <div className="mt-4 flex items-center gap-2">
           {last ? (
             <button onClick={() => onFinish?.('finished')} className="btn-primary ml-auto !px-5 !py-2 text-sm">
-              Finish
+              {tr("Finish")}
             </button>
           ) : (
             <>
@@ -375,7 +377,7 @@ export default function TourHost({ onFinish, network = false }) {
               </p>
               {!pushBlocked && (
                 <button onClick={skip} className="btn-ghost shrink-0 !px-3 !py-1.5 text-xs text-smoke">
-                  Skip this
+                  {tr("Skip this")}
                 </button>
               )}
             </>
@@ -402,26 +404,25 @@ function DwellRing({ p }) {
 }
 
 function PushAction({ state, busy, onEnable }) {
+  const tr = useT()
   if (!pushSupported()) {
     return (
       <Callout tone="plain" icon="device">
-        This browser cannot do push notifications. On an iPhone they work as soon as the app is on your
-        home screen, which takes ten seconds and is worth doing.
+        {tr("This browser cannot do push notifications. On an iPhone they work as soon as the app is on your home screen, which takes ten seconds and is worth doing.")}
       </Callout>
     )
   }
   if (state === 'granted') {
     return (
       <Callout tone="good" icon="check">
-        Notifications are on. You will hear about every brief the moment it goes live.
+        {tr("Notifications are on. You will hear about every brief the moment it goes live.")}
       </Callout>
     )
   }
   if (state === 'denied') {
     return (
       <Callout tone="warn" icon="alert">
-        Your browser is blocking notifications for this site, so we cannot ask from here. Turn them back
-        on in its site settings whenever you are ready.
+        {tr("Your browser is blocking notifications for this site, so we cannot ask from here. Turn them back on in its site settings whenever you are ready.")}
       </Callout>
     )
   }

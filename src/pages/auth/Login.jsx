@@ -5,9 +5,11 @@ import { Spinner } from '../../components/ui'
 import Turnstile from '../../components/Turnstile'
 import AuthShell, { DemoCaptcha } from './AuthShell'
 import { useDemoMode } from '../../lib/demoMode'
+import { useT } from '../../lib/i18n'
 
 // `?demo=1`, admins only, renders this page inertly for the Testing Centre.
 export default function Login() {
+  const tr = useT()
   const { on: demo, asked: demoAsked } = useDemoMode()
   // A `type="password"` field makes macOS offer to fill or save a password. In
   // the Testing Centre that is a system dialog thrown over a demo that cannot
@@ -60,19 +62,19 @@ export default function Login() {
 
   return (
     <AuthShell
-      title="Welcome back"
+      title={tr("Welcome back")}
       subtitle="Log in to the Tryp.com Content Creator Community."
-      footer={<span>New here? <Link to="/signup" className="font-medium text-brand hover:underline">Create your account</Link></span>}
+      footer={<span>{tr("New here?")} <Link to="/signup" className="font-medium text-brand hover:underline">{tr("Create your account")}</Link></span>}
     >
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
-          <label htmlFor="email" className="label">Email</label>
-          <input id="email" type="email" required autoComplete="email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+          <label htmlFor="email" className="label">{tr("Email")}</label>
+          <input id="email" type="email" required autoComplete="email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={tr("you@example.com")} />
         </div>
         <div>
           <div className="flex items-center justify-between">
-            <label htmlFor="password" className="label">Password</label>
-            <Link to="/forgot-password" className="mb-2 text-xs font-medium text-brand hover:underline">Forgot password?</Link>
+            <label htmlFor="password" className="label">{tr("Password")}</label>
+            <Link to="/forgot-password" className="mb-2 text-xs font-medium text-brand hover:underline">{tr("Forgot password?")}</Link>
           </div>
           <input id="password" {...pwProps} required className="input" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
         </div>

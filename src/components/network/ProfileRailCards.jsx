@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import Icon from '../Icon'
 import { cx } from '../../lib/utils'
 import { rankInk, ordinalFor } from '../../lib/podiumTiers'
+import { useT } from '../../lib/i18n'
 
 // THE REST OF THE PLATFORM, ON THE PROFILE.
 //
@@ -74,6 +75,7 @@ function RailCard({ icon, title, to, linkLabel, children }) {
 // spends freezes as a side effect, so drawing somebody's profile with it would
 // burn their freezes because a stranger looked at them.
 export function PuzzleCard({ creatorId, isMe, firstName }) {
+  const tr = useT()
   const [stats, setStats] = useState(null)
 
   useEffect(() => {
@@ -90,7 +92,7 @@ export function PuzzleCard({ creatorId, isMe, firstName }) {
   if (!stats || !stats.plays) return null
 
   return (
-    <RailCard icon="joystick" title="Travel games" to="/game" linkLabel="Play">
+    <RailCard icon="joystick" title={tr("Travel games")} to="/game" linkLabel="Play">
       <div className="grid grid-cols-3 gap-1.5">
         {[
           { v: stats.plays, label: 'played' },
@@ -128,6 +130,7 @@ export function PuzzleCard({ creatorId, isMe, firstName }) {
 // off "is there a result" would put a half-finished position on somebody's
 // profile as a trophy. `winners_published_at` is an admin saying it is final.
 export function ChallengeHistoryCard({ creatorId, isMe, firstName }) {
+  const tr = useT()
   const [rows, setRows] = useState(null)
 
   useEffect(() => {
@@ -148,7 +151,7 @@ export function ChallengeHistoryCard({ creatorId, isMe, firstName }) {
 
 
   return (
-    <RailCard icon="trophy" title="On the podium" to="/challenges" linkLabel="Challenges">
+    <RailCard icon="trophy" title={tr("On the podium")} to="/challenges" linkLabel="Challenges">
       {wins > 0 && (
         <p className="mb-2.5 text-xs text-smoke">
           <span className="font-semibold text-ink">{wins}</span>

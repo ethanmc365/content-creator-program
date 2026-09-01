@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useT } from '../../lib/i18n'
 
 // Shared frame for all auth pages: centered card, logo on top,
 // lots of breathing room.
@@ -28,10 +29,11 @@ export default function AuthShell({ title, subtitle, children, footer }) {
 // solved token nobody submits is a token wasted. The demo swaps in this: same
 // space, same position in the form, obviously inert.
 export function DemoCaptcha() {
+  const tr = useT()
   return (
     <div className="flex items-center gap-3 rounded-xl border border-dashed border-gray-200 bg-cloud/60 px-4 py-3.5">
       <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white text-[10px] font-bold text-smoke ring-1 ring-gray-200">CF</span>
-      <span className="text-xs text-smoke">Cloudflare Turnstile sits here on the live pages.</span>
+      <span className="text-xs text-smoke">{tr("Cloudflare Turnstile sits here on the live pages.")}</span>
     </div>
   )
 }

@@ -1111,8 +1111,7 @@ function EmptyCalendar() {
       </span>
       <p className="text-sm font-semibold text-ink">{tr("Nothing coming up")}</p>
       <p className="mx-auto mt-1 max-w-sm text-sm text-smoke">
-        Challenge deadlines land here on their own, and so do your flights. Anything else is a date
-        somebody has to put in, and there is a box at the foot of this page for asking.
+        {tr("Challenge deadlines land here on their own, and so do your flights. Anything else is a date somebody has to put in, and there is a box at the foot of this page for asking.")}
       </p>
     </div>
   )

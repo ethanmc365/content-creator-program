@@ -4,10 +4,12 @@ import { useAuth } from '../../context/AuthContext'
 import { Spinner } from '../../components/ui'
 import AuthShell from './AuthShell'
 import { useDemoMode } from '../../lib/demoMode'
+import { useT } from '../../lib/i18n'
 
 // Step 2 of the reset flow: the email link opens this page with a recovery
 // session already active, so we just need the new password.
 export default function ResetPassword() {
+  const tr = useT()
   const { on: demo } = useDemoMode()
   const { updatePassword } = useAuth()
   const navigate = useNavigate()
@@ -37,15 +39,15 @@ export default function ResetPassword() {
   }
 
   return (
-    <AuthShell title="Choose a new password" subtitle="Almost there. Set your new password below.">
+    <AuthShell title={tr("Choose a new password")} subtitle="Almost there. Set your new password below.">
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
-          <label htmlFor="password" className="label">New password</label>
-          <input id="password" type="password" required minLength={8} autoComplete="new-password" className="input" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" />
+          <label htmlFor="password" className="label">{tr("New password")}</label>
+          <input id="password" type="password" required minLength={8} autoComplete="new-password" className="input" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={tr("At least 8 characters")} />
         </div>
         <div>
           <label htmlFor="confirm" className="label">Confirm new password</label>
-          <input id="confirm" type="password" required className="input" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Repeat your password" />
+          <input id="confirm" type="password" required className="input" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder={tr("Repeat your password")} />
         </div>
         {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
         <button type="submit" disabled={busy} className="btn-primary w-full">

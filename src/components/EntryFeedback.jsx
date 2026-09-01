@@ -5,6 +5,7 @@ import { notice } from '../lib/confirm'
 import { toast } from '../lib/toast'
 import Icon from './Icon'
 import { cx, timeAgo } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 // A LINE FROM THE TEAM ON EVERY ENTRY.
 //
@@ -31,12 +32,13 @@ import { cx, timeAgo } from '../lib/utils'
 
 /** What the creator sees on their own entry. Renders nothing without feedback. */
 export function EntryFeedbackNote({ feedback, className }) {
+  const tr = useT()
   if (!feedback?.body) return null
   return (
     <div className={cx('rounded-xl border border-brand/25 bg-brand-tint/30 p-3', className)}>
       <p className="mb-1 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-brand">
         <Icon name="sparkles" className="h-3 w-3" />
-        Feedback from the team
+        {tr("Feedback from the team")}
       </p>
       <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">{feedback.body}</p>
       {feedback.created_at && (
@@ -54,6 +56,7 @@ export function EntryFeedbackNote({ feedback, className }) {
  * that you are looking at the videos rather than writing on all of them.
  */
 export function EntryFeedbackEditor({ submissionId, creatorName, feedback, onSaved }) {
+  const tr = useT()
   const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const [body, setBody] = useState(feedback?.body || '')
@@ -105,14 +108,14 @@ export function EntryFeedbackEditor({ submissionId, creatorName, feedback, onSav
         className="input bg-white no-ios-zoom sm:text-sm"
         value={body}
         onChange={(e) => setBody(e.target.value)}
-        placeholder="What worked, and one thing that would make the next one land harder."
+        placeholder={tr("What worked, and one thing that would make the next one land harder.")}
       />
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <button type="button" onClick={save} disabled={!body.trim() || busy} className="btn-primary !px-4 !py-1.5 !text-xs disabled:opacity-40">
           {busy ? 'Sending…' : existing ? 'Update' : 'Send feedback'}
         </button>
         <button type="button" onClick={() => { setOpen(false); setBody(feedback?.body || '') }} className="btn-ghost !px-3 !py-1.5 !text-xs">
-          Cancel
+          {tr("Cancel")}
         </button>
         {/* The consequence, said before the button is pressed. An admin should
             never discover by accident that this DMs somebody. */}

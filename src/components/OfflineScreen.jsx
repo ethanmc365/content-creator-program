@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import TrypPlaneScene from './TrypPlaneScene'
+import { useT } from '../lib/i18n'
 
 // The chat surfaces, where losing signal is not a reason to be shown a plane.
 // See the note in the component.
@@ -19,6 +20,7 @@ const WRITING = /^\/(chat|messages)(\/|$)|\/chat(\/|$)/
 // the message you already sent. Everywhere else the plane is still right: there
 // is nothing to do on a page that cannot load.
 export default function OfflineScreen() {
+  const tr = useT()
   const { pathname } = useLocation()
   const [offline, setOffline] = useState(() => !navigator.onLine)
 
@@ -37,7 +39,7 @@ export default function OfflineScreen() {
 
   return (
     <TrypPlaneScene
-      title="No connection"
+      title={tr("No connection")}
       subtitle="It looks like you're on airplane mode, or just have no internet right now. Sit back and we'll reconnect you automatically the moment you're back."
     />
   )

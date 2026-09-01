@@ -58,8 +58,7 @@ function ContactCard({ open, onClose }) {
       </div>
 
       <p className="mt-4 text-xs leading-relaxed text-smoke">
-        Copy the email address and send me a message. Try to explain what you were doing or what you
-        clicked when the error happened. I'll get back to you as soon as possible.
+        {tr("Copy the email address and send me a message. Try to explain what you were doing or what you clicked when the error happened. I'll get back to you as soon as possible.")}
       </p>
 
       <div className="mt-5 flex justify-end">

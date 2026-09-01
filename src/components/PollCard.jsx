@@ -3,6 +3,7 @@ import { confirm } from '../lib/confirm'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { cx } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 // An inline poll inside an announcement message.
 //  * Self-contained: loads its own options + votes and subscribes to live
@@ -10,6 +11,7 @@ import { cx } from '../lib/utils'
 //  * Creators tap an option to vote (one vote each; tapping again changes it).
 //  * Admins can close a poll to lock the result.
 export default function PollCard({ pollId }) {
+  const tr = useT()
   const { user, isAdmin } = useAuth()
   const [poll, setPoll] = useState(null)
   const [options, setOptions] = useState([])
@@ -108,7 +110,7 @@ export default function PollCard({ pollId }) {
       <div className="mt-3 flex items-center justify-between text-xs text-smoke">
         <span>{total} {total === 1 ? 'vote' : 'votes'}{closed && ' · closed'}</span>
         {isAdmin && !closed && (
-          <button onClick={closePoll} className="font-medium text-brand hover:underline">Close poll</button>
+          <button onClick={closePoll} className="font-medium text-brand hover:underline">{tr("Close poll")}</button>
         )}
       </div>
     </div>

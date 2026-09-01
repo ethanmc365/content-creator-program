@@ -328,7 +328,7 @@ export default function Settings() {
         <p className="text-xs text-smoke">
           {tr('Which clock event times, deadlines and your flights are shown on.')}
         </p>
-        <div className="mt-3 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Timezone mode">
+        <div className="mt-3 grid grid-cols-2 gap-2" role="radiogroup" aria-label={tr("Timezone mode")}>
           {[
             { key: 'auto', label: tr('Automatic'), icon: 'globe', hint: tz.device ? zoneCity(tz.device) : tr('This device') },
             { key: 'fixed', label: tr('Always this one'), icon: 'pin', hint: tz.pinned ? zoneCity(tz.pinned) : tr('Pick a zone') },
@@ -403,13 +403,13 @@ export default function Settings() {
           pocket and laptop in an office are not the same room); that is worth
           knowing and is not worth a paragraph on the page you set it from. */}
       <div className="mt-5 flex items-center gap-4 border-t border-gray-100 pt-5">
-        <p className="min-w-0 flex-1 text-sm font-semibold">Chats and Connections</p>
-        <Toggle on={appSound} onChange={toggleAppSound} label="Chat and connection sounds" />
+        <p className="min-w-0 flex-1 text-sm font-semibold">{tr("Chats and Connections")}</p>
+        <Toggle on={appSound} onChange={toggleAppSound} label={tr("Chat and connection sounds")} />
       </div>
 
       <div className="mt-5 flex items-center gap-4 border-t border-gray-100 pt-5">
-        <p className="min-w-0 flex-1 text-sm font-semibold">Travel games</p>
-        <Toggle on={gameSound} onChange={toggleGameSound} label="Game sounds" />
+        <p className="min-w-0 flex-1 text-sm font-semibold">{tr("Travel games")}</p>
+        <Toggle on={gameSound} onChange={toggleGameSound} label={tr("Game sounds")} />
       </div>
     </Panel>
   )
@@ -460,7 +460,7 @@ export default function Settings() {
             <p className="text-[11px] font-semibold uppercase tracking-wider text-smoke">{tr('Signed in as')}</p>
             <p className="truncate text-sm font-semibold text-ink">{user?.email || '—'}</p>
           </div>
-          <CopyButton value={user?.email || ''} label="Copy" className="ml-auto shrink-0" />
+          <CopyButton value={user?.email || ''} label={tr("Copy")} className="ml-auto shrink-0" />
         </div>
 
         <div className="space-y-5">
@@ -491,11 +491,11 @@ export default function Settings() {
         {pwVerifying && (
           <div className="mt-4 rounded-xl border border-gray-100 bg-cloud/40 p-4">
             <p className="mb-3 text-xs text-smoke">
-              Quick check that you're human, then we'll email a reset link to <span className="font-medium text-ink">{user.email}</span>.
+              {tr("Quick check that you're human, then we'll email a reset link to")} <span className="font-medium text-ink">{user.email}</span>.
             </p>
             <Turnstile key={pwCaptchaKey} onToken={setPwToken} />
             <div className="mt-3 flex flex-wrap justify-end gap-2">
-              <button onClick={() => { setPwVerifying(false); setPwToken('') }} className="btn-ghost !py-2 text-xs">Cancel</button>
+              <button onClick={() => { setPwVerifying(false); setPwToken('') }} className="btn-ghost !py-2 text-xs">{tr("Cancel")}</button>
               <button onClick={changePassword} disabled={pwBusy || !pwToken} className="btn-primary !py-2 text-xs">
                 {pwBusy ? <Spinner className="h-4 w-4" /> : pwToken ? 'Send reset link' : 'Verifying…'}
               </button>
@@ -539,16 +539,15 @@ export default function Settings() {
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold">{tr('Show my profile on the community map')}</p>
             <p className="text-xs text-smoke">
-              Your city and profile appear on the public map on the Tryp.com sign-up and login pages.
-              Turn this off to hide yourself from that public map. You'll still show on the community map inside the app.
+              {tr("Your city and profile appear on the public map on the Tryp.com sign-up and login pages. Turn this off to hide yourself from that public map. You'll still show on the community map inside the app.")}
             </p>
           </div>
-          <Toggle on={showOnMap} onChange={toggleMap} label="Show my profile on the community map" disabled={savingMap} />
+          <Toggle on={showOnMap} onChange={toggleMap} label={tr("Show my profile on the community map")} disabled={savingMap} />
         </div>
         {!showOnMap && (
           <p className="mt-3 flex items-center gap-2 rounded-xl bg-cloud px-4 py-2.5 text-xs text-smoke">
             <Icon name="eye" className="h-4 w-4 shrink-0 text-brand" />
-            You're hidden from the public landing-page map. Fellow creators can still find you in the app.
+            {tr("You're hidden from the public landing-page map. Fellow creators can still find you in the app.")}
           </p>
         )}
       </Panel>
@@ -570,8 +569,7 @@ export default function Settings() {
       <Panel>
         <h2 className="mb-1 text-base font-semibold">{tr('Delete account')}</h2>
         <p className="mb-4 text-xs leading-relaxed text-smoke">
-          Your profile and content are hidden right away and permanently deleted after 30 days.
-          You can restore your account by logging back in within those 30 days.
+          {tr("Your profile and content are hidden right away and permanently deleted after 30 days. You can restore your account by logging back in within those 30 days.")}
         </p>
         <button
           type="button"
@@ -589,7 +587,7 @@ export default function Settings() {
     <Panel>
       {/* The one strapline that survives, because it is a WARNING rather than a
           restatement of the heading: these digits go straight onto an invoice. */}
-      <p className="mb-5 text-sm text-smoke">Where we send your cash prizes when you win a challenge. These are used automatically on your invoices, so double-check every digit.</p>
+      <p className="mb-5 text-sm text-smoke">{tr("Where we send your cash prizes when you win a challenge. These are used automatically on your invoices, so double-check every digit.")}</p>
       <div>
         {!payLoaded ? (
           <div className="flex justify-center py-6"><Spinner /></div>
@@ -597,7 +595,7 @@ export default function Settings() {
           <>
             <PaymentDetailsFields value={payee} onChange={setPayee} />
             <div className="mt-5 flex items-center justify-end gap-3">
-              {paySaved && <span className="text-sm font-medium text-green-600">Saved</span>}
+              {paySaved && <span className="text-sm font-medium text-green-600">{tr("Saved")}</span>}
               <button type="button" onClick={savePayment} disabled={paySaving} className="btn-primary !py-2.5 text-sm">
                 {paySaving ? <Spinner /> : tr('Save payment details')}
               </button>
@@ -611,11 +609,11 @@ export default function Settings() {
   const AdminSection = isAdmin && (
     <Panel>
       <p className="mb-5 text-sm text-smoke">
-        Only the Tryp.com Team sees this. Choose which admin alerts you want to receive, and jump into the admin tools.
+        {tr("Only the Tryp.com Team sees this. Choose which admin alerts you want to receive, and jump into the admin tools.")}
       </p>
       <AdminNotifications state={notif} />
       <div className="mt-5 border-t border-gray-100 pt-4">
-        <Link to="/admin" className="btn-secondary !py-2.5 text-sm">Open admin panel</Link>
+        <Link to="/admin" className="btn-secondary !py-2.5 text-sm">{tr("Open admin panel")}</Link>
       </div>
     </Panel>
   )
@@ -651,12 +649,22 @@ export default function Settings() {
     refreshProfile?.()
   }
 
+  // JUST THE CHOICE (1 Sep 2026).
+  //
+  // Ethan: "on the actual language settings page, remove this copy 'Anything a
+  // person wrote stays exactly as they wrote it: messages, captions, challenge
+  // briefs and names' and this copy 'The language the app is in. Your own words
+  // - messages, captions and names - are never translated.' It's not needed, we
+  // just need the simple ui to choose the language."
+  //
+  // He is right and the reason is worth keeping: both lines explained a rule
+  // nobody is going to be surprised by. Two sentences of caveat around two
+  // buttons is a page that reads as an apology for a feature. The rule itself
+  // has not changed - `t()` is only ever called on literals in this repository,
+  // and never on anything a person wrote - it just does not need announcing.
   const LanguageSection = (
     <Panel>
-      <p className="text-sm text-smoke">
-        {tr('The language the app is in')}. {tr('Your own words - messages, captions and names - are never translated.')}
-      </p>
-      <div className="mt-4 grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label={tr('Language')}>
+      <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label={tr('Language')}>
         {LOCALES.map((l) => {
           const on = l.code === langCode
           return (
@@ -689,14 +697,6 @@ export default function Settings() {
           )
         })}
       </div>
-      {/* SAID PLAINLY, BECAUSE IT IS THE FIRST THING SOMEBODY WILL WONDER.
-          A translated interface over untranslated messages is the correct
-          product and an odd first impression, so it is stated rather than
-          discovered. */}
-      <p className="mt-4 flex items-start gap-2 rounded-xl bg-cloud/60 px-4 py-3 text-xs leading-relaxed text-smoke">
-        <Icon name="alert" className="mt-px h-4 w-4 shrink-0 text-brand" />
-        {tr('Anything a person wrote stays exactly as they wrote it: messages, captions, challenge briefs and names.')}
-      </p>
     </Panel>
   )
 

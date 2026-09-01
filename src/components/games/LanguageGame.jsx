@@ -8,6 +8,7 @@ import Icon from '../Icon'
 import { Badge, Confetti, StreakChip } from '../ui'
 import GameChrome, { AnswerFlash } from './GameChrome'
 import { playCorrect, playWrong, playCelebrate, playCommiserate } from '../../lib/gameSounds'
+import { useT } from '../../lib/i18n'
 
 // GUESS THE LANGUAGE: read a phrase, name the language. NOW A DAILY PUZZLE.
 //
@@ -82,6 +83,7 @@ function verdict(pct) {
 }
 
 export default function LanguageGame({ onExit }) {
+  const tr = useT()
   const { user } = useAuth()
   const [day] = useState(() => ukDayIndex())
   const [nextIn] = useState(() => untilNextUkMidnight(Date.now()))
@@ -238,7 +240,7 @@ export default function LanguageGame({ onExit }) {
 
   if (checking) {
     return (
-      <div className="card !py-16 text-center text-sm text-smoke">Checking today&rsquo;s puzzle…</div>
+      <div className="card !py-16 text-center text-sm text-smoke">{tr("Checking today&rsquo;s puzzle…")}</div>
     )
   }
 
@@ -249,7 +251,7 @@ export default function LanguageGame({ onExit }) {
       <div className="card flex flex-col items-center gap-4 !py-10 text-center animate-pop-in">
         {pct >= 80 && <Confetti count={50} />}
         <div className="flex flex-wrap items-center justify-center gap-2">
-          <Badge tone="light"><Icon name="chat" className="h-3.5 w-3.5" /> Guess the language</Badge>
+          <Badge tone="light"><Icon name="chat" className="h-3.5 w-3.5" /> {tr("Guess the language")}</Badge>
           {streak > 0 && <StreakChip n={streak} />}
         </div>
 
@@ -276,7 +278,7 @@ export default function LanguageGame({ onExit }) {
 
         {done.timeMs > 0 && <Badge tone="light"><Icon name="clock" className="h-3.5 w-3.5" /> {fmtTime(done.timeMs)}</Badge>}
         <p className="text-xs text-smoke">Ten new phrases in {nextIn}</p>
-        <button onClick={onExit} className="btn-secondary mt-2">Back to games</button>
+        <button onClick={onExit} className="btn-secondary mt-2">{tr("Back to games")}</button>
       </div>
     )
   }
@@ -292,7 +294,7 @@ export default function LanguageGame({ onExit }) {
           the exception. */}
       <GameChrome
         icon="chat"
-        title="Guess the language"
+        title={tr("Guess the language")}
         tag="Daily"
         done={picked ? i + 1 : i}
         total={questions.length}
@@ -313,7 +315,7 @@ export default function LanguageGame({ onExit }) {
       >
         <div className="w-full">
           <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-smoke sm:mb-4">
-            What language is this?
+            {tr("What language is this?")}
           </p>
           {/* The phrase card. `key` on the animation wrapper so each new phrase
               plays the entrance again rather than swapping in place. */}
@@ -375,7 +377,7 @@ export default function LanguageGame({ onExit }) {
             </p>
             {q.phrase.roman && (
               <p className="text-sm text-smoke">
-                Said like: <span className="font-medium text-ink">{q.phrase.roman}</span>
+                {tr("Said like:")} <span className="font-medium text-ink">{q.phrase.roman}</span>
               </p>
             )}
             <p className="text-xs text-smoke">

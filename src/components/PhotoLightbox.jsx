@@ -6,6 +6,7 @@ import { cx } from '../lib/utils'
 // Far enough to read a sign in the background, not so far it is a pixel grid.
 const MAX_SCALE = 5
 import { saveFile, fileNameFromUrl } from '../lib/media'
+import { useT } from '../lib/i18n'
 
 // ONE PHOTOGRAPH, OVER EVERYTHING, AND "EVERYTHING" HAS TO INCLUDE THE MODAL
 // IT WAS OPENED FROM.
@@ -46,6 +47,7 @@ import { saveFile, fileNameFromUrl } from '../lib/media'
 export default function PhotoLightbox({
   src, alt = '', kind = 'image', shape = 'rect', canSave = false, fileName = '', onClose,
 }) {
+  const tr = useT()
   const [saving, setSaving] = useState(false)
   const [saveNote, setSaveNote] = useState('')
 
@@ -190,7 +192,7 @@ export default function PhotoLightbox({
     >
       {/* The backdrop is the close target and the image is not, so a press on
           the photograph itself does not dismiss the thing you are looking at. */}
-      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0" />
+      <button type="button" aria-label={tr("Close")} onClick={onClose} className="absolute inset-0" />
       {/* THE GESTURE SURFACE. `data-zoomable` opts this out of the
           platform-wide pinch guard (lib/pinchGuard) so the raw two-finger
           gesture reaches the handlers above instead of being swallowed - which
@@ -259,7 +261,7 @@ export default function PhotoLightbox({
           className="absolute bottom-6 left-1/2 -translate-x-1/2 rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition-transform duration-200 hover:scale-105"
           style={{ bottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}
         >
-          Fit to screen
+          {tr("Fit to screen")}
         </button>
       )}
 
@@ -272,8 +274,8 @@ export default function PhotoLightbox({
             type="button"
             onClick={save}
             disabled={saving}
-            aria-label="Save this photo"
-            title="Save"
+            aria-label={tr("Save this photo")}
+            title={tr("Save")}
             className="flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-2.5 text-sm font-semibold text-white backdrop-blur transition-transform duration-200 hover:scale-105 active:scale-95 disabled:opacity-60"
           >
             <Icon name="arrow-down" className="h-5 w-5" />
@@ -283,7 +285,7 @@ export default function PhotoLightbox({
         <button
           type="button"
           onClick={onClose}
-          aria-label="Close photo"
+          aria-label={tr("Close photo")}
           className="rounded-full bg-white/15 p-2.5 text-white backdrop-blur transition-transform duration-200 hover:scale-110 active:scale-95"
         >
           <Icon name="close" className="h-5 w-5" />

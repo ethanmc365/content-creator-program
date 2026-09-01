@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { TURNSTILE_SITE_KEY } from '../lib/turnstile'
+import { useT } from '../lib/i18n'
 
 // How long to wait for the widget to draw itself before deciding Cloudflare is
 // not going to answer. This only ever fires when the container is still empty,
@@ -40,6 +41,7 @@ function loadTurnstile() {
 // either way - the check genuinely has not passed - but the failure is now
 // visible and retryable rather than mute.
 export default function Turnstile({ onToken }) {
+  const tr = useT()
   const containerRef = useRef(null)
   const widgetId = useRef(null)
   const cb = useRef(onToken)
@@ -108,7 +110,7 @@ export default function Turnstile({ onToken }) {
         <div role="alert" className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-center text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
           The security check could not load, so we cannot verify you are human.
           {' '}
-          <button type="button" onClick={retry} className="font-semibold underline">Try again</button>
+          <button type="button" onClick={retry} className="font-semibold underline">{tr("Try again")}</button>
           {' '}
           — if it keeps failing, please let us know rather than waiting.
         </div>

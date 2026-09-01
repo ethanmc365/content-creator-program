@@ -7,6 +7,7 @@ import { useGameStreak } from '../../lib/gameStreak'
 import { DAILY_PUZZLES, useDailyPuzzles } from '../../lib/dailyPuzzles'
 import { cx } from '../../lib/utils'
 import { StreakChip } from '../ui'
+import { useT } from '../../lib/i18n'
 
 // TODAY'S PUZZLES, ON THE PAGE PEOPLE ACTUALLY OPEN.
 //
@@ -72,6 +73,7 @@ import { StreakChip } from '../ui'
 // dividers are borders rather than gaps so the three read as one surface.
 
 function PuzzleColumn({ puzzle, done, count, first }) {
+  const tr = useT()
   return (
     <Link
       to={`/game?daily=${puzzle.key}`}
@@ -123,7 +125,7 @@ function PuzzleColumn({ puzzle, done, count, first }) {
         {done ? (
           <>
             <Icon name="check" className="h-3.5 w-3.5" />
-            Played
+            {tr("Played")}
           </>
         ) : 'Play'}
       </span>

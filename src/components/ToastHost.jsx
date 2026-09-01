@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Icon from './Icon'
 import { _setToastHandler } from '../lib/toast'
 import { cx } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 // Where toasts live. One host, mounted once in App.
 //
@@ -37,6 +38,7 @@ const EXIT_MS = 180
 let seq = 0
 
 export default function ToastHost() {
+  const tr = useT()
   const [items, setItems] = useState([])
   const timers = useRef(new Map())
 
@@ -109,7 +111,7 @@ export default function ToastHost() {
           )}
           <button
             onClick={() => dismiss(t.id)}
-            aria-label="Dismiss"
+            aria-label={tr("Dismiss")}
             className="shrink-0 rounded-lg p-1 text-smoke transition-colors hover:bg-cloud hover:text-ink"
           >
             <Icon name="close" className="h-3.5 w-3.5" />

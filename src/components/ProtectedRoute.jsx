@@ -51,8 +51,7 @@ function ReviewDeclined({ signOut }) {
       <div className="max-w-md space-y-3">
         <h1 className="text-2xl font-bold">{tr("Application not approved")}</h1>
         <p className="text-smoke">
-          Thanks so much for your interest in the Tryp.com Content Creator Community. Unfortunately your
-          application was not successful this time. We're sorry, and we truly appreciate you taking the time to apply.
+          {tr("Thanks so much for your interest in the Tryp.com Content Creator Community. Unfortunately your application was not successful this time. We're sorry, and we truly appreciate you taking the time to apply.")}
         </p>
       </div>
       <button onClick={() => signOutAndGoHome(signOut)} className="btn-ghost text-sm">{tr("Log out")}</button>
@@ -151,8 +150,7 @@ export function ProtectedRoute() {
         <p className="text-4xl">🚫</p>
         <h1 className="text-2xl font-bold">{tr("Account suspended")}</h1>
         <p className="max-w-md text-smoke">
-          Your account has been suspended by the Tryp.com team. If you think this is a mistake,
-          please email the community team.
+          {tr("Your account has been suspended by the Tryp.com team. If you think this is a mistake, please email the community team.")}
         </p>
       </div>
     )

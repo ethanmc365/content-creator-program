@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import CreatorMap from '../CreatorMap'
 import Icon from '../Icon'
 import MapSkeleton from './MapSkeleton'
+import { useT } from '../../lib/i18n'
 
 // Where this market's creators actually are.
 //
@@ -17,6 +18,7 @@ import MapSkeleton from './MapSkeleton'
 // projection constants and a second answer to the pin-clustering question.
 
 export default function MarketMap({ marketId, marketName, showOnMapOnly = true }) {
+  const tr = useT()
   const [creators, setCreators] = useState(null)
 
   useEffect(() => {
@@ -58,7 +60,7 @@ export default function MarketMap({ marketId, marketName, showOnMapOnly = true }
         <Icon name="pin" className="mx-auto h-7 w-7 text-gray-200" />
         <p className="mt-3 text-sm font-medium">No pins in {marketName} yet</p>
         <p className="mx-auto mt-1 max-w-sm text-xs text-smoke">
-          Creators appear here once they add their town. Yours is in your profile.
+          {tr("Creators appear here once they add their town. Yours is in your profile.")}
         </p>
       </div>
     )

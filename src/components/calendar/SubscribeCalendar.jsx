@@ -4,6 +4,7 @@ import { Modal, PlaneLoader } from '../ui'
 import { AppleMark, GoogleMark, OutlookMark } from './CalendarBrandMarks'
 import { confirm } from '../../lib/confirm'
 import { toast } from '../../lib/toast'
+import { useT } from '../../lib/i18n'
 
 // SUBSCRIBE ONCE, AND IT KEEPS ITSELF UP TO DATE.
 //
@@ -36,6 +37,7 @@ import { toast } from '../../lib/toast'
 const FEED_BASE = 'https://heuhqqoxyggawuckxocp.supabase.co/functions/v1/calendar-feed'
 
 export default function SubscribeCalendar({ open, onClose }) {
+  const tr = useT()
   const [token, setToken] = useState(null)
   const [failed, setFailed] = useState('')
   const [busy, setBusy] = useState(false)
@@ -107,19 +109,19 @@ export default function SubscribeCalendar({ open, onClose }) {
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Sync with your calendar" wide>
+    <Modal open={open} onClose={onClose} title={tr("Sync with your calendar")} wide>
       {failed ? (
         <div className="py-6 text-center">
-          <p className="text-sm font-semibold text-ink">That did not work</p>
+          <p className="text-sm font-semibold text-ink">{tr("That did not work")}</p>
           <p className="mx-auto mt-1 max-w-sm text-sm text-smoke">{failed}</p>
-          <button onClick={mint} className="btn-secondary mt-4 text-sm">Try again</button>
+          <button onClick={mint} className="btn-secondary mt-4 text-sm">{tr("Try again")}</button>
         </div>
       ) : !token ? (
         // THE PLANE ON THE DOTTED LINE, which is the loader this product uses
         // everywhere else. A bare rotating ring was the one piece of generic
         // chrome left on a screen that is entirely about going somewhere.
         <div className="flex justify-center py-10">
-          <PlaneLoader label="Building your calendar link" />
+          <PlaneLoader label={tr("Building your calendar link")} />
         </div>
       ) : (
         <div className="space-y-5">
@@ -132,8 +134,8 @@ export default function SubscribeCalendar({ open, onClose }) {
                 <AppleMark className="h-5 w-5" />
               </span>
               <span className="min-w-0">
-                <span className="block text-sm font-semibold text-ink">Apple Calendar</span>
-                <span className="block text-xs text-smoke">iPhone, iPad and Mac</span>
+                <span className="block text-sm font-semibold text-ink">{tr("Apple Calendar")}</span>
+                <span className="block text-xs text-smoke">{tr("iPhone, iPad and Mac")}</span>
               </span>
             </a>
             <a
@@ -146,8 +148,8 @@ export default function SubscribeCalendar({ open, onClose }) {
                 <GoogleMark className="h-5 w-5" />
               </span>
               <span className="min-w-0">
-                <span className="block text-sm font-semibold text-ink">Google Calendar</span>
-                <span className="block text-xs text-smoke">Gmail, personal or work</span>
+                <span className="block text-sm font-semibold text-ink">{tr("Google Calendar")}</span>
+                <span className="block text-xs text-smoke">{tr("Gmail, personal or work")}</span>
               </span>
             </a>
             <a
@@ -160,8 +162,8 @@ export default function SubscribeCalendar({ open, onClose }) {
                 <OutlookMark className="h-5 w-5" />
               </span>
               <span className="min-w-0">
-                <span className="block text-sm font-semibold text-ink">Outlook</span>
-                <span className="block text-xs text-smoke">Outlook.com, work or school</span>
+                <span className="block text-sm font-semibold text-ink">{tr("Outlook")}</span>
+                <span className="block text-xs text-smoke">{tr("Outlook.com, work or school")}</span>
               </span>
             </a>
           </div>

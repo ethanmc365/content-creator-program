@@ -19,8 +19,7 @@ export default function PaymentDetailsFields({ value, onChange, compact = false 
         <div className="flex items-start gap-3 rounded-xl bg-brand-tint px-4 py-3">
           <Icon name="shield" className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
           <p className="text-xs leading-relaxed text-smoke">
-            Private. Only you and the Tryp.com team can see these details.
-            We use them to pay your cash prizes, so double-check every digit.
+            {tr("Private. Only you and the Tryp.com team can see these details. We use them to pay your cash prizes, so double-check every digit.")}
           </p>
         </div>
       )}

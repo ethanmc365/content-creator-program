@@ -11,6 +11,7 @@ import { countryKey, sameCountry } from '../lib/countryFacts'
 import CountryPanel, { TownPanel } from './CountryPanel'
 import DraggablePanel from './DraggablePanel'
 import Icon from './Icon'
+import { useT } from '../lib/i18n'
 
 // The creator map directory: every creator pinned on a world map at their home
 // town (photo + name), the countries they live in tinted orange, and a curved
@@ -410,6 +411,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   // WorldMap that used to sit at the foot of the directory - see the note on
   // the button in `renderFilterButtons`.
   exploredCountries = null, exploredActive = null, onToggleExplored = null }) {
+  const tr = useT()
   const dark = useIsDark()
   // Dark-mode map palette: deep land on near-black sea, so the light-grey map
   // doesn't glare. Home countries keep a muted warm tint.
@@ -1390,11 +1392,11 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           + and the exit button sat under the bezel. A little more inset on top
           of that keeps them clear of the corner radius itself. */}
       <div className={`absolute z-20 flex flex-col gap-1 ${fullscreen ? 'right-4 top-4' : 'right-2 top-2'}`}>
-        <button type="button" onClick={() => zoomBy(1.6)} aria-label="Zoom in"
+        <button type="button" onClick={() => zoomBy(1.6)} aria-label={tr("Zoom in")}
           className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg font-semibold text-ink shadow-card transition-transform hover:scale-105 active:scale-95">+</button>
-        <button type="button" onClick={() => zoomBy(1 / 1.6)} aria-label="Zoom out"
+        <button type="button" onClick={() => zoomBy(1 / 1.6)} aria-label={tr("Zoom out")}
           className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg font-semibold text-ink shadow-card transition-transform hover:scale-105 active:scale-95">−</button>
-        <button type="button" onClick={resetView} aria-label="Reset map view"
+        <button type="button" onClick={resetView} aria-label={tr("Reset map view")}
           className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-smoke shadow-card transition-transform hover:scale-105 active:scale-95">
           <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.7 3M3 4v4h4"/></svg>
         </button>
@@ -1428,7 +1430,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
         style={fullscreen
           ? { width: '100%', height: '100%', display: 'block' }
           : { width: '100%', height: 'auto', display: 'block' }}
-        aria-label="Map of where every creator is based"
+        aria-label={tr("Map of where every creator is based")}
       >
         <defs>
           {/* objectBoundingBox → clips each avatar to a perfect circle of its own bounds */}
@@ -1545,9 +1547,14 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
                 key={j.id}
                 onClick={() => setFocusId((cur) => (cur === j.id ? null : j.id))}
                 style={{ cursor: 'pointer' }}
+                // ONE SENTENCE EACH, WITH THE PARTS NAMED. A template literal
+                // cannot be a translation key - the whole point of the
+                // placeholder API is that the sentence is not assembled at the
+                // call site, because Spanish puts these pieces in a different
+                // order.
                 aria-label={j.current
-                  ? `${j.name} is in ${j.trip.country} now`
-                  : `${j.name} leaves for ${j.trip.country} in ${j.daysUntil} days`}
+                  ? tr('{name} is in {place} now', { name: j.name, place: j.trip.country })
+                  : tr('{name} leaves for {place} in {days} days', { name: j.name, place: j.trip.country, days: j.daysUntil })}
               >
                 {/* A trip that has not started yet is drawn QUIETER: thinner
                     thread, dimmer plane, no pulsing arrival marker. Both are on
@@ -1680,11 +1687,11 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
         <div className={`absolute left-3 z-20 ${fullscreen ? 'flex' : 'hidden sm:flex'} flex-col gap-1.5 rounded-xl bg-white/95 px-3 py-2 text-[11px] shadow-card ring-1 ring-black/5 backdrop-blur ${fullscreen ? 'top-16' : 'top-3'}`}>
           <span className="flex items-center gap-2">
             <svg viewBox="0 0 24 24" className="h-3 w-3 shrink-0" fill={BRAND} aria-hidden><path d={PLANE_D} transform="translate(12 12) scale(0.9)" /></svg>
-            <span className="font-medium text-ink">There now</span>
+            <span className="font-medium text-ink">{tr("There now")}</span>
           </span>
           <span className="flex items-center gap-2">
             <svg viewBox="0 0 24 24" className="h-3 w-3 shrink-0" fill="#ffffff" stroke={BRAND} strokeWidth="2" aria-hidden><path d={PLANE_D} transform="translate(12 12) scale(0.9)" /></svg>
-            <span className="text-smoke">Heading there soon</span>
+            <span className="text-smoke">{tr("Heading there soon")}</span>
           </span>
         </div>
       )}
@@ -1708,7 +1715,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
                 : focusJourney.daysUntil <= 1 ? 'Leaves tomorrow' : `In ${focusJourney.daysUntil} days`}
             </span>
           </span>
-          <button type="button" onClick={() => setFocusId(null)} aria-label="Show everyone again"
+          <button type="button" onClick={() => setFocusId(null)} aria-label={tr("Show everyone again")}
             className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/20">
             <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
           </button>
@@ -1722,9 +1729,9 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-tint text-brand">
               <Icon name="users" className="h-6 w-6" />
             </div>
-            <p className="text-sm font-semibold text-ink">No connections on the map yet</p>
+            <p className="text-sm font-semibold text-ink">{tr("No connections on the map yet")}</p>
             <p className="mt-1 text-xs text-smoke">
-              Once you connect with other creators they'll appear here. Head to a profile or the Connections page to start building your network.
+              {tr("Once you connect with other creators they'll appear here. Head to a profile or the Connections page to start building your network.")}
             </p>
           </div>
         </div>
@@ -1784,7 +1791,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
             className="absolute left-4 top-4 z-40 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3.5 py-2 text-xs font-semibold text-ink shadow-card ring-1 ring-black/5 backdrop-blur transition-transform hover:scale-105 active:scale-95"
           >
             <Icon name="chevronLeft" className="h-3.5 w-3.5" />
-            Exit full screen
+            {tr("Exit full screen")}
           </button>
 
           {/* TURN THE PHONE. Shown only in portrait, and only on a screen small
@@ -1792,7 +1799,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
               never seen; where it did not (every iPhone) it is the whole
               instruction, and it goes away by itself the moment it is followed. */}
           <p className="pointer-events-none absolute inset-x-0 top-16 z-30 mx-auto w-max rounded-full bg-ink/85 px-4 py-2 text-xs font-medium text-white landscape:hidden sm:hidden">
-            Turn your phone sideways for the full map
+            {tr("Turn your phone sideways for the full map")}
           </p>
 
           {mapBox}

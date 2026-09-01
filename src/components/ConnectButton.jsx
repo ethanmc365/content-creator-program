@@ -136,8 +136,7 @@ export default function ConnectButton({
       <Modal open={asking} onClose={() => setAsking(false)} title={first ? `Connect with ${first}` : 'Send a connection request'}>
         <div className="space-y-5">
           <p className="text-sm text-smoke">
-            Add a line about why, if you like. It is the difference between a
-            request somebody accepts and one they think about.
+            {tr("Add a line about why, if you like. It is the difference between a request somebody accepts and one they think about.")}
           </p>
           <div>
             <label htmlFor="connect-note" className="label">

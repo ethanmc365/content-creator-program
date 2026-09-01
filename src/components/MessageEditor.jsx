@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Spinner } from './ui'
 import { editMessage } from '../lib/messageActions'
 import { cx } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 // Editing a message IN PLACE, in the bubble it already occupies.
 //
@@ -22,6 +23,7 @@ import { cx } from '../lib/utils'
 // 097). If the clock runs out while this is open, saving fails with the
 // server's own sentence rather than silently doing nothing.
 export default function MessageEditor({ kind, message, onSaved, onCancel, onDark = false }) {
+  const tr = useT()
   const [value, setValue] = useState(message.body || '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -69,7 +71,7 @@ export default function MessageEditor({ kind, message, onSaved, onCancel, onDark
         onChange={grow}
         rows={1}
         maxLength={4000}
-        aria-label="Edit your message"
+        aria-label={tr("Edit your message")}
         onKeyDown={(e) => {
           // Escape cancels, Enter saves, Shift+Enter is a new line. Same
           // grammar as the composer, so there is nothing new to learn.

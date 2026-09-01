@@ -4,6 +4,7 @@ import Icon from './Icon'
 import { cx } from '../lib/utils'
 import { toast } from '../lib/toast'
 import { CREATOR_REPORT_REASONS, reportCreator } from '../lib/creatorReports'
+import { useT } from '../lib/i18n'
 
 // REPORTING A PERSON.
 //
@@ -23,6 +24,7 @@ import { CREATOR_REPORT_REASONS, reportCreator } from '../lib/creatorReports'
 // will find out. They will not, and the dialog says so, because leaving it
 // unsaid is what stops people using it.
 export default function ReportCreator({ open, onClose, creator }) {
+  const tr = useT()
   const [reason, setReason] = useState(null)
   const [details, setDetails] = useState('')
   const [busy, setBusy] = useState(false)
@@ -51,7 +53,7 @@ export default function ReportCreator({ open, onClose, creator }) {
   if (!creator) return null
 
   return (
-    <Modal open={open} onClose={onClose} title="Report this creator">
+    <Modal open={open} onClose={onClose} title={tr("Report this creator")}>
       <div className="space-y-5">
         <div className="flex items-center gap-3 rounded-card border border-gray-100 bg-cloud/50 p-3.5">
           <Avatar src={creator.photo_url} name={creator.name} size="sm" />
@@ -64,7 +66,7 @@ export default function ReportCreator({ open, onClose, creator }) {
         </div>
 
         <div>
-          <p className="label">What is wrong?</p>
+          <p className="label">{tr("What is wrong?")}</p>
           <div className="space-y-2">
             {CREATOR_REPORT_REASONS.map((r) => {
               const on = reason === r.key
@@ -104,7 +106,7 @@ export default function ReportCreator({ open, onClose, creator }) {
             maxLength={600}
             value={details}
             onChange={(e) => { setDetails(e.target.value); setError('') }}
-            placeholder="Where it happened, and anything that would help somebody look into it."
+            placeholder={tr("Where it happened, and anything that would help somebody look into it.")}
             className="input w-full resize-none"
           />
         </div>
@@ -118,7 +120,7 @@ export default function ReportCreator({ open, onClose, creator }) {
         {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
 
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onClose} className="btn-ghost w-full justify-center sm:w-auto">Cancel</button>
+          <button type="button" onClick={onClose} className="btn-ghost w-full justify-center sm:w-auto">{tr("Cancel")}</button>
           <button
             type="button"
             onClick={send}

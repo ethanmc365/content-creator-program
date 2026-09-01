@@ -439,8 +439,7 @@ export function DeadlineReminderModal({ open, onClose }) {
     <Modal open={open} onClose={onClose} title={tr("Remind me before a deadline")}>
       <div className="space-y-4">
         <p className="text-sm text-smoke">
-          This is a standing setting, not a one-off: it applies to every challenge the programme
-          runs, so you never have to arm it again.
+          {tr("This is a standing setting, not a one-off: it applies to every challenge the programme runs, so you never have to arm it again.")}
         </p>
         <DeadlineReminderDays state={state} />
         <p className="flex items-start gap-2 rounded-xl bg-cloud/60 p-3 text-xs text-smoke">

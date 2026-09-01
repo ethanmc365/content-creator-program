@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import Icon from './Icon'
 import { Avatar } from './ui'
+import { useT } from '../lib/i18n'
 
 // LOOKING AT ONE CREATOR'S OWN PAGES, AS THEY SEE THEM.
 //
@@ -60,6 +61,7 @@ export function useViewAs() {
  * thing separating the two.
  */
 export function ViewingAsBanner({ viewing, person, backTo = '/admin/creators' }) {
+  const tr = useT()
   if (!viewing) return null
   return (
     <div className="mb-5 flex flex-wrap items-center gap-3 rounded-card border border-brand/30 bg-brand-tint/50 px-4 py-3">
@@ -69,7 +71,7 @@ export function ViewingAsBanner({ viewing, person, backTo = '/admin/creators' })
         {person ? person.name : 'Someone else'}
       </p>
       <Link to={backTo} className="btn-secondary shrink-0 !py-1.5 !px-3 text-xs">
-        Back to creators
+        {tr("Back to creators")}
       </Link>
     </div>
   )

@@ -675,6 +675,7 @@ function StepHead({ step, pending }) {
 }
 
 function Welcome({ name, pending }) {
+  const tr = useT()
   return (
     <div className="space-y-5 text-center">
       <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-tint text-brand" aria-hidden>
@@ -682,8 +683,7 @@ function Welcome({ name, pending }) {
       </div>
       <h1 className="text-3xl font-bold">Welcome to the crew{name ? `, ${name.split(' ')[0]}` : ''}!</h1>
       <p className="mx-auto max-w-md text-smoke">
-        You are joining the Tryp.com Content Creator Community, a global community of travel creators who
-        make great content, compete in challenges and earn real rewards.
+        {tr("You are joining the Tryp.com Content Creator Community, a global community of travel creators who make great content, compete in challenges and earn real rewards.")}
       </p>
       <div className="mx-auto max-w-sm space-y-2.5 pt-2 text-left">
         {[
@@ -766,8 +766,7 @@ function MarketCard({ market, country, ready }) {
             {m.tagline || `Briefs, rooms and challenges for ${m.name}.`}
           </p>
           <p className="mt-2 text-xs text-smoke">
-            You are in the worldwide community as well. A market is where your briefs come from, not a
-            smaller room you go into instead.
+            {tr("You are in the worldwide community as well. A market is where your briefs come from, not a smaller room you go into instead.")}
           </p>
         </div>
         <Icon name="check" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />

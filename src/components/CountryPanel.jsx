@@ -7,6 +7,7 @@ import { flagForCountry } from '../lib/flags'
 import { Avatar } from './ui'
 import Icon from './Icon'
 import { cx } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 // WHAT HAPPENS WHEN YOU TAP A COUNTRY.
 //
@@ -137,6 +138,7 @@ export function useMessageCreator(onCreatorClick) {
 // of the map. The CALLER gives us a definite box and this shrinks inside it;
 // `overflow-hidden` makes min-height 0 so flex is allowed to squeeze it.
 export function MapPanel({ badge, title, subtitle, onClose, className, children }) {
+  const tr = useT()
   return (
     <div
       className={cx(
@@ -158,7 +160,7 @@ export function MapPanel({ badge, title, subtitle, onClose, className, children 
         <button
           type="button"
           onClick={onClose}
-          aria-label="Close"
+          aria-label={tr("Close")}
           className="-mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-smoke transition-colors hover:bg-cloud hover:text-ink"
         >
           <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
@@ -229,6 +231,7 @@ export default function CountryPanel({
   ownerState = 'none',
   className,
 }) {
+  const tr = useT()
   const { user } = useAuth()
   const { onMessage, busyId } = useMessageCreator(onCreatorClick)
   const facts = useMemo(() => countryFacts(country), [country])
@@ -292,7 +295,7 @@ export default function CountryPanel({
                 actually plays. Keyed on the index alone, the text would change
                 inside a node that never re-entered and nothing would animate. */}
             <p key={shownFact} className="animate-fade-up text-xs leading-relaxed text-ink">
-              <span className="font-semibold text-brand">Did you know: </span>
+              <span className="font-semibold text-brand">{tr("Did you know:")} </span>
               {shownFact}
             </p>
             {/* BOTTOM LEFT, and only when there is a second thing to say. A
@@ -312,7 +315,7 @@ export default function CountryPanel({
                   className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-brand shadow-sm transition-transform hover:scale-105 active:scale-95"
                 >
                   <Icon name="sparkles" className="h-3 w-3" />
-                  New fact
+                  {tr("New fact")}
                 </button>
               </div>
             )}
@@ -351,7 +354,7 @@ export default function CountryPanel({
         ) : (
           <>
             <Group
-              title="Lives here"
+              title={tr("Lives here")}
               creators={lives}
               onMessage={onMessage}
               onCreatorClick={onCreatorClick}
@@ -359,7 +362,7 @@ export default function CountryPanel({
               busyId={busyId}
             />
             <Group
-              title="Been there"
+              title={tr("Been there")}
               creators={visited}
               onMessage={onMessage}
               onCreatorClick={onCreatorClick}
@@ -376,15 +379,14 @@ export default function CountryPanel({
             </div>
             <p className="text-sm font-semibold text-ink">Nobody has been to {country} yet</p>
             <p className="mx-auto mt-1 max-w-[15rem] text-xs text-smoke">
-              You could be the first to explore it. Add it to your travels once you go, and the next creator planning
-              this trip will find you here.
+              {tr("You could be the first to explore it. Add it to your travels once you go, and the next creator planning this trip will find you here.")}
             </p>
             {user?.id && !onCreatorClick && (
               <Link
                 to="/collab"
                 className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-xs font-semibold text-white transition-transform hover:scale-105 active:scale-95"
               >
-                Plan a trip there
+                {tr("Plan a trip there")}
               </Link>
             )}
           </div>

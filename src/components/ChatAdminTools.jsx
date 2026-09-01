@@ -8,6 +8,7 @@ import { Select } from './ui'
 import { confirm } from '../lib/confirm'
 import { zonedTimeToUtc, formatInZone, zoneLabel } from '../lib/localTime'
 import { COMMON_ZONES } from '../lib/timezones'
+import { useT } from '../lib/i18n'
 
 // The three things the team can drop into a conversation: a poll, a game
 // challenge, a resource from the library.
@@ -30,6 +31,7 @@ const EMPTY_GAME = { title: '', mode: 'flags', region: 'World' }
 const EMPTY_SCHEDULE = { body: '', date: '', time: '09:00' }
 
 export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 'this room', room = null }) {
+  const tr = useT()
   const [poll, setPoll] = useState(EMPTY_POLL)
   const [game, setGame] = useState(EMPTY_GAME)
   const [busy, setBusy] = useState(false)
@@ -155,16 +157,16 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
 
   return (
     <>
-      <Modal open={tool === 'poll'} onClose={close} title="Create a poll">
+      <Modal open={tool === 'poll'} onClose={close} title={tr("Create a poll")}>
         <form onSubmit={createPoll} className="space-y-5">
           <div>
-            <label htmlFor="poll-q" className="label">Question</label>
+            <label htmlFor="poll-q" className="label">{tr("Question")}</label>
             <input id="poll-q" type="text" required className="input" value={poll.question}
               onChange={(e) => setPoll((p) => ({ ...p, question: e.target.value }))}
-              placeholder="e.g. Where should our next challenge be?" />
+              placeholder={tr("e.g. Where should our next challenge be?")} />
           </div>
           <div>
-            <p className="label">Options</p>
+            <p className="label">{tr("Options")}</p>
             <div className="space-y-2">
               {poll.options.map((opt, i) => (
                 <div key={i} className="flex gap-2">
@@ -173,7 +175,7 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
                     onChange={(e) => setPoll((p) => ({ ...p, options: p.options.map((o, j) => (j === i ? e.target.value : o)) }))}
                   />
                   {poll.options.length > 2 && (
-                    <button type="button" aria-label="Remove option" className="btn-ghost !px-3"
+                    <button type="button" aria-label={tr("Remove option")} className="btn-ghost !px-3"
                       onClick={() => setPoll((p) => ({ ...p, options: p.options.filter((_, j) => j !== i) }))}>✕</button>
                   )}
                 </div>
@@ -198,7 +200,7 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
       <Modal open={tool === 'schedule'} onClose={close} title={`Schedule a message to ${roomLabel}`}>
         <form onSubmit={createSchedule} className="space-y-5">
           <div>
-            <label htmlFor="sched-body" className="label">Message</label>
+            <label htmlFor="sched-body" className="label">{tr("Message")}</label>
             <textarea
               id="sched-body" rows={4} required className="input"
               value={schedule.body}
@@ -228,13 +230,13 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
           <div className="grid grid-cols-2 gap-4">
             <DateField
               id="sched-date"
-              label="Date"
+              label={tr("Date")}
               value={schedule.date}
               onChange={(v) => setSchedule((s2) => ({ ...s2, date: v }))}
             />
             <TimeField
               id="sched-time"
-              label="Time"
+              label={tr("Time")}
               value={schedule.time}
               onChange={(v) => setSchedule((s2) => ({ ...s2, time: v }))}
             />
@@ -247,7 +249,7 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
                 Spanish room is already on Madrid time before anybody touches
                 it. */}
             <div className="col-span-2">
-              <span className="label">Clock</span>
+              <span className="label">{tr("Clock")}</span>
               <Select
                 variant="field"
                 inFlow
@@ -269,7 +271,7 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
             <p className={inThePast ? 'text-sm font-medium text-red-600' : 'text-sm text-smoke'}>
               {inThePast
                 ? 'That time has already passed. Pick a later one.'
-                : <>Goes out <span className="font-medium text-ink">{formatInZone(scheduledAt, zone)}</span> {zoneLabel(zone)} time.</>}
+                : <>{tr("Goes out")} <span className="font-medium text-ink">{formatInZone(scheduledAt, zone)}</span> {zoneLabel(zone)} time.</>}
             </p>
           )}
 
@@ -308,17 +310,17 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
         ) : null}
       </Modal>
 
-      <Modal open={tool === 'game'} onClose={close} title="Post a game challenge">
+      <Modal open={tool === 'game'} onClose={close} title={tr("Post a game challenge")}>
         <form onSubmit={createGame} className="space-y-5">
           <div>
-            <label htmlFor="game-title" className="label">Challenge title</label>
+            <label htmlFor="game-title" className="label">{tr("Challenge title")}</label>
             <input id="game-title" type="text" required className="input" value={game.title}
               onChange={(e) => setGame((g) => ({ ...g, title: e.target.value }))}
-              placeholder="e.g. Friday Flag Frenzy" />
+              placeholder={tr("e.g. Friday Flag Frenzy")} />
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="game-mode" className="label">Mode</label>
+              <label htmlFor="game-mode" className="label">{tr("Mode")}</label>
               <Select
                 id="game-mode" variant="field" inFlow ariaLabel="Mode"
                 value={game.mode}
@@ -332,7 +334,7 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
               />
             </div>
             <div>
-              <label htmlFor="game-region" className="label">Region</label>
+              <label htmlFor="game-region" className="label">{tr("Region")}</label>
               <Select
                 id="game-region" variant="field" inFlow ariaLabel="Region"
                 value={game.region}

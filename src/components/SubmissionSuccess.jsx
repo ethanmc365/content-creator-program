@@ -7,6 +7,7 @@
 
 import { useEffect } from 'react'
 import { lockScroll } from '../lib/scrollLock'
+import { useT } from '../lib/i18n'
 
 const CLOUDS = [
   { top: '10%', scale: 0.5, dur: 13, delay: -2, o: 0.9 },
@@ -41,6 +42,7 @@ export default function SubmissionSuccess({
   count = 1,
   platform,
 }) {
+  const tr = useT()
   // Esc closes, and the page behind must not scroll under the card.
   useEffect(() => {
     if (!open) return
@@ -60,7 +62,7 @@ export default function SubmissionSuccess({
       className="fixed inset-0 z-[70] flex items-end justify-center px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:items-center sm:p-6"
       role="dialog"
       aria-modal="true"
-      aria-label="Video submitted"
+      aria-label={tr("Video submitted")}
     >
       <style>{`
         /* Takeoff runs straight through to its resting pose with no hold at the
@@ -101,7 +103,7 @@ export default function SubmissionSuccess({
         }
       `}</style>
 
-      <button aria-label="Close" className="absolute inset-0 bg-ink/40" onClick={onDone} />
+      <button aria-label={tr("Close")} className="absolute inset-0 bg-ink/40" onClick={onDone} />
 
       <div className="relative w-full max-w-sm overflow-hidden rounded-card bg-white shadow-lift animate-fade-up sm:max-w-md">
         {/* Plane taking off through the clouds */}
@@ -131,7 +133,7 @@ export default function SubmissionSuccess({
         </div>
 
         <div className="p-5 text-center sm:p-7">
-          <h2 className="text-lg font-bold sm:text-2xl">Your video is submitted</h2>
+          <h2 className="text-lg font-bold sm:text-2xl">{tr("Your video is submitted")}</h2>
           <p className="mx-auto mt-1.5 max-w-xs text-[13px] leading-relaxed text-smoke sm:mt-2 sm:text-sm">
             {platform ? `Your ${platform} entry is in.` : 'Your entry is in.'} Once we log the views it will show up
             on the leaderboard.
@@ -145,7 +147,7 @@ export default function SubmissionSuccess({
               + Submit another video
             </button>
             <button type="button" onClick={onDone} className="btn-secondary w-full">
-              Done
+              {tr("Done")}
             </button>
           </div>
         </div>

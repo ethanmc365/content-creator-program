@@ -11,6 +11,7 @@ import { tripsFromFlights, outboundEnds } from '../../lib/flightStats'
 import { flagFromIso } from '../../lib/flags'
 import Icon from '../Icon'
 import PhotoLightbox from '../PhotoLightbox'
+import { useT } from '../../lib/i18n'
 
 // Every flight you have logged, drawn at once.
 //
@@ -376,6 +377,7 @@ function WorldAirports({ placed, zoom, center, onPick, selected, layer = 'dots' 
 }
 
 function FlightMap({ routes = [], airports = [], routeExtra = null }) {
+  const tr = useT()
   const dark = useIsDark()
   const [features, setFeatures] = useState(null)
   const [position, setPosition] = useState({ coordinates: [12, 8], zoom: 1 })
@@ -680,9 +682,9 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
 
   const controls = (
     <div className="absolute right-2 top-2 z-10 flex flex-col gap-1">
-      <button type="button" onClick={() => zoomBy(1.7)} aria-label="Zoom in"
+      <button type="button" onClick={() => zoomBy(1.7)} aria-label={tr("Zoom in")}
         className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg font-semibold text-ink shadow-card transition-transform hover:scale-105 active:scale-95">+</button>
-      <button type="button" onClick={() => zoomBy(1 / 1.7)} aria-label="Zoom out"
+      <button type="button" onClick={() => zoomBy(1 / 1.7)} aria-label={tr("Zoom out")}
         className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg font-semibold text-ink shadow-card transition-transform hover:scale-105 active:scale-95">−</button>
       {/* THE SAME RESET GLYPH EVERY OTHER MAP ON THE PLATFORM USES.
           This one had a globe, which in a stack under + and − reads as "switch
@@ -691,12 +693,12 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
           Inlined rather than added to Icon.jsx because CreatorMap carries the
           identical inline path - one shape, two call sites, no third source of
           truth to keep in step. */}
-      <button type="button" onClick={reset} aria-label="Reset map view"
+      <button type="button" onClick={reset} aria-label={tr("Reset map view")}
         className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-smoke shadow-card transition-transform hover:scale-105 active:scale-95">
         <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.7 3M3 4v4h4"/></svg>
       </button>
       {!fullscreen && (
-        <button type="button" onClick={enterFullscreen} aria-label="Full screen"
+        <button type="button" onClick={enterFullscreen} aria-label={tr("Full screen")}
           className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-ink shadow-card transition-transform hover:scale-105 active:scale-95">
           <Icon name="expand" className="h-4 w-4" />
         </button>
@@ -717,7 +719,7 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
       style={fullscreen
         ? { width: '100%', height: '100%', display: 'block' }
         : { width: '100%', height: 'auto', display: 'block' }}
-      aria-label="A map of every flight you have logged"
+      aria-label={tr("A map of every flight you have logged")}
     >
       <ZoomableGroup
         zoom={position.zoom}
@@ -978,7 +980,7 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
             {activeRows[0]?.dist ? ` · ${fmtKm(activeRows[0].dist)} km each way` : ''}
           </span>
         </span>
-        <button type="button" onClick={() => setSelected(null)} aria-label="Close"
+        <button type="button" onClick={() => setSelected(null)} aria-label={tr("Close")}
           className="-mr-1.5 -mt-1.5 shrink-0 rounded-full p-1.5 text-smoke transition-colors hover:bg-cloud hover:text-ink">
           <Icon name="close" className="h-4 w-4" />
         </button>
@@ -1001,7 +1003,7 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
            already printed two lines above it in the header, so the card was
            explaining its own heading. */
         <p className="px-5 py-3.5 text-xs text-smoke">
-          Dates and airlines stay private to whoever logged the flight.
+          {tr("Dates and airlines stay private to whoever logged the flight.")}
         </p>
       ) : (
       /* Five, then a count. A route somebody flies weekly could be forty rows
@@ -1044,7 +1046,7 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
                   type="button"
                   onClick={() => setPhoto(t.photo_url)}
                   className="group relative h-16 w-[5.5rem] shrink-0 overflow-hidden rounded-xl bg-cloud"
-                  aria-label="Open the photo full size"
+                  aria-label={tr("Open the photo full size")}
                 >
                   <img src={t.photo_url} alt="" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
                   <span className="absolute inset-0 flex items-center justify-center bg-ink/0 text-white opacity-0 transition-all duration-200 group-hover:bg-ink/35 group-hover:opacity-100">
@@ -1068,11 +1070,11 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
                   </span>
                   {t.back ? (
                     <span className="rounded-full bg-brand-tint px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand">
-                      Return
+                      {tr("Return")}
                     </span>
                   ) : (
                     <span className="rounded-full bg-cloud px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-smoke">
-                      One way
+                      {tr("One way")}
                     </span>
                   )}
                   {reversed && (
@@ -1126,7 +1128,7 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
             {countryDetail.flights > 0 && ` · ${countryDetail.flights} ${countryDetail.flights === 1 ? 'flight' : 'flights'} through it`}
           </span>
         </span>
-        <button type="button" onClick={() => setCountry(null)} aria-label="Close"
+        <button type="button" onClick={() => setCountry(null)} aria-label={tr("Close")}
           className="-mr-1.5 -mt-1.5 shrink-0 rounded-full p-1.5 text-smoke transition-colors hover:bg-cloud hover:text-ink">
           <Icon name="close" className="h-4 w-4" />
         </button>
@@ -1172,7 +1174,7 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
             )}
           </span>
         </span>
-        <button type="button" onClick={() => setPickedAirport(null)} aria-label="Close"
+        <button type="button" onClick={() => setPickedAirport(null)} aria-label={tr("Close")}
           className="-mr-1.5 -mt-1.5 shrink-0 rounded-full p-1.5 text-smoke transition-colors hover:bg-cloud hover:text-ink">
           <Icon name="close" className="h-4 w-4" />
         </button>
@@ -1192,7 +1194,7 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
         ) : (
           <p className="flex items-center gap-2 text-xs text-smoke">
             <Icon name="plane" className="h-3.5 w-3.5 shrink-0 text-gray-300" />
-            Somewhere you have not been yet.
+            {tr("Somewhere you have not been yet.")}
           </p>
         )}
       </div>
@@ -1201,7 +1203,7 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
 
   const hint = routes.length > 0 && !active && !countryDetail && !airportCard && (
     <p className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-[11px] text-smoke">
-      Tap a route, or a country you have landed in
+      {tr("Tap a route, or a country you have landed in")}
     </p>
   )
 
@@ -1226,7 +1228,7 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
             className="absolute left-4 top-4 z-40 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3.5 py-2 text-xs font-semibold text-ink shadow-card ring-1 ring-black/5 backdrop-blur transition-transform hover:scale-105 active:scale-95"
           >
             <Icon name="chevronLeft" className="h-3.5 w-3.5" />
-            Exit full screen
+            {tr("Exit full screen")}
           </button>
           {controls}
           <div className="h-full w-full [&>svg]:h-full">{map}</div>
@@ -1252,7 +1254,7 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
         {hint}
         {routes.length === 0 && (
           <p className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-[11px] text-smoke">
-            Log a flight and it will appear here.
+            {tr("Log a flight and it will appear here.")}
           </p>
         )}
       </div>

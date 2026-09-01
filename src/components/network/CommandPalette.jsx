@@ -199,7 +199,7 @@ export default function CommandPalette({ open, onClose }) {
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[90] flex items-start justify-center px-4 pt-[12vh]" role="dialog" aria-modal="true" aria-label="Search">
+      <div className="fixed inset-0 z-[90] flex items-start justify-center px-4 pt-[12vh]" role="dialog" aria-modal="true" aria-label={tr("Search")}>
         <motion.div
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           transition={{ duration: 0.15 }}
@@ -245,7 +245,7 @@ export default function CommandPalette({ open, onClose }) {
               <button
                 type="button"
                 onClick={() => { setQuery(''); inputRef.current?.focus() }}
-                aria-label="Clear search"
+                aria-label={tr("Clear search")}
                 className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cloud text-smoke transition-transform duration-200 hover:scale-110 hover:text-ink"
               >
                 <Icon name="close" className="h-3 w-3" />

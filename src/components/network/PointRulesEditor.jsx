@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Icon from '../Icon'
 import { STARTER_POINT_RULES, RULE_USES_THRESHOLD } from '../../lib/scoring'
 import { cx } from '../../lib/utils'
+import { useT } from '../../lib/i18n'
 
 // The scoring rules for ONE challenge.
 //
@@ -122,6 +123,7 @@ function NumberBox({ value, onChange, width = 'w-14', decimal = false, ariaLabel
 const ROW_GRID = 'sm:grid sm:grid-cols-[2.25rem_minmax(6rem,1fr)_6.5rem_12rem_2.25rem] sm:items-center'
 
 function Row({ rule, onChange, onRemove }) {
+  const tr = useT()
   const meta = KINDS[rule.kind] || KINDS.bonus
   return (
     <div className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 transition-colors hover:border-brand/30">
@@ -135,7 +137,7 @@ function Row({ rule, onChange, onRemove }) {
         className="input !w-auto min-w-[8rem] flex-1 !py-1.5 !no-ios-zoom sm:text-sm sm:!w-full sm:flex-none"
         value={rule.label}
         onChange={(e) => onChange({ ...rule, label: e.target.value })}
-        aria-label="Rule name"
+        aria-label={tr("Rule name")}
       />
 
       {/* POINTS. First, every time, in SOLID Tryp orange, and in a column of a
@@ -186,13 +188,13 @@ function Row({ rule, onChange, onRemove }) {
               width="w-full min-w-0"
               ariaLabel="Total view threshold"
             />
-            <span className="shrink-0 whitespace-nowrap text-xs text-smoke">in total</span>
+            <span className="shrink-0 whitespace-nowrap text-xs text-smoke">{tr("in total")}</span>
           </label>
         )}
 
         {(rule.kind === 'platform_spread' || rule.kind === 'per_post') && (
           <label className="flex w-fit items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 sm:w-full">
-            <span className="shrink-0 whitespace-nowrap text-xs text-smoke">up to</span>
+            <span className="shrink-0 whitespace-nowrap text-xs text-smoke">{tr("up to")}</span>
             <NumberBox
               value={rule.max_points}
               onChange={(v) => onChange({ ...rule, max_points: v })}
@@ -243,13 +245,13 @@ function Row({ rule, onChange, onRemove }) {
     {rule.kind === 'bonus' && (
       <label className="mt-2.5 block">
         <span className="mb-1 block text-[11px] font-medium text-smoke">
-          Ask the creator when they submit <span className="font-normal">(leave blank to award it yourself)</span>
+          {tr("Ask the creator when they submit")} <span className="font-normal">(leave blank to award it yourself)</span>
         </span>
         <input
           className="input !py-1.5 !no-ios-zoom sm:text-sm"
           value={rule.prompt ?? ''}
           onChange={(e) => onChange({ ...rule, prompt: e.target.value })}
-          placeholder="Is this video featuring a Christmas market?"
+          placeholder={tr("Is this video featuring a Christmas market?")}
         />
       </label>
     )}
@@ -258,6 +260,7 @@ function Row({ rule, onChange, onRemove }) {
 }
 
 export default function PointRulesEditor({ rules, onChange, thresholdMode, onThresholdMode }) {
+  const tr = useT()
   const add = (kind) => onChange([...rules, newRule(kind)])
   const update = (i, next) => onChange(rules.map((r, j) => (j === i ? next : r)))
   const remove = (i) => onChange(rules.filter((_, j) => j !== i))
@@ -267,16 +270,16 @@ export default function PointRulesEditor({ rules, onChange, thresholdMode, onThr
       <div className="space-y-2">
         {rules.length === 0 ? (
           <div className="rounded-xl border border-dashed border-gray-200 px-4 py-6 text-center">
-            <p className="text-sm text-smoke">No rules yet, so nobody can score.</p>
+            <p className="text-sm text-smoke">{tr("No rules yet, so nobody can score.")}</p>
             <button
               type="button"
               onClick={() => onChange(STARTER_POINT_RULES.map((r, i) => ({ ...r, id: `new-${tempId++}-${i}` })))}
               className="btn-secondary mt-3 !py-2 !px-4 !text-sm"
             >
-              Use the standard set
+              {tr("Use the standard set")}
             </button>
             <p className="mt-2 text-xs text-smoke">
-              A point per video capped at ten, plus 5k / 10k / 50k view milestones.
+              {tr("A point per video capped at ten, plus 5k / 10k / 50k view milestones.")}
             </p>
           </div>
         ) : (
@@ -298,7 +301,7 @@ export default function PointRulesEditor({ rules, onChange, thresholdMode, onThr
           border says the same: these make something, they are not actions on
           what is already there. */}
       <div>
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-smoke">Add a rule</p>
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-smoke">{tr("Add a rule")}</p>
         <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
           {Object.entries(KINDS).map(([kind, meta]) => (
             <button
@@ -323,7 +326,7 @@ export default function PointRulesEditor({ rules, onChange, thresholdMode, onThr
            what everybody scores. Equal halves, and the line below says what
            the current answer actually costs in points. */
         <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="label">When a video passes several milestones</p>
+          <p className="label">{tr("When a video passes several milestones")}</p>
           <div className="mt-2 grid gap-2 sm:grid-cols-2">
             {[
               { value: 'highest', label: 'Highest one only' },

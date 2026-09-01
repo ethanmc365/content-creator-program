@@ -96,7 +96,7 @@ export default function RichToolbar({ editorRef, only, sticky = false, className
       case 'bold': case 'italic': ed.exec(act); break
       case 'ul': unheading(); ed.exec('insertUnorderedList'); break
       case 'ol': unheading(); ed.exec('insertOrderedList'); break
-      case 'check': unheading(); ed.insertHtml('<ul data-check="1"><li data-checked="0">To do</li></ul>'); break
+      case 'check': unheading(); ed.insertHtml('<ul data-check="1"><li data-checked="0">{tr("To do")}</li></ul>'); break
       case 'divider': unheading(); ed.insertHtml('<hr><p><br></p>'); break
       case 'link': {
         // The selection is captured BEFORE the dialog takes focus. Toolbar

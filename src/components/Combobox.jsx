@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { cx } from '../lib/utils'
 import Icon from './Icon'
+import { useT } from '../lib/i18n'
 
 // A clean, searchable dropdown that replaces the native <select>. Type to
 // filter the options; click or press Enter to choose. An empty string value
 // means the placeholder / "any" option is selected.
 export default function Combobox({ value, onChange, options, placeholder = 'Select…', ariaLabel, allowClear = true }) {
+  const tr = useT()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
@@ -60,9 +62,9 @@ export default function Combobox({ value, onChange, options, placeholder = 'Sele
                   else if (filtered[active - 1] != null) pick(filtered[active - 1])
                 }
               }}
-              placeholder="Type to search…"
+              placeholder={tr("Type to search…")}
               className="w-full rounded-lg bg-cloud px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand/40"
-              aria-label="Search options"
+              aria-label={tr("Search options")}
             />
           </div>
           <ul role="listbox" className="max-h-60 overflow-y-auto overscroll-contain py-1">
@@ -95,7 +97,7 @@ export default function Combobox({ value, onChange, options, placeholder = 'Sele
                 </button>
               </li>
             ))}
-            {filtered.length === 0 && <li className="px-3 py-3 text-center text-xs text-smoke">No matches</li>}
+            {filtered.length === 0 && <li className="px-3 py-3 text-center text-xs text-smoke">{tr("No matches")}</li>}
           </ul>
         </div>
       )}

@@ -211,7 +211,7 @@ export default function EventPolls() {
 
       {polls.length === 0 ? (
         <p className="rounded-card border border-dashed border-gray-200 px-5 py-6 text-center text-sm text-smoke">
-          Nothing to vote on right now. Start one and let creators pick the times that work.
+          {tr("Nothing to vote on right now. Start one and let creators pick the times that work.")}
         </p>
       ) : (
         <div className="space-y-5">

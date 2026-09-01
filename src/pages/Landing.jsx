@@ -7,6 +7,7 @@ import { Avatar } from '../components/ui'
 import Icon from '../components/Icon'
 import CreatorMap from '../components/CreatorMap'
 import { formatMoney, challengeDeadline } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 // Sum the cash amounts in a challenge's prize breakdown into one "pot" label,
 // e.g. [{prize:'£105 cash'},{prize:'£55 cash'}] -> "£160". Returns null if there
@@ -32,6 +33,7 @@ const TRYP_URL = 'https://www.tryp.com'
 // signed in, so the public front page can be shown inside the Testing Centre.
 // Without it the guard below does exactly what it should and sends them home.
 export default function Landing() {
+  const tr = useT()
   const { asked: demoAsked } = useDemoMode()
   const { user, loading } = useAuth()
   const [stats, setStats] = useState({ creators: 40, challenges: 6, prizes: 500 })
@@ -77,10 +79,10 @@ export default function Landing() {
           <img src="/brand/tryp-logo.png" alt="Tryp.com" className="h-9 rounded-lg" />
           <nav className="flex items-center gap-2 sm:gap-3">
             <a href={TRYP_URL} target="_blank" rel="noopener noreferrer" className="hidden text-sm font-medium text-smoke hover:text-ink sm:block">
-              Tryp.com ↗
+              {tr("Tryp.com ↗")}
             </a>
-            <Link to="/login" className="btn-ghost !py-2">Log in</Link>
-            <Link to="/signup" className="btn-primary !py-2">Sign up</Link>
+            <Link to="/login" className="btn-ghost !py-2">{tr("Log in")}</Link>
+            <Link to="/signup" className="btn-primary !py-2">{tr("Sign up")}</Link>
           </nav>
         </div>
       </header>
@@ -88,19 +90,17 @@ export default function Landing() {
       {/* ---------- Hero ---------- */}
       <section className="mx-auto max-w-6xl px-5 pb-24 pt-20 text-center sm:px-8 sm:pt-32">
         <p className="mx-auto mb-6 inline-block rounded-full bg-brand-tint px-4 py-1.5 text-xs font-semibold text-brand">
-          Tryp.com Content Creator Community
+          {tr("Tryp.com Content Creator Community")}
         </p>
         <h1 className="mx-auto max-w-3xl text-5xl font-bold leading-[1.1] tracking-tight sm:text-7xl">
-          Create. Earn. <span className="text-brand">Travel.</span>
+          {tr("Create. Earn.")} <span className="text-brand">{tr("Travel.")}</span>
         </h1>
         <p className="mx-auto mt-8 max-w-xl text-lg leading-relaxed text-smoke">
-          Join the official community of travel creators making content with Tryp.com.
-          Compete in challenges, win cash and travel vouchers, get offered full time roles
-          and grow alongside other travel creators.
+          {tr("Join the official community of travel creators making content with Tryp.com. Compete in challenges, win cash and travel vouchers, get offered full time roles and grow alongside other travel creators.")}
         </p>
         <div className="mt-12 flex flex-col items-center justify-center gap-4 sm:flex-row">
-          <Link to="/signup" className="btn-primary !px-10 !py-4 !text-base">Become a creator</Link>
-          <Link to="/login" className="btn-secondary !px-10 !py-4 !text-base">Log in</Link>
+          <Link to="/signup" className="btn-primary !px-10 !py-4 !text-base">{tr("Become a creator")}</Link>
+          <Link to="/login" className="btn-secondary !px-10 !py-4 !text-base">{tr("Log in")}</Link>
         </div>
       </section>
 
@@ -134,13 +134,13 @@ export default function Landing() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/70" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-brand" />
               </span>
-              Live now
+              {tr("Live now")}
             </span>
             <p className="min-w-0 flex-1 text-center text-sm text-ink sm:text-left">
-              <span className="font-semibold">A challenge is live</span>
+              <span className="font-semibold">{tr("A challenge is live")}</span>
               {live.daysLeft > 0
                 ? <> and ends in {live.daysLeft} {live.daysLeft === 1 ? 'day' : 'days'}.</>
-                : <> and closes today.</>}
+                : <> {tr("and closes today.")}</>}
               {' '}Join in and start earning.
             </p>
             {live.prizePot && (
@@ -154,8 +154,8 @@ export default function Landing() {
 
       {/* ---------- How it works ---------- */}
       <section className="mx-auto max-w-6xl px-5 py-24 sm:px-8">
-        <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">How it works</h2>
-        <p className="mx-auto mt-4 max-w-md text-center text-smoke">Three steps between you and your first payout.</p>
+        <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">{tr("How it works")}</h2>
+        <p className="mx-auto mt-4 max-w-md text-center text-smoke">{tr("Three steps between you and your first payout.")}</p>
         <div className="mt-16 grid grid-cols-1 gap-8 sm:grid-cols-3">
           {[
             { step: '01', icon: 'pencil', title: 'Apply', text: 'Sign up for free, build your creator profile, and fill in your travel map. Share your socials and connect with other creators.' },
@@ -177,7 +177,7 @@ export default function Landing() {
       {/* ---------- Benefits ---------- */}
       <section className="bg-cloud/50 py-24">
         <div className="mx-auto max-w-6xl px-5 sm:px-8">
-          <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">Why creators join</h2>
+          <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">{tr("Why creators join")}</h2>
           <div className="mt-16 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {[
               { icon: 'money', title: 'Real cash prizes', text: 'Cash for the top spots in every challenge, spend it your way.' },
@@ -200,9 +200,9 @@ export default function Landing() {
       {/* ---------- Meet the community ---------- */}
       {(mapData.creators.length > 0 || featured.length > 0) && (
         <section className="mx-auto max-w-6xl px-5 py-24 sm:px-8">
-          <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">Meet the community</h2>
+          <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">{tr("Meet the community")}</h2>
           <p className="mx-auto mt-4 max-w-md text-center text-smoke">
-            Creators based all over the world, and always on the move. Tap a pin to meet them.
+            {tr("Creators based all over the world, and always on the move. Tap a pin to meet them.")}
           </p>
 
           {/* Live world map: where creators are based + where they're travelling.
@@ -215,8 +215,8 @@ export default function Landing() {
 
           {featured.length > 0 && (
             <>
-              <h3 className="mt-16 text-center text-lg font-semibold text-ink sm:text-xl">Recently active creators</h3>
-              <p className="mx-auto mt-2 text-center text-sm text-smoke">Some of the creators who've been busy in the community lately.</p>
+              <h3 className="mt-16 text-center text-lg font-semibold text-ink sm:text-xl">{tr("Recently active creators")}</h3>
+              <p className="mx-auto mt-2 text-center text-sm text-smoke">{tr("Some of the creators who've been busy in the community lately.")}</p>
               <div className="mt-8 grid grid-cols-2 gap-6 lg:grid-cols-4">
                 {featured.map((c) => (
                   <div key={c.name} className="card flex flex-col items-center gap-3 !p-8 text-center">
@@ -235,9 +235,9 @@ export default function Landing() {
       {/* ---------- Mini profile + join prompt (from a map pin) ---------- */}
       {miniProfile && (
         <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label={`${miniProfile.name}'s profile`}>
-          <button aria-label="Close" className="absolute inset-0 bg-ink/50 backdrop-blur-sm" onClick={() => setMiniProfile(null)} />
+          <button aria-label={tr("Close")} className="absolute inset-0 bg-ink/50 backdrop-blur-sm" onClick={() => setMiniProfile(null)} />
           <div className="relative w-full max-w-sm rounded-t-card bg-white p-7 text-center shadow-lift animate-fade-up sm:rounded-card">
-            <button onClick={() => setMiniProfile(null)} aria-label="Close"
+            <button onClick={() => setMiniProfile(null)} aria-label={tr("Close")}
               className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-smoke transition-colors hover:bg-cloud">
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
             </button>
@@ -260,8 +260,8 @@ export default function Landing() {
             <div className="mt-6 rounded-card bg-cloud/70 p-4">
               <p className="text-sm font-medium text-ink">Join the community to connect with {miniProfile.name.split(' ')[0]}.</p>
               <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                <Link to="/signup" className="btn-primary flex-1 !py-2.5 text-sm">Sign up</Link>
-                <Link to="/login" className="btn-secondary flex-1 !py-2.5 text-sm">Log in</Link>
+                <Link to="/signup" className="btn-primary flex-1 !py-2.5 text-sm">{tr("Sign up")}</Link>
+                <Link to="/login" className="btn-secondary flex-1 !py-2.5 text-sm">{tr("Log in")}</Link>
               </div>
             </div>
           </div>
@@ -272,13 +272,13 @@ export default function Landing() {
       <section className="mx-auto max-w-6xl px-5 pb-24 sm:px-8">
         <div className="rounded-card bg-gradient-to-br from-brand to-brand-light px-8 py-16 text-center text-white shadow-lift sm:py-20">
           <h2 className="mx-auto max-w-xl text-3xl font-bold leading-tight sm:text-4xl">
-            Your next trip could pay for itself.
+            {tr("Your next trip could pay for itself.")}
           </h2>
           <p className="mx-auto mt-4 max-w-md text-white/85">
-            Free to join. One challenge live right now.
+            {tr("Free to join. One challenge live right now.")}
           </p>
           <Link to="/signup" className="btn mt-10 bg-white !px-10 !py-4 !text-base text-brand hover:bg-white/90">
-            Join the community →
+            {tr("Join the community →")}
           </Link>
         </div>
       </section>
@@ -289,12 +289,12 @@ export default function Landing() {
           <img src="/brand/tryp-logo.png" alt="Tryp.com" className="h-8 rounded-lg" />
           <p className="text-xs text-smoke">
             © {new Date().getFullYear()} Tryp.com Content Creator Community ·{' '}
-            <a href={TRYP_URL} target="_blank" rel="noopener noreferrer" className="font-medium text-brand hover:underline">tryp.com ↗</a>
+            <a href={TRYP_URL} target="_blank" rel="noopener noreferrer" className="font-medium text-brand hover:underline">{tr("tryp.com ↗")}</a>
           </p>
           <p className="text-xs text-smoke">
-            <Link to="/privacy" className="hover:text-brand">Privacy Policy</Link>
+            <Link to="/privacy" className="hover:text-brand">{tr("Privacy Policy")}</Link>
             <span className="px-2">·</span>
-            <Link to="/terms" className="hover:text-brand">Terms of Service</Link>
+            <Link to="/terms" className="hover:text-brand">{tr("Terms of Service")}</Link>
           </p>
         </div>
       </footer>

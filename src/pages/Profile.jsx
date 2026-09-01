@@ -457,7 +457,7 @@ export default function Profile() {
                             machine-written. */}
                         {`${here.who} ${isMe ? 'are' : 'is'} in ${here.place}`}
                       </span>
-                      {currentTrip && <span className="block text-xs text-smoke">{tr('Back')} {formatDate(currentTrip.end_date)}</span>}
+                      {currentTrip && <span className="block text-xs text-smoke">{tr('Back on')} {formatDate(currentTrip.end_date)}</span>}
                     </>
                   ) : (
                     <>
@@ -487,7 +487,7 @@ export default function Profile() {
                   <div className="min-w-0 px-4 py-3">
                     <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-smoke">
                       <Icon name="home" className="h-3.5 w-3.5 shrink-0 text-brand" />
-                      {tr('Home')}
+                      {tr('Home town')}
                     </p>
                     <p className="mt-1 truncate font-semibold text-ink" title={homeLine}>{homeLine}</p>
                   </div>
@@ -875,7 +875,7 @@ export default function Profile() {
                   onClick={() => setReporting(true)}
                   className="self-center text-[11px] font-medium text-smoke transition-colors hover:text-red-600 sm:self-end"
                 >
-                  Report this creator
+                  {tr("Report this creator")}
                 </button>
               )}
 
@@ -1075,7 +1075,7 @@ function ShowcaseCard({ submission: s, expanded, onToggle }) {
           rel="noopener noreferrer"
           className="mt-auto pt-3 text-sm font-semibold text-brand transition-transform duration-200 hover:scale-[1.02]"
         >
-          Watch the video ↗
+          {tr("Watch the video ↗")}
         </a>
       </div>
     </div>
@@ -1138,7 +1138,7 @@ function ProfileGallery({ creatorId, isMe, creatorName }) {
         ) : (
           <EmptyState
             icon={<Icon name="image" className="h-7 w-7" />}
-            title="No travel photos yet"
+            title={tr("No travel photos yet")}
             hint={`${firstName} hasn't added any travel photos yet.`}
           />
         )

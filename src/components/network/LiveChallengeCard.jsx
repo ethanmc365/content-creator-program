@@ -7,6 +7,7 @@ import ParticipationBar from './ParticipationBar'
 import { scoringMode } from '../../lib/scoring'
 import { SOFT_SPRING } from '../../lib/motion'
 import { cx } from '../../lib/utils'
+import { useT } from '../../lib/i18n'
 
 // The live challenge, wherever it is shown inside a market.
 //
@@ -40,6 +41,7 @@ export default function LiveChallengeCard({
   // label must not imply a place.
   global: isGlobal = false,
 }) {
+  const tr = useT()
   if (!challenge) return null
   const mode = scoringMode(challenge.scoring)
   const pct = participation && participation.total > 0
@@ -76,12 +78,12 @@ export default function LiveChallengeCard({
             <span className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider">
               <Pulse />
               {isGlobal
-                ? <><Icon name="globe" className="h-3.5 w-3.5" /> Live worldwide</>
+                ? <><Icon name="globe" className="h-3.5 w-3.5" /> {tr("Live worldwide")}</>
                 : <>{flags && <span aria-hidden>{flags}</span>}{market ? `Live in ${market}` : 'Live now'}</>}
             </span>
             {isGlobal && (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-brand">
-                Open to everyone
+                {tr("Open to everyone")}
               </span>
             )}
             <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold">
@@ -120,16 +122,16 @@ export default function LiveChallengeCard({
             compact ? 'mt-5' : 'mt-8 lg:flex-row lg:items-end lg:justify-between lg:gap-8',
           )}>
             <div className="min-w-0 flex-1">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-white/75">Closes in</p>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-white/75">{tr("Closes in")}</p>
               <CountdownTimer endDate={challenge.end_date} hero={!compact} />
             </div>
             <div className="flex flex-col gap-2.5 lg:shrink-0 lg:items-end">
               <div className="flex flex-wrap gap-3">
                 <Link to={`/challenges/${challenge.id}`} className="btn whitespace-nowrap border border-white/40 text-white hover:bg-white/10">
-                  Read the brief →
+                  {tr("Read the brief →")}
                 </Link>
                 <Link to={`/challenges/${challenge.id}?submit=1`} className="btn whitespace-nowrap bg-white !text-brand hover:bg-white/90">
-                  Submit your video
+                  {tr("Submit your video")}
                 </Link>
               </div>
               {entries != null && (

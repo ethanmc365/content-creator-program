@@ -7,6 +7,7 @@ import Reveal from '../components/network/Reveal'
 import { compressImage } from '../lib/image'
 import { uploadFile } from '../lib/upload'
 import { formatDate, cx } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 // How a creator's own past reports are labelled back to them.
 const STATUS = {
@@ -18,6 +19,7 @@ const STATUS = {
 }
 
 export default function Feedback() {
+  const tr = useT()
   const { user } = useAuth()
   const [type, setType] = useState('bug')
   const [message, setMessage] = useState('')
@@ -86,7 +88,7 @@ export default function Feedback() {
   return (
     <div className="page max-w-3xl">
       <PageHeader
-        title="Report a bug or suggest a feature"
+        title={tr("Report a bug or suggest a feature")}
         subtitle="Spotted something broken, or have an idea to make the community better? Tell us, every report goes straight to the Tryp.com team."
       />
 
@@ -174,22 +176,22 @@ export default function Feedback() {
         <div className="mt-4 flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
           {sent && (
             <p className="animate-fade-up text-xs font-medium text-green-700">
-              Thanks, your report is with the team.
+              {tr("Thanks, your report is with the team.")}
             </p>
           )}
           <button type="submit" disabled={busy || !message.trim()} className="btn-primary w-full justify-center sm:ml-auto sm:w-auto">
-            {busy ? <><Spinner className="h-4 w-4" /> Sending…</> : 'Send to the team'}
+            {busy ? <><Spinner className="h-4 w-4" /> {tr("Sending…")}</> : 'Send to the team'}
           </button>
         </div>
       </form>
       </Reveal>
 
       {/* The creator's own history */}
-      <Reveal from="down"><h2 className="mb-4 text-lg font-semibold">Your reports</h2></Reveal>
+      <Reveal from="down"><h2 className="mb-4 text-lg font-semibold">{tr("Your reports")}</h2></Reveal>
       {loading ? (
         <div className="space-y-3">{Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}</div>
       ) : mine.length === 0 ? (
-        <EmptyState icon={<Icon name="chat" className="h-7 w-7" />} title="No reports yet" hint="Anything you send will show up here so you can track it." />
+        <EmptyState icon={<Icon name="chat" className="h-7 w-7" />} title={tr("No reports yet")} hint={tr("Anything you send will show up here so you can track it.")} />
       ) : (
         <Reveal className="space-y-3" stagger={0.05}>
           {mine.map((f) => {
@@ -209,7 +211,7 @@ export default function Feedback() {
                 )}
                 {f.admin_note && (
                   <p className="mt-3 rounded-xl bg-brand-tint/60 px-3 py-2 text-xs text-ink">
-                    <span className="font-semibold text-brand">Team reply: </span>{f.admin_note}
+                    <span className="font-semibold text-brand">{tr("Team reply:")} </span>{f.admin_note}
                   </p>
                 )}
               </div>

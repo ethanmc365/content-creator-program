@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Icon from '../Icon'
 import { cx } from '../../lib/utils'
+import { useT } from '../../lib/i18n'
 
 // WHO SEES THIS, AS A REAL CONTROL.
 //
@@ -18,6 +19,7 @@ import { cx } from '../../lib/utils'
 // the shape the data takes: `community_ids = '{}'` is a global event, which is
 // what every event created before markets existed already is.
 export default function MarketPicker({ chapters = [], value = [], onChange, id = 'market-picker' }) {
+  const tr = useT()
   const [open, setOpen] = useState(false)
   const boxRef = useRef(null)
   const menuRef = useRef(null)
@@ -122,7 +124,7 @@ export default function MarketPicker({ chapters = [], value = [], onChange, id =
             <span className="flex h-4 w-4 shrink-0 items-center justify-center">
               {value.length === 0 && <Icon name="check" className="h-4 w-4" strokeWidth={2.6} />}
             </span>
-            Everyone, every market
+            {tr("Everyone, every market")}
           </button>
           <div className="my-1 border-t border-gray-50" />
           {chapters.map((c) => {

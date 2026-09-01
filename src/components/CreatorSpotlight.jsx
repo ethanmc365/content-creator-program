@@ -7,6 +7,7 @@ import ConnectButton from './ConnectButton'
 import WorldMap from './WorldMap'
 import Icon from './Icon'
 import { Avatar } from './ui'
+import { useT } from '../lib/i18n'
 
 // Deterministic per-cycle shuffle so the spotlight rotates fairly: within each
 // full pass over the pool every creator is featured exactly once (no repeats
@@ -40,6 +41,7 @@ function pickForDay(list) {
 // photo, bio, travel map, and any travel photos they've uploaded. Slots on Home
 // under "Creators on the move".
 export default function CreatorSpotlight() {
+  const tr = useT()
   const { user } = useAuth()
   const [creator, setCreator] = useState(null)
   const [photos, setPhotos] = useState([])
@@ -86,8 +88,8 @@ export default function CreatorSpotlight() {
   return (
     <section>
       <div className="mb-4 flex items-baseline justify-between">
-        <h2 className="flex items-center gap-2 text-lg font-semibold"><Icon name="star" className="h-5 w-5 text-brand" /> Creator spotlight</h2>
-        <span className="text-xs text-smoke">Featured today</span>
+        <h2 className="flex items-center gap-2 text-lg font-semibold"><Icon name="star" className="h-5 w-5 text-brand" /> {tr("Creator spotlight")}</h2>
+        <span className="text-xs text-smoke">{tr("Featured today")}</span>
       </div>
       <div className="card !p-5 sm:!p-6">
         <div className="flex flex-col gap-6 lg:flex-row">
@@ -107,7 +109,7 @@ export default function CreatorSpotlight() {
                 {!isMe && (
                   <ConnectButton myId={user.id} targetId={creator.id} relation={relation} onChange={setRelation} className="!py-2 text-xs" />
                 )}
-                <Link to={`/profile/${creator.id}`} className="btn-secondary !py-2 text-xs">View profile →</Link>
+                <Link to={`/profile/${creator.id}`} className="btn-secondary !py-2 text-xs">{tr("View profile →")}</Link>
               </div>
             </div>
             {(creator.bio || creator.about) && (
@@ -124,7 +126,7 @@ export default function CreatorSpotlight() {
               {!isMe && (
                 <ConnectButton myId={user.id} targetId={creator.id} relation={relation} onChange={setRelation} className="!py-2 text-xs" />
               )}
-              <Link to={`/profile/${creator.id}`} className="btn-secondary inline-flex !py-2 text-xs">View profile →</Link>
+              <Link to={`/profile/${creator.id}`} className="btn-secondary inline-flex !py-2 text-xs">{tr("View profile →")}</Link>
             </div>
           </div>
 

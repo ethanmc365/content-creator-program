@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import Icon from '../Icon'
 import { soundOn, setSoundOn } from '../../lib/gameSounds'
 import { cx } from '../../lib/utils'
+import { useT } from '../../lib/i18n'
 
 // ONE HEADER FOR EVERY GAME.
 //
@@ -69,6 +70,7 @@ export function SoundToggle({ className }) {
  * @param {function} onQuit
  */
 export default function GameChrome({ icon = 'joystick', title, tag, done, total, correct, time, onQuit, children }) {
+  const tr = useT()
   const pct = total ? Math.round((done / total) * 100) : 0
   return (
     // TWO ROWS, AT EVERY WIDTH.
@@ -118,9 +120,9 @@ export default function GameChrome({ icon = 'joystick', title, tag, done, total,
       </div>
 
       <div className="mt-2.5 flex items-center gap-5 sm:gap-7">
-        <Stat label="Question" value={`${Math.min(done + 1, total)}/${total}`} />
-        {time != null && <Stat label="Time" value={time} mono />}
-        <Stat label="Correct" value={correct} brand />
+        <Stat label={tr("Question")} value={`${Math.min(done + 1, total)}/${total}`} />
+        {time != null && <Stat label={tr("Time")} value={time} mono />}
+        <Stat label={tr("Correct")} value={correct} brand />
       </div>
 
       {/* THE BAR. Same height, same colour, same easing in every mode. */}

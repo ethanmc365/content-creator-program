@@ -452,7 +452,12 @@ export default function Connections() {
             )}
           >
             <Icon name={t.icon} className="h-4 w-4" />
-            {t.label}
+            {/* A LABEL FROM A TABLE IS TRANSLATED WHERE IT IS PRINTED. The
+                report script cannot see `tr(t.label)` as a string, which is why
+                "Your network" shows in its "in the dictionary, nothing asks for
+                this" list while being very much in use - that list is a
+                worklist, not a list of faults. */}
+            {tr(t.label)}
             <span className="text-xs text-gray-400">
               {t.key === 'network' ? d.connections.length : visibleSuggestions.length}
             </span>

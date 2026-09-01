@@ -1,5 +1,6 @@
 import Icon from './Icon'
 import { cx } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 // The row above every composer, as ONE component.
 //
@@ -42,16 +43,17 @@ export function ToolButton({ icon, label, onClick, title, active = false, disabl
 
 /** Heading / bold / italic, grouped in one bordered segment. */
 export function FormatButtons({ onFormat }) {
+  const tr = useT()
   return (
-    <div className="flex items-center gap-0.5 rounded-lg border border-gray-200 p-0.5" role="group" aria-label="Text formatting">
+    <div className="flex items-center gap-0.5 rounded-lg border border-gray-200 p-0.5" role="group" aria-label={tr("Text formatting")}>
       <button type="button" onMouseDown={stop} onClick={() => onFormat('heading')}
-        title="Heading" aria-label="Heading"
+        title={tr("Heading")} aria-label={tr("Heading")}
         className="rounded px-2.5 py-1 text-xs font-bold text-smoke transition-colors hover:bg-cloud hover:text-ink">H</button>
       <button type="button" onMouseDown={stop} onClick={() => onFormat('bold')}
-        title="Bold" aria-label="Bold"
+        title={tr("Bold")} aria-label={tr("Bold")}
         className="rounded px-2.5 py-1 text-sm font-bold text-smoke transition-colors hover:bg-cloud hover:text-ink">B</button>
       <button type="button" onMouseDown={stop} onClick={() => onFormat('italic')}
-        title="Italic" aria-label="Italic"
+        title={tr("Italic")} aria-label={tr("Italic")}
         className="rounded px-2.5 py-1 text-sm italic text-smoke transition-colors hover:bg-cloud hover:text-ink">I</button>
     </div>
   )
@@ -76,15 +78,16 @@ export function ComposerToolbar({
   open = true,
   className,
 }) {
+  const tr = useT()
   return (
     <div className={cx('mb-2 flex-wrap items-center gap-2', open ? 'flex' : 'hidden sm:flex', className)}>
       <FormatButtons onFormat={onFormat} />
       {isAdmin && (
         <>
-          {onGame && <ToolButton icon="joystick" label="Game" title="Post a game challenge" onClick={onGame} />}
-          {onResource && <ToolButton icon="book" label="Resource" title="Share a resource" onClick={onResource} />}
-          {onPoll && <ToolButton icon="poll" label="Poll" title="Create a poll" onClick={onPoll} />}
-          {onSchedule && <ToolButton icon="clock" label="Schedule" title="Write now, post later" onClick={onSchedule} />}
+          {onGame && <ToolButton icon="joystick" label={tr("Game")} title={tr("Post a game challenge")} onClick={onGame} />}
+          {onResource && <ToolButton icon="book" label={tr("Resource")} title={tr("Share a resource")} onClick={onResource} />}
+          {onPoll && <ToolButton icon="poll" label={tr("Poll")} title={tr("Create a poll")} onClick={onPoll} />}
+          {onSchedule && <ToolButton icon="clock" label={tr("Schedule")} title={tr("Write now, post later")} onClick={onSchedule} />}
         </>
       )}
     </div>

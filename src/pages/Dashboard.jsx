@@ -9,10 +9,12 @@ import { rewardsTotal } from '../lib/programme'
 // A `rewardsTotal` result, printed. "≈" whenever a conversion was involved.
 const money = (t) => `${t?.converted ? '≈ ' : ''}${formatMoney(t?.amount ?? 0, t?.currency ?? 'EUR')}`
 import { useViewAs, ViewingAsBanner } from '../components/ViewingAs'
+import { useT } from '../lib/i18n'
 
 // Creator-visible dashboard: their own performance + community-wide highlights.
 // (The deep analytics with charts live in the admin-only dashboard.)
 export default function Dashboard() {
+  const tr = useT()
   // `?as=<id>` lets an admin read one creator's own dashboard. Inert for
   // everybody else - see components/ViewingAs.
   const { id: whose, viewing, person } = useViewAs()
@@ -85,27 +87,27 @@ export default function Dashboard() {
 
   return (
     <div className="page">
-      <PageHeader title="My dashboard" subtitle="Your performance in the community, at a glance." />
+      <PageHeader title={tr("My dashboard")} subtitle="Your performance in the community, at a glance." />
 
       <ViewingAsBanner viewing={viewing} person={person} />
 
       {/* ---------- My numbers ---------- */}
       <section className="mb-12 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Challenges entered" value={data.challengesEntered} />
-        <StatCard label="Total submissions" value={data.submissions} />
-        <StatCard label="Logged views (all time)" value={formatViews(data.totalViews)} />
-        <StatCard label="Best finish" value={data.bestRank === Infinity ? '-' : `#${data.bestRank}`} accent={data.bestRank <= 3} />
+        <StatCard label={tr("Challenges entered")} value={data.challengesEntered} />
+        <StatCard label={tr("Total submissions")} value={data.submissions} />
+        <StatCard label={tr("Logged views (all time)")} value={formatViews(data.totalViews)} />
+        <StatCard label={tr("Best finish")} value={data.bestRank === Infinity ? '-' : `#${data.bestRank}`} accent={data.bestRank <= 3} />
       </section>
 
       {/* ---------- My results history ---------- */}
       <section className="mb-12">
-        <h2 className="mb-4 text-lg font-semibold">My challenge results</h2>
+        <h2 className="mb-4 text-lg font-semibold">{tr("My challenge results")}</h2>
         {data.results.length === 0 ? (
           <EmptyState
             icon={<Icon name="chart" className="h-7 w-7" />}
-            title="No results yet"
-            hint="Results appear after a challenge closes and the Tryp.com Team logs the final views."
-            action={<Link to="/challenges" className="btn-primary">Enter the live challenge</Link>}
+            title={tr("No results yet")}
+            hint={tr("Results appear after a challenge closes and the Tryp.com Team logs the final views.")}
+            action={<Link to="/challenges" className="btn-primary">{tr("Enter the live challenge")}</Link>}
           />
         ) : (
           <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
@@ -125,12 +127,12 @@ export default function Dashboard() {
 
       {/* ---------- Community-wide highlights ---------- */}
       <section>
-        <h2 className="mb-4 text-lg font-semibold">Community highlights</h2>
+        <h2 className="mb-4 text-lg font-semibold">{tr("Community highlights")}</h2>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatCard label="Creators" value={data.creators} />
-          <StatCard label="Challenges run" value={data.challengesRun} />
-          <StatCard label="Prizes distributed" value={money(data.prizesPaid)} accent />
-          <StatCard label="You've earned" value={money(data.myEarned)} />
+          <StatCard label={tr("Creators")} value={data.creators} />
+          <StatCard label={tr("Challenges run")} value={data.challengesRun} />
+          <StatCard label={tr("Prizes distributed")} value={money(data.prizesPaid)} accent />
+          <StatCard label={tr("You've earned")} value={money(data.myEarned)} />
         </div>
       </section>
     </div>

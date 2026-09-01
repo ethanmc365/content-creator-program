@@ -5,10 +5,12 @@ import { Spinner } from '../../components/ui'
 import Turnstile from '../../components/Turnstile'
 import AuthShell, { DemoCaptcha } from './AuthShell'
 import { useDemoMode } from '../../lib/demoMode'
+import { useT } from '../../lib/i18n'
 
 // Step 1 of the reset flow: enter your email → Supabase sends a reset link
 // that lands on /reset-password.
 export default function ForgotPassword() {
+  const tr = useT()
   const { on: demo } = useDemoMode()
   const { sendPasswordReset } = useAuth()
   const [email, setEmail] = useState('')
@@ -34,22 +36,22 @@ export default function ForgotPassword() {
 
   if (sent) {
     return (
-      <AuthShell title="Email on its way ✉️" subtitle={`If an account exists for ${email}, you'll receive a reset link shortly. Check your spam folder too.`}>
-        <Link to="/login" className="btn-primary w-full">Back to log in</Link>
+      <AuthShell title={tr("Email on its way ✉️")} subtitle={`If an account exists for ${email}, you'll receive a reset link shortly. Check your spam folder too.`}>
+        <Link to="/login" className="btn-primary w-full">{tr("Back to log in")}</Link>
       </AuthShell>
     )
   }
 
   return (
     <AuthShell
-      title="Reset your password"
+      title={tr("Reset your password")}
       subtitle="Enter your email and we'll send you a secure reset link."
       footer={<Link to="/login" className="font-medium text-brand hover:underline">← Back to log in</Link>}
     >
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
-          <label htmlFor="email" className="label">Email</label>
-          <input id="email" type="email" required className="input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+          <label htmlFor="email" className="label">{tr("Email")}</label>
+          <input id="email" type="email" required className="input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={tr("you@example.com")} />
         </div>
         {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
         {demo ? <DemoCaptcha /> : <Turnstile key={captchaKey} onToken={setCaptchaToken} />}

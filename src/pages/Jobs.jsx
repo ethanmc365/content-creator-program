@@ -124,8 +124,7 @@ export default function Jobs() {
       <Modal open={!!applyJob} onClose={() => setApplyJob(null)} title={`Apply: ${applyJob?.title ?? ''}`}>
         <form onSubmit={submitApply} className="space-y-5">
           <p className="text-sm text-smoke">
-            Tell the team why you'd be a great fit. Your application is saved for the team to review, and
-            they'll reach out by email or a direct message. You can withdraw any time before they respond.
+            {tr("Tell the team why you'd be a great fit. Your application is saved for the team to review, and they'll reach out by email or a direct message. You can withdraw any time before they respond.")}
           </p>
           <div>
             <label htmlFor="pitch" className="label">{tr("Why are you suited to this role?")}</label>

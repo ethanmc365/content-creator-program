@@ -4,12 +4,14 @@ import { Spinner } from './ui'
 import Icon from './Icon'
 import VideoPlayer from './VideoPlayer'
 import { cx } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 // Renders a resource/chat attachment inline: images show the picture, videos
 // show an inline player you tap to play, anything else falls back to a labelled
 // download. The Save button routes through saveFile() so on mobile it lands in
 // the camera roll via the native share sheet.
 export default function MediaAttachment({ url, className, compact = false }) {
+  const tr = useT()
   const [saving, setSaving] = useState(false)
   if (!url) return null
   const type = mediaType(url)
@@ -43,7 +45,7 @@ export default function MediaAttachment({ url, className, compact = false }) {
   if (type === 'image') {
     return (
       <div className={cx('space-y-2', className)}>
-        <a href={url} target="_blank" rel="noopener noreferrer" aria-label="Open image full size">
+        <a href={url} target="_blank" rel="noopener noreferrer" aria-label={tr("Open image full size")}>
           <img
             src={url}
             alt={name}

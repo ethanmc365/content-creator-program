@@ -846,8 +846,7 @@ export function BoardThread() {
 
             {answers.length === 0 ? (
               <p className="rounded-lg border border-dashed border-brand/30 bg-white/70 px-5 py-8 text-center text-sm text-smoke">
-                Nobody has answered this yet. If you know even part of it, say so - a partial answer beats
-                silence and somebody else will fill in the rest.
+                {tr("Nobody has answered this yet. If you know even part of it, say so - a partial answer beats silence and somebody else will fill in the rest.")}
               </p>
             ) : (
               // The answers are smaller notes under the big one, so the whole

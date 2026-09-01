@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { Avatar, Modal, Skeleton } from '../ui'
 import Flame from './Flame'
 import { cx } from '../../lib/utils'
+import { useT } from '../../lib/i18n'
 
 // WHO ELSE IS ON A RUN.
 //
@@ -25,6 +26,7 @@ import { cx } from '../../lib/utils'
 // name is a list of people who are not playing, which is the opposite of what
 // this is for.
 export default function StreakLeaderboard({ open, onClose, myId }) {
+  const tr = useT()
   const [rows, setRows] = useState(null)
 
   useEffect(() => {
@@ -39,20 +41,19 @@ export default function StreakLeaderboard({ open, onClose, myId }) {
   const mine = rows?.findIndex((r) => r.profile_id === myId) ?? -1
 
   return (
-    <Modal open={open} onClose={onClose} title="Streaks right now" wide>
+    <Modal open={open} onClose={onClose} title={tr("Streaks right now")} wide>
       {!rows ? (
         <div className="space-y-2">
           {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
         </div>
       ) : rows.length === 0 ? (
         <p className="py-8 text-center text-sm text-smoke">
-          Nobody has a run going yet. Play one of today&rsquo;s puzzles and you are top of this list.
+          {tr("Nobody has a run going yet. Play one of today&rsquo;s puzzles and you are top of this list.")}
         </p>
       ) : (
         <>
           <p className="mb-4 text-sm text-smoke">
-            One travel game a day keeps a run alive - any of the daily puzzles, or any of the practice
-            modes. Miss a day and a freeze covers it, if you have one left.
+            {tr("One travel game a day keeps a run alive - any of the daily puzzles, or any of the practice modes. Miss a day and a freeze covers it, if you have one left.")}
           </p>
           <ol className="space-y-1.5">
             {rows.map((r, i) => {
@@ -91,7 +92,7 @@ export default function StreakLeaderboard({ open, onClose, myId }) {
           </ol>
           {mine === -1 && (
             <p className="mt-4 rounded-xl bg-cloud/60 px-4 py-3 text-xs text-smoke">
-              You are not on the board yet. Play any travel game today and you will be tomorrow.
+              {tr("You are not on the board yet. Play any travel game today and you will be tomorrow.")}
             </p>
           )}
         </>

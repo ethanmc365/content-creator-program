@@ -4,6 +4,7 @@ import Icon from '../Icon'
 import { Skeleton } from '../ui'
 import { loadFeed, tagInfo } from '../../lib/board'
 import { cx, formatMessageTime } from '../../lib/utils'
+import { useT } from '../../lib/i18n'
 
 // THE BOARD, ON THE HUB - AS THREE NOTES, NOT AS THREE ROWS.
 //
@@ -42,6 +43,7 @@ import { cx, formatMessageTime } from '../../lib/utils'
 // Three rows of the same object the board lists, at hub scale.
 
 export default function BoardCard({ className }) {
+  const tr = useT()
   const [rows, setRows] = useState(null)
 
   useEffect(() => {
@@ -71,7 +73,7 @@ export default function BoardCard({ className }) {
       <section className={className}>
         <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="flex items-center gap-2 text-lg font-semibold">
-            <Icon name="chat" className="h-5 w-5 shrink-0 text-brand" /> Community board
+            <Icon name="chat" className="h-5 w-5 shrink-0 text-brand" /> {tr("Community board")}
           </h2>
         </div>
         <Link
@@ -82,9 +84,9 @@ export default function BoardCard({ className }) {
             <Icon name="chat" className="h-5 w-5" />
           </span>
           <span className="min-w-0">
-            <span className="block text-sm font-semibold">Nobody has asked anything yet</span>
+            <span className="block text-sm font-semibold">{tr("Nobody has asked anything yet")}</span>
             <span className="mt-0.5 block text-xs text-smoke">
-              Somebody here has been where you are going. Ask them.
+              {tr("Somebody here has been where you are going. Ask them.")}
             </span>
           </span>
           <Icon name="chevronRight" className="ml-auto h-4 w-4 shrink-0 text-gray-300" />
@@ -98,14 +100,14 @@ export default function BoardCard({ className }) {
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
         <div>
           <h2 className="flex items-center gap-2 text-lg font-semibold">
-            <Icon name="chat" className="h-5 w-5 shrink-0 text-brand" /> Community board
+            <Icon name="chat" className="h-5 w-5 shrink-0 text-brand" /> {tr("Community board")}
           </h2>
           {/* NO COUNT OF WHAT IS UNANSWERED. "3 are still waiting for somebody
               who knows" reads as a chore list on a hub whose job is to invite
               you in, and the notes themselves already say "No answers yet". */}
         </div>
         <Link to="/board" className="shrink-0 text-sm font-medium text-brand transition-transform duration-200 hover:scale-105">
-          Open the board →
+          {tr("Open the board →")}
         </Link>
       </div>
 

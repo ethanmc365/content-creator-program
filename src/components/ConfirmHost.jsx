@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { _setConfirmHandler } from '../lib/confirm'
 import { lockScroll } from '../lib/scrollLock'
+import { useT } from '../lib/i18n'
 
 // Branded, non-suppressible replacement for window.confirm(). Mounted once in
 // App.jsx; it registers the handler that lib/confirm.js's confirm() drives.
 export default function ConfirmHost() {
+  const tr = useT()
   const [state, setState] = useState(null) // { message, options }
   const [value, setValue] = useState('')
   const resolveRef = useRef(null)
@@ -71,7 +73,7 @@ export default function ConfirmHost() {
 
   return (
     <div className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label={title}>
-      <button aria-label="Cancel" className="absolute inset-0 bg-ink/40" onClick={() => close(isPrompt ? null : false)} />
+      <button aria-label={tr("Cancel")} className="absolute inset-0 bg-ink/40" onClick={() => close(isPrompt ? null : false)} />
       <div className="relative w-full rounded-t-card bg-white p-6 shadow-lift animate-fade-up sm:max-w-md sm:rounded-card sm:p-7">
         <h2 className="text-lg font-semibold text-ink">{title}</h2>
         {message && <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-smoke">{message}</p>}

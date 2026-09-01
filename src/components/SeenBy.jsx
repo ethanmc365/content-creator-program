@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Avatar, Modal } from './ui'
 import Icon from './Icon'
 import { cx } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 // "Seen by 12", and what happens when you press it.
 //
@@ -49,6 +50,7 @@ export default function SeenBy({
   singular = false,
   className,
 }) {
+  const tr = useT()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const n = readers.length
@@ -88,8 +90,8 @@ export default function SeenBy({
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Find someone…"
-              aria-label="Filter readers"
+              placeholder={tr("Find someone…")}
+              aria-label={tr("Filter readers")}
               className="input !pl-9"
               autoComplete="off"
             />

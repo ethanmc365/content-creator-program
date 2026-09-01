@@ -1016,7 +1016,7 @@ export default function Collab() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="edit-city" className="label">{tr("City / place")}</label>
-              <input id="edit-city" className="input" placeholder="Lisbon" value={editForm.city}
+              <input id="edit-city" className="input" placeholder={tr("Lisbon")} value={editForm.city}
                 onChange={(e) => setEditForm((f) => ({ ...f, city: e.target.value }))} maxLength={60} />
             </div>
             {/* The same picker as the post form - see the note there. */}

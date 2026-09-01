@@ -5,6 +5,7 @@ import Icon from '../Icon'
 import { Modal } from '../ui'
 import { notice } from '../../lib/confirm'
 import { cx } from '../../lib/utils'
+import { useT } from '../../lib/i18n'
 
 // The introductions room, with the hard part done for you.
 //
@@ -76,6 +77,7 @@ function Chips({ options, value, onToggle, max }) {
 // being a constraint - somebody who makes sailing content should not have to
 // call it "Adventure" because that is the nearest chip we thought of.
 function CustomChip({ onAdd, disabled }) {
+  const tr = useT()
   const [text, setText] = useState('')
   const add = () => {
     const v = text.trim()
@@ -89,16 +91,16 @@ function CustomChip({ onAdd, disabled }) {
         className="input !py-2 text-base sm:text-sm"
         value={text}
         disabled={disabled}
-        placeholder="Add your own…"
+        placeholder={tr("Add your own…")}
         onChange={(e) => setText(e.target.value)}
         // Enter adds the chip. This form has no submit button of its own and
         // sits inside no <form>, so Enter would otherwise do nothing at all.
         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add() } }}
-        aria-label="Add your own option"
+        aria-label={tr("Add your own option")}
       />
       <button type="button" onClick={add} disabled={disabled || !text.trim()}
         className="btn-secondary shrink-0 !py-2 !text-sm disabled:opacity-40">
-        Add
+        {tr("Add")}
       </button>
     </div>
   )
@@ -120,6 +122,7 @@ const WANTS_MAX = 3
 
 // THE FORM ITSELF, AS A DIALOG. See IntroGate below for who opens it and when.
 export function IntroModal({ open, onClose, community, channel, onPosted }) {
+  const tr = useT()
   const { profile, user } = useAuth()
   const [busy, setBusy] = useState(false)
   // Options the creator typed themselves, kept beside the built-in lists so
@@ -196,19 +199,19 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
           with the room visible round the edges on a phone as well as on a
           desktop. A bottom sheet 90vh tall reads as having been sent somewhere
           else, and this is an invitation you should be able to see past. */}
-      <Modal open={open} onClose={onClose} title="Introduce yourself" sheet={false}>
+      <Modal open={open} onClose={onClose} title={tr("Introduce yourself")} sheet={false}>
         <p className="-mt-3 mb-5 text-sm text-smoke">
-          Skip anything you would rather not say. Only the last box gets posted.
+          {tr("Skip anything you would rather not say. Only the last box gets posted.")}
         </p>
 
         <div className="space-y-5">
-          <Field label="Where are you based?">
+          <Field label={tr("Where are you based?")}>
             <input className="input text-base sm:text-sm" value={form.where}
-              placeholder="Manchester, UK"
+              placeholder={tr("Manchester, UK")}
               onChange={(e) => set({ where: e.target.value })} />
           </Field>
 
-          <Field label="What do you make?" hint={`Pick up to ${MAKES_MAX}, or add your own.`}>
+          <Field label={tr("What do you make?")} hint={`Pick up to ${MAKES_MAX}, or add your own.`}>
             <Chips
               options={[...MAKES, ...ownMakes]}
               value={form.makes}
@@ -221,15 +224,15 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
             />
           </Field>
 
-          <Field label="Where are you headed next?">
+          <Field label={tr("Where are you headed next?")}>
             <input className="input text-base sm:text-sm" value={form.next}
-              placeholder="Lisbon in March"
+              placeholder={tr("Lisbon in March")}
               onChange={(e) => set({ next: e.target.value })} />
           </Field>
 
-          <Field label="One thing people should ask you about">
+          <Field label={tr("One thing people should ask you about")}>
             <input className="input text-base sm:text-sm" value={form.ask}
-              placeholder="Finding cheap flights out of Dublin"
+              placeholder={tr("Finding cheap flights out of Dublin")}
               onChange={(e) => set({ ask: e.target.value })} />
           </Field>
 
@@ -237,13 +240,13 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
               Every other line here is a professional fact, and a room full of
               professional facts is a directory. This is the one somebody
               actually replies to. */}
-          <Field label="A hidden talent or a fun fact about you">
+          <Field label={tr("A hidden talent or a fun fact about you")}>
             <input className="input text-base sm:text-sm" value={form.fact}
-              placeholder="I can name any capital city in under a second"
+              placeholder={tr("I can name any capital city in under a second")}
               onChange={(e) => set({ fact: e.target.value })} />
           </Field>
 
-          <Field label="What are you hoping to do here?" hint={`Pick up to ${WANTS_MAX}, or add your own.`}>
+          <Field label={tr("What are you hoping to do here?")} hint={`Pick up to ${WANTS_MAX}, or add your own.`}>
             <Chips
               options={[...WANTS, ...ownWants]}
               value={form.wants}
@@ -264,7 +267,7 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
 
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-smoke">
-              What gets posted
+              {tr("What gets posted")}
             </p>
             <p className="max-h-44 overflow-y-auto overscroll-contain whitespace-pre-wrap rounded-xl border border-gray-100 bg-cloud/50 px-4 py-3 text-sm">
               {message}
@@ -276,10 +279,10 @@ export function IntroModal({ open, onClose, community, channel, onPosted }) {
               {busy ? 'Posting…' : 'Post my intro'}
             </button>
             <button type="button" onClick={onClose} className="btn-ghost">
-              Not now
+              {tr("Not now")}
             </button>
             {!enough && (
-              <span className="text-xs text-smoke">Add where you are based, or pick what you make.</span>
+              <span className="text-xs text-smoke">{tr("Add where you are based, or pick what you make.")}</span>
             )}
           </div>
         </div>
@@ -327,6 +330,7 @@ const SNOOZE_KEY = 'intro-snoozed'
  * @param {boolean} canPost   false in a read-only room; no point inviting then
  */
 export default function IntroInvite({ community, channel, canPost = true }) {
+  const tr = useT()
   const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const [posted, setPosted] = useState(true) // assume done until we know better
@@ -367,7 +371,7 @@ export default function IntroInvite({ community, channel, canPost = true }) {
           <Icon name="sparkles" className="h-3.5 w-3.5" />
         </span>
         <span className="min-w-0 flex-1 text-xs font-medium text-brand">
-          Introduce yourself
+          {tr("Introduce yourself")}
           <span className="hidden font-normal text-smoke sm:inline"> · answer a few questions and we will write it</span>
         </span>
         <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-brand/60" />

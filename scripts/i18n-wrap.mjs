@@ -124,10 +124,23 @@ function wrap(src) {
 
 for (const file of files) {
   const before = readFileSync(file, 'utf8')
-  // Refuse rather than guess. If a file already binds `tr` to something, the
-  // rewrite would capture it exactly the way `t` was captured before.
-  if (/\b(const|let|var|function)\s+tr\b|\(\s*tr\s*[,)=]/.test(before)) {
-    console.log(`   -  ${file}  (skipped: 'tr' is already bound in this file)`)
+  // Refuse rather than guess. If a file binds `tr` to something that is NOT the
+  // translate hook, the rewrite would capture it exactly the way `t` was
+  // captured before - see the note at the top about `t` binding to a trip, a
+  // tag and a timer.
+  //
+  // A FILE THAT IS ALREADY PART-TRANSLATED IS THE NORMAL CASE, THOUGH, and the
+  // first version of this guard refused those too: any `const tr = useT()`
+  // anywhere in the file stopped the whole file being processed. That is
+  // exactly backwards - a half-done file is the one most worth finishing - and
+  // it is not what the guard is for. So the test is now whether every binding
+  // of `tr` is `= useT()`. If one is not, the file is somebody else's `tr` and
+  // this refuses it as before.
+  const bindings = [...before.matchAll(/\b(?:const|let|var)\s+tr\s*=\s*([^\n]*)/g)]
+  const paramBound = /function[^(]*\([^)]*\btr\b|\(\s*\{[^}]*\btr\b[^}]*\}\s*\)\s*=>/.test(before)
+  const foreign = paramBound || bindings.some((m) => !/^useT\(\)/.test(m[1].trim()))
+  if (foreign) {
+    console.log(`   -  ${file}  (skipped: 'tr' is bound to something else here)`)
     continue
   }
   const { src, changed } = wrap(before)

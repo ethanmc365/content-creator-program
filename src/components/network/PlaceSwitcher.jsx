@@ -6,6 +6,7 @@ import Icon from '../Icon'
 import { flagFromIso } from '../../lib/flags'
 import { cx } from '../../lib/utils'
 import { lockScroll } from '../../lib/scrollLock'
+import { useT } from '../../lib/i18n'
 
 // Re-exported for the market components that already import it from here.
 // The definition lives in lib/flags.js: this module pulls in `motion`, and
@@ -75,6 +76,7 @@ function Row({ to, onPick, active, flags, name, badge, hint }) {
 }
 
 export default function PlaceSwitcher({ ready = true }) {
+  const tr = useT()
   const {network, chapters, myChapters} = useCommunity()
   const { pathname } = useLocation()
   const [sheet, setSheet] = useState(false)
@@ -181,14 +183,14 @@ export default function PlaceSwitcher({ ready = true }) {
           </motion.span>
           {/* The word, not just the chevron. A bare arrow on a bar this wide
               reads as "open this page", which is the one thing it does not do. */}
-          <span className="shrink-0 text-xs font-semibold text-brand">Switch</span>
+          <span className="shrink-0 text-xs font-semibold text-brand">{tr("Switch")}</span>
           <Icon name="chevronRight" className="h-3.5 w-3.5 shrink-0 rotate-90 text-gray-400" />
         </button>
       </div>
 
       <AnimatePresence>
         {sheet && (
-          <div className="fixed inset-0 z-[60] lg:hidden" role="dialog" aria-modal="true" aria-label="Switch place">
+          <div className="fixed inset-0 z-[60] lg:hidden" role="dialog" aria-modal="true" aria-label={tr("Switch place")}>
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               transition={{ duration: 0.18 }}
@@ -237,7 +239,7 @@ export default function PlaceSwitcher({ ready = true }) {
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-2">
                 <p className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-widest text-smoke">
-                  The network
+                  {tr("The network")}
                 </p>
                 {/* The rows come in one after another rather than arriving
                     as a block with the sheet. The sheet's own spring is the
@@ -252,13 +254,13 @@ export default function PlaceSwitcher({ ready = true }) {
                     active={onGlobal}
                     flags="🌍"
                     name={network?.name || 'Worldwide'}
-                    hint="Everyone, everywhere. Your people layer."
+                    hint={tr("Everyone, everywhere. Your people layer.")}
                   />
                 </SheetRow>
 
                 {mine.length > 0 && (
                   <p className="px-4 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-widest text-smoke">
-                    Your markets
+                    {tr("Your markets")}
                   </p>
                 )}
                 {mine.map((c, i) => (

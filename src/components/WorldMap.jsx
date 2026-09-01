@@ -6,6 +6,7 @@ import { useIsDark } from '../lib/theme'
 import { sameCountry } from '../lib/countryFacts'
 import CountryPanel from './CountryPanel'
 import { lockScroll } from '../lib/scrollLock'
+import { useT } from '../lib/i18n'
 
 // Interactive world map for "countries visited".
 //  * Free & open source: react-simple-maps + the world-atlas TopoJSON from
@@ -42,6 +43,7 @@ const EMPTY_GEO = { type: 'FeatureCollection', features: [] }
 const clampZoom = (z) => Math.min(8, Math.max(1, z))
 
 function WorldMap({ selected = [], onToggle, selectable = false, chips = false, focusCountry = null, fitSelected = false, owner = null, here = null }) {
+  const tr = useT()
   const dark = useIsDark()
   const [country, setCountry] = useState(null)
   // Unvisited land + the hairline between countries darken in dark mode so the
@@ -245,11 +247,11 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
             most people actually look at - had no way to zoom in on a continent
             at all. Ethan: "creator maps on profiles need zoom buttons." */}
         <div className="absolute right-2 top-2 z-10 flex flex-col gap-1">
-          <button type="button" onClick={() => zoomBy(1.6)} aria-label="Zoom in"
+          <button type="button" onClick={() => zoomBy(1.6)} aria-label={tr("Zoom in")}
             className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg font-semibold text-ink shadow-card transition-transform hover:scale-105 active:scale-95">+</button>
-          <button type="button" onClick={() => zoomBy(1 / 1.6)} aria-label="Zoom out"
+          <button type="button" onClick={() => zoomBy(1 / 1.6)} aria-label={tr("Zoom out")}
             className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg font-semibold text-ink shadow-card transition-transform hover:scale-105 active:scale-95">−</button>
-          <button type="button" onClick={resetView} aria-label="Reset map view"
+          <button type="button" onClick={resetView} aria-label={tr("Reset map view")}
             className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-smoke shadow-card transition-transform hover:scale-105 active:scale-95">
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.7 3M3 4v4h4"/></svg>
         </button>
@@ -286,7 +288,7 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
           // overflow instead, which is what makes the map actually bigger - and
           // it is why the camera no longer has to be moved to fake it.
           preserveAspectRatio={full ? 'xMidYMid slice' : 'xMidYMid meet'}
-          aria-label="World map of countries visited"
+          aria-label={tr("World map of countries visited")}
         >
           <ZoomableGroup
             zoom={view.zoom}
@@ -411,7 +413,7 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
 
         {selectable && (
           <p className="absolute bottom-2 left-3 rounded-full bg-white/85 px-3 py-1 text-[11px] text-smoke backdrop-blur-sm">
-            Search above, or tap the map · use + / − to zoom
+            {tr("Search above, or tap the map · use + / − to zoom")}
           </p>
         )}
 
@@ -441,9 +443,9 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search a country to add it…"
+              placeholder={tr("Search a country to add it…")}
               className="input"
-              aria-label="Search for a country to add"
+              aria-label={tr("Search for a country to add")}
               autoComplete="off"
             />
             {matches.length > 0 && (

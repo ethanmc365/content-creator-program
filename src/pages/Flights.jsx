@@ -2080,7 +2080,7 @@ export default function Flights() {
                     onClick={() => { setCustomPlane(false); setForm((f) => ({ ...f, aircraft: '' })) }}
                     className="btn-ghost shrink-0 !px-3 !py-2 text-xs"
                   >
-                    Back to the list
+                    {tr("Back to the list")}
                   </button>
                 </div>
               ) : (
@@ -2457,7 +2457,7 @@ export default function Flights() {
                 disabled={!offer.note.trim()}
                 className="btn-primary w-full justify-center disabled:opacity-40 sm:w-auto"
               >
-                Post to the collab board
+                {tr("Post to the collab board")}
               </button>
             </div>
           </div>

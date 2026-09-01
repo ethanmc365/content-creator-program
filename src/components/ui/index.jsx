@@ -8,6 +8,7 @@ import { lockScroll } from '../../lib/scrollLock'
 import { useBootLoaderSlot } from '../../lib/bootLoader'
 import Icon from '../Icon'
 import Flame from '../games/Flame'
+import { useT } from '../../lib/i18n'
 
 /** Circular profile photo with an initials fallback. */
 export function Avatar({ src, name = '', size = 'md', className = '' }) {
@@ -50,8 +51,9 @@ export function Badge({ tone = 'grey', children, className = '', ...rest }) {
 
 /** Spinner for in-flight actions (buttons etc.). */
 export function Spinner({ className = 'h-5 w-5' }) {
+  const tr = useT()
   return (
-    <svg className={cx('animate-spin text-current', className)} viewBox="0 0 24 24" fill="none" aria-label="Loading">
+    <svg className={cx('animate-spin text-current', className)} viewBox="0 0 24 24" fill="none" aria-label={tr("Loading")}>
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
     </svg>
@@ -312,6 +314,7 @@ export function StatCard({ label, value, hint, accent = false, onClick }) {
  * have been sent to, which is exactly the complaint about the intro prompt.
  */
 export function Modal({ open, onClose, title, children, wide = false, sheet = true }) {
+  const tr = useT()
   useEffect(() => {
     if (!open) return
     const onKey = (e) => e.key === 'Escape' && onClose()
@@ -342,7 +345,7 @@ export function Modal({ open, onClose, title, children, wide = false, sheet = tr
       className={cx('fixed inset-0 z-50 flex justify-center', sheet ? 'items-end sm:items-center' : 'items-center p-4')}
       role="dialog" aria-modal="true" aria-label={title}
     >
-      <button aria-label="Close" className="absolute inset-0 bg-ink/40" onClick={onClose} />
+      <button aria-label={tr("Close")} className="absolute inset-0 bg-ink/40" onClick={onClose} />
       {/* On mobile the sheet variant runs to the edge of the screen, where the
           tab bar sits over it - so the last control inside gets the tab bar's
           height (plus the home-indicator safe area) as padding, or a tall
@@ -361,7 +364,7 @@ export function Modal({ open, onClose, title, children, wide = false, sheet = tr
       )}>
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-xl font-semibold">{title}</h2>
-          <button onClick={onClose} className="rounded-full p-2 text-smoke hover:bg-cloud hover:text-ink" aria-label="Close dialog">
+          <button onClick={onClose} className="rounded-full p-2 text-smoke hover:bg-cloud hover:text-ink" aria-label={tr("Close dialog")}>
             <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" /></svg>
           </button>
         </div>
@@ -529,6 +532,7 @@ export function Select({
   // this codebase already reached once for the same reason.
   inFlow = false,
 }) {
+  const tr = useT()
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(() => options.findIndex((o) => o.value === value))
   const [up, setUp] = useState(false)
@@ -665,8 +669,8 @@ export function Select({
                 ref={searchRef}
                 type="text"
                 value={query}
-                placeholder="Search"
-                aria-label="Search options"
+                placeholder={tr("Search")}
+                aria-label={tr("Search options")}
                 onChange={(e) => { setQuery(e.target.value); setActive(0) }}
                 onKeyDown={onKeyDown}
                 /* NO FOCUS RING ON THIS ONE, AND `focus:outline-none` WAS NOT

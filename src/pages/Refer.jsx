@@ -78,8 +78,7 @@ export default function Refer() {
       <section className="mb-8 overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-7 text-white shadow-lift sm:p-8">
         <p className="text-xl font-bold sm:text-2xl">{tr("Refer 3 creators, earn a €20 Tryp.com voucher")}</p>
         <p className="mt-2 max-w-2xl text-sm text-white/85">
-          When 3 creators you refer join and take part in a challenge, you earn a €20 Tryp.com voucher.
-          All referrals are verified by the Tryp.com team to make sure they're genuine, active creators.
+          {tr("When 3 creators you refer join and take part in a challenge, you earn a €20 Tryp.com voucher. All referrals are verified by the Tryp.com team to make sure they're genuine, active creators.")}
         </p>
         <div className="mt-5 max-w-sm">
           <div className="mb-1.5 flex justify-between text-xs font-medium text-white/90">

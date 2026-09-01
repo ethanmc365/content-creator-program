@@ -9,6 +9,7 @@ import LocalTime from './LocalTime'
 import { pickWhoToMeet } from '../lib/whoToMeet'
 import { openConversation } from '../lib/dm'
 import { cx } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 // WHO TO MEET THIS WEEK.
 //
@@ -30,6 +31,7 @@ import { cx } from '../lib/utils'
 // the feature announcing that it does not know anything about you.
 
 export default function WhoToMeet({ className }) {
+  const tr = useT()
   const { user, profile } = useAuth()
   const navigate = useNavigate()
   // Which suggestion's Message button is mid-round-trip, so one spinner does not
@@ -119,14 +121,14 @@ export default function WhoToMeet({ className }) {
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
         <div>
           <h2 className="flex items-center gap-2 text-lg font-semibold">
-            <Icon name="users" className="h-5 w-5 shrink-0 text-brand" /> Who to meet this week
+            <Icon name="users" className="h-5 w-5 shrink-0 text-brand" /> {tr("Who to meet this week")}
           </h2>
           {/* Not "three creators picked for you" - you can see how many there
               are, and counting them out is the kind of line a page says when it
               has nothing else to say. */}
         </div>
         <Link to="/creators" className="shrink-0 text-sm font-medium text-brand transition-transform duration-200 hover:scale-105">
-          Everyone →
+          {tr("Everyone →")}
         </Link>
       </div>
 

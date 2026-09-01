@@ -7,6 +7,7 @@ import StreakLeaderboard from './StreakLeaderboard'
 import { playFireWhoosh } from '../../lib/gameSounds'
 import { cx } from '../../lib/utils'
 import Flame from './Flame'
+import { useT } from '../../lib/i18n'
 
 // YOUR RUN, YOUR RECORD, AND WHAT IS PROTECTING IT.
 //
@@ -190,6 +191,7 @@ function WeekDots({ days = [], frozen = [], today, week }) {
 let lastFlareAt = -Infinity
 
 export default function StreakCard({ className, days = [], today = null, myId = null }) {
+  const tr = useT()
   const [s, setS] = useState(null)
   const [boardOpen, setBoardOpen] = useState(false)
 
@@ -250,11 +252,11 @@ export default function StreakCard({ className, days = [], today = null, myId = 
       <button
         type="button"
         onClick={() => setBoardOpen(true)}
-        aria-label="See everyone's streaks"
+        aria-label={tr("See everyone's streaks")}
         className="absolute inset-0 z-0"
       />
       <span className="pointer-events-none absolute right-4 top-4 z-10 hidden items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white/90 sm:inline-flex">
-        Everyone&rsquo;s streaks
+        {tr("Everyone&rsquo;s streaks")}
         <Icon name="chevronRight" className="h-3 w-3" />
       </span>
       <div className="pointer-events-none relative z-10 flex flex-wrap items-center gap-x-8 gap-y-5">
@@ -284,7 +286,7 @@ export default function StreakCard({ className, days = [], today = null, myId = 
             )}
             {today != null && current === 0 && (
               <p className="mt-1.5 text-[11px] font-medium text-white/85">
-                Play any one of today&rsquo;s three puzzles to start one.
+                {tr("Play any one of today&rsquo;s three puzzles to start one.")}
               </p>
             )}
           </div>
@@ -293,7 +295,7 @@ export default function StreakCard({ className, days = [], today = null, myId = 
         {today != null && (
           <div>
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/75">
-              This week
+              {tr("This week")}
             </p>
             <WeekDots days={days} frozen={s.frozen_days || []} today={today} week={week} />
           </div>
@@ -301,7 +303,7 @@ export default function StreakCard({ className, days = [], today = null, myId = 
 
         <div>
           <p className="text-2xl font-bold leading-none tabular-nums">{best}</p>
-          <p className="mt-1 text-[11px] font-semibold uppercase tracking-widest text-white/75">Best ever</p>
+          <p className="mt-1 text-[11px] font-semibold uppercase tracking-widest text-white/75">{tr("Best ever")}</p>
         </div>
 
         <div className="min-w-0">
