@@ -14,6 +14,8 @@
 // Mounted only under `import.meta.env.DEV`, so it never reaches production.
 import { useEffect, useState } from 'react'
 import MilestonePath from '../../components/network/MilestonePath'
+import LiveChallengeCard from '../../components/LiveChallengeCard'
+import LiveNowRow from '../../components/network/LiveNowRow'
 import ChatBench from './ChatBench'
 import Icon from '../../components/Icon'
 
@@ -61,6 +63,46 @@ const STANDINGS = [
   { id: 'p3', name: 'Jo Blake', photo_url: null, reached: 0 },
   { id: 'p4', name: 'Nils Berg', photo_url: null, reached: 0 },
   { id: 'p5', name: 'Rae Okafor', photo_url: null, reached: 2 },
+]
+
+// THE LIVE CHALLENGE CARD, AGAINST A CHALLENGE THAT DOES NOT EXIST YET.
+//
+// The card's whole job is the state nobody can produce on demand: a brief that
+// is running, with prizes set, and either nobody on the board or one or two
+// people on it. `CHALLENGE_FULL` is the UK's real archived brief with live
+// dates; `CHALLENGE_EMPTY` is the Spanish one, which genuinely has no prize
+// structure and no entrants, and is the case Ethan asked to see ("so it's
+// always showing up, even for the current Spanish challenge, there are no
+// creators, just so I can see how it looks").
+//
+// `end_date` is relative so the countdown is never zero on this bench. The
+// clock is read once, at module load, which is fine here and would not be in
+// the app - see the note on LiveNowRow's `now` prop.
+const BENCH_NOW = Date.now()
+const IN_NINE_DAYS = new Date(BENCH_NOW + 9.6 * 86400000).toISOString()
+const CHALLENGE_FULL = {
+  id: 'bench-full',
+  title: 'Test: two groups, one brief',
+  description: 'A rehearsal challenge for the grouped leaderboard build. Safe to delete.',
+  start_date: '2026-08-31T00:00:00.000Z',
+  end_date: IN_NINE_DAYS,
+  prize_structure: [
+    { place: '1st', prize: '£105 cash' },
+    { place: '2nd', prize: '£55 cash' },
+    { place: '3rd', prize: '£30 Tryp.com voucher' },
+  ],
+}
+const CHALLENGE_EMPTY = {
+  id: 'bench-empty',
+  title: 'Descubre España con Tryp.com',
+  description: 'Ensena tu rincon favorito de Espana y por que hay que visitarlo.',
+  start_date: '2026-08-07T00:00:00.000Z',
+  end_date: IN_NINE_DAYS,
+  prize_structure: [],
+}
+const BENCH_LEADERS = [
+  { creator_id: 'l1', name: 'Olive Hart', photo_url: null, views: 9400 },
+  { creator_id: 'l2', name: 'Jessie Lane', photo_url: null, views: 8300 },
 ]
 
 // Every phone width worth caring about, plus the 22rem admin rail that made the
@@ -197,6 +239,21 @@ export default function Preview() {
             <span style={{ font: '10px ui-monospace', color: '#666' }}>{px}px</span>
           </div>
         ))}
+      </div>
+
+      <h1 style={{ font: '700 18px system-ui', marginBottom: 8 }}>Live challenge card</h1>
+      <p style={{ font: '12px ui-monospace', color: '#666', margin: '0 0 12px' }}>
+        The leaderboard column is `lg:` - resize the WINDOW, not this box, to see the two layouts.
+      </p>
+      <div style={{ display: 'grid', gap: 28, marginBottom: 40 }}>
+        <LiveChallengeCard challenge={CHALLENGE_FULL} entries={4} leaders={BENCH_LEADERS} />
+        <LiveChallengeCard challenge={CHALLENGE_EMPTY} entries={0} leaders={[]} />
+        <LiveChallengeCard challenge={CHALLENGE_FULL} global entries={12} leaders={BENCH_LEADERS} />
+        <div style={{ maxWidth: 340 }}>
+          {/* `now` from a module constant, not `Date.now()` in the render: the
+              purity lint catches the second one, and it is right to. */}
+          <LiveNowRow challenge={CHALLENGE_FULL} market={{ name: 'Spain', country_codes: ['ES'] }} now={BENCH_NOW} />
+        </div>
       </div>
 
       <h1 style={{ font: '700 18px system-ui', marginBottom: 8 }}>Chat message bench</h1>

@@ -16,6 +16,7 @@ import { EntryFeedbackNote, EntryFeedbackEditor, loadFeedback } from '../compone
 import { Avatar, Badge, Modal, PageHeader, Skeleton, EmptyState, Spinner } from '../components/ui'
 import { formatDate, formatDateTimeTz, timeAgo, formatViews, formatMoney, detectPlatform, cx, challengeDeadline } from '../lib/utils'
 import { groupByCreator, boardsFor, prizeForGroup } from '../lib/challengeGroups'
+import { mdToHtml } from '../lib/richEditor'
 
 
 // The submit form does its own validation so problems are shown in the branded
@@ -553,14 +554,34 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
       {tab === 'brief' && (
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
           <div className="space-y-8 lg:col-span-2">
+            {/* THE BRIEF IS RENDERED, NOT PRINTED.
+                It was `whitespace-pre-line` over the raw column, which is what
+                a brief looked like before there was an editor - and the admin
+                form has had a full WYSIWYG for months. So every heading a
+                writer set arrived here as a line beginning with hashes, every
+                bold run as asterisks, and every bullet as a hyphen. The one
+                thing the toolbar promises is that the brief looks the way it
+                looked while you were writing it.
+                `mdToHtml` is the same function the editor seeds itself with -
+                so this is literally the editor's own output - and it escapes
+                its input before it builds any tag (see the note in
+                lib/richEditor; the attacker there is a creator and the victim
+                is the team). `rt-editor` is the stylesheet those tags are
+                already written for. */}
             <section className="card">
               <h2 className="mb-3 text-lg font-semibold">The brief</h2>
-              <p className="whitespace-pre-line leading-relaxed text-smoke">{challenge.description}</p>
+              <div
+                className="rt-editor leading-relaxed text-smoke"
+                dangerouslySetInnerHTML={{ __html: mdToHtml(challenge.description || '') }}
+              />
             </section>
             {challenge.rules && (
               <section className="card">
                 <h2 className="mb-3 text-lg font-semibold">Rules</h2>
-                <p className="whitespace-pre-line leading-relaxed text-smoke">{challenge.rules}</p>
+                <div
+                  className="rt-editor leading-relaxed text-smoke"
+                  dangerouslySetInnerHTML={{ __html: mdToHtml(challenge.rules) }}
+                />
               </section>
             )}
             {/* How it is decided, which until now was stored on the row and

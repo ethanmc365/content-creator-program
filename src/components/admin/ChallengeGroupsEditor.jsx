@@ -44,6 +44,19 @@ const BLANK_GROUP = () => ({
 /** Group A, Group B, ... - the names Spain already uses out loud. */
 const suggestName = (i) => `Group ${String.fromCharCode(65 + i)}`
 
+const SYMBOL = { GBP: '£', EUR: '€', USD: '$', RON: 'lei ', SEK: 'kr ', NOK: 'kr ', DKK: 'kr ' }
+
+// DOES THIS GROUP PLAY FOR ITS OWN PRIZE?
+//
+// Derived rather than stored, because it already was: a group whose pot or
+// winner count is filled in has its own prize, and one with both blank plays
+// for the challenge's. `prize_own` only carries the answer for the moment
+// between pressing "its own prize" and typing a number into it - without it the
+// two boxes would vanish again on the next render, which is the sort of control
+// that looks broken. It is never saved; `prizeForGroup` reads the amounts.
+const ownPrize = (g) =>
+  g.prize_own ?? !!(String(g.prize_amount ?? '').trim() || String(g.winners_count ?? '').trim())
+
 // `audience` is who can be ADDED (the market's roster). `people` is everybody
 // the editor might have to DRAW, which is the roster plus anybody already in a
 // group who has since left it - see the note on `strangers` in the form. They
@@ -62,8 +75,22 @@ export default function ChallengeGroupsEditor({ groups, onChange, audience = [],
   const setGroup = (i, patch) =>
     onChange(groups.map((g, j) => (j === i ? { ...g, ...patch } : g)))
 
+  const makeGroup = (i) => ({ ...BLANK_GROUP(), name: suggestName(i), prize_currency: currency })
+
   function addGroup() {
-    onChange([...groups, { ...BLANK_GROUP(), name: suggestName(groups.length), prize_currency: currency }])
+    onChange([...groups, makeGroup(groups.length)])
+  }
+
+  // SPLITTING MAKES TWO, NOT ONE.
+  //
+  // Ethan: "if someone clicks 'split into groups', for some reason it just
+  // shows up Group A. It should obviously already show Group B, because there's
+  // going to be at least two groups, and then the ability to add more."
+  // He is right that one group is not a split - it is the same single
+  // leaderboard with a name on it, and every admin who pressed the button then
+  // had to press a second one to get to the state they had asked for.
+  function startGroups() {
+    onChange([makeGroup(0), makeGroup(1)])
   }
 
   function removeGroup(i) {
@@ -95,24 +122,63 @@ export default function ChallengeGroupsEditor({ groups, onChange, audience = [],
     })))
   }
 
-  if (groups.length === 0) {
-    return (
-      <div className="rounded-card border border-dashed border-gray-200 p-6 text-center">
-        <p className="text-sm font-semibold text-ink">One leaderboard</p>
-        <p className="mx-auto mt-1 max-w-md text-sm text-smoke">
-          Everybody who enters competes against everybody else. Add groups to run
-          two or more separate leaderboards inside this one brief, each with its
-          own prize.
-        </p>
-        <button type="button" onClick={addGroup} className="btn-secondary mt-4 !py-2.5 text-sm">
-          <Icon name="plus" className="h-4 w-4" /> Split into groups
+  // TWO ANSWERS, DRAWN AS TWO ANSWERS.
+  //
+  // Ethan: "most of the time we'll be selecting one leaderboard, so have that as
+  // the obvious button, like a big button, or just make it clear - because
+  // currently I don't like the design."
+  //
+  // It was a dashed empty-state panel that described the current setting in
+  // grey and offered one button to change it. That is a state, not a choice:
+  // "one leaderboard" never looked like something you had picked, so the only
+  // thing on the panel that looked pressable was the option nobody usually
+  // wants. Now it is the same two-card chooser as "How it is won" directly
+  // above it, with the common answer picked and orange - so the section reads
+  // as answered rather than as unfinished.
+  const CHOICES = [
+    {
+      on: groups.length === 0,
+      icon: 'trophy',
+      title: 'One leaderboard',
+      blurb: 'Everybody who enters races everybody else, for the prizes below.',
+      act: () => onChange([]),
+    },
+    {
+      on: groups.length > 0,
+      icon: 'users',
+      title: 'Split into groups',
+      blurb: 'Two or more separate races inside this one brief, each with its own prize.',
+      act: startGroups,
+    },
+  ]
+  const chooser = (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {CHOICES.map((c) => (
+        <button
+          key={c.title}
+          type="button"
+          onClick={() => { if (!c.on) c.act() }}
+          aria-pressed={c.on}
+          className={cx(
+            'flex flex-col rounded-xl border p-4 text-left transition-all duration-200 hover:-translate-y-0.5',
+            c.on ? 'border-brand bg-brand text-white shadow-card' : 'border-gray-200 bg-white hover:border-brand/40',
+          )}
+        >
+          <span className="flex items-center gap-2">
+            <Icon name={c.icon} className={cx('h-5 w-5 shrink-0', c.on ? 'text-white' : 'text-smoke')} />
+            <span className="text-sm font-semibold">{c.title}</span>
+          </span>
+          <span className={cx('mt-2 text-xs leading-relaxed', c.on ? 'text-white/80' : 'text-smoke')}>{c.blurb}</span>
         </button>
-      </div>
-    )
-  }
+      ))}
+    </div>
+  )
+
+  if (groups.length === 0) return chooser
 
   return (
     <div className="space-y-4">
+      {chooser}
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" onClick={addGroup} className="btn-secondary !py-2 text-xs">
           <Icon name="plus" className="h-3.5 w-3.5" /> Add a group
@@ -144,28 +210,6 @@ export default function ChallengeGroupsEditor({ groups, onChange, audience = [],
                 placeholder={suggestName(i)}
               />
             </div>
-            <div className="w-28">
-              <label htmlFor={`grp-pot-${i}`} className="label">Prize pot</label>
-              <input
-                id={`grp-pot-${i}`}
-                className="input"
-                inputMode="decimal"
-                value={g.prize_amount}
-                onChange={(e) => setGroup(i, { prize_amount: e.target.value })}
-                placeholder="Same"
-              />
-            </div>
-            <div className="w-24">
-              <label htmlFor={`grp-win-${i}`} className="label">Winners</label>
-              <input
-                id={`grp-win-${i}`}
-                className="input"
-                inputMode="numeric"
-                value={g.winners_count}
-                onChange={(e) => setGroup(i, { winners_count: e.target.value })}
-                placeholder="Same"
-              />
-            </div>
             <button
               type="button"
               onClick={() => removeGroup(i)}
@@ -175,12 +219,76 @@ export default function ChallengeGroupsEditor({ groups, onChange, audience = [],
               <Icon name="trash" className="h-4 w-4" />
             </button>
           </div>
-          {/* "Same" is not a placeholder being coy - it is the actual rule, and
-              stating it under the two boxes stops an admin typing the same
-              prize into every group to be safe. */}
-          <p className="mt-1.5 text-[11px] text-smoke">
-            Leave the prize blank and this group plays for whatever the challenge itself is offering.
-          </p>
+
+          {/* THE PRIZE IS A CHOICE BEFORE IT IS TWO BOXES.
+              Ethan: "it's the same and same... what do you mean, type in? I
+              can't type in a prize here. It really makes no sense, so that UI
+              needs to be improved. I might want to set a prize pot or the
+              winners for each one, so just give me that option, or an easy
+              button to click."
+              He is describing two identical-looking boxes both placeholdered
+              "Same" - which is the RULE (blank means the challenge's own prize)
+              printed where a value goes, so the fields looked pre-filled with a
+              word you could not edit, on every group, twice. The rule is a
+              question now, asked once per group, and the boxes only exist once
+              the answer is "its own". Choosing "same as the challenge" clears
+              them, so a group cannot carry a prize it is no longer using. */}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {[
+              { own: false, label: `Same prize as the challenge` },
+              { own: true, label: 'Its own prize' },
+            ].map((o) => {
+              const on = ownPrize(g) === o.own
+              return (
+                <button
+                  key={String(o.own)}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => setGroup(i, o.own
+                    ? { prize_amount: g.prize_amount || '', winners_count: g.winners_count || '', prize_own: true }
+                    : { prize_amount: '', winners_count: '', prize_own: false })}
+                  className={cx(
+                    'rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 hover:-translate-y-0.5',
+                    on ? 'border-brand bg-brand text-white shadow-card' : 'border-gray-200 bg-white text-smoke hover:border-brand hover:text-brand',
+                  )}
+                >
+                  {o.label}
+                </button>
+              )
+            })}
+          </div>
+
+          {ownPrize(g) && (
+            <div className="mt-3 flex flex-wrap items-end gap-3">
+              <div className="w-36">
+                <label htmlFor={`grp-pot-${i}`} className="label">Prize pot</label>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-medium text-smoke">{SYMBOL[g.prize_currency || currency] || ''}</span>
+                  <input
+                    id={`grp-pot-${i}`}
+                    className="input"
+                    inputMode="decimal"
+                    value={g.prize_amount}
+                    onInput={(e) => { e.target.value = e.target.value.replace(/[^0-9.]/g, '') }}
+                    onChange={(e) => setGroup(i, { prize_amount: e.target.value })}
+                    placeholder="150"
+                  />
+                </div>
+              </div>
+              <div className="w-28">
+                <label htmlFor={`grp-win-${i}`} className="label">Winners</label>
+                <input
+                  id={`grp-win-${i}`}
+                  className="input"
+                  inputMode="numeric"
+                  value={g.winners_count}
+                  onInput={(e) => { e.target.value = e.target.value.replace(/[^0-9]/g, '') }}
+                  onChange={(e) => setGroup(i, { winners_count: e.target.value })}
+                  placeholder="3"
+                />
+              </div>
+            </div>
+          )}
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {g.members.map((id) => {
@@ -207,12 +315,46 @@ export default function ChallengeGroupsEditor({ groups, onChange, audience = [],
         </div>
       ))}
 
+      {/* NOBODY IS LEFT OUT, AND THIS IS NOW A BLOCK RATHER THAN A FOOTNOTE.
+          It read: "anyone not in a group still sees the brief and can still
+          enter... they are not competing for any group's prize." True, and the
+          wrong thing to be relaxed about. Ethan: "remove that and instead make
+          it so that if someone's not added to a group it just doesn't work.
+          Someone always has to be in a group - it doesn't have to be even, but
+          they have to be in a group. Maybe suggest that if someone isn't added,
+          maybe they forgot."
+          So it names them, offers the one-press fix, and the form refuses to
+          save while anybody is here - see `unassignedInGroups` in
+          AdminChallengeForm. The "Not in a group" board on the leaderboard
+          stays, because a challenge saved before this rule existed still has to
+          rank whoever it has. */}
       {unassigned.length > 0 && (
-        <p className="text-xs text-smoke">
-          Anyone not in a group still sees the brief and can still enter. Their entries
-          appear on a separate &ldquo;Not in a group&rdquo; board so nothing is lost, but
-          they are not competing for any group&rsquo;s prize.
-        </p>
+        <div className="rounded-xl border border-red-200 bg-red-50/60 px-4 py-3">
+          <p className="text-sm font-semibold text-red-700">
+            {unassigned.length} {unassigned.length === 1 ? 'creator is' : 'creators are'} not in a group yet
+          </p>
+          <p className="mt-1 text-xs text-red-600/90">
+            Everyone in the market has to be on one of these boards before this can be saved. Easy to forget somebody.
+          </p>
+          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+            {unassigned.slice(0, 8).map((p) => (
+              <span key={p.id} className="flex items-center gap-1.5 rounded-full bg-white py-1 pl-1 pr-2.5 text-xs font-medium">
+                <Avatar src={p.photo_url} name={p.name} size="xs" />
+                <span className="max-w-[9rem] truncate">{p.name || 'Creator'}</span>
+              </span>
+            ))}
+            {unassigned.length > 8 && (
+              <span className="text-xs text-red-600/90">and {unassigned.length - 8} more</span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={splitRandomly}
+            className="btn-secondary mt-3 !py-2 text-xs"
+          >
+            <Icon name="reorder" className="h-3.5 w-3.5" /> Deal everyone out evenly
+          </button>
+        </div>
       )}
 
       <PeoplePicker

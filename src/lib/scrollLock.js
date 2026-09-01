@@ -76,7 +76,26 @@ export function lockScroll() {
     body.style.right = saved.right
     body.style.width = saved.width
     // Only AFTER the styles are back, or the browser has nowhere to scroll to.
-    window.scrollTo(0, saved.y)
+    //
+    // AND `behavior: 'instant'`, WHICH IS THE WHOLE FIX FOR A SECOND BUG.
+    //
+    // THE BUG: "whenever I click on the link button and then add a link, or
+    // click cancel, it makes me have to go and scroll down the page again."
+    // Measured on the challenge form: scrolled to 2180px, open the link dialog,
+    // press cancel, and the page is at 0.
+    //
+    // `html { scroll-behavior: smooth }` is set globally in index.css, and it
+    // applies to `window.scrollTo(x, y)` as much as to an anchor jump. So this
+    // line was not restoring the offset, it was starting a 2000px ANIMATION
+    // towards it - from a document that had, one line earlier, stopped being
+    // `position: fixed` and was therefore mid-relayout. The animation is
+    // cancelled by the layout, or by the next scroll event, or by focus moving
+    // back into the page, and what is left is a page at the top.
+    //
+    // A restore is not a scroll. It is putting back the number that was already
+    // there, and the reader should never see it happen. The two-argument form
+    // has no way to say that; the options form does.
+    window.scrollTo({ top: saved.y, left: 0, behavior: 'instant' })
     saved = null
   }
 }

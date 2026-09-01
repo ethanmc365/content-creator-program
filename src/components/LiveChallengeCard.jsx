@@ -49,70 +49,94 @@ function Meridians() {
   )
 }
 
-// The top two or three places, as chips. The prize is the reason anybody reads
-// past the title, and it used to be entirely absent from this card: you had to
-// open the brief to find out whether it was worth ten pounds or two hundred.
+// A PLACE IS A NUMBER, EVEN WHEN IT IS STORED AS A WORD.
 //
-// `prize_structure` is a jsonb array of { place, prize } and the prize is
-// already a formatted string ("£105 cash"), because prizes are not always
-// money. Three at most: a five-place structure turns the row into a paragraph.
-function PrizeChips({ prizes }) {
-  const rows = (Array.isArray(prizes) ? prizes : [])
-    .filter((p) => p?.prize)
-    .slice(0, 3)
-  if (rows.length === 0) return null
-  const ordinal = (n) => (n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`)
-  return (
-    <div className="mt-6 flex flex-wrap items-center gap-2">
-      <Icon name="trophy" className="h-4 w-4 shrink-0 text-white/70" />
-      {rows.map((p, i) => (
-        <span
-          key={p.place ?? i}
-          className="inline-flex items-center gap-1.5 rounded-full bg-white/15 py-1 pl-2 pr-3 text-xs font-medium text-white backdrop-blur-[2px]"
-        >
-          <span className="rounded-full bg-white/25 px-1.5 py-0.5 text-[10px] font-bold tabular-nums">
-            {ordinal(p.place ?? i + 1)}
-          </span>
-          {p.prize}
-        </span>
-      ))}
-    </div>
-  )
+// `prize_structure` is a jsonb array of `{ place, prize }` written by the admin
+// form, and `place` comes out as the STRING "1st" on every row in production.
+// The chips this replaces did `ordinal(p.place ?? i + 1)` against an ordinal
+// helper that compares with `===` against 1, 2 and 3 - so a real prize row
+// rendered as "1stth". It never showed because the only challenge with a prize
+// structure is archived, which is exactly how a bug like this waits.
+const placeNumber = (v, fallback) => {
+  const n = typeof v === 'number' ? v : parseInt(String(v ?? ''), 10)
+  return Number.isFinite(n) && n > 0 ? n : fallback
+}
+const ordinal = (n) => (n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`)
+
+/** The prize attached to a place, from the structure, or '' if there is none. */
+function prizeForPlace(prizes, place) {
+  const rows = Array.isArray(prizes) ? prizes : []
+  const hit = rows.find((p, i) => placeNumber(p?.place, i + 1) === place)
+  return hit?.prize || ''
 }
 
-// WHO IS AHEAD, RIGHT NOW.
+// THE LEADERBOARD, AND IT IS ALWAYS THREE PLACES.
 //
-// A live challenge card said what the brief was and when it closed, and nothing
-// at all about how it was going - so the one card on the platform whose whole
-// job is to get somebody to enter had no reason in it. Ethan: "perhaps on the
-// actual card under challenges show something about the prizes, or a top 3
-// leaderboard, as we have automatic view tracking this could work, I just think
-// it needs a better design to encourage people to participate."
+// This was two things in two places: a row of prize chips under the title, and
+// a "Leading right now" panel that only appeared once somebody had entered. So
+// the card that exists to get people to enter said nothing about the prizes
+// until you opened the brief, and nothing at all about the race until it was
+// already a race you were losing.
 //
-// View counts are read off every entry's link automatically, so this costs one
-// query and is never stale by more than a sync. It is deliberately SMALL: three
-// rows, first names, no ranks beyond the position itself. A leaderboard that
-// dominates the card would tell the ninety percent not in the top three that
-// they have already lost, which is the opposite of the point - what it is for
-// is showing that entering is a thing people are doing.
+// Ethan: "it should just say leaderboard, not leading right now, and it should
+// show the top three. And even if there is no one entered it, it should still
+// show first, second, third, and the prize associated with it... show the
+// creator, the profile photo and the views. If no one has got the place, then
+// it can just show that it's free, and that might encourage people even more."
 //
-// Desktop only. The phone's card was cut to a title, a clock and a button on
-// purpose, and this would put most of it back.
-function Leaders({ leaders }) {
-  if (!leaders?.length) return null
-  const place = ['1st', '2nd', '3rd']
+// So it is ONE block with THREE rows, always. A taken place shows the face, the
+// first name and the views; an empty one shows a dashed ring and says the place
+// is unclaimed. Either way the row carries the prize, which is the fact that
+// makes the whole card worth reading - and which is why the separate chips are
+// gone rather than kept: printing the prizes twice is how a card gets bigger,
+// and this one was explicitly not to.
+//
+// IT SITS TOP RIGHT. There was a column of empty gradient there the width of
+// the card's own bloom; the leaderboard was underneath the description, pushing
+// the countdown down. Ethan drew a box in that space.
+//
+// Desktop only, as before. The phone's card was cut to a title, a clock and a
+// button on purpose and this would put most of it back.
+function Leaderboard({ leaders, prizes, className }) {
+  const rows = [1, 2, 3].map((place, i) => ({
+    place,
+    leader: leaders?.[i] || null,
+    prize: prizeForPlace(prizes, place),
+  }))
   return (
-    <div className="mt-6 hidden rounded-2xl bg-white/12 p-4 backdrop-blur-[2px] lg:block">
-      <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-widest text-white/75">
-        Leading right now
+    <div className={cx('rounded-2xl bg-white/[0.14] p-4 ring-1 ring-inset ring-white/15 backdrop-blur-[2px]', className)}>
+      <p className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-white/75">
+        <Icon name="trophy" className="h-3.5 w-3.5" />
+        Leaderboard
       </p>
-      <div className="space-y-1.5">
-        {leaders.slice(0, 3).map((l, i) => (
-          <div key={l.creator_id} className="flex items-center gap-2.5">
-            <span className="w-7 shrink-0 text-[11px] font-bold tabular-nums text-white/70">{place[i]}</span>
-            <Avatar src={l.photo_url} name={l.name} size="xs" />
-            <span className="min-w-0 flex-1 truncate text-sm font-medium">{l.name?.split(' ')[0]}</span>
-            <span className="shrink-0 text-sm font-bold tabular-nums">{formatViews(l.views)}</span>
+      <div className="space-y-2.5">
+        {rows.map(({ place, leader, prize }) => (
+          <div key={place} className="flex items-center gap-2.5">
+            <span className="w-6 shrink-0 text-[11px] font-bold tabular-nums text-white/70">{ordinal(place)}</span>
+            {leader ? (
+              <Avatar src={leader.photo_url} name={leader.name} size="xs" />
+            ) : (
+              // A DASHED RING, NOT A GREY DISC. An empty place has to read as
+              // "nobody has taken this" and not as "somebody whose photo failed
+              // to load", and an outline says vacant in a way a fill cannot.
+              <span
+                aria-hidden
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-dashed border-white/45 text-white/50"
+              >
+                <Icon name="user" className="h-3.5 w-3.5" />
+              </span>
+            )}
+            <span className="min-w-0 flex-1">
+              <span className={cx('block truncate text-sm', leader ? 'font-medium' : 'font-medium text-white/60')}>
+                {leader ? leader.name?.split(' ')[0] : 'Up for grabs'}
+              </span>
+              {prize && (
+                <span className="block truncate text-[11px] text-white/65">{prize}</span>
+              )}
+            </span>
+            {leader && (
+              <span className="shrink-0 text-sm font-bold tabular-nums">{formatViews(leader.views)}</span>
+            )}
           </div>
         ))}
       </div>
@@ -141,15 +165,35 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
       >
         {/* Soft light bloom for depth, matching the home hero. */}
         <div className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-white/10 blur-2xl" />
-        <div className="pointer-events-none absolute -bottom-24 -left-10 h-72 w-72 rounded-full bg-black/10 blur-2xl" />
+        {/* THE DARK BLOOM IS DESKTOP-ONLY NOW, AND IT IS WHY THE PHONE'S CARD
+            HAD A GREY BOX IN THE CORNER. Ethan: "on the challenges page on
+            mobile there's like a square grey outline, especially in the bottom
+            left corner of the challenge card."
+            It is a 288px black-10% circle behind a 40px blur, and the card is
+            `overflow-hidden` - so on a 375px screen most of the bottom-left
+            quadrant is covered by it and the clip turns its soft edge into the
+            card's own straight edges. At desktop widths the same circle is a
+            small weight in the corner of a much larger card, which is what it
+            was drawn to be. */}
+        <div className="pointer-events-none absolute -bottom-24 -left-10 hidden h-72 w-72 rounded-full bg-black/10 blur-2xl sm:block" />
         {isGlobal && <Meridians />}
         {/* One slow pass of light across the card when it arrives. It reads as
             the card being lit rather than as a thing that moves, which is the
             only kind of decoration a page you open weekly can carry. */}
         <div aria-hidden className="challenge-sheen pointer-events-none absolute inset-0" />
 
-        <div className="relative">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        {/* TWO COLUMNS FROM `lg`, ONE STACK BELOW IT.
+            The leaderboard goes in the top right and the buttons sit under it,
+            which is the shape of the card Ethan drew a box on: the words and
+            the clock down the left, who is winning and how to join down the
+            right. A grid rather than nested flexes because the two rows have to
+            line up ACROSS the columns - the countdown and the buttons share a
+            baseline at the foot of the card, and no amount of `items-end` on
+            two separate columns will keep them there when one of them grows.
+            On a phone none of it applies: the parts fall back into the source
+            order, which is the order the phone's card already had. */}
+        <div className="relative lg:grid lg:grid-cols-[minmax(0,1fr)_19rem] lg:gap-x-8">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 lg:col-start-1 lg:row-start-1">
             <span className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider">
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/80" />
@@ -172,7 +216,7 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
               underline reads as "this is a link in a paragraph"; a heading that
               swells reads as "this whole thing is the target", which is what it
               actually is. origin-left keeps it anchored to the text's start. */}
-          <Link to={`/challenges/${c.id}`} className="group block">
+          <Link to={`/challenges/${c.id}`} className="group block lg:col-start-1 lg:row-start-2">
             <h2
               className={cx(
                 'mt-3 inline-block origin-left font-bold leading-[1.15] tracking-[-0.02em] transition-transform duration-200 ease-out sm:mt-4 group-hover:scale-[1.03]',
@@ -193,34 +237,35 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
             <p className="mt-2 hidden max-w-2xl leading-relaxed text-white/85 line-clamp-2 sm:block">{c.description}</p>
           </Link>
 
-          <PrizeChips prizes={c.prize_structure} />
+          <Leaderboard
+            leaders={leaders}
+            prizes={c.prize_structure}
+            className="hidden lg:col-start-2 lg:row-start-1 lg:row-end-3 lg:block lg:self-start"
+          />
 
-          <Leaders leaders={leaders} />
+          <div className="mt-5 sm:mt-8 lg:col-start-1 lg:row-start-3 lg:mt-7 lg:self-end">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/75 sm:mb-3 sm:text-xs">Closes in</p>
+            {/* The hero clock is four big tiles. On a phone that is most of
+                what is left of the card, so it gets the compact row instead
+                and the card gets its height back. */}
+            <span className="hidden sm:block"><CountdownTimer endDate={c.end_date} hero /></span>
+            <span className="block sm:hidden"><CountdownTimer endDate={c.end_date} compact onDark /></span>
+          </div>
 
-          <div className="mt-5 flex flex-col gap-5 sm:mt-8 sm:gap-7 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/75 sm:mb-3 sm:text-xs">Closes in</p>
-              {/* The hero clock is four big tiles. On a phone that is most of
-                  what is left of the card, so it gets the compact row instead
-                  and the card gets its height back. */}
-              <span className="hidden sm:block"><CountdownTimer endDate={c.end_date} hero /></span>
-              <span className="block sm:hidden"><CountdownTimer endDate={c.end_date} compact onDark /></span>
+          <div className="mt-5 flex flex-col gap-2.5 sm:mt-7 lg:col-start-2 lg:row-start-3 lg:mt-7 lg:items-end lg:self-end">
+            {/* ONE BUTTON ON A PHONE, and it is the one you came for. "Read
+                the brief" is what the rest of the card already does. */}
+            <div className="flex flex-wrap gap-3 lg:justify-end">
+              <Link to={`/challenges/${c.id}`} className="btn hidden border border-white/40 text-white hover:bg-white/10 sm:inline-flex">
+                Read the brief →
+              </Link>
+              <Link to={`/challenges/${c.id}?submit=1`} className="btn w-full justify-center bg-white !text-brand hover:bg-white/90 sm:w-auto">
+                Submit your video
+              </Link>
             </div>
-            <div className="flex flex-col gap-2.5 lg:items-end">
-              {/* ONE BUTTON ON A PHONE, and it is the one you came for. "Read
-                  the brief" is what the rest of the card already does. */}
-              <div className="flex flex-wrap gap-3">
-                <Link to={`/challenges/${c.id}`} className="btn hidden border border-white/40 text-white hover:bg-white/10 sm:inline-flex">
-                  Read the brief →
-                </Link>
-                <Link to={`/challenges/${c.id}?submit=1`} className="btn w-full justify-center bg-white !text-brand hover:bg-white/90 sm:w-auto">
-                  Submit your video
-                </Link>
-              </div>
-              <p className="text-[13px] text-white/80 sm:text-sm">
-                {entries} {entries === 1 ? 'entry' : 'entries'} so far
-              </p>
-            </div>
+            <p className="text-[13px] text-white/80 sm:text-sm">
+              {entries} {entries === 1 ? 'entry' : 'entries'} so far
+            </p>
           </div>
         </div>
       </div>

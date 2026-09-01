@@ -40,6 +40,18 @@ export default function LiveNowRow({ challenge, market, global: isGlobal, now })
       className="relative flex items-center gap-3 overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light px-4 py-3.5 text-white shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift active:scale-[0.99]"
     >
       <span aria-hidden className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-white/15 blur-2xl" />
+      {/* THE SAME ONE PASS OF LIGHT THE BIG CARD GETS.
+          Ethan: "the animation you have in this card where it's like a line
+          that goes through it at the start - I really like this animation. I
+          want you to incorporate it for the live challenge card on the
+          worldwide page, for both mobile and desktop."
+          This IS both: one component, drawn in the phone's feed and in the
+          desktop rail, so there is nothing to do twice. `challenge-sheen` is
+          the class the hero card uses - a single 1.5s pass, `both` so it holds
+          its end state, and off entirely under prefers-reduced-motion. It is
+          inside the row's own `overflow-hidden`, so it sweeps the card and
+          nothing else. */}
+      <span aria-hidden className="challenge-sheen pointer-events-none absolute inset-0" />
       {!isGlobal && market?.country_codes?.length > 0 && (
         <span aria-hidden className="relative shrink-0 text-lg leading-none">
           <FlagStack codes={market.country_codes} className="text-lg" />

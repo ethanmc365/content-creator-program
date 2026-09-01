@@ -522,7 +522,19 @@ export function Select({
                 aria-label="Search options"
                 onChange={(e) => { setQuery(e.target.value); setActive(0) }}
                 onKeyDown={onKeyDown}
-                className="w-full border-0 bg-transparent p-0 text-sm placeholder:text-gray-400 focus:outline-none"
+                /* NO FOCUS RING ON THIS ONE, AND `focus:outline-none` WAS NOT
+                   ENOUGH. index.css gives every focused `input` a flush
+                   `ring-1 ring-brand`, which is right for a field that sits on
+                   the page and wrong for this one: it is the menu's own header
+                   row, borderless and transparent, so the ring drew a small
+                   orange rectangle floating inside the popup. Ethan, on the
+                   timezone picker: "it shows up the search bar with a little
+                   weird orange outline around it."
+                   The ring is a box-shadow, so `outline-none` never touched it.
+                   The menu is already the focus indicator - it only exists
+                   because you opened it, and typing goes here wherever the
+                   caret appears to be. */
+                className="w-full border-0 bg-transparent p-0 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-0 focus-visible:ring-0"
               />
             </div>
           )}
