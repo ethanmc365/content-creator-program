@@ -14,7 +14,8 @@ import ScoringPanel from '../components/network/ScoringPanel'
 import ParticipationBar from '../components/network/ParticipationBar'
 import { EntryFeedbackNote, EntryFeedbackEditor, loadFeedback } from '../components/EntryFeedback'
 import { Avatar, Badge, Modal, PageHeader, Skeleton, EmptyState, Spinner } from '../components/ui'
-import { formatDate, timeAgo, formatViews, detectPlatform, cx, challengeDeadline } from '../lib/utils'
+import { formatDate, formatDateTimeTz, timeAgo, formatViews, formatMoney, detectPlatform, cx, challengeDeadline } from '../lib/utils'
+import { groupByCreator, boardsFor, prizeForGroup } from '../lib/challengeGroups'
 
 
 // The submit form does its own validation so problems are shown in the branded
@@ -119,6 +120,20 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   // same rule every other member count here follows.
   const [audience, setAudience] = useState(null)
 
+  // ---- MORE THAN ONE LEADERBOARD, AND CLAIMABLE BONUSES -------------------
+  // Both are opt-in per challenge and both are empty on almost every one, so
+  // every read path below falls through to exactly the behaviour that existed
+  // before them. See lib/challengeGroups and migration 155.
+  const [groups, setGroups] = useState([])
+  const [groupMembers, setGroupMembers] = useState([])
+  const [bonusRules, setBonusRules] = useState([])
+  const [bonusClaims, setBonusClaims] = useState([])
+  // Which bonuses the creator has ticked in the submit form, before they send.
+  const [claiming, setClaiming] = useState([])
+  // The board being read on the leaderboard tab. Null means "mine", which is
+  // the question a leaderboard is opened to answer.
+  const [board, setBoard] = useState(null)
+
   const load = useCallback(async () => {
     const [{ data: ch }, { data: subs }, { data: res }] = await Promise.all([
       supabase.from('challenges').select('*').eq('id', id).single(),
@@ -137,6 +152,26 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     setSubmissions(subs ?? [])
     setResults(res ?? [])
     setLoading(false)
+
+    // THE GROUPS, IF THIS CHALLENGE HAS ANY.
+    //
+    // Four small reads rather than one big one, because three of them are
+    // usually empty: most challenges have no groups and no claimable bonuses,
+    // and an empty table returns nothing rather than costing a join on every
+    // challenge page in the platform. See lib/challengeGroups.
+    const [{ data: gs }, { data: gms }, { data: brules }, { data: claims }] = await Promise.all([
+      supabase.from('challenge_groups').select('*').eq('challenge_id', id).order('position'),
+      supabase.from('challenge_group_members').select('group_id, creator_id').eq('challenge_id', id),
+      supabase.from('point_rules')
+        .select('id, label, points, prompt')
+        .eq('challenge_id', id).eq('kind', 'bonus').eq('is_active', true)
+        .not('prompt', 'is', null).order('position'),
+      supabase.from('submission_bonus_claims').select('submission_id, rule_id, creator_id').eq('challenge_id', id),
+    ])
+    setGroups(gs ?? [])
+    setGroupMembers(gms ?? [])
+    setBonusRules(brules ?? [])
+    setBonusClaims(claims ?? [])
 
     // The team's notes on these entries. The policy decides what comes back -
     // an admin gets every row, a creator gets only their own - so there is one
@@ -215,19 +250,39 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     if (!caption.trim()) return fail('caption', 'Please add a caption for your entry.')
 
     setSubmitting(true)
-    const { error } = await supabase.from('submissions').insert({
+    // `select().single()` because the bonus claims below have to point at the
+    // row that was just written, and a second read to find it would be a race
+    // with anything else this creator is doing.
+    const { data: entry, error } = await supabase.from('submissions').insert({
       creator_id: user.id,
       challenge_id: id,
       platform,
       video_url: url,
       caption: caption.trim(),
-    })
+    }).select('id').single()
+    if (error) { setSubmitting(false); return fail('', error.message) }
+
+    // THE CLAIMS ARE WRITTEN AFTER THE ENTRY AND THEY ARE NOT FATAL.
+    //
+    // If this insert fails the video is still entered, which is the thing that
+    // matters and the thing that is hard to redo. A claim that did not land can
+    // be ticked again from the entry card, so the failure is recoverable in
+    // place; losing the entry would not be. The points follow from the claim
+    // through `recalc_challenge_points_internal`, so nothing here awards
+    // anything directly.
+    if (entry && claiming.length > 0) {
+      await supabase.from('submission_bonus_claims').insert(
+        claiming.map((rule_id) => ({
+          submission_id: entry.id, rule_id, creator_id: user.id, challenge_id: id,
+        })),
+      )
+    }
     setSubmitting(false)
-    if (error) return fail('', error.message)
 
     setShowSubmit(false)
     setVideoUrl('')
     setCaption('')
+    setClaiming([])
     // The reload below hasn't landed yet, so count this entry in by hand.
     const mine = submissions.filter((s) => s.creator_id === user.id).length
     setSuccess({ count: mine + 1, platform })
@@ -239,6 +294,20 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     setSubmitError('')
     setErrorField('')
     setShowSubmit(true)
+  }
+
+  // Claiming a bonus on an entry that is already in. Optimistic, because the
+  // points recalculate server-side and a button that waits for that reads as
+  // having done nothing.
+  async function claimBonus(sub, rule) {
+    setBonusClaims((cur) => [...cur, { submission_id: sub.id, rule_id: rule.id, creator_id: user.id }])
+    const { error } = await supabase.from('submission_bonus_claims').insert({
+      submission_id: sub.id, rule_id: rule.id, creator_id: user.id, challenge_id: id,
+    })
+    if (error) {
+      setBonusClaims((cur) => cur.filter((c) => !(c.submission_id === sub.id && c.rule_id === rule.id)))
+      await notice('Could not claim that bonus. Please try again.')
+    }
   }
 
   async function removeMySubmission(subId) {
@@ -322,6 +391,37 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     ? Object.values(subCountByCreator).filter((n) => n >= participation.threshold).length
     : 0
 
+  // ---- WHICH BOARD AM I ON ------------------------------------------------
+  const byCreator = groupByCreator(groupMembers)
+  const boards = boardsFor(groups, byCreator, results.length ? results : submissions)
+  const myGroupId = byCreator.get(user.id) ?? null
+  const myGroup = groups.find((g) => g.id === myGroupId) || null
+  const myPrize = myGroup ? prizeForGroup(myGroup, challenge) : null
+  // How many creators are on each board. From the MEMBERSHIP, not from who has
+  // entered: "you are ranked against 21 creators" is a fact about the group,
+  // and counting entrants instead would make the number climb all month.
+  const boardCounts = new Map()
+  for (const m of groupMembers) boardCounts.set(m.group_id, (boardCounts.get(m.group_id) || 0) + 1)
+  // `board` is declared with the other hooks, above the loading guard - this
+  // whole block runs after an early return.
+  const shownBoard = board ?? myGroupId ?? boards[0]?.id ?? null
+  const shownPrize = boards.length > 1
+    ? prizeForGroup(boards.find((g) => g.id === shownBoard) || {}, challenge)
+    : null
+  const boardRows = boards.length > 0
+    ? results.filter((r) => (byCreator.get(r.creator_id) ?? null) === shownBoard)
+    : results
+  // Ranks are stored per board (migration 154), so a group's rows already read
+  // 1, 2, 3 and nothing has to be renumbered here.
+
+  // ---- BONUSES A CREATOR CLAIMS ------------------------------------------
+  const claimsBySubmission = new Map()
+  for (const c of bonusClaims) {
+    if (!claimsBySubmission.has(c.submission_id)) claimsBySubmission.set(c.submission_id, new Set())
+    claimsBySubmission.get(c.submission_id).add(c.rule_id)
+  }
+  const bonusById = new Map(bonusRules.map((r) => [r.id, r]))
+
   const TABS = [
     { key: 'brief', label: 'The brief' },
     { key: 'entries', label: `Entries (${submissions.length})` },
@@ -382,6 +482,41 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           <button onClick={() => setShowSubmit(true)} className="btn-primary">
             {myEntries.length > 0 ? '+ Add another entry' : 'Submit your video 🎬'}
           </button>
+        </div>
+      )}
+
+      {/* WHICH BOARD YOU ARE ON, SAID PLAINLY AND SAID EARLY.
+          Ethan: "the creator would need to know what group they're in clearly."
+          It sits directly under the countdown, above the tabs, because it
+          changes the meaning of everything below it - the entries you are
+          compared against, the leaderboard you appear on and the prize you are
+          playing for are all your group's, not the challenge's. It only draws
+          at all on a challenge that has groups. */}
+      {groups.length > 0 && (
+        <div className={cx(
+          'mb-10 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-card border px-5 py-4',
+          myGroup ? 'border-brand/25 bg-brand-tint/40' : 'border-dashed border-gray-200 bg-cloud/40',
+        )}>
+          <Icon name={myGroup ? 'trophy' : 'alert'} className={cx('h-5 w-5 shrink-0', myGroup ? 'text-brand' : 'text-smoke')} />
+          {myGroup ? (
+            <>
+              <p className="text-sm">
+                You are in <span className="font-bold text-brand">{myGroup.name}</span>.
+                {' '}You are ranked against the {boardCounts.get(myGroup.id) || 0} {(boardCounts.get(myGroup.id) || 0) === 1 ? 'creator' : 'creators'} in it, not the whole market.
+              </p>
+              {myPrize?.prize_amount != null && (
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-brand shadow-card">
+                  {myGroup.name} prize: {formatMoney(myPrize.prize_amount, myPrize.prize_currency)}
+                  {myPrize.winners_count ? ` · ${myPrize.winners_count} ${myPrize.winners_count === 1 ? 'winner' : 'winners'}` : ''}
+                </span>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-smoke">
+              This challenge runs {groups.length} separate leaderboards and you have not been put
+              in one yet. You can still enter - ask the team which group you are in.
+            </p>
+          )}
         </div>
       )}
 
@@ -499,12 +634,75 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                       <Link to={`/profile/${s.profiles?.id}`} className="block truncate text-sm font-semibold hover:text-brand">
                         {s.profiles?.name}
                       </Link>
-                      <p className="text-xs text-smoke">{timeAgo(s.submitted_at)}</p>
+                      {/* THE DATE AND THE TIME, NOT "1 DAY AGO".
+                          Ethan: "on challenges, show the date and time a video
+                          was submitted, not just 1 day ago or about 1 month
+                          ago." A relative stamp is arithmetic the reader has to
+                          undo, and on a challenge it is the one fact that
+                          settles a deadline argument - "about 1 month ago" is
+                          not evidence of anything. Shown in the reader's own
+                          zone, with the zone named. */}
+                      <p className="text-xs text-smoke">{formatDateTimeTz(s.submitted_at)}</p>
                     </div>
                   </div>
                   {s.caption && <p className="text-sm text-smoke line-clamp-3">{s.caption}</p>}
                   {s.logged_views != null && (
                     <p className="text-sm font-semibold text-brand">{formatViews(s.logged_views)} logged views</p>
+                  )}
+
+                  {/* ---- WHAT THIS ENTRY CLAIMED ----
+                      Ethan: "it should show +1 point or plus x points on the
+                      entry card, because then the admin can easily check and
+                      ensure that it's correct and no one is cheating."
+                      That is the whole answer to trusting a creator with a tick
+                      box: the claim sits beside the video on a page an admin
+                      already reads, so checking is looking rather than
+                      auditing. Everybody sees these, not just the team - a
+                      claim made in public is a claim people are careful about.
+                      An admin can take one back from /admin/challenges/:id/results. */}
+                  {(claimsBySubmission.get(s.id)?.size > 0) && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {[...claimsBySubmission.get(s.id)].map((ruleId) => {
+                        const r = bonusById.get(ruleId)
+                        if (!r) return null
+                        return (
+                          <span key={ruleId} title={r.prompt || r.label}
+                            className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-semibold text-green-700">
+                            <Icon name="check" className="h-3 w-3" /> +{r.points} {r.label}
+                          </span>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {/* A BONUS ADDED AFTER YOU ENTERED IS STILL CLAIMABLE.
+                      "Admins can do this at the beginning or in the middle of a
+                      challenge, it should always update correctly." A rule
+                      created on the fifteenth cannot have been offered to
+                      anybody who submitted on the third, and asking them to
+                      delete and re-post their video to claim it would be
+                      absurd. So an unclaimed bonus shows on your OWN entries
+                      while the challenge is live. */}
+                  {isLive && s.creator_id === user.id
+                    && bonusRules.some((r) => !claimsBySubmission.get(s.id)?.has(r.id)) && (
+                    <div className="rounded-xl border border-dashed border-brand/30 bg-brand-tint/20 p-3">
+                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-brand">
+                        Bonus points you can still claim
+                      </p>
+                      <div className="space-y-1.5">
+                        {bonusRules.filter((r) => !claimsBySubmission.get(s.id)?.has(r.id)).map((r) => (
+                          <button
+                            key={r.id}
+                            type="button"
+                            onClick={() => claimBonus(s, r)}
+                            className="flex w-full items-center gap-2 rounded-lg bg-white px-3 py-2 text-left text-xs transition-transform duration-200 hover:-translate-y-0.5"
+                          >
+                            <span className="min-w-0 flex-1">{r.prompt}</span>
+                            <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white">+{r.points}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   )}
                   {/* THE TEAM'S NOTE. The creator sees it on their own entry;
                       an admin sees the editor on every entry. Nobody else sees
@@ -567,13 +765,55 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
             </div>
           ) : null}
 
+          {/* ONE TAB PER BOARD, AND IT OPENS ON YOURS.
+              A challenge with groups has more than one leaderboard and they are
+              not a ranking of each other - they are separate races for separate
+              prizes. Stacking them would make the second one look like the
+              bottom of the first. It opens on the creator's own board because
+              "how am I doing" is the question a leaderboard is opened to
+              answer; the others are one press away. */}
+          {boards.length > 1 && (
+            <div className="flex flex-wrap gap-2">
+              {boards.map((g) => (
+                <button
+                  key={g.id ?? 'ungrouped'}
+                  type="button"
+                  onClick={() => setBoard(g.id)}
+                  aria-pressed={shownBoard === g.id}
+                  className={cx(
+                    'rounded-full px-4 py-2 text-sm font-semibold transition-all duration-200',
+                    shownBoard === g.id
+                      ? 'bg-brand text-white shadow-card'
+                      : 'bg-cloud text-smoke hover:-translate-y-0.5 hover:text-ink',
+                  )}
+                >
+                  {g.name}
+                  {g.id === myGroupId && <span className="ml-1.5 text-xs font-medium opacity-80">you</span>}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {boards.length > 1 && shownPrize?.prize_amount != null && (
+            <p className="text-xs text-smoke">
+              {boards.find((g) => g.id === shownBoard)?.name} is playing for{' '}
+              <span className="font-semibold text-brand">{formatMoney(shownPrize.prize_amount, shownPrize.prize_currency)}</span>
+              {shownPrize.winners_count ? ` across ${shownPrize.winners_count} ${shownPrize.winners_count === 1 ? 'place' : 'places'}` : ''}.
+            </p>
+          )}
+
           <ChallengeLeaderboard
-            rows={results}
+            rows={boardRows}
             meId={user.id}
             participation={participation}
             subCountByCreator={subCountByCreator}
             platformsFor={submittedPlatforms}
           />
+          {boardRows.length === 0 && (
+            <p className="rounded-card border border-dashed border-gray-200 px-5 py-6 text-center text-sm text-smoke">
+              Nobody on this board has a logged view count yet.
+            </p>
+          )}
         </div>
       )}
 
@@ -632,6 +872,44 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
               }}
             />
           </div>
+          {/* ---- THE BONUSES THIS VIDEO MIGHT HAVE EARNED ----
+              Ethan: "there should be a check box asking them if they posted a
+              video on the certain thing to get the bonus point. Ticking the box
+              would then automatically update the points and this would mean the
+              points system is fully automated again, no manual checking."
+              Only bonuses the admin wrote a QUESTION for appear here - see
+              migration 155 and the prompt field in PointRulesEditor. A bonus
+              with no question is still awarded by an admin by hand, exactly as
+              bonuses have always worked.
+              The points are stated on every line. A tick box that does not say
+              what it is worth is a tick box people leave alone. */}
+          {bonusRules.length > 0 && (
+            <div className="rounded-xl border border-gray-200 bg-cloud/40 p-4">
+              <p className="text-sm font-semibold">Bonus points</p>
+              <p className="mb-3 text-xs text-smoke">
+                Tick anything this video qualifies for. The team can see what you ticked next to the video.
+              </p>
+              <div className="space-y-2">
+                {bonusRules.map((r) => (
+                  <label key={r.id} className="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 transition-colors hover:border-brand/40">
+                    <input
+                      type="checkbox"
+                      checked={claiming.includes(r.id)}
+                      onChange={(e) => setClaiming((cur) => (
+                        e.target.checked ? [...cur, r.id] : cur.filter((x) => x !== r.id)
+                      ))}
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-[#d94407]"
+                    />
+                    <span className="min-w-0 flex-1 text-sm text-ink">{r.prompt}</span>
+                    <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-xs font-bold text-white">
+                      +{r.points}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
           {submitError && (
             <div
               id="submit-error"

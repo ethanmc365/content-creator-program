@@ -11,6 +11,7 @@ import PlatformBadges from '../../components/PlatformBadges'
 // that were here included four nothing has ever been priced in.
 import { COMMON_ZONES, CURRENCIES } from '../../lib/timezones'
 import PointRulesEditor from '../../components/network/PointRulesEditor'
+import ChallengeGroupsEditor from '../../components/admin/ChallengeGroupsEditor'
 import { flagFromIso } from '../../components/network/PlaceSwitcher'
 import { PageHeader, Skeleton, Spinner, Select } from '../../components/ui'
 import { DateField, TimeField } from '../../components/DateTimeFields'
@@ -135,6 +136,92 @@ export default function AdminChallengeForm() {
       .then(({ data }) => setRules(data || []))
   }, [editing, id])
 
+  // ---- GROUPS: more than one leaderboard inside one brief -----------------
+  //
+  // Held in form state exactly like the point rules, and written after the
+  // challenge row exists because they point at it. That is what lets a BRAND
+  // NEW challenge be created with its groups already named, prized and dealt -
+  // the alternative (save first, then come back and split it) is two visits to
+  // the same screen for one decision.
+  const [groups, setGroups] = useState([])
+  const [audience, setAudience] = useState([])
+  const [groupsLoaded, setGroupsLoaded] = useState(false)
+
+  useEffect(() => {
+    if (!editing) { setGroupsLoaded(true); return undefined }
+    let alive = true
+    ;(async () => {
+      const [{ data: gs }, { data: ms }] = await Promise.all([
+        supabase.from('challenge_groups').select('*').eq('challenge_id', id).order('position'),
+        supabase.from('challenge_group_members').select('group_id, creator_id').eq('challenge_id', id),
+      ])
+      if (!alive) return
+      const members = ms ?? []
+      setGroups((gs ?? []).map((g) => ({
+        id: g.id,
+        name: g.name,
+        prize_amount: g.prize_amount ?? '',
+        prize_currency: g.prize_currency ?? 'EUR',
+        prize_type: g.prize_type ?? '',
+        winners_count: g.winners_count ?? '',
+        members: members.filter((m) => m.group_id === g.id).map((m) => m.creator_id),
+      })))
+      setGroupsLoaded(true)
+    })()
+    return () => { alive = false }
+  }, [editing, id])
+
+  // WHO CAN BE DEALT IN: the market's own roster, minus admins and the QA
+  // accounts, which is the same audience every other member count on this
+  // platform uses. Re-read whenever the market changes, because moving a
+  // challenge between markets changes who is even eligible.
+  useEffect(() => {
+    if (!form.community_id) { setAudience([]); return undefined }
+    let alive = true
+    supabase
+      .from('community_members')
+      .select('profile_id, profiles!inner(id, name, photo_url, city, country, is_admin, is_test, status)')
+      .eq('community_id', form.community_id)
+      .eq('status', 'active')
+      .eq('profiles.is_admin', false)
+      .eq('profiles.is_test', false)
+      .eq('profiles.status', 'active')
+      .then(({ data }) => {
+        if (!alive) return
+        setAudience((data ?? []).map((r) => r.profiles).filter(Boolean)
+          .sort((a, b) => (a.name || '').localeCompare(b.name || '')))
+      })
+    return () => { alive = false }
+  }, [form.community_id])
+
+  // SOMEBODY IN A GROUP WHO IS NOT ON THE ROSTER STILL HAS A NAME.
+  //
+  // The roster is who you can ADD; it is not who is already in. A creator can
+  // leave the market, or be moved out of it, after being dealt into a group -
+  // and without this their chip in the editor reads "?" with no name, which
+  // looks like data loss rather than like somebody who has moved on. Fetched
+  // once per set of strangers, so the common case (everybody is on the roster)
+  // makes no request at all.
+  const [strangers, setStrangers] = useState([])
+  const missingIds = useMemo(() => {
+    const known = new Set(audience.map((p) => p.id))
+    const seen = new Set(strangers.map((p) => p.id))
+    return [...new Set(groups.flatMap((g) => g.members))].filter((id) => !known.has(id) && !seen.has(id))
+  }, [groups, audience, strangers])
+
+  useEffect(() => {
+    if (missingIds.length === 0) return undefined
+    let alive = true
+    supabase.from('profiles').select('id, name, photo_url, city, country').in('id', missingIds)
+      .then(({ data }) => { if (alive && data?.length) setStrangers((cur) => [...cur, ...data]) })
+    return () => { alive = false }
+  }, [missingIds])
+
+  // Who the editor can draw. The roster is what "Add creators" and "Split
+  // randomly" work over; the strangers only exist so an existing chip has a
+  // face and a name.
+  const groupPeople = useMemo(() => [...audience, ...strangers], [audience, strangers])
+
   useEffect(() => {
     if (!editing) return
     supabase.from('challenges').select('*').eq('id', id).single().then(({ data }) => {
@@ -221,6 +308,67 @@ export default function AdminChallengeForm() {
       form.community_id, form.prize_structure, form.participation_prize,
       form.format, form.scoring, markets])
 
+  // Writing the groups and who is in them.
+  //
+  // Returns an error message or null, so `save` can bail with the same
+  // treatment every other write on this form gets.
+  //
+  // MEMBERSHIP IS REPLACED WHOLE and the groups are NOT. Those are different
+  // decisions for different reasons: a membership row carries nothing but the
+  // pairing, so deleting and re-inserting it loses nothing, while a group's id
+  // is stamped on every saved result row ranked on its board.
+  async function saveGroups(challengeId) {
+    const kept = groups.filter((g) => g.id)
+    let del = supabase.from('challenge_groups').delete().eq('challenge_id', challengeId)
+    if (kept.length) del = del.not('id', 'in', `(${kept.map((g) => g.id).join(',')})`)
+    const { error: delErr } = await del
+    if (delErr) return delErr.message
+
+    const num = (v) => (v === '' || v == null ? null : Number(v))
+    const row = (g, i) => ({
+      challenge_id: challengeId,
+      name: g.name.trim() || `Group ${String.fromCharCode(65 + i)}`,
+      position: i,
+      prize_amount: num(g.prize_amount),
+      prize_currency: g.prize_currency || form.prize_currency || 'EUR',
+      prize_type: g.prize_type || null,
+      winners_count: num(g.winners_count),
+    })
+
+    // The new ones come back with their ids so their members can be written in
+    // the same pass. `select()` on an insert is what makes that one round trip
+    // rather than an insert followed by a re-read.
+    const fresh = groups.map((g, i) => ({ g, i })).filter(({ g }) => !g.id)
+    let created = []
+    if (fresh.length) {
+      const { data, error } = await supabase.from('challenge_groups')
+        .insert(fresh.map(({ g, i }) => row(g, i))).select('id, position')
+      if (error) return error.message
+      created = data ?? []
+    }
+    for (const g of kept) {
+      const i = groups.indexOf(g)
+      const { error } = await supabase.from('challenge_groups').update(row(g, i)).eq('id', g.id)
+      if (error) return error.message
+    }
+
+    // position -> id, for the groups that did not have one a moment ago.
+    const idAt = new Map(created.map((c) => [c.position, c.id]))
+    const members = groups.flatMap((g, i) => {
+      const gid = g.id || idAt.get(i)
+      return gid ? g.members.map((creator_id) => ({ challenge_id: challengeId, group_id: gid, creator_id })) : []
+    })
+
+    const { error: wipeErr } = await supabase.from('challenge_group_members')
+      .delete().eq('challenge_id', challengeId)
+    if (wipeErr) return wipeErr.message
+    if (members.length) {
+      const { error: memErr } = await supabase.from('challenge_group_members').insert(members)
+      if (memErr) return memErr.message
+    }
+    return null
+  }
+
   async function save(e, publishNow = false) {
     e.preventDefault()
     setError('')
@@ -291,32 +439,73 @@ export default function AdminChallengeForm() {
     if (dbError) { setBusy(false); return setError(dbError.message) }
 
     // Scoring rules, written after the challenge exists because they point at
-    // it. Replace-all rather than diffed: a market has a handful of rules, and
-    // replacing removes the whole class of bug where a deleted row survives
-    // because the diff missed it. A non-points challenge has none, so switching
-    // a challenge away from points clears them rather than leaving a ledger
-    // nothing reads.
+    // it. A non-points challenge has none, so switching a challenge away from
+    // points clears them rather than leaving a ledger nothing reads.
+    //
+    // A RULE KEEPS ITS ID NOW, AND THAT IS NOT A TIDY-UP.
+    //
+    // This used to delete every rule for the challenge and insert the list
+    // again. It was defensible while a rule was only ever read by the scorer:
+    // replacing removes the class of bug where a deleted row survives a diff.
+    // It stopped being defensible the moment anything else POINTED AT a rule.
+    // A creator's bonus claim references `rule_id` with ON DELETE CASCADE, so
+    // an admin opening the challenge to fix a typo in the title would have
+    // silently thrown away every claim on it - and migration 139's trigger
+    // would have taken the automatic awards with them. The bug would have
+    // looked like points vanishing for no reason, days later.
+    //
+    // So: delete only what the editor actually removed, update what it kept,
+    // insert what it added.
     const challengeId = saved?.id ?? id
     if (challengeId) {
-      const { error: delErr } = await supabase.from('point_rules').delete().eq('challenge_id', challengeId)
+      const wanted = form.scoring === 'points' ? rules : []
+      // `seed-N` ids come from STARTER_POINT_RULES and are not database rows.
+      const kept = wanted.filter((r) => r.id && !String(r.id).startsWith('seed-'))
+      let del = supabase.from('point_rules').delete().eq('challenge_id', challengeId)
+      if (kept.length) del = del.not('id', 'in', `(${kept.map((r) => r.id).join(',')})`)
+      const { error: delErr } = await del
       if (delErr) { setBusy(false); return setError(delErr.message) }
-      if (form.scoring === 'points' && rules.length) {
-        const { error: ruleErr } = await supabase.from('point_rules').insert(
-          rules.map((r, i) => ({
-            community_id: form.community_id,
-            challenge_id: challengeId,
-            ...normalisePointRule(r),
-            position: i,
-            is_active: true,
-          })),
-        )
-        if (ruleErr) { setBusy(false); return setError(ruleErr.message) }
+
+      const rows = wanted.map((r, i) => ({
+        community_id: form.community_id,
+        challenge_id: challengeId,
+        ...normalisePointRule(r),
+        // The question a creator is asked at submission time. Bonuses only, and
+        // an empty one means "an admin awards this by hand" - see migration 155.
+        prompt: r.kind === 'bonus' && r.prompt?.trim() ? r.prompt.trim() : null,
+        position: i,
+        is_active: true,
+      }))
+      const existing = rows.filter((_, i) => wanted[i].id && !String(wanted[i].id).startsWith('seed-'))
+        .map((row, k) => ({ ...row, id: kept[k].id }))
+      const fresh = rows.filter((_, i) => !wanted[i].id || String(wanted[i].id).startsWith('seed-'))
+      if (existing.length) {
+        const { error: upErr } = await supabase.from('point_rules').upsert(existing)
+        if (upErr) { setBusy(false); return setError(upErr.message) }
       }
+      if (fresh.length) {
+        const { error: insErr2 } = await supabase.from('point_rules').insert(fresh)
+        if (insErr2) { setBusy(false); return setError(insErr2.message) }
+      }
+
+      // ---- GROUPS ---------------------------------------------------------
+      // Same shape as the rules and for the same reason: a group's id is
+      // referenced by its members AND by every saved result row ranked on its
+      // board, so replacing the lot would renumber a leaderboard that is
+      // already being competed on.
+      const groupsErr = await saveGroups(challengeId)
+      if (groupsErr) { setBusy(false); return setError(groupsErr) }
+
       // Rebuild the ledger from the rules that now exist. Without this an edit
       // to the rules leaves yesterday's points standing until the next
       // submission happens to fire the trigger.
       if (form.scoring === 'points') {
         await supabase.rpc('recalc_challenge_points', { p_challenge: challengeId })
+      }
+      // And the leaderboard, because the groups may have moved: a creator who
+      // changed board has to be ranked on the new one.
+      if (form.scoring !== 'points') {
+        await supabase.rpc('rebuild_challenge_results', { p_challenge: challengeId })
       }
     }
 
@@ -512,6 +701,37 @@ export default function AdminChallengeForm() {
               to date which has not been true since they became automatic. The
               card is the explanation. Only points needs a box, because points
               is the only mode with anything left to decide. */}
+
+          {/* ---- GROUPS ----
+              MORE THAN ONE LEADERBOARD INSIDE ONE BRIEF.
+              Ethan: "the way the Spanish community is currently run, they have
+              two groups inside the one challenge."
+              It sits under "How it is won" because that is what it is: not a
+              different contest, a different way of deciding who is racing
+              whom. See lib/challengeGroups and migration 154. */}
+          <div className="border-t border-gray-100 pt-5">
+            <p className="label">Leaderboards</p>
+            <p className="mb-4 text-xs text-smoke">
+              One brief, one deadline, one set of rules - and, if you want it, more
+              than one race. Creators see which group they are in on the brief.
+            </p>
+            {!groupsLoaded ? (
+              <Skeleton className="h-24 w-full" />
+            ) : (
+              <ChallengeGroupsEditor
+                groups={groups}
+                onChange={setGroups}
+                audience={audience}
+                people={groupPeople}
+                currency={form.prize_currency || 'EUR'}
+              />
+            )}
+            {groups.length > 0 && !form.community_id && (
+              <p className="mt-2 text-xs text-red-500">
+                Pick the market first - the creators you can deal into a group are its roster.
+              </p>
+            )}
+          </div>
         </section>
 
         <section className="card space-y-6">

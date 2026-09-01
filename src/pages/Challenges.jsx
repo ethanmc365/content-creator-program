@@ -306,6 +306,28 @@ export default function Challenges() {
                       <h3 className="mt-4 text-xl font-semibold group-hover:text-brand">{c.title}</h3>
                       <p className="mt-2 text-sm text-smoke line-clamp-2">{c.description}</p>
                       {galleries[c.id] ? (
+                        /* ONE PODIUM, OR ONE PER BOARD. A challenge run as two
+                           leaderboards has two sets of winners, and ranks are
+                           stored per board - so a single podium off the flat
+                           list would show two firsts and a second. See
+                           lib/winners. */
+                        galleries[c.id].boards?.length > 0 ? (
+                          <div className="pointer-events-auto mt-5 space-y-4">
+                            {galleries[c.id].boards.map((b) => (
+                              <div key={b.id ?? 'all'}>
+                                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-brand">{b.name}</p>
+                                <WinnersPodium
+                                  winners={b.winners}
+                                  entries={b.entries}
+                                  totalScore={b.totalScore}
+                                  scoring={c.scoring}
+                                  voucherWinners={[]}
+                                  voucherPrize={c.participation_prize}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
                         <WinnersPodium
                           className="pointer-events-auto mt-5"
                           winners={galleries[c.id].winners}
@@ -315,6 +337,7 @@ export default function Challenges() {
                           voucherWinners={galleries[c.id].voucherWinners}
                           voucherPrize={c.participation_prize}
                         />
+                        )
                       ) : (
                         <p className="mt-4 text-xs font-medium text-smoke">{c.submissions?.[0]?.count ?? 0} entries · results inside →</p>
                       )}

@@ -6,7 +6,8 @@ import {
 import { supabase } from '../../lib/supabase'
 import { Avatar, PageHeader, Skeleton, StatCard } from '../../components/ui'
 import PlatformBadges from '../../components/PlatformBadges'
-import { formatViews, formatMoney, formatDate, downloadCsv } from '../../lib/utils'
+import { formatViews, formatMoney, formatDate, formatDateTimeTz, downloadCsv } from '../../lib/utils'
+import { compareBoards, prizeForGroup } from '../../lib/challengeGroups'
 
 // Deep-dive analytics for ONE challenge (admin only).
 // Reached by tapping a bar/row on the main Analytics page.
@@ -24,15 +25,22 @@ export default function AdminChallengeAnalytics() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: challenge }, { data: subs }, { data: results }, { data: rewards }, { count: totalCreators }] =
+      const [{ data: challenge }, { data: subs }, { data: results }, { data: rewards }, { count: totalCreators },
+        { data: groups }, { data: groupMembers }] =
         await Promise.all([
           supabase.from('challenges').select('*').eq('id', id).single(),
           supabase.from('submissions').select('*, profiles:creator_id(id, name, photo_url, instagram_url, tiktok_url, youtube_url, facebook_url)').eq('challenge_id', id).order('logged_views', { ascending: false, nullsFirst: false }),
           supabase.from('results').select('*, profiles:creator_id(id, name, photo_url)').eq('challenge_id', id).order('rank'),
           supabase.from('rewards').select('*').eq('challenge_id', id),
           supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'active').eq('is_admin', false).is('deletion_requested_at', null),
+          supabase.from('challenge_groups').select('*').eq('challenge_id', id).order('position'),
+          supabase.from('challenge_group_members').select('group_id, creator_id').eq('challenge_id', id),
         ])
-      setRaw({ challenge, subs: subs ?? [], results: results ?? [], rewards: rewards ?? [], totalCreators: totalCreators ?? 0 })
+      setRaw({
+        challenge, subs: subs ?? [], results: results ?? [], rewards: rewards ?? [],
+        totalCreators: totalCreators ?? 0,
+        groups: groups ?? [], groupMembers: groupMembers ?? [],
+      })
     }
     load()
   }, [id])
@@ -74,12 +82,38 @@ export default function AdminChallengeAnalytics() {
     return <div className="page space-y-6"><Skeleton className="h-10 w-72" /><div className="grid grid-cols-1 gap-4 sm:grid-cols-4"><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /></div><Skeleton className="h-72 w-full" /></div>
   }
 
-  const { challenge, subs, results } = raw
+  const { challenge, subs, results, groups, groupMembers } = raw
+
+  // THE COMBINED FIGURE IS THE ONE ON THE TILES; THE GROUPS ARE UNDERNEATH.
+  //
+  // Ethan: "the analytics page should combine the data as just the one
+  // challenge, but clicking in on the challenge data should reveal more data
+  // and analytics from the different groups and comparing each."
+  //
+  // This page IS the click-in - the main analytics page lists challenges and
+  // this is what opens - so the split belongs here rather than in a third
+  // screen. The tiles above stay exactly as they are, because a challenge run
+  // in two halves produced one challenge's worth of reach and that is the
+  // number the programme is measured on. `compareBoards` derives both from the
+  // same rows, so they cannot disagree. */
+  const { rows: boardRows } = compareBoards(groups, groupMembers, subs)
+  const memberCount = new Map()
+  for (const m of groupMembers) memberCount.set(m.group_id, (memberCount.get(m.group_id) || 0) + 1)
+
+  // The saved results, split the same way. `results.group_id` is written by
+  // `rebuild_challenge_results`, so this reads the board a row was actually
+  // ranked on rather than re-deriving it from the membership - a creator moved
+  // between groups after the board was built belongs where they were ranked.
+  const resultBoards = groups.length > 0
+    ? [...groups, { id: null, name: 'Not in a group' }]
+      .map((g) => ({ group: g, rows: results.filter((r) => (r.group_id ?? null) === g.id) }))
+      .filter((b) => b.rows.length > 0)
+    : [{ group: null, rows: results }]
 
   function exportSubs() {
     downloadCsv(`${challenge.title}-submissions.csv`, subs.map((s) => ({
       creator: s.profiles?.name ?? '', platform: s.platform, logged_views: s.logged_views ?? '',
-      video_url: s.video_url, submitted: formatDate(s.submitted_at),
+      video_url: s.video_url, submitted: formatDateTimeTz(s.submitted_at),
     })))
   }
 
@@ -112,6 +146,75 @@ export default function AdminChallengeAnalytics() {
         <StatCard label="Top entry" value={formatViews(d.topViews)} />
         <StatCard label="Reviewed" value={`${subs.filter((s) => s.logged_views != null).length}/${d.submissions}`} hint="views logged" />
       </div>
+
+      {/* ---------- The groups, compared ---------- */}
+      {boardRows.length > 0 && (
+        <section className="card mb-10">
+          <h2 className="mb-1 font-semibold">The {boardRows.length} leaderboards, compared</h2>
+          <p className="mb-5 text-sm text-smoke">
+            Every figure above is this challenge as a whole. These are the same numbers
+            split by group, and they add back up to it.
+          </p>
+          <div className="-mx-5 overflow-x-auto px-5 sm:mx-0 sm:px-0">
+            <table className="w-full min-w-[44rem] text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 text-left text-[11px] font-semibold uppercase tracking-wide text-smoke">
+                  <th className="py-2 pr-4">Group</th>
+                  <th className="py-2 pr-4 text-right">In the group</th>
+                  <th className="py-2 pr-4 text-right">Entered</th>
+                  <th className="py-2 pr-4 text-right">Entries</th>
+                  <th className="py-2 pr-4 text-right">Views</th>
+                  <th className="py-2 pr-4 text-right">Per entry</th>
+                  <th className="py-2 pr-4 text-right">Best video</th>
+                  <th className="py-2 text-right">Share</th>
+                </tr>
+              </thead>
+              <tbody>
+                {boardRows.map((r) => {
+                  const g = groups.find((x) => x.id === r.id)
+                  const inGroup = memberCount.get(r.id) || 0
+                  const prize = g ? prizeForGroup(g, challenge) : null
+                  return (
+                    <tr key={r.id ?? 'ungrouped'} className="border-b border-gray-50 last:border-0">
+                      <td className="py-3 pr-4">
+                        <span className="font-semibold">{r.name}</span>
+                        {prize?.prize_amount != null && (
+                          <span className="ml-2 text-xs text-smoke">
+                            {formatMoney(prize.prize_amount, prize.prize_currency)}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 pr-4 text-right tabular-nums text-smoke">{inGroup || '-'}</td>
+                      {/* ENTERED, NOT PARTICIPATION - the percentage is the one
+                          number worth comparing between two groups of different
+                          sizes, and it is meaningless without the denominator
+                          beside it, which is why both columns are here. */}
+                      <td className="py-3 pr-4 text-right tabular-nums">
+                        {r.creators}
+                        {inGroup > 0 && (
+                          <span className="ml-1 text-xs text-smoke">({Math.round((r.creators / inGroup) * 100)}%)</span>
+                        )}
+                      </td>
+                      <td className="py-3 pr-4 text-right tabular-nums">{r.entries}</td>
+                      <td className="py-3 pr-4 text-right font-semibold tabular-nums text-brand">{formatViews(r.views)}</td>
+                      <td className="py-3 pr-4 text-right tabular-nums">{formatViews(r.perEntry)}</td>
+                      <td className="py-3 pr-4 text-right tabular-nums">{formatViews(r.best)}</td>
+                      <td className="py-3 text-right">
+                        <span className="inline-flex items-center gap-2">
+                          <span className="h-1.5 w-16 overflow-hidden rounded-full bg-cloud">
+                            <span className="block h-full rounded-full bg-brand" style={{ width: `${r.share}%` }} />
+                          </span>
+                          <span className="w-9 text-right tabular-nums text-smoke">{r.share}%</span>
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* ---------- Platform breakdown ---------- */}
@@ -160,15 +263,32 @@ export default function AdminChallengeAnalytics() {
       {/* ---------- Leaderboard ---------- */}
       {results.length > 0 && (
         <section className="mt-10">
-          <h2 className="mb-4 text-lg font-semibold">Final leaderboard</h2>
-          <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
-            {results.map((r) => (
-              <Link key={r.id} to={`/profile/${r.profiles?.id}`} className="flex items-center gap-4 border-b border-gray-50 px-5 py-3 transition-colors last:border-0 hover:bg-cloud/60 sm:px-7">
-                <span className="w-8 text-center text-lg font-bold">{{ 1: '🥇', 2: '🥈', 3: '🥉' }[r.rank] || r.rank}</span>
-                <Avatar src={r.profiles?.photo_url} name={r.profiles?.name} size="sm" />
-                <span className="min-w-0 flex-1 truncate text-sm font-semibold">{r.profiles?.name}</span>
-                <span className="text-sm font-bold tabular-nums">{formatViews(r.final_views)}</span>
-              </Link>
+          <h2 className="mb-4 text-lg font-semibold">
+            {resultBoards.length > 1 ? 'Final leaderboards' : 'Final leaderboard'}
+          </h2>
+          {/* ONE LIST PER BOARD.
+              Ranks are stored per group (migration 154), so a flat list of a
+              two-group challenge's results reads 1, 1, 2 - three rows with two
+              gold medals and no explanation. They are separate contests and
+              they have to be drawn as separate lists. A challenge with no
+              groups produces exactly one list, which is what was here. */}
+          <div className="space-y-6">
+            {resultBoards.map(({ group, rows }) => (
+              <div key={group?.id ?? 'all'}>
+                {group && (
+                  <p className="mb-2 text-sm font-semibold text-brand">{group.name}</p>
+                )}
+                <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
+                  {rows.map((r) => (
+                    <Link key={r.id} to={`/profile/${r.profiles?.id}`} className="flex items-center gap-4 border-b border-gray-50 px-5 py-3 transition-colors last:border-0 hover:bg-cloud/60 sm:px-7">
+                      <span className="w-8 text-center text-lg font-bold">{{ 1: '🥇', 2: '🥈', 3: '🥉' }[r.rank] || r.rank}</span>
+                      <Avatar src={r.profiles?.photo_url} name={r.profiles?.name} size="sm" />
+                      <span className="min-w-0 flex-1 truncate text-sm font-semibold">{r.profiles?.name}</span>
+                      <span className="text-sm font-bold tabular-nums">{formatViews(r.final_views)}</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         </section>
@@ -186,7 +306,7 @@ export default function AdminChallengeAnalytics() {
                 <Avatar src={s.profiles?.photo_url} name={s.profiles?.name} size="sm" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold">{s.profiles?.name}</p>
-                  <p className="text-xs text-smoke">{formatDate(s.submitted_at)}</p>
+                  <p className="text-xs text-smoke">{formatDateTimeTz(s.submitted_at)}</p>
                 </div>
                 <PlatformBadges platforms={[s.platform]} className="hidden sm:flex" />
                 <span className="w-20 text-right text-sm tabular-nums">{s.logged_views != null ? formatViews(s.logged_views) : '-'}</span>

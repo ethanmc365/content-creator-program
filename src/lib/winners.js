@@ -27,13 +27,28 @@ export async function loadWinnerGalleries(challenges) {
   // a final one the day the archive cron ran.
   const publishedIds = challenges.filter((c) => c.winners_published_at).map((c) => c.id)
   if (publishedIds.length === 0) return {}
-  const [{ data: results }, { data: subs }] = await Promise.all([
+  // `group_id` on a result row, and the groups themselves, because a challenge
+  // run as two leaderboards has TWO sets of winners and a single podium built
+  // off a flat list would show two firsts and a second (ranks are stored per
+  // board - migration 154). Almost every challenge returns no groups at all,
+  // and then everything below behaves exactly as it did.
+  const [{ data: results }, { data: subs }, { data: groups }, { data: members }] = await Promise.all([
     supabase.from('results')
-      .select('challenge_id, creator_id, final_views, rank, profiles:creator_id(id, name, photo_url)')
+      .select('challenge_id, creator_id, final_views, rank, group_id, profiles:creator_id(id, name, photo_url)')
       .in('challenge_id', publishedIds)
       .order('final_views', { ascending: false }),
     supabase.from('submissions')
       .select('challenge_id, creator_id, video_url, platform, logged_views, profiles:creator_id(id, name, photo_url)')
+      .in('challenge_id', publishedIds),
+    supabase.from('challenge_groups')
+      .select('id, challenge_id, name, position, winners_count')
+      .in('challenge_id', publishedIds).order('position'),
+    // Membership, so a board's ENTRY count is its own rather than the whole
+    // challenge's. Deriving it from the result rows instead would silently drop
+    // anybody who entered and never had a view logged, and then the two boards'
+    // counts would not add up to the challenge's.
+    supabase.from('challenge_group_members')
+      .select('challenge_id, group_id, creator_id')
       .in('challenge_id', publishedIds),
   ])
 
@@ -72,6 +87,17 @@ export async function loadWinnerGalleries(challenges) {
 
   const byChallenge = {}
   for (const r of results ?? []) (byChallenge[r.challenge_id] ||= []).push(r)
+  const groupsFor = {}
+  for (const g of groups ?? []) (groupsFor[g.challenge_id] ||= []).push(g)
+  // `${challenge}:${creator}` -> group id
+  const groupOf = new Map()
+  for (const m of members ?? []) groupOf.set(`${m.challenge_id}:${m.creator_id}`, m.group_id)
+  const entriesPerBoard = new Map() // `${challenge}:${group||''}` -> count
+  for (const sub of subs ?? []) {
+    const g = groupOf.get(`${sub.challenge_id}:${sub.creator_id}`) ?? ''
+    const k = `${sub.challenge_id}:${g}`
+    entriesPerBoard.set(k, (entriesPerBoard.get(k) || 0) + 1)
+  }
   const built = {}
   for (const c of challenges) {
     const rows = byChallenge[c.id]
@@ -79,9 +105,9 @@ export async function loadWinnerGalleries(challenges) {
     // How many places this challenge actually pays. Three was hard-coded,
     // so a five-winner challenge quietly lost two of its winners.
     const places = Math.max(1, c.winners_count || (Array.isArray(c.prize_structure) ? c.prize_structure.length : 0) || 3)
-    const ranked = rows
+    const topOf = (list, seats) => list
       .sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99) || b.final_views - a.final_views)
-      .slice(0, places)
+      .slice(0, seats)
       .map((r, i) => ({
         ...r,
         rank: i + 1,
@@ -91,6 +117,7 @@ export async function loadWinnerGalleries(challenges) {
         videoUrl: bestVideo.get(`${c.id}:${r.creator_id}`)?.video_url ?? null,
         platform: bestVideo.get(`${c.id}:${r.creator_id}`)?.platform ?? null,
       }))
+    const ranked = topOf([...rows], places)
     // EVERYONE who cleared the participation threshold, podium included.
     // They were excluded before, on the reasoning that the voucher is for
     // turning up rather than for placing - but the row says "for everyone
@@ -103,8 +130,27 @@ export async function loadWinnerGalleries(challenges) {
           .map(([k]) => person.get(k.split(':')[1]))
           .filter(Boolean)
       : []
+    // ONE PODIUM PER BOARD. `boards` is what the pages draw; `winners` is kept
+    // for the single-board case and is the same list they would get from it.
+    const myGroups = groupsFor[c.id] ?? []
+    const boards = myGroups.length > 0
+      ? [...myGroups, { id: null, name: 'Not in a group' }]
+        .map((g) => {
+          const mine = rows.filter((r) => (r.group_id ?? null) === g.id)
+          return {
+            id: g.id,
+            name: g.name,
+            winners: topOf(mine, Math.max(1, g.winners_count || places)),
+            entries: entriesPerBoard.get(`${c.id}:${g.id ?? ''}`) ?? 0,
+            totalScore: mine.reduce((sum, r) => sum + (liveViews.get(`${c.id}:${r.creator_id}`) ?? r.final_views ?? 0), 0),
+          }
+        })
+        .filter((b) => b.winners.length > 0)
+      : []
+
     built[c.id] = {
       winners: ranked,
+      boards,
       // The whole challenge's reach, over EVERY entry rather than only the
       // ranked ones - `results` holds one row per ranked creator, so
       // summing it counted eleven people out of thirty-nine entries.

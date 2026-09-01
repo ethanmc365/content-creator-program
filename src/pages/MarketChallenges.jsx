@@ -208,6 +208,28 @@ export default function MarketChallenges() {
                           `pointer-events-auto` because the whole card is a
                           link and the podium has its own targets inside it. */}
                       {galleries[c.id] ? (
+                        /* ONE PODIUM, OR ONE PER BOARD. A challenge run as two
+                           leaderboards has two sets of winners, and ranks are
+                           stored per board - so a single podium off the flat
+                           list would show two firsts and a second. See
+                           lib/winners. */
+                        galleries[c.id].boards?.length > 0 ? (
+                          <div className="pointer-events-auto mt-5 space-y-4">
+                            {galleries[c.id].boards.map((b) => (
+                              <div key={b.id ?? 'all'}>
+                                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-brand">{b.name}</p>
+                                <WinnersPodium
+                                  winners={b.winners}
+                                  entries={b.entries}
+                                  totalScore={b.totalScore}
+                                  scoring={c.scoring}
+                                  voucherWinners={[]}
+                                  voucherPrize={c.participation_prize}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
                         <WinnersPodium
                           className="pointer-events-auto mt-5"
                           winners={galleries[c.id].winners}
@@ -217,6 +239,7 @@ export default function MarketChallenges() {
                           voucherWinners={galleries[c.id].voucherWinners}
                           voucherPrize={c.participation_prize}
                         />
+                        )
                       ) : podium.length > 0 ? (
                         <div className="mt-4 flex items-center gap-3 rounded-xl bg-cloud/60 px-3 py-2.5">
                           <span className="text-[10px] font-semibold uppercase tracking-widest text-smoke">Won by</span>

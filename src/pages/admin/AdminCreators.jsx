@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext'
 import { Avatar, Badge, CopyButton, Modal, PageHeader, Select, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import Turnstile from '../../components/Turnstile'
-import { formatDate, timeAgo, downloadCsv, cx, ageFromDob } from '../../lib/utils'
+import { formatDate, timeAgo, formatDateTimeTz, downloadCsv, cx, ageFromDob } from '../../lib/utils'
 import { isOnlineAt } from '../../lib/presence'
 
 // Creator management: the full list with emails (admin-only RPC), plus all
@@ -763,7 +763,7 @@ export default function AdminCreators() {
                 <ul className="max-h-44 space-y-2 overflow-y-auto overscroll-contain">
                   {detail.submissions.map((s) => (
                     <li key={s.id} className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 px-4 py-2.5 text-xs">
-                      <span className="min-w-0 truncate">{s.challenges?.title} · {s.platform} · {timeAgo(s.submitted_at)}</span>
+                      <span className="min-w-0 truncate">{s.challenges?.title} · {s.platform} · {formatDateTimeTz(s.submitted_at)}</span>
                       <a href={s.video_url} target="_blank" rel="noopener noreferrer" className="shrink-0 font-medium text-brand hover:underline">Watch ↗</a>
                     </li>
                   ))}

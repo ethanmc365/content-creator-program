@@ -37,7 +37,7 @@ const DEFAULTS = {
   views_threshold: { label: 'Passed 10,000 views', points: 5, threshold: 10000, max_points: null },
   total_views_threshold: { label: 'Passed 25,000 views in total', points: 8, threshold: 25000, max_points: null },
   platform_spread: { label: 'Posted on another platform', points: 2, threshold: null, max_points: 8 },
-  bonus: { label: 'Bonus', points: 1, threshold: null, max_points: null },
+  bonus: { label: 'Bonus', points: 1, threshold: null, max_points: null, prompt: '' },
 }
 
 const newRule = (kind) => ({ id: `new-${tempId++}`, kind, ...(DEFAULTS[kind] || DEFAULTS.bonus) })
@@ -58,7 +58,8 @@ const newRule = (kind) => ({ id: `new-${tempId++}`, kind, ...(DEFAULTS[kind] || 
 function Row({ rule, onChange, onRemove }) {
   const meta = KINDS[rule.kind] || KINDS.bonus
   return (
-    <div className="flex flex-wrap items-center gap-2.5 rounded-xl border border-gray-200 bg-white px-3 py-2.5 transition-colors hover:border-brand/30">
+    <div className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 transition-colors hover:border-brand/30">
+    <div className="flex flex-wrap items-center gap-2.5">
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cloud text-smoke" title={meta.label}>
         <Icon name={meta.icon} className="h-4 w-4" />
       </span>
@@ -147,8 +148,13 @@ function Row({ rule, onChange, onRemove }) {
       )}
 
       {rule.kind === 'bonus' && (
-        <span className="shrink-0 rounded-lg border border-dashed border-gray-200 bg-white px-2.5 py-1.5 text-xs text-smoke">
-          given by an admin, on an entry
+        <span className={cx(
+          'shrink-0 rounded-lg border border-dashed px-2.5 py-1.5 text-xs',
+          rule.prompt?.trim()
+            ? 'border-green-200 bg-green-50 text-green-700'
+            : 'border-gray-200 bg-white text-smoke',
+        )}>
+          {rule.prompt?.trim() ? 'claimed by the creator' : 'given by an admin, on an entry'}
         </span>
       )}
 
@@ -159,6 +165,33 @@ function Row({ rule, onChange, onRemove }) {
       >
         <Icon name="trash" className="h-4 w-4" />
       </button>
+    </div>
+
+    {/* THE QUESTION, WHICH IS WHAT MAKES A BONUS AUTOMATIC.
+        Ethan: "when an admin sets up bonus points they should enter what the
+        bonus points are for... the admin should also select or write the
+        message that shows up when a creator submits the video, like 'Is this
+        video featuring a Christmas market?', and ticking the box would then
+        automatically update the points - this would mean the points system is
+        fully automated again, no manual checking."
+        Typing a question here turns this bonus into a tick box on the submit
+        form and awards it from the answer. Leaving it blank keeps the bonus
+        exactly as bonuses have always worked - handed out by an admin from the
+        results page - which is why every bonus already in the database goes on
+        behaving the way its market expects. The chip above says which it is. */}
+    {rule.kind === 'bonus' && (
+      <label className="mt-2.5 block">
+        <span className="mb-1 block text-[11px] font-medium text-smoke">
+          Ask the creator when they submit <span className="font-normal">(leave blank to award it yourself)</span>
+        </span>
+        <input
+          className="input !py-1.5 !text-sm"
+          value={rule.prompt ?? ''}
+          onChange={(e) => onChange({ ...rule, prompt: e.target.value })}
+          placeholder="Is this video featuring a Christmas market?"
+        />
+      </label>
+    )}
     </div>
   )
 }

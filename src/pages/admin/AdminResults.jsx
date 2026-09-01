@@ -4,13 +4,14 @@ import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Avatar, EmptyState, PageHeader, Skeleton, Spinner } from '../../components/ui'
 import Icon from '../../components/Icon'
-import { cx, formatViews, timeAgo } from '../../lib/utils'
+import { cx, formatViews, formatMoney, formatDateTimeTz, timeAgo } from '../../lib/utils'
 import { describeSyncError } from '../../lib/viewSync'
 import WinnersPodium from '../../components/WinnersPodium'
 import ViewSyncPanel from '../../components/admin/ViewSyncPanel'
 import ShareLeaderboard from '../../components/admin/ShareLeaderboard'
 import PrizesPanel from '../../components/admin/PrizesPanel'
 import { PLATFORM_ORDER } from '../../components/PlatformBadges'
+import { groupByCreator, boardsFor, prizeForGroup } from '../../lib/challengeGroups'
 
 // Results entry for one challenge:
 //  1. View counts arrive by themselves - the `view-sync` Edge Function reads
@@ -69,18 +70,56 @@ export default function AdminResults() {
   // The bonus rules this challenge defines, and which entries already have one.
   const [bonusRules, setBonusRules] = useState([])
   const [awarded, setAwarded] = useState(new Set())
+  // What the CREATORS claimed for themselves. A separate set from `awarded`
+  // because the two are different facts: an admin's award is a decision, a
+  // creator's claim is an answer to a question, and the page has to be able to
+  // show which is which. See migration 155.
+  const [claims, setClaims] = useState([])
+  const [claimRules, setClaimRules] = useState([])
+  const [groups, setGroups] = useState([])
+  const [groupMembers, setGroupMembers] = useState([])
 
   const loadBonuses = useCallback(async () => {
-    const [{ data: rules }, { data: given }] = await Promise.all([
-      supabase.from('point_rules').select('id, label, points')
+    const [{ data: rules }, { data: given }, { data: claimed }, { data: gs }, { data: gms }] = await Promise.all([
+      supabase.from('point_rules').select('id, label, points, prompt')
         .eq('challenge_id', id).eq('kind', 'bonus').eq('is_active', true).order('position'),
       supabase.from('point_awards').select('submission_id, rule_id')
         .eq('challenge_id', id).eq('is_auto', false),
+      supabase.from('submission_bonus_claims').select('submission_id, rule_id').eq('challenge_id', id),
+      supabase.from('challenge_groups').select('*').eq('challenge_id', id).order('position'),
+      supabase.from('challenge_group_members').select('group_id, creator_id').eq('challenge_id', id),
     ])
-    setBonusRules(rules ?? [])
+    // A bonus the ADMIN gives has no prompt; one the CREATOR claims does. The
+    // two lists never overlap, so the row below can offer the right control for
+    // each without asking which kind it is twice.
+    setBonusRules((rules ?? []).filter((r) => !r.prompt))
+    setClaimRules((rules ?? []).filter((r) => r.prompt))
     setAwarded(new Set((given ?? []).filter((a) => a.submission_id).map((a) => `${a.submission_id}:${a.rule_id}`)))
+    setClaims(claimed ?? [])
+    setGroups(gs ?? [])
+    setGroupMembers(gms ?? [])
   }, [id])
   useEffect(() => { loadBonuses() }, [loadBonuses])
+
+  // WITHDRAWING A CLAIM, AND PUTTING IT BACK.
+  //
+  // Deleting the claim row is all it takes: the points are DERIVED from the
+  // claim by `recalc_challenge_points_internal`, so there is no award to chase
+  // and no way for the two to disagree. Re-ticking writes the row back with the
+  // creator's own id, not the admin's - it is still their answer, an admin has
+  // only agreed with it.
+  async function toggleClaim(sub, rule, claimed) {
+    setClaims((cur) => (claimed
+      ? cur.filter((c) => !(c.submission_id === sub.id && c.rule_id === rule.id))
+      : [...cur, { submission_id: sub.id, rule_id: rule.id }]))
+    const { error } = claimed
+      ? await supabase.from('submission_bonus_claims').delete()
+        .eq('submission_id', sub.id).eq('rule_id', rule.id)
+      : await supabase.from('submission_bonus_claims').insert({
+        submission_id: sub.id, rule_id: rule.id, creator_id: sub.creator_id, challenge_id: id,
+      })
+    if (error) { flash(error.message); loadBonuses() }
+  }
 
   async function toggleBonus(sub, rule, given) {
     // Optimistic: the standings recalculate server-side and the button has to
@@ -199,7 +238,16 @@ export default function AdminResults() {
   // and last week's numbers. This is a preview; it should show what the
   // leaderboard WOULD be right now. Generating still writes the saved results,
   // which is what creators see.
-  const liveRanking = Object.values(bestByCreator)
+  // ONE PODIUM PER BOARD.
+  //
+  // A challenge with groups has more than one leaderboard, so it has more than
+  // one set of winners - and the preview an admin publishes from has to show
+  // all of them, or they publish a podium for Group A and never see Group B's.
+  // A challenge with no groups produces exactly one board keyed on `null`,
+  // which is the ranking this page has always drawn.
+  const byCreator = groupByCreator(groupMembers)
+  const boards = boardsFor(groups, byCreator, submissions)
+  const rankIn = (rows) => rows
     .filter((sub) => sub.logged_views != null)
     .map((sub) => ({
       creator_id: sub.creator_id,
@@ -210,6 +258,38 @@ export default function AdminResults() {
     }))
     .sort((a, b) => b.final_views - a.final_views)
     .map((r, i) => ({ ...r, rank: i + 1 }))
+
+  const allBest = Object.values(bestByCreator)
+  const liveRanking = rankIn(allBest)
+  // [{ group, ranking, winners }] - one entry, or one per group.
+  const podiums = boards.length > 0
+    ? boards.map((g) => {
+      const mine = allBest.filter((sub) => (byCreator.get(sub.creator_id) ?? null) === g.id)
+      const ranking = rankIn(mine)
+      const prize = prizeForGroup(g, challenge)
+      const seats = Math.max(1, prize.winners_count || places)
+      // THE FIGURES UNDER A GROUP'S PODIUM ARE THAT GROUP'S.
+      // They were the challenge's - so both podiums read "4 entries, 22.9k
+      // views", which is the total of the two boards printed under each of
+      // them. A number under a podium is about the contest that podium
+      // decided; the combined figure lives on the analytics page, where it is
+      // labelled as combined.
+      const groupSubs = submissions.filter((sub) => (byCreator.get(sub.creator_id) ?? null) === g.id)
+      return {
+        group: g,
+        ranking,
+        winners: ranking.slice(0, seats),
+        entries: groupSubs.length,
+        views: groupSubs.reduce((sum, sub) => sum + (sub.logged_views ?? 0), 0),
+      }
+    })
+    : [{
+      group: null,
+      ranking: liveRanking,
+      winners: liveRanking.slice(0, places),
+      entries: submissions.length,
+      views: submissions.reduce((sum, sub) => sum + (sub.logged_views ?? 0), 0),
+    }]
 
   const podiumWinners = liveRanking.slice(0, places)
   // Which platforms each creator actually submitted on, so the shared board
@@ -312,14 +392,33 @@ export default function AdminResults() {
             platformsFor={platformsFor}
             onDone={flash}
           />
-          <WinnersPodium
-            winners={podiumWinners}
-            entries={submissions.length}
-            totalScore={liveTotalViews}
-            scoring={challenge?.scoring}
-            voucherWinners={voucherWinners}
-            voucherPrize={challenge?.participation_prize}
-          />
+          {/* ONE PODIUM PER BOARD, EACH LABELLED. On a challenge with no
+              groups this is exactly the single podium that has always been
+              here - `podiums` holds one entry with a null group. */}
+          {podiums.map(({ group, winners, entries, views }) => (
+            winners.length > 0 && (
+              <div key={group?.id ?? 'all'} className={group ? 'mt-5 first:mt-0' : undefined}>
+                {group && (
+                  <p className="mb-2 flex flex-wrap items-baseline gap-x-2 text-sm font-semibold text-brand">
+                    {group.name}
+                    <span className="text-xs font-normal text-smoke">
+                      {prizeForGroup(group, challenge).prize_amount != null
+                        ? `playing for ${formatMoney(prizeForGroup(group, challenge).prize_amount, prizeForGroup(group, challenge).prize_currency)}`
+                        : 'playing for the challenge prize'}
+                    </span>
+                  </p>
+                )}
+                <WinnersPodium
+                  winners={winners}
+                  entries={entries}
+                  totalScore={views}
+                  scoring={challenge?.scoring}
+                  voucherWinners={group ? [] : voucherWinners}
+                  voucherPrize={challenge?.participation_prize}
+                />
+              </div>
+            )
+          ))}
         </div>
       )}
 
@@ -339,7 +438,16 @@ export default function AdminResults() {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold">{s.profiles?.name}</p>
                 <p className="text-xs text-smoke">
-                  {s.platform} · {timeAgo(s.submitted_at)}
+                  {/* WHICH BOARD THIS ENTRY IS ON. Without it an admin reading
+                      a list of forty entries cannot tell which leaderboard a
+                      view count is going to move. */}
+                  {groups.length > 0 && (
+                    <span className="font-semibold text-brand">
+                      {groups.find((g) => g.id === byCreator.get(s.creator_id))?.name || 'Not in a group'}
+                      {' · '}
+                    </span>
+                  )}
+                  {s.platform} · {formatDateTimeTz(s.submitted_at)}
                   {s.views_source !== 'manual' && s.views_synced_at ? (
                     <span className="text-green-700"> · read {timeAgo(s.views_synced_at)}</span>
                   ) : null}
@@ -386,6 +494,43 @@ export default function AdminResults() {
                   brilliant" is a judgement. The button only exists on a points
                   challenge that HAS a bonus rule, so it is never a control
                   looking for a purpose. */}
+              {/* WHAT THE CREATOR CLAIMED, AND THE WAY TO TAKE IT BACK.
+                  Ethan: "it should show +1 point or plus x points on the entry
+                  card, because then the admin can easily check and ensure that
+                  it's correct and no one is cheating."
+                  This is the checking surface. The claim sits beside the link
+                  to the video, so verifying is watching ten seconds of it
+                  rather than cross-referencing a spreadsheet - and if it does
+                  not qualify, pressing the chip withdraws it and the points
+                  come straight back off the leaderboard. A claim looks
+                  different from an admin's own award below on purpose: green
+                  and ticked is somebody's answer, orange is your decision. */}
+              {claimRules.length > 0 && (
+                <div className="flex w-full flex-wrap gap-1.5 pl-[52px] sm:w-auto sm:pl-0">
+                  {claimRules.map((r) => {
+                    const claimed = claims.some((c) => c.submission_id === s.id && c.rule_id === r.id)
+                    return (
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() => toggleClaim(s, r, claimed)}
+                        aria-pressed={claimed}
+                        title={claimed ? `${r.prompt} - the creator said yes. Press to withdraw it.` : `${r.prompt} - not claimed`}
+                        className={cx(
+                          'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-all duration-200',
+                          claimed
+                            ? 'border-green-200 bg-green-50 text-green-700 hover:border-red-300 hover:text-red-600'
+                            : 'border-dashed border-gray-200 text-gray-400',
+                        )}
+                      >
+                        <Icon name={claimed ? 'check' : 'close'} className="h-3 w-3" />
+                        +{r.points} · {r.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
               {bonusRules.length > 0 && (
                 <div className="flex w-full flex-wrap gap-1.5 pl-[52px] sm:w-auto sm:pl-0">
                   {bonusRules.map((r) => {
