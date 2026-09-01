@@ -17,6 +17,7 @@ import { useProfileNames } from '../components/network/ChatExtras'
 import { mediaType } from '../lib/media'
 import { formatChatTime, formatMessageTime, messageTimeTitle, otherParticipant, cx } from '../lib/utils'
 import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
+import { setChatChromeHidden } from '../lib/chatChrome'
 import { RoomSearch } from '../components/ChatSearch'
 import Reveal from '../components/network/Reveal'
 import SeenBy from '../components/SeenBy'
@@ -219,19 +220,69 @@ export default function Messages() {
   const { height: vpHeight, offsetTop: vpOffset, keyboardOpen: kbOpen } = useVisualViewport()
   const isMobile = useIsMobile()
 
+  // THE APP HEADER SLIDES AWAY WHILE YOU ARE READING A DM, exactly as it does
+  // in a room.
+  //
+  // Ethan: "I would incorporate the same animation and structure for DMs on
+  // mobile - whenever you click on a DM, the header on the top smoothly
+  // animates away and it just shows the person's name and the search bar in the
+  // top right at the top instead. You can see more messages. And if you're near
+  // the top it brings it back, and going back brings it back."
+  //
+  // The thread already HAS the right top bar - a back arrow, the other person's
+  // face and name, and the search - so the app header above it was a second
+  // 64px bar carrying a logo, a bell and an avatar that nobody is using while
+  // they read. Same module-level channel the rooms use (lib/chatChrome), so
+  // the shell needs to know nothing about DMs.
+  //
+  // `setChrome` calls the channel IN THE HANDLER rather than from an effect
+  // keyed on the state. That is not a style preference: an effect runs after
+  // the commit that grew the overlay, so the header would start sliding one
+  // frame later and the two movements read as a lag instead of as one gesture.
+  // The rooms learned this the hard way; the note in NetworkChat has the
+  // detail. The effect below is still here for the two cases a handler cannot
+  // cover - the width changing under a hidden header, and leaving the page.
+  const [chromeHidden, setChromeHidden] = useState(false)
+  const setChrome = useCallback((hidden) => {
+    setChromeHidden(hidden)
+    setChatChromeHidden(isMobile && hidden)
+  }, [isMobile])
+  useEffect(() => { setChatChromeHidden(isMobile && chromeHidden) }, [isMobile, chromeHidden])
+  // ALWAYS RELEASED ON THE WAY OUT. A header hidden by a screen you have left
+  // is a header nobody can get back.
+  useEffect(() => () => setChatChromeHidden(false), [])
+  const showChrome = useCallback(() => setChrome(false), [setChrome])
+  const hideChrome = useCallback(() => { if (isMobile) setChrome(true) }, [isMobile, setChrome])
+
+  // A THREAD OPENS WITH THE HEADER ALREADY AWAY, and the inbox always has it.
+  // Hiding on scroll alone is not enough: a short conversation never scrolls,
+  // so the room this was copied from used to keep its chrome for ever in
+  // exactly the threads that had the least to show.
+  useEffect(() => {
+    setChatChromeHidden(isMobile && !!conversationId)
+    setChromeHidden(isMobile && !!conversationId)
+  }, [isMobile, conversationId])
+
   // Mobile overlay geometry. Keyboard closed: leave room for the top header
-  // (4rem) and the bottom tab bar (4.5rem + safe area). Keyboard open: take the
-  // full visible viewport so the header + tabs are hidden until it closes.
+  // (4rem, or nothing once it has slid away) and the bottom tab bar (4.5rem +
+  // safe area). Keyboard open: take the full visible viewport so the header +
+  // tabs are hidden until it closes.
+  // `chromeHidden` and `kbOpen` do the same thing to the top edge for different
+  // reasons, so they are one condition here.
+  const topGone = kbOpen || chromeHidden
   const mobileStyle = isMobile
     ? {
-        top: kbOpen ? 0 : '4rem',
+        top: topGone ? 0 : '4rem',
         height: kbOpen
           ? `${vpHeight}px`
-          : `calc(${vpHeight}px - 4rem - 4.5rem - env(safe-area-inset-bottom))`,
+          : `calc(${vpHeight}px - ${chromeHidden ? '0rem' : '4rem'} - 4.5rem - env(safe-area-inset-bottom))`,
         // Clamp to >= 0: on iOS a downward pull at the top makes offsetTop go
         // negative, which would ride the overlay up above the header.
         transform: `translateY(${Math.max(0, vpOffset)}px)`,
-        paddingTop: kbOpen ? 'env(safe-area-inset-top)' : undefined,
+        paddingTop: topGone ? 'env(safe-area-inset-top)' : undefined,
+        // The overlay grows in the SAME 300ms the header slides in, so the two
+        // read as one movement rather than as a gap opening and then filling.
+        transition: 'top 300ms cubic-bezier(0.32,0.72,0,1), height 300ms cubic-bezier(0.32,0.72,0,1)',
       }
     : undefined
 
@@ -783,6 +834,21 @@ export default function Messages() {
 
   useEffect(() => { atBottomRef.current = atBottom }, [atBottom])
 
+  // A THREAD DOES NOT OPEN HALFWAY UP ITSELF AND THEN CORRECT ITSELF.
+  //
+  // Every re-pin above is a CORRECTION, and a correction you can watch is
+  // indistinguishable from a bug: the first paint lands at the top of the
+  // conversation, the frame pin drags it to the bottom, and each of the four
+  // timers yanks it again as another avatar or photo arrives. Ethan reported
+  // it in the rooms first - "it'll show up the messages in a different layer or
+  // scrolled up and then suddenly load or fix itself and jump to the bottom" -
+  // and the DMs are the same code doing the same thing.
+  //
+  // The thread is not SHOWN until it is where it belongs. Opacity only: the
+  // messages are laid out and measured the whole time, which is exactly what
+  // the pinning needs, so this costs nothing and moves nothing.
+  const [settled, setSettled] = useState(false)
+
   // Opening a conversation, pin firmly to the newest message. Media (avatars,
   // images, video posters, async link previews) can finish loading AFTER the
   // first scroll and push content down, stranding the view in the middle. We
@@ -794,17 +860,24 @@ export default function Messages() {
     if (loadingThread || !conversationId) return
     const el = scrollerRef.current
     if (!el) return
+    setSettled(false)
     const pin = () => { if (atBottomRef.current) el.scrollTop = el.scrollHeight }
     el.scrollTop = el.scrollHeight
-    const raf = requestAnimationFrame(pin)
+    const reveal = () => setSettled(true)
+    const raf = requestAnimationFrame(() => { pin(); requestAnimationFrame(reveal) })
+    // See `settled` below: rAF does not run in a background tab, so the reveal
+    // can never be gated on it alone.
+    const safety = setTimeout(reveal, 250)
     const timers = [setTimeout(pin, 60), setTimeout(pin, 200), setTimeout(pin, 500), setTimeout(pin, 1200)]
     el.addEventListener('load', pin, true)
     return () => {
       cancelAnimationFrame(raf)
+      clearTimeout(safety)
       timers.forEach(clearTimeout)
       el.removeEventListener('load', pin, true)
     }
   }, [loadingThread, conversationId])
+
 
   // Smart auto-scroll + "jump to latest" bookkeeping (same as #general): only
   // follow new messages when the reader is already at the bottom, or the new
@@ -843,7 +916,12 @@ export default function Messages() {
     setAtBottom(near)
     setFarUp(gap > jumpThreshold(el, 5))
     if (near) setNewBelow(0)
-  }, [])
+    // REACHING THE TOP OF THE THREAD IS WHERE YOU HAVE RUN OUT OF MESSAGES AND
+    // ARE LOOKING FOR SOMETHING ELSE, so the chrome comes back there and goes
+    // away everywhere else. Same rule as the rooms.
+    if (el.scrollTop < 12) showChrome()
+    else hideChrome()
+  }, [showChrome, hideChrome])
 
   const jumpToLatest = useCallback(() => {
     setAtBottom(true)
@@ -1222,7 +1300,9 @@ export default function Messages() {
                 Tight stagger (35ms) because these are dense rows, not cards -
                 past about 45ms a list stops reading as arriving and starts
                 reading as slow. */}
-            <Reveal key={loadingList ? 'inbox-loading' : 'inbox-ready'} className="flex flex-col" stagger={0.035}>
+            {/* `dense`: an inbox of twenty rows carrying twenty avatars is the
+                list this variant exists for. See the prop in Reveal. */}
+            <Reveal dense key={loadingList ? 'inbox-loading' : 'inbox-ready'} className="flex flex-col" stagger={0.035}>
             {shownConversations.map((c) => (
               // A ROW IS A BUTTON, SO THE PIN CANNOT BE ONE INSIDE IT.
               // Nesting a <button> in a <button> is invalid HTML and React will
@@ -1328,9 +1408,16 @@ export default function Messages() {
             </div>
           ) : (
             <>
-              {/* Thread header */}
-              <div className="flex items-center gap-3 border-b border-gray-100 px-5 py-3">
-                <button onClick={() => navigate('/messages')} className="rounded-full p-2 text-smoke hover:bg-cloud sm:hidden" aria-label="Back to inbox">
+              {/* Thread header. A press anywhere along it is "give me the app
+                  header back" - the same gesture the rooms' tab strip carries,
+                  and the one a thumb makes without being told, since the top of
+                  the screen is where the header used to be. It does not fight
+                  the buttons inside it: both happen. */}
+              <div
+                onPointerDown={showChrome}
+                className="flex items-center gap-3 border-b border-gray-100 px-5 py-3"
+              >
+                <button onClick={() => { showChrome(); navigate('/messages') }} className="rounded-full p-2 text-smoke hover:bg-cloud sm:hidden" aria-label="Back to inbox">
                   <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
                 </button>
                 {isGroup ? (
@@ -1394,7 +1481,14 @@ export default function Messages() {
                 // Tapping the thread dismisses the keyboard (WhatsApp-style); a
                 // scroll drag doesn't fire click, so scrolling history leaves it up.
                 onClick={() => { if (isMobile && kbOpen) document.activeElement?.blur?.() }}
-                className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain overflow-x-hidden overscroll-contain touch-pan-y touch-pinch-zoom px-5 py-6"
+                className={cx(
+                  'min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain overflow-x-hidden touch-pan-y touch-pinch-zoom px-5 py-6',
+                  // See `settled`. Opacity only, and never a conditional
+                  // render: the rows have to be laid out for the pin to have a
+                  // scroll height to pin to.
+                  'transition-opacity duration-150',
+                  settled ? 'opacity-100' : 'opacity-0',
+                )}
               >
                 {loadingThread && <div className="space-y-3"><Skeleton className="h-10 w-2/3" /><Skeleton className="ml-auto h-10 w-1/2" /><Skeleton className="h-10 w-3/5" /></div>}
                 {!loadingThread && visibleThread.map((m, i) => {
@@ -1725,6 +1819,7 @@ export default function Messages() {
                   onAttach={sendAttachment}
                   isAdmin={isAdmin}
                   onResource={isAdmin ? () => setPickingResource(true) : undefined}
+                  onFocus={hideChrome}
                   isMobile={isMobile}
                   kbOpen={kbOpen}
                   className="!border-t-0 !px-0 !py-0"

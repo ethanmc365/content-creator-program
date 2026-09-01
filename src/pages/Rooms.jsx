@@ -303,6 +303,20 @@ export default function Rooms() {
                here, it is the point: every card is also a stack of links, and a
                whole-card drag has to guess between "open this room" and "move
                this market" on every single press. */
+            /* THE LIST ARRIVES ONCE, SHORTLY, AND AS ONE THING.
+               It used to have no entrance of its own: the page cross-faded as a
+               block (`pageFade`) straight out of a skeleton, so eight rooms and
+               eight icons swapped in on a single frame over a layout that had
+               only just been painted. Ethan called that laggy, and on a phone
+               it is.
+               ONE `.reveal-item`, DELIBERATELY, not a stagger. `Reorderable`
+               owns a transform on every card while you drag one, and a
+               per-child wrapper animating its own transform underneath that is
+               two things writing the same property. The whole stack landing
+               together in 320ms is the honest version here.
+               `dense` for the reason the prop exists: 24px over 720ms on a
+               stack of dense rows reads as the page sliding about. */
+            <Reveal dense>
             <Reorderable
               items={orderedPlaces}
               getId={(p) => p.place.id}
@@ -320,6 +334,7 @@ export default function Rooms() {
                 />
               )}
             />
+            </Reveal>
           )}
         </motion.div>
       </NetworkLayout>

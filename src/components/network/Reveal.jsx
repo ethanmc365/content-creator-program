@@ -67,6 +67,24 @@ export default function Reveal({
   // in from the side it lives on - and that difference is what makes a layout
   // feel composed rather than merely animated.
   from = 'up',
+  // A DENSE LIST IS NOT A GRID OF CARDS, AND IT MUST NOT MOVE LIKE ONE.
+  //
+  // Ethan, on the rooms index and the DM inbox: "whenever they're originally
+  // appearing, both on desktop and mobile, it seems really laggy, and it moves
+  // a bit and it's jittery."
+  //
+  // The house entrance is 24px of travel over 720ms with a compositor layer
+  // promised to every child. That is right for six big cards and wrong for
+  // twenty conversation rows: twenty promoted layers, each carrying an avatar
+  // that is very often still decoding while its row is mid-slide, is a lot of
+  // work for a list you are about to scroll. And 720ms over 24px is a row that
+  // is visibly TRAVELLING - on a dense list that reads as the page sliding
+  // around rather than as it arriving.
+  //
+  // `dense` is 10px over 320ms with no `will-change` at all. Rows are cheap to
+  // paint, so promoting them costs more than it saves, and a short hop reads as
+  // a list landing rather than as one being dragged into place.
+  dense = false,
   // A head start, in seconds, added before this container's own stagger.
   //
   // WHY A PAGE NEEDS THIS. Every section on a hub carries its own observer, and
@@ -261,16 +279,16 @@ export default function Reveal({
   const lastIndex = Math.max(0, Math.min(kids.filter(Boolean).length - 1, maxStagger))
   useEffect(() => {
     if (!shown || done) return undefined
-    const ms = delay * 1000 + lastIndex * stagger * 1000 + 720 + 120
+    const ms = delay * 1000 + lastIndex * stagger * 1000 + (dense ? 320 : 720) + 120
     const t = setTimeout(() => setDone(true), ms)
     return () => clearTimeout(t)
-  }, [shown, done, lastIndex, delay, stagger])
+  }, [shown, done, lastIndex, delay, stagger, dense])
 
   return (
     <Tag
       ref={setNode}
       data-from={from}
-      className={`reveal${shown && painted ? ' is-in' : ''}${done ? ' is-done' : ''}${className ? ` ${className}` : ''}`}
+      className={`reveal${dense ? ' reveal-dense' : ''}${shown && painted ? ' is-in' : ''}${done ? ' is-done' : ''}${className ? ` ${className}` : ''}`}
       style={{
         '--reveal-stagger': `${Math.round(stagger * 1000)}ms`,
         '--reveal-base': `${Math.round(delay * 1000)}ms`,

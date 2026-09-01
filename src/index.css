@@ -411,6 +411,23 @@ html {
       transform 720ms cubic-bezier(0.22, 1, 0.36, 1);
     transition-delay: calc(var(--reveal-base, 0ms) + var(--reveal-i, 0) * var(--reveal-stagger, 45ms));
   }
+  /* A DENSE LIST LANDS; IT DOES NOT TRAVEL. See the `dense` prop in Reveal.
+     Twenty conversation rows at 24px over 720ms, each promised its own
+     compositor layer while its avatar is still decoding, is the "laggy and
+     jittery" Ethan reported on the rooms index and the DM inbox. Ten pixels
+     over 320ms, and NO `will-change`: a row is cheap to paint, so promoting
+     it costs more than it saves at this count. */
+  .reveal-dense > .reveal-item {
+    transform: translate3d(0, 10px, 0);
+    will-change: auto;
+  }
+  .reveal-dense[data-from='down'] > .reveal-item { transform: translate3d(0, -10px, 0); }
+  .reveal-dense.is-in > .reveal-item {
+    transition:
+      opacity 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
   /* WHY THIS IS `.reveal.is-done` AND NOT `.reveal.is-in`.
      It used to drop `will-change` on `is-in` - the very class that STARTS the
      transition - so every card lost its promised compositor layer on the frame
