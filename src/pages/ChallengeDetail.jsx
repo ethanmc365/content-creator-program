@@ -214,10 +214,21 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
 
   useEffect(() => { load() }, [load])
 
-  // Jump straight to the leaderboard for finished challenges with results.
+  // Jump straight to the leaderboard for finished challenges with results -
+  // UNLESS THE URL ASKED FOR A TAB.
+  //
+  // This effect keys on `results.length`, which arrives after the deep-link
+  // effect below has run, so it was overwriting an explicit `?tab=brief` a
+  // moment later: the page opened on the brief and then flipped itself to the
+  // leaderboard. That matters because those links are what the share dialog
+  // and the announcement cards hand out.
+  //
+  // Reading `searchParams` rather than a flag: the question is "did the URL
+  // name a tab", and the URL is the thing that knows.
   useEffect(() => {
+    if (['entries', 'brief', 'leaderboard'].includes(searchParams.get('tab'))) return
     if (challenge && challenge.status !== 'active' && results.length > 0) setTab('leaderboard')
-  }, [challenge, results.length])
+  }, [challenge, results.length, searchParams])
 
   // Deep links from the home hero: ?submit=1 opens the submit form,
   // ?tab= lands on a tab other than the brief.
@@ -1094,8 +1105,15 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           />
 
           {/* A challenge with no prize breakdown at all has no places to lay
-              out, so the component draws nothing and this says why. */}
-          {boardRows.length === 0 && boardPrizes.length === 0 && (
+              out, so the component draws nothing and this says why.
+
+              ONLY WHEN THE BANNER HAS NOT ALREADY SAID IT. On a challenge that
+              has no results anywhere, the banner above already reads "Nobody
+              has a logged view count yet" - printing this underneath it was the
+              same sentence twice in two boxes. It is worth saying only when
+              OTHER boards have results and this one does not, which is the
+              split-challenge case it was written for. */}
+          {boardRows.length === 0 && boardPrizes.length === 0 && results.length > 0 && (
             <p className="rounded-card border border-dashed border-gray-200 px-5 py-6 text-center text-sm text-smoke">
               {tr("Nobody on this board has a logged view count yet.")}
             </p>
