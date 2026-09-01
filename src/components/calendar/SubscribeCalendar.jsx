@@ -123,12 +123,6 @@ export default function SubscribeCalendar({ open, onClose }) {
         </div>
       ) : (
         <div className="space-y-5">
-          <p className="text-sm text-smoke">
-            Subscribe once and everything on the calendar syncs daily with your own calendar:
-            events for your markets, challenge dates, your flights logged and your own personal
-            events.
-          </p>
-
           <div className="grid gap-3 sm:grid-cols-3">
             <a
               href={webcal}

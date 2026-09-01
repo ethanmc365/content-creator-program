@@ -18,7 +18,7 @@ import MarketPicker from './calendar/MarketPicker'
 
 const SUGGESTION_TONE = { new: 'brand', planned: 'green', done: 'grey', declined: 'red' }
 
-export function SuggestEvent() {
+export function SuggestEvent({ open = false, onClose }) {
   const { user, isAdmin } = useAuth()
   // ONLY THE MARKETS THEY ARE ACTUALLY IN. Ethan: "if theyre just in spanish
   // market then only options that show for them are global and spain." An admin
@@ -28,7 +28,6 @@ export function SuggestEvent() {
   const myMarkets = isAdmin || !scopeIds
     ? allMarkets
     : allMarkets.filter((c) => scopeIds.has(c.id))
-  const [open, setOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [details, setDetails] = useState('')
   const [markets, setMarkets] = useState([])
@@ -53,7 +52,7 @@ export function SuggestEvent() {
       .insert({ creator_id: user.id, title: title.trim(), details: details.trim() || null, community_ids: markets })
     setSaving(false)
     if (error) { notice(`Could not send your suggestion: ${error.message}`); return }
-    setTitle(''); setDetails(''); setMarkets([]); setOpen(false)
+    setTitle(''); setDetails(''); setMarkets([]); onClose?.()
     notice("Thanks! The team has been notified and will look into it.")
     load()
   }
@@ -72,33 +71,18 @@ export function SuggestEvent() {
     // `id` so the admin panel's desk row can link straight to it. See
     // AdminPanel: these used to be visible only by scrolling to the foot of the
     // calendar, which is not somewhere anybody goes looking for work.
+    //
+    // THE ASK MOVED INTO THE PAGE HEADER (1 Sep 2026). "Suggest an event" is a
+    // primary action, so it now sits in the same row as Personal event and
+    // Sync; this section is only the list of what has been suggested, and the
+    // heading + explanation that used to sit above it are gone with the button.
+    // `open` is owned by the page, which is what puts the button up there.
     <section id="suggestions" className="mt-10 scroll-mt-24">
-      {/* THE ASK COMES AFTER THE ASKING, AND IT IS THE LOUDEST THING HERE.
-          This was a heading on the left with a small grey `btn-secondary`
-          pushed against the right edge of the page, and the sentence explaining
-          what to suggest UNDERNEATH both - so the button sat a long way from
-          its own reason, competed with the heading for the top line, and was
-          styled as the least important control on a section whose entire
-          purpose it is. Ethan: "the event ideas section and suggest an event
-          button has an odd layout, maybe a bigger button below event ideas and
-          in Tryp.com orange colour."
-          Heading, then why, then the button - full width on a phone, sized to
-          its words from `sm`. */}
-      <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold">
-        <Icon name="pencil" className="h-5 w-5 text-brand" /> Event ideas
-      </h2>
-      <p className="text-sm text-smoke">
-        Want a workshop, Q&A or meet-up on something specific? Suggest it and the team will try to make it happen.
-      </p>
-      <button
-        onClick={() => setOpen(true)}
-        className="btn-primary mb-6 mt-4 w-full justify-center sm:w-auto"
-      >
-        <Icon name="plus" className="h-4 w-4" /> Suggest an event
-      </button>
-
       {suggestions.length > 0 && (
         <div className="space-y-2">
+          <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
+            <Icon name="pencil" className="h-5 w-5 text-brand" /> Suggested by creators
+          </h2>
           {suggestions.map((s) => (
             <div key={s.id} className="flex flex-wrap items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3">
               <Avatar src={s.profiles?.photo_url} name={s.profiles?.name} size="xs" />
@@ -128,7 +112,7 @@ export function SuggestEvent() {
         </div>
       )}
 
-      <Modal open={open} onClose={() => setOpen(false)} title="Suggest an event">
+      <Modal open={open} onClose={() => onClose?.()} title="Suggest an event">
         <form onSubmit={submit} className="space-y-4">
           <div>
             <label htmlFor="sug-title" className="label">What would you like to see?</label>
@@ -145,7 +129,7 @@ export function SuggestEvent() {
             </div>
           )}
           <div className="flex justify-end gap-3">
-            <button type="button" onClick={() => setOpen(false)} className="btn-ghost">Cancel</button>
+            <button type="button" onClick={() => onClose?.()} className="btn-ghost">Cancel</button>
             <button type="submit" disabled={saving || !title.trim()} className="btn-primary">{saving ? <Spinner /> : 'Send suggestion'}</button>
           </div>
         </form>

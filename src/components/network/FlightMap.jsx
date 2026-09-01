@@ -9,6 +9,7 @@ import { useIsDark } from '../../lib/theme'
 import { cx } from '../../lib/utils'
 import { flagFromIso } from '../../lib/flags'
 import Icon from '../Icon'
+import PhotoLightbox from '../PhotoLightbox'
 
 // Every flight you have logged, drawn at once.
 //
@@ -136,6 +137,14 @@ const PLANE_SPEED = 26 // projection units per second
 // weight-4 pin is 3.4px across the whole world, about 2.8px at z=4, and holds
 // there. Enough for the short hop to open up underneath it, never so small it
 // disappears. The floor is now small enough to be a genuine last resort.
+// AND THE AEROPLANE STARTS SMALLER THAN THE PINS DO.
+//
+// Ethan: "when fully zoomed out on these maps, the plane icon is too big, it
+// should be a bit smaller." At z=1 a 0.85 marker draws a glyph 18-19 units
+// across the sprite's own box, which on a world map is about the width of
+// Ireland. 0.62 is the same aeroplane at roughly three quarters the size:
+// still unmistakably a plane on a long-haul arc, no longer a landmark.
+const PLANE_BASE = 0.62
 const MARKER_FALLOFF = 1.15
 const scaleAt = (base, z, min) => Math.max(min, base / Math.pow(z, MARKER_FALLOFF))
 function ArcPlane({ path, chord, size, faint = false, delay = 0 }) {
@@ -316,7 +325,7 @@ function WorldAirports({ placed, zoom, center, onPick, selected, layer = 'dots' 
   )
 }
 
-function FlightMap({ routes = [], airports = [] }) {
+function FlightMap({ routes = [], airports = [], routeExtra = null }) {
   const dark = useIsDark()
   const [features, setFeatures] = useState(null)
   const [position, setPosition] = useState({ coordinates: [12, 8], zoom: 1 })
@@ -339,9 +348,28 @@ function FlightMap({ routes = [], airports = [] }) {
   // later batch and reintroduce the same bug one frame wide - which is exactly
   // what had to be undone on CreatorMap.
   const [liveZoom, setLiveZoom] = useState(1)
+  // AND THE LIVE CENTRE, FOR THE SAME REASON AND A DIFFERENT SYMPTOM.
+  //
+  // THE BUG: "the airport dots temporarily fade away and then reappear, which
+  // looks odd." The world-airport layer culls to the viewport, and the window
+  // it culls against was computed from the LIVE zoom and the SETTLED centre.
+  // A wheel or pinch zoom in react-simple-maps is anchored on the pointer, so
+  // the centre moves throughout the gesture: half a frame into a zoom the
+  // window had already shrunk around a point the map had left, and every dot
+  // outside it was dropped - then `onMoveEnd` wrote the real centre and they
+  // all came back. Both halves of the window have to come from the same
+  // moment, so the centre is tracked live too.
+  const [liveCenter, setLiveCenter] = useState([12, 8])
   const z = liveZoom
-  const handleMove = useCallback((pos) => { setLiveZoom(pos.zoom) }, [])
-  const handleMoveEnd = useCallback((pos) => { setPosition(pos); setLiveZoom(pos.zoom) }, [])
+  const handleMove = useCallback((pos) => {
+    setLiveZoom(pos.zoom)
+    if (pos.coordinates) setLiveCenter(pos.coordinates)
+  }, [])
+  const handleMoveEnd = useCallback((pos) => {
+    setPosition(pos)
+    setLiveZoom(pos.zoom)
+    if (pos.coordinates) setLiveCenter(pos.coordinates)
+  }, [])
   // The +/- buttons and the reset write `position` directly and never fire
   // `onMoveEnd`, so the live value is derived from it as well as pushed to it.
   // Setting it in every caller by hand is the version of this that goes wrong
@@ -362,6 +390,7 @@ function FlightMap({ routes = [], airports = [] }) {
   // again over the top of a map that was already settled. See the long note in
   // CreatorMap, which hit this first.
   useEffect(() => { setLiveZoom(position.zoom) }, [position.zoom])
+  useEffect(() => { setLiveCenter(position.coordinates) }, [position.coordinates])
 
   const [arrived, setArrived] = useState(false)
   useEffect(() => {
@@ -427,6 +456,10 @@ function FlightMap({ routes = [], airports = [] }) {
     return m
   }, [world])
 
+  // A trip photograph, blown up over the map. Its own portal layer, for the
+  // reason PhotoLightbox documents: the card it opens from is drawn inside the
+  // map's own stacking context and a z-index written here could never clear it.
+  const [photo, setPhoto] = useState(null)
   const [pickedAirport, setPickedAirport] = useState(null)
   const [country, setCountry] = useState(null)
   // A NEW CARD ALWAYS CLOSES THE OLD ONE, IN BOTH DIRECTIONS.
@@ -636,7 +669,7 @@ function FlightMap({ routes = [], airports = [] }) {
         <WorldAirports
           placed={worldPlaced}
           zoom={liveZoom}
-          center={position.coordinates}
+          center={liveCenter}
           onPick={pickAirport}
           selected={pickedAirport}
           layer="dots"
@@ -694,7 +727,7 @@ function FlightMap({ routes = [], airports = [] }) {
         <WorldAirports
           placed={worldPlaced}
           zoom={liveZoom}
-          center={position.coordinates}
+          center={liveCenter}
           onPick={pickAirport}
           selected={pickedAirport}
           layer="hits"
@@ -710,7 +743,7 @@ function FlightMap({ routes = [], airports = [] }) {
               key={`fly-${r.key}`}
               path={r.d}
               chord={r.chord}
-              size={scaleAt(0.85, z, 0.16)}
+              size={scaleAt(PLANE_BASE, z, 0.12)}
               faint={!!selected && r.key !== selected}
               delay={(i % 5) * 0.9}
             />
@@ -720,7 +753,7 @@ function FlightMap({ routes = [], airports = [] }) {
               key={`fly-${active.key}`}
               path={active.d}
               chord={active.chord}
-              size={scaleAt(0.85, z, 0.16)}
+              size={scaleAt(PLANE_BASE, z, 0.12)}
             />
           )}
         </g>
@@ -732,6 +765,17 @@ function FlightMap({ routes = [], airports = [] }) {
           const r = scaleAt(a.weight > 4 ? 3.4 : a.weight > 1 ? 2.8 : 2.2, z, 0.32)
           return (
             <g key={a.iata} className={arrived ? undefined : 'flight-pin'} style={{ transformOrigin: `${a.x}px ${a.y}px` }}>
+              {/* A PIN IS PRESSABLE, AND UNTIL NOW IT WAS THE ONE DOT ON THE
+                  MAP THAT WAS NOT.
+                  Ethan: "I still seem to be unable to select an airport if a
+                  trip is already from there, it doesn't let me click it on the
+                  map." The world-airport layer puts an invisible finger-sized
+                  hit circle under every dot - but these pins are painted LAST,
+                  they are the biggest circles on the map, and they had no
+                  handler. SVG has no z-index: the last thing painted takes the
+                  press. So every airport you have actually flown from was
+                  covered by a target that did nothing, which is precisely the
+                  set of airports worth pressing. */}
               <circle
                 cx={a.x}
                 cy={a.y}
@@ -740,6 +784,8 @@ function FlightMap({ routes = [], airports = [] }) {
                 stroke="#fff"
                 strokeWidth={scaleAt(0.7, z, 0.07)}
                 opacity={selected && !on ? 0.35 : 1}
+                style={{ cursor: 'pointer' }}
+                onClick={(e) => { e.stopPropagation(); pickAirport(a.iata) }}
               >
                 <title>{`${a.iata} · ${a.city} · ${a.weight} ${a.weight === 1 ? 'flight' : 'flights'}`}</title>
               </circle>
@@ -839,24 +885,77 @@ function FlightMap({ routes = [], airports = [] }) {
           On the community map a route is a count and nothing else - who flew it
           and when is deliberately not readable (migration 103) - so the card
           says what it can say instead of drawing an empty scroller. */}
+      {/* WHAT THE CALLER CAN ADD. On the community map the per-flight rows are
+          deliberately unavailable (migration 103 - a date and a flight number
+          are somebody's movement history), but WHO flies a route is public, and
+          Ethan asked for the same richer card there: "same for the across the
+          community trips, and it should provide some info, show the creator's
+          name and profile picture." The map does not know how to fetch that, so
+          the page that does hands it down. */}
+      {routeExtra?.(active)}
       {activeRows.length === 0 ? (
         <p className="px-5 py-3.5 text-xs text-smoke">
           Dates and airlines stay private to whoever logged the flight. This is
           how many times the community has flown the route.
         </p>
       ) : (
-      /* Five, then a count. A route somebody commutes could be forty rows and
-         this is a popover on a map, not the log. */
-      <ul className="max-h-56 divide-y divide-gray-50 overflow-y-auto overscroll-contain">
-        {activeRows.slice(0, 5).map((f) => (
-          <li key={f.id} className="flex items-baseline gap-2.5 px-5 py-2.5 text-xs">
-            <span className="shrink-0 font-semibold tabular-nums text-ink">{f.flown_on}</span>
-            <span className="min-w-0 flex-1 truncate text-smoke">
-              {f.from.iata === active.from.iata ? '' : 'return · '}
-              {[f.airline, f.flight_number, f.aircraft].filter(Boolean).join(' · ') || 'No airline logged'}
-            </span>
-          </li>
-        ))}
+      /* Five, then a count. A route somebody flies weekly could be forty rows
+         and this is a popover on a map, not the log.
+         EACH ROW IS THE TRIP, NOT A LINE OF METADATA.
+         Ethan: "when clicking on a trip on your personal map it should show up
+         something more like that with the photo if you logged one and more
+         details, I think it would look better." "That" is the trip sheet at the
+         foot of the log, and he is right that the two were answering the same
+         question at wildly different quality: this card was one grey line per
+         flight naming an airline. It now leads with the photograph where there
+         is one - which is the thing that makes a route on a map worth pressing
+         - and carries the direction, the aircraft, the distance and the note
+         under it. */
+      <ul className="max-h-64 divide-y divide-gray-50 overflow-y-auto overscroll-contain">
+        {activeRows.slice(0, 5).map((f) => {
+          const back = f.from.iata !== active.from.iata
+          return (
+            <li key={f.id} className="flex items-start gap-3 px-5 py-3">
+              {f.photo_url ? (
+                <button
+                  type="button"
+                  onClick={() => setPhoto(f.photo_url)}
+                  className="group relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-cloud"
+                  aria-label="Open the photo full size"
+                >
+                  <img src={f.photo_url} alt="" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                  <span className="absolute inset-0 flex items-center justify-center bg-ink/0 text-white opacity-0 transition-all duration-200 group-hover:bg-ink/35 group-hover:opacity-100">
+                    <Icon name="expand" className="h-4 w-4" />
+                  </span>
+                </button>
+              ) : (
+                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-cloud text-gray-300">
+                  <Icon name="plane" className="h-5 w-5" />
+                </span>
+              )}
+              <span className="min-w-0 flex-1">
+                <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <span className="text-xs font-semibold tabular-nums text-ink">{f.flown_on}</span>
+                  <span className="flex items-center gap-1 text-[11px] font-bold tracking-wider text-brand">
+                    {f.from.iata}
+                    <Icon name="plane" className="h-3 w-3 text-brand-light" />
+                    {f.to.iata}
+                  </span>
+                  {back && <span className="text-[10px] font-semibold uppercase tracking-wide text-smoke">Back</span>}
+                </span>
+                <span className="mt-0.5 block truncate text-[11px] text-smoke">
+                  {[f.airline, f.flight_number, f.aircraft].filter(Boolean).join(' · ') || 'No airline logged'}
+                </span>
+                <span className="mt-0.5 block text-[11px] tabular-nums text-gray-400">
+                  {f.dist ? `${fmtKm(f.dist)} km` : ''}
+                  {f.dist && f.seat ? ' · ' : ''}
+                  {f.seat ? `seat ${f.seat}` : ''}
+                </span>
+                {f.note && <span className="mt-1 line-clamp-2 block text-[11px] leading-4 text-smoke">{f.note}</span>}
+              </span>
+            </li>
+          )
+        })}
       </ul>
       )}
       {activeRows.length > 5 && (
@@ -997,6 +1096,7 @@ function FlightMap({ routes = [], airports = [] }) {
           {airportCard}
           {hint}
         </div>
+        <PhotoLightbox src={photo} onClose={() => setPhoto(null)} />
       </div>,
       document.body,
     )
@@ -1017,6 +1117,7 @@ function FlightMap({ routes = [], airports = [] }) {
           </p>
         )}
       </div>
+      <PhotoLightbox src={photo} onClose={() => setPhoto(null)} />
       {/* THE OPENFLIGHTS LINE HAS MOVED, NOT GONE.
           Ethan asked for it off both map pages, and it is off them. It could
           not simply be deleted: the six thousand faint airport dots are

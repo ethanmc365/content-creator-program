@@ -134,6 +134,8 @@ export default function FlightCommunity() {
   const [mapWin, setMapWin] = useState('year')
   const [mine, setMine] = useState(null)
   const [flyers, setFlyers] = useState({})
+  // Every aircraft type, or the first three. See the toggle below the grid.
+  const [allFleet, setAllFleet] = useState(false)
   const [totals, setTotals] = useState(null)
   // THE THREE AGGREGATES BEHIND THE MAP AND THE TWO SECTIONS UNDER IT.
   // All definer functions returning counts and airport codes and NOTHING that
@@ -440,7 +442,11 @@ export default function FlightCommunity() {
               </div>
             ) : (
               <WhenVisible rootMargin="1000px" fallback={<MapSkeleton />}>
-                <FlightMap routes={mapData.arcs} airports={mapData.pins} />
+                <FlightMap
+                  routes={mapData.arcs}
+                  airports={mapData.pins}
+                  routeExtra={(active) => <RouteCreators from={active.from.iata} to={active.to.iata} />}
+                />
               </WhenVisible>
             )}
           </section>
@@ -570,7 +576,7 @@ export default function FlightCommunity() {
                   introduction - the same reason "others on your routes" names
                   people instead of counting them. */}
               <Reveal className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" stagger={0.04}>
-                {fleet.slice(0, 12).map((a) => {
+                {(allFleet ? fleet : fleet.slice(0, 3)).map((a) => {
                   const type = aircraftTypeByName(a.aircraft)
                   const faces = Array.isArray(a.faces) ? a.faces : []
                   return (
@@ -616,6 +622,25 @@ export default function FlightCommunity() {
                   )
                 })}
               </Reveal>
+              {/* EVERY TYPE, NOT THE FIRST TWELVE.
+                  Ethan: "it's not showing all the aircrafts we've been on, I
+                  think it should show them all or show the first 3 with a
+                  toggle to view all and they would then appear below." The cap
+                  was a silent 12 over a list the RPC already returns 40 of, so
+                  a community that has been on more types than that was simply
+                  told it had not. Three is a full row on desktop and the rest
+                  open underneath in place, which is the second half of the ask
+                  - not a link to another page. */}
+              {fleet.length > 3 && (
+                <button
+                  type="button"
+                  onClick={() => setAllFleet((v) => !v)}
+                  className="btn-secondary mt-4 w-full justify-center text-sm sm:w-auto"
+                >
+                  {allFleet ? 'Show fewer' : `View all ${fleet.length} aircrafts`}
+                  <Icon name={allFleet ? 'chevronUp' : 'chevronDown'} className="h-4 w-4" />
+                </button>
+              )}
             </section>
           </Reveal>
         )}
@@ -633,6 +658,63 @@ export default function FlightCommunity() {
           </Reveal>
         )}
       </div>
+    </div>
+  )
+}
+
+// WHO FLIES THIS ROUTE, ON THE CARD THAT OPENS WHEN YOU PRESS IT.
+//
+// Ethan: "same for the across the community trips, and it should provide some
+// info, show the creator's name and profile picture."
+//
+// The community map cannot list flights - `community_routes` returns a pair of
+// codes and two counts, and that is deliberate (migration 103: a date and a
+// flight number are somebody's movement history). What it CAN say is who,
+// which is the half of the question that makes a line on a map worth pressing,
+// and it is exactly what `route_creators` returns.
+//
+// FETCHED WHEN THE CARD OPENS, NOT UP FRONT. There are hundreds of routes on
+// this map and one of them is open at a time. Keying the component on the pair
+// means pressing a different line remounts it and starts the right request; the
+// cancelled flag stops a slow answer landing on a card that has since closed.
+function RouteCreators({ from, to }) {
+  const [rows, setRows] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setRows(null)
+    supabase.rpc('route_creators', { p_a: from, p_b: to }).then(({ data }) => {
+      if (!cancelled) setRows(data ?? [])
+    })
+    return () => { cancelled = true }
+  }, [from, to])
+
+  if (!rows || rows.length === 0) return null
+
+  return (
+    <div className="border-t border-gray-100 px-5 py-3.5">
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-smoke">
+        {rows.length === 1 ? 'Flown by' : `Flown by ${rows.length} creators`}
+      </p>
+      <ul className="space-y-2">
+        {rows.slice(0, 4).map((c) => (
+          <li key={c.creator_id}>
+            <Link
+              to={`/profile/${c.creator_id}`}
+              className="flex items-center gap-2.5 rounded-xl px-1 py-0.5 transition-transform duration-200 hover:translate-x-0.5"
+            >
+              <Avatar src={c.photo_url} name={c.name} size="xs" />
+              <span className="min-w-0 flex-1 truncate text-xs font-semibold text-ink">{c.name}</span>
+              <span className="shrink-0 text-[11px] tabular-nums text-smoke">
+                {c.flights} {Number(c.flights) === 1 ? 'flight' : 'flights'}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+      {rows.length > 4 && (
+        <p className="mt-2 text-[11px] text-smoke">and {rows.length - 4} more</p>
+      )}
     </div>
   )
 }

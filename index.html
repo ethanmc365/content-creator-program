@@ -2,6 +2,13 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- THE CANVAS IS ORANGE BEFORE ANYTHING ELSE IN THIS FILE IS READ.
+         First rule in the document on purpose. Whatever the browser paints
+         first - the root background during a reload, the overscroll gutter, the
+         gap while the boot layer is still being parsed - is this colour and not
+         white. It is only half of the fix; see vite-boot-css.js for the other
+         half, which is the one that actually mattered. -->
+    <style>html { background: #d94407; }</style>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="/favicon-32.png" sizes="32x32" />
     <!-- Mobile-first viewport. viewport-fit=cover handles iPhone notch/safe areas. -->
@@ -78,13 +85,17 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 1.75rem;
         background: linear-gradient(150deg, #d94407 0%, #d94407 45%, #f5853f 100%);
         /* The fade out. `visibility` rides along so the layer stops taking
            presses the instant it starts leaving, rather than 420ms later. */
-        transition: opacity 420ms ease-out, visibility 420ms ease-out;
+        transition: opacity 420ms ease-out, visibility 420ms ease-out, transform 420ms ease-out;
       }
-      #boot.gone { opacity: 0; visibility: hidden; }
+      /* IT LIFTS AWAY RATHER THAN JUST DISSOLVING. Ethan: "just show the line
+         with the plane icon animation loading and then smoothly animate and the
+         worldwide page opens." A pure opacity fade reads as the screen giving
+         up; a 1.5% scale under it reads as the layer moving off the app, and
+         the app arriving underneath. */
+      #boot.gone { opacity: 0; visibility: hidden; transform: scale(1.015); }
       /* The runway: a dashed line the plane crosses, the same shape the
          in-app PlaneLoader uses, in white on the brand instead of brand on
          white. */
@@ -108,12 +119,6 @@
         color: #fff;
         animation: boot-fly 2.1s cubic-bezier(0.4, 0, 0.35, 1) infinite;
       }
-      #boot .word {
-        font: 600 15px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        color: rgba(255, 255, 255, 0.85);
-      }
       @keyframes boot-fly {
         0%   { transform: translateX(-46px) translateY(0); opacity: 0; }
         14%  { opacity: 1; }
@@ -134,7 +139,6 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
         </svg>
       </div>
-      <span class="word">Tryp.com</span>
     </div>
 
     <div id="root"></div>

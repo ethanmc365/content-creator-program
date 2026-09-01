@@ -269,6 +269,7 @@ export default function Events() {
   const [personalOpen, setPersonalOpen] = useState(false)
   const [editingPersonal, setEditingPersonal] = useState(null)
   const [subscribeOpen, setSubscribeOpen] = useState(false)
+  const [suggestOpen, setSuggestOpen] = useState(false)
   const [deadlinePrefsOpen, setDeadlinePrefsOpen] = useState(false)
   // ONE CLOCK, AND IT NOTICES WHEN YOU MOVE. See lib/timezone: the host-time
   // second line is gone, and what replaced it is a single prompt the first time
@@ -422,21 +423,38 @@ export default function Events() {
   return (
     <div className="page">
       <PageHeader
-        title="Events & calendar"
+        title="Calendar"
         action={
-          <div className="flex flex-wrap gap-2">
-            <button onClick={() => { setEditingPersonal(null); setPersonalOpen(true) }} className="btn-secondary !py-2.5 text-sm">
-              <Icon name="plus" className="h-4 w-4" />
-              <span className="hidden sm:inline">Personal event</span>
-              <span className="sm:hidden">Add</span>
-            </button>
-            {/* SUBSCRIBE, NOT DOWNLOAD. A file is out of date the moment
-                anybody adds a date to it; a URL is not. */}
-            <button onClick={() => setSubscribeOpen(true)} className="btn-secondary !py-2.5 text-sm">
-              <Icon name="calendar" className="h-4 w-4" />
-              Sync
-            </button>
-            {isAdmin && <Link to="/admin/events" className="btn-primary">Manage</Link>}
+          /* THREE EQUAL ACTIONS ON ONE ROW, AT EVERY WIDTH.
+             "Suggest an event" used to live at the foot of the page under its
+             own heading; it is a primary action and it belongs with the other
+             two. On a phone the three share the row equally (`flex-1
+             basis-0`), so nothing wraps and no space is wasted, and the labels
+             shorten rather than the buttons shrinking. Manage is admin-only and
+             takes its own full-width row underneath - a fourth button on the
+             row would leave four cramped columns for everyone who can see it. */
+          <div className="w-full sm:w-auto">
+            <div className="flex gap-2">
+              <button onClick={() => { setEditingPersonal(null); setPersonalOpen(true) }} className="btn-secondary !px-3 !py-2.5 flex-1 basis-0 justify-center whitespace-nowrap text-sm sm:flex-none sm:basis-auto sm:!px-4">
+                <Icon name="plus" className="h-4 w-4 shrink-0" />
+                <span className="hidden sm:inline">Personal event</span>
+                <span className="sm:hidden">Personal</span>
+              </button>
+              {/* SUBSCRIBE, NOT DOWNLOAD. A file is out of date the moment
+                  anybody adds a date to it; a URL is not. */}
+              <button onClick={() => setSubscribeOpen(true)} className="btn-secondary !px-3 !py-2.5 flex-1 basis-0 justify-center whitespace-nowrap text-sm sm:flex-none sm:basis-auto sm:!px-4">
+                <Icon name="calendar" className="h-4 w-4 shrink-0" />
+                Sync
+              </button>
+              <button onClick={() => setSuggestOpen(true)} className="btn-secondary !px-3 !py-2.5 flex-1 basis-0 justify-center whitespace-nowrap text-sm sm:flex-none sm:basis-auto sm:!px-4">
+                <Icon name="pencil" className="h-4 w-4 shrink-0" />
+                <span className="hidden sm:inline">Suggest an event</span>
+                <span className="sm:hidden">Suggest</span>
+              </button>
+            </div>
+            {isAdmin && (
+              <Link to="/admin/events" className="btn-primary mt-2 w-full justify-center sm:w-auto">Manage</Link>
+            )}
           </div>
         }
       />
@@ -611,7 +629,7 @@ export default function Events() {
           {/* Availability polls, creator event ideas, and (admins) post-event ratings */}
           <div className="mt-12">
             <EventPolls />
-            <SuggestEvent />
+            <SuggestEvent open={suggestOpen} onClose={() => setSuggestOpen(false)} />
             <EventRatingsAdmin />
           </div>
         </>

@@ -25,19 +25,54 @@ const fromUrl = iconFromUrl()
 if (fromUrl) setAppIcon(fromUrl)
 else applyAppIcon()
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
-        {/* Inert while the network preview flag is off: it issues no queries, so
-            a live UK creator pays nothing for it being mounted here. */}
-        <CommunityProvider>
-          <App />
-        </CommunityProvider>
-      </AuthProvider>
-    </BrowserRouter>
-  </React.StrictMode>
-)
+// THE APP STYLESHEET, TURNED BACK ON.
+//
+// `vite-boot-css.js` rewrites the built <link rel="stylesheet"> into a
+// non-blocking preload, because a render-blocking stylesheet in the head is
+// what made the app open on WHITE and then blink orange - the browser paints
+// nothing at all, inline boot layer included, until that file lands. Read the
+// long note in that plugin; it is the whole reason this function exists.
+//
+// Promoting it is one property. Waiting for the load before React commits is
+// the part that matters: rendering into a document whose CSS has not applied is
+// trading a white flash for an unstyled one.
+//
+// THE TIMEOUT IS NOT OPTIONAL. If the file 404s or the network stalls, `load`
+// never fires and a promise with nothing behind it would leave the splash up
+// for ever. 1200ms then render anyway - an unstyled app is bad; no app is
+// worse. In dev there is no such link at all (Vite injects CSS through the
+// module graph), so this resolves immediately and changes nothing.
+function promoteAppCss() {
+  const links = [...document.querySelectorAll('link[data-app-css]')]
+  if (links.length === 0) return Promise.resolve()
+  return new Promise((resolve) => {
+    let left = links.length
+    const tick = () => { left -= 1; if (left <= 0) resolve() }
+    setTimeout(resolve, 1200)
+    for (const link of links) {
+      link.addEventListener('load', tick, { once: true })
+      link.addEventListener('error', tick, { once: true })
+      link.rel = 'stylesheet'
+    }
+  })
+}
+
+function mount() {
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    <React.StrictMode>
+      <BrowserRouter>
+        <AuthProvider>
+          {/* Inert while the network preview flag is off: it issues no queries, so
+              a live UK creator pays nothing for it being mounted here. */}
+          <CommunityProvider>
+            <App />
+          </CommunityProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    </React.StrictMode>
+  )
+  dismissBoot()
+}
 
 // THE ORANGE SPLASH LEAVES ONCE THERE IS SOMETHING BEHIND IT.
 //
@@ -51,7 +86,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 // this task, the second runs after React has committed and the browser has
 // drawn. The class starts a 420ms CSS fade; the element is removed after it,
 // so nothing is left holding a full-screen layer over the app.
-{
+function dismissBoot() {
   const boot = document.getElementById('boot')
   if (boot) {
     let done = false
@@ -74,6 +109,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     setTimeout(dismiss, 400)
   }
 }
+
+promoteAppCss().then(mount)
 
 // Register the service worker, then cache the app's actual loaded assets so the
 // app can boot with no connection. The SW only precaches the HTML shell (it

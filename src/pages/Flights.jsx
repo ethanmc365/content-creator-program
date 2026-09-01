@@ -12,6 +12,7 @@ import { CountUp } from '../components/network/Motion'
 import WhenVisible from '../components/WhenVisible'
 import FlightMap from '../components/network/FlightMap'
 import MapSkeleton from '../components/network/MapSkeleton'
+import PhotoLightbox from '../components/PhotoLightbox'
 import AircraftArt from '../components/network/AircraftArt'
 import { confirm, notice } from '../lib/confirm'
 import { toast } from '../lib/toast'
@@ -68,7 +69,14 @@ const PURPOSES = [
   { key: 'leisure', label: 'Holiday', icon: 'sun' },
   { key: 'work', label: 'Work', icon: 'briefcase' },
   { key: 'family', label: 'Family', icon: 'heart' },
-  { key: 'commute', label: 'Commute', icon: 'clock' },
+  // SOLO TRAVEL, NOT COMMUTE (migration 152). Ethan: "redo the 'commute'
+  // option and icon to Solo Travel instead as I'd say that's a more popular
+  // option." A commute is a handful of creators flying the same hop for work;
+  // travelling alone is something a large part of this community does and had
+  // nowhere to go but Holiday or Other. The stored value changed with the
+  // label - see the migration for why printing a new word over an old key is
+  // the version of this that goes wrong later.
+  { key: 'solo', label: 'Solo travel', icon: 'user' },
   { key: 'other', label: 'Other', icon: 'dots' },
 ]
 const PURPOSE_LABEL = Object.fromEntries(PURPOSES.map((p) => [p.key, p.label]))
@@ -105,7 +113,10 @@ const PURPOSE_LABEL = Object.fromEntries(PURPOSES.map((p) => [p.key, p.label]))
 const BLANK_FORM = {
   from_iata: '', to_iata: '', flown_on: '', airline: '', flight_number: '',
   aircraft: '', note: '', seat: '', purpose: '', purpose_note: '',
-  round_trip: false, return_on: '',
+  // `first_leg` says WHICH WAY ROUND the trip went. See the direction picker
+  // in the form: `flown_on` is always the FIRST leg's date and `return_on`
+  // always the second's, and this decides which pair of codes goes on which.
+  round_trip: false, return_on: '', first_leg: 'out',
   photo_url: '',
 }
 
@@ -636,6 +647,16 @@ export default function Flights() {
   // on /flights/community now and are loaded by the page that shows them.
 
   // ---- the form ------------------------------------------------------------
+  // CAN THIS ROW GROW A SECOND LEG?
+  //
+  // Adding a flight: always. Editing one: only if it is not already half of a
+  // pair, in either direction - a row that IS a return (`return_of` set) and a
+  // row that already HAS one would both end up in a trip with three legs, and
+  // `tripsFromFlights` pairs one return to one outbound. Those two cases are
+  // exactly the rows whose leg home is already in the log, so there is nothing
+  // being taken away from anybody.
+  const canRoundTrip = !editing
+    || (!editing.return_of && !(rows || []).some((x) => x.return_of === editing.id))
   const fromA = airport(form.from_iata)
   const toA = airport(form.to_iata)
   const previewKm = fromA && toA ? distanceKm(fromA, toA) : 0
@@ -725,12 +746,19 @@ export default function Flights() {
   // type the whole thing again - which is exactly the trade the community board
   // was given an edit dialog to avoid.
   //
-  // A ROUND TRIP IS NOT EDITABLE AS A PAIR, and that is deliberate rather than
-  // unfinished: the return is its OWN row with its own date and its own
-  // distance (see `save`), so it appears in the log on its own line and is
-  // edited there. Offering to edit "the trip" would mean deciding what happens
-  // when somebody changes the outbound's airports out from under a return that
-  // still points at them.
+  // A ROUND TRIP THAT ALREADY HAS BOTH LEGS IS STILL NOT EDITABLE AS A PAIR,
+  // and that is deliberate rather than unfinished: the return is its OWN row
+  // with its own date and its own distance (see `save`), so it appears in the
+  // log on its own line and is edited there. Offering to edit "the trip" would
+  // mean deciding what happens when somebody changes the outbound's airports
+  // out from under a return that still points at them.
+  //
+  // BUT A ONE-WAY ROW CAN BE TURNED INTO A ROUND TRIP FROM HERE (1 Sep 2026).
+  // Ethan: "when logging an already logged trip on flight log I seem to be
+  // unable to select it as a round trip, which I want to be able to do." The
+  // tick box was simply hidden whenever `editing` was set, so the only way to
+  // add the leg home to a flight already in the log was to type a whole second
+  // flight by hand. See `canRoundTrip` for the two rows it stays hidden for.
   function openEdit(f) {
     setForm({
       from_iata: f.from_iata || '',
@@ -745,6 +773,7 @@ export default function Flights() {
       purpose_note: f.purpose_note || '',
       round_trip: false,
       return_on: '',
+      first_leg: 'out',
       photo_url: f.photo_url || '',
     })
     setEditing(f)
@@ -816,13 +845,26 @@ export default function Flights() {
     // go back to.
     if (!form.airline.trim()) { setError('Pick the airline you flew with, or tap Other to type it in.'); return }
     if (!form.note.trim()) { setError('Add a note about this trip. It is the bit that makes the flight worth reading back.'); return }
-    if (form.round_trip) {
+    const roundTrip = canRoundTrip && form.round_trip
+    if (roundTrip) {
       if (!form.return_on) { setError('Add the date you fly back, or untick round trip.'); return }
       // A return date in the future is fine even on a flight already taken:
       // that is exactly the shape of "I flew out last week, I fly back on
       // Friday", which the old check rejected.
       if (form.return_on < form.flown_on) { setError('The return is before the outbound. Check the dates.'); return }
     }
+
+    // WHICH PAIR OF CODES GOES ON WHICH LEG. One rule, applied identically to a
+    // new trip and to a one-way row growing its leg home: `flown_on` is the
+    // FIRST leg's date, `return_on` the second's, and `first_leg` says whether
+    // the first leg is the way the airports were typed or the other way round.
+    // See the direction picker for why the form has to ask.
+    const flipped = roundTrip && form.first_leg === 'back'
+    const legOne = flipped
+      ? { from_iata: form.to_iata, to_iata: form.from_iata }
+      : { from_iata: form.from_iata, to_iata: form.to_iata }
+    const legTwo = { from_iata: legOne.to_iata, to_iata: legOne.from_iata }
+
     setSaving(true)
 
     // Everything both legs share. The return is the SAME flight backwards -
@@ -850,29 +892,47 @@ export default function Flights() {
     // One update and nothing else: no round trip (the return is its own row and
     // is edited on its own line) and no offer to post to the collab board,
     // because correcting a typo is not news.
+    // ---- EDITING AN EXISTING ROW -------------------------------------------
+    // One update - plus, since 1 Sep 2026, the leg home if the round trip box
+    // has just been ticked. The row being edited is always leg ONE, so a
+    // direction change here rewrites its own airports rather than inventing a
+    // third row: see the direction picker.
     if (editing) {
       const { error: upErr } = await supabase.from('flights').update({
         ...common,
-        from_iata: form.from_iata,
-        to_iata: form.to_iata,
+        ...legOne,
         flown_on: form.flown_on,
         seat: form.seat.trim() || null,
         note: form.note.trim() || null,
         photo_url: form.photo_url || null,
       }).eq('id', editing.id)
+      if (upErr) { setSaving(false); setError('Could not save those changes. Please try again.'); return }
+
+      if (roundTrip) {
+        const { error: retErr } = await supabase.from('flights').insert({
+          ...common,
+          ...legTwo,
+          flown_on: form.return_on,
+          return_of: editing.id,
+        })
+        if (retErr) {
+          setSaving(false)
+          setError('The changes are saved but the leg home did not go through. Add it on its own.')
+          load()
+          return
+        }
+      }
       setSaving(false)
-      if (upErr) { setError('Could not save those changes. Please try again.'); return }
       closeForm()
       setForm(BLANK_FORM)
-      toast('Flight updated')
+      toast(roundTrip ? 'Trip updated, leg home added' : 'Flight updated')
       load()
       return
     }
 
     const { data: out, error: insErr } = await supabase.from('flights').insert({
       ...common,
-      from_iata: form.from_iata,
-      to_iata: form.to_iata,
+      ...legOne,
       flown_on: form.flown_on,
       seat: form.seat.trim() || null,
       note: form.note.trim() || null,
@@ -894,11 +954,10 @@ export default function Flights() {
     // would be worse than one that loses the leg you can re-add in ten seconds,
     // so the error says exactly which one is missing.
     let returnFailed = false
-    if (form.round_trip) {
+    if (roundTrip) {
       const { error: retErr } = await supabase.from('flights').insert({
         ...common,
-        from_iata: form.to_iata,
-        to_iata: form.from_iata,
+        ...legTwo,
         flown_on: form.return_on,
         return_of: out.id,
       })
@@ -929,7 +988,7 @@ export default function Flights() {
     // yet, a future one is offered every time and the recency rule only has to
     // cover the trip you have just got back from. Offering to tell forty people
     // about a flight from 2019 is offering to post something nobody can act on.
-    const arrived = airport(form.to_iata)
+    const arrived = airport(legOne.to_iata)
     // UPCOMING ONLY. It also offered on any flight taken in the last 21 days,
     // which is a trip that has already happened - so the board filled up with
     // "I am in Seville" from somebody who got home a fortnight ago and nobody
@@ -948,7 +1007,7 @@ export default function Flights() {
         city: arrived.city,
         country: arrived.countryName || arrived.country || '',
         start: form.flown_on,
-        end: form.round_trip && form.return_on ? form.return_on : ymd(new Date(new Date(`${form.flown_on}T12:00:00Z`).getTime() + 6 * 86400000)),
+        end: roundTrip && form.return_on ? form.return_on : ymd(new Date(new Date(`${form.flown_on}T12:00:00Z`).getTime() + 6 * 86400000)),
         note: '',
       })
     }
@@ -1337,17 +1396,15 @@ export default function Flights() {
                     value={humanHours(r.longestTime.mins)}
                     detail={`${r.longestTime.from.city} to ${r.longestTime.to.city}`} />
                 )}
-                {r.turnaround && (
-                  <RecordCard icon="sparkles" label="Fastest turnaround"
-                    value={r.turnaround.days === 0 ? 'Same day' : `${r.turnaround.days} ${r.turnaround.days === 1 ? 'day' : 'days'}`}
-                    // WHEN YOU LANDED AND LEFT THE SAME PLACE, SAY THE PLACE
-                    // ONCE. It read "OPO in, OPO out", which is the same airport
-                    // twice and is how a connection looks in a database rather
-                    // than how it looks in a life.
-                    detail={r.turnaround.first.to.iata === r.turnaround.second.from.iata
-                      ? `Straight back out of ${r.turnaround.first.to.iata}`
-                      : `${r.turnaround.first.to.iata} in, ${r.turnaround.second.from.iata} out`} />
-                )}
+                {/* FASTEST TURNAROUND IS GONE. Ethan: "I would remove the
+                    Fastest turnaround metric, it's not needed and it then
+                    improves the UI as everything will fit nicely and equally."
+                    Both halves are right. "Two days" between landing and taking
+                    off again is a fact about a diary rather than about flying,
+                    and it was the odd card out on a wall of records - so
+                    dropping it also leaves a count that fills its rows. The
+                    `records.turnaround` computation stays in lib/flightStats
+                    (it is pure and tested); nothing draws it. */}
                 {r.busiestMonth && (
                   <RecordCard icon="calendar" label="Busiest month"
                     value={monthLabel(r.busiestMonth.key)}
@@ -1403,49 +1460,15 @@ export default function Flights() {
             </section>
           </Reveal>
 
-          {/* ---- TRAVEL STREAK ---- */}
-          {stats.streak.best > 1 && (
-            <Reveal from="down">
-              <section>
-                <h2 className="mb-3 text-lg font-semibold">Your streak</h2>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-card border border-brand/25 bg-brand-tint/25 p-5">
-                    <p className="flex items-baseline gap-2 text-3xl font-bold tabular-nums text-brand">
-                      <CountUp value={stats.streak.current} />
-                      <span className="text-sm font-semibold">{stats.streak.current === 1 ? 'month' : 'months'}</span>
-                    </p>
-                    <p className="mt-1 text-xs font-semibold text-smoke">Flying right now</p>
-                    <p className="mt-0.5 text-[11px] text-gray-400">
-                      {stats.streak.current > 0
-                        ? `Every month since ${monthLabel(stats.streak.since)}`
-                        : `Nothing since ${monthLabel(stats.streak.lastMonth)}. One flight starts it again.`}
-                    </p>
-                  </div>
-                  <div className="rounded-card border border-gray-100 bg-white p-5 shadow-card">
-                    <p className="flex items-baseline gap-2 text-3xl font-bold tabular-nums">
-                      <CountUp value={stats.streak.best} />
-                      <span className="text-sm font-semibold text-smoke">{stats.streak.best === 1 ? 'month' : 'months'}</span>
-                    </p>
-                    <p className="mt-1 text-xs font-semibold text-smoke">Longest run</p>
-                    <p className="mt-0.5 text-[11px] text-gray-400">Consecutive months with a flight in them</p>
-                  </div>
-                  <div className="rounded-card border border-gray-100 bg-white p-5 shadow-card">
-                    <p className="text-3xl font-bold tabular-nums"><CountUp value={stats.activeYears} /></p>
-                    <p className="mt-1 text-xs font-semibold text-smoke">Years in the log</p>
-                    <p className="mt-0.5 text-[11px] text-gray-400">
-                      {r.first ? `Since ${formatDate(r.first.flown_on)}` : ''}
-                    </p>
-                  </div>
-                </div>
-                {/* A STREAK IS A MONTH, NOT A DAY. Nobody flies daily, and a
-                    streak that resets because you were at home on Tuesday is a
-                    streak that punishes having a life. */}
-                <p className="mt-2 text-[11px] text-gray-400">
-                  A month counts once you have flown in it. The current month never breaks a streak.
-                </p>
-              </section>
-            </Reveal>
-          )}
+          {/* THE TRAVEL STREAK SECTION IS GONE. Ethan: "I would remove
+              this section 'Your streak', it's not needed." Three cards saying
+              how many consecutive MONTHS have a flight in them is a metric this
+              page invented for itself; the log already says how much somebody
+              flies in half a dozen better ways, and the number people actually
+              mean by "streak" on this platform is the games one
+              (lib/gameStreak), which is somewhere else entirely and was being
+              competed with. `stats.streak` is still computed and tested; it is
+              simply not drawn here. */}
 
           {/* ---- AIRLINE LOYALTY ---- */}
           {/* ---- AIRLINE LOYALTY: THREE, AND THE REST BEHIND A BUTTON ----
@@ -1738,9 +1761,10 @@ export default function Flights() {
               value={form.flown_on}
               onChange={(v) => setForm((f) => ({ ...f, flown_on: v }))}
             />
-            {/* A round trip writes TWO rows, so it is an adding-only idea. See
-                openEdit for why a return is edited on its own line. */}
-            {!editing && (
+            {/* A ROUND TRIP WRITES A SECOND ROW, AND YOU CAN ASK FOR IT WHEN
+                EDITING TOO - as long as this row is not already half of one.
+                See `canRoundTrip`. */}
+            {canRoundTrip && (
             /* THE TITLE IS ABOVE THE BOX, LIKE EVERY OTHER FIELD ON THE FORM.
                Ethan: "the day flown card and the round trip card beside it. The
                round trip card is bigger, and this says round trip inside,
@@ -1759,7 +1783,7 @@ export default function Flights() {
                 <input
                   type="checkbox"
                   checked={form.round_trip}
-                  onChange={(e) => setForm((f) => ({ ...f, round_trip: e.target.checked, return_on: e.target.checked ? f.return_on : '' }))}
+                  onChange={(e) => setForm((f) => ({ ...f, round_trip: e.target.checked, return_on: e.target.checked ? f.return_on : '', first_leg: 'out' }))}
                   className="h-4 w-4 shrink-0 accent-[#d94407]"
                 />
                 <span className="min-w-0 truncate text-sm text-ink">
@@ -1770,24 +1794,77 @@ export default function Flights() {
             )}
           </div>
 
-          {!editing && form.round_trip && (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {/* NO HINT. It said "Saved as its own flight, so the distance
-                  counts twice", which is an implementation detail dressed as a
-                  warning - and it read as a bug being confessed to. Ethan:
-                  "there's no need to show that text, it's unnecessary and ruins
-                  the design." */}
-              <DateField
-                id="flight-return"
-                label={upcoming ? 'Date you fly back' : 'Date you flew back'}
-                value={form.return_on}
-                onChange={(v) => setForm((f) => ({ ...f, return_on: v }))}
-              />
-              {form.flown_on && form.return_on && form.return_on < form.flown_on && (
-                <p className="self-end pb-2.5 text-[11px] text-red-500">
-                  The return is before the outbound. Check the dates.
-                </p>
-              )}
+          {canRoundTrip && form.round_trip && (
+            <div className="space-y-4">
+              {/* WHICH WAY ROUND THE TRIP ACTUALLY WENT.
+                  Ethan: "when asking for round trip I want to select which way
+                  the round trip was. If I logged Oslo to Dublin and I want to
+                  log it as a round trip, well it would do Dublin back to Oslo,
+                  but it was actually the other way, Dublin to Oslo first."
+                  A pair of airports does not say which end you started at, and
+                  the form was assuming the pair had been typed in flying order.
+                  Half the time it has not been - people type the destination
+                  they are thinking about first.
+                  So the rule is now stated once and holds everywhere: `flown_on`
+                  is the FIRST leg's date, `return_on` is the second's, and this
+                  control decides which pair of codes goes on which. Both
+                  options are drawn in full rather than as a swap button,
+                  because "which way round" is a question you answer by reading
+                  the two answers, not by toggling something and checking what
+                  happened. */}
+              <div>
+                <span className="label">Which way did you fly first?</span>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {[
+                    { key: 'out', a: fromA, b: toA },
+                    { key: 'back', a: toA, b: fromA },
+                  ].map((opt) => {
+                    const on = form.first_leg === opt.key
+                    return (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        onClick={() => setForm((f) => ({ ...f, first_leg: opt.key }))}
+                        aria-pressed={on}
+                        className={cx(
+                          'flex flex-col gap-1 rounded-xl border px-3.5 py-3 text-left transition-all duration-200 hover:-translate-y-0.5',
+                          on ? 'border-brand bg-brand-tint/30 shadow-card' : 'border-gray-200 hover:border-brand/40',
+                        )}
+                      >
+                        <span className={cx('flex items-center gap-1.5 text-sm font-bold tracking-wider', on ? 'text-brand' : 'text-ink')}>
+                          {opt.a?.iata || '···'}
+                          <Icon name="plane" className="h-3.5 w-3.5 text-brand-light" />
+                          {opt.b?.iata || '···'}
+                        </span>
+                        <span className="text-[11px] text-smoke">
+                          {opt.a && opt.b
+                            ? `${opt.a.city} to ${opt.b.city} first, then back`
+                            : 'Pick both airports first'}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {/* NO HINT. It said "Saved as its own flight, so the distance
+                    counts twice", which is an implementation detail dressed as a
+                    warning - and it read as a bug being confessed to. Ethan:
+                    "there's no need to show that text, it's unnecessary and ruins
+                    the design." */}
+                <DateField
+                  id="flight-return"
+                  label={upcoming ? 'Date you fly back' : 'Date you flew back'}
+                  value={form.return_on}
+                  onChange={(v) => setForm((f) => ({ ...f, return_on: v }))}
+                />
+                {form.flown_on && form.return_on && form.return_on < form.flown_on && (
+                  <p className="self-end pb-2.5 text-[11px] text-red-500">
+                    The return is before the outbound. Check the dates.
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
@@ -2205,17 +2282,10 @@ export default function Flights() {
 
       {/* The photograph, full size. Deliberately its own layer rather than a
           bigger image inside the sheet: a trip photo is portrait as often as
-          not and the sheet is not the shape of a photograph. */}
-      {photo && (
-        <button
-          type="button"
-          onClick={() => setPhoto(null)}
-          aria-label="Close photo"
-          className="animate-fade-up fixed inset-0 z-[90] flex items-center justify-center bg-ink/90 p-4 backdrop-blur-sm"
-        >
-          <img src={photo} alt="" className="max-h-full max-w-full rounded-card object-contain" />
-        </button>
-      )}
+          not and the sheet is not the shape of a photograph.
+          IT IS A PORTAL NOW - see PhotoLightbox for why a z-index written on
+          this page could never beat the trip sheet it opens from. */}
+      <PhotoLightbox src={photo} onClose={() => setPhoto(null)} />
 
       <Modal open={!!offer} onClose={() => setOffer(null)} title="Tell the community?">
         {offer && (
