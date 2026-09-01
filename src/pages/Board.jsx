@@ -884,7 +884,7 @@ export function BoardThread() {
                 {busy ? 'Posting…' : 'Post answer'}
               </button>
               <span className="text-xs text-smoke">
-                {tr("Several people can answer. Yours does not replace anybody else&rsquo;s.")}
+                {tr("Several people can answer. Yours does not replace anybody else’s.")}
               </span>
             </div>
           </form>

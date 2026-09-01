@@ -239,7 +239,7 @@ export function CreatorNotifications({ state }) {
           <div className="flex items-center gap-4 border-b border-gray-100 py-4">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold">{tr("Streak reminder")}</p>
-              <p className="text-xs text-smoke">{tr("If your streak is at risk, we&rsquo;ll nudge you around 6pm to play before midnight.")}</p>
+              <p className="text-xs text-smoke">{tr("If your streak is at risk, we’ll nudge you around 6pm to play before midnight.")}</p>
             </div>
             <div className="flex w-11 justify-center">
               <Toggle on={state.prefs.daily_streak !== false} onChange={(v) => state.togglePush('daily_streak', v)} label={tr("Daily streak reminder")} />

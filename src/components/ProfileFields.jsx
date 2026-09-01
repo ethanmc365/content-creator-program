@@ -414,7 +414,7 @@ export function CountrySelect({ value = '', code = '', onChange, required, label
           </div>
           <ul role="listbox" className="max-h-64 overflow-y-auto py-1">
             {list.length === 0 && (
-              <li className="px-4 py-3 text-xs text-smoke">{tr("Nothing matches that. Try the country&apos;s English name.")}</li>
+              <li className="px-4 py-3 text-xs text-smoke">{tr("Nothing matches that. Try the country's English name.")}</li>
             )}
             {list.map((c) => (
               <li key={c.iso2}>

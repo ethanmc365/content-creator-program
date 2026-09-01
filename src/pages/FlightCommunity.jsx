@@ -440,7 +440,7 @@ export default function FlightCommunity() {
             ) : mapData.arcs.length === 0 ? (
               <div className="rounded-card border border-dashed border-gray-200 px-6 py-14 text-center">
                 <p className="text-sm font-medium text-ink">{tr("No shared routes yet.")}</p>
-                <p className="mt-1 text-sm text-smoke">{tr("Tick &ldquo;share with the community&rdquo; on a flight and it lands on this map.")}</p>
+                <p className="mt-1 text-sm text-smoke">{tr("Tick “share with the community” on a flight and it lands on this map.")}</p>
               </div>
             ) : (
               <WhenVisible rootMargin="1000px" fallback={<MapSkeleton />}>
@@ -564,7 +564,7 @@ export default function FlightCommunity() {
               <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
                 <h2 className="text-lg font-semibold">{tr("Aircrafts")}</h2>
                 <Link to="/flights/aircraft" className="text-sm font-medium text-brand transition-transform duration-200 hover:scale-105">
-                  {tr("Your aircraft collection &rarr;")}
+                  {tr("Your aircraft collection →")}
                 </Link>
               </div>
               {/* THE AIRCRAFT, AND THE PEOPLE WHO HAVE BEEN ON IT.

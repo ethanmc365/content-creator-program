@@ -412,7 +412,7 @@ function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle, 
 
       <Reveal as="section" from="down" delay={0.06}>
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-lg font-semibold">{tr("Today&rsquo;s puzzles")}</h2>
+          <h2 className="text-lg font-semibold">{tr("Today’s puzzles")}</h2>
           {/* The line that says WHY to come back today rather than tomorrow -
               and NOTHING at all once there is nothing left to come back for.
               "All three done. New ones at midnight." was telling somebody who
