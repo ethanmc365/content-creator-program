@@ -51,7 +51,7 @@ const ROOM_CHOICES = [
   { key: 'general', label: 'General', hint: 'The main room. Always created.', locked: true, icon: 'chat' },
   { key: 'announcements', label: 'Announcements', hint: 'Team posts only. Always created.', locked: true, icon: 'megaphone' },
   { key: 'meetups', label: 'Meetups', hint: 'Who is filming where, and when.', icon: 'calendar' },
-  { key: 'introductions', label: 'Introductions', hint: 'New here? Say hello.', icon: 'users' },
+  { key: 'introductions', label: 'Introductions', hint: 'New here? Say hello.', icon: 'wave' },
   { key: 'feedback', label: 'Feedback', hint: 'Tell the team what would help.', icon: 'bulb' },
 ]
 

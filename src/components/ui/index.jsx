@@ -75,6 +75,35 @@ export function PlaneLoader({ label = 'Loading…', className = '' }) {
   )
 }
 
+/**
+ * A SETTINGS GROUP: A CARD ON A DESKTOP, A PLAIN BLOCK ON A PHONE.
+ *
+ * Ethan, twice, and not contradicting himself: "we now have specific buttons
+ * for display, sound etc - we don't need to have a card inside them" and then,
+ * later, "I think it actually might be better still having the card, because I
+ * notice you kept it for the home screen icon and it looks good... although for
+ * mobile I would remove the cards from all the settings and just have it inline,
+ * because it will look better for mobile."
+ *
+ * Both are right about their own screen. On a phone a card is a border drawn
+ * around the full width of the page - it separates the settings from nothing,
+ * costs 32px of the narrowest thing you own, and makes a list of switches look
+ * like a list of dialogs. On a desktop the page is 768px in the middle of a
+ * 1400px window, and without a card the settings float in space with no edge to
+ * sit against, which is what made "hard to read" the report.
+ *
+ * So the card is a breakpoint, not a decision. One component, because six
+ * copies of `sm:rounded-card sm:border...` is how one section ends up with a
+ * different padding from the others.
+ */
+export function Panel({ children, className, as: Tag = 'section' }) {
+  return (
+    <Tag className={cx('sm:rounded-card sm:border sm:border-gray-100 sm:bg-white sm:p-6 sm:shadow-card', className)}>
+      {children}
+    </Tag>
+  )
+}
+
 /** Grey shimmer block - compose these into loading skeletons, never blank screens. */
 export function Skeleton({ className = '', style }) {
   // `style` is here for the one case a class cannot cover: the community

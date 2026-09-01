@@ -441,7 +441,13 @@ export default function AppLayout() {
         data-ptr-handle
         className={cx(
           'sticky top-0 z-40 border-b border-gray-100 bg-white/90 backdrop-blur',
-          'transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+          // SAME DURATION AND SAME CURVE AS THE CHAT OVERLAY'S TOP EDGE.
+          // They are one movement - the header goes up and the conversation
+          // grows into the space it leaves - so a different easing on each half
+          // reads as two things happening near each other. `will-change` keeps
+          // the header on its own layer so the slide never waits on a paint of
+          // the page behind it.
+          'transition-transform duration-[280ms] ease-[cubic-bezier(0.32,0.72,0,1)] [will-change:transform]',
           chromeHidden && '-translate-y-full',
         )}
       >

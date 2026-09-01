@@ -12,3 +12,12 @@ alter table public.challenges
 
 comment on column public.challenges.content_note is
   'Free text for content_type = ''other'': the admin names the kind of video this brief wants when none of the fixed options fits. Reporting groups on content_type; this is what a person reads.';
+
+-- AND THE INTRODUCTIONS ROOM WAVES INSTEAD OF SMILING.
+--
+-- Ethan: "change the icon for introductions from the smiley face to a wave,
+-- like a hand waving." The icon is a column on `channels`, not a constant, so
+-- this is data. `wave` is a new entry in Icon.jsx (Heroicons "hand-raised").
+-- Nothing seeds 'smile' - `create_market` does not name it - so this cannot
+-- come back on its own.
+update public.channels set icon = 'wave' where key = 'introductions' and icon = 'smile';

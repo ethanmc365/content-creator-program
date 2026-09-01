@@ -262,10 +262,94 @@ export default function NetworkChat() {
   //     where you have run out of messages and are looking for something else
   //   * and it is always released on the way out of the room
   const [chromeHidden, setChromeHidden] = useState(false)
+
+  // THE HEADER AND THE OVERLAY MOVE ON THE SAME FRAME.
+  //
+  // THE BUG: "I really like how the header disappears when you click into a
+  // room, although it's slightly delayed and there isn't a clean animation - I
+  // want a much cleaner animation of the whole thing actually moving up."
+  //
+  // The delay was a whole React commit. `setChatChromeHidden` was called from
+  // an EFFECT keyed on `chromeHidden`, so the sequence was: state changes, the
+  // overlay re-renders and starts growing, the effect runs after that paint,
+  // the shell re-renders, and only THEN does the header start sliding. Two
+  // animations one commit apart do not read as one movement; they read as a lag.
+  // The channel is a plain module-level setter with no React in it, so there is
+  // nothing stopping it being called in the same handler as the setState -
+  // React 18 batches the two into one commit and both start together.
+  //
+  // The effect is still here for the two cases a handler cannot cover: the
+  // width changing under a hidden header, and leaving the room.
+  const setChrome = useCallback((hidden) => {
+    setChromeHidden(hidden)
+    setChatChromeHidden(isMobile && hidden)
+  }, [isMobile])
   useEffect(() => { setChatChromeHidden(isMobile && chromeHidden) }, [isMobile, chromeHidden])
   useEffect(() => () => setChatChromeHidden(false), [])
-  const showChrome = useCallback(() => setChromeHidden(false), [])
-  const hideChrome = useCallback(() => { if (isMobile) setChromeHidden(true) }, [isMobile])
+  const showChrome = useCallback(() => setChrome(false), [setChrome])
+
+  // THE OPEN ROOM'S TAB IS BROUGHT INTO VIEW.
+  //
+  // THE BUG: "let's say I'm on the worldwide room and I click into Content
+  // tips - at the top it still shows General, Introductions and Announcements.
+  // It should automatically be scrolled over so Content tips is highlighted."
+  // The strip is a horizontal scroller and the highlighted tab can easily be
+  // off the right-hand end of it, so the one thing the strip is for - saying
+  // which room you are in - was invisible in exactly the case where you had
+  // just changed rooms.
+  //
+  // It scrolls the STRIP by hand rather than calling `scrollIntoView`, which
+  // would also scroll every ancestor - including the fixed overlay and the
+  // document behind it - to satisfy the block axis it was never asked about.
+  const tabStripRef = useRef(null)
+  const [stripSearch, setStripSearch] = useState(false)
+  useEffect(() => {
+    // RECTANGLES, NOT `offsetLeft`. The tab's offset parent is the fixed chat
+    // OVERLAY, not the strip - so `offsetLeft` is measured from the left of the
+    // screen and includes the magnifier button beside the strip. Measured: 449
+    // for a tab sitting 401px into a 319px-wide strip. Rects are relative to
+    // the viewport and already account for the current scroll, so the delta
+    // between the two is the only reliable answer.
+    //
+    // AND `scrollLeft`, NOT `scrollTo({behavior:'smooth'})`. Measured in this
+    // overlay: a smooth `scrollTo` is silently dropped and the strip does not
+    // move at all, while an assignment lands. The element inherits
+    // `scroll-behavior: smooth` from `html` anyway, so the assignment animates
+    // where the browser supports it and jumps where it does not - and a jump is
+    // still correct, which is more than can be said for not moving.
+    //
+    // One frame's delay so the new tab has been laid out before it is measured.
+    const raf = requestAnimationFrame(() => {
+      const strip = tabStripRef.current
+      const tab = strip?.querySelector('[aria-selected="true"]')
+      if (!strip || !tab) return
+      const s = strip.getBoundingClientRect()
+      const t = tab.getBoundingClientRect()
+      strip.scrollLeft = Math.max(0, strip.scrollLeft + (t.left - s.left) - (s.width - t.width) / 2)
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [channelKey, channels.length, stripSearch])
+
+  // Closing the strip's search when you change room, so a filter typed in
+  // General is not silently still applied in Announcements.
+  useEffect(() => { setStripSearch(false) }, [channelKey])
+  const hideChrome = useCallback(() => { if (isMobile) setChrome(true) }, [isMobile, setChrome])
+
+  // A ROOM OPENS WITH THE HEADER ALREADY AWAY.
+  //
+  // THE BUG: "clicking on introductions, it seems to still keep the header,
+  // which it shouldn't - it should be away from everything."
+  // Introductions is the emptiest room, and that is the whole explanation: the
+  // header hid on SCROLL, and a room whose messages do not fill the screen
+  // cannot be scrolled, so it never hid there and hid everywhere else. Opening
+  // a room is the moment you have decided to read it, so that is when the
+  // chrome goes - and the rules that bring it back (a press on the strip, or
+  // reaching the top of a thread that does scroll) are unchanged.
+  useEffect(() => {
+    if (isMobile) setChrome(true)
+    // Re-runs when you move between rooms, which is correct: each one opens the
+    // same way.
+  }, [isMobile, channelKey, setChrome])
 
   // THE OVERLAY GROWS INTO THE HEADER'S SPACE WHEN THE HEADER LEAVES.
   // `chromeHidden` and `kbOpen` do the same thing to the top edge for different
@@ -279,8 +363,13 @@ export default function NetworkChat() {
           ? `${vpHeight}px`
           : `calc(${vpHeight}px - ${chromeHidden ? '0rem' : '4rem'} - 4.5rem - env(safe-area-inset-bottom))`,
         transform: `translateY(${Math.max(0, vpOffset)}px)`,
-        paddingTop: topGone ? 'env(safe-area-inset-top)' : undefined,
-        transition: 'top 300ms cubic-bezier(0.22,1,0.36,1), height 300ms cubic-bezier(0.22,1,0.36,1)',
+        // THE SAFE-AREA INSET IS A CHILD NOW, NOT PADDING ON THIS BOX.
+        // It has to be pressable: with the header away, the strip of screen
+        // above the tabs is where a thumb goes to get it back, and padding on
+        // the overlay belongs to the overlay, so a press there hit nothing.
+        // Ethan: "tapping above announcements or content tips doesn't bring
+        // back the header." See the tap zone in `room`.
+        transition: 'top 280ms cubic-bezier(0.32,0.72,0,1), height 280ms cubic-bezier(0.32,0.72,0,1)',
       }
     : undefined
 
@@ -852,38 +941,102 @@ export default function NetworkChat() {
       {/* Room tabs. On mobile these ARE the navigation: the sidebar is a
           desktop-only shape and a stack of full-width room buttons above a
           conversation pushes the conversation off the screen. */}
+      {/* THE STRIP OF SCREEN ABOVE THE TABS IS A BUTTON.
+          With the header away the overlay starts at y=0 and the notch inset was
+          padding on the overlay itself - so the one place a thumb naturally
+          goes to get the header back belonged to nothing. Ethan: "tapping above
+          announcements or content tips doesn't bring back the header."
+          It is a real element now, it carries the inset, and it has a floor so
+          there is something to hit on a phone with no notch. */}
+      <div
+        onPointerDown={showChrome}
+        aria-hidden
+        className="shrink-0 lg:hidden"
+        style={{ height: topGone ? 'max(env(safe-area-inset-top), 12px)' : 0, transition: 'height 280ms cubic-bezier(0.32,0.72,0,1)' }}
+      />
+
+      {/* SEARCH LIVES AT THE HEAD OF THE STRIP AND TAKES THE WHOLE STRIP OVER.
+          Ethan: "because we no longer have the search bar, you could add to the
+          left of General a little search icon, and clicking it shows the search
+          bar across - it takes over general, introductions, announcements -
+          where you can type and search for something. This is for all the
+          chats."
+          A magnifier at the head of the tabs is where a thumb already is, and
+          it costs one tab's worth of width; opening it replaces the tabs
+          entirely, because a search field squeezed in beside four room names is
+          the "very cramped" bar this strip already had removed once. It writes
+          the same `search` state the desktop bar and the header field do, so
+          there is one filter and three ways to reach it. */}
       <div
         // A press anywhere along this strip is "give me the chrome back", and
         // it does not fight the tab underneath it: both happen.
         onPointerDown={showChrome}
-        className="flex shrink-0 items-stretch gap-1 overflow-x-auto border-b border-gray-100 px-2 pt-2 [scrollbar-width:none] lg:hidden [&::-webkit-scrollbar]:hidden"
-        role="tablist"
-        aria-label={`${community.name} rooms`}
+        className="flex shrink-0 items-stretch gap-1 border-b border-gray-100 px-2 pt-2 lg:hidden"
       >
-        {channels.map((c) => (
-          <button
-            key={c.id}
-            role="tab"
-            aria-selected={active?.key === c.key}
-            onClick={() => navigate(`${base}/${c.key}`)}
-            className={cx(
-              // Smaller than they were. Every pixel this strip gives back is a
-              // pixel of conversation, which is what the screen is for.
-              'flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-lg px-3 py-1.5 text-[13px] font-semibold transition-colors',
-              active?.key === c.key ? 'bg-brand-tint text-brand' : 'text-smoke hover:bg-cloud hover:text-ink',
-            )}
-          >
-            <Icon name={c.icon || 'chat'} className="h-4 w-4 shrink-0" />
-            {c.label}
-          </button>
-        ))}
+        <button
+          type="button"
+          onClick={() => { setStripSearch((v) => !v); if (stripSearch) setSearch('') }}
+          aria-label={stripSearch ? 'Close search' : `Search ${active?.label || 'this room'}`}
+          aria-expanded={stripSearch}
+          className={cx(
+            'flex shrink-0 items-center justify-center rounded-t-lg px-2.5 py-1.5 transition-colors',
+            stripSearch ? 'bg-brand-tint text-brand' : 'text-smoke hover:bg-cloud hover:text-ink',
+          )}
+        >
+          <Icon name={stripSearch ? 'close' : 'magnifier'} className="h-4 w-4" />
+        </button>
 
-        {/* NO "ALL ROOMS" BUTTON. It sat at the end of a horizontal scroller,
-            which is the one place on the strip you cannot see without scrolling
-            to it - and the Rooms tab in the bottom bar is one tap from
-            anywhere and goes to the same page. Ethan: "I would remove the 'all
-            rooms' button way to the right as it's not needed and it's quicker
-            to just click on the rooms icon at the bottom." */}
+        {stripSearch ? (
+          <div className="flex min-w-0 flex-1 items-center gap-2 px-1">
+            <input
+              autoFocus
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={`Search ${active?.label || 'this room'}`}
+              aria-label={`Search ${active?.label || 'this room'}`}
+              className="min-w-0 flex-1 border-0 bg-transparent p-0 pb-1.5 text-[13px] placeholder:text-gray-400 focus:outline-none focus:ring-0 focus-visible:ring-0"
+            />
+            {search && (
+              <span className="shrink-0 pb-1.5 text-[11px] tabular-nums text-smoke">
+                {visible.length}/{messages.length}
+              </span>
+            )}
+          </div>
+        ) : (
+          <div
+            ref={tabStripRef}
+            className="flex min-w-0 flex-1 items-stretch gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            role="tablist"
+            aria-label={`${community.name} rooms`}
+          >
+            {channels.map((c) => (
+              <button
+                key={c.id}
+                role="tab"
+                data-room-tab={c.key}
+                aria-selected={active?.key === c.key}
+                onClick={() => navigate(`${base}/${c.key}`)}
+                className={cx(
+                  // Smaller than they were. Every pixel this strip gives back is
+                  // a pixel of conversation, which is what the screen is for.
+                  'flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-lg px-3 py-1.5 text-[13px] font-semibold transition-colors',
+                  active?.key === c.key ? 'bg-brand-tint text-brand' : 'text-smoke hover:bg-cloud hover:text-ink',
+                )}
+              >
+                <Icon name={c.icon || 'chat'} className="h-4 w-4 shrink-0" />
+                {c.label}
+              </button>
+            ))}
+
+            {/* NO "ALL ROOMS" BUTTON. It sat at the end of a horizontal scroller,
+                which is the one place on the strip you cannot see without scrolling
+                to it - and the Rooms tab in the bottom bar is one tap from
+                anywhere and goes to the same page. Ethan: "I would remove the 'all
+                rooms' button way to the right as it's not needed and it's quicker
+                to just click on the rooms icon at the bottom." */}
+          </div>
+        )}
       </div>
 
       {/* The hint bar doubles as the room's identity on mobile, where the page

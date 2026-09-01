@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { Modal, Toggle } from './ui'
+import { Modal, Panel, Toggle } from './ui'
 import Icon from './Icon'
 import { enablePush, disablePush, pushSupported, pushPermission, showLocalNotification } from '../lib/push'
 import { cx } from '../lib/utils'
@@ -132,40 +132,44 @@ function PrefRow({ c, state }) {
   )
 }
 
-// A labelled divider between blocks inside the single notifications card.
-function Divider({ title, hint }) {
+// The heading of one block. It used to be a `border-t` divider inside a single
+// tall card; now each block IS a card on a desktop, so the rule is the card's
+// own edge and this is just the title.
+function BlockTitle({ title, hint }) {
   return (
-    <div className="border-t border-gray-100 pt-6">
+    <div>
       <h3 className="text-sm font-semibold text-ink">{title}</h3>
-      {hint && <p className="mt-0.5 text-xs text-smoke">{hint}</p>}
+      {hint && <p className="mt-0.5 text-xs leading-relaxed text-smoke">{hint}</p>}
     </div>
   )
 }
 
-// EVERY notification setting in ONE card: this device, what you're notified
-// about, challenge deadline reminders and daily puzzle reminders. Previously
-// four separate cards, which read as unrelated settings when they're all the
-// same thing.
+// FOUR BLOCKS, NOT ONE WALL.
+//
+// Ethan: "for the notification settings, I feel like it's hard to read, and it
+// doesn't really make sense. I would change the UI and improve it."
+//
+// It was one `card` about nine hundred pixels tall holding four unrelated
+// decisions - whether this browser may buzz you, which of eight categories you
+// want, when to be reminded about a deadline, and when to be reminded about a
+// puzzle - separated by hairlines and introduced by an <h2> reading
+// "Notifications" directly under a page heading reading "Notifications". So the
+// first thing on the page was a repetition and the rest was a scroll.
+//
+// Each block is its own `Panel` now: a card on a desktop, a plain block on a
+// phone (see the note there). The duplicate heading and its strapline are gone,
+// and so is the "PUSH" column label - email is off across the board, so it was
+// a heading over the only column there is.
 export function CreatorNotifications({ state }) {
   const supported = pushSupported()
   return (
-    <section className="card">
-      <div className="flex items-center gap-2">
-        <Icon name="bell" className="h-5 w-5 text-brand" />
-        <h2 className="text-lg font-semibold">Notifications</h2>
-      </div>
-      <p className="mt-1 text-sm text-smoke">
-        Choose how you hear about what's happening. Your in-app bell always keeps a record.
-      </p>
-
+    <div className="space-y-5">
       {/* ---- This device ---- */}
-      <div className="mt-6 space-y-4">
-        <div>
-          <h3 className="text-sm font-semibold text-ink">This device</h3>
-          <p className="mt-0.5 text-xs text-smoke">
-            Get alerts even when the app is closed. Add the app to your home screen for the best experience.
-          </p>
-        </div>
+      <Panel className="space-y-4">
+        <BlockTitle
+          title="This device"
+          hint="Alerts even when the app is closed. Add the app to your home screen for the best experience."
+        />
         {!supported ? (
           <p className="rounded-xl bg-cloud px-4 py-3 text-sm text-smoke">
             This browser does not support push notifications. Try Chrome, Edge or installing the app to your home screen.
@@ -187,35 +191,41 @@ export function CreatorNotifications({ state }) {
           </button>
         )}
         {state.pushMsg && <p className="text-sm text-smoke">{state.pushMsg}</p>}
-      </div>
+      </Panel>
 
       {/* ---- What you're notified about ---- */}
-      <div className="mt-6">
-        <Divider
+      <Panel>
+        <BlockTitle
           title="What you're notified about"
-          hint={EMAIL_ENABLED ? 'Email is reserved for the things worth leaving the app for. A dash means in-app and push only.' : 'Push notifications and your in-app bell. Email notifications are coming soon.'}
+          hint={EMAIL_ENABLED
+            ? 'Email is reserved for the things worth leaving the app for. A dash means in-app and push only.'
+            : 'Your in-app bell always keeps a record, whatever you turn off here.'}
         />
-        <div className="mt-3 flex items-center justify-end gap-3 border-b border-gray-100 pb-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-          <span className="w-11 text-center">Push</span>
-          {EMAIL_ENABLED && <span className="w-11 text-center">Email</span>}
+        {EMAIL_ENABLED && (
+          <div className="mt-3 flex items-center justify-end gap-3 border-b border-gray-100 pb-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+            <span className="w-11 text-center">Push</span>
+            <span className="w-11 text-center">Email</span>
+          </div>
+        )}
+        <div className="mt-2">
+          {CATEGORIES.map((c) => <PrefRow key={c.key} c={c} state={state} />)}
         </div>
-        {CATEGORIES.map((c) => <PrefRow key={c.key} c={c} state={state} />)}
-      </div>
+      </Panel>
 
       {/* ---- Challenge deadline reminders ---- */}
-      <div className="mt-6">
-        <Divider title="Challenge deadline reminders" hint="Get reminded before a live challenge closes so you can get your entries in." />
+      <Panel>
+        <BlockTitle title="Challenge deadline reminders" hint="A nudge before a live challenge closes, so you can get your entries in." />
         <DeadlineReminderDays state={state} />
-      </div>
+      </Panel>
 
       {/* ---- Daily puzzle reminders ---- */}
-      <div className="mt-6">
-        <Divider title="Daily puzzle reminders" hint="Never break a run on Guess the Country or Flight Path. Push only." />
-        <div className="mt-1">
+      <Panel>
+        <BlockTitle title="Daily puzzle reminders" hint="Never break a run on Guess the Country or Flight Path. Push only." />
+        <div className="mt-2">
           <div className="flex items-center gap-4 border-b border-gray-100 py-4">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold">Streak reminder</p>
-              <p className="text-xs text-smoke">If your streak is at risk, we'll nudge you around 6pm to play before midnight.</p>
+              <p className="text-xs text-smoke">If your streak is at risk, we&rsquo;ll nudge you around 6pm to play before midnight.</p>
             </div>
             <div className="flex w-11 justify-center">
               <Toggle on={state.prefs.daily_streak !== false} onChange={(v) => state.togglePush('daily_streak', v)} label="Daily streak reminder" />
@@ -231,12 +241,12 @@ export function CreatorNotifications({ state }) {
             </div>
           </div>
         </div>
-      </div>
+      </Panel>
 
-      <p className="mt-5 border-t border-gray-100 pt-4 text-xs text-smoke">
+      <p className="px-1 text-xs text-smoke">
         Account-critical email, like a password reset link, is always sent whatever you choose here.
       </p>
-    </section>
+    </div>
   )
 }
 

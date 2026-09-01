@@ -155,6 +155,12 @@ export default function Rooms() {
   const placeIds = useMemo(() => myCommunities.map((c) => c.id), [myCommunities])
 
   useEffect(() => {
+    // WAIT FOR THE CONTEXT BEFORE CONCLUDING THERE ARE NO ROOMS.
+    // `myCommunities` is empty for the first render or two while
+    // CommunityContext loads, and writing `[]` into `rooms` on that frame is
+    // what put "No rooms yet" on the screen for a moment - see the note on the
+    // skeleton below.
+    if (ctxLoading) return undefined
     if (!placeIds.length) { setRooms([]); return undefined }
     let alive = true
     supabase.from('channels')
@@ -163,7 +169,7 @@ export default function Rooms() {
       .order('position')
       .then(({ data }) => { if (alive) setRooms(data || []) })
     return () => { alive = false }
-  }, [placeIds])
+  }, [placeIds, ctxLoading])
 
   // The most recent message in each room, in ONE query rather than one per room.
   // Ordering by created_at and keeping the first per channel is cheaper than a
@@ -248,7 +254,19 @@ export default function Rooms() {
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Rooms</h1>
           </Reveal>
 
-          {ctxLoading && !rooms ? (
+          {/* THE SKELETON HOLDS UNTIL THE ROOMS THEMSELVES HAVE ARRIVED.
+              THE BUG: "whenever I click on rooms, for the first split second I
+              can see it says I'm not in any rooms yet, and then it flashes up
+              all the rooms."
+              It was `ctxLoading && !rooms`. The context finishes first and the
+              CHANNELS query is a second round trip behind it, so for that gap
+              the condition was false, `rooms` was still null, `places` was
+              therefore `[]`, and the empty state - a headline, an icon and a
+              button telling you to go and join a market - was drawn over the
+              rooms you are in. `rooms === null` means "not answered yet" and is
+              exactly the thing to wait for; `[]` means "answered, and there are
+              none". */}
+          {ctxLoading || rooms === null ? (
             <div className="space-y-4"><Skeleton className="h-44" /><Skeleton className="h-32" /></div>
           ) : places.length === 0 ? (
             <EmptyState

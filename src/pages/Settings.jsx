@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { confirm, notice } from '../lib/confirm'
-import { PageHeader, Toggle, Spinner, Select } from '../components/ui'
+import { Panel, PageHeader, Toggle, Spinner, Select } from '../components/ui'
 import Icon from '../components/Icon'
 import { useTimezone, allZones, zoneCity } from '../lib/timezone'
 import Reveal from '../components/network/Reveal'
@@ -241,7 +241,7 @@ export default function Settings() {
   // sound etc, we don't need to have a card inside them or another heading."
   // What is left is the settings themselves, on the page, with air around them.
   const DisplaySection = (
-    <section>
+    <Panel>
       <div>
         <p className="text-sm font-semibold">Theme</p>
         <p className="text-xs text-smoke">Choose how the community looks on this device.</p>
@@ -363,7 +363,7 @@ export default function Settings() {
             : 'Times follow whatever device you are on. If you travel, the calendar asks once whether to switch.'}
         </p>
       </div>
-    </section>
+    </Panel>
   )
 
   // SOUND. Two switches, not one.
@@ -377,7 +377,7 @@ export default function Settings() {
   // Both are per DEVICE, not per account, and the card says so. Phone in a
   // pocket and laptop in an office are not the same room.
   const SoundSection = (
-    <section>
+    <Panel>
       {/* NO DESCRIPTIONS ON THIS CARD AT ALL.
           There were three: one under the heading and one under each switch,
           the longest of them forty words listing every individual sound the
@@ -398,14 +398,14 @@ export default function Settings() {
         <p className="min-w-0 flex-1 text-sm font-semibold">Travel games</p>
         <Toggle on={gameSound} onChange={toggleGameSound} label="Game sounds" />
       </div>
-    </section>
+    </Panel>
   )
 
   const NotificationsSection = <CreatorNotifications state={notif} />
 
   const AccountSection = (
     <div className="space-y-6">
-      <section>
+      <Panel>
         <div className="flex flex-wrap gap-3">
           <Link to="/profile/edit" className="btn-secondary !py-2.5 text-sm">Edit profile</Link>
           <Link to={`/profile/${user?.id}`} className="btn-ghost !py-2.5 text-sm">View my profile</Link>
@@ -467,13 +467,15 @@ export default function Settings() {
             {deleting ? <Spinner /> : 'Delete my account'}
           </button>
         </div>
-      </section>
+      </Panel>
 
       {/* Privacy now lives under Account. */}
       {/* Privacy KEEPS a heading, and only Privacy. It is a second subject on
           the Account page rather than the page's own subject, so without a name
           it would read as more account settings. */}
-      <section className="border-t border-gray-100 pt-6">
+      {/* On a phone this is a second block under a rule; on a desktop it is a
+          second card, so the rule would be a line drawn inside a border. */}
+      <Panel className="border-t border-gray-100 pt-6 sm:border-t sm:pt-6">
         <h2 className="mb-4 text-base font-semibold">Privacy</h2>
         <div className="flex items-center gap-4">
           <div className="min-w-0 flex-1">
@@ -491,12 +493,12 @@ export default function Settings() {
             You're hidden from the public landing-page map. Fellow creators can still find you in the app.
           </p>
         )}
-      </section>
+      </Panel>
     </div>
   )
 
   const PaymentSection = (
-    <section>
+    <Panel>
       {/* The one strapline that survives, because it is a WARNING rather than a
           restatement of the heading: these digits go straight onto an invoice. */}
       <p className="mb-5 text-sm text-smoke">Where we send your cash prizes when you win a challenge. These are used automatically on your invoices, so double-check every digit.</p>
@@ -515,11 +517,11 @@ export default function Settings() {
           </>
         )}
       </div>
-    </section>
+    </Panel>
   )
 
   const AdminSection = isAdmin && (
-    <section>
+    <Panel>
       <p className="mb-5 text-sm text-smoke">
         Only the Tryp.com Team sees this. Choose which admin alerts you want to receive, and jump into the admin tools.
       </p>
@@ -527,7 +529,7 @@ export default function Settings() {
       <div className="mt-5 border-t border-gray-100 pt-4">
         <Link to="/admin" className="btn-secondary !py-2.5 text-sm">Open admin panel</Link>
       </div>
-    </section>
+    </Panel>
   )
 
   // A whole card for one preference, and it earns it: the previews are the
@@ -584,7 +586,10 @@ export default function Settings() {
           </button>
           <h1 className="min-w-0 truncate text-2xl font-bold tracking-tight sm:text-3xl">{open.label}</h1>
         </div>
-        <Reveal from="down">{BODIES[open.key]}</Reveal>
+        {/* `space-y-5` because a section body is one or more `Panel`s, and on
+            a desktop those are separate cards that need air between them. On a
+            phone a Panel draws nothing, so this is the gap between blocks. */}
+        <Reveal from="down" className="space-y-5">{BODIES[open.key]}</Reveal>
       </div>
     )
   }
