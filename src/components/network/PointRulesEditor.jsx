@@ -132,7 +132,7 @@ function Row({ rule, onChange, onRemove }) {
 
       {/* The only column that flexes. */}
       <input
-        className="input !w-auto min-w-[8rem] flex-1 !py-1.5 !text-sm sm:!w-full sm:flex-none"
+        className="input !w-auto min-w-[8rem] flex-1 !py-1.5 !no-ios-zoom sm:text-sm sm:!w-full sm:flex-none"
         value={rule.label}
         onChange={(e) => onChange({ ...rule, label: e.target.value })}
         aria-label="Rule name"
@@ -246,7 +246,7 @@ function Row({ rule, onChange, onRemove }) {
           Ask the creator when they submit <span className="font-normal">(leave blank to award it yourself)</span>
         </span>
         <input
-          className="input !py-1.5 !text-sm"
+          className="input !py-1.5 !no-ios-zoom sm:text-sm"
           value={rule.prompt ?? ''}
           onChange={(e) => onChange({ ...rule, prompt: e.target.value })}
           placeholder="Is this video featuring a Christmas market?"

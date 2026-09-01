@@ -443,7 +443,7 @@ export function CountrySelect({ value = '', code = '', onChange, required, label
           <div className="border-b border-gray-100 p-2">
             <input
               autoFocus
-              className="input !py-2 text-sm"
+              className="input !py-2 no-ios-zoom sm:text-sm"
               placeholder={tr("Start typing…")}
               value={query}
               onChange={(e) => setQuery(e.target.value)}

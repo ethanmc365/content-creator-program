@@ -717,8 +717,15 @@ export default function Chat() {
     setBody(''); clearDraft('chat-' + channel); composerEditorRef.current?.clear()
     setReplyTo(null); setAtBottom(true)
     try {
-      const url = isVideo ? await uploadChatVideo(file, user.id) : await uploadChatImage(file, user.id)
-      const media = isVideo ? { video_url: url } : { image_url: url }
+      const { url, w, h } = isVideo
+        ? await uploadChatVideo(file, user.id)
+        : await uploadChatImage(file, user.id)
+      // The shape goes with the message (migration 163) so a thread can reserve
+      // the picture's box before it decodes and stops jumping while it opens.
+      const media = {
+        ...(isVideo ? { video_url: url } : { image_url: url }),
+        ...(w && h ? { media_w: w, media_h: h } : null),
+      }
       // The bytes are somewhere permanent now, so the row can be queued and
       // this bubble handed over. The queued display points at the STORAGE url
       // rather than the local blob: a blob URL does not survive the reload the
@@ -1038,7 +1045,7 @@ export default function Chat() {
                         </button>
                       )}
 
-                      {m.image_url && <ChatMedia url={m.image_url} kind="image" alt={m.body || 'Shared image'} />}
+                      {m.image_url && <ChatMedia url={m.image_url} kind="image" alt={m.body || 'Shared image'} w={m.media_w} h={m.media_h} />}
                       {m.video_url && <ChatMedia url={m.video_url} kind="video" />}
                       {/* `rich` is UNCONDITIONAL. It was gated on the sender being
                           an admin, from when formatting was an admin tool - but the

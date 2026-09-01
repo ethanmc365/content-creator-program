@@ -215,7 +215,7 @@ function AddressList({ title, people, empty, subtitleOf }) {
           <div className="ml-auto flex items-center gap-2">
             {people.length > 8 && (
               <input
-                type="search" className="input !w-44 !py-1.5 !text-xs" placeholder="Search…"
+                type="search" className="input !w-44 !py-1.5 !no-ios-zoom sm:text-xs" placeholder="Search…"
                 value={search} onChange={(e) => setSearch(e.target.value)}
                 aria-label={`Search ${title.toLowerCase()}`}
               />

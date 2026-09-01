@@ -14,7 +14,10 @@ import { setChatChromeHidden } from '../lib/chatChrome'
 import { ChatSkeleton } from '../components/network/Skeletons'
 import Icon from '../components/Icon'
 import ChatMedia from '../components/ChatMedia'
+import PhotoLightbox from '../components/PhotoLightbox'
+import { saveFile, fileNameFromUrl } from '../lib/media'
 import { uploadChatImage, uploadChatVideo } from '../lib/chatMedia'
+import { pinToBottom } from '../lib/chatScroll'
 import { renderMessageBody, stripMarkup } from '../lib/richText'
 import { broadcastNames } from '../lib/broadcastMentions'
 import Reorderable from '../components/network/Reorderable'
@@ -225,6 +228,21 @@ export default function NetworkChat() {
   const [actionsFor, setActionsFor] = useState(null)
   const [editingId, setEditingId] = useState(null)
   const [reporting, setReporting] = useState(null)
+
+  // WHICH ATTACHMENT IS OPEN FULL SCREEN, AND IT IS THE PAGE'S BUSINESS.
+  // ChatMedia used to own a lightbox each, which is one layer per message in
+  // the thread and a picture component that had to know about saving files. The
+  // page holds one layer; the message's own action bar opens it.
+  const [viewing, setViewing] = useState(null)
+
+  // Saving goes through the SHARE SHEET on a phone, which is the only route to
+  // the iOS camera roll - a bare URL share offers "Copy link" and nothing else.
+  // Same helper the resource library and the photo layer already use.
+  const saveMedia = useCallback((url) => {
+    if (!url) return
+    saveFile(url, fileNameFromUrl(url)).catch(() => {})
+  }, [])
+
   // The message the composer is answering, or null. Held as the whole row
   // rather than an id so the strip above the composer can show the author and
   // a line of the body without a second lookup - and so it keeps working if
@@ -366,13 +384,30 @@ export default function NetworkChat() {
           ? `${vpHeight}px`
           : `calc(${vpHeight}px - ${chromeHidden ? '0rem' : '4rem'} - 4.5rem - env(safe-area-inset-bottom))`,
         transform: `translateY(${Math.max(0, vpOffset)}px)`,
-        // THE SAFE-AREA INSET IS A CHILD NOW, NOT PADDING ON THIS BOX.
-        // It has to be pressable: with the header away, the strip of screen
-        // above the tabs is where a thumb goes to get it back, and padding on
-        // the overlay belongs to the overlay, so a press there hit nothing.
-        // Ethan: "tapping above announcements or content tips doesn't bring
-        // back the header." See the tap zone in `room`.
-        transition: 'top 280ms cubic-bezier(0.32,0.72,0,1), height 280ms cubic-bezier(0.32,0.72,0,1)',
+        // THE OVERLAY SNAPS. ONLY THE HEADER ANIMATES. (1 Sep 2026.)
+        //
+        // Ethan: "on the rooms, please make the header disappearing animation
+        // even more smooth, its still a bit juddery."
+        //
+        // This box used to animate `top` and `height` over the same 280ms as
+        // the header's slide, so that the two read as one movement. They are
+        // LAYOUT properties: every frame of that animation relaid out the
+        // overlay, its flex column, the scroller and every message row in it -
+        // sixty times a second, on a phone, on the frame the user is already
+        // scrolling. That is the judder, and no amount of easing fixes an
+        // animation whose cost is a full reflow.
+        //
+        // So the box changes INSTANTLY and the only thing that moves is the
+        // header's own `transform`, which is compositor-only and cannot jank.
+        // It still reads as one movement, because the header is z-40 and this
+        // overlay is z-20: the tab strip snaps to its new position UNDER the
+        // header, and the header then slides up to reveal it. What you see is a
+        // wipe, not a jump - and coming back, the header slides down over a
+        // strip that is already empty.
+        //
+        // THE SAFE-AREA INSET IS A CHILD, NOT PADDING ON THIS BOX, so it can
+        // carry its own background rather than leaving a transparent gap while
+        // the header is away.
       }
     : undefined
 
@@ -560,46 +595,36 @@ export default function NetworkChat() {
 
   // A ROOM DOES NOT OPEN HALFWAY UP ITSELF AND THEN CORRECT ITSELF.
   //
-  // Ethan: "whenever I click on rooms and click on general chat, it'll show up
-  // the messages in like a different layer or scrolled up, and then suddenly
-  // load or fix itself and jump to the bottom. It's just a really sort of laggy
-  // design."
+  // Ethan, twice: "it'll show up the messages in like a different layer or
+  // scrolled up, and then suddenly load or fix itself and jump to the bottom",
+  // and later "it flashes, glitches and then shows the current chats, sometimes
+  // it's scrolled up a bit, its inconsistent, sometimes it jutters more."
   //
-  // He is describing the re-pins above, seen from the outside. They are all
-  // necessary - a room's images and link previews land after first paint and
-  // every one of them changes the scroll height - but each one is a CORRECTION,
-  // and a correction you can watch is indistinguishable from a bug. The first
-  // paint lands at scroll position 0 (the oldest message in the room), the rAF
-  // pin drags it to the bottom, and then the 60/200/500ms pins each yank it
-  // again as another image arrives.
+  // The corrections were on a FIXED SCHEDULE - 60, 200, 500 and 1200ms - which
+  // is a guess at when a thread stops growing, and a guess is wrong in both
+  // directions: it was still yanking a settled thread at 1.2 seconds and had
+  // given up on a slow one at 1.3. `pinToBottom` watches the scroll height
+  // instead and stops as soon as it has been stable for two frames, so the
+  // number of corrections is however many the thread actually needs and the
+  // reveal happens the moment there are no more.
   //
-  // So the thread is not shown until it is where it belongs. `settled` gates
-  // opacity only - the messages are laid out and measured the whole time, which
-  // is what the pinning needs - so this costs nothing and changes no geometry.
-  // It flips on the frame AFTER the first pin, so what appears is already at
-  // the bottom.
+  // The upstream half of this fix is migration 163: an attachment records its
+  // own shape now, so a photograph reserves its box before it decodes and most
+  // threads have nothing left to settle at all.
   //
-  // AND A TIMER BEHIND IT, always: `requestAnimationFrame` does not run in a
-  // background tab, and gating CONTENT on rAF alone is the trap this codebase
-  // wrote down after `Reveal`. 250ms and it shows regardless.
+  // `settled` gates OPACITY only - the messages are laid out and measured the
+  // whole time, which is what the pinning needs - so this costs no geometry.
   const [settled, setSettled] = useState(false)
 
   useLayoutEffect(() => {
     atBottomRef.current = true
     setSettled(false)
     pin()
-    const reveal = () => setSettled(true)
-    const raf = requestAnimationFrame(() => { pin(); requestAnimationFrame(reveal) })
-    const safety = setTimeout(reveal, 250)
-    const timers = [60, 200, 500, 1200].map((t) => setTimeout(pin, t))
-    const el = scrollerRef.current
-    el?.addEventListener('load', pin, true)
-    return () => {
-      cancelAnimationFrame(raf)
-      clearTimeout(safety)
-      timers.forEach(clearTimeout)
-      el?.removeEventListener('load', pin, true)
-    }
+    return pinToBottom(
+      () => scrollerRef.current,
+      () => atBottomRef.current,
+      () => setSettled(true),
+    )
   }, [loading, active?.key, community?.id, pin])
 
   useEffect(() => { pin() }, [messages.length, pin])
@@ -910,11 +935,21 @@ export default function NetworkChat() {
     // spoken for now, and leaving it there invites sending it twice.
     if (caption) { setBody(''); composerRef.current?.clear(); clearDraft(draftKey) }
     try {
-      const url = isVideo ? await uploadChatVideo(file, user.id) : await uploadChatImage(file, user.id)
+      const { url, w, h } = isVideo
+        ? await uploadChatVideo(file, user.id)
+        : await uploadChatImage(file, user.id)
       // Only once the bytes are somewhere permanent. A File cannot be queued -
       // it will not survive localStorage or a reload - so the upload is the one
       // part of a send that still needs the network up front.
-      postMessage({ body: caption, ...(isVideo ? { video_url: url } : { image_url: url }) })
+      //
+      // `media_w`/`media_h` travel WITH the message (migration 163). They are
+      // what lets a thread reserve the right box before a photo decodes, which
+      // is the whole fix for a chat that jumps while it opens.
+      postMessage({
+        body: caption,
+        ...(isVideo ? { video_url: url } : { image_url: url }),
+        ...(w && h ? { media_w: w, media_h: h } : null),
+      })
     } catch (err) {
       setAttachError(err?.message || 'That file could not be sent.')
     }
@@ -974,18 +1009,15 @@ export default function NetworkChat() {
       {/* Room tabs. On mobile these ARE the navigation: the sidebar is a
           desktop-only shape and a stack of full-width room buttons above a
           conversation pushes the conversation off the screen. */}
-      {/* THE STRIP OF SCREEN ABOVE THE TABS IS A BUTTON.
-          With the header away the overlay starts at y=0 and the notch inset was
-          padding on the overlay itself - so the one place a thumb naturally
-          goes to get the header back belonged to nothing. Ethan: "tapping above
-          announcements or content tips doesn't bring back the header."
-          It is a real element now, it carries the inset, and it has a floor so
-          there is something to hit on a phone with no notch. */}
+      {/* THE NOTCH INSET, AS A REAL ELEMENT. With the header away the overlay
+          starts at y=0, and this is what keeps the tabs clear of the notch.
+          IT IS NO LONGER A BUTTON: it used to restore the header, and Ethan
+          asked for that to stop - see the tab strip below. It snaps rather than
+          animating for the same reason the overlay does. */}
       <div
-        onPointerDown={showChrome}
         aria-hidden
         className="shrink-0 lg:hidden"
-        style={{ height: topGone ? 'max(env(safe-area-inset-top), 12px)' : 0, transition: 'height 280ms cubic-bezier(0.32,0.72,0,1)' }}
+        style={{ height: topGone ? 'max(env(safe-area-inset-top), 12px)' : 0 }}
       />
 
       {/* SEARCH LIVES AT THE HEAD OF THE STRIP AND TAKES THE WHOLE STRIP OVER.
@@ -1001,9 +1033,21 @@ export default function NetworkChat() {
           the same `search` state the desktop bar and the header field do, so
           there is one filter and three ways to reach it. */}
       <div
-        // A press anywhere along this strip is "give me the chrome back", and
-        // it does not fight the tab underneath it: both happen.
-        onPointerDown={showChrome}
+        // NOTHING HERE BRINGS THE HEADER BACK (1 Sep 2026).
+        //
+        // Ethan: "on mobile when on a chat and the header is gone, scrolling
+        // across announcements tabs at the top with announcements, general,
+        // content tips etc, should not bring the header back, there should be
+        // no way to bring the header back from here, it is not necessary,
+        // although the header should smoothly animate back in if you click on a
+        // different section like worldwide or rooms."
+        //
+        // A press here used to restore it, which meant that scrolling the strip
+        // sideways to reach another room - a horizontal drag that necessarily
+        // starts with a pointerdown - shoved 64px of chrome back onto the
+        // screen and pushed the room you were aiming at down with it. The
+        // header comes back on the way OUT of the room (the unmount releases
+        // the channel), which is the only moment it is wanted.
         className="flex shrink-0 items-stretch gap-1 border-b border-gray-100 px-2 pt-2 lg:hidden"
       >
         <button
@@ -1028,7 +1072,13 @@ export default function NetworkChat() {
               onChange={(e) => setSearch(e.target.value)}
               placeholder={`Search ${active?.label || 'this room'}`}
               aria-label={`Search ${active?.label || 'this room'}`}
-              className="min-w-0 flex-1 border-0 bg-transparent p-0 pb-1.5 text-[13px] placeholder:text-gray-400 focus:outline-none focus:ring-0 focus-visible:ring-0"
+              // `no-ios-zoom` IS 16px ON A PHONE, AND THAT IS THE WHOLE FIX.
+              // Ethan: "when I click the magnifying glass icon in top left to
+              // search, it zooms in the screen a bit and is weird." iOS Safari
+              // zooms the page into any field under 16px and does not zoom back
+              // out; at `text-[13px]` this was one of them. It drops back to
+              // 13px from `sm` up, where no browser does this.
+              className="no-ios-zoom min-w-0 flex-1 border-0 bg-transparent p-0 pb-1.5 sm:text-[13px] placeholder:text-gray-400 focus:outline-none focus:ring-0 focus-visible:ring-0"
             />
             {search && (
               <span className="shrink-0 pb-1.5 text-[11px] tabular-nums text-smoke">
@@ -1105,6 +1155,9 @@ export default function NetworkChat() {
 
       <div
         ref={scrollerRef}
+        // The browser must not anchor this scroller: lib/chatScroll already owns
+        // where it sits, and two mechanisms moving one scroller is the jitter.
+        data-chat-scroller
         onScroll={onScroll}
         className={cx(
           'flex-1 space-y-4 overflow-y-auto overscroll-contain overflow-x-hidden px-4 py-4 touch-pan-y touch-pinch-zoom sm:px-5',
@@ -1280,6 +1333,26 @@ export default function NetworkChat() {
                     // else's. A pending message has no id on the server yet, so
                     // none of them apply to it.
                     actions={m.pending || m.failed ? [] : [
+                      // MEDIA GETS TWO MORE, AND THEY LEAD. On a message that
+                      // is a photograph, "look at it properly" and "keep it"
+                      // are what somebody pressed it for; reply and react are
+                      // the same as on any other message and can follow.
+                      ...((m.image_url || m.video_url)
+                        ? [
+                          {
+                            icon: 'expand',
+                            label: 'Full screen',
+                            title: 'Open full screen',
+                            onClick: () => setViewing({ url: m.image_url || m.video_url, kind: m.image_url ? 'image' : 'video' }),
+                          },
+                          {
+                            icon: 'arrow-down',
+                            label: 'Save',
+                            title: m.image_url ? 'Save this photo' : 'Save this video',
+                            onClick: () => saveMedia(m.image_url || m.video_url),
+                          },
+                        ]
+                        : []),
                       ...(canPost
                         ? [{ icon: 'reply', label: 'Reply', title: 'Reply to this message', onClick: () => { setReplyTo(m); setActionsFor(null); composerRef.current?.focus() } }]
                         : []),
@@ -1324,20 +1397,23 @@ export default function NetworkChat() {
                           <QuotedParent id={m.reply_to} lookup={byId} onDark={mine} />
                         </div>
                       )}
-                      {/* `onMoreActions` keeps the message's own bar reachable
-                          on a message that is nothing but a picture: a tap
-                          opens the photo now, so the long-press sheet carries
-                          the way back to reply / react / delete. */}
+                      {/* A PHOTO IS PRESSED LIKE ANY OTHER MESSAGE. It opens
+                          this message's own bar, which carries Save and Full
+                          screen alongside reply / react / delete for anything
+                          with media on it - see `actions` below. The picture no
+                          longer owns a lightbox, a save button or a long-press
+                          sheet of its own. */}
                       {m.image_url && (
                         <ChatMedia
                           url={m.image_url} kind="image" alt={m.body || 'Shared image'}
-                          onMoreActions={() => setActionsFor(m.id)}
+                          w={m.media_w} h={m.media_h}
+                          onTap={() => setActionsFor((cur) => (cur === m.id ? null : m.id))}
                         />
                       )}
                       {m.video_url && (
                         <ChatMedia
                           url={m.video_url} kind="video"
-                          onMoreActions={() => setActionsFor(m.id)}
+                          onTap={() => setActionsFor((cur) => (cur === m.id ? null : m.id))}
                         />
                       )}
                       {editingId === m.id ? (
@@ -1374,7 +1450,15 @@ export default function NetworkChat() {
         )}
       </div>
 
-      {!canPost ? (
+      {/* THE COMPOSER IS NOT ON SCREEN WHILE YOU ARE SEARCHING.
+          Ethan: "it shows up the messaging bar which it shouldn't in that case
+          because I would be typing into the search bar, not the message box."
+          Two text fields on one phone screen, one of them focused and the other
+          holding a keyboard's worth of chrome under the results you are trying
+          to read. `stripSearch` is the phone's search - the desktop bar is a
+          different control and does not do this - so this only ever applies
+          where the space is actually contested. */}
+      {stripSearch ? null : !canPost ? (
         <div className="shrink-0 border-t border-gray-100 p-3">
           <p className="flex items-center justify-center gap-2 rounded-xl bg-cloud px-4 py-3 text-center text-xs text-smoke">
             <Icon name="bell" className="h-4 w-4 shrink-0" />
@@ -1650,6 +1734,18 @@ export default function NetworkChat() {
         imageUrl={reporting?.image_url}
         videoUrl={reporting?.video_url}
         onClose={() => setReporting(null)}
+      />
+
+      {/* ONE FULL-SCREEN LAYER FOR THE WHOLE THREAD, opened from a message's
+          own action bar. It portals to the body, so neither a bubble's
+          `overflow-hidden` nor the chat overlay can clip it, and it carries its
+          own pinch zoom and Save. */}
+      <PhotoLightbox
+        src={viewing?.url ?? null}
+        kind={viewing?.kind ?? 'image'}
+        alt="Shared media"
+        canSave
+        onClose={() => setViewing(null)}
       />
     </NetworkMotion>
   )

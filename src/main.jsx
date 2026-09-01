@@ -9,10 +9,16 @@ import { initMonitoring } from './lib/monitoring'
 import { applyAppIcon, iconFromUrl, setAppIcon } from './lib/appIcon'
 import { releaseBootLayer, whenAppLoadersIdle } from './lib/bootLoader'
 import { getLocale, loadLocale } from './lib/i18n'
+import { installPinchGuard } from './lib/pinchGuard'
 import './index.css'
 
 // Start error monitoring as early as possible (no-op without VITE_SENTRY_DSN).
 initMonitoring()
+
+// NOTHING ON THIS PLATFORM ZOOMS BY ACCIDENT. Installed before React so a
+// gesture on the very first painted frame is already covered; anything inside
+// `[data-zoomable]` is left alone to do its own. See lib/pinchGuard.
+installPinchGuard()
 
 // Point the Add to Home Screen hints at whichever icon this device picked, before
 // anything can be added. index.html ships the default, so this is a no-op until

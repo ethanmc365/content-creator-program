@@ -505,7 +505,7 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
                     <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs font-semibold text-smoke">€</span>
                     <input
                       type="number" min="0" step="0.01" inputMode="decimal"
-                      className="input !py-2 !pl-7 text-sm"
+                      className="input !py-2 !pl-7 no-ios-zoom sm:text-sm"
                       value={invoiceAmount}
                       onChange={(e) => setEurOverride(e.target.value)}
                     />
@@ -546,7 +546,7 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
                 </button>
               </div>
               <textarea
-                id="inv-billto" rows={4} className="input text-sm"
+                id="inv-billto" rows={4} className="input no-ios-zoom sm:text-sm"
                 value={billTo} onChange={(e) => setBillTo(e.target.value)}
               />
               <p className="mt-1 text-xs text-smoke">First line is the company name. Shown on every invoice; save as default to reuse.</p>

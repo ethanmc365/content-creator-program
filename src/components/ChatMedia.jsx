@@ -1,10 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { mediaType, fileNameFromUrl, saveFile } from '../lib/media'
+import { useCallback, useEffect, useState } from 'react'
+import { mediaType } from '../lib/media'
 import VideoPlayer from './VideoPlayer'
-import PhotoLightbox from './PhotoLightbox'
-import { Spinner } from './ui'
-import Icon from './Icon'
 import { useT } from '../lib/i18n'
+
+/**
+ * Scale a picture's own dimensions into a maxW x maxH box, keeping the ratio.
+ * Same arithmetic VideoPlayer does; there is one right answer and both should
+ * give it. Lifted out of the component so the FIRST render can use it on the
+ * stored dimensions, before there is any image to measure.
+ */
+function fit(iw, ih, maxW, maxH) {
+  let w = Math.min(maxW, iw)
+  let h = Math.round(w / (iw / ih))
+  if (h > maxH) { h = maxH; w = Math.round(h * (iw / ih)) }
+  return { w, h }
+}
 
 // A chat / DM attachment (image or video). Videos use the browser's native
 // <video controls> (reliable play button + inline playback everywhere, incl.
@@ -33,83 +43,55 @@ import { useT } from '../lib/i18n'
 // as an `aspect-ratio` before the pixels arrive, so the message does not jump
 // when the photo decodes - which matters because every chat here re-pins its
 // scroller on image load.
-// `onMoreActions` is how the message's OWN actions stay reachable.
+// A TAP ON A PHOTO OPENS THE MESSAGE BAR, LIKE A TAP ON ANY OTHER MESSAGE
+// (1 Sep 2026).
 //
-// Pressing a message opens its reply / react / delete bar (MessageActions), and
-// pressing a photo now opens the photo - so on a message that IS a photo there
-// was nothing left to press for the actions. Ethan: "because tapping a photo
-// opens it, this means I'm unable to reply or delete. So maybe you have to hold
-// on for a sec, or a right click, and it shows up a menu."
-// The long-press menu already existed for Save; it carries the way back to the
-// message now, and the chat page passes the callback that opens its own bar.
-export default function ChatMedia({ url, alt, kind, maxW = 260, maxH = 380, onMoreActions }) {
+// Ethan: "a tap on a photo, for desktop and mobile should show up below the
+// icons to react, reply, delete, report, but since its a photo it should also
+// show up the icon to download the photo and another icon to view it full
+// screen."
+//
+// This replaces two competing answers to one press. A tap used to open the
+// picture full screen and a LONG press opened a bespoke three-item sheet, which
+// meant a photograph was the one message on the platform you could not simply
+// press to get its actions - and the way to reach them was a gesture nothing
+// told you about and which does not exist on a desktop at all.
+//
+// So the picture no longer decides anything. It reports the tap and the PAGE
+// opens the same bar every other message uses, with two extra actions on it for
+// media. One control, one place, and "view it full screen" is now a labelled
+// button rather than a side effect of touching the thing.
+//
+// The long-press sheet and this component's own lightbox and Save are GONE with
+// it: every one of them is an entry in that bar now, and keeping a second route
+// to the same three actions is how the two drift.
+export default function ChatMedia({ url, alt, kind, w = null, h = null, maxW = 260, maxH = 380, onTap }) {
   const tr = useT()
   const isVideo = (kind || mediaType(url)) === 'video'
-  const [saving, setSaving] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
-  const [full, setFull] = useState(false)
-  const [box, setBox] = useState(null)
-  const fired = useRef(false)
-  const timer = useRef(null)
-  const origin = useRef(null)
 
-  function openMenu() { fired.current = true; setMenuOpen(true) }
-
-  function start(e) {
-    fired.current = false
-    const p = e.touches?.[0] || e
-    origin.current = { x: p.clientX, y: p.clientY }
-    clearTimeout(timer.current)
-    timer.current = setTimeout(openMenu, 500)
-  }
-  function move(e) {
-    if (!timer.current) return
-    const p = e.touches?.[0] || e
-    if (origin.current && Math.hypot(p.clientX - origin.current.x, p.clientY - origin.current.y) > 12) {
-      clearTimeout(timer.current); timer.current = null // scrolled/dragged/scrubbing - cancel
-    }
-  }
-  function end() { clearTimeout(timer.current); timer.current = null }
-
-  const press = {
-    onTouchStart: start, onTouchMove: move, onTouchEnd: end,
-    onMouseDown: start, onMouseMove: move, onMouseUp: end, onMouseLeave: end,
-    onContextMenu: (e) => { e.preventDefault(); openMenu() },
-  }
-
-  async function doSave() {
-    setMenuOpen(false)
-    if (saving) return
-    setSaving(true)
-    try { await saveFile(url, fileNameFromUrl(url)) } finally { setSaving(false) }
-  }
-  // FULL SCREEN MEANS IN THE APP, NOT IN A NEW TAB.
+  // THE BOX IS KNOWN BEFORE THE PICTURE IS (migration 163).
   //
-  // This was `window.open(url, '_blank')`, so tapping a photo in a conversation
-  // left the conversation: a browser tab on a raw storage URL, with the app's
-  // chrome gone and the back button as the only way home - and on a phone,
-  // dropped into whatever the OS decided to do with an image URL. Ethan: "when
-  // I click on the photo I just want it to open full screen inside the
-  // platform. I don't want it to open in a separate link or something."
-  // `PhotoLightbox` is the layer the flight log and the profile already use,
-  // and it portals to the body so no bubble or modal can clip it.
-  function openFull() {
-    setMenuOpen(false)
-    setFull(true)
-  }
+  // Every attachment sent from now on carries its own width and height, so the
+  // fitted box is computed on the FIRST render, with no load and no reflow -
+  // which is the whole reason a thread stops jumping while it opens. See the
+  // migration for the mechanism; in short, an <img> with no dimensions is a
+  // zero-height box until its bytes decode, so a thread full of photographs is
+  // the wrong height at exactly the moment it is being scrolled to the bottom.
+  //
+  // Messages sent BEFORE that migration have no numbers, and they still get the
+  // measure-on-load path below - so nothing already in a thread changes.
+  const [box, setBox] = useState(() => (w && h ? fit(w, h, maxW, maxH) : null))
 
-  // Scale the picture's own dimensions into the maxW x maxH box, keeping the
-  // ratio. Same arithmetic VideoPlayer does; there is one right answer and both
-  // should give it.
   const measure = useCallback((img) => {
     const iw = img?.naturalWidth
     const ih = img?.naturalHeight
     if (!iw || !ih) return
-    let w = Math.min(maxW, iw)
-    let h = Math.round(w / (iw / ih))
-    if (h > maxH) { h = maxH; w = Math.round(h * (iw / ih)) }
-    setBox({ w, h })
+    setBox(fit(iw, ih, maxW, maxH))
   }, [maxW, maxH])
+
+  // A stored shape can arrive after mount (a queued message being replaced by
+  // the real row), so follow it rather than only seeding from it.
+  useEffect(() => { if (w && h) setBox(fit(w, h, maxW, maxH)) }, [w, h, maxW, maxH])
 
   // A CACHED IMAGE CAN BE DECODED BEFORE `onLoad` EXISTS.
   //
@@ -130,22 +112,18 @@ export default function ChatMedia({ url, alt, kind, maxW = 260, maxH = 380, onMo
       className="relative select-none"
       // The WRAPPER carries the fitted width, not just the image, for two
       // reasons: the bubble is shrink-to-fit, so a portrait photo should make a
-      // narrow bubble rather than a narrow photo in a wide one, and the "Saving"
-      // overlay is `inset-0` on this element - anchored to a box wider than the
-      // picture it would sit half over the bubble's empty space.
+      // narrow bubble rather than a narrow photo in a wide one, and anything
+      // laid over the picture (a spinner, a badge) then has the picture's own
+      // box to sit in rather than the bubble's empty space beside it.
       style={{ WebkitTouchCallout: 'none', ...(box && !isVideo ? { width: box.w, maxWidth: '100%' } : null) }}
-      {...press}
     >
       {isVideo ? (
         <VideoPlayer url={url} maxW={maxW} maxH={maxH} />
       ) : (
         <button
           type="button"
-          aria-label={tr("Open image full screen")}
-          // `fired` is set by the long-press: a press that has already opened
-          // the action sheet must not also open the picture when the finger
-          // comes up.
-          onClick={() => { if (!fired.current) setFull(true) }}
+          aria-label={tr("Show what you can do with this photo")}
+          onClick={onTap}
           className="block w-full"
         >
           <img
@@ -171,57 +149,6 @@ export default function ChatMedia({ url, alt, kind, maxW = 260, maxH = 380, onMo
           />
         </button>
       )}
-
-      {saving && (
-        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-black/30">
-          <span className="flex items-center gap-2 rounded-full bg-white/90 px-3 py-1.5 text-xs font-medium text-ink shadow-lift">
-            <Spinner className="h-4 w-4" /> {tr("Saving…")}
-          </span>
-        </div>
-      )}
-
-      {/* Long-press / right-click options menu (iOS-style action sheet). Fixed +
-          centered so the chat bubble's overflow-hidden can't clip it. */}
-      {menuOpen && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/40 p-6"
-          onClick={() => setMenuOpen(false)}
-          onContextMenu={(e) => { e.preventDefault(); setMenuOpen(false) }}
-        >
-          <div className="w-72 max-w-full overflow-hidden rounded-2xl bg-white shadow-lift" onClick={(e) => e.stopPropagation()}>
-            <button type="button" onClick={openFull} className="flex w-full items-center gap-3.5 px-5 py-4 text-left text-sm font-semibold text-ink transition-colors hover:bg-cloud">
-              <Icon name="expand" className="h-5 w-5 shrink-0 text-brand" />
-              {tr("Open full screen")}
-            </button>
-            <button type="button" onClick={doSave} className="flex w-full items-center gap-3.5 border-t border-gray-100 px-5 py-4 text-left text-sm font-semibold text-ink transition-colors hover:bg-cloud">
-              <Icon name="arrow-down" className="h-5 w-5 shrink-0 text-brand" />
-              {isVideo ? 'Save video' : 'Save photo'}
-            </button>
-            {onMoreActions && (
-              <button
-                type="button"
-                onClick={() => { setMenuOpen(false); onMoreActions() }}
-                className="flex w-full items-center gap-3.5 border-t border-gray-100 px-5 py-4 text-left text-sm font-semibold text-ink transition-colors hover:bg-cloud"
-              >
-                <Icon name="reply" className="h-5 w-5 shrink-0 text-brand" />
-                {tr("Reply, react or delete")}
-              </button>
-            )}
-            <button type="button" onClick={() => setMenuOpen(false)} className="w-full border-t border-gray-100 px-5 py-3.5 text-center text-sm font-medium text-smoke transition-colors hover:bg-cloud">
-              {tr("Cancel")}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Portals to the body, so neither the bubble's `overflow-hidden` nor a
-          modal above it can clip or cover it. */}
-      <PhotoLightbox
-        src={full ? url : null}
-        kind={isVideo ? 'video' : 'image'}
-        alt={alt || 'Shared image'}
-        onClose={() => setFull(false)}
-      />
     </div>
   )
 }

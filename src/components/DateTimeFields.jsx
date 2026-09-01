@@ -69,7 +69,15 @@ function Part({ id, label, value, onChange, onOverflow, onBack, width, max, inpu
       }}
       placeholder={focused ? '0'.repeat(max) : label}
       className={cx(
-        'bg-transparent text-center text-sm tabular-nums text-ink outline-none placeholder:text-gray-300',
+        // `no-ios-zoom` IS 16px ON A PHONE. Ethan, of the calendar's "find a
+        // time": "please ensure you've fixed the issue with the zooming in
+        // across the platform because clicking on a text box here automatically
+        // is zooming in." iOS Safari zooms the page into any field under 16px
+        // and never zooms back out; at `text-sm` every date and time segment on
+        // the platform was one - the calendar, the flight log, the challenge
+        // form and this dialog all draw this component. The segment widths
+        // below are wide enough for 16px tabular digits.
+        'no-ios-zoom bg-transparent text-center tabular-nums text-ink outline-none placeholder:text-gray-300',
         // NO RING ON THE SEGMENT. THIS IS THE ORANGE BOX.
         //
         // index.css has a base rule `input:focus-visible { ring-1 ring-brand }`
@@ -185,6 +193,9 @@ export function DateField({ id, label, value, onChange, max, min, hint, futureEr
  * '' otherwise. The colon is painted, never typed.
  */
 export function TimeField({ id, label, value, onChange, hint, optional = false }) {
+  // "Optional" belongs to the LABEL, which has a whole line to itself. See the
+  // note where the old in-field marker used to be.
+  const shownLabel = optional && label ? `${label} (optional)` : label
   const [h, setH] = useState(() => (value ? value.slice(0, 2) : ''))
   const [m, setM] = useState(() => (value ? value.slice(3, 5) : ''))
   const hRef = useRef(null)
@@ -209,7 +220,7 @@ export function TimeField({ id, label, value, onChange, hint, optional = false }
 
   return (
     <Frame
-      id={`${id}-h`} label={label} hint={hint} invalid={bad}
+      id={`${id}-h`} label={shownLabel} hint={hint} invalid={bad}
       onMouseDown={(e) => {
         const first = focusFirstUnfinished([hRef, mRef], [2, 2])
         if (!first || first === e.target) return
@@ -224,9 +235,14 @@ export function TimeField({ id, label, value, onChange, hint, optional = false }
       <span className="text-gray-300">:</span>
       <Part id={`${id}-m`} inputRef={mRef} label="MM" max={2} width="w-8" value={m}
         onChange={setM} onBack={() => hRef.current?.focus()} />
-      {optional && !h && !m && (
-        <span className="ml-auto text-[11px] text-gray-300">optional</span>
-      )}
+      {/* THE WORD "OPTIONAL" IS GONE. Ethan: "the repeat until with the time
+          shows the word optional half out of the box, remove the word
+          optional." It was absolutely the wrong element for the job - an
+          `ml-auto` span inside a fixed-width row of digit segments, so on any
+          field narrow enough (the repeat-until time is the narrowest on the
+          platform) it was pushed through the border. Whether a field is
+          required is stated by the LABEL, which every caller already sets, and
+          which has room for it. */}
     </Frame>
   )
 }

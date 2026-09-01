@@ -102,7 +102,7 @@ export function EntryFeedbackEditor({ submissionId, creatorName, feedback, onSav
         id={`fb-${submissionId}`}
         rows={3}
         maxLength={2000}
-        className="input bg-white text-sm"
+        className="input bg-white no-ios-zoom sm:text-sm"
         value={body}
         onChange={(e) => setBody(e.target.value)}
         placeholder="What worked, and one thing that would make the next one land harder."

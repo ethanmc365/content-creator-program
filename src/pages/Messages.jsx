@@ -12,9 +12,11 @@ import { Avatar, Badge, EmptyState, Skeleton, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
 import { jumpThreshold, distanceFromBottom } from '../lib/scrollJump'
 import ChatMedia from '../components/ChatMedia'
+import PhotoLightbox from '../components/PhotoLightbox'
 import MessageActions from '../components/chat/MessageActions'
 import { useProfileNames } from '../components/network/ChatExtras'
-import { mediaType } from '../lib/media'
+import { mediaType, saveFile, fileNameFromUrl } from '../lib/media'
+import { pinToBottom } from '../lib/chatScroll'
 import { formatChatTime, formatMessageTime, messageTimeTitle, otherParticipant, cx } from '../lib/utils'
 import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
 import { setChatChromeHidden } from '../lib/chatChrome'
@@ -165,6 +167,18 @@ export default function Messages() {
   const [actionsFor, setActionsFor] = useState(null) // message id with actions revealed (mobile tap)
   const [editingId, setEditingId] = useState(null)   // message being edited in place
   const [reporting, setReporting] = useState(null)   // message being reported, or null
+
+  // WHICH ATTACHMENT IS OPEN FULL SCREEN. One layer for the whole thread,
+  // opened from a message's own action bar - ChatMedia used to own a lightbox
+  // each. See the note in that component.
+  const [viewing, setViewing] = useState(null)
+
+  // Saving goes through the SHARE SHEET on a phone, which is the only route to
+  // the iOS camera roll. Same helper the rooms and the photo layer use.
+  const saveMedia = useCallback((url) => {
+    if (!url) return
+    saveFile(url, fileNameFromUrl(url)).catch(() => {})
+  }, [])
   // Slow clock so the Edit button retires itself. See lib/messageActions.
   const nowTick = useNowTick()
   const [replyTo, setReplyTo] = useState(null)     // message being replied to
@@ -746,9 +760,11 @@ export default function Messages() {
     setTimeout(() => el.classList.remove('ring-2', 'ring-brand', 'ring-offset-2', 'rounded-2xl'), 1300)
   }, [])
 
-  // ---------- Anyone: long-press a conversation to delete it entirely ----------
+  // ---------- Anyone: hold a conversation for what you can do with it --------
   const convTimer = useRef(null)
   const convLongPressed = useRef(false)
+  // The conversation whose action sheet is open, or null.
+  const [convSheet, setConvSheet] = useState(null)
 
   // Pin or unpin. Unpinning is always allowed; pinning a fourth is refused with
   // a sentence rather than by the button quietly doing nothing, which is the
@@ -808,10 +824,23 @@ export default function Messages() {
   // flag stayed true until some later click consumed it - so the next tap on
   // ANY row was swallowed, with nothing on screen to explain it. A press is the
   // start of a new gesture, so a new gesture is what it means.
+  // HOLDING A ROW OFFERS BOTH THINGS YOU CAN DO TO IT.
+  //
+  // Ethan: "holding down on mobile correctly brings up the do you want to
+  // delete this conversation, as well as this, you can add it to the ui for
+  // mobile here the ability to pin the person."
+  //
+  // It went straight to the delete confirmation, which made a hold on a
+  // conversation mean exactly one thing - and the most destructive one. It
+  // opens a two-item sheet now, so the hold means "what can I do with this"
+  // and deleting is a choice inside it rather than the gesture itself.
+  //
+  // Pinning had no route at all on a phone: the pin button only appears on
+  // hover, and there is no hover.
   const startConvPress = (c) => {
     clearTimeout(convTimer.current)
     convLongPressed.current = false
-    convTimer.current = setTimeout(() => { convLongPressed.current = true; deleteConversation(c) }, 550)
+    convTimer.current = setTimeout(() => { convLongPressed.current = true; setConvSheet(c) }, 550)
   }
   const cancelConvPress = () => clearTimeout(convTimer.current)
 
@@ -851,33 +880,32 @@ export default function Messages() {
   // the pinning needs, so this costs nothing and moves nothing.
   const [settled, setSettled] = useState(false)
 
-  // Opening a conversation, pin firmly to the newest message. Media (avatars,
-  // images, video posters, async link previews) can finish loading AFTER the
-  // first scroll and push content down, stranding the view in the middle. We
-  // re-pin across the next few frames AND whenever any descendant image loads -
-  // `load` doesn't bubble, so we listen in the capture phase, which also catches
-  // images inserted later. Guarded by atBottomRef so a scrolled-up reader is
-  // never yanked.
+  // Opening a conversation, pin to the newest message until the thread stops
+  // growing. Media - avatars, photos, video posters, async link previews - can
+  // finish loading after the first scroll and push content down, stranding the
+  // view in the middle.
+  //
+  // THE CORRECTIONS ARE NO LONGER ON A TIMETABLE. They fired at 60, 200, 500
+  // and 1200ms whatever was happening, which is a guess at when a thread stops
+  // growing, and it was wrong in both directions - still yanking a settled
+  // thread at 1.2s, and giving up on a slow one at 1.3. `pinToBottom` watches
+  // the scroll height and stops two frames after it last changed. The rooms use
+  // exactly the same helper, so the two surfaces cannot drift on this again.
+  //
+  // The upstream half is migration 163: a DM attachment records its own shape,
+  // so a photograph reserves its box before it decodes and most threads have
+  // nothing left to settle.
   useLayoutEffect(() => {
-    if (loadingThread || !conversationId) return
+    if (loadingThread || !conversationId) return undefined
     const el = scrollerRef.current
-    if (!el) return
+    if (!el) return undefined
     setSettled(false)
-    const pin = () => { if (atBottomRef.current) el.scrollTop = el.scrollHeight }
     el.scrollTop = el.scrollHeight
-    const reveal = () => setSettled(true)
-    const raf = requestAnimationFrame(() => { pin(); requestAnimationFrame(reveal) })
-    // See `settled` below: rAF does not run in a background tab, so the reveal
-    // can never be gated on it alone.
-    const safety = setTimeout(reveal, 250)
-    const timers = [setTimeout(pin, 60), setTimeout(pin, 200), setTimeout(pin, 500), setTimeout(pin, 1200)]
-    el.addEventListener('load', pin, true)
-    return () => {
-      cancelAnimationFrame(raf)
-      clearTimeout(safety)
-      timers.forEach(clearTimeout)
-      el.removeEventListener('load', pin, true)
-    }
+    return pinToBottom(
+      () => scrollerRef.current,
+      () => atBottomRef.current,
+      () => setSettled(true),
+    )
   }, [loadingThread, conversationId])
 
 
@@ -1038,14 +1066,23 @@ export default function Messages() {
     setSending(true)
     try {
       // Store the private storage PATH (not a public URL); it's signed on render.
-      const path = isVideo
+      const { url: path, w, h } = isVideo
         ? await uploadDmVideo(file, conversationId)
         : await uploadDmImage(file, conversationId)
       const replyId = replyTo?.id ?? null
       // Queued only once the file is in storage. The upload is the one part of
       // a send that genuinely cannot wait for signal: a File does not survive
       // localStorage, so there is nothing honest to queue until it has a path.
-      queueDm({ body: body.trim(), image_url: path, ...(replyId ? { reply_to: replyId } : {}) })
+      //
+      // `media_w`/`media_h` ride along (migration 163) so the thread reserves
+      // the picture's box before it decodes - the fix for a DM that jumps while
+      // it opens.
+      queueDm({
+        body: body.trim(),
+        image_url: path,
+        ...(w && h ? { media_w: w, media_h: h } : null),
+        ...(replyId ? { reply_to: replyId } : {}),
+      })
       playSend()
       setBody(''); dmComposerRef.current?.clear(); clearDraft('dm-' + conversationId); setReplyTo(null)
     } catch (err) {
@@ -1319,7 +1356,7 @@ export default function Messages() {
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/messages/${c.id}`) } }}
                 onTouchStart={() => startConvPress(c)} onTouchEnd={cancelConvPress} onTouchMove={cancelConvPress}
                 onMouseDown={() => startConvPress(c)} onMouseUp={cancelConvPress} onMouseLeave={cancelConvPress}
-                onContextMenu={(e) => { e.preventDefault(); deleteConversation(c) }}
+                onContextMenu={(e) => { e.preventDefault(); setConvSheet(c) }}
                 className={cx(
                   // `hoverable:` - A ROW WITH A `:hover` RULE COSTS YOU THE
                   // FIRST TAP ON iOS. Safari treats the first tap on an element
@@ -1373,8 +1410,30 @@ export default function Messages() {
                   className={cx(
                     'absolute right-2 top-2 rounded-full p-1.5 transition-all',
                     pinned.includes(c.id)
+                      // An ALREADY pinned chat shows its pin at every width -
+                      // a state you can only see by hovering is a state that
+                      // does not exist on a phone.
                       ? 'text-brand opacity-100'
-                      : 'text-gray-300 opacity-0 hover:bg-white hover:text-brand focus-visible:opacity-100 group-hover/conv:opacity-100',
+                      // AND THIS IS WHY THE FIRST TAP ON A DM DID NOTHING.
+                      //
+                      // Ethan: "whenever i click on a dm it just highlights it
+                      // and i have to click again for it to open, i figure the
+                      // reason for this is because the first time i click it
+                      // shows up the pin icon."
+                      //
+                      // Exactly that. The row itself was already careful to put
+                      // its hover behind `hoverable:` for this precise reason -
+                      // iOS spends the first tap on an element whose appearance
+                      // changes on hover, and only the second on the click -
+                      // but this button's `group-hover/conv:` was UNPREFIXED,
+                      // so the row still had a hover-sensitive descendant and
+                      // Safari still charged a tap for it.
+                      //
+                      // `hoverable:` is `(hover: hover) and (pointer: fine)`,
+                      // so on a phone these styles do not exist at all and the
+                      // first tap opens the chat. Pinning is reachable there by
+                      // holding the row - see the sheet below.
+                      : 'text-gray-300 opacity-0 hoverable:hover:bg-white hoverable:hover:text-brand hoverable:focus-visible:opacity-100 hoverable:group-hover/conv:opacity-100',
                   )}
                 >
                   <Icon name="pin" className="h-3.5 w-3.5" />
@@ -1479,6 +1538,9 @@ export default function Messages() {
               {/* Messages */}
               <div
                 ref={scrollerRef}
+                // The browser must not anchor this scroller: lib/chatScroll already owns
+                // where it sits, and two mechanisms moving one scroller is the jitter.
+                data-chat-scroller
                 onScroll={onScrollMessages}
                 // Tapping the thread dismisses the keyboard (WhatsApp-style); a
                 // scroll drag doesn't fire click, so scrolling history leaves it up.
@@ -1619,6 +1681,28 @@ export default function Messages() {
                           </>
                         )}
                         actions={m.pending || m.failed ? [] : [
+                          // MEDIA GETS TWO MORE, AND THEY LEAD - same bar, same
+                          // order as the rooms. `imageSrc` and not
+                          // `m.image_url`: a DM attachment is a PRIVATE storage
+                          // path, and only the signed URL is fetchable, so both
+                          // of these have to use the one the bubble is already
+                          // rendering.
+                          ...((m.image_url && imageSrc)
+                            ? [
+                              {
+                                icon: 'expand',
+                                label: 'Full screen',
+                                title: 'Open full screen',
+                                onClick: () => setViewing({ url: imageSrc, kind: isVid ? 'video' : 'image' }),
+                              },
+                              {
+                                icon: 'arrow-down',
+                                label: 'Save',
+                                title: isVid ? 'Save this video' : 'Save this photo',
+                                onClick: () => saveMedia(imageSrc),
+                              },
+                            ]
+                            : []),
                           { icon: 'reply', label: 'Reply', title: 'Reply to this message', onClick: () => { setReplyTo(m); setActionsFor(null); dmComposerRef.current?.focus() } },
                           ...(mine && withinEditWindow(m.created_at, nowTick)
                             ? [{ icon: 'pencil', label: 'Edit message', title: 'Edit (5 minutes)', onClick: () => { setEditingId(m.id); setActionsFor(null) } }]
@@ -1676,9 +1760,12 @@ export default function Messages() {
                           )}
                           {m.image_url && (
                             imageSrc ? (
+                              // A tap opens this message's own bar, which is
+                              // where Full screen and Save now live.
                               <ChatMedia
                                 url={imageSrc} kind={isVid ? 'video' : 'image'} alt={m.body || 'Shared image'}
-                                onMoreActions={() => setActionsFor(m.id)}
+                                w={m.media_w} h={m.media_h}
+                                onTap={() => setActionsFor((cur) => (cur === m.id ? null : m.id))}
                               />
                             ) : (
                               <div className="flex h-40 w-56 items-center justify-center rounded-xl bg-cloud"><Spinner /></div>
@@ -1875,6 +1962,60 @@ export default function Messages() {
           : null}
         videoUrl={reporting?.image_url && mediaType(reporting.image_url) === 'video' ? reporting.image_url : null}
         onClose={() => setReporting(null)}
+      />
+
+      {/* WHAT YOU CAN DO WITH A CONVERSATION, from holding it (or right-clicking
+          it). Two items, because there are two: pin it to the top, or get rid
+          of it. Fixed and centred so no list overflow can clip it, and the
+          backdrop is the way out. */}
+      {convSheet && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-ink/40 p-6"
+          onClick={() => setConvSheet(null)}
+          onContextMenu={(e) => { e.preventDefault(); setConvSheet(null) }}
+        >
+          <div className="w-72 max-w-full overflow-hidden rounded-2xl bg-white shadow-lift" onClick={(e) => e.stopPropagation()}>
+            <p className="truncate border-b border-gray-100 px-5 py-3 text-xs font-semibold uppercase tracking-wider text-smoke">
+              {convSheet.kind === 'group'
+                ? groupName(convSheet, convSheet.members, user.id)
+                : (convSheet.other?.name ?? 'Creator')}
+            </p>
+            <button
+              type="button"
+              onClick={(e) => { const c = convSheet; setConvSheet(null); togglePin(e, c) }}
+              className="flex w-full items-center gap-3.5 px-5 py-4 text-left text-sm font-semibold text-ink transition-colors hover:bg-cloud"
+            >
+              <Icon name="pin" className="h-5 w-5 shrink-0 text-brand" />
+              {pinned.includes(convSheet.id) ? tr('Unpin from the top') : tr('Pin to the top')}
+            </button>
+            <button
+              type="button"
+              onClick={() => { const c = convSheet; setConvSheet(null); deleteConversation(c) }}
+              className="flex w-full items-center gap-3.5 border-t border-gray-100 px-5 py-4 text-left text-sm font-semibold text-red-600 transition-colors hover:bg-cloud"
+            >
+              <Icon name="trash" className="h-5 w-5 shrink-0" />
+              {convSheet.kind === 'group' ? tr('Leave this group') : tr('Delete this conversation')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConvSheet(null)}
+              className="w-full border-t border-gray-100 px-5 py-3.5 text-center text-sm font-medium text-smoke transition-colors hover:bg-cloud"
+            >
+              {tr('Cancel')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ONE FULL-SCREEN LAYER FOR THE WHOLE THREAD. It portals to the body, so
+          neither the bubble's `overflow-hidden` nor the DM overlay can clip it,
+          and it carries its own pinch zoom and Save. */}
+      <PhotoLightbox
+        src={viewing?.url ?? null}
+        kind={viewing?.kind ?? 'image'}
+        alt="Shared media"
+        canSave
+        onClose={() => setViewing(null)}
       />
 
       {isGroup && (

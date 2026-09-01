@@ -226,7 +226,7 @@ export default function AdminConnections() {
                       type="text"
                       inputMode="numeric"
                       autoComplete="off"
-                      className="input min-w-[16rem] flex-1 !w-auto font-mono text-sm"
+                      className="input min-w-[16rem] flex-1 !w-auto font-mono no-ios-zoom sm:text-sm"
                       placeholder="Built-in id in use"
                       value={draft[q.name]}
                       onChange={(e) => { setDraft((d) => ({ ...d, [q.name]: e.target.value })); setSaved('') }}

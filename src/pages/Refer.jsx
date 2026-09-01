@@ -100,7 +100,7 @@ export default function Refer() {
         <h2 className="text-lg font-semibold">{tr("Your invite link")}</h2>
         <p className="mt-1 text-sm text-smoke">{tr("Anyone who signs up with this link is credited to you automatically.")}</p>
         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-          <input readOnly value={inviteLink} className="input flex-1 text-sm" onFocus={(e) => e.target.select()} />
+          <input readOnly value={inviteLink} className="input flex-1 no-ios-zoom sm:text-sm" onFocus={(e) => e.target.select()} />
           <button onClick={copyLink} className="btn-primary shrink-0">{copied ? 'Copied ✓' : 'Copy link'}</button>
         </div>
 

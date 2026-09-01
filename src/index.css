@@ -84,6 +84,33 @@ html {
     /* Damp the iOS page rubber-band so a pull at the top doesn't bounce the
        whole webview (which exposed the fixed chat overlay above the header). */
     overscroll-behavior-y: none;
+    /* THIS PAGE SCROLLS. IT DOES NOT ZOOM.
+       The declarative half of the no-accidental-zoom rule - see lib/pinchGuard
+       for the other two mechanisms and for why this app makes that trade at
+       all. Naming both pan axes (rather than `manipulation`) keeps every
+       ordinary scroll and swipe exactly as it was; the only gesture removed is
+       the two-finger one. */
+    touch-action: pan-x pan-y;
+  }
+
+  /* A CHAT SCROLLER DOES ITS OWN ANCHORING, SO THE BROWSER MUST NOT.
+     Chrome's scroll anchoring watches for content changing size and silently
+     adjusts scrollTop to keep a chosen element still. In a thread that is
+     simultaneously being pinned to its bottom in JS (lib/chatScroll) that is a
+     SECOND mechanism moving the same scroller, and the two disagree about which
+     element matters - which is the other half of "sometimes it jutters more,
+     it's inconsistent". One mechanism, and it is the one that knows the thread
+     opens at the bottom. */
+  [data-chat-scroller] {
+    overflow-anchor: none;
+  }
+
+  /* ...EXCEPT WHERE ZOOM IS THE POINT. A map or a photo viewer marked
+     `data-zoomable` takes the raw gesture and does something better with it,
+     so the browser must not claim it first. This is the CSS half of the same
+     contract lib/pinchGuard enforces in JS. */
+  [data-zoomable] {
+    touch-action: none;
   }
 
   /* When a full-screen overlay page (mobile chat / DMs) is mounted, fully lock

@@ -790,7 +790,7 @@ export default function AdminCreators() {
               </p>
               <textarea
                 rows={3}
-                className="input text-sm"
+                className="input no-ios-zoom sm:text-sm"
                 placeholder="What the rest of the team should know about this creator…"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}

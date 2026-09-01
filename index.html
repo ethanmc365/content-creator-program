@@ -15,8 +15,20 @@
     <style>html { background: #ffffff; }</style>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="/favicon-32.png" sizes="32x32" />
-    <!-- Mobile-first viewport. viewport-fit=cover handles iPhone notch/safe areas. -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- Mobile-first viewport. viewport-fit=cover handles iPhone notch/safe areas.
+
+         `user-scalable=no, maximum-scale=1` DISABLES THE BROWSER'S OWN PINCH
+         ZOOM. Ethan: "zoom in feature on mobile should not happen across the
+         platform, only for certain things such as zooming in on the maps,
+         zooming in on photos." Those two do their own zooming in JS now, at a
+         quality browser zoom cannot reach - the map draws MORE map rather than
+         bigger pixels - so what this removes is only the accidental version,
+         which strands a chat thread at 1.3x with no way back.
+
+         It is honoured in a standalone (home-screen) window and ignored by iOS
+         Safari in a tab, which is why lib/pinchGuard exists as well. Neither is
+         sufficient on its own. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
     <meta
       name="description"
       content="The official Tryp.com Content Creator Program. Create travel content, compete in challenges, earn cash and travel vouchers."

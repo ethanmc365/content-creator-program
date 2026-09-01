@@ -222,9 +222,16 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
     // middle of a white page was a button that changed the surroundings and not
     // the map. Full height plus the opening zoom above is what actually makes
     // it bigger, and panning then has somewhere to go.
-    <div className={full
-      ? 'relative h-full w-full overflow-hidden rounded-card bg-cloud/60'
-      : 'relative w-full overflow-hidden rounded-card bg-cloud/60'}>
+    // `data-zoomable` OPTS THIS OUT OF THE PLATFORM-WIDE PINCH GUARD.
+    // The map does its own zooming (d3-zoom, through ZoomableGroup) and draws
+    // MORE map rather than bigger pixels, which is the whole reason browser
+    // zoom is switched off everywhere else. See lib/pinchGuard.
+    <div
+      data-zoomable
+      className={full
+        ? 'relative h-full w-full overflow-hidden rounded-card bg-cloud/60'
+        : 'relative w-full overflow-hidden rounded-card bg-cloud/60'}
+    >
         {/* Country name tooltip on hover */}
         {tooltip && (
           <div className="pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded-full bg-ink px-3 py-1 text-xs font-medium text-white">

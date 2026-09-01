@@ -1362,6 +1362,10 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
 
   const mapBox = (
     <div
+      // Opts out of the platform-wide pinch guard: this map zooms itself, with
+      // d3-zoom, and draws more map rather than bigger pixels. See
+      // lib/pinchGuard.
+      data-zoomable
       className={cx(
         fullscreen
           ? 'relative flex h-full w-full flex-1 items-center justify-center overflow-hidden bg-cloud/60'

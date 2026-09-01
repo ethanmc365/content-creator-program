@@ -3,6 +3,25 @@ import { uploadFile, uploadPrivateFile, uploadRawFile } from './upload'
 import { ensureMp4Brand } from './videoRemux'
 import { supabase } from './supabase'
 
+// THE SHAPE OF A BLOB, so a chat message can reserve the right box before the
+// picture has decoded. See migration 163 - this is the whole fix for a thread
+// that jumps while it opens. Measured from the COMPRESSED blob, because that is
+// the file that actually gets stored and the compressor caps the long edge.
+//
+// Returns nulls rather than throwing: an attachment that cannot be measured is
+// still a perfectly good attachment, and ChatMedia falls back to measuring it
+// on load exactly as it always has.
+export async function imageBox(blob) {
+  try {
+    const bmp = await createImageBitmap(blob)
+    const box = bmp.width && bmp.height ? { w: bmp.width, h: bmp.height } : { w: null, h: null }
+    bmp.close?.()
+    return box
+  } catch {
+    return { w: null, h: null }
+  }
+}
+
 function validateImage(file) {
   const looksImage = file.type.startsWith('image/') || /\.(heic|heif|jpe?g|png|webp|gif)$/i.test(file.name)
   if (!looksImage) throw new Error('Only image files can be attached.')
@@ -12,12 +31,18 @@ function validateImage(file) {
 // Upload a COMMUNITY chat image to the public "chat-media" bucket and return its
 // URL. Files land in chat-media/<user id>/... so the RLS policy applies. Group
 // chat is public by design, so a public URL is fine here.
+// Returns `{ url, w, h }` - the shape travels with the URL so the caller can
+// write it onto the message in the same insert.
 export async function uploadChatImage(file, userId) {
   validateImage(file)
   const compressed = await compressImage(file, { maxDim: 1280, quality: 0.82 })
   const ext = (compressed.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg')
   const path = `${userId}/${Date.now()}.${ext}`
-  return uploadFile('chat-media', path, compressed, compressed.type || 'image/jpeg')
+  const [url, box] = await Promise.all([
+    uploadFile('chat-media', path, compressed, compressed.type || 'image/jpeg'),
+    imageBox(compressed),
+  ])
+  return { url, ...box }
 }
 
 // Upload a community chat VIDEO clip. We can't reliably transcode video in the
@@ -48,19 +73,28 @@ export async function uploadChatVideo(file, userId) {
   const contentType = playable.type || VIDEO_MIME[ext] || 'video/mp4'
   const path = `${userId}/video-${Date.now()}.${ext}`
   const out = await uploadRawFile('chat-media', path, playable, contentType)
-  return out.publicUrl
+  // The same `{ url, w, h }` shape the image helpers return, so a caller has
+  // one code path for an attachment. Video is not measured: a <video> element
+  // reserves nothing until metadata arrives either way, and VideoPlayer already
+  // owns that fit.
+  return { url: out.publicUrl, w: null, h: null }
 }
 
 // Upload a DIRECT-MESSAGE image to the PRIVATE "dm-media" bucket, keyed by the
 // conversation id so only its two participants can read it back. Returns the
 // storage PATH (not a URL) - render it with signDmImage(). This keeps private
 // conversations private (the old shared public bucket exposed DM images by URL).
+// Returns `{ url, w, h }` where `url` is the storage PATH (see above).
 export async function uploadDmImage(file, conversationId) {
   validateImage(file)
   const compressed = await compressImage(file, { maxDim: 1280, quality: 0.82 })
   const ext = (compressed.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg')
   const path = `${conversationId}/${Date.now()}.${ext}`
-  return uploadPrivateFile('dm-media', path, compressed, compressed.type || 'image/jpeg')
+  const [url, box] = await Promise.all([
+    uploadPrivateFile('dm-media', path, compressed, compressed.type || 'image/jpeg'),
+    imageBox(compressed),
+  ])
+  return { url, ...box }
 }
 
 // Upload a DIRECT-MESSAGE video clip to the PRIVATE "dm-media" bucket, keyed by
@@ -78,7 +112,7 @@ export async function uploadDmVideo(file, conversationId) {
   const contentType = playable.type || VIDEO_MIME[ext] || 'video/mp4'
   const path = `${conversationId}/video-${Date.now()}.${ext}`
   const out = await uploadRawFile('dm-media', path, playable, contentType)
-  return out.path
+  return { url: out.path, w: null, h: null }
 }
 
 // A DM image field is either a legacy full public URL (old messages, stored in
