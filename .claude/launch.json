@@ -18,7 +18,8 @@
       "name": "tryp-preview-build",
       "runtimeExecutable": "./preview.sh",
       "runtimeArgs": [],
-      "port": 4173
+      "port": 4173,
+      "autoPort": true
     }
   ]
 }
