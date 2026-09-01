@@ -555,15 +555,45 @@ export default function NetworkChat() {
     if (el && atBottomRef.current) el.scrollTop = el.scrollHeight
   }, [])
 
+  // A ROOM DOES NOT OPEN HALFWAY UP ITSELF AND THEN CORRECT ITSELF.
+  //
+  // Ethan: "whenever I click on rooms and click on general chat, it'll show up
+  // the messages in like a different layer or scrolled up, and then suddenly
+  // load or fix itself and jump to the bottom. It's just a really sort of laggy
+  // design."
+  //
+  // He is describing the re-pins above, seen from the outside. They are all
+  // necessary - a room's images and link previews land after first paint and
+  // every one of them changes the scroll height - but each one is a CORRECTION,
+  // and a correction you can watch is indistinguishable from a bug. The first
+  // paint lands at scroll position 0 (the oldest message in the room), the rAF
+  // pin drags it to the bottom, and then the 60/200/500ms pins each yank it
+  // again as another image arrives.
+  //
+  // So the thread is not shown until it is where it belongs. `settled` gates
+  // opacity only - the messages are laid out and measured the whole time, which
+  // is what the pinning needs - so this costs nothing and changes no geometry.
+  // It flips on the frame AFTER the first pin, so what appears is already at
+  // the bottom.
+  //
+  // AND A TIMER BEHIND IT, always: `requestAnimationFrame` does not run in a
+  // background tab, and gating CONTENT on rAF alone is the trap this codebase
+  // wrote down after `Reveal`. 250ms and it shows regardless.
+  const [settled, setSettled] = useState(false)
+
   useLayoutEffect(() => {
     atBottomRef.current = true
+    setSettled(false)
     pin()
-    const raf = requestAnimationFrame(pin)
+    const reveal = () => setSettled(true)
+    const raf = requestAnimationFrame(() => { pin(); requestAnimationFrame(reveal) })
+    const safety = setTimeout(reveal, 250)
     const timers = [60, 200, 500, 1200].map((t) => setTimeout(pin, t))
     const el = scrollerRef.current
     el?.addEventListener('load', pin, true)
     return () => {
       cancelAnimationFrame(raf)
+      clearTimeout(safety)
       timers.forEach(clearTimeout)
       el?.removeEventListener('load', pin, true)
     }
@@ -1070,7 +1100,18 @@ export default function NetworkChat() {
         </div>
       )}
 
-      <div ref={scrollerRef} onScroll={onScroll} className="flex-1 space-y-4 overflow-y-auto overscroll-contain overflow-x-hidden overscroll-contain px-4 py-4 touch-pan-y touch-pinch-zoom sm:px-5">
+      <div
+        ref={scrollerRef}
+        onScroll={onScroll}
+        className={cx(
+          'flex-1 space-y-4 overflow-y-auto overscroll-contain overflow-x-hidden px-4 py-4 touch-pan-y touch-pinch-zoom sm:px-5',
+          // See `settled` above. Opacity only, and never `visibility` or a
+          // conditional render: the rows have to be laid out for the pin to
+          // have a scroll height to pin to.
+          'transition-opacity duration-150',
+          settled ? 'opacity-100' : 'opacity-0',
+        )}
+      >
         {loading ? (
           <ChatSkeleton />
         ) : messages.length === 0 ? (
@@ -1158,16 +1199,30 @@ export default function NetworkChat() {
                 )}
               >
                 {/* THE FACE COLUMN, AND ONLY WHERE A FACE CAN GO.
-                    It is reserved on everybody ELSE's rows so a run from one
-                    person stays aligned under the first. It is not reserved on
-                    yours: your messages never draw an avatar, and the row is
-                    `flex-row-reverse`, so an empty 36px column plus its gap sat
-                    against the right edge of every message you sent. Ethan:
-                    "when I send a message there's a lot of unnecessary white
-                    space on the right side." */}
+                    It is not reserved on YOUR rows: your messages never draw an
+                    avatar, and the row is `flex-row-reverse`, so an empty 36px
+                    column plus its gap sat against the right edge of every
+                    message you sent. Ethan: "when I send a message there's a
+                    lot of unnecessary white space on the right side."
+
+                    A FACE ON EVERY MESSAGE, INCLUDING A RUN FROM ONE PERSON.
+                    The column used to be reserved-but-empty under the first of
+                    a run, on the Slack reasoning that repeating the avatar is
+                    noise. It is not noise here, because these bubbles are
+                    tinted and shrink-to-fit: a run of four short messages from
+                    announcements drew one face and then three bubbles hanging
+                    off nothing, indented past an empty gutter. Ethan: "I
+                    noticed it was showing up like it was floating because there
+                    was no profile picture beside it... it should still show up
+                    the profile photo on the left hand side even if the creator
+                    sent multiple messages, just for the UI, so it looks
+                    clean."
+                    The NAME line is still once per run - that is the repetition
+                    that actually reads as noise, and it is not what anchors the
+                    bubble to the left edge. */}
                 {!mine && (
                   <div className="w-9 shrink-0 self-end pb-5">
-                    {!grouped && <Avatar src={m.profiles?.photo_url} name={m.profiles?.name} size="sm" />}
+                    <Avatar src={m.profiles?.photo_url} name={m.profiles?.name} size="sm" />
                   </div>
                 )}
 
@@ -1266,8 +1321,22 @@ export default function NetworkChat() {
                           <QuotedParent id={m.reply_to} lookup={byId} onDark={mine} />
                         </div>
                       )}
-                      {m.image_url && <ChatMedia url={m.image_url} kind="image" alt={m.body || 'Shared image'} />}
-                      {m.video_url && <ChatMedia url={m.video_url} kind="video" />}
+                      {/* `onMoreActions` keeps the message's own bar reachable
+                          on a message that is nothing but a picture: a tap
+                          opens the photo now, so the long-press sheet carries
+                          the way back to reply / react / delete. */}
+                      {m.image_url && (
+                        <ChatMedia
+                          url={m.image_url} kind="image" alt={m.body || 'Shared image'}
+                          onMoreActions={() => setActionsFor(m.id)}
+                        />
+                      )}
+                      {m.video_url && (
+                        <ChatMedia
+                          url={m.video_url} kind="video"
+                          onMoreActions={() => setActionsFor(m.id)}
+                        />
+                      )}
                       {editingId === m.id ? (
                         <div className={cx((m.image_url || m.video_url) && 'px-2 py-1.5')}>
                           <MessageEditor
@@ -1558,7 +1627,12 @@ export default function NetworkChat() {
         tool={adminTool}
         onClose={() => setAdminTool(null)}
         postCard={(fields) => postMessage({ body: '', ...fields })}
-        roomLabel={active?.label ? `#${active.label.toLowerCase()}` : 'this room'}
+        // THE ROOM'S NAME, NOT A SLUG. Ethan: "I don't know why it's
+        // showing up like hashtag general. It should just show up like
+        // general, the actual chat name." The hash and the lowercasing were
+        // borrowed from Slack; nothing else in this product writes a room
+        // that way, and the tab the admin just pressed says "General".
+        roomLabel={active?.label || 'this room'}
       />
       )}
 

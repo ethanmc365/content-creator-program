@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { mediaType, fileNameFromUrl, saveFile } from '../lib/media'
 import VideoPlayer from './VideoPlayer'
+import PhotoLightbox from './PhotoLightbox'
 import { Spinner } from './ui'
 import Icon from './Icon'
 
@@ -31,10 +32,20 @@ import Icon from './Icon'
 // as an `aspect-ratio` before the pixels arrive, so the message does not jump
 // when the photo decodes - which matters because every chat here re-pins its
 // scroller on image load.
-export default function ChatMedia({ url, alt, kind, maxW = 260, maxH = 380 }) {
+// `onMoreActions` is how the message's OWN actions stay reachable.
+//
+// Pressing a message opens its reply / react / delete bar (MessageActions), and
+// pressing a photo now opens the photo - so on a message that IS a photo there
+// was nothing left to press for the actions. Ethan: "because tapping a photo
+// opens it, this means I'm unable to reply or delete. So maybe you have to hold
+// on for a sec, or a right click, and it shows up a menu."
+// The long-press menu already existed for Save; it carries the way back to the
+// message now, and the chat page passes the callback that opens its own bar.
+export default function ChatMedia({ url, alt, kind, maxW = 260, maxH = 380, onMoreActions }) {
   const isVideo = (kind || mediaType(url)) === 'video'
   const [saving, setSaving] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [full, setFull] = useState(false)
   const [box, setBox] = useState(null)
   const fired = useRef(false)
   const timer = useRef(null)
@@ -70,9 +81,19 @@ export default function ChatMedia({ url, alt, kind, maxW = 260, maxH = 380 }) {
     setSaving(true)
     try { await saveFile(url, fileNameFromUrl(url)) } finally { setSaving(false) }
   }
+  // FULL SCREEN MEANS IN THE APP, NOT IN A NEW TAB.
+  //
+  // This was `window.open(url, '_blank')`, so tapping a photo in a conversation
+  // left the conversation: a browser tab on a raw storage URL, with the app's
+  // chrome gone and the back button as the only way home - and on a phone,
+  // dropped into whatever the OS decided to do with an image URL. Ethan: "when
+  // I click on the photo I just want it to open full screen inside the
+  // platform. I don't want it to open in a separate link or something."
+  // `PhotoLightbox` is the layer the flight log and the profile already use,
+  // and it portals to the body so no bubble or modal can clip it.
   function openFull() {
     setMenuOpen(false)
-    window.open(url, '_blank', 'noopener,noreferrer')
+    setFull(true)
   }
 
   // Scale the picture's own dimensions into the maxW x maxH box, keeping the
@@ -116,13 +137,14 @@ export default function ChatMedia({ url, alt, kind, maxW = 260, maxH = 380 }) {
       {isVideo ? (
         <VideoPlayer url={url} maxW={maxW} maxH={maxH} />
       ) : (
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Open image full size"
-          onClick={(e) => { if (fired.current) e.preventDefault() }}
-          className="block"
+        <button
+          type="button"
+          aria-label="Open image full screen"
+          // `fired` is set by the long-press: a press that has already opened
+          // the action sheet must not also open the picture when the finger
+          // comes up.
+          onClick={() => { if (!fired.current) setFull(true) }}
+          className="block w-full"
         >
           <img
             ref={setImgEl}
@@ -145,7 +167,7 @@ export default function ChatMedia({ url, alt, kind, maxW = 260, maxH = 380 }) {
               ? { aspectRatio: `${box.w} / ${box.h}` }
               : { maxWidth: maxW, maxHeight: maxH }}
           />
-        </a>
+        </button>
       )}
 
       {saving && (
@@ -173,12 +195,31 @@ export default function ChatMedia({ url, alt, kind, maxW = 260, maxH = 380 }) {
               <Icon name="arrow-down" className="h-5 w-5 shrink-0 text-brand" />
               {isVideo ? 'Save video' : 'Save photo'}
             </button>
+            {onMoreActions && (
+              <button
+                type="button"
+                onClick={() => { setMenuOpen(false); onMoreActions() }}
+                className="flex w-full items-center gap-3.5 border-t border-gray-100 px-5 py-4 text-left text-sm font-semibold text-ink transition-colors hover:bg-cloud"
+              >
+                <Icon name="reply" className="h-5 w-5 shrink-0 text-brand" />
+                Reply, react or delete
+              </button>
+            )}
             <button type="button" onClick={() => setMenuOpen(false)} className="w-full border-t border-gray-100 px-5 py-3.5 text-center text-sm font-medium text-smoke transition-colors hover:bg-cloud">
               Cancel
             </button>
           </div>
         </div>
       )}
+
+      {/* Portals to the body, so neither the bubble's `overflow-hidden` nor a
+          modal above it can clip or cover it. */}
+      <PhotoLightbox
+        src={full ? url : null}
+        kind={isVideo ? 'video' : 'image'}
+        alt={alt || 'Shared image'}
+        onClose={() => setFull(false)}
+      />
     </div>
   )
 }

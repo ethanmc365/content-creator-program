@@ -12,6 +12,7 @@ import SocialMark from '../../components/SocialMark'
 import { COMMON_ZONES, CURRENCIES } from '../../lib/timezones'
 import PointRulesEditor from '../../components/network/PointRulesEditor'
 import ChallengeGroupsEditor from '../../components/admin/ChallengeGroupsEditor'
+import PrizeBreakdownFields, { prizeKind, prizeTotals, cleanPrizes } from '../../components/admin/PrizeBreakdownFields'
 import { flagFromIso } from '../../components/network/PlaceSwitcher'
 import { PageHeader, Skeleton, Spinner, Select } from '../../components/ui'
 import { DateField, TimeField } from '../../components/DateTimeFields'
@@ -254,10 +255,15 @@ export default function AdminChallengeForm() {
       setGroups((gs ?? []).map((g) => ({
         id: g.id,
         name: g.name,
-        prize_amount: g.prize_amount ?? '',
         prize_currency: g.prize_currency ?? 'EUR',
-        prize_type: g.prize_type ?? '',
-        winners_count: g.winners_count ?? '',
+        // The prize itself, not the two figures derived from it. A group saved
+        // before the breakdown existed has an empty array here and a pot in
+        // `prize_amount`; it reads as "same prize as the challenge", which is
+        // what it has always actually been paid, because the payout function
+        // falls through on an empty `prize_structure`.
+        prize_structure: Array.isArray(g.prize_structure) ? g.prize_structure : [],
+        participation_threshold: g.participation_threshold ?? '',
+        participation_prize: g.participation_prize ?? '',
         members: members.filter((m) => m.group_id === g.id).map((m) => m.creator_id),
       })))
       setGroupsLoaded(true)
@@ -366,12 +372,6 @@ export default function AdminChallengeForm() {
     })
   }
 
-  function setPrize(i, key, value) {
-    const prizes = [...form.prize_structure]
-    prizes[i] = { ...prizes[i], [key]: value }
-    set({ prize_structure: prizes })
-  }
-
   // WHAT THE REPORTING FIELDS USED TO ASK, answered from what is already here.
   //
   // Each of these was a select somebody had to remember, sitting in a section
@@ -428,16 +428,42 @@ export default function AdminChallengeForm() {
     const { error: delErr } = await del
     if (delErr) return delErr.message
 
-    const num = (v) => (v === '' || v == null ? null : Number(v))
-    const row = (g, i) => ({
-      challenge_id: challengeId,
-      name: g.name.trim() || `Group ${String.fromCharCode(65 + i)}`,
-      position: i,
-      prize_amount: num(g.prize_amount),
-      prize_currency: g.prize_currency || form.prize_currency || 'EUR',
-      prize_type: g.prize_type || null,
-      winners_count: num(g.winners_count),
-    })
+    // A GROUP'S PRIZE IS SAVED THE WAY THE CHALLENGE'S IS.
+    //
+    // The rows are the prize; the pot, the winner count and the prize type are
+    // DERIVED from them, exactly as `derivedReporting` does for the challenge.
+    // They used to be typed, and `prize_structure` - the column
+    // `award_challenge_prizes_internal` actually pays from - was never written
+    // at all, so "its own prize" was a figure in a reporting column that no
+    // payout ever read.
+    //
+    // AN EMPTY BREAKDOWN IS "SAME AS THE CHALLENGE", all the way down: the
+    // payout function coalesces `nullif(g.prize_structure, '[]')` to the
+    // challenge's, and `prizeForGroup` does the same in the app. So a group
+    // playing for the shared pot writes nulls and an empty array and needs no
+    // flag anywhere.
+    const row = (g, i) => {
+      const prizes = cleanPrizes(g.prize_structure)
+      const { pot, winners } = prizeTotals(prizes)
+      const own = prizes.length > 0
+      const threshold = parseInt(g.participation_threshold, 10)
+      const hasPart = Number.isFinite(threshold) && threshold > 0 && !!String(g.participation_prize || '').trim()
+      return {
+        challenge_id: challengeId,
+        name: g.name.trim() || `Group ${String.fromCharCode(65 + i)}`,
+        position: i,
+        prize_structure: prizes,
+        prize_amount: own && pot > 0 ? pot : null,
+        prize_currency: g.prize_currency || form.prize_currency || 'EUR',
+        prize_type: own ? prizeKind(prizes) : null,
+        winners_count: own && winners > 0 ? winners : null,
+        // Both halves or neither, the same rule the challenge's own
+        // participation reward follows: a threshold with nothing to win, or a
+        // prize nobody can qualify for, is a promise that cannot be kept.
+        participation_threshold: hasPart ? Math.max(1, threshold) : null,
+        participation_prize: hasPart ? String(g.participation_prize).trim() : null,
+      }
+    }
 
     // The new ones come back with their ids so their members can be written in
     // the same pass. `select()` on an insert is what makes that one round trip
@@ -512,7 +538,7 @@ export default function AdminChallengeForm() {
       description: form.description.trim(),
       rules: form.rules.trim(),
       platforms: form.platforms,
-      prize_structure: form.prize_structure.filter((p) => p.place && p.prize),
+      prize_structure: cleanPrizes(form.prize_structure),
       // Participation reward: earned after posting N videos. Both must be set to
       // count; blank = no participation reward for this challenge.
       participation_threshold:
@@ -647,8 +673,7 @@ export default function AdminChallengeForm() {
   // Deriving strictly would compute a pot of zero and write it over a figure
   // finance is using, the first time anybody opened the form to fix a typo.
   // Rows win when they have numbers; the stored value stands until they do.
-  const rowPot = form.prize_structure.reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
-  const rowWinners = form.prize_structure.filter((p) => p.place?.trim() && Number(p.amount) > 0).length
+  const { pot: rowPot, winners: rowWinners } = prizeTotals(form.prize_structure)
   const derivedPot = rowPot || Number(form.prize_amount) || 0
   const derivedWinners = rowWinners || Number(form.winners_count) || 0
   const potIsLegacy = !rowPot && derivedPot > 0
@@ -1062,105 +1087,21 @@ export default function AdminChallengeForm() {
               />
             </div>
           </div>
-          {form.prize_structure.map((p, i) => (
-            <div key={i} className="flex flex-wrap gap-2">
-              <input
-                type="text" className="input !w-32" placeholder="Place (e.g. 1st)"
-                value={p.place} onChange={(e) => setPrize(i, 'place', e.target.value)} aria-label={`Prize ${i + 1} place`}
-              />
-              <input
-                type="text" className="input min-w-0 flex-1" placeholder="What they get (e.g. £150 cash)"
-                value={p.prize}
-                onChange={(e) => {
-                  const text = e.target.value
-                  setPrize(i, 'prize', text)
-                  // READ THE NUMBER OUT OF THE WORDS.
-                  //
-                  // Ethan: type "£105 cash" and the value box should fill in.
-                  // Only while it is still EMPTY - a guess that overwrites a
-                  // figure somebody typed is worse than no guess, because they
-                  // have no reason to look at it again.
-                  if (!String(p.amount ?? '').trim()) {
-                    const m = text.match(/(?:[£€$]\s*)?(\d[\d,]*(?:\.\d{1,2})?)/)
-                    if (m) setPrize(i, 'amount', m[1].replace(/,/g, ''))
-                  }
-                }}
-                aria-label={`Prize ${i + 1} description`}
-              />
-              {/* The VALUE, separate from the words. "£150 cash and a jacket" is
-                  the right thing to show a creator and an impossible thing to
-                  add up, so the number it is worth is its own field and the
-                  total below is arithmetic rather than a second guess. */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-medium text-smoke">{CURRENCY_SYMBOL[form.prize_currency] || ''}</span>
-                <input
-                  type="text" inputMode="decimal" className="input !w-24" placeholder="150"
-                  value={p.amount ?? ''}
-                  onInput={(e) => { e.target.value = e.target.value.replace(/[^0-9.]/g, '') }}
-                  onChange={(e) => setPrize(i, 'amount', e.target.value)}
-                  aria-label={`Prize ${i + 1} value`}
-                />
-              </div>
-              <button type="button" aria-label="Remove prize" className="btn-ghost !px-3" onClick={() => set({ prize_structure: form.prize_structure.filter((_, j) => j !== i) })}>
-                ✕
-              </button>
-            </div>
-          ))}
-
-          {/* THE BUTTON GOES WHERE THE LIST ENDS. It was up in the header
-              beside the currency, which reads as page furniture rather than
-              "add another row to this". */}
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 rounded-xl border border-dashed border-gray-300 px-4 py-2.5 text-sm font-medium text-smoke transition-all duration-200 hover:border-brand hover:text-brand"
-            onClick={() => set({ prize_structure: [...form.prize_structure, { place: '', prize: '', amount: '' }] })}
-          >
-            <Icon name="plus" className="h-4 w-4" /> Add a prize
-          </button>
-
-          {/* THE PARTICIPATION REWARD IS A PRIZE, so it sits with the prizes
-              and above the total rather than in a tinted box of its own at the
-              bottom. Ethan asked for exactly that, and for the explanation to
-              go: the sentence described a mechanism that is now fully automatic
-              - the badge appears on the leaderboard by itself and the voucher
-              count is derived from the entries, so there is nothing here for a
-              person to remember. */}
-          {/* NO GREY CARD ROUND IT, AND NOTHING TO CLICK UP AND DOWN.
-              Ethan: "improve the thing that says post something videos and
-              everyone gets ten pound Tryp.com voucher, and then it's in a grey
-              card that looks weird - maybe it doesn't need to be in a separate
-              card at all. Also I don't like that you have those clicking arrows
-              to change it, I just want to be able to type in the number."
-              Both are right. The card made an optional extra look like a
-              warning, and it is the only tinted thing in a section of plain
-              rows. And `type="number"` draws browser spinners, snaps on a
-              scroll wheel over the field, and on some phones opens a keypad
-              with no way to correct a typo - it is a text field with
-              `inputMode="numeric"` now, filtered on input, which is what every
-              other number on this form already was.
-              A LABEL ABOVE, LIKE EVERY OTHER FIELD. The sentence used to have
-              to carry the label as well as the question. */}
-          <div className="border-t border-gray-100 pt-5">
-            <p className="label">Reward for taking part <span className="font-normal normal-case tracking-normal text-smoke">(optional)</span></p>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm text-smoke">Post</span>
-              <input
-                type="text" inputMode="numeric" className="input !w-16 text-center"
-                value={form.participation_threshold}
-                onInput={(e) => { e.target.value = e.target.value.replace(/[^0-9]/g, '') }}
-                onChange={(e) => set({ participation_threshold: e.target.value })}
-                placeholder="3" aria-label="Videos needed for the participation reward"
-              />
-              <span className="text-sm text-smoke">videos and everyone gets</span>
-              <input
-                type="text" className="input !w-auto min-w-[12rem] flex-1"
-                value={form.participation_prize}
-                onChange={(e) => set({ participation_prize: e.target.value })}
-                placeholder={`e.g. ${CURRENCY_SYMBOL[form.prize_currency] || ''}10 Tryp.com voucher`}
-                aria-label="Participation reward"
-              />
-            </div>
-          </div>
+          {/* ONE EDITOR, SHARED WITH THE GROUPS. See PrizeBreakdownFields:
+              a board that plays for its own prize has to be able to promise
+              exactly what a challenge can promise, and two hand-written copies
+              of this is how one of them ends up missing the field that gets
+              people paid. */}
+          <PrizeBreakdownFields
+            prizes={form.prize_structure}
+            onPrizes={(next) => set({ prize_structure: next })}
+            symbol={CURRENCY_SYMBOL[form.prize_currency] || ''}
+            participationThreshold={form.participation_threshold}
+            participationPrize={form.participation_prize}
+            onParticipation={({ threshold, prize }) =>
+              set({ participation_threshold: threshold, participation_prize: prize })}
+            idPrefix="challenge-prize"
+          />
 
           {/* The totals, derived. Nothing to type and nothing to keep in sync. */}
           <div className="flex flex-wrap items-center gap-x-8 gap-y-2 rounded-xl bg-cloud/60 px-4 py-3 text-sm">

@@ -51,15 +51,58 @@ export default function CountdownTimer({ endDate, compact = false, hero = false,
     )
   }
 
+  // THE PHONE GETS THE SAME CLOCK, NOT A SENTENCE.
+  //
+  // Ethan: "I don't like the way the time now shows just like normally. I think
+  // it can still be how it is on desktop where it shows the five days, nine
+  // hours, forty one minutes, and it should be in that nice style rather than
+  // just writing it. But obviously it should be much smaller, kind of like how
+  // the current size is."
+  //
+  // It was one line of text - "5d 9h 41m left" - which is the correct
+  // information in the wrong voice: the desktop card treats the deadline as a
+  // thing you look AT, and the phone treated it as a thing you read. Same
+  // tiles, a third of the size.
+  //
+  // NO SECONDS. A ticking seconds cell on a card you scroll past is motion for
+  // its own sake, and at this size the digit is too small to read anyway - it
+  // just makes the tile flicker. Days, hours, minutes is the whole answer.
+  //
+  // AND NO "LEFT". Ethan: "I don't say left because it says closes in, so
+  // there's no reason to say left." Every caller of this variant puts "Closes
+  // in" directly above it.
   if (compact) {
-    // `onDark` because this row is used on white panels AND, since the phone
-    // layout of the live challenge card, on the orange card itself - where
-    // brand-on-brand was legible only in the sense that it was technically
-    // present.
+    const small = [
+      { label: 'Days', value: left.days },
+      { label: 'Hrs', value: left.hours },
+      { label: 'Min', value: left.minutes },
+    ]
     return (
-      <span className={cx('text-base font-semibold tabular-nums', onDark ? 'text-white' : 'text-brand')}>
-        {left.days}d {left.hours}h {left.minutes}m left
-      </span>
+      <div
+        className="grid w-full max-w-[16rem] grid-cols-3 gap-1.5"
+        role="timer"
+        aria-label={`${left.days} days ${left.hours} hours ${left.minutes} minutes remaining`}
+      >
+        {small.map((c) => (
+          <div
+            key={c.label}
+            className={cx(
+              'flex min-w-0 flex-col items-center rounded-xl px-1 py-1.5',
+              // On the orange card the tile is the white one the desktop
+              // version uses, shrunk. On a white panel that would be invisible,
+              // so it is a tinted chip with brand digits instead.
+              onDark ? 'bg-white shadow-[0_4px_14px_rgba(0,0,0,0.14)]' : 'bg-brand-tint/60',
+            )}
+          >
+            <span className={cx('text-base font-bold leading-none', onDark ? 'text-ink' : 'text-brand')}>
+              <Digits value={c.value} />
+            </span>
+            <span className={cx('mt-0.5 text-[8px] font-semibold uppercase tracking-widest', onDark ? 'text-smoke' : 'text-brand/70')}>
+              {c.label}
+            </span>
+          </div>
+        ))}
+      </div>
     )
   }
 

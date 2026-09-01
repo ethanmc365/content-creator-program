@@ -132,17 +132,36 @@ export function compareBoards(groups = [], members = [], submissions = []) {
  * The prize a board is playing for. Null fields fall through to the
  * challenge's own, so a two-group challenge with one prize pot does not have to
  * state the same prize twice.
+ *
+ * THIS IS THE SAME FALL-THROUGH THE PAYOUT DOES IN SQL, deliberately - see
+ * `award_challenge_prizes_internal` (migrations 158 and 159), which coalesces
+ * `nullif(g.prize_structure, '[]')` onto the challenge's and does the same for
+ * the participation reward. What the app promises on the challenge page and
+ * what the database actually pays have to be the same sentence.
+ *
+ * THE PARTICIPATION REWARD IS PART OF IT NOW. It used to be a fact about the
+ * whole challenge, which was true while a board could only carry a pot; once a
+ * board carries a whole prize it is not. Two groups run for two sponsors can
+ * owe two different vouchers for taking part.
  */
 export function prizeForGroup(group, challenge) {
   if (!group?.id) return challenge
+  const ownPrizes = Array.isArray(group.prize_structure) && group.prize_structure.length > 0
+  // Both halves or neither: a threshold with nothing to win is not a promise,
+  // so a group only overrides the reward when it has stated both.
+  const ownPart = group.participation_threshold != null
+    && !!String(group.participation_prize ?? '').trim()
   return {
     prize_amount: group.prize_amount ?? challenge?.prize_amount ?? null,
     prize_currency: group.prize_currency ?? challenge?.prize_currency ?? 'EUR',
     prize_type: group.prize_type ?? challenge?.prize_type ?? null,
     winners_count: group.winners_count ?? challenge?.winners_count ?? null,
-    prize_structure: (Array.isArray(group.prize_structure) && group.prize_structure.length > 0)
-      ? group.prize_structure
-      : (challenge?.prize_structure ?? []),
+    prize_structure: ownPrizes ? group.prize_structure : (challenge?.prize_structure ?? []),
+    participation_threshold: ownPart ? group.participation_threshold : (challenge?.participation_threshold ?? null),
+    participation_prize: ownPart ? group.participation_prize : (challenge?.participation_prize ?? null),
+    // Which of the two the answer came from, for anything that wants to say
+    // "this board has its own prize" without re-deriving the rule.
+    own: ownPrizes || ownPart,
   }
 }
 

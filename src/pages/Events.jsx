@@ -432,11 +432,19 @@ export default function Events() {
              basis-0`), so nothing wraps and no space is wasted, and the labels
              shorten rather than the buttons shrinking.
              MANAGE IS ONE ELEMENT THAT WRAPS, NOT TWO THAT HIDE. It is
-             `basis-full` on a phone, so it drops under the three and fills the
-             row (a fourth column there would leave four cramped buttons); from
+             `basis-full` on a phone, so it takes a row of its own and fills it
+             (a fourth column there would leave four cramped buttons); from
              `sm` it is `basis-auto` and sits on the end of the row, to the
              right of "Suggest an event", because a lone button on a second row
-             of a wide header reads as a mistake. */
+             of a wide header reads as a mistake.
+             IT SITS ABOVE THE OTHER THREE, NOT BELOW. Ethan: "for the calendar
+             for admins on mobile, I want the manage button to actually be the
+             big button that appears above personal sync and suggest rather than
+             below." It is the primary action and it is the widest thing in the
+             row, so hanging it off the bottom made the header read as a list
+             that had run out of space. `max-sm:order-first` moves it without
+             moving it in the markup, so the desktop row is untouched - the same
+             rule `ActionRow` applies everywhere else. */
           <div className="flex w-full flex-wrap gap-2 sm:w-auto">
             <button onClick={() => { setEditingPersonal(null); setPersonalOpen(true) }} className="btn-secondary !px-3 !py-2.5 flex-1 basis-0 justify-center whitespace-nowrap text-sm sm:flex-none sm:basis-auto sm:!px-4">
               <Icon name="plus" className="h-4 w-4 shrink-0" />
@@ -455,7 +463,7 @@ export default function Events() {
               <span className="sm:hidden">Suggest</span>
             </button>
             {isAdmin && (
-              <Link to="/admin/events" className="btn-primary basis-full justify-center whitespace-nowrap sm:basis-auto sm:!px-4">Manage</Link>
+              <Link to="/admin/events" className="btn-primary basis-full justify-center whitespace-nowrap max-sm:order-first sm:basis-auto sm:!px-4">Manage</Link>
             )}
           </div>
         }

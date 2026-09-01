@@ -7,6 +7,7 @@ import { CommunityProvider } from './context/CommunityContext'
 import { registerServiceWorker } from './lib/push'
 import { initMonitoring } from './lib/monitoring'
 import { applyAppIcon, iconFromUrl, setAppIcon } from './lib/appIcon'
+import { releaseBootLayer, whenAppLoadersIdle } from './lib/bootLoader'
 import './index.css'
 
 // Start error monitoring as early as possible (no-op without VITE_SENTRY_DSN).
@@ -82,36 +83,56 @@ function mount() {
 // orange splash was tried here and reverted, because a layer that is not the
 // same colour as the canvas under it always has a frame where they disagree.
 //
-// It has to be dismissed from here, and it has to wait for a PAINT rather than
-// for `render()` to return: `createRoot().render` only schedules the work, so
-// fading on the next line would uncover a root that is still empty.
+// IT WAITS FOR CONTENT, NOT FOR A TIMER. This used to fade after two animation
+// frames or 400ms, whichever came first, which is a guess at when React has
+// something to show - and it is the wrong guess, because React commits a
+// SUSPENSE FALLBACK that fast. The boot layer therefore left mid-boot with the
+// app's own PlaneLoader already underneath it, and the two are centred on
+// different boxes, so both were on screen a few dozen pixels apart for the
+// length of the fade. Ethan sent the photograph.
 //
-// Two animation frames is the reliable signal - the first is scheduled from
-// this task, the second runs after React has committed and the browser has
-// drawn. The class starts a 300ms CSS fade; the element is removed after it,
-// so nothing is left holding a full-screen layer over the app.
+// `whenAppLoadersIdle` fires when no full-page loader is mounted, so the
+// handover is to a real screen. Every such loader draws nothing while `#boot`
+// is up (lib/bootLoader.js), so there is never a second one to see even for a
+// frame. Two animation frames get us past React's commit; the layout effect
+// that claims the slot has run by then, which a passive effect would not have.
+//
+// TWO TIMERS BEHIND IT, and neither is belt and braces:
+//  - 400ms, because requestAnimationFrame DOES NOT RUN IN A BACKGROUND TAB.
+//    Somebody who opens the app in a tab they are not looking at would have the
+//    frames never fire. This codebase has been bitten by exactly this before,
+//    in `Reveal`: never gate anything on rAF alone.
+//  - BOOT_MAX_MS, because "wait for a real screen" has to have an end. A
+//    profile fetch that never resolves must not leave a white layer over the
+//    app for ever; past that point the app's own loader is the right thing to
+//    be looking at.
+const BOOT_MAX_MS = 6000
+
 function dismissBoot() {
   const boot = document.getElementById('boot')
-  if (boot) {
-    let done = false
-    const dismiss = () => {
-      if (done) return
-      done = true
-      boot.classList.add('gone')
-      setTimeout(() => boot.remove(), 360)
-    }
-    // AND A TIMER BEHIND THE rAF, which is not belt and braces - it is the
-    // whole difference between this working and this being a bug.
-    //
-    // requestAnimationFrame DOES NOT RUN IN A BACKGROUND TAB. Somebody who
-    // opens the app in a tab they are not looking at would have the frames
-    // never fire, and would come back to a full-screen orange layer over their
-    // app until the moment they focused it. This codebase has been bitten by
-    // exactly this before, in `Reveal`, and the rule written down there is the
-    // rule here: never gate content on rAF alone. Whichever fires first wins.
-    requestAnimationFrame(() => requestAnimationFrame(dismiss))
-    setTimeout(dismiss, 400)
+  if (!boot) return
+  let done = false
+  const dismiss = () => {
+    if (done) return
+    done = true
+    cancel()
+    releaseBootLayer()
+    boot.classList.add('gone')
+    setTimeout(() => boot.remove(), 360)
   }
+  // Whichever of the frame pair and the timer gets here first hands over; the
+  // second must not subscribe again, or the first subscription is orphaned and
+  // `cancel` no longer refers to it.
+  let cancel = () => {}
+  let handedOver = false
+  const handOver = () => {
+    if (handedOver || done) return
+    handedOver = true
+    cancel = whenAppLoadersIdle(dismiss)
+  }
+  requestAnimationFrame(() => requestAnimationFrame(handOver))
+  setTimeout(handOver, 400)
+  setTimeout(dismiss, BOOT_MAX_MS)
 }
 
 promoteAppCss().then(mount)

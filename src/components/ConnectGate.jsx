@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { Avatar, PlaneLoader, Spinner } from './ui'
+import { AppLoader, Avatar, Spinner } from './ui'
 import { cx } from '../lib/utils'
 
 // Shown once to a newly-approved creator: connect with a few others before the
@@ -56,7 +56,7 @@ export default function ConnectGate() {
   }
 
   if (creators === null) {
-    return <div className="flex min-h-screen items-center justify-center"><PlaneLoader /></div>
+    return <AppLoader />
   }
 
   // Edge case: not enough other creators to reach the target — let them through.

@@ -1,10 +1,11 @@
 // Small, reusable UI building blocks. Keeping them in one file makes the
 // design system easy to scan - every visual primitive lives here.
-import { useEffect, useRef, useState } from 'react'
+import { Children, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { cx } from '../../lib/utils'
 import { lockScroll } from '../../lib/scrollLock'
+import { useBootLoaderSlot } from '../../lib/bootLoader'
 import Icon from '../Icon'
 import Flame from '../games/Flame'
 
@@ -71,6 +72,76 @@ export function PlaneLoader({ label = 'Loading…', className = '' }) {
         </svg>
       </div>
       {label && <span className="text-sm font-medium text-smoke">{label}</span>}
+    </div>
+  )
+}
+
+/**
+ * A ROW OF PAGE ACTIONS THAT DOES NOT FALL APART ON A PHONE.
+ *
+ * Ethan, about the flight log's three buttons: "it shows three buttons - across
+ * the community, aircraft collection, and log flight. If you can't fit the
+ * three buttons on mobile, then one button above should be the full width of
+ * the other two buttons, so it's a nice clean UI design. In this case I would
+ * probably put the log a flight button as the big button. This UI needs to be
+ * incorporated in other places where these buttons are not in sync and not
+ * aligned."
+ *
+ * `flex flex-wrap` is what every one of these rows was, and wrapping is exactly
+ * the thing that looks unfinished: three buttons of three different widths wrap
+ * into two-then-one or one-then-two depending on how long the words are, and
+ * the ragged end of the first line is different on every page. A grid decides
+ * it instead.
+ *
+ * Under `sm` this is a TWO COLUMN GRID:
+ *  - `lead` (the primary action) takes the whole top row, full width.
+ *  - the rest fill the columns two at a time, and an ODD last one takes a whole
+ *    row of its own rather than sitting half-width beside nothing.
+ * At `sm` and up every wrapper becomes `display: contents`, so the buttons are
+ * the flex items themselves and the row is exactly the inline row it has always
+ * been - including the order, because `lead` is LAST in the markup and only
+ * jumps to the top via `order-first`, which `display: contents` ignores.
+ */
+// Every mobile-only rule is written as `max-sm:` over a `contents` wrapper,
+// rather than as a base rule the breakpoint has to undo. A wrapper that is
+// `display: contents` by default is not there at all on a desktop - the button
+// inside it IS the flex item - so there is nothing to override and no chance of
+// a stray `w-full` reaching a button in an inline row.
+const CELL = 'contents max-sm:block max-sm:[&>*]:w-full max-sm:[&>*]:justify-center'
+
+export function ActionRow({ lead = null, children, className = '' }) {
+  const items = Children.toArray(children)
+  const odd = items.length % 2 === 1
+  return (
+    <div className={cx('grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center', className)}>
+      {items.map((el, i) => (
+        <div key={el.key ?? i} className={cx(CELL, odd && i === items.length - 1 && 'max-sm:col-span-2')}>
+          {el}
+        </div>
+      ))}
+      {lead && <div className={cx(CELL, 'max-sm:order-first max-sm:col-span-2')}>{lead}</div>}
+    </div>
+  )
+}
+
+/**
+ * THE APP'S FULL-PAGE LOADER, WHICH KNOWS ABOUT THE BOOT LAYER.
+ *
+ * Use this - never a bare `<PlaneLoader>` in a `min-h-screen` box - for any
+ * screen that stands in for the whole app: a lazy route chunk, the session
+ * resolving, the profile arriving. While `index.html`'s `#boot` is still up it
+ * draws NOTHING, because `#boot` is already drawing exactly this loader, and
+ * two of them at two different vertical centres is what Ethan photographed.
+ * Holding the slot is also what tells main.jsx that the app is not ready yet,
+ * so the boot layer waits for real content instead of guessing at a timer.
+ *
+ * See lib/bootLoader.js.
+ */
+export function AppLoader({ label, className = 'min-h-screen' }) {
+  const visible = useBootLoaderSlot()
+  return (
+    <div className={cx('flex items-center justify-center', className)}>
+      {visible && <PlaneLoader label={label} />}
     </div>
   )
 }
@@ -418,6 +489,22 @@ export function CopyButton({ value, label = 'Copy', className = '' }) {
 export function Select({
   value, onChange, options, className = '', ariaLabel,
   variant = 'pill', placeholder = 'Choose', disabled = false, id,
+  // INSIDE A MODAL, THE MENU MUST NOT FLOAT.
+  //
+  // A `Modal` panel is `overflow-y-auto` with a `max-h`, which makes it a
+  // clipping box on BOTH axes - so an absolutely-positioned menu opened near
+  // the foot of a dialog is sliced off at the card's edge, and a menu wider
+  // than its button (this one is `min-w-max`) is sliced off at the side too.
+  // Ethan, on the schedule dialog's timezone picker: "whenever I press the
+  // clock, it's showing up a pop up that's cut off because it's outside the
+  // main card."
+  //
+  // Flipping it upwards does not fix it: inside a dialog there is rarely 280px
+  // either way, so it flips almost every time and then covers the fields above
+  // instead. An IN-FLOW menu cannot be clipped and cannot cover anything - the
+  // dialog simply grows and its own scroller takes over, which is the answer
+  // this codebase already reached once for the same reason.
+  inFlow = false,
 }) {
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(() => options.findIndex((o) => o.value === value))
@@ -455,7 +542,9 @@ export function Select({
     const box = btnRef.current?.getBoundingClientRect()
     // 44px a row plus padding, capped the same way the menu itself is.
     const needed = Math.min(options.length * 44 + 12, 280)
-    setUp(!!box && box.bottom + needed > window.innerHeight && box.top > needed)
+    // An in-flow menu is never flipped: it is part of the column, so "above"
+    // would mean pushing the button it belongs to down the page as it opens.
+    setUp(!inFlow && !!box && box.bottom + needed > window.innerHeight && box.top > needed)
     setQuery('')
     setActive(options.findIndex((o) => o.value === value))
     setOpen(true)
@@ -531,8 +620,14 @@ export function Select({
         // It is better ARIA too - a listbox should not contain a textbox.
         <div
           className={cx(
-            'absolute z-40 flex w-full min-w-max flex-col overflow-hidden rounded-card border border-gray-100 bg-white shadow-lift',
-            up ? 'bottom-full mb-2' : 'top-full mt-2',
+            'z-40 flex w-full flex-col overflow-hidden rounded-card border border-gray-100 bg-white',
+            inFlow
+              // In the flow: no shadow and no `min-w-max`. It is a panel that
+              // belongs to the field above it rather than a thing hovering
+              // over the page, and a menu wider than its own column is exactly
+              // what gets clipped inside a dialog.
+              ? 'mt-2'
+              : cx('absolute min-w-max shadow-lift', up ? 'bottom-full mb-2' : 'top-full mt-2'),
           )}
         >
           {/* The search row is the menu's HEADER, so it is flush with the menu's
@@ -563,7 +658,7 @@ export function Select({
                    The menu is already the focus indicator - it only exists
                    because you opened it, and typing goes here wherever the
                    caret appears to be. */
-                className="w-full border-0 bg-transparent p-0 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-0 focus-visible:ring-0"
+                className="no-ios-zoom w-full border-0 bg-transparent p-0 placeholder:text-gray-400 focus:outline-none focus:ring-0 focus-visible:ring-0"
               />
             </div>
           )}

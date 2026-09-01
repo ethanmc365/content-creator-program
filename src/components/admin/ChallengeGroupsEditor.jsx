@@ -3,6 +3,7 @@ import Icon from '../Icon'
 import { Avatar } from '../ui'
 import PeoplePicker from '../network/PeoplePicker'
 import { dealEvenly } from '../../lib/challengeGroups'
+import PrizeBreakdownFields, { prizeTotals } from './PrizeBreakdownFields'
 import { cx } from '../../lib/utils'
 
 // SPLITTING ONE CHALLENGE INTO SEVERAL LEADERBOARDS.
@@ -30,14 +31,29 @@ import { cx } from '../../lib/utils'
 // which is the common case - two groups racing for the same pot - and it means
 // a one-prize challenge does not have to state the same prize twice. See
 // `prizeForGroup`.
+//
+// AND WHEN A GROUP DOES PLAY FOR ITS OWN, IT IS A WHOLE PRIZE. It used to be a
+// pot and a winner count, which are the two REPORTING figures - derived from
+// the rows everywhere else on this form - asked for as though they were the
+// prize itself. Nothing wrote `challenge_groups.prize_structure`, so the
+// payout function (which pays from exactly that column, falling through to the
+// challenge's when it is empty) never saw a group prize at all: an admin could
+// type "300" and "3 winners" into this editor and every board would still be
+// paid the challenge's breakdown. Ethan: "it needs the actual proper data, and
+// this would need to be synced to the database and everything so it works
+// correctly." Same editor as the challenge now - see PrizeBreakdownFields -
+// and the pot, the winner count and the prize type are derived on save.
 
 const BLANK_GROUP = () => ({
   id: null,
   name: '',
-  prize_amount: '',
   prize_currency: 'EUR',
-  prize_type: '',
-  winners_count: '',
+  // The prize itself. `prize_amount`, `winners_count` and `prize_type` are NOT
+  // here: they are derived from these rows when the challenge saves, exactly as
+  // the challenge's own are.
+  prize_structure: [],
+  participation_threshold: '',
+  participation_prize: '',
   members: [],
 })
 
@@ -48,14 +64,20 @@ const SYMBOL = { GBP: '£', EUR: '€', USD: '$', RON: 'lei ', SEK: 'kr ', NOK: 
 
 // DOES THIS GROUP PLAY FOR ITS OWN PRIZE?
 //
-// Derived rather than stored, because it already was: a group whose pot or
-// winner count is filled in has its own prize, and one with both blank plays
-// for the challenge's. `prize_own` only carries the answer for the moment
-// between pressing "its own prize" and typing a number into it - without it the
-// two boxes would vanish again on the next render, which is the sort of control
-// that looks broken. It is never saved; `prizeForGroup` reads the amounts.
-const ownPrize = (g) =>
-  g.prize_own ?? !!(String(g.prize_amount ?? '').trim() || String(g.winners_count ?? '').trim())
+// Derived rather than stored, because it already is: a group with prize rows of
+// its own, or its own participation reward, has its own prize; one with neither
+// plays for the challenge's. That is the same rule `prizeForGroup` applies when
+// the app reads it back and the same one the payout function applies in SQL, so
+// there is nothing to keep in step.
+//
+// `prize_own` only carries the answer for the moment between pressing "its own
+// prize" and typing anything into it - without it the editor would vanish again
+// on the next render, which is the sort of control that looks broken. It is
+// never saved.
+const ownPrize = (g) => g.prize_own ?? !!(
+  (Array.isArray(g.prize_structure) && g.prize_structure.length > 0)
+  || String(g.participation_prize ?? '').trim()
+)
 
 // `audience` is who can be ADDED (the market's roster). `people` is everybody
 // the editor might have to DRAW, which is the roster plus anybody already in a
@@ -220,22 +242,21 @@ export default function ChallengeGroupsEditor({ groups, onChange, audience = [],
             </button>
           </div>
 
-          {/* THE PRIZE IS A CHOICE BEFORE IT IS TWO BOXES.
+          {/* THE PRIZE IS A CHOICE BEFORE IT IS A FORM.
               Ethan: "it's the same and same... what do you mean, type in? I
               can't type in a prize here. It really makes no sense, so that UI
-              needs to be improved. I might want to set a prize pot or the
-              winners for each one, so just give me that option, or an easy
-              button to click."
-              He is describing two identical-looking boxes both placeholdered
+              needs to be improved."
+              He was describing two identical-looking boxes both placeholdered
               "Same" - which is the RULE (blank means the challenge's own prize)
               printed where a value goes, so the fields looked pre-filled with a
               word you could not edit, on every group, twice. The rule is a
-              question now, asked once per group, and the boxes only exist once
-              the answer is "its own". Choosing "same as the challenge" clears
-              them, so a group cannot carry a prize it is no longer using. */}
+              question now, asked once per group, and the editor only exists
+              once the answer is "its own". Choosing "same as the challenge"
+              clears it, so a group cannot carry a prize it is no longer
+              using. */}
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {[
-              { own: false, label: `Same prize as the challenge` },
+              { own: false, label: 'Same prize as the challenge' },
               { own: true, label: 'Its own prize' },
             ].map((o) => {
               const on = ownPrize(g) === o.own
@@ -245,8 +266,20 @@ export default function ChallengeGroupsEditor({ groups, onChange, audience = [],
                   type="button"
                   aria-pressed={on}
                   onClick={() => setGroup(i, o.own
-                    ? { prize_amount: g.prize_amount || '', winners_count: g.winners_count || '', prize_own: true }
-                    : { prize_amount: '', winners_count: '', prize_own: false })}
+                    ? {
+                      prize_own: true,
+                      // Opening the editor on an empty list is opening it on
+                      // nothing at all, so it starts with one row to fill in.
+                      prize_structure: (g.prize_structure ?? []).length
+                        ? g.prize_structure
+                        : [{ place: '1st', prize: '', amount: '' }],
+                    }
+                    : {
+                      prize_own: false,
+                      prize_structure: [],
+                      participation_threshold: '',
+                      participation_prize: '',
+                    })}
                   className={cx(
                     'rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 hover:-translate-y-0.5',
                     on ? 'border-brand bg-brand text-white shadow-card' : 'border-gray-200 bg-white text-smoke hover:border-brand hover:text-brand',
@@ -259,33 +292,36 @@ export default function ChallengeGroupsEditor({ groups, onChange, audience = [],
           </div>
 
           {ownPrize(g) && (
-            <div className="mt-3 flex flex-wrap items-end gap-3">
-              <div className="w-36">
-                <label htmlFor={`grp-pot-${i}`} className="label">Prize pot</label>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-medium text-smoke">{SYMBOL[g.prize_currency || currency] || ''}</span>
-                  <input
-                    id={`grp-pot-${i}`}
-                    className="input"
-                    inputMode="decimal"
-                    value={g.prize_amount}
-                    onInput={(e) => { e.target.value = e.target.value.replace(/[^0-9.]/g, '') }}
-                    onChange={(e) => setGroup(i, { prize_amount: e.target.value })}
-                    placeholder="150"
-                  />
-                </div>
-              </div>
-              <div className="w-28">
-                <label htmlFor={`grp-win-${i}`} className="label">Winners</label>
-                <input
-                  id={`grp-win-${i}`}
-                  className="input"
-                  inputMode="numeric"
-                  value={g.winners_count}
-                  onInput={(e) => { e.target.value = e.target.value.replace(/[^0-9]/g, '') }}
-                  onChange={(e) => setGroup(i, { winners_count: e.target.value })}
-                  placeholder="3"
-                />
+            <div className="mt-3 rounded-xl border border-gray-100 bg-cloud/40 p-4">
+              {/* THE SAME EDITOR THE CHALLENGE USES. A board has to be able to
+                  promise exactly what a challenge can promise, because it is
+                  the column the payout function actually reads. */}
+              <PrizeBreakdownFields
+                dense
+                idPrefix={`grp-${i}`}
+                prizes={g.prize_structure ?? []}
+                onPrizes={(next) => setGroup(i, { prize_structure: next, prize_own: true })}
+                symbol={SYMBOL[g.prize_currency || currency] || ''}
+                participationThreshold={g.participation_threshold ?? ''}
+                participationPrize={g.participation_prize ?? ''}
+                onParticipation={({ threshold, prize }) =>
+                  setGroup(i, { participation_threshold: threshold, participation_prize: prize, prize_own: true })}
+              />
+              {/* Derived, and shown for the same reason the challenge shows it:
+                  so nobody has to add up their own prize rows to check the
+                  board pays what they meant it to. */}
+              <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-1 border-t border-gray-200/70 pt-3 text-xs">
+                <span>
+                  <span className="text-smoke">Pot </span>
+                  <span className="font-bold text-brand">
+                    {SYMBOL[g.prize_currency || currency] || ''}
+                    {prizeTotals(g.prize_structure).pot.toLocaleString()}
+                  </span>
+                </span>
+                <span>
+                  <span className="text-smoke">Winners </span>
+                  <span className="font-bold">{prizeTotals(g.prize_structure).winners}</span>
+                </span>
               </div>
             </div>
           )}
@@ -308,7 +344,10 @@ export default function ChallengeGroupsEditor({ groups, onChange, audience = [],
               className="rounded-full border border-dashed border-gray-300 px-3 py-1.5 text-xs font-semibold text-smoke transition-colors hover:border-brand hover:text-brand">
               + Add creators
             </button>
-            <span className={cx('ml-auto text-xs tabular-nums', g.members.length ? 'text-smoke' : 'text-red-500')}>
+            {/* An empty group is a thing to notice, not an error to shout
+                about: brand, like every other "look at this" on the platform.
+                See the block below for why red left this component. */}
+            <span className={cx('ml-auto text-xs tabular-nums', g.members.length ? 'text-smoke' : 'text-brand')}>
               {g.members.length} {g.members.length === 1 ? 'creator' : 'creators'}
             </span>
           </div>
@@ -327,13 +366,24 @@ export default function ChallengeGroupsEditor({ groups, onChange, audience = [],
           save while anybody is here - see `unassignedInGroups` in
           AdminChallengeForm. The "Not in a group" board on the leaderboard
           stays, because a challenge saved before this rule existed still has to
-          rank whoever it has. */}
+          rank whoever it has.
+          IT IS BRAND, NOT RED. Ethan: "let's say I'm creating a group, and then
+          it shows up 'everyone at 44 creators not in a group'. I don't like how
+          it's red. I want it to actually match the platform colour."
+          He is right about more than the colour. Red is this platform's
+          DESTRUCTIVE tone - it is on delete, on the danger zone, and nowhere
+          else - and nothing has gone wrong here: an admin who has just pressed
+          "split into groups" has not yet dealt anybody out, so the very first
+          thing they saw was a red panel telling them off for a step they were
+          about to take. Brand orange is the "look at this" tone, which is what
+          this is, and it still blocks the save. */}
       {unassigned.length > 0 && (
-        <div className="rounded-xl border border-red-200 bg-red-50/60 px-4 py-3">
-          <p className="text-sm font-semibold text-red-700">
+        <div className="rounded-xl border border-brand/25 bg-brand-tint/40 px-4 py-3">
+          <p className="flex items-center gap-2 text-sm font-semibold text-brand">
+            <Icon name="alert" className="h-4 w-4 shrink-0" />
             {unassigned.length} {unassigned.length === 1 ? 'creator is' : 'creators are'} not in a group yet
           </p>
-          <p className="mt-1 text-xs text-red-600/90">
+          <p className="mt-1 text-xs leading-relaxed text-smoke">
             Everyone in the market has to be on one of these boards before this can be saved. Easy to forget somebody.
           </p>
           <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
@@ -344,7 +394,7 @@ export default function ChallengeGroupsEditor({ groups, onChange, audience = [],
               </span>
             ))}
             {unassigned.length > 8 && (
-              <span className="text-xs text-red-600/90">and {unassigned.length - 8} more</span>
+              <span className="text-xs text-smoke">and {unassigned.length - 8} more</span>
             )}
           </div>
           <button

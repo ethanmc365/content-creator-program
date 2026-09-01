@@ -14,7 +14,7 @@ import { showLocalNotification } from '../../lib/push'
 import { startHeartbeat } from '../../lib/presence'
 import { stripMarkup } from '../../lib/richText'
 import { cx } from '../../lib/utils'
-import { useVisualViewport } from '../../lib/useKeyboardInset'
+import { useVisualViewport, useIsPhone } from '../../lib/useKeyboardInset'
 import { applyMotion, getStoredMotion, setShellActive, syncTheme } from '../../lib/theme'
 
 // The signed-in app shell. One shared set of icon tabs powers BOTH the
@@ -102,6 +102,7 @@ export function activeTab(pathname) {
 // logo, an admin pill, a bell and an avatar.
 function ChatSearchField({ target }) {
   const [open, setOpen] = useState(false)
+  const phone = useIsPhone()
   const inputRef = useRef(null)
 
   useEffect(() => { if (open) inputRef.current?.focus() }, [open])
@@ -141,9 +142,17 @@ function ChatSearchField({ target }) {
         value={target.value}
         onChange={(e) => target.onChange(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Escape') close() }}
-        placeholder={`Search ${target.label}`}
+        /* JUST "SEARCH" ON A PHONE. Ethan: "the text that shows inside says
+           'search this' and then the next word is cut off. I would make the
+           text that appears just say search, because that will fit in."
+           The field is what is left of a header row after a logo, an admin
+           pill, a bell and an avatar, so a placeholder naming the room was
+           never going to fit and was clipped mid-word on every phone. The
+           `aria-label` keeps the full sentence, which is where a name for the
+           control actually belongs. */
+        placeholder={phone ? 'Search' : `Search ${target.label}`}
         aria-label={`Search ${target.label}`}
-        className="min-w-0 flex-1 bg-transparent py-1.5 text-sm outline-none placeholder:text-gray-400"
+        className="no-ios-zoom min-w-0 flex-1 bg-transparent py-1.5 outline-none placeholder:text-gray-400"
       />
       <button
         onClick={close}

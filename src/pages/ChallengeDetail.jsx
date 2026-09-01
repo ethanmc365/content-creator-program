@@ -370,34 +370,15 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           where: 'in this challenge',
         }
       : null
-  const prizes = Array.isArray(challenge.prize_structure) ? challenge.prize_structure : []
-
-  // Which platforms each creator actually SUBMITTED on (for real platform icons)
-  // and how many videos they posted (for the participation voucher).
-  const platformsByCreator = {}
-  const subCountByCreator = {}
-  for (const s of submissions) {
-    (platformsByCreator[s.creator_id] ||= new Set()).add(s.platform)
-    subCountByCreator[s.creator_id] = (subCountByCreator[s.creator_id] || 0) + 1
-  }
-  const submittedPlatforms = (creatorId) =>
-    PLATFORM_ORDER.filter((p) => platformsByCreator[creatorId]?.has(p))
-  // Prefer the structured participation reward (set on the challenge form); fall
-  // back to parsing a "Post +N videos" prize row for older challenges.
-  const participation =
-    challenge.participation_threshold && challenge.participation_prize
-      ? { threshold: challenge.participation_threshold, prize: challenge.participation_prize }
-      : parseParticipationPrize(prizes)
-  const earnedVoucherCount = participation
-    ? Object.values(subCountByCreator).filter((n) => n >= participation.threshold).length
-    : 0
-
   // ---- WHICH BOARD AM I ON ------------------------------------------------
   const byCreator = groupByCreator(groupMembers)
   const boards = boardsFor(groups, byCreator, results.length ? results : submissions)
   const myGroupId = byCreator.get(user.id) ?? null
   const myGroup = groups.find((g) => g.id === myGroupId) || null
-  const myPrize = myGroup ? prizeForGroup(myGroup, challenge) : null
+  // The prize this viewer is actually racing for. `prizeForGroup` returns the
+  // challenge itself for somebody in no group, so everything downstream reads
+  // one shape whether or not the challenge is split.
+  const myPrize = myGroup ? prizeForGroup(myGroup, challenge) : challenge
   // How many creators are on each board. From the MEMBERSHIP, not from who has
   // entered: "you are ranked against 21 creators" is a fact about the group,
   // and counting entrants instead would make the number climb all month.
@@ -414,6 +395,51 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
     : results
   // Ranks are stored per board (migration 154), so a group's rows already read
   // 1, 2, 3 and nothing has to be renumbered here.
+
+  // WHAT *YOU* ARE PLAYING FOR, WHICH IS NOT ALWAYS WHAT THE CHALLENGE SAYS.
+  //
+  // A challenge split into boards can pay each of them differently (migrations
+  // 154, 158, 159), and this page was printing the CHALLENGE's breakdown to
+  // everybody: a creator in a group racing for its own 300 euros read the
+  // brief's prize list and saw the other board's prizes. `prizeForGroup` is the
+  // same fall-through the payout applies in SQL, so what is promised here is
+  // what actually gets awarded - which is the only version of this worth
+  // shipping.
+  const prizes = Array.isArray(myPrize?.prize_structure) ? myPrize.prize_structure : []
+
+  // Which platforms each creator actually SUBMITTED on (for real platform icons)
+  // and how many videos they posted (for the participation voucher).
+  const platformsByCreator = {}
+  const subCountByCreator = {}
+  for (const s of submissions) {
+    (platformsByCreator[s.creator_id] ||= new Set()).add(s.platform)
+    subCountByCreator[s.creator_id] = (subCountByCreator[s.creator_id] || 0) + 1
+  }
+  const submittedPlatforms = (creatorId) =>
+    PLATFORM_ORDER.filter((p) => platformsByCreator[creatorId]?.has(p))
+  // Prefer the structured participation reward (set on the challenge form); fall
+  // back to parsing a "Post +N videos" prize row for older challenges.
+  const participation =
+    myPrize?.participation_threshold && myPrize?.participation_prize
+      ? { threshold: myPrize.participation_threshold, prize: myPrize.participation_prize }
+      : parseParticipationPrize(prizes)
+  // COUNTED ON MY OWN BOARD, not across the challenge. The sentence this feeds
+  // is "post 3+ videos to earn X - 4 earned so far", and X is my board's
+  // reward: totalling the other board's creators into it would be counting
+  // people who are earning something else.
+  // And the same answer for whichever board is being LOOKED at, which is only
+  // different from mine while somebody is reading another group's tab.
+  const boardParticipation = shownPrize
+    ? (shownPrize.participation_threshold && shownPrize.participation_prize
+      ? { threshold: shownPrize.participation_threshold, prize: shownPrize.participation_prize }
+      : parseParticipationPrize(shownPrize.prize_structure ?? []))
+    : participation
+  const earnedVoucherCount = participation
+    ? Object.entries(subCountByCreator)
+      .filter(([cid, n]) => n >= participation.threshold
+        && (boards.length === 0 || (byCreator.get(cid) ?? null) === myGroupId))
+      .length
+    : 0
 
   // ---- BONUSES A CREATOR CLAIMS ------------------------------------------
   const claimsBySubmission = new Map()
@@ -823,10 +849,13 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
             </p>
           )}
 
+          {/* THE BOARD ON SHOW, WHICH IS NOT ALWAYS MINE. The voucher badge on
+              a leaderboard row means "this creator earned the reward", and on
+              another group's tab that reward is that group's. */}
           <ChallengeLeaderboard
             rows={boardRows}
             meId={user.id}
-            participation={participation}
+            participation={boardParticipation}
             subCountByCreator={subCountByCreator}
             platformsFor={submittedPlatforms}
           />

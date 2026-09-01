@@ -97,6 +97,22 @@ function prizeForPlace(prizes, place) {
 //
 // Desktop only, as before. The phone's card was cut to a title, a clock and a
 // button on purpose and this would put most of it back.
+// IT IS A WHITE CARD, NOT A TINT OF THE ORANGE IT SITS ON.
+//
+// Ethan: "on the main challenge card for desktop, I would make the leaderboard
+// stand out more. Currently it seems like it's quite transparent or hidden
+// there. I would just make it a bit more clear somehow." He is describing
+// `bg-white/[0.14]` over a gradient: fourteen percent of white over orange is
+// orange, so the panel had no edge of its own and every row of it was white
+// text on the same ground as the paragraph beside it. Nothing said "this is a
+// leaderboard" except the word.
+//
+// A SOLID WHITE SURFACE IS THE ANSWER THE REST OF THE CARD ALREADY USES - the
+// countdown tiles on the same card are white, and so is the primary button.
+// White on brand is this platform's contrast, and it costs nothing: the panel
+// reads as a thing lying ON the card rather than a hole cut in it, the faces
+// sit on their own ground, and a prize in grey under a name in black is finally
+// legible at the size it is printed.
 function Leaderboard({ leaders, prizes, className }) {
   const rows = [1, 2, 3].map((place, i) => ({
     place,
@@ -104,15 +120,26 @@ function Leaderboard({ leaders, prizes, className }) {
     prize: prizeForPlace(prizes, place),
   }))
   return (
-    <div className={cx('rounded-2xl bg-white/[0.14] p-4 ring-1 ring-inset ring-white/15 backdrop-blur-[2px]', className)}>
-      <p className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-white/75">
+    <div className={cx('rounded-2xl bg-white p-4 shadow-[0_12px_34px_rgba(0,0,0,0.20)]', className)}>
+      <p className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-brand">
         <Icon name="trophy" className="h-3.5 w-3.5" />
         Leaderboard
       </p>
-      <div className="space-y-2.5">
+      <div className="space-y-1">
         {rows.map(({ place, leader, prize }) => (
-          <div key={place} className="flex items-center gap-2.5">
-            <span className="w-6 shrink-0 text-[11px] font-bold tabular-nums text-white/70">{ordinal(place)}</span>
+          <div
+            key={place}
+            className={cx(
+              'flex items-center gap-2.5 rounded-xl px-2 py-1.5',
+              // FIRST PLACE IS THE ONE PEOPLE ARE PLAYING FOR, so it carries a
+              // tint. Two and three are plain, or the panel is three highlights
+              // and no hierarchy.
+              place === 1 ? 'bg-brand-tint/70' : '',
+            )}
+          >
+            <span className={cx('w-6 shrink-0 text-[11px] font-bold tabular-nums', place === 1 ? 'text-brand' : 'text-gray-400')}>
+              {ordinal(place)}
+            </span>
             {leader ? (
               <Avatar src={leader.photo_url} name={leader.name} size="xs" />
             ) : (
@@ -121,21 +148,21 @@ function Leaderboard({ leaders, prizes, className }) {
               // to load", and an outline says vacant in a way a fill cannot.
               <span
                 aria-hidden
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-dashed border-white/45 text-white/50"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-dashed border-gray-300 text-gray-400"
               >
                 <Icon name="user" className="h-3.5 w-3.5" />
               </span>
             )}
             <span className="min-w-0 flex-1">
-              <span className={cx('block truncate text-sm', leader ? 'font-medium' : 'font-medium text-white/60')}>
+              <span className={cx('block truncate text-sm font-semibold', leader ? 'text-ink' : 'text-gray-400')}>
                 {leader ? leader.name?.split(' ')[0] : 'Up for grabs'}
               </span>
               {prize && (
-                <span className="block truncate text-[11px] text-white/65">{prize}</span>
+                <span className="block truncate text-[11px] text-smoke">{prize}</span>
               )}
             </span>
             {leader && (
-              <span className="shrink-0 text-sm font-bold tabular-nums">{formatViews(leader.views)}</span>
+              <span className="shrink-0 text-sm font-bold tabular-nums text-ink">{formatViews(leader.views)}</span>
             )}
           </div>
         ))}

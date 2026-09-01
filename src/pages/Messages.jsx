@@ -742,7 +742,24 @@ export default function Messages() {
     await loadConversations()
     if (yes) navigate(`/messages/${invite.conversation_id}`)
   }
-  const startConvPress = (c) => { convTimer.current = setTimeout(() => { convLongPressed.current = true; deleteConversation(c) }, 550) }
+  // ONE TIMER, AND THE FLAG IS CLEARED WHEN THE PRESS STARTS.
+  //
+  // A tap on a touch screen fires touchstart AND a synthetic mousedown, so this
+  // was started twice for one press and only the second handle was ever stored
+  // - the first was orphaned and went off 550ms later, opening the delete
+  // dialog on a conversation somebody had merely tapped. Clearing before
+  // starting makes a second start harmless.
+  //
+  // And `convLongPressed` is reset HERE rather than only inside the click that
+  // it suppresses. It used to be sticky: once a long press had happened, the
+  // flag stayed true until some later click consumed it - so the next tap on
+  // ANY row was swallowed, with nothing on screen to explain it. A press is the
+  // start of a new gesture, so a new gesture is what it means.
+  const startConvPress = (c) => {
+    clearTimeout(convTimer.current)
+    convLongPressed.current = false
+    convTimer.current = setTimeout(() => { convLongPressed.current = true; deleteConversation(c) }, 550)
+  }
   const cancelConvPress = () => clearTimeout(convTimer.current)
 
   // Reset scroll bookkeeping when the open conversation changes (we always land
@@ -1222,7 +1239,22 @@ export default function Messages() {
                 onMouseDown={() => startConvPress(c)} onMouseUp={cancelConvPress} onMouseLeave={cancelConvPress}
                 onContextMenu={(e) => { e.preventDefault(); deleteConversation(c) }}
                 className={cx(
-                  'group/conv relative flex w-full cursor-pointer select-none items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-cloud',
+                  // `hoverable:` - A ROW WITH A `:hover` RULE COSTS YOU THE
+                  // FIRST TAP ON iOS. Safari treats the first tap on an element
+                  // whose appearance changes on hover as the hover, and only
+                  // the second one as the click; the row lights up grey and
+                  // nothing opens. Ethan: "on the first click on mobile it
+                  // doesn't seem to open - I clicked on Shannon's chat and it
+                  // just highlighted it in grey and didn't actually open the
+                  // chat." The same rule is why the grey then STAYS: there is
+                  // no pointer to move away.
+                  // The `hoverable` variant is `(hover: hover) and (pointer:
+                  // fine)`, so the style simply does not exist on a phone.
+                  'group/conv relative flex w-full cursor-pointer select-none items-center gap-3 px-5 py-4 text-left transition-colors hoverable:hover:bg-cloud',
+                  // A press still gives feedback on touch - it is just tied to
+                  // the finger being down rather than to a hover that never
+                  // ends.
+                  'active:bg-cloud/70',
                   c.id === conversationId && 'bg-brand-tint/50'
                 )}
               >
@@ -1412,16 +1444,16 @@ export default function Messages() {
                       )}
                       style={entering ? { animationDelay: `${Math.min(i, 12) * 24}ms` } : undefined}
                     >
-                      {/* The face column. Reserved even on the rows that do not
-                          draw one, so a run of messages from one person stays
-                          aligned under the first. */}
+                      {/* The face column, drawn on EVERY message rather than
+                          once per run - see the same change in the rooms. A
+                          tinted shrink-to-fit bubble with an empty gutter
+                          beside it reads as floating, which is exactly how
+                          Ethan described it. */}
                       {isGroup && !mine && (
                         <span className="w-8 shrink-0 self-end pb-5">
-                          {startsRun && (
-                            <Link to={`/profile/${m.sender_id}`}>
-                              <Avatar src={sender?.photo_url} name={sender?.name} size="xs" />
-                            </Link>
-                          )}
+                          <Link to={`/profile/${m.sender_id}`}>
+                            <Avatar src={sender?.photo_url} name={sender?.name} size="xs" />
+                          </Link>
                         </span>
                       )}
                       <div
@@ -1548,7 +1580,10 @@ export default function Messages() {
                           )}
                           {m.image_url && (
                             imageSrc ? (
-                              <ChatMedia url={imageSrc} kind={isVid ? 'video' : 'image'} alt={m.body || 'Shared image'} />
+                              <ChatMedia
+                                url={imageSrc} kind={isVid ? 'video' : 'image'} alt={m.body || 'Shared image'}
+                                onMoreActions={() => setActionsFor(m.id)}
+                              />
                             ) : (
                               <div className="flex h-40 w-56 items-center justify-center rounded-xl bg-cloud"><Spinner /></div>
                             )

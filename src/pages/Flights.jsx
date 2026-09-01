@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { Avatar, Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../components/ui'
+import { ActionRow, Avatar, Badge, EmptyState, Modal, PageHeader, Skeleton, Spinner } from '../components/ui'
 import { DateField } from '../components/DateTimeFields'
 import AirlineMark from '../components/network/AirlineMark'
 import Icon from '../components/Icon'
@@ -647,16 +647,31 @@ export default function Flights() {
   // on /flights/community now and are loaded by the page that shows them.
 
   // ---- the form ------------------------------------------------------------
-  // CAN THIS ROW GROW A SECOND LEG?
+  // THE LEG HOME THIS ROW ALREADY HAS, if it has one. `openEdit` is only ever
+  // handed the OUTBOUND leg (the trip row, the upcoming card and the detail
+  // sheet all pass `t.out`), so a partner here is always the return.
+  const returnLeg = useMemo(
+    () => (editing ? (rows || []).find((x) => x.return_of === editing.id) || null : null),
+    [editing, rows],
+  )
+
+  // CAN THIS FORM TALK ABOUT A SECOND LEG?
   //
-  // Adding a flight: always. Editing one: only if it is not already half of a
-  // pair, in either direction - a row that IS a return (`return_of` set) and a
-  // row that already HAS one would both end up in a trip with three legs, and
-  // `tripsFromFlights` pairs one return to one outbound. Those two cases are
-  // exactly the rows whose leg home is already in the log, so there is nothing
-  // being taken away from anybody.
-  const canRoundTrip = !editing
-    || (!editing.return_of && !(rows || []).some((x) => x.return_of === editing.id))
+  // Adding a flight: always. Editing one: yes, UNLESS the row being edited is
+  // itself the leg home (`return_of` set), which would make a trip of three
+  // legs - `tripsFromFlights` pairs one return to one outbound.
+  //
+  // IT USED TO SAY NO TO A TRIP THAT ALREADY HAD ITS RETURN, and that was the
+  // bug. Ethan: "I clicked my trip from Belfast to Amsterdam, which is saved
+  // and logged as a return trip, and then I click on the edit button. It no
+  // longer shows that it's a return trip, and there's no option showing that
+  // return trip is selected or anything or to change that." Hiding the whole
+  // section was hiding a FACT about the trip, not just an unavailable action:
+  // the form silently redescribed a round trip as a one-way, and saving it
+  // back would have been the creator agreeing to something they were never
+  // shown. The box is ticked and the return's date is filled in now, and the
+  // save writes THROUGH to the existing row - see `save`.
+  const canRoundTrip = !editing || !editing.return_of
   const fromA = airport(form.from_iata)
   const toA = airport(form.to_iata)
   const previewKm = fromA && toA ? distanceKm(fromA, toA) : 0
@@ -746,20 +761,20 @@ export default function Flights() {
   // type the whole thing again - which is exactly the trade the community board
   // was given an edit dialog to avoid.
   //
-  // A ROUND TRIP THAT ALREADY HAS BOTH LEGS IS STILL NOT EDITABLE AS A PAIR,
-  // and that is deliberate rather than unfinished: the return is its OWN row
-  // with its own date and its own distance (see `save`), so it appears in the
-  // log on its own line and is edited there. Offering to edit "the trip" would
-  // mean deciding what happens when somebody changes the outbound's airports
-  // out from under a return that still points at them.
+  // A ROUND TRIP IS EDITED AS A PAIR, FROM THE OUTBOUND (1 Sep 2026).
   //
-  // BUT A ONE-WAY ROW CAN BE TURNED INTO A ROUND TRIP FROM HERE (1 Sep 2026).
-  // Ethan: "when logging an already logged trip on flight log I seem to be
-  // unable to select it as a round trip, which I want to be able to do." The
-  // tick box was simply hidden whenever `editing` was set, so the only way to
-  // add the leg home to a flight already in the log was to type a whole second
-  // flight by hand. See `canRoundTrip` for the two rows it stays hidden for.
+  // The return is still its OWN row with its own date and its own distance -
+  // that is what makes the map, the totals and the year figures right - but it
+  // is no longer a row you have to go and find. The tick box arrives ticked
+  // with the return's date beside it, and `save` writes through to the row
+  // that already exists rather than adding a third leg. Unticking removes the
+  // leg home, after asking.
+  //
+  // The airports are the OUTBOUND'S, so a direction change rewrites this row
+  // and the return follows it; the return can never be left pointing at a
+  // pair of codes the outbound no longer has.
   function openEdit(f) {
+    const back = (rows || []).find((x) => x.return_of === f.id) || null
     setForm({
       from_iata: f.from_iata || '',
       to_iata: f.to_iata || '',
@@ -771,8 +786,12 @@ export default function Flights() {
       seat: f.seat || '',
       purpose: f.purpose || '',
       purpose_note: f.purpose_note || '',
-      round_trip: false,
-      return_on: '',
+      // TICKED WHEN THE TRIP ALREADY HAS ITS LEG HOME. An untickable box
+      // reading "Round trip" over a trip that is one is the report this fixes.
+      round_trip: !!back,
+      return_on: back?.flown_on || '',
+      // The row being edited is always leg one, by construction: nothing hands
+      // `openEdit` a return.
       first_leg: 'out',
       photo_url: f.photo_url || '',
     })
@@ -854,6 +873,16 @@ export default function Flights() {
       if (form.return_on < form.flown_on) { setError('The return is before the outbound. Check the dates.'); return }
     }
 
+    // UNTICKING ROUND TRIP ON A TRIP THAT HAS ONE DELETES A FLIGHT. Asked here
+    // rather than in the checkbox handler so the question is about the save
+    // that is happening, and so changing your mind is just ticking it again.
+    if (!roundTrip && returnLeg) {
+      const ok = await confirm(
+        `Remove the flight home (${returnLeg.from_iata} to ${returnLeg.to_iata} on ${formatDate(returnLeg.flown_on)}) from your log?`,
+      )
+      if (!ok) return
+    }
+
     // WHICH PAIR OF CODES GOES ON WHICH LEG. One rule, applied identically to a
     // new trip and to a one-way row growing its leg home: `flown_on` is the
     // FIRST leg's date, `return_on` the second's, and `first_leg` says whether
@@ -889,14 +918,17 @@ export default function Flights() {
     }
 
     // ---- EDITING AN EXISTING ROW -------------------------------------------
-    // One update and nothing else: no round trip (the return is its own row and
-    // is edited on its own line) and no offer to post to the collab board,
-    // because correcting a typo is not news.
-    // ---- EDITING AN EXISTING ROW -------------------------------------------
-    // One update - plus, since 1 Sep 2026, the leg home if the round trip box
-    // has just been ticked. The row being edited is always leg ONE, so a
-    // direction change here rewrites its own airports rather than inventing a
-    // third row: see the direction picker.
+    //
+    // The row being edited is always leg ONE, so a direction change here
+    // rewrites its own airports rather than inventing a third row: see the
+    // direction picker. No offer to post to the collab board either, because
+    // correcting a typo is not news.
+    //
+    // THE LEG HOME IS ONE OF THREE ANSWERS, and all three have to be written:
+    // added (the box has just been ticked), updated (it was already there and
+    // the trip's airline, aircraft, dates or direction have moved under it),
+    // or REMOVED. The old code could only do the first, which is why editing a
+    // round trip used to be a way of quietly turning it into a one-way.
     if (editing) {
       const { error: upErr } = await supabase.from('flights').update({
         ...common,
@@ -908,7 +940,25 @@ export default function Flights() {
       }).eq('id', editing.id)
       if (upErr) { setSaving(false); setError('Could not save those changes. Please try again.'); return }
 
-      if (roundTrip) {
+      let legHome = null
+      if (roundTrip && returnLeg) {
+        // WRITE THROUGH, NEVER DELETE-AND-REINSERT. The return keeps its id,
+        // so anything pointing at it keeps pointing at it, and it keeps its
+        // own seat and note - the two fields that are per boarding pass and
+        // are not the outbound's to overwrite.
+        const { error: retErr } = await supabase.from('flights').update({
+          ...common,
+          ...legTwo,
+          flown_on: form.return_on,
+        }).eq('id', returnLeg.id)
+        if (retErr) {
+          setSaving(false)
+          setError('The changes are saved but the leg home did not update. Try again.')
+          load()
+          return
+        }
+        legHome = 'updated'
+      } else if (roundTrip) {
         const { error: retErr } = await supabase.from('flights').insert({
           ...common,
           ...legTwo,
@@ -921,11 +971,29 @@ export default function Flights() {
           load()
           return
         }
+        legHome = 'added'
+      } else if (returnLeg) {
+        // The box was ticked when the form opened and is not any more. The
+        // confirmation for this is asked BEFORE the save starts - see the
+        // top of this function - so by here it is a decision already taken.
+        const { error: delErr } = await supabase.from('flights').delete().eq('id', returnLeg.id)
+        if (delErr) {
+          setSaving(false)
+          setError('The changes are saved but the leg home could not be removed. Try again.')
+          load()
+          return
+        }
+        legHome = 'removed'
       }
+
       setSaving(false)
       closeForm()
       setForm(BLANK_FORM)
-      toast(roundTrip ? 'Trip updated, leg home added' : 'Flight updated')
+      toast(
+        legHome === 'added' ? 'Trip updated, leg home added'
+          : legHome === 'removed' ? 'Trip updated, leg home removed'
+            : legHome === 'updated' ? 'Trip updated' : 'Flight updated',
+      )
       load()
       return
     }
@@ -1078,7 +1146,19 @@ export default function Flights() {
       <PageHeader
         title="Your flight log"
         action={
-          <div className="flex flex-wrap gap-2">
+          /* THREE BUTTONS, AND A PHONE IS 375px WIDE. `flex flex-wrap` used to
+             drop "Log a flight" onto a second line on its own, left-aligned
+             under a ragged first row. `ActionRow` gives the primary the whole
+             top row and puts the other two side by side under it - see the
+             component for the rule, which is now the same on every page that
+             carries a row like this. */
+          <ActionRow
+            lead={
+              <button onClick={openNew} className="btn-primary !py-2.5">
+                <Icon name="plus" className="h-4 w-4" /> Log a flight
+              </button>
+            }
+          >
             {/* THE COMMUNITY, AS A DOOR AT THE TOP.
                 All of this used to be two sections buried at the bottom of this
                 page. It is a different question with a different owner - this
@@ -1101,10 +1181,7 @@ export default function Flights() {
               <Icon name="plane-tryp" className="h-4 w-4" />
               Aircraft collection
             </Link>
-            <button onClick={openNew} className="btn-primary !py-2.5">
-              <Icon name="plus" className="h-4 w-4" /> Log a flight
-            </button>
-          </div>
+          </ActionRow>
         }
       />
 
@@ -1779,7 +1856,14 @@ export default function Flights() {
               <span className="min-w-0">
                 <span className="block text-sm font-semibold text-ink">Round trip</span>
                 <span className="block text-[11px] leading-relaxed text-smoke">
-                  Logs the flight home as its own leg, with its own date.
+                  {/* A TRIP THAT ALREADY HAS ITS LEG HOME SAYS SO. The hint
+                      under the box used to describe what ticking it WOULD do,
+                      which is the wrong tense over a trip that is already a
+                      round trip - and unticking it is a delete, so it has to
+                      read like one. */}
+                  {returnLeg
+                    ? 'The flight home is logged as its own leg. Untick to remove it.'
+                    : 'Logs the flight home as its own leg, with its own date.'}
                 </span>
               </span>
             </label>

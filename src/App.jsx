@@ -10,7 +10,7 @@ import { watchInstallPrompt } from './lib/install'
 import ErrorBoundary, { NotFoundScreen } from './components/ErrorScreen'
 import ConfirmHost from './components/ConfirmHost'
 import ToastHost from './components/ToastHost'
-import { PlaneLoader } from './components/ui'
+import { AppLoader } from './components/ui'
 
 // Public pages
 import Landing from './pages/Landing'
@@ -98,12 +98,11 @@ const AdminNotes = lazy(() => import('./pages/admin/AdminNotes'))
 // the rest of /admin, so no creator ever downloads it. See TestingCentre.jsx.
 const TestingCentre = lazy(() => import('./pages/admin/TestingCentre'))
 
+// The route chunk is on its way. While index.html's boot layer is still up
+// this draws nothing at all - see lib/bootLoader.js, and the photograph of two
+// loaders forty pixels apart that it exists to prevent.
 function LazyFallback() {
-  return (
-    <div className="flex min-h-[60vh] items-center justify-center">
-      <PlaneLoader />
-    </div>
-  )
+  return <AppLoader className="min-h-[60vh]" />
 }
 
 

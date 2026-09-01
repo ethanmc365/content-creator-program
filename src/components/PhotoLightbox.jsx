@@ -23,7 +23,10 @@ import Icon from './Icon'
 // 120 sits above the modal's 50 on desktop and on a phone alike.
 //
 // Escape closes it, and it takes the body scroll lock for as long as it is up.
-export default function PhotoLightbox({ src, alt = '', onClose }) {
+// IT TAKES VIDEO TOO, because a chat attachment is one or the other and
+// "open this full screen, in the app" is the same request either way. A video
+// keeps its controls and starts playing; nothing else about the layer changes.
+export default function PhotoLightbox({ src, alt = '', kind = 'image', onClose }) {
   useEffect(() => {
     if (!src) return undefined
     const onKey = (e) => { if (e.key === 'Escape') onClose?.() }
@@ -38,12 +41,24 @@ export default function PhotoLightbox({ src, alt = '', onClose }) {
       className="animate-fade-up fixed inset-0 z-[120] flex items-center justify-center bg-ink/90 p-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
-      aria-label="Photo"
+      aria-label={kind === 'video' ? 'Video' : 'Photo'}
     >
       {/* The backdrop is the close target and the image is not, so a press on
           the photograph itself does not dismiss the thing you are looking at. */}
-      <button type="button" aria-label="Close photo" onClick={onClose} className="absolute inset-0" />
-      <img src={src} alt={alt} className="pointer-events-none relative max-h-full max-w-full rounded-card object-contain" />
+      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0" />
+      {kind === 'video' ? (
+        // NOT `pointer-events-none` on this one: the controls have to be
+        // reachable, which is the whole reason for showing a video here at all.
+        <video
+          src={src}
+          controls
+          autoPlay
+          playsInline
+          className="relative max-h-full max-w-full rounded-card object-contain"
+        />
+      ) : (
+        <img src={src} alt={alt} className="pointer-events-none relative max-h-full max-w-full rounded-card object-contain" />
+      )}
       <button
         type="button"
         onClick={onClose}

@@ -103,6 +103,41 @@ describe('a group prize falls through to the challenge', () => {
   it('is the challenge itself for the unassigned board', () => {
     expect(prizeForGroup(UNGROUPED, challenge)).toBe(challenge)
   })
+
+  // THE SAME FALL-THROUGH THE PAYOUT DOES IN SQL. Migration 159 gave a board
+  // its own reward for taking part; these assert that the app promises exactly
+  // what `award_challenge_prizes_internal` pays, in both directions.
+  it('takes the challenge participation reward when the group states neither half', () => {
+    const p = prizeForGroup({ id: 'g1' }, { ...challenge, participation_threshold: 3, participation_prize: '£10 voucher' })
+    expect(p.participation_threshold).toBe(3)
+    expect(p.participation_prize).toBe('£10 voucher')
+    expect(p.own).toBe(false)
+  })
+  it('takes the group participation reward when the group states both halves', () => {
+    const p = prizeForGroup(
+      { id: 'g1', participation_threshold: 2, participation_prize: '€25 voucher' },
+      { ...challenge, participation_threshold: 3, participation_prize: '£10 voucher' },
+    )
+    expect(p.participation_threshold).toBe(2)
+    expect(p.participation_prize).toBe('€25 voucher')
+    expect(p.own).toBe(true)
+  })
+  it('ignores a half-stated group participation reward', () => {
+    const withThresholdOnly = prizeForGroup(
+      { id: 'g1', participation_threshold: 2 },
+      { ...challenge, participation_threshold: 3, participation_prize: '£10 voucher' },
+    )
+    expect(withThresholdOnly.participation_threshold).toBe(3)
+    const withPrizeOnly = prizeForGroup(
+      { id: 'g1', participation_prize: '€25 voucher' },
+      { ...challenge, participation_threshold: 3, participation_prize: '£10 voucher' },
+    )
+    expect(withPrizeOnly.participation_prize).toBe('£10 voucher')
+  })
+  it('reports own for a group with prize rows of its own', () => {
+    expect(prizeForGroup({ id: 'g1', prize_structure: [{ place: '1st' }] }, challenge).own).toBe(true)
+    expect(prizeForGroup({ id: 'g1', prize_structure: [] }, challenge).own).toBe(false)
+  })
 })
 
 describe('the random split is even, not independent', () => {

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Modal, Skeleton, Spinner } from './ui'
 import ResourcePicker from './ResourcePicker'
+import { DateField, TimeField } from './DateTimeFields'
 import { CONTINENTS } from '../lib/countries'
 import { Select } from './ui'
 import { confirm } from '../lib/confirm'
@@ -206,32 +207,58 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
             />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div>
-              <label htmlFor="sched-date" className="label">Date</label>
-              <input
-                id="sched-date" type="date" required className="input"
-                value={schedule.date}
-                onChange={(e) => setSchedule((v) => ({ ...v, date: e.target.value }))}
-              />
-            </div>
-            <div>
-              <label htmlFor="sched-time" className="label">Time</label>
-              <input
-                id="sched-time" type="time" required className="input"
-                value={schedule.time}
-                onChange={(e) => setSchedule((v) => ({ ...v, time: e.target.value }))}
-              />
-            </div>
-            <div>
+          {/* TYPED, NOT PICKED FROM THE OPERATING SYSTEM.
+              These were `<input type="date">` and `<input type="time">`, the
+              last two native pickers on this form. Ethan: "if I click on
+              schedule and then click on the date, it's showing up the weird
+              Apple calendar pop up thing instead of me just typing in the
+              actual date with my keyboard. And whenever I press the clock,
+              it's showing up a pop up that's cut off because it's outside the
+              main card."
+              Both halves of that are the same fault. A native picker is UA
+              shadow DOM: it opens a panel the page does not own, positioned
+              against the VIEWPORT rather than against the dialog, so inside a
+              modal it lands half off the card and nothing here can move it or
+              clip it properly. And the calendar is the wrong instrument
+              anyway - somebody scheduling Monday's post knows the date and
+              wants to type six digits, not paginate a month grid.
+              `DateField` and `TimeField` are the platform's own typed
+              segments, already used by the flight log and the challenge form:
+              real inputs, painted separators, no panel to be cut off. */}
+          <div className="grid grid-cols-2 gap-4">
+            <DateField
+              id="sched-date"
+              label="Date"
+              value={schedule.date}
+              onChange={(v) => setSchedule((s2) => ({ ...s2, date: v }))}
+            />
+            <TimeField
+              id="sched-time"
+              label="Time"
+              value={schedule.time}
+              onChange={(v) => setSchedule((s2) => ({ ...s2, time: v }))}
+            />
+            {/* THE CLOCK TAKES THE WHOLE ROW. It is the widest of the three -
+                a zone name plus a city - and squeezing it into a third of a
+                dialog is what made it read as an afterthought. It also sits
+                UNDER the two fields it qualifies, which is the order the
+                sentence is read in: this date, this time, on this clock.
+                It defaults to the MARKET's timezone (see `room.tz`), so the
+                Spanish room is already on Madrid time before anybody touches
+                it. */}
+            <div className="col-span-2">
               <span className="label">Clock</span>
               <Select
                 variant="field"
+                inFlow
                 ariaLabel="Timezone"
                 value={zone}
                 onChange={setZone}
                 options={COMMON_ZONES}
               />
+              <p className="mt-1 text-[11px] text-gray-400">
+                {roomLabel} runs on {zoneLabel(zone)} time. Everything above is read on this clock.
+              </p>
             </div>
           </div>
 
@@ -293,7 +320,7 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
             <div>
               <label htmlFor="game-mode" className="label">Mode</label>
               <Select
-                id="game-mode" variant="field" ariaLabel="Mode"
+                id="game-mode" variant="field" inFlow ariaLabel="Mode"
                 value={game.mode}
                 onChange={(v) => setGame((g) => ({ ...g, mode: v }))}
                 options={[
@@ -307,7 +334,7 @@ export default function ChatAdminTools({ tool, onClose, postCard, roomLabel = 't
             <div>
               <label htmlFor="game-region" className="label">Region</label>
               <Select
-                id="game-region" variant="field" ariaLabel="Region"
+                id="game-region" variant="field" inFlow ariaLabel="Region"
                 value={game.region}
                 onChange={(v) => setGame((g) => ({ ...g, region: v }))}
                 options={[{ value: 'World', label: 'World' }, ...CONTINENTS.map((c) => ({ value: c, label: c }))]}

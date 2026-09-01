@@ -1378,7 +1378,8 @@ export default function Chat() {
         tool={adminTool}
         onClose={() => setAdminTool(null)}
         postCard={postCard}
-        roomLabel={`#${meta.label.toLowerCase()}`}
+        // The room's own name - see the note on the same prop in NetworkChat.
+        roomLabel={meta.label}
       />
 
       <ReportMessage

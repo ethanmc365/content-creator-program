@@ -5,6 +5,20 @@
 @tailwind components;
 @tailwind utilities;
 
+/* NOTHING FLASHES GREY WHEN YOU TAP IT.
+   Mobile WebKit and Chrome paint a translucent grey rectangle over any link,
+   button or `role="button"` you touch. It is the operating system's idea of
+   feedback, it is drawn as a square over rounded cards and photographs, and it
+   lingers. Ethan, about tapping a photo in a chat: "I noticed on mobile this
+   highlights it weirdly - it shouldn't be highlighted in grey, it should be a
+   clean design. Same for desktop."
+   Every pressable thing here already has its own feedback (`active:scale-95`,
+   `active:bg-*`, a hover on real pointers), so the OS layer is pure noise on
+   top of a design that has already answered the question. */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
 
 /* THE PLANE FLIES BETWEEN THE TWO AIRPORT CODES, NOT UNDER THEM.
    Ethan, with a red line drawn across the screenshot: the route belongs in the
@@ -180,6 +194,21 @@
        focused; 14px from the sm breakpoint up where zoom isn't triggered. */
     @apply w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-ink
       placeholder:text-gray-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand sm:text-sm;
+  }
+
+  /* iOS SAFARI ZOOMS THE WHOLE PAGE INTO ANY FIELD UNDER 16px, AND IT NEVER
+     ZOOMS BACK OUT. `.input` has always carried the fix; every hand-rolled
+     input on the platform - the room search, the DM search, the command
+     palette, the `Select` type-ahead - did not, because they are 14px fields
+     with their own surface rather than `.input` boxes.
+     Ethan, three times in one report: "whenever I click the search bar it
+     zooms into the screen a bit, and then if I click done it's like I'm still
+     zoomed in. It should never be zooming into the screen at all."
+     It is not a preference and it cannot be turned off with a viewport
+     `maximum-scale` (that also breaks pinch-to-zoom, which is an accessibility
+     control). 16px on a phone is the whole of the fix. */
+  .no-ios-zoom {
+    @apply text-base sm:text-sm;
   }
 
   .label {

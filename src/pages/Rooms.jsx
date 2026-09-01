@@ -74,19 +74,36 @@ function RoomRow({ to, room, last }) {
       to={to}
       className="group flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-cloud active:bg-cloud"
     >
-      {/* SOLID BRAND, not the pale tint. The tint was chosen when General was
-          the one solid tile and everything else had to sit behind it; with that
-          false "selected" state gone, a whole list of pale tiles reads as
-          disabled. Ethan: "the icons are nice but it might be better to have the
-          Tryp.com orange rather than the light orange colour." */}
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white">
-        <Icon name={room.icon || 'chat'} className="h-[18px] w-[18px]" />
+      {/* THE GLYPH IS ORANGE. THERE IS NO TILE BEHIND IT.
+          It was a solid 40px brand square with a white icon in it, and eight of
+          those down a page is eight blocks of the loudest colour on the
+          platform doing the work of a bullet point. Ethan: "rather than having
+          an orange square with the white icon, I was thinking of just having
+          the orange icon instead of the big orange square, because a big orange
+          square seems to be taking away my eyes too much."
+          The column keeps its 40px, so every name still starts on the same
+          vertical line and nothing else in the row moved.
+
+          THE STAFF ROOM IS THE ONE THAT LOOKS DIFFERENT. Only admins can open
+          it, and in a list of otherwise identical rows there was nothing but a
+          small grey chip to say so. It is drawn in ink rather than brand -
+          quieter than everything around it, which is the right weight for a
+          back office room. NOT a new hue: the palette is white, ink and the two
+          oranges, and a blue or a purple here would be the first thing on the
+          platform that is none of them. */}
+      <span
+        className={cx(
+          'flex h-10 w-10 shrink-0 items-center justify-center',
+          room.visibility === 'staff' ? 'text-ink/70' : 'text-brand',
+        )}
+      >
+        <Icon name={room.icon || 'chat'} className="h-[22px] w-[22px]" />
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-baseline gap-2">
           <span className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-tight">{room.label}</span>
           {room.visibility === 'staff' && (
-            <span className="shrink-0 rounded-full bg-cloud px-1.5 py-0.5 text-[10px] font-medium text-smoke">Staff</span>
+            <span className="shrink-0 rounded-full bg-ink/[0.07] px-1.5 py-0.5 text-[10px] font-semibold text-ink/70">Staff</span>
           )}
           {last && (
             <span className="shrink-0 text-[11px] tabular-nums text-gray-400">{shortAgo(last.created_at)}</span>

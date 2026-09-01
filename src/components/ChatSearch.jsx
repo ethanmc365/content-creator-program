@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import Icon from './Icon'
+import { useIsPhone } from '../lib/useKeyboardInset'
 
 // Searching a conversation.
 //
@@ -23,6 +24,7 @@ import Icon from './Icon'
 export function RoomSearch({ value, onChange, count, total, label = 'Search this room' }) {
   const ref = useRef(null)
   const [open, setOpen] = useState(false)
+  const phone = useIsPhone()
 
   useEffect(() => {
     if (open) ref.current?.focus()
@@ -60,13 +62,19 @@ export function RoomSearch({ value, onChange, count, total, label = 'Search this
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
-        placeholder={label}
-        /* focus-visible:ring-0 because index.css puts a brand ring on
+        /* "Search", not "Search this conversation". This field is the whole
+           width of a phone's tab strip minus a magnifier and a close button,
+           so the long label was cut off mid-word. The `aria-label` on the
+           closed button still says what it searches. */
+        placeholder={phone ? 'Search' : label}
+        /* `no-ios-zoom`: a 14px input makes iOS Safari zoom the page in on
+           focus and never zoom back out. See index.css.
+           focus-visible:ring-0 because index.css puts a brand ring on
            *:focus-visible, and this input is focused PROGRAMMATICALLY the
            moment it opens - so the ring fired every single time and read as an
            orange box round the search bar. `outline-none` cannot clear it: the
            ring is a box-shadow. Same fix as the command palette input. */
-        className="min-w-0 flex-1 border-0 bg-transparent p-0 text-sm outline-none focus-visible:ring-0 placeholder:text-gray-400"
+        className="no-ios-zoom min-w-0 flex-1 border-0 bg-transparent p-0 outline-none focus-visible:ring-0 placeholder:text-gray-400"
       />
       {value && (
         <span className="shrink-0 whitespace-nowrap text-[11px] tabular-nums text-smoke">
