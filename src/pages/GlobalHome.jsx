@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useCommunity } from '../context/CommunityContext'
 import NetworkLayout, { RailCard, flagFromIso } from '../components/network/NetworkLayout'
+import LiveNowRow from '../components/network/LiveNowRow'
 import NetworkMotion from '../components/NetworkMotion'
 import TrypPlane from '../components/network/TrypPlane'
 import LiveChallengeCard from '../components/network/LiveChallengeCard'
@@ -24,7 +25,7 @@ import { Avatar, EmptyState, Skeleton } from '../components/ui'
 import { flagForCountry } from '../lib/flags'
 import { stripMarkup } from '../lib/richText'
 import { ANNOUNCEMENT_LIMIT, ANNOUNCEMENT_MAX_AGE_DAYS, recentAnnouncements } from '../lib/announcements'
-import { challengeDeadline, cx, timeAgo } from '../lib/utils'
+import { cx, timeAgo } from '../lib/utils'
 import { useIsMobile } from '../lib/useKeyboardInset'
 import { cardHover } from '../lib/motion'
 import { NETWORK_LINKS, loadLinkOrder as loadOrder, ORDER_KEY } from '../lib/networkLinks'
@@ -548,36 +549,16 @@ export default function GlobalHome() {
             </p>
           </div>
         ) : (
-          // SOLID, like the phone's. This was `bg-brand-tint/25` inside a card
-          // whose own empty state is also brand-tint - a wash on a wash, for
-          // the one thing in the rail with a deadline on it. Ethan: "that
-          // desktop card shouldn't be the faded orange, it should be the
-          // Tryp.com orange that stands out and is very clickable, as the live
-          // challenges are important." Same card as mobile, same countdown.
+          // THE PHONE'S CARD, ON THE DESKTOP, FROM ONE FILE.
+          // Ethan: "on mobile I really like how you made the live challenge
+          // card - could you please use that same design for desktop, and the
+          // live challenge card be like that in the top right." This rail IS
+          // the top right, and it was drawing its own flatter version of the
+          // same row. See components/network/LiveNowRow.
           <div className="space-y-2">
-            {myLive.map(({ market, challenge, global: isGlobal }) => {
-              const closes = challengeDeadline(challenge.end_date)
-              const days = Math.max(0, Math.ceil((closes - nowMs) / 86400000))
-              return (
-                <Link key={challenge.id} to={`/challenges/${challenge.id}`}
-                  className="flex items-center gap-2 rounded-xl bg-brand px-3 py-2.5 text-white shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift">
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/80">
-                      <span className="relative flex h-1.5 w-1.5">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/70" />
-                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
-                      </span>
-                      {isGlobal ? 'Global · everyone' : market.name}
-                    </span>
-                    <span className="mt-1 block line-clamp-2 text-sm font-semibold leading-snug">{challenge.title}</span>
-                    <span className="mt-0.5 block text-[11px] text-white/75">
-                      {days === 0 ? 'Closes today' : days === 1 ? 'Closes tomorrow' : `${days} days left`}
-                    </span>
-                  </span>
-                  <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-white/70" />
-                </Link>
-              )
-            })}
+            {myLive.map(({ market, challenge, global: isGlobal }) => (
+              <LiveNowRow key={challenge.id} challenge={challenge} market={market} global={isGlobal} now={nowMs} />
+            ))}
           </div>
         )}
       </RailCard>
@@ -770,46 +751,9 @@ export default function GlobalHome() {
                     always was - and the space that buys goes to the fact the old
                     card was missing entirely: WHEN IT CLOSES. */}
                 <div className="space-y-2">
-                  {myLive.map(({ market, challenge, global: isGlobal }) => {
-                    const closes = challengeDeadline(challenge.end_date)
-                    const days = Math.max(0, Math.ceil((closes - nowMs) / 86400000))
-                    return (
-                      // A GRADIENT AND A HORIZON, NOT A SLAB OF ORANGE.
-                      // Solid brand was right about the weight and wrong about
-                      // the finish: 340x86 of one flat colour is a lot of paint
-                      // on a white page. Ethan: "I like the Tryp.com orange, it
-                      // really stands out but it's almost too much, maybe need
-                      // something else there to make the UI better." So it is
-                      // the same gradient the desktop hero card uses, with a
-                      // soft bloom in the corner and the market's own flags on
-                      // it - which also answers "which of my markets is this"
-                      // without spending a line on it.
-                      <Link key={challenge.id} to={`/challenges/${challenge.id}`}
-                        className="relative flex items-center gap-3 overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light px-4 py-3.5 text-white shadow-card transition-transform duration-200 active:scale-[0.99]">
-                        <span aria-hidden className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-white/15 blur-2xl" />
-                        {!isGlobal && market?.country_codes?.length > 0 && (
-                          <span aria-hidden className="relative shrink-0 text-lg leading-none">
-                            <FlagStack codes={market.country_codes} className="text-lg" />
-                          </span>
-                        )}
-                        <span className="relative min-w-0 flex-1">
-                          <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/80">
-                            <span className="relative flex h-1.5 w-1.5">
-                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/70" />
-                              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
-                            </span>
-                            {isGlobal ? 'Live · everyone' : `Live in ${market.name}`}
-                          </span>
-                          <span className="mt-1 block truncate text-[15px] font-semibold leading-snug">{challenge.title}</span>
-                          <span className="mt-0.5 block text-xs text-white/75">
-                            {days === 0 ? 'Closes today' : days === 1 ? 'Closes tomorrow' : `${days} days left`}
-                            {' · Submit your video'}
-                          </span>
-                        </span>
-                        <Icon name="chevronRight" className="relative h-5 w-5 shrink-0 text-white/70" />
-                      </Link>
-                    )
-                  })}
+                  {myLive.map(({ market, challenge, global: isGlobal }) => (
+                    <LiveNowRow key={challenge.id} challenge={challenge} market={market} global={isGlobal} now={nowMs} />
+                  ))}
                 </div>
               </section>
             </Reveal>
