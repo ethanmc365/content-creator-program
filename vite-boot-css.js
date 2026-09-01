@@ -4,7 +4,7 @@
 // then opens... on mobile it's the same, starts white then flashes orange and
 // then opens. Can you stop it from immediately starting at white?"
 //
-// The boot splash in index.html is entirely inline precisely so it can be
+// The boot loader in index.html is entirely inline precisely so it can be
 // painted from the HTML alone. That reasoning was right and it was defeated by
 // something the file cannot see: Vite injects
 //
@@ -13,17 +13,21 @@
 // into <head> at build time, and a stylesheet in the head is RENDER-BLOCKING.
 // The browser will not paint anything - not the inline styles, not the boot
 // layer, not the root background - until that file has arrived and been parsed.
-// So the sequence anybody actually sees is: white for as long as the CSS takes,
-// then orange for one blink, then the app. Every part of that is the stylesheet,
-// and no amount of work inside index.html could have fixed it.
+// So the sequence anybody actually sees is: a blank for as long as the CSS
+// takes, then one blink of the loader, then the app. Every part of that is the
+// stylesheet, and no amount of work inside index.html could have fixed it.
+// (The splash was orange when this was written, which is what made the blink so
+// obvious. It is white now - see index.html - and the plugin matters just as
+// much, because a loader you cannot paint until the app is ready is not a
+// loader.)
 //
 // SO THE LINK IS TURNED INTO A PRELOAD, AND main.jsx PROMOTES IT.
 //
 //   <link rel="preload" as="style" ... data-app-css>
 //
 // A preload is fetched at the same priority and is NOT render-blocking, so the
-// first paint now happens as soon as the HTML is parsed: orange, with the plane
-// on the runway, on the first frame. `main.jsx` flips `rel` to `stylesheet`
+// first paint now happens as soon as the HTML is parsed: the plane on its
+// runway, on the first frame. `main.jsx` flips `rel` to `stylesheet`
 // before it renders and waits for the load, so React never commits into an
 // unstyled document. See `promoteAppCss` there.
 //
@@ -34,7 +38,7 @@
 //
 // IF THIS PLUGIN EVER STOPS MATCHING (a Vite upgrade changing the emitted tag),
 // the link stays a plain blocking stylesheet and the app is exactly as correct
-// as it is today, one white flash worse. It fails safe in the only direction
+// as it is today, one blank frame worse. It fails safe in the only direction
 // that matters.
 export default function bootCss() {
   return {

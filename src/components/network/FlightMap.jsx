@@ -1,12 +1,13 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from 'react-simple-maps'
-import { loadWorldAirports, tierAt, dotRadius } from '../../lib/worldAirports'
+import { loadWorldAirports, tierAt, tierOpacity, dotRadius } from '../../lib/worldAirports'
 import { geoEqualEarth } from 'd3-geo'
 import { loadMapFeatures } from '../../lib/mapCountries'
 import { countryKey } from '../../lib/countryFacts'
 import { useIsDark } from '../../lib/theme'
-import { cx } from '../../lib/utils'
+import { cx, formatDate } from '../../lib/utils'
+import { tripsFromFlights, outboundEnds } from '../../lib/flightStats'
 import { flagFromIso } from '../../lib/flags'
 import Icon from '../Icon'
 import PhotoLightbox from '../PhotoLightbox'
@@ -84,6 +85,43 @@ function arcFor(a, b) {
   const cx = mx + (-dy / chord) * bulge
   const cy = my + (dx / chord) * bulge
   return { d: `M${ax} ${ay} Q ${cx} ${cy} ${bx} ${by}`, ax, ay, bx, by, cx, cy, chord }
+}
+
+// HOW FAR A POINT IS FROM AN ARC, SO OVERLAPPING ROUTES CAN BE TOLD APART.
+//
+// THE BUG: "there's a flight from Stockholm to London Gatwick that I seem to be
+// unable to click on... sometimes because they're overlapping, it's registering
+// another one."
+//
+// Every route carries a 14px invisible stroke so a two-pixel line can be
+// pressed with a thumb, and SVG has no z-index - the LAST path painted takes
+// the press. Two routes that run near each other (Stockholm to Gatwick and
+// Copenhagen to Gatwick are within a few pixels of each other for most of their
+// length at world zoom) therefore do not share their overlap: whichever happens
+// to come later in the array wins all of it, and the other one is unpressable
+// no matter where you aim. Widening or narrowing the stroke cannot fix that,
+// and neither can re-ordering - re-ordering just chooses a different loser.
+//
+// So the stroke stays the thing that RECEIVES the press, and which route the
+// press MEANS is decided here, geometrically: sample every arc and take the
+// nearest one to the pointer. The arcs are quadratic beziers whose three
+// control points `arcFor` already returns, so this is arithmetic on numbers we
+// hold, with no DOM measurement and no path length walking.
+//
+// 24 samples is about a quarter of a pixel of resolution on a typical arc, and
+// a few hundred routes times 24 is a few thousand multiplications on a click.
+const ARC_SAMPLES = 24
+function arcDistanceSq(x, y, r) {
+  let best = Infinity
+  for (let i = 0; i <= ARC_SAMPLES; i += 1) {
+    const t = i / ARC_SAMPLES
+    const mt = 1 - t
+    const px = mt * mt * r.ax + 2 * mt * t * r.cx + t * t * r.bx
+    const py = mt * mt * r.ay + 2 * mt * t * r.cy + t * t * r.by
+    const d = (px - x) * (px - x) + (py - y) * (py - y)
+    if (d < best) best = d
+  }
+  return best
 }
 
 const fmtKm = (n) => Math.round(n).toLocaleString('en-GB')
@@ -282,9 +320,14 @@ function WorldAirports({ placed, zoom, center, onPick, selected, layer = 'dots' 
   const hit = Math.max(1.2, 9 / zoom)
 
   if (layer === 'hits') {
+    // YOU CAN ONLY PRESS WHAT YOU CAN SEE. `shown` deliberately includes tiers
+    // that have only just begun to fade in (that is how the ramp works), and a
+    // 9px target over a dot drawn at 4% opacity is a press that lands on
+    // something invisible. Half-faded is the earliest a dot is worth pressing.
+    const pressable = shown.filter((a) => tierOpacity(a.tier, zoom) >= 0.5)
     return (
       <g>
-        {shown.map((a) => (
+        {pressable.map((a) => (
           <circle
             key={a.iata}
             cx={a.x}
@@ -317,7 +360,14 @@ function WorldAirports({ placed, zoom, center, onPick, selected, layer = 'dots' 
             // read THROUGH to the routes above it. A tier-3 airstrip is fainter
             // again, which does the same job as the size difference and survives
             // at a radius where a size difference is under a pixel.
-            opacity={a.iata === selected ? 1 : a.tier === 0 ? 0.62 : a.tier === 3 ? 0.3 : 0.44}
+            //
+            // TIMES THE TIER'S RAMP, which is what stops a whole tier arriving
+            // on one frame when the zoom crosses its threshold. See tierOpacity
+            // in lib/worldAirports. The one you have SELECTED is exempt: it is
+            // an answer to a press, not scenery, and it must not be half there.
+            opacity={a.iata === selected
+              ? 1
+              : (a.tier === 0 ? 0.62 : a.tier === 3 ? 0.3 : 0.44) * tierOpacity(a.tier, zoom)}
           />
         ))}
       </g>
@@ -541,6 +591,41 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
     setSelected((cur) => (cur === key ? null : key))
   }, [])
 
+  // WHICHEVER ARC WAS PRESSED, THE ONE YOU MEANT IS THE NEAREST ONE.
+  //
+  // See `arcDistanceSq`. The press lands on some route's fat transparent
+  // stroke - paint order decides which, and paint order is not a statement
+  // about intent - so the pointer is converted into the arcs' own coordinate
+  // space and every arc is measured against it. `getScreenCTM` on the pressed
+  // path gives exactly that space: a <path> carries no transform of its own, so
+  // its screen CTM is the whole chain of zoom and pan above it, which is what
+  // has to be undone.
+  //
+  // The route that was pressed is the fallback, so if any of this is
+  // unavailable (an old browser, a detached node) the map behaves exactly as it
+  // did before rather than stopping working.
+  const pickRouteAt = useCallback((e, pressedKey) => {
+    let key = pressedKey
+    try {
+      const el = e.currentTarget
+      const svg = el.ownerSVGElement
+      const ctm = el.getScreenCTM()
+      if (svg && ctm) {
+        const p = svg.createSVGPoint()
+        p.x = e.clientX
+        p.y = e.clientY
+        const { x, y } = p.matrixTransform(ctm.inverse())
+        let best = Infinity
+        for (const r of arcs) {
+          if (!r.d) continue
+          const d = arcDistanceSq(x, y, r)
+          if (d < best) { best = d; key = r.key }
+        }
+      }
+    } catch { /* keep the pressed route */ }
+    pickRoute(key)
+  }, [arcs, pickRoute])
+
   // WHICH ROUTES CARRY TRAFFIC.
   //
   // All of them would be a swarm on a log with sixty routes in it, and a swarm
@@ -697,7 +782,7 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
                 strokeWidth={Math.max(6, 14 / z)}
                 strokeLinecap="round"
                 style={{ cursor: 'pointer' }}
-                onClick={() => pickRoute(r.key)}
+                onClick={(e) => pickRouteAt(e, r.key)}
               />
               <path
                 d={r.d}
@@ -849,6 +934,17 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
   // popover.
   const activeRows = (active?.flights || []).filter((f) => f && f.id)
   const activeCount = active ? (active.count ?? active.flights?.length ?? 0) : 0
+  // ONE ENTRY PER TRIP, NOT ONE PER LEG.
+  //
+  // THE BUG: "it's showing up like two separate trips rather than the joint
+  // trip... one without a photo and then one with a photo."
+  // A return is its own `flights` row, and both legs of a there-and-back land
+  // on the same pair, so this card listed the trip twice - once as the outbound
+  // (which carries the photograph and the note) and once as the leg home
+  // (which carries neither, and therefore looked broken). The log's own list
+  // solved this months ago with `tripsFromFlights`; the map was the one surface
+  // still drawing raw rows. Same function, so the two can never disagree again.
+  const activeTrips = useMemo(() => tripsFromFlights(activeRows), [activeRows])
 
   const card = active && (
     <div className="pointer-events-auto absolute inset-x-3 bottom-3 z-20 mx-auto max-w-md overflow-hidden rounded-card border border-gray-100 bg-white/97 shadow-lift backdrop-blur animate-map-in">
@@ -869,10 +965,16 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-semibold">{active.from.city} to {active.to.city}</span>
           <span className="block text-xs text-smoke">
-            {/* `count` when the caller gave one (the community map knows how
+            {/* TRIPS WHERE WE KNOW THEM, FLIGHTS WHERE WE DO NOT.
+                `count` is what the caller gave (the community map knows how
                 many flights a route carries but is not allowed to know whose or
-                when), otherwise the length of the rows we actually hold. */}
-            {activeCount} {activeCount === 1 ? 'flight' : 'flights'}
+                when). Where we hold the rows themselves, the honest headline is
+                how many TRIPS they are - a there-and-back is one trip and two
+                flights, and calling that "2 flights" on a card that then lists
+                one row is the same double-count that made the list below wrong. */}
+            {activeTrips.length > 0
+              ? `${activeTrips.length} ${activeTrips.length === 1 ? 'trip' : 'trips'}`
+              : `${activeCount} ${activeCount === 1 ? 'flight' : 'flights'}`}
             {activeRows[0]?.dist ? ` · ${fmtKm(activeRows[0].dist)} km each way` : ''}
           </span>
         </span>
@@ -894,9 +996,12 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
           the page that does hands it down. */}
       {routeExtra?.(active)}
       {activeRows.length === 0 ? (
+        /* ONE LINE. The second sentence - "this is how many times the community
+           has flown the route" - was removed at Ethan's request: the count is
+           already printed two lines above it in the header, so the card was
+           explaining its own heading. */
         <p className="px-5 py-3.5 text-xs text-smoke">
-          Dates and airlines stay private to whoever logged the flight. This is
-          how many times the community has flown the route.
+          Dates and airlines stay private to whoever logged the flight.
         </p>
       ) : (
       /* Five, then a count. A route somebody flies weekly could be forty rows
@@ -911,56 +1016,90 @@ function FlightMap({ routes = [], airports = [], routeExtra = null }) {
          is one - which is the thing that makes a route on a map worth pressing
          - and carries the direction, the aircraft, the distance and the note
          under it. */
-      <ul className="max-h-64 divide-y divide-gray-50 overflow-y-auto overscroll-contain">
-        {activeRows.slice(0, 5).map((f) => {
-          const back = f.from.iata !== active.from.iata
+      <ul className="max-h-72 divide-y divide-gray-50 overflow-y-auto overscroll-contain">
+        {activeTrips.slice(0, 5).map((t) => {
+          // THE CARD DOES NOT SAY THE SAME THING THREE TIMES.
+          //
+          // Ethan: "AMS Belfast three times on that, it should only be showing
+          // up once." The header already names the route in codes AND in city
+          // names, so a row that leads with the codes again is the third
+          // printing of one fact. A row therefore says only what is TRUE OF
+          // THIS TRIP and not of the route: when it was, whether it came back,
+          // and what flew it. The codes appear again only when this particular
+          // trip went the OTHER way round from the one the header draws, which
+          // is the one case where they are news.
+          const [oFrom] = outboundEnds(t.out)
+          const reversed = !!oFrom && oFrom.iata !== active.from.iata
+          const carriers = [...new Set(t.legs.map((l) => l.airline).filter(Boolean))]
+          const craft = [...new Set(t.legs.map((l) => l.aircraft).filter(Boolean))]
+          const note = t.out.note || t.back?.note || ''
           return (
-            <li key={f.id} className="flex items-start gap-3 px-5 py-3">
-              {f.photo_url ? (
+            <li key={t.id} className="flex items-start gap-3.5 px-5 py-3.5">
+              {/* THE PHOTOGRAPH IS THE ROW'S SUBJECT, so it is bigger than it
+                  was and it is 4:3 rather than square - a trip photo is almost
+                  never square and a square crop of one is the middle third of
+                  somebody's view. */}
+              {t.photo_url ? (
                 <button
                   type="button"
-                  onClick={() => setPhoto(f.photo_url)}
-                  className="group relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-cloud"
+                  onClick={() => setPhoto(t.photo_url)}
+                  className="group relative h-16 w-[5.5rem] shrink-0 overflow-hidden rounded-xl bg-cloud"
                   aria-label="Open the photo full size"
                 >
-                  <img src={f.photo_url} alt="" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                  <img src={t.photo_url} alt="" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
                   <span className="absolute inset-0 flex items-center justify-center bg-ink/0 text-white opacity-0 transition-all duration-200 group-hover:bg-ink/35 group-hover:opacity-100">
                     <Icon name="expand" className="h-4 w-4" />
                   </span>
                 </button>
               ) : (
-                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-cloud text-gray-300">
+                <span className="flex h-16 w-[5.5rem] shrink-0 items-center justify-center rounded-xl bg-cloud text-gray-300">
                   <Icon name="plane" className="h-5 w-5" />
                 </span>
               )}
               <span className="min-w-0 flex-1">
-                <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                  <span className="text-xs font-semibold tabular-nums text-ink">{f.flown_on}</span>
-                  <span className="flex items-center gap-1 text-[11px] font-bold tracking-wider text-brand">
-                    {f.from.iata}
-                    <Icon name="plane" className="h-3 w-3 text-brand-light" />
-                    {f.to.iata}
+                <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="text-xs font-semibold text-ink">
+                    {/* A DATE RANGE FOR A RETURN, one date for a one-way. It
+                        is the trip's shape said once, in the place you were
+                        going to read anyway. */}
+                    {t.back
+                      ? `${formatDate(t.out.flown_on)} – ${formatDate(t.back.flown_on)}`
+                      : formatDate(t.out.flown_on)}
                   </span>
-                  {back && <span className="text-[10px] font-semibold uppercase tracking-wide text-smoke">Back</span>}
+                  {t.back ? (
+                    <span className="rounded-full bg-brand-tint px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand">
+                      Return
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-cloud px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-smoke">
+                      One way
+                    </span>
+                  )}
+                  {reversed && (
+                    <span className="flex items-center gap-1 text-[11px] font-bold tracking-wider text-smoke">
+                      {active.to.iata}
+                      <Icon name="plane" className="h-3 w-3 text-brand-light" />
+                      {active.from.iata}
+                    </span>
+                  )}
                 </span>
-                <span className="mt-0.5 block truncate text-[11px] text-smoke">
-                  {[f.airline, f.flight_number, f.aircraft].filter(Boolean).join(' · ') || 'No airline logged'}
+                <span className="mt-1 block truncate text-[11px] text-smoke">
+                  {[carriers.join(' / '), craft.join(' / ')].filter(Boolean).join(' · ') || 'No airline logged'}
                 </span>
                 <span className="mt-0.5 block text-[11px] tabular-nums text-gray-400">
-                  {f.dist ? `${fmtKm(f.dist)} km` : ''}
-                  {f.dist && f.seat ? ' · ' : ''}
-                  {f.seat ? `seat ${f.seat}` : ''}
+                  {t.dist ? `${fmtKm(t.dist)} km` : ''}
+                  {t.dist && t.back ? ' both ways' : ''}
                 </span>
-                {f.note && <span className="mt-1 line-clamp-2 block text-[11px] leading-4 text-smoke">{f.note}</span>}
+                {note && <span className="mt-1 line-clamp-2 block text-[11px] leading-4 text-smoke">{note}</span>}
               </span>
             </li>
           )
         })}
       </ul>
       )}
-      {activeRows.length > 5 && (
+      {activeTrips.length > 5 && (
         <p className="border-t border-gray-50 px-5 py-2.5 text-[11px] text-smoke">
-          and {activeRows.length - 5} more on this route
+          and {activeTrips.length - 5} more {activeTrips.length - 5 === 1 ? 'trip' : 'trips'} on this route
         </p>
       )}
     </div>

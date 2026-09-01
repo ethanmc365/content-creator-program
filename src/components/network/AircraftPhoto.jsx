@@ -65,7 +65,23 @@ export const photoCredits = credits
 // `owned` is kept in the signature because `AircraftArt` (the fallback for a
 // type with no photograph) still draws itself differently, and because callers
 // pass it.
-export default function AircraftPhoto({ typeKey, type, owned = true, className }) {
+// `radius` IS A PROP BECAUSE SOME CALLERS ALREADY CLIP.
+//
+// THE BUG: on the community page's aircraft cards, "when I go over the card it
+// has a nice animation, the photo expands a bit, but it shows a weird" corner.
+// Those cards are `rounded-card` with `overflow-hidden` and the photograph sits
+// FLUSH against the top edge and against the text block below it - so a
+// photograph carrying its own `rounded-xl` left four wedges of the `bg-cloud`
+// grey behind it, two of them squeezed between a rounded photo corner and a
+// square card corner. Scaling the image on hover slides those wedges, which is
+// what makes them impossible to un-see.
+//
+// It cannot be fixed from `className`: `cx` is a join, not a tailwind merge, so
+// a `rounded-none` passed in does not reliably beat the `rounded-xl` baked in.
+// The collection page genuinely wants the radius (its card has `p-2.5`, so the
+// photograph is inset and IS the rounded thing), so this is a choice each
+// caller has to be able to make rather than a default to flip.
+export default function AircraftPhoto({ typeKey, type, owned = true, className, radius = 'rounded-xl' }) {
   // `broken` covers the one case the key check cannot: a file that is in the
   // credits but missing from the build. Falling back to the drawing is silent
   // and correct; an alt-text-in-a-box is neither.
@@ -81,7 +97,7 @@ export default function AircraftPhoto({ typeKey, type, owned = true, className }
   }
 
   return (
-    <span className={cx('relative block h-full w-full overflow-hidden rounded-xl bg-cloud', className)}>
+    <span className={cx('relative block h-full w-full overflow-hidden bg-cloud', radius, className)}>
       <img
         src={`/aircraft/${typeKey}.jpg`}
         alt={type?.name || ''}

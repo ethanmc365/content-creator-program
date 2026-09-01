@@ -1748,54 +1748,45 @@ export default function Flights() {
           {/* A ROUND TRIP IS TWO FLIGHTS, and logging it is one tick. It saves
               as two rows, because a return has its own date and its own
               distance and folding it into one row would halve everybody's
-              totals. */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {/* NO `max`. It existed to enforce the toggle - "I have flown this"
-                capped the field at today - and with the toggle gone a capped
-                field would make it impossible to log the flight you are about to
-                take, which is half of what this form is for. The LABEL is what
-                changes now, live, as soon as the date crosses today. */}
-            <DateField
-              id="flight-date"
-              label={upcoming ? 'Date you fly' : 'Date flown'}
-              value={form.flown_on}
-              onChange={(v) => setForm((f) => ({ ...f, flown_on: v }))}
-            />
-            {/* A ROUND TRIP WRITES A SECOND ROW, AND YOU CAN ASK FOR IT WHEN
-                EDITING TOO - as long as this row is not already half of one.
-                See `canRoundTrip`. */}
-            {canRoundTrip && (
-            /* THE TITLE IS ABOVE THE BOX, LIKE EVERY OTHER FIELD ON THE FORM.
-               Ethan: "the day flown card and the round trip card beside it. The
-               round trip card is bigger, and this says round trip inside,
-               whereas Round trip should be the title, like, above the little
-               box."
-               He is describing a real inconsistency and a real size mismatch:
-               "Date flown" was a `label` element above its input and "Round
-               trip" was body text INSIDE its own box, so the pair read as a
-               labelled field beside an unlabelled panel - and the two-line
-               inner text made the panel taller than the field it sat next to.
-               Now both are label-above-control, and the control is one line, so
-               they are the same height. */
-            <div>
-              <span className="label">Round trip</span>
-              <label className="flex h-[3.25rem] cursor-pointer items-center gap-3 rounded-xl border border-gray-200 px-3.5 transition-colors hover:border-brand/40">
-                <input
-                  type="checkbox"
-                  checked={form.round_trip}
-                  onChange={(e) => setForm((f) => ({ ...f, round_trip: e.target.checked, return_on: e.target.checked ? f.return_on : '', first_leg: 'out' }))}
-                  className="h-4 w-4 shrink-0 accent-[#d94407]"
-                />
-                <span className="min-w-0 truncate text-sm text-ink">
-                  {toA && fromA ? `Also ${toA.iata} back to ${fromA.iata}` : 'Log the flight home too'}
+              totals.
+
+              THE TICK IS A TICK, AND NOTHING ELSE IS ASKED UNTIL IT IS ON.
+              Ethan: "it should just be a tick box, and [then] show the options
+              when you click them... currently it doesn't really make sense."
+              He is right, and the reason it did not make sense is that the box
+              was ANSWERING the question the control under it then asked. It
+              read "Also AMS back to BFS" - a claim about which way the return
+              flies - and the very next control was "which way did you fly
+              first?", which can reverse exactly that. Two controls stating
+              opposite things about the same trip is not a layout problem.
+              So the box now says "Round trip" and means only "there was a
+              flight home". Everything directional - which leg came first, and
+              the two dates it puts in order - lives in the panel that opens
+              underneath, where it can be read as one answer. */}
+          {canRoundTrip && (
+            <label
+              className={cx(
+                'flex cursor-pointer items-start gap-3 rounded-xl border px-3.5 py-3 transition-colors',
+                form.round_trip ? 'border-brand bg-brand-tint/20' : 'border-gray-200 hover:border-brand/40',
+              )}
+            >
+              <input
+                type="checkbox"
+                checked={form.round_trip}
+                onChange={(e) => setForm((f) => ({ ...f, round_trip: e.target.checked, return_on: e.target.checked ? f.return_on : '', first_leg: 'out' }))}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-[#d94407]"
+              />
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-ink">Round trip</span>
+                <span className="block text-[11px] leading-relaxed text-smoke">
+                  Logs the flight home as its own leg, with its own date.
                 </span>
-              </label>
-            </div>
-            )}
-          </div>
+              </span>
+            </label>
+          )}
 
           {canRoundTrip && form.round_trip && (
-            <div className="space-y-4">
+            <div className="rounded-xl border border-gray-200 p-4">
               {/* WHICH WAY ROUND THE TRIP ACTUALLY WENT.
                   Ethan: "when asking for round trip I want to select which way
                   the round trip was. If I logged Oslo to Dublin and I want to
@@ -1811,61 +1802,79 @@ export default function Flights() {
                   options are drawn in full rather than as a swap button,
                   because "which way round" is a question you answer by reading
                   the two answers, not by toggling something and checking what
-                  happened. */}
-              <div>
-                <span className="label">Which way did you fly first?</span>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {[
-                    { key: 'out', a: fromA, b: toA },
-                    { key: 'back', a: toA, b: fromA },
-                  ].map((opt) => {
-                    const on = form.first_leg === opt.key
-                    return (
-                      <button
-                        key={opt.key}
-                        type="button"
-                        onClick={() => setForm((f) => ({ ...f, first_leg: opt.key }))}
-                        aria-pressed={on}
-                        className={cx(
-                          'flex flex-col gap-1 rounded-xl border px-3.5 py-3 text-left transition-all duration-200 hover:-translate-y-0.5',
-                          on ? 'border-brand bg-brand-tint/30 shadow-card' : 'border-gray-200 hover:border-brand/40',
-                        )}
-                      >
-                        <span className={cx('flex items-center gap-1.5 text-sm font-bold tracking-wider', on ? 'text-brand' : 'text-ink')}>
-                          {opt.a?.iata || '···'}
-                          <Icon name="plane" className="h-3.5 w-3.5 text-brand-light" />
-                          {opt.b?.iata || '···'}
-                        </span>
-                        <span className="text-[11px] text-smoke">
-                          {opt.a && opt.b
-                            ? `${opt.a.city} to ${opt.b.city} first, then back`
-                            : 'Pick both airports first'}
-                        </span>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {/* NO HINT. It said "Saved as its own flight, so the distance
-                    counts twice", which is an implementation detail dressed as a
-                    warning - and it read as a bug being confessed to. Ethan:
-                    "there's no need to show that text, it's unnecessary and ruins
-                    the design." */}
-                <DateField
-                  id="flight-return"
-                  label={upcoming ? 'Date you fly back' : 'Date you flew back'}
-                  value={form.return_on}
-                  onChange={(v) => setForm((f) => ({ ...f, return_on: v }))}
-                />
-                {form.flown_on && form.return_on && form.return_on < form.flown_on && (
-                  <p className="self-end pb-2.5 text-[11px] text-red-500">
-                    The return is before the outbound. Check the dates.
-                  </p>
-                )}
+                  happened.
+                  IT IS ASKED BEFORE THE DATES, because it is what makes the two
+                  date labels below it mean anything. */}
+              <span className="label">Which way did you fly first?</span>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {[
+                  { key: 'out', a: fromA, b: toA },
+                  { key: 'back', a: toA, b: fromA },
+                ].map((opt) => {
+                  const on = form.first_leg === opt.key
+                  return (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, first_leg: opt.key }))}
+                      aria-pressed={on}
+                      className={cx(
+                        'flex flex-col gap-1 rounded-xl border px-3.5 py-3 text-left transition-all duration-200 hover:-translate-y-0.5',
+                        on ? 'border-brand bg-brand-tint/30 shadow-card' : 'border-gray-200 bg-white hover:border-brand/40',
+                      )}
+                    >
+                      <span className={cx('flex items-center gap-1.5 text-sm font-bold tracking-wider', on ? 'text-brand' : 'text-ink')}>
+                        {opt.a?.iata || '···'}
+                        <Icon name="plane" className="h-3.5 w-3.5 text-brand-light" />
+                        {opt.b?.iata || '···'}
+                      </span>
+                      <span className="text-[11px] text-smoke">
+                        {opt.a && opt.b
+                          ? `${opt.a.city} to ${opt.b.city} first, then back`
+                          : 'Pick both airports first'}
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
             </div>
+          )}
+
+          {/* THE DATES, ONE COLUMN OR TWO.
+              NO `max` ON EITHER. It existed to enforce a toggle - "I have flown
+              this" capped the field at today - and with the toggle gone a
+              capped field would make it impossible to log the flight you are
+              about to take, which is half of what this form is for. The LABELS
+              are what change, live: as soon as the date crosses today, and
+              again once a return has been asked for, so "Date flown" becomes
+              the date of a named leg rather than of an unspecified one.
+              NO HINT UNDER THE RETURN. It said "Saved as its own flight, so the
+              distance counts twice", which is an implementation detail dressed
+              as a warning - and it read as a bug being confessed to. Ethan:
+              "there's no need to show that text, it's unnecessary and ruins the
+              design." */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <DateField
+              id="flight-date"
+              label={canRoundTrip && form.round_trip
+                ? (upcoming ? 'Date you fly out' : 'Date you flew out')
+                : (upcoming ? 'Date you fly' : 'Date flown')}
+              value={form.flown_on}
+              onChange={(v) => setForm((f) => ({ ...f, flown_on: v }))}
+            />
+            {canRoundTrip && form.round_trip && (
+              <DateField
+                id="flight-return"
+                label={upcoming ? 'Date you fly back' : 'Date you flew back'}
+                value={form.return_on}
+                onChange={(v) => setForm((f) => ({ ...f, return_on: v }))}
+              />
+            )}
+          </div>
+          {canRoundTrip && form.round_trip && form.flown_on && form.return_on && form.return_on < form.flown_on && (
+            <p className="-mt-2 text-[11px] text-red-500">
+              The flight back is before the flight out. Check the dates.
+            </p>
           )}
 
           {/* ---- WHO FLIES IT ----

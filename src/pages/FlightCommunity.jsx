@@ -591,7 +591,10 @@ export default function FlightCommunity() {
                       {/* ONE ASPECT RATIO FOR EVERY CARD. A row of photographs
                           at their own proportions is a ragged grid. */}
                       <span className="pointer-events-none relative z-10 block aspect-[16/7] w-full overflow-hidden bg-cloud">
-                        <AircraftPhoto typeKey={type?.key} type={type} />
+                        {/* NO RADIUS: the card clips already, and a rounded
+                            photo inside a square frame leaves grey wedges that
+                            slide when the hover scale runs. See AircraftPhoto. */}
+                        <AircraftPhoto typeKey={type?.key} type={type} radius="" />
                       </span>
                       <div className="pointer-events-none relative z-10 flex flex-1 flex-col px-4 py-3">
                         <div className="flex items-baseline justify-between gap-2">
@@ -692,28 +695,43 @@ function RouteCreators({ from, to }) {
   if (!rows || rows.length === 0) return null
 
   return (
-    <div className="border-t border-gray-100 px-5 py-3.5">
-      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-smoke">
+    <div className="border-t border-gray-100 px-5 py-4">
+      <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-smoke">
         {rows.length === 1 ? 'Flown by' : `Flown by ${rows.length} creators`}
       </p>
-      <ul className="space-y-2">
+      <ul className="space-y-1">
         {rows.slice(0, 4).map((c) => (
           <li key={c.creator_id}>
+            {/* THE ROW SAYS TWO NUMBERS, AND THEY ARE DIFFERENT KINDS OF FACT.
+                Ethan: "it says two for the flight he's been on, but then it
+                should say, like, in total, ten flights."
+                "2 on this route" is about the LINE you just pressed; "27
+                flights logged" is about the PERSON, and it is the one that
+                turns a name into somebody worth opening. They are stacked
+                rather than run together because reading "2 flights 27 flights"
+                on one line is a puzzle. See migration 156 for where the second
+                number comes from - and note it counts SHARED flights only, the
+                same definition the leaderboard on this page publishes. */}
             <Link
               to={`/profile/${c.creator_id}`}
-              className="flex items-center gap-2.5 rounded-xl px-1 py-0.5 transition-transform duration-200 hover:translate-x-0.5"
+              className="flex items-center gap-3 rounded-xl px-2 py-1.5 transition-colors duration-200 hover:bg-cloud"
             >
               <Avatar src={c.photo_url} name={c.name} size="xs" />
-              <span className="min-w-0 flex-1 truncate text-xs font-semibold text-ink">{c.name}</span>
-              <span className="shrink-0 text-[11px] tabular-nums text-smoke">
-                {c.flights} {Number(c.flights) === 1 ? 'flight' : 'flights'}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-xs font-semibold text-ink">{c.name}</span>
+                <span className="block text-[11px] text-smoke">
+                  {c.total_flights} {Number(c.total_flights) === 1 ? 'flight' : 'flights'} logged
+                </span>
+              </span>
+              <span className="shrink-0 rounded-full bg-brand-tint px-2.5 py-1 text-[11px] font-semibold tabular-nums text-brand">
+                {c.flights} here
               </span>
             </Link>
           </li>
         ))}
       </ul>
       {rows.length > 4 && (
-        <p className="mt-2 text-[11px] text-smoke">and {rows.length - 4} more</p>
+        <p className="mt-2 px-2 text-[11px] text-smoke">and {rows.length - 4} more</p>
       )}
     </div>
   )

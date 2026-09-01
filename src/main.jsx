@@ -28,10 +28,10 @@ else applyAppIcon()
 // THE APP STYLESHEET, TURNED BACK ON.
 //
 // `vite-boot-css.js` rewrites the built <link rel="stylesheet"> into a
-// non-blocking preload, because a render-blocking stylesheet in the head is
-// what made the app open on WHITE and then blink orange - the browser paints
-// nothing at all, inline boot layer included, until that file lands. Read the
-// long note in that plugin; it is the whole reason this function exists.
+// non-blocking preload, because a render-blocking stylesheet in the head means
+// the browser paints NOTHING at all - inline boot layer included - until that
+// file lands, so the loader could not appear until the app was ready to. Read
+// the long note in that plugin; it is the whole reason this function exists.
 //
 // Promoting it is one property. Waiting for the load before React commits is
 // the part that matters: rendering into a document whose CSS has not applied is
@@ -74,17 +74,21 @@ function mount() {
   dismissBoot()
 }
 
-// THE ORANGE SPLASH LEAVES ONCE THERE IS SOMETHING BEHIND IT.
+// THE LOADER LEAVES ONCE THERE IS SOMETHING BEHIND IT.
 //
-// index.html paints `#boot` on the first frame so the app never opens on white
-// (see the note there). It has to be dismissed from here, and it has to wait
-// for a PAINT rather than for `render()` to return: `createRoot().render` only
-// schedules the work, so fading on the next line would uncover a root that is
-// still empty and put the white frame back, one step later.
+// index.html paints `#boot` on the first frame - a white screen with the same
+// plane-on-a-runway loader the app draws for itself - so the gap before React
+// mounts shows the loader rather than a blank. See the long note there; an
+// orange splash was tried here and reverted, because a layer that is not the
+// same colour as the canvas under it always has a frame where they disagree.
+//
+// It has to be dismissed from here, and it has to wait for a PAINT rather than
+// for `render()` to return: `createRoot().render` only schedules the work, so
+// fading on the next line would uncover a root that is still empty.
 //
 // Two animation frames is the reliable signal - the first is scheduled from
 // this task, the second runs after React has committed and the browser has
-// drawn. The class starts a 420ms CSS fade; the element is removed after it,
+// drawn. The class starts a 300ms CSS fade; the element is removed after it,
 // so nothing is left holding a full-screen layer over the app.
 function dismissBoot() {
   const boot = document.getElementById('boot')
@@ -94,7 +98,7 @@ function dismissBoot() {
       if (done) return
       done = true
       boot.classList.add('gone')
-      setTimeout(() => boot.remove(), 500)
+      setTimeout(() => boot.remove(), 360)
     }
     // AND A TIMER BEHIND THE rAF, which is not belt and braces - it is the
     // whole difference between this working and this being a bug.

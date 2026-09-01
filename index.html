@@ -2,13 +2,17 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <!-- THE CANVAS IS ORANGE BEFORE ANYTHING ELSE IN THIS FILE IS READ.
+    <!-- THE CANVAS IS WHITE BEFORE ANYTHING ELSE IN THIS FILE IS READ.
          First rule in the document on purpose. Whatever the browser paints
          first - the root background during a reload, the overscroll gutter, the
-         gap while the boot layer is still being parsed - is this colour and not
-         white. It is only half of the fix; see vite-boot-css.js for the other
-         half, which is the one that actually mattered. -->
-    <style>html { background: #d94407; }</style>
+         gap while the boot layer is still being parsed - is this colour, and it
+         is the SAME colour as the boot layer and as the app behind it. That
+         sameness is the whole point: the orange splash this replaced could not
+         avoid a seam, because the document's own canvas is painted before any
+         layer is, so a coloured layer over a differently-coloured canvas always
+         has one frame where they disagree. See vite-boot-css.js for the other
+         half of this, which is what stops the app opening UNSTYLED. -->
+    <style>html { background: #ffffff; }</style>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="/favicon-32.png" sizes="32x32" />
     <!-- Mobile-first viewport. viewport-fit=cover handles iPhone notch/safe areas. -->
@@ -62,20 +66,30 @@
     <title>Tryp.com Creator Program</title>
   </head>
   <body>
-    <!-- THE FIRST FRAME IS ORANGE, NOT WHITE.
+    <!-- THE FIRST FRAME IS THE LOADER THE APP ITSELF DRAWS.
          Everything below this line is inline on purpose. Between the browser
          painting the document and React mounting there is a gap - the bundle
-         has to arrive and parse - and for that gap `#root` is empty, so the
-         app opened on a white screen and then jumped to a plane on a white
-         screen and then to the platform. Ethan: "when you first open it, it
-         briefly shows a blank screen then the line with the airplane icon
-         animation... rather than the white screen, a full Tryp.com orange
-         screen showing the airplane animation on it in a nice design, and then
-         it opens the platform in a smooth animation."
-         An external stylesheet or a script would be another round trip and
-         would defeat the point: this has to be paintable from the HTML alone,
-         on the very first frame, with nothing fetched. It is removed by
-         main.jsx once React has rendered. -->
+         has to arrive and parse - and for that gap `#root` is empty.
+
+         THIS IS A COPY OF `PlaneLoader` (components/ui), DELIBERATELY, DOWN TO
+         THE NUMBERS. A full-orange splash was tried and rejected: it flashed
+         white, then orange, then the app, because three different surfaces
+         (the document canvas, the splash layer, the app) were three different
+         colours and the browser paints them at three different moments. Ethan:
+         "it still flashes white and then orange... just revert it to what
+         originally was, the white screen with one animated icon showing that
+         it's loading." So there is now ONE look, drawn twice - once here in
+         plain HTML for the gap, once by React afterwards - and the handover
+         between them is invisible because there is nothing to hand over.
+
+         KEEP THE TWO IN STEP. 112px strip (w-28), 32px tall (h-8), a 24px
+         plane (h-6 w-6) on a 2px dashed line at 25% brand, `fly` at 1.7s
+         ease-in-out with the exact -130%/210% travel from tailwind.config.
+         If PlaneLoader changes, change this.
+
+         It cannot be an external stylesheet or a script: this has to be
+         paintable from the HTML alone, on the very first frame, with nothing
+         fetched. It is removed by main.jsx once React has rendered. -->
     <style>
       #boot {
         position: fixed;
@@ -85,51 +99,52 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        background: linear-gradient(150deg, #d94407 0%, #d94407 45%, #f5853f 100%);
+        gap: 1rem;
+        background: #ffffff;
+        font-family: Poppins, ui-sans-serif, system-ui, sans-serif;
         /* The fade out. `visibility` rides along so the layer stops taking
-           presses the instant it starts leaving, rather than 420ms later. */
-        transition: opacity 420ms ease-out, visibility 420ms ease-out, transform 420ms ease-out;
+           presses the instant it starts leaving, rather than 420ms later.
+           NO SCALE, and no colour change: the layer is the same white as the
+           page under it, so all that is left to do is stop being there. */
+        transition: opacity 300ms ease-out, visibility 300ms ease-out;
       }
-      /* IT LIFTS AWAY RATHER THAN JUST DISSOLVING. Ethan: "just show the line
-         with the plane icon animation loading and then smoothly animate and the
-         worldwide page opens." A pure opacity fade reads as the screen giving
-         up; a 1.5% scale under it reads as the layer moving off the app, and
-         the app arriving underneath. */
-      #boot.gone { opacity: 0; visibility: hidden; transform: scale(1.015); }
-      /* The runway: a dashed line the plane crosses, the same shape the
-         in-app PlaneLoader uses, in white on the brand instead of brand on
-         white. */
+      #boot.gone { opacity: 0; visibility: hidden; }
       #boot .strip {
         position: relative;
         display: flex;
         align-items: center;
-        width: 190px;
-        height: 44px;
+        width: 112px;
+        height: 32px;
         overflow: hidden;
       }
       #boot .line {
         position: absolute;
         left: 0; right: 0; top: 50%;
-        border-top: 2px dashed rgba(255, 255, 255, 0.4);
+        border-top: 2px dashed rgba(217, 68, 7, 0.25);
       }
       #boot svg {
         position: relative;
-        width: 34px;
-        height: 34px;
-        color: #fff;
-        animation: boot-fly 2.1s cubic-bezier(0.4, 0, 0.35, 1) infinite;
+        width: 24px;
+        height: 24px;
+        color: #d94407;
+        animation: boot-fly 1.7s ease-in-out infinite;
+      }
+      #boot .label {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #6B7280;
       }
       @keyframes boot-fly {
-        0%   { transform: translateX(-46px) translateY(0); opacity: 0; }
-        14%  { opacity: 1; }
-        50%  { transform: translateX(72px) translateY(-4px); }
-        86%  { opacity: 1; }
-        100% { transform: translateX(190px) translateY(0); opacity: 0; }
+        0%   { transform: translateX(-130%); opacity: 0; }
+        15%  { opacity: 1; }
+        85%  { opacity: 1; }
+        100% { transform: translateX(210%); opacity: 0; }
       }
       /* Somebody who has asked for less motion gets the plane parked on the
-         runway rather than no splash at all - the colour is the point. */
+         runway rather than no loader at all - "something is happening" is the
+         point, and a still plane still says it. */
       @media (prefers-reduced-motion: reduce) {
-        #boot svg { animation: none; transform: translateX(72px); }
+        #boot svg { animation: none; transform: translateX(180%); opacity: 1; }
       }
     </style>
     <div id="boot" role="status" aria-label="Loading Tryp.com">
@@ -139,6 +154,7 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
         </svg>
       </div>
+      <span class="label">Loading&#8230;</span>
     </div>
 
     <div id="root"></div>

@@ -302,6 +302,22 @@ export function records(list) {
   }
 }
 
+/**
+ * The two ends of a flight IN THE DIRECTION IT WAS FLOWN OUT.
+ *
+ * A return leg is stored as its own row with `return_of` pointing at the
+ * outbound, so its own `from`/`to` are the way HOME. Anything that wants to
+ * say "you left from here" has to reverse those. One definition, because the
+ * map arc, the plane animation and the trip card all need the same answer.
+ *
+ * @param f a decorated flight
+ * @returns [from, to] airports, outbound first
+ */
+export function outboundEnds(f) {
+  if (!f) return [null, null]
+  return f.return_of ? [f.to, f.from] : [f.from, f.to]
+}
+
 /** Everything the page needs, from the rows and today's date.
  *
  * A FLIGHT YOU HAVE NOT TAKEN YET IS NOT PART OF ANY TOTAL.
@@ -341,11 +357,27 @@ export function buildFlightStats(rows, todayStr) {
     if (cur) { cur.flights.push(f); continue }
     byPair.set(pair, { key: pair, from: f.from, to: f.to, flights: [f] })
   }
-  const routes = [...byPair.values()].map((r) => ({
-    ...r,
+  const routes = [...byPair.values()].map((r) => {
     // Newest first: tapping a line should open with the trip you remember.
-    flights: r.flights.slice().sort((a, b) => b.flown_on.localeCompare(a.flown_on)),
-  }))
+    const flights = r.flights.slice().sort((a, b) => b.flown_on.localeCompare(a.flown_on))
+    // AND THE ARC POINTS THE WAY YOU LEFT.
+    //
+    // THE BUG: "it's showing the plane animation going from Amsterdam to
+    // Belfast rather than from Belfast to Amsterdam. Belfast is the original
+    // airport I flew out from... it should always be from the airport you flew
+    // out from."
+    //
+    // The pair is keyed on the two codes SORTED, which is right - eighty
+    // London-Lisbon hops are one line - but it left the drawn direction as
+    // whichever row of the pair the loop happened to see first. On a round trip
+    // that is a coin toss, and half the time the plane flew home.
+    // `outboundEnds` reads it off the row itself: a row with `return_of` set IS
+    // the leg home, so the way out is that row reversed. Taken from the newest
+    // flight on the pair, so a route flown both ways over the years points the
+    // way the last trip started.
+    const [from, to] = outboundEnds(flights[0])
+    return { ...r, from, to, flights }
+  })
 
   const topAirport = [...airportCount.entries()].sort((a, b) => b[1] - a[1])[0]
   const topRoute = [...byPair.values()].sort((a, b) => b.flights.length - a.flights.length)[0]

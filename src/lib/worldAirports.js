@@ -31,18 +31,58 @@
 // that is deliberate - every code in the bundled table is forced to tier 0 here,
 // so anywhere you can log a flight to is visible on the map at every zoom.
 
-/** Zoom at which each tier starts being drawn. Tier 0 is always on. */
+/** Zoom at which each tier is FULLY drawn. Tier 0 is always on. */
 const TIER_ZOOM = [0, 1.8, 3.6, 7]
 
+// A TIER FADES IN. IT DOES NOT POP.
+//
+// THE BUG: "when scrolling quickly in and out of the map, the airport dots are
+// still visually appearing and disappearing."
+//
+// This used to be a hard cut - `tier <= tierAt(zoom)` - so the instant the zoom
+// crossed 1.8, every tier-1 airport on Earth arrived on one frame, and crossing
+// back deleted them on one frame. Wheel-zooming in and out over that boundary
+// (which is where a lot of reading of this map actually happens) is therefore a
+// strobe. The earlier fix in FlightMap made the CULLING WINDOW stable during a
+// gesture, which was a real bug and a different one; the thresholds themselves
+// were always going to flash.
+//
+// So each tier now has a BAND rather than an edge: it is invisible below
+// `z / RAMP`, fully drawn above `z * RAMP`, and interpolated between. A tier
+// arrives over roughly two thirds of a doubling of the zoom, which at any
+// realistic wheel speed is several frames, so it reads as coming into focus.
+// Nothing else changes: the count at rest, at every zoom, is what it was.
+const TIER_RAMP = 1.3
+
 /**
- * The deepest tier worth drawing at this zoom.
+ * How strongly a tier is drawn at this zoom: 0 (not yet), 1 (fully), or a
+ * fraction while it is arriving. Multiply the dot's own opacity by this.
+ * @param {number} tier 0..3
+ * @param {number} zoom
+ * @returns {number} 0..1
+ */
+export function tierOpacity(tier, zoom) {
+  const at = TIER_ZOOM[tier]
+  if (!at) return 1                       // tier 0 is always on
+  const from = at / TIER_RAMP
+  const to = at * TIER_RAMP
+  if (zoom <= from) return 0
+  if (zoom >= to) return 1
+  return (zoom - from) / (to - from)
+}
+
+/**
+ * The deepest tier worth DRAWING at this zoom - i.e. the deepest one that has
+ * begun to fade in. This is the cull limit, not the visibility test; a tier at
+ * the bottom of its band is drawn at an opacity of nearly zero, which is the
+ * point.
  * @param {number} zoom
  * @returns {number} 0..3
  */
 export function tierAt(zoom) {
   let deepest = 0
   for (let t = 1; t < TIER_ZOOM.length; t += 1) {
-    if (zoom >= TIER_ZOOM[t]) deepest = t
+    if (tierOpacity(t, zoom) > 0) deepest = t
   }
   return deepest
 }
@@ -57,24 +97,26 @@ export function tierAt(zoom) {
 // zoomed right into one city you want the dot smaller still, because by then
 // the thing you are looking at is the airport's POSITION, not the marker.
 //
-// So it is `base / z^0.85`, which is the same shape as the route markers'
-// falloff (see MARKER_FALLOFF in FlightMap) but gentler: those start large and
-// have to get out of the way of a short hop, these start tiny and only need to
-// stop growing. A tier-3 airstrip is deliberately smaller than a hub at the
-// same zoom, so the hierarchy survives even where both are drawn.
-// AND THE FLOOR IS ALMOST NOTHING, WHICH IS THE POINT.
+// IT IS EXACTLY `base / zoom` NOW: A CONSTANT SIZE ON SCREEN.
 //
-// A floor in MAP units is the trap the route markers already fell into once:
-// past the zoom where it bites, the radius stops falling, so apparent size
-// starts growing with the zoom LINEARLY. A 0.32 floor looked sensible and put
-// the dots at 12.8px across at maximum zoom, which is not a dot, it is a
-// blob covering the runway it is meant to mark.
+// This was `base / z^0.85` - which is an apparent `base * z^0.15`, so a dot
+// grew from about 1.5px across at world zoom to 2.6px at maximum. The argument
+// for that growth was that zoomed right in you are looking at a position rather
+// than a marker, and it is a decent argument; it is not what was asked for.
+// Ethan, on zooming in and out quickly: "fix this so it's just a constant
+// scale." A dot that is quietly resizing throughout every gesture is the other
+// half of what made this layer feel unstable, and the tier ramp above is only
+// worth having if the thing being ramped is not also breathing.
 //
-// With the floor effectively out of the way the arithmetic is just
-// `base * z^0.15`: 1.5px across at world zoom, 2.6px at maximum. Small when
-// zoomed out, a little bigger when zoomed in, never big. That is the brief,
-// and it wants no floor to achieve it - only a guard against a zero radius.
-const DOT_FALLOFF = 0.85
+// A falloff of exactly 1 cancels the group's scale, so the radius is fixed in
+// SCREEN pixels at every magnification. The tier hierarchy stays - a tier-3
+// airstrip is smaller than a hub, always, rather than only at some zooms.
+//
+// The floor is a guard against a zero radius and nothing more. A floor in MAP
+// units is a trap the route markers fell into once: past the zoom where it
+// bites, the radius stops falling and apparent size grows LINEARLY. At 0.04 it
+// cannot bite below a zoom of about 37, which is far past the maximum.
+const DOT_FALLOFF = 1
 const TIER_BASE = [1.5, 1.25, 1.05, 0.85]
 const MIN_RADIUS = 0.04
 

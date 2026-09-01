@@ -430,30 +430,32 @@ export default function Events() {
              own heading; it is a primary action and it belongs with the other
              two. On a phone the three share the row equally (`flex-1
              basis-0`), so nothing wraps and no space is wasted, and the labels
-             shorten rather than the buttons shrinking. Manage is admin-only and
-             takes its own full-width row underneath - a fourth button on the
-             row would leave four cramped columns for everyone who can see it. */
-          <div className="w-full sm:w-auto">
-            <div className="flex gap-2">
-              <button onClick={() => { setEditingPersonal(null); setPersonalOpen(true) }} className="btn-secondary !px-3 !py-2.5 flex-1 basis-0 justify-center whitespace-nowrap text-sm sm:flex-none sm:basis-auto sm:!px-4">
-                <Icon name="plus" className="h-4 w-4 shrink-0" />
-                <span className="hidden sm:inline">Personal event</span>
-                <span className="sm:hidden">Personal</span>
-              </button>
-              {/* SUBSCRIBE, NOT DOWNLOAD. A file is out of date the moment
-                  anybody adds a date to it; a URL is not. */}
-              <button onClick={() => setSubscribeOpen(true)} className="btn-secondary !px-3 !py-2.5 flex-1 basis-0 justify-center whitespace-nowrap text-sm sm:flex-none sm:basis-auto sm:!px-4">
-                <Icon name="calendar" className="h-4 w-4 shrink-0" />
-                Sync
-              </button>
-              <button onClick={() => setSuggestOpen(true)} className="btn-secondary !px-3 !py-2.5 flex-1 basis-0 justify-center whitespace-nowrap text-sm sm:flex-none sm:basis-auto sm:!px-4">
-                <Icon name="pencil" className="h-4 w-4 shrink-0" />
-                <span className="hidden sm:inline">Suggest an event</span>
-                <span className="sm:hidden">Suggest</span>
-              </button>
-            </div>
+             shorten rather than the buttons shrinking.
+             MANAGE IS ONE ELEMENT THAT WRAPS, NOT TWO THAT HIDE. It is
+             `basis-full` on a phone, so it drops under the three and fills the
+             row (a fourth column there would leave four cramped buttons); from
+             `sm` it is `basis-auto` and sits on the end of the row, to the
+             right of "Suggest an event", because a lone button on a second row
+             of a wide header reads as a mistake. */
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+            <button onClick={() => { setEditingPersonal(null); setPersonalOpen(true) }} className="btn-secondary !px-3 !py-2.5 flex-1 basis-0 justify-center whitespace-nowrap text-sm sm:flex-none sm:basis-auto sm:!px-4">
+              <Icon name="plus" className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Personal event</span>
+              <span className="sm:hidden">Personal</span>
+            </button>
+            {/* SUBSCRIBE, NOT DOWNLOAD. A file is out of date the moment
+                anybody adds a date to it; a URL is not. */}
+            <button onClick={() => setSubscribeOpen(true)} className="btn-secondary !px-3 !py-2.5 flex-1 basis-0 justify-center whitespace-nowrap text-sm sm:flex-none sm:basis-auto sm:!px-4">
+              <Icon name="calendar" className="h-4 w-4 shrink-0" />
+              Sync
+            </button>
+            <button onClick={() => setSuggestOpen(true)} className="btn-secondary !px-3 !py-2.5 flex-1 basis-0 justify-center whitespace-nowrap text-sm sm:flex-none sm:basis-auto sm:!px-4">
+              <Icon name="pencil" className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Suggest an event</span>
+              <span className="sm:hidden">Suggest</span>
+            </button>
             {isAdmin && (
-              <Link to="/admin/events" className="btn-primary mt-2 w-full justify-center sm:w-auto">Manage</Link>
+              <Link to="/admin/events" className="btn-primary basis-full justify-center whitespace-nowrap sm:basis-auto sm:!px-4">Manage</Link>
             )}
           </div>
         }

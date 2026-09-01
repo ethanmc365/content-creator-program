@@ -153,19 +153,50 @@ export default function Game() {
   // layout in an effect), so the offset it computed was too small, and when the
   // board then grew, the leaderboard underneath was what had been scrolled to.
   //
-  // Zero needs no measurement and cannot be wrong. When a game is on screen the
-  // menu is unmounted, so the game IS the top of the page - directly under the
-  // page heading, with nothing above it to cut off.
+  // AND THEN IT WENT ONE STEP TOO FAR THE OTHER WAY. Scrolling to zero puts
+  // "Travel Games" - a heading you have already read, on a page you are already
+  // on - at the top of a phone screen, and pushes the puzzle's own card down
+  // under it. Ethan, on Guess the Language: "it should only show the little
+  // card showing the number of questions and the time, because that just fits
+  // perfectly for the UI... it's not fully scrolled up, but it cuts out the
+  // heading."
+  //
+  // So the target is the TOP OF THE GAME, not the top of the document, and the
+  // page heading is scrolled away above it.
+  //
+  // MEASURE THE WRAPPER, NEVER THE BOARD. This is the distinction the first
+  // attempt at this got wrong and the reason it was replaced by a blunt zero:
+  // a board's own height is still zero on the frame it mounts (they build their
+  // layout in an effect), so anything derived from it is too small and the
+  // page ends up parked on the leaderboard underneath. The WRAPPER's document
+  // offset does not depend on the board's height at all - only on what is above
+  // it, which is the page heading and nothing else, and which is settled before
+  // this ever runs.
+  //
+  // MINUS THE APP HEADER, which is `sticky top-0`: scrolling the card to y=0
+  // slides it under the header rather than to the top of what you can see.
+  // Measured rather than hard-coded - it is a different height at different
+  // widths, and it is the kind of number that goes stale silently.
+  //
+  // The menu still goes to zero: there the streak card IS the top of the page
+  // and it should not be cropped.
   //
   // It is re-asserted on the next frame as well as immediately, because the
   // boards settle their own height a frame later and Chrome's scroll anchoring
   // will happily push the document down to "keep" content that was never in
   // view. Two cheap calls beat one that a layout pass can undo.
   const [screenSeq, setScreenSeq] = useState(0)
+  const gameRef = useRef(null)
   useEffect(() => {
-    const top = () => window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
-    top()
-    const raf = requestAnimationFrame(top)
+    const settle = () => {
+      const el = screen === 'menu' ? null : gameRef.current
+      if (!el) { window.scrollTo({ top: 0, left: 0, behavior: 'auto' }); return }
+      const header = document.querySelector('header')?.getBoundingClientRect().height || 0
+      const y = el.getBoundingClientRect().top + window.scrollY - header - 8
+      window.scrollTo({ top: Math.max(0, y), left: 0, behavior: 'auto' })
+    }
+    settle()
+    const raf = requestAnimationFrame(settle)
     return () => cancelAnimationFrame(raf)
   }, [screen, screenSeq])
 
@@ -244,7 +275,7 @@ export default function Game() {
           mount, so you could play Flight Path, come straight back, and be
           invited to play it again. Ethan: "after I played for example flight
           path, it didn't immediately update and show that I played it." */}
-      <div>
+      <div ref={gameRef}>
         {screen === 'play' && <Round mode={mode} region={region} questions={questions} onQuit={() => setScreen('menu')} onFinish={(r) => { setSavedScore(r); setScreen('results') }} />}
         {screen === 'results' && (
           <Results result={savedScore} mode={mode} region={region} eventId={eventId} userId={user.id}
