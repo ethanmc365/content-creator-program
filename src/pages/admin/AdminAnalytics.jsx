@@ -29,7 +29,7 @@ const TABS = [
   { key: 'network', label: 'Connections' },
 ]
 
-// Admin analytics: the program's health at a glance. Recharts (free) for the
+// Admin analytics: the community's health at a glance. Recharts (free) for the
 // charts, every dataset exportable to CSV, and every tile that has a natural
 // destination is clickable.
 // A family of orange shades - no yellows or off-brand colours anywhere.

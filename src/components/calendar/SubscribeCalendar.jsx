@@ -93,7 +93,7 @@ export default function SubscribeCalendar({ open, onClose }) {
   // outlook.office.com and are redirected there from outlook.live.com, so one
   // link covers both.
   const outlookAdd = https
-    ? `https://outlook.live.com/calendar/0/addfromweb?url=${encodeURIComponent(https)}&name=${encodeURIComponent('Tryp.com Creator Program')}`
+    ? `https://outlook.live.com/calendar/0/addfromweb?url=${encodeURIComponent(https)}&name=${encodeURIComponent('Tryp.com Creator Community')}`
     : ''
 
   async function reset() {

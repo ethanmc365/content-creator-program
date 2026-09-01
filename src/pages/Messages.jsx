@@ -16,6 +16,7 @@ import PhotoLightbox from '../components/PhotoLightbox'
 import MessageActions from '../components/chat/MessageActions'
 import { useProfileNames } from '../components/network/ChatExtras'
 import { mediaType, saveFile, fileNameFromUrl } from '../lib/media'
+import { isOnline } from '../lib/presence'
 import { pinToBottom } from '../lib/chatScroll'
 import { formatChatTime, formatMessageTime, messageTimeTitle, otherParticipant, cx } from '../lib/utils'
 import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
@@ -1135,6 +1136,14 @@ export default function Messages() {
   // they haven't connected with anyone, towards creators who are active here.
   const myConnections = people.filter((p) => connectionIds.has(p.id))
   const emptyStatePeople = (myConnections.length > 0 ? myConnections : people.filter((p) => !p.is_admin)).slice(0, 6)
+  // The same set for the DESKTOP pane, but ordered by who is around: the empty
+  // pane's whole job is to start a conversation, and a message to somebody
+  // online gets answered today. Sorted from the full list before slicing, or
+  // the ordering would only shuffle whichever six the inbox happened to pick.
+  const startablePeople = (myConnections.length > 0 ? myConnections : people.filter((p) => !p.is_admin))
+    .slice()
+    .sort((a, b) => (isOnline(b.last_seen_at) ? 1 : 0) - (isOnline(a.last_seen_at) ? 1 : 0))
+    .slice(0, 8)
 
   // One row in the inbox for someone you haven't messaged yet.
   const personRow = (p, hint) => (
@@ -1460,12 +1469,71 @@ export default function Messages() {
         {/* ---------- Thread ---------- */}
         <section className={cx('min-w-0 flex-1 flex-col sm:flex', conversationId ? 'flex' : 'hidden')}>
           {!conversationId ? (
-            <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
+            // THE EMPTY PANE DOES SOMETHING NOW (1 Sep 2026).
+            //
+            // Ethan: "on dms when you first click on the tab and haven't opened
+            // a dm yet it shows 'Pick a conversation. Or start a new one from
+            // any creator's profile.' I think this is okay but something
+            // better, more engaging, motivating etc could be here, or some
+            // function, so think of this and improve it."
+            //
+            // It was an instruction to go somewhere else, on the largest empty
+            // rectangle in the product, sent to somebody who is already exactly
+            // where they need to be. So it does the thing instead: the people
+            // you could message, as faces you can press, sorted with whoever is
+            // online first - because "who is around right now" is the question
+            // that actually starts a conversation.
+            //
+            // It reuses `emptyStatePeople`, which the inbox's own empty state
+            // already builds (your connections, or active creators if you have
+            // none), so there is one definition of "who should I talk to" and
+            // no second query.
+            <div className="flex h-full flex-col items-center justify-center gap-5 p-8 text-center">
               <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-tint text-brand" aria-hidden>
                 <Icon name="chat" className="h-7 w-7" />
               </span>
-              <p className="font-semibold">{tr("Pick a conversation")}</p>
-              <p className="max-w-xs text-sm text-smoke">Or start a new one from any creator's profile.</p>
+              <div>
+                <p className="text-lg font-semibold">
+                  {conversations.length > 0 ? tr('Open a conversation') : tr('Say hello to someone')}
+                </p>
+                <p className="mx-auto mt-1 max-w-sm text-sm text-smoke">
+                  {conversations.length > 0
+                    ? tr('Pick one from the left, or start a new one with anybody below.')
+                    : tr('A message is how most things here actually start: a meet-up, a collab, a question about a brief.')}
+                </p>
+              </div>
+
+              {startablePeople.length > 0 && (
+                <div className="w-full max-w-md">
+                  <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                    {myConnections.length > 0 ? tr('Your connections') : tr('Creators here right now')}
+                  </p>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {startablePeople.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => startConversation(p.id)}
+                        disabled={starting === p.id}
+                        className="flex items-center gap-2 rounded-full border border-gray-200 bg-white py-1.5 pl-1.5 pr-3.5 text-sm font-medium transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-card disabled:opacity-60"
+                      >
+                        <span className="relative shrink-0">
+                          <Avatar src={p.photo_url} name={p.name} size="xs" />
+                          {isOnline(p.last_seen_at) && (
+                            <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-white" title={tr('Online now')} />
+                          )}
+                        </span>
+                        <span className="max-w-[9rem] truncate">{p.name?.split(' ')[0]}</span>
+                        {starting === p.id && <Spinner className="h-3.5 w-3.5" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <Link to="/creators" className="text-xs font-semibold text-brand hover:underline">
+                {tr('Browse all creators')}
+              </Link>
             </div>
           ) : (
             <>

@@ -61,7 +61,7 @@ export default function Login() {
   return (
     <AuthShell
       title="Welcome back"
-      subtitle="Log in to the Tryp.com Content Creator Program."
+      subtitle="Log in to the Tryp.com Content Creator Community."
       footer={<span>New here? <Link to="/signup" className="font-medium text-brand hover:underline">Create your account</Link></span>}
     >
       <form onSubmit={handleSubmit} className="space-y-5">

@@ -74,7 +74,7 @@ function Row({ to, onPick, active, flags, name, badge, hint }) {
   )
 }
 
-export default function PlaceSwitcher() {
+export default function PlaceSwitcher({ ready = true }) {
   const {network, chapters, myChapters} = useCommunity()
   const { pathname } = useLocation()
   const [sheet, setSheet] = useState(false)
@@ -123,7 +123,7 @@ export default function PlaceSwitcher() {
           and this is the only way to a market from there, so it has to read as
           the door it is rather than as a label you might not press. The height
           lesson survives - one line, ~44px, not the 68px card. */}
-      {/* IT ARRIVES, LIKE EVERYTHING ELSE ON THE PAGE.
+      {/* IT ARRIVES, LIKE EVERYTHING ELSE ON THE PAGE - AND ON THE SAME FRAME.
           Ethan: "for mobile, I noticed that the worldwide and the switcher
           thing at the top doesn't have any animations, so please add them in."
           Every section of the hub below this bar comes in on a `Reveal`, and
@@ -133,8 +133,22 @@ export default function PlaceSwitcher() {
           `animate-fade-up` is the platform's own CSS entrance (index.css), not
           a motion component: this bar renders on every network page including
           the eagerly-routed ones, and it is one element. It respects
-          prefers-reduced-motion with everything else in that file. */}
-      <div className="animate-fade-up mb-4 lg:hidden">
+          prefers-reduced-motion with everything else in that file.
+
+          `ready` IS THE FIX FOR THE SECOND HALF OF THAT REPORT (1 Sep 2026).
+          Ethan: "you did this but its not in sync with the others, it appears
+          first and the others are delayed."
+
+          This is the greeting's bug, one element higher up the page. The bar
+          depends on nothing, so its CSS entrance ran on the FIRST PAINTED
+          FRAME - while every section under it was still behind `if (!data)`,
+          waiting on a query, and only started once that landed. The gap between
+          them was never a delay value; it was the latency of a round trip, and
+          no amount of tuning the ladder could have closed it.
+          It waits on the same signal the article and the rail wait on, so all
+          three start together. A page that passes no `ready` is a page with
+          nothing to wait for, and behaves exactly as before. */}
+      <div className={cx('mb-4 lg:hidden', ready ? 'animate-fade-up' : 'opacity-0')}>
         <button
           type="button"
           onClick={() => setSheet(true)}

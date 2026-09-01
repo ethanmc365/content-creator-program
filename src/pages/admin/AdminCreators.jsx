@@ -207,7 +207,7 @@ export default function AdminCreators() {
   // Quick-approve a pending applicant straight from the list (a DB trigger
   // sends them the welcome notification, same as the Applications page).
   async function acceptCreator(creator) {
-    if (!await confirm(`Approve ${creator.name}? They'll become an active member of the program.`)) return
+    if (!await confirm(`Approve ${creator.name}? They'll become an active member of the community.`)) return
     const { error } = await supabase.from('profiles').update({ status: 'active' }).eq('id', creator.id)
     if (error) return flash(`Couldn't approve: ${error.message}`)
     flash(`${creator.name} approved and welcomed.`)

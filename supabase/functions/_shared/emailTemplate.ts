@@ -58,7 +58,7 @@ export function renderText(o: { title: string; bodyText: string; ctaLabel?: stri
   if (o.ctaLabel && o.ctaUrl) lines.push('', `${o.ctaLabel}: ${o.ctaUrl}`)
   lines.push('', '--')
   if (o.footerNote) lines.push(o.footerNote)
-  lines.push(`Tryp.com Content Creator Program - email preferences: ${o.appUrl}/settings`)
+  lines.push(`Tryp.com Content Creator Community - email preferences: ${o.appUrl}/settings`)
   return lines.join('\n')
 }
 
@@ -93,7 +93,7 @@ export function renderEmail(o: EmailOpts) {
             TRYP<span style="font-size:14px;font-weight:700">.com</span>
           </div>
           <div style="margin-top:7px;font-family:${FONT};font-size:12px;line-height:1;font-weight:600;letter-spacing:0.4px;color:#ffffff;opacity:0.85">
-            Content Creator Program
+            Content Creator Community
           </div>
         </td></tr>
 
@@ -112,7 +112,7 @@ export function renderEmail(o: EmailOpts) {
         <tr><td style="padding:20px 32px 28px;border-top:1px solid #f1f1f2">
           ${o.footerNote ? `<p style="margin:0 0 10px;font-family:${FONT};font-size:12px;line-height:1.6;color:${SMOKE}">${o.footerNote}</p>` : ''}
           <p style="margin:0;font-family:${FONT};font-size:12px;line-height:1.6;color:${SMOKE}">
-            Tryp.com Content Creator Program ·
+            Tryp.com Content Creator Community ·
             <a href="${esc(o.appUrl)}/settings" style="color:${BRAND};text-decoration:underline">Email preferences</a>
           </p>
         </td></tr>

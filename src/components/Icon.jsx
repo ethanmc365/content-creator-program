@@ -51,13 +51,6 @@ const PATHS = {
   'arrow-down': 'M19.5 13.5 12 21m0 0-7.5-7.5M12 21V3',
   heart: 'M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z',
   trash: 'M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0',
-  // A RAISED OPEN HAND, FOR SAYING HELLO.
-  //
-  // Ethan: "change the icon for introductions from the smiley face to a wave,
-  // like a hand waving." A smiley says "this room is cheerful"; a raised hand
-  // says "this is where you say hello", which is what the room is for. Kept
-  // beside `smile`, which is still the reaction picker's own glyph.
-  wave: 'M10.05 4.575a1.575 1.575 0 10-3.15 0v3m3.15-3v-1.5a1.575 1.575 0 013.15 0v1.5m-3.15 0l.075 5.925m3.075.75V4.575m0 0a1.575 1.575 0 013.15 0V15M6.9 7.575a1.575 1.575 0 10-3.15 0v8.175a6.75 6.75 0 006.75 6.75h2.018a5.25 5.25 0 003.712-1.538l1.732-1.732a5.25 5.25 0 001.538-3.712l.003-2.024a.668.668 0 01.198-.471 1.575 1.575 0 10-2.228-2.228 3.818 3.818 0 00-1.12 2.687M6.9 7.575V12m6.27 4.318A4.49 4.49 0 0116.35 15m.002 0h-.002',
   smile: 'M15.182 15.182a4.5 4.5 0 01-6.364 0M21 12a9 9 0 11-18 0 9 9 0 0118 0zM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75zm-.375 0h.008v.015h-.008V9.75zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75zm-.375 0h.008v.015h-.008V9.75z',
   bell: 'M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0',
   clock: 'M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z',
@@ -108,6 +101,39 @@ const PATHS = {
 // default outline set). `magnifier` is the Guess the Country mark - a bold
 // magnifying glass with a glint inside the lens.
 const LAYERED_PATHS = {
+  // A HAND THAT IS ACTUALLY WAVING (1 Sep 2026).
+  //
+  // Ethan: "I want the introductions icon changed to this one I attached but
+  // with the custom colour and design, this is a more wave like icon."
+  //
+  // What it was: Heroicons' `hand-raised` - a good, clean open hand, and a
+  // completely STILL one. At 18px in a tab strip a raised palm reads as "stop"
+  // at least as readily as "hello", which is the wrong half of the meaning for
+  // a room called Introductions.
+  //
+  // What makes it a wave is the MOTION LINES, not a different hand: two pairs
+  // of arcs radiating off opposite corners, which is the shape everybody
+  // already reads as movement. The hand keeps its own drawing, shrunk to make
+  // room and leaned twelve degrees so it is caught mid-swing rather than held
+  // up straight.
+  //
+  // It takes `currentColor` like every other glyph here, so the room list's
+  // brand orange applies unchanged.
+  wave: [
+    {
+      d: 'M10.05 4.575a1.575 1.575 0 10-3.15 0v3m3.15-3v-1.5a1.575 1.575 0 013.15 0v1.5m-3.15 0l.075 5.925m3.075.75V4.575m0 0a1.575 1.575 0 013.15 0V15M6.9 7.575a1.575 1.575 0 10-3.15 0v8.175a6.75 6.75 0 006.75 6.75h2.018a5.25 5.25 0 003.712-1.538l1.732-1.732a5.25 5.25 0 001.538-3.712l.003-2.024a.668.668 0 01.198-.471 1.575 1.575 0 10-2.228-2.228 3.818 3.818 0 00-1.12 2.687M6.9 7.575V12m6.27 4.318A4.49 4.49 0 0116.35 15m.002 0h-.002',
+      // Scaled about its own centre and leaned. The stroke scales with it, so
+      // the width is pre-divided by 0.72 to land back on the set's own 1.7.
+      transform: 'rotate(-12 11.6 12.7) translate(11.6 12.7) scale(0.72) translate(-11.6 -12.7)',
+      strokeWidth: 2.36,
+    },
+    // Off the top right, and again off the bottom left, so the hand reads as
+    // moving between them rather than leaning one way.
+    { d: 'M17.4 3.5a5 5 0 0 1 3.4 3.4', strokeWidth: 1.6 },
+    { d: 'M19.6 1.2a8.4 8.4 0 0 1 3.2 3.2', strokeWidth: 1.6 },
+    { d: 'M6.6 20.5a5 5 0 0 1-3.4-3.4', strokeWidth: 1.6 },
+    { d: 'M4.4 22.8a8.4 8.4 0 0 1-3.2-3.2', strokeWidth: 1.6 },
+  ],
   magnifier: [
     { d: 'M16.2 10.1a6.1 6.1 0 1 1-12.2 0 6.1 6.1 0 0 1 12.2 0z', strokeWidth: 2.5 },
     { d: 'M14.7 14.6l5.6 5.6', strokeWidth: 3.4 },
@@ -193,7 +219,16 @@ export default function Icon({ name, className = 'h-5 w-5', strokeWidth = 1.7 })
     return (
       <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
         {layered.map((p, i) => (
-          <path key={i} strokeLinecap="round" strokeLinejoin="round" strokeWidth={p.strokeWidth} d={p.d} />
+          // `transform` is optional and per PATH: the wave scales and leans its
+          // hand while leaving its motion arcs exactly where they were drawn.
+          <path
+            key={i}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={p.strokeWidth}
+            transform={p.transform}
+            d={p.d}
+          />
         ))}
       </svg>
     )

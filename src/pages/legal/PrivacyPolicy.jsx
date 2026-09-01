@@ -1,7 +1,7 @@
 import LegalShell, { H2 } from './LegalShell'
 
 // Controller details are filled in for Tryp.com LDA (the entity on tryp.com's
-// public privacy policy). Swap to Tryp.com ApS (Denmark) if the Creator Program
+// public privacy policy). Swap to Tryp.com ApS (Denmark) if the Creator Community
 // is operated by the Danish entity. This is a template, not legal advice.
 export default function PrivacyPolicy() {
   return (

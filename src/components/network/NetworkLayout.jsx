@@ -58,7 +58,11 @@ export default function NetworkLayout({ children, switcher = true, rail = null, 
   const max = width === 'narrow' ? 'max-w-4xl' : width === 'full' ? 'max-w-[1600px]' : 'max-w-7xl'
   return (
     <div className={cx('mx-auto w-full px-4 py-6 sm:px-6 lg:px-8 lg:py-8', max)}>
-      {switcher && <PlaceSwitcher />}
+      {/* `ready` reaches the switcher too. It is ABOVE everything the page
+          gates on its data, so a bar that animates on the first frame is the
+          most visible possible version of the two-clocks bug - see the note in
+          PlaceSwitcher. */}
+      {switcher && <PlaceSwitcher ready={ready} />}
       {rail ? (
         <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-8 xl:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="min-w-0">{children}</div>

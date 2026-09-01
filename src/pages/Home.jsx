@@ -115,7 +115,7 @@ export default function Home() {
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
           Hey {profile?.is_sandbox ? profile.name : profile?.name?.split(' ')[0]}
         </h1>
-        <p className="mt-2 text-smoke">Here's what's happening in the program right now.</p>
+        <p className="mt-2 text-smoke">Here's what's happening in the community right now.</p>
       </section>
 
       {/* ---------- Current challenge hero ---------- */}

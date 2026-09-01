@@ -334,21 +334,73 @@ export default function Connections() {
           meet" was a description of the three tabs directly underneath it. */}
       <PageHeader title={tr("Connections")} />
 
-      {/* Three numbers, not three sentences. The count of people waiting on you
-          is the one thing on this page that is time sensitive, so it is a number
-          and it is first. */}
-      <div className="mb-8 grid grid-cols-3 gap-3">
+      {/* THREE NUMBERS, AND EACH ONE IS THE COLOUR OF WHAT IT MEANS.
+          (1 Sep 2026.)
+
+          Ethan: "for the 3 boxes at the top, connections, requests, and online
+          now I would improve the ui of them, for example online now should show
+          the number in green and maybe connections should show the colour in
+          tryp.com orange."
+
+          They were three identical grey-bordered white cards with a black
+          number in each, and only Requests changed - and only when it was
+          non-zero. Three numbers that look the same are three numbers you have
+          to read the labels of; the whole point of a counter row is that you
+          take it in without reading.
+
+          So each carries its own meaning: Connections is the brand, because it
+          is the number this page is about; Requests goes brand-SOLID when
+          somebody is actually waiting, because it is the only one that is ever
+          urgent; Online now is green, which is the colour the presence dot on
+          every avatar in the product already uses, so the number and the dots
+          under it say the same thing in the same language. Each also gets its
+          own small glyph - a label in 11px uppercase is not much to
+          distinguish three cards with. */}
+      <div className="mb-8 grid grid-cols-3 gap-2.5 sm:gap-3">
         {[
-          { n: d.connections.length, label: d.connections.length === 1 ? 'Connection' : 'Connections' },
-          { n: d.requests.length, label: d.requests.length === 1 ? 'Request' : 'Requests', accent: d.requests.length > 0 },
-          { n: online, label: 'Online now' },
+          {
+            n: d.connections.length,
+            label: d.connections.length === 1 ? 'Connection' : 'Connections',
+            icon: 'users',
+            ring: 'border-brand/25 bg-brand-tint/25',
+            ink: 'text-brand',
+            glyph: 'text-brand',
+          },
+          {
+            n: d.requests.length,
+            label: d.requests.length === 1 ? 'Request' : 'Requests',
+            icon: 'heart',
+            // Solid when somebody is waiting: a request nobody answers is a
+            // connection that never happens, and this is the only number here
+            // that goes stale.
+            ring: d.requests.length > 0 ? 'border-transparent bg-brand shadow-card' : 'border-gray-100 bg-white',
+            ink: d.requests.length > 0 ? 'text-white' : 'text-gray-300',
+            glyph: d.requests.length > 0 ? 'text-white/80' : 'text-gray-300',
+            label_ink: d.requests.length > 0 ? 'text-white/80' : undefined,
+          },
+          {
+            n: online,
+            label: 'Online now',
+            icon: 'sparkles',
+            ring: online > 0 ? 'border-green-200 bg-green-50/70' : 'border-gray-100 bg-white',
+            ink: online > 0 ? 'text-green-600' : 'text-gray-300',
+            glyph: online > 0 ? 'text-green-500' : 'text-gray-300',
+          },
         ].map((s) => (
-          <div key={s.label} className={cx(
-            'rounded-card border px-4 py-3.5 text-center',
-            s.accent ? 'border-brand/30 bg-brand-tint/25' : 'border-gray-100 bg-white',
-          )}>
-            <p className={cx('text-2xl font-bold tabular-nums', s.accent ? 'text-brand' : 'text-ink')}>{s.n}</p>
-            <p className="text-[11px] font-medium uppercase tracking-wide text-smoke">{s.label}</p>
+          <div
+            key={s.label}
+            className={cx(
+              'rounded-card border px-3 py-3.5 text-center transition-all duration-200 hover:-translate-y-0.5 sm:px-4',
+              s.ring,
+            )}
+          >
+            <p className={cx('flex items-center justify-center gap-1.5 text-2xl font-bold tabular-nums', s.ink)}>
+              <Icon name={s.icon} className={cx('h-4 w-4 shrink-0', s.glyph)} />
+              {s.n}
+            </p>
+            <p className={cx('mt-0.5 text-[11px] font-semibold uppercase tracking-wide', s.label_ink || 'text-smoke')}>
+              {tr(s.label)}
+            </p>
           </div>
         ))}
       </div>

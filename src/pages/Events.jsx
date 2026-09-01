@@ -853,21 +853,52 @@ function MonthGrid({ days, month, eventsOn, travelDays, selectedDay, onSelect, l
                 'group relative flex min-h-[68px] flex-col items-center gap-1.5 p-2 transition-all duration-150 sm:min-h-[92px]',
                 'hover:z-10 hover:bg-brand-tint/40 active:scale-[0.97]',
                 away ? 'bg-brand-tint/50' : outside ? 'bg-cloud/30' : 'bg-white',
-                selected && '!bg-brand-tint ring-2 ring-inset ring-brand/50',
+                selected && 'z-10',
               )}
             >
+              {/* THE SELECTED DAY IS A ROUNDED CARD INSIDE THE CELL, NOT THE
+                  CELL PAINTED ORANGE. (1 Sep 2026.)
+
+                  Ethan: "when you click on a square a date on the calendar it
+                  shows up in an ugly orange colour and the corners look very
+                  sharp, improve the design, colour and maybe round the corners
+                  if you can make it look clean."
+
+                  Both complaints have the same cause. The grid is `gap-px` over
+                  a grey ground, so a cell IS a hard-edged square by
+                  construction, and filling it means a full-bleed rectangle with
+                  four right angles - which cannot be rounded, because rounding
+                  the cell would cut holes in the grid lines. And `bg-brand-tint`
+                  under a `ring-brand/50` is two different oranges a shade apart
+                  covering the whole square, which is what makes it read as a
+                  flat slab rather than a selection.
+
+                  So the selection is its own element, inset by four pixels and
+                  properly rounded: white ground, a clean brand border and a
+                  soft brand shadow. The grid keeps its lines, the day number
+                  and the event dots sit on white rather than on orange, and the
+                  corners are round because the thing being drawn is round. */}
+              {selected && (
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute inset-[3px] rounded-xl border-2 border-brand bg-white shadow-[0_4px_14px_-4px_rgba(217,68,7,0.45)]"
+                />
+              )}
               {/* The travelling wash gets a hairline at the top of the cell so a
                   run of days reads as one stay rather than six tinted squares. */}
               {away && <span className="absolute inset-x-0 top-0 h-0.5 bg-brand-light/70" aria-hidden />}
               <span className={cx(
-                'flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold tabular-nums transition-all duration-200',
+                'relative flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold tabular-nums transition-all duration-200',
                 today ? 'bg-brand text-white shadow-card' : outside ? 'text-gray-300' : 'text-ink group-hover:bg-white',
+                // On the selected day the number is the brand, so the cell says
+                // "this one" twice without needing a second fill behind it.
+                selected && !today && 'text-brand',
               )}>
                 {format(day, 'd')}
               </span>
 
               {list.length > 0 && (
-                <span className="flex flex-wrap items-center justify-center gap-1">
+                <span className="relative flex flex-wrap items-center justify-center gap-1">
                   {list.slice(0, 4).map((e) => (
                     <span
                       key={e.id}

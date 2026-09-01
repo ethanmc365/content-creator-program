@@ -1,11 +1,17 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Modal, Panel, Toggle } from './ui'
 import Icon from './Icon'
-import { enablePush, disablePush, pushSupported, pushPermission, showLocalNotification } from '../lib/push'
+import { enablePush, pushSupported, pushPermission, showLocalNotification } from '../lib/push'
 import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
+
+// Whether this device has EVER had push granted. Local, because it is a fact
+// about the device rather than about the account: the same creator on a laptop
+// and a phone can honestly answer differently, and the point of it is to tell
+// "you switched these off" apart from "you never switched these on".
+const PUSH_EVER_KEY = 'tryp-push-granted-once'
 
 // Notification preferences, extracted from the old standalone page so they can
 // live INLINE inside the Settings page (one place, no click-through). The state
@@ -101,12 +107,55 @@ export function useNotificationPrefs() {
     else if (result === 'unsupported') setPushMsg('This browser does not support push notifications.')
     else setPushMsg('Something went wrong turning on notifications. Please try again.')
   }
-  async function turnOffPush() {
-    setBusy(true); await disablePush(); setBusy(false)
-    setPushMsg('Push notifications turned off for this device.')
-  }
+  // THERE IS NO "TURN OFF" BUTTON, AND THAT IS DELIBERATE (1 Sep 2026).
+  //
+  // Ethan: "remove the turn off push notifications button, we shouldn't have
+  // this button, once they enabled they enabled but creators can obviously turn
+  // them off on the actual settings on their phone."
+  //
+  // He is right, and the reason is that this button never did what it looked
+  // like it did. It dropped the SUBSCRIPTION but it cannot touch the browser
+  // PERMISSION, so pressing it left the device permanently permitted and
+  // silently unsubscribed - a state no operating system setting explains and
+  // which reads as "notifications are broken". The switch that genuinely turns
+  // them off lives in iOS and Android settings, is one somebody already knows
+  // how to find, and is honest about what it does.
+  //
+  // What is left in here is per-TYPE control, which is the thing a creator
+  // actually wants ("stop telling me about new members, keep telling me about
+  // challenges"), and which this page has always had.
 
-  return { prefs, emailPrefs, reminderDays, permission, busy, pushMsg, togglePush, toggleEmail, toggleReminderDay, turnOnPush, turnOffPush }
+  // AND THE APP NOTICES WHEN THEY DO TURN THEM OFF THERE.
+  //
+  // Ethan: "ensure the app notices if they do this and prompts them to
+  // re-enable them again." The permission is only read on mount, so a creator
+  // who switched it off in iOS settings and came back saw "On for this device"
+  // for ever. It is re-read whenever the tab is shown again, which is exactly
+  // when they get back from the settings app.
+  useEffect(() => {
+    const recheck = () => setPermission(pushPermission())
+    document.addEventListener('visibilitychange', recheck)
+    window.addEventListener('focus', recheck)
+    return () => {
+      document.removeEventListener('visibilitychange', recheck)
+      window.removeEventListener('focus', recheck)
+    }
+  }, [])
+
+  // Whether this device HAD a subscription. A creator who has been turned off
+  // at the OS level is not the same as one who never switched it on, and the
+  // prompt has to be able to tell them apart - "turn these back on" is the
+  // wrong sentence for somebody who has never had them.
+  const [hadPush, setHadPush] = useState(() => {
+    try { return localStorage.getItem(PUSH_EVER_KEY) === '1' } catch { return false }
+  })
+  useEffect(() => {
+    if (permission !== 'granted') return
+    try { localStorage.setItem(PUSH_EVER_KEY, '1') } catch { /* private mode */ }
+    setHadPush(true)
+  }, [permission])
+
+  return { prefs, emailPrefs, reminderDays, permission, hadPush, busy, pushMsg, togglePush, toggleEmail, toggleReminderDay, turnOnPush }
 }
 
 // A single per-type row with a push toggle (and, once email is live, an email one).
@@ -196,7 +245,42 @@ export function CreatorNotifications({ state }) {
             <button onClick={() => showLocalNotification({ title: 'Tryp.com', body: 'Test notification - you are all set!', link: '/notifications' })} className="btn-secondary !py-2 text-xs">
               {tr("Send a test")}
             </button>
-            <button onClick={state.turnOffPush} disabled={state.busy} className="btn-ghost !py-2 text-xs">{tr("Turn off")}</button>
+            {/* No "Turn off". See the note beside `turnOnPush`: it could never
+                do what it looked like it did, and the switch that can is in the
+                phone's own settings. */}
+          </div>
+        ) : state.permission === 'denied' ? (
+          // BLOCKED AT THE OPERATING SYSTEM, AND SAID SO.
+          //
+          // `Notification.requestPermission()` resolves instantly with 'denied'
+          // once a device has been told no - it does not re-prompt - so an
+          // "Enable notifications" button here is a button that cannot work.
+          // What it needs is the two sentences that tell somebody where the
+          // real switch is. `hadPush` picks which two: a creator who had them
+          // and lost them is being told something changed, and a creator who
+          // never turned them on is being told how.
+          <div className="flex items-start gap-3 rounded-xl border border-brand/20 bg-brand-tint/30 px-4 py-3.5">
+            <Icon name="mute" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-brand">
+                {state.hadPush ? tr('Notifications were switched off on this device') : tr('This device is blocking notifications')}
+              </p>
+              <p className="mt-0.5 text-sm text-smoke">
+                {state.hadPush
+                  ? tr('You had these on. Your phone is blocking them now, so you are missing challenge deadlines, replies and results.')
+                  : tr('We cannot ask again from here once a device has said no.')}
+              </p>
+              <p className="mt-2 text-xs text-smoke">
+                {tr('Turn them back on in Settings → Notifications → Tryp.com (iPhone), or by pressing the padlock beside the address bar and allowing notifications (browser).')}
+              </p>
+              <button
+                onClick={state.turnOnPush}
+                disabled={state.busy}
+                className="btn-secondary mt-3 !py-2 text-xs"
+              >
+                {tr('I have turned them on - check again')}
+              </button>
+            </div>
           </div>
         ) : (
           <button onClick={state.turnOnPush} disabled={state.busy} className="btn-primary"

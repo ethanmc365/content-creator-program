@@ -88,7 +88,7 @@ export default function Landing() {
       {/* ---------- Hero ---------- */}
       <section className="mx-auto max-w-6xl px-5 pb-24 pt-20 text-center sm:px-8 sm:pt-32">
         <p className="mx-auto mb-6 inline-block rounded-full bg-brand-tint px-4 py-1.5 text-xs font-semibold text-brand">
-          Tryp.com Content Creator Program
+          Tryp.com Content Creator Community
         </p>
         <h1 className="mx-auto max-w-3xl text-5xl font-bold leading-[1.1] tracking-tight sm:text-7xl">
           Create. Earn. <span className="text-brand">Travel.</span>
@@ -278,7 +278,7 @@ export default function Landing() {
             Free to join. One challenge live right now.
           </p>
           <Link to="/signup" className="btn mt-10 bg-white !px-10 !py-4 !text-base text-brand hover:bg-white/90">
-            Join the program →
+            Join the community →
           </Link>
         </div>
       </section>
@@ -288,7 +288,7 @@ export default function Landing() {
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-5 text-center sm:px-8">
           <img src="/brand/tryp-logo.png" alt="Tryp.com" className="h-8 rounded-lg" />
           <p className="text-xs text-smoke">
-            © {new Date().getFullYear()} Tryp.com Content Creator Program ·{' '}
+            © {new Date().getFullYear()} Tryp.com Content Creator Community ·{' '}
             <a href={TRYP_URL} target="_blank" rel="noopener noreferrer" className="font-medium text-brand hover:underline">tryp.com ↗</a>
           </p>
           <p className="text-xs text-smoke">

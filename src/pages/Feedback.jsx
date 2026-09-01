@@ -87,7 +87,7 @@ export default function Feedback() {
     <div className="page max-w-3xl">
       <PageHeader
         title="Report a bug or suggest a feature"
-        subtitle="Spotted something broken, or have an idea to make the program better? Tell us, every report goes straight to the Tryp.com team."
+        subtitle="Spotted something broken, or have an idea to make the community better? Tell us, every report goes straight to the Tryp.com team."
       />
 
       <Reveal from="down">

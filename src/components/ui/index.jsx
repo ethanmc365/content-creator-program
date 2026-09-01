@@ -255,7 +255,30 @@ export function PageHeader({ title, subtitle, action, back, inlineAction = false
           <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{title}</h1>
           {subtitle && <p className="mt-2 max-w-xl text-smoke">{subtitle}</p>}
         </div>
-        {action && <div className="shrink-0">{action}</div>}
+        {/* A LONE ACTION IS FULL WIDTH ON A PHONE. (1 Sep 2026.)
+
+            Ethan: "the ask a question button is at the top in the left hand
+            side; it should either span across the entire top or be centred in
+            the top. Please improve this design across the layouts."
+
+            The header already stacked below `sm`, but the action was
+            `shrink-0` and shrink-to-fit, so on every page with one primary
+            button it wrapped onto its own line and sat against the left margin:
+            a small orange rectangle under a 30px heading, alone in a lot of
+            white, and usually the only thing on the screen you are meant to
+            press.
+
+            THE SELECTOR IS DELIBERATELY NARROW. It reaches a DIRECT button or
+            anchor child only, which is exactly the single-action case. A header
+            that hands over a row of two or three (AdminRewards, the challenge
+            page's admin controls) passes a wrapping div, and a div is not
+            matched - so those keep their own layout and nothing gets a stray
+            `w-full` it was not designed for. */}
+        {action && (
+          <div className="w-full shrink-0 sm:w-auto max-sm:[&>a]:w-full max-sm:[&>a]:justify-center max-sm:[&>button]:w-full max-sm:[&>button]:justify-center">
+            {action}
+          </div>
+        )}
       </div>
     </div>
   )

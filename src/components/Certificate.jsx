@@ -40,7 +40,7 @@ export default function Certificate({
       <div className="absolute inset-[26px] rounded-[12px] border border-brand/10" />
 
       <div className="relative flex h-full flex-col items-center justify-center px-20 text-center">
-        <p className="text-[13px] font-bold uppercase tracking-[0.42em] text-brand">Tryp.com Creator Program</p>
+        <p className="text-[13px] font-bold uppercase tracking-[0.42em] text-brand">Tryp.com Creator Community</p>
 
         <div className="mt-7 flex h-16 w-16 items-center justify-center rounded-full bg-brand text-white">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-8 w-8" aria-hidden>

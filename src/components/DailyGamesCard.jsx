@@ -5,6 +5,7 @@ import { StreakChip } from './ui'
 import { untilNextUkMidnight, dailyStreak } from '../lib/daily'
 import { useState } from 'react'
 import { DAILY_PUZZLES, useDailyPuzzles } from '../lib/dailyPuzzles'
+import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
 
 // Home page teaser for the daily puzzles: quick-play buttons, the creator's
@@ -45,8 +46,31 @@ export default function DailyGamesCard() {
                 key={p.key}
                 className={`flex items-center gap-3 px-5 py-4 ${i > 0 ? 'border-t border-gray-50 sm:border-l sm:border-t-0' : ''}`}
               >
-                <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white ${done ? 'bg-green-600' : 'bg-brand'}`}>
-                  <Icon name={done ? 'check' : p.icon} className="h-6 w-6" strokeWidth={2.2} />
+                {/* PLAYED IS AN ORANGE TILE WITH A GREEN TICK, NOT A GREEN
+                    TILE. (1 Sep 2026.)
+
+                    Ethan: "the left side has an icon with green tick, can you
+                    change this icon to tryp.com orange as the background with
+                    the green tick icon being green, because currently it seems
+                    too green. The played with tick button can remain green."
+
+                    The whole 40px tile flipped to `bg-green-600` when a puzzle
+                    was done, so a card with three played puzzles was a column
+                    of green blocks and the platform's only accent colour had
+                    left the card entirely. The tile belongs to the PUZZLE, so
+                    it stays the brand; the tick belongs to the STATE, so it is
+                    the green - on a white disc, which is what keeps a green
+                    glyph legible on orange at this size. The "Played" pill on
+                    the right is untouched, as asked. */}
+                <span className={cx(
+                  'relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white',
+                )}>
+                  <Icon name={p.icon} className="h-6 w-6" strokeWidth={2.2} />
+                  {done && (
+                    <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-card">
+                      <Icon name="check" className="h-3.5 w-3.5 text-green-600" strokeWidth={3} />
+                    </span>
+                  )}
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold">{p.title}</p>

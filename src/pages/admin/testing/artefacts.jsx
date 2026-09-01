@@ -36,7 +36,7 @@ export function RealEmail({ to, subject, title, children, cta, footerNote, attac
       {/* The client's own chrome, so it is obvious this is a received message
           rather than a page on the platform. */}
       <div className="space-y-1 border-b border-gray-100 bg-cloud/70 px-5 py-3.5">
-        <Head label="From" value="Tryp.com Creator Program <team@mail.tryp.com>" />
+        <Head label="From" value="Tryp.com Creator Community <team@mail.tryp.com>" />
         <Head label="To" value={to} />
         <Head label="Subject" value={subject} bold />
         {attachment && (
@@ -55,7 +55,7 @@ export function RealEmail({ to, subject, title, children, cta, footerNote, attac
               TRYP<span className="text-sm font-bold">.com</span>
             </p>
             <p className="mt-[7px] text-xs font-semibold leading-none tracking-wide text-white/85">
-              Content Creator Program
+              Content Creator Community
             </p>
           </div>
 
@@ -74,7 +74,7 @@ export function RealEmail({ to, subject, title, children, cta, footerNote, attac
           <div className="border-t border-[#f1f1f2] px-8 pb-7 pt-5">
             {footerNote && <p className="mb-2.5 text-xs leading-relaxed text-smoke">{footerNote}</p>}
             <p className="text-xs leading-relaxed text-smoke">
-              Tryp.com Content Creator Program ·{' '}
+              Tryp.com Content Creator Community ·{' '}
               <span className="text-brand underline">Email preferences</span>
             </p>
           </div>

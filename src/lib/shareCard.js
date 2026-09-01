@@ -169,7 +169,7 @@ export async function generateShareCard({ name, photoUrl, city, country, joinedY
 
   ctx.font = '400 30px Poppins, Arial, sans-serif'
   ctx.fillStyle = '#6b7280'
-  ctx.fillText('of the Tryp.com Content Creator Program', W / 2, 764)
+  ctx.fillText('of the Tryp.com Content Creator Community', W / 2, 764)
 
   // Stat tiles — portfolio value: videos created, countries, and total views
   // (or member-since if they have no logged views yet).

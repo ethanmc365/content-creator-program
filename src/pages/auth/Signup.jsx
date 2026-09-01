@@ -95,7 +95,7 @@ export default function Signup() {
 
   return (
     <AuthShell
-      title="Join the program"
+      title="Join the community"
       subtitle="Create your creator account. It takes a minute."
       footer={<span>Already a member? <Link to="/login" className="font-medium text-brand hover:underline">Log in</Link></span>}
     >

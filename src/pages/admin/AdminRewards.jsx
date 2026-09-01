@@ -132,7 +132,7 @@ function ReferralSection({ loading, rewards, owed, paid, pendingCount, busyId, o
   )
 }
 
-// The program's money hub: rewards (payouts) and prize invoices live
+// The community's money hub: rewards (payouts) and prize invoices live
 // together. A reward row's Invoice button jumps straight into the invoice
 // composer with the creator, amount and challenge prefilled.
 export default function AdminRewards() {
@@ -522,7 +522,7 @@ export default function AdminRewards() {
         onChange={setMarket}
       />
       <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Total program spend" value={money(spendTotal)} />
+        <StatCard label="Total community spend" value={money(spendTotal)} />
         <StatCard label="Distributed" value={money(paidTotal)} accent />
         <StatCard label="Pending payout" value={money(pendingTotal)} hint={pendingTotal.amount > 0 ? "Don't keep creators waiting" : 'All settled'} />
       </div>

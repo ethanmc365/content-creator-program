@@ -7,7 +7,7 @@ import NetworkMotion from '../components/NetworkMotion'
 import Reveal from '../components/network/Reveal'
 import Icon from '../components/Icon'
 import LocalTime from '../components/LocalTime'
-import { Avatar, EmptyState, Modal, Skeleton } from '../components/ui'
+import { ActionRow, Avatar, EmptyState, Modal, Skeleton } from '../components/ui'
 import { confirm, notice } from '../lib/confirm'
 import { toast } from '../lib/toast'
 import {
@@ -436,7 +436,7 @@ export default function Board() {
           board doesn't have to be so wide, slightly more narrow." */}
       <NetworkLayout width="default" switcher={false}>
         <div className="space-y-6">
-          <header className="flex flex-wrap items-end justify-between gap-4">
+          <header className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
             <div>
               <h1 className="flex items-center gap-2.5 text-3xl font-bold tracking-tight sm:text-4xl">
                 <Icon name="chat" className="h-8 w-8 shrink-0 text-brand" />
@@ -449,10 +449,30 @@ export default function Board() {
                   without a sentence, and the space is better spent on the notes.
                   Ethan: "remove this description below the title." */}
             </div>
-            <button onClick={() => setAsking(true)} className="btn-primary transition-transform duration-200 hover:scale-105">
-              <Icon name="pencil" className="h-4 w-4" />
-              {tr("Ask a question")}
-            </button>
+            {/* FULL WIDTH ON A PHONE, THE SAME RULE AS EVERY OTHER PAGE.
+                (1 Sep 2026.)
+
+                Ethan: "an example is the community board page on mobile, the
+                ask a question button is at the top in the left hand side; it
+                should either span across the entire top or be centred in the
+                top. Please improve this design across the layouts."
+
+                It was a shrink-to-fit button in a `flex-wrap justify-between`
+                header, so on a phone it wrapped onto its own line and sat
+                against the left margin under a 30px heading - a small orange
+                rectangle in a lot of white, and the only thing on the page you
+                were meant to press. `ActionRow` is the rule the flight log and
+                the calendar already follow: the primary action takes the whole
+                width below `sm` and is an ordinary inline button above it. */}
+            <ActionRow
+              className="w-full sm:w-auto"
+              lead={(
+                <button onClick={() => setAsking(true)} className="btn-primary transition-transform duration-200 hover:scale-105">
+                  <Icon name="pencil" className="h-4 w-4" />
+                  {tr("Ask a question")}
+                </button>
+              )}
+            />
           </header>
 
           {/* SEARCH IS THE FIRST CONTROL, not a filter tucked beside the tags.

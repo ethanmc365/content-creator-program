@@ -433,7 +433,7 @@ function ReviewQueue({ queue, setQueue, callFn, reload }) {
                   value={item.cta_label || ''} onChange={(e) => patch(item.id, { cta_label: e.target.value })}
                 />
                 <p className="mt-1 text-xs text-smoke">
-                  Opens the Creator Program at <code className="text-brand">{item.cta_path}</code>.
+                  Opens the Creator Community at <code className="text-brand">{item.cta_path}</code>.
                 </p>
               </div>
             </div>

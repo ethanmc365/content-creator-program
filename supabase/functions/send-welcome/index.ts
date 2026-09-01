@@ -40,7 +40,7 @@ const SMTP_PORT = Number(Deno.env.get('SMTP_PORT') ?? '465')
 const SMTP_USER = Deno.env.get('SMTP_USER')
 const SMTP_PASS = Deno.env.get('SMTP_PASS')
 const MAIL_FROM = Deno.env.get('MAIL_FROM') ?? 'Tryp.com <no-reply@tryp.com>'
-// Every button in every email points at the Creator Program app, never tryp.com.
+// Every button in every email points at the Creator Community app, never tryp.com.
 const APP_URL = Deno.env.get('APP_URL') ?? 'https://trypcreators.vercel.app'
 const REPLY_TO = Deno.env.get('REPLY_TO') ?? MAIL_FROM.match(/<([^>]+)>/)?.[1] ?? MAIL_FROM
 
@@ -54,7 +54,7 @@ const cors = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
 
-const FOOTER = 'You are receiving this because your application to the Tryp.com Content Creator Program was accepted.'
+const FOOTER = 'You are receiving this because your application to the Tryp.com Content Creator Community was accepted.'
 
 // One message, one fresh connection. NOT pooled: denomailer's pooled client was
 // the likely source of a hard crash, and at this volume the extra TLS handshake
@@ -117,7 +117,7 @@ Deno.serve(async (req) => {
 
     // Callers pass a PATH only, so an email can never be pointed off-platform.
     const path = typeof ctaPath === 'string' && ctaPath.startsWith('/') ? ctaPath : '/home'
-    const label = ctaLabel ? String(ctaLabel) : 'Open the Creator Program'
+    const label = ctaLabel ? String(ctaLabel) : 'Open the Creator Community'
     const ctaUrl = `${APP_URL}${path}`
 
     // {{name}} is normally resolved when the trigger queues the row, but a

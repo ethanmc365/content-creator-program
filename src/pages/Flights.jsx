@@ -595,6 +595,12 @@ export default function Flights() {
   // write, and it updates live as the date is typed - so the labels and the
   // save button change under your hands the moment you enter a future date.
   const upcoming = !!form.flown_on && form.flown_on > today
+
+  // IS THIS TRIP STILL AHEAD? The one definition, read by every surface that
+  // offers to put a flight on the collab board. `>= today` and not `>` on
+  // purpose: a flight you are taking TODAY is exactly the one somebody might
+  // still meet you off, and Ethan's rule is "current or future trips".
+  const tripIsUpcoming = useCallback((f) => !!f?.flown_on && f.flown_on >= today, [today])
   // The year-on-year panel, off until asked for. See YearColumn.
   const [compare, setCompare] = useState(false)
   // What to offer after a flight is saved: the collab board post.
@@ -1093,6 +1099,9 @@ export default function Flights() {
   function offerTrip(f) {
     const arrived = airport(f.to_iata)
     if (!arrived) return
+    // BELT AND BRACES. The callers already hide the control on a past trip;
+    // this is the guard that means a third caller cannot reintroduce the bug.
+    if (!tripIsUpcoming(f)) return
     const back = (rows || []).find((x) => x.return_of === f.id)
     setOffer({
       city: arrived.city,
@@ -2365,13 +2374,34 @@ export default function Flights() {
               ))}
             </div>
 
+            {/* ONLY A TRIP THAT HAS NOT HAPPENED CAN BE POSTED (1 Sep 2026).
+
+                Ethan: "I seemed to be able to log a past flight and then click
+                edit and then it shows up a weird icon saying share to collab
+                board and I pressed it and it then shared it and it appeared as
+                a past trip. Remember only current or future trips logged on
+                flight log should get a popup saying post to collab board."
+
+                The rule was already right in ONE of the two places that offer
+                this - the post-save offer checks `upcoming` - and completely
+                absent from the other. So the button was there on a flight from
+                2019, and pressing it put "I am in Seville" on a board where
+                nobody could act on it.
+                `tripIsUpcoming` is now the one definition, read by both.
+
+                AND IT IS A REAL BUTTON. It was `btn-ghost` beside a
+                `btn-secondary`, which at this size is an orange glyph and some
+                text with no boundary at all - the "weird icon" in the report.
+                A row of two actions is two buttons that look like buttons. */}
             <div className="flex flex-wrap gap-2">
               <button onClick={() => { const f = detail.out; setDetail(null); openEdit(f) }} className="btn-secondary !py-2.5 text-sm">
                 <Icon name="pencil" className="h-4 w-4" /> {tr("Edit")}
               </button>
-              <button onClick={() => { const f = detail.out; setDetail(null); offerTrip(f) }} className="btn-ghost !py-2.5 text-sm">
-                <Icon name="share" className="h-4 w-4" /> {tr("Post to the collab board")}
-              </button>
+              {tripIsUpcoming(detail.out) && (
+                <button onClick={() => { const f = detail.out; setDetail(null); offerTrip(f) }} className="btn-secondary !py-2.5 text-sm">
+                  <Icon name="share" className="h-4 w-4" /> {tr("Post to the collab board")}
+                </button>
+              )}
             </div>
           </div>
         )}

@@ -100,7 +100,7 @@ const TripCard = memo(function TripCard({
   const person = p.profiles || {}
   const selectedCountries = useMemo(() => (mapCountry ? [mapCountry] : []), [mapCountry])
   return (
-    <div className={`card flex h-full flex-col gap-4 !p-6 ${past ? 'opacity-75' : ''}`}>
+    <div className={`card flex h-full flex-col ${past ? 'gap-3 !p-5 opacity-80' : 'gap-4 !p-6'}`}>
       <div className="flex items-start justify-between gap-3">
         <Link to={`/profile/${person.id}`} className="flex items-center gap-3 group">
           <Avatar src={person.photo_url} name={person.name} size="md" />
@@ -160,10 +160,27 @@ const TripCard = memo(function TripCard({
         )
       )}
 
-      {/* Exactly three lines, whenever there is a note ANYWHERE on the board.
-          Whitespace is collapsed first: a note written as four short lines
-          would otherwise lay out as four lines and clamp at three with no
-          ellipsis, which reads as the card having eaten the rest.
+      {/* THE NOTE BOX IS NOT RESERVED ON A PAST CARD. (1 Sep 2026.)
+
+          Ethan, of the archive: "the ui needs to be improved, it doesn't show
+          the ui anymore which is good but there's still a big blank space so
+          just improve it."
+
+          The blank space is this box plus the `gap-4` where the map used to be.
+          `reserveNote` exists so that one creator's paragraph cannot make their
+          card taller than the one beside it - that is a LIVE-board problem,
+          where the cards sit next to a map and a pair of buttons and a ragged
+          row is obvious. A past card is four short lines with nothing to line
+          up against, so reserving sixty pixels on every one of them is sixty
+          pixels of empty paper, three across, all the way down the archive.
+
+          Below: a past card also drops to `gap-3`, because the gaps were sized
+          for a card with a map in it.
+
+          ON A LIVE CARD IT IS EXACTLY THREE LINES, whenever there is a note
+          ANYWHERE on the board. Whitespace is collapsed first: a note written
+          as four short lines would otherwise lay out as four lines and clamp at
+          three with no ellipsis, which reads as the card having eaten the rest.
 
           `reserveNote` is a property of the WHOLE SET, not of this card. The
           box exists to stop one creator's paragraph making their card taller
@@ -173,7 +190,13 @@ const TripCard = memo(function TripCard({
           predate the note being required) it is sixty pixels of empty paper on
           every single card for no reason, so the whole set drops it together
           and stays uniform either way. */}
-      {reserveNote && (
+      {past ? (
+        (p.note || '').trim() && (
+          <p className="line-clamp-2 text-sm leading-5 text-ink/80">
+            {(p.note || '').replace(/\s+/g, ' ').trim()}
+          </p>
+        )
+      ) : reserveNote && (
         <p className="line-clamp-3 h-[3.75rem] overflow-hidden text-sm leading-5 text-ink/90">
           {(p.note || '').replace(/\s+/g, ' ').trim()}
         </p>
@@ -196,7 +219,11 @@ const TripCard = memo(function TripCard({
           Your trip · visible to the community{interestCount > 0 ? ` · ${interestCount} interested` : ''}
         </p>
       )}
-      {past && <p className="mt-auto text-xs text-smoke">{tr("Trip ended")}</p>}
+      {/* `mt-auto` on a card with nothing under it pushes this to the bottom of
+          whatever the tallest card in the row is, which on a compact archive
+          row is the blank space itself. A past card has no growing middle, so
+          the line simply follows the note. */}
+      {past && <p className="text-xs font-medium text-smoke">{tr("Trip ended")}</p>}
     </div>
   )
 })
@@ -934,7 +961,10 @@ export default function Collab() {
         <section className="mt-12">
           <h2 className="mb-1 text-lg font-semibold">{tr("Past trips")}</h2>
           <p className="mb-5 text-sm text-smoke">{tr("Trips that have already happened.")}</p>
-          <Reveal className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {/* Four across, not three: an archive card is a name, a date range
+              and two lines, so it is roughly half the height of a live one and
+              a three-column grid of them is mostly gutter. */}
+          <Reveal className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {archived.map((p) => <TripCard key={p.id} {...cardProps(p)} past />)}
           </Reveal>
         </section>

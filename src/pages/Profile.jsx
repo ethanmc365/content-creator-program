@@ -261,7 +261,7 @@ export default function Profile() {
   if (!creator) {
     return (
       <div className="page">
-        <EmptyState icon={<Icon name="users" className="h-7 w-7" />} title={tr("Creator not found")} hint={tr("They may have left the program.")} action={<Link to="/creators" className="btn-primary">{tr("Browse creators")}</Link>} />
+        <EmptyState icon={<Icon name="users" className="h-7 w-7" />} title={tr("Creator not found")} hint={tr("They may have left the community.")} action={<Link to="/creators" className="btn-primary">{tr("Browse creators")}</Link>} />
       </div>
     )
   }

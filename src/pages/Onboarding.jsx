@@ -355,7 +355,7 @@ export default function Onboarding() {
       await supabase.from('messages').insert({
         channel: 'general',
         sender_id: user.id,
-        body: `Hey everyone! ${draft.name || 'A new creator'} here, just joined the program 👋`,
+        body: `Hey everyone! ${draft.name || 'A new creator'} here, just joined the community 👋`,
       })
     }
 
@@ -682,7 +682,7 @@ function Welcome({ name, pending }) {
       </div>
       <h1 className="text-3xl font-bold">Welcome to the crew{name ? `, ${name.split(' ')[0]}` : ''}!</h1>
       <p className="mx-auto max-w-md text-smoke">
-        You are joining the Tryp.com Content Creator Program, a global community of travel creators who
+        You are joining the Tryp.com Content Creator Community, a global community of travel creators who
         make great content, compete in challenges and earn real rewards.
       </p>
       <div className="mx-auto max-w-sm space-y-2.5 pt-2 text-left">

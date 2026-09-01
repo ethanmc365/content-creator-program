@@ -10,7 +10,7 @@ import { rewardsTotal } from '../lib/programme'
 const money = (t) => `${t?.converted ? '≈ ' : ''}${formatMoney(t?.amount ?? 0, t?.currency ?? 'EUR')}`
 import { useViewAs, ViewingAsBanner } from '../components/ViewingAs'
 
-// Creator-visible dashboard: their own performance + program-wide highlights.
+// Creator-visible dashboard: their own performance + community-wide highlights.
 // (The deep analytics with charts live in the admin-only dashboard.)
 export default function Dashboard() {
   // `?as=<id>` lets an admin read one creator's own dashboard. Inert for
@@ -85,7 +85,7 @@ export default function Dashboard() {
 
   return (
     <div className="page">
-      <PageHeader title="My dashboard" subtitle="Your performance in the program, at a glance." />
+      <PageHeader title="My dashboard" subtitle="Your performance in the community, at a glance." />
 
       <ViewingAsBanner viewing={viewing} person={person} />
 
@@ -123,9 +123,9 @@ export default function Dashboard() {
         )}
       </section>
 
-      {/* ---------- Program-wide highlights ---------- */}
+      {/* ---------- Community-wide highlights ---------- */}
       <section>
-        <h2 className="mb-4 text-lg font-semibold">Program highlights</h2>
+        <h2 className="mb-4 text-lg font-semibold">Community highlights</h2>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <StatCard label="Creators" value={data.creators} />
           <StatCard label="Challenges run" value={data.challengesRun} />
