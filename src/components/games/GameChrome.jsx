@@ -68,30 +68,63 @@ export function SoundToggle({ className }) {
  * @param {string} time     already formatted, or null to hide the clock
  * @param {function} onQuit
  */
-export default function GameChrome({ icon = 'joystick', title, done, total, correct, time, onQuit, children }) {
+export default function GameChrome({ icon = 'joystick', title, tag, done, total, correct, time, onQuit, children }) {
   const pct = total ? Math.round((done / total) * 100) : 0
   return (
-    <div className="rounded-card border border-gray-100 bg-white px-4 py-3.5 shadow-card sm:px-5">
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <p className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+    // TWO ROWS, AT EVERY WIDTH.
+    //
+    // Ethan, on Guess the language: "the volume button and quit seem really
+    // squashed in there." They were: one row was carrying a title, three
+    // numbers, an icon button and a text button, and on a phone the two
+    // controls ended up as a 30px huddle in the corner with no space around
+    // either. `flex-wrap` only made it worse - the row broke in a different
+    // place depending on how long the title was, so the header changed shape
+    // between games.
+    //
+    // So the row is split by what the things ARE. The top line is identity and
+    // the way out; the second is the three numbers you glance at while playing.
+    // Same shape on a phone and on a desktop, which is the other half of the
+    // ask: "make sure it's consistent with the other puzzle games."
+    <div className="rounded-card border border-gray-100 bg-white px-4 py-3 shadow-card sm:px-5 sm:py-3.5">
+      <div className="flex items-center justify-between gap-3">
+        {/* THE TITLE IS ALLOWED TO WRAP, NOT TRUNCATE. At 375px "Guess the
+            language" plus a chip plus two controls came to an ellipsis, and a
+            game whose name is cut off mid-word is worse than a header one line
+            taller. `leading-tight` keeps that second line cheap. */}
+        <p className="flex min-w-0 items-center gap-1.5 text-[13px] font-semibold leading-tight sm:gap-2 sm:text-sm">
           <Icon name={icon} className="h-4 w-4 shrink-0 text-brand" />
-          <span className="truncate">{title}</span>
+          <span className="min-w-0">{title}</span>
+          {/* "DAILY", AS A CHIP. It used to be part of the title as
+              "Guess the language · today", which Ethan called out - a middle dot
+              and a lowercase word reads as a subtitle that got stuck on the end
+              of a heading. The other two daily puzzles already wear a chip. */}
+          {tag && (
+            <span className="shrink-0 rounded-full bg-brand-tint px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand">
+              {tag}
+            </span>
+          )}
         </p>
-        <div className="flex items-center gap-4 sm:gap-6">
-          <Stat label="Question" value={`${Math.min(done + 1, total)}/${total}`} />
-          {time != null && <Stat label="Time" value={time} mono />}
-          <Stat label="Correct" value={correct} brand />
+        <div className="flex shrink-0 items-center gap-1.5">
           <SoundToggle />
           {onQuit && (
-            <button onClick={onQuit} className="text-xs font-medium text-smoke transition-colors hover:text-brand">
+            <button
+              onClick={onQuit}
+              className="rounded-full border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-smoke transition-colors hover:border-brand hover:text-brand"
+            >
               Quit
             </button>
           )}
         </div>
       </div>
 
+      <div className="mt-2.5 flex items-center gap-5 sm:gap-7">
+        <Stat label="Question" value={`${Math.min(done + 1, total)}/${total}`} />
+        {time != null && <Stat label="Time" value={time} mono />}
+        <Stat label="Correct" value={correct} brand />
+      </div>
+
       {/* THE BAR. Same height, same colour, same easing in every mode. */}
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-cloud">
+      <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-cloud">
         <div
           className="h-full rounded-full bg-gradient-to-r from-brand to-brand-light transition-[width] duration-500 ease-out"
           style={{ width: `${pct}%` }}

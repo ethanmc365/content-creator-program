@@ -4,7 +4,6 @@ import { useAuth } from '../../context/AuthContext'
 import { dailyLanguageRound, DAILY_LANGUAGE_ROUNDS } from '../../lib/languages'
 import { ukDayIndex, ukDayStartIso, untilNextUkMidnight, dailyStreak } from '../../lib/daily'
 import { cx } from '../../lib/utils'
-import { useOpenOnGame } from '../../lib/gameFocus'
 import Icon from '../Icon'
 import { Badge, Confetti, StreakChip } from '../ui'
 import GameChrome, { AnswerFlash } from './GameChrome'
@@ -97,7 +96,6 @@ export default function LanguageGame({ onExit }) {
   // it is what you answered FOR, and it lands below the fold otherwise.
   const cardRef = useRef(null)
   const answerRef = useRef(null)
-  useOpenOnGame(cardRef)
   useEffect(() => {
     if (!picked || !answerRef.current) return
     const t = setTimeout(
@@ -109,6 +107,24 @@ export default function LanguageGame({ onExit }) {
   const [correct, setCorrect] = useState(0)
   const [done, setDone] = useState(stored ? { correct: stored.correct, total: stored.total, timeMs: stored.timeMs } : null)
   const [checking, setChecking] = useState(!stored)
+  // NOBODY SCROLLS THE CARD INTO VIEW ANY MORE, AND THAT IS THE FIX.
+  //
+  // Ethan: "when clicking on the language game it immediately opens [part way
+  // down] - it should have been at the top, so I could view the time, the
+  // number of questions, and then still be able to click the phrase."
+  //
+  // There were TWO mechanisms trying to place this page and they disagreed.
+  // Game.jsx scrolls the WINDOW to zero whenever the screen changes, which is
+  // right and cannot be wrong: when a game is up the menu is unmounted, so the
+  // game IS the top of the page. `useOpenOnGame` then smooth-scrolled the
+  // card's own top to the top of the viewport, which is a different place -
+  // past the page heading and the round header - and it ran late enough (two
+  // frames, then a 300ms animation) to win. It also had to fight the two
+  // leaderboards loading in underneath and Chrome's scroll anchoring. Measured
+  // at 375px: the round header ended up 332px ABOVE the top of the screen.
+  //
+  // The hook is gone from all three daily puzzles. Game.jsx's `scrollTo(0)` was
+  // always the one that could not be wrong; the note there says as much.
   const [streakDays, setStreakDays] = useState([])
   const [elapsed, setElapsed] = useState(0)
   const startRef = useRef(0)
@@ -276,7 +292,8 @@ export default function LanguageGame({ onExit }) {
           the exception. */}
       <GameChrome
         icon="chat"
-        title="Guess the language · today"
+        title="Guess the language"
+        tag="Daily"
         done={picked ? i + 1 : i}
         total={questions.length}
         correct={correct}

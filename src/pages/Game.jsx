@@ -201,7 +201,10 @@ export default function Game() {
           four more you can play as often as you like", which is a description
           of the two section headings directly underneath it. */}
       <PageHeader
-        title={<span className="flex items-center gap-2"><Icon name="joystick" className="h-7 w-7 text-brand" /> Games</span>}
+        /* "Travel games", not "Games", and the same words the nav uses for it.
+           Ethan: "rename the auto heading to travel games, capital T, capital
+           G, rather than just games, for both mobile and desktop." */
+        title={<span className="flex items-center gap-2"><Icon name="joystick" className="h-7 w-7 text-brand" /> Travel Games</span>}
         subtitle={event ? `Event: ${event.title}` : undefined}
       />
 

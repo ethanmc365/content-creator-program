@@ -6,7 +6,6 @@ import Icon from '../Icon'
 import { generateZip, zipIndexForDay, wallKey } from '../../lib/zip'
 import { ukDayIndex, ukDayStartIso, untilNextUkMidnight, dailyStreak } from '../../lib/daily'
 import { cx } from '../../lib/utils'
-import { useOpenOnGame } from '../../lib/gameFocus'
 import { playCelebrate, playCoin, playWrong, playGearThud, engineThrust, engineStop } from '../../lib/gameSounds'
 
 // Flight Path: drag the plane through the numbered stops in order, leaving a
@@ -97,7 +96,6 @@ function PlaneIcon({ x, y, angle, scale = 3.4 }) {
 export default function ZipGame({ onExit }) {
   // Open on the puzzle rather than on the page it lives at the bottom of.
   const cardRef = useRef(null)
-  useOpenOnGame(cardRef)
   const { user } = useAuth()
   const [day] = useState(() => ukDayIndex())
   const [nextIn] = useState(() => untilNextUkMidnight(Date.now()))
