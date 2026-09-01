@@ -11,6 +11,7 @@ import Icon from '../components/Icon'
 import { PageHeader, SkeletonCards, EmptyState } from '../components/ui'
 import { platformsForProfile } from '../components/PlatformBadges'
 import { loadRelationships } from '../lib/connections'
+import { useT } from '../lib/i18n'
 
 const norm = (s) => (s || '').toLowerCase().replace(/[^a-z]/g, '')
 function distanceKm(aLat, aLng, bLat, bLng) {
@@ -23,6 +24,7 @@ function distanceKm(aLat, aLng, bLat, bLng) {
 // The creator directory: a spacious grid of cards with search + filters
 // (name, country visited, language, platform).
 export default function Directory() {
+  const tr = useT()
   const { user, profile } = useAuth()
   const [creators, setCreators] = useState([])
   const [relationships, setRelationships] = useState(new Map())
@@ -220,7 +222,7 @@ export default function Directory() {
           FILTER stays; that is a different thing, and it narrows this page
           rather than leaving it. */}
       <PageHeader
-        title="Creator Network"
+        title={tr("Creator Network")}
         subtitle="Discover the community. Connect with creators, start conversations, make friends, plan trips together and collab."
       />
 
@@ -292,12 +294,12 @@ export default function Directory() {
       {/* Search + filters */}
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <input
-          type="search" className="input" placeholder="Search by name…"
-          value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search creators by name"
+          type="search" className="input" placeholder={tr("Search by name…")}
+          value={search} onChange={(e) => setSearch(e.target.value)} aria-label={tr("Search creators by name")}
         />
-        <Combobox value={country} onChange={setCountry} options={allCountries} placeholder="Any country visited" ariaLabel="Filter by country visited" />
-        <Combobox value={language} onChange={setLanguage} options={allLanguages} placeholder="Any language" ariaLabel="Filter by language" />
-        <Combobox value={platform} onChange={setPlatform} options={['Instagram', 'TikTok', 'YouTube']} placeholder="Any platform" ariaLabel="Filter by platform" />
+        <Combobox value={country} onChange={setCountry} options={allCountries} placeholder={tr("Any country visited")} ariaLabel="Filter by country visited" />
+        <Combobox value={language} onChange={setLanguage} options={allLanguages} placeholder={tr("Any language")} ariaLabel="Filter by language" />
+        <Combobox value={platform} onChange={setPlatform} options={['Instagram', 'TikTok', 'YouTube']} placeholder={tr("Any platform")} ariaLabel="Filter by platform" />
       </div>
 
       {/* Active "who's travelling" note, so it's obvious why the grid is filtered. */}
@@ -307,7 +309,7 @@ export default function Directory() {
             <path d="M12 1.55 C13.05 1.55 13.71 3.45 13.71 6.11 L13.71 7.82 L21.5 12.95 L21.5 14.95 L13.71 11.81 L13.71 16.75 L16.18 19.22 L16.18 20.74 L12 19.32 L7.82 20.74 L7.82 19.22 L10.29 16.75 L10.29 11.81 L2.5 14.95 L2.5 12.95 L10.29 7.82 L10.29 6.11 C10.29 3.45 10.95 1.55 12 1.55 Z" />
           </svg>
           Showing the {travellerIds.size} creator{travellerIds.size === 1 ? '' : 's'} with an upcoming trip.
-          <button onClick={() => setTravelOnly(false)} className="font-medium text-brand hover:underline">Show everyone</button>
+          <button onClick={() => setTravelOnly(false)} className="font-medium text-brand hover:underline">{tr("Show everyone")}</button>
         </div>
       )}
 
@@ -316,7 +318,7 @@ export default function Directory() {
         <div className="mb-6 flex items-center gap-2 text-sm text-smoke">
           <Icon name="pin" className="h-4 w-4 text-brand" />
           Showing the {nearIds.size} creator{nearIds.size === 1 ? '' : 's'} nearest to you, closest first.
-          <button onClick={() => setNearMe(false)} className="font-medium text-brand hover:underline">Show everyone</button>
+          <button onClick={() => setNearMe(false)} className="font-medium text-brand hover:underline">{tr("Show everyone")}</button>
         </div>
       )}
 
@@ -327,16 +329,16 @@ export default function Directory() {
           {myConnectionIds.size > 0
             ? `Showing your ${myConnectionIds.size} connection${myConnectionIds.size === 1 ? '' : 's'}.`
             : "You haven't connected with anyone yet - browse creators and send a request."}
-          <button onClick={() => setConnectionsOnly(false)} className="font-medium text-brand hover:underline">Show everyone</button>
+          <button onClick={() => setConnectionsOnly(false)} className="font-medium text-brand hover:underline">{tr("Show everyone")}</button>
         </div>
       )}
 
       {!loading && team.length > 0 && !search && !country && !language && !platform && !connectionsOnly && !travelOnly && !nearMe && (
         <section className="mb-10">
           <div className="mb-3">
-            <h2 className="text-lg font-semibold">The Tryp.com team</h2>
+            <h2 className="text-lg font-semibold">{tr("The Tryp.com team")}</h2>
             <p className="mt-0.5 text-sm text-smoke">
-              We are in the community too. Connect or message any of us.
+              {tr("We are in the community too. Connect or message any of us.")}
             </p>
           </div>
           <Reveal className="grid grid-cols-1 gap-4 sm:grid-cols-2" stagger={0.05}>
@@ -363,11 +365,11 @@ export default function Directory() {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={<Icon name="magnifier" className="h-7 w-7" />}
-          title="No creators match those filters"
-          hint="Try removing a filter or searching a different name."
+          title={tr("No creators match those filters")}
+          hint={tr("Try removing a filter or searching a different name.")}
           action={
             <button onClick={() => { setSearch(''); setCountry(''); setLanguage(''); setPlatform(''); setNearMe(false); setTravelOnly(false); setConnectionsOnly(false) }} className="btn-secondary">
-              Clear filters
+              {tr("Clear filters")}
             </button>
           }
         />

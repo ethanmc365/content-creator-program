@@ -23,6 +23,7 @@ import { DAILY_PUZZLES, DAILY_KEYS, useDailyPuzzles } from '../lib/dailyPuzzles'
 import PinpointGame from '../components/games/PinpointGame'
 import ZipGame from '../components/games/ZipGame'
 import { cx } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 const BRAND = '#d94407'
 const BRAND_LIGHT = '#f5853f'
@@ -106,6 +107,7 @@ function FlameStreak({ n }) {
 }
 
 export default function Game() {
+  const tr = useT()
   const [params] = useSearchParams()
   const eventId = params.get('event')
   const { user } = useAuth()
@@ -235,7 +237,7 @@ export default function Game() {
         /* "Travel games", not "Games", and the same words the nav uses for it.
            Ethan: "rename the auto heading to travel games, capital T, capital
            G, rather than just games, for both mobile and desktop." */
-        title={<span className="flex items-center gap-2"><Icon name="joystick" className="h-7 w-7 text-brand" /> Travel Games</span>}
+        title={<span className="flex items-center gap-2"><Icon name="joystick" className="h-7 w-7 text-brand" /> {tr("Travel Games")}</span>}
         subtitle={event ? `Event: ${event.title}` : undefined}
       />
 
@@ -354,6 +356,7 @@ export default function Game() {
 // 40px exactly - an inexact pair leaves a sliver of a third line showing under
 // the clamp, which is the trap CreatorCard's bio fell into.
 function DailyCard({ daily, done, onPlay, streak }) {
+  const tr = useT()
   return (
     <button
       onClick={onPlay}
@@ -372,7 +375,7 @@ function DailyCard({ daily, done, onPlay, streak }) {
               title they wrapped or did not depending on how long the title was,
               which is where the difference in card heights came from. */}
           <span className="mt-1.5 flex h-5 flex-wrap items-center gap-2 overflow-hidden">
-            <span className="rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">Today</span>
+            <span className="rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">{tr("Today")}</span>
             {streak > 0 && (
               <span className="rounded-full bg-brand-tint px-2 py-0.5 text-[10px] font-bold text-brand">{streak} day streak</span>
             )}
@@ -384,7 +387,7 @@ function DailyCard({ daily, done, onPlay, streak }) {
           </span>
         </span>
         {done && (
-          <span className="absolute right-0 top-0 flex h-7 w-7 items-center justify-center rounded-full bg-green-100 text-green-600" title="Played today">
+          <span className="absolute right-0 top-0 flex h-7 w-7 items-center justify-center rounded-full bg-green-100 text-green-600" title={tr("Played today")}>
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12l5 5L20 6"/></svg>
           </span>
         )}
@@ -394,6 +397,7 @@ function DailyCard({ daily, done, onPlay, streak }) {
 }
 
 function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle, daysByPuzzle, playedToday }) {
+  const tr = useT()
   const chosen = MODE_BY_KEY[mode]
   const allDone = DAILIES.every((d) => playedToday.has(d.key))
   const doneCount = DAILIES.filter((d) => playedToday.has(d.key)).length
@@ -408,7 +412,7 @@ function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle, 
 
       <Reveal as="section" from="down" delay={0.06}>
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-lg font-semibold">Today&rsquo;s puzzles</h2>
+          <h2 className="text-lg font-semibold">{tr("Today&rsquo;s puzzles")}</h2>
           {/* The line that says WHY to come back today rather than tomorrow -
               and NOTHING at all once there is nothing left to come back for.
               "All three done. New ones at midnight." was telling somebody who
@@ -436,7 +440,7 @@ function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle, 
 
       <Reveal as="section" from="down" delay={0.12}>
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-lg font-semibold">Other Travel Games</h2>
+          <h2 className="text-lg font-semibold">{tr("Other Travel Games")}</h2>
         </div>
         {/* Four modes, so two rows of two on a phone and a clean row of four on
             a desktop. A three-column grid left one card orphaned. */}
@@ -489,7 +493,7 @@ function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle, 
       <Reveal as="section" from="down" delay={0.18} className="rounded-card border border-gray-100 bg-cloud/50 p-5">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-smoke">Ready to play</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-smoke">{tr("Ready to play")}</p>
             <p className="mt-0.5 flex items-center gap-2 text-lg font-semibold">
               <Icon name={chosen.icon} className="h-5 w-5 shrink-0 text-brand" />
               {chosen.title}
@@ -505,7 +509,7 @@ function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle, 
 
         {chosen.regions && (
           <div className="mt-4 border-t border-gray-200/70 pt-4">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-smoke">Where in the world</p>
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-smoke">{tr("Where in the world")}</p>
             <div className="flex flex-wrap gap-2">
               {REGIONS.map((r) => (
                 <button
@@ -532,6 +536,7 @@ function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle, 
 
 // ---------------------------------------------------------------- Round
 function Round({ mode, region, questions, onQuit, onFinish }) {
+  const tr = useT()
   const [i, setI] = useState(0)
   const [correct, setCorrect] = useState(0)
   const [answered, setAnswered] = useState(null) // { right, picked? }
@@ -631,7 +636,7 @@ function Round({ mode, region, questions, onQuit, onFinish }) {
       {mode === 'flags' && (
         <AnswerFlash key={`f${i}`} state={flash} className="card flex flex-col items-center gap-6 !py-10 text-center">
           <div className="text-[7rem] leading-none sm:text-[9rem]" aria-label="flag">{flagEmoji(current.iso2)}</div>
-          <TypeForm typed={typed} setTyped={setTyped} answered={answered} onSubmit={submitType} inputRef={inputRef} placeholder="Type the country…" />
+          <TypeForm typed={typed} setTyped={setTyped} answered={answered} onSubmit={submitType} inputRef={inputRef} placeholder={tr("Type the country…")} />
           {answered && <Feedback answered={answered} answer={current.name} reveal last={last} onNext={next} />}
         </AnswerFlash>
       )}
@@ -639,9 +644,9 @@ function Round({ mode, region, questions, onQuit, onFinish }) {
       {/* ---- Airports ---- */}
       {mode === 'airports' && (
         <AnswerFlash key={`a${i}`} state={flash} className="card flex flex-col items-center gap-5 !py-10 text-center">
-          <p className="text-xs font-semibold uppercase tracking-widest text-smoke">Which city?</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-smoke">{tr("Which city?")}</p>
           <div className="rounded-2xl bg-brand px-8 py-5 font-mono text-5xl font-extrabold tracking-widest text-white shadow-lift sm:text-6xl">{current.code}</div>
-          <TypeForm typed={typed} setTyped={setTyped} answered={answered} onSubmit={submitType} inputRef={inputRef} placeholder="Type the city…" />
+          <TypeForm typed={typed} setTyped={setTyped} answered={answered} onSubmit={submitType} inputRef={inputRef} placeholder={tr("Type the city…")} />
           {answered && <Feedback answered={answered} answer={current.city} reveal last={last} onNext={next} />}
         </AnswerFlash>
       )}
@@ -650,7 +655,7 @@ function Round({ mode, region, questions, onQuit, onFinish }) {
       {mode === 'currencies' && (
         <AnswerFlash key={`c${i}`} state={flash} className="card flex flex-col items-center gap-6 !py-10 text-center">
           <div>
-            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-smoke">Which currency does this country use?</p>
+            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-smoke">{tr("Which currency does this country use?")}</p>
             <div className="inline-flex items-center gap-3 rounded-2xl bg-brand px-8 py-5 text-white shadow-lift">
               <span className="text-4xl leading-none sm:text-5xl" aria-hidden>{flagEmoji(current.iso2)}</span>
               <span className="text-2xl font-bold sm:text-3xl">{current.name} uses?</span>
@@ -686,7 +691,7 @@ function Round({ mode, region, questions, onQuit, onFinish }) {
       {/* ---- Map ---- */}
       {mode === 'map' && (
         <AnswerFlash key={`m${i}`} state={flash} className="card !p-4 sm:!p-6">
-          <p className="mb-3 text-center text-lg font-semibold">Find: <span className="text-brand">{current.name}</span> {flagEmoji(current.iso2)}</p>
+          <p className="mb-3 text-center text-lg font-semibold">{tr("Find:")} <span className="text-brand">{current.name}</span> {flagEmoji(current.iso2)}</p>
           <GameMap placed={placed} revealed={revealed} flashWrong={flashWrong} answered={answered} onPick={pickOnMap} />
           {answered && <div className="mt-4"><Feedback answered={answered} reveal={false} last={last} onNext={next} /></div>}
         </AnswerFlash>
@@ -696,11 +701,12 @@ function Round({ mode, region, questions, onQuit, onFinish }) {
 }
 
 function TypeForm({ typed, setTyped, answered, onSubmit, inputRef, placeholder }) {
+  const tr = useT()
   return (
     <form onSubmit={onSubmit} className="flex w-full max-w-sm flex-col items-center gap-3">
       <input ref={inputRef} type="text" value={typed} disabled={!!answered} onChange={(e) => setTyped(e.target.value)}
         placeholder={placeholder} className="input text-center text-lg" autoComplete="off" autoCorrect="off" autoCapitalize="words" />
-      {!answered && <button type="submit" className="btn-primary w-full">Check</button>}
+      {!answered && <button type="submit" className="btn-primary w-full">{tr("Check")}</button>}
     </form>
   )
 }
@@ -727,6 +733,7 @@ const MAP_HOME = { coordinates: [12, 8], zoom: 1 }
 // Same object every render, or `<Geographies>` treats it as a new source.
 const EMPTY_GEO = { type: 'FeatureCollection', features: [] }
 function GameMap({ placed, revealed, flashWrong, answered, onPick }) {
+  const tr = useT()
   // Controlled zoom so we can offer on-screen +/- buttons (much friendlier than
   // pinch on a phone) and zoom deep enough to click small countries.
   const [pos, setPos] = useState(MAP_HOME)
@@ -779,11 +786,11 @@ function GameMap({ placed, revealed, flashWrong, answered, onPick }) {
       </ComposableMap>
       {/* On-screen zoom controls (drag the map to pan when zoomed in). */}
       <div className="absolute right-2 top-2 flex flex-col gap-1.5">
-        <button type="button" onClick={() => zoomBy(1.6)} aria-label="Zoom in" className="flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-lg font-bold text-ink shadow-card transition-transform hover:scale-105 active:scale-95">+</button>
-        <button type="button" onClick={() => zoomBy(1 / 1.6)} aria-label="Zoom out" className="flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-lg font-bold text-ink shadow-card transition-transform hover:scale-105 active:scale-95">−</button>
-        <button type="button" onClick={() => setPos(MAP_HOME)} aria-label="Reset zoom" className="flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-ink shadow-card transition-transform hover:scale-105 active:scale-95"><Icon name="globe" className="h-4 w-4" /></button>
+        <button type="button" onClick={() => zoomBy(1.6)} aria-label={tr("Zoom in")} className="flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-lg font-bold text-ink shadow-card transition-transform hover:scale-105 active:scale-95">+</button>
+        <button type="button" onClick={() => zoomBy(1 / 1.6)} aria-label={tr("Zoom out")} className="flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-lg font-bold text-ink shadow-card transition-transform hover:scale-105 active:scale-95">−</button>
+        <button type="button" onClick={() => setPos(MAP_HOME)} aria-label={tr("Reset zoom")} className="flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-ink shadow-card transition-transform hover:scale-105 active:scale-95"><Icon name="globe" className="h-4 w-4" /></button>
       </div>
-      <p className="px-3 pb-2 text-center text-[11px] text-smoke">Tap the country · pinch, scroll or use +/- to zoom · drag to pan · correct stays green, the answer shows in orange</p>
+      <p className="px-3 pb-2 text-center text-[11px] text-smoke">{tr("Tap the country · pinch, scroll or use +/- to zoom · drag to pan · correct stays green, the answer shows in orange")}</p>
     </div>
   )
 }
@@ -805,6 +812,7 @@ function verdict(pct) {
 }
 
 function Results({ result, mode, region, eventId, userId, onPlayAgain, onMenu }) {
+  const tr = useT()
   const [saving, setSaving] = useState(true)
   const pct = Math.round((result.correct / result.total) * 100)
   const great = pct >= 80
@@ -862,8 +870,8 @@ function Results({ result, mode, region, eventId, userId, onPlayAgain, onMenu })
       <Badge tone="light"><Icon name="clock" className="h-3.5 w-3.5" /> {fmtTime(result.time_ms)}</Badge>
       <p className="text-xs text-smoke">{saving ? 'Saving your score…' : 'Saved to the leaderboard'}</p>
       <div className="mt-2 flex flex-wrap justify-center gap-3">
-        <button onClick={onPlayAgain} className="btn-primary transition-transform duration-200 hover:scale-105">Play again</button>
-        <button onClick={onMenu} className="btn-secondary">Pick another game</button>
+        <button onClick={onPlayAgain} className="btn-primary transition-transform duration-200 hover:scale-105">{tr("Play again")}</button>
+        <button onClick={onMenu} className="btn-secondary">{tr("Pick another game")}</button>
       </div>
     </div>
   )
@@ -871,6 +879,7 @@ function Results({ result, mode, region, eventId, userId, onPlayAgain, onMenu })
 
 // ---------------------------------------------------------------- Leaderboard
 function Leaderboard({ mode, region, eventId, highlightUser, daily = false, heading = 'Leaderboard', blurb = null }) {
+  const tr = useT()
   const { isAdmin } = useAuth()
   const [rows, setRows] = useState(null)
   const [streaks, setStreaks] = useState({}) // player_id -> weekly streak for this mode
@@ -942,7 +951,7 @@ function Leaderboard({ mode, region, eventId, highlightUser, daily = false, head
       {rows === null ? (
         <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-cloud" />)}</div>
       ) : rows.length === 0 ? (
-        <p className="rounded-card border border-dashed border-gray-200 px-5 py-10 text-center text-sm text-smoke">No scores yet. Be the first to set one!</p>
+        <p className="rounded-card border border-dashed border-gray-200 px-5 py-10 text-center text-sm text-smoke">{tr("No scores yet. Be the first to set one!")}</p>
       ) : (
         <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
           {rows.map((r, idx) => {
@@ -968,8 +977,8 @@ function Leaderboard({ mode, region, eventId, highlightUser, daily = false, head
                     Country about how few clue words you needed. */}
                 {mode === 'zip' ? (
                   <span className="shrink-0 text-right text-xs font-semibold text-ink sm:text-sm">
-                    <span className="hidden sm:inline">Plane safely landed in </span>
-                    <span className="sm:hidden">Landed in </span>
+                    <span className="hidden sm:inline">{tr("Plane safely landed in")} </span>
+                    <span className="sm:hidden">{tr("Landed in")} </span>
                     <span className="tabular-nums text-brand">{fmtTime(r.time_ms)}</span>
                   </span>
                 ) : mode === 'pinpoint' ? (

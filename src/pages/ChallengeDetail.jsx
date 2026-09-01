@@ -17,6 +17,7 @@ import { Avatar, Badge, Modal, PageHeader, Skeleton, EmptyState, Spinner } from 
 import { formatDate, formatDateTimeTz, timeAgo, formatViews, formatMoney, detectPlatform, cx, challengeDeadline } from '../lib/utils'
 import { groupByCreator, boardsFor, prizeForGroup } from '../lib/challengeGroups'
 import { mdToHtml } from '../lib/richEditor'
+import { useT } from '../lib/i18n'
 
 
 // The submit form does its own validation so problems are shown in the branded
@@ -79,6 +80,7 @@ function parseParticipationPrize(prizes) {
 // threshold ("post 3+ videos"). Two very different numbers that both wanted the
 // same word.
 export default function ChallengeDetail({ challengeId = null, embedded = false, marketParticipation = null }) {
+  const tr = useT()
   const { id: routeId } = useParams()
   const id = challengeId || routeId
   const [searchParams] = useSearchParams()
@@ -347,7 +349,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
   if (!challenge) {
     return (
       <div className={shellClass}>
-        <EmptyState icon={<Icon name="flag" className="h-7 w-7" />} title="Challenge not found" action={<Link to="/challenges" className="btn-primary">All challenges</Link>} />
+        <EmptyState icon={<Icon name="flag" className="h-7 w-7" />} title={tr("Challenge not found")} action={<Link to="/challenges" className="btn-primary">{tr("All challenges")}</Link>} />
       </div>
     )
   }
@@ -475,26 +477,26 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                 the page they are about. */}
             {isAdmin && (
               <>
-                <Link to={`/admin/challenges/${id}/edit`} className="btn-secondary !py-2 text-xs">Edit</Link>
-                <Link to={`/admin/challenges/${id}/results`} className="btn-secondary !py-2 text-xs">Results</Link>
+                <Link to={`/admin/challenges/${id}/edit`} className="btn-secondary !py-2 text-xs">{tr("Edit")}</Link>
+                <Link to={`/admin/challenges/${id}/results`} className="btn-secondary !py-2 text-xs">{tr("Results")}</Link>
                 {challenge.status === 'draft' && (
                   <button onClick={() => setChallengeStatus('active')} disabled={lifecycleBusy} className="btn-primary !py-2 text-xs">
-                    Publish
+                    {tr("Publish")}
                   </button>
                 )}
                 {challenge.status === 'active' && (
                   <button onClick={() => setChallengeStatus('ended')} disabled={lifecycleBusy} className="btn-secondary !py-2 text-xs">
-                    Close entries
+                    {tr("Close entries")}
                   </button>
                 )}
                 {challenge.status === 'ended' && (
                   <button onClick={() => setChallengeStatus('archived')} disabled={lifecycleBusy} className="btn-secondary !py-2 text-xs">
-                    Archive
+                    {tr("Archive")}
                   </button>
                 )}
               </>
             )}
-            {isLive ? <Badge tone="brand">Live</Badge> : <Badge tone="grey">{challenge.status}</Badge>}
+            {isLive ? <Badge tone="brand">{tr("Live")}</Badge> : <Badge tone="grey">{challenge.status}</Badge>}
           </div>
         }
       />
@@ -503,7 +505,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
       {isLive && (
         <div className="mb-10 flex flex-col items-start gap-6 rounded-card bg-brand-tint/60 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
           <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-brand">Closes in</p>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-brand">{tr("Closes in")}</p>
             <CountdownTimer endDate={challenge.end_date} />
           </div>
           <button onClick={() => setShowSubmit(true)} className="btn-primary">
@@ -528,7 +530,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           {myGroup ? (
             <>
               <p className="text-sm">
-                You are in <span className="font-bold text-brand">{myGroup.name}</span>.
+                {tr("You are in")} <span className="font-bold text-brand">{myGroup.name}</span>.
                 {' '}You are ranked against the {boardCounts.get(myGroup.id) || 0} {(boardCounts.get(myGroup.id) || 0) === 1 ? 'creator' : 'creators'} in it, not the whole market.
               </p>
               {myPrize?.prize_amount != null && (
@@ -595,7 +597,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                 is the team). `rt-editor` is the stylesheet those tags are
                 already written for. */}
             <section className="card">
-              <h2 className="mb-3 text-lg font-semibold">The brief</h2>
+              <h2 className="mb-3 text-lg font-semibold">{tr("The brief")}</h2>
               <div
                 className="rt-editor leading-relaxed text-smoke"
                 dangerouslySetInnerHTML={{ __html: mdToHtml(challenge.description || '') }}
@@ -603,7 +605,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
             </section>
             {challenge.rules && (
               <section className="card">
-                <h2 className="mb-3 text-lg font-semibold">Rules</h2>
+                <h2 className="mb-3 text-lg font-semibold">{tr("Rules")}</h2>
                 <div
                   className="rt-editor leading-relaxed text-smoke"
                   dangerouslySetInnerHTML={{ __html: mdToHtml(challenge.rules) }}
@@ -626,7 +628,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
 
           <div className="space-y-6">
             <section className="card !p-6">
-              <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-smoke">Prizes</h2>
+              <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-smoke">{tr("Prizes")}</h2>
               <ul className="space-y-3">
                 {prizes.map((p, i) => (
                   <li key={i} className="flex items-center justify-between gap-3 text-sm">
@@ -636,7 +638,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                     <span className="text-smoke">{p.prize}</span>
                   </li>
                 ))}
-                {prizes.length === 0 && <li className="text-sm text-smoke">Prize details coming soon.</li>}
+                {prizes.length === 0 && <li className="text-sm text-smoke">{tr("Prize details coming soon.")}</li>}
               </ul>
               {participation && (
                 <p className="mt-4 flex flex-wrap items-center gap-1.5 border-t border-gray-50 pt-3 text-xs text-smoke">
@@ -648,7 +650,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
             </section>
 
             <section className="card !p-6">
-              <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-smoke">Platforms that count</h2>
+              <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-smoke">{tr("Platforms that count")}</h2>
               <PlatformBadges platforms={challenge.platforms} size="md" />
             </section>
 
@@ -661,9 +663,9 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         submissions.length === 0 ? (
           <EmptyState
             icon={<Icon name="video" className="h-7 w-7" />}
-            title="No submissions yet. Be the first to enter!"
+            title={tr("No submissions yet. Be the first to enter!")}
             hint={isLive ? 'Paste your video link and claim the early-bird bragging rights.' : 'This challenge closed without entries.'}
-            action={isLive && <button onClick={() => setShowSubmit(true)} className="btn-primary">Submit your video</button>}
+            action={isLive && <button onClick={() => setShowSubmit(true)} className="btn-primary">{tr("Submit your video")}</button>}
           />
         ) : (
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -734,7 +736,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                     && bonusRules.some((r) => !claimsBySubmission.get(s.id)?.has(r.id)) && (
                     <div className="rounded-xl border border-dashed border-brand/30 bg-brand-tint/20 p-3">
                       <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-brand">
-                        Bonus points you can still claim
+                        {tr("Bonus points you can still claim")}
                       </p>
                       <div className="space-y-1.5">
                         {bonusRules.filter((r) => !claimsBySubmission.get(s.id)?.has(r.id)).map((r) => (
@@ -775,10 +777,10 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                         <path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
                         <path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
                       </svg>
-                      Open Link
+                      {tr("Open Link")}
                     </a>
                     {s.creator_id === user.id && isLive && (
-                      <button onClick={() => removeMySubmission(s.id)} className="btn-danger !py-2 text-xs">Remove</button>
+                      <button onClick={() => removeMySubmission(s.id)} className="btn-danger !py-2 text-xs">{tr("Remove")}</button>
                     )}
                   </div>
                 </div>
@@ -796,7 +798,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
             <div className="flex items-start gap-3 rounded-card border border-brand/20 bg-brand-tint/60 px-5 py-4">
               <Icon name="clock" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
               <div>
-                <p className="text-sm font-semibold text-brand">Current leaderboard</p>
+                <p className="text-sm font-semibold text-brand">{tr("Current leaderboard")}</p>
                 <p className="text-xs text-smoke">
                   Views logged so far{challenge.results_updated_at ? ` · updated ${timeAgo(challenge.results_updated_at)}` : ''}. These can still change. Final results are counted after the challenge closes.
                 </p>
@@ -806,8 +808,8 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
             <div className="flex items-start gap-3 rounded-card border border-green-200 bg-green-50 px-5 py-4">
               <Icon name="trophy" className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
               <div>
-                <p className="text-sm font-semibold text-green-700">Final results</p>
-                <p className="text-xs text-green-700/80">The challenge has closed and these standings are final.</p>
+                <p className="text-sm font-semibold text-green-700">{tr("Final results")}</p>
+                <p className="text-xs text-green-700/80">{tr("The challenge has closed and these standings are final.")}</p>
               </div>
             </div>
           ) : null}
@@ -861,7 +863,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
           />
           {boardRows.length === 0 && (
             <p className="rounded-card border border-dashed border-gray-200 px-5 py-6 text-center text-sm text-smoke">
-              Nobody on this board has a logged view count yet.
+              {tr("Nobody on this board has a logged view count yet.")}
             </p>
           )}
         </div>
@@ -880,10 +882,10 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
       {/* ---------- Submit modal ---------- */}
       {/* noValidate: we validate ourselves so every problem is shown in the
           branded card below, not in the browser's own popup bubble. */}
-      <Modal open={showSubmit} onClose={() => setShowSubmit(false)} title="Submit your entry">
+      <Modal open={showSubmit} onClose={() => setShowSubmit(false)} title={tr("Submit your entry")}>
         <form onSubmit={submitEntry} noValidate className="space-y-5">
           <div>
-            <label htmlFor="video_url" className="label">Video link</label>
+            <label htmlFor="video_url" className="label">{tr("Video link")}</label>
             <input
               id="video_url"
               type="text"
@@ -893,7 +895,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
               aria-invalid={errorField === 'url'}
               aria-describedby={submitError ? 'submit-error' : undefined}
               className={cx('input', errorField === 'url' && '!border-red-300 !ring-2 !ring-red-100')}
-              placeholder="Paste your Instagram, TikTok, YouTube or Facebook link…"
+              placeholder={tr("Paste your Instagram, TikTok, YouTube or Facebook link…")}
               value={videoUrl}
               onChange={(e) => {
                 setVideoUrl(e.target.value)
@@ -902,19 +904,19 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
             />
             {videoUrl.trim() && !urlProblem(videoUrl) && (
               <p className="mt-2 text-xs text-smoke">
-                Detected platform: <span className="font-semibold text-ink">{detectPlatform(normaliseUrl(videoUrl))}</span>
+                {tr("Detected platform:")} <span className="font-semibold text-ink">{detectPlatform(normaliseUrl(videoUrl))}</span>
               </p>
             )}
           </div>
           <div>
-            <label htmlFor="caption" className="label">Caption</label>
+            <label htmlFor="caption" className="label">{tr("Caption")}</label>
             <textarea
               id="caption"
               rows={3}
               aria-invalid={errorField === 'caption'}
               aria-describedby={submitError ? 'submit-error' : undefined}
               className={cx('input', errorField === 'caption' && '!border-red-300 !ring-2 !ring-red-100')}
-              placeholder="The caption you used, or a note for the team…"
+              placeholder={tr("The caption you used, or a note for the team…")}
               value={caption}
               onChange={(e) => {
                 setCaption(e.target.value)
@@ -935,9 +937,9 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
               what it is worth is a tick box people leave alone. */}
           {bonusRules.length > 0 && (
             <div className="rounded-xl border border-gray-200 bg-cloud/40 p-4">
-              <p className="text-sm font-semibold">Bonus points</p>
+              <p className="text-sm font-semibold">{tr("Bonus points")}</p>
               <p className="mb-3 text-xs text-smoke">
-                Tick anything this video qualifies for. The team can see what you ticked next to the video.
+                {tr("Tick anything this video qualifies for. The team can see what you ticked next to the video.")}
               </p>
               <div className="space-y-2">
                 {bonusRules.map((r) => (

@@ -8,6 +8,7 @@ import { registerServiceWorker } from './lib/push'
 import { initMonitoring } from './lib/monitoring'
 import { applyAppIcon, iconFromUrl, setAppIcon } from './lib/appIcon'
 import { releaseBootLayer, whenAppLoadersIdle } from './lib/bootLoader'
+import { getLocale, loadLocale } from './lib/i18n'
 import './index.css'
 
 // Start error monitoring as early as possible (no-op without VITE_SENTRY_DSN).
@@ -135,7 +136,17 @@ function dismissBoot() {
   setTimeout(dismiss, BOOT_MAX_MS)
 }
 
-promoteAppCss().then(mount)
+// THE LANGUAGE IS READY BEFORE ANYTHING RENDERS.
+//
+// The dictionary is a dynamic import (see lib/i18n - it is 49kB that an English
+// reader should never download), so it has to be awaited somewhere. Here,
+// beside the stylesheet, is the one place where waiting costs nothing: the boot
+// layer is already up, the two fetches go out together, and React mounts once
+// with the right words rather than mounting in English and re-rendering.
+//
+// For English this resolves immediately - English is the source, not a
+// dictionary - so nobody reading the app in English waits for anything.
+Promise.all([promoteAppCss(), loadLocale(getLocale())]).then(mount)
 
 // Register the service worker, then cache the app's actual loaded assets so the
 // app can boot with no connection. The SW only precaches the HTML shell (it

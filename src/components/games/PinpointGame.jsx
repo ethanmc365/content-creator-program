@@ -10,6 +10,7 @@ import { ukDayIndex, ukDayStartIso, untilNextUkMidnight, dailyStreak } from '../
 import { cx } from '../../lib/utils'
 import { NO_AUTOFILL_SEARCH } from '../../lib/noAutofill'
 import { playCelebrate, playCommiserate, playWrong } from '../../lib/gameSounds'
+import { useT } from '../../lib/i18n'
 
 // Guess the Country: five travel clues revealed one at a time; you get one
 // guess per clue, so guessing early scores more. A new puzzle lands at
@@ -32,6 +33,7 @@ function loadStored(day) {
 }
 
 export default function PinpointGame({ onExit }) {
+  const tr = useT()
   const { user } = useAuth()
   const [day] = useState(() => ukDayIndex())
   const [nextIn] = useState(() => untilNextUkMidnight(Date.now()))
@@ -164,19 +166,19 @@ export default function PinpointGame({ onExit }) {
         <span className="flex min-w-0 items-center gap-2">
           <Badge tone="light" className="!px-2 !py-1 sm:!px-2.5">
             <Icon name="magnifier" className="h-3.5 w-3.5" />
-            <span className="sm:hidden">Daily</span>
-            <span className="hidden sm:inline">Guess the Country · Daily puzzle</span>
+            <span className="sm:hidden">{tr("Daily")}</span>
+            <span className="hidden sm:inline">{tr("Guess the Country · Daily puzzle")}</span>
           </Badge>
           <StreakChip n={streak} title={`${streak}-day daily streak`} />
         </span>
         <div className="flex shrink-0 items-center gap-3 sm:gap-5">
           <div className="text-center leading-tight">
-            <span className="block text-[10px] font-medium uppercase tracking-wide text-smoke">Clue</span>
+            <span className="block text-[10px] font-medium uppercase tracking-wide text-smoke">{tr("Clue")}</span>
             <span className="block text-sm font-semibold tabular-nums text-ink">{Math.min(clues, MAX_CLUES)} / {MAX_CLUES}</span>
           </div>
           {!done && (
             <div className="text-center leading-tight">
-              <span className="block text-[10px] font-medium uppercase tracking-wide text-smoke">Time</span>
+              <span className="block text-[10px] font-medium uppercase tracking-wide text-smoke">{tr("Time")}</span>
               <span className="block font-mono text-sm font-semibold tabular-nums text-ink">{fmtTime(elapsed)}</span>
             </div>
           )}
@@ -185,16 +187,16 @@ export default function PinpointGame({ onExit }) {
             className="flex items-center gap-1 rounded-full border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-smoke transition-colors hover:border-brand hover:text-brand"
           >
             <Icon name="chevronLeft" className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Back to games</span>
-            <span className="sm:hidden">Games</span>
+            <span className="hidden sm:inline">{tr("Back to games")}</span>
+            <span className="sm:hidden">{tr("Games")}</span>
           </button>
         </div>
       </div>
 
       <div ref={cardRef} className="card flex scroll-mt-2 flex-col items-center gap-4 !py-6 text-center sm:gap-6 sm:!py-10">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-smoke">Guess the country</p>
-          <p className="mt-1 text-[13px] text-smoke sm:text-sm">Five clues, one guess per clue. The earlier you get it, the more points.</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-smoke">{tr("Guess the country")}</p>
+          <p className="mt-1 text-[13px] text-smoke sm:text-sm">{tr("Five clues, one guess per clue. The earlier you get it, the more points.")}</p>
         </div>
 
         {/* Clue words: revealed ones pop in, the rest wait as locked slots. */}
@@ -252,18 +254,18 @@ export default function PinpointGame({ onExit }) {
                 // the letters.
                 className="input caret-transparent text-center text-lg"
                 name="guess" autoCapitalize="words"
-                aria-label="Your guess"
+                aria-label={tr("Your guess")}
               />
               {typed === '' && (
                 <span aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center text-lg text-gray-400">
-                  Type a country…
+                  {tr("Type a country…")}
                 </span>
               )}
             </span>
-            <button type="submit" className="btn-primary w-full">Guess</button>
+            <button type="submit" className="btn-primary w-full">{tr("Guess")}</button>
           </form>
         )}
-        {checking && <p className="text-sm text-smoke">Checking today's puzzle…</p>}
+        {checking && <p className="text-sm text-smoke">{tr("Checking today's puzzle…")}</p>}
 
         {guesses.length > 0 && !done && (
           <div className="flex flex-wrap justify-center gap-2">
@@ -288,11 +290,11 @@ export default function PinpointGame({ onExit }) {
             ) : (
               <>
                 <p className="text-xl font-bold text-red-600">It was {country.name}</p>
-                <p className="text-sm text-smoke">Better luck tomorrow!</p>
+                <p className="text-sm text-smoke">{tr("Better luck tomorrow!")}</p>
               </>
             )}
             <p className="text-xs text-smoke">New puzzle at midnight UK time · {nextIn}</p>
-            <button onClick={onExit} className="btn-secondary mt-1">Back to games</button>
+            <button onClick={onExit} className="btn-secondary mt-1">{tr("Back to games")}</button>
           </div>
         )}
       </div>

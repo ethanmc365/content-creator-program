@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { Modal, Skeleton } from './ui'
 import Icon from './Icon'
 import { noteExcerpt } from '../lib/noteMarkdown'
+import { useT } from '../lib/i18n'
 
 // PICKING A RESOURCE TO SHARE.
 //
@@ -16,6 +17,7 @@ import { noteExcerpt } from '../lib/noteMarkdown'
 // resources is usually sharing several, and re-fetching between each one made
 // the second share slower than the first for no reason.
 export default function ResourcePicker({ open, onClose, onPick, busy, where }) {
+  const tr = useT()
   const [resources, setResources] = useState(null)
   const [search, setSearch] = useState('')
 
@@ -36,13 +38,13 @@ export default function ResourcePicker({ open, onClose, onPick, busy, where }) {
   }, [resources, search])
 
   return (
-    <Modal open={open} onClose={onClose} title="Share a resource">
+    <Modal open={open} onClose={onClose} title={tr("Share a resource")}>
       {resources === null ? (
         <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
       ) : resources.length === 0 ? (
         <p className="rounded-xl bg-cloud px-4 py-6 text-center text-sm text-smoke">
           No resources yet. Add some in{' '}
-          <Link to="/admin/resources" className="font-medium text-brand hover:underline">Manage resources</Link> first.
+          <Link to="/admin/resources" className="font-medium text-brand hover:underline">{tr("Manage resources")}</Link> {tr("first.")}
         </p>
       ) : (
         <>
@@ -53,15 +55,15 @@ export default function ResourcePicker({ open, onClose, onPick, busy, where }) {
             <input
               type="search"
               className="input mb-3"
-              placeholder="Search the library…"
+              placeholder={tr("Search the library…")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              aria-label="Search resources"
+              aria-label={tr("Search resources")}
             />
           )}
           <div className="max-h-[60vh] space-y-2 overflow-y-auto overscroll-contain">
             {shown.length === 0 && (
-              <p className="px-4 py-6 text-center text-sm text-smoke">Nothing matches that.</p>
+              <p className="px-4 py-6 text-center text-sm text-smoke">{tr("Nothing matches that.")}</p>
             )}
             {shown.map((r) => {
               const excerpt = noteExcerpt(r.body || '', 80)
@@ -84,7 +86,7 @@ export default function ResourcePicker({ open, onClose, onPick, busy, where }) {
                     <span className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] text-gray-400">
                       {r.category && <span>{r.category}</span>}
                       {r.links?.length > 0 && <span>{r.links.length} {r.links.length === 1 ? 'link' : 'links'}</span>}
-                      {r.file_url && <span>Attachment</span>}
+                      {r.file_url && <span>{tr("Attachment")}</span>}
                     </span>
                   </span>
                   <span className="shrink-0 pt-1 text-xs font-medium text-brand">{where || 'Share'} →</span>

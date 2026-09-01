@@ -4,6 +4,7 @@ import Icon from '../Icon'
 import { cx, formatDate } from '../../lib/utils'
 import { boardingPassToForm } from '../../lib/bcbp'
 import { scanBarcode, scanNeedsDownload } from '../../lib/scanPass'
+import { useT } from '../../lib/i18n'
 
 // ONE PHOTO INSTEAD OF FIVE FIELDS.
 //
@@ -38,6 +39,7 @@ import { scanBarcode, scanNeedsDownload } from '../../lib/scanPass'
 const TICK_MS = 400
 
 export default function ScanBoardingPass({ open, onClose, onFilled, now }) {
+  const tr = useT()
   const [mode, setMode] = useState('idle')       // idle | camera | working | found | failed | nocamera
   // A COARSE POINTER IS THE ONLY HONEST TEST FOR "HAS A CAMERA WORTH USING".
   // User-agent sniffing is a losing game and `mediaDevices` exists on every
@@ -172,7 +174,7 @@ export default function ScanBoardingPass({ open, onClose, onFilled, now }) {
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Scan a boarding pass">
+    <Modal open={open} onClose={onClose} title={tr("Scan a boarding pass")}>
       <div className="space-y-5">
         {mode === 'idle' && (
           <>
@@ -186,8 +188,8 @@ export default function ScanBoardingPass({ open, onClose, onFilled, now }) {
                   <Icon name="image" className="h-5 w-5" />
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-ink">Choose a photo</span>
-                  <span className="block text-xs text-smoke">Or a Wallet screenshot</span>
+                  <span className="block text-sm font-semibold text-ink">{tr("Choose a photo")}</span>
+                  <span className="block text-xs text-smoke">{tr("Or a Wallet screenshot")}</span>
                 </span>
               </button>
               <button onClick={startCamera} className="group flex items-center gap-3 rounded-card border border-gray-100 bg-white p-4 text-left shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/50 hover:shadow-lift">
@@ -195,7 +197,7 @@ export default function ScanBoardingPass({ open, onClose, onFilled, now }) {
                   <Icon name="video" className="h-5 w-5" />
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-ink">Use the camera</span>
+                  <span className="block text-sm font-semibold text-ink">{tr("Use the camera")}</span>
                   <span className="block text-xs text-smoke">{handheld ? 'For a printed pass' : 'Best on your phone'}</span>
                 </span>
               </button>
@@ -203,14 +205,14 @@ export default function ScanBoardingPass({ open, onClose, onFilled, now }) {
             {heavy && (
               <p className="flex items-start gap-2 text-[11px] text-smoke">
                 <Icon name="alert" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                The first scan on this device downloads a small reader, so give it a second.
+                {tr("The first scan on this device downloads a small reader, so give it a second.")}
               </p>
             )}
           </>
         )}
 
         {mode === 'working' && (
-          <div className="flex justify-center py-10"><PlaneLoader label="Reading the pass" /></div>
+          <div className="flex justify-center py-10"><PlaneLoader label={tr("Reading the pass")} /></div>
         )}
 
         {mode === 'camera' && (
@@ -222,9 +224,9 @@ export default function ScanBoardingPass({ open, onClose, onFilled, now }) {
                   rather than a square. */}
               <span className="pointer-events-none absolute inset-x-6 top-1/2 h-20 -translate-y-1/2 rounded-lg border-2 border-white/70" aria-hidden />
             </div>
-            <p className="text-center text-xs text-smoke">Line the barcode up inside the box.</p>
+            <p className="text-center text-xs text-smoke">{tr("Line the barcode up inside the box.")}</p>
             <div className="flex justify-center">
-              <button onClick={() => { stopCamera(); setMode('idle') }} className="btn-ghost text-sm">Stop</button>
+              <button onClick={() => { stopCamera(); setMode('idle') }} className="btn-ghost text-sm">{tr("Stop")}</button>
             </div>
           </>
         )}
@@ -240,9 +242,9 @@ export default function ScanBoardingPass({ open, onClose, onFilled, now }) {
             that might work, or just fill it in manually." Both, in that order. */}
         {mode === 'failed' && (
           <div className="py-4 text-center">
-            <p className="text-sm font-semibold text-ink">No boarding pass found</p>
+            <p className="text-sm font-semibold text-ink">{tr("No boarding pass found")}</p>
             <p className="mx-auto mt-1 max-w-sm text-sm text-smoke">
-              Make sure the whole barcode is in the picture, in focus, and not cut off at the edges.
+              {tr("Make sure the whole barcode is in the picture, in focus, and not cut off at the edges.")}
             </p>
             <p className="mx-auto mt-2 max-w-sm text-sm text-smoke">
               If it still will not read, try the digital pass instead: a screenshot straight from
@@ -250,8 +252,8 @@ export default function ScanBoardingPass({ open, onClose, onFilled, now }) {
               Otherwise close this and type the flight in.
             </p>
             <div className="mt-4 flex justify-center gap-3">
-              <button onClick={() => fileRef.current?.click()} className="btn-primary text-sm">Choose a photo</button>
-              <button onClick={() => setMode('idle')} className="btn-secondary text-sm">Back</button>
+              <button onClick={() => fileRef.current?.click()} className="btn-primary text-sm">{tr("Choose a photo")}</button>
+              <button onClick={() => setMode('idle')} className="btn-secondary text-sm">{tr("Back")}</button>
             </div>
           </div>
         )}
@@ -282,7 +284,7 @@ export default function ScanBoardingPass({ open, onClose, onFilled, now }) {
             screen up with its own Back button, which is what should happen. */}
         {mode === 'nocamera' && (
           <div className="py-4 text-center">
-            <p className="text-sm font-semibold text-ink">Use your phone for this one</p>
+            <p className="text-sm font-semibold text-ink">{tr("Use your phone for this one")}</p>
             <ol className="mx-auto mt-3 max-w-xs space-y-2 text-left text-sm text-smoke">
               {[
                 'Open the app on your phone.',
@@ -303,8 +305,8 @@ export default function ScanBoardingPass({ open, onClose, onFilled, now }) {
               Apple Wallet.
             </p>
             <div className="mt-4 flex justify-center gap-3">
-              <button onClick={() => fileRef.current?.click()} className="btn-primary text-sm">Choose a photo</button>
-              <button onClick={() => setMode('idle')} className="btn-secondary text-sm">Back</button>
+              <button onClick={() => fileRef.current?.click()} className="btn-primary text-sm">{tr("Choose a photo")}</button>
+              <button onClick={() => setMode('idle')} className="btn-secondary text-sm">{tr("Back")}</button>
             </div>
           </div>
         )}
@@ -316,7 +318,7 @@ export default function ScanBoardingPass({ open, onClose, onFilled, now }) {
             <div className="rounded-card border border-brand/25 bg-brand-tint/40 p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-brand">From</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-brand">{tr("From")}</p>
                   <p className="text-2xl font-bold tracking-wider text-ink">{result.form.from_iata}</p>
                 </div>
                 <Icon name="plane" className="h-5 w-5 shrink-0 text-brand-light" />
@@ -353,8 +355,8 @@ export default function ScanBoardingPass({ open, onClose, onFilled, now }) {
               date. Everything else came straight off the pass.
             </p>
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <button onClick={() => setMode('idle')} className="btn-ghost w-full justify-center sm:w-auto">Scan another</button>
-              <button onClick={accept} className={cx('btn-primary w-full justify-center sm:w-auto')}>Fill the form</button>
+              <button onClick={() => setMode('idle')} className="btn-ghost w-full justify-center sm:w-auto">{tr("Scan another")}</button>
+              <button onClick={accept} className={cx('btn-primary w-full justify-center sm:w-auto')}>{tr("Fill the form")}</button>
             </div>
           </>
         )}

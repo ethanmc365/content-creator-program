@@ -15,6 +15,7 @@ import { startHeartbeat } from '../../lib/presence'
 import { stripMarkup } from '../../lib/richText'
 import { cx } from '../../lib/utils'
 import { useVisualViewport, useIsPhone } from '../../lib/useKeyboardInset'
+import { useT } from '../../lib/i18n'
 import { applyMotion, getStoredMotion, setShellActive, syncTheme } from '../../lib/theme'
 
 // The signed-in app shell. One shared set of icon tabs powers BOTH the
@@ -101,6 +102,7 @@ export function activeTab(pathname) {
 // own row, because a phone header has no room for a permanent input beside a
 // logo, an admin pill, a bell and an avatar.
 function ChatSearchField({ target }) {
+  const tr = useT()
   const [open, setOpen] = useState(false)
   const phone = useIsPhone()
   const inputRef = useRef(null)
@@ -150,7 +152,7 @@ function ChatSearchField({ target }) {
            never going to fit and was clipped mid-word on every phone. The
            `aria-label` keeps the full sentence, which is where a name for the
            control actually belongs. */
-        placeholder={phone ? 'Search' : `Search ${target.label}`}
+        placeholder={phone ? tr('Search') : tr('Search {room}', { room: target.label })}
         aria-label={`Search ${target.label}`}
         className="no-ios-zoom min-w-0 flex-1 bg-transparent py-1.5 outline-none placeholder:text-gray-400"
       />
@@ -166,6 +168,7 @@ function ChatSearchField({ target }) {
 }
 
 export default function AppLayout() {
+  const tr = useT()
   const chatSearch = useChatSearchTarget()
   const chromeHidden = useChatChromeHidden()
   const { profile, isAdmin, impersonating, exitCreatorPreview, user, signOut } = useAuth()
@@ -468,14 +471,19 @@ export default function AppLayout() {
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-5 sm:px-8">
           <Link to="/global" className="flex items-center gap-3">
             <img src="/brand/tryp-logo.png" alt="Tryp.com" className="h-9 rounded-lg" />
-            <span className="hidden text-sm font-semibold text-smoke md:block">Content Creator Community</span>
+            <span className="hidden text-sm font-semibold text-smoke md:block">{tr('Content Creator Community')}</span>
           </Link>
 
           <nav className="hidden items-center gap-2 lg:flex" aria-label="Main">
             {tabs.map((item) => (
               <NavLink key={item.to} to={item.to} className={navLinkClass(item.to)} data-tour={tourAnchor(item.to)}>
                 <Icon name={item.icon} className="h-5 w-5" />
-                {item.label}
+                {/* `tabs` and `menuLinks` are module-level tables, so the
+                    translation happens where the label is DRAWN. Translating
+                    the table would fix its language at module load - whichever
+                    one the app happened to open in - and it would never change
+                    when somebody switched. */}
+                {tr(item.label)}
                 {item.to === '/messages' && dmUnread > 0 && (
                   <span className="absolute right-2 top-0 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-brand px-1 text-[9px] font-semibold text-white">
                     {dmUnread > 9 ? '9+' : dmUnread}
@@ -577,7 +585,7 @@ export default function AppLayout() {
                           className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm hover:bg-cloud"
                         >
                           <Icon name={l.icon} className="h-4 w-4 shrink-0 text-smoke" />
-                          <span className="min-w-0 flex-1 truncate">{l.label}</span>
+                          <span className="min-w-0 flex-1 truncate">{tr(l.label)}</span>
                           {l.badge === 'connections' && connReqs > 0 && (
                             <span className="inline-flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-semibold text-white">
                               {connReqs > 9 ? '9+' : connReqs}
@@ -653,7 +661,7 @@ export default function AppLayout() {
                   <span className="absolute -right-1.5 -top-1 h-2.5 w-2.5 rounded-full bg-brand ring-2 ring-white" aria-label={`${dmUnread} unread`} />
                 )}
               </span>
-              {tab.label}
+              {tr(tab.label)}
             </NavLink>
           ))}
         </div>

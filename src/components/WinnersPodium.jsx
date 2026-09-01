@@ -3,6 +3,7 @@ import { Avatar } from './ui'
 import { TIKTOK_PATH, FACEBOOK_PATH } from './PlatformBadges'
 import { detectPlatformFromUrl } from '../lib/videoPreview'
 import { formatViews, cx } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 // The closing graphic for a finished challenge.
 //
@@ -74,6 +75,7 @@ const own = (e) => e.stopPropagation()
 // logo, one line high, and it says what it does ("Watch on TikTok") instead of
 // just naming the app.
 function VideoChip({ url, platform }) {
+  const tr = useT()
   const plat = platform || detectPlatformFromUrl(url)
   const icon = PLATFORM_ICON[plat] || PLAY
   return (
@@ -85,7 +87,7 @@ function VideoChip({ url, platform }) {
       className="inline-flex items-center gap-1.5 rounded-full bg-brand px-2.5 py-1 text-[11px] font-semibold text-white transition-transform duration-150 hover:scale-105"
     >
       <svg viewBox="0 0 24 24" fill="currentColor" className="h-3 w-3" aria-hidden>{icon}</svg>
-      Watch
+      {tr("Watch")}
     </a>
   )
 }
@@ -104,6 +106,7 @@ export default function WinnersPodium({
   voucherPrize = null,
   className = '',
 }) {
+  const tr = useT()
   if (!winners.length) return null
 
   const isPoints = scoring === 'points'
@@ -149,7 +152,7 @@ export default function WinnersPodium({
 
   return (
     <div className={cx('rounded-2xl bg-cloud/60 p-4', className)}>
-      <p className="mb-4 text-center text-[11px] font-semibold uppercase tracking-widest text-smoke">Winners</p>
+      <p className="mb-4 text-center text-[11px] font-semibold uppercase tracking-widest text-smoke">{tr("Winners")}</p>
 
       <div className="flex items-end justify-center gap-2 sm:gap-4">{order.map(step)}</div>
 
@@ -208,7 +211,7 @@ export default function WinnersPodium({
       <div className="mt-4 flex items-center justify-center gap-6 border-t border-gray-200/70 pt-3 text-center">
         <div>
           <p className="text-sm font-bold tabular-nums text-ink">{entries}</p>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-smoke">Entries</p>
+          <p className="text-[10px] font-medium uppercase tracking-wide text-smoke">{tr("Entries")}</p>
         </div>
         <div>
           <p className="text-sm font-bold tabular-nums text-ink">{fmt(totalScore)}</p>
@@ -216,7 +219,7 @@ export default function WinnersPodium({
         </div>
         <div>
           <p className="text-sm font-bold tabular-nums text-ink">{winners.length}</p>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-smoke">On the podium</p>
+          <p className="text-[10px] font-medium uppercase tracking-wide text-smoke">{tr("On the podium")}</p>
         </div>
       </div>
     </div>

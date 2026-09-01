@@ -13,6 +13,7 @@ import { isOnline, presenceLabel } from '../lib/presence'
 import { flagFromIso } from '../lib/flags'
 import { toast } from '../lib/toast'
 import { cx } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 // The connections hub.
 //
@@ -70,6 +71,7 @@ function loadDismissed() {
 // A person, drawn the same way everywhere on this page so the eye stops having
 // to relearn the card between sections.
 function PersonCard({ person, subtitle, mutuals, right, tone = 'plain' }) {
+  const tr = useT()
   return (
     <div className={cx(
       'flex items-center gap-3 rounded-card border bg-white p-4 transition-shadow duration-200 hover:shadow-card',
@@ -78,7 +80,7 @@ function PersonCard({ person, subtitle, mutuals, right, tone = 'plain' }) {
       <Link to={`/profile/${person.id}`} className="relative shrink-0">
         <Avatar src={person.photo_url} name={person.name} size="md" />
         {isOnline(person.last_seen_at) && (
-          <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-green-500 ring-2 ring-white" title="Online now" />
+          <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-green-500 ring-2 ring-white" title={tr("Online now")} />
         )}
       </Link>
       <div className="min-w-0 flex-1">
@@ -102,6 +104,7 @@ function PersonCard({ person, subtitle, mutuals, right, tone = 'plain' }) {
 }
 
 export default function Connections() {
+  const tr = useT()
   const { user } = useAuth()
   const { preview: showMarkets } = useCommunity()
   const navigate = useNavigate()
@@ -329,7 +332,7 @@ export default function Connections() {
       <BackLink />
       {/* No subtitle. "Who you know, who wants to know you, and who you should
           meet" was a description of the three tabs directly underneath it. */}
-      <PageHeader title="Connections" />
+      <PageHeader title={tr("Connections")} />
 
       {/* Three numbers, not three sentences. The count of people waiting on you
           is the one thing on this page that is time sensitive, so it is a number
@@ -358,7 +361,7 @@ export default function Connections() {
         <section className="mb-10">
           <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
             <Icon name="heart" className="h-5 w-5 text-brand" />
-            Waiting on you
+            {tr("Waiting on you")}
             <span className="text-brand">({d.requests.length})</span>
           </h2>
           <div className="space-y-3">
@@ -373,8 +376,8 @@ export default function Connections() {
                   : row.person.bio || presenceLabel(row.person.last_seen_at) || 'Wants to connect'}
                 right={
                   <>
-                    <button onClick={() => accept(row)} className="btn-primary !py-2 !px-4 text-xs">Accept</button>
-                    <button onClick={() => decline(row)} className="btn-ghost !py-2 !px-3 text-xs">Ignore</button>
+                    <button onClick={() => accept(row)} className="btn-primary !py-2 !px-4 text-xs">{tr("Accept")}</button>
+                    <button onClick={() => decline(row)} className="btn-ghost !py-2 !px-3 text-xs">{tr("Ignore")}</button>
                   </>
                 }
               />
@@ -428,7 +431,7 @@ export default function Connections() {
             <div className="mb-6">
               <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-smoke">
                 <Icon name="plane" className="h-4 w-4 text-brand" />
-                On the move
+                {tr("On the move")}
                 <span className="text-brand">{d.travelling.length}</span>
               </h2>
               <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -444,7 +447,7 @@ export default function Connections() {
                           It is the difference between "message them today" and
                           "put it in the diary", and it was a word in a sentence. */}
                       {t.current && (
-                        <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-brand ring-2 ring-white" title="There now" />
+                        <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-brand ring-2 ring-white" title={tr("There now")} />
                       )}
                     </span>
                     <span className="min-w-0 flex-1">
@@ -466,9 +469,9 @@ export default function Connections() {
           {d.connections.length === 0 ? (
             <EmptyState
               icon={<Icon name="users" className="h-7 w-7" />}
-              title="No connections yet"
-              hint="Discover has people picked because you already have something in common with them."
-              action={<button onClick={() => setTab('discover')} className="btn-primary">See who you should meet</button>}
+              title={tr("No connections yet")}
+              hint={tr("Discover has people picked because you already have something in common with them.")}
+              action={<button onClick={() => setTab('discover')} className="btn-primary">{tr("See who you should meet")}</button>}
             />
           ) : (
             <>
@@ -480,12 +483,12 @@ export default function Connections() {
                   <input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search your connections by name, city or country"
-                    aria-label="Search your connections"
+                    placeholder={tr("Search your connections by name, city or country")}
+                    aria-label={tr("Search your connections")}
                     className="min-w-0 flex-1 border-0 bg-transparent py-2.5 text-sm outline-none placeholder:text-gray-400"
                   />
                   {search && (
-                    <button onClick={() => setSearch('')} aria-label="Clear search"
+                    <button onClick={() => setSearch('')} aria-label={tr("Clear search")}
                       className="shrink-0 text-smoke hover:text-ink">
                       <Icon name="close" className="h-3.5 w-3.5" />
                     </button>
@@ -517,7 +520,7 @@ export default function Connections() {
                           className="btn-secondary shrink-0 !px-3.5 !py-2 text-xs"
                         >
                           <Icon name="envelope" className="h-4 w-4" />
-                          <span className="hidden sm:inline">Message</span>
+                          <span className="hidden sm:inline">{tr("Message")}</span>
                         </Link>
                       }
                     />
@@ -532,9 +535,9 @@ export default function Connections() {
           {visibleSuggestions.length === 0 ? (
             <EmptyState
               icon={<Icon name="sparkles" className="h-7 w-7" />}
-              title="Nobody left to suggest"
-              hint="New suggestions appear as people join, post and connect."
-              action={<button onClick={() => navigate('/creators')} className="btn-secondary">Browse every creator</button>}
+              title={tr("Nobody left to suggest")}
+              hint={tr("New suggestions appear as people join, post and connect.")}
+              action={<button onClick={() => navigate('/creators')} className="btn-secondary">{tr("Browse every creator")}</button>}
             />
           ) : (
             <Reveal className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -556,7 +559,7 @@ export default function Connections() {
                       <button
                         onClick={() => dismiss(s.id)}
                         aria-label={`Not interested in ${s.name}`}
-                        title="Not now"
+                        title={tr("Not now")}
                         className="flex h-8 w-8 items-center justify-center rounded-full text-gray-300 transition-colors hover:bg-cloud hover:text-smoke"
                       >
                         <Icon name="close" className="h-3.5 w-3.5" />

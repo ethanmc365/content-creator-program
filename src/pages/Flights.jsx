@@ -24,6 +24,7 @@ import { compressImage } from '../lib/image'
 import { uploadFile } from '../lib/upload'
 import { flagFromIso } from '../lib/flags'
 import { cx, formatDate } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 // THE FLIGHT LOG.
 //
@@ -139,6 +140,7 @@ const monthLabel = (ym) => `${MONTHS[Number(ym.slice(5, 7)) - 1]} ${ym.slice(0, 
 // is what a boarding pass gives you - a three letter code - with the city
 // beside it so you can also get there by typing "Lisbon".
 function AirportField({ id, label, value, onChange, autoFocus = false }) {
+  const tr = useT()
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const boxRef = useRef(null)
@@ -190,7 +192,7 @@ function AirportField({ id, label, value, onChange, autoFocus = false }) {
         {...NO_AUTOFILL_SEARCH}
         onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
         onFocus={() => setOpen(true)}
-        placeholder="Code or place, e.g. LIS or Lisbon"
+        placeholder={tr("Code or place, e.g. LIS or Lisbon")}
         className="input w-full"
       />
       {open && hits.length > 0 && (
@@ -215,7 +217,7 @@ function AirportField({ id, label, value, onChange, autoFocus = false }) {
       )}
       {open && query.trim().length >= 2 && hits.length === 0 && (
         <p className="absolute z-30 mt-1 w-full rounded-card border border-gray-100 bg-white px-3.5 py-2.5 text-xs text-smoke shadow-lift">
-          No airport matches that. Try the three letter code from your boarding pass.
+          {tr("No airport matches that. Try the three letter code from your boarding pass.")}
         </p>
       )}
     </div>
@@ -271,6 +273,7 @@ function routeFacts(from, to, dateStr) {
 // every fact underneath appears the moment it can be worked out. Nothing here
 // is ever typed by the person filling it in.
 function BoardingPass({ from, to, facts, dateStr, airlineName, flightNo, seat, aircraftType }) {
+  const tr = useT()
   // A STRAIGHT LINE, AND THE PLANE IS THE THING MOVING ALONG IT.
   //
   // A great-circle route drawn on a MAP curves because the map is a projection
@@ -316,7 +319,7 @@ function BoardingPass({ from, to, facts, dateStr, airlineName, flightNo, seat, a
             "small in the middle". */}
         <div className="relative">
           <div className="flex items-baseline justify-between gap-3">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/70">From</p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/70">{tr("From")}</p>
             <p className="text-[10px] font-semibold uppercase tracking-widest text-white/70">To</p>
           </div>
 
@@ -375,16 +378,16 @@ function BoardingPass({ from, to, facts, dateStr, airlineName, flightNo, seat, a
         {/* CENTRED, AND EVENLY SPLIT. Six fields in a 3-up grid left two of them
             alone on a second row hanging to the left. */}
         <dl className="grid grid-cols-3 gap-x-4 gap-y-3 text-center sm:grid-cols-6">
-          <PassField label="Date" value={dateStr ? formatDate(dateStr) : '—'} />
-          <PassField label="Flight" value={flightNo?.trim().toUpperCase() || (airlineName ? airlineName.split(' ')[0] : '—')} />
-          <PassField label="Seat" value={seat?.trim().toUpperCase() || '—'} />
-          <PassField label="Distance" value={facts ? `${km(facts.dist)} km` : '—'} />
+          <PassField label={tr("Date")} value={dateStr ? formatDate(dateStr) : '—'} />
+          <PassField label={tr("Flight")} value={flightNo?.trim().toUpperCase() || (airlineName ? airlineName.split(' ')[0] : '—')} />
+          <PassField label={tr("Seat")} value={seat?.trim().toUpperCase() || '—'} />
+          <PassField label={tr("Distance")} value={facts ? `${km(facts.dist)} km` : '—'} />
           {/* NO "estimated" HINT. Ethan: "remove that." Everything on this pass
               is derived from two airport codes and it says so nowhere else
               either; one field apologising for itself just draws the eye. */}
-          <PassField label="In the air" value={facts ? humanHours(facts.mins) : '—'} />
+          <PassField label={tr("In the air")} value={facts ? humanHours(facts.mins) : '—'} />
           <PassField
-            label="Clocks"
+            label={tr("Clocks")}
             value={!facts || facts.shift == null ? '—' : facts.shift === 0 ? 'No change' : `${facts.shift > 0 ? '+' : ''}${facts.shift}h`}
           />
         </dl>
@@ -548,6 +551,7 @@ function LoyaltyRow({ a, max }) {
 }
 
 export default function Flights() {
+  const tr = useT()
   const { user, profile } = useAuth()
   const [rows, setRows] = useState(null)
   const [adding, setAdding] = useState(false)
@@ -1144,7 +1148,7 @@ export default function Flights() {
           they open every week. The card underneath says the same thing with a
           number in it. */}
       <PageHeader
-        title="Your flight log"
+        title={tr("Your flight log")}
         action={
           /* THREE BUTTONS, AND A PHONE IS 375px WIDE. `flex flex-wrap` used to
              drop "Log a flight" onto a second line on its own, left-aligned
@@ -1155,7 +1159,7 @@ export default function Flights() {
           <ActionRow
             lead={
               <button onClick={openNew} className="btn-primary !py-2.5">
-                <Icon name="plus" className="h-4 w-4" /> Log a flight
+                <Icon name="plus" className="h-4 w-4" /> {tr("Log a flight")}
               </button>
             }
           >
@@ -1166,7 +1170,7 @@ export default function Flights() {
                 its own page now, reached from here. See FlightCommunity. */}
             <Link to="/flights/community" className="btn-secondary !px-4 !py-2.5 text-sm">
               <Icon name="users" className="h-4 w-4" />
-              Across the community
+              {tr("Across the community")}
             </Link>
             {/* BIGGER, NAMED IN FULL, AND WITH AN ACTUAL AEROPLANE ON IT.
                 Ethan: "make the aircraft button slightly bigger and rename it to
@@ -1179,7 +1183,7 @@ export default function Flights() {
                 of aircraft now has one on it. */}
             <Link to="/flights/aircraft" className="btn-secondary !px-5 !py-3 text-sm">
               <Icon name="plane-tryp" className="h-4 w-4" />
-              Aircraft collection
+              {tr("Aircraft collection")}
             </Link>
           </ActionRow>
         }
@@ -1195,9 +1199,9 @@ export default function Flights() {
       ) : stats.list.length === 0 ? (
         <EmptyState
           icon={<Icon name="plane" className="h-7 w-7" />}
-          title="No flights logged yet"
-          hint="Add your last trip and the map fills in. Distance, hours in the air, airports and countries all count themselves."
-          action={<button onClick={openNew} className="btn-primary">Log your first flight</button>}
+          title={tr("No flights logged yet")}
+          hint={tr("Add your last trip and the map fills in. Distance, hours in the air, airports and countries all count themselves.")}
+          action={<button onClick={openNew} className="btn-primary">{tr("Log your first flight")}</button>}
         />
       ) : (
         <div className="space-y-10">
@@ -1210,7 +1214,7 @@ export default function Flights() {
             <section className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-light p-6 text-white shadow-lift sm:p-8">
               <div className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-white/10 blur-2xl" />
               <div className="relative">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-white/70">Distance flown</p>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-white/70">{tr("Distance flown")}</p>
                 <p className="mt-1 flex flex-wrap items-baseline gap-x-3 text-4xl font-bold tabular-nums sm:text-6xl">
                   <CountUp value={Math.round(stats.distance)} format={(n) => Math.round(n).toLocaleString('en-GB')} />
                   <span className="text-lg font-semibold text-white/75 sm:text-2xl">km</span>
@@ -1326,7 +1330,7 @@ export default function Flights() {
                     two flights booked in. I think the coming up section is
                     fine." `buildFlightStats` already returns them soonest
                     first. */}
-                <h2 className="mb-3 text-lg font-semibold">Coming up</h2>
+                <h2 className="mb-3 text-lg font-semibold">{tr("Coming up")}</h2>
                 <Reveal className="grid items-stretch gap-3 sm:grid-cols-2" stagger={0.05}>
                   {stats.upcoming.map((f) => (
                     <div key={f.id} className="flex h-full flex-col rounded-card border border-dashed border-brand/40 bg-brand-tint/15 p-4">
@@ -1374,18 +1378,18 @@ export default function Flights() {
                           className="inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-white transition-transform duration-200 hover:scale-105 active:scale-95"
                         >
                           <Icon name="pin" className="h-3.5 w-3.5" />
-                          Post to the collab board
+                          {tr("Post to the collab board")}
                         </button>
                         <button
                           onClick={() => openEdit(f)}
-                          aria-label="Edit this flight"
+                          aria-label={tr("Edit this flight")}
                           className="ml-auto rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-white hover:text-brand"
                         >
                           <Icon name="pencil" className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => remove(f)}
-                          aria-label="Remove this flight"
+                          aria-label={tr("Remove this flight")}
                           className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
                         >
                           <Icon name="trash" className="h-4 w-4" />
@@ -1406,7 +1410,7 @@ export default function Flights() {
           <Reveal from="down">
             <section>
               <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-                <h2 className="text-lg font-semibold">Everywhere you have been</h2>
+                <h2 className="text-lg font-semibold">{tr("Everywhere you have been")}</h2>
                 <p className="text-xs text-smoke">
                   {stats.routes.length} {stats.routes.length === 1 ? 'route' : 'routes'} · {stats.airports} airports
                 </p>
@@ -1456,20 +1460,20 @@ export default function Flights() {
                   record whose detail line wraps no longer makes its whole row
                   taller than the next - Ethan: "fix the ui/design of cards so
                   they fit evenly." */}
-              <h2 className="mb-3 text-lg font-semibold">Your records</h2>
+              <h2 className="mb-3 text-lg font-semibold">{tr("Your records")}</h2>
               <Reveal className="grid items-stretch gap-3 sm:grid-cols-2 lg:grid-cols-3" stagger={0.05}>
                 {r.longest && (
-                  <RecordCard icon="plane" tone="brand" label="Longest flight"
+                  <RecordCard icon="plane" tone="brand" label={tr("Longest flight")}
                     value={`${km(r.longest.dist)} km`}
                     detail={`${r.longest.from.iata} to ${r.longest.to.iata} · ${formatDate(r.longest.flown_on)}`} />
                 )}
                 {r.shortest && (
-                  <RecordCard icon="pin" label="Shortest hop"
+                  <RecordCard icon="pin" label={tr("Shortest hop")}
                     value={`${km(r.shortest.dist)} km`}
                     detail={`${r.shortest.from.iata} to ${r.shortest.to.iata} · ${humanHours(r.shortest.mins)}`} />
                 )}
                 {r.longestTime && (
-                  <RecordCard icon="clock" label="Longest time in the air"
+                  <RecordCard icon="clock" label={tr("Longest time in the air")}
                     value={humanHours(r.longestTime.mins)}
                     detail={`${r.longestTime.from.city} to ${r.longestTime.to.city}`} />
                 )}
@@ -1483,12 +1487,12 @@ export default function Flights() {
                     `records.turnaround` computation stays in lib/flightStats
                     (it is pure and tested); nothing draws it. */}
                 {r.busiestMonth && (
-                  <RecordCard icon="calendar" label="Busiest month"
+                  <RecordCard icon="calendar" label={tr("Busiest month")}
                     value={monthLabel(r.busiestMonth.key)}
                     detail={`${r.busiestMonth.flights} flights · ${km(r.busiestMonth.distance)} km`} />
                 )}
                 {r.busiestDay && (
-                  <RecordCard icon="chart" label="Most in one day"
+                  <RecordCard icon="chart" label={tr("Most in one day")}
                     value={`${r.busiestDay.flights} flights`}
                     detail={formatDate(r.busiestDay.date)} />
                 )}
@@ -1501,31 +1505,31 @@ export default function Flights() {
                     an accumulation and means something. Ethan asked for the card
                     to go. */}
                 {r.biggestYear && (
-                  <RecordCard icon="trophy" label="Biggest year"
+                  <RecordCard icon="trophy" label={tr("Biggest year")}
                     value={r.biggestYear.year}
                     detail={`${km(r.biggestYear.distance)} km over ${r.biggestYear.flights} flights`} />
                 )}
                 {stats.topRoute && (
-                  <RecordCard icon="reorder" label="Most flown route"
+                  <RecordCard icon="reorder" label={tr("Most flown route")}
                     value={stats.topRoute.pair}
                     detail={`${stats.topRoute.n} ${stats.topRoute.n === 1 ? 'time' : 'times'}`} />
                 )}
                 {stats.topAirport && (
-                  <RecordCard icon="home" label="Home airport"
+                  <RecordCard icon="home" label={tr("Home airport")}
                     value={stats.topAirport.iata}
                     detail={`${stats.topAirport.city} · ${stats.topAirport.n} flights`} />
                 )}
-                <RecordCard icon="clock" label="Average year"
+                <RecordCard icon="clock" label={tr("Average year")}
                   value={humanHours(stats.avgMinutesPerYear)}
                   detail={`${km(stats.avgKmPerYear)} km across ${stats.activeYears} ${stats.activeYears === 1 ? 'year' : 'years'} of flying`} />
-                <RecordCard icon="chartPie" label="Average flight"
+                <RecordCard icon="chartPie" label={tr("Average flight")}
                   value={`${km(stats.distance / stats.flights)} km`}
                   detail={humanHours(stats.minutes / stats.flights)} />
                 {/* KILOGRAMS UNTIL TONNES MEAN SOMETHING. One short-haul hop is
                     about 200kg, which rounds to zero tonnes, and a card reading
                     "0" under a flight somebody just logged says the page is
                     broken rather than that the number is small. */}
-                <RecordCard icon="globe" label="Carbon, roughly"
+                <RecordCard icon="globe" label={tr("Carbon, roughly")}
                   value={stats.co2 >= 1000 ? `${(stats.co2 / 1000).toFixed(1)} t` : `${km(stats.co2)} kg`}
                   detail="per seat, estimated" />
                 {/* FIRST IN THE LOG IS GONE TOO, and for a better reason: it
@@ -1558,7 +1562,7 @@ export default function Flights() {
           {stats.loyalty.length > 0 && (
             <Reveal from="down">
               <section>
-                <h2 className="mb-3 text-lg font-semibold">Airline loyalty</h2>
+                <h2 className="mb-3 text-lg font-semibold">{tr("Airline loyalty")}</h2>
                 <Reveal className="space-y-2.5" stagger={0.04}>
                   {stats.loyalty.slice(0, showAllAirlines ? 12 : 3).map((a) => (
                     <LoyaltyRow key={a.name} a={a} max={stats.loyalty[0].flights} />
@@ -1595,7 +1599,7 @@ export default function Flights() {
           {stats.list.some((f) => f.purpose) && (
             <Reveal from="down">
               <section>
-                <h2 className="mb-3 text-lg font-semibold">Why you were flying</h2>
+                <h2 className="mb-3 text-lg font-semibold">{tr("Why you were flying")}</h2>
                 <div className="card !p-5 sm:!p-6">
                   <PurposeBar list={stats.list} />
                 </div>
@@ -1609,7 +1613,7 @@ export default function Flights() {
           {stats.years.length > 1 && (
             <Reveal from="down">
               <section>
-                <h2 className="mb-3 text-lg font-semibold">Year by year</h2>
+                <h2 className="mb-3 text-lg font-semibold">{tr("Year by year")}</h2>
                 <div className="card space-y-3 !p-5 sm:!p-6">
                   {stats.years.map((y) => {
                     const max = Math.max(...stats.years.map((x) => x.distance)) || 1
@@ -1641,7 +1645,7 @@ export default function Flights() {
           <Reveal from="down">
             <section>
               <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-                <h2 className="text-lg font-semibold">Every flight</h2>
+                <h2 className="text-lg font-semibold">{tr("Every flight")}</h2>
                 <p className="text-xs text-smoke">{stats.flights} logged</p>
               </div>
               <Reveal className="space-y-2.5" stagger={0.03}>
@@ -1708,7 +1712,7 @@ export default function Flights() {
                     <div className="flex shrink-0 items-center gap-3">
                       {/* "Return" is not a badge on a second row any more, it
                           is a property of the one row. */}
-                      {back && <Badge tone="light" className="!px-2 !py-0.5">Return</Badge>}
+                      {back && <Badge tone="light" className="!px-2 !py-0.5">{tr("Return")}</Badge>}
                       <Badge tone="grey" className="!px-2 !py-0.5">{haul(f.dist)}</Badge>
                       <span className="text-right text-xs tabular-nums text-smoke">
                         <span className="block font-semibold text-ink">{km(t.dist)} km</span>
@@ -1719,14 +1723,14 @@ export default function Flights() {
                           first. Both stop the press reaching the row. */}
                       <button
                         onClick={(e) => { e.stopPropagation(); openEdit(f) }}
-                        aria-label="Edit this flight"
+                        aria-label={tr("Edit this flight")}
                         className="rounded-lg p-1.5 text-gray-300 transition-colors hover:bg-brand-tint hover:text-brand"
                       >
                         <Icon name="pencil" className="h-4 w-4" />
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); remove(f) }}
-                        aria-label="Remove this flight"
+                        aria-label={tr("Remove this flight")}
                         className="rounded-lg p-1.5 text-gray-300 transition-colors hover:bg-red-50 hover:text-red-500"
                       >
                         <Icon name="trash" className="h-4 w-4" />
@@ -1791,8 +1795,8 @@ export default function Flights() {
                 <Icon name="magnifier" className="h-4 w-4" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold text-ink">Scan your boarding pass</span>
-                <span className="block text-xs text-smoke">A photo, or a screenshot from Apple Wallet</span>
+                <span className="block text-sm font-semibold text-ink">{tr("Scan your boarding pass")}</span>
+                <span className="block text-xs text-smoke">{tr("A photo, or a screenshot from Apple Wallet")}</span>
               </span>
               <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-brand transition-transform duration-200 group-hover:translate-x-0.5" />
             </button>
@@ -1816,7 +1820,7 @@ export default function Flights() {
           />
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <AirportField id="flight-from" label="From" value={form.from_iata} autoFocus
+            <AirportField id="flight-from" label={tr("From")} value={form.from_iata} autoFocus
               onChange={(v) => setForm((f) => ({ ...f, from_iata: v }))} />
             <AirportField id="flight-to" label="To" value={form.to_iata}
               onChange={(v) => setForm((f) => ({ ...f, to_iata: v }))} />
@@ -1854,7 +1858,7 @@ export default function Flights() {
                 className="mt-0.5 h-4 w-4 shrink-0 accent-[#d94407]"
               />
               <span className="min-w-0">
-                <span className="block text-sm font-semibold text-ink">Round trip</span>
+                <span className="block text-sm font-semibold text-ink">{tr("Round trip")}</span>
                 <span className="block text-[11px] leading-relaxed text-smoke">
                   {/* A TRIP THAT ALREADY HAS ITS LEG HOME SAYS SO. The hint
                       under the box used to describe what ticking it WOULD do,
@@ -1889,7 +1893,7 @@ export default function Flights() {
                   happened.
                   IT IS ASKED BEFORE THE DATES, because it is what makes the two
                   date labels below it mean anything. */}
-              <span className="label">Which way did you fly first?</span>
+              <span className="label">{tr("Which way did you fly first?")}</span>
               <div className="grid gap-2 sm:grid-cols-2">
                 {[
                   { key: 'out', a: fromA, b: toA },
@@ -1957,7 +1961,7 @@ export default function Flights() {
           </div>
           {canRoundTrip && form.round_trip && form.flown_on && form.return_on && form.return_on < form.flown_on && (
             <p className="-mt-2 text-[11px] text-red-500">
-              The flight back is before the flight out. Check the dates.
+              {tr("The flight back is before the flight out. Check the dates.")}
             </p>
           )}
 
@@ -1975,14 +1979,14 @@ export default function Flights() {
                   likely know." The whole reason this is a shortlist of real
                   candidates rather than an empty text box is that it is a fact
                   everybody has and nobody could be bothered to type. */}
-              <p className="label">Airline</p>
+              <p className="label">{tr("Airline")}</p>
               {customAirline ? (
                 <div className="flex gap-2">
                   <input id="flight-airline" value={form.airline} maxLength={60} autoFocus {...NO_AUTOFILL}
-                    placeholder="The airline you flew"
+                    placeholder={tr("The airline you flew")}
                     onChange={(e) => setForm((f) => ({ ...f, airline: e.target.value }))} className="input w-full" />
                   <button type="button" onClick={() => { setCustomAirline(false); setForm((f) => ({ ...f, airline: '' })) }}
-                    className="btn-ghost shrink-0 !px-3 !py-2 text-xs">Back to the list</button>
+                    className="btn-ghost shrink-0 !px-3 !py-2 text-xs">{tr("Back to the list")}</button>
                 </div>
               ) : (
                 <div className="flex flex-wrap gap-1.5">
@@ -2020,7 +2024,7 @@ export default function Flights() {
                   )}
                   <button type="button" onClick={() => { setCustomAirline(true); setForm((f) => ({ ...f, airline: '' })) }}
                     className="inline-flex items-center rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-brand ring-1 ring-brand/30 transition-all hover:-translate-y-0.5 hover:ring-brand">
-                    Other
+                    {tr("Other")}
                   </button>
                 </div>
               )}
@@ -2039,7 +2043,7 @@ export default function Flights() {
               be reachable whenever there is a route at all. */}
           {previewKm > 0 && (
             <div>
-              <p className="label">Aircraft <span className="font-normal text-smoke">(optional)</span></p>
+              <p className="label">{tr("Aircraft")} <span className="font-normal text-smoke">(optional)</span></p>
               {/* AND A WAY TO NAME ONE THAT IS NOT ON THE LIST.
                   Ethan: "a button to add other aircraft in case there's a rare
                   one someone goes on." The chips are what the airline you picked
@@ -2058,7 +2062,7 @@ export default function Flights() {
                     maxLength={60}
                     autoFocus
                     {...NO_AUTOFILL}
-                    placeholder="The aircraft you were on"
+                    placeholder={tr("The aircraft you were on")}
                     onChange={(e) => setForm((f) => ({ ...f, aircraft: e.target.value }))}
                     className="input w-full"
                   />
@@ -2119,7 +2123,7 @@ export default function Flights() {
               something worth reading back. It is still not enforced. */}
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div>
-              <label htmlFor="flight-number" className="label">Flight no. <span className="font-normal text-smoke">(optional)</span></label>
+              <label htmlFor="flight-number" className="label">{tr("Flight no.")} <span className="font-normal text-smoke">(optional)</span></label>
               <input id="flight-number" maxLength={10} {...NO_AUTOFILL} autoCapitalize="characters"
                 value={form.flight_number}
                 placeholder={picked ? `${picked.iata}1363` : 'TP1363'}
@@ -2128,13 +2132,13 @@ export default function Flights() {
             {/* SEAT. The one detail people actually remember, and the one that
                 makes a row read like a memory rather than a database entry. */}
             <div>
-              <label htmlFor="flight-seat" className="label">Seat <span className="font-normal text-smoke">(optional)</span></label>
+              <label htmlFor="flight-seat" className="label">{tr("Seat")} <span className="font-normal text-smoke">(optional)</span></label>
               <input id="flight-seat" maxLength={8} value={form.seat} placeholder="14A" {...NO_AUTOFILL} autoCapitalize="characters"
                 onChange={(e) => setForm((f) => ({ ...f, seat: e.target.value.toUpperCase() }))} className="input w-full" />
             </div>
             <div className="col-span-2">
-              <label htmlFor="flight-note" className="label">Note</label>
-              <input id="flight-note" value={form.note} maxLength={140} placeholder="Sunrise over the Alps"
+              <label htmlFor="flight-note" className="label">{tr("Note")}</label>
+              <input id="flight-note" value={form.note} maxLength={140} placeholder={tr("Sunrise over the Alps")}
                 {...NO_AUTOFILL} autoCorrect="on" autoCapitalize="sentences"
                 onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} className="input w-full" />
             </div>
@@ -2144,7 +2148,7 @@ export default function Flights() {
               The one question a creator programme's flight log should be able to
               answer and no other page can: how much of your flying is work. */}
           <div>
-            <p className="label">What for? <span className="font-normal text-smoke">(optional)</span></p>
+            <p className="label">{tr("What for?")} <span className="font-normal text-smoke">(optional)</span></p>
             <div className="flex flex-wrap gap-1.5">
               {PURPOSES.map((p) => {
                 const on = form.purpose === p.key
@@ -2192,7 +2196,7 @@ export default function Flights() {
               <div className="overflow-hidden">
                 <input
                   id="flight-purpose-note"
-                  aria-label="What was it for?"
+                  aria-label={tr("What was it for?")}
                   {...NO_AUTOFILL}
                   autoCorrect="on"
                   autoCapitalize="sentences"
@@ -2201,7 +2205,7 @@ export default function Flights() {
                   value={form.purpose_note}
                   tabIndex={form.purpose === 'other' ? undefined : -1}
                   aria-hidden={form.purpose !== 'other'}
-                  placeholder="A wedding, a move, a layover you turned into a trip"
+                  placeholder={tr("A wedding, a move, a layover you turned into a trip")}
                   onChange={(e) => setForm((f) => ({ ...f, purpose_note: e.target.value }))}
                 />
               </div>
@@ -2216,14 +2220,14 @@ export default function Flights() {
               wants to look at again, which is why it gets the front of the row
               in the log rather than a link. */}
           <div>
-            <p className="label">A photo from the trip <span className="font-normal text-smoke">(optional)</span></p>
+            <p className="label">{tr("A photo from the trip")} <span className="font-normal text-smoke">(optional)</span></p>
             {form.photo_url ? (
               <div className="relative inline-block">
                 <img src={form.photo_url} alt="" className="h-32 w-48 rounded-xl object-cover ring-1 ring-black/5" />
                 <button
                   type="button"
                   onClick={() => setForm((f) => ({ ...f, photo_url: '' }))}
-                  aria-label="Remove this photo"
+                  aria-label={tr("Remove this photo")}
                   className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white text-smoke shadow-card transition-transform hover:scale-110"
                 >
                   <Icon name="close" className="h-3.5 w-3.5" />
@@ -2252,7 +2256,7 @@ export default function Flights() {
           {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
 
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button type="button" onClick={closeForm} className="btn-ghost w-full justify-center sm:w-auto">Cancel</button>
+            <button type="button" onClick={closeForm} className="btn-ghost w-full justify-center sm:w-auto">{tr("Cancel")}</button>
             <button type="submit" disabled={saving} className="btn-primary w-full justify-center sm:w-auto">
               {saving ? <Spinner /> : editing ? 'Save changes' : upcoming ? 'Add to what is coming up' : 'Add to my log'}
             </button>
@@ -2303,7 +2307,7 @@ export default function Flights() {
                 type="button"
                 onClick={() => setPhoto(detail.photo_url)}
                 className="group relative block w-full overflow-hidden rounded-card"
-                aria-label="Open the photo full size"
+                aria-label={tr("Open the photo full size")}
               >
                 <img
                   src={detail.photo_url}
@@ -2311,7 +2315,7 @@ export default function Flights() {
                   className="h-56 w-full object-cover transition-transform duration-300 group-hover:scale-[1.02] sm:h-72"
                 />
                 <span className="absolute bottom-2 right-2 flex items-center gap-1.5 rounded-full bg-ink/70 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-sm">
-                  <Icon name="expand" className="h-3.5 w-3.5" /> Full size
+                  <Icon name="expand" className="h-3.5 w-3.5" /> {tr("Full size")}
                 </span>
               </button>
             )}
@@ -2319,11 +2323,11 @@ export default function Flights() {
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="rounded-xl bg-cloud px-3 py-2.5">
                 <p className="text-lg font-bold tabular-nums text-brand">{km(detail.dist)}</p>
-                <p className="text-[11px] text-smoke">km flown</p>
+                <p className="text-[11px] text-smoke">{tr("km flown")}</p>
               </div>
               <div className="rounded-xl bg-cloud px-3 py-2.5">
                 <p className="text-lg font-bold tabular-nums text-brand">{humanHours(detail.mins)}</p>
-                <p className="text-[11px] text-smoke">in the air</p>
+                <p className="text-[11px] text-smoke">{tr("in the air")}</p>
               </div>
               <div className="rounded-xl bg-cloud px-3 py-2.5">
                 <p className="text-lg font-bold tabular-nums text-brand">{detail.legs.length}</p>
@@ -2363,10 +2367,10 @@ export default function Flights() {
 
             <div className="flex flex-wrap gap-2">
               <button onClick={() => { const f = detail.out; setDetail(null); openEdit(f) }} className="btn-secondary !py-2.5 text-sm">
-                <Icon name="pencil" className="h-4 w-4" /> Edit
+                <Icon name="pencil" className="h-4 w-4" /> {tr("Edit")}
               </button>
               <button onClick={() => { const f = detail.out; setDetail(null); offerTrip(f) }} className="btn-ghost !py-2.5 text-sm">
-                <Icon name="share" className="h-4 w-4" /> Post to the collab board
+                <Icon name="share" className="h-4 w-4" /> {tr("Post to the collab board")}
               </button>
             </div>
           </div>
@@ -2380,7 +2384,7 @@ export default function Flights() {
           this page could never beat the trip sheet it opens from. */}
       <PhotoLightbox src={photo} onClose={() => setPhoto(null)} />
 
-      <Modal open={!!offer} onClose={() => setOffer(null)} title="Tell the community?">
+      <Modal open={!!offer} onClose={() => setOffer(null)} title={tr("Tell the community?")}>
         {offer && (
           <div className="space-y-4">
             <div className="flex items-center gap-3 rounded-card border border-brand/25 bg-brand-tint/25 p-4">
@@ -2399,23 +2403,23 @@ export default function Flights() {
                 the collab board and anybody who is there at the same time can
                 reach out to you. Say that. No need for anything else." */}
             <p className="text-sm text-smoke">
-              Post it on the collab board and anybody who is there at the same time can reach out to you.
+              {tr("Post it on the collab board and anybody who is there at the same time can reach out to you.")}
             </p>
             <div>
-              <label htmlFor="collab-note" className="label">What are you up for?</label>
+              <label htmlFor="collab-note" className="label">{tr("What are you up for?")}</label>
               <textarea
                 id="collab-note"
                 rows={3}
                 className="input w-full"
                 maxLength={280}
                 value={offer.note}
-                placeholder="Filming around the old town, up for a coffee or a shoot with anyone nearby."
+                placeholder={tr("Filming around the old town, up for a coffee or a shoot with anyone nearby.")}
                 onChange={(e) => setOffer((o) => ({ ...o, note: e.target.value }))}
               />
             </div>
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button type="button" onClick={() => setOffer(null)} className="btn-ghost w-full justify-center sm:w-auto">
-                Not this time
+                {tr("Not this time")}
               </button>
               <button
                 type="button"

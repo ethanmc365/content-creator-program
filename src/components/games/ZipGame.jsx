@@ -7,6 +7,7 @@ import { generateZip, zipIndexForDay, wallKey } from '../../lib/zip'
 import { ukDayIndex, ukDayStartIso, untilNextUkMidnight, dailyStreak } from '../../lib/daily'
 import { cx } from '../../lib/utils'
 import { playCelebrate, playCoin, playWrong, playGearThud, engineThrust, engineStop } from '../../lib/gameSounds'
+import { useT } from '../../lib/i18n'
 
 // Flight Path: drag the plane through the numbered stops in order, leaving a
 // contrail behind you, until every cell of the sky is covered. One layout per
@@ -94,6 +95,7 @@ function PlaneIcon({ x, y, angle, scale = 3.4 }) {
 }
 
 export default function ZipGame({ onExit }) {
+  const tr = useT()
   // Open on the puzzle rather than on the page it lives at the bottom of.
   const cardRef = useRef(null)
   const { user } = useAuth()
@@ -430,17 +432,17 @@ export default function ZipGame({ onExit }) {
       <div className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
         <div className="flex flex-col gap-3 p-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-4">
           <span className="flex min-w-0 flex-wrap items-center gap-2">
-            <Badge tone="light"><Icon name="plane-tryp" className="h-3.5 w-3.5" /> Flight Path</Badge>
+            <Badge tone="light"><Icon name="plane-tryp" className="h-3.5 w-3.5" /> {tr("Flight Path")}</Badge>
             <Badge tone={HARD_DIFFS.includes(difficulty) ? 'brand' : 'grey'} className="!px-2 !py-0.5 text-[10px]">{DIFF_LABEL[difficulty]}</Badge>
             <StreakChip n={streak} title={`${streak}-day daily streak`} />
           </span>
           <div className="flex shrink-0 items-center gap-4 sm:gap-5">
             <div className="leading-tight">
-              <span className="block text-[10px] font-medium uppercase tracking-widest text-smoke">Sky filled</span>
+              <span className="block text-[10px] font-medium uppercase tracking-widest text-smoke">{tr("Sky filled")}</span>
               <span className="block text-base font-bold tabular-nums text-ink sm:text-lg">{progress}%</span>
             </div>
             <div className="leading-tight">
-              <span className="block text-[10px] font-medium uppercase tracking-widest text-smoke">Time</span>
+              <span className="block text-[10px] font-medium uppercase tracking-widest text-smoke">{tr("Time")}</span>
               <span className="block font-mono text-base font-bold tabular-nums text-ink sm:text-lg">{solved ? fmtTime(solveMs ?? 0) : fmtTime(elapsed)}</span>
             </div>
             <button
@@ -448,7 +450,7 @@ export default function ZipGame({ onExit }) {
               className="ml-auto flex items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold text-smoke transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand sm:ml-0"
             >
               <Icon name="chevronLeft" className="h-3.5 w-3.5" />
-              Games
+              {tr("Games")}
             </button>
           </div>
         </div>
@@ -469,9 +471,9 @@ export default function ZipGame({ onExit }) {
             sentence ran to four lines at 375px above a board that then had to
             share the screen with it. */}
         <p className="mb-3 text-center text-[13px] leading-snug text-smoke sm:mb-4 sm:text-sm">
-          Fly through every stop <span className="font-semibold text-ink">in order</span>, filling the whole sky.
-          {walls.length > 0 && <> Orange bars are <span className="font-semibold text-ink">no-fly walls</span>.</>}
-          <span className="hidden sm:inline"> Drag the plane, drag backwards to undo.</span>
+          {tr("Fly through every stop")} <span className="font-semibold text-ink">{tr("in order")}</span>, filling the whole sky.
+          {walls.length > 0 && <> {tr("Orange bars are")} <span className="font-semibold text-ink">{tr("no-fly walls")}</span>.</>}
+          <span className="hidden sm:inline"> {tr("Drag the plane, drag backwards to undo.")}</span>
         </p>
 
         {/* WIDER ON A BIG SCREEN. The cap was 660px whatever the display, so an
@@ -492,7 +494,7 @@ export default function ZipGame({ onExit }) {
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerUp}
-            aria-label="Flight path puzzle board"
+            aria-label={tr("Flight path puzzle board")}
           >
             <defs>
               <linearGradient id="fp-sky" x1="0" y1="0" x2="0" y2="1">
@@ -611,18 +613,18 @@ export default function ZipGame({ onExit }) {
                 <span className="flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lift">
                   <Icon name="plane-tryp" className="h-8 w-8" />
                 </span>
-                <p className="text-xl font-bold text-ink">Smooth landing!</p>
+                <p className="text-xl font-bold text-ink">{tr("Smooth landing!")}</p>
                 <p className="text-sm text-smoke">
                   Today's flight completed{solveMs != null ? ` in ${fmtTime(solveMs)}` : ''}.
                 </p>
                 <p className="text-xs text-smoke">New route at midnight UK time · {nextIn}</p>
-                <button onClick={onExit} className="btn-secondary !py-2 text-sm">Back to games</button>
+                <button onClick={onExit} className="btn-secondary !py-2 text-sm">{tr("Back to games")}</button>
               </div>
             </div>
           )}
           {checking && !solved && (
             <div className="absolute inset-0 flex items-center justify-center rounded-card bg-white/70">
-              <p className="text-sm text-smoke">Checking today's flight…</p>
+              <p className="text-sm text-smoke">{tr("Checking today's flight…")}</p>
             </div>
           )}
         </div>
@@ -641,17 +643,17 @@ export default function ZipGame({ onExit }) {
               className="flex h-11 items-center gap-1.5 rounded-full border border-gray-200 px-4 text-sm font-semibold text-smoke transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand active:scale-95"
             >
               <Icon name="reply" className="h-4 w-4" />
-              Undo
+              {tr("Undo")}
             </button>
             <button
               onClick={restart}
               className="flex h-11 items-center gap-1.5 rounded-full border border-gray-200 px-4 text-sm font-semibold text-smoke transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand active:scale-95"
             >
               <Icon name="reorder" className="h-4 w-4" />
-              Restart
+              {tr("Restart")}
             </button>
             <span className="flex h-11 items-center gap-2 rounded-full bg-brand-tint px-4 text-brand">
-              <span className="text-[10px] font-semibold uppercase tracking-widest">Next stop</span>
+              <span className="text-[10px] font-semibold uppercase tracking-widest">{tr("Next stop")}</span>
               <span className="text-lg font-extrabold tabular-nums leading-none">{Math.min(expected, lastN)}</span>
             </span>
           </div>

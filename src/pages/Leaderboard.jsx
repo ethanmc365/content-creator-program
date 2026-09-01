@@ -7,6 +7,7 @@ import { Avatar, EmptyState, PageHeader, Skeleton } from '../components/ui'
 import Icon from '../components/Icon'
 import { cx, formatViews } from '../lib/utils'
 import { EASE } from '../lib/motion'
+import { useT } from '../lib/i18n'
 
 // EVERY CREATOR, RANKED BY WHAT THE PROGRAMME IS FOR.
 //
@@ -92,6 +93,7 @@ function Podium({ top, meId }) {
 }
 
 export default function Leaderboard() {
+  const tr = useT()
   const { profile } = useAuth()
   const [rows, setRows] = useState(null)
   const [markets, setMarkets] = useState([])
@@ -147,7 +149,7 @@ export default function Leaderboard() {
 
   return (
     <div className="page max-w-3xl">
-      <PageHeader title="All-time leaderboard" />
+      <PageHeader title={tr("All-time leaderboard")} />
 
       {/* WHICH MARKET. The board is worldwide by default, because that is the
           community somebody opening a leaderboard is asking about - but a UK
@@ -164,7 +166,7 @@ export default function Leaderboard() {
               !market ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink',
             )}
           >
-            Worldwide
+            {tr("Worldwide")}
           </button>
           {markets.map((m) => (
             <button
@@ -188,8 +190,8 @@ export default function Leaderboard() {
       ) : posted.length === 0 ? (
         <EmptyState
           icon={<Icon name="trophy" className="h-7 w-7" />}
-          title="Nobody has posted here yet"
-          hint="The first video on the board sets the pace."
+          title={tr("Nobody has posted here yet")}
+          hint={tr("The first video on the board sets the pace.")}
         />
       ) : (
         <>
@@ -241,7 +243,7 @@ export default function Leaderboard() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold">
                         {c.name}
-                        {isMe && <span className="ml-1.5 text-xs font-medium text-brand">You</span>}
+                        {isMe && <span className="ml-1.5 text-xs font-medium text-brand">{tr("You")}</span>}
                       </p>
                       <p className="truncate text-xs text-smoke">
                         {c.posts} {c.posts === 1 ? 'video' : 'videos'}

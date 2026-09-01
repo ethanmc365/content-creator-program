@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { AppLoader, Avatar, Spinner } from './ui'
 import { cx } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 // Shown once to a newly-approved creator: connect with a few others before the
 // full community unlocks. "Connecting" sends a connection request; after three
@@ -11,6 +12,7 @@ import { cx } from '../lib/utils'
 const TARGET = 3
 
 export default function ConnectGate() {
+  const tr = useT()
   const { user, profile, refreshProfile, signOut } = useAuth()
   const [creators, setCreators] = useState(null)
   const [connectedIds, setConnectedIds] = useState(new Set())
@@ -81,7 +83,7 @@ export default function ConnectGate() {
 
         {creators.length === 0 ? (
           <p className="rounded-card border border-dashed border-gray-200 bg-white px-5 py-10 text-center text-sm text-smoke">
-            No other creators to connect with yet. You're all set!
+            {tr("No other creators to connect with yet. You're all set!")}
           </p>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -119,7 +121,7 @@ export default function ConnectGate() {
           >
             {finishing ? <Spinner /> : count >= TARGET || !canEverReach ? 'Enter the community →' : `Connect with ${remaining} more`}
           </button>
-          <button onClick={signOut} className="btn-ghost text-xs">Log out</button>
+          <button onClick={signOut} className="btn-ghost text-xs">{tr("Log out")}</button>
         </div>
       </div>
     </div>

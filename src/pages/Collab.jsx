@@ -17,6 +17,7 @@ import MapSkeleton from '../components/network/MapSkeleton'
 import { loadMapCountryNames, canonicalCountry } from '../lib/mapCountries'
 import Reveal from '../components/network/Reveal'
 import WhenVisible from '../components/WhenVisible'
+import { useT } from '../lib/i18n'
 
 // How many upcoming trips to show before the "View more" button.
 const TRIPS_PREVIEW = 6
@@ -95,6 +96,7 @@ const TripCard = memo(function TripCard({
   p, past = false, mine, canEdit, canDelete, mapCountry, interestCount, iAmInterested,
   reserveNote = true, onEdit, onRemove, onToggleInterest, onMessage,
 }) {
+  const tr = useT()
   const person = p.profiles || {}
   const selectedCountries = useMemo(() => (mapCountry ? [mapCountry] : []), [mapCountry])
   return (
@@ -122,12 +124,12 @@ const TripCard = memo(function TripCard({
         {(canEdit || canDelete) && (
           <div className="flex shrink-0 items-center gap-1">
             {canEdit && (
-              <button onClick={() => onEdit(p)} aria-label="Edit trip" title="Edit trip" className="rounded-lg p-1.5 text-smoke transition-colors hover:bg-brand-tint hover:text-brand">
+              <button onClick={() => onEdit(p)} aria-label={tr("Edit trip")} title={tr("Edit trip")} className="rounded-lg p-1.5 text-smoke transition-colors hover:bg-brand-tint hover:text-brand">
                 <Icon name="pencil" className="h-4 w-4" />
               </button>
             )}
             {canDelete && (
-              <button onClick={() => onRemove(p)} aria-label="Delete trip" title="Delete trip" className="rounded-lg p-1.5 text-smoke transition-colors hover:bg-red-50 hover:text-red-600">
+              <button onClick={() => onRemove(p)} aria-label={tr("Delete trip")} title={tr("Delete trip")} className="rounded-lg p-1.5 text-smoke transition-colors hover:bg-red-50 hover:text-red-600">
                 <Icon name="trash" className="h-4 w-4" />
               </button>
             )}
@@ -194,12 +196,13 @@ const TripCard = memo(function TripCard({
           Your trip · visible to the community{interestCount > 0 ? ` · ${interestCount} interested` : ''}
         </p>
       )}
-      {past && <p className="mt-auto text-xs text-smoke">Trip ended</p>}
+      {past && <p className="mt-auto text-xs text-smoke">{tr("Trip ended")}</p>}
     </div>
   )
 })
 
 export default function Collab() {
+  const tr = useT()
   const { user, isAdmin, profile } = useAuth()
   // THE FLIGHT LOG IS BEHIND THE NETWORK PREVIEW GATE AND THE COLLAB BOARD IS
   // NOT. `/collab` is an open route a UK creator reaches from their own nav;
@@ -570,7 +573,7 @@ export default function Collab() {
   return (
     <div className="page">
       <PageHeader
-        title="Travel collab board"
+        title={tr("Travel collab board")}
         subtitle="Heading somewhere? Post your trip so nearby creators can meet up, grab a coffee, film together or plan a trip."
         action={canPost && (
           <div className="flex flex-wrap gap-2">
@@ -598,7 +601,7 @@ export default function Collab() {
             {networkPreview && (
               <Link to="/flights?log=upcoming" className="btn-secondary !py-2.5 text-sm">
                 <Icon name="plane-tryp" className="h-4 w-4" />
-                From a flight
+                {tr("From a flight")}
               </Link>
             )}
             <button onClick={() => setPosting((v) => !v)} className="btn-primary !py-2.5">
@@ -623,17 +626,17 @@ export default function Collab() {
       {canPost && posting && (
         <form onSubmit={submit} className="card mb-10 !p-6">
           <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="font-semibold">Post a trip</h2>
+            <h2 className="font-semibold">{tr("Post a trip")}</h2>
             {networkPreview && (
               <Link to="/flights?log=upcoming" className="text-xs font-medium text-brand transition-transform duration-200 hover:scale-105">
-                Already booked the flight? Log it instead →
+                {tr("Already booked the flight? Log it instead →")}
               </Link>
             )}
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="city" className="label">City / place</label>
-              <input id="city" className="input" placeholder="Lisbon" value={form.city}
+              <label htmlFor="city" className="label">{tr("City / place")}</label>
+              <input id="city" className="input" placeholder={tr("Lisbon")} value={form.city}
                 onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} maxLength={60} />
             </div>
             {/* A COMPACT SEARCHABLE PICKER, NOT THE BROWSER'S OWN LIST.
@@ -650,12 +653,12 @@ export default function Collab() {
                 "(shows on the map)" went with it: the map is right there, and
                 the trip shows on it whether or not the label says so. */}
             <div>
-              <label htmlFor="country" className="label">Country</label>
+              <label htmlFor="country" className="label">{tr("Country")}</label>
               <Combobox
                 value={form.country}
                 onChange={(v) => setForm((f) => ({ ...f, country: v }))}
                 options={countryNames}
-                placeholder="Pick a country"
+                placeholder={tr("Pick a country")}
                 ariaLabel="Country"
                 allowClear={false}
               />
@@ -664,7 +667,7 @@ export default function Collab() {
                 date box is the shared typed field, and a creator meeting the OS
                 picker here after typing everywhere else is the inconsistency
                 Ethan asked to close. Both already store ISO, so it drops in. */}
-            <DateField id="start" label="From" min={todayYmd()}
+            <DateField id="start" label={tr("From")} min={todayYmd()}
               value={form.start_date}
               futureError="Trips are for dates still to come."
               onChange={(v) => setForm((f) => ({ ...f, start_date: v, end_date: f.end_date && v && f.end_date < v ? v : f.end_date }))} />
@@ -680,9 +683,9 @@ export default function Collab() {
               whole board runs on somebody reading what you are up for and
               saying "me too". Optional was quietly making the feature worse. */}
           <div className="mt-4">
-            <label htmlFor="note" className="label">What are you up for?</label>
+            <label htmlFor="note" className="label">{tr("What are you up for?")}</label>
             <textarea id="note" className="input min-h-[80px]" maxLength={300}
-              placeholder="Anyone around for a coffee and a collab? Keen to shoot some content around the city."
+              placeholder={tr("Anyone around for a coffee and a collab? Keen to shoot some content around the city.")}
               value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} />
           </div>
           {error && <p role="alert" className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
@@ -703,10 +706,10 @@ export default function Collab() {
         <section className="mb-10 rounded-card border border-brand/25 bg-brand-tint/20 p-5 sm:p-6">
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <Icon name="sparkles" className="h-5 w-5 text-brand" />
-            You will be in the same place
+            {tr("You will be in the same place")}
           </h2>
           <p className="mb-4 mt-1 text-sm text-smoke">
-            These trips overlap with yours, in the same country and on the same dates.
+            {tr("These trips overlap with yours, in the same country and on the same dates.")}
           </p>
           <div className="space-y-2.5">
             {overlaps.map(({ post, mineTrip, days }) => (
@@ -722,7 +725,7 @@ export default function Collab() {
                   </p>
                 </div>
                 <button onClick={() => message(post.creator_id)} className="btn-primary shrink-0 !py-2 !px-4 text-xs">
-                  Say hello
+                  {tr("Say hello")}
                 </button>
               </div>
             ))}
@@ -732,7 +735,7 @@ export default function Collab() {
 
       {(travellers === null || travellers.creators.length > 0 || boardCountries.length > 0) && (
         <section className="mb-10">
-          <h2 className="mb-1 text-lg font-semibold">Where everyone's headed</h2>
+          <h2 className="mb-1 text-lg font-semibold">{tr("Where everyone's headed")}</h2>
           {travellers === null ? (
             // WHICH MAP THIS IS, IS A FACT WE DO NOT HAVE YET. Drawing either
             // one and correcting it is the bug described on the `travellers`
@@ -758,7 +761,7 @@ export default function Collab() {
             </>
           ) : (
             <>
-              <p className="mb-5 text-sm text-smoke">No one's mid-trip right now. Here's every country with an upcoming trip, highlighted.</p>
+              <p className="mb-5 text-sm text-smoke">{tr("No one's mid-trip right now. Here's every country with an upcoming trip, highlighted.")}</p>
               <WhenVisible fallback={<MapSkeleton ratio="world" />}>
                 <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
                   <WorldMap selected={boardCountries} />
@@ -796,10 +799,10 @@ export default function Collab() {
         <section className="mb-10">
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <Icon name="users" className="h-5 w-5 text-brand" />
-            Meet-ups in the making
+            {tr("Meet-ups in the making")}
           </h2>
           <p className="mb-4 mt-1 text-sm text-smoke">
-            Interest you have sent and interest people have sent you. Only the two of you can see the note.
+            {tr("Interest you have sent and interest people have sent you. Only the two of you can see the note.")}
           </p>
           <div className="grid gap-3 lg:grid-cols-2">
             {meetups.map(({ row, post, incoming, person }) => (
@@ -842,7 +845,7 @@ export default function Collab() {
                 <div className="mt-3 flex flex-wrap gap-2">
                   {incoming && !row.acknowledged_at && (
                     <button onClick={() => acknowledge(row.id)} className="btn-secondary !py-2 !px-4 text-xs">
-                      <Icon name="check" className="h-4 w-4" /> Mark as seen
+                      <Icon name="check" className="h-4 w-4" /> {tr("Mark as seen")}
                     </button>
                   )}
                   <button onClick={() => message(person?.id)} className="btn-primary !py-2 !px-4 text-xs">
@@ -850,7 +853,7 @@ export default function Collab() {
                   </button>
                   {!incoming && (
                     <button onClick={() => toggleInterest(row.post_id)} className="btn-ghost !py-2 !px-4 text-xs">
-                      Withdraw
+                      {tr("Withdraw")}
                     </button>
                   )}
                 </div>
@@ -881,7 +884,7 @@ export default function Collab() {
             options={[{ value: '', label: 'Any country' }, ...countryOptions.map((c) => ({ value: c, label: c }))]}
           />
           {(monthFilter || countryFilter) && (
-            <button onClick={() => { setMonthFilter(''); setCountryFilter('') }} className="btn-ghost !py-2 text-sm">Clear</button>
+            <button onClick={() => { setMonthFilter(''); setCountryFilter('') }} className="btn-ghost !py-2 text-sm">{tr("Clear")}</button>
           )}
         </div>
       )}
@@ -892,11 +895,11 @@ export default function Collab() {
       ) : upcoming.length === 0 ? (
         <EmptyState
           icon={<Icon name="pin" className="h-7 w-7" />}
-          title="No upcoming trips"
+          title={tr("No upcoming trips")}
           hint={canPost ? 'Be the first to post where you’re headed and let the community find you.' : 'Once your application is approved you can post your trips here.'}
         />
       ) : filteredUpcoming.length === 0 ? (
-        <EmptyState icon={<Icon name="magnifier" className="h-7 w-7" />} title="No trips match those filters" hint="Try a different month or country." />
+        <EmptyState icon={<Icon name="magnifier" className="h-7 w-7" />} title={tr("No trips match those filters")} hint={tr("Try a different month or country.")} />
       ) : (
         <>
           <Reveal className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -914,7 +917,7 @@ export default function Collab() {
               className="mt-6 flex w-full items-center justify-center gap-2 rounded-card border border-gray-100 bg-white py-3 text-sm font-semibold text-brand shadow-card transition-all hover:-translate-y-0.5 hover:shadow-lift"
             >
               {expanded
-                ? <>Show fewer <Icon name="chevronLeft" className="h-4 w-4 rotate-90" /></>
+                ? <>{tr("Show fewer")} <Icon name="chevronLeft" className="h-4 w-4 rotate-90" /></>
                 : <>View {filteredUpcoming.length - TRIPS_PREVIEW} more upcoming {filteredUpcoming.length - TRIPS_PREVIEW === 1 ? 'trip' : 'trips'} <Icon name="chevronRight" className="h-4 w-4 rotate-90" /></>}
             </button>
           )}
@@ -929,8 +932,8 @@ export default function Collab() {
       {/* ---- Archive: trips whose dates have passed ---- */}
       {archived.length > 0 && (
         <section className="mt-12">
-          <h2 className="mb-1 text-lg font-semibold">Past trips</h2>
-          <p className="mb-5 text-sm text-smoke">Trips that have already happened.</p>
+          <h2 className="mb-1 text-lg font-semibold">{tr("Past trips")}</h2>
+          <p className="mb-5 text-sm text-smoke">{tr("Trips that have already happened.")}</p>
           <Reveal className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {archived.map((p) => <TripCard key={p.id} {...cardProps(p)} past />)}
           </Reveal>
@@ -943,7 +946,7 @@ export default function Collab() {
           gesture into a task and fewer people would do it at all; leaving it
           out entirely is what the button used to do and the reason it read as
           doing nothing. */}
-      <Modal open={!!interestFor} onClose={() => setInterestFor(null)} title="Say why" sheet={false}>
+      <Modal open={!!interestFor} onClose={() => setInterestFor(null)} title={tr("Say why")} sheet={false}>
         <form onSubmit={sendInterest} className="space-y-4">
           <div>
             <h2 className="text-lg font-semibold">
@@ -956,7 +959,7 @@ export default function Collab() {
           </div>
           <div>
             <label htmlFor="interest-note" className="label">
-              What have you got in mind? <span className="font-normal text-smoke">(optional)</span>
+              {tr("What have you got in mind?")} <span className="font-normal text-smoke">(optional)</span>
             </label>
             <textarea
               id="interest-note"
@@ -965,11 +968,11 @@ export default function Collab() {
               autoFocus
               value={interestNote}
               onChange={(e) => setInterestNote(e.target.value)}
-              placeholder="I'm in Lisbon the same week. Fancy shooting a couple of reels around Alfama, or just a coffee?"
+              placeholder={tr("I'm in Lisbon the same week. Fancy shooting a couple of reels around Alfama, or just a coffee?")}
             />
           </div>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button type="button" onClick={() => setInterestFor(null)} className="btn-ghost w-full justify-center sm:w-auto">Cancel</button>
+            <button type="button" onClick={() => setInterestFor(null)} className="btn-ghost w-full justify-center sm:w-auto">{tr("Cancel")}</button>
             <button type="submit" disabled={sendingInterest} className="btn-primary w-full justify-center sm:w-auto">
               {sendingInterest ? <Spinner /> : 'Send it'}
             </button>
@@ -978,27 +981,27 @@ export default function Collab() {
       </Modal>
 
       {/* ---- Edit trip modal (own post, or any post for admins) ---- */}
-      <Modal open={!!editing} onClose={() => setEditing(null)} title="Edit trip">
+      <Modal open={!!editing} onClose={() => setEditing(null)} title={tr("Edit trip")}>
         <form onSubmit={saveEdit} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="edit-city" className="label">City / place</label>
+              <label htmlFor="edit-city" className="label">{tr("City / place")}</label>
               <input id="edit-city" className="input" placeholder="Lisbon" value={editForm.city}
                 onChange={(e) => setEditForm((f) => ({ ...f, city: e.target.value }))} maxLength={60} />
             </div>
             {/* The same picker as the post form - see the note there. */}
             <div>
-              <label htmlFor="edit-country" className="label">Country</label>
+              <label htmlFor="edit-country" className="label">{tr("Country")}</label>
               <Combobox
                 value={editForm.country}
                 onChange={(v) => setEditForm((f) => ({ ...f, country: v }))}
                 options={countryNames}
-                placeholder="Pick a country"
+                placeholder={tr("Pick a country")}
                 ariaLabel="Country"
                 allowClear={false}
               />
             </div>
-            <DateField id="edit-start" label="From"
+            <DateField id="edit-start" label={tr("From")}
               value={editForm.start_date}
               onChange={(v) => setEditForm((f) => ({ ...f, start_date: v, end_date: f.end_date && v && f.end_date < v ? v : f.end_date }))} />
             <DateField id="edit-end" label="To" min={editForm.start_date || undefined}
@@ -1007,13 +1010,13 @@ export default function Collab() {
               onChange={(v) => setEditForm((f) => ({ ...f, end_date: v }))} />
           </div>
           <div>
-            <label htmlFor="edit-note" className="label">What are you up for?</label>
+            <label htmlFor="edit-note" className="label">{tr("What are you up for?")}</label>
             <textarea id="edit-note" className="input min-h-[80px]" maxLength={300}
               value={editForm.note} onChange={(e) => setEditForm((f) => ({ ...f, note: e.target.value }))} />
           </div>
           {editError && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{editError}</p>}
           <div className="flex justify-end gap-2">
-            <button type="button" onClick={() => setEditing(null)} className="btn-ghost">Cancel</button>
+            <button type="button" onClick={() => setEditing(null)} className="btn-ghost">{tr("Cancel")}</button>
             <button type="submit" disabled={savingEdit} className="btn-primary">{savingEdit ? <Spinner /> : 'Save changes'}</button>
           </div>
         </form>

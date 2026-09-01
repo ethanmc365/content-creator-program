@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Icon from './Icon'
 import { useIsPhone } from '../lib/useKeyboardInset'
+import { useT } from '../lib/i18n'
 
 // Searching a conversation.
 //
@@ -22,6 +23,7 @@ import { useIsPhone } from '../lib/useKeyboardInset'
 // server round trip for something this small would be slower AND worse.
 
 export function RoomSearch({ value, onChange, count, total, label = 'Search this room' }) {
+  const tr = useT()
   const ref = useRef(null)
   const [open, setOpen] = useState(false)
   const phone = useIsPhone()
@@ -81,7 +83,7 @@ export function RoomSearch({ value, onChange, count, total, label = 'Search this
           {count} of {total}
         </span>
       )}
-      <button onClick={() => setOpen(false)} aria-label="Close search"
+      <button onClick={() => setOpen(false)} aria-label={tr("Close search")}
         className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-smoke transition-colors hover:bg-cloud hover:text-ink">
         <Icon name="close" className="h-3.5 w-3.5" />
       </button>

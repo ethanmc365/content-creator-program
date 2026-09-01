@@ -14,6 +14,7 @@ import AutoTextarea from '../components/AutoTextarea'
 import { flagForCountry } from '../lib/flags'
 import { geocodeCity } from '../lib/geocode'
 import { PageHeader, Spinner } from '../components/ui'
+import { useT } from '../lib/i18n'
 
 // Edit every part of your own profile on one calm page.
 //
@@ -32,6 +33,7 @@ const TABS = [
 const TAB_KEYS = new Set(TABS.map((t) => t.key))
 
 export default function EditProfile() {
+  const tr = useT()
   // WHICH PANEL YOU LAND ON IS IN THE URL.
   //
   // "Manage photos" on the profile used to link at /profile/edit, which opens
@@ -140,7 +142,7 @@ export default function EditProfile() {
 
   return (
     <div className="page max-w-5xl">
-      <PageHeader title="Edit profile" />
+      <PageHeader title={tr("Edit profile")} />
 
       {/* ================= FOUR PANELS, NOT ONE LONG FORM =================
           Ethan: "the edit profile page currently opens up, seems like a lot of
@@ -158,7 +160,7 @@ export default function EditProfile() {
           THE RAIL IS A ROW ON A PHONE. Four labels fit across 375px; a vertical
           list of four would be the scrolling this is meant to remove. */}
       <form onSubmit={save} className="grid grid-cols-1 gap-6 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-8">
-        <nav className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0" aria-label="Profile sections">
+        <nav className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0" aria-label={tr("Profile sections")}>
           {TABS.map((t) => {
             const on = tab === t.key
             return (
@@ -182,31 +184,31 @@ export default function EditProfile() {
         <div className="min-w-0">
           <div className={tab === 'you' ? 'space-y-6' : 'hidden'}>
           <section className="card space-y-6">
-            <h2 className="text-lg font-semibold">Photo & basics</h2>
+            <h2 className="text-lg font-semibold">{tr("Photo & basics")}</h2>
             <AvatarUpload photoUrl={form.photo_url} name={form.name} onUploaded={(url) => set({ photo_url: url })} />
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div>
-                <label htmlFor="name" className="label">Display name</label>
+                <label htmlFor="name" className="label">{tr("Display name")}</label>
                 <input id="name" type="text" required className="input" value={form.name} onChange={(e) => set({ name: e.target.value })} />
               </div>
               <DobField value={form.dob} onChange={(dob) => set({ dob })} />
             </div>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div>
-                <label htmlFor="city" className="label">City</label>
-                <input id="city" type="text" className="input" value={form.city} onChange={(e) => set({ city: e.target.value })} placeholder="e.g. London" />
+                <label htmlFor="city" className="label">{tr("City")}</label>
+                <input id="city" type="text" className="input" value={form.city} onChange={(e) => set({ city: e.target.value })} placeholder={tr("e.g. London")} />
               </div>
               <div>
-                <label htmlFor="country" className="label">Country</label>
-                <input id="country" type="text" className="input" value={form.country} onChange={(e) => set({ country: e.target.value })} placeholder="e.g. United Kingdom" />
+                <label htmlFor="country" className="label">{tr("Country")}</label>
+                <input id="country" type="text" className="input" value={form.country} onChange={(e) => set({ country: e.target.value })} placeholder={tr("e.g. United Kingdom")} />
               </div>
             </div>
             <div>
-              <label htmlFor="bio" className="label">One-line bio</label>
+              <label htmlFor="bio" className="label">{tr("One-line bio")}</label>
               <input id="bio" type="text" maxLength={120} className="input" value={form.bio} onChange={(e) => set({ bio: e.target.value })} />
             </div>
             <div>
-              <label htmlFor="about" className="label">About you</label>
+              <label htmlFor="about" className="label">{tr("About you")}</label>
               {/* IT GROWS. A fixed five rows meant anybody writing a real
                   paragraph was editing it through a letterbox, scrolling a box
                   inside a page that also scrolls. See AutoTextarea. */}
@@ -218,7 +220,7 @@ export default function EditProfile() {
           </div>
           <div className={tab === 'links' ? 'space-y-6' : 'hidden'}>
           <section className="card space-y-6">
-            <h2 className="text-lg font-semibold">Social links</h2>
+            <h2 className="text-lg font-semibold">{tr("Social links")}</h2>
             <SocialInputs values={form} onChange={(v) => set(v)} />
 
             {/* ANYTHING ELSE: a blog, a Linktree, a press kit. Stored as JSON.
@@ -226,14 +228,14 @@ export default function EditProfile() {
                 a Pinterest link visibly becomes that platform as you type and
                 you can see it will not come out as a generic chain link. */}
             <div>
-              <p className="label">Other links</p>
+              <p className="label">{tr("Other links")}</p>
               {form.other_links.map((l, i) => (
                 <div key={i} className="mb-3 flex items-center gap-2">
                   <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-cloud text-smoke" aria-hidden>
                     <SocialMark brand={brandForUrl(l.url || '')} className="h-5 w-5" />
                   </span>
                   <input
-                    type="text" placeholder="Label (e.g. Blog)" className="input !w-32 shrink-0"
+                    type="text" placeholder={tr("Label (e.g. Blog)")} className="input !w-32 shrink-0"
                     aria-label={`Label for link ${i + 1}`}
                     value={l.label}
                     onChange={(e) => {
@@ -243,7 +245,7 @@ export default function EditProfile() {
                     }}
                   />
                   <input
-                    type="url" placeholder="https://…" className="input min-w-0 flex-1"
+                    type="url" placeholder={tr("https://…")} className="input min-w-0 flex-1"
                     aria-label={`URL for link ${i + 1}`}
                     value={l.url}
                     onChange={(e) => {
@@ -252,7 +254,7 @@ export default function EditProfile() {
                       set({ other_links: links })
                     }}
                   />
-                  <button type="button" aria-label="Remove link" className="btn-ghost !px-3" onClick={() => set({ other_links: form.other_links.filter((_, j) => j !== i) })}>✕</button>
+                  <button type="button" aria-label={tr("Remove link")} className="btn-ghost !px-3" onClick={() => set({ other_links: form.other_links.filter((_, j) => j !== i) })}>✕</button>
                 </div>
               ))}
               <button type="button" className="btn-secondary !py-2 text-xs" onClick={() => set({ other_links: [...form.other_links, { label: '', url: '' }] })}>
@@ -264,11 +266,11 @@ export default function EditProfile() {
           <div className={tab === 'travel' ? 'space-y-6' : 'hidden'}>
           <section className="card space-y-5">
             <div className="flex items-baseline justify-between">
-              <h2 className="text-lg font-semibold">Where I'm headed next</h2>
-              <Link to="/collab" className="text-sm font-medium text-brand hover:underline">Manage on the collab board</Link>
+              <h2 className="text-lg font-semibold">{tr("Where I'm headed next")}</h2>
+              <Link to="/collab" className="text-sm font-medium text-brand hover:underline">{tr("Manage on the collab board")}</Link>
             </div>
             {trips.length === 0 ? (
-              <p className="text-sm text-smoke">No upcoming trips. Post where you’re headed on the collab board so nearby creators can meet up.</p>
+              <p className="text-sm text-smoke">{tr("No upcoming trips. Post where you’re headed on the collab board so nearby creators can meet up.")}</p>
             ) : (
               <div className="flex flex-wrap gap-3">
                 {trips.map((t) => (
@@ -285,31 +287,31 @@ export default function EditProfile() {
           </section>
 
           <section className="card space-y-5">
-            <h2 className="text-lg font-semibold">Languages spoken</h2>
+            <h2 className="text-lg font-semibold">{tr("Languages spoken")}</h2>
             <LanguageSelect selected={form.languages} onChange={(languages) => set({ languages })} />
           </section>
 
           <section className="card space-y-4">
             <div>
-              <h2 className="text-lg font-semibold">Travel bucket list</h2>
-              <p className="mt-1 text-sm text-smoke">Countries (and towns) you're dreaming of visiting. They show on your profile with the flag.</p>
+              <h2 className="text-lg font-semibold">{tr("Travel bucket list")}</h2>
+              <p className="mt-1 text-sm text-smoke">{tr("Countries (and towns) you're dreaming of visiting. They show on your profile with the flag.")}</p>
             </div>
             {form.bucket_list.map((b, i) => (
               <div key={i} className="flex items-center gap-2">
                 <span className="w-8 shrink-0 text-center text-2xl leading-none" aria-hidden>{flagForCountry(b.country) || '📍'}</span>
                 <input
-                  type="text" placeholder="Country (e.g. Japan)" className="input flex-1"
+                  type="text" placeholder={tr("Country (e.g. Japan)")} className="input flex-1"
                   value={b.country || ''}
                   onChange={(e) => { const list = [...form.bucket_list]; list[i] = { ...list[i], country: e.target.value }; set({ bucket_list: list }) }}
                   aria-label={`Bucket-list country ${i + 1}`}
                 />
                 <input
-                  type="text" placeholder="Town (optional)" className="input flex-1"
+                  type="text" placeholder={tr("Town (optional)")} className="input flex-1"
                   value={b.city || ''}
                   onChange={(e) => { const list = [...form.bucket_list]; list[i] = { ...list[i], city: e.target.value }; set({ bucket_list: list }) }}
                   aria-label={`Bucket-list town ${i + 1}`}
                 />
-                <button type="button" aria-label="Remove destination" className="btn-ghost !px-3" onClick={() => set({ bucket_list: form.bucket_list.filter((_, j) => j !== i) })}>✕</button>
+                <button type="button" aria-label={tr("Remove destination")} className="btn-ghost !px-3" onClick={() => set({ bucket_list: form.bucket_list.filter((_, j) => j !== i) })}>✕</button>
               </div>
             ))}
             <button type="button" className="btn-secondary !py-2 text-xs" onClick={() => set({ bucket_list: [...form.bucket_list, { country: '', city: '' }] })}>
@@ -318,7 +320,7 @@ export default function EditProfile() {
           </section>
 
           <section className="card space-y-5">
-            <h2 className="text-lg font-semibold">Countries visited</h2>
+            <h2 className="text-lg font-semibold">{tr("Countries visited")}</h2>
             <WorldMap
               selectable
               selected={form.countries_visited}
@@ -382,14 +384,14 @@ export default function EditProfile() {
               profile, it is the profile's own board. */}
           <div className={tab === 'photos' ? 'space-y-6' : 'hidden'}>
           <section className="card space-y-5">
-            <h2 className="text-lg font-semibold">Travel photos</h2>
+            <h2 className="text-lg font-semibold">{tr("Travel photos")}</h2>
             <TravelGallery creatorId={user.id} editable uploadOnly />
           </section>
           <section className="card space-y-4">
             <div>
-              <h2 className="text-lg font-semibold">Arrange your board</h2>
+              <h2 className="text-lg font-semibold">{tr("Arrange your board")}</h2>
               <p className="mt-1 text-sm text-smoke">
-                Drag to move, pull a corner to resize, tap a photo to set where it crops from. It saves itself, and this is exactly how it appears on your profile.
+                {tr("Drag to move, pull a corner to resize, tap a photo to set where it crops from. It saves itself, and this is exactly how it appears on your profile.")}
               </p>
             </div>
             <PhotoBoard creatorId={user.id} editable alwaysArranging />
@@ -409,7 +411,7 @@ export default function EditProfile() {
               fixed control must never do. The button says what happened
               instead, in the place you were already looking. */}
           <div className="sticky bottom-20 z-20 mt-6 flex items-center justify-end gap-2.5 rounded-card border border-gray-100 bg-white/95 px-3 py-2.5 shadow-lift backdrop-blur sm:bottom-4">
-            <button type="button" onClick={() => navigate(-1)} className="btn-ghost !py-2 text-sm">Cancel</button>
+            <button type="button" onClick={() => navigate(-1)} className="btn-ghost !py-2 text-sm">{tr("Cancel")}</button>
             <button
               type="submit"
               disabled={busy || saved}
@@ -423,7 +425,7 @@ export default function EditProfile() {
 
       <p className="mt-8 text-center text-xs text-smoke">
         Looking for payment details, data download or account deletion? They are on the{' '}
-        <Link to="/settings" className="font-medium text-brand hover:underline">settings page</Link>.
+        <Link to="/settings" className="font-medium text-brand hover:underline">{tr("settings page")}</Link>.
       </p>
     </div>
   )

@@ -22,6 +22,7 @@ import { stripMarkup } from '../lib/richText'
 import { roleLabel } from '../lib/roles'
 import { cardHover, pageFade } from '../lib/motion'
 import { useIsMobile } from '../lib/useKeyboardInset'
+import { useT } from '../lib/i18n'
 
 // A single market's overview, seen by the people IN it.
 //
@@ -42,6 +43,7 @@ import { useIsMobile } from '../lib/useKeyboardInset'
 const MotionLink = motion.create(Link)
 
 export default function ChapterHome() {
+  const tr = useT()
   const { slug } = useParams()
   const { bySlug, manages, error, loading: ctxLoading } = useCommunity()
   // The CONTEXT's error is "the communities themselves would not load". This is
@@ -170,7 +172,7 @@ export default function ChapterHome() {
   }, [chapter])
 
   if (error || loadError) {
-    return <NetworkLayout><EmptyState icon={<Icon name="alert" className="h-6 w-6" />} title="Not readable yet" hint={error || loadError} /></NetworkLayout>
+    return <NetworkLayout><EmptyState icon={<Icon name="alert" className="h-6 w-6" />} title={tr("Not readable yet")} hint={error || loadError} /></NetworkLayout>
   }
   if (ctxLoading && !chapter) {
     return <NetworkLayout><MarketOverviewSkeleton /></NetworkLayout>
@@ -178,9 +180,9 @@ export default function ChapterHome() {
   if (!chapter) {
     return (
       <NetworkLayout>
-        <EmptyState icon={<Icon name="pin" className="h-6 w-6" />} title="No such market"
+        <EmptyState icon={<Icon name="pin" className="h-6 w-6" />} title={tr("No such market")}
           hint={`Nothing here is called "${slug}".`}
-          action={<Link to="/global" className="btn-secondary">Back to Worldwide</Link>} />
+          action={<Link to="/global" className="btn-secondary">{tr("Back to Worldwide")}</Link>} />
       </NetworkLayout>
     )
   }
@@ -199,7 +201,7 @@ export default function ChapterHome() {
   // block once, then write two running orders over the names.
   const roomsCard = (
     <>
-      <RailCard icon={<Icon name="chat" className="h-3.5 w-3.5 text-brand" />} title="Rooms">
+      <RailCard icon={<Icon name="chat" className="h-3.5 w-3.5 text-brand" />} title={tr("Rooms")}>
         {loading ? <RailCardSkeleton rows={3} /> : (
           <div className="space-y-0.5">
             {data.channels.map((ch) => (
@@ -208,7 +210,7 @@ export default function ChapterHome() {
                 <Icon name={ch.icon || 'chat'} className="h-4 w-4 shrink-0 text-smoke transition-colors group-hover:text-brand" />
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">{ch.label}</span>
                 {ch.visibility === 'staff' && (
-                  <span className="shrink-0 rounded-full bg-cloud px-1.5 py-0.5 text-[10px] font-medium text-smoke">Staff</span>
+                  <span className="shrink-0 rounded-full bg-cloud px-1.5 py-0.5 text-[10px] font-medium text-smoke">{tr("Staff")}</span>
                 )}
               </Link>
             ))}
@@ -239,7 +241,7 @@ export default function ChapterHome() {
             ))}
           </div>
           <Link to="/leaderboard" className="mt-2 flex items-center gap-1 px-1 text-[11px] font-semibold text-brand transition-transform duration-200 hover:translate-x-0.5">
-            Full leaderboard <Icon name="chevronRight" className="h-3 w-3" />
+            {tr("Full leaderboard")} <Icon name="chevronRight" className="h-3 w-3" />
           </Link>
         </RailCard>
       )}
@@ -252,10 +254,10 @@ export default function ChapterHome() {
       {data?.events?.length > 0 && (
         <RailCard
           icon={<Icon name="calendar" className="h-3.5 w-3.5 text-brand" />}
-          title="Coming up"
+          title={tr("Coming up")}
           action={
             <Link to="/events" className="text-[11px] font-medium text-brand transition-transform duration-200 hover:scale-105">
-              Calendar
+              {tr("Calendar")}
             </Link>
           }
         >
@@ -288,7 +290,7 @@ export default function ChapterHome() {
       {data?.roster?.length > 0 && (
         <RailCard
           icon={<Icon name="users" className="h-3.5 w-3.5 text-brand" />}
-          title="Who is here"
+          title={tr("Who is here")}
           action={
             <Link to={`/c/${chapter.slug}/members`} className="text-[11px] font-medium text-brand transition-transform duration-200 hover:scale-105">
               All {data.roster.length}
@@ -346,7 +348,7 @@ export default function ChapterHome() {
           automated. Titles come from `profiles.role_title` so a Spain lead can
           be called what they are actually called. */}
       {data?.team?.length > 0 && (
-        <RailCard icon={<Icon name="shield" className="h-3.5 w-3.5 text-brand" />} title="The team here">
+        <RailCard icon={<Icon name="shield" className="h-3.5 w-3.5 text-brand" />} title={tr("The team here")}>
           <div className="space-y-1">
             {data.team.map((m) => (
               <Link key={m.id} to={`/profile/${m.id}`}
@@ -465,10 +467,10 @@ export default function ChapterHome() {
             <Reveal from="down" as="section">
               <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="flex items-center gap-2 text-lg font-semibold">
-                  <Icon name="flag" className="h-5 w-5 text-brand" /> Recent challenges
+                  <Icon name="flag" className="h-5 w-5 text-brand" /> {tr("Recent challenges")}
                 </h2>
                 <Link to={`/c/${chapter.slug}/challenges`} className="text-sm font-medium text-brand transition-transform duration-200 hover:scale-105">
-                  All challenges →
+                  {tr("All challenges →")}
                 </Link>
               </div>
               <Reveal className="space-y-2" stagger={0.05}>
@@ -493,7 +495,7 @@ export default function ChapterHome() {
               <h2 className="flex items-center gap-2 text-lg font-semibold">
                 <Icon name="clock" className="h-5 w-5 text-brand" /> Lately in {chapter.name}
               </h2>
-              <p className="mt-1 text-sm text-smoke">Who joined, who posted, who entered.</p>
+              <p className="mt-1 text-sm text-smoke">{tr("Who joined, who posted, who entered.")}</p>
             </div>
             <MarketActivity market={chapter} />
           </Reveal>
@@ -543,7 +545,7 @@ export default function ChapterHome() {
           <Reveal from="down" delay={0.18} as="section">
             <div className="mb-4">
               <h2 className="flex items-center gap-2 text-lg font-semibold">
-                <Icon name="chat" className="h-5 w-5 text-brand" /> Rooms
+                <Icon name="chat" className="h-5 w-5 text-brand" /> {tr("Rooms")}
               </h2>
               <p className="mt-1 text-sm text-smoke">
                 {chapter.name}&rsquo;s own rooms.
@@ -567,11 +569,11 @@ export default function ChapterHome() {
                       <span className="font-semibold">{ch.label}</span>
                       {ch.key === 'general' && (
                         <span className="ml-auto rounded-full bg-brand px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
-                          Main room
+                          {tr("Main room")}
                         </span>
                       )}
                       {ch.visibility === 'staff' && (
-                        <span className="ml-auto rounded-full bg-cloud px-2 py-0.5 text-[10px] font-medium text-smoke">Staff</span>
+                        <span className="ml-auto rounded-full bg-cloud px-2 py-0.5 text-[10px] font-medium text-smoke">{tr("Staff")}</span>
                       )}
                     </div>
                     {ch.hint && <p className="text-xs text-smoke">{ch.hint}</p>}
@@ -610,7 +612,7 @@ export default function ChapterHome() {
               <h2 className="flex items-center gap-2 text-lg font-semibold">
                 <Icon name="clock" className="h-5 w-5 text-brand" /> Lately in {chapter.name}
               </h2>
-              <p className="mt-1 text-sm text-smoke">Who joined, who posted, who entered.</p>
+              <p className="mt-1 text-sm text-smoke">{tr("Who joined, who posted, who entered.")}</p>
             </div>
             <MarketActivity market={chapter} />
           </Reveal>
@@ -620,10 +622,10 @@ export default function ChapterHome() {
             <Reveal from="down" as="section">
               <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="flex items-center gap-2 text-lg font-semibold">
-                  <Icon name="flag" className="h-5 w-5 text-brand" /> Recent challenges
+                  <Icon name="flag" className="h-5 w-5 text-brand" /> {tr("Recent challenges")}
                 </h2>
                 <Link to={`/c/${chapter.slug}/challenges`} className="text-sm font-medium text-brand transition-transform duration-200 hover:scale-105">
-                  All challenges →
+                  {tr("All challenges →")}
                 </Link>
               </div>
               <Reveal className="space-y-2" stagger={0.05}>

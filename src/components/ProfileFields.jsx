@@ -14,6 +14,7 @@ import { Avatar, Spinner, Select } from './ui'
 import Icon from './Icon'
 import AutoTextarea from './AutoTextarea'
 import SocialMark from './SocialMark'
+import { useT } from '../lib/i18n'
 
 export const LANGUAGE_OPTIONS = [
   'English', 'Irish', 'French', 'Spanish', 'Portuguese', 'Italian', 'German',
@@ -24,6 +25,7 @@ export const LANGUAGE_OPTIONS = [
 
 /** Profile photo uploader. Files land in avatars/<user id>/ (RLS-protected). */
 export function AvatarUpload({ photoUrl, name, onUploaded }) {
+  const tr = useT()
   const { user } = useAuth()
   const inputRef = useRef(null)
   const [busy, setBusy] = useState(false)
@@ -59,7 +61,7 @@ export function AvatarUpload({ photoUrl, name, onUploaded }) {
         type="button"
         onClick={() => inputRef.current?.click()}
         className="group relative rounded-full"
-        aria-label="Change profile photo"
+        aria-label={tr("Change profile photo")}
       >
         <Avatar src={photoUrl} name={name} size="xl" />
         <span className="absolute inset-0 flex items-center justify-center rounded-full bg-ink/40 text-xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
@@ -83,6 +85,7 @@ export function AvatarUpload({ photoUrl, name, onUploaded }) {
  * publicly, never the full date of birth.
  */
 export function DobField({ value, onChange, required }) {
+  const tr = useT()
   const [text, setText] = useState(formatDobInput(value))
   const iso = parseDob(text)
   const showError = text.trim().length >= 10 && !iso
@@ -108,7 +111,7 @@ export function DobField({ value, onChange, required }) {
         inputMode="numeric"
         autoComplete="bday"
         className="input max-w-[12rem]"
-        placeholder="DD/MM/YYYY"
+        placeholder={tr("DD/MM/YYYY")}
         value={text}
         onChange={handle}
       />
@@ -119,7 +122,7 @@ export function DobField({ value, onChange, required }) {
           sentences to explain one field. What is left says something the field
           cannot: either it is wrong, or here is the age it will show. */}
       {showError ? (
-        <p className="mt-1 text-xs text-red-600">Enter a real date as DD/MM/YYYY, e.g. 25/01/2005.</p>
+        <p className="mt-1 text-xs text-red-600">{tr("Enter a real date as DD/MM/YYYY, e.g. 25/01/2005.")}</p>
       ) : age != null ? (
         <p className="mt-1 text-xs text-smoke">You'll show as {age} years old. Only your age is shown publicly, never your date of birth.</p>
       ) : null}
@@ -134,6 +137,7 @@ export function DobField({ value, onChange, required }) {
  * Private detail: only the creator and admins ever see this, never the public.
  */
 export function PhoneInput({ value, onChange, required }) {
+  const tr = useT()
   const country = value.phone_country || ''
   const number = value.phone || ''
   return (
@@ -154,7 +158,7 @@ export function PhoneInput({ value, onChange, required }) {
           variant="field"
           className="w-full sm:w-52 sm:shrink-0"
           value={country}
-          placeholder="Country code"
+          placeholder={tr("Country code")}
           onChange={(v) => onChange({ ...value, phone_country: v })}
           options={DIAL_CODES.map((c) => ({
             value: c.code,
@@ -174,7 +178,7 @@ export function PhoneInput({ value, onChange, required }) {
           onChange={(e) => onChange({ ...value, phone: e.target.value })}
         />
       </div>
-      <p className="mt-1 text-xs text-smoke">Private. Only the Tryp.com Team can see this, never other creators.</p>
+      <p className="mt-1 text-xs text-smoke">{tr("Private. Only the Tryp.com Team can see this, never other creators.")}</p>
     </div>
   )
 }
@@ -193,15 +197,16 @@ export function PhoneInput({ value, onChange, required }) {
 // Nothing on this form is required unless it says so, and every field on it is
 // shown on the public profile - that is what the page is.
 export function QuoteField({ value, onChange }) {
+  const tr = useT()
   return (
     <div>
-      <label htmlFor="favourite_quote" className="label">Favourite quote</label>
+      <label htmlFor="favourite_quote" className="label">{tr("Favourite quote")}</label>
       <AutoTextarea
         id="favourite_quote"
         maxLength={160}
         minRows={2}
         className="input resize-none leading-relaxed"
-        placeholder="A travel quote you live by…"
+        placeholder={tr("A travel quote you live by…")}
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
       />
@@ -226,6 +231,7 @@ export function QuoteField({ value, onChange }) {
 // search box. Typing something that is not on the list offers to add it, which
 // is what the "+ Other" toggle used to be - one control fewer, and no mode.
 export function LanguageSelect({ selected = [], onChange }) {
+  const tr = useT()
   const [query, setQuery] = useState('')
 
   function toggle(lang) {
@@ -266,10 +272,10 @@ export function LanguageSelect({ selected = [], onChange }) {
       <input
         type="text"
         className="input"
-        placeholder="Search languages, or type your own…"
+        placeholder={tr("Search languages, or type your own…")}
         value={query}
         maxLength={40}
-        aria-label="Search languages"
+        aria-label={tr("Search languages")}
         onChange={(e) => setQuery(e.target.value)}
         onKeyDown={(e) => {
           if (e.key !== 'Enter') return
@@ -300,7 +306,7 @@ export function LanguageSelect({ selected = [], onChange }) {
           </button>
         ))}
         {suggestions.length === 0 && !canAddCustom && (
-          <p className="text-xs text-smoke">Nothing left to add.</p>
+          <p className="text-xs text-smoke">{tr("Nothing left to add.")}</p>
         )}
       </div>
     </div>
@@ -359,6 +365,7 @@ export function SocialInputs({ values, onChange }) {
  * onChange({ country, country_code }).
  */
 export function CountrySelect({ value = '', code = '', onChange, required, label = 'Country', hint }) {
+  const tr = useT()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const rootRef = useRef(null)
@@ -400,14 +407,14 @@ export function CountrySelect({ value = '', code = '', onChange, required, label
             <input
               autoFocus
               className="input !py-2 text-sm"
-              placeholder="Start typing…"
+              placeholder={tr("Start typing…")}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
           </div>
           <ul role="listbox" className="max-h-64 overflow-y-auto py-1">
             {list.length === 0 && (
-              <li className="px-4 py-3 text-xs text-smoke">Nothing matches that. Try the country&apos;s English name.</li>
+              <li className="px-4 py-3 text-xs text-smoke">{tr("Nothing matches that. Try the country&apos;s English name.")}</li>
             )}
             {list.map((c) => (
               <li key={c.iso2}>

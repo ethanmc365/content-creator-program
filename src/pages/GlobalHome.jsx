@@ -30,6 +30,7 @@ import { useIsMobile } from '../lib/useKeyboardInset'
 import { cardHover } from '../lib/motion'
 import { NETWORK_LINKS, loadLinkOrder as loadOrder, ORDER_KEY } from '../lib/networkLinks'
 import Reveal from '../components/network/Reveal'
+import { useT } from '../lib/i18n'
 
 // The Worldwide hub. Reads as a HOME PAGE, not a directory of markets: a
 // greeting, then what is happening, then where everyone is.
@@ -104,6 +105,7 @@ function orderLinks(order) {
 // is its own target now, sitting outside the <Link>, and the link is only ever
 // a link. Same shape as NetworkLinkRow below, for the same reason.
 function MarketLinkRow({ market, live, handleProps, dragging }) {
+  const tr = useT()
   return (
     <div className={cx(
       'group flex items-center gap-1 rounded-xl transition-shadow',
@@ -115,9 +117,9 @@ function MarketLinkRow({ market, live, handleProps, dragging }) {
       <Link to={`/c/${market.slug}`} className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-3 py-2 text-sm">
         <FlagStack codes={market.country_codes} className="text-[13px]" />
         <span className="min-w-0 flex-1 truncate">{market.name}</span>
-        {live && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand" title="Challenge running" />}
+        {live && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand" title={tr("Challenge running")} />}
       </Link>
-      <span {...handleProps} title="Drag to reorder" className={GRIP_CLASS}>
+      <span {...handleProps} title={tr("Drag to reorder")} className={GRIP_CLASS}>
         <Icon name="grip" className="h-4 w-4" />
       </span>
     </div>
@@ -135,6 +137,7 @@ const GRIP_CLASS = 'mr-1 flex h-8 w-6 shrink-0 items-center justify-center round
 // component defined during render is a new type every render, which would
 // unmount the row mid-drag.
 function NetworkLinkRow({ link, count, isNew, handleProps, dragging }) {
+  const tr = useT()
   return (
     <div className={cx(
       'group flex items-center gap-1 rounded-xl transition-shadow',
@@ -155,10 +158,10 @@ function NetworkLinkRow({ link, count, isNew, handleProps, dragging }) {
           </span>
         )}
         {isNew && (
-          <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase text-white">New</span>
+          <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase text-white">{tr("New")}</span>
         )}
       </Link>
-      <span {...handleProps} title="Drag to reorder" className={GRIP_CLASS}>
+      <span {...handleProps} title={tr("Drag to reorder")} className={GRIP_CLASS}>
         <Icon name="grip" className="h-4 w-4" />
       </span>
     </div>
@@ -196,6 +199,7 @@ function MineChip({ to, icon, value, label }) {
 }
 
 export default function GlobalHome() {
+  const tr = useT()
   const { profile, session } = useAuth()
   const { network, chapters, myChapters, error } = useCommunity()
   const [d, setD] = useState(null)
@@ -409,7 +413,7 @@ export default function GlobalHome() {
     return (
       <NetworkLayout>
         <EmptyState icon={<Icon name="alert" className="h-6 w-6" />}
-          title="The network tables are not readable yet" hint={error} />
+          title={tr("The network tables are not readable yet")} hint={error} />
       </NetworkLayout>
     )
   }
@@ -488,7 +492,7 @@ export default function GlobalHome() {
           a tab in the nav. Rendering them anyway added roughly 1,200px of
           duplicate navigation to the bottom of an already long page - which is
           most of what "there is too much scrolling" was. */}
-      <RailCard className="hidden lg:block" icon={<Icon name="flag" className="h-3.5 w-3.5 text-brand" />} title="Live now">
+      <RailCard className="hidden lg:block" icon={<Icon name="flag" className="h-3.5 w-3.5 text-brand" />} title={tr("Live now")}>
         {/* A SKELETON WHILE WE DO NOT KNOW, NOT AN ANSWER.
             THE BUG THIS FIXES: `myLive` is derived from data that arrives after
             the first paint, so this card confidently drew "nothing running in
@@ -503,7 +507,7 @@ export default function GlobalHome() {
           <div className="flex items-center gap-3 rounded-xl bg-brand-tint/30 px-3 py-3">
             <TrypPlane variant="badge" />
             <p className="text-xs text-smoke">
-              Nothing running in your markets right now. The next brief lands here.
+              {tr("Nothing running in your markets right now. The next brief lands here.")}
             </p>
           </div>
         ) : (
@@ -528,10 +532,10 @@ export default function GlobalHome() {
         // "Your places" was the name from before markets had a name. The
         // switcher, the command palette and the hub's own removed section all
         // said "markets"; only this one said "places".
-        title="Your markets"
+        title={tr("Your markets")}
         action={
           <Link to="/global/markets" className="text-[11px] font-medium text-brand transition-transform duration-200 hover:scale-105">
-            Explore
+            {tr("Explore")}
           </Link>
         }
       >
@@ -553,7 +557,7 @@ export default function GlobalHome() {
         />
         {myMarkets.length === 0 && (
           <Link to="/global/markets" className="block rounded-xl border border-dashed border-gray-200 px-3 py-3 text-xs text-smoke transition-colors hover:border-brand hover:text-brand">
-            You have not joined a market yet. Find yours →
+            {tr("You have not joined a market yet. Find yours →")}
           </Link>
         )}
       </RailCard>
@@ -562,7 +566,7 @@ export default function GlobalHome() {
       <RailCard
         className="hidden lg:block"
         icon={<Icon name="users" className="h-3.5 w-3.5 text-brand" />}
-        title="Explore the community"
+        title={tr("Explore the community")}
       >
         <Reorderable
           items={links}
@@ -658,8 +662,8 @@ export default function GlobalHome() {
                   that fixes that, so the phone gets the shorter sentence and
                   the full one returns at `sm`, where it fits. */}
               <p className="mt-1.5 text-sm text-smoke sm:text-base">
-                <span className="sm:hidden">Here is what is happening right now.</span>
-                <span className="hidden sm:inline">Here is what is happening across the network right now.</span>
+                <span className="sm:hidden">{tr("Here is what is happening right now.")}</span>
+                <span className="hidden sm:inline">{tr("Here is what is happening across the network right now.")}</span>
               </p>
             </section>
           </Reveal>
@@ -787,7 +791,7 @@ export default function GlobalHome() {
                   push the text out of the card rather than wrap it. From `sm`
                   up there is room, so that is where the promise is made. */}
               <h2 className="mt-4 text-lg font-bold leading-tight sm:whitespace-nowrap sm:text-2xl lg:text-3xl">
-                Tryp.com Content Creator Community
+                {tr("Tryp.com Content Creator Community")}
               </h2>
 
               {/* WHAT THE COMMUNITY HAS DONE.
@@ -923,8 +927,8 @@ export default function GlobalHome() {
           {globalLive && (
             <Reveal from="down" delay={stepDelay()}>
               <section>
-                <SectionHead icon="globe" title="Open to everyone"
-                  hint="A global brief. Enter from any market, anywhere in the world." />
+                <SectionHead icon="globe" title={tr("Open to everyone")}
+                  hint={tr("A global brief. Enter from any market, anywhere in the world.")} />
                 <LiveChallengeCard
                   challenge={globalLive}
                   market={network?.name}
@@ -1069,7 +1073,7 @@ export default function GlobalHome() {
                   instructions above a map whose pins and countries are
                   obviously tappable, on the page where vertical space is
                   scarcest. Full screen still carries its own affordances. */}
-              <SectionHead icon="globe" title="Everyone, right now"
+              <SectionHead icon="globe" title={tr("Everyone, right now")}
                 to="/creators" toLabel="Creator Network" />
               {/* The map is the most expensive thing on this page - a megabyte
                   of TopoJSON, parsed, then a few hundred SVG paths - and doing
@@ -1096,7 +1100,7 @@ export default function GlobalHome() {
           {d?.trips?.length > 0 && (
             <Reveal from="down" delay={stepDelay()}>
               <section>
-                <SectionHead icon="pin" title="Creators on the move" to="/collab" toLabel="Collab board" />
+                <SectionHead icon="pin" title={tr("Creators on the move")} to="/collab" toLabel="Collab board" />
                 <Reveal className="trim-4 grid grid-cols-1 gap-3 sm:grid-cols-2" stagger={0.07}>
                   {d.trips.map((t) => (
                     <MotionLink key={t.id} to="/collab" {...cardHover}
@@ -1138,7 +1142,7 @@ export default function GlobalHome() {
           {d?.fresh?.length > 0 && (
             <Reveal from="down" delay={stepDelay()}>
               <section>
-                <SectionHead icon="users" title="New in the community" to="/creators" toLabel="All creators" />
+                <SectionHead icon="users" title={tr("New in the community")} to="/creators" toLabel="All creators" />
                 <Reveal className="trim-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3" stagger={0.07}>
                   {d.fresh.map((c) => (
                     <MotionLink key={c.id} to={`/profile/${c.id}`} {...cardHover}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { challengeDeadline } from '../lib/utils'
 import { cx } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 // Live countdown to a challenge deadline, updating every second.
 // Shown prominently on the home page and challenge pages.
@@ -34,6 +35,7 @@ function Digits({ value }) {
 }
 
 export default function CountdownTimer({ endDate, compact = false, hero = false, onDark = false }) {
+  const tr = useT()
   const [left, setLeft] = useState(() => getTimeLeft(endDate))
 
   useEffect(() => {
@@ -46,7 +48,7 @@ export default function CountdownTimer({ endDate, compact = false, hero = false,
     // the light challenge-detail panel.
     return (
       <span className="inline-flex items-center rounded-xl bg-white/95 px-4 py-2 text-sm font-semibold text-ink shadow-card">
-        Challenge closed
+        {tr('Challenge closed')}
       </span>
     )
   }
@@ -81,7 +83,7 @@ export default function CountdownTimer({ endDate, compact = false, hero = false,
       <div
         className="grid w-full max-w-[16rem] grid-cols-3 gap-1.5"
         role="timer"
-        aria-label={`${left.days} days ${left.hours} hours ${left.minutes} minutes remaining`}
+        aria-label={tr('{d} days {h} hours {m} minutes remaining', { d: left.days, h: left.hours, m: left.minutes })}
       >
         {small.map((c) => (
           <div
@@ -98,7 +100,7 @@ export default function CountdownTimer({ endDate, compact = false, hero = false,
               <Digits value={c.value} />
             </span>
             <span className={cx('mt-0.5 text-[8px] font-semibold uppercase tracking-widest', onDark ? 'text-smoke' : 'text-brand/70')}>
-              {c.label}
+              {tr(c.label)}
             </span>
           </div>
         ))}
@@ -121,7 +123,7 @@ export default function CountdownTimer({ endDate, compact = false, hero = false,
       <div
         className="grid w-full max-w-xl grid-cols-4 gap-2 sm:gap-3.5"
         role="timer"
-        aria-label={`${left.days} days ${left.hours} hours ${left.minutes} minutes remaining`}
+        aria-label={tr('{d} days {h} hours {m} minutes remaining', { d: left.days, h: left.hours, m: left.minutes })}
       >
         {/* The digit size steps up with the breakpoint rather than jumping
             straight to 5xl at `sm`. A tile is only as wide as the column it is
@@ -134,7 +136,7 @@ export default function CountdownTimer({ endDate, compact = false, hero = false,
             <span className="text-2xl font-bold leading-none text-ink sm:text-3xl lg:text-4xl xl:text-5xl">
               <Digits value={c.value} />
             </span>
-            <span className="mt-1.5 text-[9px] font-semibold uppercase tracking-widest text-smoke sm:mt-2 sm:text-xs lg:text-sm">{c.label}</span>
+            <span className="mt-1.5 text-[9px] font-semibold uppercase tracking-widest text-smoke sm:mt-2 sm:text-xs lg:text-sm">{tr(c.label)}</span>
           </div>
         ))}
       </div>
@@ -144,11 +146,11 @@ export default function CountdownTimer({ endDate, compact = false, hero = false,
   return (
     // Cells shrink to fit narrow screens (flex-1, no fixed min-width) so the
     // timer never forces the parent card wider than the viewport on mobile.
-    <div className="flex w-full max-w-xs gap-2 sm:max-w-none sm:gap-3" role="timer" aria-label={`${left.days} days ${left.hours} hours remaining`}>
+    <div className="flex w-full max-w-xs gap-2 sm:max-w-none sm:gap-3" role="timer" aria-label={tr('{d} days {h} hours remaining', { d: left.days, h: left.hours })}>
       {cells.map((c) => (
         <div key={c.label} className="flex flex-1 flex-col items-center rounded-xl bg-white/90 px-1.5 py-2 shadow-card sm:min-w-[72px] sm:px-4">
           <span className="text-xl font-semibold text-ink sm:text-2xl"><Digits value={c.value} /></span>
-          <span className="text-[10px] font-medium uppercase tracking-wide text-smoke">{c.label}</span>
+          <span className="text-[10px] font-medium uppercase tracking-wide text-smoke">{tr(c.label)}</span>
         </div>
       ))}
     </div>

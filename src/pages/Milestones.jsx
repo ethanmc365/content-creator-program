@@ -9,6 +9,7 @@ import { cx } from '../lib/utils'
 import { pageFade } from '../lib/motion'
 import { METRICS, criterionFraction, criterionLabel, humanDays, routeState } from '../lib/milestones'
 import { useViewAs, ViewingAsBanner } from '../components/ViewingAs'
+import { useT } from '../lib/i18n'
 
 // Where a creator has got to, and what is next.
 //
@@ -30,6 +31,7 @@ import { useViewAs, ViewingAsBanner } from '../components/ViewingAs'
 const SUMMARY = ['views', 'videos', 'referrals', 'challenges', 'podiums', 'days']
 
 export default function Milestones() {
+  const tr = useT()
   // `?as=<id>` opens one creator's own route. See components/ViewingAs.
   const { id: whose, viewing, person } = useViewAs()
   const [rows, setRows] = useState(null)
@@ -67,7 +69,7 @@ export default function Milestones() {
     <div className="page max-w-6xl">
       <BackLink />
       <motion.div {...pageFade}>
-        <PageHeader title="Milestones" />
+        <PageHeader title={tr("Milestones")} />
 
         <ViewingAsBanner viewing={viewing} person={person} />
 
@@ -107,11 +109,11 @@ export default function Milestones() {
         )}
 
         {rows.length === 0 ? (
-          <EmptyState icon={<Icon name="flag" className="h-7 w-7" />} title="No milestones yet"
-            hint="The team is still setting these up." />
+          <EmptyState icon={<Icon name="flag" className="h-7 w-7" />} title={tr("No milestones yet")}
+            hint={tr("The team is still setting these up.")} />
         ) : (
           <div className="order-1 lg:order-none">
-            <h2 className="mb-4 text-lg font-semibold">The route</h2>
+            <h2 className="mb-4 text-lg font-semibold">{tr("The route")}</h2>
 
             {/* NO CARD ROUND THE ROUTE.
                 A white panel inside a white page is a border drawn for its own
@@ -139,7 +141,7 @@ export default function Milestones() {
                     requirement list is the only thing that is a list. */}
                 <div className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
                   <div className="border-b border-gray-100 bg-cloud/40 px-5 py-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-widest text-smoke">Where you are</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-widest text-smoke">{tr("Where you are")}</p>
                     <div className="mt-2 flex items-baseline gap-2">
                       <span className="text-4xl font-bold leading-none text-brand tabular-nums">{reached}</span>
                       <span className="text-sm text-smoke">of {total} stops reached</span>
@@ -154,13 +156,13 @@ export default function Milestones() {
 
                   {next ? (
                     <div className="px-5 py-4">
-                      <p className="text-[11px] font-semibold uppercase tracking-widest text-smoke">Next stop</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-widest text-smoke">{tr("Next stop")}</p>
                       <p className="mt-1 text-base font-bold leading-snug">{next.title}</p>
                       {next.description && (
                         <p className="mt-0.5 text-xs leading-snug text-smoke">{next.description}</p>
                       )}
 
-                      <p className="mt-3 text-[11px] font-semibold uppercase tracking-widest text-smoke">What you need</p>
+                      <p className="mt-3 text-[11px] font-semibold uppercase tracking-widest text-smoke">{tr("What you need")}</p>
                       <ul className="mt-1.5 space-y-2">
                         {(next.criteria || []).map((c) => {
                           const pct = Math.round(criterionFraction(c) * 100)
@@ -191,15 +193,15 @@ export default function Milestones() {
 
                       {next.reward && (
                         <div className="mt-4 rounded-xl border border-brand/20 bg-brand-tint/40 px-3 py-2.5">
-                          <p className="text-[10px] font-semibold uppercase tracking-widest text-brand/70">Waiting for you</p>
+                          <p className="text-[10px] font-semibold uppercase tracking-widest text-brand/70">{tr("Waiting for you")}</p>
                           <p className="mt-0.5 text-xs font-semibold leading-snug text-brand">{next.reward}</p>
                         </div>
                       )}
                     </div>
                   ) : (
                     <div className="px-5 py-4">
-                      <p className="text-sm font-semibold">You have flown the whole route.</p>
-                      <p className="mt-0.5 text-xs text-smoke">More stops are on the way.</p>
+                      <p className="text-sm font-semibold">{tr("You have flown the whole route.")}</p>
+                      <p className="mt-0.5 text-xs text-smoke">{tr("More stops are on the way.")}</p>
                     </div>
                   )}
 

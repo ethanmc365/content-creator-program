@@ -8,6 +8,7 @@ import {
   createGroup, inviteToGroup, updateGroup, leaveGroup, removeMember, deleteGroup,
 } from '../lib/groups'
 import { cx } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 // The two panels a group needs: one to start it, one to run it.
 //
@@ -106,12 +107,13 @@ const ICON_GROUPS = [
 ]
 
 function LookControls({ emoji, accent, onEmoji, onAccent }) {
+  const tr = useT()
   const [expanded, setExpanded] = useState(false)
   return (
     <>
       <div>
         <div className="mb-2 flex items-center justify-between gap-2">
-          <p className="text-sm font-semibold">Pick an icon</p>
+          <p className="text-sm font-semibold">{tr("Pick an icon")}</p>
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
@@ -168,7 +170,7 @@ function LookControls({ emoji, accent, onEmoji, onAccent }) {
         )}
       </div>
       <div>
-        <p className="mb-2 text-sm font-semibold">Colour</p>
+        <p className="mb-2 text-sm font-semibold">{tr("Colour")}</p>
         <div className="flex flex-wrap gap-2">
           {GROUP_ACCENTS.map((a) => (
             <button
@@ -193,6 +195,7 @@ function LookControls({ emoji, accent, onEmoji, onAccent }) {
 
 /** Start a group: name it, dress it, and pick who gets an invite. */
 export function NewGroupModal({ open, onClose, people, connectionIds, myId, onCreated }) {
+  const tr = useT()
   const [title, setTitle] = useState('')
   const [emoji, setEmoji] = useState('✈️')
   const [accent, setAccent] = useState('brand')
@@ -231,16 +234,16 @@ export function NewGroupModal({ open, onClose, people, connectionIds, myId, onCr
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="New group">
+    <Modal open={open} onClose={onClose} title={tr("New group")}>
       <div className="space-y-5">
         <div>
-          <label htmlFor="group-name" className="mb-2 block text-sm font-semibold">Name it</label>
+          <label htmlFor="group-name" className="mb-2 block text-sm font-semibold">{tr("Name it")}</label>
           <input
             id="group-name"
             className="input text-base sm:text-sm"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Lisbon crew"
+            placeholder={tr("Lisbon crew")}
             maxLength={60}
           />
         </div>
@@ -256,14 +259,14 @@ export function NewGroupModal({ open, onClose, people, connectionIds, myId, onCr
               being asked is the fastest way to make somebody mute the product,
               so this sends an invite and they choose. */}
           <p className="mb-2 text-xs text-smoke">
-            They get an invite in their messages and join when they accept.
+            {tr("They get an invite in their messages and join when they accept.")}
           </p>
           <input
             className="input mb-2 !py-2 text-base sm:text-sm"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search creators…"
-            aria-label="Search creators to invite"
+            placeholder={tr("Search creators…")}
+            aria-label={tr("Search creators to invite")}
           />
           <div className="max-h-56 space-y-0.5 overflow-y-auto overscroll-contain">
             {listed.map((p) => (
@@ -275,7 +278,7 @@ export function NewGroupModal({ open, onClose, people, connectionIds, myId, onCr
                 hint={connectionIds.has(p.id) ? 'Connected' : null}
               />
             ))}
-            {listed.length === 0 && <p className="px-3 py-4 text-sm text-smoke">Nobody matches that.</p>}
+            {listed.length === 0 && <p className="px-3 py-4 text-sm text-smoke">{tr("Nobody matches that.")}</p>}
           </div>
         </div>
 
@@ -283,7 +286,7 @@ export function NewGroupModal({ open, onClose, people, connectionIds, myId, onCr
           <button type="button" onClick={create} disabled={busy} className="btn-primary disabled:opacity-50">
             {busy ? <Spinner /> : 'Create group'}
           </button>
-          <button type="button" onClick={onClose} className="btn-ghost">Cancel</button>
+          <button type="button" onClick={onClose} className="btn-ghost">{tr("Cancel")}</button>
         </div>
       </div>
     </Modal>
@@ -294,6 +297,7 @@ export function NewGroupModal({ open, onClose, people, connectionIds, myId, onCr
 export function GroupSettingsModal({
   open, onClose, conversation, members, invites = [], myId, people, connectionIds, onChanged, onLeft,
 }) {
+  const tr = useT()
   const [title, setTitle] = useState('')
   const [emoji, setEmoji] = useState('')
   const [accent, setAccent] = useState('brand')
@@ -375,10 +379,10 @@ export function GroupSettingsModal({
   if (!conversation) return null
 
   return (
-    <Modal open={open} onClose={onClose} title="Group settings">
+    <Modal open={open} onClose={onClose} title={tr("Group settings")}>
       <div className="space-y-5">
         <div>
-          <label htmlFor="group-rename" className="mb-2 block text-sm font-semibold">Name</label>
+          <label htmlFor="group-rename" className="mb-2 block text-sm font-semibold">{tr("Name")}</label>
           <input
             id="group-rename"
             className="input text-base sm:text-sm"
@@ -399,7 +403,7 @@ export function GroupSettingsModal({
 
         <div className="border-t border-gray-100 pt-5">
           <p className="mb-2 text-sm font-semibold">
-            In the group <span className="font-normal text-smoke">{members.length}</span>
+            {tr("In the group")} <span className="font-normal text-smoke">{members.length}</span>
           </p>
           <div className="space-y-0.5">
             {members.map((m) => (
@@ -409,7 +413,7 @@ export function GroupSettingsModal({
                   {m.name}
                 </Link>
                 {m.id === conversation.created_by && (
-                  <span className="shrink-0 rounded-full bg-cloud px-2 py-0.5 text-[10px] font-semibold text-smoke">Owner</span>
+                  <span className="shrink-0 rounded-full bg-cloud px-2 py-0.5 text-[10px] font-semibold text-smoke">{tr("Owner")}</span>
                 )}
                 {isOwner && m.id !== myId && (
                   <button type="button" onClick={() => kick(m.id, m.name)} aria-label={`Remove ${m.name}`}
@@ -428,13 +432,13 @@ export function GroupSettingsModal({
         </div>
 
         <div className="border-t border-gray-100 pt-5">
-          <p className="mb-2 text-sm font-semibold">Invite more people</p>
+          <p className="mb-2 text-sm font-semibold">{tr("Invite more people")}</p>
           <input
             className="input mb-2 !py-2 text-base sm:text-sm"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search creators…"
-            aria-label="Search creators to invite"
+            placeholder={tr("Search creators…")}
+            aria-label={tr("Search creators to invite")}
           />
           <div className="max-h-48 space-y-0.5 overflow-y-auto overscroll-contain">
             {listed.map((p) => (
@@ -446,7 +450,7 @@ export function GroupSettingsModal({
                 hint={connectionIds.has(p.id) ? 'Connected' : null}
               />
             ))}
-            {listed.length === 0 && <p className="px-3 py-3 text-sm text-smoke">Everybody matching is already here.</p>}
+            {listed.length === 0 && <p className="px-3 py-3 text-sm text-smoke">{tr("Everybody matching is already here.")}</p>}
           </div>
           {picked.length > 0 && (
             <button type="button" onClick={invite} disabled={busy} className="btn-secondary mt-3 disabled:opacity-50">
@@ -456,9 +460,9 @@ export function GroupSettingsModal({
         </div>
 
         <div className="flex flex-wrap items-center gap-3 border-t border-gray-100 pt-5">
-          <button type="button" onClick={leave} className="btn-ghost !text-red-600">Leave group</button>
+          <button type="button" onClick={leave} className="btn-ghost !text-red-600">{tr("Leave group")}</button>
           {isOwner && (
-            <button type="button" onClick={end} className="btn-ghost !text-red-600">Delete for everyone</button>
+            <button type="button" onClick={end} className="btn-ghost !text-red-600">{tr("Delete for everyone")}</button>
           )}
         </div>
       </div>

@@ -15,6 +15,7 @@ import {
   removeAnswer, removeQuestion,
 } from '../lib/board'
 import { cx, formatMessageTime, messageTimeTitle } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 // THE COMMUNITY BOARD.
 //
@@ -52,6 +53,7 @@ import { cx, formatMessageTime, messageTimeTitle } from '../lib/utils'
 // the same fields and the validation is the same validation, so writing it
 // twice would only guarantee that the two drift.
 function AskModal({ open, onClose, onAsked, existing = null }) {
+  const tr = useT()
   const { user } = useAuth()
   const editing = !!existing
   const [title, setTitle] = useState('')
@@ -93,7 +95,7 @@ function AskModal({ open, onClose, onAsked, existing = null }) {
             instead of four paragraphs, which is most of the white space Ethan
             was looking at. */}
         <div>
-          <p className="mb-2 text-sm font-semibold">What is it about?</p>
+          <p className="mb-2 text-sm font-semibold">{tr("What is it about?")}</p>
           <div className="grid grid-cols-2 gap-2">
             {BOARD_TAGS.map((t) => {
               const on = tag === t.key
@@ -151,7 +153,7 @@ function AskModal({ open, onClose, onAsked, existing = null }) {
           )}
         >
           <div className="overflow-hidden">
-            <label htmlFor="board-country" className="mb-1.5 block text-sm font-semibold">Which country?</label>
+            <label htmlFor="board-country" className="mb-1.5 block text-sm font-semibold">{tr("Which country?")}</label>
             <input
               id="board-country" className="input" value={country}
               tabIndex={tag === 'country' ? undefined : -1}
@@ -163,7 +165,7 @@ function AskModal({ open, onClose, onAsked, existing = null }) {
 
         <div>
           <label htmlFor="board-title" className="mb-1.5 block text-sm font-semibold">
-            Your question
+            {tr("Your question")}
           </label>
           {/* NO PLACEHOLDER. It used to read "Is the JR Pass still worth it for
               two weeks?", which is a good example question and a bad thing to
@@ -187,7 +189,7 @@ function AskModal({ open, onClose, onAsked, existing = null }) {
 
         <div>
           <label htmlFor="board-body" className="mb-1.5 block text-sm font-semibold">
-            Anything that would help somebody answer <span className="font-normal text-smoke">(optional)</span>
+            {tr("Anything that would help somebody answer")} <span className="font-normal text-smoke">(optional)</span>
           </label>
           <textarea
             id="board-body" rows={4} className="input" value={body} maxLength={4000}
@@ -199,7 +201,7 @@ function AskModal({ open, onClose, onAsked, existing = null }) {
           <button type="submit" disabled={!ok || busy} className="btn-primary disabled:opacity-40">
             {busy ? 'Saving…' : editing ? 'Save changes' : 'Post to the board'}
           </button>
-          <button type="button" onClick={onClose} className="btn-ghost">Cancel</button>
+          <button type="button" onClick={onClose} className="btn-ghost">{tr("Cancel")}</button>
         </div>
       </form>
     </Modal>
@@ -299,6 +301,7 @@ function AskModal({ open, onClose, onAsked, existing = null }) {
 // it frees the whole left column - which is what lets three of these sit on a
 // row instead of two.
 function QuestionCard({ q }) {
+  const tr = useT()
   const t = tagInfo(q.tag)
   const answers = Number(q.answer_count || 0)
   const shown = q.answers || []
@@ -330,7 +333,7 @@ function QuestionCard({ q }) {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/60 motion-reduce:hidden" />
                 <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand" />
               </span>
-              Waiting for an answer
+              {tr("Waiting for an answer")}
             </>
           ) : (
             <>
@@ -394,6 +397,7 @@ const STATES = [
 ]
 
 export default function Board() {
+  const tr = useT()
   const [rows, setRows] = useState(null)
   const [search, setSearch] = useState('')
   const [tag, setTag] = useState(null)
@@ -436,7 +440,7 @@ export default function Board() {
             <div>
               <h1 className="flex items-center gap-2.5 text-3xl font-bold tracking-tight sm:text-4xl">
                 <Icon name="chat" className="h-8 w-8 shrink-0 text-brand" />
-                Community board
+                {tr("Community board")}
               </h1>
               {/* NO STRAPLINE. It read "Ask the whole network something. Anyone
                   can answer, and the answers stay here for whoever asks next",
@@ -447,7 +451,7 @@ export default function Board() {
             </div>
             <button onClick={() => setAsking(true)} className="btn-primary transition-transform duration-200 hover:scale-105">
               <Icon name="pencil" className="h-4 w-4" />
-              Ask a question
+              {tr("Ask a question")}
             </button>
           </header>
 
@@ -461,8 +465,8 @@ export default function Board() {
               className="input !pl-11"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search questions and answers…"
-              aria-label="Search the board"
+              placeholder={tr("Search questions and answers…")}
+              aria-label={tr("Search the board")}
             />
           </div>
 
@@ -558,7 +562,7 @@ export default function Board() {
                 hint={search
                   ? 'Try a shorter search, or ask it yourself and let the community answer.'
                   : 'Be the first. Somebody here has been where you are going.'}
-                action={<button onClick={() => setAsking(true)} className="btn-primary">Ask a question</button>}
+                action={<button onClick={() => setAsking(true)} className="btn-primary">{tr("Ask a question")}</button>}
               />
             ) : (
               // COLUMNS, NOT A GRID, and that is what makes the notes different
@@ -632,6 +636,7 @@ export default function Board() {
 
 // ---------------------------------------------------------------- one thread
 export function BoardThread() {
+  const tr = useT()
   const { id } = useParams()
   const { user, isAdmin } = useAuth()
   const navigate = useNavigate()
@@ -712,9 +717,9 @@ export function BoardThread() {
         <NetworkLayout width="narrow" switcher={false}>
           <EmptyState
             icon={<Icon name="chat" className="h-6 w-6" />}
-            title="That question is not here"
-            hint="It may have been removed by whoever asked it."
-            action={<Link to="/board" className="btn-secondary">Back to the board</Link>}
+            title={tr("That question is not here")}
+            hint={tr("It may have been removed by whoever asked it.")}
+            action={<Link to="/board" className="btn-secondary">{tr("Back to the board")}</Link>}
           />
         </NetworkLayout>
       </NetworkMotion>
@@ -754,7 +759,7 @@ export function BoardThread() {
         <div className="space-y-6 pt-3">
           <Link to="/board" className="inline-flex items-center gap-2 text-sm font-medium text-smoke transition-colors hover:text-brand">
             <Icon name="chevronLeft" className="h-4 w-4" />
-            Community board
+            {tr("Community board")}
           </Link>
 
           <article className={cx(
@@ -773,7 +778,7 @@ export function BoardThread() {
               {openQ && (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-tint px-2.5 py-1 text-[11px] font-semibold text-brand">
                   <span className="h-1.5 w-1.5 rounded-full bg-brand" />
-                  Waiting for an answer
+                  {tr("Waiting for an answer")}
                 </span>
               )}
               {(mine || isAdmin) && (
@@ -784,11 +789,11 @@ export function BoardThread() {
                       and nearer to hand. */}
                   {mine && (
                     <button onClick={() => setEditing(true)} className="text-xs font-medium text-smoke hover:text-brand">
-                      Edit
+                      {tr("Edit")}
                     </button>
                   )}
                   <button onClick={dropQuestion} className="text-xs font-medium text-smoke hover:text-red-600">
-                    Remove
+                    {tr("Remove")}
                   </button>
                 </span>
               )}
@@ -837,14 +842,14 @@ export function BoardThread() {
                         {a.profiles?.name}
                       </Link>
                       {a.profiles?.is_admin && (
-                        <span className="rounded-full bg-brand-tint px-1.5 py-0.5 text-[10px] font-semibold text-brand">Team</span>
+                        <span className="rounded-full bg-brand-tint px-1.5 py-0.5 text-[10px] font-semibold text-brand">{tr("Team")}</span>
                       )}
                       <span className="text-[11px] text-smoke" title={messageTimeTitle(a.created_at)}>
                         {formatMessageTime(a.created_at)}
                       </span>
                       {(a.author_id === user?.id || isAdmin) && (
                         <button onClick={() => dropAnswer(a)} className="ml-auto text-[11px] font-medium text-smoke hover:text-red-600">
-                          Remove
+                          {tr("Remove")}
                         </button>
                       )}
                     </div>
@@ -879,7 +884,7 @@ export function BoardThread() {
                 {busy ? 'Posting…' : 'Post answer'}
               </button>
               <span className="text-xs text-smoke">
-                Several people can answer. Yours does not replace anybody else&rsquo;s.
+                {tr("Several people can answer. Yours does not replace anybody else&rsquo;s.")}
               </span>
             </div>
           </form>

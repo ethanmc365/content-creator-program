@@ -15,6 +15,7 @@ import { geocodeCity } from '../lib/geocode'
 import { Avatar, Spinner } from '../components/ui'
 import { cx, ageFromDob } from '../lib/utils'
 import { useDemoMode, postDemoState, useDemoMessages } from '../lib/demoMode'
+import { useT } from '../lib/i18n'
 
 // FIRST LOGIN: BUILDING A PROFILE THE TEAM CAN ACTUALLY REVIEW.
 //
@@ -142,6 +143,7 @@ export function draftProblems(draft, contact) {
 }
 
 export default function Onboarding() {
+  const tr = useT()
   const auth = useAuth()
   const { user, refreshProfile, signOut } = auth
   const navigate = useNavigate()
@@ -372,7 +374,7 @@ export default function Onboarding() {
       >
         {pending && !demo && (
           <button onClick={async () => { await signOut(); window.location.href = '/' }} className="btn-ghost mt-6 text-sm">
-            Log out
+            {tr("Log out")}
           </button>
         )}
       </TrypPlaneScene>
@@ -400,7 +402,7 @@ export default function Onboarding() {
             </p>
           )}
           <button onClick={() => { setDone(false); setStep(0) }} className="btn-secondary mt-6 text-sm">
-            Walk it again
+            {tr("Walk it again")}
           </button>
         </div>
       </div>
@@ -423,20 +425,20 @@ export default function Onboarding() {
             {current.key === 'identity' && (
               <div className="space-y-7">
                 <div>
-                  <p className="label">Profile photo <Req /></p>
+                  <p className="label">{tr("Profile photo")} <Req /></p>
                   {demo
                     ? <DemoAvatar name={draft.name} />
                     : <AvatarUpload photoUrl={draft.photo_url} name={draft.name} onUploaded={(url) => set({ photo_url: url })} />}
                 </div>
                 <div>
-                  <label htmlFor="name" className="label">Your name <Req /></label>
+                  <label htmlFor="name" className="label">{tr("Your name")} <Req /></label>
                   <input
                     id="name" type="text" className="input" value={draft.name}
                     onChange={(e) => set({ name: e.target.value })}
-                    placeholder="How you want to be known"
+                    placeholder={tr("How you want to be known")}
                   />
                   <p className="mt-1 text-xs text-smoke">
-                    This is what appears on your profile, your entries and the leaderboards.
+                    {tr("This is what appears on your profile, your entries and the leaderboards.")}
                   </p>
                 </div>
               </div>
@@ -449,20 +451,20 @@ export default function Onboarding() {
                   value={draft.country}
                   code={draft.country_code}
                   onChange={({ country, country_code }) => set({ country, country_code })}
-                  hint="Pick from the list so we can put you in the right market."
+                  hint={tr("Pick from the list so we can put you in the right market.")}
                 />
 
                 <MarketCard market={market} country={draft.country} ready={marketsReady} />
 
                 <div>
-                  <label htmlFor="city" className="label">Town or city <Req /></label>
+                  <label htmlFor="city" className="label">{tr("Town or city")} <Req /></label>
                   <input
                     id="city" type="text" className="input" value={draft.city}
                     onChange={(e) => set({ city: e.target.value })}
-                    placeholder="Bristol"
+                    placeholder={tr("Bristol")}
                   />
                   <p className="mt-1 text-xs text-smoke">
-                    Puts you on the creator map and gives other creators your real local time.
+                    {tr("Puts you on the creator map and gives other creators your real local time.")}
                   </p>
                 </div>
 
@@ -481,20 +483,20 @@ export default function Onboarding() {
             {current.key === 'story' && (
               <div className="space-y-7">
                 <div>
-                  <label htmlFor="bio" className="label">One-line bio <Req /></label>
+                  <label htmlFor="bio" className="label">{tr("One-line bio")} <Req /></label>
                   <input
                     id="bio" type="text" maxLength={120} className="input" value={draft.bio}
                     onChange={(e) => set({ bio: e.target.value })}
-                    placeholder="London based travel creator"
+                    placeholder={tr("London based travel creator")}
                   />
                   <p className="mt-1 text-xs text-smoke">{120 - draft.bio.length} characters left. This sits under your name everywhere.</p>
                 </div>
                 <div>
-                  <label htmlFor="about" className="label">A few lines about you <Req /></label>
+                  <label htmlFor="about" className="label">{tr("A few lines about you")} <Req /></label>
                   <textarea
                     id="about" rows={5} className="input" value={draft.about}
                     onChange={(e) => set({ about: e.target.value })}
-                    placeholder="What you film, where you have been, how you got into it. This is the part the Tryp.com Team reads when they review your application."
+                    placeholder={tr("What you film, where you have been, how you got into it. This is the part the Tryp.com Team reads when they review your application.")}
                   />
                 </div>
                 <QuoteField value={draft.favourite_quote} onChange={(favourite_quote) => set({ favourite_quote })} />
@@ -527,7 +529,7 @@ export default function Onboarding() {
             {current.key === 'extras' && (
               <div className="space-y-9">
                 <div>
-                  <p className="label">Travel photos</p>
+                  <p className="label">{tr("Travel photos")}</p>
                   {demo ? <DemoGallery /> : <TravelGallery creatorId={user.id} editable />}
                 </div>
                 <BucketList rows={draft.bucket_list} onChange={(bucket_list) => set({ bucket_list })} />
@@ -561,8 +563,8 @@ export default function Onboarding() {
                   </button>
                 ) : (
                   <div className="flex flex-col gap-3 sm:flex-row">
-                    <button onClick={() => finish(false)} disabled={!complete} className="btn-secondary disabled:opacity-40">Skip for now</button>
-                    <button onClick={() => finish(true)} disabled={!complete} className="btn-primary disabled:opacity-40">Say hello in chat</button>
+                    <button onClick={() => finish(false)} disabled={!complete} className="btn-secondary disabled:opacity-40">{tr("Skip for now")}</button>
+                    <button onClick={() => finish(true)} disabled={!complete} className="btn-primary disabled:opacity-40">{tr("Say hello in chat")}</button>
                   </div>
                 )
               )}
@@ -577,7 +579,7 @@ export default function Onboarding() {
               : `${problems.length} thing${problems.length === 1 ? '' : 's'} still to fill in.`}
             {' '}
             <button onClick={() => goTo('review')} className="font-semibold text-brand hover:underline">
-              Go to review
+              {tr("Go to review")}
             </button>
           </p>
         )}
@@ -593,7 +595,8 @@ function browserTimezone() {
 }
 
 function Req() {
-  return <span className="text-brand" title="Required">*</span>
+  const tr = useT()
+  return <span className="text-brand" title={tr("Required")}>*</span>
 }
 
 function Progress({ step, barPct, current }) {
@@ -708,11 +711,12 @@ function Welcome({ name, pending }) {
  * still in front of them, which is the only moment they can correct it.
  */
 function MarketCard({ market, country, ready }) {
+  const tr = useT()
   if (market.outcome !== 'unknown' && !ready) {
     return (
       <div className="flex items-center gap-3 rounded-card border border-gray-200 bg-white px-4 py-3.5 text-xs text-smoke">
         <span className="h-4 w-4 shrink-0 animate-pulse rounded-full bg-brand/30" aria-hidden />
-        Working out which market you land in…
+        {tr("Working out which market you land in…")}
       </div>
     )
   }
@@ -720,7 +724,7 @@ function MarketCard({ market, country, ready }) {
     return (
       <div className="flex items-center gap-3 rounded-card border border-dashed border-gray-200 px-4 py-3.5 text-xs text-smoke">
         <Icon name="globe" className="h-4 w-4 shrink-0" />
-        Pick your country and we will tell you which market you land in.
+        {tr("Pick your country and we will tell you which market you land in.")}
       </div>
     )
   }
@@ -731,7 +735,7 @@ function MarketCard({ market, country, ready }) {
         <div className="flex items-start gap-3">
           <Icon name="globe" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
           <div className="min-w-0">
-            <p className="text-sm font-semibold">Worldwide community</p>
+            <p className="text-sm font-semibold">{tr("Worldwide community")}</p>
             <p className="mt-1 text-xs leading-relaxed text-smoke">
               No market covers {country || 'your country'} yet, and that is completely fine. You are in the
               worldwide community with every other creator, you can enter anything open to everyone, and we
@@ -751,7 +755,7 @@ function MarketCard({ market, country, ready }) {
           {(m.country_codes || []).map(flagFromIso).join('') || '🌍'}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-brand">Your market</p>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-brand">{tr("Your market")}</p>
           <p className="mt-0.5 text-sm font-semibold">{m.name}</p>
           <p className="mt-1 text-xs leading-relaxed text-smoke">
             {m.tagline || `Briefs, rooms and challenges for ${m.name}.`}
@@ -774,24 +778,25 @@ function MarketCard({ market, country, ready }) {
 }
 
 function OtherLinks({ links = [], onChange }) {
+  const tr = useT()
   return (
     <div>
-      <p className="label">Anywhere else your work lives</p>
-      <p className="mb-3 text-xs text-smoke">Optional. A website, a portfolio, a newsletter, another account.</p>
+      <p className="label">{tr("Anywhere else your work lives")}</p>
+      <p className="mb-3 text-xs text-smoke">{tr("Optional. A website, a portfolio, a newsletter, another account.")}</p>
       <div className="space-y-2">
         {links.map((l, i) => (
           <div key={i} className="flex gap-2">
             <input
-              className="input w-32 shrink-0" placeholder="Label" value={l.label || ''}
+              className="input w-32 shrink-0" placeholder={tr("Label")} value={l.label || ''}
               aria-label={`Link ${i + 1} label`}
               onChange={(e) => { const n = [...links]; n[i] = { ...n[i], label: e.target.value }; onChange(n) }}
             />
             <input
-              className="input flex-1" placeholder="https://" value={l.url || ''}
+              className="input flex-1" placeholder={tr("https://")} value={l.url || ''}
               aria-label={`Link ${i + 1} address`}
               onChange={(e) => { const n = [...links]; n[i] = { ...n[i], url: e.target.value }; onChange(n) }}
             />
-            <button type="button" aria-label="Remove link" className="btn-ghost !px-3" onClick={() => onChange(links.filter((_, j) => j !== i))}>
+            <button type="button" aria-label={tr("Remove link")} className="btn-ghost !px-3" onClick={() => onChange(links.filter((_, j) => j !== i))}>
               <Icon name="close" className="h-4 w-4" />
             </button>
           </div>
@@ -799,7 +804,7 @@ function OtherLinks({ links = [], onChange }) {
       </div>
       {links.length < 5 && (
         <button type="button" className="btn-secondary mt-3 !py-2 text-xs" onClick={() => onChange([...links, { label: '', url: '' }])}>
-          Add a link
+          {tr("Add a link")}
         </button>
       )}
     </div>
@@ -807,26 +812,27 @@ function OtherLinks({ links = [], onChange }) {
 }
 
 function BucketList({ rows = [], onChange }) {
+  const tr = useT()
   return (
     <div>
-      <p className="label">Where you are headed next</p>
+      <p className="label">{tr("Where you are headed next")}</p>
       <p className="mb-3 text-xs text-smoke">
-        Optional. It appears on your profile and it is how other creators find somebody to travel with.
+        {tr("Optional. It appears on your profile and it is how other creators find somebody to travel with.")}
       </p>
       <div className="space-y-2">
         {rows.map((b, i) => (
           <div key={i} className="flex gap-2">
             <input
-              className="input flex-1" placeholder="Country" value={b.country || ''}
+              className="input flex-1" placeholder={tr("Country")} value={b.country || ''}
               aria-label={`Destination ${i + 1} country`}
               onChange={(e) => { const n = [...rows]; n[i] = { ...n[i], country: e.target.value }; onChange(n) }}
             />
             <input
-              className="input flex-1" placeholder="Town (optional)" value={b.city || ''}
+              className="input flex-1" placeholder={tr("Town (optional)")} value={b.city || ''}
               aria-label={`Destination ${i + 1} town`}
               onChange={(e) => { const n = [...rows]; n[i] = { ...n[i], city: e.target.value }; onChange(n) }}
             />
-            <button type="button" aria-label="Remove destination" className="btn-ghost !px-3" onClick={() => onChange(rows.filter((_, j) => j !== i))}>
+            <button type="button" aria-label={tr("Remove destination")} className="btn-ghost !px-3" onClick={() => onChange(rows.filter((_, j) => j !== i))}>
               <Icon name="close" className="h-4 w-4" />
             </button>
           </div>
@@ -834,7 +840,7 @@ function BucketList({ rows = [], onChange }) {
       </div>
       {rows.length < 6 && (
         <button type="button" className="btn-secondary mt-3 !py-2 text-xs" onClick={() => onChange([...rows, { country: '', city: '' }])}>
-          Add a destination
+          {tr("Add a destination")}
         </button>
       )}
     </div>
@@ -852,6 +858,7 @@ function BucketList({ rows = [], onChange }) {
  * required boxes" and leaving the hunt to you.
  */
 function Review({ draft, contact, market, problems, pending, onJump, demo }) {
+  const tr = useT()
   const age = ageFromDob(draft.dob)
   const socials = [
     ['Instagram', draft.instagram_url],
@@ -877,7 +884,7 @@ function Review({ draft, contact, market, problems, pending, onJump, demo }) {
                 >
                   <Icon name="alert" className="h-3.5 w-3.5 shrink-0 text-brand" />
                   <span className="min-w-0 flex-1">{p.text}</span>
-                  <span className="shrink-0 font-semibold text-brand">Fix</span>
+                  <span className="shrink-0 font-semibold text-brand">{tr("Fix")}</span>
                 </button>
               </li>
             ))}
@@ -907,7 +914,7 @@ function Review({ draft, contact, market, problems, pending, onJump, demo }) {
             {(market.market.country_codes || []).map(flagFromIso).join('') || '🌍'}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-xs text-smoke">You will be assigned to</p>
+            <p className="text-xs text-smoke">{tr("You will be assigned to")}</p>
             <p className="text-sm font-bold text-brand">{market.market.name}</p>
           </div>
           <Icon name="check" className="h-5 w-5 shrink-0 text-brand" />
@@ -919,14 +926,14 @@ function Review({ draft, contact, market, problems, pending, onJump, demo }) {
       )}
 
       <dl className="divide-y divide-gray-100">
-        <ReviewRow label="About you" onJump={() => onJump('story')} value={draft.about} multiline />
-        <ReviewRow label="Posts on" onJump={() => onJump('socials')} value={socials.map(([k]) => k).join(', ')} />
-        <ReviewRow label="Languages" onJump={() => onJump('languages')} value={draft.languages.join(', ')} />
-        <ReviewRow label="Countries visited" onJump={() => onJump('map')} value={draft.countries_visited.length ? `${draft.countries_visited.length}` : ''} />
-        <ReviewRow label="Phone" onJump={() => onJump('based')} value={contact.phone ? `${contact.phone_country} ${contact.phone}` : ''} hint="Private. Only the team can see this." />
-        <ReviewRow label="Favourite quote" onJump={() => onJump('story')} value={draft.favourite_quote} optional />
-        <ReviewRow label="Headed next" onJump={() => onJump('extras')} value={(draft.bucket_list || []).filter((b) => b.country).map((b) => [b.city, b.country].filter(Boolean).join(', ')).join(' · ')} optional />
-        <ReviewRow label="Other links" onJump={() => onJump('extras')} value={(draft.other_links || []).filter((l) => l.url).length ? `${(draft.other_links || []).filter((l) => l.url).length}` : ''} optional />
+        <ReviewRow label={tr("About you")} onJump={() => onJump('story')} value={draft.about} multiline />
+        <ReviewRow label={tr("Posts on")} onJump={() => onJump('socials')} value={socials.map(([k]) => k).join(', ')} />
+        <ReviewRow label={tr("Languages")} onJump={() => onJump('languages')} value={draft.languages.join(', ')} />
+        <ReviewRow label={tr("Countries visited")} onJump={() => onJump('map')} value={draft.countries_visited.length ? `${draft.countries_visited.length}` : ''} />
+        <ReviewRow label={tr("Phone")} onJump={() => onJump('based')} value={contact.phone ? `${contact.phone_country} ${contact.phone}` : ''} hint={tr("Private. Only the team can see this.")} />
+        <ReviewRow label={tr("Favourite quote")} onJump={() => onJump('story')} value={draft.favourite_quote} optional />
+        <ReviewRow label={tr("Headed next")} onJump={() => onJump('extras')} value={(draft.bucket_list || []).filter((b) => b.country).map((b) => [b.city, b.country].filter(Boolean).join(', ')).join(' · ')} optional />
+        <ReviewRow label={tr("Other links")} onJump={() => onJump('extras')} value={(draft.other_links || []).filter((l) => l.url).length ? `${(draft.other_links || []).filter((l) => l.url).length}` : ''} optional />
       </dl>
 
       <p className="text-center text-xs leading-relaxed text-smoke">
@@ -939,6 +946,7 @@ function Review({ draft, contact, market, problems, pending, onJump, demo }) {
 }
 
 function ReviewRow({ label, value, onJump, optional, multiline, hint }) {
+  const tr = useT()
   const empty = !value?.trim?.()
   return (
     <div className="flex items-start justify-between gap-4 py-2.5">
@@ -952,7 +960,7 @@ function ReviewRow({ label, value, onJump, optional, multiline, hint }) {
           : <span className={cx('block', multiline ? 'line-clamp-3 leading-relaxed' : 'truncate')}>{value}</span>}
       </dd>
       <button type="button" onClick={onJump} className="shrink-0 text-xs font-semibold text-brand transition-transform duration-200 hover:scale-105">
-        Edit
+        {tr("Edit")}
       </button>
     </div>
   )
@@ -963,18 +971,20 @@ function ReviewRow({ label, value, onJump, optional, multiline, hint }) {
 // nothing when pressed is worse in a demonstration than an obvious placeholder,
 // because the audience spends the next minute wondering if it is broken.
 function DemoAvatar({ name }) {
+  const tr = useT()
   const initials = String(name || 'A T').split(' ').map((w) => w[0]).filter(Boolean).slice(0, 2).join('')
   return (
     <div className="flex flex-col items-center gap-2">
       <div className="flex h-28 w-28 items-center justify-center rounded-full bg-brand-tint text-3xl font-semibold text-brand ring-2 ring-white">
         {initials}
       </div>
-      <p className="text-xs text-smoke">Sample photo. Uploading is switched off in the Testing Centre.</p>
+      <p className="text-xs text-smoke">{tr("Sample photo. Uploading is switched off in the Testing Centre.")}</p>
     </div>
   )
 }
 
 function DemoGallery() {
+  const tr = useT()
   const shots = ['Lisbon, rooftop', 'Tromso, blue hour', 'Seville, morning', 'Dolomites, day two', 'Marrakech, souk', 'Skye, the long road']
   return (
     <div>
@@ -987,7 +997,7 @@ function DemoGallery() {
           </div>
         ))}
       </div>
-      <p className="mt-3 text-center text-xs text-smoke">Sample gallery. Uploading is switched off in the Testing Centre.</p>
+      <p className="mt-3 text-center text-xs text-smoke">{tr("Sample gallery. Uploading is switched off in the Testing Centre.")}</p>
     </div>
   )
 }

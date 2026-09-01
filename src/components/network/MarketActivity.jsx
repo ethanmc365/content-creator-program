@@ -7,6 +7,7 @@ import { Avatar } from '../ui'
 import { RailCardSkeleton } from './Skeletons'
 import { cx, timeAgo } from '../../lib/utils'
 import { listContainer, listItem } from '../../lib/motion'
+import { useT } from '../../lib/i18n'
 
 // What has actually happened here lately.
 //
@@ -26,6 +27,7 @@ const KIND = {
 }
 
 export default function MarketActivity({ market, limit = 8 }) {
+  const tr = useT()
   const [items, setItems] = useState(null)
 
   useEffect(() => {
@@ -83,9 +85,9 @@ export default function MarketActivity({ market, limit = 8 }) {
     return (
       <div className="rounded-card border border-dashed border-gray-200 px-5 py-8 text-center">
         <Icon name="clock" className="mx-auto h-6 w-6 text-gray-200" />
-        <p className="mt-2 text-sm font-medium">Nothing has happened here yet</p>
+        <p className="mt-2 text-sm font-medium">{tr("Nothing has happened here yet")}</p>
         <p className="mx-auto mt-1 max-w-xs text-xs text-smoke">
-          Joins, posts and challenge entries will show up here as they happen.
+          {tr("Joins, posts and challenge entries will show up here as they happen.")}
         </p>
       </div>
     )

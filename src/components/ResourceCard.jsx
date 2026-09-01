@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import Icon from './Icon'
 import MediaAttachment from './MediaAttachment'
 import { noteExcerpt } from '../lib/noteMarkdown'
+import { useT } from '../lib/i18n'
 
 // An inline resource-library card inside a chat message: admins drop these into
 // any room or DM so creators can jump straight to a guide or asset.
@@ -21,6 +22,7 @@ import { noteExcerpt } from '../lib/noteMarkdown'
 // (a title and a row of options) and wrong for a paragraph of prose: centred
 // body text has a ragged left edge, which is the edge you read down.
 export default function ResourceCard({ resourceId }) {
+  const tr = useT()
   const [resource, setResource] = useState(null)
 
   useEffect(() => {
@@ -38,7 +40,7 @@ export default function ResourceCard({ resourceId }) {
     <div className="mt-1 w-72 max-w-full overflow-hidden rounded-2xl border border-brand/20 bg-white sm:w-80">
       <div className="bg-gradient-to-br from-brand to-brand-light px-4 py-3 text-white">
         <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-white/80">
-          <Icon name="book" className="h-3.5 w-3.5" /> Resource library
+          <Icon name="book" className="h-3.5 w-3.5" /> {tr("Resource library")}
         </p>
         <p className="mt-0.5 text-sm font-bold leading-snug">{resource.title}</p>
         {resource.category && <p className="text-xs text-white/85">{resource.category}</p>}
@@ -56,7 +58,7 @@ export default function ResourceCard({ resourceId }) {
             )}
             {resource.file_url && (
               <span className="inline-flex items-center gap-1">
-                <Icon name="image" className="h-3.5 w-3.5" /> Attachment
+                <Icon name="image" className="h-3.5 w-3.5" /> {tr("Attachment")}
               </span>
             )}
           </div>
@@ -65,7 +67,7 @@ export default function ResourceCard({ resourceId }) {
         {/* Preview the attachment inline (image/video) with a save button. */}
         {resource.file_url && <MediaAttachment url={resource.file_url} compact className="mb-3" />}
         <Link to={`/resources?open=${resourceId}`} className="btn-primary block w-full !py-2 text-center text-xs">
-          Open in library →
+          {tr("Open in library →")}
         </Link>
       </div>
     </div>

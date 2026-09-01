@@ -5,6 +5,7 @@ import {
   browserName, canPromptInstall, installSteps, isIOS, isInAppBrowser, isMobileDevice,
   isStandalone, onInstallPromptChange, promptInstall, skipInstall, skippedInstall,
 } from '../lib/install'
+import { useT } from '../lib/i18n'
 
 // THE FULL-SCREEN ASK TO INSTALL, ON A PHONE.
 //
@@ -18,6 +19,7 @@ import {
 // it is installed" is a fact about the thing you just signed up for, and on iOS
 // it is literally true - Apple does not deliver web push to a browser tab.
 export default function InstallGate({ onSkip }) {
+  const tr = useT()
   const [promptable, setPromptable] = useState(canPromptInstall())
   const [busy, setBusy] = useState(false)
   const ios = isIOS()
@@ -42,7 +44,7 @@ export default function InstallGate({ onSkip }) {
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col">
         <div className="flex flex-col items-center text-center">
           <img src="/brand/tryp-logo.png" alt="Tryp.com" className="h-14 rounded-2xl shadow-card" />
-          <h1 className="mt-6 text-2xl font-bold tracking-tight">Put Tryp.com on your home screen</h1>
+          <h1 className="mt-6 text-2xl font-bold tracking-tight">{tr("Put Tryp.com on your home screen")}</h1>
           <p className="mt-2.5 text-sm leading-relaxed text-smoke">
             {ios
               ? 'On an iPhone, notifications only work once the app is on your home screen. That is how you hear that a challenge went live, that results are in, or that you have been paid.'
@@ -64,17 +66,17 @@ export default function InstallGate({ onSkip }) {
         <div className="mt-7 rounded-card bg-white p-5 shadow-card">
           {promptable && !ios ? (
             <>
-              <p className="text-sm font-semibold">One tap and it is done</p>
+              <p className="text-sm font-semibold">{tr("One tap and it is done")}</p>
               <button onClick={install} disabled={busy} className="btn-primary mt-3 w-full">
                 {busy ? <Spinner className="h-4 w-4" /> : 'Install the app'}
               </button>
               <p className="mt-3 text-center text-xs text-smoke">
-                Your browser will ask you to confirm.
+                {tr("Your browser will ask you to confirm.")}
               </p>
             </>
           ) : (
             <>
-              <p className="text-sm font-semibold">Three steps</p>
+              <p className="text-sm font-semibold">{tr("Three steps")}</p>
               <ol className="mt-4 space-y-3.5">
                 {steps.map((s, i) => (
                   <li key={s.text} className="flex items-start gap-3">
@@ -88,7 +90,7 @@ export default function InstallGate({ onSkip }) {
               {ios && (
                 <div className="mt-5 flex items-center justify-center gap-2 rounded-xl bg-cloud px-4 py-3 text-xs text-smoke">
                   <ShareGlyph />
-                  <span>Look for this at the bottom of the screen</span>
+                  <span>{tr("Look for this at the bottom of the screen")}</span>
                 </div>
               )}
             </>
@@ -107,7 +109,7 @@ export default function InstallGate({ onSkip }) {
           Continue in the browser for now
         </button>
         <p className="mt-2 text-center text-xs text-smoke">
-          You can add it later from Settings.
+          {tr("You can add it later from Settings.")}
         </p>
       </div>
     </div>

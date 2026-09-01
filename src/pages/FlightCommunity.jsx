@@ -16,6 +16,7 @@ import { aircraftTypeByName } from '../lib/airlines'
 import AircraftPhoto from '../components/network/AircraftPhoto'
 import { isoForCountryName } from '../lib/markets'
 import { cx } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 // THE FLIGHT LOG, ACROSS EVERYBODY.
 //
@@ -112,6 +113,7 @@ function Board({ icon, title, rows, value, unit, myId, open, note }) {
 }
 
 export default function FlightCommunity() {
+  const tr = useT()
   const { user } = useAuth()
   const [today] = useState(() => new Date().toISOString().slice(0, 10))
   const [board, setBoard] = useState(null)
@@ -341,11 +343,11 @@ export default function FlightCommunity() {
   return (
     <div className="page">
       <PageHeader
-        title="Flights across the community"
+        title={tr("Flights across the community")}
         action={
           <Link to="/flights" className="btn-secondary !py-2.5 text-sm">
             <Icon name="chevronLeft" className="h-4 w-4" />
-            Your flight log
+            {tr("Your flight log")}
           </Link>
         }
       />
@@ -398,7 +400,7 @@ export default function FlightCommunity() {
           <section>
             <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
               <div className="min-w-0">
-                <h2 className="text-lg font-semibold">Where we all go</h2>
+                <h2 className="text-lg font-semibold">{tr("Where we all go")}</h2>
                 <p className="mt-1 text-sm text-smoke">
                   {mapData
                     ? `${mapData.arcs.length} ${mapData.arcs.length === 1 ? 'route' : 'routes'} across ${mapData.pins.length} airports. Tap a country or an airport.`
@@ -437,8 +439,8 @@ export default function FlightCommunity() {
               <MapSkeleton />
             ) : mapData.arcs.length === 0 ? (
               <div className="rounded-card border border-dashed border-gray-200 px-6 py-14 text-center">
-                <p className="text-sm font-medium text-ink">No shared routes yet.</p>
-                <p className="mt-1 text-sm text-smoke">Tick &ldquo;share with the community&rdquo; on a flight and it lands on this map.</p>
+                <p className="text-sm font-medium text-ink">{tr("No shared routes yet.")}</p>
+                <p className="mt-1 text-sm text-smoke">{tr("Tick &ldquo;share with the community&rdquo; on a flight and it lands on this map.")}</p>
               </div>
             ) : (
               <WhenVisible rootMargin="1000px" fallback={<MapSkeleton />}>
@@ -456,7 +458,7 @@ export default function FlightCommunity() {
         <Reveal from="down">
           <section>
             <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-              <h2 className="text-lg font-semibold">Leaderboards</h2>
+              <h2 className="text-lg font-semibold">{tr("Leaderboards")}</h2>
               <Segmented
                 value={win}
                 onChange={setWin}
@@ -470,20 +472,20 @@ export default function FlightCommunity() {
             ) : boards.distance.length === 0 ? (
               <EmptyState
                 icon={<Icon name="plane" className="h-6 w-6" />}
-                title="Nobody is sharing flights yet"
-                hint="Log one and it counts here. Your dates, seat, note and photo stay private either way."
-                action={<Link to="/flights" className="btn-primary">Open your flight log</Link>}
+                title={tr("Nobody is sharing flights yet")}
+                hint={tr("Log one and it counts here. Your dates, seat, note and photo stay private either way.")}
+                action={<Link to="/flights" className="btn-primary">{tr("Open your flight log")}</Link>}
               />
             ) : (
               <Reveal className="grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3" stagger={0.06}>
-                <Board icon="globe" title="Furthest" rows={boards.distance} myId={user.id} open={boardsOpen}
+                <Board icon="globe" title={tr("Furthest")} rows={boards.distance} myId={user.id} open={boardsOpen}
                   value={(b) => Math.round(b.km).toLocaleString('en-GB')} unit=" km" />
-                <Board icon="flag" title="Most countries" rows={boards.countries} myId={user.id} open={boardsOpen}
+                <Board icon="flag" title={tr("Most countries")} rows={boards.countries} myId={user.id} open={boardsOpen}
                   note={win === 'all'
                     ? 'Flights logged, plus your travel map.'
                     : 'Flights logged this year. The travel map has no dates, so it counts on all time only.'}
                   value={(b) => b.countries} unit="" />
-                <Board icon="plane" title="Most flights" rows={boards.flights} myId={user.id} open={boardsOpen}
+                <Board icon="plane" title={tr("Most flights")} rows={boards.flights} myId={user.id} open={boardsOpen}
                   value={(b) => b.flights} unit="" />
               </Reveal>
             )}
@@ -515,9 +517,9 @@ export default function FlightCommunity() {
         {Object.keys(flyers).length > 0 && (
           <Reveal from="down">
             <section>
-              <h2 className="mb-1 text-lg font-semibold">Others on your routes</h2>
+              <h2 className="mb-1 text-lg font-semibold">{tr("Others on your routes")}</h2>
               <p className="mb-4 text-sm text-smoke">
-                Creators who have flown the same pair of airports. Their dates and notes stay private.
+                {tr("Creators who have flown the same pair of airports. Their dates and notes stay private.")}
               </p>
               <Reveal className="grid items-stretch gap-3 sm:grid-cols-2" stagger={0.05}>
                 {topRoutes.filter((rt) => flyers[rt.key]).map((rt) => (
@@ -560,9 +562,9 @@ export default function FlightCommunity() {
           <Reveal from="down">
             <section>
               <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-                <h2 className="text-lg font-semibold">Aircrafts</h2>
+                <h2 className="text-lg font-semibold">{tr("Aircrafts")}</h2>
                 <Link to="/flights/aircraft" className="text-sm font-medium text-brand transition-transform duration-200 hover:scale-105">
-                  Your aircraft collection &rarr;
+                  {tr("Your aircraft collection &rarr;")}
                 </Link>
               </div>
               {/* THE AIRCRAFT, AND THE PEOPLE WHO HAVE BEEN ON IT.
@@ -655,7 +657,7 @@ export default function FlightCommunity() {
         {boards?.distance?.length > 0 && (
           <Reveal from="down">
             <section>
-              <h2 className="mb-4 text-lg font-semibold">Busiest airports in the community</h2>
+              <h2 className="mb-4 text-lg font-semibold">{tr("Busiest airports in the community")}</h2>
               <CommunityAirports rows={board} />
             </section>
           </Reveal>

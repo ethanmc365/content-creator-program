@@ -6,6 +6,7 @@ import { flagFromIso } from '../../lib/flags'
 import { cx } from '../../lib/utils'
 import { SPRING } from '../../lib/motion'
 import { lockScroll } from '../../lib/scrollLock'
+import { useT } from '../../lib/i18n'
 
 // Choosing a person, with their face.
 //
@@ -30,6 +31,7 @@ export default function PeoplePicker({
   multi = true,
   busy = false,
 }) {
+  const tr = useT()
   const [query, setQuery] = useState('')
   const [picked, setPicked] = useState([])
   const inputRef = useRef(null)
@@ -96,7 +98,7 @@ export default function PeoplePicker({
                 <h2 className="text-lg font-semibold">{title}</h2>
                 {hint && <p className="mt-0.5 text-sm text-smoke">{hint}</p>}
               </div>
-              <button onClick={onClose} aria-label="Close"
+              <button onClick={onClose} aria-label={tr("Close")}
                 className="rounded-lg p-1.5 text-smoke transition-colors hover:bg-cloud hover:text-ink">
                 <Icon name="close" className="h-4 w-4" />
               </button>
@@ -106,7 +108,7 @@ export default function PeoplePicker({
               <input
                 ref={inputRef}
                 className="input !pl-10 text-base sm:text-sm"
-                placeholder="Search by name or city"
+                placeholder={tr("Search by name or city")}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
@@ -161,7 +163,7 @@ export default function PeoplePicker({
 
           <div className="shrink-0 border-t border-gray-100 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
             <div className="flex items-center gap-3">
-              <button onClick={onClose} className="btn-ghost">Cancel</button>
+              <button onClick={onClose} className="btn-ghost">{tr("Cancel")}</button>
               <button
                 onClick={() => onConfirm(picked)}
                 disabled={picked.length === 0 || busy}

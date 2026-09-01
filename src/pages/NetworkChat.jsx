@@ -35,6 +35,7 @@ import { SOFT_SPRING } from '../lib/motion'
 import MessageActions from '../components/chat/MessageActions'
 import OutboxNotice from '../components/OutboxNotice'
 import { enqueueMessage, queuedFor, subscribeOutbox, onOutboxSent, onOutboxBlocked, retryQueued, dropQueued } from '../lib/outbox'
+import { useT } from '../lib/i18n'
 
 // Per-market chat. Spain's General, the UK's General and the Worldwide General
 // are three separate rooms that happen to share a layout.
@@ -111,6 +112,7 @@ const hasContent = (m) =>
 // in memory. That says "message no longer here" rather than drawing an empty
 // bar, because a blank quote looks like a bug and a missing one is a fact.
 function QuotedParent({ id, lookup, onDark = false }) {
+  const tr = useT()
   const parent = lookup.get(id)
 
   const jump = () => {
@@ -134,7 +136,7 @@ function QuotedParent({ id, lookup, onDark = false }) {
         onDark ? 'border-white/60 bg-white/15 text-white/75' : 'border-gray-200 bg-black/[0.04] text-gray-400',
       )}>
         <Icon name="reply" className="h-3 w-3 shrink-0" />
-        The message this replies to is no longer here
+        {tr("The message this replies to is no longer here")}
       </p>
     )
   }
@@ -197,6 +199,7 @@ function AttachedCard({ message, titles, onDark = false }) {
 }
 
 export default function NetworkChat() {
+  const tr = useT()
   const { slug, channelKey } = useParams()
   const navigate = useNavigate()
   const { user, profile, isAdmin } = useAuth()
@@ -925,8 +928,8 @@ export default function NetworkChat() {
   if (!community) {
     return (
       <div className="mx-auto w-full max-w-5xl px-4 py-8">
-        <EmptyState icon={<Icon name="pin" className="h-6 w-6" />} title="No such market"
-          action={<Link to="/global" className="btn-secondary">Back to Worldwide</Link>} />
+        <EmptyState icon={<Icon name="pin" className="h-6 w-6" />} title={tr("No such market")}
+          action={<Link to="/global" className="btn-secondary">{tr("Back to Worldwide")}</Link>} />
       </div>
     )
   }
@@ -1117,9 +1120,9 @@ export default function NetworkChat() {
         ) : messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
             <Icon name="chat" className="h-8 w-8 text-gray-200" />
-            <p className="text-sm font-medium">Nothing here yet</p>
+            <p className="text-sm font-medium">{tr("Nothing here yet")}</p>
             <p className="max-w-xs text-xs text-smoke">
-              This room is brand new. It is separate from every other market, so it starts empty.
+              {tr("This room is brand new. It is separate from every other market, so it starts empty.")}
             </p>
           </div>
         ) : visible.length === 0 ? (
@@ -1260,9 +1263,9 @@ export default function NetworkChat() {
                         {m.failed && (
                           <p className="mt-0.5 px-1 text-[11px] text-smoke">
                             Not sent yet.{' '}
-                            <button type="button" onClick={() => retryQueued(m.queuedId)} className="font-semibold text-brand underline">Retry</button>
+                            <button type="button" onClick={() => retryQueued(m.queuedId)} className="font-semibold text-brand underline">{tr("Retry")}</button>
                             {' · '}
-                            <button type="button" onClick={() => dropQueued(m.queuedId)} className="font-semibold underline">Discard</button>
+                            <button type="button" onClick={() => dropQueued(m.queuedId)} className="font-semibold underline">{tr("Discard")}</button>
                           </p>
                         )}
                         {seen.length > 0 && (
@@ -1297,7 +1300,7 @@ export default function NetworkChat() {
                           {mine ? 'You' : (m.profiles?.name || 'Someone')}
                         </span>
                         {!mine && m.profiles?.is_admin && (
-                          <span className="rounded-full bg-brand-tint px-1.5 py-0.5 text-[10px] font-semibold text-brand">Team</span>
+                          <span className="rounded-full bg-brand-tint px-1.5 py-0.5 text-[10px] font-semibold text-brand">{tr("Team")}</span>
                         )}
                         <span className="text-[11px] text-smoke" title={messageTimeTitle(m.created_at)}>{formatMessageTime(m.created_at)}</span>
                       </p>
@@ -1429,7 +1432,7 @@ export default function NetworkChat() {
               <button
                 type="button"
                 onClick={() => setReplyTo(null)}
-                aria-label="Cancel reply"
+                aria-label={tr("Cancel reply")}
                 className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-smoke transition-colors hover:bg-white hover:text-ink"
               >
                 <Icon name="close" className="h-4 w-4" />
@@ -1523,7 +1526,7 @@ export default function NetworkChat() {
               which on a column of white cards reads as a box drawn round the
               sidebar. The region stays wheel and keyboard scrollable; only the
               ring goes. */}
-          <nav aria-label="Rooms" className="hidden focus:outline-none lg:flex lg:w-60 lg:shrink-0 lg:flex-col lg:gap-3 lg:overflow-y-auto overscroll-contain lg:overscroll-contain lg:[scrollbar-width:none] lg:[&::-webkit-scrollbar]:hidden">
+          <nav aria-label={tr("Rooms")} className="hidden focus:outline-none lg:flex lg:w-60 lg:shrink-0 lg:flex-col lg:gap-3 lg:overflow-y-auto overscroll-contain lg:overscroll-contain lg:[scrollbar-width:none] lg:[&::-webkit-scrollbar]:hidden">
             {/* ONE CARD PER MARKET, IN YOUR ORDER.
                 These were sub-headings inside a single "Your other rooms" box,
                 which made six markets read as one long undifferentiated list -
@@ -1565,7 +1568,7 @@ export default function NetworkChat() {
                       </Link>
                       <span
                         {...handleProps}
-                        title="Drag to reorder"
+                        title={tr("Drag to reorder")}
                         className="flex h-6 w-5 shrink-0 items-center justify-center rounded-md text-gray-300 transition-opacity hover:text-smoke focus:opacity-100 focus:outline-none focus-visible:text-brand sm:opacity-40 sm:group-hover:opacity-100"
                       >
                         <Icon name="grip" className="h-3.5 w-3.5" />
@@ -1589,7 +1592,7 @@ export default function NetworkChat() {
                             <Icon name={c.icon || 'chat'} className={cx('h-3.5 w-3.5 shrink-0', on ? 'text-brand' : 'text-smoke')} />
                             <span className="min-w-0 flex-1 truncate text-[13px]">{c.label}</span>
                             {c.visibility === 'staff' && (
-                              <span className="shrink-0 rounded-full bg-cloud px-1.5 py-0.5 text-[9px] font-medium text-smoke">Staff</span>
+                              <span className="shrink-0 rounded-full bg-cloud px-1.5 py-0.5 text-[9px] font-medium text-smoke">{tr("Staff")}</span>
                             )}
                           </Link>
                         )

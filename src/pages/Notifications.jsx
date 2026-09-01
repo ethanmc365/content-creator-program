@@ -5,6 +5,7 @@ import { EmptyState, PageHeader, Skeleton } from '../components/ui'
 import Icon from '../components/Icon'
 import { timeAgo, cx } from '../lib/utils'
 import { FILTERS, groupByAge, matchesFilter, metaFor, useNotifications } from '../lib/notifications'
+import { useT } from '../lib/i18n'
 
 // THE WHOLE HISTORY, AND THE SAME CENTRE THE BELL IS.
 //
@@ -29,6 +30,7 @@ import { FILTERS, groupByAge, matchesFilter, metaFor, useNotifications } from '.
 
 /** One row, at archive size: nothing clamped, everything dismissible. */
 function Row({ n, leaving, onOpen, onDismiss, i }) {
+  const tr = useT()
   const meta = metaFor(n.type)
   return (
     <div
@@ -60,7 +62,7 @@ function Row({ n, leaving, onOpen, onDismiss, i }) {
             {timeAgo(n.created_at)}
             {n.link && (
               <span className="ml-1 inline-flex items-center gap-0.5 font-medium text-brand opacity-0 transition-opacity duration-150 group-hover/row:opacity-100">
-                Open
+                {tr("Open")}
                 <Icon name="chevronRight" className="h-3 w-3" />
               </span>
             )}
@@ -74,11 +76,11 @@ function Row({ n, leaving, onOpen, onDismiss, i }) {
           opposite things from the same corner: one that this is new, the other
           that it should go away. */}
       {!n.read && (
-        <span className="pointer-events-none absolute left-4 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full bg-brand transition-opacity duration-150 group-hover/row:opacity-0" aria-label="Unread" />
+        <span className="pointer-events-none absolute left-4 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full bg-brand transition-opacity duration-150 group-hover/row:opacity-0" aria-label={tr("Unread")} />
       )}
       <button
         onClick={(e) => { e.stopPropagation(); onDismiss(n.id) }}
-        aria-label="Dismiss this notification"
+        aria-label={tr("Dismiss this notification")}
         className={cx(
           'absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-gray-400 sm:right-5',
           'transition-all duration-150 hover:bg-white hover:text-ink hover:shadow-card active:scale-90',
@@ -92,6 +94,7 @@ function Row({ n, leaving, onOpen, onDismiss, i }) {
 }
 
 export default function Notifications() {
+  const tr = useT()
   const { user, profile } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -125,15 +128,15 @@ export default function Notifications() {
   return (
     <div className="page max-w-3xl">
       <PageHeader
-        title="Notifications"
+        title={tr("Notifications")}
         subtitle={unread ? `${unread} unread` : "You're all caught up."}
         action={
           <div className="flex flex-wrap gap-2">
-            {unread > 0 && <button onClick={markAllRead} className="btn-secondary !py-2.5 text-sm">Mark all read</button>}
+            {unread > 0 && <button onClick={markAllRead} className="btn-secondary !py-2.5 text-sm">{tr("Mark all read")}</button>}
             {readCount > 0 && (
               <button onClick={clearRead} className="btn-ghost !py-2.5 text-sm text-smoke hover:text-ink">
                 <Icon name="trash" className="h-4 w-4" />
-                Clear read
+                {tr("Clear read")}
               </button>
             )}
           </div>
@@ -173,14 +176,14 @@ export default function Notifications() {
       ) : (items || []).length === 0 ? (
         <EmptyState
           icon={<Icon name="bell" className="h-7 w-7" />}
-          title="Nothing here yet"
-          hint="Challenge launches, results, rewards and DMs will all show up here."
+          title={tr("Nothing here yet")}
+          hint={tr("Challenge launches, results, rewards and DMs will all show up here.")}
         />
       ) : rows.length === 0 ? (
         <div className="rounded-card border border-dashed border-gray-200 px-6 py-12 text-center">
-          <p className="text-sm font-medium text-ink">Nothing under this filter.</p>
+          <p className="text-sm font-medium text-ink">{tr("Nothing under this filter.")}</p>
           <button onClick={() => setFilter('all')} className="mt-2 text-sm font-medium text-brand hover:underline">
-            Show everything
+            {tr("Show everything")}
           </button>
         </div>
       ) : (

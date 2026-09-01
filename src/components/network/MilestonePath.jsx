@@ -7,6 +7,7 @@ import { cx } from '../../lib/utils'
 import { EASE } from '../../lib/motion'
 import { playPlaneRise, playRingReached, engineThrust, engineStop } from '../../lib/gameSounds'
 import { REWARD_NOUN, criterionLabel, milestoneFraction } from '../../lib/milestones'
+import { useT } from '../../lib/i18n'
 
 // The milestone ladder, drawn as a flight path.
 //
@@ -167,6 +168,7 @@ function timeAtDistance(y) {
 // list of stops, which is the honest way to preview a drawing: with fake DATA,
 // not with a flag that makes it lie about the real reader.
 export default function MilestonePath({ milestones = [], standings = [] }) {
+  const tr = useT()
   // Which stop's detail sheet is open. Null for none.
   const [open, setOpen] = useState(null)
 
@@ -614,8 +616,8 @@ export default function MilestonePath({ milestones = [], standings = [] }) {
                 onClick={() => setOpen({ start: true, title: 'Just joined', criteria: [] })}
                 className="group block w-full rounded-2xl border border-brand/20 bg-brand-tint/40 px-3 py-2.5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:shadow-card"
               >
-                <p className="text-sm font-bold text-brand">Just joined</p>
-                <p className="text-xs text-smoke">Where every route starts.</p>
+                <p className="text-sm font-bold text-brand">{tr("Just joined")}</p>
+                <p className="text-xs text-smoke">{tr("Where every route starts.")}</p>
                 {atStop.length > 0 && (
                   <div className="mt-2 flex items-center -space-x-1.5">
                     {atStop.slice(0, 4).map((s2, k) => (
@@ -701,7 +703,7 @@ export default function MilestonePath({ milestones = [], standings = [] }) {
                     progress line that lies by omission. */}
                 {done ? (
                   <p className="mt-1.5 flex items-center gap-1 text-[11px] font-medium text-brand">
-                    <Icon name="check" className="h-3 w-3" /> Reached
+                    <Icon name="check" className="h-3 w-3" /> {tr("Reached")}
                   </p>
                 ) : (
                   <ul className="mt-1.5 space-y-0.5">
@@ -726,7 +728,7 @@ export default function MilestonePath({ milestones = [], standings = [] }) {
                 {n.blocked && (
                   <p className="mt-1.5 inline-flex items-start gap-1 rounded-lg bg-amber-100/70 px-1.5 py-1 text-[10px] font-medium leading-tight text-amber-800">
                     <Icon name="alert" className="mt-px h-3 w-3 shrink-0" />
-                    Done — waiting on an earlier stop
+                    {tr("Done — waiting on an earlier stop")}
                   </p>
                 )}
 
@@ -773,7 +775,7 @@ export default function MilestonePath({ milestones = [], standings = [] }) {
             {open.description && <p className="text-sm text-smoke">{open.description}</p>}
 
             <div>
-              <p className="label">What you need</p>
+              <p className="label">{tr("What you need")}</p>
               <ul className="space-y-1.5">
                 {(open.criteria || []).map((c) => (
                   <li key={c.metric} className="flex items-start gap-2 text-sm">
@@ -791,7 +793,7 @@ export default function MilestonePath({ milestones = [], standings = [] }) {
 
             {open.reward && (
               <div>
-                <p className="label">Reward</p>
+                <p className="label">{tr("Reward")}</p>
                 <div className="rounded-xl border border-brand/20 bg-brand-tint/40 px-3 py-2.5">
                   {REWARD_NOUN[open.reward_kind] && (
                     <p className="text-[10px] font-semibold uppercase tracking-widest text-brand/70">
@@ -857,7 +859,7 @@ export default function MilestonePath({ milestones = [], standings = [] }) {
       {milestones.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center">
           <p className="flex items-center gap-2 text-sm text-smoke">
-            <Icon name="flag" className="h-4 w-4" /> No milestones set up yet.
+            <Icon name="flag" className="h-4 w-4" /> {tr("No milestones set up yet.")}
           </p>
         </div>
       )}

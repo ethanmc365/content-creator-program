@@ -4,6 +4,7 @@ import Icon from './Icon'
 import { Avatar } from './ui'
 import ParticipationBar from './network/ParticipationBar'
 import { cx, formatDate, formatViews } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 // THE CARD FOR A CHALLENGE THAT IS ACTUALLY RUNNING.
 //
@@ -114,6 +115,7 @@ function prizeForPlace(prizes, place) {
 // sit on their own ground, and a prize in grey under a name in black is finally
 // legible at the size it is printed.
 function Leaderboard({ leaders, prizes, className }) {
+  const tr = useT()
   const rows = [1, 2, 3].map((place, i) => ({
     place,
     leader: leaders?.[i] || null,
@@ -123,7 +125,7 @@ function Leaderboard({ leaders, prizes, className }) {
     <div className={cx('rounded-2xl bg-white p-4 shadow-[0_12px_34px_rgba(0,0,0,0.20)]', className)}>
       <p className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-brand">
         <Icon name="trophy" className="h-3.5 w-3.5" />
-        Leaderboard
+        {tr('Leaderboard')}
       </p>
       <div className="space-y-1">
         {rows.map(({ place, leader, prize }) => (
@@ -155,7 +157,9 @@ function Leaderboard({ leaders, prizes, className }) {
             )}
             <span className="min-w-0 flex-1">
               <span className={cx('block truncate text-sm font-semibold', leader ? 'text-ink' : 'text-gray-400')}>
-                {leader ? leader.name?.split(' ')[0] : 'Up for grabs'}
+                {/* A name is theirs and never translated; the empty state
+                    is ours. */}
+                {leader ? leader.name?.split(' ')[0] : tr('Up for grabs')}
               </span>
               {prize && (
                 <span className="block truncate text-[11px] text-smoke">{prize}</span>
@@ -172,6 +176,7 @@ function Leaderboard({ leaders, prizes, className }) {
 }
 
 export default function LiveChallengeCard({ challenge: c, global: isGlobal, entries, participation, leaders }) {
+  const tr = useT()
   return (
     <div>
       <div
@@ -226,7 +231,7 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/80" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
               </span>
-              Live now
+              {tr('Live now')}
             </span>
             {isGlobal && (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-brand">
@@ -256,7 +261,7 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
                 only one whose scope is not obvious from the page you are on. */}
             {isGlobal && (
               <p className="mt-2 text-sm font-medium text-white/90">
-                Every market, every creator. One brief, one leaderboard.
+                {tr('Every market, every creator. One brief, one leaderboard.')}
               </p>
             )}
             {/* The blurb is desktop-only. On a phone the whole card is a link
@@ -271,7 +276,7 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
           />
 
           <div className="mt-5 sm:mt-8 lg:col-start-1 lg:row-start-3 lg:mt-7 lg:self-end">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/75 sm:mb-3 sm:text-xs">Closes in</p>
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/75 sm:mb-3 sm:text-xs">{tr('Closes in')}</p>
             {/* The hero clock is four big tiles. On a phone that is most of
                 what is left of the card, so it gets the compact row instead
                 and the card gets its height back. */}
@@ -284,10 +289,10 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
                 the brief" is what the rest of the card already does. */}
             <div className="flex flex-wrap gap-3 lg:justify-end">
               <Link to={`/challenges/${c.id}`} className="btn hidden border border-white/40 text-white hover:bg-white/10 sm:inline-flex">
-                Read the brief →
+                {tr('Read the brief')} →
               </Link>
               <Link to={`/challenges/${c.id}?submit=1`} className="btn w-full justify-center bg-white !text-brand hover:bg-white/90 sm:w-auto">
-                Submit your video
+                {tr('Submit your video')}
               </Link>
             </div>
             <p className="text-[13px] text-white/80 sm:text-sm">

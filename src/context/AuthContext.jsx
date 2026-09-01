@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { adoptProfileLocale } from '../lib/i18n'
 
 // AuthContext is the single source of truth for "who is logged in".
 // It exposes the Supabase session, the user's profile row (including
@@ -175,7 +176,14 @@ export function AuthProvider({ children }) {
   // Load the profile row for the signed-in user. Returns { data, error } so
   // callers can tell "no row exists" (PGRST116) apart from a transient failure.
   const fetchProfile = useCallback(async (userId) => {
-    return await supabase.from('profiles').select('*').eq('id', userId).single()
+    const result = await supabase.from('profiles').select('*').eq('id', userId).single()
+    // THE LANGUAGE FOLLOWS THE ACCOUNT, and this is the one place every path
+    // into a profile goes through - first load, refresh after an edit, and the
+    // manual retry. `adoptProfileLocale` stands aside if this device has
+    // already been told otherwise, so a switch somebody has just made is never
+    // undone a second later by a fetch landing. See lib/i18n.
+    if (result?.data?.locale) adoptProfileLocale(result.data.locale)
+    return result
   }, [])
 
   // Re-fetch the profile after edits (photo change, onboarding, etc.).

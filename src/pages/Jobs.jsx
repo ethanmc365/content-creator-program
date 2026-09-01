@@ -6,6 +6,7 @@ import { confirm } from '../lib/confirm'
 import { Badge, EmptyState, Modal, PageHeader, SkeletonCards, Spinner } from '../components/ui'
 import Icon from '../components/Icon'
 import { timeAgo } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 // How the applicant sees their application move through the admin's pipeline.
 const APPLICANT_STATUS = {
@@ -20,6 +21,7 @@ const APPLICANT_STATUS = {
 // short pitch, which is stored and reviewed on the admin jobs page (the team
 // then reaches out by email or DM). No more fire-and-forget auto DMs.
 export default function Jobs() {
+  const tr = useT()
   const { user, isAdmin } = useAuth()
   const [jobs, setJobs] = useState([])
   const [applied, setApplied] = useState(new Map()) // job_id -> { id, status }
@@ -66,9 +68,9 @@ export default function Jobs() {
   return (
     <div className="page">
       <PageHeader
-        title="Search roles"
+        title={tr("Search roles")}
         subtitle="We hire from our own community first. Here are the roles we're currently looking to fill."
-        action={isAdmin && <Link to="/admin/jobs" className="btn-primary">Manage jobs</Link>}
+        action={isAdmin && <Link to="/admin/jobs" className="btn-primary">{tr("Manage jobs")}</Link>}
       />
 
       {loading ? (
@@ -76,8 +78,8 @@ export default function Jobs() {
       ) : jobs.length === 0 ? (
         <EmptyState
           icon={<Icon name="briefcase" className="h-7 w-7" />}
-          title="No open roles right now"
-          hint="We post new positions here first. Keep creating great content and you'll be top of mind."
+          title={tr("No open roles right now")}
+          hint={tr("We post new positions here first. Keep creating great content and you'll be top of mind.")}
         />
       ) : (
         <div className="space-y-6">
@@ -97,17 +99,17 @@ export default function Jobs() {
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {j.apply_url && (
-                      <a href={j.apply_url} target="_blank" rel="noopener noreferrer" className="btn-secondary">Apply form ↗</a>
+                      <a href={j.apply_url} target="_blank" rel="noopener noreferrer" className="btn-secondary">{tr("Apply form ↗")}</a>
                     )}
                     {app ? (
                       <div className="flex items-center gap-2">
                         <Badge tone={st.tone}><Icon name="check" className="mr-1 inline h-3.5 w-3.5" />{st.label}</Badge>
                         {(app.status === 'new' || app.status === 'reviewing') && (
-                          <button onClick={() => withdraw(j)} className="btn-ghost !py-2 text-xs">Withdraw</button>
+                          <button onClick={() => withdraw(j)} className="btn-ghost !py-2 text-xs">{tr("Withdraw")}</button>
                         )}
                       </div>
                     ) : (
-                      <button onClick={() => openApply(j)} className="btn-primary">Apply</button>
+                      <button onClick={() => openApply(j)} className="btn-primary">{tr("Apply")}</button>
                     )}
                   </div>
                 </div>
@@ -126,11 +128,11 @@ export default function Jobs() {
             they'll reach out by email or a direct message. You can withdraw any time before they respond.
           </p>
           <div>
-            <label htmlFor="pitch" className="label">Why are you suited to this role?</label>
+            <label htmlFor="pitch" className="label">{tr("Why are you suited to this role?")}</label>
             <textarea
               id="pitch" rows={6} required className="input"
               value={pitch} onChange={(e) => setPitch(e.target.value)}
-              placeholder="Your experience, your content niche, your reach, why you're excited…"
+              placeholder={tr("Your experience, your content niche, your reach, why you're excited…")}
             />
           </div>
           {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}

@@ -22,6 +22,7 @@ import { DeadlineReminderModal } from '../components/NotificationPreferences'
 import { useTimezone } from '../lib/timezone'
 import { loadCalendar } from '../lib/calendarSources'
 import { cx } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 // THE CALENDAR, THIRD PASS.
 //
@@ -153,6 +154,7 @@ function whenLabel(date, now) {
 // which is how the agenda list ended up with an RSVP control the day panel did
 // not have.
 function EventCard({ e, now, zone, rsvps, myId, connectedIds, compact = false, onEdit, live = false, onDeadlinePrefs }) {
+  const tr = useT()
   const meta = metaFor(e.type)
   const date = new Date(e.date)
   const soon = whenLabel(date, now)
@@ -215,13 +217,13 @@ function EventCard({ e, now, zone, rsvps, myId, connectedIds, compact = false, o
           {e.meetingUrl && (
             <a href={e.meetingUrl} target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-xs font-semibold text-brand transition-transform duration-200 hover:translate-x-0.5">
-              Join the call
+              {tr("Join the call")}
               <Icon name="chevronRight" className="h-3 w-3" />
             </a>
           )}
           {e.editable && (
             <button onClick={() => onEdit?.(e)} className="text-xs font-semibold text-smoke transition-colors hover:text-ink">
-              Edit
+              {tr("Edit")}
             </button>
           )}
         </div>
@@ -240,19 +242,21 @@ function EventCard({ e, now, zone, rsvps, myId, connectedIds, compact = false, o
 // A PULSE, NOT A BLINK. Two rings on the same slow beat, so it reads as
 // "happening" rather than "error". CSS only - this page is eagerly routed.
 function LiveChip({ className = '' }) {
+  const tr = useT()
   return (
     <span className={cx('inline-flex items-center gap-1.5 rounded-full bg-brand px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white', className)}>
       <span className="relative flex h-1.5 w-1.5" aria-hidden>
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75 motion-reduce:hidden" />
         <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
       </span>
-      Live now
+      {tr("Live now")}
     </span>
   )
 }
 
 // ---------------------------------------------------------------- the page
 export default function Events() {
+  const tr = useT()
   const { user, profile, isAdmin } = useAuth()
   // Always-on scope helper, not CommunityContext: this page is one of the ones
   // 45 live creators open, and it has to scope correctly whether or not the
@@ -423,7 +427,7 @@ export default function Events() {
   return (
     <div className="page">
       <PageHeader
-        title="Calendar"
+        title={tr("Calendar")}
         action={
           /* THREE EQUAL ACTIONS ON ONE ROW, AT EVERY WIDTH.
              "Suggest an event" used to live at the foot of the page under its
@@ -448,22 +452,22 @@ export default function Events() {
           <div className="flex w-full flex-wrap gap-2 sm:w-auto">
             <button onClick={() => { setEditingPersonal(null); setPersonalOpen(true) }} className="btn-secondary !px-3 !py-2.5 flex-1 basis-0 justify-center whitespace-nowrap text-sm sm:flex-none sm:basis-auto sm:!px-4">
               <Icon name="plus" className="h-4 w-4 shrink-0" />
-              <span className="hidden sm:inline">Personal event</span>
-              <span className="sm:hidden">Personal</span>
+              <span className="hidden sm:inline">{tr("Personal event")}</span>
+              <span className="sm:hidden">{tr("Personal")}</span>
             </button>
             {/* SUBSCRIBE, NOT DOWNLOAD. A file is out of date the moment
                 anybody adds a date to it; a URL is not. */}
             <button onClick={() => setSubscribeOpen(true)} className="btn-secondary !px-3 !py-2.5 flex-1 basis-0 justify-center whitespace-nowrap text-sm sm:flex-none sm:basis-auto sm:!px-4">
               <Icon name="calendar" className="h-4 w-4 shrink-0" />
-              Sync
+              {tr("Sync")}
             </button>
             <button onClick={() => setSuggestOpen(true)} className="btn-secondary !px-3 !py-2.5 flex-1 basis-0 justify-center whitespace-nowrap text-sm sm:flex-none sm:basis-auto sm:!px-4">
               <Icon name="pencil" className="h-4 w-4 shrink-0" />
-              <span className="hidden sm:inline">Suggest an event</span>
-              <span className="sm:hidden">Suggest</span>
+              <span className="hidden sm:inline">{tr("Suggest an event")}</span>
+              <span className="sm:hidden">{tr("Suggest")}</span>
             </button>
             {isAdmin && (
-              <Link to="/admin/events" className="btn-primary basis-full justify-center whitespace-nowrap max-sm:order-first sm:basis-auto sm:!px-4">Manage</Link>
+              <Link to="/admin/events" className="btn-primary basis-full justify-center whitespace-nowrap max-sm:order-first sm:basis-auto sm:!px-4">{tr("Manage")}</Link>
             )}
           </div>
         }
@@ -525,15 +529,15 @@ export default function Events() {
               <div className="flex items-center justify-between gap-2 sm:justify-end">
                 <h2 className="text-lg font-bold tabular-nums sm:min-w-[9.5rem]">{format(month, 'MMMM yyyy')}</h2>
                 <div className="flex items-center gap-1">
-                  <button onClick={() => setMonth(addMonths(month, -1))} aria-label="Previous month"
+                  <button onClick={() => setMonth(addMonths(month, -1))} aria-label={tr("Previous month")}
                     className="flex h-9 w-9 items-center justify-center rounded-full text-smoke transition-all duration-200 hover:bg-cloud hover:text-ink active:scale-90">
                     <Icon name="chevronLeft" className="h-4 w-4" />
                   </button>
                   <button onClick={() => { setMonth(new Date()); setSelectedDay(null) }}
                     className="rounded-full px-3 py-1.5 text-xs font-semibold text-smoke transition-all duration-200 hover:bg-cloud hover:text-ink active:scale-95">
-                    Today
+                    {tr("Today")}
                   </button>
-                  <button onClick={() => setMonth(addMonths(month, 1))} aria-label="Next month"
+                  <button onClick={() => setMonth(addMonths(month, 1))} aria-label={tr("Next month")}
                     className="flex h-9 w-9 items-center justify-center rounded-full text-smoke transition-all duration-200 hover:bg-cloud hover:text-ink active:scale-90">
                     <Icon name="chevronRight" className="h-4 w-4" />
                   </button>
@@ -561,8 +565,8 @@ export default function Events() {
                       </span>
                     )}
                   </span>
-                  <span className="hidden text-gray-400 sm:inline">Arrow keys change month · T for today</span>
-                  <span className="text-gray-400 sm:hidden">Swipe to change month</span>
+                  <span className="hidden text-gray-400 sm:inline">{tr("Arrow keys change month · T for today")}</span>
+                  <span className="text-gray-400 sm:hidden">{tr("Swipe to change month")}</span>
                 </p>
 
                 {/* THE DAY PANEL GROWS OUT OF NOTHING rather than appearing.
@@ -584,7 +588,7 @@ export default function Events() {
                             >
                               + Add
                             </button>
-                            <button onClick={() => setSelectedDay(null)} aria-label="Close"
+                            <button onClick={() => setSelectedDay(null)} aria-label={tr("Close")}
                               className="flex h-7 w-7 items-center justify-center rounded-full text-gray-400 transition-all duration-150 hover:bg-cloud hover:text-ink active:scale-90">
                               <Icon name="close" className="h-3.5 w-3.5" />
                             </button>
@@ -597,7 +601,7 @@ export default function Events() {
                           </p>
                         )}
                         {dayEvents.length === 0 ? (
-                          <p className="text-sm text-smoke">Nothing planned. A good day to film something.</p>
+                          <p className="text-sm text-smoke">{tr("Nothing planned. A good day to film something.")}</p>
                         ) : (
                           <div className="reveal is-in space-y-3">
                             {dayEvents.map((e, i) => (
@@ -616,7 +620,7 @@ export default function Events() {
               <aside>
                 <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
                   <Icon name="clock" className="h-5 w-5 text-brand" />
-                  Coming up
+                  {tr("Coming up")}
                 </h2>
                 <UpcomingList rows={upcoming.slice(0, 6)} cardProps={cardProps} />
               </aside>
@@ -688,6 +692,7 @@ export default function Events() {
 // place - what it is and how soon - and everything else is one tap away in the
 // day panel. The desktop card is unchanged, because there the space is free.
 function NextUp({ e, now, zone, rsvps, myId, connectedIds }) {
+  const tr = useT()
   const meta = metaFor(e.type)
   const date = new Date(e.date)
   const soon = whenLabel(date, now)
@@ -700,7 +705,7 @@ function NextUp({ e, now, zone, rsvps, myId, connectedIds }) {
           <Icon name={meta.icon} className="h-5 w-5" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-[10px] font-bold uppercase tracking-widest text-white/75">Next up</span>
+          <span className="block text-[10px] font-bold uppercase tracking-widest text-white/75">{tr("Next up")}</span>
           <span className="block truncate text-sm font-bold leading-tight">{e.title}</span>
           <span className="block text-xs text-white/85">
             {format(date, 'EEE d MMM')} · {format(date, 'HH:mm')}
@@ -718,7 +723,7 @@ function NextUp({ e, now, zone, rsvps, myId, connectedIds }) {
         <div className="relative">
           <span className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-[11px] font-bold uppercase tracking-widest">
             <Icon name={meta.icon} className="h-3.5 w-3.5" />
-            Next up
+            {tr("Next up")}
           </span>
           <div className="mt-3 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div className="min-w-0">
@@ -735,12 +740,12 @@ function NextUp({ e, now, zone, rsvps, myId, connectedIds }) {
               {e.meetingUrl && (
                 <a href={e.meetingUrl} target="_blank" rel="noopener noreferrer"
                   className="btn bg-white text-brand transition-transform duration-200 hover:scale-105 hover:bg-white">
-                  Join the call
+                  {tr("Join the call")}
                 </a>
               )}
               {e.link && (
                 <Link to={e.link} className="btn border border-white/40 text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/10">
-                  View
+                  {tr("View")}
                 </Link>
               )}
             </div>
@@ -909,6 +914,7 @@ function MonthGrid({ days, month, eventsOn, travelDays, selectedDay, onSelect, l
 // line and the row read as a ragged strip. A `min-h` gives the week a shape
 // before anything is in it, which is what a week view is for.
 function WeekView({ days, eventsOn, travelDays, liveIds, cardProps, onShift, onToday }) {
+  const tr = useT()
   const weekRows = days.flatMap((d) => eventsOn(d))
   return (
     <section>
@@ -917,15 +923,15 @@ function WeekView({ days, eventsOn, travelDays, liveIds, cardProps, onShift, onT
           {format(days[0], 'd MMM')} &ndash; {format(days[6], 'd MMM yyyy')}
         </h2>
         <div className="flex items-center gap-1">
-          <button onClick={() => onShift(-1)} aria-label="Previous week"
+          <button onClick={() => onShift(-1)} aria-label={tr("Previous week")}
             className="flex h-9 w-9 items-center justify-center rounded-full text-smoke transition-all duration-200 hover:bg-cloud hover:text-ink active:scale-90">
             <Icon name="chevronLeft" className="h-4 w-4" />
           </button>
           <button onClick={onToday}
             className="rounded-full px-3 py-1.5 text-xs font-semibold text-smoke transition-all duration-200 hover:bg-cloud hover:text-ink active:scale-95">
-            This week
+            {tr("This week")}
           </button>
-          <button onClick={() => onShift(1)} aria-label="Next week"
+          <button onClick={() => onShift(1)} aria-label={tr("Next week")}
             className="flex h-9 w-9 items-center justify-center rounded-full text-smoke transition-all duration-200 hover:bg-cloud hover:text-ink active:scale-90">
             <Icon name="chevronRight" className="h-4 w-4" />
           </button>
@@ -1046,10 +1052,11 @@ function Agenda({ rows, cardProps, liveIds }) {
 }
 
 function UpcomingList({ rows, cardProps }) {
+  const tr = useT()
   if (rows.length === 0) {
     return (
       <p className="rounded-card border border-dashed border-gray-200 px-5 py-10 text-center text-sm text-smoke">
-        Nothing scheduled yet.
+        {tr("Nothing scheduled yet.")}
       </p>
     )
   }
@@ -1065,12 +1072,13 @@ function UpcomingList({ rows, cardProps }) {
 }
 
 function EmptyCalendar() {
+  const tr = useT()
   return (
     <div className="rounded-card border border-dashed border-gray-200 px-6 py-16 text-center">
       <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-tint text-brand">
         <Icon name="calendar" className="h-6 w-6" />
       </span>
-      <p className="text-sm font-semibold text-ink">Nothing coming up</p>
+      <p className="text-sm font-semibold text-ink">{tr("Nothing coming up")}</p>
       <p className="mx-auto mt-1 max-w-sm text-sm text-smoke">
         Challenge deadlines land here on their own, and so do your flights. Anything else is a date
         somebody has to put in, and there is a box at the foot of this page for asking.

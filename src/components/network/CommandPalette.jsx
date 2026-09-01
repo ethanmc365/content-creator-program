@@ -9,6 +9,7 @@ import { flagFromIso } from '../../lib/flags'
 import { cx } from '../../lib/utils'
 import { overlay } from '../../lib/motion'
 import { useIsPhone } from '../../lib/useKeyboardInset'
+import { useT } from '../../lib/i18n'
 import { lockScroll } from '../../lib/scrollLock'
 
 // One box that goes anywhere.
@@ -58,6 +59,7 @@ function score(needle, hay) {
 
 export default function CommandPalette({ open, onClose }) {
   const navigate = useNavigate()
+  const tr = useT()
   const phone = useIsPhone()
   const { network, chapters, myChapters } = useCommunity()
   const [query, setQuery] = useState('')
@@ -97,7 +99,9 @@ export default function CommandPalette({ open, onClose }) {
     const communityById = new Map([...(chapters || []), ...(network ? [network] : [])].map((c) => [c.id, c]))
     const out = []
 
-    for (const p of PAGES) out.push({ ...p, group: 'Jump to' })
+    // `translate: true` marks the rows whose words are ours. Everything below
+    // is somebody's name.
+    for (const p of PAGES) out.push({ ...p, group: 'Jump to', translate: true })
 
     for (const c of chapters || []) {
       const mine = myChapters.some((m) => m.id === c.id)
@@ -105,7 +109,7 @@ export default function CommandPalette({ open, onClose }) {
         id: `m-${c.id}`,
         group: 'Markets',
         label: c.name,
-        hint: mine ? 'Your market' : c.is_active ? 'Open' : 'Not open yet',
+        hint: mine ? tr('Your market') : c.is_active ? tr('Open') : tr('Not open yet'),
         emoji: (c.country_codes || []).map(flagFromIso).join(''),
         to: `/c/${c.slug}`,
       })
@@ -149,7 +153,7 @@ export default function CommandPalette({ open, onClose }) {
     }
 
     return out
-  }, [chapters, myChapters, network, extra])
+  }, [chapters, myChapters, network, extra, tr])
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -233,8 +237,8 @@ export default function CommandPalette({ open, onClose }) {
                  for mobile, because that will fit in nicely." A placeholder
                  clipped mid-word is worse than a short one: it reads as a
                  layout fault rather than as a hint. */
-              placeholder={phone ? 'Search' : 'Search markets, rooms, challenges, creators'}
-              aria-label="Search"
+              placeholder={phone ? tr('Search') : tr('Search markets, rooms, challenges, creators')}
+              aria-label={tr('Search')}
               className="min-w-0 flex-1 border-0 bg-transparent py-4 text-base outline-none placeholder:text-gray-400 focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
             />
             {query && (
@@ -263,7 +267,10 @@ export default function CommandPalette({ open, onClose }) {
                   <div key={r.id}>
                     {head && (
                       <p className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
-                        {head}
+                        {/* The GROUP name is ours ("Markets", "Rooms") and is
+                            translated; `r.label` below is a market's or a
+                            creator's own name and never is. */}
+                        {tr(head)}
                       </p>
                     )}
                     <button
@@ -291,8 +298,18 @@ export default function CommandPalette({ open, onClose }) {
                         </span>
                       )}
                       <span className="min-w-0 flex-1">
-                        <span className={cx('block truncate text-sm font-medium', i === active && 'text-brand')}>{r.label}</span>
-                        {r.hint && <span className="block truncate text-xs text-smoke">{r.hint}</span>}
+                        {/* A row from PAGES carries OUR words and is
+                            translated; a market, room, challenge or creator row
+                            carries THEIRS and is not. `translate` is set where
+                            the rows are built. */}
+                        <span className={cx('block truncate text-sm font-medium', i === active && 'text-brand')}>
+                          {r.translate ? tr(r.label) : r.label}
+                        </span>
+                        {r.hint && (
+                          <span className="block truncate text-xs text-smoke">
+                            {r.translate ? tr(r.hint) : r.hint}
+                          </span>
+                        )}
                       </span>
                       {i === active && <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-brand" />}
                     </button>

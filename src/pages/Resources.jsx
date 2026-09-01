@@ -8,6 +8,7 @@ import { renderNote } from '../lib/noteMarkdown'
 import MediaAttachment from '../components/MediaAttachment'
 import { formatDate, cx } from '../lib/utils'
 import Reveal from '../components/network/Reveal'
+import { useT } from '../lib/i18n'
 
 // The permanent content library: tips, video ideas, brand guidelines,
 // do's & don'ts, downloadable assets and example content.
@@ -16,6 +17,7 @@ import Reveal from '../components/network/Reveal'
 // Custom line icons per category (no emoji anywhere in the chrome).
 
 export default function Resources() {
+  const tr = useT()
   const { user, profile, isAdmin, refreshProfile } = useAuth()
   const [resources, setResources] = useState([])
   const [bookmarks, setBookmarks] = useState(() => new Set())
@@ -85,8 +87,8 @@ export default function Resources() {
   return (
     <div className="page">
       <PageHeader
-        title="Resource library"
-        action={isAdmin && <Link to="/admin/resources" className="btn-primary">Manage resources</Link>}
+        title={tr("Resource library")}
+        action={isAdmin && <Link to="/admin/resources" className="btn-primary">{tr("Manage resources")}</Link>}
       />
 
       {/* ALL AND SAVED, AND NOTHING ELSE.
@@ -124,8 +126,8 @@ export default function Resources() {
           </button>
         </div>
         <input
-          type="search" className="input max-w-md" placeholder="Search the library…"
-          value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search resources"
+          type="search" className="input max-w-md" placeholder={tr("Search the library…")}
+          value={search} onChange={(e) => setSearch(e.target.value)} aria-label={tr("Search resources")}
         />
       </div>
 
@@ -162,7 +164,7 @@ export default function Resources() {
                   <h2 className="text-lg font-semibold leading-snug">
                     {r.title}
                     {new Date(r.created_at).getTime() > seenBefore && (
-                      <span className="ml-2 inline-block align-middle rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase text-white">New</span>
+                      <span className="ml-2 inline-block align-middle rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase text-white">{tr("New")}</span>
                     )}
                   </h2>
                   <div className="flex shrink-0 items-center gap-2">
@@ -215,7 +217,7 @@ export default function Resources() {
                     {r.profiles?.name && `By ${r.profiles.name} · `}{formatDate(r.created_at)}
                   </p>
                   <div className="flex gap-2">
-                    <span className="text-xs font-medium text-brand">Open →</span>
+                    <span className="text-xs font-medium text-brand">{tr("Open →")}</span>
                   </div>
                 </div>
               </article>

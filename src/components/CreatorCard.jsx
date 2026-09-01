@@ -5,6 +5,7 @@ import ConnectButton from './ConnectButton'
 import { useAuth } from '../context/AuthContext'
 import { openConversation } from '../lib/dm'
 import { cx } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 // One creator in the Creator Network grid. The whole card links to the profile;
 // Connect and Message are quick actions in the foot.
@@ -47,6 +48,7 @@ import { cx } from '../lib/utils'
 // actions at the foot. The fixed heights all stay, because the reason for them
 // (a grid of cards that are not the same size) has not changed.
 export default function CreatorCard({ creator, relation, onRelationChange, currentTrip = null, ...rest }) {
+  const tr = useT()
   const { user } = useAuth()
   const navigate = useNavigate()
   const isMe = creator.id === user?.id
@@ -78,7 +80,7 @@ export default function CreatorCard({ creator, relation, onRelationChange, curre
             {[creator.city, creator.country].filter(Boolean).join(', ') || 'Somewhere out there'}
           </p>
         </div>
-        {creator.is_admin && <Badge tone="light" className="shrink-0 !px-2 !py-0.5 !text-[10px]">Team</Badge>}
+        {creator.is_admin && <Badge tone="light" className="shrink-0 !px-2 !py-0.5 !text-[10px]">{tr("Team")}</Badge>}
       </div>
 
       {/* A BOX THAT IS EXACTLY TWO LINES TALL, AND THAT IS THE WHOLE FIX.
@@ -159,7 +161,7 @@ export default function CreatorCard({ creator, relation, onRelationChange, curre
           round. Either way exactly one button on the card is orange. */}
       <div className="mt-auto border-t border-gray-100 pt-3.5">
         {isMe ? (
-          <p className="py-1.5 text-center text-xs font-medium text-gray-400">This is you</p>
+          <p className="py-1.5 text-center text-xs font-medium text-gray-400">{tr("This is you")}</p>
         ) : (
           <div className="flex gap-2.5">
             <ConnectButton

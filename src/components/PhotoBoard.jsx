@@ -4,6 +4,7 @@ import Icon from './Icon'
 import { cx } from '../lib/utils'
 import { onPhotosChanged } from '../lib/photoEvents'
 import { notice } from '../lib/confirm'
+import { useT } from '../lib/i18n'
 
 // THE TRAVEL PHOTO BOARD: A PACKED COLLAGE YOU REARRANGE.
 //
@@ -607,6 +608,7 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
 
 // ---------------------------------------------------------------- one photo
 function PhotoTile({ photo, box, width, arranging, editable, dragging, onOpen, onCrop, onBroken, onDragStart }) {
+  const tr = useT()
   return (
     <figure
       data-tile
@@ -644,7 +646,7 @@ function PhotoTile({ photo, box, width, arranging, editable, dragging, onOpen, o
         <span className="flex h-full w-full flex-col items-center justify-center gap-1.5 bg-cloud px-3 text-center">
           <Icon name="image" className="h-5 w-5 text-gray-300" />
           <span className="text-[11px] font-medium leading-tight text-smoke">
-            This photo is no longer in storage. Remove it and upload it again.
+            {tr("This photo is no longer in storage. Remove it and upload it again.")}
           </span>
         </span>
       ) : (
@@ -681,7 +683,7 @@ function PhotoTile({ photo, box, width, arranging, editable, dragging, onOpen, o
       )}
 
       {!arranging && (
-        <button type="button" onClick={onOpen} className="absolute inset-0" aria-label="Open photo">
+        <button type="button" onClick={onOpen} className="absolute inset-0" aria-label={tr("Open photo")}>
           <span className="sr-only">{photo.caption || 'Open photo'}</span>
         </button>
       )}
@@ -691,7 +693,7 @@ function PhotoTile({ photo, box, width, arranging, editable, dragging, onOpen, o
           type="button"
           onClick={(e) => { e.stopPropagation(); onCrop() }}
           className="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-ink opacity-0 shadow-card backdrop-blur transition-opacity duration-200 group-hover:opacity-100 focus-visible:opacity-100"
-          aria-label="Reframe this photo"
+          aria-label={tr("Reframe this photo")}
         >
           <Icon name="crop" className="h-4 w-4" />
         </button>
@@ -720,7 +722,7 @@ function PhotoTile({ photo, box, width, arranging, editable, dragging, onOpen, o
         <span
           role="button"
           tabIndex={-1}
-          aria-label="Drag to resize this photo"
+          aria-label={tr("Drag to resize this photo")}
           onPointerDown={(e) => { e.stopPropagation(); onDragStart(e, photo, 'resize') }}
           className="group/grip absolute bottom-0 right-0 z-20 h-9 w-9 cursor-nwse-resize"
         >
@@ -736,6 +738,7 @@ function PhotoTile({ photo, box, width, arranging, editable, dragging, onOpen, o
 
 // ---------------------------------------------------------------- lightbox
 function Lightbox({ photo, onClose }) {
+  const tr = useT()
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', onKey)
@@ -746,7 +749,7 @@ function Lightbox({ photo, onClose }) {
       type="button"
       onClick={onClose}
       className="animate-fade-up fixed inset-0 z-[80] flex items-center justify-center bg-ink/85 p-6 backdrop-blur-sm"
-      aria-label="Close photo"
+      aria-label={tr("Close photo")}
     >
       <figure className="max-h-full max-w-4xl">
         <img src={photo.photo_url} alt={photo.caption || ''} className="max-h-[80vh] w-auto rounded-card object-contain" />
@@ -764,6 +767,7 @@ function Lightbox({ photo, onClose }) {
 // numbers, no canvas re-encode and no second copy in storage. It matters more
 // now than it did, because a freely resized tile can be any shape at all.
 function CropDialog({ photo, onCancel, onSave }) {
+  const tr = useT()
   const [focal, setFocal] = useState({ x: photo.focal_x ?? 0.5, y: photo.focal_y ?? 0.5 })
   const [zoom, setZoom] = useState(photo.zoom ?? 1)
   const boxRef = useRef(null)
@@ -794,14 +798,14 @@ function CropDialog({ photo, onCancel, onSave }) {
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-ink/70 p-4 backdrop-blur-sm">
       <div className="w-full max-w-md overflow-hidden rounded-card bg-white shadow-lift">
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5">
-          <h3 className="text-sm font-semibold">Reframe this photo</h3>
-          <button onClick={onCancel} aria-label="Close"
+          <h3 className="text-sm font-semibold">{tr("Reframe this photo")}</h3>
+          <button onClick={onCancel} aria-label={tr("Close")}
             className="rounded-full p-1.5 text-smoke transition-colors hover:bg-cloud hover:text-ink">
             <Icon name="close" className="h-4 w-4" />
           </button>
         </div>
         <div className="p-5">
-          <p className="mb-3 text-xs text-smoke">Drag to choose what stays in the middle when the photo is cropped.</p>
+          <p className="mb-3 text-xs text-smoke">{tr("Drag to choose what stays in the middle when the photo is cropped.")}</p>
           <div
             ref={boxRef}
             onPointerDown={(e) => { dragging.current = true; place(e) }}
@@ -814,15 +818,15 @@ function CropDialog({ photo, onCancel, onSave }) {
               style={{ left: `${focal.x * 100}%`, top: `${focal.y * 100}%` }} />
           </div>
           <label className="mt-4 block text-xs font-medium text-smoke">
-            Zoom
+            {tr("Zoom")}
             <input type="range" min="1" max="2.5" step="0.05" value={zoom}
               onChange={(e) => setZoom(Number(e.target.value))}
               className="mt-1.5 w-full accent-[#d94407]" />
           </label>
         </div>
         <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-3.5">
-          <button onClick={onCancel} className="btn-ghost !py-2 text-sm">Cancel</button>
-          <button onClick={() => onSave(focal, zoom)} className="btn-primary !py-2 text-sm">Save</button>
+          <button onClick={onCancel} className="btn-ghost !py-2 text-sm">{tr("Cancel")}</button>
+          <button onClick={() => onSave(focal, zoom)} className="btn-primary !py-2 text-sm">{tr("Save")}</button>
         </div>
       </div>
     </div>

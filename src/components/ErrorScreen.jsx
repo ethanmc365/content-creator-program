@@ -4,6 +4,7 @@ import TrypPlaneScene from './TrypPlaneScene'
 import Icon from './Icon'
 import { Avatar, Modal, CopyButton } from './ui'
 import { captureError } from '../lib/monitoring'
+import { useT } from '../lib/i18n'
 
 // WHO TO ASK. One person, by name, with an address you can copy.
 //
@@ -34,11 +35,12 @@ const HELP = {
 }
 
 function ContactCard({ open, onClose }) {
+  const tr = useT()
   return (
     // `sheet={false}` - this is an invitation, not a form. A full-height bottom
     // sheet for four lines of contact details reads as another page you have
     // been sent to, which is the last thing to do to somebody already stuck.
-    <Modal open={open} onClose={onClose} title="Get a hand" sheet={false}>
+    <Modal open={open} onClose={onClose} title={tr("Get a hand")} sheet={false}>
       <div className="flex items-center gap-4">
         <Avatar src={HELP.photo} name={HELP.name} size="lg" />
         <div className="min-w-0">
@@ -52,7 +54,7 @@ function ContactCard({ open, onClose }) {
         {/* SELECTABLE TEXT, NOT A LINK. Tapping it should never hand the reader
             off to an app they did not ask for; the copy button is the action. */}
         <span className="min-w-0 flex-1 select-all break-all text-sm font-medium text-ink">{HELP.email}</span>
-        <CopyButton value={HELP.email} label="Copy email address" />
+        <CopyButton value={HELP.email} label={tr("Copy email address")} />
       </div>
 
       <p className="mt-4 text-xs leading-relaxed text-smoke">
@@ -61,7 +63,7 @@ function ContactCard({ open, onClose }) {
       </p>
 
       <div className="mt-5 flex justify-end">
-        <button type="button" onClick={onClose} className="btn-secondary !py-2.5 text-sm">Close</button>
+        <button type="button" onClick={onClose} className="btn-secondary !py-2.5 text-sm">{tr("Close")}</button>
       </div>
     </Modal>
   )
@@ -95,6 +97,7 @@ function Footnote({ children }) {
 // on the way, and gives a radio to call in on. Light, because a stack trace is
 // not the reader's fault and a stern error page implies it might be.
 export function ErrorScreen({ onRetry, detail }) {
+  const tr = useT()
   const [help, setHelp] = useState(false)
   return (
     // BELOW THE MODAL LAYER (z-50), not above it. The scene used to claim
@@ -103,7 +106,7 @@ export function ErrorScreen({ onRetry, detail }) {
     // contact card would have opened *behind* the clouds.
     <TrypPlaneScene
       z="z-40"
-      title="Mayday, mayday"
+      title={tr("Mayday, mayday")}
       subtitle="Something on our side just went wrong. Air traffic control has been notified and a fix is on its way. Try again in a moment, and radio us in if you need more help."
     >
       <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
@@ -115,12 +118,12 @@ export function ErrorScreen({ onRetry, detail }) {
           Try again
         </button>
         <button type="button" onClick={() => setHelp(true)} className="btn-secondary !px-6">
-          Radio us in
+          {tr("Radio us in")}
         </button>
         {/* A REAL RELOAD, not a router link. Whatever threw is still mounted in
             this document; the only guaranteed way out of a tree that keeps
             throwing is a fresh one. */}
-        <a href="/" className="btn-ghost !px-6">Back to home</a>
+        <a href="/" className="btn-ghost !px-6">{tr("Back to home")}</a>
       </div>
       <Footnote>{detail}</Footnote>
       <ContactCard open={help} onClose={() => setHelp(false)} />
@@ -140,24 +143,25 @@ export function ErrorScreen({ onRetry, detail }) {
 // typo in a URL is not an outage and should not sound like one. Three ways out:
 // forwards to home, backwards to whatever they were reading, and a person.
 export function NotFoundScreen() {
+  const tr = useT()
   const [help, setHelp] = useState(false)
   const { pathname } = useLocation()
   return (
     <TrypPlaneScene
       z="z-40"
-      title="Off the flight path"
+      title={tr("Off the flight path")}
       subtitle="There is no page at this address. It may have moved since the link was made, or there may be a typo in it. Here are three ways back."
     >
       <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-        <Link to="/" className="btn-primary !px-6">Back to home</Link>
+        <Link to="/" className="btn-primary !px-6">{tr("Back to home")}</Link>
         {/* `history.back()` rather than navigate(-1) so it also works when this
             page is the first thing in the session and there is nothing to pop:
             the browser simply does nothing, which is the honest outcome. */}
         <button type="button" onClick={() => window.history.back()} className="btn-secondary !px-6">
-          Go back
+          {tr("Go back")}
         </button>
         <button type="button" onClick={() => setHelp(true)} className="btn-ghost !px-6">
-          Get help
+          {tr("Get help")}
         </button>
       </div>
       <Footnote>{pathname}</Footnote>

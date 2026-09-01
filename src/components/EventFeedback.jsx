@@ -8,6 +8,7 @@ import { cx, timeAgo } from '../lib/utils'
 import { useMarkets } from '../lib/markets'
 import { useMyScopes } from '../lib/scope'
 import MarketPicker from './calendar/MarketPicker'
+import { useT } from '../lib/i18n'
 
 // Two small "close the loop" features for events:
 //  * SuggestEvent  - creators propose sessions they'd like; admins get
@@ -19,6 +20,7 @@ import MarketPicker from './calendar/MarketPicker'
 const SUGGESTION_TONE = { new: 'brand', planned: 'green', done: 'grey', declined: 'red' }
 
 export function SuggestEvent({ open = false, onClose }) {
+  const tr = useT()
   const { user, isAdmin } = useAuth()
   // ONLY THE MARKETS THEY ARE ACTUALLY IN. Ethan: "if theyre just in spanish
   // market then only options that show for them are global and spain." An admin
@@ -81,7 +83,7 @@ export function SuggestEvent({ open = false, onClose }) {
       {suggestions.length > 0 && (
         <div className="space-y-2">
           <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
-            <Icon name="pencil" className="h-5 w-5 text-brand" /> Suggested by creators
+            <Icon name="pencil" className="h-5 w-5 text-brand" /> {tr("Suggested by creators")}
           </h2>
           {suggestions.map((s) => (
             <div key={s.id} className="flex flex-wrap items-center gap-3 rounded-card border border-gray-100 bg-white px-4 py-3">
@@ -101,10 +103,10 @@ export function SuggestEvent({ open = false, onClose }) {
               <Badge tone={SUGGESTION_TONE[s.status] || 'grey'}>{s.status}</Badge>
               {isAdmin && (
                 <span className="flex gap-2 text-xs font-medium">
-                  {s.status === 'new' && <button onClick={() => setStatus(s, 'planned')} className="text-green-600 hover:underline">Plan it</button>}
-                  {s.status === 'planned' && <button onClick={() => setStatus(s, 'done')} className="text-smoke hover:underline">Done</button>}
-                  {s.status === 'new' && <button onClick={() => setStatus(s, 'declined')} className="text-smoke hover:underline">Decline</button>}
-                  <button onClick={() => remove(s)} className="text-smoke hover:text-ink hover:underline">Delete</button>
+                  {s.status === 'new' && <button onClick={() => setStatus(s, 'planned')} className="text-green-600 hover:underline">{tr("Plan it")}</button>}
+                  {s.status === 'planned' && <button onClick={() => setStatus(s, 'done')} className="text-smoke hover:underline">{tr("Done")}</button>}
+                  {s.status === 'new' && <button onClick={() => setStatus(s, 'declined')} className="text-smoke hover:underline">{tr("Decline")}</button>}
+                  <button onClick={() => remove(s)} className="text-smoke hover:text-ink hover:underline">{tr("Delete")}</button>
                 </span>
               )}
             </div>
@@ -112,24 +114,24 @@ export function SuggestEvent({ open = false, onClose }) {
         </div>
       )}
 
-      <Modal open={open} onClose={() => onClose?.()} title="Suggest an event">
+      <Modal open={open} onClose={() => onClose?.()} title={tr("Suggest an event")}>
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label htmlFor="sug-title" className="label">What would you like to see?</label>
-            <input id="sug-title" className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Editing workshop for Reels" />
+            <label htmlFor="sug-title" className="label">{tr("What would you like to see?")}</label>
+            <input id="sug-title" className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tr("Editing workshop for Reels")} />
           </div>
           <div>
-            <label htmlFor="sug-details" className="label">Any details? (optional)</label>
-            <textarea id="sug-details" rows="3" className="input" value={details} onChange={(e) => setDetails(e.target.value)} placeholder="What you'd want covered, ideal timing…" />
+            <label htmlFor="sug-details" className="label">{tr("Any details? (optional)")}</label>
+            <textarea id="sug-details" rows="3" className="input" value={details} onChange={(e) => setDetails(e.target.value)} placeholder={tr("What you'd want covered, ideal timing…")} />
           </div>
           {myMarkets.length > 0 && (
             <div>
-              <span className="label">Who is it for</span>
+              <span className="label">{tr("Who is it for")}</span>
               <MarketPicker id="sug-scope" chapters={myMarkets} value={markets} onChange={setMarkets} />
             </div>
           )}
           <div className="flex justify-end gap-3">
-            <button type="button" onClick={() => onClose?.()} className="btn-ghost">Cancel</button>
+            <button type="button" onClick={() => onClose?.()} className="btn-ghost">{tr("Cancel")}</button>
             <button type="submit" disabled={saving || !title.trim()} className="btn-primary">{saving ? <Spinner /> : 'Send suggestion'}</button>
           </div>
         </form>
@@ -165,6 +167,7 @@ export function SuggestEvent({ open = false, onClose }) {
 //   which is also the only page where the thing being asked about is in view.
 
 export function EventRatingPrompt() {
+  const tr = useT()
   const { user, profile } = useAuth()
   const [target, setTarget] = useState(null) // event awaiting my rating
   const [rating, setRating] = useState(0)
@@ -237,11 +240,11 @@ export function EventRatingPrompt() {
   const shown = hover || rating
 
   return (
-    <div className="fixed inset-0 z-[75] flex items-center justify-center bg-ink/40 p-4" role="dialog" aria-label="Rate the event">
+    <div className="fixed inset-0 z-[75] flex items-center justify-center bg-ink/40 p-4" role="dialog" aria-label={tr("Rate the event")}>
       <div className="w-full max-w-md rounded-card bg-white p-6 shadow-lift animate-pop-in sm:p-8">
-        <p className="text-xs font-semibold uppercase tracking-widest text-smoke">How was it?</p>
+        <p className="text-xs font-semibold uppercase tracking-widest text-smoke">{tr("How was it?")}</p>
         <h2 className="mt-1 text-xl font-bold text-ink">{target.title}</h2>
-        <p className="mt-1 text-sm text-smoke">Tap a star to rate it from 1 to 10. It shapes what we run next.</p>
+        <p className="mt-1 text-sm text-smoke">{tr("Tap a star to rate it from 1 to 10. It shapes what we run next.")}</p>
 
         {/* Ten stars wrap on a phone and must not reflow as you hover, so the
             row is a fixed grid rather than a flex wrap: a star growing on hover
@@ -273,18 +276,18 @@ export function EventRatingPrompt() {
           rating ? 'mt-2 grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
         )}>
           <div className="overflow-hidden">
-            <label htmlFor="rate-comment" className="label">Anything to add? <span className="font-normal text-smoke">(optional)</span></label>
+            <label htmlFor="rate-comment" className="label">{tr("Anything to add?")} <span className="font-normal text-smoke">(optional)</span></label>
             <textarea
               id="rate-comment" rows={2} className="input" value={comment}
               onChange={(e) => setComment(e.target.value)}
-              placeholder="What worked, what you would change"
+              placeholder={tr("What worked, what you would change")}
             />
           </div>
         </div>
 
         <div className="mt-4 flex items-center justify-between gap-3">
           <button onClick={skip} className="text-xs font-semibold text-smoke transition-colors hover:text-ink">
-            Skip
+            {tr("Skip")}
           </button>
           <button onClick={submit} disabled={!rating || saving} className="btn-primary disabled:opacity-50">
             {saving ? <Spinner /> : 'Submit'}
@@ -297,6 +300,7 @@ export function EventRatingPrompt() {
 
 // ---------------------------------------------------------------- admin view
 export function EventRatingsAdmin() {
+  const tr = useT()
   const { isAdmin } = useAuth()
   const [rows, setRows] = useState([])
 
@@ -323,8 +327,8 @@ export function EventRatingsAdmin() {
 
   return (
     <section className="mt-10">
-      <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold"><Icon name="star" className="h-5 w-5 text-brand" /> Event feedback</h2>
-      <p className="mb-4 text-sm text-smoke">Post-event ratings from attendees (1-10). Only admins see this.</p>
+      <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold"><Icon name="star" className="h-5 w-5 text-brand" /> {tr("Event feedback")}</h2>
+      <p className="mb-4 text-sm text-smoke">{tr("Post-event ratings from attendees (1-10). Only admins see this.")}</p>
       <div className="space-y-3">
         {rows.map(({ event, ratings }) => {
           const avg = ratings.reduce((s, r) => s + r.rating, 0) / ratings.length

@@ -8,6 +8,7 @@ import { toast } from '../../lib/toast'
 import Icon from '../Icon'
 import { flagFromIso } from './PlaceSwitcher'
 import { cx } from '../../lib/utils'
+import { useT } from '../../lib/i18n'
 
 // The identity strip every page inside a market wears.
 //
@@ -48,6 +49,7 @@ const TABS = [
 ]
 
 export default function MarketHeader({ market, memberCount, canManage, tab }) {
+  const tr = useT()
   const { myChapters, reload } = useCommunity()
   const [busy, setBusy] = useState(false)
   const flags = (market.country_codes || []).map(flagFromIso).join(' ')
@@ -84,7 +86,7 @@ export default function MarketHeader({ market, memberCount, canManage, tab }) {
             <span>{market.name}</span>
             {!market.is_active && (
               <span className="rounded-full border border-dashed border-gray-300 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-smoke">
-                Not open
+                {tr("Not open")}
               </span>
             )}
           </h1>
@@ -130,7 +132,7 @@ export default function MarketHeader({ market, memberCount, canManage, tab }) {
                 to={`/manage/${market.slug}`}
                 className="flex items-center gap-1.5 rounded-full bg-brand-tint px-3 py-1.5 text-[13px] font-semibold text-brand sm:hidden"
               >
-                <Icon name="shield" className="h-4 w-4" /> Manage
+                <Icon name="shield" className="h-4 w-4" /> {tr("Manage")}
               </Link>
             )}
           </p>
@@ -142,7 +144,7 @@ export default function MarketHeader({ market, memberCount, canManage, tab }) {
         <div className="flex shrink-0 items-center gap-2">
           {canManage && (
             <Link to={`/manage/${market.slug}`} className="btn-secondary hidden !py-2.5 sm:inline-flex">
-              <Icon name="shield" className="h-4 w-4" /> Manage
+              <Icon name="shield" className="h-4 w-4" /> {tr("Manage")}
             </Link>
           )}
           {/* THE "LEAVE THIS MARKET" MENU IS GONE.
@@ -165,7 +167,7 @@ export default function MarketHeader({ market, memberCount, canManage, tab }) {
           <div className="min-w-0">
             <p className="text-sm font-semibold text-ink">You are looking around {market.name}</p>
             <p className="mt-0.5 text-sm text-smoke">
-              Join to enter its challenges, post in its rooms and appear in its standings. You can be in more than one.
+              {tr("Join to enter its challenges, post in its rooms and appear in its standings. You can be in more than one.")}
             </p>
           </div>
           <button onClick={join} disabled={busy} className="btn-primary shrink-0 !py-2.5">

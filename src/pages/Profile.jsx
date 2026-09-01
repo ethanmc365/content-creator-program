@@ -24,10 +24,12 @@ import Icon from '../components/Icon'
 import { format } from 'date-fns'
 import { loadMapCentroids } from '../lib/mapCountries'
 import { formatDate, postedOn, ageFromDob, cx } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 // A creator's public profile: photo, bio, socials, the orange country map,
 // languages, stats and their content showcase (submitted video links).
 export default function Profile() {
+  const tr = useT()
   const { id } = useParams()
   const { user, profile } = useAuth()
   const navigate = useNavigate()
@@ -249,7 +251,7 @@ export default function Profile() {
   if (!creator) {
     return (
       <div className="page">
-        <EmptyState icon={<Icon name="users" className="h-7 w-7" />} title="Creator not found" hint="They may have left the program." action={<Link to="/creators" className="btn-primary">Browse creators</Link>} />
+        <EmptyState icon={<Icon name="users" className="h-7 w-7" />} title={tr("Creator not found")} hint={tr("They may have left the program.")} action={<Link to="/creators" className="btn-primary">{tr("Browse creators")}</Link>} />
       </div>
     )
   }
@@ -311,7 +313,7 @@ export default function Profile() {
             <h2 className="text-lg font-semibold">
               {creator.countries_visited?.length || 0} {creator.countries_visited?.length === 1 ? 'country' : 'countries'} visited
             </h2>
-            {isMe && <Link to="/profile/edit" className="text-sm font-medium text-brand hover:underline">Update map</Link>}
+            {isMe && <Link to="/profile/edit" className="text-sm font-medium text-brand hover:underline">{tr("Update map")}</Link>}
           </div>
             {/* `owner` makes the countries tappable: what the place is known for,
               and a way to ask the one person whose map this is about it. */}
@@ -353,13 +355,13 @@ export default function Profile() {
             nothing is a surprise. */}
         {!creator.is_admin && (
         <section>
-          <h2 className="mb-4 text-lg font-semibold">Content showcase</h2>
+          <h2 className="mb-4 text-lg font-semibold">{tr("Content showcase")}</h2>
           {submissions.length === 0 ? (
             <EmptyState
               icon={<Icon name="video" className="h-7 w-7" />}
               title={isMe ? 'No submissions yet' : `${creator.name.split(' ')[0]} hasn't submitted yet`}
               hint={isMe ? 'Enter the current challenge and your videos will show up here.' : 'Their challenge entries will appear here.'}
-              action={isMe && <Link to="/challenges" className="btn-primary">View challenges</Link>}
+              action={isMe && <Link to="/challenges" className="btn-primary">{tr("View challenges")}</Link>}
             />
           ) : (
             /* BEST FIRST. It was newest first, which buries the video that
@@ -460,7 +462,7 @@ export default function Profile() {
         <section className="rounded-card border border-gray-100 bg-white p-4 shadow-card">
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
             <Icon name="chart" className="h-4 w-4 shrink-0 text-brand" />
-            At a glance
+            {tr("At a glance")}
           </h2>
           <dl className="space-y-2">
             {[
@@ -502,7 +504,7 @@ export default function Profile() {
             </h2>
             {headedNext.length === 0 ? (
               <p className="text-xs leading-relaxed text-smoke">
-                Nothing coming up. Post a trip on the collab board or log an upcoming flight and it shows here.
+                {tr("Nothing coming up. Post a trip on the collab board or log an upcoming flight and it shows here.")}
               </p>
             ) : (
               <ul className="space-y-2">
@@ -549,7 +551,7 @@ export default function Profile() {
               <div>
                 <h2 className="flex items-center gap-2 text-sm font-semibold">
                   <Icon name="chat" className="h-4 w-4 shrink-0 text-brand" />
-                  Languages
+                  {tr("Languages")}
                 </h2>
                 <p className="mt-1.5 text-sm leading-relaxed text-smoke">
                   {creator.languages.join(' · ')}
@@ -566,7 +568,7 @@ export default function Profile() {
               <div className={creator.languages?.length > 0 ? 'mt-4 border-t border-gray-100 pt-4' : undefined}>
                 <h2 className="flex items-center gap-2 text-sm font-semibold">
                   <Icon name="bucket" className="h-4 w-4 shrink-0 text-brand" />
-                  Bucket list
+                  {tr("Bucket list")}
                 </h2>
                 <ul className="mt-2 space-y-1.5">
                   {(bucketOpen ? creator.bucket_list : creator.bucket_list.slice(0, 5)).map((b, i) => (
@@ -688,10 +690,10 @@ export default function Profile() {
             <p className="mt-1 flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1.5 sm:justify-start">
               {(ageFromDob(creator.dob) ?? creator.age) && (
                 <span className="text-sm text-smoke">
-                  <span className="tabular-nums">{ageFromDob(creator.dob) ?? creator.age}</span> years old
+                  <span className="tabular-nums">{ageFromDob(creator.dob) ?? creator.age}</span> {tr("years old")}
                 </span>
               )}
-              {isApplication && <Badge tone="amber">Pending review</Badge>}
+              {isApplication && <Badge tone="amber">{tr("Pending review")}</Badge>}
             </p>
           )}
 
@@ -787,7 +789,7 @@ export default function Profile() {
               still in the repo if it comes back. */}
           {isMe ? (
             <div className="flex gap-3">
-              <Link to="/profile/edit" className="btn-primary">Edit profile</Link>
+              <Link to="/profile/edit" className="btn-primary">{tr("Edit profile")}</Link>
             </div>
           ) : (
             <>
@@ -800,7 +802,7 @@ export default function Profile() {
                   targetName={creator?.name}
                   className="!py-2.5"
                 />
-                <button onClick={startMessage} className="btn-secondary">Message</button>
+                <button onClick={startMessage} className="btn-secondary">{tr("Message")}</button>
               </div>
               {/* REPORTING IS A QUIET CONTROL AND SHOULD LOOK LIKE ONE.
                   It sits under the two things you actually came here to do, in
@@ -823,8 +825,8 @@ export default function Profile() {
                   don't have to bounce back to the applications list. */}
               {isApplication && (
                 <div className="flex gap-3">
-                  <button onClick={() => decideApplication('active')} disabled={deciding} className="btn-primary flex-1 !py-2.5 text-sm">Approve</button>
-                  <button onClick={() => decideApplication('declined')} disabled={deciding} className="btn-danger flex-1 !py-2.5 text-sm">Decline</button>
+                  <button onClick={() => decideApplication('active')} disabled={deciding} className="btn-primary flex-1 !py-2.5 text-sm">{tr("Approve")}</button>
+                  <button onClick={() => decideApplication('declined')} disabled={deciding} className="btn-danger flex-1 !py-2.5 text-sm">{tr("Decline")}</button>
                 </div>
               )}
             </>
@@ -925,6 +927,7 @@ export default function Profile() {
 // So: fixed geometry, a caption clamped to two lines that opens in place, and
 // the views on the thumbnail where the eye already is.
 function ShowcaseCard({ submission: s, expanded, onToggle }) {
+  const tr = useT()
   const views = Number(s.logged_views) || 0
   const hasCaption = !!s.caption?.trim()
 
@@ -965,7 +968,7 @@ function ShowcaseCard({ submission: s, expanded, onToggle }) {
               <span className="text-[11px] font-semibold uppercase tracking-wide">views</span>
             </span>
           ) : (
-            <span className="text-[11px] font-medium uppercase tracking-wide text-gray-400">No views yet</span>
+            <span className="text-[11px] font-medium uppercase tracking-wide text-gray-400">{tr("No views yet")}</span>
           )}
           <span className="shrink-0 text-[11px] text-smoke">{postedOn(s.submitted_at)}</span>
         </div>
@@ -992,7 +995,7 @@ function ShowcaseCard({ submission: s, expanded, onToggle }) {
             )}
           </>
         ) : (
-          <p className="mt-2 h-10 text-sm leading-5 text-smoke">No caption</p>
+          <p className="mt-2 h-10 text-sm leading-5 text-smoke">{tr("No caption")}</p>
         )}
 
         {/* Pushed to the bottom so the row of cards lines up on this line
@@ -1024,6 +1027,7 @@ function ShowcaseCard({ submission: s, expanded, onToggle }) {
 // cannot see; the board is editable in situ, on the page it will be read on,
 // which is the only place the result means anything.
 function ProfileGallery({ creatorId, isMe, creatorName }) {
+  const tr = useT()
   const [count, setCount] = useState(null)
   // WHAT THE BOARD CAN ACTUALLY DRAW, which is not the same as how many rows
   // there are. One creator's ten photo files are gone from storage; the rows
@@ -1048,19 +1052,19 @@ function ProfileGallery({ creatorId, isMe, creatorName }) {
   return (
     <section>
       <div className="mb-4 flex items-baseline justify-between">
-        <h2 className="flex items-center gap-2 text-lg font-semibold"><Icon name="image" className="h-5 w-5 text-brand" /> Travel photos</h2>
+        <h2 className="flex items-center gap-2 text-lg font-semibold"><Icon name="image" className="h-5 w-5 text-brand" /> {tr("Travel photos")}</h2>
         {/* STRAIGHT TO THE PHOTOS. This went to /profile/edit, which opens on
             the "You" step, so "Manage photos" landed you on a form about your
             name and date of birth with the photos three tabs away. */}
-        {isMe && shown > 0 && <Link to="/profile/edit?tab=photos" className="text-sm font-medium text-brand transition-transform duration-200 hover:scale-105">Manage photos</Link>}
+        {isMe && shown > 0 && <Link to="/profile/edit?tab=photos" className="text-sm font-medium text-brand transition-transform duration-200 hover:scale-105">{tr("Manage photos")}</Link>}
       </div>
       {shown === 0 ? (
         isMe ? (
           <EmptyState
             icon={<Icon name="image" className="h-7 w-7" />}
-            title="Add your travel photos"
-            hint="Share up to 10 shots from your trips to bring your profile to life."
-            action={<Link to="/profile/edit" className="btn-primary">Add photos</Link>}
+            title={tr("Add your travel photos")}
+            hint={tr("Share up to 10 shots from your trips to bring your profile to life.")}
+            action={<Link to="/profile/edit" className="btn-primary">{tr("Add photos")}</Link>}
           />
         ) : (
           <EmptyState

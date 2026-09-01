@@ -11,6 +11,7 @@ import { useMyScopes } from '../lib/scope'
 import { announceToMarkets } from '../lib/announce'
 import MarketPicker from './calendar/MarketPicker'
 import { toast } from '../lib/toast'
+import { useT } from '../lib/i18n'
 
 // FIND A TIME: an admin proposes time slots, creators tick yes/no per slot, and
 // the admin picks the slot most people can make - no external scheduling tool.
@@ -45,6 +46,7 @@ const timeLabel = (iso) =>
   new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
 function SlotVoteRow({ slot, myVote, counts, voters, isAdmin, onVote }) {
+  const tr = useT()
   const [open, setOpen] = useState(false)
   const voted = counts.yes > 0 || counts.no > 0
   return (
@@ -68,7 +70,7 @@ function SlotVoteRow({ slot, myVote, counts, voters, isAdmin, onVote }) {
               myVote === true ? 'bg-brand text-white shadow-card' : 'border border-gray-200 text-smoke hover:border-brand hover:text-brand')}
           >
             <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M4 12l5 5L20 6"/></svg>
-            Can make it
+            {tr("Can make it")}
           </button>
           <button
             type="button"
@@ -77,7 +79,7 @@ function SlotVoteRow({ slot, myVote, counts, voters, isAdmin, onVote }) {
               myVote === false ? 'bg-ink text-white shadow-card' : 'border border-gray-200 text-smoke hover:border-ink hover:text-ink')}
           >
             <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden><path d="M6 6l12 12M18 6L6 18"/></svg>
-            Can't
+            {tr("Can't")}
           </button>
         </div>
         {isAdmin && voted && (
@@ -134,6 +136,7 @@ function groupSlotsByDay(slots) {
 }
 
 export default function EventPolls() {
+  const tr = useT()
   const { user, isAdmin } = useAuth()
   // The always-on scope helper, not CommunityContext: this section renders on a
   // page 45 live creators open whether or not the network preview flag is set.
@@ -200,7 +203,7 @@ export default function EventPolls() {
   return (
     <section className="mb-10">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-lg font-semibold"><Icon name="clock" className="h-5 w-5 text-brand" /> Find a time</h2>
+        <h2 className="flex items-center gap-2 text-lg font-semibold"><Icon name="clock" className="h-5 w-5 text-brand" /> {tr("Find a time")}</h2>
         {isAdmin && (
           <button onClick={() => setShowComposer(true)} className="btn-secondary !py-2 text-xs">+ Find a time</button>
         )}
@@ -225,12 +228,12 @@ export default function EventPolls() {
                   {isAdmin && (
                     <span className="flex gap-2">
                       <button onClick={() => closePoll(poll)} className="text-xs font-medium text-smoke hover:text-brand">{poll.closed ? 'Reopen' : 'Close voting'}</button>
-                      <button onClick={() => removePoll(poll)} className="text-xs font-medium text-smoke hover:text-ink hover:underline">Delete</button>
+                      <button onClick={() => removePoll(poll)} className="text-xs font-medium text-smoke hover:text-ink hover:underline">{tr("Delete")}</button>
                     </span>
                   )}
                 </div>
                 {poll.note && <p className="mb-3 text-sm text-smoke">{poll.note}</p>}
-                {!poll.closed && <p className="mb-3 text-xs text-smoke">Tick every time you could make. You can change your answers any time.</p>}
+                {!poll.closed && <p className="mb-3 text-xs text-smoke">{tr("Tick every time you could make. You can change your answers any time.")}</p>}
                 {groupSlotsByDay(poll.slots).map((g) => (
                   <div key={g.key}>
                     <DayHeader iso={g.date} />
@@ -282,6 +285,7 @@ const timeToMinutes = (t) => {
 }
 
 function PollComposer({ open, onClose, onCreated }) {
+  const tr = useT()
   const { user } = useAuth()
   const chapters = useMarkets()
   const [markets, setMarkets] = useState([])
@@ -361,21 +365,21 @@ function PollComposer({ open, onClose, onCreated }) {
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Find a time">
+    <Modal open={open} onClose={onClose} title={tr("Find a time")}>
       <div className="space-y-4">
         <div>
-          <label htmlFor="poll-title" className="label">What are you finding a time for?</label>
-          <input id="poll-title" className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="July community call" />
+          <label htmlFor="poll-title" className="label">{tr("What are you finding a time for?")}</label>
+          <input id="poll-title" className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tr("July community call")} />
         </div>
         <div>
-          <label htmlFor="poll-note" className="label">Note (optional)</label>
-          <input id="poll-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="30 minutes on Google Meet, agenda to follow" />
+          <label htmlFor="poll-note" className="label">{tr("Note (optional)")}</label>
+          <input id="poll-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder={tr("30 minutes on Google Meet, agenda to follow")} />
         </div>
 
         {/* WHO IS BEING ASKED. Empty means everybody, which is also what the
             column means, so the control and the data agree. */}
         <div>
-          <span className="label">Who is this for</span>
+          <span className="label">{tr("Who is this for")}</span>
           <MarketPicker id="poll-scope" chapters={chapters} value={markets} onChange={setMarkets} />
         </div>
 
@@ -385,7 +389,7 @@ function PollComposer({ open, onClose, onCreated }) {
             className="mt-0.5 h-4 w-4 accent-brand"
           />
           <span className="text-sm">
-            <span className="font-medium">Post it in announcements</span>
+            <span className="font-medium">{tr("Post it in announcements")}</span>
             <span className="block text-xs text-smoke">
               {markets.length === 0
                 ? 'Goes into the worldwide announcements room.'
@@ -395,21 +399,21 @@ function PollComposer({ open, onClose, onCreated }) {
         </label>
 
         <div className="rounded-xl bg-cloud/60 p-4 sm:p-5">
-          <p className="mb-3 text-sm font-semibold text-ink">Offer time slots</p>
+          <p className="mb-3 text-sm font-semibold text-ink">{tr("Offer time slots")}</p>
           <div className="mb-3">
-            <DateField id="poll-date" label="Date" value={date} onChange={setDate} />
+            <DateField id="poll-date" label={tr("Date")} value={date} onChange={setDate} />
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <TimeField id="poll-start" label="First slot" value={startTime} onChange={setStartTime} />
-            <TimeField id="poll-end" label="Slot ends" value={endTime} onChange={setEndTime} />
-            <TimeField id="poll-repeat" label="Repeat until" value={repeatUntil} onChange={setRepeatUntil} optional />
+            <TimeField id="poll-start" label={tr("First slot")} value={startTime} onChange={setStartTime} />
+            <TimeField id="poll-end" label={tr("Slot ends")} value={endTime} onChange={setEndTime} />
+            <TimeField id="poll-repeat" label={tr("Repeat until")} value={repeatUntil} onChange={setRepeatUntil} optional />
           </div>
           {slotError && <p className="mt-3 rounded-lg bg-brand-tint px-3 py-2 text-xs font-medium text-brand">{slotError}</p>}
           <button type="button" onClick={generate} className="btn-secondary mt-4 w-full !py-2.5 text-sm sm:w-auto">
             {repeatUntil ? '+ Generate slots' : '+ Add this slot'}
           </button>
           <p className="mt-3 text-[11px] leading-relaxed text-smoke">
-            Example: 09:00 to 09:30, repeat until 16:00 makes a slot every 30 minutes. Change the date and add more to offer several days.
+            {tr("Example: 09:00 to 09:30, repeat until 16:00 makes a slot every 30 minutes. Change the date and add more to offer several days.")}
           </p>
         </div>
 
@@ -429,7 +433,7 @@ function PollComposer({ open, onClose, onCreated }) {
                         <button
                           type="button"
                           onClick={() => setSlots((prev) => prev.filter((x) => x.starts_at !== s.starts_at))}
-                          aria-label="Remove slot"
+                          aria-label={tr("Remove slot")}
                           className="text-sm leading-none transition-colors hover:text-ink"
                         >&times;</button>
                       </span>
@@ -442,7 +446,7 @@ function PollComposer({ open, onClose, onCreated }) {
         )}
 
         <div className="flex justify-end gap-3 pt-2">
-          <button onClick={onClose} className="btn-ghost">Cancel</button>
+          <button onClick={onClose} className="btn-ghost">{tr("Cancel")}</button>
           <button onClick={create} disabled={saving} className="btn-primary">
             {saving ? <Spinner /> : 'Post it'}
           </button>

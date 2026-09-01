@@ -1,5 +1,6 @@
 import Icon from './Icon'
 import { formatSortCode, cleanDigits } from '../lib/invoice'
+import { useT } from '../lib/i18n'
 
 // Bank details for prize payouts. Creators pick pounds or euros and the
 // form asks for exactly what that payment rail needs:
@@ -7,6 +8,7 @@ import { formatSortCode, cleanDigits } from '../lib/invoice'
 //   EUR (SEPA transfer)       -> IBAN (+ optional BIC / SWIFT)
 // Reused by the admin invoice composer, so `compact` trims the helper copy.
 export default function PaymentDetailsFields({ value, onChange, compact = false }) {
+  const tr = useT()
   const p = value
   const set = (patch) => onChange({ ...p, ...patch })
   const gbp = p.currency !== 'EUR'
@@ -24,7 +26,7 @@ export default function PaymentDetailsFields({ value, onChange, compact = false 
       )}
 
       <div>
-        <p className="label">How would you like to be paid?</p>
+        <p className="label">{tr("How would you like to be paid?")}</p>
         <div className="flex gap-2">
           {[
             { code: 'GBP', label: '£ Pounds', hint: 'UK bank account' },
@@ -49,15 +51,15 @@ export default function PaymentDetailsFields({ value, onChange, compact = false 
         <>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <div>
-              <label htmlFor="pay-name" className="label">Account holder name</label>
+              <label htmlFor="pay-name" className="label">{tr("Account holder name")}</label>
               <input
                 id="pay-name" type="text" className="input" autoComplete="off"
-                placeholder="Full name on the account"
+                placeholder={tr("Full name on the account")}
                 value={p.name} onChange={(e) => set({ name: e.target.value })}
               />
             </div>
             <div>
-              <label htmlFor="pay-bank" className="label">Bank name</label>
+              <label htmlFor="pay-bank" className="label">{tr("Bank name")}</label>
               <input
                 id="pay-bank" type="text" className="input" autoComplete="off"
                 placeholder={gbp ? 'e.g. Monzo' : 'e.g. N26'}
@@ -69,7 +71,7 @@ export default function PaymentDetailsFields({ value, onChange, compact = false 
           {gbp ? (
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div>
-                <label htmlFor="pay-sort" className="label">Sort code</label>
+                <label htmlFor="pay-sort" className="label">{tr("Sort code")}</label>
                 <input
                   id="pay-sort" type="text" inputMode="numeric" className="input" autoComplete="off"
                   placeholder="12-34-56" maxLength={8}
@@ -78,10 +80,10 @@ export default function PaymentDetailsFields({ value, onChange, compact = false 
                 />
               </div>
               <div>
-                <label htmlFor="pay-acct" className="label">Account number</label>
+                <label htmlFor="pay-acct" className="label">{tr("Account number")}</label>
                 <input
                   id="pay-acct" type="text" inputMode="numeric" className="input" autoComplete="off"
-                  placeholder="8 digits" maxLength={8}
+                  placeholder={tr("8 digits")} maxLength={8}
                   value={p.accountNumber}
                   onChange={(e) => set({ accountNumber: cleanDigits(e.target.value).slice(0, 8) })}
                 />
@@ -93,15 +95,15 @@ export default function PaymentDetailsFields({ value, onChange, compact = false 
                 <label htmlFor="pay-iban" className="label">IBAN</label>
                 <input
                   id="pay-iban" type="text" className="input uppercase" autoComplete="off"
-                  placeholder="e.g. IE64 IRCE 9205 0112 3456 78"
+                  placeholder={tr("e.g. IE64 IRCE 9205 0112 3456 78")}
                   value={p.iban} onChange={(e) => set({ iban: e.target.value.toUpperCase() })}
                 />
               </div>
               <div>
-                <label htmlFor="pay-bic" className="label">BIC / SWIFT</label>
+                <label htmlFor="pay-bic" className="label">{tr("BIC / SWIFT")}</label>
                 <input
                   id="pay-bic" type="text" className="input uppercase" autoComplete="off"
-                  placeholder="8 or 11 characters"
+                  placeholder={tr("8 or 11 characters")}
                   value={p.bic} onChange={(e) => set({ bic: e.target.value.toUpperCase() })}
                 />
               </div>
@@ -109,13 +111,13 @@ export default function PaymentDetailsFields({ value, onChange, compact = false 
           )}
 
           <div>
-            <label htmlFor="pay-address" className="label">Billing address</label>
+            <label htmlFor="pay-address" className="label">{tr("Billing address")}</label>
             <textarea
               id="pay-address" rows={2} className="input" autoComplete="off"
-              placeholder="Street, city, postcode, country"
+              placeholder={tr("Street, city, postcode, country")}
               value={p.address} onChange={(e) => set({ address: e.target.value })}
             />
-            {!compact && <p className="mt-1 text-xs text-smoke">Shown on your invoice as the payee address.</p>}
+            {!compact && <p className="mt-1 text-xs text-smoke">{tr("Shown on your invoice as the payee address.")}</p>}
           </div>
         </>
       )}

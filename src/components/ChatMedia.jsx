@@ -4,6 +4,7 @@ import VideoPlayer from './VideoPlayer'
 import PhotoLightbox from './PhotoLightbox'
 import { Spinner } from './ui'
 import Icon from './Icon'
+import { useT } from '../lib/i18n'
 
 // A chat / DM attachment (image or video). Videos use the browser's native
 // <video controls> (reliable play button + inline playback everywhere, incl.
@@ -42,6 +43,7 @@ import Icon from './Icon'
 // The long-press menu already existed for Save; it carries the way back to the
 // message now, and the chat page passes the callback that opens its own bar.
 export default function ChatMedia({ url, alt, kind, maxW = 260, maxH = 380, onMoreActions }) {
+  const tr = useT()
   const isVideo = (kind || mediaType(url)) === 'video'
   const [saving, setSaving] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -139,7 +141,7 @@ export default function ChatMedia({ url, alt, kind, maxW = 260, maxH = 380, onMo
       ) : (
         <button
           type="button"
-          aria-label="Open image full screen"
+          aria-label={tr("Open image full screen")}
           // `fired` is set by the long-press: a press that has already opened
           // the action sheet must not also open the picture when the finger
           // comes up.
@@ -173,7 +175,7 @@ export default function ChatMedia({ url, alt, kind, maxW = 260, maxH = 380, onMo
       {saving && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-black/30">
           <span className="flex items-center gap-2 rounded-full bg-white/90 px-3 py-1.5 text-xs font-medium text-ink shadow-lift">
-            <Spinner className="h-4 w-4" /> Saving…
+            <Spinner className="h-4 w-4" /> {tr("Saving…")}
           </span>
         </div>
       )}
@@ -189,7 +191,7 @@ export default function ChatMedia({ url, alt, kind, maxW = 260, maxH = 380, onMo
           <div className="w-72 max-w-full overflow-hidden rounded-2xl bg-white shadow-lift" onClick={(e) => e.stopPropagation()}>
             <button type="button" onClick={openFull} className="flex w-full items-center gap-3.5 px-5 py-4 text-left text-sm font-semibold text-ink transition-colors hover:bg-cloud">
               <Icon name="expand" className="h-5 w-5 shrink-0 text-brand" />
-              Open full screen
+              {tr("Open full screen")}
             </button>
             <button type="button" onClick={doSave} className="flex w-full items-center gap-3.5 border-t border-gray-100 px-5 py-4 text-left text-sm font-semibold text-ink transition-colors hover:bg-cloud">
               <Icon name="arrow-down" className="h-5 w-5 shrink-0 text-brand" />
@@ -202,11 +204,11 @@ export default function ChatMedia({ url, alt, kind, maxW = 260, maxH = 380, onMo
                 className="flex w-full items-center gap-3.5 border-t border-gray-100 px-5 py-4 text-left text-sm font-semibold text-ink transition-colors hover:bg-cloud"
               >
                 <Icon name="reply" className="h-5 w-5 shrink-0 text-brand" />
-                Reply, react or delete
+                {tr("Reply, react or delete")}
               </button>
             )}
             <button type="button" onClick={() => setMenuOpen(false)} className="w-full border-t border-gray-100 px-5 py-3.5 text-center text-sm font-medium text-smoke transition-colors hover:bg-cloud">
-              Cancel
+              {tr("Cancel")}
             </button>
           </div>
         </div>

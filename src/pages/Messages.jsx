@@ -37,6 +37,7 @@ import {
   groupName, acceptInvite, declineInvite, leaveGroup,
   loadGroupMembers, loadMyInvites, markGroupRead,
 } from '../lib/groups'
+import { useT } from '../lib/i18n'
 
 
 // PINNED CHATS. Three, per device, in localStorage - see the note on the
@@ -80,6 +81,7 @@ function dmPreview(m) {
 // Direct messages: inbox (conversation list) + active thread, both realtime.
 // On mobile you see one panel at a time; on desktop they sit side by side.
 export default function Messages() {
+  const tr = useT()
   const { conversationId } = useParams()
   const { user, profile, isAdmin } = useAuth()
   const navigate = useNavigate()
@@ -1110,7 +1112,7 @@ export default function Messages() {
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <p className="truncate text-sm font-semibold">{p.name}</p>
-          {p.is_admin && <Badge tone="light" className="!px-2 !py-0">Tryp.com</Badge>}
+          {p.is_admin && <Badge tone="light" className="!px-2 !py-0">{tr("Tryp.com")}</Badge>}
         </div>
         <p className="truncate text-xs text-smoke">{hint ?? p.bio ?? [p.city, p.country].filter(Boolean).join(', ')}</p>
       </div>
@@ -1148,11 +1150,11 @@ export default function Messages() {
             'w-full shrink-0 flex-col border-r border-gray-100 sm:flex sm:w-80',
             conversationId ? 'hidden' : 'flex'
           )}
-          aria-label="Conversations"
+          aria-label={tr("Conversations")}
         >
           <div className="border-b border-gray-100 px-5 py-4">
             <div className="flex items-center justify-between gap-2">
-              <h1 className="text-lg font-bold">Messages</h1>
+              <h1 className="text-lg font-bold">{tr("Messages")}</h1>
               {/* Starting a group is a different intent from finding a person,
                   so it is a different control. Folding it into the search box
                   ("type a name…") would mean the only way to discover groups
@@ -1162,7 +1164,7 @@ export default function Messages() {
                 onClick={() => setShowNewGroup(true)}
                 className="flex items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold text-smoke transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand"
               >
-                <Icon name="users" className="h-3.5 w-3.5" /> New group
+                <Icon name="users" className="h-3.5 w-3.5" /> {tr("New group")}
               </button>
             </div>
             {/* Search doubles as the "new message" entry point: type a name to
@@ -1174,15 +1176,15 @@ export default function Messages() {
                 type="search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search creators…"
-                aria-label="Search creators to message"
+                placeholder={tr("Search creators…")}
+                aria-label={tr("Search creators to message")}
                 className="input !py-2.5 !pl-9 !pr-9"
               />
               {search && (
                 <button
                   type="button"
                   onClick={() => setSearch('')}
-                  aria-label="Clear search"
+                  aria-label={tr("Clear search")}
                   className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-smoke hover:bg-cloud hover:text-ink"
                 >
                   <Icon name="close" className="h-4 w-4" />
@@ -1213,8 +1215,8 @@ export default function Messages() {
                         </p>
                       </div>
                       <button type="button" onClick={() => answerInvite(i, true)}
-                        className="btn-primary shrink-0 !px-3 !py-1.5 !text-xs">Join</button>
-                      <button type="button" onClick={() => answerInvite(i, false)} aria-label="Decline invite"
+                        className="btn-primary shrink-0 !px-3 !py-1.5 !text-xs">{tr("Join")}</button>
+                      <button type="button" onClick={() => answerInvite(i, false)} aria-label={tr("Decline invite")}
                         className="shrink-0 rounded-full p-1.5 text-smoke transition-colors hover:bg-cloud hover:text-ink">
                         <Icon name="close" className="h-4 w-4" />
                       </button>
@@ -1241,7 +1243,7 @@ export default function Messages() {
                   <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-brand" aria-hidden>
                     <Icon name="envelope" className="h-6 w-6" />
                   </span>
-                  <p className="mt-3 text-sm font-semibold">No messages yet</p>
+                  <p className="mt-3 text-sm font-semibold">{tr("No messages yet")}</p>
                   <p className="mt-1 text-xs leading-relaxed text-smoke">
                     {myConnections.length > 0
                       ? 'Say hi to one of your connections. A quick hello is how most collabs start.'
@@ -1261,7 +1263,7 @@ export default function Messages() {
                 )}
 
                 <Link to="/creators" className="mt-4 block text-center text-xs font-semibold text-brand hover:underline">
-                  Browse all creators
+                  {tr("Browse all creators")}
                 </Link>
               </div>
             )}
@@ -1271,8 +1273,8 @@ export default function Messages() {
               <div className="p-5">
                 <EmptyState
                   icon={<Icon name="magnifier" className="h-7 w-7" />}
-                  title="No creators found"
-                  hint="Try a different name."
+                  title={tr("No creators found")}
+                  hint={tr("Try a different name.")}
                 />
               </div>
             )}
@@ -1348,7 +1350,7 @@ export default function Messages() {
                     </p>
                     {c.kind === 'group'
                       ? <Badge tone="light" className="!px-2 !py-0">{c.members?.length ?? 0}</Badge>
-                      : c.other?.is_admin && <Badge tone="light" className="!px-2 !py-0">Tryp.com</Badge>}
+                      : c.other?.is_admin && <Badge tone="light" className="!px-2 !py-0">{tr("Tryp.com")}</Badge>}
                   </div>
                   <p className="truncate text-xs text-smoke">{formatChatTime(c.last_message_at)}</p>
                 </div>
@@ -1403,7 +1405,7 @@ export default function Messages() {
               <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-tint text-brand" aria-hidden>
                 <Icon name="chat" className="h-7 w-7" />
               </span>
-              <p className="font-semibold">Pick a conversation</p>
+              <p className="font-semibold">{tr("Pick a conversation")}</p>
               <p className="max-w-xs text-sm text-smoke">Or start a new one from any creator's profile.</p>
             </div>
           ) : (
@@ -1417,7 +1419,7 @@ export default function Messages() {
                 onPointerDown={showChrome}
                 className="flex items-center gap-3 border-b border-gray-100 px-5 py-3"
               >
-                <button onClick={() => { showChrome(); navigate('/messages') }} className="rounded-full p-2 text-smoke hover:bg-cloud sm:hidden" aria-label="Back to inbox">
+                <button onClick={() => { showChrome(); navigate('/messages') }} className="rounded-full p-2 text-smoke hover:bg-cloud sm:hidden" aria-label={tr("Back to inbox")}>
                   <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
                 </button>
                 {isGroup ? (
@@ -1448,7 +1450,7 @@ export default function Messages() {
                     <div className="min-w-0">
                       <p className="flex items-center gap-2 truncate text-sm font-semibold hover:text-brand">
                         {active.other.name}
-                        {active.other.is_admin && <Badge tone="light" className="!px-2 !py-0">Tryp.com Team</Badge>}
+                        {active.other.is_admin && <Badge tone="light" className="!px-2 !py-0">{tr("Tryp.com Team")}</Badge>}
                       </p>
                       <p className="truncate text-xs text-smoke">{active.other.bio}</p>
                     </div>
@@ -1459,7 +1461,7 @@ export default function Messages() {
                   onChange={setThreadSearch}
                   count={visibleThread.length}
                   total={thread.length}
-                  label="Search this conversation"
+                  label={tr("Search this conversation")}
                 />
               </div>
 
@@ -1468,9 +1470,9 @@ export default function Messages() {
                 <div className="mx-5 mt-4 flex items-center gap-3 rounded-card border border-brand/20 bg-brand-tint/50 px-4 py-3">
                   <Icon name="users" className="h-5 w-5 shrink-0 text-brand" />
                   <p className="min-w-0 flex-1 text-sm">
-                    <span className="font-semibold">{active?.other?.name?.split(' ')[0]}</span> wants to connect with you.
+                    <span className="font-semibold">{active?.other?.name?.split(' ')[0]}</span> {tr("wants to connect with you.")}
                   </p>
-                  <button onClick={acceptConnection} className="btn-primary shrink-0 !py-1.5 text-xs">Accept</button>
+                  <button onClick={acceptConnection} className="btn-primary shrink-0 !py-1.5 text-xs">{tr("Accept")}</button>
                 </div>
               )}
 
@@ -1601,9 +1603,9 @@ export default function Messages() {
                             {m.failed && (
                               <p className={cx('mt-0.5 text-[10px] text-smoke', mine && 'text-right')}>
                                 Not sent yet.{' '}
-                                <button type="button" onClick={() => retryQueued(m.queuedId)} className="font-semibold text-brand underline">Retry</button>
+                                <button type="button" onClick={() => retryQueued(m.queuedId)} className="font-semibold text-brand underline">{tr("Retry")}</button>
                                 {' · '}
-                                <button type="button" onClick={() => dropQueued(m.queuedId)} className="font-semibold underline">Discard</button>
+                                <button type="button" onClick={() => dropQueued(m.queuedId)} className="font-semibold underline">{tr("Discard")}</button>
                               </p>
                             )}
                             {mine && isGroup && (() => {
@@ -1795,7 +1797,7 @@ export default function Messages() {
                     <button
                       type="button"
                       onClick={() => setReplyTo(null)}
-                      aria-label="Cancel reply"
+                      aria-label={tr("Cancel reply")}
                       className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-smoke transition-colors hover:bg-white hover:text-ink"
                     >
                       <Icon name="close" className="h-4 w-4" />

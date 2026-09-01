@@ -3,6 +3,7 @@ import { Avatar, Modal, Spinner } from './ui'
 import Icon from './Icon'
 import { REPORT_REASONS, reportMessage } from '../lib/messageActions'
 import { cx, formatMessageTime } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 // "Report this message", for every chat.
 //
@@ -91,6 +92,7 @@ export default function ReportMessage({
   open, onClose, kind, messageId, authorName, authorPhoto, sentAt,
   preview, imageUrl, videoUrl, onDone,
 }) {
+  const tr = useT()
   const [reason, setReason] = useState('')
   const [details, setDetails] = useState('')
   const [busy, setBusy] = useState(false)
@@ -125,11 +127,11 @@ export default function ReportMessage({
           <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-green-50 text-green-700">
             <Icon name="check" className="h-6 w-6" />
           </span>
-          <p className="text-base font-semibold">Thanks, that is with the team</p>
+          <p className="text-base font-semibold">{tr("Thanks, that is with the team")}</p>
           <p className="mx-auto mt-2 max-w-sm text-sm text-smoke">
             A member of the Tryp.com team will look at it. {authorName ? authorName.split(' ')[0] : 'They'} will not be told who reported it.
           </p>
-          <button type="button" onClick={onClose} className="btn-primary mt-6 w-full justify-center">Done</button>
+          <button type="button" onClick={onClose} className="btn-primary mt-6 w-full justify-center">{tr("Done")}</button>
         </div>
       ) : (
         <form onSubmit={submit}>
@@ -150,11 +152,11 @@ export default function ReportMessage({
             videoUrl={videoUrl}
           />
           <p className="mt-1.5 text-[11px] text-gray-400">
-            This exact wording is stored with the report, so editing or deleting the message afterwards does not change it.
+            {tr("This exact wording is stored with the report, so editing or deleting the message afterwards does not change it.")}
           </p>
 
           <fieldset className="mt-5">
-            <legend className="label mb-2">What is wrong with it?</legend>
+            <legend className="label mb-2">{tr("What is wrong with it?")}</legend>
             <div className="space-y-2">
               {REPORT_REASONS.map((r) => (
                 <button
@@ -185,7 +187,7 @@ export default function ReportMessage({
           </fieldset>
 
           <label htmlFor="report-details" className="label mt-5">
-            Anything else? <span className="font-normal text-smoke">(optional)</span>
+            {tr("Anything else?")} <span className="font-normal text-smoke">(optional)</span>
           </label>
           <textarea
             id="report-details"
@@ -193,16 +195,16 @@ export default function ReportMessage({
             onChange={(e) => setDetails(e.target.value)}
             rows={3}
             maxLength={1000}
-            placeholder="Context helps: is this the first time, is it aimed at someone, has it happened elsewhere?"
+            placeholder={tr("Context helps: is this the first time, is it aimed at someone, has it happened elsewhere?")}
             className="input w-full resize-y"
           />
 
           {error && <p role="alert" className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
 
           <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button type="button" onClick={onClose} className="btn-ghost w-full justify-center sm:w-auto">Cancel</button>
+            <button type="button" onClick={onClose} className="btn-ghost w-full justify-center sm:w-auto">{tr("Cancel")}</button>
             <button type="submit" disabled={!reason || busy} className="btn-primary w-full justify-center sm:w-auto">
-              {busy ? <><Spinner className="h-4 w-4" /> Sending…</> : 'Send report'}
+              {busy ? <><Spinner className="h-4 w-4" /> {tr("Sending…")}</> : 'Send report'}
             </button>
           </div>
         </form>

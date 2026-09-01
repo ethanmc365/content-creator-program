@@ -6,11 +6,13 @@ import Icon from '../components/Icon'
 import { formatDate, formatMoney } from '../lib/utils'
 import { rewardsTotal } from '../lib/programme'
 import { useViewAs, ViewingAsBanner } from '../components/ViewingAs'
+import { useT } from '../lib/i18n'
 
 // A creator's own reward history. We filter by creator_id explicitly so that
 // admins (whose RLS lets them read every reward) still see only *their own*
 // rewards on this personal page. The all-rewards view lives in Admin → Rewards.
 export default function Rewards() {
+  const tr = useT()
   // An admin can open one creator's own rewards page with `?as=<id>`, which is
   // how a support question about a missing voucher gets answered from the same
   // screen the creator is describing. Inert for everybody else.
@@ -51,7 +53,7 @@ export default function Rewards() {
 
   return (
     <div className="page max-w-4xl">
-      <PageHeader title="My rewards" subtitle="Everything you've earned in the program, in cash and Tryp.com vouchers." />
+      <PageHeader title={tr("My rewards")} subtitle="Everything you've earned in the program, in cash and Tryp.com vouchers." />
 
       <ViewingAsBanner viewing={viewing} person={person} />
 
@@ -60,16 +62,16 @@ export default function Rewards() {
       ) : (
         <>
           <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <StatCard label="Total received" value={showTotal(earned)} accent />
-            <StatCard label="Pending" value={showTotal(pending)} hint={pending.amount > 0 ? 'On its way. The team is processing it.' : 'Nothing pending right now.'} />
+            <StatCard label={tr("Total received")} value={showTotal(earned)} accent />
+            <StatCard label={tr("Pending")} value={showTotal(pending)} hint={pending.amount > 0 ? 'On its way. The team is processing it.' : 'Nothing pending right now.'} />
           </div>
 
           {rewards.length === 0 ? (
             <EmptyState
               icon={<Icon name="money" className="h-7 w-7" />}
-              title="No rewards yet. Your first one is waiting"
-              hint="Enter a challenge to earn a voucher or win the cash prizes."
-              action={<Link to="/challenges" className="btn-primary">See the challenge</Link>}
+              title={tr("No rewards yet. Your first one is waiting")}
+              hint={tr("Enter a challenge to earn a voucher or win the cash prizes.")}
+              action={<Link to="/challenges" className="btn-primary">{tr("See the challenge")}</Link>}
             />
           ) : (
             <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">

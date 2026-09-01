@@ -5,6 +5,7 @@ import { StreakChip } from './ui'
 import { untilNextUkMidnight, dailyStreak } from '../lib/daily'
 import { useState } from 'react'
 import { DAILY_PUZZLES, useDailyPuzzles } from '../lib/dailyPuzzles'
+import { useT } from '../lib/i18n'
 
 // Home page teaser for the daily puzzles: quick-play buttons, the creator's
 // daily streak, and how many creators have played each one today.
@@ -17,6 +18,7 @@ import { DAILY_PUZZLES, useDailyPuzzles } from '../lib/dailyPuzzles'
 // to "have I played this, and how many others have".
 
 export default function DailyGamesCard() {
+  const tr = useT()
   const { user } = useAuth()
   const [nextIn] = useState(() => untilNextUkMidnight(Date.now()))
   const { played, counts, streakDays } = useDailyPuzzles(user?.id)
@@ -30,7 +32,7 @@ export default function DailyGamesCard() {
           <Icon name="joystick" className="h-5 w-5 text-brand" /> Today&rsquo;s puzzles
           {streak > 0 && <StreakChip n={streak} title={`${streak}-day daily streak`} />}
         </h2>
-        <Link to="/game" className="text-sm font-medium text-brand hover:underline">All games →</Link>
+        <Link to="/game" className="text-sm font-medium text-brand hover:underline">{tr("All games →")}</Link>
       </div>
       <div className="card !p-0">
         {/* Three across on anything wider than a phone. */}
@@ -61,7 +63,7 @@ export default function DailyGamesCard() {
                   {done ? (
                     <>
                       <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M4 12l5 5L20 6" /></svg>
-                      Played
+                      {tr("Played")}
                     </>
                   ) : 'Play'}
                 </Link>

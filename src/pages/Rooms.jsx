@@ -14,6 +14,7 @@ import { stripMarkup } from '../lib/richText'
 import { cx, shortAgo } from '../lib/utils'
 import { useIsMobile } from '../lib/useKeyboardInset'
 import { pageFade } from '../lib/motion'
+import { useT } from '../lib/i18n'
 
 // Shared with the chat page's sidebar, so an order dragged in either place is
 // the order in both.
@@ -69,6 +70,7 @@ const scopedKey = (place, key) => (place.kind === 'network' ? key : `${place.slu
 // and a full-width row in a list of links does not need to be told it is
 // tappable.
 function RoomRow({ to, room, last }) {
+  const tr = useT()
   return (
     <Link
       to={to}
@@ -103,7 +105,7 @@ function RoomRow({ to, room, last }) {
         <span className="flex items-baseline gap-2">
           <span className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-tight">{room.label}</span>
           {room.visibility === 'staff' && (
-            <span className="shrink-0 rounded-full bg-ink/[0.07] px-1.5 py-0.5 text-[10px] font-semibold text-ink/70">Staff</span>
+            <span className="shrink-0 rounded-full bg-ink/[0.07] px-1.5 py-0.5 text-[10px] font-semibold text-ink/70">{tr("Staff")}</span>
           )}
           {last && (
             <span className="shrink-0 text-[11px] tabular-nums text-gray-400">{shortAgo(last.created_at)}</span>
@@ -164,6 +166,7 @@ function PlaceCard({ place, rooms, lastByChannel, isNetwork, handleProps, draggi
 }
 
 export default function Rooms() {
+  const tr = useT()
   const { myCommunities, loading: ctxLoading } = useCommunity()
   const isMobile = useIsMobile()
   const [rooms, setRooms] = useState(null)
@@ -268,7 +271,7 @@ export default function Rooms() {
                 somebody who came here to open a room, on the screen with the
                 least room to spare. The cards underneath say all of it by being
                 grouped the way they are. */}
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Rooms</h1>
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{tr("Rooms")}</h1>
           </Reveal>
 
           {/* THE SKELETON HOLDS UNTIL THE ROOMS THEMSELVES HAVE ARRIVED.
@@ -288,9 +291,9 @@ export default function Rooms() {
           ) : places.length === 0 ? (
             <EmptyState
               icon={<Icon name="chat" className="h-7 w-7" />}
-              title="No rooms yet"
-              hint="Join a market and its rooms appear here."
-              action={<Link to="/global/markets" className="btn-primary">Explore markets</Link>}
+              title={tr("No rooms yet")}
+              hint={tr("Join a market and its rooms appear here.")}
+              action={<Link to="/global/markets" className="btn-primary">{tr("Explore markets")}</Link>}
             />
           ) : (
             /* DRAGGABLE ON A PHONE TOO, and in the SAME order as the desktop

@@ -5,6 +5,7 @@ import { Modal, Panel, Toggle } from './ui'
 import Icon from './Icon'
 import { enablePush, disablePush, pushSupported, pushPermission, showLocalNotification } from '../lib/push'
 import { cx } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 // Notification preferences, extracted from the old standalone page so they can
 // live INLINE inside the Settings page (one place, no click-through). The state
@@ -110,6 +111,7 @@ export function useNotificationPrefs() {
 
 // A single per-type row with a push toggle (and, once email is live, an email one).
 function PrefRow({ c, state }) {
+  const tr = useT()
   return (
     <div className="flex items-center gap-4 border-b border-gray-100 py-4 last:border-0">
       <div className="min-w-0 flex-1">
@@ -125,7 +127,7 @@ function PrefRow({ c, state }) {
               it's clear they're in-app/push only rather than switched off. */}
           {c.emailable
             ? <Toggle on={state.emailPrefs[c.key] === true} onChange={(v) => state.toggleEmail(c.key, v)} label={`${c.label} email`} />
-            : <span className="text-[11px] text-gray-300" title="This one is in-app and push only">-</span>}
+            : <span className="text-[11px] text-gray-300" title={tr("This one is in-app and push only")}>-</span>}
         </div>
       )}
     </div>
@@ -169,6 +171,7 @@ function BlockTitle({ title, hint }) {
 // and so is the "PUSH" column label - email is off across the board, so it was
 // a heading over the only column there is.
 export function CreatorNotifications({ state }) {
+  const tr = useT()
   const supported = pushSupported()
   return (
     // `divide-y` under `sm` is the card edge a Panel does not draw on a phone.
@@ -178,22 +181,22 @@ export function CreatorNotifications({ state }) {
       {/* ---- This device ---- */}
       <Panel className="space-y-4">
         <BlockTitle
-          title="This device"
-          hint="Alerts even when the app is closed. Add the app to your home screen for the best experience."
+          title={tr("This device")}
+          hint={tr("Alerts even when the app is closed. Add the app to your home screen for the best experience.")}
         />
         {!supported ? (
           <p className="rounded-xl bg-cloud px-4 py-3 text-sm text-smoke">
-            This browser does not support push notifications. Try Chrome, Edge or installing the app to your home screen.
+            {tr("This browser does not support push notifications. Try Chrome, Edge or installing the app to your home screen.")}
           </p>
         ) : state.permission === 'granted' ? (
           <div className="flex flex-wrap items-center gap-3">
             <span className="inline-flex items-center gap-2 rounded-full bg-green-50 px-3 py-1.5 text-sm font-medium text-green-700">
-              <span className="h-2 w-2 rounded-full bg-green-500" /> On for this device
+              <span className="h-2 w-2 rounded-full bg-green-500" /> {tr("On for this device")}
             </span>
             <button onClick={() => showLocalNotification({ title: 'Tryp.com', body: 'Test notification - you are all set!', link: '/notifications' })} className="btn-secondary !py-2 text-xs">
-              Send a test
+              {tr("Send a test")}
             </button>
-            <button onClick={state.turnOffPush} disabled={state.busy} className="btn-ghost !py-2 text-xs">Turn off</button>
+            <button onClick={state.turnOffPush} disabled={state.busy} className="btn-ghost !py-2 text-xs">{tr("Turn off")}</button>
           </div>
         ) : (
           <button onClick={state.turnOnPush} disabled={state.busy} className="btn-primary"
@@ -207,15 +210,15 @@ export function CreatorNotifications({ state }) {
       {/* ---- What you're notified about ---- */}
       <Panel>
         <BlockTitle
-          title="What you're notified about"
+          title={tr("What you're notified about")}
           hint={EMAIL_ENABLED
             ? 'Email is reserved for the things worth leaving the app for. A dash means in-app and push only.'
             : 'Your in-app bell always keeps a record, whatever you turn off here.'}
         />
         {EMAIL_ENABLED && (
           <div className="mt-3 flex items-center justify-end gap-3 border-b border-gray-100 pb-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-            <span className="w-11 text-center">Push</span>
-            <span className="w-11 text-center">Email</span>
+            <span className="w-11 text-center">{tr("Push")}</span>
+            <span className="w-11 text-center">{tr("Email")}</span>
           </div>
         )}
         <div className="mt-2">
@@ -225,37 +228,37 @@ export function CreatorNotifications({ state }) {
 
       {/* ---- Challenge deadline reminders ---- */}
       <Panel>
-        <BlockTitle title="Challenge deadline reminders" hint="A nudge before a live challenge closes, so you can get your entries in." />
+        <BlockTitle title={tr("Challenge deadline reminders")} hint={tr("A nudge before a live challenge closes, so you can get your entries in.")} />
         <DeadlineReminderDays state={state} />
       </Panel>
 
       {/* ---- Daily puzzle reminders ---- */}
       <Panel>
-        <BlockTitle title="Daily puzzle reminders" hint="Never break a run on Guess the Country or Flight Path. Push only." />
+        <BlockTitle title={tr("Daily puzzle reminders")} hint={tr("Never break a run on Guess the Country or Flight Path. Push only.")} />
         <div className="mt-2">
           <div className="flex items-center gap-4 border-b border-gray-100 py-4">
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold">Streak reminder</p>
-              <p className="text-xs text-smoke">If your streak is at risk, we&rsquo;ll nudge you around 6pm to play before midnight.</p>
+              <p className="text-sm font-semibold">{tr("Streak reminder")}</p>
+              <p className="text-xs text-smoke">{tr("If your streak is at risk, we&rsquo;ll nudge you around 6pm to play before midnight.")}</p>
             </div>
             <div className="flex w-11 justify-center">
-              <Toggle on={state.prefs.daily_streak !== false} onChange={(v) => state.togglePush('daily_streak', v)} label="Daily streak reminder" />
+              <Toggle on={state.prefs.daily_streak !== false} onChange={(v) => state.togglePush('daily_streak', v)} label={tr("Daily streak reminder")} />
             </div>
           </div>
           <div className="flex items-center gap-4 py-4">
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold">Remind me to play</p>
-              <p className="text-xs text-smoke">A gentle reminder around 10am each day to play the daily puzzles.</p>
+              <p className="text-sm font-semibold">{tr("Remind me to play")}</p>
+              <p className="text-xs text-smoke">{tr("A gentle reminder around 10am each day to play the daily puzzles.")}</p>
             </div>
             <div className="flex w-11 justify-center">
-              <Toggle on={state.prefs.daily_reminder === true} onChange={(v) => state.togglePush('daily_reminder', v)} label="Daily puzzle reminder" />
+              <Toggle on={state.prefs.daily_reminder === true} onChange={(v) => state.togglePush('daily_reminder', v)} label={tr("Daily puzzle reminder")} />
             </div>
           </div>
         </div>
       </Panel>
 
       <p className="px-1 text-xs text-smoke">
-        Account-critical email, like a password reset link, is always sent whatever you choose here.
+        {tr("Account-critical email, like a password reset link, is always sent whatever you choose here.")}
       </p>
     </div>
   )
@@ -265,15 +268,16 @@ export function CreatorNotifications({ state }) {
 // Admin-only alert toggles. Rendered at the very bottom of Settings, only for
 // admins. Shares the same prefs state as the creator section above.
 export function AdminNotifications({ state }) {
+  const tr = useT()
   return (
     <>
       <div className="flex items-center justify-end gap-3 border-b border-gray-100 pb-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-        <span className="w-11 text-center">Push</span>
-        {EMAIL_ENABLED && <span className="w-11 text-center">Email</span>}
+        <span className="w-11 text-center">{tr("Push")}</span>
+        {EMAIL_ENABLED && <span className="w-11 text-center">{tr("Email")}</span>}
       </div>
       {ADMIN_CATEGORIES.map((c) => <PrefRow key={c.key} c={c} state={state} />)}
       <p className="mt-4 text-xs text-smoke">
-        These alerts only ever go to the Tryp.com Team. Creators never receive them, even by mistake.
+        {tr("These alerts only ever go to the Tryp.com Team. Creators never receive them, even by mistake.")}
       </p>
     </>
   )
@@ -306,6 +310,7 @@ export function AdminNotifications({ state }) {
 // `send_challenge_reminders` cron already implement. The bell on a deadline
 // therefore opens the standing setting rather than creating a row.
 export function DeadlineReminderDays({ state }) {
+  const tr = useT()
   return (
     <>
       <div className="mt-3 flex flex-wrap gap-2">
@@ -335,7 +340,7 @@ export function DeadlineReminderDays({ state }) {
         // not a warning anyway - it is a consequence of a choice somebody just
         // made deliberately.
         <p className="mt-3 text-xs text-smoke">
-          Nothing selected, so we will not remind you before a challenge closes.
+          {tr("Nothing selected, so we will not remind you before a challenge closes.")}
         </p>
       )}
     </>
@@ -344,9 +349,10 @@ export function DeadlineReminderDays({ state }) {
 
 /** The same control, as a card over the calendar. See DeadlineReminderDays. */
 export function DeadlineReminderModal({ open, onClose }) {
+  const tr = useT()
   const state = useNotificationPrefs()
   return (
-    <Modal open={open} onClose={onClose} title="Remind me before a deadline">
+    <Modal open={open} onClose={onClose} title={tr("Remind me before a deadline")}>
       <div className="space-y-4">
         <p className="text-sm text-smoke">
           This is a standing setting, not a one-off: it applies to every challenge the programme
@@ -356,11 +362,11 @@ export function DeadlineReminderModal({ open, onClose }) {
         <p className="flex items-start gap-2 rounded-xl bg-cloud/60 p-3 text-xs text-smoke">
           <Icon name="bell" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand" />
           <span>
-            Reminders arrive as a push notification.
+            {tr("Reminders arrive as a push notification.")}
           </span>
         </p>
         <div className="flex justify-end">
-          <button onClick={onClose} className="btn-primary">Done</button>
+          <button onClick={onClose} className="btn-primary">{tr("Done")}</button>
         </div>
       </div>
     </Modal>

@@ -3,6 +3,7 @@ import RichEditable from './RichEditable'
 import { ComposerToolbar } from './ComposerTools'
 import Icon from './Icon'
 import { cx } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 // THE COMPOSER. ONE OF THEM.
 //
@@ -67,6 +68,7 @@ const ChatComposer = forwardRef(function ChatComposer({
   // preview, the @-mention menu, an upload error.
   children,
 }, ref) {
+  const tr = useT()
   const editorRef = useRef(null)
   const [showFormatting, setShowFormatting] = useState(false)
   const fileRef = useRef(null)
@@ -156,8 +158,8 @@ const ChatComposer = forwardRef(function ChatComposer({
             onClick={(e) => { e.currentTarget.blur(); fileRef.current?.click() }}
             disabled={sending}
             className="btn-ghost shrink-0 !px-2.5 !py-3 disabled:opacity-50"
-            aria-label="Attach a photo or video"
-            title="Attach a photo or video"
+            aria-label={tr("Attach a photo or video")}
+            title={tr("Attach a photo or video")}
           >
             <Icon name="image" className="h-5 w-5" />
           </button>
@@ -167,7 +169,7 @@ const ChatComposer = forwardRef(function ChatComposer({
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => setShowFormatting((v) => !v)}
           aria-pressed={showFormatting}
-          aria-label="Formatting"
+          aria-label={tr("Formatting")}
           className={cx('btn-ghost shrink-0 !px-2.5 !py-3 sm:hidden', showFormatting && '!text-brand')}
         >
           <span className="text-sm font-bold leading-none">Aa</span>
@@ -214,7 +216,7 @@ const ChatComposer = forwardRef(function ChatComposer({
           onMouseDown={(e) => e.preventDefault()}
           disabled={!canSend || sending}
           className="btn-primary shrink-0 !px-5"
-          aria-label="Send"
+          aria-label={tr("Send")}
         >
           {sending ? (
             <span className="text-sm">…</span>

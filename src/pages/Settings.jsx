@@ -5,7 +5,9 @@ import { useAuth } from '../context/AuthContext'
 import { confirm, notice } from '../lib/confirm'
 import { Panel, PageHeader, Toggle, Spinner, Select, CopyButton } from '../components/ui'
 import Icon from '../components/Icon'
+import { cx } from '../lib/utils'
 import { useTimezone, allZones, zoneCity } from '../lib/timezone'
+import { LOCALES, getLocale, loadLocale, setLocale, useT } from '../lib/i18n'
 import Reveal from '../components/network/Reveal'
 import AppIconPicker from '../components/AppIconPicker'
 import PaymentDetailsFields from '../components/PaymentDetails'
@@ -37,12 +39,24 @@ const SECTIONS = [
   { key: 'notifications', label: 'Notifications', icon: 'bell', hint: 'Alerts and reminders' },
   { key: 'account', label: 'Account', icon: 'users', hint: 'Profile, privacy, password, your data' },
   { key: 'payment', label: 'Payment details', icon: 'wallet', hint: 'Where your prizes get paid' },
+  // LANGUAGE IS ITS OWN SECTION, not a row inside Display. Ethan: "there should
+  // be a different settings page, or you can incorporate it under a certain
+  // place - maybe just a new languages page would work best." He is right that
+  // it is not a display preference: Display is about how this DEVICE looks
+  // (theme, motion, timezone) and is per device, while the language is a fact
+  // about the person and follows their account between devices.
+  { key: 'language', label: 'Language', icon: 'globe', hint: 'The language the app is in' },
 ]
 
 // The creator-facing Settings hub. Everything saves on change - no Save button
 // (payment details are the exception: they're validated as a set before saving).
 export default function Settings() {
   const { user, profile, refreshProfile, isAdmin, sendPasswordReset, signOutEverywhere } = useAuth()
+  const tr = useT()
+  // The language in state as well as in the module, so choosing one re-renders
+  // this page. `useT` already subscribes, but the radio group reads the value
+  // directly and a module variable is not something React can watch.
+  const [langCode, setLangCode] = useState(getLocale)
   const navigate = useNavigate()
   const [section, setSection] = useState(null) // which section is open, or null for the menu
   // See the Timezone block in the Display section.
@@ -243,9 +257,9 @@ export default function Settings() {
   const DisplaySection = (
     <Panel>
       <div>
-        <p className="text-sm font-semibold">Theme</p>
-        <p className="text-xs text-smoke">Choose how the community looks on this device.</p>
-        <div className="mt-3 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Theme">
+        <p className="text-sm font-semibold">{tr('Theme')}</p>
+        <p className="text-xs text-smoke">{tr('Choose how the community looks on this device.')}</p>
+        <div className="mt-3 grid grid-cols-2 gap-2" role="radiogroup" aria-label={tr('Theme')}>
           {THEME_MODES.map((m) => {
             const active = themeMode === m.key
             return (
@@ -260,7 +274,7 @@ export default function Settings() {
                 }`}
               >
                 <Icon name={m.icon} className="h-5 w-5" />
-                {m.label}
+                {tr(m.label)}
               </button>
             )
           })}
@@ -275,10 +289,9 @@ export default function Settings() {
           behaves on this particular device. */}
       <div className="mt-5 flex items-center gap-4 border-t border-gray-100 pt-5">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold">Show me round again</p>
+          <p className="text-sm font-semibold">{tr('Show me round again')}</p>
           <p className="text-xs text-smoke">
-            A short walk through the platform, pointing at where everything is. Takes about two minutes
-            and you can stop at any point.
+            {tr('A short walk through the platform, pointing at where everything is. Takes about two minutes and you can stop at any point.')}
           </p>
         </div>
         <button
@@ -286,16 +299,16 @@ export default function Settings() {
           onClick={() => { if (!startTour()) notice('Open the app first, then try again.') }}
           className="btn-secondary shrink-0 !py-2 text-xs"
         >
-          Start
+          {tr('Start')}
         </button>
       </div>
 
       <div className="mt-5 flex items-center gap-4 border-t border-gray-100 pt-5">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold">Reduce motion</p>
-          <p className="text-xs text-smoke">Dial down animations and transitions across the app. Great if motion makes you queasy or you just want it calmer.</p>
+          <p className="text-sm font-semibold">{tr('Reduce motion')}</p>
+          <p className="text-xs text-smoke">{tr('Dial down animations and transitions across the app. Great if motion makes you queasy or you just want it calmer.')}</p>
         </div>
-        <Toggle on={reduceMotion} onChange={toggleMotion} label="Reduce motion" />
+        <Toggle on={reduceMotion} onChange={toggleMotion} label={tr('Reduce motion')} />
       </div>
 
       {/* ---- TIMEZONE ----
@@ -311,14 +324,14 @@ export default function Settings() {
           because a pin is a preference and not an instruction to stop paying
           attention. See lib/timezone. */}
       <div className="mt-5 border-t border-gray-100 pt-5">
-        <p className="text-sm font-semibold">Timezone</p>
+        <p className="text-sm font-semibold">{tr('Timezone')}</p>
         <p className="text-xs text-smoke">
-          Which clock event times, deadlines and your flights are shown on.
+          {tr('Which clock event times, deadlines and your flights are shown on.')}
         </p>
         <div className="mt-3 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Timezone mode">
           {[
-            { key: 'auto', label: 'Automatic', icon: 'globe', hint: tz.device ? zoneCity(tz.device) : 'This device' },
-            { key: 'fixed', label: 'Always this one', icon: 'pin', hint: tz.pinned ? zoneCity(tz.pinned) : 'Pick a zone' },
+            { key: 'auto', label: tr('Automatic'), icon: 'globe', hint: tz.device ? zoneCity(tz.device) : tr('This device') },
+            { key: 'fixed', label: tr('Always this one'), icon: 'pin', hint: tz.pinned ? zoneCity(tz.pinned) : tr('Pick a zone') },
           ].map((m) => {
             const active = m.key === 'auto' ? !tz.pinned : !!tz.pinned
             return (
@@ -341,7 +354,7 @@ export default function Settings() {
         </div>
         {tz.pinned && (
           <label className="mt-3 block">
-            <span className="label">Timezone</span>
+            <span className="label">{tr('Timezone')}</span>
             {/* The device's own zone first, always, even if it is also further
                 down the list: it is the one somebody is most likely to want, and
                 four hundred rows is exactly why this control has a search box. */}
@@ -444,7 +457,7 @@ export default function Settings() {
         <div className="mb-5 flex items-center gap-3 rounded-xl bg-cloud/50 px-4 py-3">
           <Icon name="envelope" className="h-5 w-5 shrink-0 text-brand" />
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-smoke">Signed in as</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-smoke">{tr('Signed in as')}</p>
             <p className="truncate text-sm font-semibold text-ink">{user?.email || '—'}</p>
           </div>
           <CopyButton value={user?.email || ''} label="Copy" className="ml-auto shrink-0" />
@@ -452,23 +465,23 @@ export default function Settings() {
 
         <div className="space-y-5">
           {accountRow(
-            'Your profile',
-            'How the rest of the community sees you.',
+            tr('Your profile'),
+            tr('How the rest of the community sees you.'),
             <div className="flex gap-2">
-              <Link to="/profile/edit" className="btn-secondary !py-2 text-xs">Edit</Link>
-              <Link to={`/profile/${user?.id}`} className="btn-ghost !py-2 text-xs">View</Link>
+              <Link to="/profile/edit" className="btn-secondary !py-2 text-xs">{tr('Edit')}</Link>
+              <Link to={`/profile/${user?.id}`} className="btn-ghost !py-2 text-xs">{tr('View')}</Link>
             </div>,
             'profile',
           )}
           {accountRow(
-            'Password',
-            'We email a reset link to the address above.',
+            tr('Password'),
+            tr('We email a reset link to the address above.'),
             <button
               onClick={() => { setPwVerifying(true); setPwMsg('') }}
               disabled={pwVerifying}
               className="btn-secondary !py-2 text-xs"
             >
-              Change password
+              {tr('Change password')}
             </button>,
             'password',
           )}
@@ -493,22 +506,22 @@ export default function Settings() {
 
         <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-gray-100 pt-5">
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold">Sign out everywhere</p>
-            <p className="text-xs text-smoke">Log out of Tryp.com on every device, including this one. Handy if you lost a device.</p>
+            <p className="text-sm font-semibold">{tr('Sign out everywhere')}</p>
+            <p className="text-xs text-smoke">{tr('Log out of Tryp.com on every device, including this one. Handy if you lost a device.')}</p>
           </div>
           <button onClick={signOutAll} disabled={signingOutAll} className="btn-secondary shrink-0 !py-2 text-xs">
-            {signingOutAll ? 'Signing out…' : 'Sign out everywhere'}
+            {signingOutAll ? tr('Signing out…') : tr('Sign out everywhere')}
           </button>
         </div>
 
         {/* Your data (GDPR) */}
         <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-gray-100 pt-5">
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold">Download my data</p>
-            <p className="text-xs text-smoke">Get a JSON file of everything we hold about you.</p>
+            <p className="text-sm font-semibold">{tr('Download my data')}</p>
+            <p className="text-xs text-smoke">{tr('Get a JSON file of everything we hold about you.')}</p>
           </div>
           <button type="button" onClick={exportData} disabled={exporting} className="btn-secondary shrink-0 !py-2 text-xs">
-            {exporting ? <Spinner /> : 'Download my data'}
+            {exporting ? <Spinner /> : tr('Download my data')}
           </button>
         </div>
 
@@ -521,10 +534,10 @@ export default function Settings() {
       {/* On a phone this is a second block under a rule; on a desktop it is a
           second card, so the rule would be a line drawn inside a border. */}
       <Panel className="border-t border-gray-100 pt-6 sm:border-t sm:pt-6">
-        <h2 className="mb-4 text-base font-semibold">Privacy</h2>
+        <h2 className="mb-4 text-base font-semibold">{tr('Privacy')}</h2>
         <div className="flex items-center gap-4">
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold">Show my profile on the community map</p>
+            <p className="text-sm font-semibold">{tr('Show my profile on the community map')}</p>
             <p className="text-xs text-smoke">
               Your city and profile appear on the public map on the Tryp.com sign-up and login pages.
               Turn this off to hide yourself from that public map. You'll still show on the community map inside the app.
@@ -555,7 +568,7 @@ export default function Settings() {
           behind it. The weight comes from the words and from the confirmation
           that follows; the button is quiet until you mean it. */}
       <Panel>
-        <h2 className="mb-1 text-base font-semibold">Delete account</h2>
+        <h2 className="mb-1 text-base font-semibold">{tr('Delete account')}</h2>
         <p className="mb-4 text-xs leading-relaxed text-smoke">
           Your profile and content are hidden right away and permanently deleted after 30 days.
           You can restore your account by logging back in within those 30 days.
@@ -566,7 +579,7 @@ export default function Settings() {
           disabled={deleting}
           className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-xs font-semibold text-smoke transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand"
         >
-          {deleting ? <Spinner className="h-4 w-4" /> : <><Icon name="trash" className="h-4 w-4" /> Delete my account</>}
+          {deleting ? <Spinner className="h-4 w-4" /> : <><Icon name="trash" className="h-4 w-4" /> {tr('Delete my account')}</>}
         </button>
       </Panel>
     </div>
@@ -586,7 +599,7 @@ export default function Settings() {
             <div className="mt-5 flex items-center justify-end gap-3">
               {paySaved && <span className="text-sm font-medium text-green-600">Saved</span>}
               <button type="button" onClick={savePayment} disabled={paySaving} className="btn-primary !py-2.5 text-sm">
-                {paySaving ? <Spinner /> : 'Save payment details'}
+                {paySaving ? <Spinner /> : tr('Save payment details')}
               </button>
             </div>
           </>
@@ -612,6 +625,81 @@ export default function Settings() {
   // the "your phone already copied the old one" caveat has nowhere else to live.
   const AppIconSection = <AppIconPicker />
 
+  // ---- LANGUAGE ----
+  //
+  // THE PREVIEW IS THE CONTROL. You are choosing something you cannot read the
+  // name of yet, so each option says its language IN that language ("Español",
+  // not "Spanish") with the English name underneath. Picking one changes the
+  // screen you are standing on immediately - `setLocale` is synchronous and the
+  // whole app re-renders through `useLocale` - so the choice is confirmed by
+  // the thing itself rather than by a toast.
+  //
+  // WRITTEN TO THE DEVICE FIRST, THEN TO THE ACCOUNT. The device write is what
+  // makes it instant; the profile write is what makes it follow you to a
+  // laptop. If the profile write fails the setting still holds here, which is
+  // the right way round - a language that reverted because a request timed out
+  // would be far worse than one that is briefly only on this device.
+  async function chooseLanguage(code) {
+    // AWAITED, so the screen changes in one step. `setLocale` alone would flip
+    // the language before its dictionary had arrived and the page would redraw
+    // twice - once in English, once in Spanish - which reads as a bug rather
+    // than as a setting taking effect.
+    await loadLocale(code)
+    setLangCode(setLocale(code))
+    if (!user?.id) return
+    await supabase.from('profiles').update({ locale: code }).eq('id', user.id)
+    refreshProfile?.()
+  }
+
+  const LanguageSection = (
+    <Panel>
+      <p className="text-sm text-smoke">
+        {tr('The language the app is in')}. {tr('Your own words - messages, captions and names - are never translated.')}
+      </p>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label={tr('Language')}>
+        {LOCALES.map((l) => {
+          const on = l.code === langCode
+          return (
+            <button
+              key={l.code}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              onClick={() => chooseLanguage(l.code)}
+              className={cx(
+                'flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all duration-200 hover:-translate-y-0.5',
+                on ? 'border-brand bg-brand text-white shadow-card' : 'border-gray-200 bg-white hover:border-brand/40',
+              )}
+            >
+              <span className="text-xl leading-none" aria-hidden>{l.flag}</span>
+              <span className="min-w-0 flex-1">
+                {/* THE NATIVE NAME LEADS, ALWAYS. You are choosing a language
+                    you may not be able to read the English name of, so
+                    "Español" is the title and the name in the language you are
+                    currently reading is the subtitle - and it is dropped when
+                    the two are the same word, because "Español / Español" is
+                    not a second piece of information. */}
+                <span className="block text-sm font-semibold">{l.native}</span>
+                {tr(l.label) !== l.native && (
+                  <span className={cx('block text-xs', on ? 'text-white/80' : 'text-smoke')}>{tr(l.label)}</span>
+                )}
+              </span>
+              {on && <Icon name="check" className="h-4 w-4 shrink-0" />}
+            </button>
+          )
+        })}
+      </div>
+      {/* SAID PLAINLY, BECAUSE IT IS THE FIRST THING SOMEBODY WILL WONDER.
+          A translated interface over untranslated messages is the correct
+          product and an odd first impression, so it is stated rather than
+          discovered. */}
+      <p className="mt-4 flex items-start gap-2 rounded-xl bg-cloud/60 px-4 py-3 text-xs leading-relaxed text-smoke">
+        <Icon name="alert" className="mt-px h-4 w-4 shrink-0 text-brand" />
+        {tr('Anything a person wrote stays exactly as they wrote it: messages, captions, challenge briefs and names.')}
+      </p>
+    </Panel>
+  )
+
   const BODIES = {
     display: DisplaySection,
     appicon: AppIconSection,
@@ -619,6 +707,7 @@ export default function Settings() {
     notifications: NotificationsSection,
     account: AccountSection,
     payment: PaymentSection,
+    language: LanguageSection,
     admin: AdminSection,
   }
 
@@ -654,12 +743,12 @@ export default function Settings() {
         <div className="mb-6 flex items-center gap-1.5">
           <button
             onClick={() => setSection(null)}
-            aria-label="All settings"
+            aria-label={tr('All settings')}
             className="-ml-2.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-smoke transition-all hover:bg-cloud hover:text-ink active:scale-95"
           >
             <Icon name="chevronLeft" className="h-5 w-5" />
           </button>
-          <h1 className="min-w-0 truncate text-2xl font-bold tracking-tight sm:text-3xl">{open.label}</h1>
+          <h1 className="min-w-0 truncate text-2xl font-bold tracking-tight sm:text-3xl">{tr(open.label)}</h1>
         </div>
         {/* `space-y-5` because a section body is one or more `Panel`s, and on
             a desktop those are separate cards that need air between them. On a
@@ -674,7 +763,7 @@ export default function Settings() {
       <Reveal from="down">
         {/* NO STRAPLINE. It listed the four sections that are already listed
             underneath it as cards. */}
-        <PageHeader title="Settings" />
+        <PageHeader title={tr('Settings')} />
       </Reveal>
       {/* One across on a phone, two from `sm`. Three would make each card
           narrower than its own hint line, which is the point at which a menu
@@ -690,8 +779,13 @@ export default function Settings() {
               <Icon name={s.icon} className="h-5 w-5" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block font-semibold">{s.label}</span>
-              <span className="block text-xs text-smoke">{s.hint}</span>
+              {/* SECTIONS is data, so the translation happens where it is
+                  drawn rather than in the table. A table of translated strings
+                  would be built once, at module load, in whatever language the
+                  page happened to open in - and would then never change when
+                  somebody switched. */}
+              <span className="block font-semibold">{tr(s.label)}</span>
+              <span className="block text-xs text-smoke">{tr(s.hint)}</span>
             </span>
             <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
           </button>
@@ -705,16 +799,16 @@ export default function Settings() {
               <Icon name="shield" className="h-5 w-5" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block font-semibold">Admin settings</span>
-              <span className="block text-xs text-smoke">Team alerts and admin tools</span>
+              <span className="block font-semibold">{tr('Admin settings')}</span>
+              <span className="block text-xs text-smoke">{tr('Team alerts and admin tools')}</span>
             </span>
             <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-gray-300" />
           </button>
         )}
       </Reveal>
       <p className="mt-6 text-xs text-smoke">
-        Have an idea for another setting? Let us know via{' '}
-        <Link to="/feedback" className="font-medium text-brand hover:underline">Help us improve</Link>.
+        {tr('Have an idea for another setting? Let us know via')}{' '}
+        <Link to="/feedback" className="font-medium text-brand hover:underline">{tr('Help us improve')}</Link>.
       </p>
     </div>
   )

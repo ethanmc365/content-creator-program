@@ -12,6 +12,7 @@ import { Badge, Skeleton } from '../components/ui'
 import { cx } from '../lib/utils'
 import { notice } from '../lib/confirm'
 import { listContainer, listItem, cardHover, pageFade } from '../lib/motion'
+import { useT } from '../lib/i18n'
 
 // Every market, and whether it is yours.
 //
@@ -66,6 +67,7 @@ function joinability(market, profile, isGlobalAdmin) {
 // remounts the whole subtree each time - which here would drop the "Joining…"
 // state the instant the join finished.
 function MarketCard({ market, highlight, isMine, joinState, count, hasLive, requestState, onRequest }) {
+  const tr = useT()
   const flags = (market.country_codes || []).map(flagFromIso).join(' ')
   // The whole card is the door. A card with one action in it should not make
   // you find the action.
@@ -84,8 +86,8 @@ function MarketCard({ market, highlight, isMine, joinState, count, hasLive, requ
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-2">
             <span className="truncate font-semibold">{market.name}</span>
-            {isMine && <Badge tone="light">Yours</Badge>}
-            {!market.is_active && <Badge tone="grey">Closed</Badge>}
+            {isMine && <Badge tone="light">{tr("Yours")}</Badge>}
+            {!market.is_active && <Badge tone="grey">{tr("Closed")}</Badge>}
           </p>
           <p className="mt-1 line-clamp-2 text-sm text-smoke">
             {market.tagline || `Challenges, briefs and rooms for ${market.name}.`}
@@ -108,7 +110,7 @@ function MarketCard({ market, highlight, isMine, joinState, count, hasLive, requ
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/60" />
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand" />
             </span>
-            Challenge running
+            {tr("Challenge running")}
           </span>
         )}
       </div>
@@ -127,17 +129,17 @@ function MarketCard({ market, highlight, isMine, joinState, count, hasLive, requ
         </span>
         {isMine ? (
           <span className="flex shrink-0 items-center gap-1 text-sm font-semibold text-brand">
-            Open <Icon name="chevronRight" className="h-4 w-4" />
+            {tr("Open")} <Icon name="chevronRight" className="h-4 w-4" />
           </span>
         ) : requestState === 'pending' ? (
-          <span className="shrink-0 rounded-full bg-cloud px-3 py-1 text-xs font-medium text-smoke">Waiting</span>
+          <span className="shrink-0 rounded-full bg-cloud px-3 py-1 text-xs font-medium text-smoke">{tr("Waiting")}</span>
         ) : (
           <button
             type="button"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRequest?.(market) }}
             className="shrink-0 rounded-full border border-brand px-3.5 py-1.5 text-xs font-semibold text-brand transition-all duration-200 hover:-translate-y-0.5 hover:bg-brand hover:text-white"
           >
-            Request to join
+            {tr("Request to join")}
           </button>
         )}
       </div>
@@ -161,6 +163,7 @@ function Group({ title, hint, children }) {
 }
 
 export default function ExploreMarkets() {
+  const tr = useT()
   const { profile, user } = useAuth()
   const { network, chapters, myChapters, isGlobalAdmin, loading: ctxLoading } = useCommunity()
   const [counts, setCounts] = useState(null)
@@ -254,7 +257,7 @@ export default function ExploreMarkets() {
               <Link to="/global" className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-white/80 transition-colors hover:text-white">
                 <Icon name="chevronLeft" className="h-4 w-4" /> {network?.name || 'Worldwide'}
               </Link>
-              <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Markets</h1>
+              <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{tr("Markets")}</h1>
               <p className="mt-2 max-w-2xl text-white/85">
                 A market is where the work happens: its own briefs, its own challenges, its own rooms.
                 Everything social stays worldwide, so joining one never cuts you off from anybody.
@@ -269,20 +272,20 @@ export default function ExploreMarkets() {
           ) : (
             <>
               {suggested.length > 0 && (
-                <Group title="Suggested for you" hint="Your profile says this is where you are based.">
+                <Group title={tr("Suggested for you")} hint={tr("Your profile says this is where you are based.")}>
                   {cards(suggested, true)}
                 </Group>
               )}
               {mine.length > 0 && (
-                <Group title="Your markets" hint="You are in these.">{cards(mine)}</Group>
+                <Group title={tr("Your markets")} hint={tr("You are in these.")}>{cards(mine)}</Group>
               )}
               {open.length > 0 && (
-                <Group title="Other markets" hint="Open, but for creators based there. Have a look around any of them.">
+                <Group title={tr("Other markets")} hint={tr("Open, but for creators based there. Have a look around any of them.")}>
                   {cards(open)}
                 </Group>
               )}
               {isGlobalAdmin && closed.length > 0 && (
-                <Group title="Not open yet" hint="Visible to you because you run the platform. Creators cannot see or join these.">
+                <Group title={tr("Not open yet")} hint={tr("Visible to you because you run the platform. Creators cannot see or join these.")}>
                   {cards(closed)}
                 </Group>
               )}

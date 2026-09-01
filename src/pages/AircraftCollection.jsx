@@ -10,6 +10,7 @@ import { EmptyState, PageHeader, Skeleton } from '../components/ui'
 import { AIRCRAFT } from '../lib/airlines'
 import { aircraftSeen } from '../lib/flightStats'
 import { cx } from '../lib/utils'
+import { useT } from '../lib/i18n'
 
 // THE AIRCRAFT COLLECTION.
 //
@@ -45,6 +46,7 @@ const CLASSES = [
 ]
 
 function TypeCard({ type, seen, most = false }) {
+  const tr = useT()
   const owned = !!seen
   return (
     <div
@@ -90,7 +92,7 @@ function TypeCard({ type, seen, most = false }) {
         {most && (
           <span className="absolute right-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-brand shadow-card">
             <Icon name="trophy" className="h-3 w-3" />
-            Most flown
+            {tr("Most flown")}
           </span>
         )}
       </div>
@@ -144,6 +146,7 @@ function TypeCard({ type, seen, most = false }) {
 }
 
 export default function AircraftCollection() {
+  const tr = useT()
   const { user } = useAuth()
   const [rows, setRows] = useState(null)
   // ONLY THE ONES YOU HAVE ACTUALLY BEEN ON.
@@ -204,11 +207,11 @@ export default function AircraftCollection() {
       <div className="mb-4 flex flex-wrap gap-2">
         <Link to="/flights" className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-smoke transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand">
           <Icon name="chevronLeft" className="h-3.5 w-3.5" />
-          Your flight log
+          {tr("Your flight log")}
         </Link>
         <Link to="/flights/community" className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-smoke transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand">
           <Icon name="globe" className="h-3.5 w-3.5" />
-          Across the community
+          {tr("Across the community")}
         </Link>
       </div>
 
@@ -224,7 +227,7 @@ export default function AircraftCollection() {
           back to the flight log, so if we can remove that button." An aircraft
           is not a thing you add here; it arrives because you logged a flight
           with one on it, and the two doors above are the way back. */}
-      <PageHeader title="Aircraft collection" />
+      <PageHeader title={tr("Aircraft collection")} />
 
       {rows === null ? (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
@@ -250,7 +253,7 @@ export default function AircraftCollection() {
                   offering them. The count of what you HAVE is the fact; the
                   ghosted cards below are the invitation. */}
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-white/70">You have been on</p>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-white/70">{tr("You have been on")}</p>
                 {/* "AIRCRAFTS", AND NOT "different aircraft". Ethan: "it
                     shouldn't be 'different aircraft' it should be 'aircrafts'
                     just right". The old line also had a bug hiding in it - a
@@ -279,7 +282,7 @@ export default function AircraftCollection() {
                     <AircraftPhoto typeKey={top.type?.key} type={top.type} />
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-[11px] font-semibold uppercase tracking-widest text-white/70">Most flown</span>
+                    <span className="block text-[11px] font-semibold uppercase tracking-widest text-white/70">{tr("Most flown")}</span>
                     <span className="block truncate text-lg font-bold">{top.name}</span>
                     <span className="block text-xs text-white/75">
                       {top.flights} {top.flights === 1 ? 'flight' : 'flights'} · {Math.round(top.distance).toLocaleString('en-GB')} km
@@ -403,7 +406,7 @@ export default function AircraftCollection() {
           {offTable.length > 0 && (
             <Reveal from="down">
               <section>
-                <h2 className="mb-3 text-lg font-semibold">Also flown</h2>
+                <h2 className="mb-3 text-lg font-semibold">{tr("Also flown")}</h2>
                 <div className="flex flex-wrap gap-2">
                   {offTable.map((a) => (
                     <span key={a.name} className="inline-flex items-center gap-2 rounded-full border border-gray-100 bg-white px-3.5 py-1.5 text-xs shadow-card">
@@ -419,9 +422,9 @@ export default function AircraftCollection() {
           {seen.length === 0 && (
             <EmptyState
               icon={<Icon name="plane" className="h-7 w-7" />}
-              title="Nothing collected yet"
-              hint="Add an aircraft to a flight in your log and it lights up here."
-              action={<Link to="/flights" className="btn-primary">Go to your flight log</Link>}
+              title={tr("Nothing collected yet")}
+              hint={tr("Add an aircraft to a flight in your log and it lights up here.")}
+              action={<Link to="/flights" className="btn-primary">{tr("Go to your flight log")}</Link>}
             />
           )}
 
@@ -442,7 +445,7 @@ export default function AircraftCollection() {
               behind it. */}
           <details className="group/credits pt-2">
             <summary className="flex cursor-pointer list-none items-center gap-1 text-[11px] text-gray-400 transition-colors hover:text-smoke">
-              Photo and data credits
+              {tr("Photo and data credits")}
               <Icon name="chevronRight" className="h-3 w-3 transition-transform duration-200 group-open/credits:rotate-90" />
             </summary>
             <div className="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-2">
@@ -467,7 +470,7 @@ export default function AircraftCollection() {
                 pages, and ODbL requires it to appear somewhere, so it appears
                 here once rather than on two pages twice. */}
             <p className="mt-3 border-t border-gray-100 pt-3 text-[11px] leading-relaxed text-gray-400">
-              Airport locations from OpenFlights, used under the Open Database Licence.
+              {tr("Airport locations from OpenFlights, used under the Open Database Licence.")}
             </p>
           </details>
         </div>

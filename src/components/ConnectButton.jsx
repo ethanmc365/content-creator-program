@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { sendConnectionRequest } from '../lib/connections'
 import { Modal } from './ui'
+import { useT } from '../lib/i18n'
 
 // LinkedIn-style connect control. `relation` is { relation, rowId } | null:
 //   null                -> "Connect"        (sends a request -> pending_sent)
@@ -17,6 +18,7 @@ export default function ConnectButton({
   // with nothing in the slot.
   targetName = '',
 }) {
+  const tr = useT()
   const [busy, setBusy] = useState(false)
   const [asking, setAsking] = useState(false)
   const [note, setNote] = useState('')
@@ -139,7 +141,7 @@ export default function ConnectButton({
           </p>
           <div>
             <label htmlFor="connect-note" className="label">
-              Your note <span className="font-normal text-smoke">(optional)</span>
+              {tr("Your note")} <span className="font-normal text-smoke">(optional)</span>
             </label>
             <textarea
               id="connect-note"
@@ -158,7 +160,7 @@ export default function ConnectButton({
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button type="button" onClick={() => confirmSend(false)} disabled={busy}
               className="btn-ghost w-full justify-center sm:w-auto">
-              Just connect
+              {tr("Just connect")}
             </button>
             <button type="button" onClick={() => confirmSend(true)} disabled={busy || !note.trim()}
               className="btn-primary w-full justify-center disabled:opacity-50 sm:w-auto">
