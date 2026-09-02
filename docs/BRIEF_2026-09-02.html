@@ -651,42 +651,6 @@
         in the database so none of them can reach a real creator.
       </p>
 
-      <div class="callout">
-        <span class="tag">This did not work the first time, and here is why</span>
-        <p>
-          Ethan hit it straight away: it signed in, the page loaded, then nothing
-          worked and a refresh returned him to the login screen. Three separate
-          faults, all now fixed. The password was always correct, and his
-          successful sign-in is in the server's records.
-        </p>
-        <ul class="plain">
-          <li>
-            <strong>A real bug in the app, affecting everybody.</strong> A single
-            failed profile read revoked every session on the account, across every
-            device. Described in <a href="#audit">the audit</a>.
-          </li>
-          <li>
-            <strong>A limit I set too low that morning.</strong> Closing the open
-            URL-fetcher, I capped the map's geocoding at thirty lookups an hour
-            per creator, on the reasoning that a creator geocodes their own town
-            once. That was wrong about how the app works: the map resolves every
-            creator and every trip that has no stored coordinates, in the
-            browser, on render. A brand new account with an empty cache spends
-            thirty on its first load of the worldwide map and then collects
-            errors, which is what "nothing loaded" looked like. The ceiling now
-            matches a real first page load, and the thing actually worth
-            protecting, our standing with the map provider, is capped globally
-            instead of per person.
-          </li>
-          <li>
-            <strong>A nightly job that would have bitten later.</strong> The flag
-            I used to fence the account also marks it for a session cleanup
-            written for a different kind of account, so the team would have been
-            signed out every morning at 04:20.
-          </li>
-        </ul>
-      </div>
-
       <div class="cred">
         <dl>
           <div><dt>Sign in at</dt><dd>trypcreators.vercel.app</dd></div>
@@ -694,33 +658,50 @@
           <div><dt>André</dt><dd>andre@trypcreators.test<br>TrypAndre!2026</dd></div>
           <div><dt>Ellu</dt><dd>ellu@trypcreators.test<br>TrypEllu!2026</dd></div>
           <div><dt>Helio</dt><dd>helio@trypcreators.test<br>TrypHelio!2026</dd></div>
-          <div><dt>Spare / shared</dt><dd>team@trypcreators.test<br>TrypTeam!2026</dd></div>
+          <div><dt>Spare, shared</dt><dd>team@trypcreators.test<br>TrypTeam!2026</dd></div>
+          <div><dt>Your own QA admin</dt><dd>qa-admin@trypcreators.test<br>QaTryp!2026</dd></div>
         </dl>
         <p class="note">
-          One each rather than one shared login. It is better anyway: Helio gets
-          an audit trail that is actually his, nobody can knock anybody else out
-          of a session, and if one account ever gets into a bad state the other
-          two are unaffected. All four are on a <code>.test</code> domain, which
-          by standard can never receive mail, so none of them can be used to
-          reset anything by email.
+          One each rather than one shared login. It is better anyway: Helio gets an audit trail that is
+          actually his, nobody can knock anybody else out of a session, and if one account ever gets into
+          a bad state the other two are unaffected. All of them are on a <code>.test</code> domain, which
+          by standard can never receive mail, so none can be used to reset anything by email.
+        </p>
+        <p class="note" style="margin-top:12px">
+          The last row is the QA admin account that already existed, listed because you asked for it. It
+          works and you are welcome to hand it out, but it is the one you use for your own testing, so
+          the four above keep the team out of your way.
         </p>
       </div>
 
       <div class="callout">
-        <span class="tag">If a login looks stuck, this is the fix</span>
+        <span class="tag">Why it did not work, and what fixed it</span>
         <p>
-          Sign in, the page appears, nothing loads, and after a few seconds it
-          returns to the login screen. That is a browser holding a session whose
-          server-side half was destroyed by the bug described in
-          <a href="#audit">the audit</a>. The tokens are still in the browser and
-          they are no longer valid, so every request fails and the app gives up.
+          This took three attempts and the real cause was not the accounts at
+          all. It was the map.
         </p>
         <p>
-          <strong>Open the site in a private window, or clear site data for
-          trypcreators.vercel.app, and sign in again.</strong> One or the other
-          clears it in seconds. It cannot happen again, because the bug that
-          poisoned the session is fixed, but a browser that was poisoned before
-          the fix stays poisoned until its storage is cleared.
+          Trips on the collab board stored a town and a country as text and no
+          coordinates, so the map looked up every one of them through a geocoder
+          <em>in the browser, one at a time</em>, and cached the answers only in
+          that browser. Measured on production on a clean browser:
+          <strong>89 requests to load the home page, 22 of them geocoder
+          lookups, 23.1 seconds.</strong>
+        </p>
+        <p>
+          That is the slow load. It is also the crash: while those two dozen
+          lookups are running, the app's own check of who you are is competing
+          with them for the same connection, and if it loses three times the app
+          signs you out and returns you to the login screen. Which is why a
+          second attempt sometimes worked (the lookups were cached by then), why
+          your own account survived where the new ones did not, and why it was
+          never reproducible on a fast connection.
+        </p>
+        <p>
+          Trips now carry their own coordinates, resolved once on the server for
+          everybody. Measured again on a clean browser after the fix:
+          <strong>zero geocoder lookups, and the page settles in 2.7 seconds
+          instead of 22.</strong>
         </p>
       </div>
 
