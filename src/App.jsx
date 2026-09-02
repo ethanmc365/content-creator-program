@@ -1,6 +1,7 @@
-import { lazy, Suspense, useEffect } from 'react'
+import { Suspense, useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom'
 import { warmMapAtlas } from './lib/mapCountries'
+import { lazyRoute } from './lib/lazyRoute'
 import { ProtectedRoute, AdminRoute } from './components/ProtectedRoute'
 import NetworkRoute from './components/NetworkRoute'
 import AppLayout from './components/layout/AppLayout'
@@ -47,62 +48,62 @@ import Feedback from './pages/Feedback'
 // is never needed by regular creators, so it loads on demand only.
 // The global network shell. Code-split: with the preview flag off nobody ever
 // navigates here, so it must not add a byte to a creator's initial bundle.
-const GlobalHome = lazy(() => import('./pages/GlobalHome'))
-const ChapterHome = lazy(() => import('./pages/ChapterHome'))
-const MarketChallenges = lazy(() => import('./pages/MarketChallenges'))
-const MarketMembers = lazy(() => import('./pages/MarketMembers'))
-const ExploreMarkets = lazy(() => import('./pages/ExploreMarkets'))
-const ManageChapter = lazy(() => import('./pages/ManageChapter'))
-const NetworkChat = lazy(() => import('./pages/NetworkChat'))
-const Rooms = lazy(() => import('./pages/Rooms'))
+const GlobalHome = lazyRoute(() => import('./pages/GlobalHome'))
+const ChapterHome = lazyRoute(() => import('./pages/ChapterHome'))
+const MarketChallenges = lazyRoute(() => import('./pages/MarketChallenges'))
+const MarketMembers = lazyRoute(() => import('./pages/MarketMembers'))
+const ExploreMarkets = lazyRoute(() => import('./pages/ExploreMarkets'))
+const ManageChapter = lazyRoute(() => import('./pages/ManageChapter'))
+const NetworkChat = lazyRoute(() => import('./pages/NetworkChat'))
+const Rooms = lazyRoute(() => import('./pages/Rooms'))
 // The community board. Lazy like every other network page: it is behind the
 // preview flag, so a UK creator must not download it.
-const Board = lazy(() => import('./pages/Board'))
-const BoardThread = lazy(() => import('./pages/Board').then((m) => ({ default: m.BoardThread })))
-const Milestones = lazy(() => import('./pages/Milestones'))
+const Board = lazyRoute(() => import('./pages/Board'))
+const BoardThread = lazyRoute(() => import('./pages/Board').then((m) => ({ default: m.BoardThread })))
+const Milestones = lazyRoute(() => import('./pages/Milestones'))
 // The flight log. Behind the preview gate with the rest of the network build,
 // and lazy for the same reason: a UK creator must not download the airport
 // table, the map component or the page.
-const Flights = lazy(() => import('./pages/Flights'))
+const Flights = lazyRoute(() => import('./pages/Flights'))
 // The aircraft collection. Its own route rather than a tab on the log, because
 // it is a page you go to look at rather than a section you scroll past - and
 // because a wall of two dozen drawings has no business loading with the log.
-const AircraftCollection = lazy(() => import('./pages/AircraftCollection'))
-const FlightCommunity = lazy(() => import('./pages/FlightCommunity'))
-const GlobalSettings = lazy(() => import('./pages/GlobalSettings'))
+const AircraftCollection = lazyRoute(() => import('./pages/AircraftCollection'))
+const FlightCommunity = lazyRoute(() => import('./pages/FlightCommunity'))
+const GlobalSettings = lazyRoute(() => import('./pages/GlobalSettings'))
 
-const Game = lazy(() => import('./pages/Game'))
-const Leaderboard = lazy(() => import('./pages/Leaderboard'))
-const AdminPanel = lazy(() => import('./pages/admin/AdminPanel'))
-const AdminCreators = lazy(() => import('./pages/admin/AdminCreators'))
-const AdminChallengeForm = lazy(() => import('./pages/admin/AdminChallengeForm'))
-const AdminResults = lazy(() => import('./pages/admin/AdminResults'))
-const AdminRewards = lazy(() => import('./pages/admin/AdminRewards'))
-const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics'))
-const AdminChallengeAnalytics = lazy(() => import('./pages/admin/AdminChallengeAnalytics'))
-const AdminEvents = lazy(() => import('./pages/admin/AdminEvents'))
-const AdminResources = lazy(() => import('./pages/admin/AdminResources'))
-const AdminJobs = lazy(() => import('./pages/admin/AdminJobs'))
-const AdminReferrals = lazy(() => import('./pages/admin/AdminReferrals'))
-const AdminEmail = lazy(() => import('./pages/admin/AdminEmail'))
-const AdminApplications = lazy(() => import('./pages/admin/AdminApplications'))
-const AdminAuditLog = lazy(() => import('./pages/admin/AdminAuditLog'))
-const AdminConnections = lazy(() => import('./pages/admin/AdminConnections'))
-const AdminTeam = lazy(() => import('./pages/admin/AdminTeam'))
-const AdminMilestones = lazy(() => import('./pages/admin/AdminMilestones'))
-const AdminFeedback = lazy(() => import('./pages/admin/AdminFeedback'))
-const AdminReports = lazy(() => import('./pages/admin/AdminReports'))
-const AdminNotes = lazy(() => import('./pages/admin/AdminNotes'))
+const Game = lazyRoute(() => import('./pages/Game'))
+const Leaderboard = lazyRoute(() => import('./pages/Leaderboard'))
+const AdminPanel = lazyRoute(() => import('./pages/admin/AdminPanel'))
+const AdminCreators = lazyRoute(() => import('./pages/admin/AdminCreators'))
+const AdminChallengeForm = lazyRoute(() => import('./pages/admin/AdminChallengeForm'))
+const AdminResults = lazyRoute(() => import('./pages/admin/AdminResults'))
+const AdminRewards = lazyRoute(() => import('./pages/admin/AdminRewards'))
+const AdminAnalytics = lazyRoute(() => import('./pages/admin/AdminAnalytics'))
+const AdminChallengeAnalytics = lazyRoute(() => import('./pages/admin/AdminChallengeAnalytics'))
+const AdminEvents = lazyRoute(() => import('./pages/admin/AdminEvents'))
+const AdminResources = lazyRoute(() => import('./pages/admin/AdminResources'))
+const AdminJobs = lazyRoute(() => import('./pages/admin/AdminJobs'))
+const AdminReferrals = lazyRoute(() => import('./pages/admin/AdminReferrals'))
+const AdminEmail = lazyRoute(() => import('./pages/admin/AdminEmail'))
+const AdminApplications = lazyRoute(() => import('./pages/admin/AdminApplications'))
+const AdminAuditLog = lazyRoute(() => import('./pages/admin/AdminAuditLog'))
+const AdminConnections = lazyRoute(() => import('./pages/admin/AdminConnections'))
+const AdminTeam = lazyRoute(() => import('./pages/admin/AdminTeam'))
+const AdminMilestones = lazyRoute(() => import('./pages/admin/AdminMilestones'))
+const AdminFeedback = lazyRoute(() => import('./pages/admin/AdminFeedback'))
+const AdminReports = lazyRoute(() => import('./pages/admin/AdminReports'))
+const AdminNotes = lazyRoute(() => import('./pages/admin/AdminNotes'))
 // The Testing Centre: every feature and every automation, demonstrated over
 // invented people. Admin only (it sits under AdminRoute below) and lazy like
 // the rest of /admin, so no creator ever downloads it. See TestingCentre.jsx.
-const TestingCentre = lazy(() => import('./pages/admin/TestingCentre'))
+const TestingCentre = lazyRoute(() => import('./pages/admin/TestingCentre'))
 // NOT under `AdminRoute`, and that is the point of it. A market MANAGER is not
 // an admin, and this is the one team surface they are meant to reach: the words
 // of their own language. The page decides what to draw and the RLS policy
 // decides what saves, so a creator who manages nothing is redirected by the
 // page rather than by the router. See migration 168.
-const AdminLanguages = lazy(() => import('./pages/admin/AdminLanguages'))
+const AdminLanguages = lazyRoute(() => import('./pages/admin/AdminLanguages'))
 
 // The route chunk is on its way. While index.html's boot layer is still up
 // this draws nothing at all - see lib/bootLoader.js, and the photograph of two
