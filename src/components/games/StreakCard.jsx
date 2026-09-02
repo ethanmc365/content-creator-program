@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import Icon from '../Icon'
 import { weekOf } from '../../lib/daily'
-import { FREEZES_PER_MONTH } from '../../lib/gameStreak'
 import StreakLeaderboard from './StreakLeaderboard'
 import { playFireWhoosh } from '../../lib/gameSounds'
 import { cx } from '../../lib/utils'
@@ -19,23 +18,41 @@ import { useT } from '../../lib/i18n'
 // starting again means admitting the forty is gone. Keeping the record separate
 // from the run means a broken streak costs you the run and nothing else.
 //
-// THE FREEZES ARE AUTOMATIC, AND THE CARD NOW SAYS SO
+// THE FREEZE TILES ARE OFF THIS CARD (2 Sep 2026)
 //
-// FIVE a month, spent on the day they are needed, reset on the first of the
-// month. Ethan's note was that the card never said the reset happens - so a
-// creator who used them all in February had no way to know they were getting
-// five more, which turns a safety net into a thing you have already lost. The
-// line under the snowflakes says when they come back, in the words a person
-// would use ("back on 1 September"), and the snowflakes themselves are drawn as
-// spent or held rather than as a count you have to read.
+// There were five snowflake tiles and a sentence explaining the monthly reset,
+// and they were the biggest block on a card about a streak. Ethan: "remove the
+// freezes, the five freezes thing down below." He is right that they were the
+// wrong weight - a freeze is a safety net you never operate, and a safety net
+// does not need a permanent readout.
+//
+// NONE OF THE MECHANIC CHANGED. Five a month, spent automatically on the day
+// they are needed, reset on the first. The two places it is still SAID are the
+// two places the question actually gets asked: a snowflake on the day in the
+// week strip, where a creator wonders why a gap did not break the run, and one
+// line at the foot of the streaks popup, where they can count what is left.
 //
 // WHAT CHANGED IN THE REDESIGN
 //
 // It was a flat row of three numbers in a tinted box, which is a stat block. A
 // streak is the thing that brings somebody back tomorrow, so it leads the page
-// now: a big flame that actually burns, the last seven days drawn as dots you
-// can read at a glance, and the record and the freezes as supporting detail
-// rather than as equals.
+// now: a big flame that actually burns, and the last seven days drawn as dots
+// you can read at a glance.
+//
+// AND IT IS TWO ROWS NOW, AT EVERY WIDTH.
+//
+// It was a `flex-wrap` line of four blocks of wildly different heights, which
+// at 375px wrapped into three ragged rows whose contents were all centred
+// against each other - "Best ever" floating halfway up the block beside it,
+// nothing sharing a baseline with anything. Ethan: "it's just still up and to
+// the right beside 'this week'... improve the UI of that card."
+//
+// With the freezes gone there are exactly three things left, and they group
+// cleanly: the RUN is the headline and takes its own row, and the two pieces of
+// supporting evidence - the week you have had, and the best you have ever done -
+// sit side by side underneath it on ONE shared baseline, with the same label
+// treatment. That is the same shape on a phone and on a desktop, so there is
+// one layout to look at rather than two that drift.
 
 const LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
@@ -218,7 +235,6 @@ export default function StreakCard({ className, days = [], today = null, myId = 
   if (!s) return null
   const current = s.current_streak || 0
   const best = s.best_streak || 0
-  const left = s.freezes_left ?? FREEZES_PER_MONTH
   const week = today != null ? weekOf(today) : []
   // HAS TODAY BEEN COUNTED YET, OR NOT.
   //
@@ -241,66 +257,47 @@ export default function StreakCard({ className, days = [], today = null, myId = 
     >
       <div className="pointer-events-none absolute -right-14 -top-16 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
 
-      {/* THE WHOLE CARD OPENS THE BOARD.
-          Ethan: "perhaps it shows up as a popup card when I click on the card at
-          the top showing streak info." A stretched button UNDER the content
-          rather than a wrapper around it, for the same reason the challenge
-          board's cards work that way: everything on top keeps its own clicks,
-          and the dead space between the flame and the snowflakes becomes the
-          target. The visible affordance is the chip in the corner, because a
-          card that is silently clickable is a card nobody clicks. */}
+      {/* THE WHOLE CARD OPENS THE BOARD, AND NOW IT IS THE ONLY WAY IN.
+          Ethan: "under the everyone's streaks, make that smaller or actually
+          remove that completely, and just tapping on that card brings up
+          everyone's streaks and the all-time best."
+
+          THE LABELLED CHIP IN THE CORNER IS GONE. It said "Everyone's streaks"
+          (half again as long in Spanish), it was absolutely positioned so
+          nothing in the flow knew it was there, and every other block on the
+          card had to reserve a corner it could not see - which is what the
+          `pr-20` and `sm:pr-44` in here used to be for. Removing it removed
+          that whole class of collision rather than tuning it again.
+
+          A bare chevron is what is left: the smallest mark that still says
+          "there is something behind this", with no label to translate, no pill
+          to size and nothing for the content to dodge. The button itself is
+          still a stretched one UNDER the content, so everything on top keeps
+          its own clicks and the dead space between the flame and the week strip
+          is part of the target. */}
       <button
         type="button"
         onClick={() => setBoardOpen(true)}
         aria-label={tr("See everyone's streaks")}
         className="absolute inset-0 z-0"
       />
-      {/* THE AFFORDANCE IS ON THE PHONE TOO (2 Sep 2026). It was
-          `hidden sm:inline-flex`, so on the device most of this page is looked
-          at, the card was silently clickable - which is a card nobody clicks.
-          It says less on a phone because there is less room to say it in, and
-          because the chevron is doing most of the work either way. */}
-      <span className="pointer-events-none absolute right-4 top-4 z-10 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white/90">
-        <span className="hidden sm:inline">{tr("Everyone’s streaks")}</span>
-        <span className="sm:hidden">{tr("Streaks")}</span>
-        <Icon name="chevronRight" className="h-3 w-3" />
-      </span>
-      {/* A GRID ON A PHONE, THE OLD ROW ON A DESKTOP (2 Sep 2026).
+      <Icon
+        name="chevronRight"
+        className="pointer-events-none absolute right-4 top-5 z-10 h-4 w-4 text-white/50"
+      />
 
-          Ethan: "on mobile the main streak card has a weird UI and isn't very
-          pretty to look at - the thing is a bit off. 'Best ever' is up too
-          high, your streak is too high, 'not counted today yet'. It's just a
-          weird UI, please improve it for mobile."
-
-          It was ONE `flex-wrap items-center` row holding four blocks of wildly
-          different heights: a 48px number, a week of dots, a small statistic
-          and five snowflake tiles. At 375px that wraps into three ragged rows
-          whose contents are all CENTRED against each other, so "Best ever"
-          floats halfway up the block beside it and the run's status line ends
-          up level with nothing. Centring four unequal things is what made it
-          read as "a bit off"; it is not one fault, it is the absence of a
-          layout.
-          Two columns, top-aligned, with the run and the week spanning both -
-          the two facts that want the full width - and the two small statistics
-          side by side underneath. From `sm` up it is the original row, which
-          was never the problem. */}
-      {/* THE CHIP'S CORNER IS RESERVED AT EVERY WIDTH. In Spanish it reads
-          "Las rachas de todos", which is half again as long as the English -
-          Ethan: "on the travel games section in the top right I don't like the
-          view all streaks thing, I can see that it's covering the free streaks.
-          Improve the UI and make sure nothing's covered, make it a bit smaller
-          if need be." The chip is absolutely positioned, so nothing in the flow
-          knew it was there and the freeze tiles ran straight under it on a wide
-          card. The phone reserves it on the first block (`pr-20`); a desktop
-          reserves it on the whole row, because there the row is a flex line and
-          it is the LAST block that reaches the corner. */}
-      <div className="pointer-events-none relative z-10 grid grid-cols-2 items-start gap-x-5 gap-y-5 sm:flex sm:flex-wrap sm:items-center sm:gap-x-8 sm:pr-44">
+      {/* TWO ROWS: THE RUN, THEN THE EVIDENCE. See the note at the head of this
+          file. `items-end` on the second row is what puts the week strip and the
+          record on one baseline - they are different heights, and centring two
+          different heights against each other is what made the old card read as
+          "a bit off". */}
+      <div className="pointer-events-none relative z-10 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
         {/* THE FLAME LEADS, AND IT IS THE STATE. See the note on <Flame>: lit
             when today is counted, embers when the run is alive but today is
             still to be earned, cold at zero. */}
-        <div className="col-span-2 flex items-center gap-4 pr-20 sm:col-auto sm:pr-0">
+        <div className="flex items-center gap-4 pr-8 sm:pr-0">
           <StreakFlame state={current === 0 ? 'cold' : (playedToday || frozenToday) ? 'lit' : 'ember'} />
-          <div>
+          <div className="min-w-0">
             <p className="text-4xl font-bold leading-none tabular-nums sm:text-5xl">{current}</p>
             <p className="mt-1 text-[11px] font-semibold uppercase tracking-widest text-white/75">
               {current === 1 ? tr('day in a row') : tr('days in a row')}
@@ -321,67 +318,49 @@ export default function StreakCard({ className, days = [], today = null, myId = 
             )}
             {today != null && current === 0 && (
               <p className="mt-1.5 text-[11px] font-medium text-white/85">
-                {tr("Play any one of today’s three puzzles to start one.")}
+                {tr("Play any one of today\u2019s three puzzles to start one.")}
               </p>
             )}
           </div>
         </div>
 
-        {today != null && (
-          <div className="col-span-2 sm:col-auto">
+        {/* ON A WIDE CARD THE TWO SUPPORTING FACTS GO TO THE FAR END rather
+            than stacking under the run in the left quarter of a 1100px card.
+            The rule between them is a PHONE thing - it is what separates two
+            rows - and there are no rows to separate once they sit side by side
+            with the flame. `pr-8` keeps them clear of the chevron. */}
+        <div className="flex items-end justify-between gap-5 border-t border-white/15 pt-5 sm:justify-end sm:gap-12 sm:border-t-0 sm:pr-8 sm:pt-0">
+          {today != null && (
+            <div>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/75">
+                {tr("This week")}
+              </p>
+              <WeekDots days={days} frozen={s.frozen_days || []} today={today} week={week} />
+            </div>
+          )}
+
+          {/* SAME LABEL, SAME PLACE, SAME BASELINE as the week strip beside it.
+              The number sits where the dots sit; the caption sits where the
+              caption sits. It used to be a 24px number top-aligned against a
+              two-part block, so it floated. */}
+          <div className="text-right sm:text-left">
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/75">
-              {tr("This week")}
+              {tr("Best ever")}
             </p>
-            <WeekDots days={days} frozen={s.frozen_days || []} today={today} week={week} />
+            <p className="flex h-6 items-center justify-end gap-1.5 text-xl font-bold leading-none tabular-nums sm:justify-start">
+              <Flame className="h-4 w-4 opacity-80" tone="warm" state={best > 0 ? 'ember' : 'cold'} />
+              {best}
+            </p>
           </div>
-        )}
-
-        <div>
-          <p className="text-2xl font-bold leading-none tabular-nums">{best}</p>
-          <p className="mt-1 text-[11px] font-semibold uppercase tracking-widest text-white/75">{tr("Best ever")}</p>
-        </div>
-
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5">
-            {Array.from({ length: FREEZES_PER_MONTH }, (_, i) => i).map((i) => (
-              <span
-                key={i}
-                title={i < left ? 'Freeze available' : 'Freeze used this month'}
-                className={cx(
-                  // h-7 rather than h-8: five tiles in the space three had.
-                  'flex h-7 w-7 items-center justify-center rounded-lg transition-colors',
-                  // BLUE, PROPERLY. Ethan: "the streak freeze icons should be a
-                  // bit more prominently blue."
-                  // An available freeze used to be a BRAND ORANGE snowflake on
-                  // a white tile, which is the one colour on this card that
-                  // does not mean cold - and on an orange card the tile read as
-                  // a hole rather than as an object. A saturated sky-blue
-                  // snowflake on white is the only genuinely cool thing on the
-                  // whole card, which is exactly what a freeze should look
-                  // like, and the ring stops it floating.
-                  i < left
-                    ? 'bg-white text-sky-500 shadow-sm ring-1 ring-inset ring-sky-300'
-                    : 'bg-white/15 text-white/35',
-                )}
-              >
-                <Icon name="snowflake" className="h-4 w-4" strokeWidth={2} />
-              </span>
-            ))}
-          </div>
-          <p className="mt-1.5 max-w-[16rem] text-[11px] leading-snug text-white/80">
-            {/* TWO SHORT SENTENCES, AND THAT IS THE WHOLE STORY.
-                It said "2 of 3 freezes left this month, 1 already spent for you.
-                All three come back on 1 September." Ethan kept the first half
-                and cut the rest, and he is right: the snowflakes above already
-                draw which ones are spent, so the clause repeats them in words,
-                and a specific date is more precision than "monthly" earns on a
-                line nobody came here to read. */}
-            {tr('{n} of {total} freezes left this month. Streak freezes reset monthly.', { n: left, total: FREEZES_PER_MONTH })}
-          </p>
         </div>
       </div>
 
-      <StreakLeaderboard open={boardOpen} onClose={() => setBoardOpen(false)} myId={myId} />
+      <StreakLeaderboard
+        open={boardOpen}
+        onClose={() => setBoardOpen(false)}
+        myId={myId}
+        freezesLeft={s.freezes_left}
+      />
 
       {/* THE PER-PUZZLE CHIPS ARE GONE.
           There was a row here reading "Guess the Country 3d · Flight Path 3d ·

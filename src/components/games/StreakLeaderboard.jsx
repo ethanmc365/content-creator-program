@@ -6,6 +6,7 @@ import Flame from './Flame'
 import Icon from '../Icon'
 import { cx } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
+import { FREEZES_PER_MONTH } from '../../lib/gameStreak'
 
 // WHO ELSE IS ON A RUN, AND WHO HAS EVER HAD THE LONGEST ONE.
 //
@@ -42,7 +43,34 @@ const TABS = [
   { key: 'best', label: 'All-time best', rpc: 'best_streak_leaderboard', value: 'best_streak' },
 ]
 
-export default function StreakLeaderboard({ open, onClose, myId }) {
+// SWITCHING BOARDS IS NOT A PAGE LOAD (2 Sep 2026)
+//
+// Ethan: "clicking to the all-time best is a really juddery animation, make
+// that a clean animation too."
+//
+// It was juddery because it was not an animation at all - it was a fetch. The
+// second board had never been loaded, so pressing the tab tore fifty rows out
+// of the dialog, replaced them with six skeletons at a completely different
+// height, waited for a round trip, and then put fifty different rows back. The
+// modal is height-driven by its content, so that is two hard resizes of the
+// whole dialog in a third of a second. No easing applied to the tab button was
+// ever going to touch it.
+//
+// THREE THINGS, IN THE ORDER THEY MATTER:
+//
+//   1. BOTH BOARDS ARE FETCHED WHEN THE DIALOG OPENS. They are two pure reads
+//      of the same fifty-row shape (migration 166 for the second), they run in
+//      parallel with each other, and after that a tab press touches no network
+//      at all. This alone removes the resize.
+//   2. THE LIST BOX HOLDS ITS HEIGHT while the boards swap, so even the first
+//      press - before both have landed - cannot collapse the dialog. The
+//      minimum is remembered from whatever has been drawn in it so far.
+//   3. THEN it is animated: the outgoing board fades and lifts a few pixels,
+//      the incoming one fades up into its place, and the selected pill SLIDES
+//      between the two tabs instead of one background colour appearing while
+//      another disappears. 180ms, which is about as long as a press feels.
+
+export default function StreakLeaderboard({ open, onClose, myId, freezesLeft = null }) {
   const tr = useT()
   const [tab, setTab] = useState('now')
   // Keyed by tab, so switching back to a board you have already opened is
@@ -57,20 +85,41 @@ export default function StreakLeaderboard({ open, onClose, myId }) {
   const active = TABS.find((t) => t.key === tab) || TABS[0]
   const list = rows[tab]
 
+  // BOTH, ON OPEN. Not "the one being looked at" - see the note above. Guarded
+  // on what is already in hand, so re-opening the dialog in the same session
+  // costs nothing.
   useEffect(() => {
-    if (!open || rows[tab] !== undefined) return undefined
+    if (!open) return undefined
     let alive = true
-    supabase.rpc(active.rpc, { p_limit: 50 }).then(({ data }) => {
-      if (alive) setRows((cur) => ({ ...cur, [tab]: data ?? [] }))
+    TABS.forEach((t) => {
+      if (rows[t.key] !== undefined) return
+      supabase.rpc(t.rpc, { p_limit: 50 }).then(({ data }) => {
+        if (alive) setRows((cur) => (cur[t.key] !== undefined ? cur : { ...cur, [t.key]: data ?? [] }))
+      })
     })
     return () => { alive = false }
-  }, [open, tab, active.rpc, rows])
+    // Deliberately not on `rows`: this is a one-shot per opening, and depending
+    // on the thing it writes is how you get a loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
 
   const mine = list?.findIndex((r) => r.profile_id === myId) ?? -1
 
   return (
     <Modal open={open} onClose={onClose} title={tr("Streaks")} wide>
-      <div className="mb-4 flex gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card">
+      <div className="relative mb-4 flex gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card">
+        {/* THE PILL SLIDES. One element that moves, rather than two background
+            colours crossfading in place - which is the difference between a
+            control that answers a press and two controls that both flicker. */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-y-1.5 left-1.5 rounded-lg bg-brand transition-transform duration-200 ease-out"
+          style={{
+            width: `calc((100% - 0.75rem - 0.375rem) / ${TABS.length})`,
+            transform: `translateX(calc(${TABS.findIndex((t) => t.key === tab)} * (100% + 0.375rem)))`,
+          }}
+        />
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -78,8 +127,8 @@ export default function StreakLeaderboard({ open, onClose, myId }) {
             onClick={() => setTab(t.key)}
             aria-pressed={tab === t.key}
             className={cx(
-              'flex-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors',
-              tab === t.key ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink',
+              'relative z-10 flex-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors duration-200',
+              tab === t.key ? 'text-white' : 'text-smoke hover:text-ink',
             )}
           >
             {tr(t.label)}
@@ -87,6 +136,16 @@ export default function StreakLeaderboard({ open, onClose, myId }) {
         ))}
       </div>
 
+      {/* THE BOARDS SHARE ONE WINDOW, AND THAT IS WHAT MAKES THE SWAP CLEAN.
+          A dialog sized by its own content resizes every time the content
+          changes, and two boards of two rows and fifty rows resize it by
+          several hundred pixels - which is a jump, not an animation, and no
+          easing on the tab button can hide it. A fixed window between a floor
+          and a ceiling means the dialog does not move at all: the list inside
+          it cross-fades and the longer board simply scrolls. The scrollbar is
+          off platform-wide (see index.css), so the ceiling costs nothing to
+          look at. */}
+      <div key={tab} className="animate-board-swap min-h-[14rem] max-h-[min(24rem,48vh)] overflow-y-auto">
       {!list ? (
         <div className="space-y-2">
           {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
@@ -150,6 +209,20 @@ export default function StreakLeaderboard({ open, onClose, myId }) {
             </p>
           )}
         </>
+      )}
+      </div>
+
+      {/* THE ONE PLACE THE FREEZES ARE STILL COUNTED.
+          The five snowflake tiles came off the streak card at Ethan's request;
+          the mechanic did not change, so the number still has to be reachable.
+          It belongs here rather than on the card because this is the screen
+          somebody opens to ask about runs, and it is one quiet line rather than
+          a block of tiles. */}
+      {freezesLeft != null && (
+        <p className="mt-4 flex items-center gap-2 border-t border-gray-100 pt-3 text-[11px] text-smoke">
+          <Icon name="snowflake" className="h-3.5 w-3.5 shrink-0 text-sky-500" />
+          {tr('{n} of {total} freezes left this month. Streak freezes reset monthly.', { n: freezesLeft, total: FREEZES_PER_MONTH })}
+        </p>
       )}
     </Modal>
   )

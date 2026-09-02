@@ -5,7 +5,6 @@ import Icon from '../Icon'
 import { Avatar, Modal } from '../ui'
 import { cx } from '../../lib/utils'
 import { EASE } from '../../lib/motion'
-import { playPlaneRise, playRingReached, engineThrust, engineStop } from '../../lib/gameSounds'
 import { REWARD_NOUN, criterionLabel, milestoneFraction } from '../../lib/milestones'
 import { useT } from '../../lib/i18n'
 
@@ -326,71 +325,18 @@ export default function MilestonePath({ milestones = [], standings = [] }) {
     return timeAtDistance(f / progress) * flightSeconds
   }
 
-  // THE FLIGHT IS AUDIBLE.
+  // THE FLIGHT IS SILENT, ON PURPOSE.
   //
-  // A short ascending pass as the aircraft leaves the first dot, then the games'
-  // coin as it crosses each milestone it has actually reached. The coin already
-  // means "you passed a marked point" everywhere else in the product (it is the
-  // Flight Path stop sound), so borrowing it here costs nothing to learn.
+  // It used to carry an ascending pass at take-off, the games' coin at every
+  // milestone the creator had actually reached, and the Flight Path propeller
+  // held open under the whole eight-second flight. Ethan: no sound effects on
+  // this page at all, just the clean animation. Removed rather than muted -
+  // a silent code path that still schedules four timers and an interval is a
+  // propeller waiting to be left running again, which is exactly the bug the
+  // old comment here spent a paragraph describing.
   //
-  // It rides on `arrivalDelay`, which is the same function that lights each
-  // node up, so the sound and the light are the same event by construction
-  // rather than by two sets of numbers that will drift apart.
-  //
-  // Only for milestones already REACHED: a coin for a stop you have not earned
-  // would be the product congratulating you for nothing.
-  useEffect(() => {
-    if (!started) return undefined
-    playPlaneRise()
-    const timers = []
-    for (let i = 1; i <= reached; i++) {
-      timers.push(setTimeout(playRingReached, Math.round(arrivalDelay(i) * 1000)))
-    }
-
-    // THE AIRCRAFT IS AUDIBLE FOR AS LONG AS IT IS MOVING.
-    //
-    // There was one ascending pass at take-off and then silence under a plane
-    // that kept flying for another eight seconds, which is the wrong way round:
-    // the take-off is the moment you are least likely to be looking, and the
-    // long middle is the part that needed something under it.
-    //
-    // `engineThrust` is the Flight Path propeller - filtered noise with a blade
-    // band on it, already built, already quiet - and it settles itself 420ms
-    // after the last call. Re-thrusting on a 300ms tick therefore holds it open
-    // for exactly as long as we keep ticking, and one `engineStop` at the end
-    // fades it out. Started a beat after the rise so the two do not stack.
-    // THE TICKER HAS TO BE STOPPED BEFORE THE ENGINE IS.
-    //
-    // THE BUG THIS FIXES. The landing timeout called `engineStop` and the
-    // 300ms ticker was left running - so 300ms later it thrust again, and the
-    // propeller came back and stayed for the rest of the session, on every
-    // page, until the tab was closed. That is the "I can constantly hear the
-    // airplane background noise" report, and it is why the interval id lives
-    // in a variable of its own rather than in the same bag as the chimes: the
-    // one thing that must happen at landing is that this stops FIRST.
-    let ticker = null
-    const takeoff = setTimeout(() => {
-      engineThrust()
-      ticker = setInterval(engineThrust, 300)
-    }, 500)
-    const cut = () => {
-      if (ticker) { clearInterval(ticker); ticker = null }
-      engineStop()
-    }
-    const landed = setTimeout(cut, Math.round(flightSeconds * 1000) + 400)
-
-    return () => {
-      clearTimeout(takeoff)
-      clearTimeout(landed)
-      timers.forEach(clearTimeout)
-      cut()
-    }
-    // `arrivalDelay` closes over flightSeconds/progress/legs, all derived from
-    // props, and is rebuilt every render - depending on it would reschedule the
-    // whole run on any unrelated re-render, which is how you get a route that
-    // chimes twice. The flight only ever starts once.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [started, reached])
+  // The route still lights up stop by stop: `arrivalDelay` drives the LIGHT,
+  // which is what it was always for. Nothing about the animation changed.
 
   // THE FACES USED TO BE DRAWN ON THE LINE AS WELL, AND THAT IS GONE.
   //

@@ -8,9 +8,111 @@
 // are cached client-side and persisted on the profile, so this is called rarely
 // (once per new/changed town), well within Nominatim's 1 req/sec guidance.
 //
-// verify_jwt stays ON: only signed-in creators geocode their own town.
+// THE CALLER IS VERIFIED HERE, NOT BY `verify_jwt` (2 Sep 2026).
+//
+// This file used to say "verify_jwt stays ON: only signed-in creators geocode
+// their own town". That is not what verify_jwt does. The gateway accepts the
+// PUBLISHABLE key as a valid credential - it has to, that is how the browser
+// reaches PostgREST before anybody signs in - and that key is in the JavaScript
+// bundle, so it belongs to everybody. See the block below the imports.
+//
+// What is at stake here is not our data, it is our STANDING WITH NOMINATIM:
+// their usage policy is one request a second and they block by application, so
+// an open proxy in front of them is a way for a stranger to get the creator map
+// switched off for everybody. Hence a real token check and a per-creator ceiling.
 //
 // Deploy:  supabase functions deploy geocode
+
+import { createRemoteJWKSet, jwtVerify } from 'https://deno.land/x/jose@v5.9.6/index.ts'
+
+// ---------------------------------------------------------------------------
+// WHO IS CALLING, AND HOW OFTEN.
+//
+// `verify_jwt: true` DOES NOT MEAN "SIGNED-IN CREATORS ONLY". The gateway
+// accepts the PUBLISHABLE key as a perfectly good credential - it has to, that
+// is how the browser talks to PostgREST before anybody logs in - and that key
+// ships inside the JavaScript bundle. So in practice it means "anybody who has
+// opened the site once". Proven against production on 2 Sep 2026.
+//
+// The token is therefore verified HERE, against the project's public JWKS
+// (signature, expiry, audience), exactly as PostgREST and Storage do it. This
+// is the same check `upload`, `view-sync`, `send-invoice` and `impersonate`
+// already make; it is repeated in each function rather than shared because the
+// edge bundler flattens a function to one directory and a `../_shared` import
+// does not survive that.
+//
+// NOT `auth.getUser`: that also looks the session up in `auth.sessions`, and a
+// global sign-out on another device deletes the session row while this device's
+// token stays valid for the rest of its week. The whole app keeps working and
+// getUser alone starts 401ing. That has happened here for real.
+//
+// The RATE LIMIT is the other half, because this function makes an OUTBOUND
+// request on somebody else's behalf, and one that can be made without limit is
+// a way to turn the platform's servers into a stranger's traffic.
+// `auth_attempts` is the same generic (identifier, created_at) log that
+// auth-gate and upload already count against.
+//
+// It FAILS OPEN on purpose: a lookup failing because a logging table was
+// briefly unavailable is a worse outcome than a caller getting a few extra
+// requests. These are abuse ceilings, not billing.
+// ---------------------------------------------------------------------------
+const SB_URL = Deno.env.get('SUPABASE_URL')!
+const SB_ANON = Deno.env.get('SUPABASE_ANON_KEY')!
+const SB_SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const JWKS = createRemoteJWKSet(new URL(`${SB_URL}/auth/v1/.well-known/jwks.json`))
+
+async function verifyUser(jwt: string): Promise<string | null> {
+  if (!jwt) return null
+  try {
+    const { payload } = await jwtVerify(jwt, JWKS, {
+      issuer: `${SB_URL}/auth/v1`,
+      audience: 'authenticated',
+    })
+    return payload.sub ? String(payload.sub) : null
+  } catch {
+    try {
+      const res = await fetch(`${SB_URL}/auth/v1/user`, {
+        headers: { apikey: SB_ANON, Authorization: `Bearer ${jwt}` },
+      })
+      if (!res.ok) return null
+      return (await res.json())?.id ?? null
+    } catch {
+      return null
+    }
+  }
+}
+
+function bearer(req: Request): string {
+  return (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')
+}
+
+async function rateLimited(key: string, max: number, windowMs: number): Promise<boolean> {
+  const since = new Date(Date.now() - windowMs).toISOString()
+  const headers = {
+    apikey: SB_SERVICE,
+    Authorization: `Bearer ${SB_SERVICE}`,
+    'Content-Type': 'application/json',
+  }
+  try {
+    const res = await fetch(
+      `${SB_URL}/rest/v1/auth_attempts?identifier=eq.${encodeURIComponent(key)}&created_at=gte.${since}&select=id`,
+      { headers: { ...headers, Prefer: 'count=exact', Range: '0-0' } },
+    )
+    // PostgREST reports the total in Content-Range as "0-0/N".
+    const total = Number((res.headers.get('content-range') ?? '').split('/')[1] ?? '0')
+    if (total >= max) return true
+    await fetch(`${SB_URL}/rest/v1/auth_attempts`, {
+      method: 'POST', headers, body: JSON.stringify({ identifier: key }),
+    })
+    return false
+  } catch {
+    return false
+  }
+}
+
+// 30 lookups an hour per creator. A town is geocoded once and then stored on
+// the profile, so a creator who is behaving hits this maybe twice in a year.
+const MAX_PER_HOUR = 30
 
 const PRIMARY_ORIGIN = 'https://trypcreators.vercel.app'
 function allowOrigin(origin: string | null): string {
@@ -69,6 +171,12 @@ function cleanCity(city: string): string {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors(req) })
   if (req.method !== 'POST') return json(req, { error: 'method not allowed' }, 405)
+
+  const uid = await verifyUser(bearer(req))
+  if (!uid) return json(req, { error: 'sign in first' }, 401)
+  if (await rateLimited(`geocode:${uid}`, MAX_PER_HOUR, 3_600_000)) {
+    return json(req, { error: 'Too many lookups. Try again shortly.' }, 429)
+  }
 
   let body: { city?: string; country?: string }
   try {

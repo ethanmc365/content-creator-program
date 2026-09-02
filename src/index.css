@@ -124,6 +124,17 @@ html {
     height: 100%;
   }
 
+  /* ROOM TO SCROLL WHILE A KEYBOARD IS UP.
+     `lib/keyboardFollow` sets `--kb-room` to the measured keyboard height for
+     as long as one is on screen. Without it, a short page - a daily puzzle is
+     the case that was reported - is already at the bottom of its own document,
+     so the correction that would lift the guess field above the keys is
+     computed, issued, and does nothing at all. The chat overlay locks the body
+     and lays itself out against the visual viewport, so it is unaffected. */
+  body {
+    padding-bottom: var(--kb-room, 0px);
+  }
+
   /* ---- NO SCROLLBAR, ANYWHERE ----------------------------------------
      Ethan: "the scrollable bar doesn't need to appear anywhere, it just takes
      up space and ruins the aesthetic - not even on the chats, we scroll without

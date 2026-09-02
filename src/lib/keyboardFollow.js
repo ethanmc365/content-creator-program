@@ -71,18 +71,72 @@ function visibleBottom() {
   return vv.height + vv.offsetTop
 }
 
+// HOW TALL THE KEYBOARD IS, OR ZERO IF THERE IS NOT ONE.
+//
+// The layout viewport does not shrink when a software keyboard opens; the
+// VISUAL one does. The difference between them is the keyboard. The 120px
+// floor is there because a mobile browser's own collapsing address bar moves
+// the two apart by forty or fifty pixels all by itself.
+export function keyboardInset() {
+  const vv = typeof window !== 'undefined' ? window.visualViewport : null
+  if (!vv) return 0
+  const raw = Math.round(window.innerHeight - vv.height)
+  return raw > 120 ? raw : 0
+}
+
+// NOTHING IN THIS FILE RUNS WHEN THERE IS NO KEYBOARD (2 Sep 2026).
+//
+// THE BUG THIS FIXES. `revealFocusedField` asked "is the bottom of this field
+// below the bottom of the visible area", which on a DESKTOP is a perfectly
+// ordinary thing for a field to be - it just means the page is long. So
+// focusing the guess box on Guess the Country scrolled a desktop page down to
+// bring the box up, on every focus, and the field is re-focused after every
+// guess. Ethan: "on desktop it should always be scrolled up to the very top,
+// and it should never change that unless a person changes it. I don't know why
+// after I type a word and press guess, it's moving down a bit."
+//
+// A desktop browser has no keyboard to hide behind, handles focus scrolling
+// itself, and was never the reason this file exists. Measuring the inset is
+// the honest test - better than a width query, because a small laptop window
+// is not a phone and a large tablet with a keyboard up is.
+function keyboardUp() {
+  return keyboardInset() > 0
+}
+
+// WHAT HAS TO BE VISIBLE IS THE FIELD *AND ITS BUTTON*.
+//
+// Ethan, on Guess the Country on a phone: "if I'm scrolled up to the very top
+// and then I click to type the country, the type bar and the guess button are
+// hidden behind the keyboard."
+//
+// The old measurement was the input's own rect, so the input could be lifted
+// to a pixel above the keys and the submit button directly underneath it stayed
+// buried. A form is the natural group - the field and the button that sends it
+// are the same control - so the whole form is what gets cleared, as long as it
+// is small enough to fit in what is left of the screen. If it is not, the field
+// alone is the target again: a tall form cannot be fully revealed and trying
+// would push its head off the top.
+function revealTarget(el, visibleHeight) {
+  const group = el.closest('[data-kb-group], form')
+  if (!group) return el
+  const h = group.getBoundingClientRect().height
+  return h > 0 && h <= visibleHeight - MARGIN * 2 ? group : el
+}
+
 /**
  * Bring the focused field above the keyboard, if it is not already.
- * Safe to call at any time; does nothing when nothing is covered.
+ * Safe to call at any time; does nothing when nothing is covered, and nothing
+ * at all when there is no software keyboard on the screen.
  */
 export function revealFocusedField() {
+  if (!keyboardUp()) return
   const el = document.activeElement
   if (!isField(el)) return
 
   const vv = window.visualViewport
   const top = vv ? vv.offsetTop : 0
   const bottom = visibleBottom()
-  const rect = el.getBoundingClientRect()
+  const rect = revealTarget(el, bottom - top).getBoundingClientRect()
 
   // How far it has to move. Positive means it is under the keyboard; negative
   // means the keyboard pushed the page far enough that the field went off the
@@ -123,30 +177,55 @@ export function revealFocusedField() {
  * Install the watcher. Returns an uninstall function.
  * Idempotent per call site; AppLayout mounts exactly one.
  */
+// THERE HAS TO BE SOMEWHERE TO SCROLL TO.
+//
+// THE SECOND HALF OF THE "HIDDEN BEHIND THE KEYBOARD" BUG, and the half no
+// amount of measuring could have fixed. `window.scrollBy` can only move a page
+// that has further to go. A short puzzle page is already at the bottom of its
+// own document, so the correction was computed correctly, issued, and did
+// nothing: the browser had no scroll left to give.
+//
+// A keyboard's worth of padding under the body while a keyboard is up gives the
+// page exactly the room it needs and no more, and it is removed the moment the
+// keyboard goes. It is set as a custom property rather than an inline style so
+// that a surface which handles its own keyboard geometry (the chat overlay,
+// which is `position: fixed` and locks the body) is unaffected either way.
+function applyScrollRoom() {
+  const px = keyboardInset()
+  const root = document.documentElement
+  if (px > 0) root.style.setProperty('--kb-room', `${px}px`)
+  else root.style.removeProperty('--kb-room')
+}
+
 export function installKeyboardFollow() {
   if (typeof window === 'undefined') return () => {}
   let timers = []
 
   const clear = () => { timers.forEach(clearTimeout); timers = [] }
-  const check = () => { clear(); timers = RECHECKS.map((t) => setTimeout(revealFocusedField, t)) }
+  const tick = () => { applyScrollRoom(); revealFocusedField() }
+  const check = () => { clear(); timers = RECHECKS.map((t) => setTimeout(tick, t)) }
 
   const onFocusIn = (e) => { if (isField(e.target)) check() }
+  const onFocusOut = () => { clear(); timers = [setTimeout(applyScrollRoom, 250)] }
   document.addEventListener('focusin', onFocusIn)
+  document.addEventListener('focusout', onFocusOut)
 
   const vv = window.visualViewport
   // The keyboard arriving IS a viewport resize, and on the browsers that do
   // report it this is the accurate signal - the timers above are the fallback
   // for the ones that do not.
   if (vv) {
-    vv.addEventListener('resize', revealFocusedField)
+    vv.addEventListener('resize', tick)
     vv.addEventListener('scroll', revealFocusedField)
   }
 
   return () => {
     clear()
+    document.documentElement.style.removeProperty('--kb-room')
     document.removeEventListener('focusin', onFocusIn)
+    document.removeEventListener('focusout', onFocusOut)
     if (vv) {
-      vv.removeEventListener('resize', revealFocusedField)
+      vv.removeEventListener('resize', tick)
       vv.removeEventListener('scroll', revealFocusedField)
     }
   }

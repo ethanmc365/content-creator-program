@@ -192,7 +192,21 @@ export default function Game() {
   useEffect(() => {
     const settle = () => {
       const el = screen === 'menu' ? null : gameRef.current
-      if (!el) { window.scrollTo({ top: 0, left: 0, behavior: 'auto' }); return }
+      // A DESKTOP GOES TO THE VERY TOP, FULL STOP (2 Sep 2026).
+      //
+      // Scrolling the page heading away is a PHONE answer to a phone problem:
+      // there, the heading plus the app header is a third of the screen and the
+      // puzzle needs all of it. On a desktop there is room for both, and
+      // parking the document 90-odd pixels down means the page opens looking
+      // like somebody already scrolled it. Ethan, on Flight Path: "on desktop
+      // it still scrolled on a bit. It should always be at the top." Same
+      // instruction he gave for Guess the Country.
+      //
+      // `matchMedia` rather than the `useIsMobile` hook because this runs
+      // inside an effect and on a raf after it; a hook value captured in the
+      // closure would be a frame stale on a resize.
+      const phone = window.matchMedia('(max-width: 1023.98px)').matches
+      if (!el || !phone) { window.scrollTo({ top: 0, left: 0, behavior: 'auto' }); return }
       const header = document.querySelector('header')?.getBoundingClientRect().height || 0
       const y = el.getBoundingClientRect().top + window.scrollY - header - 8
       window.scrollTo({ top: Math.max(0, y), left: 0, behavior: 'auto' })

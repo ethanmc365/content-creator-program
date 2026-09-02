@@ -38,7 +38,17 @@ const WEBHOOK_SECRET = Deno.env.get('WEBHOOK_SECRET')
 
 Deno.serve(async (req) => {
   // Only the database webhook (which knows the shared secret) may call this.
-  if (WEBHOOK_SECRET && req.headers.get('x-webhook-secret') !== WEBHOOK_SECRET) {
+  //
+  // IT FAILS CLOSED (2 Sep 2026). The check used to be
+  // `if (WEBHOOK_SECRET && header !== WEBHOOK_SECRET)`, so an UNSET secret
+  // skipped the whole check and left an unauthenticated push-notification
+  // sender - attacker-chosen title, body and LINK, delivered to the phone of
+  // whichever creator id was named - open to the internet. The secret is set in
+  // production today, which is the only reason that was latent rather than
+  // live; a rotation that briefly cleared it would have opened it. A function
+  // whose safety depends on an environment variable being present must refuse
+  // to run when it is not. media-cleanup already gets this right.
+  if (!WEBHOOK_SECRET || req.headers.get('x-webhook-secret') !== WEBHOOK_SECRET) {
     return new Response('unauthorized', { status: 401 })
   }
 

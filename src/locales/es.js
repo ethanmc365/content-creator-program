@@ -1011,6 +1011,8 @@ export default {
   'Platforms you can post on': 'Plataformas en las que puedes publicar',
   'Any platform.': 'Cualquier plataforma.',
   'Views logged so far': 'Visualizaciones registradas hasta ahora',
+  'Nobody has scored yet. Post a video and you take the top spot.': 'Todavía nadie ha puntuado. Publica un vídeo y te pones el primero.',
+  'Points earned so far': 'Puntos conseguidos hasta ahora',
   'updated': 'actualizado',
   'These can still change. Final results are counted after the challenge closes.': 'Todavía pueden cambiar. Los resultados finales se cuentan cuando cierra el reto.',
   'Every place is still open': 'Todos los puestos siguen libres',

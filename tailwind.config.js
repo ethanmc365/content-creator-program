@@ -37,6 +37,13 @@ export default {
           from: { opacity: '0', transform: 'translateY(12px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
         },
+        // Swapping one board of rows for another inside a dialog that is
+        // already open. A short lift rather than a slide: the two lists are the
+        // same object asked a different question, not two pages.
+        'board-swap': {
+          from: { opacity: '0', transform: 'translateY(6px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
         'pop-in': {
           '0%': { opacity: '0', transform: 'scale(0.92)' },
           '60%': { transform: 'scale(1.02)' },
@@ -248,6 +255,7 @@ export default {
         // centre and makes the label look unsteady.
         'cta-glow': 'cta-glow 6s ease-in-out infinite',
         'fade-up': 'fade-up 0.4s ease-out both',
+        'board-swap': 'board-swap 180ms ease-out both',
         'pop-in': 'pop-in 0.35s ease-out both',
         'page-in': 'page-in 0.35s ease-out both',
         'menu-in': 'menu-in 220ms cubic-bezier(0.22, 1.12, 0.36, 1) both',

@@ -1112,13 +1112,20 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
               at all: a challenge that has opened and has no logged views yet is
               not an error, it is the starting line, and saying so is what makes
               the empty board readable. */}
+          {/* AND IT SAYS WHAT THE BOARD IS ACTUALLY COUNTING. A points challenge
+              ranks on posts, view thresholds and claimed bonuses, so a banner
+              reading "Views logged so far" over a column headed POINTS was
+              describing the wrong contest - and it is the first line under the
+              heading, so it is the sentence somebody reads before the numbers.
+              Spain's is the first points challenge the platform has run; see
+              migration 173 for the other half of what that turned up. */}
           {challenge.results_status === 'interim' ? (
             <div className="flex items-start gap-3 rounded-card border border-brand/20 bg-brand-tint/60 px-5 py-4">
               <Icon name="clock" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
               <div>
                 <p className="text-sm font-semibold text-brand">{tr("Current leaderboard")}</p>
                 <p className="text-xs text-smoke">
-                  {tr("Views logged so far")}{challenge.results_updated_at ? ` · ${tr("updated")} ${timeAgo(challenge.results_updated_at)}` : ''}. {tr("These can still change. Final results are counted after the challenge closes.")}
+                  {challenge.scoring === 'points' ? tr("Points earned so far") : tr("Views logged so far")}{challenge.results_updated_at ? ` · ${tr("updated")} ${timeAgo(challenge.results_updated_at)}` : ''}. {tr("These can still change. Final results are counted after the challenge closes.")}
                 </p>
               </div>
             </div>
@@ -1139,7 +1146,9 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                 </p>
                 <p className="text-xs text-smoke">
                   {results.length === 0
-                    ? tr("Nobody has a logged view count yet. Post a video and you take the top spot.")
+                    ? (challenge.scoring === 'points'
+                      ? tr("Nobody has scored yet. Post a video and you take the top spot.")
+                      : tr("Nobody has a logged view count yet. Post a video and you take the top spot."))
                     : tr("Views are counted automatically off each entry's link, a few times a day.")}
                 </p>
               </div>

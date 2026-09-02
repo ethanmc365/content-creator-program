@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { keyboardInset } from './keyboardFollow'
 
 // KEEPING A GAME'S PLAYABLE PART ON THE SCREEN.
 //
@@ -66,6 +67,20 @@ export function useScrollCardIntoView(ref) {
   return useCallback(() => {
     const node = ref.current
     if (!node) return
+    // ONLY WHEN A KEYBOARD IS ACTUALLY COVERING SOMETHING (2 Sep 2026).
+    //
+    // This exists because a phone's keyboard eats the top of the card. On a
+    // desktop nothing is covered, the card's head is already on screen, and
+    // "put the card's top just under the top of the visible area" therefore
+    // means "scroll the page DOWN past the puzzle heading" - on every wrong
+    // guess. Ethan: "on desktop it should always be scrolled up to the very
+    // top... after I type a word and press guess it's moving down a bit. It
+    // should never do that."
+    //
+    // The page is where the reader left it unless a keyboard made that
+    // impossible. Same test `lib/keyboardFollow` uses, so the two cannot
+    // disagree about whether a keyboard is up.
+    if (keyboardInset() === 0) return
     const vv = window.visualViewport
     const top = vv ? vv.offsetTop : 0
     const box = node.getBoundingClientRect()

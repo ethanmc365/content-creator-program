@@ -1489,15 +1489,38 @@ export default function Messages() {
             // already builds (your connections, or active creators if you have
             // none), so there is one definition of "who should I talk to" and
             // no second query.
-            <div className="flex h-full flex-col items-center justify-center gap-5 p-8 text-center">
-              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-tint text-brand" aria-hidden>
-                <Icon name="chat" className="h-7 w-7" />
-              </span>
-              <div>
-                <p className="text-lg font-semibold">
+            // AND IT IS A PANEL NOW, NOT A DRIFT OF CENTRED THINGS
+            // (2 Sep 2026). Ethan: "when you click on the DMs, the open
+            // conversation thing, your connections - everything's weirdly
+            // centred and there are weird lines. It just doesn't make sense."
+            //
+            // Every word of that was accurate. The people were `rounded-full`
+            // chips in a `flex-wrap justify-center` row, so eight of them wrap
+            // into three CENTRED rows of four, three and one - three ragged
+            // edges down the middle of the largest empty rectangle in the
+            // product, and a last row holding a single lonely pill. That is the
+            // "weird lines". The section label was left-aligned over the top of
+            // them, so the label and its own contents did not share an edge:
+            // that is the "weirdly centred".
+            //
+            // A wrapped row of pills cannot be made tidy, because its shape is
+            // decided by how long the names happen to be. A GRID can: two even
+            // columns of full-width rows inside one bordered card, so every
+            // person occupies the same rectangle, every edge lines up with
+            // every other edge, and the label sits on the card's own left edge.
+            //
+            // The heading block above it stays centred - a title and one line
+            // of explanation over a centred card is the one thing on this pane
+            // that was never the problem.
+            <div className="flex h-full flex-col items-center justify-center gap-6 p-8">
+              <div className="flex flex-col items-center text-center">
+                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-tint text-brand" aria-hidden>
+                  <Icon name="chat" className="h-7 w-7" />
+                </span>
+                <p className="mt-4 text-lg font-semibold">
                   {conversations.length > 0 ? tr('Open a conversation') : tr('Say hello to someone')}
                 </p>
-                <p className="mx-auto mt-1 max-w-sm text-sm text-smoke">
+                <p className="mt-1 max-w-sm text-sm text-smoke">
                   {conversations.length > 0
                     ? tr('Pick one from the left, or start a new one with anybody below.')
                     : tr('A message is how most things here actually start: a meet-up, a collab, a question about a brief.')}
@@ -1505,27 +1528,33 @@ export default function Messages() {
               </div>
 
               {startablePeople.length > 0 && (
-                <div className="w-full max-w-md">
-                  <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                <div className="w-full max-w-lg">
+                  <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
                     {myConnections.length > 0 ? tr('Your connections') : tr('Creators here right now')}
                   </p>
-                  <div className="flex flex-wrap justify-center gap-2">
+                  {/* ONE CARD, TWO EVEN COLUMNS. An odd number of people leaves
+                      a gap in the last cell rather than a centred orphan on a
+                      line of its own, which is the difference between a grid
+                      with a hole in it and a layout that looks broken. */}
+                  <div className="grid gap-1 rounded-card border border-gray-100 bg-white p-2 shadow-card sm:grid-cols-2">
                     {startablePeople.map((p) => (
                       <button
                         key={p.id}
                         type="button"
                         onClick={() => startConversation(p.id)}
                         disabled={starting === p.id}
-                        className="flex items-center gap-2 rounded-full border border-gray-200 bg-white py-1.5 pl-1.5 pr-3.5 text-sm font-medium transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-card disabled:opacity-60"
+                        className="flex min-w-0 items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-cloud disabled:opacity-60"
                       >
                         <span className="relative shrink-0">
-                          <Avatar src={p.photo_url} name={p.name} size="xs" />
+                          <Avatar src={p.photo_url} name={p.name} size="sm" />
                           {isOnline(p.last_seen_at) && (
                             <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-white" title={tr('Online now')} />
                           )}
                         </span>
-                        <span className="max-w-[9rem] truncate">{p.name?.split(' ')[0]}</span>
-                        {starting === p.id && <Spinner className="h-3.5 w-3.5" />}
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.name}</span>
+                        {starting === p.id
+                          ? <Spinner className="h-3.5 w-3.5 shrink-0" />
+                          : <Icon name="envelope" className="h-4 w-4 shrink-0 text-gray-300" />}
                       </button>
                     ))}
                   </div>
