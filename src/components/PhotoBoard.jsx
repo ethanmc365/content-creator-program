@@ -1019,13 +1019,28 @@ function PhotoTile({ photo, box, width, size = 'small', arranging, editable, dra
         // because a 200ms ease on `left` means the tile lags the finger - which
         // reads as the board being slow, and is the other half of what Ethan
         // called jittery.
-        // 240ms on the same spring-ish curve the rest of the app settles on,
-        // which is long enough to read as a movement and short enough not to
-        // lag a second drag. The held tile has NO transition at all, because
-        // any easing on its transform means the tile trails the finger.
+        // ONLY THE TRANSFORM MOVES. 240ms on the same spring-ish curve the rest
+        // of the app settles on - long enough to read as a movement, short
+        // enough not to lag a second drag. The held tile has NO transition at
+        // all, because any easing on its transform means the tile trails the
+        // finger.
+        //
+        // WIDTH AND HEIGHT ARE NOT TRANSITIONED. Animating a box's SIZE is
+        // animating LAYOUT - the whole reason the position moved to a transform
+        // (see the style above) - so leaving the size in the list would have
+        // kept the expensive half of exactly what was being removed. A tile
+        // that changes span resizes at once and glides to its new place, which
+        // is the part the eye actually follows.
+        //
+        // (While verifying this, both `width` and `transform` read as stuck at
+        // their start values in a browser pane that was HIDDEN. That is the
+        // pane, not the board: CSS transitions advance on the same clock rAF
+        // does, and this repository has paid for that three times already. A
+        // screenshot forces a paint and everything lands where the packer put
+        // it. Do not "fix" a frozen animation measured in a hidden pane.)
         dragging
           ? 'transition-none'
-          : 'transition-[transform,width,height,box-shadow] duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none',
+          : 'transition-[transform,box-shadow] duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none',
         arranging && 'cursor-grab touch-none active:cursor-grabbing',
       )}
       onPointerDown={(e) => arranging && onDragStart(e, photo)}
