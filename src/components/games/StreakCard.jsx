@@ -255,20 +255,45 @@ export default function StreakCard({ className, days = [], today = null, myId = 
         aria-label={tr("See everyone's streaks")}
         className="absolute inset-0 z-0"
       />
-      <span className="pointer-events-none absolute right-4 top-4 z-10 hidden items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white/90 sm:inline-flex">
-        {tr("Everyone&rsquo;s streaks")}
+      {/* THE AFFORDANCE IS ON THE PHONE TOO (2 Sep 2026). It was
+          `hidden sm:inline-flex`, so on the device most of this page is looked
+          at, the card was silently clickable - which is a card nobody clicks.
+          It says less on a phone because there is less room to say it in, and
+          because the chevron is doing most of the work either way. */}
+      <span className="pointer-events-none absolute right-4 top-4 z-10 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white/90">
+        <span className="hidden sm:inline">{tr("Everyone’s streaks")}</span>
+        <span className="sm:hidden">{tr("Streaks")}</span>
         <Icon name="chevronRight" className="h-3 w-3" />
       </span>
-      <div className="pointer-events-none relative z-10 flex flex-wrap items-center gap-x-8 gap-y-5">
+      {/* A GRID ON A PHONE, THE OLD ROW ON A DESKTOP (2 Sep 2026).
+
+          Ethan: "on mobile the main streak card has a weird UI and isn't very
+          pretty to look at - the thing is a bit off. 'Best ever' is up too
+          high, your streak is too high, 'not counted today yet'. It's just a
+          weird UI, please improve it for mobile."
+
+          It was ONE `flex-wrap items-center` row holding four blocks of wildly
+          different heights: a 48px number, a week of dots, a small statistic
+          and five snowflake tiles. At 375px that wraps into three ragged rows
+          whose contents are all CENTRED against each other, so "Best ever"
+          floats halfway up the block beside it and the run's status line ends
+          up level with nothing. Centring four unequal things is what made it
+          read as "a bit off"; it is not one fault, it is the absence of a
+          layout.
+          Two columns, top-aligned, with the run and the week spanning both -
+          the two facts that want the full width - and the two small statistics
+          side by side underneath. From `sm` up it is the original row, which
+          was never the problem. */}
+      <div className="pointer-events-none relative z-10 grid grid-cols-2 items-start gap-x-5 gap-y-5 sm:flex sm:flex-wrap sm:items-center sm:gap-x-8">
         {/* THE FLAME LEADS, AND IT IS THE STATE. See the note on <Flame>: lit
             when today is counted, embers when the run is alive but today is
             still to be earned, cold at zero. */}
-        <div className="flex items-center gap-4">
+        <div className="col-span-2 flex items-center gap-4 pr-20 sm:col-auto sm:pr-0">
           <StreakFlame state={current === 0 ? 'cold' : (playedToday || frozenToday) ? 'lit' : 'ember'} />
           <div>
             <p className="text-4xl font-bold leading-none tabular-nums sm:text-5xl">{current}</p>
             <p className="mt-1 text-[11px] font-semibold uppercase tracking-widest text-white/75">
-              {current === 1 ? 'day in a row' : 'days in a row'}
+              {current === 1 ? tr('day in a row') : tr('days in a row')}
             </p>
             {/* ONLY THE LINE THAT ASKS FOR SOMETHING.
                 "Counted today. Safe until midnight tomorrow." was cut at
@@ -280,20 +305,20 @@ export default function StreakCard({ className, days = [], today = null, myId = 
               <p className="mt-1.5 flex items-center gap-1.5 text-[11px] font-medium text-white/85">
                 <span className={cx('h-1.5 w-1.5 shrink-0 rounded-full', frozenToday ? 'bg-sky-200' : 'bg-white/40')} />
                 {frozenToday
-                  ? 'A freeze is holding today for you.'
-                  : 'Not counted today yet. One puzzle keeps it.'}
+                  ? tr('A freeze is holding today for you.')
+                  : tr('Not counted today yet. One puzzle keeps it.')}
               </p>
             )}
             {today != null && current === 0 && (
               <p className="mt-1.5 text-[11px] font-medium text-white/85">
-                {tr("Play any one of today&rsquo;s three puzzles to start one.")}
+                {tr("Play any one of today’s three puzzles to start one.")}
               </p>
             )}
           </div>
         </div>
 
         {today != null && (
-          <div>
+          <div className="col-span-2 sm:col-auto">
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/75">
               {tr("This week")}
             </p>
@@ -341,7 +366,7 @@ export default function StreakCard({ className, days = [], today = null, myId = 
                 draw which ones are spent, so the clause repeats them in words,
                 and a specific date is more precision than "monthly" earns on a
                 line nobody came here to read. */}
-            {left} of {FREEZES_PER_MONTH} freezes left this month. Streak freezes reset monthly.
+            {tr('{n} of {total} freezes left this month. Streak freezes reset monthly.', { n: left, total: FREEZES_PER_MONTH })}
           </p>
         </div>
       </div>

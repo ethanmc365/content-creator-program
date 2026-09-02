@@ -240,7 +240,7 @@ export default function LanguageGame({ onExit }) {
 
   if (checking) {
     return (
-      <div className="card !py-16 text-center text-sm text-smoke">{tr("Checking today&rsquo;s puzzle…")}</div>
+      <div className="card !py-16 text-center text-sm text-smoke">{tr("Checking today’s puzzle…")}</div>
     )
   }
 

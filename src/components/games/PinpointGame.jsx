@@ -4,7 +4,8 @@ import { useAuth } from '../../context/AuthContext'
 import { Badge, StreakChip } from '../ui'
 import Icon from '../Icon'
 import { flagEmoji } from '../../lib/countries'
-import { useKeepAboveKeyboard, useScrollCardIntoView } from '../../lib/gameFocus'
+import { useScrollCardIntoView } from '../../lib/gameFocus'
+import PuzzleChrome from './PuzzleChrome'
 import { pinpointForDay, pinpointMatches } from '../../lib/pinpoint'
 import { ukDayIndex, ukDayStartIso, untilNextUkMidnight, dailyStreak } from '../../lib/daily'
 import { cx } from '../../lib/utils'
@@ -43,14 +44,13 @@ export default function PinpointGame({ onExit }) {
   const [clues, setClues] = useState(stored ? MAX_CLUES : 1) // revealed count
   const [guesses, setGuesses] = useState(stored?.guesses ?? [])
   const [typed, setTyped] = useState('')
-  // Opening on the puzzle, and keeping the guess field clear of the keyboard.
-  // See lib/gameFocus for why `scrollIntoView` alone does not do the second.
   const cardRef = useRef(null)
   const formRef = useRef(null)
-  const keepInView = useKeepAboveKeyboard(formRef)
-  // A guess puts the card's HEAD back on screen - the clues, the timer and the
-  // list of what you have already tried - and only then checks the field is
-  // still clear of the keyboard. See lib/gameFocus.
+  // A guess puts the card's HEAD back on screen - the clues, the timer, the
+  // Back to games button and the list of what you have already tried. Keeping
+  // the FIELD clear of the keyboard is no longer this component's job: it is
+  // lib/keyboardFollow, installed once for the whole app, and having both was
+  // two mechanisms scrolling one page. See the note in lib/gameFocus.
   const showCard = useScrollCardIntoView(cardRef)
   const [outcome, setOutcome] = useState(stored?.outcome ?? null) // 'won' | 'lost'
   const [wonOnClue, setWonOnClue] = useState(stored?.wonOnClue ?? null)
@@ -141,7 +141,6 @@ export default function PinpointGame({ onExit }) {
       // put the top of the card back on screen first, because a wrong guess is
       // the moment you want to read the clues again.
       showCard()
-      keepInView()
       setGuesses(next)
       setTyped('')
       setShake(true)
@@ -155,43 +154,38 @@ export default function PinpointGame({ onExit }) {
 
   return (
     <div className="space-y-6">
-      {/* THE CHROME ROW, SIZED FOR THE SCREEN IT IS ON.
-          Ethan: "maybe even condense it slightly so it can fit more on the
-          screen." On a phone every vertical pixel above the clues is a pixel
-          the keyboard takes away from the game, so the badge loses its second
-          half, the two readouts sit tight, and the exit is an icon-and-a-word
-          rather than a sentence. Nothing is hidden - it is the same row, told
-          shorter. */}
-      <div className="flex items-center justify-between gap-2">
-        <span className="flex min-w-0 items-center gap-2">
-          <Badge tone="light" className="!px-2 !py-1 sm:!px-2.5">
-            <Icon name="magnifier" className="h-3.5 w-3.5" />
-            <span className="sm:hidden">{tr("Daily")}</span>
-            <span className="hidden sm:inline">{tr("Guess the Country · Daily puzzle")}</span>
-          </Badge>
-          <StreakChip n={streak} title={`${streak}-day daily streak`} />
-        </span>
-        <div className="flex shrink-0 items-center gap-3 sm:gap-5">
-          <div className="text-center leading-tight">
-            <span className="block text-[10px] font-medium uppercase tracking-wide text-smoke">{tr("Clue")}</span>
-            <span className="block text-sm font-semibold tabular-nums text-ink">{Math.min(clues, MAX_CLUES)} / {MAX_CLUES}</span>
-          </div>
-          {!done && (
-            <div className="text-center leading-tight">
-              <span className="block text-[10px] font-medium uppercase tracking-wide text-smoke">{tr("Time")}</span>
-              <span className="block font-mono text-sm font-semibold tabular-nums text-ink">{fmtTime(elapsed)}</span>
-            </div>
-          )}
-          <button
-            onClick={onExit}
-            className="flex items-center gap-1 rounded-full border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-smoke transition-colors hover:border-brand hover:text-brand"
-          >
-            <Icon name="chevronLeft" className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">{tr("Back to games")}</span>
-            <span className="sm:hidden">{tr("Games")}</span>
-          </button>
-        </div>
-      </div>
+      {/* THE SAME HEADER FLIGHT PATH WEARS (2 Sep 2026).
+
+          Ethan: "the Guess the Country timer bar at the top and the back button
+          is different from Flight Path, and I really like the one on Flight
+          Path - build it into Guess the Country too."
+
+          What was here was a bare flex row: 14px readouts, no panel, no
+          progress, and a Back button that changed its own label at `sm`. Two
+          daily puzzles on one page, two headers. `PuzzleChrome` is Flight
+          Path's, extracted, and the progress bar finally has something honest
+          to show - how far through the five clues you are, which is the one
+          number this puzzle had that nothing was drawing. */}
+      <PuzzleChrome
+        onExit={onExit}
+        progress={(Math.min(clues, MAX_CLUES) / MAX_CLUES) * 100}
+        chips={(
+          <>
+            <Badge tone="light" className="!px-2 !py-1 sm:!px-2.5">
+              <Icon name="magnifier" className="h-3.5 w-3.5" />
+              <span className="sm:hidden">{tr("Daily")}</span>
+              <span className="hidden sm:inline">{tr("Guess the Country · Daily puzzle")}</span>
+            </Badge>
+            <StreakChip n={streak} title={`${streak}-day daily streak`} />
+          </>
+        )}
+        stats={done
+          ? [{ label: tr('Clue'), value: `${Math.min(clues, MAX_CLUES)} / ${MAX_CLUES}` }]
+          : [
+            { label: tr('Clue'), value: `${Math.min(clues, MAX_CLUES)} / ${MAX_CLUES}` },
+            { label: tr('Time'), value: fmtTime(elapsed), mono: true },
+          ]}
+      />
 
       <div ref={cardRef} className="card flex scroll-mt-2 flex-col items-center gap-4 !py-6 text-center sm:gap-6 sm:!py-10">
         <div>
@@ -241,10 +235,6 @@ export default function PinpointGame({ onExit }) {
               <input
                 {...NO_AUTOFILL_SEARCH}
                 inputMode="text" enterKeyHint="go" value={typed} onChange={(e) => setTyped(e.target.value)}
-                // The keyboard must never be over the thing you are typing into,
-                // and a wrong guess grows the list below this and pushes it down.
-                // See lib/gameFocus.
-                onFocus={keepInView}
                 // NO BLINKING CARET. Ethan: "I don't want it to show the flashing
                 // text bar, I just want the ability to write there without it,
                 // because it ruins the aesthetic." `caret-transparent` hides only

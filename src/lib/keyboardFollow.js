@@ -78,27 +78,45 @@ function visibleBottom() {
 export function revealFocusedField() {
   const el = document.activeElement
   if (!isField(el)) return
-  const rect = el.getBoundingClientRect()
-  const bottom = visibleBottom()
-  const over = rect.bottom + MARGIN - bottom
-  if (over <= 0) return
 
+  const vv = window.visualViewport
+  const top = vv ? vv.offsetTop : 0
+  const bottom = visibleBottom()
+  const rect = el.getBoundingClientRect()
+
+  // How far it has to move. Positive means it is under the keyboard; negative
+  // means the keyboard pushed the page far enough that the field went off the
+  // TOP, which happens on a short screen with a tall keyboard and is just as
+  // broken.
+  let by = 0
+  if (rect.bottom + MARGIN > bottom) by = rect.bottom + MARGIN - bottom
+  else if (rect.top < top + MARGIN) by = rect.top - top - MARGIN
+  // A pixel or two either way is the browser's rounding, not a fault. Chasing
+  // those makes the page twitch on every viewport event.
+  if (Math.abs(by) <= 2) return
+
+  // EVERY MOVE IS INSTANT, and this is not a preference.
+  //
+  // `html { scroll-behavior: smooth }` is set platform-wide, so a bare
+  // `scrollBy` animates for a few hundred milliseconds - which is the same
+  // window the keyboard is animating in. The corrections then queue up and
+  // cancel each other, and what a reader sees is the page sliding about under
+  // their thumb while they type. Ethan, on Guess the Country: "it kind of
+  // glitchy scrolls down a bit as I'm typing, which is weird - just fix it so
+  // it properly snaps into place immediately." A correction is not a journey.
   const scroller = scrollableAncestor(el)
   if (scroller) {
-    // BEHAVIOUR IS EXPLICITLY INSTANT. `html { scroll-behavior: smooth }` is set
-    // platform-wide, and a smooth programmatic scroll here loses a race with
-    // the keyboard's own relayout - the same trap `scrollLock`'s restore paid
-    // for, where a restore was starting a thousand-pixel animation towards a
-    // position the relayout then moved. A correction is not a journey.
-    scroller.scrollTop += over
-    // The dialog may have had no room left to give; if so the page itself has
-    // to move, which on a fixed dialog it will not - so fall through to
-    // scrollIntoView, which walks every scrollable ancestor including the
-    // document.
-    const after = el.getBoundingClientRect()
-    if (after.bottom + MARGIN <= bottom) return
+    const before = scroller.scrollTop
+    scroller.scrollTop = before + by
+    const moved = scroller.scrollTop - before
+    by -= moved
+    if (Math.abs(by) <= 2) return
   }
-  el.scrollIntoView({ block: 'center', behavior: 'instant', inline: 'nearest' })
+  // Whatever the scroller could not give, the page gives. Measured against the
+  // VISUAL viewport, which is the only thing that knows where the keyboard's
+  // top edge is - `scrollIntoView` centres inside the LAYOUT viewport, which on
+  // a phone still includes the strip the keyboard is covering.
+  window.scrollBy({ top: by, left: 0, behavior: 'instant' })
 }
 
 /**

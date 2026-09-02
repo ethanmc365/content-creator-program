@@ -413,17 +413,18 @@ function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle, 
       <Reveal as="section" from="down" delay={0.06}>
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-lg font-semibold">{tr("Today’s puzzles")}</h2>
-          {/* The line that says WHY to come back today rather than tomorrow -
-              and NOTHING at all once there is nothing left to come back for.
-              "All three done. New ones at midnight." was telling somebody who
-              had finished to go away, in the place where the reason to stay
-              should be. The three green ticks on the cards below already say
-              they are done. */}
-          {!allDone && (
+          {/* HOW FAR THROUGH TODAY YOU ARE, AND NOTHING ELSE (2 Sep 2026).
+              Ethan: "remove this copy from above the today's puzzle section -
+              'Everyone gets the same three, until midnight.'"
+              It was the line for somebody who had played none of them, and it
+              explained the rules of a section whose three cards say the same
+              thing by existing. What is left is the only version of this line
+              that tells the reader something they did not know: how many of
+              today's three they still have. Nothing at all once they are done -
+              the green ticks say that. */}
+          {!allDone && doneCount > 0 && (
             <span className="text-xs text-smoke">
-              {doneCount
-                ? `${doneCount} of 3 done. The rest expire at midnight.`
-                : 'Everyone gets the same three, until midnight.'}
+              {tr('{n} of 3 done. The rest expire at midnight.', { n: doneCount })}
             </span>
           )}
         </div>

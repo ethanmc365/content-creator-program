@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Badge, StreakChip } from '../ui'
 import Icon from '../Icon'
+import PuzzleChrome from './PuzzleChrome'
 import { generateZip, zipIndexForDay, wallKey } from '../../lib/zip'
 import { ukDayIndex, ukDayStartIso, untilNextUkMidnight, dailyStreak } from '../../lib/daily'
 import { cx } from '../../lib/utils'
@@ -422,49 +423,27 @@ export default function ZipGame({ onExit }) {
           a phone it wrapped into two or three ragged lines and "Back to games"
           ended up wherever there was room. And "Sky filled 42%" was a NUMBER for
           a quantity that is a proportion - the one thing every other mode on
-          this page draws as the gradient bar Ethan picked out (see GameChrome).
+          this page draws as the gradient bar Ethan picked out.
 
-          So: a rounded panel with the puzzle on one line and the two figures on
-          another, the bar across the foot of it filling as the sky does, and the
-          way out as a real button in a fixed corner rather than a link that
-          moves. It stacks at `sm` instead of wrapping, so there is no width at
-          which it comes out ragged. */}
-      <div className="overflow-hidden rounded-card border border-gray-100 bg-white shadow-card">
-        <div className="flex flex-col gap-3 p-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-4">
-          <span className="flex min-w-0 flex-wrap items-center gap-2">
+          IT IS `PuzzleChrome` NOW (2 Sep 2026), because Guess the Country had a
+          different one and Ethan asked for them to be the same. This is the
+          design he named; the component is where it lives so the third daily
+          puzzle cannot invent a fourth. */}
+      <PuzzleChrome
+        onExit={onExit}
+        progress={progress}
+        chips={(
+          <>
             <Badge tone="light"><Icon name="plane-tryp" className="h-3.5 w-3.5" /> {tr("Flight Path")}</Badge>
             <Badge tone={HARD_DIFFS.includes(difficulty) ? 'brand' : 'grey'} className="!px-2 !py-0.5 text-[10px]">{DIFF_LABEL[difficulty]}</Badge>
             <StreakChip n={streak} title={`${streak}-day daily streak`} />
-          </span>
-          <div className="flex shrink-0 items-center gap-4 sm:gap-5">
-            <div className="leading-tight">
-              <span className="block text-[10px] font-medium uppercase tracking-widest text-smoke">{tr("Sky filled")}</span>
-              <span className="block text-base font-bold tabular-nums text-ink sm:text-lg">{progress}%</span>
-            </div>
-            <div className="leading-tight">
-              <span className="block text-[10px] font-medium uppercase tracking-widest text-smoke">{tr("Time")}</span>
-              <span className="block font-mono text-base font-bold tabular-nums text-ink sm:text-lg">{solved ? fmtTime(solveMs ?? 0) : fmtTime(elapsed)}</span>
-            </div>
-            <button
-              onClick={onExit}
-              className="ml-auto flex items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold text-smoke transition-all duration-200 hover:-translate-y-0.5 hover:border-brand hover:text-brand sm:ml-0"
-            >
-              <Icon name="chevronLeft" className="h-3.5 w-3.5" />
-              {tr("Games")}
-            </button>
-          </div>
-        </div>
-        {/* Zero-width fills still paint their padding, so at 0% there is no bar
-            at all - just the track. */}
-        <div className="h-1.5 w-full bg-cloud">
-          {progress > 0 && (
-            <div
-              className="h-full rounded-r-full bg-gradient-to-r from-brand to-brand-light transition-[width] duration-300 ease-out"
-              style={{ width: `${progress}%` }}
-            />
-          )}
-        </div>
-      </div>
+          </>
+        )}
+        stats={[
+          { label: tr('Sky filled'), value: `${progress}%` },
+          { label: tr('Time'), value: solved ? fmtTime(solveMs ?? 0) : fmtTime(elapsed), mono: true },
+        ]}
+      />
 
       <div className="card !p-3 sm:!p-6">
         {/* The rules, split so the phone gets the short version. The full
@@ -496,25 +475,46 @@ export default function ZipGame({ onExit }) {
             onPointerCancel={onPointerUp}
             aria-label={tr("Flight path puzzle board")}
           >
+            {/* THE SKY IS WHITE (2 Sep 2026).
+
+                Ethan: "the only thing I would improve is the blue background
+                colour - I think we can just have a white background, it might
+                be nicer and fit with the platform design more. The blue one
+                doesn't really make sense."
+
+                It was a three-stop blue gradient, and he is right on both
+                counts: this platform is white-dominant with orange as its only
+                accent (see the house rules), so a saturated blue panel was the
+                one surface in the product painted in a colour the product does
+                not own - and the board's whole subject, the orange flight path,
+                was fighting it for attention. On white the trail is the only
+                colour on the board, which is what a puzzle about drawing a line
+                should look like.
+
+                A WHISPER OF A GRADIENT, NOT A FLAT FILL. The board is a large
+                square and a perfectly flat white one has no body at all against
+                a white card; two percent of grey from top to bottom is enough
+                to read as a surface without reading as a colour. */}
             <defs>
               <linearGradient id="fp-sky" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#aed7f5" />
-                <stop offset="55%" stopColor="#cfe8fb" />
-                <stop offset="100%" stopColor="#e8f4fd" />
+                <stop offset="0%" stopColor="#ffffff" />
+                <stop offset="100%" stopColor="#f4f4f6" />
               </linearGradient>
             </defs>
             {/* the sky behind the flight grid */}
             <rect x="0" y="0" width={W} height={W} fill="url(#fp-sky)" />
-            {/* sky cells: translucent rounded panes with the blue sky showing
-                between them; the flown route is drawn over them as a snake */}
+            {/* Sky cells. On blue these were translucent white panes with the
+                blue showing between them; on white the relationship inverts -
+                the cells are the faintly tinted thing and the gaps are the
+                white - or the grid would be invisible. */}
             {Array.from({ length: N }).map((_, cell) => {
               const x = (cell % size) * CELL, y = Math.floor(cell / size) * CELL
               return (
                 <rect
                   key={cell}
                   x={x + 3} y={y + 3} width={CELL - 6} height={CELL - 6} rx={14}
-                  fill="rgba(255,255,255,0.42)"
-                  stroke="rgba(255,255,255,0.85)"
+                  fill="#ffffff"
+                  stroke="rgba(26,26,26,0.09)"
                   strokeWidth={1.5}
                 />
               )
@@ -540,6 +540,10 @@ export default function ZipGame({ onExit }) {
                     style={{ pointerEvents: 'none' }}
                   />
                 ))}
+                {/* The contrail dashes stay WHITE: they are drawn ON the orange
+                    body, not on the board, so the board's colour is irrelevant
+                    to them - and white on orange is the contrast this platform
+                    uses everywhere. */}
                 <path className="fp-trail-dash" d={trailD} fill="none" stroke="#ffffff" strokeWidth={5} strokeDasharray="3 16" strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
               </>
             ) : (
