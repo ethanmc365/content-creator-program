@@ -1,0 +1,1391 @@
+<title>Tryp.com Platform Handover</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --ground:      #ffffff;
+    --paper:       #faf8f6;
+    --paper-deep:  #f3efeb;
+    --ink:         #191512;
+    --muted:       #6b625c;
+    --faint:       #938880;
+    --line:        #e8e1dc;
+    --line-strong: #d6ccc5;
+    --brand:       #d94407;
+    --brand-soft:  #fbede6;
+    --crit:        #9b1c2e;
+    --crit-soft:   #f9e9eb;
+    --high:        #8a5a00;
+    --high-soft:   #faf1de;
+    --med:         #4c5a66;
+    --med-soft:    #edf1f4;
+    --good:        #1f6b47;
+    --good-soft:   #e7f2ec;
+
+    --f-display: 'Poppins', 'Helvetica Neue', Arial, sans-serif;
+    --f-body:    'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
+    --f-mono:    'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #141110;
+      --paper:       #1c1815;
+      --paper-deep:  #241f1b;
+      --ink:         #f1ebe6;
+      --muted:       #a89c94;
+      --faint:       #837770;
+      --line:        #322b26;
+      --line-strong: #453c35;
+      --brand:       #f5853f;
+      --brand-soft:  #33200f;
+      --crit:        #f28c9c;
+      --crit-soft:   #3a1a20;
+      --high:        #e0b25c;
+      --high-soft:   #33280f;
+      --med:         #a8b8c4;
+      --med-soft:    #22292e;
+      --good:        #7fd0a5;
+      --good-soft:   #15291f;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:      #141110;
+    --paper:       #1c1815;
+    --paper-deep:  #241f1b;
+    --ink:         #f1ebe6;
+    --muted:       #a89c94;
+    --faint:       #837770;
+    --line:        #322b26;
+    --line-strong: #453c35;
+    --brand:       #f5853f;
+    --brand-soft:  #33200f;
+    --crit:        #f28c9c;
+    --crit-soft:   #3a1a20;
+    --high:        #e0b25c;
+    --high-soft:   #33280f;
+    --med:         #a8b8c4;
+    --med-soft:    #22292e;
+    --good:        #7fd0a5;
+    --good-soft:   #15291f;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--f-body);
+    font-size: 16px;
+    line-height: 1.62;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .shell {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 0 24px 120px;
+  }
+  @media (min-width: 1080px) {
+    .shell { grid-template-columns: 232px minmax(0, 1fr); gap: 56px; padding: 0 40px 140px; }
+  }
+
+  /* ---- masthead ---- */
+  .masthead {
+    grid-column: 1 / -1;
+    padding: 72px 0 40px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 48px;
+  }
+  .eyebrow {
+    font-family: var(--f-mono);
+    font-size: 11.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--brand);
+    margin: 0 0 18px;
+  }
+  h1 {
+    font-family: var(--f-display);
+    font-weight: 700;
+    font-size: clamp(34px, 5.2vw, 56px);
+    line-height: 1.04;
+    letter-spacing: -0.022em;
+    margin: 0 0 20px;
+    text-wrap: balance;
+    max-width: 16ch;
+  }
+  .standfirst {
+    font-size: 18px;
+    line-height: 1.58;
+    color: var(--muted);
+    max-width: 62ch;
+    margin: 0;
+  }
+  .statline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    margin-top: 36px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .stat {
+    flex: 1 1 150px;
+    padding: 14px 18px;
+    border-right: 1px solid var(--line);
+    background: var(--paper);
+  }
+  .stat:last-child { border-right: 0; }
+  .stat dt {
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin: 0 0 4px;
+  }
+  .stat dd {
+    font-family: var(--f-display);
+    font-weight: 600;
+    font-size: 15px;
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---- side nav ---- */
+  nav.toc { display: none; }
+  @media (min-width: 1080px) {
+    nav.toc {
+      display: block;
+      position: sticky;
+      top: 32px;
+      align-self: start;
+      max-height: calc(100vh - 64px);
+      overflow-y: auto;
+      padding-bottom: 24px;
+    }
+    nav.toc p {
+      font-family: var(--f-mono);
+      font-size: 10.5px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--faint);
+      margin: 0 0 14px;
+    }
+    nav.toc ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+    nav.toc a {
+      display: block;
+      font-size: 13.5px;
+      line-height: 1.42;
+      color: var(--muted);
+      text-decoration: none;
+      padding: 6px 10px 6px 12px;
+      border-left: 2px solid var(--line);
+      border-radius: 0 3px 3px 0;
+      transition: color .15s, border-color .15s, background .15s;
+    }
+    nav.toc a:hover, nav.toc a:focus-visible {
+      color: var(--ink);
+      background: var(--paper);
+      border-left-color: var(--brand);
+    }
+  }
+
+  main { min-width: 0; }
+
+  section { margin-bottom: 76px; scroll-margin-top: 24px; }
+
+  h2 {
+    font-family: var(--f-display);
+    font-weight: 700;
+    font-size: 27px;
+    letter-spacing: -0.014em;
+    line-height: 1.2;
+    margin: 0 0 8px;
+    text-wrap: balance;
+  }
+  h2 + .lede { margin-top: 0; }
+  .lede {
+    color: var(--muted);
+    font-size: 16.5px;
+    max-width: 66ch;
+    margin: 0 0 30px;
+  }
+  h3 {
+    font-family: var(--f-display);
+    font-weight: 600;
+    font-size: 18px;
+    letter-spacing: -0.008em;
+    margin: 40px 0 12px;
+    text-wrap: balance;
+  }
+  h4 {
+    font-family: var(--f-display);
+    font-weight: 600;
+    font-size: 15px;
+    margin: 0 0 6px;
+  }
+  p { max-width: 68ch; margin: 0 0 16px; }
+  a { color: var(--brand); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  strong { font-weight: 600; }
+  em { font-style: italic; }
+
+  code {
+    font-family: var(--f-mono);
+    font-size: 0.87em;
+    background: var(--paper-deep);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 1px 5px;
+    word-break: break-word;
+  }
+  pre {
+    font-family: var(--f-mono);
+    font-size: 12.5px;
+    line-height: 1.62;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    margin: 0 0 20px;
+  }
+  pre code { background: none; border: 0; padding: 0; font-size: inherit; }
+
+  /* ---- ordered action list ---- */
+  ol.steps { list-style: none; counter-reset: step; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  ol.steps > li {
+    counter-increment: step;
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 18px;
+    padding: 22px 0;
+    border-top: 1px solid var(--line);
+  }
+  ol.steps > li:last-child { border-bottom: 1px solid var(--line); }
+  ol.steps > li::before {
+    content: counter(step, decimal-leading-zero);
+    font-family: var(--f-mono);
+    font-weight: 500;
+    font-size: 13px;
+    color: var(--brand);
+    padding-top: 2px;
+    font-variant-numeric: tabular-nums;
+  }
+  ol.steps .who {
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin: 6px 0 0;
+  }
+  ol.steps p { margin: 0 0 10px; }
+  ol.steps p:last-child { margin-bottom: 0; }
+
+  /* ---- chips ---- */
+  .chip {
+    display: inline-block;
+    font-family: var(--f-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 3px;
+    white-space: nowrap;
+    vertical-align: 2px;
+  }
+  .chip.crit { background: var(--crit-soft); color: var(--crit); }
+  .chip.high { background: var(--high-soft); color: var(--high); }
+  .chip.med  { background: var(--med-soft);  color: var(--med); }
+  .chip.good { background: var(--good-soft); color: var(--good); }
+  .chip.open { background: var(--brand-soft); color: var(--brand); }
+
+  /* ---- findings ---- */
+  .finding {
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 22px 24px;
+    margin-bottom: 14px;
+    background: var(--paper);
+  }
+  .finding .head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .finding .head h4 { margin: 0; font-size: 16px; }
+  .finding p { margin: 0 0 12px; max-width: none; }
+  .finding p:last-child { margin-bottom: 0; }
+  .finding .target {
+    font-family: var(--f-mono);
+    font-size: 12.5px;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 12px;
+    word-break: break-all;
+  }
+  .proof {
+    font-family: var(--f-mono);
+    font-size: 12px;
+    line-height: 1.6;
+    background: var(--ground);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 12px 14px;
+    overflow-x: auto;
+    margin: 0 0 12px;
+    color: var(--muted);
+  }
+  .proof b { color: var(--ink); font-weight: 600; }
+  .verdict {
+    font-size: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    margin-top: 4px;
+    color: var(--muted);
+  }
+  .verdict strong { color: var(--good); }
+
+  /* ---- tables ---- */
+  .tablewrap { overflow-x: auto; margin: 0 0 22px; border: 1px solid var(--line); border-radius: 4px; }
+  table { border-collapse: collapse; width: 100%; min-width: 520px; font-size: 14.5px; }
+  th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  thead th {
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--faint);
+    font-weight: 500;
+    background: var(--paper);
+  }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.mono, th.mono { font-family: var(--f-mono); font-size: 13px; font-variant-numeric: tabular-nums; }
+
+  /* ---- credential card ---- */
+  .cred {
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    background: var(--paper);
+    padding: 26px;
+    margin-bottom: 24px;
+  }
+  .cred dl {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px 28px;
+    margin: 0 0 20px;
+  }
+  @media (min-width: 620px) { .cred dl { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .cred dt {
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin-bottom: 3px;
+  }
+  .cred dd {
+    font-family: var(--f-mono);
+    font-size: 15px;
+    margin: 0;
+    word-break: break-all;
+    font-weight: 500;
+  }
+  .cred .note { font-size: 14px; color: var(--muted); margin: 0; }
+
+  /* ---- callout ---- */
+  .callout {
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--brand);
+    border-radius: 0 4px 4px 0;
+    background: var(--paper);
+    padding: 18px 22px;
+    margin: 0 0 24px;
+  }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout .tag {
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--brand);
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  /* ---- script / talking points ---- */
+  ul.plain { list-style: none; margin: 0 0 22px; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+  ul.plain > li {
+    display: grid;
+    grid-template-columns: 14px minmax(0, 1fr);
+    gap: 12px;
+    font-size: 15.5px;
+    max-width: 70ch;
+  }
+  ul.plain > li::before {
+    content: "";
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--brand);
+    margin-top: 10px;
+  }
+  ul.plain ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); font-size: 14.5px; }
+  ul.plain ul li { margin-bottom: 4px; }
+
+  .askbox {
+    border: 1px dashed var(--line-strong);
+    border-radius: 4px;
+    padding: 18px 22px;
+    margin: 0 0 22px;
+    background: var(--ground);
+  }
+  .askbox h4 { color: var(--brand); }
+  .askbox p { margin-bottom: 0; }
+
+  footer {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--line);
+    padding-top: 28px;
+    margin-top: 12px;
+    font-size: 13.5px;
+    color: var(--faint);
+    max-width: 70ch;
+  }
+  footer p { max-width: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+
+<div class="shell">
+
+  <header class="masthead">
+    <p class="eyebrow">Creator Platform · 2 September 2026</p>
+    <h1>What to do next, and what I locked down</h1>
+    <p class="standfirst">
+      Everything from the call with André and Ellu, turned into an order of play, plus a full security
+      audit of the live platform, four vulnerabilities found and fixed, and a demo account you can hand
+      to the team today.
+    </p>
+    <dl class="statline">
+      <div class="stat"><dt>Live</dt><dd>trypcreators.vercel.app</dd></div>
+      <div class="stat"><dt>Shipped today</dt><dd>5 migrations, 3 functions</dd></div>
+      <div class="stat"><dt>Vulnerabilities</dt><dd>4 found, 4 fixed</dd></div>
+      <div class="stat"><dt>Tests</dt><dd>507 passing</dd></div>
+    </dl>
+  </header>
+
+  <nav class="toc" aria-label="Contents">
+    <p>Contents</p>
+    <ol>
+      <li><a href="#now">Do this first</a></li>
+      <li><a href="#account">The team's demo account</a></li>
+      <li><a href="#spain">The Spanish demo data</a></li>
+      <li><a href="#audit">Security audit</a></li>
+      <li><a href="#helio">What Helio needs</a></li>
+      <li><a href="#sebastian">The Sebastian call</a></li>
+      <li><a href="#friday">Friday's presentation</a></li>
+      <li><a href="#people">Everyone else</a></li>
+      <li><a href="#invoice">The invoice</a></li>
+      <li><a href="#shipped">Also shipped today</a></li>
+      <li><a href="#open">What I did not do</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <!-- ============================================ NOW -->
+    <section id="now">
+      <h2>Do this first</h2>
+      <p class="lede">
+        In order. The first three are blockers for next week's global challenge; the rest are this week's
+        commitments from the call.
+      </p>
+
+      <ol class="steps">
+        <li>
+          <div>
+            <h4>Turn on Supabase Pro</h4>
+            <p class="who">You · today · ~$25, already approved by André</p>
+            <p>
+              You cannot onboard 45+ creators onto a free-tier project. The free plan pauses after seven
+              days of inactivity, caps connections, and gives you no point-in-time recovery, which is which is
+              the one thing you want on the day you are holding everyone's payment details and a live
+              prize leaderboard. Do this before you invite anybody.
+            </p>
+            <p>
+              Upgrade at <code>supabase.com/dashboard/project/heuhqqoxyggawuckxocp/settings/billing</code>.
+              While you are in there, do step 2 as well, since it is thirty seconds and it is in the same panel.
+            </p>
+          </div>
+        </li>
+
+        <li>
+          <div>
+            <h4>Switch on leaked-password protection</h4>
+            <p class="who">You · today · one toggle</p>
+            <p>
+              Supabase can check every new password against the HaveIBeenPwned breach corpus and refuse the
+              ones that are already public. It is off. With 45 creators about to pick passwords, it is the
+              single highest-value thing you can turn on. Dashboard → Authentication → password settings →
+              enable leaked password protection.
+            </p>
+            <p>
+              This is the only security item from today's audit that I could not fix from code. It is it is a
+              project setting, not a migration.
+            </p>
+          </div>
+        </li>
+
+        <li>
+          <div>
+            <h4>Send the team their account</h4>
+            <p class="who">You · today · André, Ellu, Helio</p>
+            <p>
+              Credentials are in the next section. One shared account, full admin sight of everything,
+              and physically unable to spend money, send mail or post a message. Send it with the two
+              sentences I have drafted so nobody wonders what they are allowed to press.
+            </p>
+          </div>
+        </li>
+
+        <li>
+          <div>
+            <h4>Book Sebastian</h4>
+            <p class="who">You · today · André asked for it today</p>
+            <p>
+              This is the one with a deadline attached that is not yours. André wants the platform inside
+              Tryp.com's infrastructure for GDPR, and Sebastian owns DNS and email signing. See
+              <a href="#sebastian">the Sebastian call</a> for what to show him, what to ask for, and what
+              not to promise.
+            </p>
+          </div>
+        </li>
+
+        <li>
+          <div>
+            <h4>Onboard the country managers</h4>
+            <p class="who">You · this week</p>
+            <p>
+              Committed on the call. Each one needs a market manager account so they can see their own
+              roster and run their own challenge. Do this before the creators arrive, so there is somebody
+              in each market when the WhatsApp groups land.
+            </p>
+          </div>
+        </li>
+
+        <li>
+          <div>
+            <h4>Prepare Friday</h4>
+            <p class="who">You · Friday team meeting</p>
+            <p>
+              André asked you to present the platform and how it was built with Claude and Supabase.
+              Outline in <a href="#friday">Friday's presentation</a>. Twenty minutes of material, and the
+              build story is genuinely the interesting half.
+            </p>
+          </div>
+        </li>
+
+        <li>
+          <div>
+            <h4>Onboard the creators, launch the global challenge</h4>
+            <p class="who">You · next week · needs steps 1 and 5 done</p>
+            <p>
+              All communities off WhatsApp and onto the platform, then the first multi-market challenge with
+              around ten prizes in cash and Tryp.com vouchers. The Spanish demo data now on the platform is
+              a working rehearsal of exactly this: entries, automatic view counts, a points leaderboard and
+              prize places that fill themselves in.
+            </p>
+          </div>
+        </li>
+
+        <li>
+          <div>
+            <h4>Put the recurring call in the diary</h4>
+            <p class="who">You · once your timetable is confirmed</p>
+            <p>
+              Bi-weekly with André, Wednesdays at 10:30 or 10:45, to be adjusted around university. Send the
+              invite yourself rather than waiting. It is the cheapest way to keep a CEO's attention on
+              something that is going well.
+            </p>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <!-- ============================================ ACCOUNT -->
+    <section id="account">
+      <h2>The team's demo account</h2>
+      <p class="lede">
+        One shared login for André, Ellu and Helio. Global admin, every market, every screen, and fenced
+        in the database so it cannot reach a real creator.
+      </p>
+
+      <div class="cred">
+        <dl>
+          <div>
+            <dt>Sign in at</dt>
+            <dd>trypcreators.vercel.app</dd>
+          </div>
+          <div>
+            <dt>Role</dt>
+            <dd>Global admin</dd>
+          </div>
+          <div>
+            <dt>Email</dt>
+            <dd>team@trypcreators.test</dd>
+          </div>
+          <div>
+            <dt>Password</dt>
+            <dd>TrypTeam!2026</dd>
+          </div>
+        </dl>
+        <p class="note">
+          Shared, so treat it as disposable. If you want individual logins for Helio or Ellu later,
+          it is a two-minute job. The address is on a <code>.test</code> domain, which by standard can
+          never receive mail, so the account cannot be used to reset anything by email.
+        </p>
+      </div>
+
+      <h3>What it can do</h3>
+      <p>
+        Everything you can see: every market, the full creator roster, challenge briefs and leaderboards,
+        analytics, the rewards and invoice ledger, reported messages, the audit log, milestones, the
+        games, the network graph. It can create a challenge, write an admin note, edit a market, move
+        people between leaderboard groups, and fill in any form to see what it does.
+      </p>
+
+      <h3>What it cannot do, enforced in the database</h3>
+      <p>
+        Not hidden buttons. Refused refused at the row level, so it holds even if somebody drives the API
+        directly with the account's token.
+      </p>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Blocked</th><th>Why that one</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Money</strong><br><span class="chip med">rewards</span> <span class="chip med">invoices</span></td>
+              <td>Awarding a prize writes a reward, and a cash reward raises a draft invoice with a real creator's bank details snapshotted into it. A curious press should not become a financial record.</td>
+            </tr>
+            <tr>
+              <td><strong>Outbound</strong><br><span class="chip med">notifications</span> <span class="chip med">email</span></td>
+              <td>A notification row is a push to a real creator's phone; an outbox row is an email. These are the only two things on the platform that reach somebody who is not looking at it.</td>
+            </tr>
+            <tr>
+              <td><strong>Messages</strong><br><span class="chip med">rooms</span> <span class="chip med">DMs</span></td>
+              <td>You asked for this specifically. The account can read every room and every conversation it belongs to, and cannot post in any of them.</td>
+            </tr>
+            <tr>
+              <td><strong>Settings</strong><br><span class="chip med">app_settings</span></td>
+              <td>Feature flags. Turning one off is invisible from the screen you turned it off on, and visible to all 44 creators.</td>
+            </tr>
+            <tr>
+              <td><strong>Deletion</strong><br><span class="chip med">anything</span></td>
+              <td>Creators, challenges, entries, markets, messages, results. Nothing on the platform is recoverable through the interface once it is gone.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        It can still mark its own notifications as read, because that reaches nobody. Anything it is
+        refused says so in plain words rather than failing silently:
+        <em>"this demo account can look at everything here but cannot change money, mail or settings."</em>
+      </p>
+
+      <div class="callout">
+        <span class="tag">Suggested message to send with it</span>
+        <p>
+          Here is a login for the creator platform: <strong>team@trypcreators.test</strong> /
+          <strong>TrypTeam!2026</strong>. It is a full admin account, so you will see every market, every
+          creator and all the data, so press anything you like. It is deliberately unable to send messages,
+          send email, pay anybody or delete anything, so there is nothing you can break. Spain has a full
+          set of demo entries on it if you want to see a challenge running end to end.
+        </p>
+      </div>
+    </section>
+
+    <!-- ============================================ SPAIN -->
+    <section id="spain">
+      <h2>The Spanish demo data</h2>
+      <p class="lede">
+        Spain had a live challenge and nobody in it. It now has eight creators, twenty-four entries and a
+        working leaderboard, built on real video links, so the view scraper reads genuine numbers off them.
+      </p>
+
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>What</th><th>Detail</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Challenge</td><td>Descubre España con Tryp.com. Live, closes 6 September</td></tr>
+            <tr><td>Prizes</td><td>€105 / €55 / €30 cash, plus a €10 Tryp.com voucher for anyone with three entries. Matches the UK challenge, converted into the market's euros.</td></tr>
+            <tr><td>Creators</td><td>Eight, in Madrid, Barcelona, Valencia, Sevilla, Málaga, Bilbao, Palma and Granada</td></tr>
+            <tr><td>Entries</td><td>Twenty-four, one to five each, so both sides of the three-entry voucher threshold are visible</td></tr>
+            <tr><td>Leaderboard</td><td>Points: 18 / 12 / 7 at the top, filled automatically from posts, view thresholds and claimed bonuses</td></tr>
+            <tr><td>View sync</td><td class="mono">24 of 24 read live, 0 errors</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>The bit worth showing them</h3>
+      <p>
+        Every one of the twenty-four links is a real, live TikTok or Instagram video taken from the archived
+        UK challenge. So when Ellu or André press <strong>Sync views</strong> on the admin results page, the
+        scraper goes out, reads each post, and the numbers move. I ran it once to prove it: all twenty-four
+        read successfully, and the top entry went from 15,200 to 15,400 views while I was watching.
+      </p>
+      <p>
+        That is the answer to "does the scraper actually work" without asking anybody to take it on trust, and it is the same feature Ellu's internal tool is building, so it is the natural place to start the
+        cross-check André asked for.
+      </p>
+
+      <div class="callout">
+        <span class="tag">One caveat, so nobody is surprised</span>
+        <p>
+          These eight are ordinary creator accounts, not flagged as test data, because the leaderboard, the
+          roster and the market map all deliberately hide test accounts, and flagging them would have made them
+          invisible, which defeats the point. So the platform-wide creator count now reads 52 rather than 44.
+          Every one of them is on a <code>@demo.trypcreators.test</code> address, which can never receive
+          mail. When you want them gone:
+        </p>
+        <pre><code>-- Removes the eight demo creators and everything they wrote.
+delete from auth.users where email like '%@demo.trypcreators.test';</code></pre>
+      </div>
+    </section>
+
+    <!-- ============================================ AUDIT -->
+    <section id="audit">
+      <h2>Security audit</h2>
+      <p class="lede">
+        A hands-on audit of the live platform, run today against production. Four real vulnerabilities,
+        all fixed and verified. Everything below was proven by making the request, not by reading the code.
+      </p>
+
+      <h3>How it was tested</h3>
+      <p>
+        Three attacker positions, in order of how likely they are:
+      </p>
+      <ul class="plain">
+        <li>
+          <strong>A stranger with nothing.</strong> The publishable API key ships inside the JavaScript
+          bundle, so anybody who has opened the site once has it. Every table and every database function
+          called directly, without signing in.
+        </li>
+        <li>
+          <strong>A signed-in creator.</strong> A real session token, used against the API directly rather
+          than through the app, trying to read other people's messages, private details and money, and to
+          promote itself to admin.
+        </li>
+        <li>
+          <strong>Every server function.</strong> All fourteen edge functions called anonymously and as a
+          creator, checking each one's own authentication rather than trusting its configuration.
+        </li>
+      </ul>
+
+      <h3>What was found</h3>
+
+      <div class="finding">
+        <div class="head">
+          <span class="chip crit">Critical</span> <span class="chip good">Fixed</span>
+          <h4>A stranger could award the prize money</h4>
+        </div>
+        <span class="target">public.award_challenge_prizes_internal(uuid, boolean)</span>
+        <p>
+          The admin-facing function that awards challenge prizes correctly checks that you are on the team.
+          The internal function it calls, which does the actual work, writes the reward rows, and triggers
+          a draft invoice with the winner's bank details snapshotted into it, and it had no check at all and was
+          callable by anyone. The challenge ID it needs is handed out to anonymous visitors by design, for
+          the landing page.
+        </p>
+        <div class="proof">
+$ curl <b>-H "apikey: &lt;the key from the JS bundle&gt;"</b> \<br>
+&nbsp;&nbsp;.../rpc/award_challenge_prizes_internal -d '{"p_challenge_id":"f8c2…","p_dry_run":true}'<br>
+<b>HTTP 200</b> · accepted, unauthenticated
+        </div>
+        <p class="verdict">
+          <strong>Fixed and verified.</strong> Now <code>HTTP 401 permission denied</code>. It also carries a
+          second, independent lock inside the function itself, because this is the one that moves money.
+        </p>
+      </div>
+
+      <div class="finding">
+        <div class="head">
+          <span class="chip high">High</span> <span class="chip good">Fixed</span>
+          <h4>A stranger could write to any creator's record</h4>
+        </div>
+        <span class="target">public.milestone_progress(uuid)</span>
+        <p>
+          This function takes any creator's ID and writes their milestone progress as a side effect of
+          reading it. Unauthenticated, against any account on the platform. It also read back their
+          progress, which is private to them and the team.
+        </p>
+        <p class="verdict">
+          <strong>Fixed and verified.</strong> Now <code>HTTP 401</code> anonymously, and unchanged for a
+          signed-in creator.
+        </p>
+      </div>
+
+      <div class="finding">
+        <div class="head">
+          <span class="chip med">Medium</span> <span class="chip good">Fixed</span>
+          <h4>The community's data was readable by anyone</h4>
+        </div>
+        <span class="target">best_streak_leaderboard · views_leaderboard · creator_metrics · milestone_state · milestone_overview · route_creators · community_aircraft_gap · can_edit_locale</span>
+        <p>
+          Eight functions returning creator names, photographs, view counts, wins, per-creator performance
+          metrics and milestone progress, all of it to an unauthenticated caller. Not catastrophic, and not
+          something you would want to explain to a creator who assumed the platform was private.
+        </p>
+        <p class="verdict"><strong>Fixed and verified.</strong> All eight now refuse anonymous callers and work normally when signed in.</p>
+      </div>
+
+      <div class="finding">
+        <div class="head">
+          <span class="chip high">High</span> <span class="chip good">Fixed</span>
+          <h4>An open URL-fetcher, and a lie in the comments</h4>
+        </div>
+        <span class="target">edge function: link-preview · geocode</span>
+        <p>
+          Both functions were marked as requiring a signed-in user, and both had a comment in the source
+          saying exactly that. It was not true. The gateway setting they relied on accepts the publishable
+          key as a valid credential. It has to, because that is how the browser reaches the database before
+          anybody has logged in. So <code>link-preview</code> was a free URL-fetcher for the entire internet,
+          running on Tryp.com's servers.
+        </p>
+        <div class="proof">
+$ curl <b>-H "apikey: &lt;the key from the JS bundle&gt;"</b> .../link-preview -d '{"url":"https://example.com"}'<br>
+<b>HTTP 200</b> {"title":"Example Domain","siteName":"example.com"}
+        </div>
+        <p class="verdict">
+          <strong>Fixed and verified.</strong> Both now verify the caller's token cryptographically against
+          the project's public keys, the way the upload and view-sync functions already did, and both carry a
+          per-creator hourly limit. Anonymous callers get <code>401 sign in first</code>; signed-in creators
+          are unaffected.
+        </p>
+      </div>
+
+      <div class="finding">
+        <div class="head">
+          <span class="chip high">High</span> <span class="chip good">Fixed</span>
+          <h4>The push-notification sender failed open</h4>
+        </div>
+        <span class="target">edge function: notify-dispatch</span>
+        <p>
+          It checked a shared secret with <code>if (SECRET &amp;&amp; header !== SECRET)</code>, so so if the secret
+          were ever unset, the check was skipped entirely and anyone could push a notification, with a
+          title, a body and a <em>link</em> of their choosing, to any creator's phone. That is a phishing
+          primitive, not a nuisance. The secret is set in production today, which is the only reason this
+          was latent rather than live; a rotation that briefly cleared it would have opened it.
+        </p>
+        <p class="verdict"><strong>Fixed and verified.</strong> It now refuses to run when the secret is missing.</p>
+      </div>
+
+      <h3>The cause, and why it will not come back</h3>
+      <p>
+        All ten of the exposed database functions had the same root cause, and it is a Supabase default:
+        every newly created function is granted execute permission to the anonymous role by name
+        <em>and</em> to the public role it inherits from. So a function is born reachable by anybody
+        holding a key that ships in the browser.
+      </p>
+      <p>
+        This has now bitten this project <strong>four separate times</strong>. Each previous fix was a
+        hand-written revoke in the migration that created the function, and each was undone by the next
+        migration that touched it. One function was revoked correctly in March and re-exposed three
+        migrations later when it was dropped and recreated.
+      </p>
+      <p>
+        A rule that has to be remembered by the author of every future change is not a control. So the fix
+        is structural: there is now an explicit allowlist of the five functions the public landing page
+        needs, and a database event trigger that re-applies the correct permissions automatically after
+        <em>any</em> function is created or altered.
+      </p>
+      <div class="proof">
+$ create a brand new SECURITY DEFINER function, then ask who can call it<br>
+&nbsp;&nbsp;anonymous:&nbsp;&nbsp;&nbsp;<b>false</b>&nbsp;&nbsp;← automatically revoked, nobody wrote a line to do it<br>
+&nbsp;&nbsp;signed-in:&nbsp;&nbsp;&nbsp;<b>true</b>
+      </div>
+
+      <h3>What held up under attack</h3>
+      <p>
+        Worth as much as the list above. All of this was attacked and none of it moved:
+      </p>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Tested</th><th>Result</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Direct messages are private</strong></td>
+              <td>A signed-in creator reading the messages table directly gets only conversations they are in. The one edge case I probed: they can still read the two messages they personally sent to a group they later left, and none of the other four in it. That is correct, not a leak.</td>
+            </tr>
+            <tr>
+              <td><strong>Private profile data</strong></td>
+              <td>Phone numbers, dates of birth, IBANs, account numbers and addresses live in a separate table. A creator asking for all of it gets exactly one row back: their own.</td>
+            </tr>
+            <tr>
+              <td><strong>38 sensitive tables, anonymously</strong></td>
+              <td class="mono">0 rows returned from every one</td>
+            </tr>
+            <tr>
+              <td><strong>Privilege escalation</strong></td>
+              <td>A creator cannot make themselves an admin, change their own status or job title, or touch platform roles. Each attempt is refused by name.</td>
+            </tr>
+            <tr>
+              <td><strong>Cross-creator tampering</strong></td>
+              <td>Cannot edit another creator's profile, inflate another creator's view counts, delete their entries, or write a leaderboard result.</td>
+            </tr>
+            <tr>
+              <td><strong>Money</strong></td>
+              <td>A creator cannot grant themselves a reward, raise an invoice, or approve one. You cannot approve your own submission unless you are the programme lead.</td>
+            </tr>
+            <tr>
+              <td><strong>Rate limiting</strong></td>
+              <td>Login, signup and password reset are capped at five attempts per fifteen minutes, per account and per IP, and the IP is read from the trusted end of the proxy header, so it cannot be spoofed. Uploads are capped at forty an hour. Link previews and geocoding now have limits too, which they did not before today.</td>
+            </tr>
+            <tr>
+              <td><strong>Storage</strong></td>
+              <td>DM attachments sit in a private bucket, readable only by a participant in that conversation. Every public bucket has a size cap and a file-type allowlist.</td>
+            </tr>
+            <tr>
+              <td><strong>Secrets in the code</strong></td>
+              <td>No service key, database password or private token in the repository or its history, and none in the production JavaScript. The dev-only login shortcut cannot be built into production. It is a build-server plugin, and the route returns the ordinary app in production.</td>
+            </tr>
+            <tr>
+              <td><strong>HTTP headers</strong></td>
+              <td>Content Security Policy, HSTS with preload, no-sniff, frame protection and a referrer policy are all set on the live site.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Still open, and my read on each</h3>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Item</th><th>Verdict</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="chip open">Yours</span> <strong>Leaked-password protection is off</strong></td>
+              <td>The one thing I could not fix from code. It is a project setting. Step 2 in <a href="#now">Do this first</a>.</td>
+            </tr>
+            <tr>
+              <td><span class="chip med">Accepted</span> <strong>The GitHub repository is public</strong></td>
+              <td>Not a vulnerability. There are no secrets in it, and I checked the history as well as the working tree. It does mean the entire attack surface is documented for anybody who looks. Convenient for Helio; worth a deliberate decision rather than a default. Making it private costs nothing.</td>
+            </tr>
+            <tr>
+              <td><span class="chip med">Accepted</span> <strong>The calendar feed uses a secret in the URL</strong></td>
+              <td>Calendar apps cannot send an authorisation header, so the token has to be in the link. It is 48 characters, which is not guessable, and the link is per-creator and revocable. Standard practice; worth telling Helio so he does not report it as a finding.</td>
+            </tr>
+            <tr>
+              <td><span class="chip med">Accepted</span> <strong>The link-preview fetcher follows redirects</strong></td>
+              <td>Its guard blocks private and internal addresses on the URL you give it, but does not re-check after a redirect. It runs on a hosted edge runtime with no internal network or metadata service to reach, so there is nothing behind it to find. Low priority; worth closing eventually.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================================ HELIO -->
+    <section id="helio">
+      <h2>What Helio needs</h2>
+      <p class="lede">
+        Short answer: the demo account and the repository link. He does not need anything from you that
+        you cannot send in one message.
+      </p>
+
+      <h3>Send him these three things</h3>
+      <ul class="plain">
+        <li>
+          <strong>The demo account.</strong> <code>team@trypcreators.test</code> / <code>TrypTeam!2026</code>.
+          A full admin session is the most useful artefact he can have: it is the position an attacker
+          would most like to reach, and it lets him test what a compromised admin can actually do.
+        </li>
+        <li>
+          <strong>The source.</strong> <code>github.com/ethanmc365/content-creator-program</code>, currently public, so he needs no access granted. If you make it private first, add him as a read-only
+          collaborator.
+        </li>
+        <li>
+          <strong>This audit.</strong> Send him this page. Not so he trusts it, but so he does not spend his
+          first afternoon re-finding the four things that were fixed this morning, and so the accepted
+          risks above are decisions he can challenge rather than discoveries he has to make.
+        </li>
+      </ul>
+
+      <h3>What to ask him to look at</h3>
+      <p>
+        Be specific, or you get a generic report. The areas where I would most want a second pair of eyes:
+      </p>
+      <ul class="plain">
+        <li><strong>Row-level security policies.</strong> This is where the platform's entire privacy model lives. Around forty tables, each with its own rules about who can read and write what. I tested the ones that matter most; he should test the ones I did not think of.</li>
+        <li><strong>The permissions on database functions</strong>, given that the same mistake has now happened four times. The automatic guard I added today is new and unproven over time, so it is worth him trying to defeat it.</li>
+        <li><strong>The file upload path.</strong> It runs with elevated privileges and decides for itself which folder a creator may write into.</li>
+        <li><strong>The admin impersonation feature</strong>, "view as creator". It mints a real session for another account. It checks that the caller is an admin, but it is the single most dangerous function on the platform if that check can be turned.</li>
+        <li><strong>Anything a creator submits that another creator sees.</strong> Display names, bios, captions, chat messages, admin notes. There was a stored cross-site-scripting bug here in August, fixed then, and this class of bug never stays fixed by accident.</li>
+      </ul>
+
+      <div class="askbox">
+        <h4>Set the rules of engagement before he starts</h4>
+        <p>
+          There is one production database and no staging copy. Ask him to keep destructive testing to the
+          demo account and the eight Spanish demo creators, and to tell you before doing anything that
+          writes at volume. Ask for findings as they are found rather than in a report at the end. If if he
+          finds something on the level of the prize-awarding function, you want to know that hour.
+        </p>
+      </div>
+    </section>
+
+    <!-- ============================================ SEBASTIAN -->
+    <section id="sebastian">
+      <h2>The Sebastian call</h2>
+      <p class="lede">
+        André's brief was "show him what you showed me". That is right, but it is not the point of the
+        call. The point is to find out what moving into Tryp.com's infrastructure actually costs you.
+      </p>
+
+      <h3>Structure it in three parts</h3>
+      <ul class="plain">
+        <li>
+          <strong>Show it (10 minutes).</strong> The same demo. Live UK data, the challenge leaderboard,
+          the view scraper, the creator map, the games. Do not explain the architecture yet, and let him ask.
+        </li>
+        <li>
+          <strong>Say what it is built on (5 minutes).</strong> React and Vite on the front, Vercel hosting,
+          Supabase for the database, authentication, file storage and server functions. Postgres underneath,
+          with row-level security doing the access control. Thirteen small server functions, mostly
+          scrapers and mailers. Roughly 175 database migrations, all in the repository.
+        </li>
+        <li>
+          <strong>Then ask him the questions below (15 minutes).</strong> This is the part that decides
+          whether "deploy inside Tryp.com" is a week of work or a quarter.
+        </li>
+      </ul>
+
+      <h3>Ask him exactly these</h3>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Question</th><th>Why it matters to you</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>What does Tryp.com run on today, and where is it hosted?</td>
+              <td>If there is already a managed Postgres in the EU, the GDPR problem André cares about may be solved by moving one database rather than the whole platform.</td>
+            </tr>
+            <tr>
+              <td>Is self-hosting Supabase on the table, or would this have to be rebuilt on your stack?</td>
+              <td>The single biggest question. Self-hosted Supabase is a lift-and-shift. A rebuild is months, and you should say so plainly before anyone assumes otherwise.</td>
+            </tr>
+            <tr>
+              <td>Who would own it after the move: me, or your team?</td>
+              <td>Decides whether you keep shipping at your current pace or start filing tickets. Worth knowing before, not after.</td>
+            </tr>
+            <tr>
+              <td>What is the data-residency requirement precisely: EU region, or Tryp.com-owned infrastructure?</td>
+              <td>These are very different jobs. The database is already in the EU (Frankfurt). If EU residency is the actual requirement, a large part of the compliance case may already be met.</td>
+            </tr>
+            <tr>
+              <td>Can I send transactional email from a Tryp.com subdomain?</td>
+              <td>The immediate blocker. See below.</td>
+            </tr>
+            <tr>
+              <td>What is your process for a new internal service: review, deploy, secrets?</td>
+              <td>Tells you the real timeline better than any estimate he gives you.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>The email thing, since you asked</h3>
+      <p>
+        You have not got email working, and here is the honest state of it. The platform currently sends
+        exactly two kinds of mail: password resets, sent by Supabase, and a welcome email per accepted
+        creator, which an admin approves by hand. Everything else, invoices, announcements and challenge reminders, is written and waiting, and cannot go out.
+      </p>
+      <p>
+        The blocker is that automated mail from a shared mailbox got the platform flagged as a bulk sender
+        and Gmail started dropping it. The fix is a properly authenticated sending domain: a subdomain like
+        <code>mail.tryp.com</code> with SPF, DKIM and DMARC records set correctly. Sebastian owns DNS and
+        email signing, so <strong>this is the one concrete thing to ask him for on this call</strong>, and it
+        is small.
+      </p>
+      <div class="askbox">
+        <h4>The ask, in one sentence</h4>
+        <p>
+          "Can you create a sending subdomain for the creator platform, something something like
+          <code>mail.tryp.com</code>, and add the SPF, DKIM and DMARC records for it? I will send you the
+          exact records; it is three DNS entries and then invoices and challenge announcements can send
+          themselves instead of me doing it by hand."
+        </p>
+      </div>
+
+      <h3>What not to say</h3>
+      <p>
+        Do not commit to a migration date, and do not agree that the platform will be rebuilt on their stack.
+        You are there to find out what is involved. "I would need to understand your setup before I could
+        estimate that" is a complete and professional answer, and it is true.
+      </p>
+    </section>
+
+    <!-- ============================================ FRIDAY -->
+    <section id="friday">
+      <h2>Friday's presentation</h2>
+      <p class="lede">
+        André asked for the platform and the build story. The build story is the part the room will not have
+        heard before, so give it real time.
+      </p>
+
+      <ul class="plain">
+        <li>
+          <strong>Open with the problem, not the product (2 min).</strong> Forty-five creators across six
+          markets were being run out of WhatsApp groups. Challenges tracked in a spreadsheet, view counts
+          copied by hand, prizes chased in direct messages. Say what that cost in hours.
+        </li>
+        <li>
+          <strong>Show it live (8 min).</strong> Use the real UK data, not the demo market. The the point is
+          that it is real. In this order:
+          <ul>
+            <li>A live challenge with its leaderboard and prize places</li>
+            <li>View counts arriving automatically off the links, on four platforms</li>
+            <li>The creator map and the travel collaboration board</li>
+            <li>The daily games and streaks, because that is what André and Ellu reacted to</li>
+            <li>An invoice generating itself from a prize</li>
+          </ul>
+        </li>
+        <li>
+          <strong>How it was built (6 min).</strong> The honest version is the impressive one: no prior
+          coding experience, built with Claude and Supabase, roughly six weeks. Say what that means in practice: you describe the behaviour you want and review what comes back; the skill is knowing
+          what to ask for and what to reject. Mention the scale plainly: around 175 database migrations,
+          500-odd automated tests, a security audit run this week.
+        </li>
+        <li>
+          <strong>What is next (3 min).</strong> All markets onboarded, the first global challenge with ten
+          prizes, and the conversation with Sebastian about moving inside Tryp.com's infrastructure. Name
+          Ellu's tool as complementary rather than competing. You you have already agreed the two run
+          separately and the gamification ports across later. Say it out loud in the room, so nobody
+          wonders.
+        </li>
+        <li>
+          <strong>Leave time for questions (5 min).</strong> The two you will get: <em>"how much does it
+          cost to run"</em>, which is around €25 a month plus the Claude subscription, and <em>"could we do this
+          for X"</em>. Have an answer ready for the second one.
+        </li>
+      </ul>
+
+      <div class="callout">
+        <span class="tag">One preparation note</span>
+        <p>
+          Rehearse the live demo once on the day, signed in as yourself, on the machine and screen you will
+          present from. Every failed demo in history was a demo nobody ran that morning.
+        </p>
+      </div>
+    </section>
+
+    <!-- ============================================ PEOPLE -->
+    <section id="people">
+      <h2>Everyone else</h2>
+      <p class="lede">Who to keep warm, what they need from you, and what you should be getting back.</p>
+
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Person</th><th>What they need from you</th><th>What you should ask for</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>André</strong><br><span class="chip med">CEO</span></td>
+              <td>Admin account (done). Friday presentation. The bi-weekly call in his diary.</td>
+              <td>A decision on the full-time regional role. He raised it, so it is fair to ask what the next step is and when.</td>
+            </tr>
+            <tr>
+              <td><strong>Ellu</strong><br><span class="chip med">Internal tool</span></td>
+              <td>Admin account (done). A look at how the scraper and the challenge model work.</td>
+              <td>A view of her analytics tool, and agreement on which of you owns view counts long term. Two independent scrapers is a feature now and a support problem in six months.</td>
+            </tr>
+            <tr>
+              <td><strong>Sebastian</strong><br><span class="chip med">Infrastructure</span></td>
+              <td>The demo, the stack summary, and the exact DNS records for the mail subdomain.</td>
+              <td>The sending subdomain, and a straight answer on whether self-hosting is possible.</td>
+            </tr>
+            <tr>
+              <td><strong>Helio</strong><br><span class="chip med">Security</span></td>
+              <td>The demo account, the repository, this audit, and the scope note.</td>
+              <td>Findings as he goes, not a report at the end.</td>
+            </tr>
+            <tr>
+              <td><strong>Francesco</strong><br><span class="chip med">Next step</span></td>
+              <td>An introduction message. André pointed you at him for the regional manager conversation.</td>
+              <td>What the role actually is, and what the timeline looks like against your university term.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout">
+        <span class="tag">The thing not to let slide</span>
+        <p>
+          André raised a full-time regional or country manager role and pointed you at Francesco. That is
+          the highest-value item in the whole meeting and it is the only one with nobody chasing it.
+          Message Francesco this week, while the demo is still the thing everybody is talking about.
+        </p>
+      </div>
+    </section>
+
+    <!-- ============================================ INVOICE -->
+    <section id="invoice">
+      <h2>The invoice</h2>
+      <p class="lede">Both approved on the call. Put them on the August invoice.</p>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Line</th><th class="mono">Amount</th><th>Note</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Supabase Pro, one month</td><td class="mono">~$25</td><td>Approved by André. Needed to onboard all creators.</td></tr>
+            <tr><td>Claude Pro, one month</td><td class="mono">~$20</td><td>Approved. Claude Max was declined as too expensive; André uses Pro himself and will cover Pro for you.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Two things that were <em>not</em> approved, so do not bill them: Claude Max, and a custom domain.
+        The domain was deliberately skipped because the target is to deploy inside Tryp.com's own infrastructure. Buying a domain now would be paying for something you plan to abandon.
+      </p>
+      <p>
+        Also worth noting: Gemini is available to you through the Partners email at no cost, so use that
+        alongside Claude Pro rather than asking for more budget.
+      </p>
+    </section>
+
+    <!-- ============================================ SHIPPED -->
+    <section id="shipped">
+      <h2>Also shipped today</h2>
+      <p class="lede">
+        Your list of fixes, plus one real bug the demo data flushed out. All live, all tested.
+      </p>
+
+      <h3>The bug worth knowing about</h3>
+      <p>
+        A challenge scored on <strong>points</strong> never built a leaderboard. The function that ranks
+        everybody started with "if this is a points challenge, do nothing", so the table the leaderboard
+        reads was never written. Spain's live challenge has been showing
+        <em>"Every place is still open"</em> for a month while carrying real entries.
+      </p>
+      <p>
+        Every other screen was right. The points were calculated, the entries showed their awards, the
+        admin analytics added up, which is exactly why nobody caught the one screen that read the wrong
+        table. It ranks on the points ledger now. I verified the fix by rebuilding the archived UK
+        leaderboard with it: identical order, matching the board its prizes were actually paid from.
+      </p>
+      <p>
+        This one matters for next week. The global challenge André wants is the kind of challenge that
+        would have hit it.
+      </p>
+
+      <h3>Your list</h3>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>You said</th><th>What changed</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>No sound effects on Milestones</td>
+              <td>The take-off pass, the coin at each stop and the propeller under the whole flight are all removed. Deleted rather than muted, because a silent code path that still schedules an interval is a propeller waiting to be left running again. The animation is untouched.</td>
+            </tr>
+            <tr>
+              <td>Remove the five freezes from the streak card</td>
+              <td>Gone. The count moved into the streaks popup, where the question actually gets asked, and the week strip still shows a snowflake on any day a freeze covered.</td>
+            </tr>
+            <tr>
+              <td>Remove the "everyone's streaks" chip; tapping the card should open it</td>
+              <td>Gone, and with it a whole class of collision. The chip was positioned so nothing else on the card knew it was there, which is why the freeze tiles kept running underneath it. The whole card is the button; a small chevron is the only mark left.</td>
+            </tr>
+            <tr>
+              <td>Fix the streak card's layout</td>
+              <td>Two rows at every width: the run, then the week and the record side by side on one shared baseline. It was four blocks of different heights centred against each other, which is what made it read as off.</td>
+            </tr>
+            <tr>
+              <td>The all-time streaks tab is juddery</td>
+              <td>It was juddery because it was a fetch, not an animation. Fifty rows out, six loading placeholders in, a round trip, fifty different rows back. Both boards now load when the dialog opens, they share one fixed window so the dialog does not resize, and the selected pill slides.</td>
+            </tr>
+            <tr>
+              <td>The DMs "open a conversation" screen looks wrong</td>
+              <td>You were exactly right about both halves. Eight round chips wrapped into three centred rows of four, three and one, so three ragged edges and a lonely last pill, under a left-aligned heading. It is two even columns in one card now.</td>
+            </tr>
+            <tr>
+              <td>Desktop should never scroll on its own</td>
+              <td>Fixed at the cause. The code that keeps a field above the keyboard was asking "is this field below the visible area", which on a desktop just means the page is long, so focusing the guess box scrolled the page down after every guess. It measures the keyboard now and does nothing without one. Games open at the very top on desktop; both Guess the Country and Flight Path verified staying at zero through a full round.</td>
+            </tr>
+            <tr>
+              <td>On mobile the guess bar hides behind the keyboard</td>
+              <td>Two causes. The reveal measured the input alone, so the Guess button underneath it stayed buried. It measures the whole form now. And a short puzzle page is already at the bottom of its own document, so the correction was computed, issued, and did nothing; there is now a keyboard's worth of scrolling room added while a keyboard is up. Measured on a 390-point phone with a 336-point keyboard: the whole form clears it with room to spare.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================================ OPEN -->
+    <section id="open">
+      <h2>What I did not do</h2>
+      <p class="lede">Said plainly, so nothing is a surprise later.</p>
+      <ul class="plain">
+        <li>
+          <strong>The mobile keyboard fix is measured, not felt.</strong> I proved it with a simulated
+          keyboard at phone dimensions and read the geometry back. Please try Guess the Country on your
+          actual phone before you show anybody. A real iOS keyboard has behaviour no simulation reproduces.
+        </li>
+        <li>
+          <strong>Leaked-password protection is still off.</strong> A project setting, not code. Two minutes,
+          and it is step 2 of the list at the top.
+        </li>
+        <li>
+          <strong>Awarding prizes on a points challenge still will not work.</strong> The award function
+          insists on a leaderboard built the old way. It does not block anything this week. The the Spanish
+          challenge is a demo and the prizes are not real, but it will block the global challenge if that
+          one is scored on points. Worth fixing before you launch it.
+        </li>
+        <li>
+          <strong>Individual accounts for Helio and Ellu.</strong> One shared account was what you asked for.
+          If Helio wants his own for the audit trail, say so and it is a two-minute job.
+        </li>
+        <li>
+          <strong>The eight Spanish demo creators count toward your totals.</strong> The platform-wide
+          creator count now reads 52 rather than 44. The reason and the one-line cleanup are in
+          <a href="#spain">the Spanish demo data</a>.
+        </li>
+      </ul>
+    </section>
+
+  </main>
+
+  <footer>
+    <p>
+      Everything described here is live on <code>trypcreators.vercel.app</code> as of 2 September 2026.
+      Five database migrations (170 to 174) and three server functions were deployed today; lint is clean,
+      507 automated tests pass, and the production build succeeds. Every security claim above was verified
+      by making the request against production, before and after the fix.
+    </p>
+  </footer>
+
+</div>
