@@ -1,0 +1,15 @@
+-- 165: a group DM can wear a photograph instead of an emoji.
+--
+-- Ethan: "what I also want as an option is to be able to upload a photo that
+-- then just takes up the whole circle, so there's no icon or background colour,
+-- just the photo you upload."
+--
+-- The emoji and the accent stay - they are the fast answer, and most groups
+-- will keep using them. A photo simply wins over both when there is one, which
+-- is why this is one nullable column and not a "kind of avatar" enum: there is
+-- no third state to represent, and an enum would let a row claim to be a photo
+-- while holding none.
+--
+-- The file lives in the existing public `chat-media` bucket under the uploader's
+-- own folder, which is the only prefix the upload edge function will accept.
+alter table conversations add column if not exists photo_url text;

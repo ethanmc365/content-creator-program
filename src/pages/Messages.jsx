@@ -17,6 +17,7 @@ import MessageActions from '../components/chat/MessageActions'
 import { useProfileNames } from '../components/network/ChatExtras'
 import { mediaType, saveFile, fileNameFromUrl } from '../lib/media'
 import { isOnline } from '../lib/presence'
+import { ChatSkeleton } from '../components/network/Skeletons'
 import { pinToBottom } from '../lib/chatScroll'
 import { formatChatTime, formatMessageTime, messageTimeTitle, otherParticipant, cx } from '../lib/utils'
 import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
@@ -1603,7 +1604,16 @@ export default function Messages() {
                 </div>
               )}
 
-              {/* Messages */}
+              {/* Messages.
+
+                  THE THREAD NEVER SHOWS A BLANK CONVERSATION. `settled` hides
+                  the scroller while lib/chatScroll pins it - the rows have to
+                  be laid out for there to be a scroll height to pin to, so they
+                  cannot be unmounted - and that left a white rectangle which
+                  then filled all at once. A placeholder over the top covers the
+                  gap, bottom-aligned because a thread fills upwards. Same fix
+                  as the rooms. */}
+              <div className="relative flex min-h-0 flex-1 flex-col">
               <div
                 ref={scrollerRef}
                 // The browser must not anchor this scroller: lib/chatScroll already owns
@@ -1764,7 +1774,7 @@ export default function Messages() {
                                 onClick: () => setViewing({ url: imageSrc, kind: isVid ? 'video' : 'image' }),
                               },
                               {
-                                icon: 'arrow-down',
+                                icon: 'download',
                                 label: 'Save',
                                 title: isVid ? 'Save this video' : 'Save this photo',
                                 onClick: () => saveMedia(imageSrc),
@@ -1883,6 +1893,13 @@ export default function Messages() {
                   )
                 })}
                 <div ref={bottomRef} />
+              </div>
+
+              {!settled && (
+                <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+                  <ChatSkeleton fill rows={6} />
+                </div>
+              )}
               </div>
 
               {/* Typing indicator + jump-to-latest pill float above the composer. */}

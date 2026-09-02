@@ -38,15 +38,66 @@
 //
 // THE HARD CAP IS NOT OPTIONAL. A thread whose height genuinely never settles -
 // a video still buffering, an image that will never arrive - must still be
-// shown. 700ms, then it appears wherever it is, which is the old behaviour as a
-// floor rather than as the plan.
+// shown. 1200ms, then it appears wherever it is, which is the old behaviour as
+// a floor rather than as the plan.
+//
+// 2 Sep 2026: STILL WRONG ON THE ROOMS WITH OLD PHOTOGRAPHS IN THEM, and the
+// reason is worth writing down because rule 1 above hides it. Ethan: "on
+// desktop, if I'm on general and I refresh, rather than showing the last
+// messages it starts scrolled up to the message above the photo I sent. Refresh
+// again and it's the same, again and it goes up even more, again and it's back
+// where it was."
+//
+// A zero-height <img> IS A STABLE HEIGHT. The loop asks "has scrollHeight
+// stopped changing", and an attachment that has not started decoding answers
+// yes - so the thread was declared settled, revealed, and then shoved by
+// however many pictures happened to land afterwards, in whatever order the
+// network and the disk cache chose. That is the "different every refresh".
+//
+// Two things fix it, and both were needed:
+//   * the eight legacy room attachments had their real dimensions measured and
+//     written (they predate migration 163, so they carried none), so the box is
+//     reserved before the bytes arrive;
+//   * and `waitingOnMedia` below makes "not started" different from "finished",
+//     for anything near the bottom, so the reveal cannot happen while a picture
+//     the reader is about to see is still coming.
 
 const STABLE_FRAMES = 2
-const MAX_MS = 700
+// 1200ms, up from 700. The cap is the floor of the promise, not the plan, and
+// 700 was landing INSIDE the window a legacy attachment needs to decode - so a
+// thread with one older photograph in it revealed itself, then got yanked when
+// the picture arrived. Which is exactly the report this module was written for,
+// still happening, on the messages that predate migration 163.
+const MAX_MS = 1200
 // The fallback tick, for when rAF is not running. 16ms is a frame; a throttled
 // tab will stretch it and hit the cap instead, which is the correct outcome
 // there.
 const TICK_MS = 16
+
+// IS SOMETHING NEAR THE BOTTOM STILL DECODING?
+//
+// Only near the bottom, and this is the whole subtlety: the thread is
+// `loading="lazy"`, so a photograph two hundred messages up may never load at
+// all, and waiting on every <img> in the scroller would mean waiting for the
+// cap every single time. What matters is what is about to be ON SCREEN when the
+// thread is revealed, so the question is asked of the images within a screen or
+// so of the viewport - the ones whose arrival would move what you are looking
+// at.
+const NEAR_PX = 600
+
+function waitingOnMedia(el) {
+  const view = el.getBoundingClientRect()
+  const imgs = el.querySelectorAll('img')
+  for (const img of imgs) {
+    if (img.complete) continue
+    const r = img.getBoundingClientRect()
+    // A zero-height box has no meaningful top or bottom yet, which is exactly
+    // the case this exists for - so an unsized image inside the scroller's own
+    // vertical span counts, however thin it currently is.
+    if (r.bottom >= view.top - NEAR_PX && r.top <= view.bottom + NEAR_PX) return true
+  }
+  return false
+}
 
 /**
  * Pin a scroller to its bottom until its height stops changing.
@@ -108,6 +159,12 @@ export function pinToBottom(getEl, shouldPin, onSettled) {
     // image decoding) would read as stable on the ticks it happened to match.
     stable = h === lastHeight ? stable + 1 : 0
     lastHeight = h
+    // A HEIGHT THAT HAS NOT MOVED YET IS NOT THE SAME AS A HEIGHT THAT IS
+    // FINISHED. An <img> with no reserved box sits at zero height for as long
+    // as its bytes take, and zero is a perfectly stable number - so the loop
+    // read "settled", revealed the thread, and then the picture landed and
+    // shoved it. Anything still decoding near the bottom holds it open.
+    if (waitingOnMedia(el)) stable = 0
     if (stable >= STABLE_FRAMES) return finish()
     schedule()
   }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Avatar, Modal, Spinner } from './ui'
 import Icon from './Icon'
@@ -7,6 +7,7 @@ import {
   GROUP_ACCENTS, accentHex, groupName,
   createGroup, inviteToGroup, updateGroup, leaveGroup, removeMember, deleteGroup,
 } from '../lib/groups'
+import { uploadChatImage } from '../lib/chatMedia'
 import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
 
@@ -25,6 +26,21 @@ import { useT } from '../lib/i18n'
 export function GroupAvatar({ conversation, members = [], size = 'md' }) {
   const px = size === 'lg' ? 'h-12 w-12' : size === 'sm' ? 'h-8 w-8' : 'h-10 w-10'
   const text = size === 'lg' ? 'text-xl' : size === 'sm' ? 'text-sm' : 'text-base'
+  // A PHOTOGRAPH TAKES THE WHOLE CIRCLE (migration 165). Ethan: "an option to
+  // upload a photo that then just takes up the whole circle, so there's no icon
+  // or background colour, just the photo you upload." So it is not drawn ON the
+  // accent, it replaces it - a tint showing at the edge of somebody's picture
+  // is the product asserting itself over the thing they chose.
+  if (conversation?.photo_url) {
+    return (
+      <img
+        src={conversation.photo_url}
+        alt=""
+        aria-hidden
+        className={cx('shrink-0 rounded-full object-cover', px)}
+      />
+    )
+  }
   if (conversation?.emoji) {
     return (
       <span
@@ -106,9 +122,46 @@ const ICON_GROUPS = [
   { name: 'Odds and ends', emoji: ['🔥', '⭐️', '🎉', '💡', '💬', '❤️', '🤝', '🏆', '💰', '🔑', '🚀', '🦄', '🐧', '🐬', '🐝', '🌻'] },
 ]
 
-function LookControls({ emoji, accent, onEmoji, onAccent }) {
+// ONE TIDY GRID, AND A PHOTOGRAPH IS ONE OF THE CHOICES (2 Sep 2026).
+//
+// Ethan: "I don't like the way there's a row of them, and then two ones just on
+// their own and then a more icons button. Just have the row of the travel ones
+// at the top. And I want an option to upload a photo that takes up the whole
+// circle, so there's no icon or background colour, just the photo."
+//
+// The orphans were a wrap: twelve 36px tiles in a `flex-wrap` inside a modal
+// come out ten and two at most widths, so the shortlist read as a row plus two
+// strays plus a button. A fixed six-column GRID is two full rows at every width
+// - the count and the columns are chosen together, which is the only way a grid
+// of choices stays tidy.
+//
+// THE PHOTO IS PART OF THE SAME CHOICE, not a separate section. Picking one
+// clears the emoji and picking an emoji clears the photo, because a group has
+// one face; offering both at once would mean deciding, somewhere else, which
+// of them wins.
+function LookControls({ emoji, accent, photoUrl, onEmoji, onAccent, onPhoto, uploaderId }) {
   const tr = useT()
   const [expanded, setExpanded] = useState(false)
+  const fileRef = useRef(null)
+  const [uploading, setUploading] = useState(false)
+
+  async function pickPhoto(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || !uploaderId) return
+    setUploading(true)
+    try {
+      const { url } = await uploadChatImage(file, uploaderId)
+      onPhoto(url)
+      // A photo and an emoji are two answers to one question. Taking one takes
+      // the other; see the note above.
+      onEmoji('')
+    } catch (err) {
+      notice(err?.message || 'That photo could not be uploaded.')
+    }
+    setUploading(false)
+  }
+
   return (
     <>
       <div>
@@ -123,7 +176,7 @@ function LookControls({ emoji, accent, onEmoji, onAccent }) {
             {expanded ? 'Show fewer' : 'More icons'}
           </button>
         </div>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="grid grid-cols-6 gap-1.5">
           {/* Whatever is currently chosen is always on the shortlist, even if it
               came from the stock set - or picking a custom icon and reopening
               the panel would show nothing selected. */}
@@ -131,11 +184,11 @@ function LookControls({ emoji, accent, onEmoji, onAccent }) {
             <button
               key={e}
               type="button"
-              onClick={() => onEmoji(emoji === e ? '' : e)}
+              onClick={() => { onEmoji(emoji === e ? '' : e); onPhoto('') }}
               aria-pressed={emoji === e}
               className={cx(
-                'flex h-9 w-9 items-center justify-center rounded-xl border text-lg transition-transform duration-200 hover:-translate-y-0.5',
-                emoji === e ? 'border-brand bg-brand-tint' : 'border-gray-200 bg-white',
+                'flex h-9 items-center justify-center rounded-xl border text-lg transition-transform duration-200 hover:-translate-y-0.5',
+                emoji === e && !photoUrl ? 'border-brand bg-brand-tint' : 'border-gray-200 bg-white',
               )}
             >
               {e}
@@ -152,12 +205,12 @@ function LookControls({ emoji, accent, onEmoji, onAccent }) {
                     <button
                       key={e}
                       type="button"
-                      onClick={() => onEmoji(emoji === e ? '' : e)}
+                      onClick={() => { onEmoji(emoji === e ? '' : e); onPhoto('') }}
                       aria-pressed={emoji === e}
                       aria-label={`Use ${e} as the group icon`}
                       className={cx(
                         'flex h-8 items-center justify-center rounded-lg text-lg transition-transform duration-150 hover:scale-125',
-                        emoji === e && 'bg-brand-tint',
+                        emoji === e && !photoUrl && 'bg-brand-tint',
                       )}
                     >
                       {e}
@@ -168,9 +221,51 @@ function LookControls({ emoji, accent, onEmoji, onAccent }) {
             ))}
           </div>
         )}
+
+        {/* OR A PHOTOGRAPH. It sits under the icons as the other answer to the
+            same question, showing the picture at exactly the size and shape it
+            will appear at in the inbox - which is the only preview worth
+            drawing. */}
+        <div className="mt-3 flex items-center gap-3 rounded-xl border border-gray-100 bg-cloud/50 p-2.5">
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={pickPhoto} />
+          {photoUrl ? (
+            <img src={photoUrl} alt="" aria-hidden className="h-10 w-10 shrink-0 rounded-full object-cover" />
+          ) : (
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-gray-300 text-gray-400">
+              <Icon name="image" className="h-4 w-4" />
+            </span>
+          )}
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-medium">{photoUrl ? tr('Using your photo') : tr('Or use a photo')}</span>
+            <span className="block text-xs text-smoke">{tr('It fills the whole circle.')}</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            className="shrink-0 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-brand shadow-card transition-transform duration-200 hover:-translate-y-0.5 disabled:opacity-50"
+          >
+            {uploading ? <Spinner className="h-3.5 w-3.5" /> : photoUrl ? tr('Change') : tr('Upload')}
+          </button>
+          {photoUrl && !uploading && (
+            <button
+              type="button"
+              onClick={() => onPhoto('')}
+              aria-label={tr('Remove the photo')}
+              className="shrink-0 rounded-full p-1.5 text-smoke transition-colors hover:text-ink"
+            >
+              <Icon name="close" className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       </div>
       <div>
         <p className="mb-2 text-sm font-semibold">{tr("Colour")}</p>
+        {/* The accent still dresses the emoji and the stacked faces; a photo
+            covers it, so it is stated rather than left to be discovered. */}
+        {photoUrl && (
+          <p className="mb-2 text-xs text-smoke">{tr('Your photo covers this while it is set.')}</p>
+        )}
         <div className="flex flex-wrap gap-2">
           {GROUP_ACCENTS.map((a) => (
             <button
@@ -199,6 +294,7 @@ export function NewGroupModal({ open, onClose, people, connectionIds, myId, onCr
   const [title, setTitle] = useState('')
   const [emoji, setEmoji] = useState('✈️')
   const [accent, setAccent] = useState('brand')
+  const [photoUrl, setPhotoUrl] = useState('')
   const [picked, setPicked] = useState([])
   const [search, setSearch] = useState('')
   const [busy, setBusy] = useState(false)
@@ -207,7 +303,8 @@ export function NewGroupModal({ open, onClose, people, connectionIds, myId, onCr
   // to make is somebody else's group, waiting to be created by accident.
   useEffect(() => {
     if (!open) return
-    setTitle(''); setEmoji('✈️'); setAccent('brand'); setPicked([]); setSearch(''); setBusy(false)
+    setTitle(''); setEmoji('✈️'); setAccent('brand'); setPhotoUrl('')
+    setPicked([]); setSearch(''); setBusy(false)
   }, [open])
 
   // Your connections first, then everybody else. The people you would put in a
@@ -226,7 +323,7 @@ export function NewGroupModal({ open, onClose, people, connectionIds, myId, onCr
   async function create() {
     if (busy) return
     setBusy(true)
-    const { id, error } = await createGroup({ ownerId: myId, title, emoji, accent, inviteIds: picked })
+    const { id, error } = await createGroup({ ownerId: myId, title, emoji, accent, photoUrl, inviteIds: picked })
     setBusy(false)
     if (!id) { notice(error || 'The group could not be created.'); return }
     if (error) notice(`The group was made, but the invites did not send: ${error}`)
@@ -248,7 +345,15 @@ export function NewGroupModal({ open, onClose, people, connectionIds, myId, onCr
           />
         </div>
 
-        <LookControls emoji={emoji} accent={accent} onEmoji={setEmoji} onAccent={setAccent} />
+        <LookControls
+          emoji={emoji}
+          accent={accent}
+          photoUrl={photoUrl}
+          onEmoji={setEmoji}
+          onAccent={setAccent}
+          onPhoto={setPhotoUrl}
+          uploaderId={myId}
+        />
 
         <div>
           <p className="mb-2 text-sm font-semibold">
@@ -301,6 +406,7 @@ export function GroupSettingsModal({
   const [title, setTitle] = useState('')
   const [emoji, setEmoji] = useState('')
   const [accent, setAccent] = useState('brand')
+  const [photoUrl, setPhotoUrl] = useState('')
   const [picked, setPicked] = useState([])
   const [search, setSearch] = useState('')
   const [busy, setBusy] = useState(false)
@@ -310,6 +416,7 @@ export function GroupSettingsModal({
     setTitle(conversation.title || '')
     setEmoji(conversation.emoji || '')
     setAccent(conversation.accent || 'brand')
+    setPhotoUrl(conversation.photo_url || '')
     setPicked([]); setSearch(''); setBusy(false)
   }, [open, conversation])
 
@@ -330,12 +437,14 @@ export function GroupSettingsModal({
     (conversation?.title || '') !== title
     || (conversation?.emoji || '') !== emoji
     || (conversation?.accent || 'brand') !== accent
+    || (conversation?.photo_url || '') !== photoUrl
 
   async function save() {
     setBusy(true)
     const { error } = await updateGroup(conversation.id, {
       title: title.trim() || null,
       emoji: emoji || null,
+      photo_url: photoUrl || null,
       accent,
     })
     setBusy(false)
@@ -393,7 +502,15 @@ export function GroupSettingsModal({
           />
         </div>
 
-        <LookControls emoji={emoji} accent={accent} onEmoji={setEmoji} onAccent={setAccent} />
+        <LookControls
+          emoji={emoji}
+          accent={accent}
+          photoUrl={photoUrl}
+          onEmoji={setEmoji}
+          onAccent={setAccent}
+          onPhoto={setPhotoUrl}
+          uploaderId={myId}
+        />
 
         {dirty && (
           <button type="button" onClick={save} disabled={busy} className="btn-primary disabled:opacity-50">

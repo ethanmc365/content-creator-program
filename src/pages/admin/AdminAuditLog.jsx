@@ -202,7 +202,7 @@ export default function AdminAuditLog() {
         title="Audit log"
         action={
           <button onClick={exportLog} disabled={!shown.length} className="btn-secondary disabled:opacity-40">
-            <Icon name="arrow-down" className="h-4 w-4" /> Export CSV
+            <Icon name="download" className="h-4 w-4" /> Export CSV
           </button>
         }
       />

@@ -428,7 +428,7 @@ export default function AdminCreators() {
         back="/admin"
         action={
           <button onClick={exportCreators} className="btn-secondary">
-            <Icon name="arrow-down" className="h-4 w-4" /> Export CSV
+            <Icon name="download" className="h-4 w-4" /> Export CSV
           </button>
         }
       />

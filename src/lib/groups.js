@@ -38,7 +38,7 @@ export function groupName(convo, members, myId) {
 }
 
 /** Create a group, seed it with the owner (a trigger does that) and invite the rest. */
-export async function createGroup({ ownerId, title, emoji, accent, inviteIds = [] }) {
+export async function createGroup({ ownerId, title, emoji, accent, photoUrl = '', inviteIds = [] }) {
   const { data, error } = await supabase
     .from('conversations')
     .insert({
@@ -46,6 +46,7 @@ export async function createGroup({ ownerId, title, emoji, accent, inviteIds = [
       created_by: ownerId,
       title: title?.trim() || null,
       emoji: emoji || null,
+      photo_url: photoUrl || null,
       accent: accent || 'brand',
     })
     .select('id')
@@ -146,7 +147,7 @@ export async function loadGroupMembers(conversationIds) {
 export async function loadMyInvites(myId) {
   const { data } = await supabase
     .from('conversation_invites')
-    .select('id, conversation_id, status, created_at, conversations:conversation_id(id, title, emoji, accent, kind), inviter:invited_by(id, name, photo_url)')
+    .select('id, conversation_id, status, created_at, conversations:conversation_id(id, title, emoji, photo_url, accent, kind), inviter:invited_by(id, name, photo_url)')
     .eq('invited_profile_id', myId)
     .eq('status', 'pending')
     .order('created_at', { ascending: false })

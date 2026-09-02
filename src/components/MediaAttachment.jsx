@@ -35,7 +35,7 @@ export default function MediaAttachment({ url, className, compact = false }) {
     >
       {saving ? <Spinner className="h-4 w-4" /> : (
         <>
-          <Icon name="arrow-down" className="h-4 w-4" />
+          <Icon name="download" className="h-4 w-4" />
           {type === 'video' ? 'Save video' : type === 'image' ? 'Save photo' : 'Download'}
         </>
       )}

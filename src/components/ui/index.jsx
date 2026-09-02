@@ -8,6 +8,7 @@ import { lockScroll } from '../../lib/scrollLock'
 import { useBootLoaderSlot } from '../../lib/bootLoader'
 import Icon from '../Icon'
 import Flame from '../games/Flame'
+import { useVisualViewport } from '../../lib/useKeyboardInset'
 import { useT } from '../../lib/i18n'
 
 /** Circular profile photo with an initials fallback. */
@@ -315,6 +316,25 @@ export function StatCard({ label, value, hint, accent = false, onClick }) {
  */
 export function Modal({ open, onClose, title, children, wide = false, sheet = true }) {
   const tr = useT()
+  // A DIALOG IS AS TALL AS WHAT YOU CAN SEE, NOT AS TALL AS THE PAGE
+  // (2 Sep 2026).
+  //
+  // Ethan: "if I try typing the day or the time it's covered by the keyboard...
+  // same with creating a poll and typing in the options."
+  //
+  // `max-h-[90vh]` is measured against the LAYOUT viewport, and on iOS the
+  // layout viewport does not shrink when the keyboard opens - only the visual
+  // one does. So a sheet went on claiming ninety percent of a screen whose
+  // bottom half was now a keyboard, its content had no reason to scroll (it
+  // fitted the box it thought it had), and the field you were typing in was
+  // simply underneath.
+  //
+  // Sizing to the VISUAL viewport is the same trick the chat overlay uses, and
+  // it fixes the cause rather than the symptom: the card becomes shorter than
+  // its content, so it has somewhere to scroll, and lib/keyboardFollow then has
+  // room to put the focused field above the keyboard.
+  const vp = useVisualViewport()
+  const keyboard = open ? vp.keyboard : 0
   useEffect(() => {
     if (!open) return
     const onKey = (e) => e.key === 'Escape' && onClose()
@@ -342,8 +362,13 @@ export function Modal({ open, onClose, title, children, wide = false, sheet = tr
   // claiming the whole screen has to be a child of the body to get it.
   return createPortal(
     <div
-      className={cx('fixed inset-0 z-50 flex justify-center', sheet ? 'items-end sm:items-center' : 'items-center p-4')}
+      className={cx('fixed inset-x-0 top-0 z-50 flex justify-center', sheet ? 'items-end sm:items-center' : 'items-center p-4')}
       role="dialog" aria-modal="true" aria-label={title}
+      // Only while a keyboard is actually up. With none, this is `inset-0` by
+      // another name and the layout is exactly what it always was.
+      style={keyboard > 0
+        ? { height: vp.height, transform: `translateY(${vp.offsetTop}px)` }
+        : { bottom: 0 }}
     >
       <button aria-label={tr("Close")} className="absolute inset-0 bg-ink/40" onClick={onClose} />
       {/* On mobile the sheet variant runs to the edge of the screen, where the
@@ -355,13 +380,21 @@ export function Modal({ open, onClose, title, children, wide = false, sheet = tr
           same half. Locking the body stops the page moving when the gesture
           starts outside the card; this stops the card handing its own leftover
           scroll to the page once it reaches its end. Both were needed. */}
-      <div className={cx(
-        'relative overflow-y-auto overscroll-contain bg-white shadow-lift animate-fade-up',
-        sheet
-          ? 'max-h-[90vh] w-full rounded-t-card p-6 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:rounded-card sm:p-8 sm:pb-8'
-          : 'max-h-[min(85vh,44rem)] w-full rounded-card p-5 sm:p-7',
-        wide ? 'sm:max-w-3xl' : 'sm:max-w-lg',
-      )}>
+      <div
+        className={cx(
+          'relative overflow-y-auto overscroll-contain bg-white shadow-lift animate-fade-up',
+          sheet
+            ? 'w-full rounded-t-card p-6 sm:rounded-card sm:p-8 sm:pb-8'
+            : 'w-full rounded-card p-5 sm:p-7',
+          // The tab-bar allowance is only right when there is a tab bar to
+          // clear. With the keyboard up the bar is behind it, and the extra
+          // 6rem is just a hole under the last control.
+          sheet && keyboard === 0 && 'pb-[calc(6rem+env(safe-area-inset-bottom))]',
+          keyboard === 0 && (sheet ? 'max-h-[90vh]' : 'max-h-[min(85vh,44rem)]'),
+          wide ? 'sm:max-w-3xl' : 'sm:max-w-lg',
+        )}
+        style={keyboard > 0 ? { maxHeight: '100%' } : undefined}
+      >
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-xl font-semibold">{title}</h2>
           <button onClick={onClose} className="rounded-full p-2 text-smoke hover:bg-cloud hover:text-ink" aria-label={tr("Close dialog")}>

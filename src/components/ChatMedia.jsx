@@ -80,7 +80,19 @@ export default function ChatMedia({ url, alt, kind, w = null, h = null, maxW = 2
   //
   // Messages sent BEFORE that migration have no numbers, and they still get the
   // measure-on-load path below - so nothing already in a thread changes.
-  const [box, setBox] = useState(() => (w && h ? fit(w, h, maxW, maxH) : null))
+  //
+  // AND A PHOTO NOBODY HAS MEASURED STILL GETS A BOX (2 Sep 2026). The eight
+  // room attachments that predate the migration had their real dimensions
+  // written by hand, but a DM's media lives behind a signed URL and five of
+  // those could not be measured the same way - and any future upload that
+  // fails to measure would land here too. `null` meant `h-auto` on an image
+  // with no intrinsic size, which is a ZERO-HEIGHT box until the bytes decode:
+  // the row occupies nothing, the thread is scrolled to a bottom that is about
+  // to move, and the picture lands like a shove. A provisional 3:4 - the shape
+  // of most photographs sent from a phone - is wrong by at most a couple of
+  // hundred pixels instead of by the whole picture, and it is replaced the
+  // instant a real measurement arrives.
+  const [box, setBox] = useState(() => fit(w || 300, h || 400, maxW, maxH))
 
   const measure = useCallback((img) => {
     const iw = img?.naturalWidth
@@ -143,9 +155,10 @@ export default function ChatMedia({ url, alt, kind, w = null, h = null, maxW = 2
             // whole bubble, so a photo would paint at 600px wide and then jump
             // to 260 the instant it decoded - a jump every chat here would then
             // try to correct for with its scroll re-pinning.
-            style={box
-              ? { aspectRatio: `${box.w} / ${box.h}` }
-              : { maxWidth: maxW, maxHeight: maxH }}
+            // There is ALWAYS a box now - a measurement, or the provisional
+            // one above - so the ratio is set from the first render and the
+            // row never occupies nothing.
+            style={{ aspectRatio: `${box.w} / ${box.h}` }}
           />
         </button>
       )}

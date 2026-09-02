@@ -278,7 +278,7 @@ export default function PhotoLightbox({
             title={tr("Save")}
             className="flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-2.5 text-sm font-semibold text-white backdrop-blur transition-transform duration-200 hover:scale-105 active:scale-95 disabled:opacity-60"
           >
-            <Icon name="arrow-down" className="h-5 w-5" />
+            <Icon name="download" className="h-5 w-5" />
             {saveNote || (saving ? 'Saving…' : 'Save')}
           </button>
         )}

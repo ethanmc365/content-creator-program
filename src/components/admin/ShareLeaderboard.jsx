@@ -338,7 +338,7 @@ export default function ShareLeaderboard({
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <button type="button" className="btn-secondary !py-2 text-sm" onClick={download} disabled={busy}>
-              <Icon name="arrow-down" className="h-4 w-4" />
+              <Icon name="download" className="h-4 w-4" />
               Download the image
             </button>
             <div className="flex gap-2">

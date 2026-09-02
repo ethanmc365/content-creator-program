@@ -49,6 +49,15 @@ const PATHS = {
   chevronDown: 'M19.5 8.25 12 15.75 4.5 8.25',
   chevronUp: 'M4.5 15.75 12 8.25l7.5 7.5',
   'arrow-down': 'M19.5 13.5 12 21m0 0-7.5-7.5M12 21V3',
+  // SAVING A PHOTO IS NOT "SCROLL DOWN" (2 Sep 2026).
+  //
+  // Ethan, of the photo bar: "I don't really like the download icon, I think
+  // you can improve it" - with a picture of the one everybody draws: a short
+  // arrow dropping INTO a tray. `arrow-down` is a full-height bare arrow, which
+  // is the glyph for "go down the page", and next to Full screen and Reply it
+  // read as a direction rather than as an action. The tray is the whole
+  // difference: an arrow with somewhere to land is a download.
+  download: 'M12 3.75v10.5m0 0 4.25-4.25M12 14.25 7.75 10M4.5 16.5v2.25A1.75 1.75 0 0 0 6.25 20.5h11.5a1.75 1.75 0 0 0 1.75-1.75V16.5',
   heart: 'M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z',
   trash: 'M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0',
   smile: 'M15.182 15.182a4.5 4.5 0 01-6.364 0M21 12a9 9 0 11-18 0 9 9 0 0118 0zM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75zm-.375 0h.008v.015h-.008V9.75zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75zm-.375 0h.008v.015h-.008V9.75z',
@@ -119,20 +128,30 @@ const LAYERED_PATHS = {
   //
   // It takes `currentColor` like every other glyph here, so the room list's
   // brand orange applies unchanged.
+  // THE HAND IS THE ICON, AND IT FILLS THE BOX (2 Sep 2026).
+  //
+  // Ethan: "I like the new introductions icon you made, but it seems a bit
+  // small - make it slightly bigger so the hand is much more the size of the
+  // other icons, because currently it looks out of place. And just have the
+  // waving hand tilted, remove the two lines on either side of it, because then
+  // it would fit in better with the design."
+  //
+  // Both halves of that are one fault. The four motion flourishes lived at the
+  // CORNERS of the 24-unit box, so the hand had to be shrunk to 0.72 to leave
+  // room for them - which is why a 20px glyph next to a 20px chat bubble looked
+  // like a 14px one. Take the flourishes away and the hand can have the box:
+  // 0.94, which is as large as the artwork goes before the fingertips clip.
+  //
+  // The lean stays. It is what says "waving" now that nothing else does, and it
+  // is one line rather than four extra strokes competing with a room list of
+  // plain outlines. The stroke is pre-divided by the scale so it lands back on
+  // the set's own 1.7 rather than being thinned by the transform.
   wave: [
     {
       d: 'M10.05 4.575a1.575 1.575 0 10-3.15 0v3m3.15-3v-1.5a1.575 1.575 0 013.15 0v1.5m-3.15 0l.075 5.925m3.075.75V4.575m0 0a1.575 1.575 0 013.15 0V15M6.9 7.575a1.575 1.575 0 10-3.15 0v8.175a6.75 6.75 0 006.75 6.75h2.018a5.25 5.25 0 003.712-1.538l1.732-1.732a5.25 5.25 0 001.538-3.712l.003-2.024a.668.668 0 01.198-.471 1.575 1.575 0 10-2.228-2.228 3.818 3.818 0 00-1.12 2.687M6.9 7.575V12m6.27 4.318A4.49 4.49 0 0116.35 15m.002 0h-.002',
-      // Scaled about its own centre and leaned. The stroke scales with it, so
-      // the width is pre-divided by 0.72 to land back on the set's own 1.7.
-      transform: 'rotate(-12 11.6 12.7) translate(11.6 12.7) scale(0.72) translate(-11.6 -12.7)',
-      strokeWidth: 2.36,
+      transform: 'rotate(-12 11.6 12.7) translate(11.6 12.7) scale(0.94) translate(-11.6 -12.7)',
+      strokeWidth: 1.81,
     },
-    // Off the top right, and again off the bottom left, so the hand reads as
-    // moving between them rather than leaning one way.
-    { d: 'M17.4 3.5a5 5 0 0 1 3.4 3.4', strokeWidth: 1.6 },
-    { d: 'M19.6 1.2a8.4 8.4 0 0 1 3.2 3.2', strokeWidth: 1.6 },
-    { d: 'M6.6 20.5a5 5 0 0 1-3.4-3.4', strokeWidth: 1.6 },
-    { d: 'M4.4 22.8a8.4 8.4 0 0 1-3.2-3.2', strokeWidth: 1.6 },
   ],
   magnifier: [
     { d: 'M16.2 10.1a6.1 6.1 0 1 1-12.2 0 6.1 6.1 0 0 1 12.2 0z', strokeWidth: 2.5 },

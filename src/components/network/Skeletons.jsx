@@ -189,11 +189,15 @@ export function MarketOverviewSkeleton() {
 
 // The rooms list plus the message column, matching NetworkChat's two-pane
 // desktop layout.
-export function ChatSkeleton() {
+// `fill` bottom-aligns it and draws a few more rows, for the overlay that
+// covers a thread while it is being pinned to its bottom - a chat fills from
+// the bottom up, so a placeholder that sits at the top reads as a different
+// screen rather than as the same one loading.
+export function ChatSkeleton({ fill = false, rows = 5 }) {
   return (
-    <div className="space-y-4 px-4 py-4 sm:px-5">
-      {[0, 1, 2, 3, 4].map((i) => (
-        <div key={i} className="flex gap-3">
+    <div className={cx('space-y-4 px-4 py-4 sm:px-5', fill && 'flex h-full flex-col justify-end')}>
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} className={cx('flex gap-3', fill && 'mt-4 first:mt-0')}>
           <Skeleton className="h-9 w-9 shrink-0 rounded-full" />
           <div className="min-w-0 flex-1 space-y-2">
             <Line w="w-28" h="h-3.5" />

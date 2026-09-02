@@ -108,7 +108,7 @@ function EmailPreview({ inv, to, cc, replyTo }) {
         </dl>
         <p className="mt-3">The invoice is attached as a PDF, with {inv.creator_name}&rsquo;s bank details on it.</p>
         <p className="mt-3 flex items-center gap-2 rounded-lg bg-cloud px-3 py-2 text-xs text-smoke">
-          <Icon name="arrow-down" className="h-3.5 w-3.5 shrink-0" />
+          <Icon name="download" className="h-3.5 w-3.5 shrink-0" />
           Attached · {`Tryp-com-${String(inv.number).padStart(3, '0')}.pdf`}
         </p>
       </div>

@@ -1153,6 +1153,21 @@ export default function NetworkChat() {
         </div>
       )}
 
+      {/* THE THREAD NEVER SHOWS A BLANK ROOM (2 Sep 2026).
+
+          Ethan: "the text is like flashing for the first split second."
+
+          `settled` hides the scroller with `opacity-0` while lib/chatScroll
+          pins it, which is right - the rows have to be LAID OUT for there to be
+          a scroll height to pin to, so they cannot be unmounted - but it left
+          a white rectangle where the conversation was, and then the whole
+          thread appeared at once. What that reads as is a flash.
+
+          A placeholder over the top covers the gap, so the sequence is
+          skeleton -> conversation rather than skeleton -> nothing -> flash. It
+          is bottom-aligned, because a chat fills upwards from the composer and
+          a placeholder that starts at the top is a different screen. */}
+      <div className="relative flex min-h-0 flex-1 flex-col">
       <div
         ref={scrollerRef}
         // The browser must not anchor this scroller: lib/chatScroll already owns
@@ -1346,7 +1361,7 @@ export default function NetworkChat() {
                             onClick: () => setViewing({ url: m.image_url || m.video_url, kind: m.image_url ? 'image' : 'video' }),
                           },
                           {
-                            icon: 'arrow-down',
+                            icon: 'download',
                             label: 'Save',
                             title: m.image_url ? 'Save this photo' : 'Save this video',
                             onClick: () => saveMedia(m.image_url || m.video_url),
@@ -1448,6 +1463,13 @@ export default function NetworkChat() {
             )
           })
         )}
+      </div>
+
+      {!settled && (
+        <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+          <ChatSkeleton fill rows={6} />
+        </div>
+      )}
       </div>
 
       {/* THE COMPOSER IS NOT ON SCREEN WHILE YOU ARE SEARCHING.

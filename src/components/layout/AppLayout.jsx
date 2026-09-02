@@ -15,6 +15,7 @@ import { startHeartbeat } from '../../lib/presence'
 import { stripMarkup } from '../../lib/richText'
 import { cx } from '../../lib/utils'
 import { useVisualViewport, useIsPhone } from '../../lib/useKeyboardInset'
+import { installKeyboardFollow } from '../../lib/keyboardFollow'
 import { useT } from '../../lib/i18n'
 import { applyMotion, getStoredMotion, setShellActive, syncTheme } from '../../lib/theme'
 
@@ -190,6 +191,12 @@ export default function AppLayout() {
   const hasBottomBar = /^\/(chat|messages|rooms)(\/|$)/.test(pathname) || onNetworkChat
   const tabs = TABS
   const navigate = useNavigate()
+
+  // NOTHING YOU ARE TYPING IN SITS UNDER THE KEYBOARD. Installed once, here,
+  // because it is a property of the app and not of any one dialog - three
+  // separate reports (the schedule dialog's date and time, a poll's options, a
+  // game challenge's title) were one missing behaviour. See lib/keyboardFollow.
+  useEffect(() => installKeyboardFollow(), [])
   const [menuOpen, setMenuOpen] = useState(false)
   // Same ten links, and the same order the reader dragged them into on the hub.
   const menuLinks = orderedLinks(loadLinkOrder())
