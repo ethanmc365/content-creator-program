@@ -15,9 +15,35 @@
 const EXACT = new Set([
   'trypcreators.vercel.app',
   'content-creator-program.vercel.app',
+  // The branch alias, which is a fixed name rather than a shape.
+  'content-creator-program-git-main-contentcreatorprogram.vercel.app',
 ])
 
-const PREVIEW = /^(trypcreators|content-creator-program)-[a-z0-9-]+\.vercel\.app$/
+// AND THE PATTERN THAT REPLACED IT HAD THE SAME HOLE, ONE LAYER DOWN.
+//
+// It was `^(trypcreators|content-creator-program)-[a-z0-9-]+\.vercel\.app$`,
+// which only pins the PREFIX. Found by testing rather than by reading: a
+// preflight sent from `https://trypcreators-evil.vercel.app` came back with
+// `Access-Control-Allow-Origin: https://trypcreators-evil.vercel.app`. Anybody
+// can deploy a Vercel project called `trypcreators-anything`, so the fix for
+// "anybody can deploy to Vercel" had merely narrowed the set of names an
+// attacker has to choose from.
+//
+// A real preview URL for this project is
+// `content-creator-program-<hash>-contentcreatorprogram.vercel.app`: project,
+// deployment hash, then THE TEAM SLUG. The team slug is the part that is not
+// available to somebody else, so it is the part worth matching, and the hash
+// segment is `[a-z0-9]+` with no dashes so a project merely NAMED to look like
+// a preview does not slip through.
+//
+// Residual, written down rather than left implied: somebody could still
+// register a personal project named exactly `trypcreators-<8+ alphanumerics>-
+// contentcreatorprogram`. It is not worth more machinery, because CORS is not
+// the security boundary for these functions - they authenticate on an explicit
+// Authorization header and no cookie rides along, so a cross-origin page cannot
+// borrow a creator's session and gains nothing it could not do with curl. This
+// is hygiene, and it should be tight hygiene.
+const PREVIEW = /^(trypcreators|content-creator-program)-[a-z0-9]{6,}-contentcreatorprogram\.vercel\.app$/
 
 export const PRIMARY_ORIGIN = 'https://trypcreators.vercel.app'
 
