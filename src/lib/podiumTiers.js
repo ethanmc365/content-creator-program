@@ -62,3 +62,16 @@ export function rankInk(place) {
   if (n === 3) return 'text-brand/70'
   return 'text-smoke'
 }
+
+// A PLACE IS A NUMBER, EVEN WHEN IT IS STORED AS A WORD.
+//
+// `challenges.prize_structure` is a jsonb array of `{ place, prize }` written
+// by the admin form, and `place` comes out as the STRING "1st" on every row in
+// production (and sometimes as "3+ videos", which is a participation line and
+// not a rank at all). This reads the leading digits and gives up rather than
+// guessing - three surfaces had their own copy of this and one of them compared
+// with `=== 1`, which printed "1stth".
+export function placeNumber(place) {
+  const m = String(place ?? '').match(/^\s*(\d+)/)
+  return m ? parseInt(m[1], 10) : null
+}

@@ -147,21 +147,24 @@ export default function MarketChallenges() {
               component /challenges/:id uses, so there is one implementation and
               the two can never drift apart. */}
           <section>
-            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="flex items-center gap-2 text-lg font-semibold">
-                  <Icon name="flag" className="h-5 w-5 text-brand" /> Challenges in {market.name}
-                </h2>
-                <p className="mt-1 text-sm text-smoke">
-                  {tr("Every brief run here, and how each one was won.")}
-                </p>
-              </div>
-              {canManage && (
+            {/* NO HEADING OVER THE LIVE BRIEF (2 Sep 2026).
+                Ethan: "when on a market, for example Spain, and then clicking
+                on the challenges tab, it shows 'Challenges in Spain' as a weird
+                subtitle below it and it looks odd. Remove it, and the subtitle
+                saying every brief run here. Just the challenge name, the
+                entries, the leaderboard, the brief."
+                The market header directly above already names the market and
+                marks the Challenges tab, so this was the page's title printed
+                twice with a strapline between the two - and the thing under it
+                is not a list of briefs, it is ONE brief rendered in full. Only
+                the admin's control was worth keeping. */}
+            {canManage && (
+              <div className="mb-6 flex justify-end">
                 <Link to={`/admin/challenges/new?market=${market.slug}`} className="btn-primary !py-2.5">
                   + New challenge
                 </Link>
-              )}
-            </div>
+              </div>
+            )}
 
             {loading ? (
               <LiveChallengeSkeleton />

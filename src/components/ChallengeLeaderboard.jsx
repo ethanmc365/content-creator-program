@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { Avatar } from './ui'
 import Icon from './Icon'
 import SocialMark from './SocialMark'
-import { podiumTier, ordinalFor } from '../lib/podiumTiers'
+import { podiumTier, ordinalFor, placeNumber } from '../lib/podiumTiers'
 import { formatViews, cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
 
@@ -40,30 +40,37 @@ import { useT } from '../lib/i18n'
 // @param platformsFor      creatorId -> ['TikTok', ...]
 // @param linkProfiles      false in a picture, where a link is just a colour
 // @param scoreLabel        'views' | 'points' - what the right-hand number is
+// @param startAt           first rank to draw. The challenge page puts a real
+//                          podium above the board and passes 4, so the top
+//                          three are not drawn twice in two different shapes.
+//
+// EVERY COLUMN LINES UP DOWN THE BOARD (2 Sep 2026).
+//
+// Ethan: "the Tryp.com voucher ones currently are not lined up, so line them up
+// to make sure the UI looks good."
+//
+// The prize pill, the voucher badge and the platform marks were inline siblings
+// in one flex row, so each row's right-hand furniture started wherever the name
+// before it happened to end - and rows differ in which of the three they even
+// have. Fixed-width columns, right-aligned, so the prizes sit on one axis, the
+// vouchers on another and the score on a third whether a row carries them or
+// not.
 
 const SOCIAL_BRAND = {
   Instagram: 'instagram', TikTok: 'tiktok', YouTube: 'youtube', Facebook: 'facebook',
 }
 
-// The number of a place, from whatever the admin typed. `prize_structure[].place`
-// is a STRING in production ("1st", "2nd", and sometimes "3+ videos"), so this
-// reads the leading digits and gives up rather than guessing.
-function placeNumberOf(place) {
-  const m = String(place ?? '').match(/^\s*(\d+)/)
-  return m ? parseInt(m[1], 10) : null
-}
-
 export default function ChallengeLeaderboard({
   rows = [], prizes = [], meId = null, participation = null, subCountByCreator = {},
   platformsFor = () => [], linkProfiles = true, wide = false, scoreLabel = 'views',
-  className = '',
+  startAt = 1, className = '',
 }) {
   const tr = useT()
 
   // The paid places, in order, ignoring the participation line (which is not a
   // rank and has its own row at the foot).
   const paidPlaces = prizes
-    .map((p) => ({ n: placeNumberOf(p.place), prize: p.prize }))
+    .map((p) => ({ n: placeNumber(p.place), prize: p.prize }))
     .filter((p) => p.n != null)
     .sort((a, b) => a.n - b.n)
   const prizeAt = new Map(paidPlaces.map((p) => [p.n, p.prize]))
@@ -77,7 +84,7 @@ export default function ChallengeLeaderboard({
   )
   const byRank = new Map(rows.map((r) => [Number(r.rank), r]))
   const slots = []
-  for (let n = 1; n <= deepest; n += 1) slots.push({ rank: n, row: byRank.get(n) ?? null, prize: prizeAt.get(n) ?? null })
+  for (let n = Math.max(1, startAt); n <= deepest; n += 1) slots.push({ rank: n, row: byRank.get(n) ?? null, prize: prizeAt.get(n) ?? null })
 
   if (slots.length === 0) return null
 
@@ -141,42 +148,48 @@ export default function ChallengeLeaderboard({
               </span>
             )}
 
-            {/* WHAT THIS PLACE IS WORTH. On a taken row it is what that creator
-                has won; on an open one it is what the reader is playing for.
-                Same pill either way, because it is the same fact. */}
-            {prize && (
-              <span
-                title={tr('Prize for this place')}
-                className={cx(
-                  'shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold',
-                  row ? 'bg-brand text-white' : 'bg-brand-tint/70 text-brand',
-                  wide ? 'inline-flex' : 'hidden sm:inline-flex',
-                )}
-              >
-                <Icon name="trophy" className="h-3.5 w-3.5" /> {prize}
-              </span>
-            )}
-
-            {/* Voucher badge: this creator posted enough videos to earn the
-                participation prize. */}
-            {row && participation && (subCountByCreator[row.creator_id] || 0) >= participation.threshold && (
-              <span
-                title={tr('Posted {n}+ videos', { n: participation.threshold })}
-                className={cx('shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-semibold text-green-700', wide ? 'inline-flex' : 'hidden lg:inline-flex')}
-              >
-                <Icon name="ticket" className="h-3.5 w-3.5" /> {participation.prize}
-              </span>
-            )}
+            {/* WHAT THIS PLACE IS WORTH, AND WHAT THIS CREATOR ALSO EARNED,
+                in ONE right-aligned column of a fixed width. On a taken row the
+                prize is what that creator has won; on an open one it is what
+                the reader is playing for. Same pill either way, because it is
+                the same fact - and it starts at the same x on every row. */}
+            <span className={cx(
+              'w-40 shrink-0 flex-col items-end gap-1',
+              wide ? 'flex' : 'hidden sm:flex',
+            )}>
+              {prize && (
+                <span
+                  title={tr('Prize for this place')}
+                  className={cx(
+                    'inline-flex max-w-full items-center gap-1 truncate rounded-full px-2.5 py-1 text-[11px] font-semibold',
+                    row ? 'bg-brand text-white' : 'bg-brand-tint/70 text-brand',
+                  )}
+                >
+                  <Icon name="trophy" className="h-3.5 w-3.5 shrink-0" /> {prize}
+                </span>
+              )}
+              {/* Voucher badge: this creator posted enough videos to earn the
+                  participation prize. */}
+              {row && participation && (subCountByCreator[row.creator_id] || 0) >= participation.threshold && (
+                <span
+                  title={tr('Posted {n}+ videos', { n: participation.threshold })}
+                  className="inline-flex max-w-full items-center gap-1 truncate rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-semibold text-green-700"
+                >
+                  <Icon name="ticket" className="h-3.5 w-3.5 shrink-0" /> {participation.prize}
+                </span>
+              )}
+            </span>
 
             {/* Only the platforms this creator actually submitted on, in the
                 platform's own colour - the grey set read as "unavailable". */}
-            {row && (
-              <span className={cx('shrink-0 items-center gap-1.5', wide ? 'flex' : 'hidden sm:flex')}>
-                {platformsFor(row.creator_id).map((p) => (
-                  <SocialMark key={p} brand={SOCIAL_BRAND[p] || 'link'} colored className="h-[18px] w-[18px]" />
-                ))}
-              </span>
-            )}
+            <span className={cx(
+              'w-[4.5rem] shrink-0 items-center justify-end gap-1.5',
+              wide ? 'flex' : 'hidden sm:flex',
+            )}>
+              {row && platformsFor(row.creator_id).map((p) => (
+                <SocialMark key={p} brand={SOCIAL_BRAND[p] || 'link'} colored className="h-[18px] w-[18px]" />
+              ))}
+            </span>
 
             <span className="w-16 shrink-0 text-right sm:w-24">
               {row ? (

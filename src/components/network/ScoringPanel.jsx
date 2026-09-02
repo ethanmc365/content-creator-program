@@ -1,10 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import Icon from '../Icon'
-import { Avatar } from '../ui'
-import { scoringMode, isViewRanked, scoreForEntries } from '../../lib/scoring'
-import { cx, formatViews } from '../../lib/utils'
+import { scoringMode } from '../../lib/scoring'
 import { useT } from '../../lib/i18n'
 
 // "How this one is won", on the challenge itself.
@@ -16,11 +13,21 @@ import { useT } from '../../lib/i18n'
 // them. Somebody posting eight short videos into a best-video challenge is
 // wasting their month, and nothing told them.
 //
-// The standings here are LIVE and provisional. Final placings come from the
-// results table, which an admin fills in when the challenge closes; this is
-// what the logged view counts say right now.
+// IT DOES NOT CARRY A LEADERBOARD (2 Sep 2026).
+//
+// It used to end with "Where it stands right now" - a provisional top ten off
+// the logged view counts. Ethan: "I don't get why it's showing the standings
+// here. It seems to be just a bigger burden, and it doesn't make sense for it
+// to show when you already have a dedicated leaderboard tab, so remove that
+// from there."
+//
+// He is right, and it was worse than redundant: the tab next door lays every
+// paid place out from the prize structure, ranks WITHIN a creator's own group
+// on a split challenge, and marks the participation vouchers. This panel's copy
+// did none of that, so the two disagreed on a page where they sat two clicks
+// apart. One board, on the tab called Leaderboard.
 
-export default function ScoringPanel({ challenge, submissions = [], myId }) {
+export default function ScoringPanel({ challenge }) {
   const tr = useT()
   const mode = scoringMode(challenge.scoring)
   const [rules, setRules] = useState([])
@@ -33,39 +40,6 @@ export default function ScoringPanel({ challenge, submissions = [], myId }) {
       .then(({ data }) => { if (alive) setRules(data || []) })
     return () => { alive = false }
   }, [challenge.id, challenge.scoring])
-
-  const [points, setPoints] = useState([])
-  useEffect(() => {
-    if (challenge.scoring !== 'points') { setPoints([]); return }
-    let alive = true
-    supabase.from('challenge_standings')
-      .select('creator_id, points, profiles:creator_id(id, name, photo_url, is_test)')
-      .eq('challenge_id', challenge.id)
-      .order('points', { ascending: false }).limit(10)
-      .then(({ data }) => { if (alive) setPoints((data || []).filter((r) => !r.profiles?.is_test)) })
-    return () => { alive = false }
-  }, [challenge.id, challenge.scoring])
-
-  // For the two view-ranked modes the standing is derivable from what is
-  // already on the page, so it costs no round trip.
-  const viewBoard = (() => {
-    if (!isViewRanked(challenge.scoring)) return []
-    const byCreator = new Map()
-    for (const s of submissions) {
-      const list = byCreator.get(s.creator_id) || []
-      list.push(s)
-      byCreator.set(s.creator_id, list)
-    }
-    return [...byCreator.entries()]
-      .map(([creatorId, entries]) => ({
-        creatorId,
-        profile: entries[0]?.profiles,
-        entries: entries.length,
-        score: scoreForEntries(challenge.scoring, entries),
-      }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 10)
-  })()
 
   return (
     <section className="rounded-card border border-gray-100 bg-white p-5 shadow-card sm:p-6">
@@ -140,43 +114,6 @@ export default function ScoringPanel({ challenge, submissions = [], myId }) {
         </p>
       )}
 
-      {/* Live standing */}
-      {(points.length > 0 || viewBoard.length > 0) && (
-        <div className="mt-5">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-smoke">
-            {tr("Where it stands right now")}
-          </p>
-          <div className="space-y-1.5">
-            {(challenge.scoring === 'points' ? points : viewBoard).map((row, i) => {
-              const id = row.creator_id ?? row.creatorId
-              const p = row.profiles ?? row.profile
-              const value = challenge.scoring === 'points'
-                ? `${Number(row.points)} pts`
-                : formatViews(row.score)
-              return (
-                <div key={id}
-                  className={cx('flex items-center gap-3 rounded-xl border px-3.5 py-2',
-                    id === myId ? 'border-brand/40 bg-brand-tint/25' : 'border-gray-100')}>
-                  <span className={cx('w-4 shrink-0 text-xs font-bold', i === 0 ? 'text-brand' : 'text-smoke')}>
-                    {i + 1}
-                  </span>
-                  <Avatar src={p?.photo_url} name={p?.name} size="xs" />
-                  <Link to={`/profile/${id}`} className="min-w-0 flex-1 truncate text-sm font-medium hover:text-brand">
-                    {p?.name || 'Creator'}{id === myId ? ' (you)' : ''}
-                  </Link>
-                  {row.entries > 1 && (
-                    <span className="hidden shrink-0 text-[11px] text-smoke sm:inline">{row.entries} entries</span>
-                  )}
-                  <span className="shrink-0 text-sm font-bold text-brand">{value}</span>
-                </div>
-              )
-            })}
-          </div>
-          <p className="mt-2 text-xs text-smoke">
-            {tr("Provisional, from the view counts logged so far. Final placings are confirmed when the challenge closes.")}
-          </p>
-        </div>
-      )}
     </section>
   )
 }

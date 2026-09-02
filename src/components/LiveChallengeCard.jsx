@@ -194,8 +194,8 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
           // super big, can you change the UI of it, make it smaller, simpler,
           // easier to read." The desktop card is untouched.
           isGlobal
-            ? 'bg-gradient-to-br from-[#8f2a04] via-brand to-brand-light p-5 sm:p-11'
-            : 'bg-gradient-to-br from-brand to-brand-light p-5 sm:p-10',
+            ? 'bg-gradient-to-br from-[#8f2a04] via-brand to-brand-light p-4 sm:p-11'
+            : 'bg-gradient-to-br from-brand to-brand-light p-4 sm:p-10',
         )}
       >
         {/* Soft light bloom for depth, matching the home hero. */}
@@ -291,19 +291,24 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
             className="hidden lg:col-start-2 lg:row-start-1 lg:row-end-3 lg:block lg:self-start"
           />
 
-          <div className="mt-5 border-t border-white/15 pt-4 sm:mt-8 sm:border-0 sm:pt-0 lg:col-start-1 lg:row-start-3 lg:mt-7 lg:self-end">
-            {/* ONE LINE OF LABELS ABOVE THE CLOCK ON A PHONE. "Closes in" and
-                "6 entries so far" were two separate stacked lines forty pixels
-                apart, one above the clock and one below the button, which is
-                what made the bottom half of the card read as loose parts. They
-                are the same KIND of fact - the state of the contest - so they
-                share a row and the space between them does the separating. */}
-            <div className="mb-2 flex items-baseline justify-between gap-3 sm:mb-3 sm:block">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-white/75 sm:text-xs">{tr('Closes in')}</p>
-              <p className="text-[11px] font-semibold tabular-nums text-white/75 sm:hidden">
-                {entries === 1 ? tr('1 entry so far') : tr('{n} entries so far', { n: entries })}
-              </p>
-            </div>
+          <div className="mt-4 sm:mt-8 lg:col-start-1 lg:row-start-3 lg:mt-7 lg:self-end">
+            {/* THE PHONE CARD LOST ITS DIVIDER AND ITS ENTRY COUNT (2 Sep 2026).
+
+                Ethan: "the '0 entries so far' is really squeezed in on the
+                right and it doesn't make sense - you could remove it
+                altogether, it's not necessary. Also remove the line that goes
+                through the middle, and make it slightly more compact."
+
+                The count shared a baseline with "Closes in" at 11px, so on a
+                375px screen it was a number crushed against the right edge
+                answering a question nobody had asked yet - and on a brief that
+                has just opened the honest answer is "0", which is the least
+                useful thing that corner could hold. It survives on desktop
+                under the buttons, where there is room for it to be a sentence.
+
+                The rule above it was separating the clock from the title on a
+                card that already separates them with space. */}
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/75 sm:mb-3 sm:text-xs">{tr('Closes in')}</p>
             {/* The hero clock is four big tiles. On a phone that is most of
                 what is left of the card, so it gets the compact row instead
                 and the card gets its height back. */}
@@ -311,7 +316,7 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
             <span className="block sm:hidden"><CountdownTimer endDate={c.end_date} compact onDark /></span>
           </div>
 
-          <div className="mt-4 flex flex-col gap-2.5 sm:mt-7 lg:col-start-2 lg:row-start-3 lg:mt-7 lg:items-end lg:self-end">
+          <div className="mt-3.5 flex flex-col gap-2.5 sm:mt-7 lg:col-start-2 lg:row-start-3 lg:mt-7 lg:items-end lg:self-end">
             {/* ONE BUTTON ON A PHONE, and it is the one you came for. "Read
                 the brief" is what the rest of the card already does. */}
             <div className="flex flex-wrap gap-3 lg:justify-end">

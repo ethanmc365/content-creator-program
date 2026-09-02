@@ -4,6 +4,7 @@ import { motion } from 'motion/react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Avatar, EmptyState, PageHeader, Skeleton } from '../components/ui'
+import Podium from '../components/Podium'
 import Icon from '../components/Icon'
 import { cx, formatViews } from '../lib/utils'
 import { EASE } from '../lib/motion'
@@ -24,73 +25,15 @@ import { useT } from '../lib/i18n'
 // lists only the people already winning tells a new creator nothing about where
 // they stand, which is the one thing they opened it to find out.
 
-function Podium({ top, meId }) {
-  if (top.length === 0) return null
-  // Second, first, third - the shape of an actual podium, so the tallest block
-  // is in the middle where the eye lands rather than at the left edge where a
-  // list would start.
-  const order = [top[1], top[0], top[2]].filter(Boolean)
-  const HEIGHT = { 1: 'h-28', 2: 'h-20', 3: 'h-16' }
-  const TONE = {
-    1: 'bg-brand text-white',
-    2: 'bg-brand-light text-white',
-    3: 'bg-brand-tint text-brand',
-  }
-
-  return (
-    <div className="mb-8 flex items-end justify-center gap-2 sm:gap-4">
-      {order.map((c) => {
-        const place = top.indexOf(c) + 1
-        return (
-          <motion.div
-            key={c.creator_id}
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.08 * (4 - place), duration: 0.5, ease: EASE }}
-            className="flex w-full max-w-[10rem] flex-col items-center"
-          >
-            <Link to={`/profile/${c.creator_id}`} className="group flex flex-col items-center">
-              <span className="relative">
-                <Avatar
-                  src={c.photo_url}
-                  name={c.name}
-                  size={place === 1 ? 'lg' : 'md'}
-                  className={cx(
-                    'ring-4 transition-transform duration-200 group-hover:scale-105',
-                    place === 1 ? 'ring-brand' : place === 2 ? 'ring-brand-light' : 'ring-brand-tint',
-                  )}
-                />
-                {/* NO BADGE ON THE FACE. There was a star here - and before
-                    that a trophy, which at fourteen pixels collapsed into a
-                    small red X on somebody's photograph. The star fixed that
-                    and it was still one thing too many: the winner is already
-                    the biggest avatar, on the tallest block, in the middle, in
-                    full brand orange, with a "1" under it. Ethan: "I would
-                    remove the star that shows up on top of Jacob's profile
-                    picture - we don't need another star. The podium is already
-                    a nice graphic, and I like it." */}
-              </span>
-              <p className={cx(
-                'mt-2 max-w-full truncate text-center text-sm font-semibold transition-colors group-hover:text-brand',
-                c.creator_id === meId && 'text-brand',
-              )}>
-                {c.name}
-              </p>
-            </Link>
-            <p className="text-xs font-bold text-brand tabular-nums">{formatViews(c.views)}</p>
-
-            <div className={cx(
-              'mt-2 flex w-full items-start justify-center rounded-t-xl pt-2 text-lg font-bold',
-              HEIGHT[place], TONE[place],
-            )}>
-              {place}
-            </div>
-          </motion.div>
-        )
-      })}
-    </div>
-  )
-}
+// THE PODIUM IS THE SHARED ONE (components/Podium). It was written here first
+// and the challenge podium was written separately, so the two drifted on colour
+// and then on shape. Ethan: "I want them to be the same." They are the same
+// component now, which is the only version of that promise that keeps.
+//
+// NO BADGE ON THE FACE. There was a star here - and before that a trophy, which
+// at fourteen pixels collapsed into a small red X on somebody's photograph. The
+// winner is already the biggest avatar, on the tallest block, in the middle, in
+// full brand orange, with a "1" under it.
 
 export default function Leaderboard() {
   const tr = useT()
@@ -195,7 +138,17 @@ export default function Leaderboard() {
         />
       ) : (
         <>
-          <Podium top={top} meId={profile?.id} />
+          <Podium
+            meId={profile?.id}
+            className="mb-8"
+            places={top.map((c, i) => ({
+              rank: i + 1,
+              id: c.creator_id,
+              name: c.name,
+              photo_url: c.photo_url,
+              score: formatViews(c.views),
+            }))}
+          />
 
           {shown.length > 0 && (
             <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">

@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom'
 import { Avatar } from './ui'
+import Podium from './Podium'
 import { TIKTOK_PATH, FACEBOOK_PATH } from './PlatformBadges'
 import { detectPlatformFromUrl } from '../lib/videoPreview'
 import { formatViews, cx } from '../lib/utils'
-import { podiumTier, ordinalFor } from '../lib/podiumTiers'
+import { ordinalFor } from '../lib/podiumTiers'
 import { useT } from '../lib/i18n'
 
 // The closing graphic for a finished challenge.
@@ -82,43 +83,27 @@ export default function WinnersPodium({
   // up to the right in plain order rather than pretending to be a fourth step.
   const top = winners.filter((w) => w.rank <= 3)
   const rest = winners.filter((w) => w.rank > 3)
-  const order = [top.find((w) => w.rank === 2), top.find((w) => w.rank === 1), top.find((w) => w.rank === 3)].filter(Boolean)
 
-  const step = (w) => {
-    const m = podiumTier(w.rank)
-    const first = w.rank === 1
-    return (
-      <div key={w.rank} className="flex w-[5.5rem] flex-col items-center sm:w-24">
-        <Link
-          to={`/profile/${w.profiles?.id}`}
-          onClick={own}
-          className="block rounded-full transition-transform duration-150 hover:scale-105"
-          title={`${w.profiles?.name || 'Creator'} - view profile`}
-        >
-          <span className="block rounded-full p-[3px]" style={{ background: m.disc }}>
-            <Avatar src={w.profiles?.photo_url} name={w.profiles?.name} size={first ? 'lg' : 'md'} />
-          </span>
-        </Link>
-        <p className="mt-2 w-full truncate text-center text-xs font-semibold text-ink">
-          {w.profiles?.name?.split(' ')[0] || 'Creator'}
-        </p>
-        <p className="text-[11px] tabular-nums text-smoke">{fmt(scoreOf(w))} {unit}</p>
-        {w.videoUrl && <div className="mt-1.5"><VideoChip url={w.videoUrl} platform={w.platform} /></div>}
-        <div
-          className={cx('mt-2 flex w-full items-start justify-center rounded-t-lg', m.height)}
-          style={{ background: m.bar }}
-        >
-          <span className="pt-1 text-[11px] font-bold" style={{ color: m.ink }}>{m.label}</span>
-        </div>
-      </div>
-    )
-  }
+  // THE TOP THREE ARE THE SHARED PODIUM (components/Podium), which is the same
+  // block the all-time leaderboard draws. It used to be a second drawing of the
+  // same idea, with its own collar width, its own block heights and the word
+  // "1st" where the other one prints "1". Ethan asked for them to be the same;
+  // one component is the only version of "the same" that stays true.
+  const places = top.map((w) => ({
+    rank: w.rank,
+    id: w.profiles?.id,
+    name: w.profiles?.name?.split(' ')[0] || 'Creator',
+    photo_url: w.profiles?.photo_url,
+    score: fmt(scoreOf(w)),
+    unit,
+    extra: w.videoUrl ? <VideoChip url={w.videoUrl} platform={w.platform} /> : null,
+  }))
 
   return (
     <div className={cx('rounded-2xl bg-cloud/60 p-4', className)}>
       <p className="mb-4 text-center text-[11px] font-semibold uppercase tracking-widest text-smoke">{tr("Winners")}</p>
 
-      <div className="flex items-end justify-center gap-2 sm:gap-4">{order.map(step)}</div>
+      <Podium places={places} />
 
       {/* Places four and beyond: a quiet row, still clickable, no fake podium. */}
       {rest.length > 0 && (
