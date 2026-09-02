@@ -110,9 +110,33 @@ async function rateLimited(key: string, max: number, windowMs: number): Promise<
   }
 }
 
-// 30 lookups an hour per creator. A town is geocoded once and then stored on
-// the profile, so a creator who is behaving hits this maybe twice in a year.
-const MAX_PER_HOUR = 30
+// THE CEILING HAS TO MATCH HOW THE APP ACTUALLY USES THIS (2 Sep 2026, same day).
+//
+// The first version of this said "30 an hour per creator; a town is geocoded
+// once and then stored on the profile, so a creator who is behaving hits this
+// maybe twice a year". That was a confident description of the wrong thing.
+// A creator does not only geocode THEIR town: `CreatorMap` resolves any
+// creator on the map, and any collab TRIP, that has no stored coordinates, and
+// it does it client-side at render time. A fresh browser opening the worldwide
+// hub therefore fires a burst of them, caches the answers in ITS OWN
+// localStorage, and the next browser starts again from nothing.
+//
+// So the very first thing the Tryp.com team's brand new account did was spend
+// all thirty and start collecting 429s, which on a map reads as "nothing
+// loaded". A limit that a legitimate first page load cannot survive is not a
+// safety net, it is an outage with a rate attached.
+//
+// TWO CEILINGS NOW, because there are two different things to protect:
+//
+//   per creator   generous enough for a first load of a busy map and still low
+//                 enough that one account cannot sit in a loop all day.
+//   everybody     the one that actually matters. What is at risk here is our
+//                 standing with Nominatim, whose usage policy is about the
+//                 traffic THE APPLICATION sends, not what any one person sends.
+//                 A per-creator limit alone never protected that: forty-five
+//                 creators under a per-creator cap is forty-five times the cap.
+const MAX_PER_HOUR = 300
+const MAX_PER_HOUR_GLOBAL = 1200
 
 const PRIMARY_ORIGIN = 'https://trypcreators.vercel.app'
 function allowOrigin(origin: string | null): string {
@@ -176,6 +200,9 @@ Deno.serve(async (req) => {
   if (!uid) return json(req, { error: 'sign in first' }, 401)
   if (await rateLimited(`geocode:${uid}`, MAX_PER_HOUR, 3_600_000)) {
     return json(req, { error: 'Too many lookups. Try again shortly.' }, 429)
+  }
+  if (await rateLimited('geocode:all', MAX_PER_HOUR_GLOBAL, 3_600_000)) {
+    return json(req, { error: 'The map is busy. Try again shortly.' }, 429)
   }
 
   let body: { city?: string; country?: string }

@@ -110,9 +110,13 @@ async function rateLimited(key: string, max: number, windowMs: number): Promise<
   }
 }
 
-// 60 unfurls an hour per creator. A busy chat pastes a handful of links a day;
-// this is an abuse ceiling, not a budget.
-const MAX_PER_HOUR = 60
+// 200 unfurls an hour per creator, raised from 60 the same day it shipped after
+// the sibling limit in `geocode` turned out to be far too tight for a FIRST
+// page load. Nothing here is per-day usage: opening a room full of shared links
+// in a browser that has never seen them unfurls every one of them at once. This
+// is an abuse ceiling, not a budget, and a ceiling an honest first load can hit
+// is just an outage.
+const MAX_PER_HOUR = 200
 
 const PRIMARY_ORIGIN = 'https://trypcreators.vercel.app'
 function allowOrigin(origin: string | null): string {

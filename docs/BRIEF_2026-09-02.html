@@ -655,19 +655,36 @@
         <span class="tag">This did not work the first time, and here is why</span>
         <p>
           Ethan hit it straight away: it signed in, the page loaded, then nothing
-          worked and a refresh returned him to the login screen. Two separate
-          faults, both now fixed and both worth knowing about because only one of
-          them was about this account.
+          worked and a refresh returned him to the login screen. Three separate
+          faults, all now fixed. The password was always correct, and his
+          successful sign-in is in the server's records.
         </p>
-        <p>
-          The first was a real bug in the app affecting everybody, described in
-          <a href="#audit">the audit</a>: a single failed profile read revoked
-          every session on the account across all devices. The second was mine:
-          the flag I used to fence the account also marks it for a nightly
-          session cleanup written for a different kind of account, so the team
-          would have been signed out every morning. The password was always
-          correct.
-        </p>
+        <ul class="plain">
+          <li>
+            <strong>A real bug in the app, affecting everybody.</strong> A single
+            failed profile read revoked every session on the account, across every
+            device. Described in <a href="#audit">the audit</a>.
+          </li>
+          <li>
+            <strong>A limit I set too low that morning.</strong> Closing the open
+            URL-fetcher, I capped the map's geocoding at thirty lookups an hour
+            per creator, on the reasoning that a creator geocodes their own town
+            once. That was wrong about how the app works: the map resolves every
+            creator and every trip that has no stored coordinates, in the
+            browser, on render. A brand new account with an empty cache spends
+            thirty on its first load of the worldwide map and then collects
+            errors, which is what "nothing loaded" looked like. The ceiling now
+            matches a real first page load, and the thing actually worth
+            protecting, our standing with the map provider, is capped globally
+            instead of per person.
+          </li>
+          <li>
+            <strong>A nightly job that would have bitten later.</strong> The flag
+            I used to fence the account also marks it for a session cleanup
+            written for a different kind of account, so the team would have been
+            signed out every morning at 04:20.
+          </li>
+        </ul>
       </div>
 
       <div class="cred">
