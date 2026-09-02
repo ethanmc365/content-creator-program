@@ -116,10 +116,53 @@ export function isPlaced(p) {
 const toFrac = (n, fallback = null) => (Number.isFinite(Number(n)) && n !== null ? Number(n) / MILLE : fallback)
 const toMille = (f) => Math.round(f * MILLE)
 
-/** How many columns the board runs at this width. Two on a phone. */
+// HOW MANY COLUMNS THE BOARD RUNS AT, AND WHY THEY GOT FINER (2 Sep 2026).
+//
+// Ethan: "the current big version is too big. The current middle version should
+// be the big version, the middle version should be the small version, and then
+// we should have a new small version."
+//
+// That is three sizes still - every one of them a notch smaller, with a genuinely
+// new smallest. You cannot express that on a three-column grid: the old small
+// was already one whole column, and there is nothing under it. So the GRID got
+// finer rather than the ladder getting longer - six columns on a desktop, four
+// on a phone - and the three levels sit at 1, 2 and 4 of them. Which lands
+// almost exactly where he asked:
+//
+//   new large  = 4/6 = 0.67 of the board  (the old MEDIUM, 2/3)
+//   new medium = 2/6 = 0.33               (the old SMALL, 1/3)
+//   new small  = 1/6 = 0.17               (new, and half the old smallest)
+//
+// On a phone the same levels clamp to 1, 2 and 4 of four columns, so "large" is
+// still the widest thing on the board at any width - which is what large has to
+// mean, and the whole reason the LEVEL is stored rather than a column count.
 export function colsFor(width) {
-  if (!width) return 3
-  return width < 520 ? 2 : 3
+  if (!width) return 6
+  return width < 520 ? 4 : 6
+}
+
+/** Which of the two stored arrangements this width reads and writes. */
+export function variantFor(width) {
+  return width && width < 520 ? 'mobile' : 'desktop'
+}
+
+// The column each variant keeps its running order and its size ladder in.
+// `null` on a mobile row means "nobody has arranged this board on a phone", and
+// it falls through to the desktop value - so every board that existed before
+// migration 164 looks exactly as it did at both widths.
+export const ORDER_KEY = { desktop: 'sort_order', mobile: 'sort_order_mobile' }
+export const SIZE_KEY = { desktop: 'size', mobile: 'size_mobile' }
+
+/** This photo's running order in one variant, falling back to the desktop one. */
+export function orderOf(p, variant = 'desktop') {
+  const own = p?.[ORDER_KEY[variant]]
+  if (own != null) return Number(own)
+  return Number(p?.sort_order ?? 0)
+}
+
+/** This photo's size in one variant, falling back to the desktop one. */
+export function sizeOf(p, variant = 'desktop') {
+  return p?.[SIZE_KEY[variant]] || p?.size || 'small'
 }
 
 // THE THREE SIZES, AND WHAT EACH ONE IS WORTH IN COLUMNS.
@@ -130,7 +173,10 @@ export function colsFor(width) {
 // desktop board cannot be distinguished from it. Storing the INTENT and
 // clamping at draw time keeps "large is the biggest" true at every width.
 export const SIZES = ['small', 'medium', 'large']
-export const SIZE_LEVEL = { small: 1, medium: 2, large: 3 }
+// 1, 2 and 4 of the board's columns. See `colsFor` for why the middle step
+// skips three: it is what makes large two thirds of a desktop board rather than
+// the whole of it.
+export const SIZE_LEVEL = { small: 1, medium: 2, large: 4 }
 const SIZE_TITLE = { small: 'Small - press to make it medium', medium: 'Medium - press to make it large', large: 'Large - press to make it small again' }
 
 /**
@@ -155,11 +201,15 @@ export function nextSize(size) {
  * a desktop reads as one of two on a phone, which is the right answer rather
  * than a compromise.
  */
-export function spanOf(p, cols) {
+export function spanOf(p, cols, variant = 'desktop') {
   // THE STORED SIZE WINS WHERE THERE IS ONE. Every row has a `size` (the column
   // defaults to 'small'), so this is the normal path; the width derivation
   // below only runs for a row whose size is missing or unrecognised.
-  const level = SIZE_LEVEL[p?.size]
+  // The RAW stored value, not `sizeOf` - that defaults to 'small', and a row
+  // with no size at all has to fall through to the width derivation below
+  // rather than collapsing to one column. There are 285 such rows in
+  // production, all predating the stored level.
+  const level = SIZE_LEVEL[p?.[SIZE_KEY[variant]] ?? p?.size]
   if (level) return Math.max(1, Math.min(cols, level))
   const w = isPlaced(p) ? toFrac(p.pos_w, null) : null
   if (w == null) return 1
@@ -220,19 +270,40 @@ export function packBoard(items, cols) {
  * centre the pointer is. Predictable is the whole requirement here: a drop
  * target you cannot guess is a board you rearrange by trial and error.
  *
+ * THERE IS A DEAD BAND AROUND EVERY CENTRE (2 Sep 2026).
+ *
+ * Ethan: "sometimes when dragging them around they wouldn't really fit well,
+ * and all the other ones were moving around - it just wasn't the best
+ * experience."
+ *
+ * That is not the drag maths, it is the ABSENCE of hysteresis. A bare
+ * before/after test flips the instant the pointer crosses a tile's centre line,
+ * so a finger resting within a pixel of one - which is exactly where it rests,
+ * because that is where the tile you are aiming at is - flips the answer back
+ * and forth every frame, and every flip re-packs the entire board. The band is
+ * a tenth of the tile's width: inside it the previous answer stands, so the
+ * board only re-flows when you have genuinely committed to a side.
+ *
  * @param boxes the other tiles' packed rects, in order
+ * @param prev  the index this drag last settled on, held inside the band
  */
-export function dropIndex(boxes, px, py) {
-  let idx = boxes.length
+export function dropIndex(boxes, px, py, prev = null) {
+  let hit = -1
   let best = Infinity
   for (let i = 0; i < boxes.length; i += 1) {
     const b = boxes[i]
     const cx = b.x + b.w / 2
     const cy = b.y + b.h / 2
     const d = Math.hypot(px - cx, py - cy)
-    if (d < best) { best = d; idx = px < cx ? i : i + 1 }
+    if (d < best) { best = d; hit = i }
   }
-  return idx
+  if (hit < 0) return 0
+  const b = boxes[hit]
+  const cx = b.x + b.w / 2
+  const band = b.w * 0.1
+  if (px < cx - band) return hit
+  if (px > cx + band) return hit + 1
+  return prev == null ? (px < cx ? hit : hit + 1) : prev
 }
 
 // THE MOST PHOTOS ANYBODY CAN PUT ON A BOARD. Lived in TravelGallery until the
@@ -371,6 +442,12 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
   }, [])
 
   const cols = colsFor(width)
+  // WHICH OF THE TWO ARRANGEMENTS THIS WIDTH IS LOOKING AT (migration 164).
+  // Everything below - the running order, the size ladder, and what a drag or a
+  // size press writes back - is scoped to it, so tidying the board on a phone
+  // cannot touch the desktop collage and vice versa.
+  const variant = variantFor(width)
+  const sizeKey = SIZE_KEY[variant]
 
   // WHAT IS IN THE HAND, IF ANYTHING.
   //  { id, order?, pointer? }
@@ -386,9 +463,9 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
   // into coordinates. A drag rewrites this list and nothing else.
   const ordered = useMemo(() => {
     const rows = (photos ?? []).filter((p) => editable || !broken[p.id])
-    return [...rows].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)
+    return [...rows].sort((a, b) => orderOf(a, variant) - orderOf(b, variant)
       || String(a.id).localeCompare(String(b.id)))
-  }, [photos, broken, editable])
+  }, [photos, broken, editable, variant])
 
   // ONE LAYOUT, OVER EVERY PHOTO, EVERY RENDER.
   //
@@ -403,7 +480,7 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
   const layout = useMemo(() => {
     const items = ordered.map((p) => ({
       aspect: p.aspect || aspects[p.id] || 1,
-      span: spanOf(p, cols),
+      span: spanOf(p, cols, variant),
     }))
     let list = ordered
     let sizes = items
@@ -415,7 +492,7 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
     const boxes = packBoard(sizes, cols)
     const byId = new Map(list.map((p, i) => [p.id, boxes[i]]))
     return { byId, order: list }
-  }, [ordered, aspects, cols, drag])
+  }, [ordered, aspects, cols, variant, drag])
 
   const tiles = useMemo(() => ordered.map((p) => ({
     ...p,
@@ -466,21 +543,26 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
   const commit = useCallback(async (order) => {
     const items = order.map((p) => ({
       aspect: p.aspect || aspects[p.id] || 1,
-      span: spanOf(p, cols),
+      span: spanOf(p, cols, variant),
     }))
     const boxes = packBoard(items, cols)
     const before = photos
     const patches = []
     order.forEach((p, i) => {
       const b = boxes[i]
-      const next = {
-        sort_order: i,
-        pos_x: toMille(b.x), pos_y: toMille(b.y),
-        pos_w: toMille(b.w), pos_h: toMille(b.h),
-      }
-      const changed = next.sort_order !== (p.sort_order ?? null)
-        || next.pos_x !== (p.pos_x ?? null) || next.pos_y !== (p.pos_y ?? null)
-        || next.pos_w !== (p.pos_w ?? null) || next.pos_h !== (p.pos_h ?? null)
+      // A DESKTOP COMMIT STILL WRITES THE per-mille BOX; A PHONE ONE DOES NOT.
+      // `pos_*` is the legacy read path and there is exactly one set of it, so
+      // writing it from a phone is how the phone's arrangement used to leak
+      // into the desktop's. The phone writes its own running order and nothing
+      // else (migration 164).
+      const next = variant === 'mobile'
+        ? { sort_order_mobile: i }
+        : {
+          sort_order: i,
+          pos_x: toMille(b.x), pos_y: toMille(b.y),
+          pos_w: toMille(b.w), pos_h: toMille(b.h),
+        }
+      const changed = Object.entries(next).some(([k, v]) => v !== (p[k] ?? null))
       if (changed) patches.push({ id: p.id, next })
     })
     if (!patches.length) return
@@ -492,7 +574,7 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
     if (!failed) return
     setPhotos(before)
     await notice(`The board could not be saved: ${failed.error.message}`)
-  }, [photos, aspects, cols])
+  }, [photos, aspects, cols, variant])
   useEffect(() => { commitRef.current = commit }, [commit])
   useEffect(() => () => detach.current?.(), [])
 
@@ -512,6 +594,7 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
       grabX: (e.clientX - (boardRef.current?.getBoundingClientRect().left ?? 0)) / width - tile.x,
       grabY: (e.clientY - (boardRef.current?.getBoundingClientRect().top ?? 0)) / width - tile.y,
       order: layout.order,
+      at: null,
       moved: false,
     }
     setDrag({ id: tile.id, order: layout.order, pointer: { x: tile.x, y: tile.y } })
@@ -533,10 +616,14 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
       const others = d.order.filter((p) => p.id !== d.id)
       const items = others.map((p) => ({
         aspect: p.aspect || aspects[p.id] || 1,
-        span: spanOf(p, cols),
+        span: spanOf(p, cols, variant),
       }))
       const boxes = packBoard(items, cols)
-      const at = dropIndex(boxes, px, py)
+      // `d.at` is the index this drag last settled on. Passing it back in is
+      // what gives dropIndex its dead band - without it the board re-packs on
+      // every frame the finger hovers near a tile's centre line.
+      const at = dropIndex(boxes, px, py, d.at)
+      d.at = at
       const me = d.order.find((p) => p.id === d.id)
       const next = [...others.slice(0, at), me, ...others.slice(at)]
       const same = next.length === d.order.length && next.every((p, i) => p.id === d.order[i].id)
@@ -637,9 +724,20 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
       // size then one click makes it the middle size, and another the big
       // size." The column defaults to it; stating it here means a change to the
       // default cannot silently change what a new upload looks like.
+      // EVERY NEW PHOTO GOES TO THE END OF BOTH BOARDS. Leaving
+      // `sort_order_mobile` null would have put it wherever its desktop order
+      // happens to land in the phone's arrangement, which for a creator who has
+      // arranged their phone board is the middle of it.
       const { error } = await supabase.from('creator_photos').insert({
-        creator_id: creatorId, photo_url: url, sort_order: order++, aspect, size: 'small',
+        creator_id: creatorId,
+        photo_url: url,
+        sort_order: order,
+        sort_order_mobile: order,
+        aspect,
+        size: 'small',
+        size_mobile: 'small',
       })
+      order += 1
       if (error) setUploadError(error.message)
     }
     setUploading(false)
@@ -647,20 +745,38 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
     photosChanged(creatorId)
   }
 
+  // TIDYING IT UP HAS TO RESET THE SIZES, OR IT DOES NOTHING VISIBLE.
+  //
+  // It used to clear the four `pos_*` columns only - which was the whole layout
+  // back when the board rendered from stored coordinates, and has been dead
+  // since the packer took over: the drawn span comes from `size` now, so a
+  // board of large photographs was "tidied" into exactly the board of large
+  // photographs it already was. It resets this variant's ladder to small and
+  // renumbers it by UPLOAD ORDER (`created_at`), which is what the button has
+  // always claimed to do and is the same layout a fresh board has.
+  //
+  // IT ONLY TOUCHES THE VARIANT YOU ARE LOOKING AT. Tidying on a phone leaves
+  // the desktop collage exactly where it was (migration 164).
   const [resetting, setResetting] = useState(false)
   async function resetAll() {
     if (resetting) return
     setResetting(true)
     const before = photos
-    setPhotos((cur) => (cur || []).map((p) => (
-      { ...p, pos_x: null, pos_y: null, pos_w: null, pos_h: null })))
-    const { error } = await supabase.from('creator_photos')
-      .update({ pos_x: null, pos_y: null, pos_w: null, pos_h: null })
-      .eq('creator_id', creatorId)
+    const byUpload = [...(photos || [])].sort((a, b) =>
+      String(a.created_at || '').localeCompare(String(b.created_at || ''))
+      || String(a.id).localeCompare(String(b.id)))
+    const patch = (i) => (variant === 'mobile'
+      ? { sort_order_mobile: i, size_mobile: 'small' }
+      : { sort_order: i, size: 'small', pos_x: null, pos_y: null, pos_w: null, pos_h: null })
+    const byId = new Map(byUpload.map((p, i) => [p.id, patch(i)]))
+    setPhotos((cur) => (cur || []).map((p) => ({ ...p, ...(byId.get(p.id) || {}) })))
+    const results = await Promise.all(byUpload.map((p, i) =>
+      supabase.from('creator_photos').update(patch(i)).eq('id', p.id)))
     setResetting(false)
-    if (error) {
+    const failed = results.find((r) => r.error)
+    if (failed) {
       setPhotos(before)
-      await notice(`The board could not be tidied: ${error.message}`)
+      await notice(`The board could not be tidied: ${failed.error.message}`)
     }
   }
 
@@ -673,18 +789,18 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
   // `pos_*` is what the profile renders from - leaving those stale would make
   // the profile and the editor disagree until the next drag.
   async function cycleSize(photo) {
-    const size = nextSize(photo.size || 'small')
+    const size = nextSize(sizeOf(photo, variant))
     const before = photos
-    const after = (photos || []).map((p) => (p.id === photo.id ? { ...p, size } : p))
+    const after = (photos || []).map((p) => (p.id === photo.id ? { ...p, [sizeKey]: size } : p))
     setPhotos(after)
-    const { error } = await supabase.from('creator_photos').update({ size }).eq('id', photo.id)
+    const { error } = await supabase.from('creator_photos').update({ [sizeKey]: size }).eq('id', photo.id)
     if (error) {
       setPhotos(before)
       await notice(`That size could not be saved: ${error.message}`)
       return
     }
     // Re-pack from the list we just set, in the same order the board is in.
-    const order = [...after].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)
+    const order = [...after].sort((a, b) => orderOf(a, variant) - orderOf(b, variant)
       || String(a.id).localeCompare(String(b.id)))
     commitRef.current?.(order)
   }
@@ -841,6 +957,7 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
               onCrop={() => setCropping(t)}
               onBroken={() => markBroken(t.id)}
               onDragStart={beginDrag}
+              size={sizeOf(t, variant)}
               onResize={() => cycleSize(t)}
               onRemove={() => removePhoto(t)}
               onCaption={(text) => saveCaption(t, text)}
@@ -860,19 +977,33 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
 }
 
 // ---------------------------------------------------------------- one photo
-function PhotoTile({ photo, box, width, arranging, editable, dragging, onOpen, onCrop, onBroken, onDragStart, onResize, onRemove, onCaption }) {
+function PhotoTile({ photo, box, width, size = 'small', arranging, editable, dragging, onOpen, onCrop, onBroken, onDragStart, onResize, onRemove, onCaption }) {
   const tr = useT()
   return (
     <figure
       data-tile
       style={{
+        // A TILE MOVES ON ITS TRANSFORM, NOT ON `left` AND `top` (2 Sep 2026).
+        //
+        // Ethan: "make it even smoother and animate even better, not so jumbly
+        // and snappy."
+        //
+        // Animating `left`/`top` is animating LAYOUT: every frame of every
+        // tile's 200ms ease re-runs layout and paint for the whole board, and
+        // with ten tiles re-flowing at once - which is exactly what a reorder
+        // does - the phone drops frames and the result reads as the tiles
+        // jumping rather than sliding. A transform is composited: it never
+        // touches layout, so ten of them move on the GPU at once.
+        // (This is the same lesson the chat room header paid for.)
         position: 'absolute',
-        left: box.x * width,
-        top: box.y * width,
+        left: 0,
+        top: 0,
         width: box.w * width,
         height: box.h * width,
         // Picking a photo up brings it to the front, which is what a pile of
-        // prints does and what makes overlap usable rather than confusing.
+        // prints does, and lifts it slightly off the board so the tile in the
+        // hand is visibly the one in the hand.
+        transform: `translate3d(${box.x * width}px, ${box.y * width}px, 0)${dragging ? ' scale(1.04)' : ''}`,
         zIndex: dragging ? 30 : 1,
       }}
       className={cx(
@@ -888,9 +1019,13 @@ function PhotoTile({ photo, box, width, arranging, editable, dragging, onOpen, o
         // because a 200ms ease on `left` means the tile lags the finger - which
         // reads as the board being slow, and is the other half of what Ethan
         // called jittery.
+        // 240ms on the same spring-ish curve the rest of the app settles on,
+        // which is long enough to read as a movement and short enough not to
+        // lag a second drag. The held tile has NO transition at all, because
+        // any easing on its transform means the tile trails the finger.
         dragging
           ? 'transition-none'
-          : 'transition-[left,top,width,height,box-shadow] duration-200 ease-out motion-reduce:transition-none',
+          : 'transition-[transform,width,height,box-shadow] duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none',
         arranging && 'cursor-grab touch-none active:cursor-grabbing',
       )}
       onPointerDown={(e) => arranging && onDragStart(e, photo)}
@@ -1002,7 +1137,7 @@ function PhotoTile({ photo, box, width, arranging, editable, dragging, onOpen, o
             onClick={(e) => { e.stopPropagation(); onResize() }}
             className="absolute right-2 top-2 z-20 flex h-8 items-center gap-[3px] rounded-full bg-white/95 px-2.5 text-brand shadow-card backdrop-blur transition-transform duration-150 hover:scale-110"
             aria-label={tr('Change the size of this photo')}
-            title={SIZE_TITLE[photo.size] || SIZE_TITLE.small}
+            title={SIZE_TITLE[size] || SIZE_TITLE.small}
           >
             {[1, 2, 3].map((n) => (
               <span
@@ -1010,7 +1145,7 @@ function PhotoTile({ photo, box, width, arranging, editable, dragging, onOpen, o
                 aria-hidden
                 className={cx(
                   'w-[3px] rounded-full transition-all duration-200',
-                  n <= (SIZE_LEVEL[photo.size] || 1) ? 'bg-brand' : 'bg-brand/25',
+                  n <= (SIZES.indexOf(size) + 1 || 1) ? 'bg-brand' : 'bg-brand/25',
                   n === 1 ? 'h-2' : n === 2 ? 'h-3' : 'h-4',
                 )}
               />

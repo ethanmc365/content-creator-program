@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from 'react-simple-maps'
 import { loadMapFeatures, loadMapCountryNames, loadMapCentroids } from '../lib/mapCountries'
@@ -159,6 +159,11 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
 
   const view = focusPos || fitPos || position
 
+  // The face marker's counter-scale group. Written imperatively during a
+  // gesture (see `onMove` on the ZoomableGroup) so a pinch does not re-render
+  // 177 country paths sixty times a second.
+  const hereScaleRef = useRef(null)
+
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return []
@@ -300,6 +305,29 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
             // even when fully zoomed out. d3-zoom clamps panning to this extent.
             translateExtent={[[-60, -50], [940, 490]]}
             onMoveEnd={(pos) => { if (!focusCountry) setPosition(pos) }}
+            // A LIVE ZOOM FOR THE ONE THING THAT COUNTER-SCALES (2 Sep 2026).
+            //
+            // Ethan: "on the countries visited map, whenever you zoom in the
+            // profile picture is really big for a while and then corrects the
+            // size."
+            //
+            // `onMoveEnd` is the only thing that wrote `position`, so during a
+            // pinch or a wheel the GROUP was already at the new scale while
+            // React still held the old one - and the face, whose whole job is
+            // to divide that scale back out, was being counter-scaled by a
+            // number from before the gesture started. It grew with the map for
+            // the length of the gesture and snapped back when you let go.
+            //
+            // The fix cannot be `setPosition` here: that is a React render on
+            // every frame of a pinch, over a map of 177 country paths. The
+            // marker's transform is written straight to the DOM instead, and
+            // the rendered attribute below stays the source of truth for every
+            // render - the two can only ever agree, because a render happens
+            // exactly when the committed zoom changes.
+            onMove={(pos) => {
+              const g = hereScaleRef.current
+              if (g) g.setAttribute('transform', `scale(${1 / Math.max(0.001, pos.zoom)})`)
+            }}
           >
             {/* THE SAME ARRIVAL AS EVERY OTHER MAP. This one had none at all:
                 the countries simply existed the moment the atlas resolved,
@@ -383,7 +411,7 @@ function WorldMap({ selected = [], onToggle, selectable = false, chips = false, 
                 it, which is the thing that opens the panel. */}
             {here && Number.isFinite(here.lng) && Number.isFinite(here.lat) && (
               <Marker coordinates={[here.lng, here.lat]} style={{ default: { pointerEvents: 'none' } }}>
-                <g transform={`scale(${1 / view.zoom})`} style={{ pointerEvents: 'none' }}>
+                <g ref={hereScaleRef} transform={`scale(${1 / view.zoom})`} style={{ pointerEvents: 'none' }}>
                   {here.travelling && (
                     <circle r={13} className="profile-here-pulse" fill={BRAND} opacity={0.35} />
                   )}

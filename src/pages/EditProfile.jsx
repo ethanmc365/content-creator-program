@@ -51,10 +51,13 @@ export default function EditProfile() {
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState('')
 
   const [form, setForm] = useState({
     name: profile?.name || '',
-    dob: profile?.dob || null,
+    // ALWAYS NULL FROM `profiles` - the real value comes from creator_private,
+    // in the effect below. See the note there.
+    dob: null,
     city: profile?.city || '',
     country: profile?.country || '',
     bio: profile?.bio || '',
@@ -90,7 +93,6 @@ export default function EditProfile() {
     setForm((f) => ({
       ...f,
       name: profile.name || '',
-      dob: profile.dob || null,
       city: profile.city || '',
       country: profile.country || '',
       bio: profile.bio || '',
@@ -111,16 +113,37 @@ export default function EditProfile() {
 
   // Phone is stored separately (private: only the creator and admins can read
   // it). Payment details live on the Settings page now. Load the private row.
+  //
+  // AND THE DATE OF BIRTH IS IN THERE TOO, WHICH IS THE WHOLE BUG (2 Sep 2026).
+  //
+  // Ethan: "we still have the issue with the date of birth. I clicked edit
+  // profile, entered my date of birth, clicked save, and then a few minutes
+  // later clicked edit profile and it was showing up as blank again."
+  //
+  // The save was never the problem and neither was the field. `profiles` has a
+  // BEFORE trigger, `mirror_dob_to_private`, which copies any dob it is handed
+  // into `creator_private.dob`, derives `profiles.age` from it and then sets
+  // `new.dob := null` - by design, so the public row never carries a full date
+  // of birth. So the write worked perfectly, and the form then re-seeded itself
+  // from `profiles.dob`, which is null on every row in the database and always
+  // will be. It read back the one column guaranteed to be empty.
+  //
+  // The private row is the only place the date exists, so it is where the form
+  // reads it from. RLS on `creator_private` is already owner-and-admin, which
+  // is exactly the audience for a date of birth.
   const [contact, setContact] = useState({ phone: '', phone_country: '' })
   useEffect(() => {
     supabase
       .from('creator_private')
-      .select('phone, phone_country')
+      .select('phone, phone_country, dob')
       .eq('id', user.id)
       .maybeSingle()
       .then(({ data }) => {
         if (!data) return
         setContact({ phone: data.phone || '', phone_country: data.phone_country || '' })
+        // Never over an edit in progress - same rule the profile re-seed
+        // follows, for the same reason.
+        if (data.dob && !dirtyRef.current) setForm((f) => (f.dob ? f : { ...f, dob: data.dob }))
       })
   }, [user.id])
 
@@ -172,11 +195,19 @@ export default function EditProfile() {
       }),
     ])
     setBusy(false)
-    if (!error) {
-      await refreshProfile()
-      setSaved(true)
-      setTimeout(() => navigate(`/profile/${user.id}`), 600)
+    // A REJECTED SAVE HAS TO SAY SO. This threw the error away, so a profile
+    // that would not write looked exactly like one that had: the button
+    // un-busied, nothing moved, and the only symptom was the edit being gone
+    // the next time you opened the page. That silence is what made the date of
+    // birth take three attempts to diagnose.
+    if (error) {
+      setSaveError(error.message)
+      return
     }
+    setSaveError('')
+    await refreshProfile()
+    setSaved(true)
+    setTimeout(() => navigate(`/profile/${user.id}`), 600)
   }
 
   return (
@@ -449,7 +480,10 @@ export default function EditProfile() {
               there it shoved the two buttons sideways, which is the one thing a
               fixed control must never do. The button says what happened
               instead, in the place you were already looking. */}
-          <div className="sticky bottom-20 z-20 mt-6 flex items-center justify-end gap-2.5 rounded-card border border-gray-100 bg-white/95 px-3 py-2.5 shadow-lift backdrop-blur sm:bottom-4">
+          <div className="sticky bottom-20 z-20 mt-6 flex flex-wrap items-center justify-end gap-2.5 rounded-card border border-gray-100 bg-white/95 px-3 py-2.5 shadow-lift backdrop-blur sm:bottom-4">
+            {saveError && (
+              <p className="mr-auto min-w-0 flex-1 text-xs text-red-600">{saveError}</p>
+            )}
             <button type="button" onClick={() => navigate(-1)} className="btn-ghost !py-2 text-sm">{tr("Cancel")}</button>
             <button
               type="submit"

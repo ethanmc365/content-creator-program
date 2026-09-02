@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { packBoard, dropIndex, spanOf, colsFor, isPlaced, nextSize, SIZES, MIN_PLACED_MILLE } from './PhotoBoard'
+import { packBoard, dropIndex, spanOf, colsFor, variantFor, orderOf, sizeOf, isPlaced, nextSize, SIZES, SIZE_LEVEL, MIN_PLACED_MILLE } from './PhotoBoard'
 
 // THE BOARD IS ONE PACKED LAYOUT, AND THESE ARE THE PROPERTIES IT HAS TO HAVE.
 //
@@ -18,7 +18,7 @@ const item = (aspect, span = 1) => ({ aspect, span })
 
 describe('packBoard', () => {
   it('keeps every photo inside the board horizontally', () => {
-    for (const cols of [2, 3]) {
+    for (const cols of [2, 3, 4, 6]) {
       const boxes = packBoard(new Array(10).fill(item(16 / 9)), cols)
       for (const b of boxes) {
         expect(b.x).toBeGreaterThanOrEqual(0)
@@ -37,7 +37,7 @@ describe('packBoard', () => {
   // The fault that sank the first two boards, asserted directly.
   it('never overlaps, at any mix of spans and shapes', () => {
     const aspects = [16 / 9, 3 / 4, 1, 4 / 5, 2, 9 / 16, 1.5, 0.7]
-    for (const cols of [2, 3]) {
+    for (const cols of [2, 3, 4, 6]) {
       for (let seed = 0; seed < 40; seed += 1) {
         const items = Array.from({ length: 9 }, (_, i) => item(
           aspects[(i * 7 + seed) % aspects.length],
@@ -117,39 +117,122 @@ describe('dropIndex', () => {
   it('an empty board takes the first photo', () => {
     expect(dropIndex([], 0.5, 0.5)).toBe(0)
   })
+
+  // THE DEAD BAND. A finger resting on a tile's centre line used to flip the
+  // answer every frame, and every flip re-packed the whole board - which is
+  // what "all the other ones were moving around" was.
+  it('holds the previous answer while the pointer sits on a centre line', () => {
+    const b = boxes[1]
+    const cx = b.x + b.w / 2
+    const cy = b.y + b.h / 2
+    expect(dropIndex(boxes, cx + b.w * 0.02, cy, 1)).toBe(1)
+    expect(dropIndex(boxes, cx - b.w * 0.02, cy, 2)).toBe(2)
+  })
+
+  it('still changes its mind once the pointer clears the band', () => {
+    const b = boxes[1]
+    const cx = b.x + b.w / 2
+    const cy = b.y + b.h / 2
+    expect(dropIndex(boxes, cx + b.w * 0.4, cy, 1)).toBe(2)
+    expect(dropIndex(boxes, cx - b.w * 0.4, cy, 2)).toBe(1)
+  })
+
+  it('answers without a previous index, as the first move of a drag does', () => {
+    const b = boxes[1]
+    expect(dropIndex(boxes, b.x + b.w / 2 - 0.001, b.y + b.h / 2)).toBe(1)
+  })
 })
 
 describe('spanOf', () => {
-  const placed = (w) => ({ pos_x: 0, pos_y: 0, pos_w: w, pos_h: 300 })
+  // The width derivation only runs for a row with no usable `size`, which is
+  // why every case here passes one that is missing or nonsense.
+  const placed = (w) => ({ size: 'unknown', pos_x: 0, pos_y: 0, pos_w: w, pos_h: 300 })
 
   it('reads one column back out of a one-column width', () => {
-    const [b] = packBoard([item(1, 1)], 3)
-    expect(spanOf(placed(Math.round(b.w * 1000)), 3)).toBe(1)
+    const [b] = packBoard([item(1, 1)], 6)
+    expect(spanOf(placed(Math.round(b.w * 1000)), 6)).toBe(1)
   })
 
   it('reads two columns back out of a two-column width', () => {
-    const [b] = packBoard([item(1, 2)], 3)
-    expect(spanOf(placed(Math.round(b.w * 1000)), 3)).toBe(2)
+    const [b] = packBoard([item(1, 2)], 6)
+    expect(spanOf(placed(Math.round(b.w * 1000)), 6)).toBe(2)
   })
 
   it('a photo nobody has arranged spans one column', () => {
-    expect(spanOf({ pos_x: null, pos_y: null, pos_w: null, pos_h: null }, 3)).toBe(1)
+    expect(spanOf({ size: null, pos_x: null, pos_y: null, pos_w: null, pos_h: null }, 6)).toBe(1)
   })
 
   // A board widened on a desktop has to be readable on a phone, where there
-  // are only two columns to span.
+  // are fewer columns to span.
   it('never returns more columns than the board has', () => {
-    expect(spanOf(placed(1000), 2)).toBeLessThanOrEqual(2)
-    expect(spanOf(placed(1000), 3)).toBeLessThanOrEqual(3)
+    expect(spanOf(placed(1000), 4)).toBeLessThanOrEqual(4)
+    expect(spanOf({ size: 'large' }, 4)).toBeLessThanOrEqual(4)
+    expect(spanOf({ size: 'large' }, 6)).toBeLessThanOrEqual(6)
+  })
+
+  // The whole point of the finer grid: large is two thirds of a desktop board
+  // rather than the whole of it, and there is a size under the old smallest.
+  it('large is the widest thing on the board, at every width', () => {
+    for (const cols of [4, 6]) {
+      expect(spanOf({ size: 'large' }, cols))
+        .toBeGreaterThanOrEqual(spanOf({ size: 'medium' }, cols))
+      expect(spanOf({ size: 'medium' }, cols))
+        .toBeGreaterThan(spanOf({ size: 'small' }, cols))
+    }
+  })
+
+  it('large no longer fills a desktop board edge to edge', () => {
+    expect(spanOf({ size: 'large' }, 6)).toBeLessThan(6)
   })
 })
 
 describe('colsFor', () => {
-  it('is two columns on a phone and three above it', () => {
-    expect(colsFor(375)).toBe(2)
-    expect(colsFor(519)).toBe(2)
-    expect(colsFor(520)).toBe(3)
-    expect(colsFor(1200)).toBe(3)
+  // The grid got FINER so the three sizes could all step down a notch and a
+  // genuinely smaller one could exist under them. See the note on colsFor.
+  it('is four columns on a phone and six above it', () => {
+    expect(colsFor(375)).toBe(4)
+    expect(colsFor(519)).toBe(4)
+    expect(colsFor(520)).toBe(6)
+    expect(colsFor(1200)).toBe(6)
+  })
+})
+
+// TWO ARRANGEMENTS, ONE TABLE (migration 164). A phone and a desktop pack the
+// same photographs into genuinely different collages, so each width reads and
+// writes its own running order and its own size ladder - and a board nobody has
+// ever arranged on a phone falls through to the desktop one rather than
+// starting empty.
+describe('the two arrangements', () => {
+  it('reads the phone variant below 520 and the desktop one above', () => {
+    expect(variantFor(375)).toBe('mobile')
+    expect(variantFor(519)).toBe('mobile')
+    expect(variantFor(520)).toBe('desktop')
+    expect(variantFor(0)).toBe('desktop')
+  })
+
+  it('falls through to the desktop order and size when the phone has none', () => {
+    const p = { sort_order: 3, size: 'large' }
+    expect(orderOf(p, 'mobile')).toBe(3)
+    expect(sizeOf(p, 'mobile')).toBe('large')
+  })
+
+  it('prefers the phone values once they exist, and never the other way round', () => {
+    const p = { sort_order: 3, size: 'large', sort_order_mobile: 0, size_mobile: 'small' }
+    expect(orderOf(p, 'mobile')).toBe(0)
+    expect(sizeOf(p, 'mobile')).toBe('small')
+    expect(orderOf(p, 'desktop')).toBe(3)
+    expect(sizeOf(p, 'desktop')).toBe('large')
+  })
+
+  it('a photo with nothing stored at all is first and small', () => {
+    expect(orderOf({}, 'mobile')).toBe(0)
+    expect(sizeOf({}, 'desktop')).toBe('small')
+  })
+
+  it('spans the size the variant asks for', () => {
+    const p = { size: 'large', size_mobile: 'small' }
+    expect(spanOf(p, 6, 'desktop')).toBe(SIZE_LEVEL.large)
+    expect(spanOf(p, 4, 'mobile')).toBe(1)
   })
 })
 

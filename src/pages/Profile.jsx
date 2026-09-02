@@ -435,41 +435,44 @@ export default function Profile() {
             'overflow-hidden rounded-card border',
             here?.travelling ? 'border-brand/25 bg-brand-tint/50' : 'border-gray-100 bg-white shadow-card',
           )}>
+            {/* THE CLOCK IS A LABELLED CELL, LIKE THE TWO UNDER IT (2 Sep 2026).
+
+                Ethan: "for your local time, rather than having that weird
+                circle around the clock icon I want it to just be the clock
+                icon - match it in with the home town and the age. I don't
+                really like the UI, make it more in sync."
+
+                It was the odd one out on its own card: a 36px tinted disc and a
+                horizontal icon-then-text row, sitting directly above two cells
+                that are a bare brand glyph, a small uppercase caption and the
+                value underneath. Three facts about the same person in two
+                different layouts, ten pixels apart. Same cell now - the time
+                just gets the bigger type, because it is the headline. */}
             {here && (
-              <div className="flex items-center gap-3 p-4">
-                {/* ORANGE, LIKE EVERY OTHER RAIL CARD'S ICON. This one was grey
-                    on grey while At a glance, Headed next, Languages and the
-                    rest all lead with a brand-orange mark, so the first card in
-                    the rail was the only one that did not look like it
-                    belonged. */}
-                <span className={cx(
-                  'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
-                  here.travelling ? 'bg-brand text-white' : 'bg-brand-tint text-brand',
-                )}>
-                  <Icon name={here.travelling ? 'plane' : 'clock'} className="h-4 w-4" />
-                </span>
-                <p className="min-w-0 text-sm">
-                  {here.travelling ? (
-                    <>
-                      <span className="block font-semibold text-ink">
-                        {/* "You ARE", "Maddie IS". Getting this wrong is the
-                            sort of thing that makes a product feel
-                            machine-written. */}
-                        {`${here.who} ${isMe ? 'are' : 'is'} in ${here.place}`}
-                      </span>
-                      {currentTrip && <span className="block text-xs text-smoke">{tr('Back on')} {formatDate(currentTrip.end_date)}</span>}
-                    </>
-                  ) : (
-                    <>
-                      <span className="block text-lg font-bold leading-tight text-ink">
-                        <LocalTime profile={creator} bare />
-                      </span>
-                      <span className="block text-xs text-smoke">
-                        {isMe ? tr('Your local time') : tr("{name}'s local time", { name: here.who })}
-                      </span>
-                    </>
-                  )}
+              <div className={cx('px-4 py-3', (homeLine || shownAge) && 'border-b border-gray-100')}>
+                <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-smoke">
+                  <Icon
+                    name={here.travelling ? 'plane' : 'clock'}
+                    className="h-3.5 w-3.5 shrink-0 text-brand"
+                  />
+                  {here.travelling
+                    ? tr('Right now')
+                    : (isMe ? tr('Your local time') : tr("{name}'s local time", { name: here.who }))}
                 </p>
+                {here.travelling ? (
+                  <>
+                    <p className="mt-1 font-semibold text-ink">
+                      {/* "You ARE", "Maddie IS". Getting this wrong is the sort
+                          of thing that makes a product feel machine-written. */}
+                      {`${here.who} ${isMe ? 'are' : 'is'} in ${here.place}`}
+                    </p>
+                    {currentTrip && <p className="mt-0.5 text-xs text-smoke">{tr('Back on')} {formatDate(currentTrip.end_date)}</p>}
+                  </>
+                ) : (
+                  <p className="mt-1 text-lg font-bold leading-tight tabular-nums text-ink">
+                    <LocalTime profile={creator} bare />
+                  </p>
+                )}
               </div>
             )}
 
@@ -479,8 +482,7 @@ export default function Profile() {
                 it, and a lone cell spans the row rather than leaving a hole. */}
             {(homeLine || shownAge) && (
               <div className={cx(
-                'grid divide-x divide-gray-100 border-gray-100 text-sm',
-                here && 'border-t',
+                'grid divide-x divide-gray-100 text-sm',
                 homeLine && shownAge ? 'grid-cols-2' : 'grid-cols-1',
               )}>
                 {homeLine && (
