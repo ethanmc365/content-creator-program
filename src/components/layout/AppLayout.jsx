@@ -7,6 +7,7 @@ import { Avatar } from '../ui'
 import Icon from '../Icon'
 import NotificationBell from './NotificationBell'
 import TourGate from '../tour/TourGate'
+import RouteSkeleton from '../RouteSkeleton'
 import PullToRefresh from '../PullToRefresh'
 import { useChatSearchTarget } from '../../lib/chatSearch'
 import { useChatChromeHidden } from '../../lib/chatChrome'
@@ -617,9 +618,17 @@ export default function AppLayout() {
         </div>
       </header>
 
-      {/* ------- Page content (extra bottom room for the tab bar + safe area) ------- */}
+      {/* ------- Page content (extra bottom room for the tab bar + safe area) -------
+          THE SUSPENSE BOUNDARY IS HERE, NOT IN App.jsx, and that is the whole
+          of the "tapping a tab flashes the loading screen" report. A boundary
+          above the layout takes the header and the tab bar down with the page
+          while a route chunk arrives; one inside `<main>` leaves the chrome
+          standing and swaps only the content for the shape of what is coming.
+          See components/RouteSkeleton. */}
       <main className="flex-1 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0">
-        <Outlet />
+        <Suspense fallback={<RouteSkeleton />}>
+          <Outlet />
+        </Suspense>
       </main>
 
       {/* One-off "rate the event" popup after an attended event finishes */}
