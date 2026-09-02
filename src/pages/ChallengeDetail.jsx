@@ -712,7 +712,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
             aria-selected={tab === t.key}
             onClick={() => setTab(t.key)}
             className={cx(
-              'flex shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition-all duration-200',
+              'flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2.5 text-[13px] font-semibold transition-all duration-200 sm:gap-2 sm:px-4 sm:text-sm',
               tab === t.key
                 ? 'bg-brand text-white shadow-card'
                 : 'bg-cloud text-smoke hover:-translate-y-0.5 hover:text-ink',

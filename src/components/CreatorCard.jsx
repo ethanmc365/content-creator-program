@@ -186,7 +186,9 @@ export default function CreatorCard({ creator, relation, onRelationChange, curre
             title={`${creator.countries_visited.length} countries visited`}
           >
             <Icon24Globe />
-            {creator.countries_visited.length} {creator.countries_visited.length === 1 ? 'country' : 'countries'}
+            {creator.countries_visited.length === 1
+              ? tr('1 country')
+              : tr('{n} countries', { n: creator.countries_visited.length })}
           </span>
         )}
         {currentTrip && (
@@ -234,7 +236,7 @@ export default function CreatorCard({ creator, relation, onRelationChange, curre
                   : 'bg-cloud text-ink hover:bg-gray-200',
               )}
             >
-              Message
+              {tr('Message')}
             </button>
           </div>
         )}

@@ -275,17 +275,24 @@ export default function Directory() {
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-tint text-brand">
                   <Icon name="users" className="h-4 w-4" />
                 </span>
-                <span className="text-sm">
-                  <span className="font-semibold text-ink">{mapCreators.length}</span>
-                  <span className="text-smoke">
-                    {fieldFilterOn
-                      ? ` creator${mapCreators.length === 1 ? '' : 's'} match${mapCreators.length === 1 ? 'es' : ''} your filters`
-                      : ` creator${mapCreators.length === 1 ? '' : 's'} from around the world`}
-                  </span>
+                {/* ONE SENTENCE, WITH THE NUMBER IN IT. It was a bold count
+                    followed by a fragment assembled from two ternaries, which
+                    is exactly the shape lib/i18n cannot translate: a translator
+                    handed " creators from around the world" has no sentence to
+                    put it in, and Spanish would not agree the verb the same
+                    way. The number keeps its weight through a nested span. */}
+                <span className="text-sm text-smoke">
+                  {fieldFilterOn
+                    ? (mapCreators.length === 1
+                      ? tr('1 creator matches your filters')
+                      : tr('{n} creators match your filters', { n: mapCreators.length }))
+                    : (mapCreators.length === 1
+                      ? tr('1 creator from around the world')
+                      : tr('{n} creators from around the world', { n: mapCreators.length }))}
                 </span>
                 {exploredOn && (
                   <span className="ml-auto text-xs font-medium text-brand">
-                    {allCountries.length} countries filmed in between us
+                    {tr('{n} countries filmed in between us', { n: allCountries.length })}
                   </span>
                 )}
               </div>

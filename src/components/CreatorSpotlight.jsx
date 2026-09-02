@@ -138,7 +138,7 @@ export default function CreatorSpotlight() {
               <div className="relative overflow-hidden rounded-card border border-gray-100">
                 <WorldMap selected={creator.countries_visited} fitSelected />
                 <div className="map-scrim-top pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between gap-3 px-4 pb-6 pt-3">
-                  <p className="text-xs font-semibold text-ink">{firstName}'s travel map</p>
+                  <p className="text-xs font-semibold text-ink">{tr("{name}'s travel map", { name: firstName })}</p>
                   <span className="rounded-full bg-brand-tint px-2.5 py-1 text-[11px] font-bold text-brand">
                     {creator.countries_visited.length} {creator.countries_visited.length === 1 ? 'country' : 'countries'}
                   </span>

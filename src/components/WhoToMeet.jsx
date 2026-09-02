@@ -231,7 +231,7 @@ export default function WhoToMeet({ className }) {
                 to={`/profile/${creator.id}`}
                 className="btn-secondary flex-1 !py-2 text-xs"
               >
-                Profile
+                {tr('Profile')}
               </Link>
               <button
                 type="button"
@@ -239,7 +239,7 @@ export default function WhoToMeet({ className }) {
                 disabled={opening === creator.id}
                 className="btn-primary flex-1 !py-2 text-xs"
               >
-                {opening === creator.id ? 'Opening…' : 'Message'}
+                {opening === creator.id ? tr('Opening…') : tr('Message')}
               </button>
             </div>
           </div>

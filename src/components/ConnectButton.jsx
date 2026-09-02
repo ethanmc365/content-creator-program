@@ -102,14 +102,14 @@ export default function ConnectButton({
   // them a message. See CreatorCard: Message becomes the brand button once you
   // are connected. The tick stays green, because the tick is the bit that means
   // done and it is four pixels of it.
-  const label = { none: 'Connect', pending_sent: 'Pending', pending_received: 'Accept request', connected: 'Connected' }[rel]
+  const label = tr({ none: 'Connect', pending_sent: 'Pending', pending_received: 'Accept request', connected: 'Connected' }[rel])
   const tone = {
     none: 'bg-brand text-white ring-1 ring-brand hover:shadow-card',
     pending_sent: 'bg-brand-light/25 text-brand ring-1 ring-brand-light/60 hover:bg-brand-light/40',
     pending_received: 'bg-brand text-white ring-1 ring-brand hover:shadow-card',
     connected: 'bg-white text-smoke ring-1 ring-gray-200 hover:bg-cloud hover:text-ink',
   }[rel]
-  const title = rel === 'pending_sent' ? 'Cancel request' : rel === 'connected' ? 'Disconnect' : ''
+  const title = rel === 'pending_sent' ? tr('Cancel request') : rel === 'connected' ? tr('Disconnect') : ''
 
   const first = (targetName || '').trim().split(' ')[0]
 

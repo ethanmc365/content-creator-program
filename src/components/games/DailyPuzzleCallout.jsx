@@ -102,7 +102,7 @@ function PuzzleColumn({ puzzle, done, count, first }) {
         {/* `truncate`, unlike the stacked version, because a name that wraps to
             two lines makes this row taller than the two beside it and the three
             stop reading as one strip. At this width all three fit. */}
-        <span className="block truncate text-sm font-semibold leading-tight text-ink">{puzzle.title}</span>
+        <span className="block truncate text-sm font-semibold leading-tight text-ink">{tr(puzzle.title)}</span>
         <span className="mt-0.5 block truncate text-[11px] leading-tight text-smoke">
           {/* The count is the point, so it wins the line whenever there is one.
               "Nobody yet" is not a discouragement here, it is an opening.
@@ -110,7 +110,13 @@ function PuzzleColumn({ puzzle, done, count, first }) {
               puzzle nobody has played is ABSENT from the tally, not zero in it,
               so this has to separate null from 0 or "nobody yet" and "still
               loading" become the same thing and the tagline never leaves. */}
-          {count == null || count === 0 ? tr(puzzle.short) : tr('{n} played today', { n: count })}
+          {/* ONE OR MANY IS TWO SENTENCES, not a suffix - Spanish agrees the
+              noun as well as the number, so "1 partidas" is what a `{n}` string
+              produces and it is wrong in both languages. See `plural` in
+              lib/i18n. */}
+          {count == null || count === 0
+            ? tr(puzzle.short)
+            : count === 1 ? tr('1 played today') : tr('{n} played today', { n: count })}
         </span>
       </span>
 
@@ -127,7 +133,7 @@ function PuzzleColumn({ puzzle, done, count, first }) {
             <Icon name="check" className="h-3.5 w-3.5" />
             {tr("Played")}
           </>
-        ) : 'Play'}
+        ) : tr('Play')}
       </span>
     </Link>
   )
@@ -194,9 +200,11 @@ export default function DailyPuzzleCallout({ className }) {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-60 motion-reduce:hidden" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
             </span>
-            {allDone ? 'All three done. Nicely played.' : `${doneCount} of ${DAILY_PUZZLES.length} done today`}
+            {allDone
+              ? tr('All three done. Nicely played.')
+              : tr('{n} of {total} done today', { n: doneCount, total: DAILY_PUZZLES.length })}
           </p>
-          <p className="text-[11px] text-smoke">New puzzles in {nextIn}</p>
+          <p className="text-[11px] text-smoke">{tr('New puzzles in {time}', { time: nextIn })}</p>
         </div>
       </div>
     </section>

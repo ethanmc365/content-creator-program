@@ -1142,7 +1142,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   // vertical line - which is what actually makes a stack of buttons read as a
   // set rather than as four unrelated pills.
   const pill = (on) =>
-    `inline-flex w-44 items-center justify-start gap-2 rounded-full px-4 py-2 text-xs font-semibold shadow-card backdrop-blur transition-all hover:scale-[1.03] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 ${
+    `inline-flex w-52 items-center justify-start gap-2 rounded-full px-3.5 py-2 text-xs font-semibold shadow-card backdrop-blur transition-all hover:scale-[1.03] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 ${
       on ? 'bg-brand text-white ring-1 ring-brand' : 'bg-white/95 text-ink ring-1 ring-black/5'
     }`
 
@@ -1163,7 +1163,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           className={pill(connectionsView)}
         >
           <Icon name="users" className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">My connections{connectionsView ? ` · ${connSet.size}` : ''}</span>
+          <span className="truncate">{tr('My connections')}{connectionsView ? ` · ${connSet.size}` : ''}</span>
         </button>
       )}
       {/* WHERE WE HAVE BEEN, TOGETHER - AS A FILTER, NOT A SECOND MAP.
@@ -1182,7 +1182,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           className={pill(exploredView)}
         >
           <Icon name="globe" className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">Been together{exploredView ? ` · ${exploredSet.size}` : ''}</span>
+          <span className="truncate">{tr('Been together')}{exploredView ? ` · ${exploredSet.size}` : ''}</span>
         </button>
       )}
       {journeys.length > 0 && !omitTravel && (
@@ -1198,7 +1198,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
               carries next month's flights is a label that undersells its own
               content, and a creator scanning for somebody to meet in Lisbon in
               three weeks had no reason to press it. */}
-          <span className="truncate">On the move{travelView ? ` · ${journeys.length}` : ''}</span>
+          <span className="truncate">{tr('On the move')}{travelView ? ` · ${journeys.length}` : ''}</span>
         </button>
       )}
       {onToggleNearMe && (
@@ -1206,13 +1206,13 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
           type="button"
           onClick={onToggleNearMe}
           disabled={nearMeDisabled}
-          title={nearMeDisabled ? 'Add your city in your profile to use this' : undefined}
+          title={nearMeDisabled ? tr('Add your city in your profile to use this') : undefined}
           className={pill(nearMe)}
         >
           <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11Z" /><circle cx="12" cy="10" r="2.6" />
           </svg>
-          <span className="truncate">Creators near me{nearMe ? ` · ${nearCount}` : ''}</span>
+          <span className="truncate">{tr('Creators near me')}{nearMe ? ` · ${nearCount}` : ''}</span>
         </button>
       )}
     </>

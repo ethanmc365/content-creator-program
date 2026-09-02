@@ -29,6 +29,7 @@ import { cx, timeAgo } from '../lib/utils'
 import { useIsMobile } from '../lib/useKeyboardInset'
 import { cardHover } from '../lib/motion'
 import { NETWORK_LINKS, loadLinkOrder as loadOrder, ORDER_KEY } from '../lib/networkLinks'
+import { marketName } from '../lib/markets'
 import Reveal from '../components/network/Reveal'
 import { useT } from '../lib/i18n'
 
@@ -1062,7 +1063,7 @@ export default function GlobalHome() {
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-semibold">{a.profiles?.name}</p>
                             <p className="text-xs text-smoke">
-                              {from ? from.name : network?.name || 'Worldwide'} · {timeAgo(a.created_at)}
+                              {marketName(from ? from.name : network?.name || 'Worldwide')} · {timeAgo(a.created_at)}
                             </p>
                           </div>
                         </div>
@@ -1104,7 +1105,7 @@ export default function GlobalHome() {
                   obviously tappable, on the page where vertical space is
                   scarcest. Full screen still carries its own affordances. */}
               <SectionHead icon="globe" title={tr("Everyone, right now")}
-                to="/creators" toLabel="Creator Network" />
+                to="/creators" toLabel={tr('Creator Network')} />
               {/* The map is the most expensive thing on this page - a megabyte
                   of TopoJSON, parsed, then a few hundred SVG paths - and doing
                   that work while the cards above are still sliding is what made
@@ -1130,7 +1131,7 @@ export default function GlobalHome() {
           {d?.trips?.length > 0 && (
             <Reveal from="down" delay={stepDelay()}>
               <section>
-                <SectionHead icon="pin" title={tr("Creators on the move")} to="/collab" toLabel="Collab board" />
+                <SectionHead icon="pin" title={tr("Creators on the move")} to="/collab" toLabel={tr('Collab board')} />
                 <Reveal className="trim-4 grid grid-cols-1 gap-3 sm:grid-cols-2" stagger={0.07}>
                   {d.trips.map((t) => (
                     <MotionLink key={t.id} to="/collab" {...cardHover}
@@ -1172,7 +1173,7 @@ export default function GlobalHome() {
           {d?.fresh?.length > 0 && (
             <Reveal from="down" delay={stepDelay()}>
               <section>
-                <SectionHead icon="users" title={tr("New in the community")} to="/creators" toLabel="All creators" />
+                <SectionHead icon="users" title={tr("New in the community")} to="/creators" toLabel={tr('All creators')} />
                 <Reveal className="trim-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3" stagger={0.07}>
                   {d.fresh.map((c) => (
                     <MotionLink key={c.id} to={`/profile/${c.id}`} {...cardHover}

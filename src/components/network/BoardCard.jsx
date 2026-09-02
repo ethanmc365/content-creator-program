@@ -148,7 +148,9 @@ export default function BoardCard({ className }) {
                     'ml-auto shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold',
                     open ? 'bg-brand-tint text-brand' : 'bg-green-50 text-green-700',
                   )}>
-                    {open ? 'No answers yet' : `${answers} ${answers === 1 ? 'answer' : 'answers'}`}
+                    {open
+                      ? tr('No answers yet')
+                      : answers === 1 ? tr('1 answer') : tr('{n} answers', { n: answers })}
                   </span>
                 </span>
 
