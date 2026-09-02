@@ -23,7 +23,11 @@ async function callAuthGate(body) {
     })
     return await res.json().catch(() => ({ error: 'Something went wrong. Please try again.' }))
   } catch {
-    return { error: 'Network error. Please check your connection and try again.' }
+    // `unreachable` distinguishes "the gate never answered" from "the gate said
+    // no". Only the first one is allowed to fall back to signing in directly;
+    // see signIn below. Without the flag a wrong password would fall through
+    // to a second attempt, which is how you turn one failed login into two.
+    return { error: 'Network error. Please check your connection and try again.', unreachable: true }
   }
 }
 
@@ -370,6 +374,38 @@ export function AuthProvider({ children }) {
 
     signIn: async (email, password, captchaToken) => {
       const out = await callAuthGate({ action: 'login', email, password, captchaToken })
+
+      // THE RATE LIMITER IS NOT ALLOWED TO BE A SINGLE POINT OF FAILURE.
+      //
+      // `auth-gate` is a proxy in front of GoTrue that exists to count failed
+      // attempts. It is a good thing to have and it is NOT worth the whole
+      // platform: if that one function is unreachable from somebody's browser,
+      // for any reason at all, they simply cannot sign in, and the message they
+      // get is "Network error. Please check your connection", which sends them
+      // to look at their wifi.
+      //
+      // That happened, on 2 Sep 2026, to Ethan on two different browsers while
+      // the function's own logs showed it answering every request it received
+      // cleanly - 200s and 400s, no timeouts, no errors. Whatever stopped the
+      // request, it stopped it before it arrived, and nothing on the server
+      // could have fixed it.
+      //
+      // So when the gate cannot be REACHED, sign in against GoTrue directly.
+      // The endpoint is Supabase's own, on a different path with its own CORS
+      // handling, and GoTrue applies its own rate limiting server-side, so the
+      // fallback is not a hole - it is the same login with one fewer thing in
+      // the way. `unreachable` is set only by the catch in callAuthGate, so a
+      // refused password or a 429 still comes straight back to the user.
+      if (out.unreachable) {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+          options: captchaToken ? { captchaToken } : undefined,
+        })
+        if (error) return { data: { session: null, user: null }, error }
+        return { data, error: null }
+      }
+
       if (out.error) return { data: { session: null, user: null }, error: { message: out.error } }
       await supabase.auth.setSession({ access_token: out.access_token, refresh_token: out.refresh_token })
       return { data: { session: out, user: out.user ?? null }, error: null }
