@@ -39,6 +39,7 @@ import MessageActions from '../components/chat/MessageActions'
 import OutboxNotice from '../components/OutboxNotice'
 import { enqueueMessage, queuedFor, subscribeOutbox, onOutboxSent, onOutboxBlocked, retryQueued, dropQueued } from '../lib/outbox'
 import { useT } from '../lib/i18n'
+import { testFlags } from '../lib/testData'
 
 // Per-market chat. Spain's General, the UK's General and the Worldwide General
 // are three separate rooms that happen to share a layout.
@@ -532,7 +533,7 @@ export default function NetworkChat() {
     supabase.from('community_members')
       .select('profile_id, profiles!inner(id, name, photo_url, status, is_test)')
       .eq('community_id', community.id).eq('status', 'active')
-      .eq('profiles.status', 'active').eq('profiles.is_test', false)
+      .eq('profiles.status', 'active').in('profiles.is_test', testFlags())
       .then(({ data }) => {
         if (alive) setMembers((data || []).map((r) => r.profiles))
       })

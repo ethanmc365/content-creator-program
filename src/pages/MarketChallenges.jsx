@@ -17,6 +17,7 @@ import { loadWinnerGalleries } from '../lib/winners'
 import { cx, formatDate, challengeDeadline } from '../lib/utils'
 import { listContainer, listItem, cardHover, pageFade } from '../lib/motion'
 import { useT } from '../lib/i18n'
+import { testFlags } from '../lib/testData'
 
 // A market's own challenge board.
 //
@@ -58,7 +59,7 @@ export default function MarketChallenges() {
         supabase.from('community_members')
           .select('profile_id, profiles!inner(is_admin, is_test, status)', { count: 'exact', head: true })
           .eq('community_id', market.id).eq('status', 'active')
-          .eq('profiles.is_admin', false).eq('profiles.is_test', false).eq('profiles.status', 'active'),
+          .eq('profiles.is_admin', false).in('profiles.is_test', testFlags()).eq('profiles.status', 'active'),
       ])
       if (cancelled) return
 

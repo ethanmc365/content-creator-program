@@ -12,6 +12,7 @@ import { placeNumber, rankInk, ordinalFor } from '../../lib/podiumTiers'
 import { SOFT_SPRING } from '../../lib/motion'
 import { cx, formatViews } from '../../lib/utils'
 import { useT } from '../../lib/i18n'
+import { isHiddenTestRow } from '../../lib/testData'
 
 // The live challenge, wherever it is shown inside a market.
 //
@@ -72,7 +73,7 @@ function useLeaders(challengeId) {
         // standing.
         const byCreator = new Map()
         for (const row of data || []) {
-          if (row.profiles?.is_test) continue
+          if (isHiddenTestRow(row.profiles)) continue
           const cur = byCreator.get(row.creator_id) || {
             id: row.profiles?.id ?? row.creator_id,
             name: row.profiles?.name,

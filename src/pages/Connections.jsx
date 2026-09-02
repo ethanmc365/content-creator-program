@@ -14,6 +14,7 @@ import { flagFromIso } from '../lib/flags'
 import { toast } from '../lib/toast'
 import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
+import { testFlags } from '../lib/testData'
 
 // The connections hub.
 //
@@ -122,7 +123,7 @@ export default function Connections() {
       supabase.from('connections').select('id, creator_id, connected_creator_id, status, created_at'),
       supabase.from('profiles')
         .select('id, name, photo_url, bio, country_code, city, country, last_seen_at, created_at')
-        .eq('status', 'active').eq('is_admin', false).eq('is_test', false)
+        .eq('status', 'active').eq('is_admin', false).in('is_test', testFlags())
         .is('deletion_requested_at', null),
       supabase.from('community_members')
         .select('profile_id, community_id, communities!inner(id, name, kind, slug)')

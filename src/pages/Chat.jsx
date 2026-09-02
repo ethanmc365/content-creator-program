@@ -35,6 +35,7 @@ import { useNowTick, withinEditWindow } from '../lib/messageActions'
 import { playSend, playSendFail, playInbound, playReactionPop } from '../lib/appSounds'
 import OutboxNotice from '../components/OutboxNotice'
 import { enqueueMessage, queuedFor, subscribeOutbox, onOutboxSent, onOutboxBlocked, retryQueued, dropQueued } from '../lib/outbox'
+import { testFlags } from '../lib/testData'
 
 // A short label for a message when it's quoted in a reply.
 function messagePreview(m) {
@@ -169,7 +170,7 @@ export default function Chat() {
   const [mention, setMention] = useState(null) // { query, start } while typing @…
   useEffect(() => {
     supabase.from('profiles').select('id, name, photo_url')
-      .in('status', ['active', 'muted']).eq('is_test', false)
+      .in('status', ['active', 'muted']).in('is_test', testFlags())
       .then(({ data }) => setMembers(data ?? []))
   }, [])
   // Names for seeding @mention chips in the admin rich composer (longest first

@@ -10,6 +10,7 @@ import { pickWhoToMeet } from '../lib/whoToMeet'
 import { openConversation } from '../lib/dm'
 import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
+import { testFlags } from '../lib/testData'
 
 // WHO TO MEET THIS WEEK.
 //
@@ -64,7 +65,7 @@ export default function WhoToMeet({ className }) {
       const [{ data: people }, { data: trips }, { data: rels }] = await Promise.all([
         supabase.from('profiles')
           .select('id, name, photo_url, bio, city, country, country_code, city_lng, languages, countries_visited, instagram_url, tiktok_url, youtube_url, facebook_url')
-          .eq('status', 'active').eq('is_test', false).eq('is_admin', false)
+          .eq('status', 'active').in('is_test', testFlags()).eq('is_admin', false)
           .is('deletion_requested_at', null),
         // Everything upcoming, for everybody. The overlap test needs both sides,
         // and the whole table of future trips is a few dozen rows.

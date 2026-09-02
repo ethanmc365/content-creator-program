@@ -42,6 +42,7 @@ import {
   loadGroupMembers, loadMyInvites, markGroupRead,
 } from '../lib/groups'
 import { useT } from '../lib/i18n'
+import { testFlags } from '../lib/testData'
 
 
 // PINNED CHATS. Three, per device, in localStorage - see the note on the
@@ -434,7 +435,7 @@ export default function Messages() {
         supabase
           .from('profiles')
           .select('id, name, photo_url, bio, is_admin, city, country')
-          .eq('status', 'active').eq('is_test', false).is('deletion_requested_at', null)
+          .eq('status', 'active').in('is_test', testFlags()).is('deletion_requested_at', null)
           .order('last_seen_at', { ascending: false, nullsFirst: false })
           .order('created_at', { ascending: false }),
         loadRelationships(user.id),

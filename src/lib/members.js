@@ -1,3 +1,5 @@
+import { isHiddenTestRow } from './testData'
+
 // WHO COUNTS AS A MEMBER OF A MARKET.
 //
 // The market page said UK & Ireland had 44 creators and the manage page said 51,
@@ -20,8 +22,16 @@
 export function isRealMember(p) {
   if (!p) return false
   if (p.status !== 'active') return false      // pending applicants and suspended accounts
-  if (p.is_test) return false                  // QA Admin and friends
-  if (p.is_sandbox) return false               // the view-as-creator account
+  // `is_test` DEPENDS ON WHO IS ASKING. For everybody in the community it means
+  // exactly what it always meant - not a real person, not in the roster. For the
+  // demo admin account handed to the Tryp.com team it means the opposite: these
+  // are the people the demo is made of. See lib/testData for the whole argument.
+  if (isHiddenTestRow(p)) return false
+  // `is_sandbox` is NOT viewer-aware and should not be. It marks the internal
+  // accounts themselves - the QA logins, the view-as-creator shell, the team's
+  // own demo account - and a demo of a community should no more list those than
+  // a real one should.
+  if (p.is_sandbox) return false
   if (p.deletion_requested_at) return false    // on the way out
   return true
 }

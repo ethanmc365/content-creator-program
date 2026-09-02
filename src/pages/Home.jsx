@@ -15,6 +15,7 @@ import { stripMarkup } from '../lib/richText'
 import { timeAgo, challengeDeadline } from '../lib/utils'
 import { loadMyScopes, inScope } from '../lib/scope'
 import Reveal from '../components/network/Reveal'
+import { testFlags } from '../lib/testData'
 
 // Signed-in home: the CURRENT challenge front and centre with a live
 // countdown, plus quick community pulse (latest announcement, new creators).
@@ -42,7 +43,7 @@ export default function Home() {
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle(),
-          supabase.from('profiles').select('id, name, photo_url, bio').eq('status', 'active').eq('is_admin', false).eq('is_test', false).is('deletion_requested_at', null).order('created_at', { ascending: false }).limit(4),
+          supabase.from('profiles').select('id, name, photo_url, bio').eq('status', 'active').eq('is_admin', false).in('is_test', testFlags()).is('deletion_requested_at', null).order('created_at', { ascending: false }).limit(4),
         ])
 
       // Only surface a challenge as "live" if its deadline hasn't passed. An
@@ -66,7 +67,7 @@ export default function Home() {
       // (active, non-deleted, non-test) creators only - pending signups no
       // longer inflate the count.
       const { data: visited } = await supabase.from('profiles').select('countries_visited')
-        .eq('status', 'active').eq('is_test', false).is('deletion_requested_at', null)
+        .eq('status', 'active').in('is_test', testFlags()).is('deletion_requested_at', null)
       setAllCountries([...new Set((visited ?? []).flatMap((p) => p.countries_visited || []))])
 
       // Upcoming trips from the collab board, for the "creators on the move" nudge.

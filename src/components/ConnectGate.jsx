@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { AppLoader, Avatar, Spinner } from './ui'
 import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
+import { testFlags } from '../lib/testData'
 
 // Shown once to a newly-approved creator: connect with a few others before the
 // full community unlocks. "Connecting" sends a connection request; after three
@@ -25,7 +26,7 @@ export default function ConnectGate() {
       const [{ data: profiles }, { data: conns }] = await Promise.all([
         supabase.from('profiles')
           .select('id, name, photo_url, bio, city, country')
-          .eq('status', 'active').eq('is_admin', false).eq('is_test', false).is('deletion_requested_at', null)
+          .eq('status', 'active').eq('is_admin', false).in('is_test', testFlags()).is('deletion_requested_at', null)
           .neq('id', user.id)
           .order('last_seen_at', { ascending: false, nullsFirst: false })
           .limit(12),

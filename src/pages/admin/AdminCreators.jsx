@@ -8,6 +8,7 @@ import Icon from '../../components/Icon'
 import Turnstile from '../../components/Turnstile'
 import { formatDate, timeAgo, formatDateTimeTz, downloadCsv, cx, ageFromDob } from '../../lib/utils'
 import { isOnlineAt } from '../../lib/presence'
+import { isHiddenTestRow } from '../../lib/testData'
 
 // Creator management: the full list with emails (admin-only RPC), plus all
 // account actions - password reset, mute, suspend, promote to admin, DM.
@@ -97,7 +98,7 @@ export default function AdminCreators() {
     }
     setMarketOf(byCreator)
     // Hidden QA/test accounts never show in the roster.
-    setCreators((profiles ?? []).filter((p) => !p.is_test))
+    setCreators((profiles ?? []).filter((p) => !isHiddenTestRow(p)))
     setEmails(Object.fromEntries((emailRows ?? []).map((r) => [r.id, r.email])))
     setLastSeen(Object.fromEntries((seenRows ?? []).map((r) => [r.id, { signIn: r.last_sign_in_at, seen: r.last_seen_at, posted: r.last_posted_at, active: r.last_active_at }])))
     setInactiveBefore(Date.now() - 30 * 86400000)

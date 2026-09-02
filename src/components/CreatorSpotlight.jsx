@@ -8,6 +8,7 @@ import WorldMap from './WorldMap'
 import Icon from './Icon'
 import { Avatar } from './ui'
 import { useT } from '../lib/i18n'
+import { testFlags } from '../lib/testData'
 
 // Deterministic per-cycle shuffle so the spotlight rotates fairly: within each
 // full pass over the pool every creator is featured exactly once (no repeats
@@ -54,7 +55,7 @@ export default function CreatorSpotlight() {
       const { data: pool } = await supabase
         .from('profiles')
         .select('id, name, photo_url, bio, about, city, country, countries_visited')
-        .eq('status', 'active').eq('is_admin', false).eq('is_test', false)
+        .eq('status', 'active').eq('is_admin', false).in('is_test', testFlags())
         .is('deletion_requested_at', null)
         .order('created_at', { ascending: true })
       if (!alive) return

@@ -23,6 +23,7 @@ import { roleLabel } from '../lib/roles'
 import { cardHover, pageFade } from '../lib/motion'
 import { useIsMobile } from '../lib/useKeyboardInset'
 import { useT } from '../lib/i18n'
+import { testFlags } from '../lib/testData'
 
 // A single market's overview, seen by the people IN it.
 //
@@ -73,7 +74,7 @@ export default function ChapterHome() {
         supabase.from('community_members')
           .select('profile_id, profiles!inner(is_admin, is_test, status)', { count: 'exact', head: true })
           .eq('community_id', chapter.id).eq('status', 'active')
-          .eq('profiles.is_admin', false).eq('profiles.is_test', false).eq('profiles.status', 'active'),
+          .eq('profiles.is_admin', false).in('profiles.is_test', testFlags()).eq('profiles.status', 'active'),
         supabase.from('challenges').select('id, title, status, end_date, scoring, description, submissions(count)')
           .eq('community_id', chapter.id).order('end_date', { ascending: false }).limit(6),
         // VIEWS, NOT POINTS. Points are a per-challenge scoring mode - only a
@@ -96,7 +97,7 @@ export default function ChapterHome() {
         supabase.from('community_members')
           .select('profile_id, role, profiles!inner(id, name, photo_url, country_code, last_seen_at, is_admin, is_test, status, platform_role, role_title, earned_role)')
           .eq('community_id', chapter.id).eq('status', 'active')
-          .eq('profiles.is_test', false).eq('profiles.status', 'active'),
+          .in('profiles.is_test', testFlags()).eq('profiles.status', 'active'),
         // What is coming up here. Events scoped to THIS market plus the
         // network-wide ones, because a worldwide Q&A is still something a
         // Spanish creator should see on the Spanish page.

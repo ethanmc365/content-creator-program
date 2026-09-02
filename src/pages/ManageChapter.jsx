@@ -20,6 +20,7 @@ import { COUNTRIES } from '../lib/countries'
 import { clearScopeCache } from '../lib/scope'
 import { cx } from '../lib/utils'
 import { listContainer, listItem, pageFade } from '../lib/motion'
+import { testFlags, isHiddenTestRow } from '../lib/testData'
 
 // The country manager's desk: everything one market owns, and nothing that
 // belongs to another one.
@@ -113,7 +114,7 @@ export default function ManageChapter() {
         // city/country too: the picker searches on them, because "which Sam"
         // is answered by a face and a city, not by a surname.
         supabase.from('profiles').select('id, name, photo_url, country_code, city, country')
-          .eq('status', 'active').eq('is_test', false).order('name').limit(500),
+          .eq('status', 'active').in('is_test', testFlags()).order('name').limit(500),
       ])
     setD({
       // ONE DEFINITION OF A MEMBER, shared with the market page.
@@ -424,7 +425,7 @@ export default function ManageChapter() {
   }
 
   const standingsBy = new Map((d?.standings || []).map((s) => [s.creator_id, Number(s.points)]))
-  const realMembers = (d?.members || []).filter((m) => !m.profiles.is_test)
+  const realMembers = (d?.members || []).filter((m) => !isHiddenTestRow(m.profiles))
   const roomsToAdd = ADDABLE_ROOMS.filter((r) => !(d?.channels || []).some((c) => c.key === r.key))
 
   return (

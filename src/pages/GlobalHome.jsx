@@ -32,6 +32,7 @@ import { NETWORK_LINKS, loadLinkOrder as loadOrder, ORDER_KEY } from '../lib/net
 import { marketName } from '../lib/markets'
 import Reveal from '../components/network/Reveal'
 import { useT } from '../lib/i18n'
+import { testFlags } from '../lib/testData'
 
 // The Worldwide hub. Reads as a HOME PAGE, not a directory of markets: a
 // greeting, then what is happening, then where everyone is.
@@ -248,9 +249,9 @@ export default function GlobalHome() {
         supabase.from('community_members')
           .select('community_id, profiles!inner(is_admin, is_test, status)')
           .eq('status', 'active')
-          .eq('profiles.is_admin', false).eq('profiles.is_test', false).eq('profiles.status', 'active'),
+          .eq('profiles.is_admin', false).in('profiles.is_test', testFlags()).eq('profiles.status', 'active'),
         supabase.from('profiles').select('id', { count: 'exact', head: true })
-          .eq('status', 'active').eq('is_admin', false).eq('is_test', false),
+          .eq('status', 'active').eq('is_admin', false).in('is_test', testFlags()),
         supabase.from('challenges').select('id, title, community_id, status, end_date, scoring').eq('status', 'active'),
         // ANNOUNCEMENTS FROM EVERY ROOM THIS CREATOR CAN READ, not just the
         // worldwide one. Somebody in the UK and Spain had no way to see either
@@ -284,7 +285,7 @@ export default function GlobalHome() {
         // Six, not four. Four left a hole at the end of a three-across grid and
         // read as "we only have four", which is the opposite of the point.
         supabase.from('profiles').select('id, name, photo_url, bio, country_code')
-          .eq('status', 'active').eq('is_admin', false).eq('is_test', false)
+          .eq('status', 'active').eq('is_admin', false).in('is_test', testFlags())
           .is('deletion_requested_at', null).order('created_at', { ascending: false }).limit(6),
         supabase.from('profiles').select('countries_visited'),
         // Badge counts for the rail. They were in the avatar menu; the menu no
@@ -306,7 +307,7 @@ export default function GlobalHome() {
           // worth seeing rather than whichever row came back first (see
           // `byPinPriority` in CreatorMap).
           .select('id, name, photo_url, bio, city, country, country_code, city_lat, city_lng, show_on_map, countries_visited, last_seen_at')
-          .eq('status', 'active').eq('is_test', false).is('deletion_requested_at', null),
+          .eq('status', 'active').in('is_test', testFlags()).is('deletion_requested_at', null),
         supabase.from('collab_posts').select('creator_id, city, country, city_lat, city_lng, start_date, end_date')
           .gte('end_date', today).order('start_date'),
       ])
@@ -329,7 +330,7 @@ export default function GlobalHome() {
           supabase.from('community_members')
             .select('profile_id, profiles!inner(is_admin, is_test, status)', { count: 'exact', head: true })
             .eq('community_id', networkId).eq('status', 'active')
-            .eq('profiles.is_admin', false).eq('profiles.is_test', false).eq('profiles.status', 'active'),
+            .eq('profiles.is_admin', false).in('profiles.is_test', testFlags()).eq('profiles.status', 'active'),
         ])
         if (cancelled) return
         globalEntries = (entrants || []).length

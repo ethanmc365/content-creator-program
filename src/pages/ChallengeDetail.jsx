@@ -22,6 +22,7 @@ import { podiumTier, placeNumber } from '../lib/podiumTiers'
 import { mdToHtml } from '../lib/richEditor'
 import { useIsMobile } from '../lib/useKeyboardInset'
 import { useT } from '../lib/i18n'
+import { testFlags } from '../lib/testData'
 
 
 // The platform's own key in SocialMark's table. Two spellings of one list is
@@ -202,7 +203,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         .eq('community_id', ch.community_id)
         .eq('status', 'active')
         .eq('profiles.is_admin', false)
-        .eq('profiles.is_test', false)
+        .in('profiles.is_test', testFlags())
         .eq('profiles.status', 'active')
       setAudience(count ?? 0)
     } else {
@@ -211,7 +212,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         .select('id', { count: 'exact', head: true })
         .eq('status', 'active')
         .eq('is_admin', false)
-        .eq('is_test', false)
+        .in('is_test', testFlags())
       setAudience(count ?? 0)
     }
   }, [id])

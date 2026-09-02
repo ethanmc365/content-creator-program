@@ -18,6 +18,7 @@ import { PageHeader, Skeleton, Spinner, Select } from '../../components/ui'
 import { DateField, TimeField } from '../../components/DateTimeFields'
 import { SCORING_MODES, DEFAULT_SCORING, STARTER_POINT_RULES, normalisePointRule } from '../../lib/scoring'
 import { cx, parseDateTime, isoToDateInput, isoToTimeInput } from '../../lib/utils'
+import { testFlags } from '../../lib/testData'
 
 // Create / edit a challenge. Everything is customisable: which market it runs
 // in, how it is won, length, brief, rules, platforms and the full prize
@@ -284,7 +285,7 @@ export default function AdminChallengeForm() {
       .eq('community_id', form.community_id)
       .eq('status', 'active')
       .eq('profiles.is_admin', false)
-      .eq('profiles.is_test', false)
+      .in('profiles.is_test', testFlags())
       .eq('profiles.status', 'active')
       .then(({ data }) => {
         if (!alive) return

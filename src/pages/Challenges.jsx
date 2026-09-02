@@ -13,6 +13,7 @@ import LiveChallengeCard from '../components/LiveChallengeCard'
 import WinnersPodium from '../components/WinnersPodium'
 import { loadWinnerGalleries } from '../lib/winners'
 import { useT } from '../lib/i18n'
+import { testFlags, isHiddenTestRow } from '../lib/testData'
 
 const STATUS_TONE = { active: 'brand', ended: 'amber', archived: 'grey', draft: 'red' }
 
@@ -61,7 +62,7 @@ export default function Challenges() {
         .then(({ data: won }) => {
           const byCurrency = {}
           for (const r of won ?? []) {
-            if (r.profiles?.is_test) continue
+            if (isHiddenTestRow(r.profiles)) continue
             const c = r.currency || 'GBP'
             byCurrency[c] = (byCurrency[c] || 0) + Number(r.amount || 0)
           }
@@ -94,7 +95,7 @@ export default function Challenges() {
         if (cancelled) return
         const byChallenge = {}
         for (const s of data || []) {
-          if (s.profiles?.is_test) continue
+          if (isHiddenTestRow(s.profiles)) continue
           const bucket = (byChallenge[s.challenge_id] ||= new Map())
           const cur = bucket.get(s.creator_id) || { creator_id: s.creator_id, name: s.profiles?.name, photo_url: s.profiles?.photo_url, views: 0 }
           cur.views += Number(s.logged_views) || 0
@@ -128,10 +129,10 @@ export default function Challenges() {
           ? supabase.from('community_members')
               .select('profile_id, profiles!inner(is_admin, is_test, status, deletion_requested_at)', { count: 'exact', head: true })
               .eq('community_id', c.community_id).eq('status', 'active')
-              .eq('profiles.is_admin', false).eq('profiles.is_test', false).eq('profiles.status', 'active')
+              .eq('profiles.is_admin', false).in('profiles.is_test', testFlags()).eq('profiles.status', 'active')
               .is('profiles.deletion_requested_at', null)
           : supabase.from('profiles').select('id', { count: 'exact', head: true })
-              .eq('status', 'active').eq('is_admin', false).eq('is_test', false)
+              .eq('status', 'active').eq('is_admin', false).in('is_test', testFlags())
               .is('deletion_requested_at', null)
         const [{ data: entrants }, { count }] = await Promise.all([
           supabase.from('submissions').select('creator_id').eq('challenge_id', c.id),

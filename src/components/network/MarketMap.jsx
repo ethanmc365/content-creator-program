@@ -4,6 +4,7 @@ import CreatorMap from '../CreatorMap'
 import Icon from '../Icon'
 import MapSkeleton from './MapSkeleton'
 import { useT } from '../../lib/i18n'
+import { testFlags } from '../../lib/testData'
 
 // Where this market's creators actually are.
 //
@@ -30,7 +31,7 @@ export default function MarketMap({ marketId, marketName, showOnMapOnly = true }
       .eq('community_id', marketId)
       .eq('status', 'active')
       .eq('profiles.status', 'active')
-      .eq('profiles.is_test', false)
+      .in('profiles.is_test', testFlags())
       // CREATORS, NOT STAFF. The programme lead is a member of every market so
       // that the rooms and standings work, and their pin is wherever they live.
       // Without this filter "Where we are in Germany" drew one pin on the UK,

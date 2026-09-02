@@ -8,6 +8,7 @@ import { RailCardSkeleton } from './Skeletons'
 import { cx, timeAgo } from '../../lib/utils'
 import { listContainer, listItem } from '../../lib/motion'
 import { useT } from '../../lib/i18n'
+import { testFlags } from '../../lib/testData'
 
 // What has actually happened here lately.
 //
@@ -38,7 +39,7 @@ export default function MarketActivity({ market, limit = 8 }) {
         supabase.from('community_members')
           .select('profile_id, joined_at, profiles!inner(id, name, photo_url, is_test, status)')
           .eq('community_id', market.id).eq('status', 'active')
-          .eq('profiles.is_test', false).eq('profiles.status', 'active')
+          .in('profiles.is_test', testFlags()).eq('profiles.status', 'active')
           .order('joined_at', { ascending: false }).limit(limit),
         supabase.from('messages')
           .select('id, channel, created_at, body, profiles:sender_id(id, name, photo_url)')

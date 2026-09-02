@@ -11,6 +11,7 @@ import { overlay } from '../../lib/motion'
 import { useIsPhone } from '../../lib/useKeyboardInset'
 import { useT } from '../../lib/i18n'
 import { lockScroll } from '../../lib/scrollLock'
+import { testFlags } from '../../lib/testData'
 
 // One box that goes anywhere.
 //
@@ -84,7 +85,7 @@ export default function CommandPalette({ open, onClose }) {
     let alive = true
     Promise.all([
       supabase.from('profiles').select('id, name, photo_url, city, country, country_code')
-        .eq('status', 'active').eq('is_test', false).order('name').limit(300),
+        .eq('status', 'active').in('is_test', testFlags()).order('name').limit(300),
       supabase.from('challenges').select('id, title, status, community_id')
         .neq('status', 'draft').order('start_date', { ascending: false }).limit(60),
       supabase.from('channels').select('id, key, label, community_id').order('position'),

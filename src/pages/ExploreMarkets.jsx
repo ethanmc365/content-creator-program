@@ -13,6 +13,7 @@ import { cx } from '../lib/utils'
 import { notice } from '../lib/confirm'
 import { listContainer, listItem, cardHover, pageFade } from '../lib/motion'
 import { useT } from '../lib/i18n'
+import { testFlags } from '../lib/testData'
 
 // Every market, and whether it is yours.
 //
@@ -176,7 +177,7 @@ export default function ExploreMarkets() {
         supabase.from('community_members')
           .select('community_id, profiles!inner(is_admin, is_test, status)')
           .eq('status', 'active')
-          .eq('profiles.is_admin', false).eq('profiles.is_test', false).eq('profiles.status', 'active'),
+          .eq('profiles.is_admin', false).in('profiles.is_test', testFlags()).eq('profiles.status', 'active'),
         supabase.from('challenges').select('id, title, community_id').eq('status', 'active'),
       ])
       if (cancelled) return

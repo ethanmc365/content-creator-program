@@ -13,6 +13,7 @@ import { platformsForProfile } from '../components/PlatformBadges'
 import { loadRelationships } from '../lib/connections'
 import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
+import { testFlags } from '../lib/testData'
 
 const norm = (s) => (s || '').toLowerCase().replace(/[^a-z]/g, '')
 function distanceKm(aLat, aLng, bLat, bLng) {
@@ -72,7 +73,7 @@ export default function Directory() {
       const [{ data: profiles }, rels, { data: tripRows }] = await Promise.all([
         // Surface the most recently active creators first, so dormant profiles
         // sink to the bottom.
-        supabase.from('profiles').select('*').eq('status', 'active').eq('is_test', false).is('deletion_requested_at', null)
+        supabase.from('profiles').select('*').eq('status', 'active').in('is_test', testFlags()).is('deletion_requested_at', null)
           .order('last_seen_at', { ascending: false, nullsFirst: false })
           .order('created_at', { ascending: false }),
         loadRelationships(user.id),
