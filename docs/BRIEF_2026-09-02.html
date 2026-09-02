@@ -572,8 +572,8 @@
             <h4>Send the team their account</h4>
             <p class="who">You · today · André, Ellu, Helio</p>
             <p>
-              Credentials are in the next section. One shared account, full admin sight of everything,
-              and physically unable to spend money, send mail or post a message. Send it with the two
+              Credentials are in the next section: one account each, full admin sight of everything,
+              and physically unable to spend money, send mail or post a message. Send them with the two
               sentences I have drafted so nobody wonders what they are allowed to press.
             </p>
           </div>
@@ -647,8 +647,8 @@
     <section id="account">
       <h2>The team's demo account</h2>
       <p class="lede">
-        One shared login for André, Ellu and Helio. Global admin, every market, every screen, and fenced
-        in the database so it cannot reach a real creator.
+        One login each for André, Ellu and Helio. Global admin, every market, every screen, and fenced
+        in the database so none of them can reach a real creator.
       </p>
 
       <div class="callout">
@@ -689,27 +689,38 @@
 
       <div class="cred">
         <dl>
-          <div>
-            <dt>Sign in at</dt>
-            <dd>trypcreators.vercel.app</dd>
-          </div>
-          <div>
-            <dt>Role</dt>
-            <dd>Global admin</dd>
-          </div>
-          <div>
-            <dt>Email</dt>
-            <dd>team@trypcreators.test</dd>
-          </div>
-          <div>
-            <dt>Password</dt>
-            <dd>TrypTeam!2026</dd>
-          </div>
+          <div><dt>Sign in at</dt><dd>trypcreators.vercel.app</dd></div>
+          <div><dt>Role</dt><dd>Global admin, every market</dd></div>
+          <div><dt>André</dt><dd>andre@trypcreators.test<br>TrypAndre!2026</dd></div>
+          <div><dt>Ellu</dt><dd>ellu@trypcreators.test<br>TrypEllu!2026</dd></div>
+          <div><dt>Helio</dt><dd>helio@trypcreators.test<br>TrypHelio!2026</dd></div>
+          <div><dt>Spare / shared</dt><dd>team@trypcreators.test<br>TrypTeam!2026</dd></div>
         </dl>
         <p class="note">
-          Shared, so treat it as disposable. If you want individual logins for Helio or Ellu later,
-          it is a two-minute job. The address is on a <code>.test</code> domain, which by standard can
-          never receive mail, so the account cannot be used to reset anything by email.
+          One each rather than one shared login. It is better anyway: Helio gets
+          an audit trail that is actually his, nobody can knock anybody else out
+          of a session, and if one account ever gets into a bad state the other
+          two are unaffected. All four are on a <code>.test</code> domain, which
+          by standard can never receive mail, so none of them can be used to
+          reset anything by email.
+        </p>
+      </div>
+
+      <div class="callout">
+        <span class="tag">If a login looks stuck, this is the fix</span>
+        <p>
+          Sign in, the page appears, nothing loads, and after a few seconds it
+          returns to the login screen. That is a browser holding a session whose
+          server-side half was destroyed by the bug described in
+          <a href="#audit">the audit</a>. The tokens are still in the browser and
+          they are no longer valid, so every request fails and the app gives up.
+        </p>
+        <p>
+          <strong>Open the site in a private window, or clear site data for
+          trypcreators.vercel.app, and sign in again.</strong> One or the other
+          clears it in seconds. It cannot happen again, because the bug that
+          poisoned the session is fixed, but a browser that was poisoned before
+          the fix stays poisoned until its storage is cleared.
         </p>
       </div>
 
@@ -764,11 +775,13 @@
       <div class="callout">
         <span class="tag">Suggested message to send with it</span>
         <p>
-          Here is a login for the creator platform: <strong>team@trypcreators.test</strong> /
-          <strong>TrypTeam!2026</strong>. It is a full admin account, so you will see every market, every
-          creator and all the data, so press anything you like. It is deliberately unable to send messages,
-          send email, pay anybody or delete anything, so there is nothing you can break. Spain has a full
-          set of demo entries on it if you want to see a challenge running end to end.
+          Here is your login for the creator platform: <strong>trypcreators.vercel.app</strong>, and
+          your own email and password below. It is a full admin account, so you will see every market,
+          every creator and all the data, and you can press anything you like. It is deliberately
+          unable to send messages, send email, pay anybody or delete anything, so there is nothing you
+          can break. Spain has a full set of demo entries on it if you want to see a challenge running
+          end to end. If it ever signs in and then hangs, open it in a private window; that clears a
+          stale session from earlier today.
         </p>
       </div>
     </section>
@@ -1039,7 +1052,7 @@ $ create a brand new SECURITY DEFINER function, then ask who can call it<br>
             </tr>
             <tr>
               <td><strong>Rate limiting</strong></td>
-              <td>Uploads are capped at forty an hour, per creator. Link previews and geocoding now have limits too, which they did not before today. The <em>login</em> limiter needs a correction, and it is in the open list below rather than here.</td>
+              <td>Rebuilt today, because it was not working at all. Five failed logins per account per fifteen minutes, keyed on the email so it cannot be evaded; thirty per address; four hundred across the whole platform as a backstop. Password resets are capped per account too. Only failures count, so a correct password clears it and nobody is locked out. Uploads forty an hour per creator; link previews and geocoding also capped.</td>
             </tr>
             <tr>
               <td><strong>Storage</strong></td>
@@ -1069,8 +1082,8 @@ $ create a brand new SECURITY DEFINER function, then ask who can call it<br>
               <td>The one thing I could not fix from code. It is a project setting. Step 2 in <a href="#now">Do this first</a>.</td>
             </tr>
             <tr>
-              <td><span class="chip open">Yours</span> <strong>The login rate limit is not actually limiting</strong></td>
-              <td>I got this wrong in the first version of this page. The limiter counts attempts against a key made of the email <em>and</em> the caller's IP, and it reads that IP from the end of the proxy header. On this setup that end is one of Supabase's own edge servers, and it is a different one almost every request, so the key never repeats and the count never reaches five. I found nine login attempts on the demo account, each recorded under a different address. It is a small change to key the limit on the email alone. I have deliberately <em>not</em> made it today: it means editing the function every sign-in goes through, hours before the team logs in. Your call on when.</td>
+              <td><span class="chip good">Fixed</span> <strong>The login rate limit was not limiting anything</strong></td>
+              <td>I flagged this in the first version of this page and have now fixed it. The limiter counted attempts against a key made of the email and the caller's address, and it read that address from the wrong end of the proxy header: it was getting one of Supabase's own edge servers, a different one almost every request. Nine login attempts from one person were recorded under seven different addresses, so the count never reached five and login, signup and password reset were all effectively unprotected. It now keys on the email, which cannot be rotated. Verified: six failed logins now give five refusals and then a block, where before the sixth was just another refusal.</td>
             </tr>
             <tr>
               <td><span class="chip good">Fixed</span> <strong>A nightly job was going to log the team out</strong></td>
