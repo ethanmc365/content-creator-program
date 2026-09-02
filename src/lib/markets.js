@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { COUNTRIES, countryMatches } from './countries'
 import { supabase } from './supabase'
 import { useCommunity } from '../context/CommunityContext'
+import { t } from './i18n'
 
 // Turning what a creator typed into something the network can route on.
 //
@@ -124,4 +125,26 @@ export function useMarkets() {
   }, [chapters])
 
   return rows
+}
+
+// A MARKET'S NAME, IN THE READER'S LANGUAGE (2 Sep 2026).
+//
+// Ethan: "the worldwide tab - UK, Ireland, Spain, Portugal, Germany - it's
+// still in English. They should have the Spanish names for the countries as
+// well, obviously."
+//
+// This is the ONE exception to "nothing a person wrote is ever translated" (see
+// the note at the top of lib/i18n), and it is worth stating why it is not a
+// hole in that rule. A market's name is not user content: there are seven of
+// them, we chose all seven, they are the names of countries, and a Spanish
+// creator being shown a place called "UK & Ireland" in a Spanish interface is
+// the product half-translated rather than the product respecting somebody's
+// words. A creator's name, a challenge title or a message body is content, and
+// none of those go anywhere near this.
+//
+// A name with no entry in the dictionary renders unchanged, so opening a new
+// market needs no code at all - and a market manager can add the translation
+// themselves from /admin/languages the day it opens.
+export function marketName(name) {
+  return name ? t(name) : name
 }

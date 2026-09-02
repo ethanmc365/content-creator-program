@@ -116,7 +116,7 @@ function AskModal({ open, onClose, onAsked, existing = null }) {
                   )}>
                     <Icon name={t.icon} className="h-3.5 w-3.5" />
                   </span>
-                  <span className="min-w-0 truncate text-sm font-semibold">{t.label}</span>
+                  <span className="min-w-0 truncate text-sm font-semibold">{tr(t.label)}</span>
                 </button>
               )
             })}
@@ -510,7 +510,7 @@ export default function Board() {
                 {s.key === 'unanswered' && state !== s.key && waiting > 0 && (
                   <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
                 )}
-                {s.label}
+                {tr(s.label)}
               </button>
             ))}
             <span className="mx-1 hidden w-px self-stretch bg-gray-200 sm:block" />
@@ -527,7 +527,7 @@ export default function Board() {
                 )}
               >
                 <Icon name={t.icon} className="h-3.5 w-3.5" />
-                {t.short}
+                {tr(t.short)}
               </button>
             ))}
           </div>

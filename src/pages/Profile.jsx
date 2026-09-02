@@ -309,7 +309,7 @@ export default function Profile() {
 {/* ---------- About (bio) ---------- */}
         {creator.about && (
           <section className="card">
-            <h2 className="mb-3 text-lg font-semibold">About {creator.name.split(' ')[0]}</h2>
+            <h2 className="mb-3 text-lg font-semibold">{tr('About {name}', { name: creator.name.split(' ')[0] })}</h2>
             <p className="whitespace-pre-line leading-relaxed text-smoke">{creator.about}</p>
           </section>
         )}
@@ -321,7 +321,15 @@ export default function Profile() {
         <section>
           <div className="mb-4 flex items-baseline justify-between">
             <h2 className="text-lg font-semibold">
-              {creator.countries_visited?.length || 0} {creator.countries_visited?.length === 1 ? 'country' : 'countries'} visited
+              {/* ONE SENTENCE WITH THE NUMBER IN IT, not a number followed by
+                  a word chosen by a ternary. `{n} countries visited` cannot be
+                  assembled from parts in Spanish - the order is different and
+                  so is the agreement - which is the whole reason lib/i18n's API
+                  is placeholders. Ethan: "21 countries visited on their profile
+                  pages, the about section - they're all not translated." */}
+              {creator.countries_visited?.length === 1
+                ? tr('1 country visited')
+                : tr('{n} countries visited', { n: creator.countries_visited?.length || 0 })}
             </h2>
             {isMe && <Link to="/profile/edit" className="text-sm font-medium text-brand hover:underline">{tr("Update map")}</Link>}
           </div>

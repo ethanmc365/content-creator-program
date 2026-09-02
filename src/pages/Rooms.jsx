@@ -103,7 +103,7 @@ function RoomRow({ to, room, last }) {
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-baseline gap-2">
-          <span className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-tight">{room.label}</span>
+          <span className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-tight">{tr(room.label)}</span>
           {room.visibility === 'staff' && (
             <span className="shrink-0 rounded-full bg-ink/[0.07] px-1.5 py-0.5 text-[10px] font-semibold text-ink/70">{tr("Staff")}</span>
           )}
@@ -117,7 +117,7 @@ function RoomRow({ to, room, last }) {
         <span className="mt-1 block truncate text-[13px] leading-snug text-smoke">
           {last
             ? `${last.profiles?.name?.split(' ')[0] || 'Someone'}: ${stripMarkup(last.body || '')}`
-            : room.hint || 'Nothing posted yet'}
+            : (room.hint ? tr(room.hint) : tr('Nothing posted yet'))}
         </span>
       </span>
     </Link>

@@ -157,6 +157,10 @@ export default function FlightCommunity() {
     return () => { cancelled = true }
   }, [win, thisYear, today])
 
+  // How many shared flights carry no aircraft. It is what stops a thin wall
+  // reading as a broken one - see the line under the grid.
+  const [fleetGap, setFleetGap] = useState(0)
+
   // The whole community's totals, which is the one figure on this page that is
   // about the group rather than about a ranking inside it.
   useEffect(() => {
@@ -176,11 +180,16 @@ export default function FlightCommunity() {
     Promise.all([
       supabase.rpc('community_aircraft'),
       supabase.rpc('community_flight_records'),
-    ]).then(([a, rec]) => {
+      // How many logged flights have NO aircraft on them. See the note on the
+      // wall below, and migration 167.
+      supabase.rpc('community_aircraft_gap'),
+    ]).then(([a, rec, gap]) => {
       if (cancelled) return
       setFleet(a.data ?? [])
       const row = Array.isArray(rec.data) ? rec.data[0] : rec.data
       setRecords(row ?? null)
+      const g = Array.isArray(gap.data) ? gap.data[0] : gap.data
+      setFleetGap(g ? Number(g.flights_without_aircraft) || 0 : 0)
     })
     return () => { cancelled = true }
   }, [])
@@ -645,6 +654,32 @@ export default function FlightCommunity() {
                   {allFleet ? 'Show fewer' : `View all ${fleet.length} aircrafts`}
                   <Icon name={allFleet ? 'chevronUp' : 'chevronDown'} className="h-4 w-4" />
                 </button>
+              )}
+
+              {/* WHY THE WALL IS THIN, WHEN IT IS (2 Sep 2026).
+
+                  Ethan: "it's still showing that we're only flying one plane
+                  even though it's obviously multiple - and I think Jacob
+                  selected other ones too."
+
+                  The page was right and it looked broken, which is the worse of
+                  the two failures. Forty-one of the forty-five flights logged
+                  by real creators carry no aircraft at all - it is an optional
+                  field several rows down a form, and in a backfill of
+                  twenty-seven trips in one sitting it is the first thing
+                  anybody skips. Nothing on the page could tell you the
+                  difference between "the community has flown one type" and
+                  "nobody filled the box in".
+                  So it says which, and it asks. Only when there are actually
+                  flights missing one; a complete wall says nothing. */}
+              {fleetGap > 0 && (
+                <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-card border border-dashed border-gray-200 px-4 py-3 text-xs text-smoke">
+                  <Icon name="plane" className="h-4 w-4 shrink-0 text-brand" />
+                  {tr('{n} logged flights have no aircraft recorded, so they are not on this wall.', { n: fleetGap })}
+                  <Link to="/flights" className="font-semibold text-brand hover:underline">
+                    {tr('Add yours →')}
+                  </Link>
+                </p>
               )}
             </section>
           </Reveal>

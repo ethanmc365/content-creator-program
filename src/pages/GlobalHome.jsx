@@ -149,8 +149,15 @@ function NetworkLinkRow({ link, count, isNew, handleProps, dragging }) {
       <Link to={link.to} className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-3 py-2">
         <Icon name={link.icon} className="h-4 w-4 shrink-0 text-smoke transition-colors group-hover:text-brand" />
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium">{link.label}</span>
-          <span className="block truncate text-[11px] text-smoke">{link.hint}</span>
+          {/* THROUGH `tr`, BECAUSE THE LIST IS A TABLE. Ethan: "on the global
+              page where it says Creator Network, Connections etc, it's all
+              still in English, and the descriptions are in English." Every one
+              of these sentences IS in the Spanish dictionary - they were being
+              printed straight off `NETWORK_LINKS` instead of being looked up,
+              which is the one thing the i18n report cannot see (it scans for
+              `tr('literal')`, and `tr(link.label)` is a variable). */}
+          <span className="block truncate text-sm font-medium">{tr(link.label)}</span>
+          <span className="block truncate text-[11px] text-smoke">{tr(link.hint)}</span>
         </span>
         {count > 0 && (
           <span className="inline-flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-semibold text-white">
@@ -862,7 +869,22 @@ export default function GlobalHome() {
                         ? '—'
                         : <CountUp value={s.n} format={(v) => Math.round(v).toLocaleString('en-GB')} />}
                     </p>
-                    <p className="text-[11px] font-medium uppercase tracking-widest text-white/70 sm:text-xs">{s.label}</p>
+                    {/* THE LABEL SHRINKS, THE CARD DOES NOT (2 Sep 2026).
+                        Ethan: "on the worldwide page you seem to have
+                        rearranged the way that card looks, you made it bigger,
+                        and I don't like that. Put everything back to the way it
+                        looks on the English page, but make sure everything
+                        still fits - you can make stuff slightly smaller if you
+                        need, rather than bigger."
+                        "Kilometres flown" is "Kilómetros recorridos" and
+                        "Creators worldwide" is "Creadores en todo el mundo", so
+                        at the English type size the four statistics wrapped
+                        into a second line and the card grew to hold it. The
+                        type steps down instead, and `tracking-wide` rather than
+                        `tracking-widest` gives back another few characters -
+                        which is the trade he asked for: same layout, smaller
+                        words. */}
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-white/70 sm:text-[11px] lg:text-xs lg:tracking-widest">{s.label}</p>
                     <p className="mt-0.5 hidden text-[11px] text-white/55 lg:block">{s.hint}</p>
                   </div>
                 ))}

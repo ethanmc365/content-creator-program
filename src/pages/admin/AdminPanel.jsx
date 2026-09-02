@@ -103,6 +103,12 @@ const TOOLS = [
 
   { id: 'testing', to: '/admin/testing', icon: 'device', title: 'Testing Centre' },
 
+  // THE PLATFORM'S WORDS. Not `globalOnly`: a MARKET MANAGER is the person this
+  // is for, and this is the one team surface they are meant to reach. The page
+  // sends away anybody who manages no language, and the RLS policy decides what
+  // actually saves. See migration 168.
+  { id: 'languages', to: '/admin/languages', icon: 'chat', title: 'Languages' },
+
   // NOT A LINK - it mints a session in the sandbox account and moves you into
   // it. It sits in the grid anyway because from where an admin stands it is
   // one more door on the same wall, and keeping it out cost the grid an even

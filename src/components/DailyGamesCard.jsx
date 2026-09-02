@@ -30,7 +30,7 @@ export default function DailyGamesCard() {
     <section>
       <div className="mb-4 flex items-baseline justify-between">
         <h2 className="flex items-center gap-2 text-lg font-semibold">
-          <Icon name="joystick" className="h-5 w-5 text-brand" /> Today&rsquo;s puzzles
+          <Icon name="joystick" className="h-5 w-5 text-brand" /> {tr("Today’s puzzles")}
           {streak > 0 && <StreakChip n={streak} title={`${streak}-day daily streak`} />}
         </h2>
         <Link to="/game" className="text-sm font-medium text-brand hover:underline">{tr("All games →")}</Link>

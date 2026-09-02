@@ -6,6 +6,7 @@ import Icon from '../Icon'
 import { flagFromIso } from '../../lib/flags'
 import { cx } from '../../lib/utils'
 import { lockScroll } from '../../lib/scrollLock'
+import { marketName } from '../../lib/markets'
 import { useT } from '../../lib/i18n'
 
 // Re-exported for the market components that already import it from here.
@@ -179,7 +180,7 @@ export default function PlaceSwitcher({ ready = true }) {
             transition={{ duration: 0.22 }}
             className="min-w-0 flex-1 truncate text-sm font-semibold"
           >
-            {onGlobal || !current ? (network?.name || 'Worldwide') : current.name}
+            {onGlobal || !current ? marketName(network?.name || 'Worldwide') : marketName(current.name)}
           </motion.span>
           {/* The word, not just the chevron. A bare arrow on a bar this wide
               reads as "open this page", which is the one thing it does not do. */}
@@ -253,7 +254,7 @@ export default function PlaceSwitcher({ ready = true }) {
                     onPick={() => setSheet(false)}
                     active={onGlobal}
                     flags="🌍"
-                    name={network?.name || 'Worldwide'}
+                    name={marketName(network?.name || 'Worldwide')}
                     hint={tr("Everyone, everywhere. Your people layer.")}
                   />
                 </SheetRow>
@@ -270,7 +271,7 @@ export default function PlaceSwitcher({ ready = true }) {
                       onPick={() => setSheet(false)}
                       active={c.slug === currentSlug}
                       flags={(c.country_codes || []).map(flagFromIso).join('')}
-                      name={c.name}
+                      name={marketName(c.name)}
                       badge={c.id === home?.id ? 'Home' : null}
                       hint={c.tagline}
                     />

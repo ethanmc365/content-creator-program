@@ -1,3 +1,4 @@
+import { t } from './i18n'
 // WHO TO MEET THIS WEEK.
 //
 // Three people, and the card says WHY.
@@ -46,6 +47,22 @@
 
 const WEEK_MS = 7 * 86400000
 
+// EVERY REASON IS A WHOLE SENTENCE WITH PLACEHOLDERS IN IT (2 Sep 2026).
+//
+// Ethan: "the things on the creator suggestions where it says you both speak
+// Irish - that should obviously be translated to the user's language."
+//
+// They were template literals, which cannot be translated at all: a dictionary
+// keyed on the English sentence never sees `You both speak ${x}.` because the
+// string that reaches it is a different one for every pair of creators. Each
+// one is now `t('You both speak {langs}.', { langs })`, which is what the
+// placeholder API in lib/i18n exists for - the translator gets the whole
+// sentence and can put the noun wherever Spanish wants it.
+//
+// `t` and not `useT`: this module is a pure function called from a component
+// that already re-renders on a language change (it holds `useT` itself), so the
+// subscription is upstream and reading the module variable here is correct.
+
 /** Which day we are in. Same integer for everybody, rolls over at UTC midnight.
  *  UTC and not local time on purpose: the pick should be the same for two
  *  creators comparing notes across a timezone. */
@@ -73,10 +90,14 @@ function mulberry32(a) {
 }
 
 const norm = (s) => (s || '').trim().toLowerCase()
+// "A and B", "A, B and C". The joining word is translated too - Spanish uses
+// "y" - and it is the last thing in the list that gets it, which is the same
+// rule in both languages.
 const list = (arr) => {
   if (arr.length === 1) return arr[0]
-  if (arr.length === 2) return `${arr[0]} and ${arr[1]}`
-  return `${arr.slice(0, -1).join(', ')} and ${arr[arr.length - 1]}`
+  const and = t('and')
+  if (arr.length === 2) return `${arr[0]} ${and} ${arr[1]}`
+  return `${arr.slice(0, -1).join(', ')} ${and} ${arr[arr.length - 1]}`
 }
 
 /** Which platform somebody mostly posts on, or null if they linked none. */
@@ -113,7 +134,7 @@ export function reasonFor(me, them, myTrips = [], theirTrips = []) {
       if (norm(a.country) !== norm(b.country)) continue
       if (!overlaps(a, b)) continue
       const where = (b.city || '').trim() || b.country
-      return { kind: 'trip', text: `You are both in ${where} at the same time next month.` }
+      return { kind: 'trip', text: t('You are both in {where} at the same time next month.', { where }) }
     }
   }
 
@@ -122,7 +143,7 @@ export function reasonFor(me, them, myTrips = [], theirTrips = []) {
   for (const a of myTrips) {
     for (const b of theirTrips) {
       if (norm(a.country) === norm(b.country)) {
-        return { kind: 'destination', text: `${first} is heading to ${b.country} too.` }
+        return { kind: 'destination', text: t('{name} is heading to {country} too.', { name: first, country: b.country }) }
       }
     }
   }
@@ -133,7 +154,7 @@ export function reasonFor(me, them, myTrips = [], theirTrips = []) {
   const myVisited = new Set((me?.countries_visited || []).map(norm))
   for (const b of theirTrips) {
     if (myVisited.has(norm(b.country))) {
-      return { kind: 'been', text: `${first} is off to ${b.country}, and you have been.` }
+      return { kind: 'been', text: t('{name} is off to {country}, and you have been.', { name: first, country: b.country }) }
     }
   }
 
@@ -141,13 +162,13 @@ export function reasonFor(me, them, myTrips = [], theirTrips = []) {
   const theirVisited = new Set((them?.countries_visited || []).map(norm))
   for (const a of myTrips) {
     if (theirVisited.has(norm(a.country))) {
-      return { kind: 'knows', text: `You are going to ${a.country}. ${first} has been.` }
+      return { kind: 'knows', text: t('You are going to {country}. {name} has been.', { country: a.country, name: first }) }
     }
   }
 
   // 5. Same town.
   if (me?.city && them?.city && norm(me.city) === norm(them.city)) {
-    return { kind: 'city', text: `${first} is in ${them.city}, same as you.` }
+    return { kind: 'city', text: t('{name} is in {city}, same as you.', { name: first, city: them.city }) }
   }
 
   // 6. A language you both speak. Not English: everybody here speaks English,
@@ -157,25 +178,25 @@ export function reasonFor(me, them, myTrips = [], theirTrips = []) {
   const shared = (them?.languages || [])
     .filter((l) => mine.includes(norm(l)) && norm(l) !== 'english')
   if (shared.length) {
-    return { kind: 'language', text: `You both speak ${list(shared.slice(0, 2))}.` }
+    return { kind: 'language', text: t('You both speak {langs}.', { langs: list(shared.slice(0, 2)) }) }
   }
 
   // 7. Countries you have both been to. Three is enough to be a taste in
   //    common; one is a coincidence.
   const both = (them?.countries_visited || []).filter((c) => myVisited.has(norm(c)))
   if (both.length >= 3) {
-    return { kind: 'countries', text: `You have both been to ${list(both.slice(0, 3))}.` }
+    return { kind: 'countries', text: t('You have both been to {places}.', { places: list(both.slice(0, 3)) }) }
   }
 
   // 8. Same platform.
   const myPlat = platformOf(me)
   const theirPlat = platformOf(them)
   if (myPlat && myPlat === theirPlat) {
-    return { kind: 'platform', text: `You are both mostly on ${myPlat}.` }
+    return { kind: 'platform', text: t('You are both mostly on {platform}.', { platform: myPlat }) }
   }
 
   // 9. Nothing to point at. Say that, and suggest them anyway.
-  return { kind: 'chance', text: 'No particular reason. We just reckon you two would get on.' }
+  return { kind: 'chance', text: t('No particular reason. We just reckon you two would get on.') }
 }
 
 /**

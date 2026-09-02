@@ -8,6 +8,7 @@ import { toast } from '../../lib/toast'
 import Icon from '../Icon'
 import { flagFromIso } from './PlaceSwitcher'
 import { cx } from '../../lib/utils'
+import { marketName } from '../../lib/markets'
 import { useT } from '../../lib/i18n'
 
 // The identity strip every page inside a market wears.
@@ -83,7 +84,7 @@ export default function MarketHeader({ market, memberCount, canManage, tab }) {
         <div className="min-w-0">
           <h1 className="hidden flex-wrap items-center gap-x-3 gap-y-1 text-3xl font-bold tracking-tight sm:flex sm:text-4xl">
             {flags && <span aria-hidden>{flags}</span>}
-            <span>{market.name}</span>
+            <span>{marketName(market.name)}</span>
             {!market.is_active && (
               <span className="rounded-full border border-dashed border-gray-300 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-smoke">
                 {tr("Not open")}

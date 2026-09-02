@@ -110,7 +110,7 @@ function PuzzleColumn({ puzzle, done, count, first }) {
               puzzle nobody has played is ABSENT from the tally, not zero in it,
               so this has to separate null from 0 or "nobody yet" and "still
               loading" become the same thing and the tagline never leaves. */}
-          {count == null || count === 0 ? puzzle.short : `${count} played today`}
+          {count == null || count === 0 ? tr(puzzle.short) : tr('{n} played today', { n: count })}
         </span>
       </span>
 
@@ -134,6 +134,7 @@ function PuzzleColumn({ puzzle, done, count, first }) {
 }
 
 export default function DailyPuzzleCallout({ className }) {
+  const tr = useT()
   const { user } = useAuth()
   // Read once on mount: this is a countdown to the top of the day, not a clock,
   // and re-rendering the hub every minute to move it is not worth a frame.
@@ -161,10 +162,10 @@ export default function DailyPuzzleCallout({ className }) {
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="flex items-center gap-2 text-lg font-semibold">
           <Icon name="joystick" className="h-5 w-5 shrink-0 text-brand" />
-          Today&rsquo;s puzzles
+          {tr("Today’s puzzles")}
           {streak > 0 && <StreakChip n={streak} title={`${streak}-day streak`} />}
         </h2>
-        <Link to="/game" className="shrink-0 text-sm font-medium text-brand hover:underline">All games &rarr;</Link>
+        <Link to="/game" className="shrink-0 text-sm font-medium text-brand hover:underline">{tr("All games →")}</Link>
       </div>
 
       {/* `counts` is null until the query lands and an OBJECT afterwards. A

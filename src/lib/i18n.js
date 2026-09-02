@@ -54,6 +54,48 @@ const LOADERS = { es: () => import('../locales/es') }
 const DICTS = {}
 const pending = {}
 
+// THE OVERRIDE LAYER (migration 168).
+//
+// `public.translations` is the same key space as the bundled dictionaries - the
+// English sentence - and it wins over them. It exists so a market manager can
+// fix a word in their own language without a developer, a commit and a deploy,
+// which for a typo in somebody else's language is three of the wrong things.
+//
+// IT IS A SEPARATE MAP, MERGED AT LOOKUP, not merged into `DICTS`. Two reasons:
+// the bundled file has to stay recoverable (deleting an override falls back to
+// it rather than to nothing), and the editor needs to show the manager which of
+// the two they are looking at.
+const OVERRIDES = {}
+let overridesLoaded = false
+
+/**
+ * Install the runtime overrides for one language.
+ * Called once from main.jsx with whatever the database holds; safe to call
+ * again after an edit so the editor can show its own change immediately.
+ */
+export function setOverrides(code, rows) {
+  OVERRIDES[code] = rows || {}
+  overridesLoaded = true
+  for (const fn of [...subs]) fn()
+}
+
+/** What is currently overridden in one language, for the editor. */
+export function getOverrides(code) {
+  return OVERRIDES[code] || {}
+}
+
+/** Has the override layer been fetched yet? Nothing waits on this - it is for
+ *  the editor, which must not offer to "reset" a string it has not seen. */
+export function overridesReady() {
+  return overridesLoaded
+}
+
+/** The bundled dictionary for a language, or null if it is not loaded yet.
+ *  The editor lists every string the product HAS, which is this file's keys. */
+export function bundledDict(code) {
+  return DICTS[code] || null
+}
+
 /**
  * Make sure a language's dictionary is in memory. Safe to call repeatedly - the
  * promise is cached, so two callers racing (the boot and a profile arriving)
@@ -178,7 +220,11 @@ export const missing = new Set()
  */
 export function t(en, vars) {
   const dict = DICTS[locale]
-  let out = (dict && dict[en]) || en
+  const over = OVERRIDES[locale]
+  // The override wins, then the bundled file, then the English source. A blank
+  // override is not an override: an empty string in the table would silently
+  // erase a label, and the recovery would be invisible.
+  let out = (over && over[en]) || (dict && dict[en]) || en
   if (import.meta.env.DEV && dict && !dict[en]) missing.add(en)
   if (vars) {
     for (const k of Object.keys(vars)) {

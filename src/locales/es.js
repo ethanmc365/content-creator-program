@@ -1401,4 +1401,148 @@ export default {
   '{n} hours ago': 'hace {n} horas',
   'Yesterday at {time}': 'Ayer a las {time}',
   'Yesterday': 'Ayer',
+
+  // ---------------------------------------------------------------------
+  // 2 SEPTEMBER 2026. Two batches, and the second one is the interesting one.
+  //
+  // The first is ordinary: strings written this week that needed translating.
+  //
+  // The second is every string the product draws THROUGH A TABLE - the network
+  // link list, the market names, the room labels, the game modes, the board's
+  // filters, the reasons on a "who to meet" card. Ethan: "on the global page
+  // where it says Creator Network, Connections etc, it's all still in English,
+  // and the descriptions are in English... the worldwide tab, UK, Ireland,
+  // Spain, Portugal, Germany, it's still in English... today's puzzles is in
+  // English, all games is in English."
+  //
+  // Every one of those was a `tr(item.label)` over a const array, so the call
+  // site asks for a VARIABLE and the i18n report - which scans for
+  // `tr('literal')` - could not see any of them. They looked translated because
+  // the report said so. They are here now, and the report's "in the dictionary,
+  // not seen at a call site" section is where they will always land: read that
+  // list as a worklist, not as dead weight.
+  // ---------------------------------------------------------------------
+
+  // Written this week.
+  '{n} years old': '{n} años',
+  'Your photo covers this while it is set.': 'Tu foto la tapa mientras esté puesta.',
+  'Who to meet': 'A quién conocer',
+  'Streaks': 'Rachas',
+  'day in a row': 'día seguido',
+  'days in a row': 'días seguidos',
+  'A freeze is holding today for you.': 'Un congelador te está guardando el día de hoy.',
+  'Not counted today yet. One puzzle keeps it.': 'Hoy todavía no cuenta. Con un puzle la mantienes.',
+  '{n} of {total} freezes left this month. Streak freezes reset monthly.': 'Te quedan {n} de {total} congeladores este mes. Se renuevan cada mes.',
+  'No runs on record yet. Play a travel game today and you start the book.': 'Todavía no hay ninguna racha registrada. Juega hoy a un juego de viajes y abres el libro.',
+  'on {n} now': 'ahora en {n}',
+  'Current streaks': 'Rachas actuales',
+  'All-time best': 'Mejores de siempre',
+  'Discover the community. Connect with creators, start conversations, make friends, plan trips together and collab.': 'Descubre la comunidad. Conecta con creadores, empieza conversaciones, haz amigos, planea viajes juntos y colabora.',
+  'Everyone': 'Todos',
+  'Not connected yet': 'Todavía sin conectar',
+  '{n} logged flights have no aircraft recorded, so they are not on this wall.': 'Hay {n} vuelos registrados sin avión anotado, así que no aparecen en este muro.',
+  'Add yours →': 'Añade el tuyo →',
+  "Today's leaderboard": 'Clasificación de hoy',
+  '{n} of 3 done. The rest expire at midnight.': '{n} de 3 hechos. Los demás caducan a medianoche.',
+  'Ranked by score, then speed.': 'Ordenado por puntuación y luego por rapidez.',
+  "The flame shows a creator's daily play streak in this mode.": 'La llama muestra la racha diaria de cada creador en este modo.',
+  'About {name}': 'Sobre {name}',
+  '1 country visited': '1 país visitado',
+  '{n} countries visited': '{n} países visitados',
+  'Right now': 'Ahora mismo',
+
+  // The languages editor, which a Spanish market manager is the main user of -
+  // so it would be a poor joke to ship it only in English.
+  'Every word the platform says, and what it says in your language. Changes are live for everyone as soon as you save.': 'Todo lo que dice la plataforma, y lo que dice en tu idioma. Los cambios se ven al instante para todo el mundo en cuanto guardas.',
+  'Search every word on the platform…': 'Busca cualquier palabra de la plataforma…',
+  'Search the copy': 'Buscar en los textos',
+  'Screens': 'Pantallas',
+  'Pick a screen': 'Elige una pantalla',
+  'Every sentence that screen says is listed with a box to translate it. Or search above to find one word anywhere on the platform.': 'Cada frase de esa pantalla aparece con una casilla para traducirla. O busca arriba para encontrar una palabra en cualquier parte de la plataforma.',
+  'Nothing matches that': 'No hay nada que coincida',
+  'Try a shorter phrase, or pick a screen from the list.': 'Prueba con una frase más corta, o elige una pantalla de la lista.',
+  'Not translated yet': 'Todavía sin traducir',
+  'Edited here': 'Editado aquí',
+  'Back to the shipped wording': 'Volver al texto original',
+  'The shipped translation': 'La traducción original',
+  'Still shows in English': 'Todavía se ve en inglés',
+  'Everything else': 'Todo lo demás',
+
+  // ---- THE TABLES ------------------------------------------------------
+
+  // The people layer (lib/networkLinks), on the Worldwide page and in the
+  // avatar menu.
+  'Ask anything, anyone answers': 'Pregunta lo que quieras, responde quien quiera',
+  'Flight log': 'Registro de vuelos',
+  'Every flight, and what it adds up to': 'Cada vuelo, y todo lo que suma',
+  'Puzzles, quizzes and streaks': 'Puzles, concursos y rachas',
+  'Paid work with Tryp.com': 'Trabajo remunerado con Tryp.com',
+  'Board': 'Tablón',
+  'Collab': 'Colaboraciones',
+  'Ranks': 'Puestos',
+  'Library': 'Biblioteca',
+  'Refer': 'Invitar',
+
+  // THE MARKETS. See lib/markets.marketName for why these seven are the one
+  // exception to "nothing a person wrote is ever translated": we chose all
+  // seven, they are the names of countries, and a Spanish creator being shown a
+  // place called "UK & Ireland" in a Spanish interface is the product
+  // half-translated rather than the product respecting somebody's words.
+  'UK & Ireland': 'Reino Unido e Irlanda',
+  'Spain': 'España',
+  'Portugal': 'Portugal',
+  'Germany': 'Alemania',
+  'Romania': 'Rumanía',
+  'Nordics': 'Países nórdicos',
+
+  // The rooms. Labels come from the `channels` table, so a market that renames
+  // one, or opens a room of its own, simply renders it unchanged - which is
+  // correct, because that name IS somebody's own words.
+  'Meetups': 'Quedadas',
+  'New here? Say hello.': '¿Nuevo por aquí? Saluda.',
+  'Who is filming where, and when.': 'Quién graba dónde, y cuándo.',
+  'Country managers and the Tryp.com team.': 'Responsables de país y el equipo de Tryp.com.',
+  'Every creator in the network, one room.': 'Todos los creadores de la red, en una sala.',
+  'News from the Tryp.com team.': 'Novedades del equipo de Tryp.com.',
+  'What is working right now, from people doing it.': 'Lo que funciona ahora mismo, contado por quien lo hace.',
+
+  // The games (Game.jsx MODES, lib/dailyPuzzles, the daily leaderboard blurbs).
+  'Guess the flag': 'Adivina la bandera',
+  'See the flag, name the country. Pick a continent or take the whole world.': 'Mira la bandera y di el país. Elige un continente o ve a por el mundo entero.',
+  'Find it on the map': 'Encuéntralo en el mapa',
+  'You know where it is. Now put your finger on it.': 'Sabes dónde está. Ahora ponle el dedo encima.',
+  'Airport codes': 'Códigos de aeropuerto',
+  'Three letters on a boarding pass. Which city?': 'Tres letras en una tarjeta de embarque. ¿Qué ciudad?',
+  'What do they spend?': '¿Qué moneda usan?',
+  'Match the country to the money in its tills.': 'Une cada país con el dinero de sus cajas.',
+  'Everyone plays the same puzzle today. Ranked by fewest words, then speed.': 'Hoy todo el mundo juega el mismo puzle. Ordenado por menos pistas y luego por rapidez.',
+  "Each creator's best-ever daily result. Ranked by fewest words, then speed.": 'El mejor resultado diario de cada creador. Ordenado por menos pistas y luego por rapidez.',
+  'Everyone flies the same route today. Ranked by fastest landing.': 'Hoy todo el mundo vuela la misma ruta. Ordenado por el aterrizaje más rápido.',
+  "Each creator's best-ever daily flight. Ranked by fastest landing.": 'El mejor vuelo diario de cada creador. Ordenado por el aterrizaje más rápido.',
+  'Everyone gets the same ten phrases today. Ranked by score, then speed.': 'Hoy todo el mundo recibe las mismas diez frases. Ordenado por puntuación y luego por rapidez.',
+  "Each creator's best-ever daily round. Ranked by score, then speed.": 'La mejor ronda diaria de cada creador. Ordenado por puntuación y luego por rapidez.',
+
+  // The community board's filters and tags.
+  'Everything': 'Todo',
+  'Answered': 'Respondida',
+  'About a country': 'Sobre un país',
+  'About travelling': 'Sobre viajar',
+  'Travelling': 'Viajar',
+  'About making content': 'Sobre crear contenido',
+  'Content': 'Contenido',
+  'Something else': 'Otra cosa',
+
+  // WHY YOU TWO SHOULD MEET (lib/whoToMeet). Every one is a whole sentence with
+  // placeholders, which is the only shape a reason can have and still be
+  // translatable - see the note in that file.
+  'You are both in {where} at the same time next month.': 'Los dos vais a estar en {where} al mismo tiempo el mes que viene.',
+  '{name} is heading to {country} too.': '{name} también se va a {country}.',
+  '{name} is off to {country}, and you have been.': '{name} se va a {country}, y tú ya has estado.',
+  'You are going to {country}. {name} has been.': 'Tú te vas a {country}. {name} ya ha estado.',
+  '{name} is in {city}, same as you.': '{name} está en {city}, igual que tú.',
+  'You both speak {langs}.': 'Los dos habláis {langs}.',
+  'You have both been to {places}.': 'Los dos habéis estado en {places}.',
+  'You are both mostly on {platform}.': 'Los dos estáis sobre todo en {platform}.',
+  'No particular reason. We just reckon you two would get on.': 'Sin motivo concreto. Nos da que os vais a llevar bien.',
+  'and': 'y',
 }

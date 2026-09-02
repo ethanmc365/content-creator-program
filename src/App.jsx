@@ -97,6 +97,12 @@ const AdminNotes = lazy(() => import('./pages/admin/AdminNotes'))
 // invented people. Admin only (it sits under AdminRoute below) and lazy like
 // the rest of /admin, so no creator ever downloads it. See TestingCentre.jsx.
 const TestingCentre = lazy(() => import('./pages/admin/TestingCentre'))
+// NOT under `AdminRoute`, and that is the point of it. A market MANAGER is not
+// an admin, and this is the one team surface they are meant to reach: the words
+// of their own language. The page decides what to draw and the RLS policy
+// decides what saves, so a creator who manages nothing is redirected by the
+// page rather than by the router. See migration 168.
+const AdminLanguages = lazy(() => import('./pages/admin/AdminLanguages'))
 
 // The route chunk is on its way. While index.html's boot layer is still up
 // this draws nothing at all - see lib/bootLoader.js, and the photograph of two
@@ -241,6 +247,7 @@ export default function App() {
             <Route path="/c/:slug/chat" element={<NetworkChat />} />
             <Route path="/c/:slug/chat/:channelKey" element={<NetworkChat />} />
             <Route path="/manage/:slug" element={<ManageChapter />} />
+            <Route path="/admin/languages" element={<AdminLanguages />} />
           </Route>
 
           {/* ---------- Admin only ---------- */}

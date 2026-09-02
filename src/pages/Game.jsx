@@ -294,11 +294,11 @@ export default function Game() {
           // all-time best scores on the right.
           <div className="grid gap-10 lg:grid-cols-2">
             <Leaderboard mode={screen} region="Daily" daily highlightUser={user.id}
-              heading="Today's leaderboard"
-              blurb={DAILY_BLURB[screen].today} />
+              heading={tr("Today's leaderboard")}
+              blurb={tr(DAILY_BLURB[screen].today)} />
             <Leaderboard mode={screen} region="Daily" highlightUser={user.id}
-              heading="All-time leaderboard"
-              blurb={DAILY_BLURB[screen].all} />
+              heading={tr("All-time leaderboard")}
+              blurb={tr(DAILY_BLURB[screen].all)} />
           </div>
         ) : (
           <Leaderboard mode={mode} region={region} eventId={eventId} highlightUser={user.id} />
@@ -370,7 +370,7 @@ function DailyCard({ daily, done, onPlay, streak }) {
           <Icon name={daily.icon} className="h-6 w-6" />
         </span>
         <span className="flex min-w-0 flex-1 flex-col">
-          <span className="block font-semibold leading-snug">{daily.title}</span>
+          <span className="block font-semibold leading-snug">{tr(daily.title)}</span>
           {/* The badges sit on their OWN line at a fixed height. Beside the
               title they wrapped or did not depending on how long the title was,
               which is where the difference in card heights came from. */}
@@ -478,8 +478,13 @@ function Menu({ mode, setMode, region, setRegion, onStart, onDaily, eventTitle, 
                     one under it. `leading-[1.15rem]` is 18.4px and the box is
                     two of them exactly. */}
                 <span className="min-w-0">
-                  <span className="block font-semibold leading-snug">{m.title}</span>
-                  <span className="mt-1 line-clamp-2 block h-[2.3rem] overflow-hidden text-[13px] leading-[1.15rem] text-smoke">{m.text}</span>
+                  {/* THROUGH `tr`: the modes are a TABLE, and a table's
+                      strings are variables at the call site, which is why the
+                      i18n report cannot see them and why they were still
+                      English. Ethan: "the travel games aren't translated, and
+                      the descriptions for them." */}
+                  <span className="block font-semibold leading-snug">{tr(m.title)}</span>
+                  <span className="mt-1 line-clamp-2 block h-[2.3rem] overflow-hidden text-[13px] leading-[1.15rem] text-smoke">{tr(m.text)}</span>
                 </span>
               </button>
             )
@@ -625,7 +630,7 @@ function Round({ mode, region, questions, onQuit, onFinish }) {
           Say hello is now the bar on all five. */}
       <GameChrome
         icon={MODE_BY_KEY[mode].icon}
-        title={MODE_BY_KEY[mode].regions ? `${MODE_LABEL[mode]} · ${region}` : MODE_LABEL[mode]}
+        title={MODE_BY_KEY[mode].regions ? `${tr(MODE_LABEL[mode])} · ${tr(region)}` : tr(MODE_LABEL[mode])}
         done={answered ? i + 1 : i}
         total={questions.length}
         correct={correct}
@@ -947,7 +952,7 @@ function Leaderboard({ mode, region, eventId, highlightUser, daily = false, head
       <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold"><Icon name="trophy" className="h-5 w-5 text-brand" /> {heading}</h2>
       <p className="mb-4 text-sm text-smoke">
         {blurb
-          ?? `${MODE_LABEL[mode]} · ${region}${eventId ? ' · this event' : ' · all-time'}. Ranked by score, then speed.${!eventId ? " The flame shows a creator's daily play streak in this mode." : ''}`}
+          ?? `${tr(MODE_LABEL[mode])} · ${tr(region)}${eventId ? ' · this event' : ' · all-time'}. ${tr('Ranked by score, then speed.')}${!eventId ? ` ${tr("The flame shows a creator's daily play streak in this mode.")}` : ''}`}
       </p>
       {rows === null ? (
         <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-cloud" />)}</div>

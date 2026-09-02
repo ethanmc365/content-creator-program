@@ -284,7 +284,17 @@ export default function StreakCard({ className, days = [], today = null, myId = 
           the two facts that want the full width - and the two small statistics
           side by side underneath. From `sm` up it is the original row, which
           was never the problem. */}
-      <div className="pointer-events-none relative z-10 grid grid-cols-2 items-start gap-x-5 gap-y-5 sm:flex sm:flex-wrap sm:items-center sm:gap-x-8">
+      {/* THE CHIP'S CORNER IS RESERVED AT EVERY WIDTH. In Spanish it reads
+          "Las rachas de todos", which is half again as long as the English -
+          Ethan: "on the travel games section in the top right I don't like the
+          view all streaks thing, I can see that it's covering the free streaks.
+          Improve the UI and make sure nothing's covered, make it a bit smaller
+          if need be." The chip is absolutely positioned, so nothing in the flow
+          knew it was there and the freeze tiles ran straight under it on a wide
+          card. The phone reserves it on the first block (`pr-20`); a desktop
+          reserves it on the whole row, because there the row is a flex line and
+          it is the LAST block that reaches the corner. */}
+      <div className="pointer-events-none relative z-10 grid grid-cols-2 items-start gap-x-5 gap-y-5 sm:flex sm:flex-wrap sm:items-center sm:gap-x-8 sm:pr-44">
         {/* THE FLAME LEADS, AND IT IS THE STATE. See the note on <Flame>: lit
             when today is counted, embers when the run is alive but today is
             still to be earned, cold at zero. */}

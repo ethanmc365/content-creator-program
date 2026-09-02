@@ -1108,7 +1108,7 @@ export default function NetworkChat() {
                 )}
               >
                 <Icon name={c.icon || 'chat'} className="h-4 w-4 shrink-0" />
-                {c.label}
+                {tr(c.label)}
               </button>
             ))}
 
@@ -1146,7 +1146,7 @@ export default function NetworkChat() {
           <RoomSearch value={search} onChange={setSearch} count={visible.length} total={messages.length} />
           {!search && (
             <span className="min-w-0 flex-1 truncate">
-              <span className="font-semibold">{active.label}</span>
+              <span className="font-semibold">{tr(active.label)}</span>
               {active.hint && <span className="hidden sm:inline"> · {active.hint}</span>}
             </span>
           )}
@@ -1696,7 +1696,7 @@ export default function NetworkChat() {
                             )}
                           >
                             <Icon name={c.icon || 'chat'} className={cx('h-3.5 w-3.5 shrink-0', on ? 'text-brand' : 'text-smoke')} />
-                            <span className="min-w-0 flex-1 truncate text-[13px]">{c.label}</span>
+                            <span className="min-w-0 flex-1 truncate text-[13px]">{tr(c.label)}</span>
                             {c.visibility === 'staff' && (
                               <span className="shrink-0 rounded-full bg-cloud px-1.5 py-0.5 text-[9px] font-medium text-smoke">{tr("Staff")}</span>
                             )}

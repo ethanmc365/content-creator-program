@@ -9,6 +9,7 @@ import { initMonitoring } from './lib/monitoring'
 import { applyAppIcon, iconFromUrl, setAppIcon } from './lib/appIcon'
 import { releaseBootLayer, whenAppLoadersIdle } from './lib/bootLoader'
 import { getLocale, loadLocale } from './lib/i18n'
+import { loadOverrides } from './lib/translations'
 import { installPinchGuard } from './lib/pinchGuard'
 import './index.css'
 
@@ -152,7 +153,14 @@ function dismissBoot() {
 //
 // For English this resolves immediately - English is the source, not a
 // dictionary - so nobody reading the app in English waits for anything.
-Promise.all([promoteAppCss(), loadLocale(getLocale())]).then(mount)
+//
+// AND THE OVERRIDE LAYER GOES OUT WITH IT (migration 168). `public.translations`
+// holds whatever a market manager has corrected in their own language, keyed on
+// the same English sentences. It is fetched in parallel and it is NEVER waited
+// on beyond the same gate: a failed fetch, a signed-out visitor, or a language
+// nobody has edited all resolve to "no overrides", which is the bundled
+// dictionary, which is a complete screen. Nothing about the boot depends on it.
+Promise.all([promoteAppCss(), loadLocale(getLocale()), loadOverrides(getLocale())]).then(mount)
 
 // Register the service worker, then cache the app's actual loaded assets so the
 // app can boot with no connection. The SW only precaches the HTML shell (it

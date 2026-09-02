@@ -243,7 +243,7 @@ export default function Directory() {
           rather than leaving it. */}
       <PageHeader
         title={tr("Creator Network")}
-        subtitle="Discover the community. Connect with creators, start conversations, make friends, plan trips together and collab."
+        subtitle={tr("Discover the community. Connect with creators, start conversations, make friends, plan trips together and collab.")}
       />
 
       {/* THE MAP HAS NO HEADING OF ITS OWN.
