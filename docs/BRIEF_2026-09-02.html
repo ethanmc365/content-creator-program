@@ -361,7 +361,7 @@
 
   /* ---- tables ---- */
   .tablewrap { overflow-x: auto; margin: 0 0 22px; border: 1px solid var(--line); border-radius: 4px; }
-  table { border-collapse: collapse; width: 100%; min-width: 520px; font-size: 14.5px; }
+  table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14.5px; }
   th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
   thead th {
     font-family: var(--f-mono);
@@ -428,22 +428,37 @@
   }
 
   /* ---- script / talking points ---- */
-  ul.plain { list-style: none; margin: 0 0 22px; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+  /* THE BULLET IS ABSOLUTE, AND THE LIST ITEM IS NOT A GRID.
+     It WAS a grid: `grid-template-columns: 14px minmax(0,1fr)` with the dot as
+     the ::before. That works only while the item holds nothing but text,
+     because IN A GRID CONTAINER EVERY CHILD ELEMENT BECOMES ITS OWN GRID ITEM
+     - so a sentence like "<strong>The source.</strong> <code>github.com/...</code>
+     currently public" is not one paragraph, it is a dot, a <strong>, a text
+     run, a <code> and another text run: five items, dealt one per cell down a
+     two-column track. Every fragment landed on its own line in a 14px column.
+     That is the "each word is on a different line" Ethan hit on What Helio
+     needs, The Sebastian call and Friday's presentation - every list whose
+     items contain any inline markup at all.
+     Taking the dot out of the flow with `position: absolute` leaves the item
+     as ordinary inline content, which is what a sentence needs to be. */
+  ul.plain { list-style: none; margin: 0 0 22px; padding: 0; display: flex; flex-direction: column; gap: 14px; }
   ul.plain > li {
-    display: grid;
-    grid-template-columns: 14px minmax(0, 1fr);
-    gap: 12px;
+    position: relative;
+    padding-left: 26px;
     font-size: 15.5px;
+    line-height: 1.6;
     max-width: 70ch;
   }
   ul.plain > li::before {
     content: "";
+    position: absolute;
+    left: 4px;
+    top: 0.62em;
     width: 5px; height: 5px;
     border-radius: 50%;
     background: var(--brand);
-    margin-top: 10px;
   }
-  ul.plain ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); font-size: 14.5px; }
+  ul.plain ul { margin: 8px 0 0; padding-left: 20px; color: var(--muted); font-size: 14.5px; list-style: disc; }
   ul.plain ul li { margin-bottom: 4px; }
 
   .askbox {
@@ -479,13 +494,13 @@
     <h1>What to do next, and what I locked down</h1>
     <p class="standfirst">
       Everything from the call with André and Ellu, turned into an order of play, plus a full security
-      audit of the live platform, four vulnerabilities found and fixed, and a demo account you can hand
+      audit of the live platform, five vulnerabilities found and fixed, and a demo account you can hand
       to the team today.
     </p>
     <dl class="statline">
       <div class="stat"><dt>Live</dt><dd>trypcreators.vercel.app</dd></div>
       <div class="stat"><dt>Shipped today</dt><dd>5 migrations, 3 functions</dd></div>
-      <div class="stat"><dt>Vulnerabilities</dt><dd>4 found, 4 fixed</dd></div>
+      <div class="stat"><dt>Vulnerabilities</dt><dd>5 found, 5 fixed</dd></div>
       <div class="stat"><dt>Tests</dt><dd>507 passing</dd></div>
     </dl>
   </header>
@@ -636,6 +651,25 @@
         in the database so it cannot reach a real creator.
       </p>
 
+      <div class="callout">
+        <span class="tag">This did not work the first time, and here is why</span>
+        <p>
+          Ethan hit it straight away: it signed in, the page loaded, then nothing
+          worked and a refresh returned him to the login screen. Two separate
+          faults, both now fixed and both worth knowing about because only one of
+          them was about this account.
+        </p>
+        <p>
+          The first was a real bug in the app affecting everybody, described in
+          <a href="#audit">the audit</a>: a single failed profile read revoked
+          every session on the account across all devices. The second was mine:
+          the flag I used to fence the account also marks it for a nightly
+          session cleanup written for a different kind of account, so the team
+          would have been signed out every morning. The password was always
+          correct.
+        </p>
+      </div>
+
       <div class="cred">
         <dl>
           <div>
@@ -776,8 +810,7 @@ delete from auth.users where email like '%@demo.trypcreators.test';</code></pre>
     <section id="audit">
       <h2>Security audit</h2>
       <p class="lede">
-        A hands-on audit of the live platform, run today against production. Four real vulnerabilities,
-        all fixed and verified. Everything below was proven by making the request, not by reading the code.
+        A hands-on audit of the live platform, run today against production. Five real vulnerabilities, all fixed and verified. Everything below was proven by making the request, not by reading the code.
       </p>
 
       <h3>How it was tested</h3>
@@ -899,6 +932,35 @@ $ curl <b>-H "apikey: &lt;the key from the JS bundle&gt;"</b> .../link-preview -
         <p class="verdict"><strong>Fixed and verified.</strong> It now refuses to run when the secret is missing.</p>
       </div>
 
+      <div class="finding">
+        <div class="head">
+          <span class="chip high">High</span> <span class="chip good">Fixed</span>
+          <h4>One bad read signed you out of every device</h4>
+        </div>
+        <span class="target">src/context/AuthContext.jsx</span>
+        <p>
+          Found because it broke the demo account within an hour of me handing it
+          over. If the app's profile lookup came back with no row, it called
+          <code>supabase.auth.signOut()</code>. That function defaults to
+          <strong>global scope</strong>: it does not sign this browser out, it
+          revokes every session on the account, on every device.
+        </p>
+        <p>
+          Two things made that bad. It fired on the <em>first</em> failed read,
+          when a no-rows result is also what a momentary blip looks like. And on
+          a shared account, one person's blip signs all three of you out. When I
+          went looking, the sessions table for the team account was empty,
+          including sessions created forty minutes before the login that
+          triggered it.
+        </p>
+        <p class="verdict">
+          <strong>Fixed and verified.</strong> It retries first, and when it does
+          give up it signs out <em>locally</em>. A genuinely broken login still
+          goes to the login screen; it no longer takes your other devices with
+          it. This affected every creator, not just the demo account.
+        </p>
+      </div>
+
       <h3>The cause, and why it will not come back</h3>
       <p>
         All ten of the exposed database functions had the same root cause, and it is a Supabase default:
@@ -960,7 +1022,7 @@ $ create a brand new SECURITY DEFINER function, then ask who can call it<br>
             </tr>
             <tr>
               <td><strong>Rate limiting</strong></td>
-              <td>Login, signup and password reset are capped at five attempts per fifteen minutes, per account and per IP, and the IP is read from the trusted end of the proxy header, so it cannot be spoofed. Uploads are capped at forty an hour. Link previews and geocoding now have limits too, which they did not before today.</td>
+              <td>Uploads are capped at forty an hour, per creator. Link previews and geocoding now have limits too, which they did not before today. The <em>login</em> limiter needs a correction, and it is in the open list below rather than here.</td>
             </tr>
             <tr>
               <td><strong>Storage</strong></td>
@@ -988,6 +1050,14 @@ $ create a brand new SECURITY DEFINER function, then ask who can call it<br>
             <tr>
               <td><span class="chip open">Yours</span> <strong>Leaked-password protection is off</strong></td>
               <td>The one thing I could not fix from code. It is a project setting. Step 2 in <a href="#now">Do this first</a>.</td>
+            </tr>
+            <tr>
+              <td><span class="chip open">Yours</span> <strong>The login rate limit is not actually limiting</strong></td>
+              <td>I got this wrong in the first version of this page. The limiter counts attempts against a key made of the email <em>and</em> the caller's IP, and it reads that IP from the end of the proxy header. On this setup that end is one of Supabase's own edge servers, and it is a different one almost every request, so the key never repeats and the count never reaches five. I found nine login attempts on the demo account, each recorded under a different address. It is a small change to key the limit on the email alone. I have deliberately <em>not</em> made it today: it means editing the function every sign-in goes through, hours before the team logs in. Your call on when.</td>
+            </tr>
+            <tr>
+              <td><span class="chip good">Fixed</span> <strong>A nightly job was going to log the team out</strong></td>
+              <td>A cron job deletes day-old sessions on sandbox accounts, which is right for the "view as creator" preview account and wrong for an account three people share. It would have signed them out every morning at 04:20 with no pattern they could describe. It now skips accounts a person actually signs into.</td>
             </tr>
             <tr>
               <td><span class="chip med">Accepted</span> <strong>The GitHub repository is public</strong></td>

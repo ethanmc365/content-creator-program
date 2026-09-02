@@ -205,7 +205,11 @@ export function AuthProvider({ children }) {
       loadedForUser.current = session.user.id
       setProfileLoaded(true)
     } else if (error?.code === 'PGRST116') {
-      await supabase.auth.signOut()
+      // Local scope, for the reason spelled out in loadProfile: signing out of
+      // this browser must never revoke the account's other devices. This one is
+      // a deliberate press of "retry" rather than an automatic read, so it does
+      // not need the retry ladder - the user has already waited.
+      await supabase.auth.signOut({ scope: 'local' })
     } else {
       setProfileError(true)
     }
@@ -237,10 +241,40 @@ export function AuthProvider({ children }) {
           setProfileLoaded(true)
           return
         }
-        if (error?.code === 'PGRST116') {
+        // A GHOST LOGIN IS ONLY A GHOST IF IT IS STILL MISSING AFTER RETRIES,
+        // AND SIGNING IT OUT IS A LOCAL ACT.
+        //
+        // PGRST116 is "the result contains 0 rows", which is what a genuinely
+        // profile-less auth user looks like - and ALSO what a row temporarily
+        // withheld by RLS looks like, and what a request that lands mid-deploy
+        // can look like. This branch used to fire on the FIRST such read and
+        // call a bare `supabase.auth.signOut()`.
+        //
+        // TWO THINGS WERE WRONG WITH THAT, and together they cost the Tryp.com
+        // team demo account a whole afternoon (2 Sep 2026). Ethan: "it appeared
+        // like it worked first, but it opened the worldwide page and then
+        // nothing loaded at all and I couldn't click anything. Then I refreshed
+        // and it was back to the login page."
+        //
+        //   1. `signOut()` in supabase-js DEFAULTS TO `scope: 'global'`. It does
+        //      not sign this browser out - it revokes EVERY refresh token on the
+        //      account, on every device. On a SHARED account that is three
+        //      people signed out by one person's blip; on any account it is a
+        //      transient read logging you off your phone. `auth.sessions` for
+        //      that account was empty afterwards, including sessions created
+        //      forty minutes before the login that triggered it.
+        //   2. It fired on ONE read, while the branch directly below already
+        //      knew that a failed profile fetch deserves three retries. A real
+        //      ghost login is still a ghost 2.4 seconds later; a blip is not.
+        //
+        // So: retry it like any other failure, and if it is STILL missing, sign
+        // out locally. The route guard sends them to /login either way, which is
+        // the correct outcome for an account with no profile - it just no longer
+        // takes the user's other devices with it.
+        if (error?.code === 'PGRST116' && attempt >= 3) {
           setProfile(null)
           setProfileLoaded(true)
-          await supabase.auth.signOut()
+          await supabase.auth.signOut({ scope: 'local' })
           return
         }
         // Transient failure: retry up to 3 times with a short backoff.
