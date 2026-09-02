@@ -1,58 +1,99 @@
 // Supabase Edge Function: auth-gate
-// A thin proxy in front of GoTrue that enforces a hard rate limit on the
-// authentication routes: max 5 attempts per 15 minutes, per email+IP for login
-// and per IP for signup / password recovery. A successful login clears the
-// counter so legitimate users are never locked out.
+//
+// A thin proxy in front of GoTrue that rate-limits the authentication routes.
 //
 // Deploy: supabase functions deploy auth-gate --no-verify-jwt
+//
+// ─────────────────────────────────────────────────────────────────────────────
+// THE LIMITER WAS KEYED ON AN ADDRESS THAT IS NOT THE CALLER'S.
+//
+// Ethan, handing the platform to the Tryp.com team: "there doesn't seem to be
+// any rate limiting on the login page". He is right, and it is not because the
+// code below was missing - it has been here for months. It is because every
+// bucket was keyed, wholly or partly, on this:
+//
+//     const parts = (req.headers.get('x-forwarded-for') || '').split(',')
+//     return parts[parts.length - 1]          // "the trusted proxy appends last"
+//
+// That comment is FALSE FOR THIS DEPLOYMENT. The last entry is one of Supabase's
+// own edge servers and IT ROTATES PER REQUEST. Measured during the September
+// audit: nine login attempts by one person were recorded under SEVEN different
+// addresses (3.2.59.180/.200/.201/.202/.203, 13.248.121.54, 13.248.121.77) while
+// GoTrue wrote the real caller, 86.27.64.132, into `auth.sessions.ip` at the
+// same moment.
+//
+// So `login:{email}|{ip}` had a fresh count of one on every attempt, and so did
+// `login-ip:{ip}`. Login, signup and password reset were all completely
+// unprotected while appearing to be limited, which is the worst of both.
+//
+// WHAT CHANGED
+//
+//  1. The primary login bucket is keyed on the EMAIL ALONE. It is the only
+//     part of a login attempt the caller cannot vary while still attacking one
+//     account, so it is the one control that cannot be evaded.
+//  2. The address bucket reads `x-real-ip`, falling back to the FIRST
+//     x-forwarded-for entry - the value GoTrue itself uses. It is
+//     caller-supplied and therefore spoofable, so it is a secondary control and
+//     is sized generously: an office or a university shares one address.
+//  3. A GLOBAL backstop, because the address bucket rests on an assumption that
+//     has already been wrong once in this file.
+//  4. ONLY FAILURES COUNT. The previous version recorded every attempt and
+//     deleted the rows again on success; now a correct password simply never
+//     writes one, so nobody is ever locked out by their own successful logins.
+//
+// THIS FUNCTION IS NOT ALLOWED TO BE A SINGLE POINT OF FAILURE, and it no
+// longer is: `signIn` in AuthContext falls back to calling GoTrue directly when
+// the gate is UNREACHABLE. That is what makes it safe to change this file at
+// all - the previous attempt was reverted, unproven, because it shipped minutes
+// before a login outage it almost certainly did not cause and nobody could sign
+// in to find out. Read that story in the security memory before touching this.
+// ─────────────────────────────────────────────────────────────────────────────
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { corsHeaders } from '../_shared/cors.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const ANON = Deno.env.get('SUPABASE_ANON_KEY')!
 
-const MAX_ATTEMPTS = 5
 const WINDOW_MIN = 15
+
+// Five wrong passwords for ONE account in fifteen minutes. Tight, because it is
+// the bucket that actually protects a person, and because only FAILURES land in
+// it - somebody who knows their password never touches this number.
+const MAX_PER_EMAIL = 5
+// Thirty failures from one address. Generous on purpose: shared offices, phone
+// networks behind CGNAT, and a household all look like one address, and this
+// value rests on a header the caller can set.
+const MAX_PER_IP = 30
+// The backstop. If the address bucket is being evaded (again), this is what is
+// left. Four hundred failed authentication attempts across the WHOLE platform
+// in fifteen minutes is far beyond anything ~45 creators produce.
+const MAX_GLOBAL = 400
+
+// Every key this function writes is prefixed `auth:` so the global counter can
+// count its own rows and nothing else. `auth_attempts` is shared with the
+// upload, geocode and link-preview limiters, and a global bucket that swept
+// those up would take the login page down whenever the map was busy.
+const NS = 'auth:'
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } })
 
-// CORS: reflect the request Origin only when it's one of ours (the two Vercel
-// production domains, any *.vercel.app preview deploy, or localhost dev). An
-// unknown origin gets the primary domain, so the browser blocks it.
-const PRIMARY_ORIGIN = 'https://trypcreators.vercel.app'
-function allowOrigin(origin: string | null): string {
-  if (!origin) return PRIMARY_ORIGIN
-  try {
-    const { hostname, protocol } = new URL(origin)
-    const ok =
-      (protocol === 'https:' && (hostname === 'trypcreators.vercel.app' || hostname === 'content-creator-program.vercel.app' || hostname.endsWith('.vercel.app'))) ||
-      ((protocol === 'http:' || protocol === 'https:') && (hostname === 'localhost' || hostname === '127.0.0.1'))
-    return ok ? origin : PRIMARY_ORIGIN
-  } catch {
-    return PRIMARY_ORIGIN
-  }
-}
-function corsHeaders(req: Request) {
-  return {
-    'Access-Control-Allow-Origin': allowOrigin(req.headers.get('origin')),
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Vary': 'Origin',
-  }
-}
 const json = (req: Request, obj: unknown, status = 200) =>
   new Response(JSON.stringify(obj), { status, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } })
 
-// The trusted proxy (Supabase's edge) appends the real client IP as the LAST
-// entry of x-forwarded-for. Using the FIRST entry lets a client spoof the value
-// (and dodge the rate limit) by sending its own x-forwarded-for header.
+// The caller's address, as well as it can be known here. `x-real-ip` is set by
+// the platform; the FIRST x-forwarded-for entry is the original client where a
+// chain exists. Both are ultimately caller-supplied, which is why nothing
+// important rests on this alone - see MAX_PER_EMAIL.
 function clientIp(req: Request) {
+  const real = (req.headers.get('x-real-ip') || '').trim()
+  if (real) return real
   const parts = (req.headers.get('x-forwarded-for') || '').split(',').map((s) => s.trim()).filter(Boolean)
-  return parts.length ? parts[parts.length - 1] : 'unknown'
+  return parts.length ? parts[0] : 'unknown'
 }
 
-// Returns true if the identifier is over the limit (and prunes old rows).
-async function isLimited(identifier: string) {
+// Is this identifier over its limit? Prunes rows older than an hour as it goes.
+async function isLimited(identifier: string, max: number) {
   const since = new Date(Date.now() - WINDOW_MIN * 60_000).toISOString()
   await admin.from('auth_attempts').delete().lt('created_at', new Date(Date.now() - 3_600_000).toISOString())
   const { count } = await admin
@@ -60,10 +101,23 @@ async function isLimited(identifier: string) {
     .select('id', { count: 'exact', head: true })
     .eq('identifier', identifier)
     .gte('created_at', since)
-  return (count ?? 0) >= MAX_ATTEMPTS
+  return (count ?? 0) >= max
 }
-const record = (identifier: string) => admin.from('auth_attempts').insert({ identifier })
-const clear = (identifier: string) => admin.from('auth_attempts').delete().eq('identifier', identifier)
+
+// The global bucket counts every `auth:`-prefixed row in the window.
+async function isGloballyLimited() {
+  const since = new Date(Date.now() - WINDOW_MIN * 60_000).toISOString()
+  const { count } = await admin
+    .from('auth_attempts')
+    .select('id', { count: 'exact', head: true })
+    .like('identifier', `${NS}%`)
+    .gte('created_at', since)
+  return (count ?? 0) >= MAX_GLOBAL
+}
+
+// A FAILURE, recorded against every bucket it belongs to at once.
+const recordFailure = (...ids: string[]) =>
+  admin.from('auth_attempts').insert(ids.map((identifier) => ({ identifier })))
 
 // Record a password reset request in the admin email log.
 //
@@ -71,10 +125,16 @@ const clear = (identifier: string) => admin.from('auth_attempts').delete().eq('i
 // email string is stored as-is and recipient_id is filled in only when it maps
 // to a real account. GoTrue answers 200 whether or not it sent anything, so a
 // non-2xx is the only signal we have that the send itself failed.
+//
+// ONE LOOKUP, NOT A SCAN OF EVERY ACCOUNT. This used to pull the first 1000
+// users out of the auth API on every password reset request and filter in
+// memory - O(all users) work per unauthenticated request, and it quietly
+// stopped matching anybody past the thousandth account.
 async function logRecovery(email: string, status: number) {
   const wanted = email.trim().toLowerCase()
-  const { data: list } = await admin.auth.admin.listUsers({ perPage: 1000 })
-  const match = (list?.users ?? []).find((u) => (u.email ?? '').toLowerCase() === wanted)
+  const { data: match } = await admin.rpc('admin_find_user_id_by_email', { p_email: wanted })
+    .then((r) => ({ data: r.data ? { id: r.data as string } : null }))
+    .catch(() => ({ data: null }))
   await admin.from('email_send_log').insert({
     kind: 'password_reset',
     recipient_id: match?.id ?? null,
@@ -105,32 +165,53 @@ Deno.serve(async (req) => {
   // Turnstile token in gotrue_meta_security. Forwarding it when disabled is a
   // harmless no-op, so it's always passed through.
   const sec = captchaToken ? { gotrue_meta_security: { captcha_token: captchaToken } } : {}
+  const addr = `${NS}ip:${ip}`
 
   if (action === 'login') {
     if (!email || !password) return json(req, { error: 'Email and password are required.' }, 400)
-    const id = `login:${String(email).toLowerCase()}|${ip}`
-    if (await isLimited(id)) return json(req, tooMany, 429)
-    await record(id)
+    const who = `${NS}login:${String(email).trim().toLowerCase()}`
+    // Checked in order of how well they identify the attacker, so a genuine
+    // person who has forgotten their own password gets the message about their
+    // own account rather than one about the whole platform.
+    if (await isLimited(who, MAX_PER_EMAIL)) return json(req, tooMany, 429)
+    if (await isLimited(addr, MAX_PER_IP)) return json(req, tooMany, 429)
+    if (await isGloballyLimited()) return json(req, tooMany, 429)
+
     const { status, data } = await gotrue('token?grant_type=password', { email, password, ...sec })
-    if (status === 200 && data.access_token) { await clear(id); return json(req, data, 200) }
+    if (status === 200 && data.access_token) return json(req, data, 200)
+
+    // ONLY FAILURES ACCUMULATE, and this is the only place one is written.
+    await recordFailure(who, addr).catch(() => {})
     return json(req, { error: data.error_description || data.msg || data.error || 'Invalid login credentials' }, 400)
   }
 
   if (action === 'signup') {
     if (!email || !password) return json(req, { error: 'Email and password are required.' }, 400)
-    const id = `signup:${ip}`
-    if (await isLimited(id)) return json(req, tooMany, 429)
-    await record(id)
+    if (await isLimited(addr, MAX_PER_IP)) return json(req, tooMany, 429)
+    if (await isGloballyLimited()) return json(req, tooMany, 429)
     const { status, data } = await gotrue('signup', { email, password, data: { name: name || null, ref: ref || null }, ...sec })
-    if (status >= 400) return json(req, { error: data.error_description || data.msg || data.error || 'Could not sign up' }, 400)
+    if (status >= 400) {
+      await recordFailure(addr).catch(() => {})
+      return json(req, { error: data.error_description || data.msg || data.error || 'Could not sign up' }, 400)
+    }
     return json(req, data, 200)
   }
 
   if (action === 'recover') {
     if (!email) return json(req, { error: 'Email is required.' }, 400)
-    const id = `recover:${ip}`
-    if (await isLimited(id)) return json(req, tooMany, 429)
-    await record(id)
+    // KEYED PER EMAIL AS WELL AS PER ADDRESS. Without the email bucket, one
+    // caller can make the platform send a hundred password-reset mails to
+    // somebody else's inbox - the rate limit is protecting the RECIPIENT here,
+    // not the sender, so it has to be keyed on the recipient.
+    const who = `${NS}recover:${String(email).trim().toLowerCase()}`
+    if (await isLimited(who, MAX_PER_EMAIL)) return json(req, { ok: true }, 200)
+    if (await isLimited(addr, MAX_PER_IP)) return json(req, { ok: true }, 200)
+    if (await isGloballyLimited()) return json(req, { ok: true }, 200)
+    // A reset request always counts, success or not: unlike a login there is no
+    // "correct" version of it to tell apart, and the cost being limited is the
+    // mail itself.
+    await recordFailure(who, addr).catch(() => {})
+
     const url = redirectTo ? `recover?redirect_to=${encodeURIComponent(redirectTo)}` : 'recover'
     const { status } = await gotrue(url, { email, ...sec })
     // Log the request for the admin email log. Password reset mail is sent by
@@ -138,7 +219,10 @@ Deno.serve(async (req) => {
     // ever sees one - and it records the REQUEST, not a delivery receipt.
     // Deliberately fire-and-forget: a logging failure must never break a reset.
     await logRecovery(String(email), status).catch(() => {})
-    return json(req, { ok: true }, 200) // always 200 (don't reveal whether the email exists)
+    // Always 200, and always the same 200 - including when rate-limited above.
+    // A different answer for a limited address would reveal which addresses
+    // have accounts, which is the thing this endpoint is careful not to say.
+    return json(req, { ok: true }, 200)
   }
 
   return json(req, { error: 'unknown action' }, 400)
