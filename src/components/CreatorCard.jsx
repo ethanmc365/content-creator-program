@@ -1,6 +1,8 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { Avatar, Badge } from './ui'
-import PlatformBadges, { platformsForProfile } from './PlatformBadges'
+import { platformsForProfile } from './PlatformBadges'
+import SocialMark from './SocialMark'
+import LocalTime from './LocalTime'
 import ConnectButton from './ConnectButton'
 import { useAuth } from '../context/AuthContext'
 import { openConversation } from '../lib/dm'
@@ -47,6 +49,12 @@ import { useT } from '../lib/i18n'
 // things that were suffering - the person at the top of the card, and the
 // actions at the foot. The fixed heights all stay, because the reason for them
 // (a grid of cards that are not the same size) has not changed.
+// The platform's own key in SocialMark's table. Two spellings of one list is
+// how they drift, so this is the only mapping in the file.
+const SOCIAL_BRAND = {
+  Instagram: 'instagram', TikTok: 'tiktok', YouTube: 'youtube', Facebook: 'facebook',
+}
+
 export default function CreatorCard({ creator, relation, onRelationChange, currentTrip = null, ...rest }) {
   const tr = useT()
   const { user } = useAuth()
@@ -66,6 +74,21 @@ export default function CreatorCard({ creator, relation, onRelationChange, curre
       className="card group flex h-full flex-col gap-3.5 !p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/25 hover:shadow-lift active:-translate-y-0.5 active:shadow-lift"
       {...rest}
     >
+      {/* THE RIGHT-HAND SPACE IS NOW HOLDING SOMETHING (2 Sep 2026).
+
+          Ethan: "we have a lot of space on the right of those cards to add in
+          some more information - maybe their local time, their home town and
+          their age. That could work nicely there."
+
+          Going from four cards across to two bought 240px per card and spent
+          none of it: the header was a face, a name, a place and then a third of
+          a card of nothing. What goes in it is the three facts you actually
+          want before pressing Message on a stranger - is it the middle of their
+          night, where are they from, and roughly who am I talking to. The home
+          town keeps its place under the name because it belongs to the person;
+          the clock and the age are the RIGHT-hand column, right-aligned, so
+          they line up down the grid rather than trailing whatever the name
+          happened to be. */}
       <div className="flex items-start gap-3.5">
         <Avatar src={creator.photo_url} name={creator.name} size="lg" />
         <div className="min-w-0 flex-1">
@@ -80,7 +103,21 @@ export default function CreatorCard({ creator, relation, onRelationChange, curre
             {[creator.city, creator.country].filter(Boolean).join(', ') || 'Somewhere out there'}
           </p>
         </div>
-        {creator.is_admin && <Badge tone="light" className="shrink-0 !px-2 !py-0.5 !text-[10px]">{tr("Team")}</Badge>}
+        {/* `LocalTime` renders nothing for a profile we refuse to place (see
+            lib/localTime), and the age is missing on plenty of rows, so this
+            column has to survive holding one fact, both, or neither - hence a
+            stack of optional lines rather than a fixed two-row block. */}
+        <div className="flex shrink-0 flex-col items-end gap-1 text-right">
+          {creator.is_admin && <Badge tone="light" className="!px-2 !py-0.5 !text-[10px]">{tr("Team")}</Badge>}
+          <LocalTime
+            profile={creator}
+            bare
+            className="text-[15px] font-bold tabular-nums leading-none text-ink"
+          />
+          {creator.age ? (
+            <span className="text-[11px] leading-none text-smoke">{tr('{n} years old', { n: creator.age })}</span>
+          ) : null}
+        </div>
       </div>
 
       {/* A BOX THAT IS EXACTLY TWO LINES TALL, AND THAT IS THE WHOLE FIX.
@@ -114,7 +151,22 @@ export default function CreatorCard({ creator, relation, onRelationChange, curre
           adding a second line to their card and nobody else's. `h-6` rather than
           a minimum, for the same reason the bio box is a fixed height. */}
       <div className="flex h-6 items-center gap-x-2 overflow-hidden whitespace-nowrap text-[11px] text-smoke">
-        <PlatformBadges platforms={platformsForProfile(creator)} />
+        {/* THE PLATFORM MARKS ARE IN THEIR OWN COLOURS (2 Sep 2026).
+            Ethan: "rather than just those grey icons, have the actual colourful
+            social media icons appearing there."
+            `PlatformBadges` draws a grey glyph on a grey disc, which across the
+            product is the universal look of a DISABLED control - so a row
+            saying "this creator posts on TikTok and Instagram" read as two
+            things switched off. The challenge form and the challenge brief both
+            moved to `SocialMark colored` for exactly this; the directory was
+            the last grey one left. */}
+        {platformsForProfile(creator).length > 0 && (
+          <span className="flex shrink-0 items-center gap-1.5">
+            {platformsForProfile(creator).map((p) => (
+              <SocialMark key={p} brand={SOCIAL_BRAND[p] || 'link'} colored className="h-[18px] w-[18px]" />
+            ))}
+          </span>
+        )}
         {/* THE ONE PIECE OF COLOUR ON THE CARD.
             This was a grey globe and a bare number sitting in a row of grey
             platform glyphs, so the single most interesting fact about a travel

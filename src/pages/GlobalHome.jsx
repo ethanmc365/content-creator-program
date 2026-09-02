@@ -766,12 +766,20 @@ export default function GlobalHome() {
           >
             <div className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-white/10 blur-2xl" />
             <div className="pointer-events-none absolute -bottom-24 -left-10 h-72 w-72 rounded-full bg-black/5 blur-2xl" />
-            <TrypPlane variant="hero" id="welcome" />
+            {/* A FEW PIXELS LOWER (2 Sep 2026). Ethan: "the Tryp.com animation
+                on the main card at the top - move it down ever so slightly, a
+                few pixels, because it's a little bit too close to the
+                kilometres flown and 'logged by all of us'." The plane's box is
+                `bottom-0` and the stats row runs under it, so the trail was
+                landing on the caption. Nudged here rather than in TrypPlane:
+                every other card that draws it has different content beneath. */}
+            <TrypPlane variant="hero" id="welcome" className="translate-y-4" />
             <div className="relative">
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider">
-                <Icon name="globe" className="h-3.5 w-3.5" />
-                {network?.name || 'Worldwide'}
-              </span>
+              {/* NO "WORLDWIDE" PILL. Ethan: "I think it says worldwide on the
+                  top of that card - we can remove that, it doesn't necessarily
+                  need to say worldwide there." The tab you are on says it, the
+                  place switcher directly above says it, and the heading under
+                  this said it a third time. */}
               {/* ONE LINE, AND THEN STRAIGHT TO THE NUMBERS.
                   NOT "Welcome to…". This card is on the hub you land on every
                   day, and being welcomed to a place you have been a member of
@@ -790,7 +798,7 @@ export default function GlobalHome() {
                   size a heading is allowed to be, and forcing it there would
                   push the text out of the card rather than wrap it. From `sm`
                   up there is room, so that is where the promise is made. */}
-              <h2 className="mt-4 text-lg font-bold leading-tight sm:whitespace-nowrap sm:text-2xl lg:text-3xl">
+              <h2 className="text-lg font-bold leading-tight sm:whitespace-nowrap sm:text-2xl lg:text-3xl">
                 {tr("Tryp.com Content Creator Community")}
               </h2>
 

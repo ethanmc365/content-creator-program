@@ -26,12 +26,32 @@
 // the card says there is nothing real to say and suggests them anyway. That is
 // how introductions work between people.
 //
-// STABLE FOR THE WEEK. Seeded by the ISO week number, so the three faces are the
-// same on Tuesday as they were on Monday. Three new strangers every time you
-// refresh is a slot machine, not an introduction, and nobody messages a face
-// that might be gone by the time they have thought about it.
+// STABLE FOR A DAY, AND DIFFERENT TOMORROW (2 Sep 2026).
+//
+// It was stable for a WEEK, on the reasoning that three new strangers every
+// time you refresh is a slot machine rather than an introduction. That half is
+// still true and the pick is still stable within a day. But Ethan: "it's
+// showing the same creators every single day. I want this to refresh daily, or
+// even every couple of hours - obviously in future it can show the same
+// creators, but we don't want it showing them constantly."
+//
+// A DAY SEED ON ITS OWN WOULD NOT HAVE FIXED IT, which is the part worth
+// writing down. The ranking ladder below is deterministic: if four people have
+// a real reason and everybody else has none, those four sort to the top on
+// every seed, so re-seeding daily reshuffles three names that were already
+// going to be the same three names. The rotation is what actually changes the
+// faces - the day index walks a starting offset through the people we can say
+// something true about, so over a fortnight you meet all of them instead of the
+// same three forty times.
 
 const WEEK_MS = 7 * 86400000
+
+/** Which day we are in. Same integer for everybody, rolls over at UTC midnight.
+ *  UTC and not local time on purpose: the pick should be the same for two
+ *  creators comparing notes across a timezone. */
+export function dayIndex(now = Date.now()) {
+  return Math.floor(now / 86400000)
+}
 
 /** Which week we are in. Same integer for everybody, rolls over on a Monday. */
 export function weekIndex(now = Date.now()) {
@@ -181,11 +201,32 @@ export function pickWhoToMeet(me, candidates, tripsByCreator = {}, now = Date.no
   // about comes first, in the order of the ladder above; the rest are the pool
   // we fall back on so the card is never short of three faces.
   const RANK = ['trip', 'destination', 'been', 'knows', 'city', 'language', 'countries', 'platform', 'chance']
-  const rand = mulberry32(weekIndex(now) * 2654435761)
+  const day = dayIndex(now)
+  const rand = mulberry32(day * 2654435761)
   // A stable random key per candidate, so ties inside a rank are shuffled the
-  // same way all week rather than by whatever order the query returned.
+  // same way all day rather than by whatever order the query returned.
   const keyed = scored.map((s) => ({ ...s, k: rand() }))
-  keyed.sort((a, b) => RANK.indexOf(a.reason.kind) - RANK.indexOf(b.reason.kind) || a.k - b.k)
+  const byRank = (a, b) => RANK.indexOf(a.reason.kind) - RANK.indexOf(b.reason.kind) || a.k - b.k
 
-  return keyed.slice(0, 3)
+  // THE ROTATION. Everybody we can say something true about, in ladder order,
+  // and the day index picks where in that list today starts. `chance` is the
+  // "we could not find an overlap" reason, so it is the fallback pool rather
+  // than part of the rotation - rotating into it would mean a day on which the
+  // card says nothing about anybody.
+  const real = keyed.filter((s) => s.reason.kind !== 'chance').sort(byRank)
+  const rest = keyed.filter((s) => s.reason.kind === 'chance').sort((a, b) => a.k - b.k)
+
+  const picked = []
+  if (real.length) {
+    const offset = day % real.length
+    for (let i = 0; i < Math.min(3, real.length); i += 1) picked.push(real[(offset + i) % real.length])
+  }
+  for (const s of rest) {
+    if (picked.length >= 3) break
+    picked.push(s)
+  }
+
+  // The card leads with the strongest opening it has, whichever three the
+  // rotation landed on.
+  return picked.sort(byRank)
 }

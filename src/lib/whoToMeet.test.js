@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { reasonFor, pickWhoToMeet, weekIndex } from './whoToMeet'
+import { reasonFor, pickWhoToMeet, weekIndex, dayIndex } from './whoToMeet'
 
 const me = {
   id: 'me',
@@ -98,15 +98,36 @@ describe('pickWhoToMeet', () => {
     expect(out[0].reason.kind).toBe('trip')
   })
 
-  it('is stable within a week and changes between weeks', () => {
-    const monday = Date.UTC(2026, 7, 10, 9, 0)
-    const thursday = Date.UTC(2026, 7, 13, 22, 0)
-    const nextWeek = Date.UTC(2026, 7, 18, 9, 0)
-    expect(weekIndex(monday)).toBe(weekIndex(thursday))
-    expect(weekIndex(nextWeek)).not.toBe(weekIndex(monday))
-
-    const a = pickWhoToMeet(me, pool, {}, monday).map((o) => o.creator.id)
-    const b = pickWhoToMeet(me, pool, {}, thursday).map((o) => o.creator.id)
+  // STABLE FOR A DAY, DIFFERENT TOMORROW. It used to hold for a whole week,
+  // which Ethan reported as "the same creators every single day".
+  it('is stable within a day', () => {
+    const morning = Date.UTC(2026, 7, 10, 9, 0)
+    const night = Date.UTC(2026, 7, 10, 22, 0)
+    expect(dayIndex(morning)).toBe(dayIndex(night))
+    const a = pickWhoToMeet(me, pool, {}, morning).map((o) => o.creator.id)
+    const b = pickWhoToMeet(me, pool, {}, night).map((o) => o.creator.id)
     expect(a).toEqual(b)
+  })
+
+  it('rolls over at UTC midnight, and the week index still means a week', () => {
+    const monday = Date.UTC(2026, 7, 10, 9, 0)
+    const tuesday = Date.UTC(2026, 7, 11, 9, 0)
+    const nextWeek = Date.UTC(2026, 7, 18, 9, 0)
+    expect(dayIndex(tuesday)).toBe(dayIndex(monday) + 1)
+    expect(weekIndex(monday)).toBe(weekIndex(Date.UTC(2026, 7, 13, 22, 0)))
+    expect(weekIndex(nextWeek)).not.toBe(weekIndex(monday))
+  })
+
+  // THE ROTATION IS THE POINT, and a day seed alone would not have produced it:
+  // the ladder is deterministic, so re-seeding reshuffles the same three names.
+  // Over a run of days the card has to actually reach everybody it can say
+  // something true about.
+  it('shows different people across a run of days', () => {
+    const day0 = Date.UTC(2026, 7, 10, 9, 0)
+    const seen = new Set()
+    for (let d = 0; d < 10; d += 1) {
+      for (const o of pickWhoToMeet(me, pool, {}, day0 + d * 86400000)) seen.add(o.creator.id)
+    }
+    expect(seen.size).toBeGreaterThan(3)
   })
 })

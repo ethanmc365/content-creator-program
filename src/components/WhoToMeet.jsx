@@ -30,6 +30,22 @@ import { useT } from '../lib/i18n'
 // meeting somebody new; a card recommending a person you message every day is
 // the feature announcing that it does not know anything about you.
 
+// WHAT KIND OF OVERLAP THIS IS, as a glyph. The reason sentences are written by
+// hand (see lib/whoToMeet) and each one has a `kind`; this is the only place
+// that turns a kind into a picture, so a new reason gets a new line here and
+// nothing else has to know.
+const REASON_ICON = {
+  trip: 'plane',
+  destination: 'pin',
+  been: 'globe',
+  knows: 'users',
+  city: 'pin',
+  language: 'chat',
+  countries: 'globe',
+  platform: 'video',
+  chance: 'sparkles',
+}
+
 export default function WhoToMeet({ className }) {
   const tr = useT()
   const { user, profile } = useAuth()
@@ -121,7 +137,7 @@ export default function WhoToMeet({ className }) {
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
         <div>
           <h2 className="flex items-center gap-2 text-lg font-semibold">
-            <Icon name="users" className="h-5 w-5 shrink-0 text-brand" /> {tr("Who to meet this week")}
+            <Icon name="users" className="h-5 w-5 shrink-0 text-brand" /> {tr("Who to meet")}
           </h2>
           {/* Not "three creators picked for you" - you can see how many there
               are, and counting them out is the kind of line a page says when it
@@ -178,11 +194,35 @@ export default function WhoToMeet({ className }) {
                   under the name. `flex-1` pushes the buttons to the bottom, so
                   three cards with reasons of different lengths still line their
                   controls up. */}
+              {/* THE REASON IS A LINE WITH A GLYPH, NOT A TINTED PANEL
+                  (2 Sep 2026).
+
+                  Ethan: "I don't like the colour of the little card that shows
+                  the reason why you should connect, like you both speak Irish
+                  or you have both been to the United Kingdom, Spain and
+                  Portugal. You can improve the UI of this."
+
+                  It was a `bg-brand-tint` wash - a beige rectangle inside a
+                  white card inside a white page, which is the one colour move
+                  this platform's rules do not allow (white-dominant, orange as
+                  an ACCENT). And the wash was carrying no information: it was
+                  the same block whatever the reason was.
+                  So the panel goes white with the card's own hairline, and the
+                  orange moves to a glyph that says what KIND of overlap this is
+                  - a plane for a trip, a pin for a place, a globe for a country
+                  you have both been to. The colour is now an accent doing a
+                  job. */}
               <p className={cx(
-                'mt-3 w-full flex-1 rounded-xl px-3 py-2.5 text-xs leading-relaxed',
-                reason.kind === 'chance' ? 'bg-cloud text-smoke' : 'bg-brand-tint/50 text-ink',
+                'mt-3 flex w-full flex-1 items-start gap-2 rounded-xl border px-3 py-2.5 text-left text-xs leading-relaxed',
+                reason.kind === 'chance'
+                  ? 'border-gray-100 bg-cloud/40 text-smoke'
+                  : 'border-brand/15 bg-white text-ink',
               )}>
-                {reason.text}
+                <Icon
+                  name={REASON_ICON[reason.kind] || 'sparkles'}
+                  className={cx('mt-px h-3.5 w-3.5 shrink-0', reason.kind === 'chance' ? 'text-gray-400' : 'text-brand')}
+                />
+                <span className="min-w-0">{reason.text}</span>
               </p>
             </div>
 

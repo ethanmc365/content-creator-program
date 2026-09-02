@@ -11,6 +11,7 @@ import Icon from '../components/Icon'
 import { PageHeader, SkeletonCards, EmptyState } from '../components/ui'
 import { platformsForProfile } from '../components/PlatformBadges'
 import { loadRelationships } from '../lib/connections'
+import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
 
 const norm = (s) => (s || '').toLowerCase().replace(/[^a-z]/g, '')
@@ -42,6 +43,23 @@ export default function Directory() {
   // "My connections" filter: when on, the map + grid show only the viewer's
   // accepted connections. Mutually exclusive with the travel view for clarity.
   const [connectionsOnly, setConnectionsOnly] = useState(false)
+  // WHO YOU HAVE AND HAVE NOT MET, AS A FILTER OF ITS OWN (2 Sep 2026).
+  //
+  // Ethan: "on the filters I want the option to filter by my connections, or by
+  // people I haven't connected with before, or just everyone. It doesn't seem
+  // to be an option here."
+  //
+  // Half of it existed and was reachable only from the MAP's view stack (the
+  // `connectionsOnly` toggle above) - so the answer to "show me my connections"
+  // was a control on a different object, and the other half, "show me everybody
+  // I have NOT met", had no answer at all. Which is the more useful of the two:
+  // a directory is a place you go to find somebody new.
+  //
+  // '' | 'connected' | 'new'. It is a separate piece of state from the map's
+  // toggle rather than a rename of it, because the map's three views are
+  // mutually exclusive with each other and this is not - "my connections who
+  // are travelling" is a perfectly good question.
+  const [connection, setConnection] = useState('')
   // "Where we have been, together", as a paint layer on the one map rather
   // than as a second map at the foot of the page. See the note at the bottom.
   const [exploredOn, setExploredOn] = useState(false)
@@ -199,8 +217,10 @@ export default function Directory() {
     // Admins appear in the team row above the grid. They come BACK into the
     // grid the moment a filter is on, because a search that hides a match is a
     // search that is lying.
-    if (c.is_admin && !search && !country && !language && !platform && !connectionsOnly && !travelOnly && !nearMe) return false
+    if (c.is_admin && !search && !country && !language && !platform && !connection && !connectionsOnly && !travelOnly && !nearMe) return false
     if (connectionsOnly && !myConnectionIds.has(c.id)) return false
+    if (connection === 'connected' && !myConnectionIds.has(c.id)) return false
+    if (connection === 'new' && myConnectionIds.has(c.id)) return false
     if (travelOnly && !travellerIds.has(c.id)) return false
     if (nearMe && !nearIds.has(c.id)) return false
     return matchesFields(c)
@@ -302,6 +322,33 @@ export default function Directory() {
         <Combobox value={platform} onChange={setPlatform} options={['Instagram', 'TikTok', 'YouTube']} placeholder={tr("Any platform")} ariaLabel="Filter by platform" />
       </div>
 
+      {/* WHO YOU HAVE MET, UNDER THE FOUR FIELDS RATHER THAN INSIDE THEM.
+          Ethan asked for the option and asked for the four-card filter row not
+          to be altered, so it is its own strip: three states, one of them on,
+          in the same pill language the leaderboard's market chips and the
+          challenge board's group tabs already use. A dropdown would have been a
+          fifth cell in a grid built for four. */}
+      <div className="mb-4 flex flex-wrap items-center gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card">
+        {[
+          { key: '', label: tr('Everyone') },
+          { key: 'connected', label: tr('My connections') },
+          { key: 'new', label: tr('Not connected yet') },
+        ].map((o) => (
+          <button
+            key={o.key || 'all'}
+            type="button"
+            onClick={() => setConnection(o.key)}
+            aria-pressed={connection === o.key}
+            className={cx(
+              'rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors',
+              connection === o.key ? 'bg-brand text-white' : 'text-smoke hover:bg-cloud hover:text-ink',
+            )}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+
       {/* Active "who's travelling" note, so it's obvious why the grid is filtered. */}
       {travelOnly && (
         <div className="mb-6 flex items-center gap-2 text-sm text-smoke">
@@ -333,7 +380,7 @@ export default function Directory() {
         </div>
       )}
 
-      {!loading && team.length > 0 && !search && !country && !language && !platform && !connectionsOnly && !travelOnly && !nearMe && (
+      {!loading && team.length > 0 && !search && !country && !language && !platform && !connection && !connectionsOnly && !travelOnly && !nearMe && (
         <section className="mb-10">
           <div className="mb-3">
             <h2 className="text-lg font-semibold">{tr("The Tryp.com team")}</h2>
@@ -368,7 +415,7 @@ export default function Directory() {
           title={tr("No creators match those filters")}
           hint={tr("Try removing a filter or searching a different name.")}
           action={
-            <button onClick={() => { setSearch(''); setCountry(''); setLanguage(''); setPlatform(''); setNearMe(false); setTravelOnly(false); setConnectionsOnly(false) }} className="btn-secondary">
+            <button onClick={() => { setSearch(''); setCountry(''); setLanguage(''); setPlatform(''); setConnection(''); setNearMe(false); setTravelOnly(false); setConnectionsOnly(false) }} className="btn-secondary">
               {tr("Clear filters")}
             </button>
           }
