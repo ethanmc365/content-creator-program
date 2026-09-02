@@ -307,7 +307,7 @@ export default function GlobalHome() {
           // `byPinPriority` in CreatorMap).
           .select('id, name, photo_url, bio, city, country, country_code, city_lat, city_lng, show_on_map, countries_visited, last_seen_at')
           .eq('status', 'active').eq('is_test', false).is('deletion_requested_at', null),
-        supabase.from('collab_posts').select('creator_id, city, country, start_date, end_date')
+        supabase.from('collab_posts').select('creator_id, city, country, city_lat, city_lng, start_date, end_date')
           .gte('end_date', today).order('start_date'),
       ])
 

@@ -78,7 +78,7 @@ export default function Directory() {
         loadRelationships(user.id),
         // Current + upcoming collab trips drive the map's "travelling now"
         // animation and the "Currently in" chips on the cards.
-        supabase.from('collab_posts').select('creator_id, city, country, start_date, end_date')
+        supabase.from('collab_posts').select('creator_id, city, country, city_lat, city_lng, start_date, end_date')
           .gte('end_date', today).order('start_date'),
       ])
       setCreators(profiles ?? [])

@@ -607,7 +607,36 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   // so a city that has already been looked up for somebody's home costs
   // nothing here. Keyed by "city|country" rather than by trip id: three
   // creators going to Lisbon is one lookup.
+  // THE TRIP CARRIES ITS OWN COORDINATES NOW (migration 177, 2 Sep 2026).
+  //
+  // This used to geocode every trip on the board, in the browser, at render
+  // time, in a `for` loop with an `await` in it - and cache the answers in that
+  // browser's localStorage and nowhere else. So every new browser, every
+  // private window and every new team member paid the whole bill again.
+  //
+  // Measured on production on a clean browser: 89 requests to load the hub, of
+  // which 22 were geocode calls, totalling 23.1 SECONDS. Ethan: "it takes a
+  // while to load", and worse than that on a slower line, because the profile
+  // fetch is competing with two dozen serial lookups for the same connection
+  // and the app signs you out if it loses three times.
+  //
+  // `collab_posts.city_lat/lng` are resolved once, server side, for everybody.
+  // The geocoder is still here for a row that somehow has none - a brand new
+  // trip posted before the backfill runs again - so the map degrades to slow
+  // rather than to blank, but on today's data it makes ZERO calls.
   const [tripCoords, setTripCoords] = useState({})
+  const storedTripCoords = useMemo(() => {
+    const out = {}
+    for (const list of Object.values(trips || {})) {
+      for (const t of (Array.isArray(list) ? list : [list])) {
+        if (!t?.city || !t?.country) continue
+        if (t.city_lat == null || t.city_lng == null) continue
+        out[`${t.city.trim().toLowerCase()}|${t.country.trim().toLowerCase()}`] = { lat: t.city_lat, lng: t.city_lng }
+      }
+    }
+    return out
+  }, [trips])
+
   useEffect(() => {
     let cancelled = false
     const wanted = new Map()
@@ -615,6 +644,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
       for (const t of (Array.isArray(list) ? list : [list])) {
         if (!t?.city || !t?.country) continue
         const key = `${t.city.trim().toLowerCase()}|${t.country.trim().toLowerCase()}`
+        if (storedTripCoords[key]) continue
         if (!tripCoords[key]) wanted.set(key, t)
       }
     }
@@ -629,7 +659,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
       }
     })()
     return () => { cancelled = true }
-  }, [trips, tripCoords])
+  }, [trips, tripCoords, storedTripCoords])
 
   // Every creator that has a location, with resolved coords attached.
   const located = useMemo(() => {
@@ -831,7 +861,8 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
         const cityKey = trip.city && trip.country
           ? `${trip.city.trim().toLowerCase()}|${trip.country.trim().toLowerCase()}`
           : null
-        const city = cityKey ? tripCoords[cityKey] : null
+        // Stored first, geocoded second: see the note on `storedTripCoords`.
+        const city = cityKey ? (storedTripCoords[cityKey] || tripCoords[cityKey]) : null
         const dest = city ? [city.lng, city.lat] : canonToCentroid.get(countryKey(trip.country))
         if (!dest) continue
 
@@ -873,7 +904,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
     // In the air first, then soonest to leave. A list sorted by "who is
     // actually gone" reads as news; sorted by creator id it reads as a dump.
     return out.sort((a, b) => (b.current ? 1 : 0) - (a.current ? 1 : 0) || a.daysUntil - b.daysUntil)
-  }, [centroids, trips, located, tripCoords])
+  }, [centroids, trips, located, tripCoords, storedTripCoords])
 
   // "Who's travelling" view + single-traveller focus (tap a plane). The view can
   // be driven by the parent (controlled: it also filters the creator cards

@@ -107,7 +107,7 @@ export default function Profile() {
           .eq('creator_id', id)
           .order('submitted_at', { ascending: false }),
         isMe ? Promise.resolve(null) : loadRelationship(user.id, id),
-        supabase.from('collab_posts').select('id, city, country, start_date, end_date').eq('creator_id', id).gte('end_date', today).order('start_date', { ascending: true }),
+        supabase.from('collab_posts').select('id, city, country, city_lat, city_lng, start_date, end_date').eq('creator_id', id).gte('end_date', today).order('start_date', { ascending: true }),
         upcomingFlights,
       ])
       setCreator(p)
