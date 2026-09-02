@@ -1,0 +1,17 @@
+-- ============================================================================
+-- 175 - a leaderboard is derived data, so rebuilding it is not deletion
+--
+-- Migration 172 put the sandbox no-delete guard on `results` alongside the
+-- tables that hold somebody's real work. It does not belong there, and the
+-- mistake is visible the moment you use the account: `rebuild_challenge_results`
+-- DELETES the old rows before inserting the new ones, so a sandbox admin could
+-- not regenerate a leaderboard at all. That is one of the most useful things to
+-- show somebody, it is reversible by definition (the rows are recomputed from
+-- the entries in one press), and the QA admin account is a sandbox account too,
+-- so this broke a real testing workflow as well as the demo.
+--
+-- The rule the other six tables share is "these rows are not recoverable once
+-- they are gone". `results` is the one row in that list that is recoverable by
+-- pressing a button, which is why it is coming out.
+-- ============================================================================
+drop trigger if exists sandbox_no_delete on public.results;
