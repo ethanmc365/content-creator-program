@@ -122,14 +122,30 @@ function DeletionScheduled({ profile, signOut, onRestore }) {
 
 export function ProtectedRoute() {
   const tr = useT()
-  const { user, profile, profileLoaded, profileError, loading, isSuspended, signOut, refreshProfile, retryProfile } = useAuth()
+  const { user, profile, profileLoaded, profileError, loading, sessionChecked, storedSession, isSuspended, signOut, refreshProfile, retryProfile } = useAuth()
   const location = useLocation()
   // Starts false and never blocks a render: a full-screen gate that appears a
   // beat AFTER the app has painted is worse than one that arrives a beat late.
   const installGate = useAppFlag('install_gate_enabled')
 
   if (loading) return <FullPageSpinner />
-  if (!user) return <Navigate to="/login" replace />
+  // NOBODY IS LOGGED IN HERE, OR WE JUST DO NOT KNOW YET? THEY ARE NOT THE SAME.
+  //
+  // This used to be `if (!user) return <Navigate to="/login" />`, and `user`
+  // is null both when the visitor is a stranger AND for as long as the session
+  // is still being read. A five-second watchdog in AuthContext could end the
+  // spinner while the answer was still in flight, and this line then threw a
+  // signed-in creator at the login form - "it takes ages to load and doesn't
+  // load at all, it will then just go back to the login page".
+  //
+  // So: a stranger (no saved login in this browser) still goes straight to
+  // /login, and now without waiting on the watchdog at all. Somebody holding a
+  // saved login is never sent there on a guess - either the session arrives, or
+  // they get the retry screen, which is the honest description of the state.
+  if (!user) {
+    if (sessionChecked || !storedSession) return <Navigate to="/login" replace />
+    return <ConnectionSlow onRetry={() => window.location.reload()} signOut={signOut} />
+  }
   // Profile fetch failed on the network (not "no row"). The session is valid, so
   // offer a retry instead of bouncing a real user to /login.
   if (profileError && !profile) return <ConnectionSlow onRetry={retryProfile} signOut={signOut} />
@@ -190,9 +206,14 @@ export function ProtectedRoute() {
 }
 
 export function AdminRoute() {
-  const { user, profile, profileLoaded, isAdmin, loading } = useAuth()
+  const { user, profile, profileLoaded, isAdmin, loading, sessionChecked, storedSession, signOut } = useAuth()
   if (loading) return <FullPageSpinner />
-  if (!user) return <Navigate to="/login" replace />
+  // Same rule as ProtectedRoute: never mistake "not resolved yet" for "logged
+  // out". An admin deep-linking to /admin on a slow phone was the same bounce.
+  if (!user) {
+    if (sessionChecked || !storedSession) return <Navigate to="/login" replace />
+    return <ConnectionSlow onRetry={() => window.location.reload()} signOut={signOut} />
+  }
   // Wait until the profile has resolved before deciding, otherwise a hard
   // refresh on an admin URL can briefly bounce to /home.
   if (!profileLoaded) return <FullPageSpinner />
