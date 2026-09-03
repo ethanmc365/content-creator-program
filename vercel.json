@@ -1,28 +1,4 @@
 {
-  "redirects": [
-    {
-      "source": "/",
-      "has": [
-        {
-          "type": "host",
-          "value": "content-creator-program.vercel.app"
-        }
-      ],
-      "destination": "https://trypcreators.vercel.app/",
-      "permanent": true
-    },
-    {
-      "source": "/:path+",
-      "has": [
-        {
-          "type": "host",
-          "value": "content-creator-program.vercel.app"
-        }
-      ],
-      "destination": "https://trypcreators.vercel.app/:path+",
-      "permanent": true
-    }
-  ],
   "rewrites": [
     {
       "source": "/(.*)",

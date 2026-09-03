@@ -28,13 +28,28 @@
 // which Apple only permits for an installed app - so the copy leads with that
 // rather than with "we would prefer it".
 
+// IS THIS AN INSTALLED APP RATHER THAN A BROWSER TAB?
+//
+// THE ONE DEFINITION. `lib/canonicalHost` asks the same question to decide
+// whether it may move somebody between origins, and getting a different answer
+// there would put an installed app back into Safari - see the note in that file
+// for the day that happened.
+//
+// Three display modes, because a home-screen app is not always `standalone`:
+// Android sometimes reports `minimal-ui`, and a desktop install can be
+// `fullscreen`. `navigator.standalone` is the only one iOS Safari answers, and
+// it answers nothing else.
+//
+// Wrapped, because `matchMedia` throws in some embedded webviews and "I cannot
+// tell" must not become an exception on the first line of the app.
 export const isStandalone = () => {
   if (typeof window === 'undefined') return false
-  return (
-    window.matchMedia?.('(display-mode: standalone)').matches
-    || window.matchMedia?.('(display-mode: fullscreen)').matches
-    || window.navigator.standalone === true
-  )
+  try {
+    if (window.matchMedia?.('(display-mode: standalone)')?.matches) return true
+    if (window.matchMedia?.('(display-mode: fullscreen)')?.matches) return true
+    if (window.matchMedia?.('(display-mode: minimal-ui)')?.matches) return true
+  } catch { /* exotic webview */ }
+  return window.navigator?.standalone === true
 }
 
 const ua = () => (typeof navigator === 'undefined' ? '' : navigator.userAgent || '')

@@ -11,7 +11,21 @@ import { releaseBootLayer, whenAppLoadersIdle } from './lib/bootLoader'
 import { getLocale, loadLocale } from './lib/i18n'
 import { loadOverrides } from './lib/translations'
 import { installPinchGuard } from './lib/pinchGuard'
+import { goCanonical } from './lib/canonicalHost'
 import './index.css'
+
+// ONE URL FOR BROWSERS, AND NEVER A WORD TO AN INSTALLED APP.
+//
+// First thing, before monitoring, before React, before anything reads the DOM:
+// if this is a browser sitting on the old origin it is replaced with the
+// canonical one and nothing else in this file has to run. An INSTALLED app is
+// left exactly where it is - see lib/canonicalHost for the day this was a
+// server-side 308 and put every home-screen app back into Safari.
+// The navigation supersedes everything below it, so there is nothing to guard:
+// this bundle is already downloaded and parsed by the time this line runs, and
+// a few milliseconds of React booting under a page that is being replaced costs
+// nothing. Throwing here would only put noise in the console and in Sentry.
+goCanonical()
 
 // Start error monitoring as early as possible (no-op without VITE_SENTRY_DSN).
 initMonitoring()
