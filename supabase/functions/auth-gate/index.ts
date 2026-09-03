@@ -57,10 +57,16 @@ const ANON = Deno.env.get('SUPABASE_ANON_KEY')!
 
 const WINDOW_MIN = 15
 
-// Five wrong passwords for ONE account in fifteen minutes. Tight, because it is
-// the bucket that actually protects a person, and because only FAILURES land in
-// it - somebody who knows their password never touches this number.
-const MAX_PER_EMAIL = 5
+// Ten wrong passwords for ONE account in fifteen minutes. It is the bucket that
+// actually protects a person, and only FAILURES land in it - somebody who knows
+// their password never touches this number at all.
+//
+// It was five. Ethan asked for "rate limiting still there but higher" while he
+// was locked in a fight with a captcha bug, and he was right to: ten is still
+// far below any real guessing attempt (a password worth having survives ten
+// guesses trivially), and the cost of being too tight is locking out the person
+// who owns the account on the day something else is already broken.
+const MAX_PER_EMAIL = 10
 // Thirty failures from one address. Generous on purpose: shared offices, phone
 // networks behind CGNAT, and a household all look like one address, and this
 // value rests on a header the caller can set.
@@ -180,8 +186,20 @@ Deno.serve(async (req) => {
     const { status, data } = await gotrue('token?grant_type=password', { email, password, ...sec })
     if (status === 200 && data.access_token) return json(req, data, 200)
 
-    // ONLY FAILURES ACCUMULATE, and this is the only place one is written.
-    await recordFailure(who, addr).catch(() => {})
+    // A CAPTCHA REFUSAL IS NOT A PASSWORD GUESS, SO IT MUST NOT COUNT.
+    //
+    // A Turnstile token that is stale or already spent comes back as
+    // `captcha_failed` ("request disallowed (timeout-or-duplicate)") BEFORE the
+    // password is ever examined. Counting those was a trap of its own making:
+    // the person retries, every retry fails the same way, and after a few of
+    // them the limiter locks the account they were typing correctly all along -
+    // turning a five-minute captcha annoyance into a fifteen-minute lockout.
+    // Ethan hit exactly this on 3 Sep 2026. The client keeps the token fresh now
+    // (see components/Turnstile), and this makes sure the failure mode cannot
+    // compound even if it comes back.
+    const captchaProblem = data.error_code === 'captcha_failed'
+      || /captcha/i.test(String(data.error_description || data.msg || data.error || ''))
+    if (!captchaProblem) await recordFailure(who, addr).catch(() => {})
     return json(req, { error: data.error_description || data.msg || data.error || 'Invalid login credentials' }, 400)
   }
 
