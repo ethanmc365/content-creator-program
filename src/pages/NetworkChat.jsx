@@ -18,6 +18,12 @@ import PhotoLightbox from '../components/PhotoLightbox'
 import { saveFile, fileNameFromUrl } from '../lib/media'
 import { uploadChatImage, uploadChatVideo } from '../lib/chatMedia'
 import { pinToBottom, isPinning } from '../lib/chatScroll'
+// The three interactive cards. Lazy is wrong here: a room whose most recent
+// messages include a poll would pop it in after the thread had already settled,
+// which is exactly the growth-after-pin that lib/chatScroll exists to stop.
+import PollCard from '../components/PollCard'
+import GameEventCard from '../components/GameEventCard'
+import ResourceCard from '../components/ResourceCard'
 import { renderMessageBody, stripMarkup } from '../lib/richText'
 import { broadcastNames } from '../lib/broadcastMentions'
 import Reorderable from '../components/network/Reorderable'
@@ -90,14 +96,15 @@ const loadRoomOrder = () => {
 // emoji reaction places below the last few messages" - the doubled circles were
 // the blank messages, not a duplicated control.
 //
-// They are rendered as what they are now: a card that says which thing it is
-// and goes there. The legacy chat owns voting and playing; this is a reference
-// to something that lives somewhere else, and a reference should say so rather
-// than pretend to be the thing.
+// AND THEY ARE THE REAL THING, NOT A REFERENCE TO IT (3 Sep 2026). This used to
+// draw a strip saying which card it was, linking to `/chat` - which redirects
+// to `/rooms`, so the only control on it sent you back where you already were.
+// See <AttachedCard>. This list is now only "does this message carry a card,
+// and which one"; the cards themselves load what they draw.
 const CARD_KINDS = [
-  { idKey: 'poll_id', table: 'polls', select: 'id, question', label: (r) => r?.question, kind: 'Poll', icon: 'chart', to: () => '/chat' },
-  { idKey: 'game_event_id', table: 'game_events', select: 'id, title', label: (r) => r?.title, kind: 'Game', icon: 'joystick', to: () => '/game' },
-  { idKey: 'resource_id', table: 'resources', select: 'id, title', label: (r) => r?.title, kind: 'From the library', icon: 'book', to: () => '/resources' },
+  { idKey: 'poll_id' },
+  { idKey: 'game_event_id' },
+  { idKey: 'resource_id' },
 ]
 
 // Anything that would make a message worth drawing. A row with none of these is
@@ -173,32 +180,41 @@ function QuotedParent({ id, lookup, onDark = false }) {
   )
 }
 
-function AttachedCard({ message, titles, onDark = false }) {
+// A POLL IS VOTED ON WHERE IT IS POSTED (3 Sep 2026).
+//
+// Ethan: "fix the polls/games/resources gap. Those cards link to /rooms but can
+// only actually be voted on from the old chat surface. They should be working
+// in every one of the rooms and future rooms."
+//
+// THE ROOMS DREW A LINK, NOT A CARD. Every poll, game and resource posted into
+// a market room rendered as a tappable strip whose destination was `/chat` -
+// and `/chat` redirects to `/rooms`, so the one control on the card sent you
+// back to the room you were already standing in. There was no way to vote from
+// a room at all. The real components (`PollCard`, `GameEventCard`,
+// `ResourceCard`) existed the whole time and only the LEGACY `Chat.jsx`
+// rendered them, which is why the feature looked half-built rather than broken.
+//
+// They render here now, the same three components the old surface uses, so
+// there is one poll in the codebase rather than a poll and a picture of a poll.
+// Every existing room and every room a market opens later gets this for free -
+// nothing about it is per-room.
+//
+// NOT INSIDE A BRAND BUBBLE. `PollCard` and friends are white cards with their
+// own borders, tap targets and result bars, and your own messages are drawn on
+// brand orange. Nesting one in the other put a white card inside an orange
+// bubble with the bubble's padding around it, which reads as a rendering
+// mistake. A card-only message has no text to bubble anyway - `hasContent`
+// already treats the card AS the message - so it breaks out and sits on the
+// thread's own ground at full width.
+function AttachedCard({ message }) {
   const spec = CARD_KINDS.find((c) => message[c.idKey])
   if (!spec) return null
-  const title = titles.get(`${spec.table}:${message[spec.idKey]}`)
   return (
-    <Link
-      to={spec.to()}
-      className={cx(
-        'mt-1 flex items-center gap-2.5 rounded-xl border px-3 py-2 transition-colors',
-        onDark
-          ? 'border-white/25 bg-white/10 hover:bg-white/20'
-          : 'border-gray-200 bg-white hover:border-brand/40 hover:bg-brand-tint/20',
-      )}
-    >
-      <span className={cx(
-        'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-        onDark ? 'bg-white/20 text-white' : 'bg-brand-tint text-brand',
-      )}>
-        <Icon name={spec.icon} className="h-4 w-4" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className={cx('block text-[10px] font-semibold uppercase tracking-wider', onDark ? 'text-white/70' : 'text-smoke')}>{spec.kind}</span>
-        <span className={cx('block truncate text-sm font-medium', onDark && 'text-white')}>{title || 'Open it'}</span>
-      </span>
-      <Icon name="chevronRight" className={cx('h-4 w-4 shrink-0', onDark ? 'text-white/50' : 'text-gray-300')} />
-    </Link>
+    <div className="mt-1 w-full">
+      {message.poll_id && <PollCard pollId={message.poll_id} />}
+      {message.game_event_id && <GameEventCard eventId={message.game_event_id} />}
+      {message.resource_id && <ResourceCard resourceId={message.resource_id} />}
+    </div>
   )
 }
 
@@ -222,7 +238,6 @@ export default function NetworkChat() {
   const [roomOrder, setRoomOrder] = useState(loadRoomOrder)
   const [attachError, setAttachError] = useState('')
   // Titles for poll / game / resource cards, keyed `table:id`.
-  const [cardTitles, setCardTitles] = useState(new Map())
   // Which message has its actions revealed by a TAP. On a phone there is no
   // hover, so `group-hover` alone meant the reaction button was permanently
   // invisible and market rooms simply had no reactions on mobile.
@@ -643,25 +658,12 @@ export default function NetworkChat() {
   // The titles behind any poll / game / resource cards in this room. One query
   // per kind, only for the kinds actually present, and only when the set of ids
   // changes - a room with no cards in it issues nothing.
-  const cardKey = useMemo(
-    () => CARD_KINDS.map((c) => messages.map((m) => m[c.idKey]).filter(Boolean).join(',')).join('|'),
-    [messages],
-  )
-  useEffect(() => {
-    const groups = CARD_KINDS
-      .map((c) => ({ spec: c, ids: [...new Set(messages.map((m) => m[c.idKey]).filter(Boolean))] }))
-      .filter((g) => g.ids.length)
-    if (!groups.length) return undefined
-    let alive = true
-    Promise.all(groups.map((g) =>
-      supabase.from(g.spec.table).select(g.spec.select).in('id', g.ids)
-        .then(({ data }) => (data || []).map((r) => [`${g.spec.table}:${r.id}`, g.spec.label(r)])),
-    )).then((pairs) => {
-      if (alive) setCardTitles(new Map(pairs.flat()))
-    })
-    return () => { alive = false }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cardKey])
+  // THE TITLE PREFETCH IS GONE WITH THE LINK STRIPS (3 Sep 2026).
+  //
+  // It ran one query per card kind present in the room, purely to write a title
+  // into a strip that said "Poll: which destination next?" and linked away.
+  // `PollCard`, `GameEventCard` and `ResourceCard` each load the thing they are
+  // drawing, so this was a second, earlier, partial fetch of the same rows.
 
   const messageIds = useMemo(() => messages.map((m) => m.id), [messages])
   const { byMessage: reactionsByMessage, toggle: toggleReaction } = useReactions(messageIds, user?.id)
@@ -1470,7 +1472,7 @@ export default function NetworkChat() {
                         )
                       )}
                       <div className={cx((m.image_url || m.video_url) && 'px-2 pb-1.5')}>
-                        <AttachedCard message={m} titles={cardTitles} onDark={mine} />
+                        <AttachedCard message={m} />
                       </div>
                     </div>
                   </MessageActions>
