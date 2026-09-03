@@ -89,7 +89,7 @@ export default function Signup() {
 
   if (error === 'CHECK_EMAIL') {
     return (
-      <AuthShell title={tr("Check your inbox 📬")} subtitle="We've sent you a confirmation link. Click it, then log in to start your onboarding.">
+      <AuthShell title={tr("Check your inbox")} subtitle="We have sent you a confirmation link. Open it, then log in and we will take you through the rest.">
         <Link to="/login" className="btn-primary w-full">{tr("Go to log in")}</Link>
       </AuthShell>
     )
