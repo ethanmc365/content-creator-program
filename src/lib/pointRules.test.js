@@ -39,3 +39,45 @@ describe('saving a point rule keeps only the fields its kind means', () => {
     expect(r).toMatchObject({ kind: 'per_post', label: 'x', points: 3 })
   })
 })
+
+// ---------------------------------------------------------------------------
+// `min_views`: the gate that holds a claimed bonus back until the entry earns
+// it (migration 181). Tested here for the same reason every other column is:
+// this file exists because a new column was once silently nulled on the way to
+// the database, and the rule looked right on screen and scored nothing.
+describe('normalisePointRule: the bonus view gate', () => {
+  const claimable = {
+    kind: 'bonus',
+    label: 'Filmed in Spain',
+    points: 3,
+    prompt: 'Is this filmed at a Spanish destination?',
+    min_views: 1000,
+  }
+
+  it('keeps the gate on a bonus the creator claims', () => {
+    expect(normalisePointRule(claimable).min_views).toBe(1000)
+  })
+
+  it('drops it from a bonus an admin awards by hand', () => {
+    // No question means a human decides, and a human's judgement cannot be
+    // gated on a view count without simply stopping them deciding.
+    expect(normalisePointRule({ ...claimable, prompt: '   ' }).min_views).toBeNull()
+    expect(normalisePointRule({ ...claimable, prompt: undefined }).min_views).toBeNull()
+  })
+
+  it('drops it from every other kind of rule', () => {
+    for (const kind of ['per_post', 'views_threshold', 'total_views_threshold', 'platform_spread']) {
+      expect(normalisePointRule({ ...claimable, kind }).min_views).toBeNull()
+    }
+  })
+
+  it('treats a blank or zero gate as no gate', () => {
+    expect(normalisePointRule({ ...claimable, min_views: null }).min_views).toBeNull()
+    expect(normalisePointRule({ ...claimable, min_views: 0 }).min_views).toBeNull()
+    expect(normalisePointRule({ ...claimable, min_views: '' }).min_views).toBeNull()
+  })
+
+  it('takes the number even when the editor hands it over as text', () => {
+    expect(normalisePointRule({ ...claimable, min_views: '500' }).min_views).toBe(500)
+  })
+})

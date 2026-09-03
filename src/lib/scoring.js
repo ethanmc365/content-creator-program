@@ -94,6 +94,13 @@ export const STARTER_POINT_RULES = [
 export const RULE_USES_THRESHOLD = new Set(['views_threshold', 'total_views_threshold'])
 export const RULE_USES_MAX = new Set(['per_post', 'platform_spread'])
 
+// `min_views` HOLDS A CLAIMED BONUS BACK UNTIL THE ENTRY EARNS IT (migration
+// 181). It is the only field whose owner is not decided by `kind` alone: a
+// bonus with no question is one an ADMIN awards by judgement from the results
+// page, and gating a human's decision on a view count would only stop them
+// being able to make it. So the gate belongs to a bonus that has a question.
+export const ruleUsesMinViews = (r) => r?.kind === 'bonus' && !!String(r?.prompt ?? '').trim()
+
 /** A rule trimmed to the columns its kind actually means. */
 export function normalisePointRule(r) {
   return {
@@ -102,5 +109,9 @@ export function normalisePointRule(r) {
     points: r.points,
     threshold: RULE_USES_THRESHOLD.has(r.kind) ? r.threshold : null,
     max_points: RULE_USES_MAX.has(r.kind) ? r.max_points : null,
+    // Zero and null mean the same thing here - "no gate" - and the database
+    // compares `>= coalesce(min_views, 0)`, so both behave identically. Null is
+    // the one that reads as "not set" when somebody looks at the row.
+    min_views: ruleUsesMinViews(r) && Number(r.min_views) > 0 ? Number(r.min_views) : null,
   }
 }

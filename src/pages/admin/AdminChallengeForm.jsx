@@ -620,6 +620,10 @@ export default function AdminChallengeForm() {
         ...normalisePointRule(r),
         // The question a creator is asked at submission time. Bonuses only, and
         // an empty one means "an admin awards this by hand" - see migration 155.
+        // (`min_views`, the view count that bonus then waits for, is set by
+        // `normalisePointRule` above, which is where every other per-kind column
+        // is decided - see the note on RULE_USES_THRESHOLD for why they are not
+        // decided here.)
         prompt: r.kind === 'bonus' && r.prompt?.trim() ? r.prompt.trim() : null,
         position: i,
         is_active: true,

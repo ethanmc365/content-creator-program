@@ -114,7 +114,7 @@ function prizeForPlace(prizes, place) {
 // reads as a thing lying ON the card rather than a hole cut in it, the faces
 // sit on their own ground, and a prize in grey under a name in black is finally
 // legible at the size it is printed.
-function Leaderboard({ leaders, prizes, className }) {
+function Leaderboard({ leaders, prizes, className, scoring }) {
   const tr = useT()
   const rows = [1, 2, 3].map((place, i) => ({
     place,
@@ -168,8 +168,29 @@ function Leaderboard({ leaders, prizes, className }) {
                 <span className="block truncate text-[11px] text-smoke">{prize}</span>
               )}
             </span>
+            {/* THE SCORE, AND ON A POINTS BOARD THE REACH UNDER IT (3 Sep 2026).
+
+                Ethan: "on the podium as well as the points, it should still show
+                the views beside it as well because that's also important."
+
+                This cell used to print `formatViews(leader.views)` whatever the
+                challenge was scored on, which on a points challenge is not the
+                number the row is ordered by - so the card showed three people in
+                an order its own figures did not explain. `score` is what ranks
+                (points, or views); `views` is always the reach. */}
             {leader && (
-              <span className="shrink-0 text-sm font-bold tabular-nums text-ink">{formatViews(leader.views)}</span>
+              <span className="shrink-0 text-right">
+                <span className="block text-sm font-bold tabular-nums text-ink">
+                  {scoring === 'points'
+                    ? tr('{n} pts', { n: Number(leader.score || 0).toLocaleString() })
+                    : formatViews(leader.score)}
+                </span>
+                {scoring === 'points' && leader.views > 0 && (
+                  <span className="block text-[10px] font-medium tabular-nums text-smoke">
+                    {formatViews(leader.views)} {tr('views')}
+                  </span>
+                )}
+              </span>
             )}
           </div>
         ))}
@@ -288,6 +309,7 @@ export default function LiveChallengeCard({ challenge: c, global: isGlobal, entr
           <Leaderboard
             leaders={leaders}
             prizes={c.prize_structure}
+            scoring={c.scoring}
             className="hidden lg:col-start-2 lg:row-start-1 lg:row-end-3 lg:block lg:self-start"
           />
 

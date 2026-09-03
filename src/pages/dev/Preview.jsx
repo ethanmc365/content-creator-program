@@ -101,8 +101,40 @@ const CHALLENGE_EMPTY = {
   prize_structure: [],
 }
 const BENCH_LEADERS = [
-  { creator_id: 'l1', name: 'Olive Hart', photo_url: null, views: 9400 },
-  { creator_id: 'l2', name: 'Jessie Lane', photo_url: null, views: 8300 },
+  { creator_id: 'l1', name: 'Olive Hart', photo_url: null, score: 9400, views: 9400 },
+  { creator_id: 'l2', name: 'Jessie Lane', photo_url: null, score: 8300, views: 8300 },
+]
+
+// THE GLOBAL BRIEF LAUNCHING NEXT WEEK, AT ITS REAL SHAPE.
+//
+// It is a POINTS challenge, and that is the case this bench did not have: the
+// two fixtures above are both view-scored, so the card's score column was only
+// ever exercised on the branch where the number it prints is the number it
+// sorts by. On a points board those are two different figures - the row is
+// ordered by points and the reach is the second line - and nothing here would
+// have caught it printing one and ordering by the other.
+//
+// Three FULL places, because the empty-place case is already covered by
+// CHALLENGE_EMPTY and what nobody had looked at is a board that is actually
+// full: three faces, three prizes, three scores and three view counts in a
+// column that has to stay aligned.
+const CHALLENGE_GLOBAL_POINTS = {
+  id: 'bench-global-points',
+  title: 'The Tryp.com Worldwide Challenge',
+  description: 'One brief, every market. Post your best travel video, collect points for every video, every view milestone and every platform you post on.',
+  start_date: '2026-09-08T00:00:00.000Z',
+  end_date: IN_NINE_DAYS,
+  scoring: 'points',
+  prize_structure: [
+    { place: '1st', prize: '€500 cash' },
+    { place: '2nd', prize: '€250 cash' },
+    { place: '3rd', prize: '€100 cash' },
+  ],
+}
+const BENCH_LEADERS_POINTS = [
+  { creator_id: 'g1', name: 'Lucia Fernandez', photo_url: null, score: 18, views: 28736 },
+  { creator_id: 'g2', name: 'Mateo Serrano', photo_url: null, score: 12, views: 15081 },
+  { creator_id: 'g3', name: 'Carmen Ortega', photo_url: null, score: 7, views: 8720 },
 ]
 
 // Every phone width worth caring about, plus the 22rem admin rail that made the
@@ -249,6 +281,8 @@ export default function Preview() {
         <LiveChallengeCard challenge={CHALLENGE_FULL} entries={4} leaders={BENCH_LEADERS} />
         <LiveChallengeCard challenge={CHALLENGE_EMPTY} entries={0} leaders={[]} />
         <LiveChallengeCard challenge={CHALLENGE_FULL} global entries={12} leaders={BENCH_LEADERS} />
+        {/* The one launching next week: global, points-scored, board full. */}
+        <LiveChallengeCard challenge={CHALLENGE_GLOBAL_POINTS} global entries={37} leaders={BENCH_LEADERS_POINTS} />
         <div style={{ maxWidth: 340 }}>
           {/* `now` from a module constant, not `Date.now()` in the render: the
               purity lint catches the second one, and it is right to. */}

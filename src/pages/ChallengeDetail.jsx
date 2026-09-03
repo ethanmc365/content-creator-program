@@ -178,7 +178,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
       supabase.from('challenge_groups').select('*').eq('challenge_id', id).order('position'),
       supabase.from('challenge_group_members').select('group_id, creator_id').eq('challenge_id', id),
       supabase.from('point_rules')
-        .select('id, label, points, prompt')
+        .select('id, label, points, prompt, min_views')
         .eq('challenge_id', id).eq('kind', 'bonus').eq('is_active', true)
         .not('prompt', 'is', null).order('position'),
       supabase.from('submission_bonus_claims').select('submission_id, rule_id, creator_id').eq('challenge_id', id),
@@ -1049,10 +1049,27 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                       {[...claimsBySubmission.get(s.id)].map((ruleId) => {
                         const r = bonusById.get(ruleId)
                         if (!r) return null
+                        // WAITING IS NOT THE SAME AS AWARDED, AND THE CHIP HAS
+                        // TO SAY WHICH. A gated bonus (migration 181) is claimed
+                        // the moment the creator ticks it and paid only once the
+                        // entry passes the view count. Drawn identically, an
+                        // admin reading the board could not tell a point that
+                        // has landed from one that has not - and neither could
+                        // the creator, who would reasonably report the points as
+                        // wrong. Amber and a target, green and a tick.
+                        const waiting = r.min_views > 0 && (s.logged_views ?? 0) < r.min_views
                         return (
-                          <span key={ruleId} title={r.prompt || r.label}
-                            className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-semibold text-green-700">
-                            <Icon name="check" className="h-3 w-3" /> +{r.points} {r.label}
+                          <span key={ruleId}
+                            title={waiting
+                              ? `${r.prompt || r.label} — pays at ${Number(r.min_views).toLocaleString()} views`
+                              : (r.prompt || r.label)}
+                            className={cx(
+                              'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold',
+                              waiting ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700',
+                            )}>
+                            <Icon name={waiting ? 'clock' : 'check'} className="h-3 w-3" />
+                            +{r.points} {r.label}
+                            {waiting && ` · ${tr("at {n} views", { n: Number(r.min_views).toLocaleString() })}`}
                           </span>
                         )
                       })}
@@ -1081,7 +1098,14 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                             onClick={() => claimBonus(s, r)}
                             className="flex w-full items-center gap-2 rounded-lg bg-white px-3 py-2 text-left text-xs transition-transform duration-200 hover:-translate-y-0.5"
                           >
-                            <span className="min-w-0 flex-1">{r.prompt}</span>
+                            <span className="min-w-0 flex-1">
+                              {r.prompt}
+                              {r.min_views > 0 && (
+                                <span className="mt-0.5 block text-[10px] font-medium text-smoke">
+                                  {tr("Paid once this video passes {n} views.", { n: Number(r.min_views).toLocaleString() })}
+                                </span>
+                              )}
+                            </span>
                             <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white">+{r.points}</span>
                           </button>
                         ))}
@@ -1379,7 +1403,20 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                       ))}
                       className="mt-0.5 h-4 w-4 shrink-0 accent-[#d94407]"
                     />
-                    <span className="min-w-0 flex-1 text-sm text-ink">{r.prompt}</span>
+                    <span className="min-w-0 flex-1 text-sm text-ink">
+                      {r.prompt}
+                      {/* A GATED BONUS SAYS SO BEFORE IT IS TICKED (3 Sep 2026).
+                          Migration 181 lets a bonus wait until the entry passes
+                          a view count. A tick box that pays nothing on the day
+                          you tick it, with no explanation, reads as broken - so
+                          the condition is on the label, and the creator ticks it
+                          once knowing the point arrives later by itself. */}
+                      {r.min_views > 0 && (
+                        <span className="mt-0.5 block text-[11px] font-medium text-smoke">
+                          {tr("Paid once this video passes {n} views.", { n: Number(r.min_views).toLocaleString() })}
+                        </span>
+                      )}
+                    </span>
                     <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-xs font-bold text-white">
                       +{r.points}
                     </span>

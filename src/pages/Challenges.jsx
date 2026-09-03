@@ -77,10 +77,22 @@ export default function Challenges() {
   // WHO IS AHEAD IN EACH LIVE CHALLENGE. See the Leaders block in
   // LiveChallengeCard for why a live card carries a top three at all.
   //
-  // Summed per creator, because somebody can post more than one entry and the
-  // board ranks people rather than videos. Test accounts are dropped: a sandbox
-  // profile at the top of a live leaderboard is not encouraging, it is a bug
-  // report waiting to be written.
+  // IT READS `results`, WHICH IS THE BOARD (3 Sep 2026).
+  //
+  // This used to sum `submissions.logged_views` per creator and sort by that -
+  // its own private opinion about who was winning, computed in a component. On
+  // a views challenge it happened to agree with the leaderboard. On a POINTS
+  // challenge it was simply a different contest: it ranked by view count, and
+  // its `views > 0` filter dropped anybody whose entries had not been synced
+  // yet even when they were top of the actual board on posting points. The
+  // global challenge launching next week is a points challenge, so this card -
+  // the first thing every creator in every market sees - would have led with
+  // the wrong three people.
+  //
+  // `results` is now rebuilt on every path that can change a score (migration
+  // 181), so reading it is both correct and cheaper than recomputing it. Test
+  // accounts are still dropped: a sandbox profile at the top of a live
+  // leaderboard is not encouraging, it is a bug report waiting to be written.
   const [leaders, setLeaders] = useState({})
   useEffect(() => {
     const liveIds = challenges
@@ -88,22 +100,25 @@ export default function Challenges() {
       .map((c) => c.id)
     if (!liveIds.length) return undefined
     let cancelled = false
-    supabase.from('submissions')
-      .select('challenge_id, creator_id, logged_views, profiles:creator_id(name, photo_url, is_test)')
+    supabase.from('results')
+      .select('challenge_id, creator_id, rank, final_views, total_views, profiles:creator_id(name, photo_url, is_test)')
       .in('challenge_id', liveIds)
+      .lte('rank', 3)
+      .order('rank')
       .then(({ data }) => {
         if (cancelled) return
-        const byChallenge = {}
-        for (const s of data || []) {
-          if (isHiddenTestRow(s.profiles)) continue
-          const bucket = (byChallenge[s.challenge_id] ||= new Map())
-          const cur = bucket.get(s.creator_id) || { creator_id: s.creator_id, name: s.profiles?.name, photo_url: s.profiles?.photo_url, views: 0 }
-          cur.views += Number(s.logged_views) || 0
-          bucket.set(s.creator_id, cur)
-        }
         const out = {}
-        for (const [id, bucket] of Object.entries(byChallenge)) {
-          out[id] = [...bucket.values()].filter((x) => x.views > 0).sort((a, b) => b.views - a.views).slice(0, 3)
+        for (const r of data || []) {
+          if (isHiddenTestRow(r.profiles)) continue
+          ;(out[r.challenge_id] ||= []).push({
+            creator_id: r.creator_id,
+            name: r.profiles?.name,
+            photo_url: r.profiles?.photo_url,
+            // `score` is what the board RANKS on - points on a points
+            // challenge, views on the others. `views` is always the reach.
+            score: Number(r.final_views) || 0,
+            views: Number(r.total_views) || 0,
+          })
         }
         setLeaders(out)
       })

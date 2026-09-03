@@ -39,7 +39,7 @@ const DEFAULTS = {
   views_threshold: { label: 'Passed 10,000 views', points: 5, threshold: 10000, max_points: null },
   total_views_threshold: { label: 'Passed 25,000 views in total', points: 8, threshold: 25000, max_points: null },
   platform_spread: { label: 'Posted on another platform', points: 2, threshold: null, max_points: 8 },
-  bonus: { label: 'Bonus', points: 1, threshold: null, max_points: null, prompt: '' },
+  bonus: { label: 'Bonus', points: 1, threshold: null, max_points: null, prompt: '', min_views: null },
 }
 
 const newRule = (kind) => ({ id: `new-${tempId++}`, kind, ...(DEFAULTS[kind] || DEFAULTS.bonus) })
@@ -216,7 +216,9 @@ function Row({ rule, onChange, onRemove }) {
               ? 'border-green-200 bg-green-50 text-green-700'
               : 'border-gray-200 bg-white text-smoke',
           )}>
-            {rule.prompt?.trim() ? 'Creator claims it' : 'You award it'}
+            {rule.prompt?.trim()
+              ? (rule.min_views > 0 ? tr('Claimed, pays at {n}', { n: Number(rule.min_views).toLocaleString() }) : tr('Creator claims it'))
+              : tr('You award it')}
           </span>
         )}
       </div>
@@ -253,6 +255,43 @@ function Row({ rule, onChange, onRemove }) {
           onChange={(e) => onChange({ ...rule, prompt: e.target.value })}
           placeholder={tr("Is this video featuring a Christmas market?")}
         />
+      </label>
+    )}
+
+    {/* AND THE BONUS CAN WAIT FOR THE VIEWS (3 Sep 2026).
+
+        Ethan: "let's say they tick off this bonus point, but they only get it if
+        a video reaches over a thousand views. So they still get the other
+        points, like for posting a video, but then they only get the bonus point
+        if they reach a thousand views. This might be for some challenges, not
+        every challenge, so I wanna have the option - and not just for a thousand
+        views, could enter five hundred, two hundred, etcetera."
+
+        So it is a number he types, and blank means no gate at all - which is
+        every bonus that already exists.
+
+        THE CLAIM IS KEPT EITHER WAY; ONLY THE AWARD WAITS. The creator ticks the
+        box once, when they submit, and never has to come back: migration 181
+        derives the award from the claim on every recalculation, so the point
+        lands by itself on the sync that carries the video past the number, and
+        comes off again if a count is corrected downwards. Nobody checks
+        anything.
+
+        ONLY UNDER A QUESTION. A bonus with no question is one an admin hands out
+        by judgement from the results page - gating a human's decision on a view
+        count would just stop them being able to make it. */}
+    {rule.kind === 'bonus' && rule.prompt?.trim() && (
+      <label className="mt-2 flex flex-wrap items-center gap-2">
+        <span className="text-[11px] font-medium text-smoke">{tr("Only pay it once the video passes")}</span>
+        <NumberBox
+          value={rule.min_views ?? null}
+          onChange={(v) => onChange({ ...rule, min_views: v })}
+          width="w-24"
+          ariaLabel="Views the entry must reach before this bonus pays"
+        />
+        <span className="text-[11px] text-smoke">
+          {tr("views")} <span className="font-normal">({tr("leave blank to pay as soon as it is claimed")})</span>
+        </span>
       </label>
     )}
     </div>
