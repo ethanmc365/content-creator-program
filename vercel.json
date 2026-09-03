@@ -1,14 +1,25 @@
 {
   "redirects": [
     {
-      "source": "/:path*",
+      "source": "/",
       "has": [
         {
           "type": "host",
           "value": "content-creator-program.vercel.app"
         }
       ],
-      "destination": "https://trypcreators.vercel.app/:path*",
+      "destination": "https://trypcreators.vercel.app/",
+      "permanent": true
+    },
+    {
+      "source": "/:path+",
+      "has": [
+        {
+          "type": "host",
+          "value": "content-creator-program.vercel.app"
+        }
+      ],
+      "destination": "https://trypcreators.vercel.app/:path+",
       "permanent": true
     }
   ],
