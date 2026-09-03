@@ -37,7 +37,7 @@ export default function ResourceCard({ resourceId }) {
   const links = resource.links?.length || 0
 
   return (
-    <div className="mt-1 w-72 max-w-full overflow-hidden rounded-2xl border border-brand/20 bg-white sm:w-80">
+    <div className="mt-1 w-72 max-w-full overflow-hidden rounded-2xl border border-brand/20 bg-white text-ink sm:w-80">
       <div className="bg-gradient-to-br from-brand to-brand-light px-4 py-3 text-white">
         <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-white/80">
           <Icon name="book" className="h-3.5 w-3.5" /> {tr("Resource library")}

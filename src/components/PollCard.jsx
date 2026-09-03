@@ -72,9 +72,22 @@ export default function PollCard({ pollId }) {
   const question = (poll.question || '').replace(/^(?:\p{Extended_Pictographic}|️|\s)+/u, '').trim()
 
   return (
-    <div className="mt-1 w-72 max-w-full rounded-2xl border border-brand/20 bg-white p-4 text-left sm:w-80">
+    // `text-ink` IS LOAD-BEARING (3 Sep 2026). Ethan: "the UI of the poll
+    // doesn't seem to be working correctly, I can't see any of the text, maybe
+    // because it is white, the same as the background."
+    //
+    // Exactly that. This card paints its own white background but inherited its
+    // text COLOUR from whatever it was nested in - which was fine for as long as
+    // the only place it appeared was an announcement on a white page. It renders
+    // in the market rooms now, and a creator's own message there is a
+    // brand-orange bubble with `text-white` on it, so every label in here turned
+    // white on white.
+    //
+    // A component that brings its own background must bring its own foreground.
+    // Anything that reads as body text is explicit from here down.
+    <div className="mt-1 w-72 max-w-full rounded-2xl border border-brand/20 bg-white p-4 text-left text-ink sm:w-80">
       <div className="mb-3 flex items-start justify-between gap-2">
-        <p className="text-sm font-semibold leading-snug">{question}</p>
+        <p className="text-sm font-semibold leading-snug text-ink">{question}</p>
       </div>
 
       <div className="space-y-2">
@@ -99,7 +112,7 @@ export default function PollCard({ pollId }) {
                 aria-hidden
               />
               <span className="relative flex items-center justify-between gap-2">
-                <span className={cx('font-medium', mine && 'text-brand')}>{mine && '✓ '}{o.label}</span>
+                <span className={cx('font-medium', mine ? 'text-brand' : 'text-ink')}>{mine && '✓ '}{o.label}</span>
                 <span className="text-xs text-smoke">{pct}%</span>
               </span>
             </button>

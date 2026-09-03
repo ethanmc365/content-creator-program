@@ -1,7 +1,7 @@
 import { Suspense, useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom'
 import { warmMapAtlas } from './lib/mapCountries'
-import { lazyRoute } from './lib/lazyRoute'
+import { lazyRoute, preloadWhenIdle } from './lib/lazyRoute'
 import { ProtectedRoute, AdminRoute } from './components/ProtectedRoute'
 import NetworkRoute from './components/NetworkRoute'
 import AppLayout from './components/layout/AppLayout'
@@ -48,14 +48,17 @@ import Feedback from './pages/Feedback'
 // is never needed by regular creators, so it loads on demand only.
 // The global network shell. Code-split: with the preview flag off nobody ever
 // navigates here, so it must not add a byte to a creator's initial bundle.
-const GlobalHome = lazyRoute(() => import('./pages/GlobalHome'))
+const importGlobalHome = () => import('./pages/GlobalHome')
+const GlobalHome = lazyRoute(importGlobalHome)
 const ChapterHome = lazyRoute(() => import('./pages/ChapterHome'))
 const MarketChallenges = lazyRoute(() => import('./pages/MarketChallenges'))
 const MarketMembers = lazyRoute(() => import('./pages/MarketMembers'))
 const ExploreMarkets = lazyRoute(() => import('./pages/ExploreMarkets'))
 const ManageChapter = lazyRoute(() => import('./pages/ManageChapter'))
-const NetworkChat = lazyRoute(() => import('./pages/NetworkChat'))
-const Rooms = lazyRoute(() => import('./pages/Rooms'))
+const importNetworkChat = () => import('./pages/NetworkChat')
+const NetworkChat = lazyRoute(importNetworkChat)
+const importRooms = () => import('./pages/Rooms')
+const Rooms = lazyRoute(importRooms)
 // The community board. Lazy like every other network page: it is behind the
 // preview flag, so a UK creator must not download it.
 const Board = lazyRoute(() => import('./pages/Board'))
@@ -136,6 +139,20 @@ export default function App() {
   // every map holds, so the map that appears when you scroll to it has nothing
   // left to do. See lib/mapCountries.
   useEffect(() => { warmMapAtlas() }, [])
+  // THE TWO TABS THAT SUSPEND, FETCHED BEFORE ANYBODY PRESSES THEM.
+  //
+  // Of the five bottom tabs only Worldwide and Rooms are code-split, and those
+  // are exactly the two Ethan named when he said a loading screen flashes up
+  // between pages. A creator opens both within their first minute, so waiting
+  // for a thumb to arrive before fetching a few kilobytes buys nothing and
+  // costs a visible third screen every time. The room view goes with them,
+  // because Rooms is an index whose every row leads there.
+  //
+  // Idle, and after first paint - see lib/lazyRoute. This must not compete with
+  // the profile query or the page being looked at.
+  useEffect(() => {
+    preloadWhenIdle([importGlobalHome, importRooms, importNetworkChat])
+  }, [])
   // The outbox listens for the connection coming back, once, for the whole app.
   // It is mounted here rather than in a chat page on purpose: a message queued
   // in the Lisbon room should still go out if you happen to be standing in your

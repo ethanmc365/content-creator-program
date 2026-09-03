@@ -35,11 +35,20 @@ export const TOUR_VERSION = 3
 // The five named parts. Twenty stops read as a list of twenty things; five
 // parts read as a walk with a shape, and a shape is what stops somebody
 // quitting a third of the way in.
+// THREE PARTS, FOR TEN STOPS (3 Sep 2026).
+//
+// It was five parts over twenty stops. Ethan, after walking the whole thing:
+// "cut back any unnecessary steps... really improve it and simplify it. Remember
+// it should be easy for the creators."
+//
+// Twenty stops is not a walk round, it is a training course, and the half of
+// them that were "here is another page" taught nothing that opening the page
+// would not. What is left is the shortest path that leaves somebody able to use
+// the platform: they have opened a brief, met the directory, sent one
+// connection request, been in a room and a DM, and turned notifications on.
 export const TOUR_PARTS = [
-  { key: 'start', label: 'Around the app' },
-  { key: 'work', label: 'The work' },
+  { key: 'start', label: 'The work' },
   { key: 'people', label: 'Your people' },
-  { key: 'world', label: 'The wider network' },
   { key: 'you', label: 'Your account' },
 ]
 
@@ -74,49 +83,22 @@ const NET = 'network'
  *   dwell   { ms }        nothing to do, so it advances on its own
  */
 export const TOUR_STEPS = [
-  // ------------------------------------------------ getting your bearings ---
+  // ------------------------------------------------------------- the work ---
   {
     key: 'welcome',
     part: 'start',
-    title: 'Give us two minutes',
-    body: 'This is a short walk round, and you drive it. Do the thing each card asks and it moves on by itself.',
+    title: 'Two minutes, and you drive',
+    body: 'This is your hub - challenges, rooms, and everyone else in the network. Do the thing each card asks and it moves on by itself.',
     do: 'Starting in a moment',
     anchor: null,
     at: '/home',
     atNet: '/global',
-    goal: { kind: 'dwell', ms: 3400 },
+    goal: { kind: 'dwell', ms: 2600 },
     on: ALL,
   },
-  {
-    key: 'hub',
-    part: 'start',
-    title: 'This is the hub',
-    body: 'Everything happening across the network right now: live briefs, who is travelling, what the rooms are talking about.',
-    do: 'Scroll down and have a look',
-    anchor: null,
-    at: '/home',
-    atNet: '/global',
-    goal: { kind: 'scroll', px: 420 },
-    on: ALL,
-  },
-  {
-    key: 'search',
-    part: 'start',
-    title: 'Everything is one search away',
-    body: 'Any creator, any brief, any room. Faster than hunting through menus, and it is the shortcut worth learning first.',
-    do: 'Press the search button',
-    anchor: 'search',
-    at: '/home',
-    atNet: '/global',
-    goal: { kind: 'click', anchor: 'search' },
-    on: NET,
-    skipIfMissing: true,
-  },
-
-  // -------------------------------------------------------------- the work ---
   {
     key: 'challenges',
-    part: 'work',
+    part: 'start',
     title: 'This is what you are here for',
     body: 'A brief goes up, you film it, you post it, the best videos win real money. Usually one is running at a time.',
     do: 'Tap Challenges',
@@ -126,9 +108,9 @@ export const TOUR_STEPS = [
   },
   {
     key: 'brief',
-    part: 'work',
-    title: 'Open one and read it properly',
-    body: 'A brief says what to shoot, when it closes, how it is judged and exactly what the prizes are. None of it is held back until afterwards.',
+    part: 'start',
+    title: 'Everything is in the brief',
+    body: 'What to shoot, when it closes, how it is scored and exactly what the prizes are. Entering takes thirty seconds: post it on your own account as normal, then paste the link.',
     do: 'Open a challenge',
     anchor: 'challenge-card',
     at: '/challenges',
@@ -136,38 +118,17 @@ export const TOUR_STEPS = [
     on: ALL,
     skipIfMissing: true,
   },
-  {
-    key: 'brief-read',
-    part: 'work',
-    title: 'The whole deal, in one place',
-    body: 'Prizes, deadline, scoring and the participation voucher. Entering takes about thirty seconds: post the video on your own account as normal, then paste the link.',
-    do: 'Scroll through the brief',
-    anchor: null,
-    goal: { kind: 'scroll', px: 500 },
-    on: ALL,
-  },
-  {
-    key: 'rewards',
-    part: 'work',
-    title: 'Add your bank details before you win',
-    body: 'Prizes, vouchers and the invoices behind them live here. Filling this in now saves a week of chasing later.',
-    do: 'Open your rewards',
-    anchor: 'avatar-menu',
-    openMenu: true,
-    at: '/challenges',
-    goal: { kind: 'route', to: '/rewards' },
-    on: ALL,
-  },
 
-  // ----------------------------------------------------------- your people ---
+  // ---------------------------------------------------------- your people ---
   {
     key: 'creators',
     part: 'people',
     title: 'Everybody else',
-    body: 'Every creator in the programme, where they are based, what they film and where they are heading next. This is the part people stay for.',
-    anchor: null,
+    body: 'Every creator in the network, where they are based and what they film. This is the part people stay for.',
     do: 'Open the creator directory',
-    at: '/rewards',
+    anchor: 'avatar-menu',
+    openMenu: true,
+    at: '/challenges',
     goal: { kind: 'route', to: '/creators' },
     on: ALL,
   },
@@ -175,19 +136,8 @@ export const TOUR_STEPS = [
     key: 'connect',
     part: 'people',
     title: 'Connect with one person',
-    body: 'Pick anyone. Connections are how introductions happen, how meet-ups get arranged, and how you start appearing in other people’s suggestions.',
+    body: 'Pick anyone at all. Connections are how introductions happen, how meet-ups get arranged, and how you start appearing in other people\u2019s suggestions.',
     do: 'Press Connect on any creator you like',
-    // NOBODY IS SINGLED OUT (3 Sep 2026). Ethan: "it's only highlighting one
-    // person... if they don't wanna connect with them they should be able to
-    // connect with someone else - or maybe just highlight everyone and you can
-    // connect with anyone you want."
-    // It pointed at `creator-card`, which is not a `data-tour` anywhere in the
-    // app, so the anchor resolved to nothing and the step was skipped outright
-    // on a strict reading and drew a card over the middle of the grid on a
-    // loose one. Pointing at nobody is the correct instruction here: the goal
-    // is a connection request, from whoever they like. With no anchor the card
-    // now sits at the foot of the screen (see .tour-card--float in index.css)
-    // so the whole directory is visible while they choose.
     anchor: null,
     at: '/creators',
     goal: { kind: 'connect' },
@@ -214,94 +164,33 @@ export const TOUR_STEPS = [
     goal: { kind: 'route', to: '/messages' },
     on: ALL,
   },
-  {
-    key: 'collab',
-    part: 'people',
-    title: 'Say where you are going next',
-    body: 'Put your next trip on the map and it shows you which other creators will be there at the same time. Overlaps nobody would have spotted are where most collaborations start.',
-    do: 'Open the collab board from your profile menu',
-    anchor: 'avatar-menu',
-    openMenu: true,
-    goal: { kind: 'route', to: '/collab' },
-    on: NET,
-  },
 
-  // ------------------------------------------------------ the wider network ---
-  {
-    key: 'flights',
-    part: 'world',
-    title: 'Log your flights and watch them add up',
-    body: 'Two airport codes and a date. It works out the distance, the aircraft, the time zones you crossed and who else has flown that route.',
-    do: 'Open the flight log',
-    anchor: 'avatar-menu',
-    openMenu: true,
-    goal: { kind: 'route', to: '/flights' },
-    on: NET,
-  },
-  {
-    key: 'aircraft',
-    part: 'world',
-    title: 'Every aircraft you have flown',
-    body: 'The ones you have flown are in colour and the rest are waiting. It fills in on its own as you log trips.',
-    do: 'Have a look at the collection',
-    anchor: null,
-    at: '/flights/aircraft',
-    goal: { kind: 'scroll', px: 400 },
-    on: NET,
-  },
+  // --------------------------------------------------------- your account ---
   {
     key: 'games',
-    part: 'world',
+    part: 'you',
     title: 'Three puzzles, every day',
-    body: 'Guess the country, fly the flight path, take the quiz. Keep a streak going and you climb the leaderboard.',
-    do: 'Open the games',
+    body: 'Quick travel games with a streak that builds as long as you keep playing. It is the reason most people open the app on a day nothing else is happening.',
+    do: 'Open Travel Games',
     anchor: 'avatar-menu',
     openMenu: true,
     goal: { kind: 'route', to: '/game' },
     on: NET,
-  },
-  {
-    key: 'milestones',
-    part: 'world',
-    title: 'There is a route through all this',
-    body: 'One route, flown in order. Each stop asks for a few things at once - views, videos, creators you referred - and shows exactly which of them you are still short on.',
-    do: 'Open your milestones',
-    anchor: 'avatar-menu',
-    openMenu: true,
-    goal: { kind: 'route', to: '/milestones' },
-    on: NET,
-  },
-  {
-    key: 'calendar',
-    part: 'world',
-    title: 'What is coming up',
-    body: 'Deadlines, community calls, content days and your own trips, on one calendar you can subscribe to from your phone.',
-    do: 'Open the calendar',
-    anchor: 'nav-calendar',
-    goal: { kind: 'route', to: '/events' },
-    on: ALL,
     skipIfMissing: true,
-  },
-
-  // ---------------------------------------------------------- your account ---
-  {
-    key: 'profile',
-    part: 'you',
-    title: 'Your profile and your settings',
-    body: 'Everything you filled in when you joined, editable any time. A complete profile is what gets you picked for paid work.',
-    do: 'Open your settings',
-    anchor: 'avatar-menu',
-    goal: { kind: 'route', to: '/settings' },
-    openMenu: true,
-    on: ALL,
   },
   // THE ONE HARD GATE.
   //
   // Everything else on this walk is a place. This is the only thing that decides
   // whether the creator ever comes back, because a brief they did not hear about
-  // is a brief they did not enter. It still lets somebody past when the browser
-  // has already refused or cannot do push - a gate with no way through is a dead
-  // end rather than a gate. See TourHost.
+  // is a brief they did not enter.
+  //
+  // BANK DETAILS ARE NOT ON THIS WALK AT ALL ANY MORE. There was a step for
+  // them and it pointed at nothing; Ethan: "maybe it shouldn't enforce it - you
+  // can click to add them later, but then every time you open the app there
+  // should be a visual pop up asking." That is a better shape and it is now its
+  // own thing (components/BankDetailsPrompt), asked once per app open until
+  // they are filled in. A tour step is the wrong instrument for something
+  // somebody may genuinely not have to hand.
   {
     key: 'notifications',
     part: 'you',
@@ -318,11 +207,9 @@ export const TOUR_STEPS = [
     key: 'done',
     part: 'you',
     title: 'That is everything',
-    body: 'You have just done more in two minutes than most people do in a week. Go and read the current brief.',
+    body: 'The rest you will find as you go. Post something in a room and say hello - that is how most people start.',
     do: null,
     anchor: null,
-    at: '/home',
-    atNet: '/global',
     goal: { kind: 'end' },
     on: ALL,
   },

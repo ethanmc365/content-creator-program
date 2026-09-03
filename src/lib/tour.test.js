@@ -120,10 +120,27 @@ describe('the steps', () => {
 
   // THE HUB IS /global ON THE NETWORK SHELL, NOT /home. Getting this wrong
   // walked people round the old home page, which is the bug this pins down.
-  it('sends people to the worldwide hub on the network shell', () => {
-    const hub = TOUR_STEPS.find((s) => s.key === 'hub')
-    expect(stepAt(hub, true)).toBe('/global')
-    expect(stepAt(hub, false)).toBe('/home')
+  //
+  // It used to check the `hub` step. The walk was cut from twenty stops to ten
+  // (3 Sep 2026) and the separate "this is the hub" step went with the rest of
+  // the scroll goals - `welcome` opens on the hub and says so, so it is the one
+  // carrying the per-shell path now.
+  it('opens on the worldwide hub on the network shell', () => {
+    const first = TOUR_STEPS.find((s) => s.key === 'welcome')
+    expect(stepAt(first, true)).toBe('/global')
+    expect(stepAt(first, false)).toBe('/home')
+  })
+
+  // THE WALK IS SHORT, AND NOTHING IN IT ASKS YOU TO SCROLL.
+  //
+  // Ethan on the twenty-step version: "I am scrolling on that page and nothing
+  // is happening", and later "cut back any unnecessary steps, it should be easy
+  // for the creators". Scroll goals were both the least reliable to detect and
+  // the least instructive - reading a page is not something a walkthrough needs
+  // to supervise - so every remaining step is a tap, a connection, or a wait.
+  it('is ten stops or fewer and asks nobody to scroll', () => {
+    expect(TOUR_STEPS.length).toBeLessThanOrEqual(10)
+    expect(TOUR_STEPS.filter((s) => s.goal?.kind === 'scroll')).toHaveLength(0)
   })
 
   it('exactly one step is required, and it is notifications', () => {

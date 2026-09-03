@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useBootLoaderSlot } from '../lib/bootLoader'
 import { Skeleton } from './ui'
@@ -25,30 +24,27 @@ import { Skeleton } from './ui'
  * The chrome now stays exactly where it is - the tab you pressed stays lit, the
  * header never moves - and only the content area changes.
  *
- * THE GRACE PERIOD, AND WHY THE FLASH SURVIVED ALL THAT (3 Sep 2026)
+ * THE GRACE PERIOD WAS THE WRONG FIX, AND IT MADE IT WORSE (3 Sep 2026)
  *
- * Ethan, after the above shipped: "clicking from worldwide to challenges to
- * rooms, I get a loading screen which briefly flashes up and then the page
- * loads. Because this page is loading in split seconds there is no need for
- * that loading screen to flash up at all - only if something is actually
- * loading for a long time."
+ * Ethan, after that shipped: "on mobile I don't want the loading screen
+ * appearing after every button I click, this issue still persists."
  *
- * He is right, and it is the last thing nobody had questioned: a Suspense
- * fallback renders on the FIRST frame of the suspension, however short the
- * suspension turns out to be. A warm chunk resolves in 30-80ms, so the
- * skeleton appeared and vanished inside three frames - and a block of grey
- * that exists for three frames is not progress, it is a flicker. Replacing a
- * plane with a skeleton made the flicker better-looking; it did not stop it
- * being a flicker.
+ * The first attempt held this back for 160ms so a warm chunk would show
+ * nothing. But "nothing" is not nothing: a Suspense fallback REPLACES the
+ * content area, so what it bought was 160ms of empty white between a header and
+ * a tab bar. That reads worse than the grey cards it was hiding, and it is
+ * still a third screen between two pages.
  *
- * So nothing is drawn for GRACE_MS. Under it - which is nearly every
- * navigation on a warm cache - the page simply appears and no loading state is
- * ever seen. Over it, the skeleton comes up and stays up, which is the case it
- * was designed for: a cold chunk on a phone on mobile data.
+ * THE REAL FIX IS UPSTREAM AND IT IS NOT IN THIS FILE. Only two of the five
+ * bottom tabs are code-split, and App.jsx now fetches both of them while the
+ * browser is idle - so pressing a tab resolves synchronously and this component
+ * never mounts at all. See `preloadWhenIdle` in lib/lazyRoute.
  *
- * WHY NOT LONGER. Past about 200ms an unexplained frozen screen reads as a
- * dropped tap, and people press again. 160ms is comfortably above a warm chunk
- * and comfortably below "did that work?".
+ * What is left here is the case it was actually written for: a route nobody
+ * prefetched, on a slow connection. For that, a skeleton IMMEDIATELY is right -
+ * the delay only ever helped the case that no longer happens - and it holds a
+ * minimum height so the page does not collapse and shove the tab bar up its own
+ * screen while it waits.
  *
  * WHILE THE BOOT LAYER IS UP THIS DRAWS NOTHING, and holds that layer up until
  * it unmounts, exactly like AppLoader. A cold boot is the one case where the
@@ -56,8 +52,6 @@ import { Skeleton } from './ui'
  * loaders at two vertical centres is the photograph that lib/bootLoader.js
  * exists to prevent, and a skeleton underneath it would be the same bug.
  */
-const GRACE_MS = 160
-
 // THE SKELETON IS SHAPED LIKE THE PAGE THAT IS COMING.
 //
 // A grid of three cards is right for a directory and wrong for a conversation,
@@ -74,19 +68,15 @@ function shapeFor(pathname) {
 export default function RouteSkeleton() {
   const visible = useBootLoaderSlot()
   const { pathname } = useLocation()
-  // The grace period. `ready` starts false on every fresh suspension because
-  // React mounts a new fallback each time.
-  const [ready, setReady] = useState(false)
-  useEffect(() => {
-    const t = setTimeout(() => setReady(true), GRACE_MS)
-    return () => clearTimeout(t)
-  }, [])
 
-  if (!visible || !ready) return null
+  if (!visible) return null
 
   const shape = shapeFor(pathname)
   return (
-    <div className="page" aria-busy="true" aria-live="polite">
+    // `min-h-[70vh]` so the content area keeps its size while it waits. Without
+    // it a short skeleton lets the page collapse, the tab bar jumps up the
+    // screen and back down, and THAT movement is most of what reads as a flash.
+    <div className="page min-h-[70vh]" aria-busy="true" aria-live="polite">
       <span className="sr-only">Loading</span>
       {/* The page header: a title and its line of explanation. */}
       <div className="space-y-3">

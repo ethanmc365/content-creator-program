@@ -97,3 +97,61 @@ describe('pinToBottom', () => {
     expect(isPinning(null)).toBe(false)
   })
 })
+
+// ---------------------------------------------------------------------------
+// THE CAP MUST NOT REVEAL A THREAD IN THE WRONG PLACE (3 Sep 2026).
+//
+// The loop converges when the height settles. When it does NOT - a room full of
+// photographs on mobile data - `MAX_MS` fires and reveals the thread anyway.
+// That safety valve was showing it wherever the last correction left it, which
+// is the whole of "the chat doesn't open on the last message", and it is why
+// the bug never reproduced on a desktop.
+describe('pinToBottom: the reveal is always at the bottom', () => {
+  beforeEach(() => { vi.useFakeTimers() })
+  afterEach(() => { vi.useRealTimers(); document.body.innerHTML = '' })
+
+  function scroller({ height = 2000, client = 400 } = {}) {
+    const el = document.createElement('div')
+    let sh = height
+    Object.defineProperty(el, 'scrollHeight', { get: () => sh, configurable: true })
+    Object.defineProperty(el, 'clientHeight', { get: () => client, configurable: true })
+    let top = 0
+    Object.defineProperty(el, 'scrollTop', {
+      get: () => top,
+      set: (v) => { top = Math.min(v, sh - client) },
+      configurable: true,
+    })
+    el.getBoundingClientRect = () => ({ top: 0, bottom: client, left: 0, right: 300, width: 300, height: client })
+    el.querySelectorAll = () => []
+    document.body.appendChild(el)
+    return { el, grow: (by) => { sh += by } }
+  }
+
+  it('pins on the way out when the height never settles', () => {
+    const { el, grow } = scroller()
+    // Measured AT THE MOMENT OF REVEAL, not afterwards: the thread goes on
+    // growing (that is the premise), so a reading taken later says nothing
+    // about what the reader was shown.
+    let distanceWhenShown = null
+    const onSettled = () => { distanceWhenShown = el.scrollHeight - el.scrollTop - el.clientHeight }
+    // Grows on every tick, so the stable-frame counter can never reach two and
+    // only the hard cap can end this.
+    const iv = setInterval(() => grow(120), 8)
+    pinToBottom(() => el, () => true, onSettled)
+    vi.advanceTimersByTime(2000)
+    clearInterval(iv)
+
+    expect(distanceWhenShown).toBe(0)
+  })
+
+  it('still respects a reader who has scrolled up', () => {
+    const { el, grow } = scroller()
+    el.scrollTop = 200
+    const iv = setInterval(() => grow(120), 8)
+    // shouldPin false throughout: they are reading history.
+    pinToBottom(() => el, () => false, vi.fn())
+    vi.advanceTimersByTime(2000)
+    clearInterval(iv)
+    expect(el.scrollTop).toBe(200)
+  })
+})

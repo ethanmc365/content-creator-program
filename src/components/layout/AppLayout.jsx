@@ -9,6 +9,7 @@ import NotificationBell from './NotificationBell'
 import TourGate from '../tour/TourGate'
 import RouteSkeleton from '../RouteSkeleton'
 import PullToRefresh from '../PullToRefresh'
+import BankDetailsPrompt from '../BankDetailsPrompt'
 import { useChatSearchTarget } from '../../lib/chatSearch'
 import { useChatChromeHidden } from '../../lib/chatChrome'
 import { showLocalNotification } from '../../lib/push'
@@ -403,6 +404,12 @@ export default function AppLayout() {
   return (
     <div className="flex min-h-screen flex-col bg-white">
       <PullToRefresh />
+      {/* ASKED ONCE PER APP OPEN, UNTIL THERE IS SOMETHING TO ASK ABOUT.
+          Mounted in the shell rather than on a page, because "every time you
+          open the app" is a fact about the session and not about any route.
+          See components/BankDetailsPrompt - it asks nothing of a creator who
+          has already filled them in, and takes "later" for an answer. */}
+      <BankDetailsPrompt />
 
       {/* When an admin is previewing as the sandbox creator, a persistent pill
           floats above everything so they can always exit back to their admin
@@ -544,7 +551,7 @@ export default function AppLayout() {
                 {(connReqs > 0 || newResources) && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-brand ring-2 ring-white" aria-label={connReqs > 0 ? `${connReqs} connection requests` : 'New resources in the library'} />}
               </button>
               {menuOpen && (
-                <div data-ptr-ignore className="absolute right-0 z-40 mt-2 max-h-[calc(100dvh-9rem-env(safe-area-inset-bottom))] w-60 overflow-y-auto overscroll-contain rounded-card border border-gray-100 bg-white p-2 pb-[calc(2rem+env(safe-area-inset-bottom))] shadow-lift origin-top-right animate-menu-in lg:max-h-[calc(100dvh-5rem)]">
+                <div data-ptr-ignore data-tour-keepout className="absolute right-0 z-40 mt-2 max-h-[calc(100dvh-9rem-env(safe-area-inset-bottom))] w-60 overflow-y-auto overscroll-contain rounded-card border border-gray-100 bg-white p-2 pb-[calc(2rem+env(safe-area-inset-bottom))] shadow-lift origin-top-right animate-menu-in lg:max-h-[calc(100dvh-5rem)]">
                   <div className="border-b border-gray-100 px-3 py-2">
                     <p className="truncate text-sm font-semibold">{profile?.name}</p>
                     <p className="truncate text-xs text-smoke">{user?.email}</p>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { confirm, notice } from '../lib/confirm'
@@ -58,7 +58,25 @@ export default function Settings() {
   // directly and a module variable is not something React can watch.
   const [langCode, setLangCode] = useState(getLocale)
   const navigate = useNavigate()
-  const [section, setSection] = useState(null) // which section is open, or null for the menu
+  const [params, setParams] = useSearchParams()
+  // WHICH SECTION IS OPEN, AND IT IS IN THE URL (3 Sep 2026).
+  //
+  // It was local state only, so `/settings?section=notifications` landed on the
+  // menu - which is what the guided walkthrough had been linking to for its one
+  // mandatory step, and what the "add your bank details" prompt needed to be
+  // able to link to at all. A section you cannot address is a section nothing
+  // else in the product can send somebody to.
+  //
+  // The URL is the source of truth and `setSection` writes to it, so Back comes
+  // out of a section to the menu rather than off the page, and a link into one
+  // survives a reload.
+  const section = SECTIONS.some((x) => x.key === params.get('section')) ? params.get('section') : null
+  const setSection = (key) => {
+    const next = new URLSearchParams(params)
+    if (key) next.set('section', key)
+    else next.delete('section')
+    setParams(next, { replace: !key })
+  }
   // See the Timezone block in the Display section.
   const tz = useTimezone(profile)
 

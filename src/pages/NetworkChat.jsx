@@ -210,7 +210,12 @@ function AttachedCard({ message }) {
   const spec = CARD_KINDS.find((c) => message[c.idKey])
   if (!spec) return null
   return (
-    <div className="mt-1 w-full">
+    // `text-ink` here as well as on each card. Belt and braces on purpose: this
+    // wrapper sits inside a bubble that may be `text-white`, and the next card
+    // somebody adds to CARD_KINDS will inherit the right colour whether or not
+    // they remember to set it. See the note in PollCard for the day every label
+    // in a poll went white on white.
+    <div className="mt-1 w-full text-ink">
       {message.poll_id && <PollCard pollId={message.poll_id} />}
       {message.game_event_id && <GameEventCard eventId={message.game_event_id} />}
       {message.resource_id && <ResourceCard resourceId={message.resource_id} />}

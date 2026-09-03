@@ -7,23 +7,8 @@ import { Avatar } from '../components/ui'
 import Icon from '../components/Icon'
 import CreatorMap from '../components/CreatorMap'
 import Reveal from '../components/network/Reveal'
-import { formatMoney, challengeDeadline, cx } from '../lib/utils'
+import { formatMoney, cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
-
-// Sum the cash amounts in a challenge's prize breakdown into one "pot" label,
-// e.g. [{prize:'£105 cash'},{prize:'£55 cash'}] -> "£160". Returns null if there
-// are no parseable amounts.
-function prizePotLabel(structure) {
-  if (!Array.isArray(structure)) return null
-  let sum = 0
-  let symbol = '£'
-  for (const row of structure) {
-    const m = String(row?.prize || '').match(/([£€$])\s?([\d,]+(?:\.\d+)?)/)
-    if (m) { symbol = m[1]; sum += parseFloat(m[2].replace(/,/g, '')) }
-  }
-  if (sum <= 0) return null
-  return `${symbol}${Number.isInteger(sum) ? sum : sum.toFixed(2)}`
-}
 
 // Public landing page - bright, spacious, one clear focal point per section.
 // Live stats come from the public landing_stats() / featured_creators() RPCs;
@@ -41,7 +26,6 @@ export default function Landing() {
   const [featured, setFeatured] = useState([])
   const [mapData, setMapData] = useState({ creators: [], trips: {} })
   const [miniProfile, setMiniProfile] = useState(null) // creator shown in the join-prompt modal
-  const [live, setLive] = useState(null) // current live challenge snapshot for the slim card
   // Whether the page has moved at all, which is the only thing the header uses
   // it for: it draws no border over the hero and grows one once you scroll.
   const [scrolled, setScrolled] = useState(false)
@@ -62,13 +46,6 @@ export default function Landing() {
     // Public community map: where creators are based and where they're headed.
     supabase.rpc('public_creator_map').then(({ data }) => {
       if (data) setMapData({ creators: data.creators || [], trips: data.trips || {} })
-    })
-    // Current live challenge for the "challenge is live" strip. We derive the
-    // days-left + prize pot here (not in render) so the count is stable.
-    supabase.rpc('public_live_challenge').then(({ data }) => {
-      if (!data) return
-      const daysLeft = Math.max(0, Math.ceil((challengeDeadline(data.end_date) - new Date()) / 86400000))
-      setLive({ title: data.title, daysLeft, prizePot: prizePotLabel(data.prize_structure) })
     })
   }, [])
 
@@ -192,7 +169,7 @@ export default function Landing() {
 
       {/* ---------- Stats ---------- */}
       {/* The grey band sits behind the three headline stats only, running right
-          across the page. The live-challenge card is separate, below, on white. */}
+          across the page. */}
       <section className="border-y border-gray-100 bg-cloud/50">
         <div className="mx-auto grid max-w-4xl grid-cols-3 gap-6 px-5 py-14 text-center sm:px-8">
           {[
@@ -208,72 +185,20 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ---------- Live challenge card ----------
+      {/* THE LIVE CHALLENGE CARD IS GONE (3 Sep 2026).
 
-          Ethan: "the live challenge card on this doesn't really look well. I
-          think you can improve this quite well."
+          Ethan: "on the landing page I think I wouldn't include the challenge
+          card at all, it's not necessary."
 
-          IT WAS A NOTIFICATION BAR, NOT A CARD. A pale strip with a pill at
-          each end and a sentence between them, at the same weight as everything
-          else on a white page - so the single most persuasive fact the landing
-          page has ("there is money on the table right now") was the quietest
-          thing on it, and it named neither the challenge nor the prize in a way
-          you could read at a glance.
+          He is right, and the reason is worth keeping so nobody adds it back.
+          It named whichever challenge happened to be running - "Descubre Espana
+          con Tryp.com" - to a stranger who has no market, cannot enter it, and
+          in most cases does not speak the language it is written in. It read as
+          the page advertising something that is not for you. The stats band
+          above already carries the fact that matters to a visitor (challenges
+          run, prizes awarded) without pinning it to one market's brief.
 
-          It is the app's own live-challenge card now: brand gradient, the
-          title, the pot as a number somebody can want, and the days as a real
-          countdown. That also makes the landing page honest about what it is
-          selling - this is the card you meet on the inside, so a stranger sees
-          the actual product rather than an advert for it. */}
-      {live && (
-        <section className="mx-auto max-w-4xl px-5 py-14 sm:px-8">
-          <Reveal from="down">
-            <Link
-              to="/signup"
-              className="challenge-card group relative block overflow-hidden rounded-card bg-gradient-to-br from-[#8f2a04] via-brand to-brand-light p-6 text-white shadow-lift transition-transform duration-300 hover:-translate-y-1 sm:p-9"
-            >
-              <span aria-hidden className="challenge-sheen pointer-events-none absolute inset-y-0" />
-              <span aria-hidden className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
-
-              <span className="relative flex flex-wrap items-center gap-3">
-                <span className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider">
-                  <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/80" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
-                  </span>
-                  {tr("Live now")}
-                </span>
-                {live.daysLeft > 0 && (
-                  <span className="text-xs font-medium text-white/80">
-                    {live.daysLeft} {live.daysLeft === 1 ? tr('day left') : tr('days left')}
-                  </span>
-                )}
-              </span>
-
-              <h2 className="relative mt-4 max-w-2xl text-2xl font-bold leading-tight tracking-tight sm:text-4xl">
-                {live.title}
-              </h2>
-              <p className="relative mt-2.5 text-sm text-white/85 sm:text-base">
-                {live.daysLeft > 0
-                  ? tr("A challenge is running right now. Join and your first video could be in it.")
-                  : tr("A challenge is running and closes today.")}
-              </p>
-
-              <span className="relative mt-6 flex flex-wrap items-center gap-4">
-                {live.prizePot && (
-                  <span className="rounded-2xl bg-white px-5 py-3 text-center shadow-[0_8px_24px_rgba(0,0,0,0.12)]">
-                    <span className="block text-2xl font-bold leading-none text-ink sm:text-3xl">{live.prizePot}</span>
-                    <span className="mt-1 block text-[10px] font-semibold uppercase tracking-widest text-smoke">{tr("to earn")}</span>
-                  </span>
-                )}
-                <span className="btn inline-flex bg-white !text-brand transition-transform duration-200 group-hover:translate-x-0.5">
-                  {tr("Join and enter →")}
-                </span>
-              </span>
-            </Link>
-          </Reveal>
-        </section>
-      )}
+          `public_live_challenge` and `prizePotLabel` went with it. */}
 
       {/* ---------- Meet the community ----------
 
@@ -286,8 +211,8 @@ export default function Landing() {
           above it is the programme talking about itself, and this is the only
           section where the reader meets actual people. Coming after two screens
           of explanation, the most persuasive thing on the page was the thing
-          most readers never reached. It now sits directly under the live
-          challenge - the two concrete things - with the explanation after. */}
+          most readers never reached. It now sits directly under the headline
+          stats, with the explanation after it. */}
       {(mapData.creators.length > 0 || featured.length > 0) && (
         <section className="mx-auto max-w-6xl px-5 py-24 sm:px-8">
           <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">{tr("Meet the community")}</h2>
@@ -433,7 +358,7 @@ export default function Landing() {
             {tr("Your next trip could pay for itself.")}
           </h2>
           <p className="mx-auto mt-4 max-w-md text-white/85">
-            {tr("Free to join. One challenge live right now.")}
+            {tr("Free to join. New briefs go up every month.")}
           </p>
           <Link to="/signup" className="btn mt-10 bg-white !px-10 !py-4 !text-base text-brand hover:bg-white/90">
             {tr("Join the community →")}

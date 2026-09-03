@@ -7,6 +7,7 @@ import { cx } from '../../lib/utils'
 import { useIsPhone } from '../../lib/useKeyboardInset'
 import { enablePush, pushPermission, pushSupported } from '../../lib/push'
 import { partOf, stepAt, stepGoal, stepsFor } from '../../lib/tour'
+import { placeCard, union, CARD_W } from '../../lib/tourPlacement'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { useT } from '../../lib/i18n'
@@ -37,8 +38,6 @@ import { useT } from '../../lib/i18n'
 //    notifications on. Pressing Next teaches you how to press Next.
 
 const PAD = 8
-const CARD_GAP = 14
-const CARD_W = 372
 
 function findAnchor(name) {
   if (!name) return null
@@ -323,14 +322,22 @@ export default function TourHost({ onFinish, network = false }) {
       if (!visible) { card.dataset.centre = 'yes'; card.style.top = ''; card.style.left = ''; return }
       card.dataset.centre = 'no'
 
-      const h = card.offsetHeight || 260
-      const below = r.top + r.height + PAD + CARD_GAP
-      const above = r.top - PAD - CARD_GAP - h
-      let top = below + h < vh ? below : above > 0 ? above : vh - h - 12
-      top = Math.max(12, Math.min(top, vh - h - 12))
-
-      let left = r.left + r.width / 2 - CARD_W / 2
-      left = Math.max(12, Math.min(left, vw - CARD_W - 12))
+      // WHAT THE CARD MUST NOT COVER IS BIGGER THAN THE ANCHOR (3 Sep 2026).
+      //
+      // The arithmetic lives in lib/tourPlacement, where it can be tested: this
+      // used to be inline here, inside a rAF loop, and rAF does not run in a
+      // hidden pane - so the one rule that matters could only be checked by
+      // looking at it, and it was wrong for months.
+      //
+      // `data-tour-keepout` is how a dropdown tells the walkthrough it exists.
+      // Without it the card was placed under the avatar, which is exactly where
+      // the account menu opens, so the instruction covered the only control
+      // that could satisfy it.
+      const keepOuts = [...document.querySelectorAll('[data-tour-keepout]')]
+        .map((el) => el.getBoundingClientRect())
+      const avoid = union([{ top: r.top, left: r.left, width: r.width, height: r.height }, ...keepOuts])
+      if (!avoid) return
+      const { top, left } = placeCard(avoid, { w: vw, h: vh }, card.offsetHeight || 260)
 
       card.style.top = `${top}px`
       card.style.left = `${left}px`
@@ -416,8 +423,8 @@ export default function TourHost({ onFinish, network = false }) {
           </div>
         </div>
 
-        <p className="text-[17px] font-bold leading-snug tracking-tight">{step.title}</p>
-        <p className="mt-1.5 text-sm leading-relaxed text-smoke">{step.body}</p>
+        <p className="tour-title text-[17px] font-bold leading-snug tracking-tight">{step.title}</p>
+        <p className="tour-body mt-1.5 text-sm leading-relaxed text-smoke">{step.body}</p>
 
         {/* THE INSTRUCTION. The one line that matters if they read nothing
             else, so it gets the brand colour, an arrow, and its own row. */}

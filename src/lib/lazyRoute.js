@@ -42,6 +42,53 @@ import { lazy } from 'react'
 const RELOAD_KEY = 'tryp_chunk_reload_at'
 const RELOAD_GAP_MS = 10_000
 
+// PREFETCHING, AND WHY IT IS THE REAL FIX FOR "A LOADING SCREEN FLASHES UP".
+//
+// Ethan, twice: "clicking from worldwide to challenges to rooms, I get a
+// loading screen which briefly flashes up... because this page is loading in
+// split seconds there is no need for that loading screen to flash up at all."
+//
+// Of the five bottom tabs only TWO are code-split - Worldwide and Rooms - and
+// they are exactly the two he named. Tapping either suspends while its chunk is
+// fetched, and a Suspense boundary REPLACES the content area while it waits. So
+// whatever is drawn there - a plane, a skeleton, or nothing at all - is a third
+// screen appearing between two pages, for a fetch that takes a couple of
+// hundred milliseconds.
+//
+// Delaying the fallback (which I tried first) does not fix that. It only swaps
+// a flash of grey cards for a flash of NOTHING, and an empty content area
+// between a header and a tab bar reads worse, not better.
+//
+// The fix is to make the wait not exist. Both chunks are a few kilobytes and
+// the creator is certain to open both, so they are fetched once the app has
+// finished its own work - and by the time a thumb reaches the tab bar the
+// import resolves synchronously and no boundary is ever crossed.
+//
+// `preload` is idempotent: the browser caches the module, and a second call
+// returns the same resolved promise.
+export function preloadRoute(importer) {
+  try { importer() } catch { /* a failed prefetch is not an error, just a miss */ }
+}
+
+/**
+ * Fetch route chunks once the browser is idle and the first screen has settled.
+ *
+ * `requestIdleCallback` where it exists, a timer where it does not (Safari on
+ * iOS, which is most of this audience). Either way it is deliberately AFTER
+ * first paint: prefetching during boot competes with the profile query and the
+ * page somebody is actually looking at, which is the trade this is meant to
+ * avoid rather than move.
+ */
+export function preloadWhenIdle(importers, delay = 1200) {
+  if (typeof window === 'undefined') return
+  const run = () => importers.forEach(preloadRoute)
+  if (typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(() => run(), { timeout: 4000 })
+  } else {
+    window.setTimeout(run, delay)
+  }
+}
+
 export function lazyRoute(importer) {
   return lazy(() =>
     importer().catch((err) => {

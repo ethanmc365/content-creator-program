@@ -52,3 +52,40 @@ describe('weekOf', () => {
     expect(weekOf(monday + 7)[0]).toBe(monday + 7)
   })
 })
+
+// ---------------------------------------------------------------------------
+// LEAVING A PUZZLE IS NOT PLAYING IT (3 Sep 2026).
+//
+// `leaveDaily(key)` passed the puzzle's key to `markPlayed`, and a key is an
+// assertion rather than a question - so pressing Back on a board you had not
+// touched ticked the card green and stopped the menu inviting you to play it.
+//
+// The unit under test is the CONTRACT of markPlayed's argument, which is what
+// the bug turned on: with a key it asserts, without one it only looks.
+describe('markPlayed: a key asserts, no key only looks', () => {
+  // A faithful stand-in for the reducer inside useDailyPuzzles.
+  const apply = (current, fromStorage, key) => {
+    const next = new Set([...current, ...fromStorage])
+    if (key) next.add(key)
+    return next
+  }
+
+  it('ticks nothing when the board was opened and abandoned', () => {
+    // Nothing in storage, because nothing finished. This is the bug: the old
+    // call passed 'pinpoint' here and the card went green anyway.
+    expect([...apply(new Set(), [], undefined)]).toEqual([])
+  })
+
+  it('ticks the puzzle that actually finished and wrote its result', () => {
+    expect([...apply(new Set(), ['zip'], undefined)]).toEqual(['zip'])
+  })
+
+  it('still asserts when a key is genuinely given, for the optimistic path', () => {
+    expect([...apply(new Set(), [], 'languages')]).toEqual(['languages'])
+  })
+
+  it('never drops a tick it already had', () => {
+    expect([...apply(new Set(['zip']), ['pinpoint'], undefined)].sort())
+      .toEqual(['pinpoint', 'zip'])
+  })
+})

@@ -216,10 +216,26 @@ export default function Game() {
     return () => cancelAnimationFrame(raf)
   }, [screen, screenSeq])
 
-  // Closing a daily board: back to the menu, with that puzzle's tick, streak
-  // chip and "N of 3 done" line all brought up to date before the menu paints.
-  const leaveDaily = useCallback((key) => {
-    markPlayed(key)
+  // CLOSING A DAILY BOARD IS NOT THE SAME AS FINISHING ONE (3 Sep 2026).
+  //
+  // Ethan: "just clicking on the game and not actually playing it shows up a
+  // green tick on the game card like it's been played."
+  //
+  // This passed the puzzle's key to `markPlayed`, and a key is an ASSERTION -
+  // it adds that puzzle to the played set outright. So the tick was earned by
+  // pressing Back, and opening Guess the Country to see what it was and
+  // changing your mind marked the day done. Worse than a cosmetic tick: the
+  // menu then stops inviting you to play it, so the puzzle you did not play is
+  // the one you are told you have.
+  //
+  // The comment that was here had the right idea and the code did not do it:
+  // every daily board writes its result to localStorage THE MOMENT IT FINISHES,
+  // so by the time this runs the answer is already on the device if there is
+  // one. Calling `markPlayed` with no key is exactly "go and look" - it folds
+  // in localStorage and re-queries the server, and ticks the card if and only
+  // if something is actually there.
+  const leaveDaily = useCallback(() => {
+    markPlayed()
     setScreen('menu')
   }, [markPlayed])
 
@@ -297,9 +313,9 @@ export default function Game() {
           <Results result={savedScore} mode={mode} region={region} eventId={eventId} userId={user.id}
             onPlayAgain={() => start(mode, region)} onMenu={() => setScreen('menu')} />
         )}
-        {screen === 'pinpoint' && <PinpointGame onExit={() => leaveDaily('pinpoint')} />}
-        {screen === 'zip' && <ZipGame onExit={() => leaveDaily('zip')} />}
-        {screen === 'languages' && <LanguageGame onExit={() => leaveDaily('languages')} />}
+        {screen === 'pinpoint' && <PinpointGame onExit={() => leaveDaily()} />}
+        {screen === 'zip' && <ZipGame onExit={() => leaveDaily()} />}
+        {screen === 'languages' && <LanguageGame onExit={() => leaveDaily()} />}
       </div>
 
       <div className="mt-12">

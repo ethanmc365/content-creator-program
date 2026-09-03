@@ -223,31 +223,42 @@ function StreakFreezes({ left, tr }) {
       <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/75">
         {tr("Streak freezes")}
       </p>
+      {/* THE WEEK STRIP'S TWIN. Same 24px tile, same 6px gap, same caption
+          line underneath - see the note at the call site. A spent pip is drawn
+          as a hollow outline rather than left out, because "three of five left"
+          has to look different from "there were only ever three". */}
       <div
-        className="flex h-6 items-center gap-1.5"
+        className="flex items-end gap-1.5"
         title={tr("{n} of {total} left this month. A freeze is spent automatically on a day you miss, and they reset on the 1st.", { n: remaining, total })}
       >
         {Array.from({ length: total }, (_, i) => (
-          <span
-            key={i}
-            aria-hidden
-            className={cx(
-              "flex h-5 w-5 items-center justify-center rounded-md transition-colors",
-              i < remaining
-                ? "bg-white text-sky-500 shadow-sm"
-                : "text-white/35 ring-1 ring-inset ring-white/25",
-            )}
-          >
-            <Icon name="snowflake" className="h-3 w-3" />
+          <span key={i} className="flex flex-col items-center gap-1">
+            <span
+              aria-hidden
+              className={cx(
+                'flex h-6 w-6 items-center justify-center rounded-lg transition-colors',
+                i < remaining
+                  ? 'bg-white text-sky-500 shadow-sm'
+                  : 'text-white/30 ring-1 ring-inset ring-white/25',
+              )}
+            >
+              <Icon name="snowflake" className="h-3.5 w-3.5" />
+            </span>
+            {/* The weekday letters' counterpart: it holds the block to the
+                same height and marks which pips are still yours. */}
+            <span className={cx('text-[9px] font-semibold', i < remaining ? 'text-white' : 'text-white/40')}>
+              {i < remaining ? '\u2022' : '\u00b7'}
+            </span>
           </span>
         ))}
-        <span className="sr-only">
-          {tr("{n} of {total} streak freezes left this month", { n: remaining, total })}
-        </span>
       </div>
+      <span className="sr-only">
+        {tr("{n} of {total} streak freezes left this month", { n: remaining, total })}
+      </span>
     </div>
   )
 }
+
 
 // THE FLAME MAKES A NOISE WHEN IT CATCHES.
 //
@@ -379,30 +390,30 @@ export default function StreakCard({ className, days = [], today = null, myId = 
           </div>
         </div>
 
-        {/* THE WEEK IN THE MIDDLE, THE FREEZES ON THE RIGHT (3 Sep 2026).
+        {/* THE WEEK, THEN THE FREEZES, THEN THE RECORD (3 Sep 2026).
 
-            Ethan: "the streak freezes is completely gone, which is weird. It
-            should be back. Move 'this week' over to the middle of that card at
-            the top, and then the streak freeze section should be there on the
-            right."
+            Ethan: "I like how the travel games card looks on mobile, but on
+            desktop it should be improved - streak freezes should be to the
+            left and best ever streak to the right, they should be proportional
+            and streak freeze should match the size and design of this week."
 
-            THE FREEZES CAME OFF THIS CARD ON 2 SEP AND THEY ARE BACK. They were
-            removed as five big snowflake tiles plus a sentence explaining the
-            monthly reset - the biggest block on a card about a streak, for a
-            mechanic you never operate. That judgement was right about the
-            WEIGHT and wrong about the PRESENCE: "am I protected" is a real
-            question, and with the tiles gone the only answer was buried at the
-            foot of a popup.
+            THE THREE BLOCKS WERE THREE DIFFERENT OBJECTS. "This week" was seven
+            24px tiles with a letter under each; the freezes were five 20px pips
+            with nothing under them; "Best ever" was a number. Three different
+            tile sizes and three different heights in one row, which is why the
+            row read as assembled rather than designed.
 
-            So it is back at the size it deserves: a count, five small pips, and
-            no paragraph. It reads at a glance and it does not compete with the
-            run.
+            The freezes are the week strip's twin now: same 24px rounded tile,
+            same 6px gap, same label above and same 9px caption line below, so
+            the two blocks are the same height and sit on one baseline without
+            anything being nudged. That also puts the two STRIPS next to each
+            other and the two NUMBERS - the run on the left of the card, the
+            record on the right - at the two ends, which is the order Ethan
+            asked for and also the one that reads.
 
-            ONE ROW OF THREE ON A WIDE CARD, one column of three on a phone -
-            `items-end` keeps the week strip, the record and the pips on a
-            single baseline rather than centring three different heights against
-            each other, which is what made the old card read as "a bit off". */}
-        <div className="flex flex-col gap-5 border-t border-white/15 pt-5 sm:flex-row sm:items-end sm:gap-10 sm:border-t-0 sm:pr-8 sm:pt-0">
+            MOBILE IS UNCHANGED IN WEIGHT because he said it is right: the week
+            takes its own row and the other two share the one below it. */}
+        <div className="flex flex-col gap-5 border-t border-white/15 pt-5 sm:flex-row sm:items-end sm:gap-8 sm:border-t-0 sm:pr-8 sm:pt-0">
           {today != null && (
             <div>
               <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/75">
@@ -412,34 +423,37 @@ export default function StreakCard({ className, days = [], today = null, myId = 
             </div>
           )}
 
-          {/* SAME LABEL, SAME PLACE, SAME BASELINE as the week strip beside it.
-
-              THE RECORD'S FLAME ALWAYS BURNS (3 Sep 2026). Ethan: "the best
-              ever streak should always have the animation, not just after
-              you've played a game." It was drawn as an `ember` - the state that
-              means "alive but not counted today" - so the record's fire went
-              quiet on any day you had not played yet, which reads as the record
-              itself being provisional. A record is not provisional. It is `lit`
-              whenever there is one, and cold only when there has never been
-              one. */}
-          {/* ON A PHONE THESE TWO SHARE A ROW. Stacked, the card was 760px of
-              an 812px screen and the puzzles below it were off the bottom -
-              three labelled blocks in a column, each using a fifth of the width
-              it had. `sm:contents` dissolves this wrapper on a wide card so the
-              two become direct items of the row again and the desktop layout is
-              genuinely one row of three, not a row of two with a pair in it. */}
+          {/* `sm:contents` dissolves this wrapper on a wide card, so the two
+              become direct items of the row and the desktop layout is genuinely
+              one row of three rather than a row of two with a pair inside it. */}
           <div className="flex items-end justify-between gap-6 sm:contents">
-            <div>
+            <StreakFreezes left={s.freezes_left ?? FREEZES_PER_MONTH} tr={tr} />
+
+            {/* THE RECORD'S FLAME ALWAYS BURNS. Ethan: "the best ever streak
+                should always have the animation, not just after you've played a
+                game." It was an `ember` - the state meaning "alive but not
+                counted today" - so the record's fire went quiet on any day you
+                had not played, which reads as the record being provisional. It
+                is not. Lit whenever there is one, cold only when there never
+                was.
+
+                It sits LAST and right-aligned on a desktop: it is the one thing
+                in this row that is a fact about the past rather than about this
+                week, so it belongs at the end. */}
+            <div className="text-right sm:ml-auto">
               <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/75">
                 {tr("Best ever")}
               </p>
-              <p className="flex h-6 items-center gap-1.5 text-xl font-bold leading-none tabular-nums">
+              <p className="flex h-6 items-center justify-end gap-1.5 text-xl font-bold leading-none tabular-nums">
                 <Flame className="h-4 w-4" tone="warm" state={best > 0 ? 'lit' : 'cold'} sparks={best > 0} />
                 {best}
               </p>
+              {/* The same 9px caption line the other two blocks carry, so all
+                  three are the same height and the baseline holds. */}
+              <p className="mt-1 text-[9px] font-semibold text-white/55">
+                {best === 1 ? tr('day') : tr('days')}
+              </p>
             </div>
-
-            <StreakFreezes left={s.freezes_left ?? FREEZES_PER_MONTH} tr={tr} />
           </div>
         </div>
       </div>

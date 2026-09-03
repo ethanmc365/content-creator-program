@@ -175,13 +175,33 @@ export function pinToBottom(getEl, shouldPin, onSettled) {
     tick = setTimeout(once, TICK_MS)
   }
 
+  // WHATEVER ELSE HAPPENS, THE THREAD IS AT THE BOTTOM WHEN IT IS REVEALED.
+  //
+  // 3 Sep 2026, and this is the last of it. Ethan: "the chat issue where the
+  // chat doesn't open on the last message still persists."
+  //
+  // Everything above makes the loop converge. What nobody had covered is the
+  // path where it DOES NOT: `cap` fires at MAX_MS and reveals the thread
+  // wherever the last correction left it. That is rare on a desktop with warm
+  // images and completely ordinary on a phone opening a room with photographs
+  // in it over mobile data - the exact case being reported, and the reason it
+  // was never reproducible on a laptop.
+  //
+  // So the reveal itself pins, one final time, unconditionally as far as the
+  // loop is concerned. `shouldPin` is still honoured because a reader who has
+  // deliberately scrolled up must not be yanked - but if they have not, the
+  // frame the thread becomes visible in is a frame where it is at the bottom.
+  // There is now no path through this function that reveals a thread anywhere
+  // else.
   const finish = () => {
     if (stopped) return
     stopped = true
     unschedule()
     clearTimeout(cap)
-    delete getEl()?.dataset.pinning
-    getEl()?.removeEventListener('load', onLoad, true)
+    const el = getEl()
+    if (el && shouldPin()) el.scrollTop = el.scrollHeight
+    delete el?.dataset.pinning
+    el?.removeEventListener('load', onLoad, true)
     onSettled?.(true)
   }
 

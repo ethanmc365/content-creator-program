@@ -1341,16 +1341,31 @@ html[data-reduce-motion] *::after {
    exceeds half the screen, and it scrolls inside itself rather than growing -
    the connect step carries a body, an instruction and a callout, and on a small
    phone in landscape that is taller than the viewport. */
+/* MUCH MORE COMPACT ON A PHONE (3 Sep 2026). Ethan: "the mobile card should be
+   much more compact."
+
+   It could take 58% of the screen, which on a walkthrough whose whole job is to
+   point AT the app meant the app was the minority of what you could see - and
+   every step that said "tap Challenges" was covering a third of the page the
+   tab bar sits on. A third of the height is plenty for a title, two lines and
+   an instruction, and anything longer than that is a copy problem rather than a
+   layout one. */
 .tour-card--sheet {
   left: 0.6rem;
   right: 0.6rem;
   bottom: calc(5.25rem + env(safe-area-inset-bottom));
-  max-height: min(58vh, 26rem);
+  max-height: min(36vh, 17rem);
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 1.05rem 1.1rem;
+  padding: 0.85rem 0.95rem;
   animation: tour-sheet-in 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+
+/* Tighter type inside the sheet, so "compact" is the card and not a scrollbar
+   inside a card that is still the same size. */
+.tour-card--sheet .tour-title { font-size: 0.95rem; }
+.tour-card--sheet .tour-body { font-size: 0.8rem; line-height: 1.4; }
+.tour-card--sheet .tour-do { padding-top: 0.5rem; padding-bottom: 0.5rem; margin-top: 0.5rem; }
 
 /* A grab handle, so the sheet reads as a sheet rather than as a box that
    appeared over the tabs. */
