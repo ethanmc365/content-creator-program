@@ -496,16 +496,14 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         ? Number(row.final_views || 0).toLocaleString()
         : formatViews(row.final_views),
       unit: challenge.scoring === 'points' ? tr('points') : tr('views'),
+      // The reach behind the score. Only on a points board - on a views board
+      // the score already IS this number and printing it twice says nothing.
+      sub: challenge.scoring === 'points' && row.total_views > 0
+        ? `${formatViews(row.total_views)} ${tr('views')}`
+        : null,
       prize,
     }
   })
-
-  const earnedVoucherCount = participation
-    ? Object.entries(subCountByCreator)
-      .filter(([cid, n]) => n >= participation.threshold
-        && (boards.length === 0 || (byCreator.get(cid) ?? null) === myGroupId))
-      .length
-    : 0
 
   // ---- BONUSES A CREATOR CLAIMS ------------------------------------------
   const claimsBySubmission = new Map()
@@ -553,25 +551,45 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                 change it did not show you the challenge. Ethan asked for that
                 page to go; these are the controls that were worth keeping, on
                 the page they are about. */}
+            {/* THREE FLAT BUTTONS BECAME A RANK (3 Sep 2026).
+
+                Ethan: "I would improve the buttons at the top - results, close
+                entries. The close entries button maybe isn't necessary to be
+                there, it should be somewhere else, inside the results, because
+                the results button should be improved. Results is obviously
+                very important for the country managers."
+
+                RESULTS IS THE JOB, so it is the only solid button and it says
+                what state the board is in - "Results · interim" tells a manager
+                whether the thing they are about to publish is fresh without
+                opening it.
+
+                CLOSING A CHALLENGE IS NOT A TOOLBAR ACTION. It ends the thing
+                and it cannot be undone from here, so it sits behind the "..."
+                with Publish and Archive - one press away, not one slip away -
+                AND on the results page, which is where a manager already is
+                when they decide the challenge is over. */}
             {isAdmin && (
               <>
                 <Link to={`/admin/challenges/${id}/edit`} className="btn-secondary !py-2 text-xs">{tr("Edit")}</Link>
-                <Link to={`/admin/challenges/${id}/results`} className="btn-secondary !py-2 text-xs">{tr("Results")}</Link>
-                {challenge.status === 'draft' && (
-                  <button onClick={() => setChallengeStatus('active')} disabled={lifecycleBusy} className="btn-primary !py-2 text-xs">
-                    {tr("Publish")}
-                  </button>
-                )}
-                {challenge.status === 'active' && (
-                  <button onClick={() => setChallengeStatus('ended')} disabled={lifecycleBusy} className="btn-secondary !py-2 text-xs">
-                    {tr("Close entries")}
-                  </button>
-                )}
-                {challenge.status === 'ended' && (
-                  <button onClick={() => setChallengeStatus('archived')} disabled={lifecycleBusy} className="btn-secondary !py-2 text-xs">
-                    {tr("Archive")}
-                  </button>
-                )}
+                <Link
+                  to={`/admin/challenges/${id}/results`}
+                  className="btn-primary inline-flex items-center gap-1.5 !py-2 text-xs"
+                >
+                  <Icon name="trophy" className="h-3.5 w-3.5" />
+                  {tr("Results")}
+                  {challenge.results_status && challenge.results_status !== 'none' && (
+                    <span className="rounded-full bg-white/25 px-1.5 py-0.5 text-[10px] font-semibold">
+                      {challenge.results_status === 'final' ? tr("final") : tr("interim")}
+                    </span>
+                  )}
+                </Link>
+                <LifecycleMenu
+                  status={challenge.status}
+                  busy={lifecycleBusy}
+                  onSet={setChallengeStatus}
+                  tr={tr}
+                />
               </>
             )}
             {isLive ? <Badge tone="brand">{tr("Live")}</Badge> : <Badge tone="grey">{challenge.status}</Badge>}
@@ -886,10 +904,13 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                     <p className="text-sm font-semibold text-ink">
                       {tr("Post {n}+ videos and earn {prize}", { n: participation.threshold, prize: participation.prize })}
                     </p>
-                    {/* HOW CLOSE *YOU* ARE, not just how many other people got
-                        there. The old line counted everybody else's vouchers
-                        at the reader, which is the least motivating true fact
-                        available. */}
+                    {/* HOW CLOSE *YOU* ARE, AND NOTHING ELSE (3 Sep 2026).
+                        Ethan: "I would remove the '5 earned so far'. I don't
+                        think you need to show what was earned so far, just how
+                        many to go - three more videos to go."
+                        The tally of other people's vouchers was the least
+                        motivating true fact available, and it sat in the one
+                        line whose whole job is to say what to do next. */}
                     {isLive && (
                       <div className="mt-2.5">
                         <div className="h-1.5 overflow-hidden rounded-full bg-cloud">
@@ -901,8 +922,7 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                         <p className="mt-1.5 text-xs text-smoke">
                           {myEntries.length >= participation.threshold
                             ? tr("You have earned it.")
-                            : tr("{n} more to go.", { n: participation.threshold - myEntries.length })}
-                          {earnedVoucherCount > 0 && ` · ${tr("{n} earned so far", { n: earnedVoucherCount })}`}
+                            : tr("{n} more videos to go.", { n: participation.threshold - myEntries.length })}
                         </p>
                       </div>
                     )}
@@ -1393,6 +1413,80 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
         onDone={() => { setSuccess(null); setTab('entries') }}
         onAddAnother={submitAnother}
       />
+    </div>
+  )
+}
+
+// THE LIFECYCLE, BEHIND ONE BUTTON.
+//
+// Publish, "close entries" and Archive are the three presses that change what a
+// challenge IS, and they were three flat buttons sitting in the same row as
+// Edit and Results - the same weight as opening a page, next to each other, on
+// a toolbar people use every day. "Close entries" in particular ends the
+// challenge for every creator in the market and there is no undo on this page.
+//
+// So they live under a "..." now: still one press away, no longer one slip
+// away, and out of the way of Results, which is the button a country manager
+// actually came for.
+function LifecycleMenu({ status, busy, onSet, tr }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  // Close on an outside press or Escape. Both, because a menu that only closes
+  // one way is a menu somebody leaves open.
+  useEffect(() => {
+    if (!open) return
+    const away = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    const esc = (e) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', away)
+    document.addEventListener('keydown', esc)
+    return () => {
+      document.removeEventListener('mousedown', away)
+      document.removeEventListener('keydown', esc)
+    }
+  }, [open])
+
+  const ACTIONS = {
+    draft:  { to: 'active',   label: tr('Publish challenge'), hint: tr('Creators in this market are notified.'), icon: 'megaphone' },
+    active: { to: 'ended',    label: tr('Close entries'),     hint: tr('No new entries. The board stays visible.'), icon: 'ban' },
+    ended:  { to: 'archived', label: tr('Archive'),           hint: tr('Moves it into the archive.'), icon: 'bucket' },
+  }
+  const action = ACTIONS[status]
+  if (!action) return null
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        disabled={busy}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={tr('More actions')}
+        className="btn-secondary !px-2.5 !py-2 text-xs"
+      >
+        <span aria-hidden className="block leading-none tracking-widest">···</span>
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 z-30 mt-2 w-64 origin-top-right animate-fade-up overflow-hidden rounded-xl border border-cloud bg-white p-1 shadow-lift"
+        >
+          <button
+            type="button"
+            role="menuitem"
+            disabled={busy}
+            onClick={() => { setOpen(false); onSet(action.to) }}
+            className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-brand-tint/50 disabled:opacity-50"
+          >
+            <Icon name={action.icon} className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+            <span>
+              <span className="block text-sm font-semibold text-ink">{action.label}</span>
+              <span className="block text-xs text-smoke">{action.hint}</span>
+            </span>
+          </button>
+        </div>
+      )}
     </div>
   )
 }

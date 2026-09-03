@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import Icon from '../Icon'
 import { weekOf } from '../../lib/daily'
+import { FREEZES_PER_MONTH } from '../../lib/gameStreak'
 import StreakLeaderboard from './StreakLeaderboard'
 import { playFireWhoosh } from '../../lib/gameSounds'
 import { cx } from '../../lib/utils'
@@ -18,19 +19,23 @@ import { useT } from '../../lib/i18n'
 // starting again means admitting the forty is gone. Keeping the record separate
 // from the run means a broken streak costs you the run and nothing else.
 //
-// THE FREEZE TILES ARE OFF THIS CARD (2 Sep 2026)
+// THE FREEZE TILES CAME OFF AND WENT BACK ON, SMALLER (2 -> 3 Sep 2026)
 //
-// There were five snowflake tiles and a sentence explaining the monthly reset,
-// and they were the biggest block on a card about a streak. Ethan: "remove the
-// freezes, the five freezes thing down below." He is right that they were the
-// wrong weight - a freeze is a safety net you never operate, and a safety net
-// does not need a permanent readout.
+// They were five large snowflake tiles plus a sentence explaining the monthly
+// reset - the biggest block on a card about a streak, for a mechanic nobody
+// operates. Ethan cut them: "remove the freezes, the five freezes thing down
+// below."
 //
-// NONE OF THE MECHANIC CHANGED. Five a month, spent automatically on the day
-// they are needed, reset on the first. The two places it is still SAID are the
-// two places the question actually gets asked: a snowflake on the day in the
-// week strip, where a creator wonders why a gap did not break the run, and one
-// line at the foot of the streaks popup, where they can count what is left.
+// A day later: "the streak freezes is completely gone, which is weird. It
+// should be back." Both readings are right, and they are about different
+// things. The tiles were the wrong WEIGHT, not the wrong CONTENT - a safety net
+// you cannot see is a safety net you do not trust, and with them gone the only
+// place "am I still covered" got answered was the foot of a popup.
+//
+// So the block is back as a count and five small pips with the explanation in
+// its tooltip, sitting third in the row after the week strip. See
+// <StreakFreezes>. The MECHANIC never changed through any of this: five a
+// month, spent automatically on the day they are needed, reset on the first.
 //
 // WHAT CHANGED IN THE REDESIGN
 //
@@ -194,6 +199,56 @@ function WeekDots({ days = [], frozen = [], today, week }) {
   )
 }
 
+// WHAT IS PROTECTING THE RUN, AT THE SIZE IT DESERVES.
+//
+// Five freezes a month, spent automatically on the day they are needed, reset
+// on the first. Nobody presses anything - which is exactly why this was cut on
+// 2 Sep as "a safety net you never operate", and exactly why it had to come
+// back: a net you cannot see is one you do not trust. "Am I still covered" is a
+// real question and the only answer left was at the foot of a popup.
+//
+// What is different from the version that was removed is the WEIGHT. That one
+// was five large tiles and a sentence explaining the monthly reset, and it was
+// the biggest block on a card about a streak. This is a number and five pips.
+// The explanation lives in the tooltip, where an explanation belongs.
+//
+// A SPENT PIP IS DRAWN, NOT MISSING. Three of five left has to look different
+// from "there were only ever three", so the two spent ones stay as hollow
+// outlines - the same promise the week strip makes about a frozen day.
+function StreakFreezes({ left, tr }) {
+  const total = FREEZES_PER_MONTH
+  const remaining = Math.max(0, Math.min(total, left))
+  return (
+    <div>
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/75">
+        {tr("Streak freezes")}
+      </p>
+      <div
+        className="flex h-6 items-center gap-1.5"
+        title={tr("{n} of {total} left this month. A freeze is spent automatically on a day you miss, and they reset on the 1st.", { n: remaining, total })}
+      >
+        {Array.from({ length: total }, (_, i) => (
+          <span
+            key={i}
+            aria-hidden
+            className={cx(
+              "flex h-5 w-5 items-center justify-center rounded-md transition-colors",
+              i < remaining
+                ? "bg-white text-sky-500 shadow-sm"
+                : "text-white/35 ring-1 ring-inset ring-white/25",
+            )}
+          >
+            <Icon name="snowflake" className="h-3 w-3" />
+          </span>
+        ))}
+        <span className="sr-only">
+          {tr("{n} of {total} streak freezes left this month", { n: remaining, total })}
+        </span>
+      </div>
+    </div>
+  )
+}
+
 // THE FLAME MAKES A NOISE WHEN IT CATCHES.
 //
 // Ethan asked for "a fire flame whoosh sound when you play and gain a streak
@@ -313,23 +368,41 @@ export default function StreakCard({ className, days = [], today = null, myId = 
                 <span className={cx('h-1.5 w-1.5 shrink-0 rounded-full', frozenToday ? 'bg-sky-200' : 'bg-white/40')} />
                 {frozenToday
                   ? tr('A freeze is holding today for you.')
-                  : tr('Not counted today yet. One puzzle keeps it.')}
+                  : tr('Not counted today yet. Any travel game keeps it.')}
               </p>
             )}
             {today != null && current === 0 && (
               <p className="mt-1.5 text-[11px] font-medium text-white/85">
-                {tr("Play any one of today\u2019s three puzzles to start one.")}
+                {tr("Play any travel game today to start one.")}
               </p>
             )}
           </div>
         </div>
 
-        {/* ON A WIDE CARD THE TWO SUPPORTING FACTS GO TO THE FAR END rather
-            than stacking under the run in the left quarter of a 1100px card.
-            The rule between them is a PHONE thing - it is what separates two
-            rows - and there are no rows to separate once they sit side by side
-            with the flame. `pr-8` keeps them clear of the chevron. */}
-        <div className="flex items-end justify-between gap-5 border-t border-white/15 pt-5 sm:justify-end sm:gap-12 sm:border-t-0 sm:pr-8 sm:pt-0">
+        {/* THE WEEK IN THE MIDDLE, THE FREEZES ON THE RIGHT (3 Sep 2026).
+
+            Ethan: "the streak freezes is completely gone, which is weird. It
+            should be back. Move 'this week' over to the middle of that card at
+            the top, and then the streak freeze section should be there on the
+            right."
+
+            THE FREEZES CAME OFF THIS CARD ON 2 SEP AND THEY ARE BACK. They were
+            removed as five big snowflake tiles plus a sentence explaining the
+            monthly reset - the biggest block on a card about a streak, for a
+            mechanic you never operate. That judgement was right about the
+            WEIGHT and wrong about the PRESENCE: "am I protected" is a real
+            question, and with the tiles gone the only answer was buried at the
+            foot of a popup.
+
+            So it is back at the size it deserves: a count, five small pips, and
+            no paragraph. It reads at a glance and it does not compete with the
+            run.
+
+            ONE ROW OF THREE ON A WIDE CARD, one column of three on a phone -
+            `items-end` keeps the week strip, the record and the pips on a
+            single baseline rather than centring three different heights against
+            each other, which is what made the old card read as "a bit off". */}
+        <div className="flex flex-col gap-5 border-t border-white/15 pt-5 sm:flex-row sm:items-end sm:gap-10 sm:border-t-0 sm:pr-8 sm:pt-0">
           {today != null && (
             <div>
               <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/75">
@@ -340,17 +413,33 @@ export default function StreakCard({ className, days = [], today = null, myId = 
           )}
 
           {/* SAME LABEL, SAME PLACE, SAME BASELINE as the week strip beside it.
-              The number sits where the dots sit; the caption sits where the
-              caption sits. It used to be a 24px number top-aligned against a
-              two-part block, so it floated. */}
-          <div className="text-right sm:text-left">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/75">
-              {tr("Best ever")}
-            </p>
-            <p className="flex h-6 items-center justify-end gap-1.5 text-xl font-bold leading-none tabular-nums sm:justify-start">
-              <Flame className="h-4 w-4 opacity-80" tone="warm" state={best > 0 ? 'ember' : 'cold'} />
-              {best}
-            </p>
+
+              THE RECORD'S FLAME ALWAYS BURNS (3 Sep 2026). Ethan: "the best
+              ever streak should always have the animation, not just after
+              you've played a game." It was drawn as an `ember` - the state that
+              means "alive but not counted today" - so the record's fire went
+              quiet on any day you had not played yet, which reads as the record
+              itself being provisional. A record is not provisional. It is `lit`
+              whenever there is one, and cold only when there has never been
+              one. */}
+          {/* ON A PHONE THESE TWO SHARE A ROW. Stacked, the card was 760px of
+              an 812px screen and the puzzles below it were off the bottom -
+              three labelled blocks in a column, each using a fifth of the width
+              it had. `sm:contents` dissolves this wrapper on a wide card so the
+              two become direct items of the row again and the desktop layout is
+              genuinely one row of three, not a row of two with a pair in it. */}
+          <div className="flex items-end justify-between gap-6 sm:contents">
+            <div>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/75">
+                {tr("Best ever")}
+              </p>
+              <p className="flex h-6 items-center gap-1.5 text-xl font-bold leading-none tabular-nums">
+                <Flame className="h-4 w-4" tone="warm" state={best > 0 ? 'lit' : 'cold'} sparks={best > 0} />
+                {best}
+              </p>
+            </div>
+
+            <StreakFreezes left={s.freezes_left ?? FREEZES_PER_MONTH} tr={tr} />
           </div>
         </div>
       </div>

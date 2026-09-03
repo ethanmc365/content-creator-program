@@ -62,6 +62,42 @@
 //     for anything near the bottom, so the reveal cannot happen while a picture
 //     the reader is about to see is still coming.
 
+// 3 Sep 2026: AND STILL WRONG, BECAUSE THE READER'S OWN SCROLL HANDLER WAS
+// TURNING THE PIN OFF WHILE IT RAN.
+//
+// Ethan, again: "if I click on general it opens the page scrolled up rather
+// than at the bottom. Even if I reload on that general page it still scrolls up
+// again. It's the same with announcements, the same across every tab, and the
+// same with DMs."
+//
+// Everything above is about the HEIGHT changing. This is about the second
+// mechanism nobody accounted for: both chat surfaces keep an `atBottomRef` that
+// their `onScroll` handler recomputes as `scrollHeight - scrollTop -
+// clientHeight < 80`, and `pinToBottom` asks that same ref for permission
+// before every correction (`shouldPin`).
+//
+// A scroll event is ASYNCHRONOUS. The pin writes `scrollTop = scrollHeight`;
+// the browser clamps it and queues a scroll event for the next frame. If a
+// photograph, a link preview or a font lands in that gap, the handler runs
+// against a scroller that is now hundreds of pixels taller, computes a distance
+// far greater than 80, and concludes THE READER SCROLLED UP. `atBottomRef` goes
+// false, `shouldPin()` returns false for the rest of the room's life, and every
+// remaining correction is skipped - so the thread is revealed exactly where the
+// last growth left it.
+//
+// That is the whole report. It explains why it is worse in rooms with old
+// photographs, why it differs between refreshes (the growth has to land inside
+// one frame's window), why it happens on both surfaces, and why none of the
+// height-watching work above could ever have fixed it: the loop was working
+// perfectly and being told it was not wanted.
+//
+// THE FIX: while a pin is in flight the scroller carries `data-pinning`, and
+// both handlers refuse to revise `atBottom` while it is set. The pin owns the
+// scroller until it settles - which is at most MAX_MS, and during which the
+// thread is not even visible - and the reader owns it forever after. Two
+// mechanisms writing one value is what this file's own header calls "the
+// jitter"; this is the same mistake one level up.
+
 const STABLE_FRAMES = 2
 // 1200ms, up from 700. The cap is the floor of the promise, not the plan, and
 // 700 was landing INSIDE the window a legacy attachment needs to decode - so a
@@ -144,6 +180,7 @@ export function pinToBottom(getEl, shouldPin, onSettled) {
     stopped = true
     unschedule()
     clearTimeout(cap)
+    delete getEl()?.dataset.pinning
     getEl()?.removeEventListener('load', onLoad, true)
     onSettled?.(true)
   }
@@ -180,6 +217,11 @@ export function pinToBottom(getEl, shouldPin, onSettled) {
 
   const cap = setTimeout(finish, MAX_MS)
   getEl()?.addEventListener('load', onLoad, true)
+  // THE SCROLLER IS THE PIN'S UNTIL IT SETTLES. See the note above the
+  // constants: without this the reader's own scroll handler mistakes a growth
+  // spurt for a deliberate scroll-up and switches the pin off mid-flight.
+  const el0 = getEl()
+  if (el0) el0.dataset.pinning = '1'
   schedule()
 
   return () => {
@@ -187,6 +229,22 @@ export function pinToBottom(getEl, shouldPin, onSettled) {
     stopped = true
     unschedule()
     clearTimeout(cap)
+    delete getEl()?.dataset.pinning
     getEl()?.removeEventListener('load', onLoad, true)
   }
+}
+
+/**
+ * Is a pin currently in flight on this scroller?
+ *
+ * Both chat surfaces call this from their `onScroll` before revising whatever
+ * "the reader is at the bottom" ref they keep. A scroll event that arrives
+ * while this is true was caused by the pin or by the content growing under it,
+ * never by the reader - the thread is still at `opacity-0` at that point, so
+ * there is nothing on screen to have scrolled.
+ *
+ * @param {HTMLElement|null} el
+ */
+export function isPinning(el) {
+  return !!el && el.dataset.pinning === '1'
 }

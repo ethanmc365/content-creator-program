@@ -18,7 +18,7 @@ import { useProfileNames } from '../components/network/ChatExtras'
 import { mediaType, saveFile, fileNameFromUrl } from '../lib/media'
 import { isOnline } from '../lib/presence'
 import { ChatSkeleton } from '../components/network/Skeletons'
-import { pinToBottom } from '../lib/chatScroll'
+import { pinToBottom, isPinning } from '../lib/chatScroll'
 import { formatChatTime, formatMessageTime, messageTimeTitle, otherParticipant, cx } from '../lib/utils'
 import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
 import { setChatChromeHidden } from '../lib/chatChrome'
@@ -903,6 +903,14 @@ export default function Messages() {
     const el = scrollerRef.current
     if (!el) return undefined
     setSettled(false)
+    // A NEW CONVERSATION STARTS AT THE BOTTOM, WHATEVER THE LAST ONE ENDED AT.
+    // `atBottomRef` is what `shouldPin` reads, and it survives the switch: open
+    // a thread, scroll up to read history, then open a different one, and the
+    // ref was still false - so the pin asked permission, was refused, and the
+    // second thread opened wherever it happened to render. The rooms already
+    // reset it on every room change; DMs did not.
+    atBottomRef.current = true
+    setAtBottom(true)
     el.scrollTop = el.scrollHeight
     return pinToBottom(
       () => scrollerRef.current,
@@ -943,6 +951,13 @@ export default function Messages() {
   const onScrollMessages = useCallback(() => {
     const el = scrollerRef.current
     if (!el) return
+    // WHILE A PIN IS IN FLIGHT, THIS EVENT IS NOT THE READER (3 Sep 2026).
+    // Identical fault to the rooms - see lib/chatScroll's 3 Sep note. Here it
+    // was worse than a stranded scroll: `setAtBottom(false)` and `setFarUp`
+    // also raised the "jump to latest" pill over a thread the reader had not
+    // touched. Ethan: "I've clicked on a DM with Mirsu and it just started
+    // scrolled up rather than me to scroll to the bottom."
+    if (isPinning(el)) return
     const gap = distanceFromBottom(el)
     const near = gap < 90
     atBottomRef.current = near

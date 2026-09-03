@@ -17,7 +17,7 @@ import ChatMedia from '../components/ChatMedia'
 import PhotoLightbox from '../components/PhotoLightbox'
 import { saveFile, fileNameFromUrl } from '../lib/media'
 import { uploadChatImage, uploadChatVideo } from '../lib/chatMedia'
-import { pinToBottom } from '../lib/chatScroll'
+import { pinToBottom, isPinning } from '../lib/chatScroll'
 import { renderMessageBody, stripMarkup } from '../lib/richText'
 import { broadcastNames } from '../lib/broadcastMentions'
 import Reorderable from '../components/network/Reorderable'
@@ -620,6 +620,13 @@ export default function NetworkChat() {
   useLayoutEffect(() => {
     atBottomRef.current = true
     setSettled(false)
+    // NOTHING TO PIN WHILE THE ROOM IS STILL LOADING. This effect used to run
+    // against the SKELETON: a skeleton has no images and a stable height, so
+    // the loop declared it settled within two frames, revealed it, and then
+    // re-ran on the real messages and hid the thread again. Skeleton, flash,
+    // skeleton, thread. The skeleton is drawn by the `loading` branch below and
+    // needs no pinning of its own.
+    if (loading) return undefined
     pin()
     return pinToBottom(
       () => scrollerRef.current,
@@ -826,7 +833,15 @@ export default function NetworkChat() {
 
   function onScroll(e) {
     const el = e.currentTarget
-    atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+    // WHILE A PIN IS IN FLIGHT, THIS EVENT IS NOT THE READER (3 Sep 2026).
+    // See lib/chatScroll's 3 Sep note: a scroll event fired by the pin itself,
+    // or by content growing under it, was being read as "they scrolled up" and
+    // it switched the pin off for the rest of the room's life. The thread is at
+    // opacity-0 for the whole of that window - there is nothing on screen for
+    // anybody to have scrolled.
+    if (!isPinning(el)) {
+      atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+    }
     // Reading hides the chrome; running out of messages at the top brings it
     // back, because that is the moment you are looking for something else.
     if (el.scrollTop < 12) showChrome()

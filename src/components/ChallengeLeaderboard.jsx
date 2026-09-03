@@ -196,6 +196,15 @@ export default function ChallengeLeaderboard({
                 <>
                   <span className="block text-sm font-bold tabular-nums">{fmtScore(row.final_views)}</span>
                   <span className="block text-[10px] uppercase tracking-wide text-smoke">{tr(scoreLabel === 'points' ? 'points' : 'views')}</span>
+                  {/* ON A POINTS BOARD, THE VIEWS TOO (3 Sep 2026). The points
+                      say who is winning; the views say whether the challenge
+                      worked. `total_views` is written by the same rebuild that
+                      writes the score, so the two can never disagree. */}
+                  {scoreLabel === 'points' && row.total_views > 0 && (
+                    <span className="block text-[10px] font-medium tabular-nums text-smoke/70">
+                      {formatViews(row.total_views)} {tr('views')}
+                    </span>
+                  )}
                 </>
               ) : (
                 <span className="block text-sm font-bold tabular-nums text-gray-300">—</span>

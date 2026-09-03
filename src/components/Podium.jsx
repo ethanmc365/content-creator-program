@@ -31,8 +31,10 @@ const ORDER = [2, 1, 3]
 const HEIGHT = { 1: 'h-28', 2: 'h-20', 3: 'h-16' }
 
 /**
- * @param places [{ rank, id, name, photo_url, score, unit, extra, prize, empty }]
- *               `score` is already formatted; `extra` is an optional node
+ * @param places [{ rank, id, name, photo_url, score, unit, sub, extra, prize, empty }]
+ *               `score` is already formatted, and so is `sub` - the quieter
+ *               second line under it, which on a points board carries the view
+ *               count so the step shows both numbers; `extra` is an optional node
  *               under the score line (the podium's "Watch" chip); `empty`
  *               draws the step as unclaimed rather than leaving a hole in the
  *               podium, which is the same promise ChallengeLeaderboard makes -
@@ -97,6 +99,15 @@ export default function Podium({ places = [], meId = null, animate = true, class
               <p className="text-xs font-bold tabular-nums text-brand">
                 {p.score}{p.unit ? ` ${p.unit}` : ''}
               </p>
+            )}
+            {/* THE VIEWS, NEXT TO THE POINTS (3 Sep 2026).
+                Ethan: "on the podium as well as the points, it should still
+                show the views beside it as well because that's also important."
+                A points total answers "who is winning"; it does not answer "did
+                this challenge reach anybody", which is the number the programme
+                is actually for. Both, or the board only tells half the story. */}
+            {p.sub && (
+              <p className="text-[11px] font-medium tabular-nums text-smoke">{p.sub}</p>
             )}
             {/* WHAT THIS STEP IS WORTH, on the step. A podium that shows who is
                 winning without showing what they are winning is half the fact,

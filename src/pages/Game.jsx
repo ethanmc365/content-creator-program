@@ -838,6 +838,16 @@ function Results({ result, mode, region, eventId, userId, onPlayAgain, onMenu })
   const great = pct >= 80
   const v = verdict(pct)
 
+  // NO `day_key` HERE, DELIBERATELY - see migration 182.
+  //
+  // Every quiz round is saved, and a quiz is replayable, so these rows are
+  // many-per-day by design. `day_key` carries a UNIQUE (player_id, mode,
+  // day_key) constraint that enforces the DAILY PUZZLES' one-go-a-day rule, and
+  // stamping it here would turn "Play again" into a failed insert.
+  //
+  // The streak still counts these rounds: `my_game_streak` derives the day from
+  // `created_at` when `day_key` is null, so playing any travel game holds the
+  // run up without this table having to pretend a quiz is a daily puzzle.
   useEffect(() => {
     supabase.from('game_scores').insert({
       player_id: userId, mode, region, correct: result.correct, total: result.total,
