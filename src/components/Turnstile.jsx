@@ -12,6 +12,25 @@ import { useT } from '../lib/i18n'
 const MOUNT_TIMEOUT_MS = 20000
 const DRAWN_MIN_HEIGHT_PX = 10
 
+// KEEP THE TOKEN FRESH, BECAUSE A STALE ONE FAILS THE LOGIN, NOT THE CAPTCHA.
+//
+// A Turnstile token is single-use AND it EXPIRES ABOUT FIVE MINUTES after it is
+// issued. Submit a stale one and Cloudflare refuses it, GoTrue turns that into
+//
+//     400 captcha protection: request disallowed (timeout-or-duplicate)
+//
+// which is what Ethan hit on 3 Sep 2026 - and it is an infuriating failure
+// because nothing on screen looks wrong: the widget still shows its green tick,
+// so the form looks ready and the password looks rejected.
+//
+// Five minutes is easy to exceed. Somebody opens the login page and reads their
+// email first; somebody logs out and leaves the tab; somebody is handed a demo
+// account and types the address by hand. `refresh-expired: auto` is supposed to
+// cover this, but it only acts at the moment of expiry and we saw it not save
+// us, so this re-issues on a timer well inside the window instead of relying on
+// Cloudflare noticing. 3 minutes against a ~5 minute life leaves a wide margin.
+const REFRESH_EVERY_MS = 3 * 60 * 1000
+
 // Loads the Cloudflare Turnstile script once and shares the promise.
 let scriptPromise = null
 function loadTurnstile() {
@@ -59,11 +78,22 @@ export default function Turnstile({ onToken }) {
   useEffect(() => {
     let active = true
     let timer = null
+    let refresh = null
 
-    // Cloudflare answered: stand the watchdog down.
+    // Cloudflare answered: stand the watchdog down, and start the clock that
+    // keeps this token from going stale on the page. See REFRESH_EVERY_MS.
     const solved = (token) => {
       if (timer) { clearTimeout(timer); timer = null }
       cb.current(token)
+      if (refresh) clearTimeout(refresh)
+      refresh = setTimeout(() => {
+        if (!active) return
+        // Clearing the token first disables the submit button for the moment it
+        // takes to get a new one, so a stale token can never be submitted even
+        // if somebody presses Log in on exactly the wrong frame.
+        cb.current('')
+        try { window.turnstile.reset(widgetId.current) } catch { /* noop */ }
+      }, REFRESH_EVERY_MS)
     }
 
     const armWatchdog = () => {
@@ -98,6 +128,7 @@ export default function Turnstile({ onToken }) {
     return () => {
       active = false
       if (timer) clearTimeout(timer)
+      if (refresh) clearTimeout(refresh)
       try { if (widgetId.current && window.turnstile) window.turnstile.remove(widgetId.current) } catch { /* noop */ }
       widgetId.current = null
     }

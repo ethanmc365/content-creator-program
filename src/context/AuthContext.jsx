@@ -384,6 +384,16 @@ export function AuthProvider({ children }) {
         // takes the user's other devices with it.
         if (error?.code === 'PGRST116' && attempt >= RETRIES) {
           inFlight.current = null
+          // NEVER SIGN OUT A SESSION THIS LOAD DOES NOT OWN.
+          //
+          // The retry ladder is ~17 seconds long, and somebody can log in again
+          // inside it - which is precisely what a person does when a page looks
+          // stuck. If they have, the session in the browser is no longer the one
+          // this ladder was reading for, and signing it out would throw away a
+          // login that just succeeded. So re-read who is actually signed in and
+          // stand down unless it is still the same user.
+          const { data: { session: now } } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }))
+          if (now?.user?.id && now.user.id !== userId) return
           setProfile(null)
           setProfileLoaded(true)
           await supabase.auth.signOut({ scope: 'local' })
@@ -471,7 +481,21 @@ export function AuthProvider({ children }) {
     // admin UI hides naturally. `impersonating` (a stashed admin session exists)
     // is what surfaces the "exit creator view" pill so the admin can get back.
     isAdmin: realIsAdmin,
-    impersonating,
+    // AN ADMIN IS NEVER "VIEWING AS A CREATOR", BY DEFINITION.
+    //
+    // Ethan: "I noticed one sign saying you're viewing as a creator, but it
+    // shouldn't show that on the admin account, because you're not viewing as
+    // a creator."
+    //
+    // `impersonating` was derived from a localStorage stash matching the logged
+    // in user id, and a stash left behind by an exit that did not finish can
+    // outlive the preview it described. Rather than chase every way that stash
+    // can go stale, this asserts the invariant the feature actually rests on:
+    // the preview account is the sandbox CREATOR (`is_admin = false`, enforced
+    // in the impersonate function, which will only ever mint a session for one
+    // fixed non-admin id). So if the profile in hand is an admin, this is not a
+    // preview - whatever the stash says - and the pill must not appear.
+    impersonating: impersonating && !realIsAdmin,
     enterCreatorPreview,
     exitCreatorPreview,
     isSuspended: profile?.status === 'suspended',
@@ -536,10 +560,42 @@ export function AuthProvider({ children }) {
       return { data: { session: out, user: out.user ?? null }, error: null }
     },
 
+    // LOGGING OUT OF THIS BROWSER LOGS YOU OUT OF THIS BROWSER.
+    //
+    // This was a bare `supabase.auth.signOut()`, and supabase-js DEFAULTS THAT
+    // TO `scope: 'global'` - which does not sign this browser out, it REVOKES
+    // EVERY SESSION ON THE ACCOUNT, everywhere, including sessions that are
+    // being used right now on other devices and in other windows.
+    //
+    // THIS IS THE "IT LOADS, THEN CRASHES BACK TO THE LOGIN PAGE" BUG, and the
+    // auth logs name it exactly. Ethan, 3 Sep 2026, on his own account and on
+    // the demo one: "I'd put in my login details correct. It loads through the
+    // login page and tries to load the worldwide page, but nothing loads, and
+    // then it crashes and goes back to the login."
+    //
+    //     06:53:23  POST /token   200  login   qa-admin   referer trypcreators.vercel.app
+    //     06:53:24  POST /logout?scope=global  204        referer content-creator-program.vercel.app
+    //
+    // A successful login, and ONE SECOND LATER a global logout FROM A DIFFERENT
+    // WINDOW - the app is served on two Vercel domains, so a second tab is a
+    // second origin with its own storage but the SAME account. That logout
+    // revoked the session the first window had just created; every request after
+    // it 401s, and the route guard correctly concludes there is no session and
+    // shows /login. Nothing was wrong with the password, the captcha or the rate
+    // limiter. Five login/logout pairs in nine minutes have this shape.
+    //
+    // ON A SHARED TEAM ACCOUNT THIS IS FATAL AND CONSTANT: the demo login is
+    // meant to be used by several people at once, and any one of them pressing
+    // "Log out" would throw everybody else out mid-session.
+    //
+    // `local` revokes this session and leaves the others alone. The deliberate
+    // "sign out everywhere" is a separate, clearly-named action below - which is
+    // exactly the point: revoking other people's sessions should take a decision,
+    // not a default.
     signOut: () => {
       try { localStorage.removeItem(ADMIN_STASH_KEY) } catch { /* ignore */ }
       setImpersonating(false)
-      return supabase.auth.signOut()
+      return supabase.auth.signOut({ scope: 'local' })
     },
 
     // Sign out on every device: revokes all of this user's refresh tokens
