@@ -1277,6 +1277,18 @@ html[data-reduce-motion] *::after {
     opacity 0.3s ease;
 }
 
+/* THE ACCOUNT MENU GIVES WAY TO THE WALKTHROUGH CARD, ON A PHONE.
+   The menu is eighteen items and runs 668px of an 812px screen; the card is a
+   sheet at the bottom. On a desktop the card can go beside it (lib/tourPlacement);
+   a phone has no beside, so the menu is capped above the sheet instead. It
+   already scrolls, and TourHost brings the step's own item into view - so the
+   shorter menu costs nothing and the instruction is never covered. */
+@media (max-width: 1023.98px) {
+  html.tour-running [data-tour-keepout] {
+    max-height: min(20rem, calc(100dvh - 26rem));
+  }
+}
+
 /* --- the card ----------------------------------------------------------- */
 
 @keyframes tour-card-in {

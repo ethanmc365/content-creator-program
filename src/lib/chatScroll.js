@@ -268,3 +268,68 @@ export function pinToBottom(getEl, shouldPin, onSettled) {
 export function isPinning(el) {
   return !!el && el.dataset.pinning === '1'
 }
+
+/**
+ * KEEP A THREAD AT THE BOTTOM FOR AS LONG AS IT IS OPEN, not just while it is
+ * arriving.
+ *
+ * 3 Sep 2026. `pinToBottom` converges and then stops, which was right while the
+ * only things that grew a thread late were images and fonts. It is not right
+ * any more: the market rooms now render live poll, game and resource cards, and
+ * each of those fetches its own contents and grows from nothing to ~150px
+ * whenever that returns - long after the loop has settled and gone.
+ *
+ * MEASURED, on the worldwide rooms: Announcements opened 104px from the bottom
+ * and Content tips 53px, every time, while General - which has no cards in it -
+ * opened at 1px. That is precisely the "chat doesn't open on the last message"
+ * report, and it is now a regression I introduced by putting the real cards in
+ * the rooms rather than a link to them.
+ *
+ * A chat should stick to the bottom whenever the reader is already there. That
+ * is not a loading concern, it is what a chat IS, so this lives for as long as
+ * the room does.
+ *
+ * THREE SIGNALS, because content grows in three different ways:
+ *   MUTATION  a card renders its options - new nodes, no size change to observe
+ *   RESIZE    the scroller itself changes (keyboard, rotation, toolbar)
+ *   LOAD      an image or iframe decodes - no mutation, no scroller resize
+ *
+ * `shouldPin` is honoured throughout: a reader who has scrolled up to read
+ * history is never yanked back down.
+ *
+ * @param {() => HTMLElement|null} getEl
+ * @param {() => boolean} shouldPin
+ * @returns {() => void} cancel
+ */
+export function stickToBottom(getEl, shouldPin) {
+  const el = getEl()
+  if (!el) return () => {}
+  let last = el.scrollHeight
+
+  const check = () => {
+    const e = getEl()
+    if (!e) return
+    if (e.scrollHeight === last) return
+    last = e.scrollHeight
+    if (shouldPin()) e.scrollTop = e.scrollHeight
+  }
+
+  const mo = new MutationObserver(check)
+  mo.observe(el, { childList: true, subtree: true, characterData: true })
+
+  let ro = null
+  if (typeof ResizeObserver !== 'undefined') {
+    ro = new ResizeObserver(check)
+    ro.observe(el)
+  }
+
+  // Capture, because `load` does not bubble - the same reason pinToBottom uses
+  // it. This catches a photograph or an embed that decodes minutes later.
+  el.addEventListener('load', check, true)
+
+  return () => {
+    mo.disconnect()
+    ro?.disconnect()
+    el.removeEventListener('load', check, true)
+  }
+}

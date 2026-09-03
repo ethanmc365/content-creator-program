@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { pinToBottom, isPinning } from './chatScroll'
+import { pinToBottom, isPinning, stickToBottom } from './chatScroll'
 
 // THE REGRESSION THIS FILE EXISTS FOR (3 Sep 2026).
 //
@@ -153,5 +153,74 @@ describe('pinToBottom: the reveal is always at the bottom', () => {
     vi.advanceTimersByTime(2000)
     clearInterval(iv)
     expect(el.scrollTop).toBe(200)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// STICKING TO THE BOTTOM AFTER THE ARRIVAL LOOP HAS GONE (3 Sep 2026).
+//
+// The rooms render live poll, game and resource cards, and each fetches its own
+// contents and grows from nothing to ~150px whenever that returns - long after
+// `pinToBottom` has converged and stopped. Measured on production data:
+// Announcements opened 104px from the bottom and Content tips 53px, every time,
+// while General - which has no cards - opened at 1px.
+describe('stickToBottom', () => {
+  afterEach(() => { document.body.innerHTML = '' })
+
+  function scroller({ client = 400 } = {}) {
+    const el = document.createElement('div')
+    let sh = 1000
+    Object.defineProperty(el, 'scrollHeight', { get: () => sh, configurable: true })
+    Object.defineProperty(el, 'clientHeight', { get: () => client, configurable: true })
+    let top = sh - client
+    Object.defineProperty(el, 'scrollTop', {
+      get: () => top,
+      set: (v) => { top = Math.max(0, Math.min(v, sh - client)) },
+      configurable: true,
+    })
+    document.body.appendChild(el)
+    return { el, grow: (by) => { sh += by } }
+  }
+
+  const flush = () => new Promise((r) => setTimeout(r, 20))
+
+  it('follows a card that renders its contents after the thread settled', async () => {
+    const { el, grow } = scroller()
+    const cancel = stickToBottom(() => el, () => true)
+    expect(el.scrollHeight - el.scrollTop - el.clientHeight).toBe(0)
+
+    // A poll card fetching its options: new nodes AND a taller thread.
+    grow(150)
+    el.appendChild(document.createElement('div'))
+    await flush()
+
+    expect(el.scrollHeight - el.scrollTop - el.clientHeight).toBe(0)
+    cancel()
+  })
+
+  it('leaves a reader who has scrolled up exactly where they are', async () => {
+    const { el, grow } = scroller()
+    el.scrollTop = 100
+    const cancel = stickToBottom(() => el, () => false)
+    grow(150)
+    el.appendChild(document.createElement('div'))
+    await flush()
+    expect(el.scrollTop).toBe(100)
+    cancel()
+  })
+
+  it('stops watching once cancelled', async () => {
+    const { el, grow } = scroller()
+    const cancel = stickToBottom(() => el, () => true)
+    cancel()
+    const before = el.scrollTop
+    grow(150)
+    el.appendChild(document.createElement('div'))
+    await flush()
+    expect(el.scrollTop).toBe(before)
+  })
+
+  it('is harmless when there is no scroller yet', () => {
+    expect(() => stickToBottom(() => null, () => true)()).not.toThrow()
   })
 })

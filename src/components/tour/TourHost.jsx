@@ -66,6 +66,8 @@ export default function TourHost({ onFinish, network = false }) {
   const spotRef = useRef(null)
   const cardRef = useRef(null)
   const rafRef = useRef(0)
+  // The timer half of the loop above. See the note on `schedule`.
+  const tickRef = useRef(0)
   const travelUntil = useRef(0)
   const advanced = useRef(false)
 
@@ -138,6 +140,20 @@ export default function TourHost({ onFinish, network = false }) {
     if (step.openMenu) {
       const menu = document.querySelector('[data-tour="avatar-menu"]')
       if (menu && menu.getAttribute('aria-expanded') !== 'true') menu.click()
+      // AND SCROLL TO THE THING IT IS TALKING ABOUT. The menu is eighteen items
+      // long and both of the steps that open it point at something past the
+      // halfway mark - "Creator Network" is sixth, "Travel games" twelfth - so
+      // opening it and saying the name still left somebody scrolling a list
+      // looking for a word. The panel is scrolled so the item is in view before
+      // the card appears.
+      const dest = (g?.kind === 'route') ? g.to : null
+      if (dest) {
+        setTimeout(() => {
+          const panel = document.querySelector('[data-tour-keepout]')
+          const item = panel?.querySelector(`a[href="${dest}"]`)
+          item?.scrollIntoView({ block: 'center' })
+        }, 80)
+      }
     }
 
     const t = setTimeout(() => setReady(true), 300)
@@ -270,11 +286,43 @@ export default function TourHost({ onFinish, network = false }) {
   useEffect(() => {
     if (!ready) return undefined
     const anchorName = step?.anchor
+    // A TALL ANCHOR IS SCROLLED TO THE TOP, NOT THE MIDDLE.
+    //
+    // Centring is right for a nav item and wrong for the live challenge card,
+    // which is 578px of a 900px window: centred, it leaves ~160px above and
+    // ~160px below, and the walkthrough card is 305px - so nothing fits above,
+    // below or beside it and the card has to overlap the very thing it is
+    // pointing at. Scrolled to the top, the same anchor leaves the whole lower
+    // half of the window free.
     const el = findAnchor(anchorName)
-    if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    if (el) {
+      const tall = el.getBoundingClientRect().height > window.innerHeight * 0.4
+      el.scrollIntoView({ block: tall ? 'start' : 'center', behavior: 'smooth' })
+    }
+
+    // ARMED TWO WAYS, FOR THE REASON lib/chatScroll ALREADY LEARNED.
+    //
+    // `requestAnimationFrame` does not run in a background tab, in a hidden
+    // pane, or under some automation - and this loop is the ONLY thing that
+    // positions the spotlight and the card. When it does not run, the spotlight
+    // stays at its initial zero size and the card stays at its CSS default,
+    // which is bottom-centre - directly over the thing the step is pointing at.
+    // The walkthrough has always had this hole; the chat scroller was fixed for
+    // it months ago and this was never given the same treatment.
+    //
+    // Each step arms an rAF AND a timer, and whichever arrives first runs,
+    // cancelling the other. Foreground gets frame-accurate tracking; anywhere
+    // rAF is throttled still gets a correctly placed card, just on a timer.
+    const schedule = () => {
+      cancelAnimationFrame(rafRef.current)
+      clearTimeout(tickRef.current)
+      const once = () => { cancelAnimationFrame(rafRef.current); clearTimeout(tickRef.current); tick() }
+      rafRef.current = requestAnimationFrame(once)
+      tickRef.current = setTimeout(once, 32)
+    }
 
     const tick = () => {
-      rafRef.current = requestAnimationFrame(tick)
+      schedule()
       const spot = spotRef.current
       if (!spot) return
 
@@ -295,12 +343,26 @@ export default function TourHost({ onFinish, network = false }) {
       const travelling = Date.now() < travelUntil.current
       spot.dataset.travel = travelling ? 'yes' : 'no'
 
-      if (visible) {
+      // THE LIT AREA IS THE ANCHOR PLUS WHATEVER IT OPENED.
+      //
+      // The spotlight cuts a hole in a scrim, and the hole used to be the
+      // anchor alone. On the two steps that open the account menu that meant
+      // the avatar was lit and the MENU - the thing the card had just told you
+      // to use - sat under the dim, greyed out like the rest of the page. The
+      // same `data-tour-keepout` rectangles that keep the card off it belong
+      // inside the hole for the same reason: they are part of what the step is
+      // about.
+      const lit = union([
+        { top: r.top, left: r.left, width: r.width, height: r.height },
+        ...[...document.querySelectorAll('[data-tour-keepout]')].map((el) => el.getBoundingClientRect()),
+      ])
+
+      if (visible && lit) {
         spot.dataset.on = 'yes'
-        spot.style.top = `${r.top - PAD}px`
-        spot.style.left = `${r.left - PAD}px`
-        spot.style.width = `${r.width + PAD * 2}px`
-        spot.style.height = `${r.height + PAD * 2}px`
+        spot.style.top = `${lit.top - PAD}px`
+        spot.style.left = `${lit.left - PAD}px`
+        spot.style.width = `${lit.right - lit.left + PAD * 2}px`
+        spot.style.height = `${lit.bottom - lit.top + PAD * 2}px`
       } else {
         spot.dataset.on = 'no'
         spot.style.top = '50%'
@@ -333,19 +395,39 @@ export default function TourHost({ onFinish, network = false }) {
       // Without it the card was placed under the avatar, which is exactly where
       // the account menu opens, so the instruction covered the only control
       // that could satisfy it.
-      const keepOuts = [...document.querySelectorAll('[data-tour-keepout]')]
-        .map((el) => el.getBoundingClientRect())
-      const avoid = union([{ top: r.top, left: r.left, width: r.width, height: r.height }, ...keepOuts])
-      if (!avoid) return
-      const { top, left } = placeCard(avoid, { w: vw, h: vh }, card.offsetHeight || 260)
+      // The same rectangle the spotlight just lit: what must stay visible is
+      // exactly what the card must not cover.
+      if (!lit) return
+      const { top, left } = placeCard(lit, { w: vw, h: vh }, card.offsetHeight || 260)
 
       card.style.top = `${top}px`
       card.style.left = `${left}px`
     }
 
-    rafRef.current = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(rafRef.current)
+    schedule()
+    return () => {
+      cancelAnimationFrame(rafRef.current)
+      clearTimeout(tickRef.current)
+    }
   }, [ready, step?.anchor, isPhone])
+
+  // THE DOCUMENT KNOWS THE WALK IS RUNNING.
+  //
+  // On a phone the account menu is 668px of an 812px screen - eighteen items -
+  // and the card is a sheet at the bottom. There is nowhere to put a 272px card
+  // that does not land on it, which is why Ethan still saw "cards blocking the
+  // instructions" on the two steps that open it, on mobile, after the desktop
+  // placement was fixed. Desktop can move the card beside the menu; a phone has
+  // no beside.
+  //
+  // So the menu gives way instead: `html.tour-running` caps it above the sheet
+  // (index.css). It already scrolls, and `scrollMenuToGoal` below puts the item
+  // the step is about at the top of what is left, so the shorter menu costs
+  // nothing.
+  useEffect(() => {
+    document.documentElement.classList.add('tour-running')
+    return () => document.documentElement.classList.remove('tour-running')
+  }, [])
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') close() }

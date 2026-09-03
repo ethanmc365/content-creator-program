@@ -76,7 +76,22 @@ export function placeCard(avoid, viewport, cardH) {
   if (roomRight >= CARD_W) {
     return { top: clampTop(avoid.top), left: clampLeft(avoid.right + GAP), placement: 'right' }
   }
-  return { top: clampTop(avoid.top), left: EDGE, placement: 'left' }
+
+  // NOTHING FITS. This is a genuinely unsolvable rectangle - an anchor taller
+  // and wider than the free space around it - and the honest thing is to say so
+  // rather than pretend. TourHost avoids reaching here by scrolling a tall
+  // anchor to the top of the window instead of centring it, which creates the
+  // room; this is the case where even that is not enough.
+  //
+  // It goes to whichever side has MORE room, because that is the side where the
+  // overlap is smallest, and it clamps into the viewport. On the live challenge
+  // card that is the left, which is also where the least is lost: that card's
+  // buttons are on its right.
+  return {
+    top: clampTop(avoid.top),
+    left: roomRight > roomLeft ? clampLeft(vw - CARD_W - EDGE) : EDGE,
+    placement: roomRight > roomLeft ? 'right' : 'left',
+  }
 }
 
 /** Do these two rectangles overlap at all? Used by the tests, and by nothing else. */

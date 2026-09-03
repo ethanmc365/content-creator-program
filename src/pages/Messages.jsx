@@ -18,7 +18,7 @@ import { useProfileNames } from '../components/network/ChatExtras'
 import { mediaType, saveFile, fileNameFromUrl } from '../lib/media'
 import { isOnline } from '../lib/presence'
 import { ChatSkeleton } from '../components/network/Skeletons'
-import { pinToBottom, isPinning } from '../lib/chatScroll'
+import { pinToBottom, isPinning, stickToBottom } from '../lib/chatScroll'
 import { formatChatTime, formatMessageTime, messageTimeTitle, otherParticipant, cx } from '../lib/utils'
 import { useVisualViewport, useIsMobile } from '../lib/useKeyboardInset'
 import { setChatChromeHidden } from '../lib/chatChrome'
@@ -917,6 +917,14 @@ export default function Messages() {
       () => atBottomRef.current,
       () => setSettled(true),
     )
+  }, [loadingThread, conversationId])
+
+  // AND STAY THERE for as long as the thread is open - a DM grows late too
+  // (avatars, photos, link previews, an attachment that decodes minutes after
+  // it arrives). See stickToBottom.
+  useEffect(() => {
+    if (loadingThread || !conversationId) return undefined
+    return stickToBottom(() => scrollerRef.current, () => atBottomRef.current)
   }, [loadingThread, conversationId])
 
 

@@ -47,6 +47,32 @@ describe('placeCard', () => {
     expect(overlaps(boxOf(p), { top: 60, left: 1180, right: 1420, bottom: 780 })).toBe(false)
   })
 
+
+  // THE LIVE CHALLENGE CARD, AT ITS REAL SIZE. 578px tall and 1088 wide in a
+  // 900px window: nothing fits above, below or beside it, which is the case
+  // Ethan hit as "the card is covering the brief". TourHost now scrolls a tall
+  // anchor to the top of the window to create the room; this asserts what
+  // happens when even that is not enough.
+  it('picks the side with the most room when the anchor fills the window', () => {
+    const avoid = { top: 253, left: 176, right: 1264, bottom: 831 }
+    const p = placeCard(avoid, desktop, 305)
+    // Equal room both sides (150px each) - it takes the left, which on that
+    // card is the side without the buttons.
+    expect(p.placement).toBe('left')
+    expect(p.left).toBe(12)
+    expect(p.top).toBeGreaterThanOrEqual(12)
+    expect(p.top + 305).toBeLessThanOrEqual(desktop.h - 12)
+  })
+
+  it('and once it is scrolled to the top, it fits below with no overlap at all', () => {
+    // The same card after `scrollIntoView({ block: "start" })`: 578px starting
+    // just under the header, which leaves the whole lower band free.
+    const avoid = { top: 64, left: 176, right: 1264, bottom: 500 }
+    const p = placeCard(avoid, desktop, 305)
+    expect(p.placement).toBe('below')
+    expect(overlaps(boxOf(p, 305), avoid)).toBe(false)
+  })
+
   it('stays inside the viewport wherever it ends up', () => {
     for (const avoid of [
       { top: 0, left: 0, right: 40, bottom: 40 },

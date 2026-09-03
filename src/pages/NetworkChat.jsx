@@ -17,7 +17,7 @@ import ChatMedia from '../components/ChatMedia'
 import PhotoLightbox from '../components/PhotoLightbox'
 import { saveFile, fileNameFromUrl } from '../lib/media'
 import { uploadChatImage, uploadChatVideo } from '../lib/chatMedia'
-import { pinToBottom, isPinning } from '../lib/chatScroll'
+import { pinToBottom, isPinning, stickToBottom } from '../lib/chatScroll'
 // The three interactive cards. Lazy is wrong here: a room whose most recent
 // messages include a poll would pop it in after the thread had already settled,
 // which is exactly the growth-after-pin that lib/chatScroll exists to stop.
@@ -656,6 +656,15 @@ export default function NetworkChat() {
   }, [loading, active?.key, community?.id, pin])
 
   useEffect(() => { pin() }, [messages.length, pin])
+
+  // AND STAY THERE. The poll, game and resource cards in a room fetch their own
+  // contents and grow long after the arrival loop has settled - measured at
+  // 104px off the bottom in Announcements and 53px in Content tips, every time,
+  // while General (no cards) opened at 1px. See stickToBottom.
+  useEffect(() => {
+    if (loading) return undefined
+    return stickToBottom(() => scrollerRef.current, () => atBottomRef.current)
+  }, [loading, active?.key, community?.id])
   // Reflow when the keyboard opens: the scroller just got shorter, so the
   // message the user was reading has to stay at the bottom.
   useEffect(() => { pin() }, [kbOpen, vpHeight, pin])
