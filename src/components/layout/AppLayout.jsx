@@ -535,7 +535,11 @@ export default function AppLayout() {
 
             {/* Avatar dropdown */}
             <div className="relative" ref={menuRef}>
-              <button onClick={() => setMenuOpen((o) => !o)} aria-label={tr("Account menu")} data-tour="avatar-menu" className="relative rounded-full">
+              {/* `aria-expanded` is what the walkthrough reads before deciding
+                  whether to press this (see TourHost's `openMenu`) - and it is
+                  what a screen reader needs anyway, which is why it was a
+                  missing attribute rather than a new one. */}
+              <button onClick={() => setMenuOpen((o) => !o)} aria-label={tr("Account menu")} aria-haspopup="menu" aria-expanded={menuOpen} data-tour="avatar-menu" className="relative rounded-full">
                 <Avatar src={profile?.photo_url} name={profile?.name} size="sm" />
                 {(connReqs > 0 || newResources) && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-brand ring-2 ring-white" aria-label={connReqs > 0 ? `${connReqs} connection requests` : 'New resources in the library'} />}
               </button>

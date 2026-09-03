@@ -1185,12 +1185,24 @@ html[data-reduce-motion] *::after {
 
 /* --- the frame round the whole screen ----------------------------------- */
 
-/* HEAVY, AND ON FOR THE WHOLE WALK. The first version was a 3px hairline that
-   read as a rendering artefact rather than a mode. This is a thick inner glow
-   with a soft falloff, so at a glance - from across a room, in a screen share -
-   it is unmistakable that the app is being walked through. */
+/* A GLOW, NOT A BORDER (3 Sep 2026).
+
+   Ethan: "I don't need the hardcore orange border - I want just a real big
+   orange glow, like it actually takes up a few centimetres of the screen on
+   desktop, and a bit relatively smaller on mobile."
+
+   The old frame led with two hard inset rings, 5px and 9px, and they read as
+   exactly what he called them: a border drawn on the app. A border says
+   "something is wrong with this window". A deep, soft bloom bleeding inwards
+   from every edge says "this screen is being walked through" without drawing a
+   line anywhere.
+
+   So the rings are gone and what is left is depth: ~90px of falloff on a phone
+   and ~150px (about four centimetres) on a desktop, in two layers so the
+   near edge is warm and the reach is faint. `clamp` on the viewport width is
+   what makes it scale between the two rather than being two rules that drift. */
 @keyframes tour-glow-breathe {
-  0%, 100% { opacity: 0.9; }
+  0%, 100% { opacity: 0.86; }
   50%      { opacity: 1; }
 }
 
@@ -1198,11 +1210,11 @@ html[data-reduce-motion] *::after {
   position: fixed;
   inset: 0;
   pointer-events: none;
+  --tour-reach: clamp(90px, 11vw, 150px);
   box-shadow:
-    inset 0 0 0 5px rgba(217, 68, 7, 0.95),
-    inset 0 0 0 9px rgba(245, 133, 63, 0.35),
-    inset 0 0 60px 6px rgba(217, 68, 7, 0.4),
-    inset 0 0 130px 10px rgba(217, 68, 7, 0.16);
+    inset 0 0 calc(var(--tour-reach) * 0.45) 0 rgba(217, 68, 7, 0.55),
+    inset 0 0 var(--tour-reach) calc(var(--tour-reach) * 0.12) rgba(217, 68, 7, 0.30),
+    inset 0 0 calc(var(--tour-reach) * 2) calc(var(--tour-reach) * 0.2) rgba(245, 133, 63, 0.14);
   animation: tour-glow-breathe 3.6s ease-in-out infinite;
 }
 
@@ -1212,24 +1224,42 @@ html[data-reduce-motion] *::after {
    outside this rectangle, so the "hole" is simply the element's own box. Four
    divs forming a frame is the usual approach and it cannot travel between steps
    as a single shape. */
+/* THE SCRIM IS ALMOST GONE (3 Sep 2026).
+
+   Ethan: "the screen behind is still too dim. The pop-up is bright, but the
+   screen behind is still super dim - I think it might not need to dim the
+   screen at all."
+
+   62% black over the app was not a spotlight, it was a blackout with a hole in
+   it, and it made the thing the card was TALKING about the only readable thing
+   on screen - which is wrong for a walkthrough of a page somebody is supposed
+   to be learning the shape of. He is nearly right that it needs none: what the
+   dim is actually for is separating the highlighted control from its
+   neighbours, and 22% does that while leaving the page legible.
+
+   The ring around the hole does the rest of the work now, and it is a bloom
+   rather than a 2px outline for the same reason the frame is. */
 .tour-spot {
   position: fixed;
   pointer-events: none;
-  border-radius: 14px;
+  border-radius: 16px;
   box-shadow:
-    0 0 0 9999px rgba(17, 17, 17, 0.62),
-    0 0 0 2px rgba(217, 68, 7, 0.95),
-    0 0 26px 3px rgba(217, 68, 7, 0.6);
+    0 0 0 9999px rgba(17, 17, 17, 0.22),
+    0 0 0 3px rgba(255, 255, 255, 0.9),
+    0 0 0 7px rgba(217, 68, 7, 0.75),
+    0 0 34px 10px rgba(217, 68, 7, 0.45);
   opacity: 0;
   transition: opacity 0.3s ease;
 }
 
 .tour-spot--ready { opacity: 1; }
 
-/* A step pointing at nothing, or at something scrolled off screen: no hole,
-   just the dim. */
+/* A step pointing at nothing, or at something scrolled off screen: no hole and
+   NO DIM EITHER. There is nothing being singled out, so darkening the page
+   would be dimming it for its own sake - and this is the case Ethan hit on the
+   hub, where the card asks you to scroll a page it had greyed out. */
 .tour-spot[data-on='no'] {
-  box-shadow: 0 0 0 9999px rgba(17, 17, 17, 0.62);
+  box-shadow: none;
   border-radius: 9999px;
 }
 
@@ -1279,16 +1309,30 @@ html[data-reduce-motion] *::after {
 /* An anchorless step - or one whose anchor is off screen - sits in the middle,
    because there is nothing on the page for it to be beside. Driven by a data
    attribute so the rAF loop can flip it without a React render. */
+/* A STEP WITH NOTHING TO POINT AT SITS AT THE FOOT OF THE SCREEN, NOT ACROSS
+   THE MIDDLE OF IT (3 Sep 2026).
+
+   Ethan, on the hub step: "this is the hub, scroll down and have a look - yet
+   the card is covering most of the hub." And on the brief: "it says read
+   through the brief, but everything's covering it."
+
+   Both steps ask the creator to READ THE PAGE, and both put a 372px card dead
+   centre over the thing they were told to read. Centring is right for a card
+   that IS the content - the welcome, the sign-off - and wrong for every card
+   that is talking about something behind it. Since the only steps with no
+   anchor are the reading ones, the honest default is out of the way: bottom
+   centre, above the mobile tab bar, with the whole page visible above it. */
 .tour-card--float[data-centre='yes'] {
-  top: 50%;
+  top: auto;
+  bottom: 2rem;
   left: 50%;
-  transform: translate(-50%, -50%);
+  transform: translateX(-50%);
   animation: tour-card-centre-in 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes tour-card-centre-in {
-  from { opacity: 0; transform: translate(-50%, calc(-50% + 12px)) scale(0.97); }
-  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  from { opacity: 0; transform: translate(-50%, 12px) scale(0.97); }
+  to   { opacity: 1; transform: translate(-50%, 0) scale(1); }
 }
 
 /* ON A PHONE IT IS A SHEET, ALWAYS.
@@ -1376,7 +1420,7 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   .tour-card--sheet,
   .tour-do,
   .tour-hit { animation: none; }
-  .tour-card--float[data-centre='yes'] { animation: none; transform: translate(-50%, -50%); }
+  .tour-card--float[data-centre='yes'] { animation: none; transform: translateX(-50%); }
   .tour-do .animate-pulse { animation: none; }
 }
 

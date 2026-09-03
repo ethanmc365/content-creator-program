@@ -109,21 +109,18 @@ export async function promptInstall() {
   }
 }
 
-// Whether this device has been let past the gate, and when. Per device, because
-// the gate is about this device.
-const KEY = 'tryp_install_gate_skipped'
-
-export function skippedInstall() {
-  try { return !!localStorage.getItem(KEY) } catch { return false }
-}
-
-export function skipInstall() {
-  try { localStorage.setItem(KEY, String(Date.now())) } catch { /* private mode */ }
-}
-
-export function clearInstallSkip() {
-  try { localStorage.removeItem(KEY) } catch { /* private mode */ }
-}
+// THE "THEY SKIPPED IT" FLAG IS GONE (3 Sep 2026).
+//
+// `skippedInstall` / `skipInstall` / `clearInstallSkip` stored a per-device
+// note that somebody had pressed "Continue in the browser for now", and
+// `shouldShowInstallGate` lifted the gate for good once it was set. That is
+// what made the gate an ask.
+//
+// Ethan asked for a wall: "they shouldn't be able to enter the app unless they
+// follow the steps to add it to their home screen." A wall that remembers being
+// walked around is a door, so there is nothing left to remember. The gate now
+// asks one question - is this phone running the installed app - and that
+// question answers itself correctly every time without any stored state.
 
 /** The per-platform steps, written to be followed while looking at a phone. */
 export function installSteps() {

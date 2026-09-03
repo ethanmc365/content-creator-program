@@ -3,7 +3,7 @@ import Icon from './Icon'
 import { Spinner } from './ui'
 import {
   browserName, canPromptInstall, installSteps, isIOS, isInAppBrowser, isMobileDevice,
-  isStandalone, onInstallPromptChange, promptInstall, skipInstall, skippedInstall,
+  isStandalone, onInstallPromptChange, promptInstall,
 } from '../lib/install'
 import { useT } from '../lib/i18n'
 
@@ -33,8 +33,9 @@ export default function InstallGate({ onSkip }) {
     const outcome = await promptInstall()
     setBusy(false)
     if (outcome === 'accepted') {
-      // The page keeps running in the tab; the creator opens the icon next.
-      skipInstall()
+      // The page keeps running in the tab and the creator opens the icon next.
+      // Nothing is recorded as "skipped" - the gate lifts when the app is
+      // actually running standalone, which is the fact it is about.
       onSkip?.()
     }
   }
@@ -97,20 +98,46 @@ export default function InstallGate({ onSkip }) {
           )}
         </div>
 
-        {/* THE ESCAPE HATCH, AND IT IS NOT HIDDEN.
-            A hard block locks out anybody in an in-app browser, anybody whose
-            phone will not install it, and anybody who deletes the icon later -
-            all of whom already have an approved account. The ask is strong; the
-            wall is not there. */}
-        <button
-          onClick={() => { skipInstall(); onSkip?.() }}
-          className="mx-auto mt-8 text-sm font-medium text-smoke underline-offset-4 transition-colors hover:text-brand hover:underline"
-        >
-          {tr("Continue in the browser for now")}
-        </button>
-        <p className="mt-2 text-center text-xs text-smoke">
-          {tr("You can add it later from Settings.")}
-        </p>
+        {/* IT IS A WALL NOW, AND THE ONLY DOOR IS THE ONE THAT ACTUALLY LEADS
+            SOMEWHERE (3 Sep 2026).
+
+            Ethan: "they should only be able to use it on their phone as an app
+            on their home screen, because that's the only way we can have
+            notifications and that's when they get the proper onboarding. So
+            they shouldn't be able to enter the app unless they follow the steps
+            to add it to their home screen."
+
+            This used to carry "Continue in the browser for now", which was the
+            right call while the gate was an ask and is the wrong one now: a
+            skip link next to a wall is just a slower way through it, and the
+            reason for the wall - push notifications do not exist in an iOS
+            browser tab, at all, ever - does not stop applying because somebody
+            pressed skip. A creator who skips is a creator who never hears that
+            a challenge went live.
+
+            WHAT IS NOT A WALL is the in-app browser. Instagram's and TikTok's
+            webviews CANNOT add anything to a home screen - there is no menu
+            item for it - so blocking there with no way forward would strand
+            exactly the people arriving from a link in a bio. They get the one
+            instruction that does work: open it in the real browser. That is a
+            door, not a skip.
+
+            There is deliberately no "I'll do it later". The app re-checks
+            `isStandalone()` on every load, so the way past this screen is to
+            do it. */}
+        <div className="mt-8 rounded-card border border-gray-200 bg-white/70 px-4 py-3.5 text-center">
+          <p className="text-xs leading-relaxed text-smoke">
+            {ios
+              ? tr("Once it is on your home screen, open it from there and sign in again. Notifications cannot reach a browser tab on iPhone.")
+              : tr("Once it is installed, open it from your home screen. That is where notifications arrive.")}
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="btn-secondary mt-3 !py-2 text-xs"
+          >
+            {tr("I have added it")}
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -127,10 +154,20 @@ function ShareGlyph() {
   )
 }
 
-/** Should this device be shown the gate at all? */
+/**
+ * Should this device be shown the gate at all?
+ *
+ * ONE CONDITION NOW, AND IT IS THE ONE THAT MATTERS: is this a phone that is
+ * not running the installed app? A stored "they skipped it" used to lift the
+ * gate for good, which made it an ask. Ethan asked for a wall, and a wall that
+ * remembers being walked around is a door.
+ *
+ * DESKTOP IS UNTOUCHED. Ethan: "for desktop, obviously it can always be on a
+ * website, that works best there." There is no home screen to add it to and
+ * push works in a desktop browser, so there is nothing to gate.
+ */
 export function shouldShowInstallGate() {
   if (isStandalone()) return false
   if (!isMobileDevice()) return false
-  if (skippedInstall()) return false
   return true
 }

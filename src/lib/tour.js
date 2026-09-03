@@ -36,7 +36,7 @@ export const TOUR_VERSION = 3
 // parts read as a walk with a shape, and a shape is what stops somebody
 // quitting a third of the way in.
 export const TOUR_PARTS = [
-  { key: 'start', label: 'Getting your bearings' },
+  { key: 'start', label: 'Around the app' },
   { key: 'work', label: 'The work' },
   { key: 'people', label: 'Your people' },
   { key: 'world', label: 'The wider network' },
@@ -152,7 +152,8 @@ export const TOUR_STEPS = [
     title: 'Add your bank details before you win',
     body: 'Prizes, vouchers and the invoices behind them live here. Filling this in now saves a week of chasing later.',
     do: 'Open your rewards',
-    anchor: null,
+    anchor: 'avatar-menu',
+    openMenu: true,
     at: '/challenges',
     goal: { kind: 'route', to: '/rewards' },
     on: ALL,
@@ -175,19 +176,29 @@ export const TOUR_STEPS = [
     part: 'people',
     title: 'Connect with one person',
     body: 'Pick anyone. Connections are how introductions happen, how meet-ups get arranged, and how you start appearing in other people’s suggestions.',
-    do: 'Press Connect on any creator',
-    anchor: 'creator-card',
+    do: 'Press Connect on any creator you like',
+    // NOBODY IS SINGLED OUT (3 Sep 2026). Ethan: "it's only highlighting one
+    // person... if they don't wanna connect with them they should be able to
+    // connect with someone else - or maybe just highlight everyone and you can
+    // connect with anyone you want."
+    // It pointed at `creator-card`, which is not a `data-tour` anywhere in the
+    // app, so the anchor resolved to nothing and the step was skipped outright
+    // on a strict reading and drew a card over the middle of the grid on a
+    // loose one. Pointing at nobody is the correct instruction here: the goal
+    // is a connection request, from whoever they like. With no anchor the card
+    // now sits at the foot of the screen (see .tour-card--float in index.css)
+    // so the whole directory is visible while they choose.
+    anchor: null,
     at: '/creators',
     goal: { kind: 'connect' },
     on: ALL,
-    skipIfMissing: true,
   },
   {
     key: 'rooms',
     part: 'people',
-    title: 'Where the programme actually talks',
+    title: 'How to talk to other creators',
     body: 'Ask anything, post what you are working on, share a rate you got quoted. The team is in here too, and answers.',
-    do: 'Tap the rooms',
+    do: 'Open Rooms',
     anchor: 'nav-chat',
     goal: { kind: 'route', to: '/chat' },
     goalNet: { kind: 'route', to: '/rooms' },
@@ -206,42 +217,24 @@ export const TOUR_STEPS = [
   {
     key: 'collab',
     part: 'people',
-    title: 'Post a trip, find company',
-    body: 'Put your next trip on the map and it tells you who else will be there. Half the collaborations in the programme started as an overlap nobody would have spotted.',
-    do: 'Open the collaboration board',
-    anchor: null,
+    title: 'Say where you are going next',
+    body: 'Put your next trip on the map and it shows you which other creators will be there at the same time. Overlaps nobody would have spotted are where most collaborations start.',
+    do: 'Open the collab board from your profile menu',
+    anchor: 'avatar-menu',
+    openMenu: true,
     goal: { kind: 'route', to: '/collab' },
-    on: NET,
-  },
-  {
-    key: 'board',
-    part: 'people',
-    title: 'Somebody has already answered it',
-    body: 'Gear, rates, visas, which airline actually pays out. Ask a question, or read what has been asked.',
-    do: 'Open the question board',
-    anchor: null,
-    goal: { kind: 'route', to: '/board' },
     on: NET,
   },
 
   // ------------------------------------------------------ the wider network ---
   {
-    key: 'worldwide',
-    part: 'world',
-    title: 'Six markets, one network',
-    body: 'The people, the map and the games are shared across every market. The briefs and the leaderboards are local to yours.',
-    do: 'Tap Worldwide',
-    anchor: 'nav-worldwide',
-    goal: { kind: 'route', to: '/global' },
-    on: NET,
-  },
-  {
     key: 'flights',
     part: 'world',
-    title: 'Log a flight, get a boarding pass',
+    title: 'Log your flights and watch them add up',
     body: 'Two airport codes and a date. It works out the distance, the aircraft, the time zones you crossed and who else has flown that route.',
     do: 'Open the flight log',
-    anchor: null,
+    anchor: 'avatar-menu',
+    openMenu: true,
     goal: { kind: 'route', to: '/flights' },
     on: NET,
   },
@@ -262,7 +255,8 @@ export const TOUR_STEPS = [
     title: 'Three puzzles, every day',
     body: 'Guess the country, fly the flight path, take the quiz. Keep a streak going and you climb the leaderboard.',
     do: 'Open the games',
-    anchor: null,
+    anchor: 'avatar-menu',
+    openMenu: true,
     goal: { kind: 'route', to: '/game' },
     on: NET,
   },
@@ -272,7 +266,8 @@ export const TOUR_STEPS = [
     title: 'There is a route through all this',
     body: 'One route, flown in order. Each stop asks for a few things at once - views, videos, creators you referred - and shows exactly which of them you are still short on.',
     do: 'Open your milestones',
-    anchor: null,
+    anchor: 'avatar-menu',
+    openMenu: true,
     goal: { kind: 'route', to: '/milestones' },
     on: NET,
   },
@@ -297,6 +292,7 @@ export const TOUR_STEPS = [
     do: 'Open your settings',
     anchor: 'avatar-menu',
     goal: { kind: 'route', to: '/settings' },
+    openMenu: true,
     on: ALL,
   },
   // THE ONE HARD GATE.
