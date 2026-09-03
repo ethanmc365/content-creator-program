@@ -81,7 +81,7 @@ export default function AdminResults() {
 
   const loadBonuses = useCallback(async () => {
     const [{ data: rules }, { data: given }, { data: claimed }, { data: gs }, { data: gms }] = await Promise.all([
-      supabase.from('point_rules').select('id, label, points, prompt')
+      supabase.from('point_rules').select('id, label, points, prompt, min_views')
         .eq('challenge_id', id).eq('kind', 'bonus').eq('is_active', true).order('position'),
       supabase.from('point_awards').select('submission_id, rule_id')
         .eq('challenge_id', id).eq('is_auto', false),
@@ -526,22 +526,38 @@ export default function AdminResults() {
                 <div className="flex w-full flex-wrap gap-1.5 pl-[52px] sm:w-auto sm:pl-0">
                   {claimRules.map((r) => {
                     const claimed = claims.some((c) => c.submission_id === s.id && c.rule_id === r.id)
+                    // A GATED BONUS THAT HAS NOT PAID YET IS NOT THE SAME AS ONE
+                    // THAT HAS (migration 181). This is the page an admin reads
+                    // to answer "were the bonus points applied correctly", and a
+                    // claim waiting on a view count drawn in the same green as a
+                    // paid one answers that question wrongly - the leaderboard
+                    // would not match what this screen appears to say.
+                    const waiting = claimed && r.min_views > 0 && (s.logged_views ?? 0) < r.min_views
                     return (
                       <button
                         key={r.id}
                         type="button"
                         onClick={() => toggleClaim(s, r, claimed)}
                         aria-pressed={claimed}
-                        title={claimed ? `${r.prompt} - the creator said yes. Press to withdraw it.` : `${r.prompt} - not claimed`}
+                        title={
+                          waiting
+                            ? `${r.prompt} - claimed, but this entry is on ${formatViews(s.logged_views ?? 0)} and the bonus pays at ${Number(r.min_views).toLocaleString()}. It lands by itself. Press to withdraw the claim.`
+                            : claimed
+                              ? `${r.prompt} - the creator said yes. Press to withdraw it.`
+                              : `${r.prompt} - not claimed`
+                        }
                         className={cx(
                           'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-all duration-200',
-                          claimed
-                            ? 'border-green-200 bg-green-50 text-green-700 hover:border-red-300 hover:text-red-600'
-                            : 'border-dashed border-gray-200 text-gray-400',
+                          waiting
+                            ? 'border-amber-200 bg-amber-50 text-amber-700 hover:border-red-300 hover:text-red-600'
+                            : claimed
+                              ? 'border-green-200 bg-green-50 text-green-700 hover:border-red-300 hover:text-red-600'
+                              : 'border-dashed border-gray-200 text-gray-400',
                         )}
                       >
-                        <Icon name={claimed ? 'check' : 'close'} className="h-3 w-3" />
+                        <Icon name={waiting ? 'clock' : claimed ? 'check' : 'close'} className="h-3 w-3" />
                         +{r.points} · {r.label}
+                        {waiting && ` · at ${Number(r.min_views).toLocaleString()}`}
                       </button>
                     )
                   })}

@@ -566,6 +566,14 @@ export default function AdminAnalytics() {
     <div className="page">
       <PageHeader back="/admin" title="Analytics" subtitle="The programme's pulse: growth, output, reach and spend." />
       {tabBar}
+      {/* THE OVERVIEW SHOWS FOUR MONEY FIGURES AND HAD NO WAY TO CHANGE THE
+          CURRENCY (3 Sep 2026). Cash prizes paid, voucher value, cash CPM and
+          total CPM all read `currency` and convert correctly - the control was
+          simply only rendered on the Per creator tab, so the whole thing was
+          reachable only by typing `?ccy=GBP` into the address bar. The brief
+          asked for "EUR default with GBP toggle and conversion"; the conversion
+          was done and the toggle was one tab short. */}
+      {currencyToggle}
 
       {/* ---- Headline numbers ---- */}
       <div className="mb-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
@@ -855,10 +863,23 @@ export default function AdminAnalytics() {
                 <span className="block truncate text-sm font-semibold">{c.fullTitle}</span>
                 <span className="text-xs capitalize text-smoke">{c.status}</span>
               </span>
-              <span className="text-right text-sm tabular-nums sm:block"><span className="text-xs text-smoke sm:hidden">Creators </span>{c.creators}</span>
+              {/* ON A PHONE THIS WAS ONE NUMBER OUT OF FOUR. Entries, views and
+                  spend were all `hidden sm:block`, so the mobile row said a
+                  challenge existed and how many creators were in it - and the
+                  three figures somebody opens an analytics page FOR were only
+                  on a desktop. They fold into a labelled line under the title
+                  instead, which fits and reads. */}
+              <span className="text-right text-sm tabular-nums sm:block">
+                <span className="text-xs text-smoke sm:hidden">Creators </span>{c.creators}
+              </span>
               <span className="hidden text-right text-sm tabular-nums sm:block">{c.submissions}</span>
               <span className="hidden text-right text-sm tabular-nums sm:block">{formatViews(c.totalViews)}</span>
               <span className="hidden text-right text-sm font-medium tabular-nums sm:block">{formatMoney(c.prizesPaid, currency)}</span>
+              <span className="col-span-2 -mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-smoke sm:hidden">
+                <span>{c.submissions} {c.submissions === 1 ? 'entry' : 'entries'}</span>
+                <span>{formatViews(c.totalViews)} views</span>
+                <span className="font-medium text-ink">{formatMoney(c.prizesPaid, currency)} paid</span>
+              </span>
             </button>
           ))}
           {derived.perChallenge.length === 0 && <p className="px-5 py-10 text-center text-sm text-smoke">No challenges yet.</p>}
