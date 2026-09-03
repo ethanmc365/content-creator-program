@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase'
 import { Skeleton, Spinner, Select } from '../../components/ui'
 import Icon from '../../components/Icon'
 import PaymentDetailsFields from '../../components/PaymentDetails'
-import { confirm, notice } from '../../lib/confirm'
+import { notice } from '../../lib/confirm'
 import { formatMoney, isoToDateInput } from '../../lib/utils'
 import {
   DEFAULT_BILL_TO,
@@ -18,7 +18,7 @@ import {
   parseEmails,
   badEmails,
 } from '../../lib/invoice'
-import { buildInvoicePdf, downloadInvoicePdf, invoiceFilename, pdfToBase64 } from '../../lib/invoicePdf'
+import { downloadInvoicePdf, invoiceFilename } from '../../lib/invoicePdf'
 // The on-screen invoice. Shared with the Testing Centre's invoice lab, so the
 // demo and the real composer can never draw two different invoices.
 import InvoicePreview from '../../components/InvoicePreview'
@@ -354,28 +354,21 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
     return out
   }
 
-  async function send() {
-    const problems = validate({ needRecipient: true })
-    if (problems.length) return notice(`Almost there:\n\n${problems.join('\n')}`)
-    if (!await confirm(
-      `Send invoice ${invoiceRef(number)} for ${invoiceMoney(invoiceAmount, currency)} to ${parseEmails(to).join(', ')}?` +
-      (cc.trim() ? `\n\nYou'll be CC'd at ${cc.trim()} for your records.` : ''),
-      { confirmLabel: 'Send invoice' },
-    )) return
-    setSending(true)
-    try {
-      const bytes = await buildInvoicePdf(inv)
-      await callSendInvoice('resend', pdfToBase64(bytes))
-      localStorage.setItem(LAST_RECIPIENT_KEY, to.trim())
-      notice(`Invoice ${invoiceRef(number)} is on its way to ${parseEmails(to).join(', ')}.\n\n${inv.creatorName} has been told to expect the payment within 7 days.`)
-      onSent?.()
-      closeComposer()
-    } catch (e) {
-      notice(e.message)
-    } finally {
-      setSending(false)
-    }
-  }
+  // THE PLATFORM DOES NOT SEND THE INVOICE ANY MORE (3 Sep 2026).
+  //
+  // Ethan: "the auto 'send to email' isn't gonna be there any more. Pretty much
+  // just gonna download it and click compose in Gmail. It should automatically
+  // create the message and download the file for you to then send."
+  //
+  // `send()` lived here and called `send-invoice` with the PDF as base64, which
+  // mailed it through Resend. That is exactly the outbound path that is paused
+  // until the DNS records for mail.tryp.com exist - and an invoice is the worst
+  // possible thing to discover was silently undeliverable, because the creator
+  // is waiting on money and nobody finds out until they ask.
+  //
+  // So there is one path now: `composeInGmail` below. The edge function is still
+  // called, with action 'gmail', but only to RECORD the send and notify the
+  // creator in-app - it attaches nothing and mails nothing.
 
   // Open a prefilled Gmail compose (the PDF downloads alongside; Gmail can't
   // attach files from a link, so the admin drags it in and sends). The tab is
@@ -609,15 +602,26 @@ export default function InvoicesPanel({ prefill, onClose, onSent }) {
                 </div>
               </div>
             ) : (
+              /* ONE WAY OUT, AND IT SAYS WHAT IT DOES.
+                 There were three buttons - Download PDF, "Send from platform",
+                 "Compose in Gmail" - and the middle one was the one that quietly
+                 did not work while mail.tryp.com has no DNS. Two of the three
+                 are now one press, because downloading the file and opening the
+                 message are not two decisions: you never want one without the
+                 other. "Just download the PDF" stays as the quiet option for the
+                 times you only want the file. */
               <div className="flex flex-wrap items-center justify-end gap-3">
                 <button type="button" className="btn-ghost" onClick={downloadPdf} disabled={downloading}>
-                  {downloading ? <Spinner /> : 'Download PDF'}
+                  {downloading ? <Spinner /> : 'Just download the PDF'}
                 </button>
-                <button type="button" className="btn-secondary" onClick={send} disabled={sending}>
-                  {sending && !gmailPending ? <Spinner /> : 'Send from platform'}
-                </button>
-                <button type="button" className="btn-primary" onClick={composeInGmail} disabled={downloading || sending}>
-                  Compose in Gmail
+                <button
+                  type="button"
+                  className="btn-primary inline-flex items-center gap-2"
+                  onClick={composeInGmail}
+                  disabled={downloading || sending}
+                >
+                  <Icon name="envelope" className="h-4 w-4" />
+                  {downloading ? <Spinner /> : 'Download & compose in Gmail'}
                 </button>
               </div>
             )}

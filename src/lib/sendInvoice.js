@@ -38,12 +38,21 @@ export function invoiceFromRow(row) {
 }
 
 /**
- * Email an approved invoice and record it.
+ * Record that an approved invoice has gone out - and, on the retired 'resend'
+ * channel, send it.
  *
- * `channel` is 'resend' (the platform sends the PDF) or 'gmail' (the admin
- * sends it themselves and this only records the fact).
+ * `channel` is 'gmail' (the admin sent it themselves; this only records the
+ * fact and notifies the creator) or 'resend' (the platform mails the PDF).
+ *
+ * IT DEFAULTS TO 'gmail' NOW, AND NOTHING IN THE CLIENT PASSES 'resend' (3 Sep
+ * 2026). All outbound mail is paused until mail.tryp.com has its DNS records -
+ * see lib/compose - so a caller that forgot to say which channel it wanted must
+ * get the one that cannot silently fail to deliver an invoice somebody is
+ * waiting on. The 'resend' branch is left in place, unreferenced, because the
+ * edge function still understands it and this becomes a one-word change when
+ * the domain is verified.
  */
-export async function sendInvoiceRow(row, { to, cc, channel = 'resend' } = {}) {
+export async function sendInvoiceRow(row, { to, cc, channel = 'gmail' } = {}) {
   const inv = invoiceFromRow(row)
   const { data: { session } } = await supabase.auth.getSession()
 

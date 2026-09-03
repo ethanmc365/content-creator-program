@@ -151,7 +151,7 @@ function AddressRows({ label, values, onChange, placeholder }) {
   )
 }
 
-export function InvoiceModal({ inv, open, onClose, onDecide, onSend, onPaid, onDownload, onSubmit, onEdit, onReopen, busy }) {
+export function InvoiceModal({ inv, open, onClose, onDecide, onRecordSent, onPaid, onDownload, onSubmit, onEdit, onReopen, onDelete, busy }) {
   const [mode, setMode] = useState(null)   // null | 'send'
   const [to, setTo] = useState([''])
   const [cc, setCc] = useState([''])
@@ -169,19 +169,32 @@ export function InvoiceModal({ inv, open, onClose, onDecide, onSend, onPaid, onD
   const toJoined = parseEmails(to.join(',')).join(', ')
   const ccJoined = parseEmails(cc.join(',')).join(', ')
 
+  // GMAIL IS THE ONLY WAY OUT NOW (3 Sep 2026).
+  //
+  // Ethan: "the auto 'send to email' isn't gonna be there any more. Pretty much
+  // just gonna download it and click compose in Gmail. It should automatically
+  // create the message and download the file for you to then send."
+  //
+  // `startSend` used to hand the PDF to the `send-invoice` function, which
+  // mailed it through Resend. That path is paused until mail.tryp.com has its
+  // DNS records, and an invoice is the worst thing to discover was silently
+  // undeliverable - the creator is waiting on money and nobody finds out until
+  // they ask. What was the ESCAPE HATCH below is now the road.
+  //
+  // RECORDING IT IS STILL A SEPARATE PRESS. Opening a compose window is not
+  // evidence anybody sent anything, and this particular row moves money: the
+  // stage change is what tells the creator to expect payment and what settles
+  // the reward behind it. Nobody should be told they are being paid because a
+  // tab opened.
   function startSend() {
     if (mode !== 'send') return setMode('send')
+    composeInGmail()
+  }
+
+  function composeInGmail() {
     const bad = [...badEmails(toJoined), ...badEmails(ccJoined)]
     if (parseEmails(toJoined).length === 0) return notice('Enter at least one address to send it to.')
     if (bad.length) return notice(`These addresses don't look right: ${bad.join(', ')}.`)
-    onSend(inv, { to: toJoined, cc: ccJoined })
-  }
-
-  // The escape hatch. If the platform's own send fails - a Resend outage, a
-  // domain that is not verified yet - an admin can still get the invoice out of
-  // the building from their own mailbox, and record that they did.
-  function composeInGmail() {
-    if (parseEmails(toJoined).length === 0) return notice('Enter at least one address first.')
     const win = window.open('about:blank', '_blank')
     ;(async () => {
       await onDownload(inv)
@@ -202,7 +215,7 @@ export function InvoiceModal({ inv, open, onClose, onDecide, onSend, onPaid, onD
       if (win && !win.closed) win.location.replace(url)
       else window.open(url, '_blank', 'noopener')
       localStorage.setItem(LAST_RECIPIENT_KEY, toJoined)
-      notice('Gmail is open with the invoice downloaded. Attach it, send it, then press "Record as sent" here.')
+      notice('The PDF has downloaded and Gmail is open with the message written. Attach the PDF, send it, then press "Record as sent" here.')
     })()
   }
 
@@ -313,14 +326,22 @@ export function InvoiceModal({ inv, open, onClose, onDecide, onSend, onPaid, onD
               {mode === 'send' && (
                 <>
                   <button type="button" onClick={() => setMode(null)} className="btn-ghost !py-2 !text-sm">Back</button>
-                  <button type="button" onClick={composeInGmail} className="btn-secondary !py-2 !text-sm">
-                    Compose in Gmail
+                  {/* The second half of the hand-off: press this once the
+                      message has actually left Gmail. It is what moves the
+                      stage, tells the creator to expect payment and settles the
+                      reward - none of which should happen because a tab
+                      opened. */}
+                  <button type="button" onClick={() => onRecordSent(inv, { to: toJoined, cc: ccJoined })}
+                    disabled={busy === inv.id}
+                    className="btn-secondary !py-2 !text-sm disabled:opacity-40">
+                    {busy === inv.id ? <Spinner /> : 'Record as sent'}
                   </button>
                 </>
               )}
               <button type="button" onClick={startSend} disabled={busy === inv.id}
-                className="btn-primary !py-2 !text-sm disabled:opacity-40">
-                {busy === inv.id ? <Spinner /> : mode === 'send' ? 'Send it now' : 'Send it'}
+                className="btn-primary inline-flex items-center gap-1.5 !py-2 !text-sm disabled:opacity-40">
+                <Icon name="envelope" className="h-3.5 w-3.5" />
+                {mode === 'send' ? 'Download & compose in Gmail' : 'Send it'}
               </button>
             </>
           )}
@@ -329,6 +350,20 @@ export function InvoiceModal({ inv, open, onClose, onDecide, onSend, onPaid, onD
             <button type="button" onClick={() => onPaid(inv)} disabled={busy === inv.id}
               className="btn-secondary !py-2 !text-sm disabled:opacity-40">
               Mark paid
+            </button>
+          )}
+
+          {/* DELETING ONE, WHICH THERE WAS SIMPLY NO WAY TO DO.
+              Ethan: "I created an example invoice and there seems to be no way
+              to delete it. I sent it back, but there still seems to be no way."
+              Every other control on this row moves the invoice FORWARD; sending
+              it back is the closest thing to undo and it removes nothing.
+              Last in the row, quiet, and refused outright by migration 183 on a
+              paid invoice - that document is the receipt that money left. */}
+          {onDelete && !inv.paid_at && (
+            <button type="button" onClick={() => onDelete(inv)} disabled={busy === inv.id}
+              className="btn-ghost !py-2 !text-sm text-red-600 hover:bg-red-50 disabled:opacity-40">
+              Delete
             </button>
           )}
         </div>
@@ -391,18 +426,43 @@ export function useInvoiceViewer({ onChanged, onEdit } = {}) {
     if (await call('mark_invoice_paid', { p_id: inv.id, p_paid: true }, inv)) playPaid()
   }
 
-  async function onSend(inv, { to, cc }) {
+  // RECORDING A SEND THAT HAPPENED IN GMAIL. The channel is 'gmail', which
+  // means the function only writes the record and notifies the creator - it
+  // attaches nothing and mails nothing. 'resend' was the old path where the
+  // platform itself sent the invoice; it is gone (see the note on startSend).
+  async function onRecordSent(inv, { to, cc }) {
+    if (!await confirm(
+      `Record ${invoiceRef(inv.number)} as sent to ${parseEmails(to).join(', ')}?\n\n` +
+      `${inv.creator_name} will be told to expect the payment, so only do this once it has actually left Gmail.`,
+      { confirmLabel: 'Yes, I sent it' },
+    )) return
     setBusy(inv.id)
     try {
-      await sendInvoiceRow(inv, { to, cc, channel: 'resend' })
+      await sendInvoiceRow(inv, { to, cc, channel: 'gmail' })
       localStorage.setItem(LAST_RECIPIENT_KEY, to.trim())
-      notice(`${invoiceRef(inv.number)} is on its way to ${parseEmails(to).join(', ')}.\n\n${inv.creator_name} has been told to expect the payment.`)
+      notice(`${invoiceRef(inv.number)} recorded as sent.\n\n${inv.creator_name} has been told to expect the payment.`)
       await reload(inv.id)
     } catch (e) {
       notice(e.message)
     } finally {
       setBusy(null)
     }
+  }
+
+  async function onDelete(inv) {
+    if (!await confirm(
+      `Delete ${invoiceRef(inv.number)} for ${inv.creator_name}, ${formatMoney(inv.amount, inv.currency)}?\n\n` +
+      (inv.reward_id
+        ? 'The prize it came from goes back to unpaid, so it can be invoiced again. This cannot be undone.'
+        : 'This cannot be undone.'),
+      { confirmLabel: 'Delete it', danger: true },
+    )) return
+    setBusy(inv.id)
+    const { error } = await supabase.rpc('delete_invoice', { p_id: inv.id })
+    setBusy(null)
+    if (error) return notice(error.message)
+    setRow(null)
+    onChanged?.()
   }
 
   async function onDownload(inv) {
@@ -426,11 +486,12 @@ export function useInvoiceViewer({ onChanged, onEdit } = {}) {
         onClose={() => setRow(null)}
         busy={busy}
         onDecide={onDecide}
-        onSend={onSend}
+        onRecordSent={onRecordSent}
         onPaid={onPaid}
         onDownload={onDownload}
         onSubmit={(inv) => call('submit_invoice', { p_id: inv.id }, inv)}
         onReopen={onReopen}
+        onDelete={onDelete}
         onEdit={onEdit ? (inv) => { setRow(null); onEdit(inv) } : undefined}
       />
 

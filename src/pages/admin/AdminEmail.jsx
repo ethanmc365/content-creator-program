@@ -1,25 +1,46 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Avatar, Badge, CopyButton, PageHeader, Skeleton, Spinner } from '../../components/ui'
+import { Avatar, Badge, CopyButton, PageHeader, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
 import { cx, formatDateTime } from '../../lib/utils'
 import { confirm, notice } from '../../lib/confirm'
+import { openCompose } from '../../lib/compose'
 import MarketScope, { useMarkets } from '../../components/admin/MarketScope'
 import { roleBadgeTitle } from '../../lib/roles'
 
-// The email page, rebuilt Jul 27 2026.
+// The email page. NOTHING ON IT SENDS AN EMAIL ANY MORE (3 Sep 2026).
 //
-// The platform used to mail the whole community from here. That is gone: a run
-// of near-identical messages out of a shared mailbox got us flagged as a bulk
-// sender and Gmail started blocking it outright. Email is now down to the two
-// jobs that are low volume and genuinely expected by the person receiving them:
+// Ethan: "for now, all email automations will be paused. Email will be done
+// manually, because we're gonna set up the DNS record at a later time. Obviously
+// we still want the email admin panel thing so I have the ability to copy all
+// emails - but the welcome email etc, that should be abolished. Although I'll
+// still have the option to copy all the emails and then send a custom welcome
+// email myself."
 //
-//   1. Password resets   sent by Supabase Auth, logged here
-//   2. Welcome emails    one per accepted creator, reviewed here before sending
+// The platform's outbound mail was already down to two jobs after a run of
+// near-identical messages out of a shared mailbox got it flagged as a bulk
+// sender. This removes the second of them. What is left is:
 //
-// So this page does three things and nothing else: hand you the address list,
-// let you approve the welcome emails, and show you what has actually been sent.
-const FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-welcome`
+//   1. Password resets   sent by Supabase Auth, logged here. Not ours to pause -
+//                        it is transactional, it is triggered by the person
+//                        receiving it, and pausing it locks people out.
+//   2. Welcome emails    still QUEUED when a creator is accepted, because the
+//                        queue is the worklist. But the queue now hands the
+//                        message to Ethan's own Gmail with everything filled
+//                        in, and he presses send. See lib/compose.
+//
+// WHY THE QUEUE SURVIVED THE "ABOLISH IT". The thing to abolish was the
+// platform mailing people. The thing worth keeping is the LIST: who was
+// accepted, in what order, and whether anybody has actually written to them
+// yet. Deleting the queue would not have made the work go away, it would have
+// made it untracked - and "did we ever welcome that creator" has no answer
+// anywhere else.
+//
+// The `send-welcome` edge function is no longer called from anywhere in the
+// client. It is left deployed rather than removed for the same reason
+// `broadcast-email` was left as a 410 stub: a function that is still up but
+// unreferenced is safe, and a deleted directory that leaves a live older
+// version reachable by URL is not. Retiring it properly is a separate job.
 
 export default function AdminEmail() {
   const [people, setPeople] = useState([])   // creators, with their address
@@ -27,6 +48,7 @@ export default function AdminEmail() {
   const [queue, setQueue] = useState([])
   const [log, setLog] = useState([])
   const [loading, setLoading] = useState(true)
+  const [emailById, setEmailById] = useState(new Map())
   const { markets, memberRows } = useMarkets()
   const [market, setMarket] = useState('')
 
@@ -47,6 +69,10 @@ export default function AdminEmail() {
     setTeam(live.filter((p) => p.is_admin).map(withEmail).sort(byName))
     setQueue(pending ?? [])
     setLog(logRows ?? [])
+    // The queue needs the address to hand to Gmail, and `email_outbox` carries
+    // only `recipient_id` - deliberately, so a queued row cannot go stale
+    // against a changed address.
+    setEmailById(emailOf)
     setLoading(false)
   }, [])
   useEffect(() => { load() }, [load])
@@ -64,29 +90,6 @@ export default function AdminEmail() {
     [people, inMarket],
   )
 
-  // One helper for every call to the mail function. Errors are surfaced from
-  // the response body: the function always answers with JSON + CORS headers, so
-  // a real failure never shows up as a bogus "network error".
-  const callFn = useCallback(async (payload) => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch(FN_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify(payload),
-      })
-      const out = await res.json().catch(() => ({}))
-      if (!res.ok) return { error: out.error || `Request failed (${res.status}).` }
-      return out
-    } catch (e) {
-      return { error: `Could not reach the email service: ${e.message}` }
-    }
-  }, [])
-
   return (
     <div className="page max-w-7xl">
       <PageHeader back="/admin" title="Email" />
@@ -102,7 +105,7 @@ export default function AdminEmail() {
             note={market ? `${creators.length} of ${people.length} creators` : null}
           />
           <AddressBook creators={creators} team={team} scoped={!!market} />
-          <ReviewQueue queue={queue} setQueue={setQueue} callFn={callFn} reload={load} />
+          <ReviewQueue queue={queue} setQueue={setQueue} emailById={emailById} />
           <SentLog rows={log} />
         </div>
       )}
@@ -276,53 +279,62 @@ function AddressBook({ creators, team, scoped }) {
 // When a creator is accepted, a database trigger writes their welcome email
 // here as a draft. Nothing is sent until an admin reads it and presses send, so
 // you can add a personal line or a piece of news before it goes out.
-function ReviewQueue({ queue, setQueue, callFn, reload }) {
+// ---------------------------------------------------------------------------
+// THE WELCOME QUEUE, WHICH NO LONGER SENDS ANYTHING.
+//
+// Every accepted creator still lands here - see the note at the head of this
+// file for why the list is worth keeping even though the sending is not. What
+// changed is the last press: "Send welcome email" called an edge function and
+// the platform mailed them; "Open in Gmail" fills in Ethan's own compose window
+// and he sends it himself.
+//
+// MARKING IT SENT IS A SEPARATE PRESS, ON PURPOSE. Opening a compose window is
+// not evidence that anybody sent anything - the tab can be closed, the popup can
+// be blocked, the message can be abandoned half-written. If opening the composer
+// also cleared the row, the one question this list exists to answer ("has this
+// creator been welcomed?") would be answered wrong by exactly the cases where it
+// matters. So the row stays until somebody says it went.
+//
+// THE PREVIEW IS GONE WITH THE TEMPLATE. It rendered the branded HTML the edge
+// function would have wrapped this in, and no such email exists any more: what
+// gets sent is whatever is typed here, as plain text, out of Gmail. Previewing a
+// wrapper nobody is using would be a picture of something that will not happen.
+// What is on screen now is the message itself, which is the thing being sent.
+function ReviewQueue({ queue, setQueue, emailById }) {
   const [openId, setOpenId] = useState(null)
-  const [html, setHtml] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [acting, setActing] = useState(null) // 'send' | 'cancel' | 'test' | 'save'
+  const [acting, setActing] = useState(null) // 'sent' | 'skip' | 'save'
 
   const item = queue.find((q) => q.id === openId) || queue[0] || null
   const patch = (id, changes) => setQueue((list) => list.map((q) => (q.id === id ? { ...q, ...changes } : q)))
+  const address = item ? emailById.get(item.recipient_id) : null
 
-  // Render the exact HTML the creator would receive, debounced as you type.
-  useEffect(() => {
-    if (!item) { setHtml(''); return }
-    let alive = true
-    setBusy(true)
-    const t = setTimeout(async () => {
-      const out = await callFn({
-        action: 'preview',
-        subject: item.subject, body: item.body,
-        ctaLabel: item.cta_label, ctaPath: item.cta_path,
-      })
-      if (!alive) return
-      if (out?.html) setHtml(out.html)
-      setBusy(false)
-    }, 350)
-    return () => { alive = false; clearTimeout(t) }
-  }, [item, callFn])
-
-  async function send() {
-    const who = item.recipient_name || 'this creator'
-    if (!await confirm(`Send this welcome email to ${who}?`)) return
-    setActing('send')
-    const out = await callFn({
-      outboxId: item.id,
-      subject: item.subject, body: item.body,
-      ctaLabel: item.cta_label, ctaPath: item.cta_path,
-    })
-    setActing(null)
-    if (out.error) return notice(out.error)
-    notice(`Welcome email sent to ${who}.`)
-    setQueue((list) => list.filter((q) => q.id !== item.id))
-    reload()
+  function openInGmail() {
+    if (!address) {
+      notice("We do not have an address for this creator, so there is nothing to open. Copy the message and send it from wherever you have their address.")
+      return
+    }
+    const opened = openCompose({ to: address, subject: item.subject, body: item.body })
+    // A blocked popup has to be said out loud. A button that silently does
+    // nothing is how somebody walks away believing the email went.
+    if (!opened) notice("Your browser blocked the new window. Allow popups for this site, or copy the message and paste it into Gmail yourself.")
   }
 
-  async function cancel() {
+  async function markSent() {
     const who = item.recipient_name || 'this creator'
-    if (!await confirm(`Cancel the welcome email to ${who}?\n\nThey are already in the community and have their in-app notification. Only the email is dropped.`)) return
-    setActing('cancel')
+    if (!await confirm(`Mark the welcome email to ${who} as sent?\n\nThis only records that you have written to them - it does not send anything.`)) return
+    setActing('sent')
+    const { error } = await supabase.from('email_outbox')
+      .update({ status: 'sent', decided_at: new Date().toISOString() })
+      .eq('id', item.id)
+    setActing(null)
+    if (error) return notice(`Could not save that: ${error.message}`)
+    setQueue((list) => list.filter((q) => q.id !== item.id))
+  }
+
+  async function skip() {
+    const who = item.recipient_name || 'this creator'
+    if (!await confirm(`Take ${who} off the welcome list?\n\nThey are already in the community and have their in-app notification. This only drops the reminder to write to them.`)) return
+    setActing('skip')
     await supabase.from('email_outbox')
       .update({ status: 'declined', decided_at: new Date().toISOString() })
       .eq('id', item.id)
@@ -330,21 +342,10 @@ function ReviewQueue({ queue, setQueue, callFn, reload }) {
     setQueue((list) => list.filter((q) => q.id !== item.id))
   }
 
-  async function test() {
-    setActing('test')
-    const out = await callFn({
-      test: true,
-      subject: item.subject, body: item.body,
-      ctaLabel: item.cta_label, ctaPath: item.cta_path,
-    })
-    setActing(null)
-    notice(out.error || 'Test sent to your inbox.')
-  }
-
   async function saveEdits() {
     setActing('save')
     const { error } = await supabase.from('email_outbox')
-      .update({ subject: item.subject, body: item.body, cta_label: item.cta_label })
+      .update({ subject: item.subject, body: item.body })
       .eq('id', item.id)
     setActing(null)
     notice(error ? `Could not save: ${error.message}` : 'Draft saved.')
@@ -353,15 +354,15 @@ function ReviewQueue({ queue, setQueue, callFn, reload }) {
   if (queue.length === 0) {
     return (
       <section>
-        <SectionHeading icon="envelope" title="Welcome emails to review" />
+        <SectionHeading icon="envelope" title="Creators to welcome" />
         <div className="rounded-card border border-dashed border-gray-200 bg-white px-8 py-14 text-center">
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-tint text-brand">
             <Icon name="check" className="h-7 w-7" />
           </div>
-          <h3 className="text-lg font-semibold">Nothing waiting</h3>
+          <h3 className="text-lg font-semibold">Everybody has been written to</h3>
           <p className="mx-auto mt-1 max-w-md text-sm text-smoke">
-            When you accept a creator into the community, their welcome email lands here as a
-            draft. Read it, add anything you want to share, then send it.
+            When you accept a creator, they appear here with a draft welcome. You send it from
+            your own Gmail and mark it off. The platform does not email anyone.
           </p>
         </div>
       </section>
@@ -372,8 +373,8 @@ function ReviewQueue({ queue, setQueue, callFn, reload }) {
     <section>
       <SectionHeading
         icon="envelope"
-        title="Welcome emails to review"
-        hint={`${queue.length} waiting. Nothing sends until you press send.`}
+        title="Creators to welcome"
+        hint={`${queue.length} waiting. You send these from your own Gmail - the platform sends nothing.`}
       />
 
       <div className="grid items-start gap-6 xl:grid-cols-[20rem_1fr]">
@@ -397,77 +398,61 @@ function ReviewQueue({ queue, setQueue, callFn, reload }) {
           ))}
         </div>
 
-        {/* Editor + preview */}
-        <div className="grid items-start gap-6 2xl:grid-cols-2">
-          <div className="card">
-            <h3 className="text-lg font-semibold">
-              Welcome {item.recipient_name || 'this creator'}
-            </h3>
-            <p className="mt-1 text-sm text-smoke">
-              Edit anything below, add news if you have some, then send. They already have their
-              in-app notification, so there is no rush.
-            </p>
+        <div className="card">
+          <h3 className="text-lg font-semibold">
+            Welcome {item.recipient_name || 'this creator'}
+          </h3>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-smoke">
+            {address ? (
+              <>
+                <span className="font-medium text-ink">{address}</span>
+                <CopyButton value={address} label="Copy their address" />
+              </>
+            ) : (
+              <span className="text-red-600">No address on file for this creator.</span>
+            )}
+          </div>
+          <p className="mt-2 text-sm text-smoke">
+            Edit anything below, then open it in Gmail and send it yourself. They already have
+            their in-app notification, so there is no rush.
+          </p>
 
-            <div className="mt-5 space-y-4 border-t border-gray-100 pt-5">
-              <div>
-                <label htmlFor="q-subject" className="label">Subject</label>
-                <input
-                  id="q-subject" type="text" className="input"
-                  value={item.subject} onChange={(e) => patch(item.id, { subject: e.target.value })}
-                />
-              </div>
-              <div>
-                <label htmlFor="q-body" className="label">Message</label>
-                <textarea
-                  id="q-body" rows={16} className="input"
-                  value={item.body} onChange={(e) => patch(item.id, { body: e.target.value })}
-                />
-                <p className="mt-1 text-xs text-smoke">
-                  Plain text. Leave a blank line between paragraphs, and we wrap it in the branded template.
-                </p>
-              </div>
-              <div>
-                <label htmlFor="q-cta" className="label">Button text</label>
-                <input
-                  id="q-cta" type="text" className="input"
-                  value={item.cta_label || ''} onChange={(e) => patch(item.id, { cta_label: e.target.value })}
-                />
-                <p className="mt-1 text-xs text-smoke">
-                  Opens the Creator Community at <code className="text-brand">{item.cta_path}</code>.
-                </p>
-              </div>
+          <div className="mt-5 space-y-4 border-t border-gray-100 pt-5">
+            <div>
+              <label htmlFor="q-subject" className="label">Subject</label>
+              <input
+                id="q-subject" type="text" className="input"
+                value={item.subject} onChange={(e) => patch(item.id, { subject: e.target.value })}
+              />
             </div>
-
-            <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-4">
-              <button onClick={send} disabled={!!acting} className="btn-primary !py-2 text-xs">
-                {acting === 'send' ? <Spinner className="h-4 w-4" /> : 'Send welcome email'}
-              </button>
-              <button onClick={test} disabled={!!acting} className="btn-secondary !py-2 text-xs">
-                {acting === 'test' ? 'Sending…' : 'Send test to me'}
-              </button>
-              <button onClick={saveEdits} disabled={!!acting} className="btn-ghost !py-2 text-xs">
-                {acting === 'save' ? 'Saving…' : 'Save draft'}
-              </button>
-              <button onClick={cancel} disabled={!!acting} className="btn-danger !py-2 text-xs ml-auto">
-                {acting === 'cancel' ? 'Cancelling…' : 'Cancel'}
-              </button>
+            <div>
+              <label htmlFor="q-body" className="label">Message</label>
+              <textarea
+                id="q-body" rows={16} className="input"
+                value={item.body} onChange={(e) => patch(item.id, { body: e.target.value })}
+              />
+              <p className="mt-1 text-xs text-smoke">
+                Plain text, sent as-is from your own mailbox. There is no branded wrapper any
+                more - what is in this box is what they read.
+              </p>
             </div>
           </div>
 
-          <div className="card 2xl:sticky 2xl:top-24">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div>
-                <h3 className="text-lg font-semibold">Preview</h3>
-                <p className="text-xs text-smoke">Exactly what they receive.</p>
-              </div>
-              {busy && <Spinner className="h-4 w-4 text-smoke" />}
-            </div>
-            {/* sandbox="allow-same-origin" (never allow-scripts): a fully
-                sandboxed iframe gets an opaque origin, which stops the page CSP
-                from matching and breaks the preview only. */}
-            <div className="overflow-hidden rounded-xl border border-gray-100 bg-[#f6f6f7]">
-              <iframe title="Welcome email preview" srcDoc={html} className="h-[38rem] w-full bg-white" sandbox="allow-same-origin" />
-            </div>
+          <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-4">
+            <button onClick={openInGmail} disabled={!!acting} className="btn-primary inline-flex items-center gap-1.5 !py-2 text-xs">
+              <Icon name="envelope" className="h-3.5 w-3.5" />
+              Open in Gmail
+            </button>
+            <CopyButton value={`${item.subject}\n\n${item.body}`} label="Copy the message" />
+            <button onClick={saveEdits} disabled={!!acting} className="btn-ghost !py-2 text-xs">
+              {acting === 'save' ? 'Saving…' : 'Save draft'}
+            </button>
+            <button onClick={markSent} disabled={!!acting} className="btn-secondary !py-2 text-xs">
+              {acting === 'sent' ? 'Saving…' : 'I have sent it'}
+            </button>
+            <button onClick={skip} disabled={!!acting} className="btn-danger !py-2 text-xs ml-auto">
+              {acting === 'skip' ? 'Removing…' : 'Skip'}
+            </button>
           </div>
         </div>
       </div>
