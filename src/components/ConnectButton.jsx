@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { sendConnectionRequest } from '../lib/connections'
 import { Modal } from './ui'
+import { confirm } from '../lib/confirm'
 import { useT } from '../lib/i18n'
 
 // LinkedIn-style connect control. `relation` is { relation, rowId } | null:
@@ -65,8 +66,36 @@ export default function ConnectButton({
     } else if (rel === 'pending_received') {
       await supabase.from('connections').update({ status: 'accepted' }).eq('id', relation.rowId)
       onChange?.({ relation: 'connected', rowId: relation.rowId })
+    } else if (rel === 'connected') {
+      // DISCONNECTING IS A DECISION, NOT A TOGGLE (3 Sep 2026).
+      //
+      // Ethan: "whenever you connect with a creator, if you tap the connected
+      // button again it immediately disconnects you with them. There should be
+      // at least a pop up to ask if you actually want to disconnect, so people
+      // aren't doing this accidentally and constantly reconnecting."
+      //
+      // The button is the only control on the card in that state, it sits
+      // exactly where "Connect" was a moment earlier, and on a phone it is
+      // under a thumb that has just tapped it. So the commonest way to reach
+      // this branch was a mis-tap - and the damage is not symmetrical: undoing
+      // it means sending a fresh request and waiting for the other person to
+      // accept, which is a notification to them saying you disconnected and
+      // reconnected. Connecting stays one tap. Undoing it asks.
+      setBusy(false)
+      const first = (targetName || '').trim().split(' ')[0]
+      const ok = await confirm(
+        first
+          ? `Disconnect from ${first}?\n\nYou will need to send a new request to connect again, and they will have to accept it.`
+          : 'Disconnect from this creator?\n\nYou will need to send a new request to connect again, and they will have to accept it.',
+        { confirmLabel: 'Disconnect', danger: true },
+      )
+      if (!ok) return
+      setBusy(true)
+      await supabase.from('connections').delete().eq('id', relation.rowId)
+      onChange?.(null)
     } else {
-      // pending_sent (cancel) or connected (disconnect)
+      // pending_sent: cancelling your OWN request, which asks nothing of
+      // anybody and is undone by pressing Connect again.
       await supabase.from('connections').delete().eq('id', relation.rowId)
       onChange?.(null)
     }

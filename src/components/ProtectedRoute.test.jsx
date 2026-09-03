@@ -47,7 +47,10 @@ describe('ProtectedRoute default-deny', () => {
     authValue = { ...base, user: { id: '1' }, profile: { name: 'A', onboarded: true, status: 'pending' } }
     renderAt('/home')
     expect(screen.queryByText('SECRET APP')).toBeNull()
-    expect(screen.getByText(/on its way/i)).toBeInTheDocument()
+    // The pending screen is components/SubmittedCard now - the same card the
+    // onboarding form finishes on, rather than a second flying-plane scene
+    // saying the application is "on its way".
+    expect(screen.getByText(/application submitted/i)).toBeInTheDocument()
   })
 
   it('does NOT render the app while the profile is still loading', () => {

@@ -10,7 +10,8 @@ import {
 import WorldMap from '../components/WorldMap'
 import PhotoBoard from '../components/PhotoBoard'
 import Icon from '../components/Icon'
-import TrypPlaneScene from '../components/TrypPlaneScene'
+import AutoTextarea from '../components/AutoTextarea'
+import SubmittedCard from '../components/SubmittedCard'
 import { geocodeCity } from '../lib/geocode'
 import { Avatar, Spinner } from '../components/ui'
 import { cx, ageFromDob } from '../lib/utils'
@@ -364,44 +365,41 @@ export default function Onboarding() {
   }
 
   // ---------------------------------------------------------------- views ---
+  // ONE SCREEN AFTER SUBMIT, NOT TWO (3 Sep 2026).
+  //
+  // Ethan: "for some reason it temporarily shows up that Tryp.com automated
+  // plane, and then it shows up a different screen that says application
+  // submitted. I would just skip that automated plane page and jump to the page
+  // that says application submitted, saying that the admins have been notified
+  // and they will review it."
+  //
+  // He was watching a handover nobody had looked at end to end. This page drew
+  // a flying-plane scene while the save was in flight; the save finished,
+  // `refreshProfile` ran, the router sent him to /home, and ProtectedRoute drew
+  // ITS pending screen - which was a second flying-plane scene with almost the
+  // same sentence on it. Two full-screen animations for one action, with a
+  // navigation between them.
+  //
+  // The in-flight state is now the SAME CARD as the finished one, with a
+  // spinner where the tick goes. Nothing swaps, nothing flies, and the only
+  // thing that changes when the save lands is the icon and the heading - so it
+  // reads as one screen completing rather than two screens arguing.
   if (busy) {
     return (
-      <TrypPlaneScene
-        title={pending ? 'Your application is on its way' : 'Setting up your profile'}
-        subtitle={pending
-          ? "It's heading to the Tryp.com Team and will be reviewed shortly. We'll notify you by email soon, so keep an eye on your inbox and check back here shortly."
-          : "Fastening your seatbelt. We're getting your creator profile ready for take-off."}
-      >
-        {pending && !demo && (
-          <button onClick={async () => { await signOut(); window.location.href = '/' }} className="btn-ghost mt-6 text-sm">
-            {tr("Log out")}
-          </button>
-        )}
-      </TrypPlaneScene>
+      <SubmittedCard
+        pending={pending}
+        state="sending"
+        onSignOut={pending && !demo ? async () => { await signOut(); window.location.href = '/' } : null}
+      />
     )
   }
 
   if (done) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-cloud/50 px-5 py-12">
-        <div className="card w-full max-w-md text-center !p-10">
-          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-green-50 text-green-600">
-            <Icon name="check" className="h-7 w-7" />
-          </span>
-          <h1 className="mt-4 text-2xl font-bold">
-            {pending ? 'Application submitted' : 'Profile complete'}
-          </h1>
-          <p className="mt-2 text-sm text-smoke">
-            {pending
-              ? 'Every admin has been notified. Nothing was written, because this is the Testing Centre.'
-              : 'Nothing was written, because this is the Testing Centre.'}
-          </p>
-          {market.market && (
-            <p className="mt-4 rounded-card bg-brand-tint/40 px-4 py-3 text-sm font-semibold text-brand">
-              Assigned to {market.market.name}
-            </p>
-          )}
-          <button onClick={() => { setDone(false); setStep(0) }} className="btn-secondary mt-6 text-sm">
+      <div>
+        <SubmittedCard pending={pending} demoNote />
+        <div className="pb-12 text-center">
+          <button onClick={() => { setDone(false); setStep(0) }} className="btn-secondary text-sm">
             {tr("Walk it again")}
           </button>
         </div>
@@ -484,17 +482,32 @@ export default function Onboarding() {
               <div className="space-y-7">
                 <div>
                   <label htmlFor="bio" className="label">{tr("One-line bio")} <Req /></label>
-                  <input
-                    id="bio" type="text" maxLength={120} className="input" value={draft.bio}
-                    onChange={(e) => set({ bio: e.target.value })}
+                  {/* AN <input> HID THE END OF THE SENTENCE (3 Sep 2026).
+                      Ethan: "the one line bio and the favourite quote - the
+                      text is cut off, I don't know how many scroll to the right
+                      there." A single-line input scrolls HORIZONTALLY, so on a
+                      375px screen a 120-character bio is legible about forty
+                      characters at a time and there is no way to see the whole
+                      of what you wrote before submitting it.
+                      It wraps now. It is still ONE line of bio - newlines are
+                      stripped on the way in, because the field's whole promise
+                      is that it fits under a name everywhere - it is simply
+                      allowed to occupy two rows on screen while you write it. */}
+                  <AutoTextarea
+                    id="bio" maxLength={120} minRows={2} className="input leading-relaxed" value={draft.bio}
+                    onChange={(e) => set({ bio: e.target.value.replace(/[\r\n]+/g, ' ') })}
                     placeholder={tr("London based travel creator")}
                   />
                   <p className="mt-1 text-xs text-smoke">{120 - draft.bio.length} characters left. This sits under your name everywhere.</p>
                 </div>
                 <div>
                   <label htmlFor="about" className="label">{tr("A few lines about you")} <Req /></label>
-                  <textarea
-                    id="about" rows={5} className="input" value={draft.about}
+                  {/* GROWS WITH THE ANSWER. See components/AutoTextarea: a
+                      phone has no resize handle, so `rows={5}` was five lines
+                      permanently, with an inner scrollbar inside a scrolling
+                      page - which is why this answer came back short. */}
+                  <AutoTextarea
+                    id="about" minRows={5} className="input" value={draft.about}
                     onChange={(e) => set({ about: e.target.value })}
                     placeholder={tr("What you film, where you have been, how you got into it. This is the part the Tryp.com Team reads when they review your application.")}
                   />
@@ -652,7 +665,10 @@ function StepHead({ step, pending }) {
     story: ['Tell us about you', 'This is the part a person actually reads.'],
     languages: ['Languages you speak', 'Used to match you with collaboration partners and audiences.'],
     map: ['Paint your travel map', 'Tap every country you have been to and watch it glow.'],
-    extras: ['A few extras', 'All of this is optional. Press Continue and add it later if you would rather.'],
+    // Ethan: "a few extras - I don't really like that name, I would just name
+    // it as it is." It holds travel photographs and the places you want to go,
+    // so it is called that.
+    extras: ['Your travels', 'Photos you are proud of and places you want to go. All optional - press Continue and add them later if you would rather.'],
     review: [pending ? 'Ready to submit' : 'Almost done', 'Check it over. You can change any of it later from your profile.'],
   }
   const [title, sub] = COPY[step.key] || [step.title, '']
@@ -681,16 +697,39 @@ function Welcome({ name, pending }) {
       <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-tint text-brand" aria-hidden>
         <Icon name="heart" className="h-8 w-8" />
       </div>
-      <h1 className="text-3xl font-bold">Welcome to the crew{name ? `, ${name.split(' ')[0]}` : ''}!</h1>
+      {/* "TEAM", NOT "CREW", AND THE SENTENCE STOPS EARLY (3 Sep 2026).
+          Ethan: "I like the welcome to the crew - I would say welcome to the
+          team rather than crew", and on the paragraph, cut it to "You are
+          joining the Tryp.com Content Creator Community." The clause that
+          followed - a global community of travel creators who make great
+          content, compete in challenges and earn real rewards - is the pitch
+          from the public page, and this person has already read it and already
+          applied. Repeating the sell to somebody who has said yes makes the
+          screen longer without telling them anything. */}
+      <h1 className="text-3xl font-bold">Welcome to the team{name ? `, ${name.split(' ')[0]}` : ''}!</h1>
       <p className="mx-auto max-w-md text-smoke">
-        {tr("You are joining the Tryp.com Content Creator Community, a global community of travel creators who make great content, compete in challenges and earn real rewards.")}
+        {tr("You are joining the Tryp.com Content Creator Community.")}
       </p>
+      {/* TWO ROWS, AND BOTH OF THEM ARE ABOUT THEM.
+          There were four. Ethan on the other two: "about three minutes, nine
+          short screens, one thing each - don't like that, doesn't really make
+          sense. Just say the time is short", and "two screens are optional -
+          this doesn't make sense", and "your market is worked out for you -
+          again, this doesn't make sense."
+          He is right about all three, and they fail the same way: they are
+          NOTES ABOUT THE FORM rather than facts about joining. Counting the
+          screens invites you to dread them; announcing that two are optional
+          before you have seen one is an instruction with no referent; and "your
+          market is worked out for you" answers a question nobody has yet
+          thought to ask.
+          What survives is the length, said plainly, and the one row Ethan
+          singled out to keep: "then the team reviews it, a person reads every
+          application. This is good, I would keep this in." */}
       <div className="mx-auto max-w-sm space-y-2.5 pt-2 text-left">
         {[
-          ['clock', 'About three minutes', 'Nine short screens, one thing on each.'],
-          ['check', 'Two screens are optional', 'They are marked, and you can skip straight past them.'],
-          ['globe', 'Your market is worked out for you', 'You will see which one before you finish.'],
-          ['shield', pending ? 'Then the team reviews it' : 'Then you are in', pending ? 'A person reads every application.' : 'Your profile goes live straight away.'],
+          ['clock', tr('It only takes a few minutes'), tr('Short screens, and you can come back to it.')],
+          ['shield', pending ? tr('Then the team reviews it') : tr('Then you are in'),
+            pending ? tr('A person reads every application.') : tr('Your profile goes live straight away.')],
         ].map(([icon, t, d]) => (
           <div key={t} className="flex items-start gap-3 rounded-xl bg-cloud/70 px-4 py-3">
             <Icon name={icon} className="mt-0.5 h-4 w-4 shrink-0 text-brand" />

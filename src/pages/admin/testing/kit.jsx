@@ -2,7 +2,7 @@
 //
 // Every lab is built out of these, so thirteen very different demonstrations
 // still read as one place. Nothing in here talks to the network.
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Icon from '../../../components/Icon'
 import { Badge } from '../../../components/ui'
@@ -437,26 +437,6 @@ export function PersonRow({ creator, right, sub }) {
   )
 }
 
-/** Turn a list into "a, b and c" without an Oxford comma or an em dash. */
-export function useJoined(list) {
-  return useMemo(() => {
-    if (list.length <= 1) return list.join('')
-    return `${list.slice(0, -1).join(', ')} and ${list[list.length - 1]}`
-  }, [list])
-}
-
-// ------------------------------------------------------- information ------
-
-/**
- * FACTS, DRAWN SO THEY DO NOT LOOK PRESSABLE.
- *
- * The "what stops this going wrong" block used the same white card with a
- * border and a shadow that every navigable tile on this platform uses, and it
- * read as four buttons that did nothing when you pressed them. A card is a
- * promise of a destination. These are notes, so they get the shape of notes:
- * one flat tinted panel, hairline dividers between the rows, an icon in the
- * margin, no border of their own, no shadow, and nothing that lifts on hover.
- */
 export function InfoList({ items, title, hint, columns = 2 }) {
   return (
     <div>
@@ -495,81 +475,4 @@ export function InfoList({ items, title, hint, columns = 2 }) {
   )
 }
 
-// ---------------------------------------------------------- animation ----
-
-/**
- * FLIP: FIRST, LAST, INVERT, PLAY.
- *
- * When the scoring mode changes, the leaderboard reorders - and a list that
- * simply re-renders in a new order shows you the AFTER and never the change.
- * Which row overtook which is the entire point of that panel, and it was the
- * one thing the panel did not show.
- *
- * So: measure where every row is (First), let React put them where they now go
- * (Last), work out the difference and put each row visually back where it was
- * (Invert), then animate the offset away (Play). Because it animates a
- * transform, nothing re-lays out and the whole thing runs on the compositor.
- *
- * `keys` is the order as a string. Rows are found by `data-flip-key`.
- */
-export function useFlip(containerRef, keys) {
-  const prev = useRef(new Map())
-
-  useLayoutEffect(() => {
-    const root = containerRef.current
-    if (!root) return
-    const nodes = root.querySelectorAll('[data-flip-key]')
-    const now = new Map()
-
-    for (const node of nodes) {
-      const key = node.getAttribute('data-flip-key')
-      const box = node.getBoundingClientRect()
-      now.set(key, box.top)
-      const before = prev.current.get(key)
-      if (before == null || Math.abs(before - box.top) < 1) continue
-      node.animate(
-        [{ transform: `translateY(${before - box.top}px)` }, { transform: 'translateY(0)' }],
-        // Long enough to follow with your eye, short enough that pressing the
-        // three modes in a row does not feel like waiting. Standard ease-out:
-        // it leaves fast and settles, which is what "moved" looks like.
-        { duration: 520, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
-      )
-    }
-    prev.current = now
-  }, [containerRef, keys])
-}
-
-/**
- * A number that counts to its new value instead of jumping.
- *
- * Deliberately LINEAR. The readout is an integer, so what the eye actually sees
- * is frames per whole number, and any curve with zero slope at its ends varies
- * that wildly - which reads as the counter pausing on some numbers and not
- * others. A constant rate gives every integer the same dwell. Same reasoning as
- * CountUp in the main app; this is the small local copy so the Testing Centre
- * does not pull the eagerly-loaded one in.
- */
-export function useCountTo(target, ms = 600) {
-  const [shown, setShown] = useState(target)
-  const from = useRef(target)
-
-  useEffect(() => {
-    const start = from.current
-    const delta = target - start
-    if (delta === 0) return undefined
-    let raf = 0
-    let t0 = null
-    const tick = (t) => {
-      if (t0 === null) t0 = t
-      const p = Math.min(1, (t - t0) / ms)
-      setShown(Math.round(start + delta * p))
-      if (p < 1) raf = requestAnimationFrame(tick)
-      else from.current = target
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [target, ms])
-
-  return shown
-}
 

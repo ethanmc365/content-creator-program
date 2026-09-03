@@ -6,7 +6,7 @@ import { AppLoader, PlaneLoader, Spinner } from './ui'
 import ConnectGate from './ConnectGate'
 import InstallGate, { shouldShowInstallGate } from './InstallGate'
 import { useAppFlag } from '../lib/appFlags'
-import TrypPlaneScene from './TrypPlaneScene'
+import SubmittedCard from './SubmittedCard'
 import { formatDate } from '../lib/utils'
 import { useT } from '../lib/i18n'
 
@@ -26,20 +26,16 @@ async function signOutAndGoHome(signOut) {
   window.location.href = '/'
 }
 
-// Shown while a new creator's application is awaiting admin approval. This is
-// the SAME branded plane scene shown while the application saves, so submitting
-// flows straight into it with no jarring screen swap - it's the one screen a
-// pending creator sees.
-function ReviewPending({ name, signOut }) {
-  const tr = useT()
-  return (
-    <TrypPlaneScene
-      title={`Thanks${name ? `, ${name.split(' ')[0]}` : ''}! Your application is on its way`}
-      subtitle="It's heading to the Tryp.com Team and will be reviewed shortly. We'll notify you by email soon, so keep an eye on your inbox and check back here shortly."
-    >
-      <button onClick={() => signOutAndGoHome(signOut)} className="btn-ghost mt-6 text-sm">{tr("Log out")}</button>
-    </TrypPlaneScene>
-  )
+// Shown while a new creator's application is awaiting review, and it is the
+// SAME CARD the onboarding form finishes on - see components/SubmittedCard.
+//
+// It used to be a branded flying-plane scene, and so did the screen Onboarding
+// drew while the save was in flight, so applying meant watching two full-screen
+// animations with a navigation between them. Ethan: "I would just skip that
+// automated plane page and jump to the page that says application submitted."
+// One card, one state change, nothing flies.
+function ReviewPending({ signOut }) {
+  return <SubmittedCard pending onSignOut={() => signOutAndGoHome(signOut)} />
 }
 
 // Shown if an application was declined.
@@ -180,10 +176,10 @@ export function ProtectedRoute() {
 
   // Onboarded but still awaiting (or refused) admin approval → gate the app.
   if (profile.status === 'declined') return <ReviewDeclined signOut={signOut} />
-  if (profile.status === 'pending') return <ReviewPending name={profile.name} signOut={signOut} />
+  if (profile.status === 'pending') return <ReviewPending signOut={signOut} />
   // Default-deny: only active/muted members (or admins) get the app.
   if (!ALLOWED_STATUSES.includes(profile.status) && !profile.is_admin) {
-    return <ReviewPending name={profile.name} signOut={signOut} />
+    return <ReviewPending signOut={signOut} />
   }
 
   // ON A PHONE, ASK FOR THE HOME SCREEN FIRST.

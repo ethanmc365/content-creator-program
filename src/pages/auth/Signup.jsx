@@ -109,7 +109,15 @@ export default function Signup() {
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
           <label htmlFor="name" className="label">{tr("Your name")}</label>
-          <input id="name" type="text" required className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr("e.g. Amelia Hart")} />
+          {/* NO INVENTED PERSON IN THE BOX (3 Sep 2026). Ethan: "when you click
+              to sign up it shows an example name, Amelia Hart. I wouldn't put
+              this in, it seems a bit of a weird example - just put in your name
+              or something instead."
+              A made-up full name in a field labelled "Your name" is the one
+              placeholder that can be misread as content, and it made the form
+              feel like a demo of itself. The field is asking for a name and
+              says so in its label; the hint only needs to say which name. */}
+          <input id="name" type="text" required className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr("Your full name")} />
         </div>
         <div>
           <label htmlFor="email" className="label">{tr("Email")}</label>

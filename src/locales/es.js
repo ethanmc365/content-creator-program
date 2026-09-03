@@ -1161,7 +1161,7 @@ export default {
   'Join the community': 'Únete a la comunidad',
   'Already a member?': '¿Ya tienes cuenta?',
   'You were invited by a Tryp.com creator. Welcome aboard!': 'Te ha invitado un creador de Tryp.com. ¡Bienvenido!',
-  'e.g. Amelia Hart': 'por ejemplo, Lucía Ortega',
+  'Your full name': 'Tu nombre completo',
   'you@example.com': 'tu@ejemplo.com',
   'At least 8 characters': 'Al menos 8 caracteres',
 

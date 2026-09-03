@@ -90,33 +90,6 @@ export const CREATORS = [
 
 export const byId = (id) => CREATORS.find((c) => c.id === id) || CREATORS[0]
 
-/** The subset of a creator that the app's shared components expect. */
-export const asProfile = (c) => ({ id: c.id, name: c.name, photo_url: null })
-
-// The applicant used by the signup / onboarding / application-review labs. A
-// deliberately incomplete profile, because the interesting part of onboarding
-// is watching the required fields gate the Continue button.
-export const APPLICANT = {
-  id: 'demo-applicant',
-  name: 'Alex Test',
-  email: 'alex.test@example.com',
-  city: 'Bristol',
-  country: 'United Kingdom',
-  country_code: 'GB',
-  bio: 'Bristol based creator, mostly food and city walks.',
-  about: 'I have been making short travel videos for three years, mostly around the south west of England and cheap European city breaks. I film everything on a phone and edit on the train home.',
-  favourite_quote: 'The best trips start with a cancelled plan.',
-  dob: '1997-04-18',
-  phone: '7700 900123',
-  phone_country: 'GB',
-  instagram_url: 'https://instagram.com/alextest',
-  tiktok_url: 'https://tiktok.com/@alextest',
-  youtube_url: '',
-  languages: ['English', 'Spanish'],
-  countries_visited: ['France', 'Spain', 'Portugal', 'Italy', 'Netherlands', 'Morocco', 'Iceland'],
-}
-
-// --------------------------------------------------------------- markets ----
 
 export const MARKETS = [
   { slug: 'uk', name: 'UK & Ireland', codes: ['GB', 'IE'], timezone: 'Europe/London', members: 21 },
@@ -167,39 +140,6 @@ export const ENTRIES = [
   { id: 'e10', creator: 'demo-c7', platform: 'Instagram', url: 'https://instagram.com/reel/10', logged_views: 3100, postedDaysAgo: -1 },
 ]
 
-// The point ledger a `points` challenge ranks on. Includes a manual award,
-// which is the whole reason a points leaderboard cannot be derived from views.
-export const POINT_AWARDS = [
-  { creator: 'demo-c1', label: 'Video posted', points: 1, kind: 'per_post' },
-  { creator: 'demo-c1', label: 'Video posted', points: 1, kind: 'per_post' },
-  { creator: 'demo-c1', label: 'Passed 50,000 views', points: 10, kind: 'views_threshold' },
-  { creator: 'demo-c1', label: 'Passed 10,000 views', points: 5, kind: 'views_threshold' },
-  { creator: 'demo-c2', label: 'Video posted', points: 1, kind: 'per_post' },
-  { creator: 'demo-c2', label: 'Video posted', points: 1, kind: 'per_post' },
-  { creator: 'demo-c2', label: 'Video posted', points: 1, kind: 'per_post' },
-  { creator: 'demo-c2', label: 'Passed 50,000 views', points: 10, kind: 'views_threshold' },
-  { creator: 'demo-c2', label: 'Best comment section of the month', points: 5, kind: 'manual' },
-  { creator: 'demo-c3', label: 'Video posted', points: 1, kind: 'per_post' },
-  { creator: 'demo-c3', label: 'Passed 50,000 views', points: 10, kind: 'views_threshold' },
-  { creator: 'demo-c4', label: 'Video posted', points: 1, kind: 'per_post' },
-  { creator: 'demo-c4', label: 'Passed 10,000 views', points: 5, kind: 'views_threshold' },
-]
-
-// Historic challenges for the economics lab. Shaped like a row from
-// `admin_challenge_metrics()` so `challengeEconomics()` reads them unchanged.
-export const PAST_CHALLENGES = [
-  { id: 'p1', title: 'Cheapest weekend you can find', status: 'archived', market: 'uk', prize_amount: 500, prize_currency: 'GBP', total_views: 1840000, posts: 24, creators: 14, winners_count: 3, median_views: 41000, best_views: 512000, cpm_target: 0.5 },
-  { id: 'p2', title: 'Show us your airport routine', status: 'archived', market: 'uk', prize_amount: 300, prize_currency: 'GBP', total_views: 402000, posts: 18, creators: 11, winners_count: 3, median_views: 16500, best_views: 118000, cpm_target: 0.5 },
-  { id: 'p3', title: 'Una noche en tu ciudad', status: 'archived', market: 'spain', prize_amount: 350, prize_currency: 'EUR', total_views: 655000, posts: 15, creators: 9, winners_count: 3, median_views: 31000, best_views: 208000, cpm_target: 0.5 },
-  { id: 'p4', title: 'O melhor pastel de nata', status: 'archived', market: 'portugal', prize_amount: 240, prize_currency: 'EUR', total_views: 121000, posts: 9, creators: 6, winners_count: 2, median_views: 9800, best_views: 44000, cpm_target: 0.5 },
-  { id: 'p5', title: 'Berlin in 60 seconds', status: 'archived', market: 'germany', prize_amount: 300, prize_currency: 'EUR', total_views: 58000, posts: 7, creators: 5, winners_count: 2, median_views: 6100, best_views: 21000, cpm_target: 0.5 },
-  { id: 'p6', title: 'One perfect day in your city', status: 'active', market: 'uk', prize_amount: 500, prize_currency: 'GBP', total_views: 0, posts: 10, creators: 7, winners_count: 3, median_views: null, best_views: null, cpm_target: 0.5 },
-]
-
-// --------------------------------------------------------------- payment ----
-
-// Well-formed but entirely fictional. Sort code 12-34-56 and account 12345678
-// are the standard UK test pair; the IBAN is a documentation example.
 export const PAYEE_GBP = {
   label: 'Test account, pounds',
   currency: 'GBP',
