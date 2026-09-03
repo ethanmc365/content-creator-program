@@ -495,7 +495,11 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
       score: challenge.scoring === 'points'
         ? Number(row.final_views || 0).toLocaleString()
         : formatViews(row.final_views),
-      unit: challenge.scoring === 'points' ? tr('points') : tr('views'),
+      // Singular when it is one, for the same reason as the board: a unit
+      // under a number is read as part of the number.
+      unit: challenge.scoring === 'points'
+        ? (Number(row.final_views) === 1 ? tr('point') : tr('points'))
+        : tr('views'),
       // The reach behind the score. Only on a points board - on a views board
       // the score already IS this number and printing it twice says nothing.
       sub: challenge.scoring === 'points' && row.total_views > 0

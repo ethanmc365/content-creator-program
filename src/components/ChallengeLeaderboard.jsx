@@ -195,7 +195,14 @@ export default function ChallengeLeaderboard({
               {row ? (
                 <>
                   <span className="block text-sm font-bold tabular-nums">{fmtScore(row.final_views)}</span>
-                  <span className="block text-[10px] uppercase tracking-wide text-smoke">{tr(scoreLabel === 'points' ? 'points' : 'views')}</span>
+                  {/* "1 POINTS" was on the live Spanish board. A unit under a
+                      number has to agree with it - it is the one place the
+                      number is read aloud in the reader's head. */}
+                  <span className="block text-[10px] uppercase tracking-wide text-smoke">
+                    {scoreLabel === 'points'
+                      ? (Number(row.final_views) === 1 ? tr('point') : tr('points'))
+                      : tr('views')}
+                  </span>
                   {/* ON A POINTS BOARD, THE VIEWS TOO (3 Sep 2026). The points
                       say who is winning; the views say whether the challenge
                       worked. `total_views` is written by the same rebuild that
