@@ -15,7 +15,8 @@ import SubmittedCard from '../components/SubmittedCard'
 import SocialMark, { brandForUrl, BRAND_COLOR } from '../components/SocialMark'
 import { geocodeCity } from '../lib/geocode'
 import { Avatar, Spinner } from '../components/ui'
-import { cx, ageFromDob } from '../lib/utils'
+import { cx, ageFromDob, MIN_AGE } from '../lib/utils'
+import { notice } from '../lib/confirm'
 import { useDemoMode, postDemoState, useDemoMessages } from '../lib/demoMode'
 import { useT } from '../lib/i18n'
 
@@ -133,6 +134,25 @@ export function draftProblems(draft, contact) {
   if (!draft.country_code) p.push({ step: 'based', text: 'Choose the country you live in' })
   if (!draft.city?.trim()) p.push({ step: 'based', text: 'Add your town or city' })
   if (!draft.dob) p.push({ step: 'based', text: 'Add your date of birth' })
+  // TOO YOUNG IS A RULE, NOT A DATABASE ERROR (4 Sep 2026).
+  //
+  // Ethan, submitting a test application: "on the submit profile page I got
+  // this error - your application could not be saved: new row for relation
+  // profiles violates check constraint profiles_age_check. This shows up
+  // because the date of birth I entered was less than 18 years old. Change it
+  // so that if they're too young it shows a popup saying they're too young and
+  // to reapply later, rather than a weird error message."
+  //
+  // He is right twice over. The rule was only ever enforced by
+  // `profiles_age_check`, which is the LAST line of defence and speaks
+  // Postgres - so somebody was allowed to fill in nine screens and was then
+  // handed a constraint name. And the check never ran until Submit, at the far
+  // end of the flow, when the answer was known on the screen where the date was
+  // typed. It is a validation problem now: named at the field, blocking on the
+  // step, and refused with a sentence rather than an error at the end.
+  else if (ageFromDob(draft.dob) != null && ageFromDob(draft.dob) < MIN_AGE) {
+    p.push({ step: 'based', text: `You need to be at least ${MIN_AGE} to join` })
+  }
   if (!contact.phone?.trim() || !contact.phone_country) p.push({ step: 'based', text: 'Add a phone number with its country code' })
   if (!draft.instagram_url?.trim() && !draft.tiktok_url?.trim() && !draft.youtube_url?.trim() && !draft.facebook_url?.trim()) {
     p.push({ step: 'socials', text: 'Link at least one account you post on' })
@@ -311,6 +331,23 @@ export default function Onboarding() {
 
   async function finish(sayHello) {
     if (!complete) { setError('There are still a few things to fill in.'); setStep(stepIndex('review')); return }
+    // THE LAST GATE BEFORE THE WRITE, AND IT SAYS SO IN WORDS.
+    //
+    // `problemsFor` already blocks the date-of-birth step, so reaching here
+    // means the date was changed afterwards or the flow was re-entered - and
+    // this is the one refusal on the form that is not "you missed something",
+    // it is "you cannot join yet". That deserves a dialog and a reason rather
+    // than a red line under a field, which is exactly what Ethan asked for.
+    const age = ageFromDob(draft.dob)
+    if (age != null && age < MIN_AGE) {
+      setStep(stepIndex('based'))
+      await notice(
+        `The Tryp.com Content Creator Community is for people aged ${MIN_AGE} and over, and the date of birth you have entered makes you ${age}. `
+        + `Nothing has been sent. You are very welcome to apply again once you turn ${MIN_AGE} - we will still be here.`,
+        { title: 'You are a little too young for this one' },
+      )
+      return
+    }
     setBusy(true)
 
     // DRY RUN. Nothing below this line may run in the Testing Centre: it would

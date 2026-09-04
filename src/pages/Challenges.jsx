@@ -4,12 +4,13 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useMyScopes, inScope } from '../lib/scope'
 import Icon from '../components/Icon'
-import { PageHeader, Badge, Skeleton, EmptyState } from '../components/ui'
+import { PageHeader, Badge, Skeleton } from '../components/ui'
 import { LiveChallengeSkeleton } from '../components/network/Skeletons'
 import { formatDate, formatMoney, challengeDeadline } from '../lib/utils'
 import { convert } from '../lib/programme'
 import Reveal from '../components/network/Reveal'
 import LiveChallengeCard from '../components/LiveChallengeCard'
+import { NoLiveChallenge } from '../components/network/LiveChallengeCard'
 import WinnersPodium from '../components/WinnersPodium'
 import { loadWinnerGalleries } from '../lib/winners'
 import { useT } from '../lib/i18n'
@@ -204,7 +205,21 @@ export default function Challenges() {
     return total < 10 ? Math.round(total) : Math.round(total / 10) * 10
   }, [prizesAwarded])
 
-  const mine = challenges.filter((c) => inScope(scopeIds, c.community_id))
+  // WHAT THIS BOARD IS ABOUT: my markets, plus everybody's archive.
+  //
+  // The client filter exists because RLS ends in `or is_admin()` - an admin can
+  // read every market, so without this they get Spain's live card stacked above
+  // the UK's with no way to tell which is which. That is still true of LIVE
+  // challenges and the scope filter still applies to them.
+  //
+  // An ARCHIVED one is different, and migration 193 says so in the database:
+  // once a challenge is over it is the programme's own portfolio, and hiding it
+  // from a creator in another market leaves somebody who joined last week with
+  // an empty page and nothing to learn from. Both halves have to agree or the
+  // policy opens a door the page keeps shut - which is exactly what happened
+  // here before, and is invisible from either side on its own.
+  const isArchived = (c) => c.status === 'archived'
+  const mine = challenges.filter((c) => isArchived(c) || inScope(scopeIds, c.community_id))
   // A GLOBAL BRIEF LEADS THE BOARD.
   //
   // Everyone is a member of Worldwide, so a challenge on the network row is the
@@ -271,7 +286,18 @@ export default function Challenges() {
           </div>
         </div>
       ) : mine.length === 0 ? (
-        <EmptyState icon={<Icon name="flag" className="h-7 w-7" />} title={tr("No challenges yet")} hint={tr("The first challenge will appear here once the team posts it.")} />
+        /* THE SAME PANEL AS AN EMPTY MARKET, and for the same reason. A flag in
+           a grey square and the words "No challenges yet" is a page that has
+           stopped; the market boards have had a proper answer to this for
+           weeks - the plane, a sentence about what happens next, and a create
+           button for whoever can act on it. See NoLiveChallenge. */
+        <Reveal from="down" delay={0.12}>
+          <NoLiveChallenge
+            canCreate={isAdmin}
+            title={tr("No challenge running right now")}
+            hint={tr("The next challenge is landing here soon, and you will get a notification the moment it does.")}
+          />
+        </Reveal>
       ) : (
         <div className="space-y-12">
           {/* ---------- Nothing live ----------
@@ -279,22 +305,26 @@ export default function Challenges() {
               challenges", which reads as a page that has stopped rather than a
               programme between briefs. It is a panel and not a card: there is
               nowhere to go yet, and a card is a promise of a destination. */}
+          {/* NOTHING LIVE, DRAWN THE WAY THE MARKETS DRAW IT (4 Sep 2026).
+              Ethan: "on the challenges page, when there's no challenge running,
+              rather than just that weird icon I want an actual nice page
+              similar to how the market ones are. Use that same copy, but
+              obviously just say no challenge - don't say the market name. And
+              the button for admins to create a challenge would be nice. And
+              that nice Tryp.com animated plane, you can have it nice and big
+              there."
+              It was a flag glyph in a tinted square on a grey panel, which is
+              the generic empty state this app uses for lists that are empty by
+              accident. An empty board is the NORMAL state between briefs, and
+              the market cards have said so properly for weeks. One component
+              now. */}
           {live.length === 0 && (
             <Reveal from="down" delay={0.12}>
-              <div className="rounded-card border border-gray-100 bg-cloud/50 px-6 py-8 text-center sm:py-10">
-                <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-tint text-brand">
-                  <Icon name="flag" className="h-5 w-5" />
-                </span>
-                <h2 className="text-lg font-semibold">{tr("No challenge running right now")}</h2>
-                <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-smoke">
-                  {tr("The next brief lands here as soon as the team posts it, and you will get a notification when it does. Past challenges and their winners are below.")}
-                </p>
-                {isAdmin && (
-                  <Link to="/admin/challenges/new" className="btn-secondary mt-5 inline-flex !py-2 text-sm">
-                    {tr("Post a challenge")}
-                  </Link>
-                )}
-              </div>
+              <NoLiveChallenge
+                canCreate={isAdmin}
+                title={tr("No challenge running right now")}
+                hint={tr("The next challenge is landing here soon, and you will get a notification when it does. Past challenges and their winners are below.")}
+              />
             </Reveal>
           )}
 

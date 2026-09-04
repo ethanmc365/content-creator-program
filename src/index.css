@@ -1609,6 +1609,17 @@ html[data-reduce-motion] *::after {
 
 .tour-do { animation: tour-do-in 0.3s ease both; }
 
+/* The words arriving with the card rather than before it. See the `key` on
+   `.tour-scroll` in TourHost: React swaps the text the instant the step index
+   changes, which is up to 300ms before the card has moved anywhere, so without
+   this the next step's title appeared over the last step's target. */
+@keyframes tour-fade-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.tour-fade { animation: tour-fade-in 0.32s ease both; }
+
 @keyframes tour-hit-in {
   0%   { opacity: 0; transform: scale(0.94); }
   55%  { transform: scale(1.03); }
@@ -1628,6 +1639,7 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   .tour-card--float,
   .tour-card--sheet,
   .tour-do,
+  .tour-fade,
   .tour-hit { animation: none; }
   .tour-card--float[data-travel='yes'] { transition: none; }
   .tour-card--float[data-centre='yes'] { animation: none; transform: translateX(-50%); }
@@ -1894,25 +1906,10 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   .landing-lift, .landing-lift-icon { transition: none; }
 }
 
-/* THE EMPTY DM PANE HAS ONE THING ON IT AND IT BREATHES.
-   Ethan asked for "'Say hello to someone' with a nice animation" and nothing
-   else - the people to message are in the rail beside it. A still icon on an
-   otherwise empty half of the screen reads as a page that failed to load; a
-   mark that drifts and a ring that pulses reads as waiting. Slow on purpose:
-   this sits on screen for as long as somebody is deciding who to write to, and
-   anything faster becomes something to look away from. */
-@keyframes dm-empty-float {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-6px); }
-}
-@keyframes dm-empty-ring {
-  0%, 100% { transform: scale(0.82); opacity: 0.55; }
-  50%      { transform: scale(1); opacity: 0.15; }
-}
-.dm-empty-mark { animation: dm-empty-float 4.5s ease-in-out infinite; }
-.dm-empty-ring { animation: dm-empty-ring 4.5s ease-in-out infinite; }
-
-@media (prefers-reduced-motion: reduce) {
-  .dm-empty-mark, .dm-empty-ring { animation: none; }
-  .dm-empty-ring { opacity: 0.4; transform: scale(0.9); }
-}
+/* THE EMPTY DM PANE'S FLOATING ENVELOPE IS GONE (4 Sep 2026).
+   It was a mark that drifted over the words "Open a conversation", and Ethan
+   asked for both to go: "you can remove the icon, there's no need for the icon
+   to show up there - just show some suggested people to message." The pane
+   offers people now (see pages/Messages), so there is nothing left for a
+   decorative animation to reassure anybody about. Rules deleted rather than
+   left behind: an unused keyframe is a thing the next person has to check. */

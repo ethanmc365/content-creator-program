@@ -42,8 +42,28 @@
 //
 // Wrapped, because `matchMedia` throws in some embedded webviews and "I cannot
 // tell" must not become an exception on the first line of the app.
+// A DEV-ONLY WAY TO PRETEND THE APP IS INSTALLED.
+//
+// Everything phone-shaped in this product branches on `isStandalone()` - the
+// add-to-home-screen wall, whether the walkthrough auto-starts, whether push is
+// even offered - and none of it can be exercised in a browser, because a
+// browser tab is by definition not installed. Up to now that meant the mobile
+// half of the walkthrough was checked by reading the code, which is how it
+// shipped broken three times.
+//
+// `import.meta.env.DEV` is a build-time constant, so this whole branch is
+// removed from the production bundle exactly like the /__preview bench and
+// /__dev-login are. It cannot be switched on by a creator.
+//
+//   localStorage.setItem('tryp_force_standalone', '1')   // pretend installed
+const forcedStandalone = () => {
+  if (!import.meta.env.DEV) return false
+  try { return localStorage.getItem('tryp_force_standalone') === '1' } catch { return false }
+}
+
 export const isStandalone = () => {
   if (typeof window === 'undefined') return false
+  if (forcedStandalone()) return true
   try {
     if (window.matchMedia?.('(display-mode: standalone)')?.matches) return true
     if (window.matchMedia?.('(display-mode: fullscreen)')?.matches) return true

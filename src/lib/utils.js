@@ -282,6 +282,20 @@ export function formatDobInput(iso) {
   return `${d}/${mo}/${y}`
 }
 
+// THE PROGRAMME'S MINIMUM AGE, IN ONE PLACE.
+//
+// It is SIXTEEN, and that is not a guess: the database enforces it
+// (`profiles_age_check`, age between 16 and 100), the Terms say "You must be at
+// least 16 years old", and the Privacy Policy says "The Programme is for people
+// aged 16 and over". Three statements of the same rule that have to agree, and
+// this is the fourth - the one the form checks BEFORE the database gets a
+// chance to refuse the row.
+//
+// Changing it is a real decision rather than an edit: raise this and the two
+// legal pages have to be raised with it, and 16- and 17-year-olds who have
+// already applied stop being eligible.
+export const MIN_AGE = 16
+
 /** Whole years between a dob (ISO date) and today. Null if no dob. */
 export function ageFromDob(iso) {
   if (!iso) return null

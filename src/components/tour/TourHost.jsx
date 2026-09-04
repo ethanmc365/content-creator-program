@@ -50,7 +50,28 @@ function findAnchor(name) {
   }) || null
 }
 
-export default function TourHost({ onFinish, network = false, layout = 'desktop' }) {
+// `required` IS THE FIRST RUN, AND THE FIRST RUN IS NOT OPTIONAL.
+//
+// Ethan (4 Sep 2026): "remember the tutorial is non-skippable the very first
+// time you do it. If you redo it, yep, you can exit out of it. The first time
+// you have to complete it all. You have to enable notifications, and the bank
+// details is advised but you can add it later."
+//
+// So there are two kinds of walk. The one that STARTS ITSELF for a newly
+// approved creator has no X and no "Skip this": every step is a single press on
+// something the card is pointing at, and the point of it is that by the end
+// they have actually been to the challenges board, the rooms, and turned
+// notifications on. The one somebody ASKS FOR from Settings is a refresher and
+// closes like any other overlay.
+//
+// TWO STEPS STAY ESCAPABLE EVEN ON A FIRST RUN, and both are deliberate:
+//   payment       - "I'll do this later". A hard gate on bank details produces
+//                   somebody who closes the app, and somebody genuinely may not
+//                   have their IBAN on them. BankDetailsPrompt asks again.
+//   notifications - already its own gate, which RELEASES on `denied`, because
+//                   a browser that has been told Block will never ask again and
+//                   holding it there strands somebody at 83% with no way out.
+export default function TourHost({ onFinish, network = false, layout = 'desktop', required = false }) {
   const tr = useT()
   const isPhone = useIsPhone()
   // IS SOMEBODY TYPING. Only the payment step cares (see `keepClear` in
@@ -311,6 +332,23 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   // this runs at display rate without re-rendering anything.
   useEffect(() => {
     if (!ready) return undefined
+    // THE TRAVEL WINDOW STARTS WHEN THE LOOP DOES, NOT WHEN THE STEP DOES
+    // (4 Sep 2026). Ethan: "the card, like, froze for a second and then jumped
+    // to the next place."
+    //
+    // That is exactly what it did, and the sequence is worth writing down.
+    // Entering a step sets `ready = false` and arms a 300ms timer; React
+    // meanwhile re-renders the card with the NEW step's words immediately. The
+    // rAF loop is the only thing that writes `top`/`left`, and it does not run
+    // while `ready` is false - so for 300ms the new text sat at the OLD
+    // position, doing nothing. That is the freeze. `travelUntil` was stamped at
+    // the START of that 300ms, so by the time the loop finally ran the transition
+    // window had most of a frame left in it: the card arrived by teleport. That
+    // is the jump.
+    //
+    // Stamping it here means the window covers the movement itself, so the
+    // freeze becomes a beat and the jump becomes a glide.
+    travelUntil.current = Date.now() + 560
     const anchorName = step?.anchor
     // A TALL ANCHOR IS SCROLLED TO THE TOP, NOT THE MIDDLE.
     //
@@ -511,10 +549,12 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
   }, [])
 
   useEffect(() => {
+    // Escape is the keyboard's version of the X, so it obeys the same rule.
+    if (required) return undefined
     const onKey = (e) => { if (e.key === 'Escape') close() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [close])
+  }, [close, required])
 
   if (!step) return null
 
@@ -595,13 +635,16 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
             </p>
             <div className="flex shrink-0 items-center gap-2">
               <span className="text-[11px] font-semibold tabular-nums text-smoke">{pct}%</span>
-              <button
-                onClick={close}
-                aria-label={tr("Close the walkthrough")}
-                className="-mr-1 rounded-full p-1 text-gray-300 transition-colors hover:text-ink"
-              >
-                <Icon name="close" className="h-4 w-4" />
-              </button>
+              {/* No way out of a first run. See `required` above. */}
+              {!required && (
+                <button
+                  onClick={close}
+                  aria-label={tr("Close the walkthrough")}
+                  className="-mr-1 rounded-full p-1 text-gray-300 transition-colors hover:text-ink"
+                >
+                  <Icon name="close" className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </div>
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100">
@@ -618,9 +661,14 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
             visible way forward concludes it is broken, and they are not wrong.
             Progress on top, actions on the bottom, and only the words in
             between move. */}
-        <div className="tour-scroll">
-        <p className="tour-title text-[17px] font-bold leading-snug tracking-tight">{step.title}</p>
-        <p className="tour-body mt-1.5 text-sm leading-relaxed text-smoke">{step.body}</p>
+        {/* KEYED ON THE STEP, so the words CHANGE WITH THE MOVE rather than
+            snapping to the next step's text while the box is still sitting at
+            the last step's position. A short fade, and only on the content -
+            the card itself is one element for the whole walk so it can travel
+            (see `data-travel`). */}
+        <div className="tour-scroll" key={step.key}>
+        <p className="tour-title tour-fade text-[17px] font-bold leading-snug tracking-tight">{step.title}</p>
+        <p className="tour-body tour-fade mt-1.5 text-sm leading-relaxed text-smoke">{step.body}</p>
 
         {/* THE INSTRUCTION. The one line that matters if they read nothing
             else, so it gets the brand colour and its own row.
@@ -685,9 +733,31 @@ export default function TourHost({ onFinish, network = false, layout = 'desktop'
                   app - and somebody genuinely may not have their IBAN to hand
                   standing on a train. BankDetailsPrompt asks again on later
                   opens, so skipping here does not mean never. */}
-              {!pushBlocked && (
+              {/* WHAT A FIRST RUN MAY WALK PAST, AND IT IS EXACTLY TWO THINGS.
+                  Everything else is one press on something already on screen.
+
+                    payee  - bank details. A hard gate here produces somebody
+                             who closes the app, and somebody genuinely may not
+                             have their IBAN on them. BankDetailsPrompt asks
+                             again on every open until it is done.
+                    push   - ONLY once the gate has already released, which is
+                             `!pushBlocked`: the browser has said Block and will
+                             never prompt again, or it has no push at all.
+                             WITHOUT THIS THE FIRST RUN IS A TRAP. A required
+                             walk with no X, no Escape and no skip, standing on
+                             a step whose button the browser refuses to honour,
+                             is a creator locked out of the product on their
+                             first minute in it. The card still explains how to
+                             unblock and still re-checks; this is the door for
+                             somebody who cannot or will not.
+                  A run somebody ASKED for skips anything. */}
+              {!pushBlocked && (!required || goal?.kind === 'payee' || goal?.kind === 'push') && (
                 <button onClick={skip} className="btn-ghost shrink-0 !px-3 !py-1.5 text-xs text-smoke">
-                  {goal?.kind === 'payee' ? tr("I'll do this later") : tr("Skip this")}
+                  {goal?.kind === 'payee'
+                    ? tr("I'll do this later")
+                    : goal?.kind === 'push' && pushState === 'denied'
+                      ? tr("Carry on without them")
+                      : tr("Skip this")}
                 </button>
               )}
             </>

@@ -446,7 +446,11 @@ export default function Messages() {
       const [{ data: profiles }, rels] = await Promise.all([
         supabase
           .from('profiles')
-          .select('id, name, photo_url, bio, is_admin, city, country')
+          // `created_at` and `last_seen_at` are here for the empty pane's
+          // suggestions: "new here" and "around today" are the two reasons that
+          // make a stranger worth messaging, and both are facts we already sort
+          // by and were throwing away.
+          .select('id, name, photo_url, bio, is_admin, city, country, created_at, last_seen_at')
           .eq('status', 'active').in('is_test', testFlags()).is('deletion_requested_at', null)
           .order('last_seen_at', { ascending: false, nullsFirst: false })
           .order('created_at', { ascending: false }),
@@ -1173,9 +1177,35 @@ export default function Messages() {
   // they haven't connected with anyone, towards creators who are active here.
   const myConnections = people.filter((p) => connectionIds.has(p.id))
   const emptyStatePeople = (myConnections.length > 0 ? myConnections : people.filter((p) => !p.is_admin)).slice(0, 6)
-  // `startablePeople` IS GONE. The desktop empty pane used to render its own
-  // grid of the same people the inbox rail is already showing, two inches to
-  // the left of it. One list, in the rail. See the empty pane below.
+
+  // WHO THE BIG EMPTY PANE OFFERS, AND WHY IT IS NOT THE RAIL'S LIST.
+  //
+  // Ethan (4 Sep 2026): "the preview that shows before clicking a chat - it
+  // just says 'open a conversation', which doesn't really make sense. Show some
+  // suggested people to message, maybe some new ones, or people you haven't
+  // connected with yet. Also you can remove the icon."
+  //
+  // The pane HAD a grid of people and it was taken out this morning, because it
+  // was drawing the same names the rail beside it was already drawing - see the
+  // note on the pane below. That reasoning was right and it is exactly what
+  // makes this different: the rail shows YOUR CONNECTIONS, and this shows the
+  // people you have not met. Two lists that answer two questions, rather than
+  // one list rendered twice.
+  //
+  // Ordered by `last_seen_at` already (see the query), so the top of it is
+  // whoever has been around most recently.
+  const NEW_HERE_DAYS = 21
+  const newHereCutoff = nowTick - NEW_HERE_DAYS * 86400000
+  const discoverPeople = useMemo(() => {
+    const strangers = people.filter((p) => !p.is_admin && !connectionIds.has(p.id) && !talkingTo.has(p.id))
+    // A community where you already know everybody still gets a pane that does
+    // something: fall back to connections you have not messaged, then to
+    // anybody at all. An empty grid would be worse than the sentence it
+    // replaced.
+    const fallback = people.filter((p) => !p.is_admin && !talkingTo.has(p.id))
+    return (strangers.length ? strangers : fallback).slice(0, 6)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [people, connectionIds, conversations])
 
   // One row in the inbox for someone you haven't messaged yet.
   const personRow = (p, hint) => (
@@ -1558,16 +1588,65 @@ export default function Messages() {
                What is left is one line and a mark that moves: the envelope
                drifts and its ring breathes, so the pane reads as waiting rather
                than as unfinished. CSS keyframes, not a runtime. */
-            <div className="flex h-full flex-col items-center justify-center gap-5 p-8 text-center">
-              <span className="dm-empty-mark relative flex h-20 w-20 items-center justify-center" aria-hidden>
-                <span className="dm-empty-ring absolute inset-0 rounded-full bg-brand-tint" />
-                <span className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-tint text-brand">
-                  <Icon name="envelope" className="h-7 w-7" />
-                </span>
-              </span>
-              <p className="text-lg font-semibold">
-                {conversations.length > 0 ? tr('Open a conversation') : tr('Say hello to someone')}
-              </p>
+            /* AND NOW IT OFFERS PEOPLE AGAIN - DIFFERENT PEOPLE (4 Sep 2026).
+               Ethan: "it just says open a conversation, which doesn't really
+               make sense. Show some suggested people to message, maybe some new
+               ones, or people you haven't connected with yet. Also you can
+               remove the icon."
+               "Open a conversation" is an instruction to do the thing the pane
+               is for, printed on the pane, with no way to do it from there - so
+               the largest rectangle in the product was a label. The envelope
+               above it was decoration on an empty screen. What is here now is
+               `discoverPeople`: creators you are NOT connected to and have NOT
+               messaged, which is a genuinely different list from the rail's
+               connections, so the screen no longer says the same thing twice.
+               A press starts the thread. */
+            <div className="flex h-full flex-col justify-center overflow-y-auto p-8">
+              <div className="mx-auto w-full max-w-lg">
+                <p className="text-center text-lg font-semibold">
+                  {tr('Say hello to someone')}
+                </p>
+                <p className="mx-auto mt-1.5 max-w-sm text-center text-sm leading-relaxed text-smoke">
+                  {discoverPeople.length > 0
+                    ? tr('Nobody here has met everybody. Pick a name and it opens a chat with them.')
+                    : tr('Open a conversation from the list, or find somebody new in the directory.')}
+                </p>
+
+                {discoverPeople.length > 0 && (
+                  <div className="mt-6 overflow-hidden rounded-card border border-gray-100">
+                    <p className="border-b border-gray-100 bg-cloud/50 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                      {tr('People you have not met yet')}
+                    </p>
+                    <div className="grid sm:grid-cols-2">
+                      {discoverPeople.map((p) => {
+                        const isNew = p.created_at && new Date(p.created_at).getTime() > newHereCutoff
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => startConversation(p.id)}
+                            disabled={starting === p.id}
+                            className="flex items-center gap-3 border-b border-gray-100 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-cloud disabled:opacity-60 sm:[&:nth-last-child(2):nth-child(odd)]:border-b-0"
+                          >
+                            <Avatar src={p.photo_url} name={p.name} size="sm" />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold">{p.name}</p>
+                              <p className="truncate text-xs text-smoke">
+                                {isNew ? tr('New here') : ([p.city, p.country].filter(Boolean).join(', ') || p.bio || tr('In the community'))}
+                              </p>
+                            </div>
+                            {starting === p.id && <Spinner className="h-4 w-4" />}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <Link to="/creators" className="mt-4 block text-center text-xs font-semibold text-brand hover:underline">
+                  {tr('Browse all creators')}
+                </Link>
+              </div>
             </div>
           ) : (
             <>

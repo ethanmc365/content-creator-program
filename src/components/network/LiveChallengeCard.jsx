@@ -300,20 +300,34 @@ export default function LiveChallengeCard({
 // What a market shows when nothing is running. Deliberately not an apology: an
 // empty board is the normal state between challenges, so it points at what the
 // creator can do meanwhile instead of just saying "none".
-export function NoLiveChallenge({ market, canCreate = false, slug, hint }) {
+// `title` OVERRIDES THE MARKET SENTENCE, because the same panel is now used on
+// the platform-wide board (pages/Challenges) where there is no market to name.
+// Ethan: "use that same copy, but obviously say just no challenge - you don't
+// say the market name."
+//
+// AND THE PLANE IS BIGGER HERE THAN IT WAS. It is the only thing on the panel
+// and it is the brand mark: at 224px on a phone it read as an illustration
+// tucked into a notice, which is the opposite of what an empty board wants to
+// feel like. Ethan: "that nice Tryp.com animated plane, you can have nice and
+// big there."
+export function NoLiveChallenge({ market, canCreate = false, slug, hint, title }) {
   return (
-    <div className="relative overflow-hidden rounded-card border border-dashed border-brand/25 bg-brand-tint/25 px-6 py-10 text-center">
+    <div className="relative overflow-hidden rounded-card border border-dashed border-brand/25 bg-brand-tint/25 px-6 py-12 text-center sm:py-16">
       <div className="flex justify-center">
-        <TrypPlane variant="inline" id={`empty-${slug || "market"}`} />
+        <TrypPlane
+          variant="inline"
+          id={`empty-${slug || 'market'}`}
+          className="h-36 w-72 sm:h-52 sm:w-[26rem]"
+        />
       </div>
-      <p className="mt-2 text-base font-semibold text-ink">
-        No challenge running in {market || 'this market'} right now
+      <p className="mt-3 text-lg font-semibold text-ink sm:text-xl">
+        {title || `No challenge running in ${market || 'this market'} right now`}
       </p>
-      <p className="mx-auto mt-1.5 max-w-md text-sm text-smoke">
+      <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-smoke">
         {hint || 'The next challenge is landing here soon.'}
       </p>
       {canCreate && (
-        <Link to={`/admin/challenges/new?market=${slug || ''}`} className="btn-primary mt-5 !py-2.5">
+        <Link to={`/admin/challenges/new${slug ? `?market=${slug}` : ''}`} className="btn-primary mt-6 !py-2.5">
           + Create a challenge
         </Link>
       )}

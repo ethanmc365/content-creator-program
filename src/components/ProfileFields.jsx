@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { compressImage } from '../lib/image'
 import { uploadFile } from '../lib/upload'
-import { parseDob, formatDobInput, ageFromDob, cx } from '../lib/utils'
+import { parseDob, formatDobInput, ageFromDob, cx, MIN_AGE } from '../lib/utils'
 import { DIAL_CODES, flagEmoji } from '../lib/dialCodes'
 import { COUNTRIES, normalize as normalizeCountry } from '../lib/countries'
 import { Avatar, Spinner, Select } from './ui'
@@ -209,6 +209,7 @@ export function DobField({ value, onChange, required, fallbackAge = null }) {
   const iso = parseDob(text)
   const showError = text.trim().length >= 10 && !iso
   const age = ageFromDob(iso)
+  const tooYoung = age != null && age < MIN_AGE
 
   function handle(e) {
     // Auto-insert the slashes as they type so "22122005" becomes "22/12/2005"
@@ -244,6 +245,15 @@ export function DobField({ value, onChange, required, fallbackAge = null }) {
           cannot: either it is wrong, or here is the age it will show. */}
       {showError ? (
         <p className="mt-1 text-xs text-red-600">{tr("Enter a real date as DD/MM/YYYY, e.g. 25/01/2005.")}</p>
+      ) : tooYoung ? (
+        /* SAID HERE, WHERE THE DATE IS. It used to be said by the database, at
+           the end of nine screens, as `violates check constraint
+           profiles_age_check`. The minimum is the programme's own published one
+           - see MIN_AGE in lib/utils, which the Terms and the Privacy Policy
+           both state as well. */
+        <p className="mt-1 text-xs text-red-600">
+          {tr("That makes you {n}, and the community is for {min} and over. You are welcome to apply again once you are old enough.", { n: age, min: MIN_AGE })}
+        </p>
       ) : age != null ? (
         <p className="mt-1 text-xs text-smoke">
           {tr("You'll show as {n} years old. Only your age is shown publicly, never your date of birth.", { n: age })}

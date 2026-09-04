@@ -31,8 +31,12 @@ describe('who gets walked round', () => {
     expect(shouldAutoStart({ profile: { ...member, is_admin: true }, enabled: true, layout: 'desktop' })).toBe(false)
   })
 
-  it('not a test account', () => {
-    expect(shouldAutoStart({ profile: { ...member, is_test: true }, enabled: true, layout: 'desktop' })).toBe(false)
+  // THE SANDBOX CREATOR IS WALKED ROUND LIKE ANYBODY ELSE, and that is the
+  // point of it: `qa-creator` exists to see exactly what a real creator sees,
+  // so excluding it made the walkthrough the one feature that could not be
+  // checked from the account built for checking things. Admins are still out.
+  it('a test account IS walked round, because that is what the sandbox is for', () => {
+    expect(shouldAutoStart({ profile: { ...member, is_test: true }, enabled: true, layout: 'desktop' })).toBe(true)
   })
 
   it('not somebody still waiting on approval, or refused', () => {

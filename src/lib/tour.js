@@ -299,6 +299,41 @@ export function clearStep(layout) {
   try { localStorage.removeItem(AT_KEY(layout)) } catch { /* private mode */ }
 }
 
+// ---------------------------------------------------------------------------
+// THE WALK WAS OPEN WHEN THE PAGE WENT AWAY, AND IT SHOULD BE OPEN WHEN IT
+// COMES BACK (4 Sep 2026).
+//
+// Ethan, again: "the interactive tutorial - if I tap anywhere, like the button
+// it told me to tap, the tutorial just stops."
+//
+// `savedStep` has always remembered WHERE somebody was. Nothing remembered
+// THAT they were mid-walk, so any reload dropped the overlay and only
+// `shouldAutoStart` could bring it back - and `shouldAutoStart` says no to an
+// admin, to anybody who has finished it once, and to anybody who has the
+// per-layout local flag. Every one of those describes Ethan testing it. So on
+// his phone, a reload - a stale chunk after a deploy (lib/lazyRoute reloads
+// once by design), iOS killing a backgrounded PWA, a pull-to-refresh - looked
+// exactly like the tutorial stopping when he tapped something.
+//
+// This is the missing half: a flag that says the overlay is UP. It is written
+// when the walk opens and cleared only when it ends - finished or dismissed -
+// so coming back reopens it at `savedStep` for ANYONE, admin included, without
+// touching the rules about who gets walked round in the first place. Those two
+// questions were being answered by one flag and they are not the same question.
+const OPEN_KEY = (layout) => `tryp_tour_open_${layout}_v${TOUR_VERSION}`
+
+export function walkIsOpen(layout) {
+  try { return localStorage.getItem(OPEN_KEY(layout)) === '1' } catch { return false }
+}
+
+export function markWalkOpen(layout) {
+  try { localStorage.setItem(OPEN_KEY(layout), '1') } catch { /* private mode */ }
+}
+
+export function clearWalkOpen(layout) {
+  try { localStorage.removeItem(OPEN_KEY(layout)) } catch { /* private mode */ }
+}
+
 export function seenLocally(layout) {
   try { return localStorage.getItem(SEEN_KEY(layout)) === '1' } catch { return false }
 }
@@ -312,6 +347,7 @@ export function clearSeenLocally() {
     for (const l of ['mobile', 'desktop']) {
       localStorage.removeItem(SEEN_KEY(l))
       localStorage.removeItem(AT_KEY(l))
+      localStorage.removeItem(OPEN_KEY(l))
     }
   } catch { /* private mode */ }
 }
@@ -345,7 +381,22 @@ export const tourEnabled = () => readFlag('tour_enabled')
 export function shouldAutoStart({ profile, enabled, layout }) {
   if (!enabled) return false
   if (!profile) return false
-  if (profile.is_admin || profile.is_test) return false
+  // ADMINS ONLY. `is_test` USED TO BE HERE AND IT IS WHY THIS HAS NEVER BEEN
+  // TESTABLE (4 Sep 2026).
+  //
+  // An admin is excluded because they are the one demonstrating it. That is
+  // right. `is_test` was excluded alongside it on the same reflex - and the one
+  // account it locks out is `qa-creator@trypcreators.test`, which exists for
+  // precisely the opposite reason: it is the sandbox that "deliberately sees
+  // exactly what a real creator sees". So the only login that could have
+  // reproduced "the tutorial doesn't start" was the only login guaranteed never
+  // to start it, and every check of this feature has had to be done by
+  // reasoning about the code instead of by looking at it.
+  //
+  // Nothing else is affected: the eight Spanish demo creators are `is_test` and
+  // nobody signs in as them, and the shared demo login is an ADMIN, which this
+  // still excludes.
+  if (profile.is_admin) return false
   if (profile.status !== 'active') return false
   if (!profile.onboarded) return false
   if (profile.tour_completed_at) return false
