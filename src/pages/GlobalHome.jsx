@@ -22,6 +22,7 @@ import DailyPuzzleCallout from '../components/games/DailyPuzzleCallout'
 import BoardCard from '../components/network/BoardCard'
 import Icon from '../components/Icon'
 import { Avatar, EmptyState, Skeleton } from '../components/ui'
+import PageSkeleton from '../components/PageSkeleton'
 import { flagForCountry } from '../lib/flags'
 import { stripMarkup } from '../lib/richText'
 import { ANNOUNCEMENT_LIMIT, ANNOUNCEMENT_MAX_AGE_DAYS, recentAnnouncements } from '../lib/announcements'
@@ -689,14 +690,12 @@ export default function GlobalHome() {
               fix is to not draw a list you are about to reorder. The greeting
               is inside the gate too now - see the note above it. */}
           {!d ? (
-            <div className="space-y-9" aria-hidden>
-              {/* The first one is the greeting's own line, so the page does not
-                  reflow when the name arrives. */}
-              <Skeleton className="h-10 w-56" />
-              <Skeleton className="h-32" />
-              <Skeleton className="h-56" />
-              <Skeleton className="h-40" />
-            </div>
+            /* THE BUSIEST FIRST SCREEN IN THE PRODUCT, and it was drawing four
+               grey bars. The hub has a market switcher, a greeting, the live
+               challenge banner, the latest announcement and the puzzles - so
+               that is what the placeholder is now, at those heights, so nothing
+               reflows when the real thing lands. */
+            <PageSkeleton shape="hub" />
           ) : (
           <>
 

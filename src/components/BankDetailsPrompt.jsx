@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { Modal } from './ui'
 import Icon from './Icon'
 import { payeeFromPrivate, payeeComplete } from '../lib/invoice'
+import { claimNag } from '../lib/appNag'
 import { useT } from '../lib/i18n'
 
 // "ADD YOUR BANK DETAILS" - ASKED EVERY TIME, ENFORCED NEVER.
@@ -44,6 +45,24 @@ export default function BankDetailsPrompt() {
     // Admins are not paid through this, and a pending applicant has no prizes
     // to be paid for yet - asking either of them is noise.
     if (!user?.id || !profile || profile.is_admin || profile.status !== 'active') return undefined
+
+    // NOT ON THEIR VERY FIRST SESSION, BECAUSE THE TUTORIAL ASKS (4 Sep 2026).
+    //
+    // Ethan: "this new account didn't show up the tutorial at all - it just
+    // asked for the bank details and that was it. This payment detail thing
+    // doesn't need to be the first thing that shows up on the first step in the
+    // app, because we're having it in the actual tutorial in the middle of it."
+    //
+    // Two modals about the same thing, in the same minute, is the walkthrough
+    // arriving to find its own subject already covered by a dialog. The
+    // walkthrough has a payment step now (see lib/tour), and it is a better
+    // place to ask: it arrives after they have seen what the prizes are FOR.
+    //
+    // `tour_completed_at` is the exact flag for "has this person had their
+    // first run", so this waits for it. Somebody who dismisses or finishes the
+    // walkthrough is asked from their next app open onwards, exactly as before.
+    if (!profile.tour_completed_at) return undefined
+
     try {
       if (sessionStorage.getItem(ASKED_KEY)) return undefined
     } catch { /* private mode: ask once per mount, which is close enough */ }
@@ -61,6 +80,10 @@ export default function BankDetailsPrompt() {
         // how somebody gets nagged for details they have already given, or
         // worse, is left alone while their prize sits unpayable.
         if (payeeComplete(payeeFromPrivate(data))) return
+        // LAST IN THE QUEUE. If the home-screen or notifications ask has
+        // already used this app open, bank details wait for the next one -
+        // see lib/appNag for why the order is what it is.
+        if (!claimNag('bank-details')) return
         setOpen(true)
       })
     return () => { alive = false }
@@ -82,8 +105,13 @@ export default function BankDetailsPrompt() {
             {tr('Prizes are paid by bank transfer, and we can only raise an invoice once we know where to send it. It takes about a minute and you only do it once.')}
           </p>
         </div>
+        {/* Ethan asked for this line to change. What it said was true and it
+            was also a small threat - "we will remind you" is the sentence a
+            dialog uses when it intends to be back. What somebody needs to know
+            is what happens to their money if they leave it, which is the honest
+            reason to do it now and does not require nagging. */}
         <p className="text-sm leading-relaxed text-smoke">
-          {tr('You can do it later — we will remind you next time you open the app.')}
+          {tr('If you win before we have these, your prize waits until we do. You can add them any time from Settings.')}
         </p>
         <div className="flex flex-col gap-2 sm:flex-row-reverse">
           <Link to="/settings?section=payment" onClick={dismiss} className="btn-primary flex-1 justify-center">

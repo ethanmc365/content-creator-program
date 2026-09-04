@@ -10,6 +10,7 @@ import TourGate from '../tour/TourGate'
 import RouteSkeleton from '../RouteSkeleton'
 import PullToRefresh from '../PullToRefresh'
 import BankDetailsPrompt from '../BankDetailsPrompt'
+import AddToHomePrompt from '../AddToHomePrompt'
 import { useChatSearchTarget } from '../../lib/chatSearch'
 import { useChatChromeHidden } from '../../lib/chatChrome'
 import { showLocalNotification } from '../../lib/push'
@@ -436,6 +437,11 @@ export default function AppLayout() {
           open the app" is a fact about the session and not about any route.
           See components/BankDetailsPrompt - it asks nothing of a creator who
           has already filled them in, and takes "later" for an answer. */}
+      {/* AT MOST ONE OF THESE ASKS ANYTHING PER APP OPEN. They coordinate
+          through lib/appNag, which also fixes the priority: home screen first
+          (on iOS notifications do not work at all until it is installed), then
+          notifications, then bank details. */}
+      <AddToHomePrompt />
       <BankDetailsPrompt />
 
       {/* When an admin is previewing as the sandbox creator, a persistent pill

@@ -9,7 +9,8 @@ import Reveal from '../components/network/Reveal'
 import Reorderable from '../components/network/Reorderable'
 import FlagStack from '../components/network/FlagStack'
 import Icon from '../components/Icon'
-import { EmptyState, Skeleton } from '../components/ui'
+import { EmptyState } from '../components/ui'
+import PageSkeleton from '../components/PageSkeleton'
 import { stripMarkup } from '../lib/richText'
 import { cx, shortAgo } from '../lib/utils'
 import { useIsMobile } from '../lib/useKeyboardInset'
@@ -287,7 +288,14 @@ export default function Rooms() {
               exactly the thing to wait for; `[]` means "answered, and there are
               none". */}
           {ctxLoading || rooms === null ? (
-            <div className="space-y-4"><Skeleton className="h-44" /><Skeleton className="h-32" /></div>
+            /* TWO GREY SLABS IS NOT A SKELETON OF ANYTHING (4 Sep 2026).
+               Measured on production, tapping this tab on a phone: the page
+               drew TWO placeholder elements on an otherwise empty screen. That
+               is a blank page with a couple of bars on it, and it is what
+               Ethan has been calling "the loading screen" for four rounds.
+               The shape now matches what lands - a market switcher and a list
+               of rooms. See components/PageSkeleton. */
+            <PageSkeleton shape="rooms" />
           ) : places.length === 0 ? (
             <EmptyState
               icon={<Icon name="chat" className="h-7 w-7" />}

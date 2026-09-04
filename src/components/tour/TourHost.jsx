@@ -6,7 +6,7 @@ import { Spinner } from '../ui'
 import { cx } from '../../lib/utils'
 import { useIsPhone } from '../../lib/useKeyboardInset'
 import { enablePush, pushPermission, pushSupported } from '../../lib/push'
-import { partOf, stepAt, stepGoal, stepsFor } from '../../lib/tour'
+import { partOf, savedStep, saveStep, stepAt, stepGoal, stepsFor } from '../../lib/tour'
 import { placeCard, union, CARD_W } from '../../lib/tourPlacement'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
@@ -49,7 +49,7 @@ function findAnchor(name) {
   }) || null
 }
 
-export default function TourHost({ onFinish, network = false }) {
+export default function TourHost({ onFinish, network = false, layout = 'desktop' }) {
   const tr = useT()
   const isPhone = useIsPhone()
   const navigate = useNavigate()
@@ -57,7 +57,11 @@ export default function TourHost({ onFinish, network = false }) {
   const { user } = useAuth()
 
   const steps = useMemo(() => stepsFor({ network }), [network])
-  const [i, setI] = useState(0)
+  // RESUME, RATHER THAN RESTART. See `savedStep` in lib/tour: a walkthrough
+  // that moves you around the product is one people leave halfway, and coming
+  // back to step one is how they stop coming back at all. Clamped to the last
+  // real step so a shortened walk can never resume off the end.
+  const [i, setI] = useState(() => Math.min(savedStep(layout), stepsFor({ network }).length - 1))
   const [ready, setReady] = useState(false)
   const [busy, setBusy] = useState(false)
   const [hit, setHit] = useState(false)        // the goal just completed
@@ -70,6 +74,10 @@ export default function TourHost({ onFinish, network = false }) {
   const tickRef = useRef(0)
   const travelUntil = useRef(0)
   const advanced = useRef(false)
+
+  // Remember where they are on every move, so backgrounding the app at step
+  // four comes back to step four.
+  useEffect(() => { saveStep(layout, i) }, [layout, i])
 
   const step = steps[Math.min(i, steps.length - 1)]
   const last = i >= steps.length - 1
@@ -250,14 +258,34 @@ export default function TourHost({ onFinish, network = false }) {
   }, [ready, goal, user?.id, finishStep])
 
   // ---------------------------------------------------- goal: they allow ---
+  // GRANTED IS SHOWN, NOT SKIPPED PAST (4 Sep 2026).
+  //
+  // Ethan: "for the notification thing, even if they have them enabled, the
+  // screen flashes up and goes away - just leave it for a second and actually
+  // show that you checked they were enabled, for a couple of seconds."
+  //
+  // The poll ran every 500ms and called `finishStep` the instant it saw
+  // `granted`, so somebody who already had notifications on saw the card appear
+  // and vanish. That is not a step, it is a flicker - and it silently skips the
+  // one confirmation in the walk that is worth having: this is the thing that
+  // tells them a brief has gone live, and being SHOWN that it is on is the
+  // point of the step whether they had to press anything or not.
+  //
+  // `finishStep` already draws a "Nice one" tick and waits 620ms before moving.
+  // What this adds is a deliberate beat BEFORE that, only on the already-on
+  // path, so the card is readable rather than a frame of orange.
+  const ALREADY_ON_BEAT_MS = 1500
   useEffect(() => {
     if (goal?.kind !== 'push') return undefined
+    let timer = 0
     const id = setInterval(() => {
       const p = pushPermission()
       setPushState(p)
-      if (p === 'granted') finishStep()
+      if (p !== 'granted' || timer) return
+      // Hold for a moment so the confirmation can be read, then advance.
+      timer = setTimeout(finishStep, ALREADY_ON_BEAT_MS)
     }, 500)
-    return () => clearInterval(id)
+    return () => { clearInterval(id); if (timer) clearTimeout(timer) }
   }, [goal, finishStep])
 
   async function doPush() {

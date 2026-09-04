@@ -3,7 +3,7 @@
 //  * LanguageSelect - multi-select tag picker
 //  * SocialInputs   - Instagram / TikTok / YouTube / Facebook URL fields
 //  * CountrySelect  - a country AND its ISO-2 code, picked rather than typed
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { compressImage } from '../lib/image'
 import { uploadFile } from '../lib/upload'
@@ -23,37 +23,119 @@ export const LANGUAGE_OPTIONS = [
   'Romanian', 'Ukrainian', 'Russian', 'Swedish', 'Norwegian', 'Danish',
 ]
 
-/** Profile photo uploader. Files land in avatars/<user id>/ (RLS-protected). */
+/**
+ * PROFILE PHOTO UPLOADER.
+ *
+ * Files land in avatars/<user id>/ (RLS-protected).
+ *
+ * REBUILT 4 SEP 2026. Ethan, on the "Who are you?" screen: "I uploaded a
+ * profile picture, but first it just showed up as a wide screen. Like, it
+ * didn't register. Then I tried again and eventually it worked - but obviously
+ * there's a bit of issues there. Make sure it's really smooth."
+ *
+ * THREE THINGS WERE WRONG AND THEY COMPOUND EACH OTHER.
+ *
+ *  1. THE PROGRESS INDICATOR WAS INSIDE A HOVER-ONLY OVERLAY. The spinner lived
+ *     in a `group-hover:opacity-100` layer over the avatar, so on a PHONE -
+ *     where there is no hover - picking a file showed absolutely nothing while
+ *     the work happened. "It didn't register" is the correct reading of a
+ *     control that gives no feedback at all.
+ *  2. AND THE WORK CAN TAKE TEN SECONDS. An iPhone photo is HEIC, which no
+ *     browser canvas can decode, so `compressImage` dynamically imports
+ *     `heic2any` - a 1.35 MB chunk - and then converts a 4 MB photo in the main
+ *     thread before the upload even starts. Silence for that long reads as a
+ *     broken button, so you press it again, which is exactly what happened.
+ *  3. NOTHING APPEARED UNTIL THE REMOTE URL CAME BACK. The avatar only changed
+ *     once the upload had finished and the storage URL had been fetched and
+ *     decoded - so even the successful path had a long gap with the old (empty)
+ *     circle sitting there.
+ *
+ * WHAT IT DOES NOW: shows the picture the INSTANT it is chosen, from a local
+ * object URL, so there is never a moment where nothing happened; keeps a
+ * visible, non-hover progress ring over it with a label that says which stage
+ * it is at; and names the failure in place if one comes. The object URL is
+ * revoked when the real one lands or the component goes away.
+ */
 export function AvatarUpload({ photoUrl, name, onUploaded }) {
   const tr = useT()
   const { user } = useAuth()
   const inputRef = useRef(null)
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState('')       // '' | 'reading' | 'uploading'
   const [error, setError] = useState('')
+  // The locally-chosen file, shown immediately. Held in a ref as well so the
+  // cleanup can revoke it without making it an effect dependency.
+  const [preview, setPreview] = useState('')
+  const previewRef = useRef('')
+
+  const dropPreview = useCallback(() => {
+    if (previewRef.current) {
+      try { URL.revokeObjectURL(previewRef.current) } catch { /* already gone */ }
+      previewRef.current = ''
+    }
+  }, [])
+  useEffect(() => dropPreview, [dropPreview])
 
   async function handleFile(e) {
     const file = e.target.files?.[0]
+    // RESET THE INPUT IMMEDIATELY. Without this, choosing the SAME file twice
+    // in a row fires no `change` event at all - which is its own version of
+    // "it didn't register", and the most likely thing somebody does after a
+    // failed attempt is pick the same photo again.
+    e.target.value = ''
     if (!file) return
     const looksImage = file.type.startsWith('image/') || /\.(heic|heif|jpe?g|png|webp|gif)$/i.test(file.name)
     if (!looksImage) return setError('Please choose an image.')
     if (file.size > 15 * 1024 * 1024) return setError('Please choose an image under 15MB.')
     setError('')
-    setBusy(true)
-    // Avatars only ever render small, so 512px keeps them tiny in storage.
+
+    // SHOW IT NOW. A HEIC will not render in most browsers, so this is a
+    // best-effort preview: if the browser cannot decode it the old avatar
+    // stays and the progress ring still says something is happening.
+    dropPreview()
+    const localUrl = URL.createObjectURL(file)
+    previewRef.current = localUrl
+    setPreview(localUrl)
+
+    const isHeic = /heic|heif/i.test(file.type) || /\.(heic|heif)$/i.test(file.name)
+    setBusy(isHeic ? 'reading' : 'uploading')
+
     let compressed
     try {
+      // Avatars only ever render small, so 512px keeps them tiny in storage.
       compressed = await compressImage(file, { maxDim: 512, quality: 0.85 })
-    } catch (err) { setError(err.message); setBusy(false); return }
+    } catch (err) {
+      setError(err.message); setBusy(''); dropPreview(); setPreview('')
+      return
+    }
+    setBusy('uploading')
     const ext = (compressed.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg')
     const path = `${user.id}/avatar-${Date.now()}.${ext}` // unique name busts caches
     try {
       const url = await uploadFile('avatars', path, compressed, compressed.type || 'image/jpeg')
       onUploaded(url)
+      // The remote URL is now the source of truth. The preview is kept for one
+      // more beat and dropped by the effect below once the real image has
+      // decoded, so there is no flicker between the two.
     } catch (err) {
       setError(err.message)
+      dropPreview()
+      setPreview('')
     }
-    setBusy(false)
+    setBusy('')
   }
+
+  // Once the saved photo matches what we uploaded, the local copy has done its
+  // job. Waiting for `photoUrl` to change rather than dropping it immediately
+  // is what stops a blink between the object URL and the network one.
+  useEffect(() => {
+    if (!photoUrl || !previewRef.current) return
+    const img = new Image()
+    img.onload = () => { dropPreview(); setPreview('') }
+    img.src = photoUrl
+  }, [photoUrl, dropPreview])
+
+  const shown = preview || photoUrl
+  const label = busy === 'reading' ? tr('Reading your photo…') : tr('Uploading…')
 
   return (
     <div className="flex flex-col items-center gap-3">
@@ -62,17 +144,30 @@ export function AvatarUpload({ photoUrl, name, onUploaded }) {
         onClick={() => inputRef.current?.click()}
         className="group relative rounded-full"
         aria-label={tr("Change profile photo")}
+        aria-busy={!!busy}
       >
-        <Avatar src={photoUrl} name={name} size="xl" />
-        <span className="absolute inset-0 flex items-center justify-center rounded-full bg-ink/40 text-xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
-          {busy ? <Spinner /> : 'Change'}
-        </span>
+        <Avatar src={shown} name={name} size="xl" />
+        {/* THE PROGRESS LAYER IS NOT GATED ON HOVER. It is the whole of the
+            feedback on a phone, and a phone is where this is used. */}
+        {busy ? (
+          <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-full bg-ink/55 text-[10px] font-semibold text-white">
+            <Spinner className="h-5 w-5" />
+          </span>
+        ) : (
+          <span className="absolute inset-0 flex items-center justify-center rounded-full bg-ink/40 text-xs font-medium text-white opacity-0 transition-opacity hoverable:group-hover:opacity-100">
+            {tr('Change')}
+          </span>
+        )}
       </button>
       <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
-      <button type="button" onClick={() => inputRef.current?.click()} className="text-sm font-medium text-brand hover:underline">
-        {photoUrl ? 'Change photo' : 'Upload a photo'}
-      </button>
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {busy ? (
+        <p className="text-sm font-medium text-brand">{label}</p>
+      ) : (
+        <button type="button" onClick={() => inputRef.current?.click()} className="text-sm font-medium text-brand hover:underline">
+          {shown ? tr('Change photo') : tr('Upload a photo')}
+        </button>
+      )}
+      {error && <p className="max-w-xs text-center text-xs text-red-600">{error}</p>}
     </div>
   )
 }
@@ -377,7 +472,6 @@ export function LanguageSelect({ selected = [], onChange }) {
  * is unlabelled the moment it has anything in it.
  */
 export function SocialInputs({ values, onChange }) {
-  const tr = useT()
   const fields = [
     { key: 'instagram_url', brand: 'instagram', label: 'Instagram', placeholder: 'instagram.com/yourhandle' },
     { key: 'tiktok_url', brand: 'tiktok', label: 'TikTok', placeholder: 'tiktok.com/@yourhandle' },
@@ -394,7 +488,7 @@ export function SocialInputs({ values, onChange }) {
           <div
             key={f.key}
             className={cx(
-              'flex items-center gap-3 rounded-card border px-3 py-2.5 transition-colors duration-200',
+              'field-shell flex items-center gap-3 rounded-card border px-3 py-2.5 transition-colors duration-200',
               filled ? 'border-gray-200 bg-white' : 'border-gray-100 bg-cloud/40',
             )}
           >
@@ -430,9 +524,6 @@ export function SocialInputs({ values, onChange }) {
           </div>
         )
       })}
-      <p className="pt-1 text-xs text-smoke">
-        {tr("One is enough to apply. Paste the address of your page, not your handle on its own.")}
-      </p>
     </div>
   )
 }

@@ -7,7 +7,8 @@ import {
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useMyScopes } from '../lib/scope'
-import { PageHeader, Skeleton } from '../components/ui'
+import { PageHeader } from '../components/ui'
+import PageSkeleton from '../components/PageSkeleton'
 import Icon from '../components/Icon'
 import EventRsvp from '../components/EventRsvp'
 import EventPolls from '../components/EventPolls'
@@ -474,10 +475,10 @@ export default function Events() {
       />
 
       {loading ? (
-        <div className="space-y-6">
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-96 w-full" />
-        </div>
+        /* The calendar's own shape - the next-up strip, the view toggles and a
+           month grid - rather than two rectangles. See components/PageSkeleton
+           for why this matters more than the Suspense fallback does. */
+        <PageSkeleton shape="calendar" />
       ) : (
         <>
           {/* ---------- On now ----------

@@ -105,13 +105,36 @@ export default function AdminEmail() {
             note={market ? `${creators.length} of ${people.length} creators` : null}
           />
           <AddressBook creators={creators} team={team} scoped={!!market} />
-          <ReviewQueue queue={queue} setQueue={setQueue} emailById={emailById} />
+          {/* THE WELCOME QUEUE IS HIDDEN, NOT DELETED (4 Sep 2026).
+              Ethan: "remove the welcome emails thing from the email admin tool -
+              there are no more automatic emails for now, so hide it for now,
+              don't have to delete it all."
+
+              It is a to-do list for mail nobody is currently sending: outbound
+              email is paused until mail.tryp.com exists (see the DNS work in
+              [[andre-infrastructure-ask]]), and a queue that fills up with
+              people you are not going to write to is a growing red number that
+              means nothing. The trigger still WRITES the rows, so nothing is
+              lost and the history is intact - this is one flag away from coming
+              back the day mail works.
+
+              `ReviewQueue` and everything it needs are left in place
+              deliberately: deleting them would mean rebuilding the whole thing
+              rather than flipping this back. */}
+          {SHOW_WELCOME_QUEUE && (
+            <ReviewQueue queue={queue} setQueue={setQueue} emailById={emailById} />
+          )}
           <SentLog rows={log} />
         </div>
       )}
     </div>
   )
 }
+
+// Turn this back on the day outbound email actually sends. See the note at the
+// call site: the rows are still written, so switching it on shows the real
+// backlog rather than starting from nothing.
+const SHOW_WELCOME_QUEUE = false
 
 // ---------------------------------------------------------------------------
 // THE ADDRESS BOOK.

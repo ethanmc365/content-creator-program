@@ -218,7 +218,12 @@ export default function Directory() {
     // Admins appear in the team row above the grid. They come BACK into the
     // grid the moment a filter is on, because a search that hides a match is a
     // search that is lying.
-    if (c.is_admin && !search && !country && !language && !platform && !connection && !connectionsOnly && !travelOnly && !nearMe) return false
+    // THE TEAM TAB IS THE ONLY PLACE ADMINS APPEAR IN THE GRID. Everywhere
+    // else they are held back for the section below (and now for their own
+    // tab), which is what stops "Creators" being a list of creators plus five
+    // members of staff.
+    if (connection === 'team') return !!c.is_admin
+    if (c.is_admin) return false
     if (connectionsOnly && !myConnectionIds.has(c.id)) return false
     if (connection === 'connected' && !myConnectionIds.has(c.id)) return false
     if (connection === 'new' && myConnectionIds.has(c.id)) return false
@@ -337,10 +342,23 @@ export default function Directory() {
           challenge board's group tabs already use. A dropdown would have been a
           fifth cell in a grid built for four. */}
       <div className="mb-4 flex flex-wrap items-center gap-1.5 rounded-card border border-gray-100 bg-white p-1.5 shadow-card">
+        {/* "CREATORS" AND "TRYP.COM TEAM" ARE TWO ANSWERS, NOT ONE LIST
+            (4 Sep 2026). Ethan: "'Everyone' should be renamed as Creators, and
+            then it should show only the creators. And on the right we should
+            have another one saying Tryp.com team, and that only shows the
+            Tryp.com team - because currently on Everyone they're mixed together
+            and it doesn't look great."
+
+            "Everyone" was never true anyway: the team was filtered OUT of the
+            grid and drawn in its own section underneath, so the tab labelled
+            Everyone showed everyone except five people. Naming the two groups
+            and letting you pick one is both more honest and what somebody
+            scanning for "who runs this" actually wants. */}
         {[
-          { key: '', label: tr('Everyone') },
+          { key: '', label: tr('Creators') },
           { key: 'connected', label: tr('My connections') },
           { key: 'new', label: tr('Not connected yet') },
+          { key: 'team', label: tr('Tryp.com team') },
         ].map((o) => (
           <button
             key={o.key || 'all'}
@@ -388,6 +406,10 @@ export default function Directory() {
         </div>
       )}
 
+      {/* The team section under the grid is now redundant on the team TAB -
+          it would be the same five people twice - so it only draws on the
+          default view, where it is still the fastest way to see who runs this
+          without changing tabs. */}
       {!loading && team.length > 0 && !search && !country && !language && !platform && !connection && !connectionsOnly && !travelOnly && !nearMe && (
         <section className="mb-10">
           <div className="mb-3">

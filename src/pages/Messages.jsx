@@ -16,7 +16,6 @@ import PhotoLightbox from '../components/PhotoLightbox'
 import MessageActions from '../components/chat/MessageActions'
 import { useProfileNames } from '../components/network/ChatExtras'
 import { mediaType, saveFile, fileNameFromUrl } from '../lib/media'
-import { isOnline } from '../lib/presence'
 import { ChatSkeleton } from '../components/network/Skeletons'
 import { pinToBottom, isPinning, stickToBottom } from '../lib/chatScroll'
 import { formatChatTime, formatMessageTime, messageTimeTitle, otherParticipant, cx } from '../lib/utils'
@@ -1161,14 +1160,9 @@ export default function Messages() {
   // they haven't connected with anyone, towards creators who are active here.
   const myConnections = people.filter((p) => connectionIds.has(p.id))
   const emptyStatePeople = (myConnections.length > 0 ? myConnections : people.filter((p) => !p.is_admin)).slice(0, 6)
-  // The same set for the DESKTOP pane, but ordered by who is around: the empty
-  // pane's whole job is to start a conversation, and a message to somebody
-  // online gets answered today. Sorted from the full list before slicing, or
-  // the ordering would only shuffle whichever six the inbox happened to pick.
-  const startablePeople = (myConnections.length > 0 ? myConnections : people.filter((p) => !p.is_admin))
-    .slice()
-    .sort((a, b) => (isOnline(b.last_seen_at) ? 1 : 0) - (isOnline(a.last_seen_at) ? 1 : 0))
-    .slice(0, 8)
+  // `startablePeople` IS GONE. The desktop empty pane used to render its own
+  // grid of the same people the inbox rail is already showing, two inches to
+  // the left of it. One list, in the rail. See the empty pane below.
 
   // One row in the inbox for someone you haven't messaged yet.
   const personRow = (p, hint) => (
@@ -1536,58 +1530,31 @@ export default function Messages() {
             // The heading block above it stays centred - a title and one line
             // of explanation over a centred card is the one thing on this pane
             // that was never the problem.
-            <div className="flex h-full flex-col items-center justify-center gap-6 p-8">
-              <div className="flex flex-col items-center text-center">
-                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-tint text-brand" aria-hidden>
-                  <Icon name="chat" className="h-7 w-7" />
+            /* THE SUGGESTIONS ARE ALREADY ON THE LEFT (4 Sep 2026).
+               Ethan: "on the DMs screen, because it shows up suggestions on the
+               left bar, there is no need to also show them on the big screen.
+               You can just have the copy 'Say hello to someone' with a nice
+               animation, no need for the copy etc."
+
+               He is right: the same list of people was rendered twice, side by
+               side, on one screen - a grid of names in the middle of the pane
+               and the identical names in the rail next to it. The empty pane's
+               job is to say the pane is empty and point at where the answer is,
+               and the answer is two inches to the left.
+
+               What is left is one line and a mark that moves: the envelope
+               drifts and its ring breathes, so the pane reads as waiting rather
+               than as unfinished. CSS keyframes, not a runtime. */
+            <div className="flex h-full flex-col items-center justify-center gap-5 p-8 text-center">
+              <span className="dm-empty-mark relative flex h-20 w-20 items-center justify-center" aria-hidden>
+                <span className="dm-empty-ring absolute inset-0 rounded-full bg-brand-tint" />
+                <span className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-tint text-brand">
+                  <Icon name="envelope" className="h-7 w-7" />
                 </span>
-                <p className="mt-4 text-lg font-semibold">
-                  {conversations.length > 0 ? tr('Open a conversation') : tr('Say hello to someone')}
-                </p>
-                <p className="mt-1 max-w-sm text-sm text-smoke">
-                  {conversations.length > 0
-                    ? tr('Pick one from the left, or start a new one with anybody below.')
-                    : tr('A message is how most things here actually start: a meet-up, a collab, a question about a brief.')}
-                </p>
-              </div>
-
-              {startablePeople.length > 0 && (
-                <div className="w-full max-w-lg">
-                  <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-                    {myConnections.length > 0 ? tr('Your connections') : tr('Creators here right now')}
-                  </p>
-                  {/* ONE CARD, TWO EVEN COLUMNS. An odd number of people leaves
-                      a gap in the last cell rather than a centred orphan on a
-                      line of its own, which is the difference between a grid
-                      with a hole in it and a layout that looks broken. */}
-                  <div className="grid gap-1 rounded-card border border-gray-100 bg-white p-2 shadow-card sm:grid-cols-2">
-                    {startablePeople.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => startConversation(p.id)}
-                        disabled={starting === p.id}
-                        className="flex min-w-0 items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-cloud disabled:opacity-60"
-                      >
-                        <span className="relative shrink-0">
-                          <Avatar src={p.photo_url} name={p.name} size="sm" />
-                          {isOnline(p.last_seen_at) && (
-                            <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-white" title={tr('Online now')} />
-                          )}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.name}</span>
-                        {starting === p.id
-                          ? <Spinner className="h-3.5 w-3.5 shrink-0" />
-                          : <Icon name="envelope" className="h-4 w-4 shrink-0 text-gray-300" />}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <Link to="/creators" className="text-xs font-semibold text-brand hover:underline">
-                {tr('Browse all creators')}
-              </Link>
+              </span>
+              <p className="text-lg font-semibold">
+                {conversations.length > 0 ? tr('Open a conversation') : tr('Say hello to someone')}
+              </p>
             </div>
           ) : (
             <>

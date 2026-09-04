@@ -188,6 +188,26 @@ html {
     @apply ring-1 ring-brand ring-offset-0;
   }
 
+  /* A CARD THAT CONTAINS A BARE INPUT OWNS THE FOCUS STATE (4 Sep 2026).
+     Ethan, twice - on the social links and again on the bucket list: "whenever
+     I click on the actual place to type in the link, it shows up this weird
+     orange outline box around it. Remove that box, it doesn't look good."
+
+     The rule above gives every focused input a 1px brand ring, which is right
+     for a normal `.input` because the ring lands exactly on the field's own
+     border. These rows are different: the visible field is the CARD, and the
+     input inside it is borderless and transparent - so the ring was drawn
+     tightly around the invisible input, floating in the middle of the card as
+     a small orange rectangle around nothing.
+
+     The card takes the focus state instead. `focus-within` is the whole point:
+     it is the card that looks focused, which is also what a reader would say
+     they clicked on. Accessibility is unchanged - there is still a visible
+     focus indicator, it is just on the thing that looks like the field. */
+  .field-shell:focus-within { @apply border-brand; }
+  .field-shell input:focus-visible,
+  .field-shell textarea:focus-visible { @apply ring-0; }
+
   /* Respect users who prefer reduced motion. */
   @media (prefers-reduced-motion: reduce) {
     *,
@@ -1744,4 +1764,27 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   .hero-dot, .hero-dot-ring, .hero-bloom, .landing-sheen { animation: none; }
   .hero-dot-ring, .landing-sheen { opacity: 0; }
   .landing-lift, .landing-lift-icon { transition: none; }
+}
+
+/* THE EMPTY DM PANE HAS ONE THING ON IT AND IT BREATHES.
+   Ethan asked for "'Say hello to someone' with a nice animation" and nothing
+   else - the people to message are in the rail beside it. A still icon on an
+   otherwise empty half of the screen reads as a page that failed to load; a
+   mark that drifts and a ring that pulses reads as waiting. Slow on purpose:
+   this sits on screen for as long as somebody is deciding who to write to, and
+   anything faster becomes something to look away from. */
+@keyframes dm-empty-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+@keyframes dm-empty-ring {
+  0%, 100% { transform: scale(0.82); opacity: 0.55; }
+  50%      { transform: scale(1); opacity: 0.15; }
+}
+.dm-empty-mark { animation: dm-empty-float 4.5s ease-in-out infinite; }
+.dm-empty-ring { animation: dm-empty-ring 4.5s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dm-empty-mark, .dm-empty-ring { animation: none; }
+  .dm-empty-ring { opacity: 0.4; transform: scale(0.9); }
 }

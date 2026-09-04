@@ -840,9 +840,24 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
     const byUpload = [...(photos || [])].sort((a, b) =>
       String(a.created_at || '').localeCompare(String(b.created_at || ''))
       || String(a.id).localeCompare(String(b.id)))
+    // TIDYING PUTS EVERYTHING AT THE MIDDLE SIZE, NOT THE SMALLEST
+    // (4 Sep 2026). Ethan: "the tidy them up button shouldn't necessarily put
+    // them all in the smallest size, the middle size makes more sense."
+    //
+    // He is right, and the reason is what the button is FOR. "Tidy" means "put
+    // this board back into a good default", and the smallest size is not a
+    // default, it is one end of the ladder - a wall of tiny thumbnails is not
+    // what anybody would arrange by hand. `medium` is the size a photograph is
+    // actually worth looking at on this board, and it is still one press from
+    // either of the others.
+    //
+    // NOTE the asymmetry with a NEW upload, which stays 'small' on purpose: a
+    // photo arriving should not shove the board about, and a tidy is explicitly
+    // a request to re-lay it out.
+    const TIDY_SIZE = 'medium'
     const patch = (i) => (variant === 'mobile'
-      ? { sort_order_mobile: i, size_mobile: 'small' }
-      : { sort_order: i, size: 'small', pos_x: null, pos_y: null, pos_w: null, pos_h: null })
+      ? { sort_order_mobile: i, size_mobile: TIDY_SIZE }
+      : { sort_order: i, size: TIDY_SIZE, pos_x: null, pos_y: null, pos_w: null, pos_h: null })
     const byId = new Map(byUpload.map((p, i) => [p.id, patch(i)]))
     setPhotos((cur) => (cur || []).map((p) => ({ ...p, ...(byId.get(p.id) || {}) })))
     const results = await Promise.all(byUpload.map((p, i) =>

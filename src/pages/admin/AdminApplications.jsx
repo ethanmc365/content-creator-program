@@ -70,6 +70,31 @@ import { ageFromDob, cx, timeAgo, formatDate } from '../../lib/utils'
 //
 // ENGLISH IS DELIBERATELY NOT A SIGNAL. It is the programme's working language
 // and the assumed baseline; "speaks English" is not a reason to move anybody.
+// THE LANGUAGE COLOURS ARE GONE (4 Sep 2026). Ethan: "I don't like how you
+// added the colours to the languages - just put them back to the grey, I think
+// they stand out enough now."
+//
+// He is right, and the reason is worth keeping: the ONE colour that carries
+// meaning on that row is the brand highlight on a language pointing at another
+// market. Six tinted chips compete with the single signal the section exists
+// for, which is the opposite of standing out.
+
+// THE LANGUAGE A MARKET IS ACTUALLY SPOKEN IN.
+//
+// The obvious source is `communities.language`, and it is the wrong one: that
+// column is the market's INTERFACE language, and five of the six markets are on
+// 'en' because the platform has only been translated into Spanish so far. Using
+// it lit up "English" as a market signal on every applicant, which is worse
+// than no signal - almost everybody who applies speaks English, so a hint that
+// fires for all of them tells an admin nothing and trains them to ignore the
+// one that matters.
+//
+// What is worth flagging is somebody who speaks the language a market is LIVED
+// in, which is a property of its countries. Keyed by country code so a market
+// covering several (Nordics, UK & Ireland) contributes all of them.
+//
+// ENGLISH IS DELIBERATELY NOT A SIGNAL. It is the programme's working language
+// and the assumed baseline; "speaks English" is not a reason to move anybody.
 // A COLOUR PER LANGUAGE, SO A ROW OF THEM IS SCANNABLE.
 //
 // Ethan: "for the languages, it says speaks English and Hindi and Urdu - you
@@ -86,13 +111,6 @@ import { ageFromDob, cx, timeAgo, formatDate } from '../../lib/utils'
 // white, ink and one orange, and a genuinely multicoloured row would fight
 // everything else on the card. What varies is HUE, which is all the eye needs
 // to tell two chips apart.
-export function languageTint(name) {
-  let h = 0
-  const s = String(name || '')
-  for (let i = 0; i < s.length; i += 1) h = (h * 31 + s.charCodeAt(i)) % 360
-  return { background: `hsl(${h} 62% 94%)`, color: `hsl(${h} 55% 30%)` }
-}
-
 const LOCAL_LANGUAGE = {
   ES: 'Spanish', PT: 'Portuguese', DE: 'German', RO: 'Romanian',
   SE: 'Swedish', NO: 'Norwegian', DK: 'Danish', FI: 'Finnish',
@@ -131,7 +149,11 @@ export default function AdminApplications() {
     // `onboarded` is what splits it into "waiting on you" and "never finished".
     // Two queries would be two round trips for one list.
     const [{ data: profiles }, { data: emailRows }] = await Promise.all([
-      supabase.from('profiles').select('*').eq('status', 'pending').is('deletion_requested_at', null).order('created_at', { ascending: true }),
+      supabase.from('profiles').select('*').eq('status', 'pending').is('deletion_requested_at', null)// NEWEST FIRST. Ethan: "it should be filtered by the most recent ones at the
+      // top and the older ones at the bottom - that makes sense, not the other
+      // way." It does: the queue is a to-do list, and somebody who applied this
+      // morning is the one whose decision is still worth making quickly.
+      .order('created_at', { ascending: false }),
       supabase.rpc('admin_list_emails'),
     ])
     const list = profiles ?? []
@@ -225,33 +247,46 @@ export default function AdminApplications() {
     setApps((prev) => prev.filter((a) => a.id !== app.id))
   }
 
-  // A NUDGE, NOT A DECISION. Somebody who never finished the form has nothing
-  // to approve or decline - the only useful action is to reach them, and the
-  // only address we have is the one they signed up with.
-  function nudge(app) {
-    const to = emails[app.id]
-    if (!to) { flash('No email address on file for them.'); return }
-    const first = (app.name || '').trim().split(' ')[0] || 'there'
-    const subject = 'Finishing your Tryp.com creator application'
-    const body = `Hi ${first},\n\nYou started an application for the Tryp.com Content Creator Community but did not get to the end of it. It only takes a couple of minutes to finish, and a person reads every one.\n\nPick up where you left off: ${window.location.origin}/onboarding\n\nIf you have changed your mind, no problem at all - just ignore this.\n\nThanks,\nThe Tryp.com Team`
-    window.open(`mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank', 'noopener')
-  }
-
+  // DECLINING IS DELETING, AND THE CONFIRMATION SAYS SO.
+  // `admin_decline_application` records the decision for the analytics and then
+  // removes the account entirely - so this is the one irreversible control on
+  // the page, and the word on the button is "Delete" rather than "Remove".
   async function decline(app) {
-    if (!await confirm(`Decline ${app.name}'s application? This permanently deletes their account.`)) return
+    const who = app.name?.trim() || 'this account'
+    if (!await confirm(`Delete ${who}? This permanently removes the account and cannot be undone.`)) return
     setBusyId(app.id)
     const { error } = await supabase.rpc('admin_decline_application', { target: app.id })
     setBusyId(null)
     if (error) { flash(`Something went wrong: ${error.message}`); return }
-    flash(`${app.name}'s application declined and removed.`)
+    flash(`${who} deleted.`)
     setApps((prev) => prev.filter((a) => a.id !== app.id))
   }
 
-  // THE MARKET COUNTS ARE COUNTS OF THE LIST YOU ARE LOOKING AT. They were
-  // computed over every pending row regardless of bucket, so the strip read
-  // "All 7" above a list of one - the other six being the unfinished signups on
-  // the other tab. A count that does not match the list under it is worse than
-  // no count.
+  // MARKING A FOLLOW-UP, WHICH IS ALL WE CAN HONESTLY OFFER.
+  //
+  // Ethan: "we don't have email automation, so don't have a Send email button.
+  // Just say follow-up email - whenever you click it, that means you've sent
+  // it. Clicking it again means you haven't. It's just a mark so we know which
+  // ones have got the follow-up email."
+  //
+  // It writes `profiles.followed_up_at` (migration 191), which is admin-only.
+  // The row is updated in place rather than reloaded so the toggle is instant;
+  // a rejected write puts it straight back, because a mark that silently did
+  // not save is worse than no mark at all.
+  async function toggleFollowUp(app) {
+    const next = app.followed_up_at ? null : new Date().toISOString()
+    setBusyId(app.id)
+    setApps((prev) => prev.map((a) => (a.id === app.id ? { ...a, followed_up_at: next } : a)))
+    const { error } = await supabase.from('profiles').update({ followed_up_at: next }).eq('id', app.id)
+    setBusyId(null)
+    if (error) {
+      setApps((prev) => prev.map((a) => (a.id === app.id ? { ...a, followed_up_at: app.followed_up_at } : a)))
+      flash(`Could not save that: ${error.message}`)
+      return
+    }
+    flash(next ? `Marked as followed up.` : 'Follow-up mark removed.')
+  }
+
   const inThisBucket = useMemo(
     () => (apps ?? []).filter((a) => (bucket === 'applied' ? !!a.onboarded : !a.onboarded)),
     [apps, bucket],
@@ -420,7 +455,7 @@ export default function AdminApplications() {
                 app={a}
                 email={emails[a.id]}
                 phone={phones[a.id]}
-                onNudge={() => nudge(a)}
+                onFollowUp={() => toggleFollowUp(a)}
                 onDecline={() => decline(a)}
                 busy={busyId === a.id}
                 onZoom={() => a.photo_url && setZoom({ src: a.photo_url, alt: a.name })}
@@ -445,22 +480,15 @@ export default function AdminApplications() {
 
 // ---------------------------------------------------------------------- card
 
-// A gap in an application is information. Four short lines saying what is
-// missing beat one complete-looking card that happens to have nothing in it.
+// THE "WHAT IS MISSING" CHIPS ARE GONE (4 Sep 2026). Ethan: "the very short
+// bio pointer - actually, I don't think we need any of those pointers at all.
+// You can just remove them, because obviously we can see it ourselves. And we
+// want to make this card more compact and simple."
 //
-// PLAIN, SHORT SENTENCES (4 Sep 2026). Ethan: "I like the little point you give
-// about this application - 'probably wrote anything about themselves' - I would
-// just write it as simpler." It read as a paragraph of hedged prose stitched
-// together with commas; it is a list of missing things, so it is a list.
-function gapsIn(app, links) {
-  const g = []
-  if (!app.photo_url) g.push('No photo')
-  if (!links.length) g.push('No links')
-  if (!app.about || app.about.trim().length < 40) g.push('Very short bio')
-  if (!app.languages?.length) g.push('No languages')
-  if (!app.country) g.push('No country')
-  return g
-}
+// He is right, and `gapsIn` was solving a problem the card no longer has: the
+// bio, the links, the photo and the languages are all ON the card, so a second
+// row of chips saying "no links" under a row that visibly has no links is the
+// page explaining itself to somebody who can already see.
 
 function ApplicationCard({
   app, email, phone, photos, links, suggested, languageHints, markets,
@@ -470,7 +498,10 @@ function ApplicationCard({
   // (mirror_dob_to_private) moves it into creator_private and derives
   // `profiles.age` from it. Reading dob here printed no age for anybody.
   const age = app.age ?? ageFromDob(app.dob)
-  const gaps = gapsIn(app, links)
+  // Suggested first, the rest in their given order.
+  const orderedMarkets = suggested
+    ? [...markets].sort((a, b) => (a.slug === suggested.slug ? -1 : b.slug === suggested.slug ? 1 : 0))
+    : markets
   const bucketList = (Array.isArray(app.bucket_list) ? app.bucket_list : [])
     .map((b) => (typeof b === 'string' ? b : [b?.city, b?.country].filter(Boolean).join(', ')))
     .filter(Boolean)
@@ -522,8 +553,10 @@ function ApplicationCard({
                   className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white py-1 pl-1.5 pr-3 text-xs font-semibold text-ink transition-all duration-200 hoverable:hover:-translate-y-0.5 hoverable:hover:border-brand hoverable:hover:shadow-card"
                 >
                   <SocialMark brand={brand} tile className="h-[18px] w-[18px]" />
+                  {/* No "opens in a new tab" glyph. Ethan: "there's no need to
+                      have that full screen icon, I already know clicking the
+                      link is gonna open it." */}
                   {l.label || brand}
-                  <Icon name="expand" className="h-3 w-3 text-gray-300" />
                 </a>
               )
             }) : (
@@ -543,17 +576,16 @@ function ApplicationCard({
               {app.languages.map((l) => {
                 const hit = languageHints.some((h) => h.langs.some((x) => x.toLowerCase() === String(l).toLowerCase()))
                 return (
-                  /* A market-relevant language keeps the BRAND, because that is
-                     a signal about this decision. Everything else gets its own
-                     hue from `languageTint`, so a row of five is scannable
-                     instead of five identical grey lozenges. */
+                  /* A market-relevant language keeps the BRAND, because that
+                     is a signal about THIS decision. Everything else is the
+                     ordinary grey chip - see the note at the top of the file
+                     for why colouring them all was a step backwards. */
                   <span
                     key={l}
                     className={cx(
                       'rounded-full px-2 py-0.5 text-[11px] font-semibold',
-                      hit && 'bg-brand text-white',
+                      hit ? 'bg-brand text-white' : 'bg-cloud text-smoke',
                     )}
-                    style={hit ? undefined : languageTint(l)}
                   >
                     {l}
                   </span>
@@ -587,15 +619,6 @@ function ApplicationCard({
               +{photos.length - 8}
             </span>
           )}
-        </div>
-      )}
-
-      {gaps.length > 0 && (
-        <div className="mx-5 mb-4 flex flex-wrap items-center gap-1.5 sm:mx-6">
-          <Icon name="alert" className="h-3.5 w-3.5 shrink-0 text-amber-600" />
-          {gaps.map((g) => (
-            <span key={g} className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800">{g}</span>
-          ))}
         </div>
       )}
 
@@ -636,8 +659,8 @@ function ApplicationCard({
               printing "Not given" for it on an older row invents a gap that
               does not exist. Gone. */}
           <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
-            <Fact label="Email" value={email} />
-            <Fact label="Phone" value={phone} />
+            <Fact label="Email" value={email} copy />
+            <Fact label="Phone" value={phone} copy />
             <Fact label="Countries visited" value={app.countries_visited?.length ? `${app.countries_visited.length}` : null} />
             <Fact label="Bucket list" value={bucketList.slice(0, 3).join(' · ')} />
             <Fact label="Travel photos" value={photos.length ? `${photos.length}` : null} />
@@ -667,8 +690,15 @@ function ApplicationCard({
             ordinary memberships. That is said on screen rather than implied,
             because it decides which hub they land on. */}
         <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Approve into</p>
+        {/* THE SUGGESTED ONE IS ALWAYS FIRST (4 Sep 2026). Ethan: "it should
+            always show the very first one as whatever the suggested one is, on
+            the very left, and then I can click the other ones if I want."
+            It was alphabetical, so the market the page is recommending could
+            be the sixth chip along - which makes the recommendation something
+            you have to hunt for, and makes the row's first item look like the
+            default when it is not. */}
         <div className="mt-2 flex flex-wrap gap-1.5">
-          {markets.map((m) => {
+          {orderedMarkets.map((m) => {
             const on = placeIn.includes(m.slug)
             const isSuggested = suggested?.slug === m.slug
             return (
@@ -716,8 +746,13 @@ function ApplicationCard({
             don't get the Message button, because obviously we can't message
             them before they're accepted in." He is right: a DM needs a
             conversation between two members, and this person is not one yet. */}
+        {/* NO COPY ICON HERE. Ethan: "we still have that copy button beside
+            Full profile, which I said we don't need. The only place we need it
+            is beside their email and the phone number that shows up when you
+            open the details." An unlabelled icon in a row of labelled buttons
+            is the one control nobody can predict. It lives on the two rows it
+            is about now - see `Fact`. */}
         <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
-          {email && <CopyButton value={email} label="Copy email address" className="!h-9 !w-9" />}
           <Link to={`/profile/${app.id}`} className="btn-secondary !py-2 text-xs">Full profile</Link>
           <button onClick={onDecline} disabled={busy} className="btn-danger !py-2 text-xs">Decline</button>
           <button onClick={onApprove} disabled={busy} className="btn-primary inline-flex items-center gap-1.5 !py-2 text-xs">
@@ -736,7 +771,7 @@ function ApplicationCard({
 // this card answers a different question: how far did they get, and how do we
 // reach them. `onboardingProgress` derives the step from the columns the flow
 // fills in, in the order it asks for them.
-function UnfinishedCard({ app, email, phone, onNudge, onDecline, busy, onZoom }) {
+function UnfinishedCard({ app, email, phone, onFollowUp, onDecline, busy, onZoom }) {
   const progress = onboardingProgress(app, phone ? { phone } : null)
   return (
     <div className="card !p-0 overflow-hidden transition-all duration-200 hoverable:hover:shadow-lift">
@@ -751,7 +786,9 @@ function UnfinishedCard({ app, email, phone, onNudge, onDecline, busy, onZoom })
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <h2 className="text-lg font-bold">{app.name?.trim() || 'No name yet'}</h2>
-            <Badge tone="grey">Never finished</Badge>
+            {app.followed_up_at
+              ? <Badge tone="green">Followed up {timeAgo(app.followed_up_at)}</Badge>
+              : <Badge tone="grey">Never finished</Badge>}
           </div>
           <p className="text-sm text-smoke">
             {[app.city, app.country].filter(Boolean).join(', ') || 'No location given'}
@@ -784,15 +821,45 @@ function UnfinishedCard({ app, email, phone, onNudge, onDecline, busy, onZoom })
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 px-5 py-4 sm:px-6">
-        <span className="min-w-0 truncate text-xs text-smoke">{email || 'No email on file'}</span>
-        <div className="flex flex-wrap items-center gap-2">
-          {email && <CopyButton value={email} label="Copy email address" className="!h-9 !w-9" />}
+      <div className="space-y-3 border-t border-gray-100 px-5 py-4 sm:px-6">
+        {/* THE COPY ICONS SIT BESIDE WHAT THEY COPY. Ethan: "the icons should be
+            beside their email, not way over on the right beside Full profile."
+            An icon is only readable from what it is next to. */}
+        <div className="flex items-center gap-2">
+          <span className="min-w-0 flex-1 truncate text-xs text-smoke">{email || 'No email on file'}</span>
+          {email && <CopyButton value={email} label="Copy email address" className="!h-6 !w-6 shrink-0" />}
+        </div>
+        {phone && (
+          <div className="flex items-center gap-2">
+            <span className="min-w-0 flex-1 truncate text-xs text-smoke">{phone}</span>
+            <CopyButton value={phone} label="Copy phone number" className="!h-6 !w-6 shrink-0" />
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
           <Link to={`/profile/${app.id}`} className="btn-secondary !py-2 text-xs">Full profile</Link>
-          <button onClick={onDecline} disabled={busy} className="btn-danger !py-2 text-xs">Remove</button>
-          <button onClick={onNudge} disabled={busy || !email} className="btn-primary inline-flex items-center gap-1.5 !py-2 text-xs">
-            <Icon name="envelope" className="h-3.5 w-3.5" />
-            Send a nudge
+          {/* DELETE, NOT "REMOVE". Ethan: "rather than the Remove, it should be
+              a Delete button to actually delete the creator permanently."
+              It always did delete permanently - `admin_decline_application`
+              records the decision and then removes the account - so "Remove"
+              was the softer of two words for the same irreversible thing. */}
+          <button onClick={onDecline} disabled={busy} className="btn-danger !py-2 text-xs">Delete</button>
+          {/* A MARK, NOT A SEND. There is no email automation - all outbound
+              mail is paused - so a "Send" button would either lie or queue
+              something nobody receives. A manager writes the mail from their
+              own mailbox and ticks it here, and the next manager can see it has
+              been done. Pressing it again un-ticks it. */}
+          <button
+            onClick={onFollowUp}
+            disabled={busy}
+            className={cx(
+              'inline-flex items-center gap-1.5 !py-2 text-xs',
+              app.followed_up_at ? 'btn-secondary' : 'btn-primary',
+            )}
+          >
+            {busy ? <Spinner className="h-3.5 w-3.5" />
+              : <Icon name={app.followed_up_at ? 'check' : 'envelope'} className="h-3.5 w-3.5" />}
+            {app.followed_up_at ? 'Followed up' : 'Follow-up email'}
           </button>
         </div>
       </div>
@@ -800,16 +867,20 @@ function UnfinishedCard({ app, email, phone, onNudge, onDecline, busy, onZoom })
   )
 }
 
-function Fact({ label, value }) {
+// `copy` puts a copy control on the row - and ONLY the two rows that carry
+// something worth copying get one, so the icon always means the thing next to
+// it. That is the whole difference from the unlabelled button that used to sit
+// in the actions row meaning "the email", which nobody could have guessed.
+function Fact({ label, value, copy = false }) {
   return (
     <div className="flex items-baseline gap-2">
       <dt className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{label}</dt>
-      {/* `select-all` rather than a copy button: pressing it selects the whole
-          value so it can be copied with the keyboard or a long press, and it
-          costs no icon and no explanation. */}
       <dd className={cx('min-w-0 flex-1 truncate text-xs', value ? 'select-all text-ink' : 'text-gray-300')}>
         {value || 'Not given'}
       </dd>
+      {copy && value && (
+        <CopyButton value={value} label={`Copy ${label.toLowerCase()}`} className="!h-5 !w-5 shrink-0" />
+      )}
     </div>
   )
 }

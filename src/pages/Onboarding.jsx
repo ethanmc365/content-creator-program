@@ -213,6 +213,30 @@ export default function Onboarding() {
 
   const market = useMemo(() => resolveMarket(draft.country_code, markets || []), [draft.country_code, markets])
 
+  // THE EXAMPLE TOWN IS A TOWN IN THEIR COUNTRY (4 Sep 2026).
+  //
+  // Ethan: "even if I select Portugal as my country, it shows the town example
+  // being Bristol. Shouldn't the example match whatever country they select?"
+  //
+  // Yes - a placeholder is an example of the answer, and an English city under
+  // a field on a form that has just been told you live in Portugal is an
+  // example of somebody else's answer. It reads as the form not listening.
+  //
+  // The capital comes from `countryFacts`, which the app already ships as its
+  // own chunk for the maps and the geography game, so it is imported DYNAMICALLY
+  // and only once a country has been picked: onboarding is in the eagerly-loaded
+  // bundle and must not gain a hundred kilobytes of country data to improve a
+  // placeholder.
+  const [townHint, setTownHint] = useState('')
+  useEffect(() => {
+    if (!draft.country) { setTownHint(''); return undefined }
+    let alive = true
+    import('../lib/countryFacts')
+      .then(({ countryFacts }) => { if (alive) setTownHint(countryFacts(draft.country)?.capital || '') })
+      .catch(() => { /* a missing example is a placeholder, not an error */ })
+    return () => { alive = false }
+  }, [draft.country])
+
   const set = useCallback((patch) => { setError(''); setDraft((d) => ({ ...d, ...patch })) }, [])
 
   const pending = demo ? demoPending : profile?.status === 'pending'
@@ -490,7 +514,7 @@ export default function Onboarding() {
                   <input
                     id="city" type="text" className="input" value={draft.city}
                     onChange={(e) => set({ city: e.target.value })}
-                    placeholder={tr("Bristol")}
+                    placeholder={townHint || tr('Your town or city')}
                   />
                   <p className="mt-1 text-xs text-smoke">
                     {tr("Puts you on the creator map and gives other creators your real local time.")}
@@ -710,7 +734,7 @@ function StepHead({ step, pending }) {
     // Ethan: "a few extras - I don't really like that name, I would just name
     // it as it is." It holds travel photographs and the places you want to go,
     // so it is called that.
-    extras: ['Your travels', 'Photos you are proud of and places you want to go. All optional - press Continue and add them later if you would rather.'],
+    extras: ['Your travels', ''],
     review: [pending ? 'Ready to submit' : 'Almost done', 'Check it over. You can change any of it later from your profile.'],
   }
   const [title, sub] = COPY[step.key] || [step.title, '']
@@ -768,17 +792,19 @@ function Welcome({ name, pending }) {
           singled out to keep: "then the team reviews it, a person reads every
           application. This is good, I would keep this in." */}
       <div className="mx-auto max-w-sm space-y-2.5 pt-2 text-left">
+        {/* THE TITLES ONLY (4 Sep 2026). Ethan: "remove 'Short screens, and you
+            can come back to it' and remove 'A person reads every application'.
+            I just want the titles."
+            Both sub-lines were reassurance about a form nobody has seen yet,
+            and the rows read faster without them - which is the point of a
+            screen whose job is to get out of the way. */}
         {[
-          ['clock', tr('It only takes a few minutes'), tr('Short screens, and you can come back to it.')],
-          ['shield', pending ? tr('Then the team reviews it') : tr('Then you are in'),
-            pending ? tr('A person reads every application.') : tr('Your profile goes live straight away.')],
-        ].map(([icon, t, d]) => (
-          <div key={t} className="flex items-start gap-3 rounded-xl bg-cloud/70 px-4 py-3">
-            <Icon name={icon} className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
-            <span className="min-w-0">
-              <span className="block text-sm font-semibold">{t}</span>
-              <span className="block text-xs text-smoke">{d}</span>
-            </span>
+          ['clock', tr('It only takes a few minutes')],
+          ['shield', pending ? tr('Then the team reviews it') : tr('Then you are in')],
+        ].map(([icon, t]) => (
+          <div key={t} className="flex items-center gap-3 rounded-xl bg-cloud/70 px-4 py-3">
+            <Icon name={icon} className="h-4 w-4 shrink-0 text-brand" />
+            <span className="min-w-0 text-sm font-semibold">{t}</span>
           </div>
         ))}
       </div>
@@ -846,9 +872,6 @@ function MarketCard({ market, country, ready }) {
           <p className="mt-1 text-xs leading-relaxed text-smoke">
             {m.tagline || `Briefs, rooms and challenges for ${m.name}.`}
           </p>
-          <p className="mt-2 text-xs text-smoke">
-            {tr("You are in the worldwide community as well. A market is where your briefs come from, not a smaller room you go into instead.")}
-          </p>
         </div>
         <Icon name="check" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
       </div>
@@ -898,7 +921,10 @@ function OtherLinks({ links = [], onChange }) {
 
   return (
     <div>
-      <p className="label">{tr("Anywhere else your work lives")}</p>
+      {/* "Other Links", plainly. Ethan: "rather than saying 'Anywhere else your
+          work lives' just say 'Other Links'." A label is a name for a box, not
+          a sentence about it. */}
+      <p className="label">{tr("Other links")}</p>
       <p className="mb-3 text-xs text-smoke">
         {tr("Optional. A website, a portfolio, a newsletter, another account.")}
       </p>
@@ -911,7 +937,7 @@ function OtherLinks({ links = [], onChange }) {
             <div
               key={i}
               className={cx(
-                'flex items-center gap-2.5 rounded-card border px-3 py-2.5 transition-colors duration-200',
+                'field-shell flex items-center gap-2.5 rounded-card border px-3 py-2.5 transition-colors duration-200',
                 url ? 'border-gray-200 bg-white' : 'border-dashed border-gray-200 bg-cloud/30',
               )}
             >
@@ -999,20 +1025,25 @@ function BucketList({ rows = [], onChange }) {
   return (
     <div>
       <p className="label">{tr("Your bucket list")}</p>
-      <p className="mb-3 text-xs text-smoke">
-        {tr("Optional. Places you still want to go - no dates, nothing booked. It shows on your profile and it is how other creators find somebody who wants to go where they are going.")}
-      </p>
+      <p className="mb-3 text-xs text-smoke">{tr("Optional.")}</p>
       <div className="space-y-2">
         {list.map((b, i) => (
           <div
             key={i}
             className={cx(
-              'flex items-center gap-2.5 rounded-card border px-3 py-2.5 transition-colors duration-200',
+              'field-shell flex items-center gap-2.5 rounded-card border px-3 py-2.5 transition-colors duration-200',
               b.country?.trim() ? 'border-gray-200 bg-white' : 'border-dashed border-gray-200 bg-cloud/30',
             )}
           >
+            {/* THE FLAG, ONCE THERE IS A COUNTRY (4 Sep 2026). Ethan: "when
+                they type in the country, like on the profile, it should show
+                the country flag as the icon rather than the pin."
+                The profile already draws bucket-list entries with a flag, so a
+                pin here was the same data in two different clothes. It falls
+                back to the pin while the box is empty or the name does not
+                resolve - a blank square would read as a broken image. */}
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-tint/60 text-brand" aria-hidden>
-              <Icon name="pin" className="h-4 w-4" />
+              {flagFromIso(isoForCountryName(b.country)) || <Icon name="pin" className="h-4 w-4" />}
             </span>
             <span className="grid min-w-0 flex-1 gap-1 sm:grid-cols-2 sm:gap-3">
               <input

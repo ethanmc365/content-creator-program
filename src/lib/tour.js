@@ -248,6 +248,37 @@ const SEEN_KEY = (layout) => `tryp_tour_seen_${layout}_v${TOUR_VERSION}`
  * different chrome - somebody who joined on a laptop and later opens it on
  * their phone has not seen the phone one.
  */
+// WHERE THEY GOT TO, SO CLOSING THE APP DOES NOT START THEM AGAIN.
+//
+// Ethan: "ensure that if they leave the app and come back, it automatically
+// stays at the place they were in the tutorial and doesn't reset or cancel."
+//
+// A walkthrough that navigates you around the product is one you WILL leave
+// halfway - a notification arrives, the phone rings, the app is backgrounded
+// and killed. Coming back to step one is a punishment for that, and after the
+// second time nobody finishes it.
+//
+// `localStorage`, not `sessionStorage`: the point is to survive the app being
+// closed, which is precisely what sessionStorage does not do. Keyed per layout
+// and per version like `seenLocally`, so a rebuilt walk never resumes into a
+// step index that means something different now.
+const AT_KEY = (layout) => `tryp_tour_at_${layout}_v${TOUR_VERSION}`
+
+export function savedStep(layout) {
+  try {
+    const n = Number(localStorage.getItem(AT_KEY(layout)))
+    return Number.isFinite(n) && n > 0 ? n : 0
+  } catch { return 0 }
+}
+
+export function saveStep(layout, i) {
+  try { localStorage.setItem(AT_KEY(layout), String(i)) } catch { /* private mode */ }
+}
+
+export function clearStep(layout) {
+  try { localStorage.removeItem(AT_KEY(layout)) } catch { /* private mode */ }
+}
+
 export function seenLocally(layout) {
   try { return localStorage.getItem(SEEN_KEY(layout)) === '1' } catch { return false }
 }
@@ -258,7 +289,10 @@ export function markSeenLocally(layout) {
 
 export function clearSeenLocally() {
   try {
-    for (const l of ['mobile', 'desktop']) localStorage.removeItem(SEEN_KEY(l))
+    for (const l of ['mobile', 'desktop']) {
+      localStorage.removeItem(SEEN_KEY(l))
+      localStorage.removeItem(AT_KEY(l))
+    }
   } catch { /* private mode */ }
 }
 

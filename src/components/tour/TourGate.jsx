@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useIsPhone } from '../../lib/useKeyboardInset'
 import { useCommunity } from '../../context/CommunityContext'
-import { markSeenLocally, markTourComplete, shouldAutoStart, tourEnabled } from '../../lib/tour'
+import { clearStep, markSeenLocally, markTourComplete, shouldAutoStart, tourEnabled } from '../../lib/tour'
 
 // WHETHER THE WALKTHROUGH RUNS, DECIDED IN ONE PLACE.
 //
@@ -64,13 +64,17 @@ export default function TourGate() {
   const finish = useCallback(async () => {
     setOpen(false)
     markSeenLocally(layout)
+    // The resume point is only meaningful while the walk is unfinished.
+    // Leaving it behind would put somebody who restarts it from Settings back
+    // at the step they abandoned a month ago.
+    clearStep(layout)
     await markTourComplete(user?.id)
   }, [layout, user?.id])
 
   if (!open) return null
   return (
     <Suspense fallback={null}>
-      <TourHost onFinish={finish} network={network} />
+      <TourHost onFinish={finish} network={network} layout={layout} />
     </Suspense>
   )
 }
