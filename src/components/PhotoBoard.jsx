@@ -686,6 +686,43 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
   const fileRef = useRef(null)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
+  // How many of this batch have landed, so the button can count rather than
+  // spin. See addFiles.
+  const [progress, setProgress] = useState({ done: 0, total: 0 })
+
+  // ADDING PHOTOS: THREE AT A TIME, AND EACH ONE APPEARS AS IT LANDS.
+  //
+  // Ethan, on the onboarding flow: "I added photos, but it takes so so long to
+  // load. It just shows adding and loading for ages. And they haven't actually
+  // added."
+  //
+  // Both halves of that were one loop. It was `for (const file of files)` with
+  // an await on every step, so six photographs meant six full round trips end
+  // to end - decode, downscale, re-encode, base64, upload, measure, insert -
+  // and NOTHING was drawn until the last one finished, because `load()` was
+  // called once after the loop. On a phone picking six camera photos that is
+  // the better part of a minute of a button reading "Adding…" over an empty
+  // board, which is indistinguishable from a broken uploader. It is why he
+  // concluded they had not been added: on that evidence, they had not.
+  //
+  // THREE CHANGES, AND THE THIRD IS THE ONE THAT MATTERS MOST.
+  //
+  //  1  A POOL OF THREE. This work is network-bound (the edge function does the
+  //     writing), so running three at once is close to three times faster. Not
+  //     unbounded: ten simultaneous canvas re-encodes on a phone is how you
+  //     stall the main thread and drop the whole UI, and the browser would
+  //     queue the requests anyway.
+  //  2  EACH ONE IS DRAWN THE MOMENT ITS ROW EXISTS. `load()` after every
+  //     insert rather than once at the end, so the board fills in front of you.
+  //     A photo you can see is proof; a spinner is a promise.
+  //  3  THE BUTTON COUNTS. "Adding 2 of 6" is the difference between a slow
+  //     operation and a stuck one, and it is the whole of what made this feel
+  //     broken rather than merely slow.
+  //
+  // FAILURES ARE NAMED AND THEY DO NOT STOP THE BATCH. One unreadable photo out
+  // of six used to leave a bare message with no clue which; every other photo
+  // still goes up, and the message says how many did not and why.
+  const UPLOAD_CONCURRENCY = 3
 
   async function addFiles(e) {
     const files = Array.from(e.target.files || [])
@@ -698,12 +735,19 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
     }
     setUploadError('')
     setUploading(true)
-    let order = have
-    for (const file of files) {
+    setProgress({ done: 0, total: files.length })
+
+    // The slot each file will take on the board is decided HERE, before any of
+    // them start, so three uploads finishing out of order cannot collide on a
+    // `sort_order` or shuffle the board against the order they were picked in.
+    const jobs = files.map((file, i) => ({ file, order: have + i }))
+    const failures = []
+
+    async function one({ file, order }) {
       const looksImage = file.type.startsWith('image/') || /\.(heic|heif|jpe?g|png|webp|gif)$/i.test(file.name)
       if (!looksImage || file.size > 15 * 1024 * 1024) {
-        setUploadError('Each photo must be an image under 15MB.')
-        continue
+        failures.push(`${file.name || 'A photo'}: must be an image under 15MB`)
+        return
       }
       let compressed
       try {
@@ -712,13 +756,16 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
         // replaces while landing about a third smaller. Ten photos a creator on
         // a free 1GB tier is why this matters.
         compressed = await compressImage(file, { maxDim: 1200, quality: 0.8 })
-      } catch (err) { setUploadError(err.message); continue }
+      } catch (err) { failures.push(`${file.name || 'A photo'}: ${err.message}`); return }
       const ext = (compressed.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg')
-      const path = `${creatorId}/${Date.now()}-${order}.${ext}`
+      // `order` rather than an index into the batch, and the random suffix
+      // because three uploads starting inside the same millisecond used to be
+      // able to agree on a filename.
+      const path = `${creatorId}/${Date.now()}-${order}-${Math.random().toString(36).slice(2, 7)}.${ext}`
       let url
       try {
         url = await uploadFile('gallery', path, compressed, compressed.type || 'image/jpeg')
-      } catch (err) { setUploadError(err.message); continue }
+      } catch (err) { failures.push(`${file.name || 'A photo'}: ${err.message}`); return }
       const aspect = await imageAspect(compressed)
       // EVERY PHOTO STARTS SMALL. Ethan: "every photo should start at the small
       // size then one click makes it the middle size, and another the big
@@ -737,10 +784,38 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
         size: 'small',
         size_mobile: 'small',
       })
-      order += 1
-      if (error) setUploadError(error.message)
+      if (error) { failures.push(`${file.name || 'A photo'}: ${error.message}`); return }
+      // IT IS ON THE BOARD NOW, not when the batch is over.
+      await load()
     }
+
+    // A fixed pool of workers pulling off one shared queue: three in flight,
+    // and the moment one finishes it takes the next file rather than waiting
+    // for the other two. Batching in threes would idle two workers on every
+    // slow photo.
+    let next = 0
+    async function worker() {
+      for (;;) {
+        const i = next
+        next += 1
+        if (i >= jobs.length) return
+        await one(jobs[i])
+        setProgress((pr) => ({ ...pr, done: pr.done + 1 }))
+      }
+    }
+    await Promise.all(
+      Array.from({ length: Math.min(UPLOAD_CONCURRENCY, jobs.length) }, worker),
+    )
+
     setUploading(false)
+    setProgress({ done: 0, total: 0 })
+    if (failures.length) {
+      setUploadError(
+        failures.length === files.length
+          ? `Nothing could be added. ${failures[0]}`
+          : `${failures.length} of ${files.length} could not be added. ${failures[0]}`,
+      )
+    }
     await load()
     photosChanged(creatorId)
   }
@@ -873,7 +948,12 @@ export default function PhotoBoard({ creatorId, editable = false, alwaysArrangin
             className="inline-flex items-center gap-1.5 rounded-full bg-brand px-3.5 py-1.5 text-xs font-semibold text-white shadow-card transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0"
           >
             {uploading ? <Spinner className="h-3.5 w-3.5" /> : <Icon name="plus" className="h-3.5 w-3.5" strokeWidth={2.4} />}
-            {uploading ? tr('Adding…') : tr('Add photos')}
+            {/* IT COUNTS. "Adding…" for forty seconds is a stuck button; "Adding
+                2 of 6" is a slow one, and only one of those makes somebody wait
+                rather than reload the page. */}
+            {uploading
+              ? (progress.total > 1 ? `Adding ${Math.min(progress.done + 1, progress.total)} of ${progress.total}…` : tr('Adding…'))
+              : tr('Add photos')}
           </button>
           <span className="text-xs tabular-nums text-smoke">{photos.length} / {MAX_PHOTOS}</span>
           {!alwaysArranging && (

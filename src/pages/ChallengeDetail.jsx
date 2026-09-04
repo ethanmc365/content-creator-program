@@ -563,16 +563,24 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                 the results button should be improved. Results is obviously
                 very important for the country managers."
 
-                RESULTS IS THE JOB, so it is the only solid button and it says
-                what state the board is in - "Results · interim" tells a manager
-                whether the thing they are about to publish is fresh without
-                opening it.
+                RESULTS IS THE JOB, so it is the only solid button.
+
+                AND IT NO LONGER SAYS "INTERIM" (4 Sep 2026). Ethan: "I don't
+                need it to say interim on the results button." He is right, and
+                the reason is worth keeping: EVERY live challenge is interim.
+                Results rows exist from the first logged view, so the chip read
+                "interim" on every unfinished challenge in the product - a label
+                that is true of everything tells you nothing, and it was sitting
+                inside the one button a country manager presses every day.
+                FINAL is the state worth a word, because it is the one that has
+                stopped changing, so that is the only one that gets one.
 
                 CLOSING A CHALLENGE IS NOT A TOOLBAR ACTION. It ends the thing
                 and it cannot be undone from here, so it sits behind the "..."
                 with Publish and Archive - one press away, not one slip away -
-                AND on the results page, which is where a manager already is
-                when they decide the challenge is over. */}
+                and it is on the RESULTS PAGE as a proper control, which is
+                where a manager already is when they decide entries are over.
+                See AdminResults' lifecycle card. */}
             {isAdmin && (
               <>
                 <Link to={`/admin/challenges/${id}/edit`} className="btn-secondary !py-2 text-xs">{tr("Edit")}</Link>
@@ -582,9 +590,9 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
                 >
                   <Icon name="trophy" className="h-3.5 w-3.5" />
                   {tr("Results")}
-                  {challenge.results_status && challenge.results_status !== 'none' && (
+                  {challenge.results_status === 'final' && (
                     <span className="rounded-full bg-white/25 px-1.5 py-0.5 text-[10px] font-semibold">
-                      {challenge.results_status === 'final' ? tr("final") : tr("interim")}
+                      {tr("final")}
                     </span>
                   )}
                 </Link>
@@ -1279,8 +1287,21 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
               are drawn as open steps carrying their prize rather than left out,
               which is the promise the rows below already make.
 
-              The list then starts at FOURTH (`startAt`), or the top three would
-              be on the page twice in two different shapes. */}
+              THE LIST UNDER IT HOLDS EVERYBODY, FIRST PLACE INCLUDED
+              (4 Sep 2026). Ethan: "even though we have the podium, it should
+              still show everyone in the actual leaderboard below in the
+              leaderboard view, but still have the podium visual at the top."
+
+              It started at FOURTH, on the reasoning that drawing the top three
+              twice was a duplicate. That reasoning was wrong about what a
+              leaderboard IS. A board is a ranked list and a podium is a
+              PICTURE of its head; cutting the first three rows out of the list
+              to avoid repeating them leaves a table that begins at 4 with no
+              explanation, and it means the columns a creator scans for - the
+              prize on each place, the platforms, the score - are missing for
+              exactly the three places they care most about. A scoreboard shows
+              the leader in the list AND on the screen above it; nobody has ever
+              found that confusing. */}
           <Podium
             className="pt-2"
             meId={user.id}
@@ -1295,7 +1316,6 @@ export default function ChallengeDetail({ challengeId = null, embedded = false, 
             subCountByCreator={subCountByCreator}
             platformsFor={submittedPlatforms}
             scoreLabel={challenge.scoring === 'points' ? 'points' : 'views'}
-            startAt={4}
           />
 
           {/* A challenge with no prize breakdown at all has no places to lay

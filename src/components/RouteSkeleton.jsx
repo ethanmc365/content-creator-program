@@ -1,135 +1,291 @@
 import { useLocation } from 'react-router-dom'
 import { useBootLoaderSlot } from '../lib/bootLoader'
+import { shapeForPath } from '../lib/routeChunks'
 import { Skeleton } from './ui'
 
 /**
- * THE SHAPE OF THE PAGE THAT IS ARRIVING, NOT A LOADING SCREEN OVER THE APP -
- * AND ONLY WHEN THERE IS ACTUALLY SOMETHING TO WAIT FOR.
+ * THE SHAPE OF THE PAGE THAT IS ARRIVING, NOT A LOADING SCREEN OVER THE APP.
  *
- * Ethan, on a phone: "when clicking between tabs and pages it temporarily
- * flashes up the loading screen which looks bad; when it's loading, rather than
- * show this it should just show the loading shell of the cards etc."
+ * Ethan, three times now, and the third time is what produced this version:
+ * "clicking between pages briefly flashes up the loading screen every time. I
+ * don't want this to happen, instead I want a skeleton loader / skeleton
+ * screen: the main term for a blank UI preview that COPIES THE SHAPE of the
+ * content before it loads."
  *
- * He is describing two separate things going wrong at once, and both of them
- * are settled by WHERE the Suspense boundary sits rather than by what it draws.
+ * Those last five words are the brief, and they are what the first two attempts
+ * missed. Both of them were about WHEN the placeholder appears - move the
+ * boundary, then delay the fallback - when the complaint was about WHAT it is.
+ * A centred plane and the word "Loading" is a screen; three grey cards on a
+ * page that is about to draw a conversation is a different screen. Either way
+ * you are looking at a third thing between two pages, and that is what reads as
+ * a flash.
  *
- * Every route below the first screen is code-split, so tapping a tab suspends
- * while its chunk arrives. The only boundary in the app was in App.jsx, ABOVE
- * `<AppLayout>` - so suspending unmounted the header, the tab bar and the page
- * together and replaced the entire screen with a centred plane and the word
- * "Loading". On a phone, where the tab bar is the thing you just pressed,
- * watching the whole app disappear for 200ms reads as a crash, not as progress.
+ * So there are two halves to the answer and only one of them is in this file:
  *
- * So the boundary moved INSIDE the layout, around `<Outlet/>` (see AppLayout).
- * The chrome now stays exactly where it is - the tab you pressed stays lit, the
- * header never moves - and only the content area changes.
+ *   1  DO NOT SUSPEND. Route chunks are prefetched on idle and, for everything
+ *      else, the instant a pointer or a finger touches a link to them. See
+ *      lib/routeChunks and lib/prefetchLinks. This is the half that removes the
+ *      flash, and after it this component is a rare sight rather than a screen
+ *      in the way of every tap.
+ *   2  WHEN IT DOES APPEAR, BE THE PAGE. Not a generic card grid: the hub's
+ *      wide banner, the thread's alternating bubbles, the directory's rows,
+ *      the calendar's month grid, the admin panel's tiles. `shapeForPath`
+ *      decides from the path, which is the only thing known about a route whose
+ *      code has not arrived.
  *
- * THE GRACE PERIOD WAS THE WRONG FIX, AND IT MADE IT WORSE (3 Sep 2026)
+ * NO GRACE PERIOD, and that was tried too: holding this back for 160ms only
+ * swaps a flash of grey for a flash of NOTHING, and an empty content area
+ * between a header and a tab bar reads worse than the shape of what is coming.
+ * Once the boundary is genuinely rare, drawing immediately is right.
  *
- * Ethan, after that shipped: "on mobile I don't want the loading screen
- * appearing after every button I click, this issue still persists."
- *
- * The first attempt held this back for 160ms so a warm chunk would show
- * nothing. But "nothing" is not nothing: a Suspense fallback REPLACES the
- * content area, so what it bought was 160ms of empty white between a header and
- * a tab bar. That reads worse than the grey cards it was hiding, and it is
- * still a third screen between two pages.
- *
- * THE REAL FIX IS UPSTREAM AND IT IS NOT IN THIS FILE. Only two of the five
- * bottom tabs are code-split, and App.jsx now fetches both of them while the
- * browser is idle - so pressing a tab resolves synchronously and this component
- * never mounts at all. See `preloadWhenIdle` in lib/lazyRoute.
- *
- * What is left here is the case it was actually written for: a route nobody
- * prefetched, on a slow connection. For that, a skeleton IMMEDIATELY is right -
- * the delay only ever helped the case that no longer happens - and it holds a
- * minimum height so the page does not collapse and shove the tab bar up its own
- * screen while it waits.
+ * `min-h-[70vh]` so the content area keeps its size while it waits. Without it
+ * a short skeleton lets the page collapse, the tab bar jumps up the screen and
+ * back down, and THAT movement is most of what reads as a flash.
  *
  * WHILE THE BOOT LAYER IS UP THIS DRAWS NOTHING, and holds that layer up until
  * it unmounts, exactly like AppLoader. A cold boot is the one case where the
  * screen genuinely is empty and `index.html`'s own loader is already on it; two
- * loaders at two vertical centres is the photograph that lib/bootLoader.js
- * exists to prevent, and a skeleton underneath it would be the same bug.
+ * loaders at two vertical centres is the photograph lib/bootLoader.js exists to
+ * prevent, and a skeleton underneath one would be the same bug.
  */
-// THE SKELETON IS SHAPED LIKE THE PAGE THAT IS COMING.
-//
-// A grid of three cards is right for a directory and wrong for a conversation,
-// and the point of a skeleton is that the thing which lands is the shape you
-// were already looking at. Matching on the path is crude but it is the only
-// thing known about a route whose code has not arrived yet - and being roughly
-// right beats being confidently generic.
-function shapeFor(pathname) {
-  if (/^\/(rooms|messages|global\/chat|c\/[^/]+\/chat)/.test(pathname)) return 'thread'
-  if (/^\/(creators|connections|leaderboard|flights\/community)/.test(pathname)) return 'list'
-  return 'cards'
+
+// A line of text. Widths are deliberately uneven - a stack of identical bars is
+// the one thing that never looks like prose.
+function Lines({ widths = ['100%', '92%', '60%'], className = '' }) {
+  return (
+    <div className={`space-y-2 ${className}`}>
+      {widths.map((w, i) => <Skeleton key={i} className="h-3 rounded" style={{ width: w }} />)}
+    </div>
+  )
 }
 
-export default function RouteSkeleton() {
+function Head({ wide = false }) {
+  return (
+    <div className="space-y-3">
+      <Skeleton className={wide ? 'h-9 w-64 max-w-full rounded-lg' : 'h-8 w-52 max-w-full rounded-lg'} />
+      <Skeleton className="h-4 w-72 max-w-full rounded" />
+    </div>
+  )
+}
+
+function Rows({ count = 6 }) {
+  return (
+    <div className="mt-8 space-y-3">
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="flex items-center gap-3 rounded-xl border border-gray-100 p-3">
+          <Skeleton className="h-11 w-11 shrink-0 rounded-full" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <Skeleton className="h-4 rounded" style={{ width: `${[38, 30, 44, 34, 41, 28][i % 6]}%` }} />
+            <Skeleton className="h-3 rounded" style={{ width: `${[56, 62, 48, 58, 52, 66][i % 6]}%` }} />
+          </div>
+          <Skeleton className="hidden h-8 w-20 shrink-0 rounded-full sm:block" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function Cards({ count = 3 }) {
+  return (
+    <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="card space-y-4">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-11 w-11 shrink-0 rounded-full" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className="h-4 w-2/3 rounded" />
+              <Skeleton className="h-3 w-1/3 rounded" />
+            </div>
+          </div>
+          <Skeleton className="h-3 w-full rounded" />
+          <Skeleton className={i % 3 === 2 ? 'h-3 w-1/3 rounded' : 'h-3 w-4/5 rounded'} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// A conversation fills upwards from a composer, so its placeholder is bubbles of
+// uneven width alternating sides, with the composer's bar pinned under them.
+function Thread() {
+  return (
+    <div className="mt-6 flex min-h-[60vh] flex-col">
+      <div className="flex-1 space-y-4">
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className={i % 2 ? 'flex justify-end' : 'flex items-end gap-2'}>
+            {i % 2 === 0 && <Skeleton className="h-8 w-8 shrink-0 rounded-full" />}
+            <Skeleton className="rounded-2xl" style={{ width: `${[62, 44, 70, 38, 55, 48][i]}%`, height: `${[48, 40, 64, 40, 48, 40][i]}px` }} />
+          </div>
+        ))}
+      </div>
+      <Skeleton className="mt-6 h-12 w-full rounded-2xl" />
+    </div>
+  )
+}
+
+// The worldwide / market hub: a switcher, a greeting, the wide live banner, then
+// sections. This is the busiest first screen in the product and a card grid is
+// nothing like it.
+function Hub() {
+  return (
+    <div className="space-y-7">
+      <Skeleton className="h-14 w-full rounded-full" />
+      <div className="space-y-3">
+        <Skeleton className="h-9 w-52 rounded-lg" />
+        <Skeleton className="h-4 w-64 max-w-full rounded" />
+      </div>
+      <Skeleton className="h-32 w-full rounded-card" />
+      <div className="space-y-3">
+        <Skeleton className="h-6 w-56 rounded" />
+        <Skeleton className="h-36 w-full rounded-card" />
+      </div>
+      <div className="space-y-3">
+        <Skeleton className="h-6 w-44 rounded" />
+        <div className="space-y-2">
+          {[0, 1, 2].map((i) => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// A profile: the big avatar and its identity block, then the two-column wall of
+// rail cards that follows it on a desktop.
+function ProfileShape() {
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+        <Skeleton className="h-28 w-28 shrink-0 rounded-full" />
+        <div className="w-full min-w-0 flex-1 space-y-3">
+          <Skeleton className="h-7 w-52 max-w-full rounded-lg" />
+          <Skeleton className="h-4 w-32 rounded" />
+          <Lines widths={['90%', '70%']} />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <Skeleton className="h-64 w-full rounded-card" />
+        <div className="space-y-4">
+          {[0, 1, 2].map((i) => <Skeleton key={i} className="h-28 w-full rounded-card" />)}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Anything that leads with a map: the collab board, the flight log, the
+// community board's wall. The block on top is the thing that takes longest to
+// arrive, so reserving its height is most of the value.
+function MapShape() {
+  return (
+    <div className="space-y-6">
+      <Head />
+      <Skeleton className="h-64 w-full rounded-card sm:h-80" />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {[0, 1, 2].map((i) => <Skeleton key={i} className="h-40 w-full rounded-card" />)}
+      </div>
+    </div>
+  )
+}
+
+// The calendar: a toolbar, then a month grid. Six rows of seven.
+function CalendarShape() {
+  return (
+    <div className="space-y-6">
+      <Head />
+      <div className="flex gap-2">
+        {[0, 1, 2].map((i) => <Skeleton key={i} className="h-9 w-24 rounded-full" />)}
+      </div>
+      <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+        {Array.from({ length: 42 }).map((_, i) => (
+          <Skeleton key={i} className="aspect-square rounded-lg sm:aspect-[4/3]" />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// A challenge / milestone page: a headline block, a strip of stats, a wide card.
+function Feature() {
+  return (
+    <div className="space-y-6">
+      <Head wide />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-20 rounded-card" />)}
+      </div>
+      <Skeleton className="h-48 w-full rounded-card" />
+      <div className="space-y-3">
+        {[0, 1, 2].map((i) => <Skeleton key={i} className="h-20 w-full rounded-card" />)}
+      </div>
+    </div>
+  )
+}
+
+// Settings and the admin panel: a menu of section cards, two across.
+function Tiles() {
+  return (
+    <div className="space-y-6">
+      <Head />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-3 rounded-card border border-gray-100 p-4">
+            <Skeleton className="h-10 w-10 shrink-0 rounded-xl" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className="h-4 w-1/2 rounded" />
+              <Skeleton className="h-3 w-3/4 rounded" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// A long editing form: label / field, repeated, with the action row at the end.
+function Form() {
+  return (
+    <div className="space-y-6">
+      <Head />
+      <div className="card space-y-5">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="space-y-2">
+            <Skeleton className="h-3 w-28 rounded" />
+            <Skeleton className={i === 2 ? 'h-24 w-full rounded-xl' : 'h-11 w-full rounded-xl'} />
+          </div>
+        ))}
+        <div className="flex justify-end gap-2 pt-2">
+          <Skeleton className="h-10 w-24 rounded-full" />
+          <Skeleton className="h-10 w-28 rounded-full" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const SHAPE = {
+  thread: Thread,
+  list: () => <><Head /><Rows /></>,
+  hub: Hub,
+  profile: ProfileShape,
+  map: MapShape,
+  calendar: CalendarShape,
+  feature: Feature,
+  settings: Tiles,
+  panel: Tiles,
+  form: Form,
+  cards: () => <><Head /><Cards /></>,
+}
+
+export default function RouteSkeleton({ shape: forced }) {
   const visible = useBootLoaderSlot()
   const { pathname } = useLocation()
 
   if (!visible) return null
 
-  const shape = shapeFor(pathname)
+  const Shape = SHAPE[forced || shapeForPath(pathname)] || SHAPE.cards
   return (
-    // `min-h-[70vh]` so the content area keeps its size while it waits. Without
-    // it a short skeleton lets the page collapse, the tab bar jumps up the
-    // screen and back down, and THAT movement is most of what reads as a flash.
     <div className="page min-h-[70vh]" aria-busy="true" aria-live="polite">
       <span className="sr-only">Loading</span>
-      {/* The page header: a title and its line of explanation. */}
-      <div className="space-y-3">
-        <Skeleton className="h-8 w-52 rounded-lg" />
-        <Skeleton className="h-4 w-72 max-w-full rounded" />
-      </div>
-
-      {shape === 'thread' ? (
-        // A conversation fills upwards from a composer, so its placeholder is
-        // bubbles of uneven width alternating sides, not a grid.
-        <div className="mt-8 space-y-4">
-          {[0, 1, 2, 3, 4].map((i) => (
-            <div key={i} className={i % 2 ? 'flex justify-end' : 'flex items-end gap-2'}>
-              {i % 2 === 0 && <Skeleton className="h-8 w-8 shrink-0 rounded-full" />}
-              <Skeleton
-                className="h-12 rounded-2xl"
-                style={{ width: `${[62, 44, 70, 38, 55][i]}%` }}
-              />
-            </div>
-          ))}
-        </div>
-      ) : shape === 'list' ? (
-        <div className="mt-8 space-y-3">
-          {[0, 1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="flex items-center gap-3 rounded-xl border border-gray-100 p-3">
-              <Skeleton className="h-11 w-11 shrink-0 rounded-full" />
-              <div className="min-w-0 flex-1 space-y-2">
-                <Skeleton className="h-4 w-1/3 rounded" />
-                <Skeleton className="h-3 w-1/2 rounded" />
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        // Cards. Three is enough to say "a list is coming" without promising a
-        // particular number, and the last one is shorter so the block does not
-        // read as a solid grey slab.
-        <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="card space-y-4">
-              <div className="flex items-center gap-3">
-                <Skeleton className="h-11 w-11 shrink-0 rounded-full" />
-                <div className="min-w-0 flex-1 space-y-2">
-                  <Skeleton className="h-4 w-2/3 rounded" />
-                  <Skeleton className="h-3 w-1/3 rounded" />
-                </div>
-              </div>
-              <Skeleton className="h-3 w-full rounded" />
-              <Skeleton className={i === 2 ? 'h-3 w-1/3 rounded' : 'h-3 w-4/5 rounded'} />
-            </div>
-          ))}
-        </div>
-      )}
+      <Shape />
     </div>
   )
 }

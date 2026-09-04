@@ -13,7 +13,7 @@ import { COUNTRIES, normalize as normalizeCountry } from '../lib/countries'
 import { Avatar, Spinner, Select } from './ui'
 import Icon from './Icon'
 import AutoTextarea from './AutoTextarea'
-import SocialMark from './SocialMark'
+import SocialMark, { BRAND_COLOR } from './SocialMark'
 import { useT } from '../lib/i18n'
 
 export const LANGUAGE_OPTIONS = [
@@ -351,40 +351,91 @@ export function LanguageSelect({ selected = [], onChange }) {
 }
 
 
+/**
+ * WHERE YOU POST, IN THE PLATFORMS' OWN COLOURS.
+ *
+ * Ethan, on the onboarding flow: "rather than the grayed out social media
+ * icons, I would add in the actual colourful social media icons."
+ *
+ * The marks were `text-smoke` on `bg-cloud` - five identical grey squares down
+ * the left of five identical boxes. On the one screen whose entire subject is
+ * which platforms somebody posts on, the column that names them was the least
+ * scannable thing on it, and a grey Instagram glyph reads as a DISABLED field
+ * rather than as an empty one. Colour is not decoration here; it is what makes
+ * the row identifiable before you have read a word of it.
+ *
+ * This is the same exception the profile already makes (see SocialMark's
+ * BRAND_COLOR): a platform's own colour used to identify that platform, on the
+ * one surface that is about other platforms. Everything else stays inside the
+ * house palette.
+ *
+ * A FILLED ROW IS LIT AND AN EMPTY ONE IS QUIET. The tile takes the platform's
+ * colour at 10% behind a full-strength mark once there is a link in it, so
+ * "which of these have I done" is answerable at a glance rather than by reading
+ * five URLs. And each field carries its own LABEL now: a placeholder disappears
+ * the moment you type, so a screen made entirely of placeholder-labelled boxes
+ * is unlabelled the moment it has anything in it.
+ */
 export function SocialInputs({ values, onChange }) {
+  const tr = useT()
   const fields = [
-    { key: 'instagram_url', brand: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/yourhandle' },
-    { key: 'tiktok_url', brand: 'tiktok', label: 'TikTok', placeholder: 'https://tiktok.com/@yourhandle' },
-    { key: 'youtube_url', brand: 'youtube', label: 'YouTube', placeholder: 'https://youtube.com/@yourchannel' },
-    { key: 'facebook_url', brand: 'facebook', label: 'Facebook', placeholder: 'https://facebook.com/yourpage' },
-    { key: 'linkedin_url', brand: 'linkedin', label: 'LinkedIn', placeholder: 'https://linkedin.com/in/yourname' },
+    { key: 'instagram_url', brand: 'instagram', label: 'Instagram', placeholder: 'instagram.com/yourhandle' },
+    { key: 'tiktok_url', brand: 'tiktok', label: 'TikTok', placeholder: 'tiktok.com/@yourhandle' },
+    { key: 'youtube_url', brand: 'youtube', label: 'YouTube', placeholder: 'youtube.com/@yourchannel' },
+    { key: 'facebook_url', brand: 'facebook', label: 'Facebook', placeholder: 'facebook.com/yourpage' },
+    { key: 'linkedin_url', brand: 'linkedin', label: 'LinkedIn', placeholder: 'linkedin.com/in/yourname' },
   ]
   return (
-    <div className="space-y-3">
-      {fields.map((f) => (
-        <div key={f.key} className="flex items-center gap-3">
-          <span
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-cloud text-smoke"
-            title={f.label}
-            aria-hidden
+    <div className="space-y-2.5">
+      {fields.map((f) => {
+        const filled = !!values[f.key]?.trim()
+        const tint = BRAND_COLOR[f.brand]
+        return (
+          <div
+            key={f.key}
+            className={cx(
+              'flex items-center gap-3 rounded-card border px-3 py-2.5 transition-colors duration-200',
+              filled ? 'border-gray-200 bg-white' : 'border-gray-100 bg-cloud/40',
+            )}
           >
-            <SocialMark brand={f.brand} className="h-5 w-5" />
-          </span>
-          <input
-            id={f.key}
-            type="url"
-            className="input min-w-0 flex-1"
-            aria-label={f.label}
-            placeholder={f.placeholder}
-            value={values[f.key] || ''}
-            onChange={(e) => onChange({ ...values, [f.key]: e.target.value })}
-          />
-        </div>
-      ))}
+            <span
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors duration-200"
+              // The tile only lights up once the row has something in it, so an
+              // untouched screen is five quiet boxes rather than a fairground.
+              style={{ background: filled && tint !== 'currentColor' ? `${tint}14` : undefined }}
+              title={f.label}
+              aria-hidden
+            >
+              <SocialMark brand={f.brand} colored className="h-5 w-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <label htmlFor={f.key} className="block text-[11px] font-semibold uppercase tracking-wide text-smoke">
+                {f.label}
+              </label>
+              <input
+                id={f.key}
+                type="url"
+                inputMode="url"
+                autoComplete="off"
+                // `no-ios-zoom` keeps it at 16px on a phone; anything smaller
+                // makes Safari zoom the page the moment it is focused.
+                className="no-ios-zoom w-full border-0 bg-transparent p-0 text-sm text-ink outline-none placeholder:text-gray-300"
+                aria-label={f.label}
+                placeholder={f.placeholder}
+                value={values[f.key] || ''}
+                onChange={(e) => onChange({ ...values, [f.key]: e.target.value })}
+              />
+            </span>
+            {filled && <Icon name="check" className="h-4 w-4 shrink-0 text-green-600" />}
+          </div>
+        )
+      })}
+      <p className="pt-1 text-xs text-smoke">
+        {tr("One is enough to apply. Paste the address of your page, not your handle on its own.")}
+      </p>
     </div>
   )
 }
-
 
 /**
  * WHERE YOU LIVE, AS A CHOICE RATHER THAN A TYPED STRING.

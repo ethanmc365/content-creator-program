@@ -40,9 +40,11 @@ import { useT } from '../lib/i18n'
 // @param platformsFor      creatorId -> ['TikTok', ...]
 // @param linkProfiles      false in a picture, where a link is just a colour
 // @param scoreLabel        'views' | 'points' - what the right-hand number is
-// @param startAt           first rank to draw. The challenge page puts a real
-//                          podium above the board and passes 4, so the top
-//                          three are not drawn twice in two different shapes.
+// @param startAt           first rank to draw. Defaults to 1 and every caller
+//                          now leaves it there: the challenge page draws a real
+//                          podium above the board AND the full list under it,
+//                          because a podium is a picture of a ranking's head
+//                          rather than a replacement for its first three rows.
 //
 // EVERY COLUMN LINES UP DOWN THE BOARD (2 Sep 2026).
 //

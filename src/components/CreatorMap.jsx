@@ -24,7 +24,25 @@ import { useT } from '../lib/i18n'
 const BRAND = '#d94407'
 const BRAND_LIGHT = '#f5853f'
 const LAND = '#ECECEE'
-const HOME = '#f9c9a7' // soft orange tint for countries creators live in
+// TWO TINTS THAT HAVE TO BE TELLABLE APART (4 Sep 2026).
+//
+// Ethan: "in Tryp.com orange we could have the countries that everyone lives
+// in, and then in the lighter orange that we currently have, it could be for
+// all the countries we've travelled to."
+//
+// They were #f9c9a7 and #fbd9c8 - two steps of cream about four percent of
+// lightness apart. On a screen, next to each other, over a grey continent, that
+// is one colour with a rendering artefact. A key naming two tints nobody can
+// distinguish is worse than no key, because it asserts a difference the map
+// does not show.
+//
+// So the ladder is widened: HOME is the brand's light orange knocked back 30%
+// towards white - unmistakably the Tryp orange - and EXPLORED is the same hue
+// at 75% towards white. Same hue, two clearly different steps, and neither is
+// the full #d94407: a whole continent at full strength stops being a highlight
+// and becomes the background.
+const HOME = '#f7a069' // countries creators LIVE in
+const EXPLORED = '#fce1d0' // countries the community has FILMED in
 
 // Every plane flies at EXACTLY the same speed. Duration = true curve length /
 // speed, with NO clamping - clamping was what made short hops crawl and long
@@ -160,7 +178,7 @@ function byPinPriority(a, b) {
 // tip on the exact coordinate. The avatar is CONCENTRIC with the white disc so
 // it's dead-centre in the pin. Counter-scaled against the zoom so it stays a
 // calm, readable size (a hair of growth when you zoom in, never a balloon).
-function Pin({ group, zoom, active, dim, onSelect, landing = false }) {
+function Pin({ group, zoom, active, dim, onSelect, landing = false, queue = 0 }) {
   const lead = group.creators[0]
   const count = group.creators.length
   // Counter-scale so pins are small at the default zoom (you can see the
@@ -179,11 +197,19 @@ function Pin({ group, zoom, active, dim, onSelect, landing = false }) {
           below would silently throw the counter-scale away for the length of
           the animation and every pin would balloon on arrival. This g carries
           only the animation; the one inside it carries only the scale. */}
-      {/* `landing` is a plain flag, not a queue position. It used to carry a
-          `--pin-i` the stylesheet turned into a per-pin delay; every pin drops
-          on the same frame now, so all this decides is whether the arrival
-          plays at all. See `.map-pin-land`. */}
-      <g className={landing ? 'map-pin-land' : undefined}>
+      {/* THE PINS COME DOWN IN A SHOWER, NOT ALL ON ONE FRAME (4 Sep 2026).
+          Ethan: "you can make this map stand out more, adding more animations
+          to it, like the nice UI of the pins falling in."
+
+          They already drop and squash; they all dropped on the SAME frame,
+          which reads as one object appearing rather than as forty-four pins
+          landing. The ladder that used to be here was removed for a good
+          reason - an uncapped per-pin delay is a two-second entrance on a busy
+          map - so this is the threads' answer applied to the pins: a ladder
+          CAPPED at eight steps, so the shower lasts under half a second whether
+          there are nine pins or nine hundred. `queue` is that position; the
+          stylesheet turns it into the delay. See `.map-pin-land`. */}
+      <g className={landing ? 'map-pin-land' : undefined} style={landing ? pinStep(queue) : undefined}>
       <g
         transform={`scale(${s})`}
         style={{ cursor: 'pointer', opacity: dim ? 0.25 : 1, transition: 'opacity 0.2s' }}
@@ -291,6 +317,11 @@ function FlyingPlane({ path, dur, zoom, opacity = 1, arriving = false }) {
 // under half a second whether there are nine threads or nine hundred.
 const THREAD_STEPS = 8
 const threadStep = (i) => ({ '--thread-i': i % THREAD_STEPS })
+
+// Same capped ladder for the pins. Eight steps at 45ms is 315ms of shower on
+// top of the 360ms the land takes to arrive, whatever the community's size.
+const PIN_STEPS = 8
+const pinStep = (i) => ({ '--pin-i': (i || 0) % PIN_STEPS })
 
 // The map, drawn but not yet shown, for the two frames between the commit that
 // builds it and the frame the entrance starts on. Module scope: a fresh object
@@ -410,7 +441,21 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   // network has filmed in, and a toggle to paint them. It replaces the second
   // WorldMap that used to sit at the foot of the directory - see the note on
   // the button in `renderFilterButtons`.
-  exploredCountries = null, exploredActive = null, onToggleExplored = null }) {
+  exploredCountries = null, exploredActive = null, onToggleExplored = null,
+  // A KEY, IN THE CORNER OF THE MAP THAT IS ACTUALLY EMPTY.
+  //
+  // Ethan, on the landing page: "in Tryp.com orange we could have the countries
+  // that everyone lives in, and then in the lighter orange it could be for all
+  // the countries we've travelled to. And maybe a little key on the bottom left
+  // to show that."
+  //
+  // Two tints that mean two different things need saying, and a sentence above
+  // the map is not where anybody looks when they are already looking at the
+  // map. It is drawn INSIDE the card rather than by the caller so it cannot
+  // drift out of step with the fills it names - and bottom-LEFT because the
+  // zoom stack, the full-screen button and the tooltip all live on the right
+  // and along the top.
+  legend = false }) {
   const tr = useT()
   const dark = useIsDark()
   // Dark-mode map palette: deep land on near-black sea, so the light-grey map
@@ -421,11 +466,11 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
   // the brand orange itself at partial alpha over the near-black sea keeps the
   // hue and lets the darkness come from the background rather than from the
   // colour, so a tinted country still looks orange.
-  const HOME_FILL = dark ? 'rgba(217, 68, 7, 0.55)' : HOME
+  const HOME_FILL = dark ? 'rgba(217, 68, 7, 0.62)' : HOME
   // A step lighter than HOME, for the same reason HOME is a step lighter than
   // the brand: a whole continent painted at full strength stops being a
   // highlight and becomes the background.
-  const EXPLORED_FILL = dark ? 'rgba(217, 68, 7, 0.3)' : '#fbd9c8'
+  const EXPLORED_FILL = dark ? 'rgba(217, 68, 7, 0.24)' : EXPLORED
   // Hovering a country now means something (it is tappable), so it needs a
   // hover state - a step towards the tint rather than the tint itself, so a
   // country somebody LIVES in still reads as different from one under the
@@ -1415,6 +1460,19 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
         </div>
       )}
 
+      {legend && (
+        <div className="pointer-events-none absolute bottom-3 left-3 z-20 flex flex-col gap-1.5 rounded-xl bg-white/90 px-3 py-2.5 shadow-card ring-1 ring-black/5 backdrop-blur">
+          <span className="flex items-center gap-2 text-[11px] font-medium text-ink">
+            <span className="h-3 w-3 rounded-sm" style={{ background: HOME_FILL }} aria-hidden />
+            {tr('Where we live')}
+          </span>
+          <span className="flex items-center gap-2 text-[11px] font-medium text-ink">
+            <span className="h-3 w-3 rounded-sm" style={{ background: EXPLORED_FILL }} aria-hidden />
+            {tr('Where we have filmed')}
+          </span>
+        </div>
+      )}
+
       {/* THE CORNER OF A PHONE IS NOT WHERE THE SCREEN ENDS. In full screen the
           map is edge to edge, and a landscape phone puts its rounded corners
           and its notch on the SHORT sides - which is exactly where these
@@ -1652,7 +1710,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
             ))}
           </g>
 
-          {paintOrder.map((town) => {
+          {paintOrder.map((town, ti) => {
             const dimTown = highlighting && !town.creators.some((c) => highlightIds.has(c.id))
             const label = town.creators.length === 1
               ? `${town.creators[0].name} · ${(town.creators[0].city || '').trim()}`.trim()
@@ -1664,7 +1722,7 @@ function CreatorMap({ creators = [], trips = {}, highlightIds = null, nearMe = f
                 onMouseLeave={() => setTooltip('')}
               >
                 <Pin group={town} zoom={z} active={selected?.key === town.key} dim={dimTown}
-                  onSelect={selectTown} landing={entering} />
+                  onSelect={selectTown} landing={entering} queue={ti} />
               </g>
             )
           })}

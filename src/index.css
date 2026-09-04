@@ -653,7 +653,12 @@ html {
   .map-pin-land {
     transform-box: fill-box;
     transform-origin: 50% 100%;
-    animation: map-pin-land 700ms cubic-bezier(0.34, 1.24, 0.64, 1) 360ms both;
+    /* THE LADDER IS CAPPED AT EIGHT (see PIN_STEPS in CreatorMap). The pins
+       come down as a shower rather than as one object appearing, and the
+       entrance still finishes in under 700ms whatever the community's size -
+       which is the constraint an earlier uncapped per-pin ladder broke. */
+    animation: map-pin-land 700ms cubic-bezier(0.34, 1.24, 0.64, 1) both;
+    animation-delay: calc(360ms + var(--pin-i, 0) * 45ms);
   }
 
   /* The aircraft lift in once the pins are down. They fly on their own SMIL
@@ -1548,4 +1553,134 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
      flash is answering "which one", and removing it entirely would leave a
      reduced-motion reader scrolled to an unmarked spot. */
   .msg-flash { animation: none; box-shadow: 0 0 0 6px rgba(217, 68, 7, 0.16); }
+}
+
+/* ---------------------------------------------------------------------------
+   THE PUBLIC LANDING PAGE'S MOTION (4 Sep 2026).
+
+   Ethan: "I want super clean animations for these - not just fading, but
+   something more complex and cool that really stands out. Also, hovering over
+   everything I want it to magnify a bit, even 'Create. Earn. Travel.' Maybe
+   show the dots popping in nicely, or the words popping in."
+
+   Everything here is CSS. The landing page is the FIRST BYTES a stranger
+   downloads and it is eagerly routed, so pulling the Motion runtime in for a
+   headline would put a JavaScript animation library in front of the one page
+   whose job is to load instantly. It is also why none of this is scroll-driven
+   JS: `Reveal` (also CSS) already handles arrive-on-scroll.
+
+   Everything is behind prefers-reduced-motion at the foot of the block.
+   --------------------------------------------------------------------------- */
+
+/* THE HEADLINE ARRIVES A WORD AT A TIME.
+   Each word rises, overshoots very slightly and settles. The overshoot is what
+   makes it read as "popping in" rather than as sliding: a curve that only
+   approaches its resting place looks like a transition, one that passes it and
+   comes back looks like an object landing. The blur is the other half - two
+   pixels of it on the way in reads as focus pulling, and it costs nothing
+   because it is on three spans, not on a scrolling surface. */
+@keyframes hero-word-in {
+  0%   { opacity: 0; transform: translateY(28px) scale(0.94); filter: blur(6px); }
+  60%  { opacity: 1; transform: translateY(-4px) scale(1.015); filter: blur(0); }
+  100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+.hero-word {
+  display: inline-block;
+  /* The pivot is the word's own baseline-ish centre, so the hover magnify
+     grows it in place instead of pushing the line along. */
+  transform-origin: 50% 60%;
+  animation: hero-word-in 720ms cubic-bezier(0.22, 1.18, 0.36, 1) both;
+  animation-delay: calc(var(--word-i, 0) * 110ms + 120ms);
+  /* The hover transition is a SEPARATE property list from the entrance, and it
+     has to be: a `transition: transform` while an `animation` on transform is
+     running does nothing, and after it finishes this is the only thing moving
+     the word. */
+  transition: transform 260ms cubic-bezier(0.22, 1.12, 0.36, 1), color 260ms ease;
+}
+
+/* MAGNIFY, ON A POINTER ONLY. `hoverable` is the project's own variant
+   (`@media (hover:hover) and (pointer:fine)`) and the rule it encodes matters
+   here as much as anywhere: on iOS the first tap on anything whose appearance
+   changes on hover is spent ON the hover, so an un-gated :hover on the biggest
+   text on the page costs a real tap. */
+@media (hover: hover) and (pointer: fine) {
+  .hero-word:hover { transform: scale(1.06) translateY(-2px); }
+  /* A CARD LIFTS AND GROWS, very slightly. 1.02 is deliberately small: these
+     sit in grids, and anything past about 3% makes a card overlap its
+     neighbours' shadows and the row starts to look loose. */
+  .landing-lift { transition: transform 300ms cubic-bezier(0.22, 1.12, 0.36, 1), box-shadow 300ms ease; }
+  .landing-lift:hover { transform: translateY(-5px) scale(1.02); }
+  /* The icon tile inside a card gets its own, larger move, so the card's growth
+     and the icon's are not one flat scale. */
+  .landing-lift:hover .landing-lift-icon { transform: scale(1.12) rotate(-4deg); }
+}
+.landing-lift-icon { transition: transform 320ms cubic-bezier(0.22, 1.18, 0.36, 1); }
+
+/* THE BADGE OVER THE HEADLINE.
+   Ethan: "the little bar that shows above Create Earn Travel doesn't look
+   good." It was a flat brand-tint lozenge - the same shape and weight as an
+   ordinary chip inside the app, doing the job of the first thing anybody reads.
+   It is a white pill on a hairline ring now, with a live dot and one pass of
+   light across it, and it arrives before the headline rather than with it. */
+@keyframes hero-pill-in {
+  from { opacity: 0; transform: translateY(-10px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.hero-pill { animation: hero-pill-in 520ms cubic-bezier(0.22, 1.12, 0.36, 1) both; }
+
+/* The dot is a real live-ness signal (the community is running right now), so
+   it breathes rather than blinks: a blink is an alert, a breath is a pulse. */
+@keyframes hero-dot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(0.72); opacity: 0.55; }
+}
+@keyframes hero-dot-ring {
+  0%   { transform: scale(0.9); opacity: 0.55; }
+  70%  { transform: scale(2.4); opacity: 0; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+.hero-dot { animation: hero-dot 2.4s ease-in-out infinite; }
+.hero-dot-ring { animation: hero-dot-ring 2.4s ease-out infinite; }
+
+/* THE BLOOM BEHIND THE HEADLINE DRIFTS.
+   A static blurred ellipse is a gradient; one that moves a few percent over
+   twenty seconds is weather. It is slow enough that nobody catches it moving,
+   which is the point - it stops the top of the page feeling like a still. */
+@keyframes hero-bloom {
+  0%, 100% { transform: translate(-50%, 0) scale(1); opacity: 0.55; }
+  50%      { transform: translate(-48%, 12px) scale(1.08); opacity: 0.75; }
+}
+.hero-bloom { animation: hero-bloom 18s ease-in-out infinite; }
+
+/* THE STATS BAND'S FIGURES RISE AS ONE.
+   They do not stagger: they are three halves of one fact about the programme
+   and reading them in sequence implies an order they do not have. */
+@keyframes stat-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.stat-in { animation: stat-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* ONE PASS OF LIGHT ACROSS THE FINAL CALL TO ACTION, on arrival only. */
+@keyframes landing-sheen {
+  from { transform: translateX(-140%) skewX(-16deg); }
+  to   { transform: translateX(260%) skewX(-16deg); }
+}
+.landing-sheen {
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.16) 45%, rgba(255,255,255,0.26) 50%, rgba(255,255,255,0.16) 55%, transparent 100%);
+  width: 40%;
+  animation: landing-sheen 2.6s cubic-bezier(0.4, 0, 0.2, 1) 0.6s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-word, .hero-pill, .stat-in {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+  .hero-dot, .hero-dot-ring, .hero-bloom, .landing-sheen { animation: none; }
+  .hero-dot-ring, .landing-sheen { opacity: 0; }
+  .landing-lift, .landing-lift-icon { transition: none; }
 }

@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Avatar, EmptyState, PageHeader, Skeleton } from '../components/ui'
 import Podium from '../components/Podium'
+import { podiumTier } from '../lib/podiumTiers'
 import Icon from '../components/Icon'
 import { cx, formatViews } from '../lib/utils'
 import { EASE } from '../lib/motion'
@@ -74,14 +75,25 @@ export default function Leaderboard() {
 
   const posted = useMemo(() => (rows || []).filter((r) => r.views > 0), [rows])
   const top = posted.slice(0, 3)
-  // Everybody below the podium, in order, with the creators on nought views at
-  // the end - they ARE in the programme and they are ranked last, which is both
-  // true and the only honest place to put them.
+  // EVERYBODY, FROM FIRST (4 Sep 2026). Ethan: "even though we have the podium,
+  // it should still show everyone in the actual leaderboard below."
+  //
+  // This list used to begin at FOURTH, so the podium was not a picture of the
+  // board's head, it was a replacement for it - the three names at the top were
+  // in one shape and everybody else in another, and a reader looking for the
+  // leader's row found the table starting at 4. A podium is a flourish over a
+  // ranking, not a substitute for its first three rows.
+  //
+  // The creators on nought views come last: they ARE in the programme and they
+  // are ranked last, which is both true and the only honest place to put them.
   const everyone = useMemo(
-    () => [...posted.slice(3), ...(rows || []).filter((r) => r.views === 0)],
+    () => [...posted, ...(rows || []).filter((r) => r.views === 0)],
     [posted, rows],
   )
-  const COLLAPSED = 9
+  // Twelve rather than nine, because the list now carries the three that used
+  // to be cut out of it - so "show all" still appears at the same place on the
+  // board and the collapsed view still ends somewhere past tenth.
+  const COLLAPSED = 12
   const shown = expanded ? everyone : everyone.slice(0, COLLAPSED)
   const hiddenCount = everyone.length - shown.length
   // The people who have not posted yet, counted rather than listed. They belong
@@ -153,7 +165,7 @@ export default function Leaderboard() {
           {shown.length > 0 && (
             <div className="overflow-hidden rounded-card border border-gray-100 shadow-card">
               {shown.map((c, i) => {
-                const place = i + 4
+                const place = i + 1
                 const isMe = c.creator_id === profile?.id
                 return (
                   /* THE BOARD ARRIVES IN ORDER: THE PODIUM, THEN THE REST.
@@ -186,10 +198,21 @@ export default function Leaderboard() {
                       isMe ? 'bg-brand-tint/50 hover:bg-brand-tint' : 'hover:bg-cloud/60',
                     )}
                   >
-                    <span className={cx(
-                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold tabular-nums',
-                      isMe ? 'bg-brand text-white' : 'bg-cloud text-smoke',
-                    )}>
+                    {/* A PLACE LOOKS THE SAME EVERYWHERE (lib/podiumTiers).
+                        Now that the top three are IN this list as well as on
+                        the podium above it, their chips have to carry the same
+                        ladder - a first place drawn as a plain grey circle two
+                        inches under a brand-orange first step is the two halves
+                        of one board disagreeing about who won. Everything from
+                        fourth down stays a plain number, which is what stops a
+                        forty-place board from looking like forty awards. */}
+                    <span
+                      className={cx(
+                        'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold tabular-nums',
+                        place > 3 && (isMe ? 'bg-brand text-white' : 'bg-cloud text-smoke'),
+                      )}
+                      style={place <= 3 ? { background: podiumTier(place).disc, color: podiumTier(place).ink } : undefined}
+                    >
                       {place}
                     </span>
                     <Avatar src={c.photo_url} name={c.name} size="sm" />

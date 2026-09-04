@@ -32,12 +32,39 @@ export default function AdminResults() {
   const [generating, setGenerating] = useState(false)
   const [sharing, setSharing] = useState(false)
   const [publishing, setPublishing] = useState(false)
+  const [lifecycleBusy, setLifecycleBusy] = useState(false)
   const [toast, setToast] = useState('')
 
   // While the challenge is still running a leaderboard is an INTERIM snapshot;
   // once it has ended (or been archived) it's the FINAL ranking.
   const isLive = challenge?.status === 'active'
   const phase = isLive ? 'interim' : 'final'
+
+  // CLOSING ENTRIES BELONGS HERE (4 Sep 2026).
+  //
+  // Ethan: "move the close entries button inside the results page."
+  //
+  // It was behind the "..." on the challenge itself, which is one press away
+  // from a slip but is also nowhere near the moment the decision is actually
+  // made. A manager decides a challenge is over while looking at the entries
+  // and the standings - on THIS page - and then had to navigate back to the
+  // challenge to say so. Closing is now a labelled control in the state card
+  // below, next to a plain statement of what the challenge currently is.
+  //
+  // Both places still exist and both call the same update, because a lifecycle
+  // that can only be reached from one screen is a lifecycle somebody cannot
+  // find. What changed is that the one on the results page is a BUTTON WITH A
+  // SENTENCE rather than an item in a menu of three.
+  async function setChallengeStatus(status) {
+    const verb = { active: 'publish', ended: 'close entries on', archived: 'archive' }[status]
+    if (!await confirm(`Really ${verb} "${challenge.title}"?`)) return
+    setLifecycleBusy(true)
+    const { error } = await supabase.from('challenges').update({ status }).eq('id', id)
+    setLifecycleBusy(false)
+    if (error) { flash(`Could not update: ${error.message}`); return }
+    setChallenge((c) => ({ ...c, status }))
+    flash(status === 'ended' ? 'Entries are closed. The board stays visible.' : `Challenge ${status}.`)
+  }
 
   const load = useCallback(async () => {
     const [{ data: ch }, { data: subs }, { count }] = await Promise.all([
@@ -337,10 +364,8 @@ export default function AdminResults() {
 
   return (
     <div className="page max-w-4xl">
-      <Link to="/admin/challenges" className="mb-6 inline-block text-sm font-medium text-smoke hover:text-brand">← Manage challenges</Link>
-
       <PageHeader
-        back={{ to: '/admin/challenges', label: 'Challenges' }}
+        back={{ to: `/challenges/${id}`, label: 'Challenge' }}
         title={`Results: ${challenge?.title}`}
         subtitle={
           isLive
@@ -367,6 +392,18 @@ export default function AdminResults() {
       />
 
       {toast && <p className="mb-6 rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-700 animate-fade-up">{toast}</p>}
+
+      {/* WHAT THIS CHALLENGE CURRENTLY IS, AND THE ONE PRESS THAT CHANGES IT.
+          The state was only ever legible on the challenge page - a Badge in the
+          header - so a manager working through the entries here had no way of
+          telling whether creators could still add to them. It says so plainly
+          now, and the action that follows from it sits next to the sentence
+          rather than inside a menu on another screen. */}
+      <LifecycleCard
+        status={challenge?.status}
+        busy={lifecycleBusy}
+        onSet={setChallengeStatus}
+      />
 
       {/* THE PODIUM, BEFORE ANYBODY ELSE SEES IT.
           Publishing winners was previously invisible until it was already
@@ -594,6 +631,74 @@ export default function AdminResults() {
         </div>
       )}
 
+    </div>
+  )
+}
+
+
+// THE CHALLENGE'S STATE, AS A SENTENCE AND A BUTTON.
+//
+// Three states, three next steps, and only ever ONE of them offered - a
+// lifecycle is a line, not a set of choices, and drawing all three at once is
+// what made the old toolbar look like three equally likely things to do.
+//
+// The destructive one carries its consequence in the copy rather than in a
+// colour: "no new entries" is what a manager needs to have read, and a red
+// button is a warning that does not say what about.
+const LIFECYCLE = {
+  draft: {
+    now: 'Draft. Nobody in the market can see this challenge yet.',
+    to: 'active',
+    label: 'Publish challenge',
+    hint: 'Creators in this market are notified.',
+    icon: 'megaphone',
+    primary: true,
+  },
+  active: {
+    now: 'Live. Creators can still add entries.',
+    to: 'ended',
+    label: 'Close entries',
+    hint: 'No new entries after this. The board stays visible to everyone.',
+    icon: 'ban',
+    primary: false,
+  },
+  ended: {
+    now: 'Closed. No new entries; the board is still on the challenge.',
+    to: 'archived',
+    label: 'Archive',
+    hint: 'Moves it into the archive.',
+    icon: 'bucket',
+    primary: false,
+  },
+  archived: {
+    now: 'Archived.',
+    to: null,
+  },
+}
+
+function LifecycleCard({ status, busy, onSet }) {
+  const step = LIFECYCLE[status]
+  if (!step) return null
+  return (
+    <div className="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-card border border-gray-100 bg-white px-5 py-4 shadow-card">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-ink">{step.now}</p>
+        {step.hint && <p className="mt-0.5 text-xs text-smoke">{step.hint}</p>}
+      </div>
+      {step.to && (
+        <button
+          type="button"
+          onClick={() => onSet(step.to)}
+          disabled={busy}
+          className={cx(
+            'inline-flex shrink-0 items-center gap-1.5 !py-2 text-xs',
+            step.primary ? 'btn-primary' : 'btn-secondary',
+          )}
+        >
+          {busy ? <Spinner /> : <Icon name={step.icon} className="h-3.5 w-3.5" />}
+          {step.label}
+        </button>
+      )}
     </div>
   )
 }

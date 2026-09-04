@@ -12,6 +12,7 @@ import PhotoBoard from '../components/PhotoBoard'
 import Icon from '../components/Icon'
 import AutoTextarea from '../components/AutoTextarea'
 import SubmittedCard from '../components/SubmittedCard'
+import SocialMark, { brandForUrl, BRAND_COLOR } from '../components/SocialMark'
 import { geocodeCity } from '../lib/geocode'
 import { Avatar, Spinner } from '../components/ui'
 import { cx, ageFromDob } from '../lib/utils'
@@ -329,7 +330,23 @@ export default function Onboarding() {
       : null
     if (coords) { update.city_lat = coords.lat; update.city_lng = coords.lng }
 
-    await Promise.all([
+    // THE SAVE IS CHECKED. IT WAS NOT, AND THAT IS HOW EVERY APPLICATION WAS
+    // LOST FOR A FORTNIGHT (4 Sep 2026).
+    //
+    // This was a bare `await Promise.all([...])` with no reference to the
+    // result. supabase-js RESOLVES on a rejected write - the error is a field
+    // on the response, not a thrown exception - so a profile update that the
+    // database refused looked exactly like one that had landed: the card
+    // switched to "Application submitted", `refreshProfile` re-read the same
+    // un-onboarded row, the router moved to /home, and ProtectedRoute sent the
+    // applicant straight back to the first screen of onboarding with an empty
+    // name box. Nothing reached the admin queue, and nothing said so.
+    //
+    // What it was hiding: two triggers both maintaining `profiles.age` from a
+    // date of birth, looping through the row being written and raising 27000 on
+    // every submit. See migration 187. That bug is fixed; this silence is what
+    // made it invisible, and the silence is the more dangerous of the two.
+    const [{ error: profileErr }, { error: privateErr } = {}] = await Promise.all([
       supabase.from('profiles').update(update).eq('id', user.id),
       (contact.phone || contact.phone_country)
         ? supabase.from('creator_private').upsert({
@@ -338,8 +355,22 @@ export default function Onboarding() {
             phone_country: contact.phone_country,
             updated_at: new Date().toISOString(),
           })
-        : Promise.resolve(),
+        : Promise.resolve({}),
     ])
+
+    // A REFUSED WRITE STOPS THE FLOW WHERE IT IS. Going on to the submitted
+    // card would be telling somebody their application is with a person when it
+    // does not exist, and that is the one lie this screen must never tell. The
+    // draft is still in state, so pressing Submit again retries everything.
+    if (profileErr || privateErr) {
+      setBusy(false)
+      setStep(stepIndex('review'))
+      setError(
+        `Your application could not be saved: ${(profileErr || privateErr).message}. `
+        + 'Nothing was sent. Please try again, and tell us if it keeps happening.',
+      )
+      return
+    }
 
     // The market, AFTER the profile write and never before: join_market checks
     // profiles.country_code, and until the update above lands that column is
@@ -663,7 +694,18 @@ function StepHead({ step, pending }) {
     based: ['Where are you based?', 'This decides your market, puts you on the map, and is how the team reaches you.'],
     socials: ['Where do you post?', 'Link your accounts so creators and the Tryp.com Team can find your work.'],
     story: ['Tell us about you', 'This is the part a person actually reads.'],
-    languages: ['Languages you speak', 'Used to match you with collaboration partners and audiences.'],
+    // IT SAYS WHAT THE ANSWER IS ACTUALLY FOR (4 Sep 2026). Ethan: "the
+    // languages you speak - this is an important section, and I want this to
+    // also matter whenever admins are viewing the applications, because the
+    // language could depend what market they end up going into."
+    //
+    // It now does: an admin reviewing this application sees the languages
+    // beside the market picker, with any market this person's languages point
+    // at flagged. A question that decides where somebody lands should say so
+    // while they are answering it - "used to match you with collaboration
+    // partners" undersold it into a nice-to-have, and a nice-to-have is a
+    // question people answer with one word.
+    languages: ['Languages you speak', 'This can decide which market you join, and it is how creators find somebody to collaborate with. Add every one you could film or talk in.'],
     map: ['Paint your travel map', 'Tap every country you have been to and watch it glow.'],
     // Ethan: "a few extras - I don't really like that name, I would just name
     // it as it is." It holds travel photographs and the places you want to go,
@@ -820,70 +862,195 @@ function MarketCard({ market, country, ready }) {
   )
 }
 
+/**
+ * ANYWHERE ELSE YOUR WORK LIVES.
+ *
+ * Ethan: "improve the UI of the other links. Maybe have an actual place they
+ * can add a link for our website, rather than just add another button."
+ *
+ * It opened as a heading, a sentence and a button reading "Add a link" - so the
+ * screen offered no place to put a link, only a control that would eventually
+ * produce one. That is one press of pure ceremony in front of the actual field,
+ * and it is why this section read as optional in the sense of "not for you"
+ * rather than "you can skip it".
+ *
+ * There is always ONE EMPTY ROW waiting. Typing in it is the whole interaction;
+ * the button below only appears once that row is used, and only to add a
+ * SECOND. Nothing is saved from an empty row (finish() filters on `url`), so an
+ * untouched section costs nothing.
+ *
+ * AND THE ROW RECOGNISES WHAT YOU PASTE. `brandForUrl` reads the HOST, so a
+ * portfolio comes out as a chain link and a Pinterest page comes out as
+ * Pinterest, in its own colour, the moment the address is complete. It is a
+ * small thing and it is the difference between a form that is taking your
+ * answer and one that is storing it.
+ */
 function OtherLinks({ links = [], onChange }) {
   const tr = useT()
+  // The blank row lives in the DATA, so typing into it is an ordinary edit
+  // rather than a special case, and `finish()` drops it if it stays empty.
+  const rows = links.length ? links : [{ label: '', url: '' }]
+  const set = (i, patch) => {
+    const next = rows.map((l, j) => (j === i ? { ...l, ...patch } : l))
+    onChange(next)
+  }
+  const lastUsed = rows.some((l) => l.url?.trim())
+
   return (
     <div>
       <p className="label">{tr("Anywhere else your work lives")}</p>
-      <p className="mb-3 text-xs text-smoke">{tr("Optional. A website, a portfolio, a newsletter, another account.")}</p>
+      <p className="mb-3 text-xs text-smoke">
+        {tr("Optional. A website, a portfolio, a newsletter, another account.")}
+      </p>
       <div className="space-y-2">
-        {links.map((l, i) => (
-          <div key={i} className="flex gap-2">
-            <input
-              className="input w-32 shrink-0" placeholder={tr("Label")} value={l.label || ''}
-              aria-label={`Link ${i + 1} label`}
-              onChange={(e) => { const n = [...links]; n[i] = { ...n[i], label: e.target.value }; onChange(n) }}
-            />
-            <input
-              className="input flex-1" placeholder={tr("https://")} value={l.url || ''}
-              aria-label={`Link ${i + 1} address`}
-              onChange={(e) => { const n = [...links]; n[i] = { ...n[i], url: e.target.value }; onChange(n) }}
-            />
-            <button type="button" aria-label={tr("Remove link")} className="btn-ghost !px-3" onClick={() => onChange(links.filter((_, j) => j !== i))}>
-              <Icon name="close" className="h-4 w-4" />
-            </button>
-          </div>
-        ))}
+        {rows.map((l, i) => {
+          const url = l.url?.trim()
+          const brand = url ? brandForUrl(url) : 'link'
+          const tint = BRAND_COLOR[brand]
+          return (
+            <div
+              key={i}
+              className={cx(
+                'flex items-center gap-2.5 rounded-card border px-3 py-2.5 transition-colors duration-200',
+                url ? 'border-gray-200 bg-white' : 'border-dashed border-gray-200 bg-cloud/30',
+              )}
+            >
+              <span
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-smoke"
+                style={{ background: url && tint !== 'currentColor' ? `${tint}14` : undefined }}
+                aria-hidden
+              >
+                <SocialMark brand={brand} colored={!!url} className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 flex-1 space-y-1">
+                <input
+                  className="no-ios-zoom w-full border-0 bg-transparent p-0 text-sm font-medium text-ink outline-none placeholder:text-gray-300"
+                  placeholder={tr("Your website")}
+                  value={l.label || ''}
+                  aria-label={`Link ${i + 1} label`}
+                  onChange={(e) => set(i, { label: e.target.value })}
+                />
+                <input
+                  className="no-ios-zoom w-full border-0 bg-transparent p-0 text-xs text-smoke outline-none placeholder:text-gray-300"
+                  placeholder="https://"
+                  inputMode="url"
+                  value={l.url || ''}
+                  aria-label={`Link ${i + 1} address`}
+                  onChange={(e) => set(i, { url: e.target.value })}
+                />
+              </span>
+              {rows.length > 1 && (
+                <button
+                  type="button"
+                  aria-label={tr("Remove link")}
+                  className="shrink-0 rounded-full p-1.5 text-gray-300 transition-colors hover:bg-cloud hover:text-ink"
+                  onClick={() => onChange(rows.filter((_, j) => j !== i))}
+                >
+                  <Icon name="close" className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          )
+        })}
       </div>
-      {links.length < 5 && (
-        <button type="button" className="btn-secondary mt-3 !py-2 text-xs" onClick={() => onChange([...links, { label: '', url: '' }])}>
-          {tr("Add a link")}
+      {lastUsed && rows.length < 5 && (
+        <button
+          type="button"
+          className="mt-2.5 inline-flex items-center gap-1.5 text-xs font-semibold text-brand transition-transform duration-200 hover:translate-x-0.5"
+          onClick={() => onChange([...rows, { label: '', url: '' }])}
+        >
+          <Icon name="plus" className="h-3.5 w-3.5" strokeWidth={2.4} />
+          {tr("Add another link")}
         </button>
       )}
     </div>
   )
 }
 
+/**
+ * THE BUCKET LIST, CALLED THE BUCKET LIST.
+ *
+ * Ethan: "I don't get the 'where you are headed next' thing below this. Is this
+ * for the calendar? I don't think it is. Is this just, like, the bucket list?
+ * You need to rename it or make it more clear because I don't even understand
+ * what it is."
+ *
+ * He wrote the brief and he could not tell what the field was for, which is
+ * about as clear a verdict as a label can get. "Where you are headed next"
+ * describes a TRIP - something with dates, something the calendar and the
+ * collab board deal in - and this is neither: it writes `profiles.bucket_list`,
+ * it has no dates, and the profile has always drawn it under the heading
+ * "Bucket list". Three surfaces, one column, two names.
+ *
+ * So it is the bucket list here too, and the sentence under it says what
+ * happens to the answer AND, just as importantly, what does not: nobody is
+ * being asked to commit to a trip.
+ *
+ * The rows are cards rather than two bare inputs and a cross, and the second
+ * field is a CITY, which is what it always wrote - it was labelled "Town
+ * (optional)" beside a Country box with no indication the pair made one place.
+ */
 function BucketList({ rows = [], onChange }) {
   const tr = useT()
+  const list = rows.length ? rows : [{ country: '', city: '' }]
+  const set = (i, patch) => onChange(list.map((b, j) => (j === i ? { ...b, ...patch } : b)))
+  const lastUsed = list.some((b) => b.country?.trim())
+
   return (
     <div>
-      <p className="label">{tr("Where you are headed next")}</p>
+      <p className="label">{tr("Your bucket list")}</p>
       <p className="mb-3 text-xs text-smoke">
-        {tr("Optional. It appears on your profile and it is how other creators find somebody to travel with.")}
+        {tr("Optional. Places you still want to go - no dates, nothing booked. It shows on your profile and it is how other creators find somebody who wants to go where they are going.")}
       </p>
       <div className="space-y-2">
-        {rows.map((b, i) => (
-          <div key={i} className="flex gap-2">
-            <input
-              className="input flex-1" placeholder={tr("Country")} value={b.country || ''}
-              aria-label={`Destination ${i + 1} country`}
-              onChange={(e) => { const n = [...rows]; n[i] = { ...n[i], country: e.target.value }; onChange(n) }}
-            />
-            <input
-              className="input flex-1" placeholder={tr("Town (optional)")} value={b.city || ''}
-              aria-label={`Destination ${i + 1} town`}
-              onChange={(e) => { const n = [...rows]; n[i] = { ...n[i], city: e.target.value }; onChange(n) }}
-            />
-            <button type="button" aria-label={tr("Remove destination")} className="btn-ghost !px-3" onClick={() => onChange(rows.filter((_, j) => j !== i))}>
-              <Icon name="close" className="h-4 w-4" />
-            </button>
+        {list.map((b, i) => (
+          <div
+            key={i}
+            className={cx(
+              'flex items-center gap-2.5 rounded-card border px-3 py-2.5 transition-colors duration-200',
+              b.country?.trim() ? 'border-gray-200 bg-white' : 'border-dashed border-gray-200 bg-cloud/30',
+            )}
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-tint/60 text-brand" aria-hidden>
+              <Icon name="pin" className="h-4 w-4" />
+            </span>
+            <span className="grid min-w-0 flex-1 gap-1 sm:grid-cols-2 sm:gap-3">
+              <input
+                className="no-ios-zoom w-full border-0 bg-transparent p-0 text-sm font-medium text-ink outline-none placeholder:text-gray-300"
+                placeholder={tr("Country")}
+                value={b.country || ''}
+                aria-label={`Destination ${i + 1} country`}
+                onChange={(e) => set(i, { country: e.target.value })}
+              />
+              <input
+                className="no-ios-zoom w-full border-0 bg-transparent p-0 text-sm text-smoke outline-none placeholder:text-gray-300"
+                placeholder={tr("City (optional)")}
+                value={b.city || ''}
+                aria-label={`Destination ${i + 1} city`}
+                onChange={(e) => set(i, { city: e.target.value })}
+              />
+            </span>
+            {list.length > 1 && (
+              <button
+                type="button"
+                aria-label={tr("Remove destination")}
+                className="shrink-0 rounded-full p-1.5 text-gray-300 transition-colors hover:bg-cloud hover:text-ink"
+                onClick={() => onChange(list.filter((_, j) => j !== i))}
+              >
+                <Icon name="close" className="h-4 w-4" />
+              </button>
+            )}
           </div>
         ))}
       </div>
-      {rows.length < 6 && (
-        <button type="button" className="btn-secondary mt-3 !py-2 text-xs" onClick={() => onChange([...rows, { country: '', city: '' }])}>
-          {tr("Add a destination")}
+      {lastUsed && list.length < 6 && (
+        <button
+          type="button"
+          className="mt-2.5 inline-flex items-center gap-1.5 text-xs font-semibold text-brand transition-transform duration-200 hover:translate-x-0.5"
+          onClick={() => onChange([...list, { country: '', city: '' }])}
+        >
+          <Icon name="plus" className="h-3.5 w-3.5" strokeWidth={2.4} />
+          {tr("Add another place")}
         </button>
       )}
     </div>
@@ -975,7 +1142,7 @@ function Review({ draft, contact, market, problems, pending, onJump, demo }) {
         <ReviewRow label={tr("Countries visited")} onJump={() => onJump('map')} value={draft.countries_visited.length ? `${draft.countries_visited.length}` : ''} />
         <ReviewRow label={tr("Phone")} onJump={() => onJump('based')} value={contact.phone ? `${contact.phone_country} ${contact.phone}` : ''} hint={tr("Private. Only the team can see this.")} />
         <ReviewRow label={tr("Favourite quote")} onJump={() => onJump('story')} value={draft.favourite_quote} optional />
-        <ReviewRow label={tr("Headed next")} onJump={() => onJump('extras')} value={(draft.bucket_list || []).filter((b) => b.country).map((b) => [b.city, b.country].filter(Boolean).join(', ')).join(' · ')} optional />
+        <ReviewRow label={tr("Bucket list")} onJump={() => onJump('extras')} value={(draft.bucket_list || []).filter((b) => b.country).map((b) => [b.city, b.country].filter(Boolean).join(', ')).join(' · ')} optional />
         <ReviewRow label={tr("Other links")} onJump={() => onJump('extras')} value={(draft.other_links || []).filter((l) => l.url).length ? `${(draft.other_links || []).filter((l) => l.url).length}` : ''} optional />
       </dl>
 
@@ -988,21 +1155,51 @@ function Review({ draft, contact, market, problems, pending, onJump, demo }) {
   )
 }
 
+// A REVIEW ROW THAT FITS ON A PHONE.
+//
+// Ethan: "it shows the ready to submit - I would just tidy up the UI here."
+//
+// It was a horizontal row with a FIXED 8rem label column, on a screen 375px
+// wide inside a card with 24px of padding either side. That leaves about 140px
+// for the answer - so "About you", which is the longest thing anybody writes in
+// this whole flow and the paragraph an admin actually reads, was set two or
+// three words to a line down a narrow gutter, ten lines tall, with a "Fix"
+// button floating beside the top of it.
+//
+// Under `sm` the label goes ABOVE its value and the value gets the full width.
+// The horizontal layout is right on a desktop, where there is room for it, and
+// is kept. Same content, same component, one breakpoint.
 function ReviewRow({ label, value, onJump, optional, multiline, hint }) {
   const tr = useT()
   const empty = !value?.trim?.()
   return (
-    <div className="flex items-start justify-between gap-4 py-2.5">
-      <dt className="w-32 shrink-0 text-xs text-smoke">
-        {label}
-        {hint && <span className="mt-0.5 block text-[10px] opacity-80">{hint}</span>}
+    <div className="flex flex-col gap-1 py-3 sm:flex-row sm:items-start sm:gap-4 sm:py-2.5">
+      <dt className="flex items-baseline justify-between gap-2 text-xs text-smoke sm:w-32 sm:shrink-0 sm:justify-start">
+        <span>
+          {label}
+          {hint && <span className="mt-0.5 block text-[10px] opacity-80">{hint}</span>}
+        </span>
+        {/* On a phone the Edit control belongs beside its LABEL, not beside the
+            top of a ten-line paragraph, so it is drawn here and hidden at `sm`
+            where the row layout puts it back on the right. */}
+        <button
+          type="button"
+          onClick={onJump}
+          className="shrink-0 text-xs font-semibold text-brand transition-transform duration-200 hover:scale-105 sm:hidden"
+        >
+          {tr("Edit")}
+        </button>
       </dt>
       <dd className="min-w-0 flex-1 text-sm">
         {empty
           ? <span className={cx('text-xs', optional ? 'text-gray-400' : 'font-medium text-brand')}>{optional ? 'Not added' : 'Missing'}</span>
           : <span className={cx('block', multiline ? 'line-clamp-3 leading-relaxed' : 'truncate')}>{value}</span>}
       </dd>
-      <button type="button" onClick={onJump} className="shrink-0 text-xs font-semibold text-brand transition-transform duration-200 hover:scale-105">
+      <button
+        type="button"
+        onClick={onJump}
+        className="hidden shrink-0 text-xs font-semibold text-brand transition-transform duration-200 hover:scale-105 sm:block"
+      >
         {tr("Edit")}
       </button>
     </div>

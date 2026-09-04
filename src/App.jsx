@@ -2,6 +2,8 @@ import { Suspense, useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom'
 import { warmMapAtlas } from './lib/mapCountries'
 import { lazyRoute, preloadWhenIdle } from './lib/lazyRoute'
+import { chunk } from './lib/routeChunks'
+import { installLinkPrefetch } from './lib/prefetchLinks'
 import { ProtectedRoute, AdminRoute } from './components/ProtectedRoute'
 import NetworkRoute from './components/NetworkRoute'
 import AppLayout from './components/layout/AppLayout'
@@ -11,7 +13,7 @@ import { watchInstallPrompt } from './lib/install'
 import ErrorBoundary, { NotFoundScreen } from './components/ErrorScreen'
 import ConfirmHost from './components/ConfirmHost'
 import ToastHost from './components/ToastHost'
-import { AppLoader } from './components/ui'
+import RouteSkeleton from './components/RouteSkeleton'
 
 // Public pages
 import Landing from './pages/Landing'
@@ -48,71 +50,80 @@ import Feedback from './pages/Feedback'
 // is never needed by regular creators, so it loads on demand only.
 // The global network shell. Code-split: with the preview flag off nobody ever
 // navigates here, so it must not add a byte to a creator's initial bundle.
-const importGlobalHome = () => import('./pages/GlobalHome')
-const GlobalHome = lazyRoute(importGlobalHome)
-const ChapterHome = lazyRoute(() => import('./pages/ChapterHome'))
-const MarketChallenges = lazyRoute(() => import('./pages/MarketChallenges'))
-const MarketMembers = lazyRoute(() => import('./pages/MarketMembers'))
-const ExploreMarkets = lazyRoute(() => import('./pages/ExploreMarkets'))
-const ManageChapter = lazyRoute(() => import('./pages/ManageChapter'))
-const importNetworkChat = () => import('./pages/NetworkChat')
-const NetworkChat = lazyRoute(importNetworkChat)
-const importRooms = () => import('./pages/Rooms')
-const Rooms = lazyRoute(importRooms)
+const GlobalHome = lazyRoute(chunk.GlobalHome)
+const ChapterHome = lazyRoute(chunk.ChapterHome)
+const MarketChallenges = lazyRoute(chunk.MarketChallenges)
+const MarketMembers = lazyRoute(chunk.MarketMembers)
+const ExploreMarkets = lazyRoute(chunk.ExploreMarkets)
+const ManageChapter = lazyRoute(chunk.ManageChapter)
+const NetworkChat = lazyRoute(chunk.NetworkChat)
+const Rooms = lazyRoute(chunk.Rooms)
 // The community board. Lazy like every other network page: it is behind the
 // preview flag, so a UK creator must not download it.
-const Board = lazyRoute(() => import('./pages/Board'))
-const BoardThread = lazyRoute(() => import('./pages/Board').then((m) => ({ default: m.BoardThread })))
-const Milestones = lazyRoute(() => import('./pages/Milestones'))
+const Board = lazyRoute(chunk.Board)
+const BoardThread = lazyRoute(() => chunk.Board().then((m) => ({ default: m.BoardThread })))
+const Milestones = lazyRoute(chunk.Milestones)
 // The flight log. Behind the preview gate with the rest of the network build,
 // and lazy for the same reason: a UK creator must not download the airport
 // table, the map component or the page.
-const Flights = lazyRoute(() => import('./pages/Flights'))
+const Flights = lazyRoute(chunk.Flights)
 // The aircraft collection. Its own route rather than a tab on the log, because
 // it is a page you go to look at rather than a section you scroll past - and
 // because a wall of two dozen drawings has no business loading with the log.
-const AircraftCollection = lazyRoute(() => import('./pages/AircraftCollection'))
-const FlightCommunity = lazyRoute(() => import('./pages/FlightCommunity'))
-const GlobalSettings = lazyRoute(() => import('./pages/GlobalSettings'))
+const AircraftCollection = lazyRoute(chunk.AircraftCollection)
+const FlightCommunity = lazyRoute(chunk.FlightCommunity)
+const GlobalSettings = lazyRoute(chunk.GlobalSettings)
 
-const Game = lazyRoute(() => import('./pages/Game'))
-const Leaderboard = lazyRoute(() => import('./pages/Leaderboard'))
-const AdminPanel = lazyRoute(() => import('./pages/admin/AdminPanel'))
-const AdminCreators = lazyRoute(() => import('./pages/admin/AdminCreators'))
-const AdminChallengeForm = lazyRoute(() => import('./pages/admin/AdminChallengeForm'))
-const AdminResults = lazyRoute(() => import('./pages/admin/AdminResults'))
-const AdminRewards = lazyRoute(() => import('./pages/admin/AdminRewards'))
-const AdminAnalytics = lazyRoute(() => import('./pages/admin/AdminAnalytics'))
-const AdminChallengeAnalytics = lazyRoute(() => import('./pages/admin/AdminChallengeAnalytics'))
-const AdminEvents = lazyRoute(() => import('./pages/admin/AdminEvents'))
-const AdminResources = lazyRoute(() => import('./pages/admin/AdminResources'))
-const AdminJobs = lazyRoute(() => import('./pages/admin/AdminJobs'))
-const AdminReferrals = lazyRoute(() => import('./pages/admin/AdminReferrals'))
-const AdminEmail = lazyRoute(() => import('./pages/admin/AdminEmail'))
-const AdminApplications = lazyRoute(() => import('./pages/admin/AdminApplications'))
-const AdminAuditLog = lazyRoute(() => import('./pages/admin/AdminAuditLog'))
-const AdminConnections = lazyRoute(() => import('./pages/admin/AdminConnections'))
-const AdminTeam = lazyRoute(() => import('./pages/admin/AdminTeam'))
-const AdminMilestones = lazyRoute(() => import('./pages/admin/AdminMilestones'))
-const AdminFeedback = lazyRoute(() => import('./pages/admin/AdminFeedback'))
-const AdminReports = lazyRoute(() => import('./pages/admin/AdminReports'))
-const AdminNotes = lazyRoute(() => import('./pages/admin/AdminNotes'))
+const Game = lazyRoute(chunk.Game)
+const Leaderboard = lazyRoute(chunk.Leaderboard)
+const AdminPanel = lazyRoute(chunk.AdminPanel)
+const AdminCreators = lazyRoute(chunk.AdminCreators)
+const AdminChallengeForm = lazyRoute(chunk.AdminChallengeForm)
+const AdminResults = lazyRoute(chunk.AdminResults)
+const AdminRewards = lazyRoute(chunk.AdminRewards)
+const AdminAnalytics = lazyRoute(chunk.AdminAnalytics)
+const AdminChallengeAnalytics = lazyRoute(chunk.AdminChallengeAnalytics)
+const AdminEvents = lazyRoute(chunk.AdminEvents)
+const AdminResources = lazyRoute(chunk.AdminResources)
+const AdminJobs = lazyRoute(chunk.AdminJobs)
+const AdminReferrals = lazyRoute(chunk.AdminReferrals)
+const AdminEmail = lazyRoute(chunk.AdminEmail)
+const AdminApplications = lazyRoute(chunk.AdminApplications)
+const AdminAuditLog = lazyRoute(chunk.AdminAuditLog)
+const AdminConnections = lazyRoute(chunk.AdminConnections)
+const AdminTeam = lazyRoute(chunk.AdminTeam)
+const AdminMilestones = lazyRoute(chunk.AdminMilestones)
+const AdminFeedback = lazyRoute(chunk.AdminFeedback)
+const AdminReports = lazyRoute(chunk.AdminReports)
+const AdminNotes = lazyRoute(chunk.AdminNotes)
 // The Testing Centre: every feature and every automation, demonstrated over
 // invented people. Admin only (it sits under AdminRoute below) and lazy like
 // the rest of /admin, so no creator ever downloads it. See TestingCentre.jsx.
-const TestingCentre = lazyRoute(() => import('./pages/admin/TestingCentre'))
+const TestingCentre = lazyRoute(chunk.TestingCentre)
 // NOT under `AdminRoute`, and that is the point of it. A market MANAGER is not
 // an admin, and this is the one team surface they are meant to reach: the words
 // of their own language. The page decides what to draw and the RLS policy
 // decides what saves, so a creator who manages nothing is redirected by the
 // page rather than by the router. See migration 168.
-const AdminLanguages = lazyRoute(() => import('./pages/admin/AdminLanguages'))
+const AdminLanguages = lazyRoute(chunk.AdminLanguages)
 
-// The route chunk is on its way. While index.html's boot layer is still up
-// this draws nothing at all - see lib/bootLoader.js, and the photograph of two
-// loaders forty pixels apart that it exists to prevent.
+// THE OUTER BOUNDARY, AND IT IS A SKELETON TOO.
+//
+// This one sits above AppLayout, so almost nothing reaches it - every signed-in
+// route suspends into the boundary around `<Outlet/>` instead, which keeps the
+// header and the tab bar standing. What is left for this to catch is a public
+// page or a route that suspends before the layout exists.
+//
+// It used to draw `AppLoader`, which is the flying plane and the word
+// "Loading". That is the screen Ethan has asked three times not to see between
+// two pages, and leaving one instance of it in the routing on the grounds that
+// it is rarely hit is how it comes back. There is no plane in a route
+// transition anywhere in the app now: the only loader that flies is the boot
+// layer in index.html, which is the one moment there genuinely is nothing else
+// to show. `bare` skips the path lookup - above the layout there is no page
+// shape worth guessing at.
 function LazyFallback() {
-  return <AppLoader className="min-h-[60vh]" />
+  return <RouteSkeleton shape="cards" />
 }
 
 
@@ -151,7 +162,21 @@ export default function App() {
   // Idle, and after first paint - see lib/lazyRoute. This must not compete with
   // the profile query or the page being looked at.
   useEffect(() => {
-    preloadWhenIdle([importGlobalHome, importRooms, importNetworkChat])
+    // WARM THE WHOLE BOTTOM TAB BAR AND THE FIRST HOP OFF IT.
+    //
+    // This used to be three importers - the two tabs Ethan named plus the chat -
+    // and that is precisely why the flashing stopped on the tab bar and
+    // continued everywhere else. Thirty-one other routes are code-split, and an
+    // admin lives in /admin, where every page is a first visit.
+    //
+    // Idle prefetching cannot cover all of them without becoming the download
+    // it is meant to avoid, so it is split in two: the certainties are fetched
+    // on idle here, and everything else is fetched the moment a pointer or a
+    // finger touches a link to it (installLinkPrefetch, below). Between them,
+    // a boundary is almost never crossed - and RouteSkeleton, which draws the
+    // shape of the page for the times it is, becomes the rare case it was
+    // always meant to be rather than a screen in the way of every tap.
+    preloadWhenIdle([chunk.GlobalHome, chunk.Rooms, chunk.NetworkChat, chunk.Game, chunk.Leaderboard])
   }, [])
   // The outbox listens for the connection coming back, once, for the whole app.
   // It is mounted here rather than in a chat page on purpose: a message queued
@@ -163,6 +188,9 @@ export default function App() {
   // at startup rather than when a screen that wants it happens to mount. See
   // lib/install - there is no equivalent on iOS and there never has been.
   useEffect(() => watchInstallPrompt(), [])
+  // Prefetch a route chunk the moment a pointer or a finger lands on a link to
+  // it. See lib/prefetchLinks - one delegated listener, every link in the app.
+  useEffect(() => installLinkPrefetch(), [])
   return (
     <>
       <OfflineScreen />

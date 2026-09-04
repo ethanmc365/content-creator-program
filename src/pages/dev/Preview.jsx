@@ -18,6 +18,7 @@ import LiveChallengeCard from '../../components/LiveChallengeCard'
 import LiveNowRow from '../../components/network/LiveNowRow'
 import ChatBench from './ChatBench'
 import Icon from '../../components/Icon'
+import RouteSkeleton from '../../components/RouteSkeleton'
 
 // Shaped like milestone_progress() + milestone_standings() return, using the
 // real ladder from the live database so the card heights measured here are the
@@ -257,9 +258,30 @@ function ChatReport() {
   )
 }
 
+const SKELETON_SHAPES = ['hub', 'thread', 'list', 'cards', 'profile', 'map', 'calendar', 'feature', 'settings', 'form']
+
 export default function Preview() {
   return (
     <div style={{ padding: 24, background: '#fff' }}>
+      {/* THE ROUTE SKELETONS, ALL OF THEM, SIDE BY SIDE.
+          A skeleton is only ever on screen for a couple of hundred
+          milliseconds on a real navigation, which makes it the hardest thing in
+          the app to look at properly - and "copies the shape of the content" is
+          a claim you can only check by putting the placeholder next to the page
+          it stands in for. Each one is drawn at 375px, the narrowest phone the
+          product supports. */}
+      <h1 style={{ font: '700 18px system-ui', marginBottom: 8 }}>Route skeletons</h1>
+      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: 40 }}>
+        {SKELETON_SHAPES.map((shape) => (
+          <div key={shape}>
+            <div style={{ font: '600 11px ui-monospace', color: '#666', marginBottom: 6 }}>{shape}</div>
+            <div style={{ width: 375, border: '1px solid #eee', borderRadius: 12, overflow: 'hidden', maxHeight: 520 }}>
+              <RouteSkeleton shape={shape} />
+            </div>
+          </div>
+        ))}
+      </div>
+
       <h1 style={{ font: '700 18px system-ui', marginBottom: 8 }}>Worldwide icon</h1>
       <div style={{ display: 'flex', gap: 24, alignItems: 'flex-end', marginBottom: 8, color: '#E1633B' }}>
         {[24, 32, 48, 96, 160].map((px) => (
