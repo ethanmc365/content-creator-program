@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
-import { AppLoader, PlaneLoader, Spinner } from './ui'
+import { PlaneLoader, Spinner } from './ui'
+import RouteSkeleton from './RouteSkeleton'
 import ConnectGate from './ConnectGate'
 import InstallGate, { shouldShowInstallGate } from './InstallGate'
 import { useAppFlag } from '../lib/appFlags'
@@ -15,10 +16,24 @@ import { useT } from '../lib/i18n'
 //  <AdminRoute>      - must be signed in AND an admin.
 //  Also nudges brand-new users into onboarding before anything else.
 
-// Session or profile still resolving. Silent while the boot layer owns the
-// screen, and it holds that layer up until it unmounts. See lib/bootLoader.js.
+// Session or profile still resolving.
+//
+// THE LAST FULL-SCREEN LOADER IN THE SIGNED-IN APP, AND IT IS A SKELETON NOW
+// (4 Sep 2026). Ethan: "I don't want a loading screen, only the skeleton layout
+// loading." This guard sits ABOVE `AppLayout`, so when it drew `AppLoader` the
+// entire app - header, tab bar, page - was replaced by a white screen with a
+// flying plane and the word "Loading". Every other transition in the product
+// had already been taken off that; these two guards and ConnectGate were the
+// three that were missed, and they are the ones most likely to fire on a phone
+// that has just been woken up.
+//
+// `RouteSkeleton` keeps the same contract `AppLoader` had - it draws NOTHING
+// while `index.html`'s own layer owns the screen and holds that layer up until
+// it unmounts (see lib/bootLoader) - so there is still never more than one
+// loading surface at a time. What changed is only what it looks like when it is
+// the one on screen.
 function FullPageSpinner() {
-  return <AppLoader />
+  return <RouteSkeleton />
 }
 
 async function signOutAndGoHome(signOut) {

@@ -99,17 +99,19 @@ function mount() {
 
 // THE LOADER LEAVES ONCE THERE IS SOMETHING BEHIND IT.
 //
-// index.html paints `#boot` on the first frame - a white screen with the same
-// plane-on-a-runway loader the app draws for itself - so the gap before React
-// mounts shows the loader rather than a blank. See the long note there; an
-// orange splash was tried here and reverted, because a layer that is not the
-// same colour as the canvas under it always has a frame where they disagree.
+// index.html paints `#boot` on the first frame - a white page carrying the
+// SHAPE OF THE APP SHELL in the same greys the app's own skeletons use - so the
+// gap before React mounts shows the page arriving rather than a blank. It was a
+// flying plane and the word "Loading" until 4 Sep 2026; see the long note in
+// index.html for why that had to go, and why an orange splash was tried here
+// and reverted (a layer that is not the same colour as the canvas under it
+// always has a frame where they disagree).
 //
 // IT WAITS FOR CONTENT, NOT FOR A TIMER. This used to fade after two animation
 // frames or 400ms, whichever came first, which is a guess at when React has
 // something to show - and it is the wrong guess, because React commits a
 // SUSPENSE FALLBACK that fast. The boot layer therefore left mid-boot with the
-// app's own PlaneLoader already underneath it, and the two are centred on
+// app's own full-page loader already underneath it, and the two were centred on
 // different boxes, so both were on screen a few dozen pixels apart for the
 // length of the fade. Ethan sent the photograph.
 //

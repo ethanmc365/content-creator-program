@@ -115,13 +115,14 @@ const AdminLanguages = lazyRoute(chunk.AdminLanguages)
 // page or a route that suspends before the layout exists.
 //
 // It used to draw `AppLoader`, which is the flying plane and the word
-// "Loading". That is the screen Ethan has asked three times not to see between
+// "Loading". That is the screen Ethan has asked repeatedly not to see between
 // two pages, and leaving one instance of it in the routing on the grounds that
-// it is rarely hit is how it comes back. There is no plane in a route
-// transition anywhere in the app now: the only loader that flies is the boot
-// layer in index.html, which is the one moment there genuinely is nothing else
-// to show. `bare` skips the path lookup - above the layout there is no page
-// shape worth guessing at.
+// it is rarely hit is how it comes back. THERE IS NO PLANE ANYWHERE IN A
+// TRANSITION NOW, boot included: index.html's own layer draws the app shell in
+// skeleton greys (4 Sep 2026), the route guards in ProtectedRoute draw
+// `RouteSkeleton`, and the pages draw their own shapes. The only PlaneLoaders
+// left in the tree are inside a modal doing one named job and on an error
+// screen that has a button on it.
 function LazyFallback() {
   return <RouteSkeleton shape="cards" />
 }

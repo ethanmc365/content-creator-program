@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { AppLoader, Avatar, Spinner } from './ui'
+import { Avatar, Spinner } from './ui'
+import PageSkeleton from './PageSkeleton'
 import { cx } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import { testFlags } from '../lib/testData'
@@ -59,7 +60,10 @@ export default function ConnectGate() {
   }
 
   if (creators === null) {
-    return <AppLoader />
+    // A skeleton, not a plane - see ProtectedRoute. This screen replaces the
+    // whole app while it loads, so a flying plane here is one of the "loading
+    // screens" Ethan keeps meeting.
+    return <PageSkeleton shape="cards" className="page min-h-[70vh]" />
   }
 
   // Edge case: not enough other creators to reach the target — let them through.

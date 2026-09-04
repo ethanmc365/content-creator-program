@@ -3,13 +3,16 @@ import { useLayoutEffect, useSyncExternalStore } from 'react'
 /**
  * ONE LOADER ON THE SCREEN AT A TIME.
  *
- * `index.html` paints `#boot` on the first frame - a white screen with a copy
- * of `PlaneLoader`. The app then renders its OWN PlaneLoader while the lazy
- * route chunk arrives and the session resolves. Both were on screen together
- * for the length of the boot layer's 300ms fade, and they do not sit in the
- * same place: `#boot` is centred in the VIEWPORT, `LazyFallback` is centred in
- * a `min-h-[60vh]` box. Ethan photographed the result - a faint plane and
- * "Loading..." a few dozen pixels above a solid "Loading...".
+ * `index.html` paints `#boot` on the first frame - a white page carrying the
+ * shape of the app shell (it was a copy of `PlaneLoader` until 4 Sep 2026).
+ * The app then renders its OWN full-page placeholder while the lazy route chunk
+ * arrives and the session resolves. Both were on screen together for the length
+ * of the boot layer's 300ms fade, and they did not sit in the same place:
+ * `#boot` is the viewport, `LazyFallback` was centred in a `min-h-[60vh]` box.
+ * Ethan photographed the result - a faint plane and "Loading..." a few dozen
+ * pixels above a solid "Loading...". Both are skeletons now, so the handover is
+ * shape to shape, but the counting below is what guarantees there is only ever
+ * one of them.
  *
  * The old dismissal was "two animation frames, or 400ms, whichever is first",
  * which is a guess at when React has something to show. It commits a FALLBACK

@@ -126,15 +126,38 @@
          paintable from the HTML alone, on the very first frame, with nothing
          fetched. It is removed by main.jsx once React has rendered. -->
     <style>
+      /* THE FIRST FRAME IS THE SHAPE OF THE APP, NOT A LOADING SCREEN.
+
+         Ethan, for the sixth time and this time about the installed app: "I'm
+         still having the issue where it flashes up the loading screen between
+         clicks. I don't want a loading screen, only the skeleton layout
+         loading."
+
+         Every loader INSIDE the app is a skeleton now (see lib/pageCache and
+         components/PageSkeleton), and this was the last screen in the product
+         that was not: a white page with a flying plane and the word "Loading".
+         It matters far more on the home-screen app than in a browser, because
+         iOS kills a backgrounded PWA aggressively - so what is a rare cold boot
+         on a laptop is something a creator meets several times an hour on a
+         phone, in between doing other things, which is exactly what "between
+         clicks" describes.
+
+         So this draws the SHELL: the header bar, a page of card shapes, and the
+         bottom tab strip, in the same greys and with the same shimmer as
+         `.skeleton` in index.css. The app then renders its own skeleton in the
+         same places and hands over to real content, and there is no third
+         screen anywhere in the sequence.
+
+         It cannot be an external stylesheet or a script: this has to be
+         paintable from the HTML alone, on the very first frame, with nothing
+         fetched. It is removed by main.jsx once React has something to show.
+         IF PageSkeleton'S SHAPES CHANGE, CHANGE THIS. */
       #boot {
         position: fixed;
         inset: 0;
         z-index: 2147483647;
         display: flex;
         flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 1rem;
         background: #ffffff;
         font-family: Poppins, ui-sans-serif, system-ui, sans-serif;
         /* The fade out. `visibility` rides along so the layer stops taking
@@ -144,52 +167,104 @@
         transition: opacity 300ms ease-out, visibility 300ms ease-out;
       }
       #boot.gone { opacity: 0; visibility: hidden; }
-      #boot .strip {
+
+      /* One grey block. `--b-r` is its radius so a row of them can vary. */
+      #boot i {
+        display: block;
         position: relative;
+        overflow: hidden;
+        border-radius: 12px;
+        background: #F4F4F5;
+      }
+      #boot i::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        transform: translateX(-100%);
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.75), transparent);
+        animation: boot-shimmer 1.6s ease-in-out infinite;
+      }
+      @keyframes boot-shimmer { 100% { transform: translateX(100%); } }
+
+      /* The header: a logo block on the left, two round controls on the right.
+         64px tall and a hairline underneath, which is what AppLayout draws. */
+      #boot .bar {
         display: flex;
         align-items: center;
-        width: 112px;
-        height: 32px;
-        overflow: hidden;
+        justify-content: space-between;
+        gap: 16px;
+        height: 64px;
+        padding: 0 20px;
+        border-bottom: 1px solid #F3F4F6;
+        flex: 0 0 auto;
       }
-      #boot .line {
-        position: absolute;
-        left: 0; right: 0; top: 50%;
-        border-top: 2px dashed rgba(217, 68, 7, 0.25);
+      #boot .bar .logo { width: 84px; height: 34px; border-radius: 10px; }
+      #boot .bar .side { display: flex; align-items: center; gap: 10px; }
+      #boot .bar .side i { width: 34px; height: 34px; border-radius: 999px; }
+
+      /* The page. A heading, a wide card, then two rows - the shape every one
+         of PageSkeleton's layouts starts with. */
+      #boot .page {
+        flex: 1 1 auto;
+        width: 100%;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 28px 20px 0;
+        box-sizing: border-box;
       }
-      #boot svg {
-        position: relative;
-        width: 24px;
-        height: 24px;
-        color: #d94407;
-        animation: boot-fly 1.7s ease-in-out infinite;
+      #boot .page .h1 { width: 190px; height: 32px; border-radius: 10px; }
+      #boot .page .h2 { width: 260px; max-width: 70%; height: 16px; margin-top: 12px; }
+      #boot .page .hero { width: 100%; height: 132px; border-radius: 20px; margin-top: 26px; }
+      #boot .page .row { width: 100%; height: 68px; border-radius: 16px; margin-top: 12px; }
+      #boot .page .row.b { width: 92%; }
+
+      /* The bottom tab strip, phone only - five items above the home indicator. */
+      #boot .tabs {
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        gap: 4px;
+        padding: 10px 8px calc(10px + env(safe-area-inset-bottom));
+        border-top: 1px solid #F3F4F6;
+        flex: 0 0 auto;
       }
-      #boot .label {
-        font-size: 0.875rem;
-        font-weight: 500;
-        color: #6B7280;
+      #boot .tabs i { width: 26px; height: 26px; border-radius: 9px; }
+      @media (min-width: 1024px) {
+        #boot .tabs { display: none; }
+        #boot .page { padding-top: 36px; }
       }
-      @keyframes boot-fly {
-        0%   { transform: translateX(-130%); opacity: 0; }
-        15%  { opacity: 1; }
-        85%  { opacity: 1; }
-        100% { transform: translateX(210%); opacity: 0; }
-      }
-      /* Somebody who has asked for less motion gets the plane parked on the
-         runway rather than no loader at all - "something is happening" is the
-         point, and a still plane still says it. */
+
+      /* Somebody who has asked for less motion gets the shapes without the
+         sweep - "something is happening" is carried by the layout itself. */
       @media (prefers-reduced-motion: reduce) {
-        #boot svg { animation: none; transform: translateX(180%); opacity: 1; }
+        #boot i::after { animation: none; }
+      }
+
+      /* Dark mode: the same shapes on the app's own dark canvas, or the layer
+         is a white flash in front of a dark app. */
+      @media (prefers-color-scheme: dark) {
+        html[data-theme='dark'] #boot { background: #141416; }
+        html[data-theme='dark'] #boot i { background: #232326; }
+        html[data-theme='dark'] #boot .bar,
+        html[data-theme='dark'] #boot .tabs { border-color: #232326; }
       }
     </style>
     <div id="boot" role="status" aria-label="Loading Tryp.com">
-      <div class="strip">
-        <div class="line"></div>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
-        </svg>
+      <div class="bar">
+        <i class="logo"></i>
+        <span class="side"><i></i><i></i></span>
       </div>
-      <span class="label">Loading&#8230;</span>
+      <div class="page">
+        <i class="h1"></i>
+        <i class="h2"></i>
+        <i class="hero"></i>
+        <i class="row"></i>
+        <i class="row b"></i>
+        <i class="row"></i>
+      </div>
+      <div class="tabs">
+        <i></i><i></i><i></i><i></i><i></i>
+      </div>
     </div>
 
     <div id="root"></div>
