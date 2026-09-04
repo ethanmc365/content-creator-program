@@ -30,7 +30,7 @@ import { readFlag } from './appFlags'
 // creator, once, and nobody else. Migration 107 backfilled every creator who was
 // already here, and it additionally reads a switch in app_settings.
 
-export const TOUR_VERSION = 3
+export const TOUR_VERSION = 4
 
 // The five named parts. Twenty stops read as a list of twenty things; five
 // parts read as a walk with a shape, and a shape is what stops somebody
@@ -47,13 +47,11 @@ export const TOUR_VERSION = 3
 // the platform: they have opened a brief, met the directory, sent one
 // connection request, been in a room and a DM, and turned notifications on.
 export const TOUR_PARTS = [
-  { key: 'start', label: 'The work' },
-  { key: 'people', label: 'Your people' },
-  { key: 'you', label: 'Your account' },
+  { key: 'start', label: 'Around the app' },
+  { key: 'you', label: 'Get paid, stay told' },
 ]
 
 const ALL = 'both'
-const NET = 'network'
 
 /**
  * A STEP.
@@ -62,145 +60,139 @@ const NET = 'network'
  * part     one of TOUR_PARTS
  * title    short. Read in about a second, over the top of a live app.
  * body     one or two sentences. Never three.
- * do       THE INSTRUCTION. What the creator has to actually do. Shown in
- *          brand colour under the body, because it is the only line that
- *          matters if they read nothing else.
+ * do       THE INSTRUCTION. What the creator has to actually do.
  * anchor   a `data-tour` value to spotlight, or null for a centred card
- * at       where the tour puts them before the step begins. If they are already
- *          somewhere the goal accepts, it does not move them.
- * atNet    `at` when the worldwide shell is on. THE HUB IS /global THERE, not
- *          /home - which is the whole reason this field exists.
- * goal     what completes it. See GOAL kinds below.
+ * at       where the tour puts them before the step begins
+ * atNet    `at` when the worldwide shell is on (the hub is /global there)
+ * goal     what completes it
  * on       'both' | 'network'
- * required cannot be skipped (exactly one step: notifications)
  *
  * GOAL KINDS
- *   route   { to }        they navigate there themselves
- *   scroll  { px }        they scroll the page by that much
- *   click   { anchor }    they press the highlighted thing
- *   connect               a connection request goes out
- *   push                  notification permission is granted
- *   dwell   { ms }        nothing to do, so it advances on its own
+ *   begin              a press on the card's own button. The first step only.
+ *   route   { to }     they navigate there themselves
+ *   click   { anchor } they press the highlighted thing
+ *   push               notification permission is granted
+ *   payee              payment details are saved
+ *   end                the last card
  */
+
+// ═════════════════════════════════════════════════════════════════════════════
+// SIX STOPS, EVERY ONE A PRESS (4 Sep 2026 - THE THIRD REBUILD).
+//
+// Ethan: "the interactive tutorial is still working really badly, especially on
+// mobile - if I click a button it all just goes away. I was thinking maybe it
+// should be less interactive... but then how do you know how much time you need
+// to read? So maybe just keep the clicks, but simple clicks, and shorten it a
+// lot - because the most important thing for this is just getting the bank
+// details, which I still haven't seen included at all, and the notifications,
+// which I have. Just a clean, quick interactive tutorial where you click the
+// buttons and complete it. I don't like at the start where there's a timer to
+// start - you should always have to click something to proceed."
+//
+// FOUR CHANGES, AND EACH ONE REMOVES A CLASS OF FAILURE RATHER THAN A BUG.
+//
+//  1. TEN STOPS BECOME SIX, and the two that carry the point are last. What
+//     went: the brief (opening a challenge is the challenges step over again),
+//     the directory, DMs and the games (three "here is another page" stops that
+//     teach nothing opening the page would not), and CONNECT - which sent a
+//     real connection request to a real stranger as a side effect of a
+//     tutorial, which is not a thing a tutorial should do.
+//
+//  2. NOTHING ADVANCES ON A TIMER. The welcome step was `dwell: 2600` - it read
+//     for you and moved on whether you had finished or not, which is the one
+//     interaction in the walk that takes control AWAY from the person. Every
+//     step now waits for a press, including the first.
+//
+//  3. BANK DETAILS ARE BACK, AND THEY COME BEFORE THE GATE. Notifications is
+//     the one step that cannot be skipped, so anything AFTER it is unreachable
+//     to somebody who refuses - and the payment step is the one Ethan says
+//     matters most, so it must not sit behind the gate. The required step is
+//     always the last thing before the sign-off, and there is a test that says
+//     so, which is how this was caught rather than shipped.
+//     BANK DETAILS ARE BACK, AND THEY ARE THE POINT. They were cut on 3 Sep
+//     because a hard gate produces somebody who closes the app - which is still
+//     true, so this is NOT a gate: the step takes them to the field, asks, and
+//     has a "I'll do this later" that genuinely moves on. BankDetailsPrompt
+//     still asks on later opens. Ethan is right that it matters most: a creator
+//     who wins a prize and has no payee details is an invoice that cannot be
+//     paid, and that is the one failure this walk can actually prevent.
+//
+//  4. EVERY GOAL IS A PRESS ON SOMETHING THE TOUR IS POINTING AT. No scroll
+//     goals (undetectable and uninstructive), no dwell, no side effects.
+//
+// WHY IT WAS BREAKING ON A PHONE, which is worth writing down because it was
+// not in this file at all: `AppLayout` reset the scroll on every route change
+// with `behavior: 'auto'`, and `auto` means "use the computed scroll-behavior",
+// which is `smooth` platform-wide. So every navigation the tour asked for
+// started a several-hundred-millisecond ANIMATED scroll, and this component
+// measures its spotlight and card against `getBoundingClientRect()` of an
+// anchor that was still moving. The card was placed against a page that had
+// since slid out from under it. That is "if I click a button, it all just goes
+// away", and it is fixed in AppLayout, not here.
 export const TOUR_STEPS = [
-  // ------------------------------------------------------------- the work ---
   {
     key: 'welcome',
     part: 'start',
-    title: 'Two minutes, and you drive',
-    body: 'This is your hub - challenges, rooms, and everyone else in the network. Do the thing each card asks and it moves on by itself.',
-    do: 'Starting in a moment',
+    title: 'Let me show you round',
+    body: 'Four quick taps and you will have seen everything that matters. Do the thing each card asks and it moves on by itself.',
+    do: null,
     anchor: null,
     at: '/home',
     atNet: '/global',
-    goal: { kind: 'dwell', ms: 2600 },
+    goal: { kind: 'begin' },
     on: ALL,
   },
   {
     key: 'challenges',
     part: 'start',
     title: 'This is what you are here for',
-    body: 'A brief goes up, you film it, you post it, the best videos win real money. Usually one is running at a time.',
+    body: 'A brief goes up, you film it, you post it, the best videos win real money. Everything you need is on the challenge itself.',
     do: 'Tap Challenges',
     anchor: 'nav-challenges',
     goal: { kind: 'route', to: '/challenges' },
     on: ALL,
   },
   {
-    key: 'brief',
-    part: 'start',
-    title: 'Everything is in the brief',
-    body: 'What to shoot, when it closes, how it is scored and exactly what the prizes are. Entering takes thirty seconds: post it on your own account as normal, then paste the link.',
-    do: 'Open a challenge',
-    anchor: 'challenge-card',
-    at: '/challenges',
-    goal: { kind: 'route', to: '/challenges/' },
-    on: ALL,
-    skipIfMissing: true,
-  },
-
-  // ---------------------------------------------------------- your people ---
-  {
-    key: 'creators',
-    part: 'people',
-    title: 'Everybody else',
-    body: 'Every creator in the network, where they are based and what they film. This is the part people stay for.',
-    do: 'Open Creator Network',
-    anchor: 'avatar-menu',
-    openMenu: true,
-    at: '/challenges',
-    goal: { kind: 'route', to: '/creators' },
-    on: ALL,
-  },
-  {
-    key: 'connect',
-    part: 'people',
-    title: 'Connect with one person',
-    body: 'Pick anyone at all. Connections are how introductions happen, how meet-ups get arranged, and how you start appearing in other people\u2019s suggestions.',
-    do: 'Press Connect on any creator you like',
-    anchor: null,
-    at: '/creators',
-    goal: { kind: 'connect' },
-    on: ALL,
-  },
-  {
     key: 'rooms',
-    part: 'people',
-    title: 'How to talk to other creators',
+    part: 'start',
+    title: 'Where everyone talks',
     body: 'Ask anything, post what you are working on, share a rate you got quoted. The team is in here too, and answers.',
-    do: 'Open Rooms',
+    do: 'Tap Rooms',
     anchor: 'nav-chat',
     goal: { kind: 'route', to: '/chat' },
     goalNet: { kind: 'route', to: '/rooms' },
     on: ALL,
   },
+
+  // ------------------------------------------------------- get paid, told ---
   {
-    key: 'dms',
-    part: 'people',
-    title: 'And privately',
-    body: 'One to one, or a group. Anybody you are connected to can be messaged from here.',
-    do: 'Tap DMs',
-    anchor: 'nav-messages',
-    goal: { kind: 'route', to: '/messages' },
+    key: 'payment',
+    part: 'you',
+    title: 'And so we can actually pay you',
+    body: 'Prizes are paid by bank transfer against an invoice we raise for you. Without these we cannot send the money, and this is the single thing most likely to hold a payout up.',
+    do: 'Add your payment details',
+    // NO ANCHOR ON PURPOSE. `settings-payment` names the row on the settings
+    // MENU, and this step navigates straight past it into the section - where
+    // the thing to point at is the whole form. A centred card over it is right;
+    // spotlighting the Save button while the fields are empty is not.
+    anchor: null,
+    at: '/settings?section=payment',
+    goal: { kind: 'payee' },
     on: ALL,
   },
-
-  // --------------------------------------------------------- your account ---
-  {
-    key: 'games',
-    part: 'you',
-    title: 'Three puzzles, every day',
-    body: 'Quick travel games with a streak that builds as long as you keep playing. It is the reason most people open the app on a day nothing else is happening.',
-    do: 'Open Travel games',
-    anchor: 'avatar-menu',
-    openMenu: true,
-    goal: { kind: 'route', to: '/game' },
-    on: NET,
-    skipIfMissing: true,
-  },
-  // THE ONE HARD GATE.
-  //
-  // Everything else on this walk is a place. This is the only thing that decides
-  // whether the creator ever comes back, because a brief they did not hear about
-  // is a brief they did not enter.
-  //
-  // BANK DETAILS ARE NOT ON THIS WALK AT ALL ANY MORE. There was a step for
-  // them and it pointed at nothing; Ethan: "maybe it shouldn't enforce it - you
-  // can click to add them later, but then every time you open the app there
-  // should be a visual pop up asking." That is a better shape and it is now its
-  // own thing (components/BankDetailsPrompt), asked once per app open until
-  // they are filled in. A tour step is the wrong instrument for something
-  // somebody may genuinely not have to hand.
   {
     key: 'notifications',
     part: 'you',
-    title: 'Last thing, and it matters most',
-    body: 'This is how you hear that a brief went live, that results are in, or that you have been paid. Without it you will miss deadlines.',
+    title: 'So you hear about a brief',
+    body: 'This is how you find out a challenge went live, that results are in, or that you have been paid. Without it you will miss deadlines.',
     do: 'Turn notifications on',
     anchor: 'enable-push',
     at: '/settings?section=notifications',
     goal: { kind: 'push' },
     on: ALL,
+    // THE ONE HARD GATE, AND IT STAYS ONE. Ethan, when it was built: "remember
+    // that you can't skip enabling notifications." A brief nobody heard about
+    // is a brief nobody entered, and this is the only step that prevents that.
     required: true,
   },
   {
@@ -224,7 +216,11 @@ export const TOUR_STEPS = [
  * the legacy shell tops out at sixty per cent.
  */
 export function stepsFor({ network = false } = {}) {
-  return TOUR_STEPS.filter((s) => s.on === ALL || (s.on === NET && network))
+  // Every step applies on both shells now. The filter stays because the
+  // `on: 'network'` escape hatch is worth keeping for a step that genuinely
+  // only exists in one of them, and because the percentage MUST be computed off
+  // this list rather than off TOUR_STEPS.
+  return TOUR_STEPS.filter((s) => s.on === ALL || (s.on === 'network' && network))
 }
 
 /** Where a step puts you, which differs by shell for the hub. */

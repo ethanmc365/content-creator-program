@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { confirm } from '../../lib/confirm'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { applicantBucket } from '../../lib/onboardingProgress'
 import { useAuth } from '../../context/AuthContext'
 import { Avatar, Badge, CopyButton, Modal, PageHeader, Select, Skeleton } from '../../components/ui'
 import Icon from '../../components/Icon'
@@ -97,8 +98,28 @@ export default function AdminCreators() {
       ;(byCreator[m.profile_id] ??= []).push(m.communities.name)
     }
     setMarketOf(byCreator)
-    // Hidden QA/test accounts never show in the roster.
-    setCreators((profiles ?? []).filter((p) => !isHiddenTestRow(p)))
+    // THE ROSTER IS THE COMMUNITY, NOT THE QUEUE (4 Sep 2026).
+    //
+    // Ethan: "if you go to the creators in the admin panel it shows the
+    // creators that partly signed up. This should not be showing up here. The
+    // only ones to drop here are creators that are actually accepted into the
+    // community. For these ones that partly signed up, I want them on the
+    // applications thing instead."
+    //
+    // This page pulled EVERY profile row, so a country manager opening their
+    // roster read past everybody who had ever half-filled a signup form to find
+    // their actual members - and two of the status pills below existed only to
+    // filter those people back out again, which is the tell.
+    //
+    // `applicantBucket` is the one definition of which list somebody belongs
+    // in, shared with /admin/applications, so the two pages cannot disagree
+    // about who is a member. Anything not a member is over there now, including
+    // the ones waiting on a decision: reviewing an application is that page's
+    // whole job, and having it half-possible here is what let it be done in two
+    // places with two different sets of controls.
+    //
+    // Hidden QA/test accounts never show in either.
+    setCreators((profiles ?? []).filter((p) => !isHiddenTestRow(p) && applicantBucket(p) === 'member'))
     setEmails(Object.fromEntries((emailRows ?? []).map((r) => [r.id, r.email])))
     setLastSeen(Object.fromEntries((seenRows ?? []).map((r) => [r.id, { signIn: r.last_sign_in_at, seen: r.last_seen_at, posted: r.last_posted_at, active: r.last_active_at }])))
     setInactiveBefore(Date.now() - 30 * 86400000)
@@ -189,12 +210,6 @@ export default function AdminCreators() {
     flash(error ? `Couldn't send: ${error.message}` : `Reset email sent to ${email}.`)
   }
 
-  // Nudge a creator who signed up but never submitted their profile.
-  async function sendReminder(creator) {
-    const { error } = await supabase.rpc('admin_remind_incomplete', { target: creator.id })
-    flash(error ? `Couldn't send: ${error.message}` : `Reminder email sent to ${creator.name}.`)
-  }
-
   // Restore an account that the creator scheduled for deletion (within the
   // 30-day grace period).
   async function restoreCreator(creator) {
@@ -205,16 +220,13 @@ export default function AdminCreators() {
     load()
   }
 
-  // Quick-approve a pending applicant straight from the list (a DB trigger
-  // sends them the welcome notification, same as the Applications page).
-  async function acceptCreator(creator) {
-    if (!await confirm(`Approve ${creator.name}? They'll become an active member of the community.`)) return
-    const { error } = await supabase.from('profiles').update({ status: 'active' }).eq('id', creator.id)
-    if (error) return flash(`Couldn't approve: ${error.message}`)
-    flash(`${creator.name} approved and welcomed.`)
-    setSelected(null)
-    load()
-  }
+  // `acceptCreator` IS DELETED, AND IT WAS A HAZARD (4 Sep 2026).
+  //
+  // It approved somebody with a bare `update({ status: 'active' })` - no market
+  // placement at all - which is precisely the "approved but in no market" state
+  // that `admin_approve_application` exists to make impossible. A creator
+  // approved through this button landed with no briefs, no rooms and no hub to
+  // open, and nothing said so. One approval path, on the page whose job it is.
 
   // Permanently delete a creator and everything they created. Irreversible.
   async function deleteCreator(creator) {
@@ -309,8 +321,6 @@ export default function AdminCreators() {
   // muted, suspended, being deleted. A row with no badge is a normal member,
   // which is what the absence of a flag has always meant everywhere else.
   const badgeWorthShowing = (c) => c.status !== 'active' || !!c.deletion_requested_at
-  const isIncomplete = (c) => c.status === 'pending' && !c.onboarded && !c.deletion_requested_at
-  const isPendingReview = (c) => c.status === 'pending' && c.onboarded && !c.deletion_requested_at
   const isDeleting = (c) => !!c.deletion_requested_at
 
   // LAST ACTIVE IS COMPUTED SERVER-SIDE NOW, AND IT MEANS SOMETHING.
@@ -369,8 +379,6 @@ export default function AdminCreators() {
       { key: 'online', label: 'Online now', count: creators.filter((c) => isOnline(c)).length, tone: 'green' },
       { key: 'week', label: 'Here this week', count: creators.filter((c) => activeMs(c) > week).length },
       { key: 'quiet', label: 'Gone quiet', count: creators.filter((c) => isInactive(c)).length, tone: 'amber' },
-      { key: 'pending', label: 'Awaiting review', count: creators.filter((c) => isPendingReview(c)).length, tone: 'amber' },
-      { key: 'incomplete', label: 'Never finished', count: creators.filter((c) => isIncomplete(c)).length },
       { key: 'admin', label: 'Team', count: creators.filter((c) => c.is_admin).length },
     ]
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -392,8 +400,6 @@ export default function AdminCreators() {
         case 'week': return activeMs(c) > week
         case 'quiet': return isInactive(c)
         case 'admin': return c.is_admin
-        case 'pending': return isPendingReview(c)
-        case 'incomplete': return isIncomplete(c)
         case 'muted': case 'suspended': case 'active': return c.status === statusFilter
         default: return true
       }
@@ -565,24 +571,11 @@ export default function AdminCreators() {
                       status keeps the badge to itself. */}
                   <PresenceChip when={lastActive(c)} online={isOnline(c)} quiet={isInactive(c)} />
                   <span className="hidden text-xs text-smoke sm:block">· Joined {formatDate(c.accepted_at || c.created_at)}</span>
-                  {isIncomplete(c) && (
-                    <button
-                      onClick={() => sendReminder(c)}
-                      title="Email a reminder to finish their profile"
-                      className="btn-secondary shrink-0 !px-3 !py-1.5 text-xs"
-                    >
-                      <Icon name="envelope" className="h-4 w-4" /> Email
-                    </button>
-                  )}
-                  {isPendingReview(c) && (
-                    <button
-                      onClick={() => acceptCreator(c)}
-                      title="Approve this applicant"
-                      className="btn-primary shrink-0 !px-3 !py-1.5 text-xs"
-                    >
-                      <Icon name="check" className="h-4 w-4" /> Accept
-                    </button>
-                  )}
+                  {/* The "Accept" and "Email a reminder" buttons that used to
+                      live here are gone with the rows they belonged to: a
+                      pending or half-finished account is not on this page any
+                      more, it is on /admin/applications, which is the one place
+                      that decision is made. See `applicantBucket` in load(). */}
                   {isDeleting(c) && (
                     <button
                       onClick={() => restoreCreator(c)}
@@ -806,14 +799,8 @@ export default function AdminCreators() {
               <h3 className="text-sm font-semibold">Account actions</h3>
               <div className="flex flex-wrap gap-2">
                 <button onClick={() => dmCreator(selected)} className="btn-primary !py-2 text-xs"><Icon name="chat" className="h-4 w-4" /> Message</button>
-                {isPendingReview(selected) && (
-                  <button onClick={() => acceptCreator(selected)} className="btn-primary !py-2 text-xs"><Icon name="check" className="h-4 w-4" /> Accept applicant</button>
-                )}
                 {isDeleting(selected) && (
                   <button onClick={() => restoreCreator(selected)} className="btn-secondary !py-2 text-xs"><Icon name="check" className="h-4 w-4" /> Restore account</button>
-                )}
-                {isIncomplete(selected) && (
-                  <button onClick={() => sendReminder(selected)} className="btn-secondary !py-2 text-xs"><Icon name="envelope" className="h-4 w-4" /> Email reminder</button>
                 )}
                 <button onClick={() => { setPwFor(selected.id); setPwToken('') }} disabled={pwFor === selected.id} className="btn-secondary !py-2 text-xs"><Icon name="key" className="h-4 w-4" /> Send password reset</button>
                 <button onClick={() => togglePromote(selected)} className="btn-secondary !py-2 text-xs">

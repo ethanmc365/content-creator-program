@@ -83,7 +83,7 @@ describe('the steps', () => {
   // THE POINT OF VERSION 3. There is no Next button, so a step with no goal is
   // a step nobody can ever get past.
   it('EVERY step has a goal', () => {
-    const KINDS = ['route', 'scroll', 'click', 'connect', 'push', 'dwell', 'end']
+    const KINDS = ['begin', 'route', 'click', 'push', 'payee', 'end']
     for (const s of TOUR_STEPS) {
       const g = stepGoal(s, true)
       expect(g, `${s.key} has no goal`).toBeTruthy()
@@ -92,10 +92,16 @@ describe('the steps', () => {
   })
 
   it('every step that asks for something says what', () => {
-    // The instruction is the only line that matters if they read nothing else.
+    // `begin` and `end` are the two cards with a BUTTON on them rather than an
+    // instruction - the button is the instruction - so they are the only steps
+    // allowed to carry no `do` line.
+    const SELF_EXPLAINING = ['begin', 'end']
     for (const s of TOUR_STEPS) {
-      if (stepGoal(s, true).kind === 'end') continue
-      expect(s.do, `${s.key} has no instruction`).toBeTruthy()
+      if (SELF_EXPLAINING.includes(s.goal.kind)) {
+        expect(s.do, `${s.key} should not have an instruction`).toBeNull()
+      } else {
+        expect(s.do, `${s.key} has no instruction`).toBeTruthy()
+      }
     }
   })
 
@@ -157,13 +163,20 @@ describe('the steps', () => {
     expect(i).toBe(TOUR_STEPS.length - 2)
   })
 
-  it('drops the network steps when the network shell is off', () => {
-    const legacy = stepsFor({ network: false })
-    const network = stepsFor({ network: true })
-    expect(legacy.length).toBeLessThan(network.length)
-    for (const s of legacy) expect(s.on).toBe('both')
-    expect(legacy[legacy.length - 1].key).toBe('done')
-    expect(legacy.some((s) => s.required)).toBe(true)
+  it('gives both shells a walk that ends in the sign-off and holds the gate', () => {
+    // There are no network-ONLY steps left: the walk is six stops that exist on
+    // both shells. The `on: 'network'` escape hatch stays in `stepsFor` for a
+    // step that genuinely only makes sense in one of them, so what this asserts
+    // is the property that has to hold either way - a complete walk, ending in
+    // `done`, with the one required step in it.
+    for (const network of [false, true]) {
+      const walk = stepsFor({ network })
+      expect(walk.length, `network=${network}`).toBeGreaterThan(3)
+      expect(walk[walk.length - 1].key).toBe('done')
+      expect(walk.filter((s) => s.required)).toHaveLength(1)
+      // Nothing unreachable behind the gate.
+      expect(walk.findIndex((s) => s.required)).toBe(walk.length - 2)
+    }
   })
 
   it('the rooms step follows the right path on each shell', () => {

@@ -790,6 +790,9 @@ export default function Settings() {
         {SECTIONS.map((s) => (
           <button
             key={s.key}
+            // The walkthrough spotlights the payment row. An anchor is a name,
+            // never a position - see lib/tour.
+            data-tour={s.key === 'payment' ? 'settings-payment' : undefined}
             onClick={() => setSection(s.key)}
             className="card flex w-full items-center gap-4 !p-5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift active:translate-y-0"
           >

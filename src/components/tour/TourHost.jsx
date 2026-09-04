@@ -10,6 +10,7 @@ import { partOf, stepAt, stepGoal, stepsFor } from '../../lib/tour'
 import { placeCard, union, CARD_W } from '../../lib/tourPlacement'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
+import { payeeComplete, payeeFromPrivate } from '../../lib/invoice'
 import { useT } from '../../lib/i18n'
 
 // THE WALKTHROUGH, DRAWN AND DRIVEN.
@@ -61,7 +62,6 @@ export default function TourHost({ onFinish, network = false }) {
   const [busy, setBusy] = useState(false)
   const [hit, setHit] = useState(false)        // the goal just completed
   const [pushState, setPushState] = useState(() => pushPermission())
-  const [dwell, setDwell] = useState(0)        // 0..1 for the dwell ring
 
   const spotRef = useRef(null)
   const cardRef = useRef(null)
@@ -103,7 +103,6 @@ export default function TourHost({ onFinish, network = false }) {
   // ----------------------------------------------------- entering a step ---
   useEffect(() => {
     setReady(false)
-    setDwell(0)
     advanced.current = false
     travelUntil.current = Date.now() + 560
     if (!step) return undefined
@@ -222,37 +221,31 @@ export default function TourHost({ onFinish, network = false }) {
     return () => document.removeEventListener('click', onClick, true)
   }, [ready, goal, finishStep])
 
-  // ------------------------------------------------ goal: nothing to do ---
-  useEffect(() => {
-    if (!ready || goal?.kind !== 'dwell') return undefined
-    const started = Date.now()
-    const id = setInterval(() => {
-      const p = Math.min(1, (Date.now() - started) / goal.ms)
-      setDwell(p)
-      if (p >= 1) finishStep()
-    }, 60)
-    return () => clearInterval(id)
-  }, [ready, goal, finishStep])
+  // THE `dwell` AND `connect` GOALS ARE GONE (4 Sep 2026).
+  //
+  // `dwell` advanced on a TIMER, which is the one interaction in a walkthrough
+  // that takes control away from the person doing it - Ethan: "I don't like at
+  // the start where there's a timer to start, you should always have to click
+  // something to proceed." `connect` sent a real connection request to a real
+  // stranger as a side effect of a tutorial. Neither is coming back.
 
-  // ------------------------------------------------- goal: they connect ---
+  // -------------------------------------- goal: they add payment details ---
+  //
+  // Polled rather than pushed, for the same reason the push goal is: the field
+  // lives on a page this component does not own and does not want to reach
+  // into. `payeeComplete` is the SAME test the invoice uses, so "the tour says
+  // I have done it" and "an invoice can actually be paid" cannot disagree.
   useEffect(() => {
-    if (!ready || goal?.kind !== 'connect' || !user?.id) return undefined
+    if (!ready || goal?.kind !== 'payee' || !user?.id) return undefined
     let alive = true
-    let baseline = null
     const check = async () => {
-      // `creator_id` is the person who SENT it - see lib/connections. Counting
-      // both sides would go green for a request somebody sent to THEM.
-      const { count } = await supabase
-        .from('connections').select('id', { count: 'exact', head: true }).eq('creator_id', user.id)
-      if (!alive) return
-      const n = count ?? 0
-      // Baseline first, so a creator who already had connections is not skipped
-      // straight past the one step that asks them to make a new one.
-      if (baseline === null) { baseline = n; return }
-      if (n > baseline) finishStep()
+      const { data } = await supabase
+        .from('creator_private').select('*').eq('id', user.id).maybeSingle()
+      if (!alive || !data) return
+      if (payeeComplete(payeeFromPrivate(data))) finishStep()
     }
     check()
-    const id = setInterval(check, 1400)
+    const id = setInterval(check, 1500)
     return () => { alive = false; clearInterval(id) }
   }, [ready, goal, user?.id, finishStep])
 
@@ -352,10 +345,33 @@ export default function TourHost({ onFinish, network = false }) {
       // same `data-tour-keepout` rectangles that keep the card off it belong
       // inside the hole for the same reason: they are part of what the step is
       // about.
-      const lit = union([
-        { top: r.top, left: r.left, width: r.width, height: r.height },
-        ...[...document.querySelectorAll('[data-tour-keepout]')].map((el) => el.getBoundingClientRect()),
-      ])
+      // `visible` IS CHECKED BEFORE `r` IS READ, AND THAT IS THE WHOLE OF
+      // "IF I CLICK A BUTTON IT ALL JUST GOES AWAY" (4 Sep 2026).
+      //
+      // This was an unconditional `union([{ top: r.top, ... }])`, three lines
+      // after a `visible` test that already knew `r` could be undefined. So the
+      // moment a step's anchor was not in the DOM - which is EVERY step for the
+      // frames between navigating and the new page rendering, and permanently
+      // for the notifications step on a device that has blocked push - this
+      // threw:
+      //
+      //     TypeError: Cannot read properties of undefined (reading 'top')
+      //
+      // inside the rAF loop. `schedule()` runs first, so the loop re-armed and
+      // threw again on the next frame, for ever. Nothing after the throw ever
+      // ran: the spotlight froze on the PREVIOUS step's anchor and the card
+      // stopped being positioned entirely. On a phone, where a navigation takes
+      // long enough that the anchor is reliably missing on the first tick, that
+      // is most taps.
+      //
+      // Found by reading the console rather than the code: it was filling with
+      // one of these per frame.
+      const lit = visible
+        ? union([
+          { top: r.top, left: r.left, width: r.width, height: r.height },
+          ...[...document.querySelectorAll('[data-tour-keepout]')].map((el) => el.getBoundingClientRect()),
+        ])
+        : null
 
       if (visible && lit) {
         spot.dataset.on = 'yes'
@@ -456,8 +472,23 @@ export default function TourHost({ onFinish, network = false }) {
   //
   // The one case that still opens is a browser that has no push at all, where
   // no instruction exists to give. That is not a refusal, it is an absence.
+  // THE GATE HOLDS ONLY WHILE THERE IS STILL SOMETHING THEY CAN DO.
+  //
+  // `required` hides the skip so notifications cannot be waved past - Ethan
+  // asked for that and it is right. But `denied` is not a refusal to press the
+  // button, it is the BROWSER refusing to ask again: once a device has said no,
+  // no amount of pressing produces a prompt, and the only fix is several taps
+  // deep in the operating system's own settings. Holding the gate there does
+  // not get notifications turned on; it strands somebody at 83% with an X as
+  // the only way out, which is how a walkthrough becomes the thing people
+  // remember about the product.
+  //
+  // So: gate `default` (never asked - the prompt still works), release
+  // `denied`. The card still says how to turn them back on, the "check again"
+  // button still re-reads the permission the moment they do, and
+  // BankDetailsPrompt-style nagging is not this component's job.
   const pushBlocked = step.required && goal?.kind === 'push'
-    && pushSupported() && pushState !== 'granted'
+    && pushSupported() && pushState !== 'granted' && pushState !== 'denied'
 
   return createPortal(
     <div className="tour-root" aria-live="polite">
@@ -505,6 +536,16 @@ export default function TourHost({ onFinish, network = false }) {
           </div>
         </div>
 
+        {/* THE BODY SCROLLS, THE ACTIONS DO NOT (4 Sep 2026).
+            The whole sheet was one `overflow-y: auto` box capped at 17rem, so
+            on any step with a long explanation - the notifications one, when a
+            device has blocked push and the card has to explain how to undo that
+            - the buttons were simply below the fold, inside a small scroller
+            nobody could tell was scrollable. Somebody looking at a card with no
+            visible way forward concludes it is broken, and they are not wrong.
+            Progress on top, actions on the bottom, and only the words in
+            between move. */}
+        <div className="tour-scroll">
         <p className="tour-title text-[17px] font-bold leading-snug tracking-tight">{step.title}</p>
         <p className="tour-body mt-1.5 text-sm leading-relaxed text-smoke">{step.body}</p>
 
@@ -512,9 +553,7 @@ export default function TourHost({ onFinish, network = false }) {
             else, so it gets the brand colour, an arrow, and its own row. */}
         {step.do && !hit && (
           <p className="tour-do mt-3 flex items-center gap-2 rounded-xl bg-brand-tint/60 px-3 py-2.5 text-[13px] font-semibold text-brand">
-            {goal?.kind === 'dwell'
-              ? <DwellRing p={dwell} />
-              : <Icon name="chevronRight" className="h-4 w-4 shrink-0 animate-pulse" />}
+            <Icon name="chevronRight" className="h-4 w-4 shrink-0 animate-pulse" />
             <span className="min-w-0">{step.do}</span>
           </p>
         )}
@@ -539,19 +578,34 @@ export default function TourHost({ onFinish, network = false }) {
           />
         )}
 
-        <div className="mt-4 flex items-center gap-2">
+        </div>
+
+        <div className="tour-actions mt-4 flex items-center gap-2">
           {last ? (
             <button onClick={() => onFinish?.('finished')} className="btn-primary ml-auto !px-5 !py-2 text-sm">
               {tr("Finish")}
+            </button>
+          ) : goal?.kind === 'begin' ? (
+            /* NOTHING STARTS ON A TIMER. The first card used to advance itself
+               after 2.6 seconds whether the reader had finished or not. It is a
+               button, like everything else on this walk. */
+            <button onClick={finishStep} className="btn-primary ml-auto !px-5 !py-2 text-sm">
+              {tr("Show me round")}
             </button>
           ) : (
             <>
               <p className="min-w-0 flex-1 truncate text-[11px] text-smoke">
                 Step {i + 1} of {steps.length}
               </p>
+              {/* THE PAYMENT STEP IS ASKED, NOT ENFORCED, and its skip says so
+                  in words rather than reading "Skip this" like the others.
+                  A hard gate on bank details produces somebody who closes the
+                  app - and somebody genuinely may not have their IBAN to hand
+                  standing on a train. BankDetailsPrompt asks again on later
+                  opens, so skipping here does not mean never. */}
               {!pushBlocked && (
                 <button onClick={skip} className="btn-ghost shrink-0 !px-3 !py-1.5 text-xs text-smoke">
-                  {tr("Skip this")}
+                  {goal?.kind === 'payee' ? tr("I'll do this later") : tr("Skip this")}
                 </button>
               )}
             </>
@@ -560,20 +614,6 @@ export default function TourHost({ onFinish, network = false }) {
       </div>
     </div>,
     document.body,
-  )
-}
-
-/** The dwell countdown, drawn as a ring rather than a number. */
-function DwellRing({ p }) {
-  const C = 2 * Math.PI * 7
-  return (
-    <svg viewBox="0 0 18 18" className="h-4 w-4 shrink-0 -rotate-90" aria-hidden>
-      <circle cx="9" cy="9" r="7" fill="none" stroke="currentColor" strokeWidth="2" opacity="0.25" />
-      <circle
-        cx="9" cy="9" r="7" fill="none" stroke="currentColor" strokeWidth="2"
-        strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * (1 - p)}
-      />
-    </svg>
   )
 }
 

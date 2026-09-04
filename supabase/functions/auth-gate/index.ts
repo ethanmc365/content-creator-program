@@ -122,8 +122,36 @@ async function isGloballyLimited() {
 }
 
 // A FAILURE, recorded against every bucket it belongs to at once.
-const recordFailure = (...ids: string[]) =>
-  admin.from('auth_attempts').insert(ids.map((identifier) => ({ identifier })))
+//
+// `async`, AND THAT IS THE WHOLE OF A PRODUCTION OUTAGE (4 Sep 2026).
+//
+// This was an arrow returning `admin.from(...).insert(...)` directly. A
+// supabase-js query builder is a THENABLE, not a Promise: it implements
+// `.then()` - which is why `await` on one works and why nobody noticed - but it
+// has no `.catch()`. So every `await recordFailure(x).catch(() => {})` in this
+// file threw
+//
+//     TypeError: recordFailure(...).catch is not a function
+//
+// and the handler had no try/catch, so the platform answered with a bare 500
+// carrying NO CORS HEADERS. A CORS-less response is not a response the browser
+// will let JavaScript see: `fetch` REJECTS, which the client cannot distinguish
+// from an unreachable server, so it printed "Network error. Please check your
+// connection and try again."
+//
+// The paths that call it are exactly the failure paths - a wrong password, a
+// signup with an address that already exists - which is why this was invisible
+// on every successful login and total on every unsuccessful one. Ethan hit it
+// signing up with an email he had already used: four 422s from GoTrue, four
+// 500s from here, four network errors on screen.
+//
+// Marking it `async` makes it return a real Promise, so `.catch()` exists. The
+// try/catch at the bottom of the handler is the other half - see the note
+// there - because the lesson is not "fix this call", it is that a throw in this
+// function is indistinguishable from the platform being down.
+const recordFailure = async (...ids: string[]) => {
+  await admin.from('auth_attempts').insert(ids.map((identifier) => ({ identifier })))
+}
 
 // Record a password reset request in the admin email log.
 //
@@ -160,7 +188,29 @@ async function gotrue(path: string, body: unknown) {
   return { status: res.status, data: await res.json().catch(() => ({})) }
 }
 
+// NOTHING IN HERE IS ALLOWED TO THROW ITS WAY OUT.
+//
+// An unhandled exception in an edge function produces a bare 500 from the
+// platform with no CORS headers on it, and the browser treats that as a network
+// failure rather than as an error it can read. That turned one broken line into
+// "check your connection" on the sign-up form - see recordFailure above.
+//
+// So the handler is wrapped. Whatever goes wrong, the caller gets JSON, with
+// CORS, that says something true and useful, and the stack goes to the function
+// log where it belongs. This is the guard that makes the rate limiter safe to
+// keep changing: the previous attempt at this file was reverted unproven,
+// because it shipped minutes before a login outage nobody could sign in to
+// diagnose.
 Deno.serve(async (req) => {
+  try {
+    return await handle(req)
+  } catch (err) {
+    console.error('auth-gate failed:', err)
+    return json(req, { error: 'Something went wrong on our side. Please try again.' }, 500)
+  }
+})
+
+async function handle(req: Request) {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
   if (req.method !== 'POST') return json(req, { error: 'method not allowed' }, 405)
 
@@ -244,4 +294,4 @@ Deno.serve(async (req) => {
   }
 
   return json(req, { error: 'unknown action' }, 400)
-})
+}

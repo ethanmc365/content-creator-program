@@ -205,11 +205,19 @@ export default function Game() {
       // `matchMedia` rather than the `useIsMobile` hook because this runs
       // inside an effect and on a raf after it; a hook value captured in the
       // closure would be a frame stale on a resize.
+      //
+      // `instant`, NOT `auto`. `auto` means "use the computed
+      // `scroll-behavior`", and this app sets `smooth` on `html` platform-wide,
+      // so both of these were ANIMATED scrolls - which is why opening a puzzle
+      // slid the board into place instead of putting it there, and why the
+      // second call could still be animating when the first one's rAF fired
+      // again. Placing a board is not a scroll the reader asked for; it is
+      // where the page starts. Same fix as AppLayout's route reset.
       const phone = window.matchMedia('(max-width: 1023.98px)').matches
-      if (!el || !phone) { window.scrollTo({ top: 0, left: 0, behavior: 'auto' }); return }
+      if (!el || !phone) { window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); return }
       const header = document.querySelector('header')?.getBoundingClientRect().height || 0
       const y = el.getBoundingClientRect().top + window.scrollY - header - 8
-      window.scrollTo({ top: Math.max(0, y), left: 0, behavior: 'auto' })
+      window.scrollTo({ top: Math.max(0, y), left: 0, behavior: 'instant' })
     }
     settle()
     const raf = requestAnimationFrame(settle)

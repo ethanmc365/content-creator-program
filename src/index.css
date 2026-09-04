@@ -1371,12 +1371,34 @@ html[data-reduce-motion] *::after {
   left: 0.6rem;
   right: 0.6rem;
   bottom: calc(5.25rem + env(safe-area-inset-bottom));
-  max-height: min(36vh, 17rem);
-  overflow-y: auto;
+  /* THE SHEET IS A COLUMN, NOT A SCROLLER (4 Sep 2026).
+     It was one `overflow-y: auto` box capped at 17rem, so a step with a long
+     explanation pushed its own buttons below the fold inside a small scroller
+     with no visible affordance. A card with no visible way forward is a card
+     somebody concludes is broken. Progress pinned on top, actions pinned on the
+     bottom, and only `.tour-scroll` between them moves - so the way forward is
+     ALWAYS on screen however much there is to read.
+     The cap is generous now (it can afford to be, since the actions no longer
+     scroll off) but still leaves the page behind it readable. */
+  display: flex;
+  flex-direction: column;
+  max-height: min(58vh, 26rem);
+  overflow: hidden;
   overscroll-behavior: contain;
   padding: 0.85rem 0.95rem;
   animation: tour-sheet-in 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+
+/* The only part that moves. `min-height: 0` because a flex child will not
+   shrink below its content without it, which is the classic way a nested
+   scroller silently refuses to scroll. */
+.tour-card--sheet .tour-scroll {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.tour-card--sheet .tour-actions { flex: 0 0 auto; }
 
 /* Tighter type inside the sheet, so "compact" is the card and not a scrollbar
    inside a card that is still the same size. */
@@ -1398,6 +1420,17 @@ html[data-reduce-motion] *::after {
 
 /* Wide phones in landscape have almost no vertical room, so the sheet gives
    back its bottom offset and sits against the bezel. */
+/* The floating desktop card gets the same treatment: on a short laptop window
+   a long step could push its own buttons past the bottom of the card. */
+.tour-card--float {
+  display: flex;
+  flex-direction: column;
+  max-height: min(80vh, 34rem);
+  overflow: hidden;
+}
+.tour-card--float .tour-scroll { min-height: 0; flex: 1 1 auto; overflow-y: auto; }
+.tour-card--float .tour-actions { flex: 0 0 auto; }
+
 @media (max-height: 460px) {
   .tour-card--sheet {
     bottom: calc(0.6rem + env(safe-area-inset-bottom));
@@ -1579,10 +1612,25 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
    comes back looks like an object landing. The blur is the other half - two
    pixels of it on the way in reads as focus pulling, and it costs nothing
    because it is on three spans, not on a scrolling surface. */
+/* NO BLUR. It was `filter: blur(6px)` animating to 0 across three spans of
+   72px type, and that is the whole of Ethan's "the very initial animation
+   where Create Earn Travel pops up seems a bit laggy".
+   
+   An animated `filter` cannot be handled by the compositor: the browser has to
+   re-rasterise the text at a new blur radius on EVERY FRAME, and it is doing
+   that on the largest glyphs on the page at the exact moment the rest of the
+   hero, the bloom and the stats are also arriving. Transform and opacity are
+   the only two properties that animate for free, so those are the only two
+   this uses now.
+   
+   The overshoot is what makes it read as landing rather than sliding, and it
+   survives - it is a transform. The entrance is slightly shorter and the steps
+   slightly tighter, because without the blur to resolve there is nothing left
+   to wait for. */
 @keyframes hero-word-in {
-  0%   { opacity: 0; transform: translateY(28px) scale(0.94); filter: blur(6px); }
-  60%  { opacity: 1; transform: translateY(-4px) scale(1.015); filter: blur(0); }
-  100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+  0%   { opacity: 0; transform: translate3d(0, 26px, 0) scale(0.94); }
+  55%  { opacity: 1; transform: translate3d(0, -4px, 0) scale(1.015); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
 
 .hero-word {
@@ -1590,14 +1638,27 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
   /* The pivot is the word's own baseline-ish centre, so the hover magnify
      grows it in place instead of pushing the line along. */
   transform-origin: 50% 60%;
-  animation: hero-word-in 720ms cubic-bezier(0.22, 1.18, 0.36, 1) both;
-  animation-delay: calc(var(--word-i, 0) * 110ms + 120ms);
+  /* Promote each word to its own compositor layer for the length of the
+     entrance. Three layers is nothing, and it takes the animation off the main
+     thread entirely - which is what "smooth" actually means here. It is
+     released afterwards (see the `animationend` note: `will-change` left on
+     for ever is a memory cost with no benefit, so the value is `auto` once the
+     hover transition is the only thing left). */
+  will-change: transform, opacity;
+  animation: hero-word-in 620ms cubic-bezier(0.22, 1.15, 0.36, 1) both;
+  animation-delay: calc(var(--word-i, 0) * 90ms + 90ms);
   /* The hover transition is a SEPARATE property list from the entrance, and it
      has to be: a `transition: transform` while an `animation` on transform is
      running does nothing, and after it finishes this is the only thing moving
      the word. */
   transition: transform 260ms cubic-bezier(0.22, 1.12, 0.36, 1), color 260ms ease;
 }
+
+/* The promotion is released the moment the entrance is over: `will-change` is a
+   standing instruction to keep a layer around, and three permanent layers for
+   an animation that ran once is memory spent on nothing. The hover transform
+   below is cheap enough not to need it. */
+.hero-word.is-settled { will-change: auto; }
 
 /* MAGNIFY, ON A POINTER ONLY. `hoverable` is the project's own variant
    (`@media (hover:hover) and (pointer:fine)`) and the rule it encodes matters
@@ -1678,7 +1739,7 @@ html[data-theme='dark'] .tour-card--sheet::before { background: #3a3a3e; }
     animation: none;
     opacity: 1;
     transform: none;
-    filter: none;
+    will-change: auto;
   }
   .hero-dot, .hero-dot-ring, .hero-bloom, .landing-sheen { animation: none; }
   .hero-dot-ring, .landing-sheen { opacity: 0; }

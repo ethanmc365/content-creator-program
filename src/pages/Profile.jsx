@@ -32,7 +32,7 @@ import { useT } from '../lib/i18n'
 export default function Profile() {
   const tr = useT()
   const { id } = useParams()
-  const { user, profile } = useAuth()
+  const { user, profile, isAdmin } = useAuth()
   const navigate = useNavigate()
   const isMe = id === user?.id
   const viewerIsAdmin = !!profile?.is_admin
@@ -861,6 +861,32 @@ export default function Profile() {
             </div>
           ) : (
             <>
+              {/* CONNECT AND MESSAGE ARE FOR MEMBERS (4 Sep 2026).
+                  Ethan: "if I view the full profile, we have a Connect and
+                  Message button, which doesn't make sense showing up before
+                  they're actually approved."
+
+                  He is right, and it is not only untidy - both controls would
+                  FAIL. A connection request and a DM conversation are both
+                  between two members, and RLS says so: a `pending` account is
+                  not `is_member()`, so the request would be refused and the
+                  conversation could not be created. Offering an action that
+                  cannot succeed is worse than not offering it.
+
+                  An admin arriving here from the applications queue is looking
+                  at somebody they have not let in yet, so what this row says
+                  instead is what that means and where the decision is made. */}
+              {creator?.status === 'pending' ? (
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800">
+                    <Icon name="clock" className="h-3.5 w-3.5" />
+                    {creator?.onboarded ? tr('Application awaiting review') : tr('Signed up, profile not finished')}
+                  </span>
+                  {isAdmin && (
+                    <Link to="/admin/applications" className="btn-secondary !py-2 text-xs">{tr('Go to applications')}</Link>
+                  )}
+                </div>
+              ) : (
               <div className="flex gap-3">
                 <ConnectButton
                   myId={user.id}
@@ -872,6 +898,7 @@ export default function Profile() {
                 />
                 <button onClick={startMessage} className="btn-secondary">{tr("Message")}</button>
               </div>
+              )}
               {/* REPORTING IS A QUIET CONTROL AND SHOULD LOOK LIKE ONE.
                   It sits under the two things you actually came here to do, in
                   the smallest type on the card, because a prominent Report

@@ -147,9 +147,61 @@ const PATHS = {
   ),
 }
 
-export default function SocialMark({ brand, className, colored = false }) {
+/**
+ * @param colored  paint the glyph in the platform's own colour
+ * @param tile     draw it as a SOLID rounded tile in that colour with a white
+ *                 glyph inside, which is what these actually look like in the
+ *                 wild and the only version that survives being small.
+ *
+ * WHY `tile` EXISTS (4 Sep 2026). Ethan, on the applications page: "I noticed
+ * the Instagram and YouTube icon colours aren't right - use the actual colourful
+ * social media icons, just improve them."
+ *
+ * The outline glyphs are correct at 20px and mush below it: YouTube is a
+ * rounded rectangle stroked at 1.8 on a 24 grid, so at 12px that stroke is
+ * under a pixel and the shape greys out into an indistinct blob with a red
+ * cast. Instagram is worse, because its whole identity is a gradient and a
+ * gradient needs area to be seen at all - on a hairline outline it reads as one
+ * muddy pink.
+ *
+ * A filled tile has area by construction. The colour is the background, the
+ * glyph is knocked out of it in white, and both survive down to 16px - which is
+ * the size these are actually used at in a list of links.
+ */
+export default function SocialMark({ brand, className, colored = false, tile = false }) {
   const key = PATHS[brand] ? brand : 'link'
-  const isGradient = colored && key === 'instagram'
+  const gradient = key === 'instagram'
+  const tint = BRAND_COLOR[key] ?? 'currentColor'
+
+  if (tile) {
+    return (
+      <svg viewBox="0 0 24 24" className={className} aria-hidden focusable="false">
+        {gradient && (
+          <defs>
+            <linearGradient id="tryp-ig-tile" x1="0" y1="1" x2="1" y2="0">
+              <stop offset="0%" stopColor="#FEDA75" />
+              <stop offset="25%" stopColor="#FA7E1E" />
+              <stop offset="50%" stopColor="#D62976" />
+              <stop offset="75%" stopColor="#962FBF" />
+              <stop offset="100%" stopColor="#4F5BD5" />
+            </linearGradient>
+          </defs>
+        )}
+        <rect
+          x="0" y="0" width="24" height="24" rx="6.5"
+          fill={gradient ? 'url(#tryp-ig-tile)' : (tint === 'currentColor' ? '#8a8a8f' : tint)}
+        />
+        {/* The glyph, knocked out in white and inset so it does not touch the
+            tile's edge. `currentColor` on the paths becomes white here, which
+            is the whole reason they were written to bind to it. */}
+        <g transform="translate(3.6 3.6) scale(0.7)" style={{ color: '#ffffff' }}>
+          {PATHS[key]}
+        </g>
+      </svg>
+    )
+  }
+
+  const isGradient = colored && gradient
   return (
     <svg
       viewBox="0 0 24 24"
@@ -160,7 +212,7 @@ export default function SocialMark({ brand, className, colored = false }) {
       // is ONE property on the root rather than a second set of paths. `color`
       // and not `fill`, because several of these are stroked outlines
       // (Instagram, YouTube, LinkedIn) and a fill would never reach them.
-      style={colored && !isGradient ? { color: BRAND_COLOR[key] ?? 'currentColor' } : undefined}
+      style={colored && !isGradient ? { color: tint } : undefined}
     >
       {isGradient ? (
         <>

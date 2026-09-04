@@ -516,6 +516,47 @@ export function AuthProvider({ children }) {
     // hard rate limit (5 attempts / 15 min) before touching GoTrue.
     signUp: async (email, password, name, ref, captchaToken) => {
       const out = await callAuthGate({ action: 'signup', email, password, name, ref, captchaToken })
+
+      // SIGNING UP GETS THE SAME FALLBACK LOGIN HAS. THIS IS THE BUG.
+      //
+      // Ethan, 4 Sep 2026: "I tried to create another test signup account, and
+      // whenever I try to do this it says network error and wouldn't let me
+      // proceed from entering my name, email and password."
+      //
+      // That message has exactly one source in this file: the `catch` in
+      // `callAuthGate`, which fires when the fetch to the `auth-gate` edge
+      // function THROWS - the request never arrived, so nothing on the server
+      // could have answered it. It is the same failure that hit LOGIN on
+      // 2 Sep, on two different browsers, while the function's own logs showed
+      // it answering every request it received cleanly.
+      //
+      // Login was given a fallback that day and signup was not, which made this
+      // inevitable: the gate is a rate limiter, and a rate limiter that can
+      // stop people creating accounts is worse than no rate limiter at all.
+      // GoTrue applies its own limits server-side, so going straight to it is
+      // not a hole - it is the same signup with one fewer thing in the way.
+      //
+      // `unreachable` is set ONLY by that catch, so a refused signup (email
+      // already registered, weak password, captcha rejected, 429) still comes
+      // straight back to the person unchanged. This never turns one refusal
+      // into two attempts.
+      if (out.unreachable) {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          // The same metadata the gate forwards - `handle_new_user` reads
+          // `name` to build the profile row and `ref` to record the referral,
+          // so dropping them here would create a nameless, unattributed
+          // account that looks like a bug three screens later.
+          options: {
+            data: { name: name || null, ref: ref || null },
+            ...(captchaToken ? { captchaToken } : {}),
+          },
+        })
+        if (error) return { data: { session: null, user: null }, error }
+        return { data, error: null }
+      }
+
       if (out.error) return { data: { session: null, user: null }, error: { message: out.error } }
       if (out.access_token) await supabase.auth.setSession({ access_token: out.access_token, refresh_token: out.refresh_token })
       return { data: { session: out.access_token ? out : null, user: out.user ?? null }, error: null }
@@ -612,6 +653,18 @@ export function AuthProvider({ children }) {
     // the email exists).
     sendPasswordReset: async (email, captchaToken) => {
       const out = await callAuthGate({ action: 'recover', email, captchaToken, redirectTo: `${window.location.origin}/reset-password` })
+      // THE THIRD DOOR GETS THE SAME FALLBACK. All three ways into the platform
+      // - sign in, sign up, and "I have forgotten my password" - go through the
+      // gate, and each one that lacks this becomes the next outage. Somebody
+      // locked out of their account is exactly the person who cannot route
+      // around a rate limiter being unreachable.
+      if (out.unreachable) {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/reset-password`,
+          ...(captchaToken ? { captchaToken } : {}),
+        })
+        return { data: {}, error: error ? { message: error.message } : null }
+      }
       return { data: {}, error: out.error ? { message: out.error } : null }
     },
 

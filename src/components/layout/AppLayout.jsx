@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { loadLinkOrder, orderedLinks } from '../../lib/networkLinks'
@@ -228,10 +228,37 @@ export default function AppLayout() {
   // `pathname` ONLY, not the whole location. A search-param change is a filter,
   // a tab or a deep link applied to the page you are already reading, and
   // yanking that page back to the top mid-read is its own bug.
-  useEffect(() => {
-    // `instant`. A smooth scroll here would animate the OLD page out from under
-    // the reader while the new one is already rendered on top of it.
-    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  //
+  // `behavior: 'instant'`, AND THAT ONE WORD IS THE WHOLE OF THE "IT FLASHES
+  // THE LOADING SCREEN ON MOBILE" REPORT (4 Sep 2026).
+  //
+  // This said `behavior: 'auto'`, with a comment above it claiming it was
+  // instant. It was not. In the CSSOM spec `auto` does not mean "jump" - it
+  // means **use the element's computed `scroll-behavior`**, and this app sets
+  // `html { scroll-behavior: smooth }` platform-wide (index.css). So every
+  // route change ANIMATED the page back to the top over several hundred
+  // milliseconds.
+  //
+  // What that looks like on a phone, tapping Worldwide -> Challenges while
+  // scrolled down the hub: the new page commits (measured on production: main
+  // goes from 3881px to 1134px), the browser CLAMPS the scroll into the shorter
+  // page, and then a long smooth animation drags it back to the top - while the
+  // skeleton underneath is being replaced by real content. Three separate
+  // movements for one tap. It is not a loading screen at all, which is why two
+  // rounds of work on the loading screen did not touch it.
+  //
+  // AND `/global` FIRED TWO OF THEM AT ONCE: NetworkRoute had its own
+  // `window.scrollTo(0, 0)` on the same pathname change, and the two-argument
+  // form honours `scroll-behavior` too. Two animations racing over one
+  // scroller, which is the same rule `useKeepAboveKeyboard` was deleted for.
+  // NetworkRoute's copy is gone; this is the one.
+  //
+  // A LAYOUT EFFECT, NOT A PASSIVE ONE. Passive effects run AFTER paint, so
+  // even an instant scroll leaves one painted frame of the new page at the old
+  // offset. `useLayoutEffect` runs inside the commit, before the browser paints,
+  // so the new page's first frame is its top - there is nothing to see move.
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
   }, [pathname])
 
   // Cmd/Ctrl+K opens the palette from anywhere, and `/` does too when you are

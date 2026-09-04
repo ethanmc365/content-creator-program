@@ -108,7 +108,7 @@ export default function Landing() {
           <Link to="/" className="landing-lift flex items-center gap-2.5">
             <img src="/brand/tryp-logo.png" alt="Tryp.com" className="h-8 rounded-lg sm:h-9" />
             <span className="hidden text-sm font-semibold tracking-tight text-ink sm:block">
-              {tr("Creator Community")}
+              {tr("Content Creator Community")}
             </span>
           </Link>
           <nav className="flex items-center gap-1 sm:gap-2">
@@ -164,21 +164,26 @@ export default function Landing() {
           aria-hidden
           className="hero-bloom pointer-events-none absolute left-1/2 top-0 -z-10 h-[28rem] w-[52rem] max-w-[130%] -translate-x-1/2 rounded-full bg-brand-tint/60 blur-3xl"
         />
-        <span className="hero-pill mx-auto mb-7 inline-flex items-center gap-2.5 rounded-full bg-white py-2 pl-3 pr-5 text-xs font-semibold text-ink shadow-card ring-1 ring-brand/15">
-          <span className="relative flex h-2 w-2 items-center justify-center" aria-hidden>
-            <span className="hero-dot-ring absolute h-2 w-2 rounded-full bg-brand/50" />
-            <span className="hero-dot h-2 w-2 rounded-full bg-brand" />
-          </span>
-          {tr("Tryp.com Content Creator Community")}
-        </span>
+        {/* THE BADGE OVER THE HEADLINE IS GONE (4 Sep 2026). Ethan: "I think
+            the Tryp.com Content Creator Community that shows above that is
+            unnecessary, because we have Creator Community on the top left in
+            the top bar - but I would change that to Content Creator Community
+            and remove the one directly above Create Earn Travel."
+
+            He is right and the reason is worth keeping: it was the same
+            sentence twice on one screen, thirty pixels apart, and the one in
+            the top bar is the one that belongs there - a masthead names the
+            thing you are looking at. Saying it again immediately above the
+            headline pushed "Create. Earn. Travel." down the page to make room
+            for a label the reader had just read. */}
         <h1 className="mx-auto max-w-3xl text-5xl font-bold leading-[1.1] tracking-tight sm:text-7xl">
           {/* Three spans, three delays. `aria-hidden` is NOT used and must not
               be: this is the page's only h1 and a screen reader has to read it
               as the sentence it is, which it does - the spans are inline and
               carry no roles. */}
-          <span className="hero-word" style={{ '--word-i': 0 }}>{tr("Create.")}</span>{' '}
-          <span className="hero-word" style={{ '--word-i': 1 }}>{tr("Earn.")}</span>{' '}
-          <span className="hero-word text-brand" style={{ '--word-i': 2 }}>{tr("Travel.")}</span>
+          <HeroWord i={0}>{tr("Create.")}</HeroWord>{' '}
+          <HeroWord i={1}>{tr("Earn.")}</HeroWord>{' '}
+          <HeroWord i={2} className="text-brand">{tr("Travel.")}</HeroWord>
         </h1>
         <p
           className="animate-fade-up mx-auto mt-8 max-w-xl text-lg leading-relaxed text-smoke"
@@ -440,7 +445,13 @@ export default function Landing() {
               >
                 {/* The rule number, quiet enough to be furniture and present
                     enough to make the four read in order. */}
-                <span className="absolute right-6 top-6 text-2xl font-bold tabular-nums text-cloud" aria-hidden>
+                {/* `text-cloud` on white was invisible. Ethan: "I noticed you
+                    added 1, 2, 3, 4 on the Why creators join, but it's very,
+                    very hard to see - maybe make it slightly darker grey so you
+                    can actually see it." It is furniture, so it must not
+                    compete with the heading; it is also a reading order, so it
+                    has to be legible. `text-gray-300` is the step that is both. */}
+                <span className="absolute right-6 top-6 text-2xl font-bold tabular-nums text-gray-300" aria-hidden>
                   0{i + 1}
                 </span>
                 <span className="landing-lift-icon flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-tint text-brand" aria-hidden>
@@ -585,4 +596,38 @@ function Tally({ value, format = (n) => n }) {
   }, [target])
 
   return <span ref={ref}>{format(0)}</span>
+}
+
+// ONE WORD OF THE HEADLINE.
+//
+// The animation itself is CSS (`.hero-word` in index.css); this exists only to
+// take the compositor promotion back off once the entrance has finished.
+// `will-change: transform` is a standing request to the browser to keep a layer
+// for that element FOR EVER, and three permanent layers for an animation that
+// ran once at page load is memory held for nothing. `animationend` is the exact
+// moment it stops being useful.
+//
+// The listener is one-shot and the class is idempotent, so a re-render cannot
+// re-arm it, and nothing here can leave a word invisible: the class only
+// changes `will-change`.
+function HeroWord({ i, className = '', children }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return undefined
+    const settle = () => el.classList.add('is-settled')
+    el.addEventListener('animationend', settle, { once: true })
+    // A TIMER BEHIND IT, for the same reason every other animation in this
+    // codebase has one: `animationend` never fires if the animation never runs,
+    // which is the case under prefers-reduced-motion and in a background tab.
+    // Without this the promotion would simply be held for the life of the page
+    // for exactly the readers who asked for less work, not more.
+    const t = setTimeout(settle, 1400)
+    return () => { el.removeEventListener('animationend', settle); clearTimeout(t) }
+  }, [])
+  return (
+    <span ref={ref} className={`hero-word ${className}`} style={{ '--word-i': i }}>
+      {children}
+    </span>
+  )
 }
