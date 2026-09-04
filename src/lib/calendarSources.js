@@ -77,7 +77,17 @@ export async function loadCalendar({ userId, scopeIds }) {
     { data: invoices },
   ] = await Promise.all([
     supabase.from('events').select('*').order('date'),
-    supabase.from('challenges').select('id, title, start_date, end_date, community_id').neq('status', 'draft'),
+    // A CHALLENGE THAT IS NOT RUNNING HAS NO DEADLINE TO MISS.
+    //
+    // This dropped only drafts, so an ARCHIVED challenge kept its "closes"
+    // entry - and because the entry is derived from `end_date`, closing a
+    // challenge early left "Descubre Espana con Tryp.com closes, in 2 days" as
+    // the NEXT UP card at the top of every creator's calendar. A deadline is
+    // the one thing on that page you can actually miss, and pointing it at
+    // something nobody can enter any more is the worst thing it can say.
+    // `ended` stays: a challenge that ran its course did close on that date,
+    // and its dates are history rather than a promise.
+    supabase.from('challenges').select('id, title, start_date, end_date, community_id, status').not('status', 'in', '("draft","archived")'),
     // Own flights only. `share_with_community` governs what OTHER people see of
     // a flight; it has nothing to do with whether it is on your own calendar.
     supabase.from('flights')
